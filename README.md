@@ -10,20 +10,20 @@ This project was initially built to identify top albums released in a specific y
 
 ## 📖 Table of Contents
 
-* [Features](https://github.com/pterw/ScrobbleScope/tree/main#features)
-* [Screenshots](https://github.com/pterw/ScrobbleScope/blob/main#screenshots)
-* [Tech Stack & Implementation Details](https://github.com/pterw/ScrobbleScope/blob/main#tech-stack--implementation-details)
-    * [Core Technologies](https://github.com/pterw/ScrobbleScope/blob/main/README.md#core-technologies)
+* [Features](#features)
+* [Screenshots](#screenshots)
+* [Tech Stack & Implementation Details](#tech-stack--implementation-details)
+    * [Core Technologies](#core-technologies)
     * [Key Implementation Highlights](#key-implementation-highlights)
-* [Getting Started](https://github.com/pterw/ScrobbleScope/blob/main/README.md#getting-started-work-in-progress)
-    * [Prerequisites](https://github.com/pterw/ScrobbleScope/blob/main/README.md#prerequisites)
-    * [Setup](https://github.com/pterw/ScrobbleScope/blob/main/README.md#setup)
-    * [Project File Structure](https://github.com/pterw/ScrobbleScope/blob/main/README.md#project-file-structure)
-* [Current Status & Future Plans](https://github.com/pterw/ScrobbleScope/blob/main/README.md#current-status--future-plans)
-* [Contributing](https://github.com/pterw/ScrobbleScope/blob/main/README.md#contributing)
-* [License](https://github.com/pterw/ScrobbleScope/blob/main/README.md#license)
-* [Acknowledgements](https://github.com/pterw/ScrobbleScope?tab=readme-ov-file#acknowledgements)
-* [Author & Contact](https://github.com/pterw/ScrobbleScope?tab=readme-ov-file#author--contact)
+* [Getting Started](#getting-started-work-in-progress)
+    * [Prerequisites](#prerequisites)
+    * [Setup](#setup)
+    * [Project File Structure](#project-file-structure)
+* [Current Status & Future Plans](#current-status--future-plans)
+* [Contributing](#contributing)
+* [License](#license)
+* [Acknowledgements](#acknowledgements)
+* [Author & Contact](#author--contact)
 
 ## Features
 
