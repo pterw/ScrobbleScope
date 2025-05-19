@@ -10,7 +10,7 @@ This project was initially built to identify top albums released in a specific y
 
 ## 📖 Table of Contents
 
-* [Features](https://github.com/pterw/ScrobbleScope/blob/main/README.md#features)
+* [Features](https://github.com/pterw/ScrobbleScope/blob/main/#features)
 * [Screenshots](https://github.com/pterw/ScrobbleScope/blob/main/README.md#screenshots)
 * [Tech Stack & Implementation Details](https://github.com/pterw/ScrobbleScope/blob/main/README.md#tech-stack--implementation-details)
     * [Core Technologies](https://github.com/pterw/ScrobbleScope/blob/main/README.md#core-technologies)
