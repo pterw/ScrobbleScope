@@ -198,7 +198,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
 
-If you're considering making code contributions, please see our [Contributing Guidelines](CONTRIBUTING.md) for more information on how to get started.
+If you're considering making code contributions, please see our [Contributing Guidelines (CONTRIBUTING.md)](CONTRIBUTING.md) for more information on how to get started.
 
 All contributors and participants in the ScrobbleScope project are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
 
