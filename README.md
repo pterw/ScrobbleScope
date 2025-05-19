@@ -196,8 +196,9 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.
 
 ## Contributing
-
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
+
+All contributors are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
