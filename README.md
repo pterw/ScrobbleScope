@@ -21,7 +21,7 @@ This project was initially built to identify top albums released in a specific y
     * [Project File Structure](https://github.com/pterw/ScrobbleScope/blob/main/README.md#project-file-structure)
 * [Current Status & Future Plans](https://github.com/pterw/ScrobbleScope/blob/main/README.md#current-status--future-plans)
 * [Contributing](https://github.com/pterw/ScrobbleScope/blob/main/README.md#contributing)
-* [License](https://github.com/pterw/ScrobbleScope/blob/main/LICENSE)
+* [License](https://github.com/pterw/ScrobbleScope/blob/main/LICENSE#license)
 * [Acknowledgements](https://github.com/pterw/ScrobbleScope/blob/main/LICENSE#acknowledgements)
 * [Author & Contact](https://github.com/pterw/ScrobbleScope/blob/main/LICENSE#author--contact)
 
