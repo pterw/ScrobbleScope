@@ -125,7 +125,7 @@ This project is currently a work in progress. However, if you wish to run it loc
     The application should then be accessible at `http://127.0.0.1:5000/`.
 
 **Project File Structure:**
-
+```
 │  .env                 # API keys & configuration (not committed)
 │  .gitignore           # Specifies intentionally untracked files
 │  app.py               # Main Flask application logic
@@ -148,7 +148,7 @@ This project is currently a work in progress. However, if you wish to run it loc
 └───css/
 └───js/
 └───images/         # (Placeholder for other static images, not README screenshots)
-
+```
 ## 🚧 Current Status & Future Plans
 
 ScrobbleScope is nearing its initial launch phase but is still under active development.
