@@ -133,7 +133,10 @@ This project is currently a work in progress. However, if you wish to run it loc
     The application should then be accessible at `http://127.0.0.1:5000/`.
 
 **Project File Structure:**
+<<<<<<< HEAD
 
+=======
+>>>>>>> 57c1e4e52be7a2faf278d0fd62d38d372ad1bd01
 ```
 │  .env                 # API keys & configuration (not committed)
 │  .gitignore           # Specifies intentionally untracked files
@@ -158,7 +161,6 @@ This project is currently a work in progress. However, if you wish to run it loc
 └───js/
 └───images/         # (Placeholder for other static images, not README screenshots)
 ```
-
 ## 🚧 Current Status & Future Plans
 
 ScrobbleScope is nearing its initial launch phase but is still under active development.
