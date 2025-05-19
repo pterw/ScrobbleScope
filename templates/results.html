@@ -1,0 +1,705 @@
+<!-- templates/results.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Results | ScrobbleScope</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --bars-color: #6a4baf;
+            --text-color: #333333;
+            --bg-color: #f8f9fa;
+            --info-bg: rgba(106, 75, 175, 0.1);
+        }
+        
+        .dark-mode {
+            --bars-color: #9370DB;
+            --text-color: #f8f9fa;
+            --bg-color: #121212;
+            --info-bg: rgba(147, 112, 219, 0.1);
+        }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .dark-mode .card {
+            background-color: #1e1e1e;
+            border-color: #444;
+            color: var(--text-color);
+        }
+        
+        .dark-mode .table {
+            color: var(--text-color);
+            border-color: transparent;
+        }
+
+        .dark-mode .table th,
+        .dark-mode .table td {
+            color: var(--text-color) !important;
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .dark-mode .table-striped > tbody > tr:nth-of-type(odd) {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .dark-mode .table-striped > tbody > tr:nth-of-type(even) {
+            background-color: rgba(30, 30, 30, 0.7);
+        }
+
+        /* To remove vertical separating lines */
+        .dark-mode .table td,
+        .dark-mode .table th {
+            border-left: none;
+            border-right: none;
+        }
+        
+        /* SVG color overrides */
+        .dark-mode svg .cls-1 {
+            stroke: var(--bars-color);
+        }
+        .dark-mode svg #logo-text path,
+        .dark-mode svg #tagline path {
+            fill: var(--text-color);
+        }
+        
+        /* Dark-mode toggle switch */
+        #darkModeToggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: row-reverse;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem;
+            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        .dark-mode #darkModeToggle {
+            background-color: rgba(30, 30, 30, 0.8);
+        }
+            
+        #darkModeToggle .form-check-input,
+        #darkModeToggle .form-check-label {
+            margin: 0;
+        }
+        
+        #darkSwitch {
+            width: 3rem;
+            height: 1.5rem;
+            background-color: #ccc;
+            border-radius: 999px;
+            appearance: none;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.3s ease;
+        }
+        
+        #darkSwitch::before {
+            content: "";
+            position: absolute;
+            width: 1.2rem;
+            height: 1.2rem;
+            border-radius: 50%;
+            top: 0.15rem;
+            left: 0.15rem;
+            background-color: white;
+            transition: transform 0.3s ease;
+        }
+        
+        #darkSwitch:checked {
+            background-color: var(--bars-color);
+        }
+        
+        #darkSwitch:checked::before {
+            transform: translateX(1.5rem);
+        }
+        
+        /* Logo animation */
+        #logo-wrapper svg {
+            width: 100%;
+            height: auto;
+            max-height: 150px;
+            opacity: 0;
+            animation: fadeIn 2s ease forwards;
+        }
+        
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+        
+        /* Card fade-in */
+        .card {
+            background-color: #fff;
+            opacity: 0;
+            animation: fadeInCard 1.2s ease 0.2s forwards;
+        }
+        
+        @keyframes fadeInCard {
+            to { opacity: 1; }
+        }
+        
+        .album-cover {
+            height: 60px;
+            width: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-right: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .album-title {
+            display: flex;
+            align-items: center;
+        }
+        
+        .album-info {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .release-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 999px;
+            background-color: var(--bars-color);
+            color: white;
+            display: inline-block;
+            margin-top: 4px;
+        }
+        
+        .summary-box {
+            background-color: var(--info-bg);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .table-responsive {
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .dark-mode .modal-content {
+            background-color: #1e1e1e;
+            color: var(--text-color);
+            border-color: #444;
+        }
+
+        .dark-mode .modal-header,
+        .dark-mode .modal-footer {
+            border-color: #444;
+        }
+
+        .dark-mode .btn-close {
+            filter: invert(1) grayscale(100%) brightness(200%);
+        }
+        
+        #unmatched-modal .modal-body {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        /* Toast styling */
+        .toast-container {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            z-index: 1050;
+        }
+        
+        .dark-mode .toast {
+            background-color: #2a2a2a;
+            color: #f8f9fa;
+        }
+        
+        .dark-mode .toast-header {
+            background-color: #343a40;
+            color: #f8f9fa;
+            border-bottom-color: #444;
+        }
+    </style>
+</head>
+<body>
+    <!-- Dark mode toggle -->
+    <div id="darkModeToggle" class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="darkSwitch">
+        <label class="form-check-label" for="darkSwitch">Dark Mode</label>
+    </div>
+
+    <!-- Toast container for notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <div class="container mt-5 mb-5">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <!-- Logo -->
+                <div class="col-md-8 text-center mx-auto mb-4" id="logo-wrapper">
+                    <div aria-label="ScrobbleScope logo visualization" role="img">
+                        {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
+                    </div>
+                </div>
+                
+                <!-- Main content card -->
+                <div class="card shadow">
+                    <div class="card-body">
+                        <!-- Dynamic title based on filter -->
+                        <h2 class="text-center mb-3">
+                            {% if release_scope == "same" %}
+                                {{ username }}'s Top Albums Played in {{ year }}
+                            {% elif release_scope == "previous" %}
+                                {{ username }}'s Top Albums From {{ year - 1 }} Played in {{ year }}
+                            {% elif release_scope == "decade" %}
+                                {{ username }}'s Top Albums from the {{ decade }} Played in {{ year }}
+                            {% elif release_scope == "custom" %}
+                                {% if release_year == year %}
+                                    {{ username }}'s Top Albums Played in {{ year }}
+                                {% else %}
+                                    {{ username }}'s Top Albums from {{ release_year }} Played in {{ year }}
+                                {% endif %}
+                            {% else %}
+                                {{ username }}'s Top Albums Played in {{ year }}
+                            {% endif %}
+                        </h2>
+                        
+                        <!-- Action buttons at the top -->
+                        <div class="text-center mb-4">
+                            <a href="/" class="btn btn-primary">New Search</a>
+                            <button id="export-csv" class="btn btn-outline-secondary ms-2">Export to CSV</button>
+                            <button id="save-image" class="btn btn-outline-secondary ms-2">Save as Image</button>
+                        </div>
+                        
+                        <!-- Summary box -->
+                        <div class="summary-box">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h5>Listening Summary</h5>
+                                    <p><strong>Username:</strong> {{ username }}</p>
+                                    <p><strong>Year:</strong> {{ year }}</p>
+                                    <p><strong>Total Albums Found:</strong> {{ data|length }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h5>Filter Applied</h5>
+                                    <p><strong>Release Filter:</strong> 
+                                    {% if release_scope == "same" %}
+                                        Same as Listening Year ({{ year }})
+                                    {% elif release_scope == "previous" %}
+                                        Previous Year ({{ year - 1 }})
+                                    {% elif release_scope == "decade" %}
+                                        {{ decade }}
+                                    {% elif release_scope == "custom" %}
+                                        {{ release_year }}
+                                    {% else %}
+                                        All Years
+                                    {% endif %}
+                                    </p>
+                                    <p><strong>Sort By:</strong> 
+                                    {% if sort_by == "playtime" %}
+                                        Total Listening Time
+                                    {% else %}
+                                        Track Play Count
+                                    {% endif %}
+                                    </p>
+                                    <p><strong>Album Thresholds:</strong> Minimum {{ min_plays|default('10') }} plays, {{ min_tracks|default('3') }} unique tracks</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Content area -->
+                        {% if no_matches %}
+                            <div class="alert alert-info text-center" role="alert">
+                                <h4 class="alert-heading">No Albums Found</h4>
+                                <p>We couldn't find any {{ filter_description }} that you listened to in {{ year }}.</p>
+                                <hr>
+                                <p class="mb-0">
+                                    {% if unmatched_count > 0 %}
+                                        We found {{ unmatched_count }} albums that didn't match your filters. 
+                                        <a href="#" id="view-unmatched" data-bs-toggle="modal" data-bs-target="#unmatched-modal">
+                                            View these albums
+                                        </a>
+                                    {% else %}
+                                        Try a different year or relaxing your filter criteria.
+                                    {% endif %}
+                                </p>
+                            </div>
+                        {% elif data and data|length > 0 %}
+                            <div class="table-responsive" id="results-table-wrapper">
+                                <table class="table table-striped">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th scope="col">#</th>
+                                            <th scope="col">Album</th>
+                                            <th scope="col">Artist</th>
+                                            <th scope="col">
+                                                {% if sort_by == "playtime" %}
+                                                Your Listening Time
+                                                {% else %}
+                                                Your Track Plays
+                                                {% endif %}
+                                            </th>
+                                            <th scope="col">Release</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for album in data %}
+                                            <tr>
+                                                <th scope="row">{{ loop.index }}</th>
+                                                <td class="album-title">
+                                                    {% if album.album_image %}
+                                                        <img src="{{ album.album_image }}" alt="Album cover" class="album-cover">
+                                                    {% else %}
+                                                        <div class="album-cover" style="background-color: #ddd; display: flex; align-items: center; justify-content: center;">
+                                                            <span>N/A</span>
+                                                        </div>
+                                                    {% endif %}
+                                                    <div class="album-info">
+                                                        {{ album.album }}
+                                                    </div>
+                                                </td>
+                                                <td>{{ album.artist }}</td>
+                                                <td>
+                                                    {% if sort_by == "playtime" %}
+                                                    {{ album.play_time }}
+                                                    {% else %}
+                                                    {{ album.play_count }}
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <span class="release-badge">{{ album.release_date }}</span>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info text-center" role="alert">
+                                <h4 class="alert-heading">No Albums Found</h4>
+                                <p>No albums matching the criteria for {{ username }} in {{ year }}.</p>
+                                <hr>
+                                <p class="mb-0">Try a different year or release date filter.</p>
+                            </div>
+                        {% endif %}
+
+                        <!-- Unmatched albums buttons -->
+                        <div class="d-flex flex-column align-items-center mt-4 mb-3">
+                            <button id="view-unmatched-quick" class="btn btn-outline-secondary mb-2 w-auto" data-bs-toggle="modal" data-bs-target="#unmatched-modal">
+                                Quick View of Unmatched Albums
+                            </button>
+                            
+                            <form action="/unmatched_view" method="post" class="mb-2">
+                                <input type="hidden" name="username" value="{{ username }}">
+                                <input type="hidden" name="year" value="{{ year }}">
+                                <input type="hidden" name="release_scope" value="{{ release_scope }}">
+                                {% if decade %}
+                                <input type="hidden" name="decade" value="{{ decade }}">
+                                {% endif %}
+                                {% if release_year %}
+                                <input type="hidden" name="release_year" value="{{ release_year }}">
+                                {% endif %}
+                                <input type="hidden" name="min_plays" value="{{ min_plays|default('10') }}">
+                                <input type="hidden" name="min_tracks" value="{{ min_tracks|default('3') }}">
+                                <button type="submit" class="btn btn-outline-primary w-100">
+                                    View Detailed Unmatched Albums Report
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unmatched Albums Modal -->
+    <div class="modal fade" id="unmatched-modal" tabindex="-1" aria-labelledby="unmatched-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="unmatched-modal-label">Albums That Didn't Match Your Filter</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>These albums were found in your listening history but didn't match your filter criteria:</p>
+                    <div id="unmatched-list" class="mt-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Dark mode toggle
+        const darkSwitch = document.getElementById('darkSwitch');
+        
+        // Check for saved dark mode preference
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.body.classList.add('dark-mode');
+            darkSwitch.checked = true;
+        }
+        
+        // Add event listener for dark mode toggle
+        darkSwitch.addEventListener('change', function() {
+            document.body.classList.toggle('dark-mode', this.checked);
+            localStorage.setItem('darkMode', this.checked);
+            
+            // Update SVG colors
+            const svgElement = document.querySelector('#logo-wrapper svg');
+            if (svgElement) {
+                const bars = svgElement.querySelectorAll('.cls-1');
+                const textPaths = svgElement.querySelectorAll('#logo-text path, #tagline path');
+                
+                if (this.checked) {
+                    bars.forEach(bar => bar.setAttribute('stroke', '#9370DB'));
+                    textPaths.forEach(path => path.setAttribute('fill', '#f8f9fa'));
+                } else {
+                    bars.forEach(bar => bar.setAttribute('stroke', '#6a4baf'));
+                    textPaths.forEach(path => path.setAttribute('fill', '#333333'));
+                }
+            }
+        });
+
+        // Toast notification helper function
+        function showToast(message, type = 'info', duration = 3000) {
+            const toastContainer = document.getElementById('toastContainer');
+            const toastId = 'toast-' + Date.now();
+            const toastHtml = `
+                <div id="${toastId}" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="toast-header${type === 'error' ? ' bg-danger text-white' : ''}">
+                        <strong class="me-auto">ScrobbleScope</strong>
+                        <small>Just now</small>
+                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+                    </div>
+                    <div class="toast-body${type === 'error' ? ' bg-danger text-white' : ''}">
+                        ${message}
+                    </div>
+                </div>
+            `;
+            
+            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+            
+            // Remove toast after duration
+            setTimeout(() => {
+                const toast = document.getElementById(toastId);
+                if (toast) {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 500);
+                }
+            }, duration);
+        }
+
+        // Fetch unmatched albums
+        function fetchUnmatchedAlbums() {
+            const unmatchedList = document.getElementById('unmatched-list');
+            
+            fetch('/unmatched')
+                .then(response => response.json())
+                .then(unmatchedData => {
+                    let html = '';
+                    if (!unmatchedData || Object.keys(unmatchedData.data || unmatchedData).length === 0) {
+                        html = '<p>No unmatched albums found.</p>';
+                    } else {
+                        const data = unmatchedData.data || unmatchedData;
+                        const count = unmatchedData.count || Object.keys(data).length;
+                        
+                        html = `<p>Found ${count} unmatched albums:</p>`;
+                        html += '<div class="table-responsive"><table class="table table-sm">';
+                        html += '<thead><tr><th>Artist</th><th>Album</th><th>Reason</th></tr></thead><tbody>';
+                        
+                        for (const key in data) {
+                            const item = data[key];
+                            html += `<tr>
+                                <td>${item.artist}</td>
+                                <td>${item.album}</td>
+                                <td>${item.reason}</td>
+                            </tr>`;
+                        }
+                        
+                        html += '</tbody></table></div>';
+                    }
+                    
+                    unmatchedList.innerHTML = html;
+                })
+                .catch(error => {
+                    unmatchedList.innerHTML = `<div class="alert alert-danger">Error loading unmatched albums: ${error}</div>`;
+                });
+        }
+
+        // Attach event listeners for view unmatched buttons
+        document.getElementById('view-unmatched-quick').addEventListener('click', fetchUnmatchedAlbums);
+        
+        if (document.getElementById('view-unmatched')) {
+            document.getElementById('view-unmatched').addEventListener('click', fetchUnmatchedAlbums);
+        }
+
+        // Fixed Export to CSV function
+        document.getElementById('export-csv').addEventListener('click', function() {
+            try {
+                const table = document.querySelector('.table');
+                if (!table) {
+                    showToast('No data available to export', 'error');
+                    return;
+                }
+                
+                let csvContent = [];
+                
+                // Get headers
+                const headerRow = [];
+                const headers = table.querySelectorAll('thead th');
+                headers.forEach(header => {
+                    headerRow.push('"' + header.textContent.trim().replace(/"/g, '""') + '"');
+                });
+                csvContent.push(headerRow.join(','));
+                
+                // Get data rows
+                const rows = table.querySelectorAll('tbody tr');
+                for (let i = 0; i < rows.length; i++) {
+                    const row = [];
+                    const cells = Array.from(rows[i].querySelectorAll('th, td'));
+                    
+                    // Process each cell in the row
+                    for (let j = 0; j < cells.length; j++) {
+                        let content = '';
+                        
+                        // Special handling for album cell which contains image + text
+                        if (j === 1 && cells[j].classList.contains('album-title')) {
+                            const albumInfo = cells[j].querySelector('.album-info');
+                            content = albumInfo ? albumInfo.textContent.trim() : '';
+                        } else {
+                            // Regular cells, just get the text content
+                            content = cells[j].textContent.trim();
+                        }
+                        
+                        // Clean up and escape for CSV
+                        content = content.replace(/\s+/g, ' ');
+                        if (content.includes(',') || content.includes('"') || content.includes('\n')) {
+                            content = '"' + content.replace(/"/g, '""') + '"';
+                        }
+                        
+                        row.push(content);
+                    }
+                    
+                    csvContent.push(row.join(','));
+                }
+                
+                // Create and trigger download
+                const csvString = csvContent.join('\n');
+                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                const username = '{{ username }}';
+                const year = '{{ year }}';
+                link.setAttribute('href', url);
+                link.setAttribute('download', `scrobblescope_${username}_${year}_albums.csv`);
+                link.style.display = 'none';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                
+                showToast('CSV file downloaded successfully!');
+            } catch (error) {
+                console.error('Error exporting CSV:', error);
+                showToast('Error creating CSV file: ' + error.message, 'error');
+            }
+        });
+        
+        // Save as image function
+        document.getElementById('save-image').addEventListener('click', function() {
+            showToast('Creating image... Please wait.');
+            
+            // Target the table wrapper for saving
+            const targetElement = document.getElementById('results-table-wrapper');
+            if (!targetElement) {
+                showToast('No content to save as image', 'error');
+                return;
+            }
+            
+            const isDarkMode = document.body.classList.contains('dark-mode');
+            
+            // Capture the element with improved settings
+            html2canvas(targetElement, {
+                backgroundColor: isDarkMode ? '#121212' : '#ffffff',
+                allowTaint: true,
+                useCORS: true,
+                scale: 2, // Higher quality
+                onclone: function(clonedDoc) {
+                    // Fix styling issues in the clone
+                    const clonedTable = clonedDoc.querySelector('.table');
+                    if (clonedTable) {
+                        if (isDarkMode) {
+                            clonedTable.style.color = '#f8f9fa';
+                            clonedTable.style.backgroundColor = '#121212';
+                            
+                            // Fix row styling
+                            clonedTable.querySelectorAll('tr').forEach((row, index) => {
+                                if (index % 2 === 1) { // Odd rows (0-indexed)
+                                    row.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                                } else if (index > 0) { // Even rows, but not the header
+                                    row.style.backgroundColor = 'rgba(30, 30, 30, 0.7)';
+                                }
+                                
+                                // Ensure all text is visible
+                                row.querySelectorAll('th, td').forEach(cell => {
+                                    cell.style.color = '#f8f9fa';
+                                    cell.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                                });
+                            });
+                            
+                            // Fix header styling
+                            const header = clonedTable.querySelector('thead');
+                            if (header) {
+                                header.style.backgroundColor = '#343a40';
+                                header.style.color = '#ffffff';
+                            }
+                        }
+                    }
+                }
+            }).then(function(canvas) {
+                try {
+                    // Create a link to download the image
+                    const link = document.createElement('a');
+                    const username = '{{ username }}';
+                    const year = '{{ year }}';
+                    
+                    // Use JPEG instead of PNG for smaller file size
+                    link.download = `scrobblescope_${username}_${year}.jpg`;
+                    link.href = canvas.toDataURL('image/jpeg', 0.95); // Higher quality
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    showToast('Image saved successfully!');
+                } catch (err) {
+                    console.error('Error saving image:', err);
+                    showToast('Failed to save image: ' + err.message, 'error');
+                }
+            }).catch(function(err) {
+                console.error('Error capturing image:', err);
+                showToast('Failed to create image: ' + err.message, 'error');
+            });
+        });
+    </script>
+</body>
+</html>

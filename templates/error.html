@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error | ScrobbleScope</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <style>
+        :root {
+            --bars-color: #6a4baf;
+            --text-color: #333333;
+            --bg-color: #f8f9fa;
+            --error-accent: #dc3545;
+        }
+        
+        .dark-mode {
+            --bars-color: #9370DB;
+            --text-color: #f8f9fa;
+            --bg-color: #121212;
+            --error-accent: #dc3545;
+        }
+        
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .dark-mode .error-card {
+            background-color: #1e1e1e;
+            color: var(--text-color);
+            border: 1px solid #444;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Dark-mode toggle switch */
+        #darkModeToggle {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: row-reverse;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem;
+            border-radius: 5px;
+            background-color: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease;
+        }
+
+        .dark-mode #darkModeToggle {
+            background-color: rgba(30, 30, 30, 0.8);
+        }
+        
+        #darkModeToggle .form-check-input,
+        #darkModeToggle .form-check-label {
+            margin: 0;
+        }
+            
+        #darkSwitch {
+            width: 3rem;
+            height: 1.5rem;
+            background-color: #ccc;
+            border-radius: 999px;
+            appearance: none;
+            outline: none;
+            cursor: pointer;
+            position: relative;
+            transition: background-color 0.3s ease;
+        }
+        
+        #darkSwitch::before {
+            content: "";
+            position: absolute;
+            width: 1.2rem;
+            height: 1.2rem;
+            border-radius: 50%;
+            top: 0.15rem;
+            left: 0.15rem;
+            background-color: white;
+            transition: transform 0.3s ease;
+        }
+        
+        #darkSwitch:checked {
+            background-color: var(--bars-color);
+        }
+        
+        #darkSwitch:checked::before {
+            transform: translateX(1.5rem);
+        }
+        
+        .error-container {
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+            padding: 2rem 1rem;
+        }
+        
+        .error-icon {
+            color: var(--bars-color);
+            margin-bottom: 1.5rem;
+            font-size: 4rem;
+        }
+        
+        .error-card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            padding: 2.5rem 2rem;
+            animation: fadeIn 0.8s ease-out;
+            transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .btn-primary {
+            background-color: var(--bars-color);
+            border-color: var(--bars-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: #5a3d99;
+            border-color: #5a3d99;
+        }
+        
+        .btn-outline-secondary {
+            color: var(--bars-color);
+            border-color: var(--bars-color);
+        }
+        
+        .btn-outline-secondary:hover {
+            background-color: var(--bars-color);
+            color: white;
+        }
+        
+        .error-code {
+            display: inline-block;
+            background-color: rgba(106, 75, 175, 0.1);
+            color: var(--bars-color);
+            border-radius: 4px;
+            padding: 0.2rem 0.75rem;
+            margin-left: 0.5rem;
+            font-family: monospace;
+            font-weight: bold;
+        }
+        
+        .dark-mode .error-code {
+            background-color: rgba(147, 112, 219, 0.2);
+            color: #9370DB;
+        }
+        
+        .error-details {
+            margin: 1.5rem 0;
+            padding: 1rem;
+            border-radius: 8px;
+            background-color: rgba(106, 75, 175, 0.05);
+            text-align: left;
+        }
+        
+        .dark-mode .error-details {
+            background-color: rgba(147, 112, 219, 0.1);
+        }
+        
+        .actions {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        #logo-wrapper svg {
+            width: 100%;
+            height: auto;
+            max-height: 150px;
+            opacity: 0;
+            animation: fadeIn 2s ease forwards;
+        }
+        
+        .dark-mode #logo-wrapper svg .cls-1 {
+            stroke: var(--bars-color);
+        }
+        
+        .dark-mode #logo-wrapper svg #logo-text path,
+        .dark-mode #logo-wrapper svg #tagline path {
+            fill: var(--text-color);
+        }
+    </style>
+</head>
+<body>
+    <div id="darkModeToggle" class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="darkSwitch">
+        <label class="form-check-label" for="darkSwitch">Dark Mode</label>
+    </div>
+
+    <div class="error-container">
+        <div class="error-card">
+            <div class="col-md-9 text-center mx-auto mb-4" id="logo-wrapper">
+                <div aria-label="ScrobbleScope logo visualization" role="img">
+                    {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
+                </div>
+            </div>
+            
+            <div class="error-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+                </svg>
+            </div>
+            
+            <h1 class="mb-3">{{ error|default('Error') }} <span class="error-code">{{ status_code|default('400') }}</span></h1>
+            
+            <p class="lead mb-4">{{ message|default('Something went wrong.') }}</p>
+            
+            {% if details %}
+            <div class="error-details">
+                <h5>Additional Information:</h5>
+                <p>{{ details }}</p>
+            </div>
+            {% endif %}
+            
+            <div class="actions">
+                <a href="/" class="btn btn-primary">Back to Home</a>
+                <button onclick="window.history.back()" class="btn btn-outline-secondary">Go Back</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dark mode persistence + switch sync
+        const darkSwitch = document.getElementById('darkSwitch');
+        const prefersDark = localStorage.getItem('darkMode') === 'true';
+        
+        if (prefersDark) {
+            document.body.classList.add('dark-mode');
+            darkSwitch.checked = true;
+        }
+        
+        darkSwitch.addEventListener('change', () => {
+            const isDark = darkSwitch.checked;
+            document.body.classList.toggle('dark-mode', isDark);
+            localStorage.setItem('darkMode', isDark);
+            
+            // Manually update SVG colors when dark mode changes
+            const svgElement = document.querySelector('#logo-wrapper svg');
+            if (svgElement) {
+                const bars = svgElement.querySelectorAll('.cls-1');
+                const textPaths = svgElement.querySelectorAll('#logo-text path, #tagline path');
+                
+                if (isDark) {
+                    bars.forEach(bar => bar.setAttribute('stroke', '#9370DB'));
+                    textPaths.forEach(path => path.setAttribute('fill', '#f8f9fa'));
+                } else {
+                    bars.forEach(bar => bar.setAttribute('stroke', '#6a4baf'));
+                    textPaths.forEach(path => path.setAttribute('fill', '#333333'));
+                }
+            }
+        });
+        
+        // Initialize SVG colors based on current theme
+        window.addEventListener('DOMContentLoaded', () => {
+            const isDark = document.body.classList.contains('dark-mode');
+            const svgElement = document.querySelector('#logo-wrapper svg');
+            
+            if (svgElement) {
+                const bars = svgElement.querySelectorAll('.cls-1');
+                const textPaths = svgElement.querySelectorAll('#logo-text path, #tagline path');
+                
+                if (isDark) {
+                    bars.forEach(bar => bar.setAttribute('stroke', '#9370DB'));
+                    textPaths.forEach(path => path.setAttribute('fill', '#f8f9fa'));
+                } else {
+                    bars.forEach(bar => bar.setAttribute('stroke', '#6a4baf'));
+                    textPaths.forEach(path => path.setAttribute('fill', '#333333'));
+                }
+            }
+        });
+    </script>
+</body>
+</html>

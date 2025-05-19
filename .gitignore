@@ -1,0 +1,25 @@
+# Environment variables (API keys)
+.env
+
+# Logs
+*.log
+logs/
+oldlogs/
+
+# Python cache/compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE / OS specific files
+.vscode/
+.DS_Store
+
+# Template Backups
+templates/backups/
+
+# Virtual environment (to come)
+venv/
+*.venv
+env/
