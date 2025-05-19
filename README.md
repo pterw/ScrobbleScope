@@ -39,17 +39,25 @@ This project was initially built to identify top albums released in a specific y
 Here's a glimpse of ScrobbleScope in action:
 
 **1. Main Input Form (Dark Mode)**
+
 *Configure your search with various listening and release date filters. Options for decades and custom thresholds (shown with defaults selected) appear dynamically based on user choices.*
+
 ![ScrobbleScope Input Form - Dark Mode](docs/images/index_dark_thresholds_decade.png) 
 **2. Results Page - Album List (Light Mode)**
+
 *View your filtered and sorted albums, here shown sorted by play count. Includes album art, artist, play count, and release date. Buttons for data export and accessing unmatched albums are visible.*
+
 ![ScrobbleScope Results - Light Mode](docs/images/results_light_playcount.png) 
 **3. Results Page - Quick Unmatched Modal (Dark Mode)**
+
 *Easily access a quick view of albums that didn't meet your filter criteria directly from the results page, shown here in dark mode.*
+
 ![ScrobbleScope Results with Unmatched Modal - Dark Mode](docs/images/results_dark_modal.png) 
 **4. Detailed Unmatched Albums Report (Dark Mode)**
+
 *Get a comprehensive list of albums that were excluded, categorized by the reason for exclusion. The filter summary at the top provides context for the excluded items.*
-![ScrobbleScope Detailed Unmatched Report - Dark Mode](docs/images/unmatched_dark_top.png) "
+
+![ScrobbleScope Detailed Unmatched Report - Dark Mode](docs/images/unmatched_dark_top.png)
 
 ## 🛠️ Tech Stack & Implementation Details
 
@@ -126,6 +134,7 @@ This project is currently a work in progress. However, if you wish to run it loc
 
 **Project File Structure:**
 
+```
 │  .env                 # API keys & configuration (not committed)
 │  .gitignore           # Specifies intentionally untracked files
 │  app.py               # Main Flask application logic
@@ -148,6 +157,7 @@ This project is currently a work in progress. However, if you wish to run it loc
 └───css/
 └───js/
 └───images/         # (Placeholder for other static images, not README screenshots)
+```
 
 ## 🚧 Current Status & Future Plans
 
@@ -166,11 +176,11 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Deploy to a cloud platform (e.g., Heroku or Vercel).
 * [ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.
 
-## 🤝 Contributing (Optional)
+## 🤝 Contributing 
 
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
 
-## 📜 License (Optional)
+## 📜 License
 
 ## 🙏 Acknowledgements
 
