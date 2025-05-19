@@ -10,9 +10,9 @@ This project was initially built to identify top albums released in a specific y
 
 ## 📖 Table of Contents
 
-* [Features](#-features)
-* [Screenshots](#-screenshots)
-* [Tech Stack & Implementation Details](#️-tech-stack--implementation-details)
+* [Features](https://github.com/pterw/ScrobbleScope/blob/main/README.md#features)
+* [Screenshots](https://github.com/pterw/ScrobbleScope/blob/main/README.md#screenshots)
+* [Tech Stack & Implementation Details](https://github.com/pterw/ScrobbleScope/blob/main/README.md#tech-stack--implementation-details)
     * [Core Technologies](#core-technologies)
     * [Key Implementation Highlights](#key-implementation-highlights)
 * [Getting Started](#-getting-started)
@@ -82,7 +82,7 @@ Here's a few screenshots of ScrobbleScope in action:
 
 ScrobbleScope is built with a focus on asynchronous operations for API interactions and a clean user experience.
 
-**Core Technologies:**
+### Core Technologies:
 
 * **Backend:** Python 3.x, Flask
 * **Frontend:** HTML5, CSS3, JavaScript (ES6+), Bootstrap 5 for responsive layout & components.
@@ -95,7 +95,7 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * `Jinja2`: For server-side HTML templating.
     * `Flask`: Micro web framework.
 
-**Key Implementation Highlights:**
+### Key Implementation Highlights:
 
 * **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file.
 * **Data Normalization:** Artist and album names are cleaned of punctuation and common suffixes (e.g., "deluxe edition", "remastered") for more robust matching between Last.fm data and Spotify search queries.
@@ -109,13 +109,13 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
 
 This project is currently a work in progress. However, if you wish to run it locally:
 
-**Prerequisites:**
+### Prerequisites:
 
 * Python (3.9+ recommended)
 * Pip (Python package installer)
 * Git
 
-**Setup:**
+### Setup:
 
 1.  **Clone the repository:**
     ```bash
@@ -151,7 +151,8 @@ This project is currently a work in progress. However, if you wish to run it loc
     ```
     The application should then be accessible at `http://127.0.0.1:5000/`.
 
-**Project File Structure:**
+### Project File Structure:
+
 ```
 │  .env                 # API keys & configuration (not committed)
 │  .gitignore           # Specifies intentionally untracked files
@@ -176,6 +177,7 @@ This project is currently a work in progress. However, if you wish to run it loc
 └───js/
 └───images/         # (Placeholder for other static images, not README screenshots)
 ```
+
 ## Current Status & Future Plans
 
 ScrobbleScope is nearing its initial launch phase but is still under active development.
