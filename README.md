@@ -1,11 +1,31 @@
-# ScrobbleScope - Your Last.fm Listening Habits, Visualized
+# ScrobbleScope - Your Last.fm Listening Habits Visualized
 
-[![Status](https://img.shields.io/badge/status-work_in_progress-yellow.svg)](https://github.com/pterw/ScrobbleScopehttps://github.com/pterw/ScrobbleScope#readme)
-ScrobbleScope is a web application designed for Last.fm users to get a deeper insight into their music listening habits. It fetches your track scrobbles for a selected year, processes them with various filters, and enriches album data with metadata from the Spotify API. The primary goal is to help you visualize your top albums, especially for creating "Album of the Year" (AOTY) lists or simply exploring your musical journey.
+[![Status](https://img.shields.io/badge/status-work_in_progress-yellow.svg)](https://github.com/pterw/ScrobbleScope)
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+ScrobbleScope is a web application designed for Last.fm users to get a deeper insight into their music listening habits. It fetches your track scrobbles for a selected year, processes them with various filters, and enriches album data with metadata from the Spotify API. The primary goal is to help you visualize your top albums, especially for creating your Album of the Year (AOTY) lists, creating top listening charts, or simply exploring your musical journey through your years of scrobbling.
 
 This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
 
-## ✨ Features
+## 📖 Table of Contents
+
+* [Features](#features)
+* [Screenshots](#screenshots)
+* [Tech Stack & Implementation Details](#tech-stack--implementation-details)
+    * [Core Technologies](#core-technologies)
+    * [Key Implementation Highlights](#key-implementation-highlights)
+* [Getting Started](#getting-started-work-in-progress)
+    * [Prerequisites](#prerequisites)
+    * [Setup](#setup)
+    * [Project File Structure](#project-file-structure)
+* [Current Status & Future Plans](#current-status--future-plans)
+* [Contributing](#contributing)
+* [License](#license)
+* [Acknowledgements](#acknowledgements)
+* [Author & Contact](#author--contact)
+
+## Features
 
 * **Last.fm Integration:** Fetches your listening history for a specified year.
 * **Spotify Metadata:** Enriches album data with release dates, cover art, and track runtimes from Spotify.
@@ -34,36 +54,38 @@ This project was initially built to identify top albums released in a specific y
     * Loading indicators with progress updates during data fetching and processing.
     * Clear error messages and redirection for invalid inputs or API issues.
 
-## 📸 Screenshots
+## Screenshots
 
-Here's a glimpse of ScrobbleScope in action:
+Here's a few screenshots of ScrobbleScope in action:
 
 **1. Main Input Form (Dark Mode)**
 
 *Configure your search with various listening and release date filters. Options for decades and custom thresholds (shown with defaults selected) appear dynamically based on user choices.*
 
 ![ScrobbleScope Input Form - Dark Mode](docs/images/index_dark_thresholds_decade.png) 
+
 **2. Results Page - Album List (Light Mode)**
 
 *View your filtered and sorted albums, here shown sorted by play count. Includes album art, artist, play count, and release date. Buttons for data export and accessing unmatched albums are visible.*
 
 ![ScrobbleScope Results - Light Mode](docs/images/results_light_playcount.png) 
+
 **3. Results Page - Quick Unmatched Modal (Dark Mode)**
 
 *Easily access a quick view of albums that didn't meet your filter criteria directly from the results page, shown here in dark mode.*
 
 ![ScrobbleScope Results with Unmatched Modal - Dark Mode](docs/images/results_dark_modal.png) 
+
 **4. Detailed Unmatched Albums Report (Dark Mode)**
 
 *Get a comprehensive list of albums that were excluded, categorized by the reason for exclusion. The filter summary at the top provides context for the excluded items.*
-
 ![ScrobbleScope Detailed Unmatched Report - Dark Mode](docs/images/unmatched_dark_top.png)
 
-## 🛠️ Tech Stack & Implementation Details
+## Tech Stack & Implementation Details
 
 ScrobbleScope is built with a focus on asynchronous operations for API interactions and a clean user experience.
 
-**Core Technologies:**
+### Core Technologies:
 
 * **Backend:** Python 3.x, Flask
 * **Frontend:** HTML5, CSS3, JavaScript (ES6+), Bootstrap 5 for responsive layout & components.
@@ -76,7 +98,7 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * `Jinja2`: For server-side HTML templating.
     * `Flask`: Micro web framework.
 
-**Key Implementation Highlights:**
+### Key Implementation Highlights:
 
 * **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file.
 * **Data Normalization:** Artist and album names are cleaned of punctuation and common suffixes (e.g., "deluxe edition", "remastered") for more robust matching between Last.fm data and Spotify search queries.
@@ -86,17 +108,17 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The main logo is an animated SVG emulating a waveform.
     * **Accessibility:** Efforts have been made to improve accessibility, such as using `aria-labels` on SVGs and interactive elements.
 
-## 🚀 Getting Started (Work in Progress)
+## Getting Started (Work in Progress)
 
 This project is currently a work in progress. However, if you wish to run it locally:
 
-**Prerequisites:**
+### Prerequisites:
 
 * Python (3.9+ recommended)
 * Pip (Python package installer)
 * Git
 
-**Setup:**
+### Setup:
 
 1.  **Clone the repository:**
     ```bash
@@ -132,11 +154,8 @@ This project is currently a work in progress. However, if you wish to run it loc
     ```
     The application should then be accessible at `http://127.0.0.1:5000/`.
 
-**Project File Structure:**
-<<<<<<< HEAD
+### Project File Structure:
 
-=======
->>>>>>> 57c1e4e52be7a2faf278d0fd62d38d372ad1bd01
 ```
 │  .env                 # API keys & configuration (not committed)
 │  .gitignore           # Specifies intentionally untracked files
@@ -161,7 +180,8 @@ This project is currently a work in progress. However, if you wish to run it loc
 └───js/
 └───images/         # (Placeholder for other static images, not README screenshots)
 ```
-## 🚧 Current Status & Future Plans
+
+## Current Status & Future Plans
 
 ScrobbleScope is nearing its initial launch phase but is still under active development.
 
@@ -178,20 +198,35 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Deploy to a cloud platform (e.g., Heroku or Vercel).
 * [ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.
 
-## 🤝 Contributing 
-
+## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
 
-## 📜 License
+If you're considering making code contributions, please see our [Contributing Guidelines (CONTRIBUTING.md)](CONTRIBUTING.md) for more information on how to get started.
 
-## 🙏 Acknowledgements
+All contributors and participants in the ScrobbleScope project are expected to adhere to our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-* Last.fm API
-* Spotify API
-* Bootstrap
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgements
+
+* Last.fm for tracking all the music we listen to
+* Spotify for letting me use their API
+* Bootstrap for the clean front end
 * Flask & the Flask community
 * Contributors to the Python libraries used in this project.
 
 ---
 
-Created by Peter Wiercioch
+## Author & Contact
+
+Peter Wiercioch (pterw)
+
+* **GitHub:** [pterw](https://github.com/pterw)
+* **Creative Portfolio:** [peterwiercioch.com](https://peterwiercioch.com/)
+  * *(Showcasing photography, writing, vector illustration, and graphic design)*
+* **LinkedIn:** https://www.linkedin.com/in/pter-w/
+* **Email:** hello@peterwiercioch.com
+
+Feel free to reach out if you have any questions or feedback about ScrobbleScope, or to connect regarding other creative or technical projects!
