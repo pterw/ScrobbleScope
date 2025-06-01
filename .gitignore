@@ -23,3 +23,15 @@ templates/backups/
 venv/
 *.venv
 env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Pytest cache
+.pytest_cache/
+
+# VS Code Local History
+.vscode/History/
+
+# OS crap
+Thumbs.db
