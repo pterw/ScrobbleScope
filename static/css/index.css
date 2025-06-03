@@ -1,1 +1,131 @@
-<----index.css---->
+  :root {
+    --bars-color: #6a4baf;
+    --text-color: #333333;
+    --bg-color: #f8f9fa;
+  }
+  
+  .dark-mode {
+    --bars-color: #9370DB;
+    --text-color: #f8f9fa;
+    --bg-color: #121212;
+  }
+  
+  body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  
+  .dark-mode .card {
+    background-color: #1e1e1e;
+    border-color: #444;
+    color: var(--text-color);
+  }
+  
+  .dark-mode .form-control,
+  .dark-mode .form-select {
+    background-color: #333;
+    border-color: #555;
+    color: #f8f9fa;
+  }
+  
+  .dark-mode .form-text {
+    color: #aaa;
+  }
+  
+  /* SVG color overrides */
+  .dark-mode svg .cls-1 {
+    stroke: var(--bars-color);
+  }
+  .dark-mode svg #logo-text path,
+  .dark-mode svg #tagline path {
+    fill: var(--text-color);
+  }
+  
+  /* Dark-mode toggle switch */
+  #darkModeToggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+  }
+  
+  .dark-mode #darkModeToggle {
+    background-color: rgba(30, 30, 30, 0.8);
+  }
+  #darkModeToggle .form-check-input,
+  #darkModeToggle .form-check-label {
+    margin: 0;
+  }
+      
+  #darkSwitch {
+    width: 3rem;
+    height: 1.5rem;
+    background-color: #ccc;
+    border-radius: 999px;
+    appearance: none;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.3s ease;
+  }
+  
+  #darkSwitch::before {
+    content: "";
+    position: absolute;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    top: 0.15rem;
+    left: 0.15rem;
+    background-color: white;
+    transition: transform 0.3s ease;
+  }
+  
+  #darkSwitch:checked {
+    background-color: var(--bars-color);
+  }
+  
+  #darkSwitch:checked::before {
+    transform: translateX(1.5rem);
+  }
+  
+  /* Logo animation */
+  #logo-wrapper svg {
+    width: 100%;
+    height: auto;
+    max-height: 150px;
+    opacity: 0;
+    animation: fadeIn 2s ease forwards;
+  }
+  
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+  
+  /* Card fade-in */
+  .card {
+    background-color: #fff;
+    opacity: 0;
+    animation: fadeInCard 1.2s ease 0.2s forwards;
+  }
+  
+  @keyframes fadeInCard {
+    to { opacity: 1; }
+  }
+  
+  /* Hide by default */
+  #decade_dropdown, 
+  #release_year_group,
+  #thresholdSettings {
+    display: none;
+  }
