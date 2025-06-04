@@ -142,8 +142,12 @@ completed_results = {}
 LASTFM_API_KEY        = os.getenv("LASTFM_API_KEY")
 SPOTIFY_CLIENT_ID     = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
-if not (LASTFM_API_KEY and SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET):
-    raise RuntimeError("Missing API keys! Check your .env file.")
+
+
+def ensure_api_keys():
+    """Raise ``RuntimeError`` if required API keys are missing."""
+    if not (LASTFM_API_KEY and SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET):
+        raise RuntimeError("Missing API keys! Check your .env file.")
 
 spotify_token_cache = {"token": None, "expires_at": 0}
 
@@ -198,8 +202,17 @@ def normalize_name(artist, album):
     # Strip trailing/leading spaces
     a = a.strip()
     b = b.strip()
-    
+
     return a, b
+
+# Track name normalization for cross-service comparisons
+def normalize_track_name(name):
+    """Return a simplified version of a track name for matching."""
+    n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    for char in [':', '-', '(', ')', '[', ']', '/', '\\', '.', ',', '!', '?', "'"]:
+        n = n.replace(char, ' ')
+    n = ' '.join(n.split())
+    return n.strip()
 
 @app.route("/", methods=["GET"])
 def home():
@@ -244,7 +257,9 @@ def internal_error(e):
     return render_template("error.html", error="Server Error", message="Something went wrong on our end. Please try again later."), 500
 
 # Background task interface with improved error handling
-def background_task(username, year, sort_mode, release_scope, decade=None, release_year=None):
+def background_task(username, year, sort_mode, release_scope,
+                    decade=None, release_year=None,
+                    min_plays=10, min_tracks=3):
     async def fetch_and_process():
         try:
             with progress_lock:
@@ -261,7 +276,9 @@ def background_task(username, year, sort_mode, release_scope, decade=None, relea
                     current_progress["error"] = True
                 return []
 
-            filtered_albums = await fetch_top_albums_async(username, year)
+            filtered_albums = await fetch_top_albums_async(
+                username, year, min_plays=min_plays, min_tracks=min_tracks
+            )
 
             if not filtered_albums:
                 with progress_lock:
@@ -279,7 +296,16 @@ def background_task(username, year, sort_mode, release_scope, decade=None, relea
                 current_progress["progress"] = 100
                 current_progress["message"] = f"Done! Found {len(albums)} albums matching your criteria."
 
-            cache_key = (username, year, sort_mode, release_scope, decade, release_year)
+            cache_key = (
+                username,
+                year,
+                sort_mode,
+                release_scope,
+                decade,
+                release_year,
+                min_plays,
+                min_tracks,
+            )
             completed_results[cache_key] = albums
             return albums
             
@@ -426,8 +452,8 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
         logging.info(f"Fetched a total of {len(all_pages)}/{total_pages} pages")
         return all_pages
 
-# albums with a minimum of 10 plays, 3 unique tracks
-async def fetch_top_albums_async(username, year, min_plays=10):
+# albums with customizable play and track thresholds
+async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
     logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
     from_ts = int(datetime(year,1,1).timestamp())
     to_ts   = int(datetime(year,12,31,23,59,59).timestamp())
@@ -435,7 +461,7 @@ async def fetch_top_albums_async(username, year, min_plays=10):
     logging.debug(f"Pages fetched: {len(pages)}")
     total_tracks = sum(len(p.get("recenttracks",{}).get("track",[])) for p in pages)
     logging.debug(f"Total tracks: {total_tracks}")
-    albums = defaultdict(lambda: {"play_count":0, "track_count":set()})
+    albums = defaultdict(lambda: {"play_count": 0, "track_counts": defaultdict(int)})
     for page in pages:
         for t in page.get("recenttracks", {}).get("track", []):
             alb = t.get("album",{}).get("#text","...")
@@ -448,11 +474,12 @@ async def fetch_top_albums_async(username, year, min_plays=10):
             if alb and art and name:
                 key = normalize_name(art, alb)
                 albums[key]["play_count"] += 1
-                albums[key]["track_count"].add(name)
+                normalized = normalize_track_name(name)
+                albums[key]["track_counts"][normalized] += 1
     logging.debug(f"Unique albums: {len(albums)}")
     filtered = {
-        k:v for k,v in albums.items()
-        if v["play_count"] >= min_plays and len(v["track_count"])>=3
+        k: v for k, v in albums.items()
+        if v["play_count"] >= min_plays and len(v["track_counts"]) >= min_tracks
     }
     logging.debug(f"Albums after filter: {len(filtered)}")
     return filtered
@@ -476,16 +503,19 @@ async def fetch_spotify_access_token():
     logging.error("Failed to fetch Spotify token")
     return None
 
-# Album durations are pulled through this
-async def fetch_spotify_album_duration(session, album_id, token):
+# Fetch track durations for an album
+async def fetch_spotify_track_durations(session, album_id, token):
     url = f"https://api.spotify.com/v1/albums/{album_id}"
     headers = {"Authorization": f"Bearer {token}"}
     async with session.get(url, headers=headers) as response:
         if response.status == 200:
             album_data = await response.json()
-            total_ms = sum(t.get("duration_ms", 0) for t in album_data.get("tracks", {}).get("items", []))
-            return total_ms // 1000  # seconds
-        return 0
+            tracks = {}
+            for t in album_data.get("tracks", {}).get("items", []):
+                name_norm = normalize_track_name(t.get("name", ""))
+                tracks[name_norm] = t.get("duration_ms", 0) // 1000
+            return tracks
+        return {}
 
 # Fetches metadata from spotify for artist, album
 async def fetch_spotify_album_release_date(session, artist, album, token):
@@ -564,37 +594,31 @@ async def fetch_spotify_album_release_date(session, artist, album, token):
     return {}
 
 def format_seconds(seconds):
-    """
-    Format seconds into a user-friendly time string following these rules:
-    - If > 24 hours: "X days, Y hrs, Z mins"
-    - If < 24 hours but > 1 hour: "X hrs, Y mins"
-    - If < 1 hour: "X mins, Y secs"
-    Always rounds up to nearest unit
+    """Return a friendly time string for ``seconds`` of playback.
+
+    The previous implementation attempted to round minutes up while still
+    showing the leftover seconds. This resulted in impossible combinations
+    (e.g. ``61`` seconds displaying as ``2 mins, 1 secs``). The revised
+    version uses ``divmod`` to properly calculate each unit while still
+    rounding the total seconds up to the nearest integer.
     """
     import math
-    
-    # Round up seconds for display
-    seconds = math.ceil(seconds)
-    
+
+    seconds = int(math.ceil(seconds))
+
     if seconds < 60:
         return f"{seconds} secs"
-    
-    minutes = math.ceil(seconds / 60)
-    
+
+    minutes, sec_remainder = divmod(seconds, 60)
     if minutes < 60:
-        seconds_remainder = seconds % 60
-        return f"{minutes} mins, {seconds_remainder} secs"
-    
-    hours = math.floor(minutes / 60)
-    minutes_remainder = minutes % 60
-    
+        return f"{minutes} mins, {sec_remainder} secs"
+
+    hours, min_remainder = divmod(minutes, 60)
     if hours < 24:
-        return f"{hours} hrs, {minutes_remainder} mins"
-    
-    days = math.floor(hours / 24)
-    hours_remainder = hours % 24
-    
-    return f"{days} day{'s' if days != 1 else ''}, {hours_remainder} hrs, {minutes_remainder} mins"
+        return f"{hours} hrs, {min_remainder} mins"
+
+    days, hour_remainder = divmod(hours, 24)
+    return f"{days} day{'s' if days != 1 else ''}, {hour_remainder} hrs, {min_remainder} mins"
 
 # Function for processing data from filtered albums, with filtering + sorting
 async def process_albums(filtered_albums, year, sort_mode, release_scope, decade=None, release_year=None):
@@ -653,8 +677,12 @@ async def process_albums(filtered_albums, year, sort_mode, release_scope, decade
             album_id = album_details.get("id")
 
             if album_details and matches_release_criteria(release) and album_id:
-                duration_sec = await fetch_spotify_album_duration(session, album_id, token)
-                play_time_sec = duration_sec * data["play_count"]
+                track_durations = await fetch_spotify_track_durations(session, album_id, token)
+                play_time_sec = 0
+                for track, count in data["track_counts"].items():
+                    dur = track_durations.get(track)
+                    if dur:
+                        play_time_sec += dur * count
                 formatted_time = format_seconds(play_time_sec)
 
                 results.append({
@@ -663,7 +691,7 @@ async def process_albums(filtered_albums, year, sort_mode, release_scope, decade
                     "play_count": data["play_count"],
                     "play_time": formatted_time,
                     "play_time_seconds": play_time_sec,
-                    "different_songs": len(data["track_count"]),
+                    "different_songs": len(data["track_counts"]),
                     "release_date": release,
                     "album_image": album_details.get("album_image")
                 })
@@ -728,11 +756,24 @@ def results_complete():
     release_scope = request.form.get("release_scope", "same")
     decade = request.form.get("decade")
     release_year = request.form.get("release_year")
+    min_plays = request.form.get("min_plays", "10")
+    min_tracks = request.form.get("min_tracks", "3")
     if release_year:
         release_year = int(release_year)
+    min_plays = int(min_plays)
+    min_tracks = int(min_tracks)
 
     logging.info(f"Processing results for user {username} in year {year} with filters")
-    cache_key = (username, year, sort_mode, release_scope, decade, release_year)
+    cache_key = (
+        username,
+        year,
+        sort_mode,
+        release_scope,
+        decade,
+        release_year,
+        min_plays,
+        min_tracks,
+    )
 
     with progress_lock:
         error = current_progress.get("error", False)
@@ -766,21 +807,25 @@ def results_complete():
             release_scope=release_scope,
             decade=decade,
             release_year=release_year,
+            min_plays=min_plays,
+            min_tracks=min_tracks,
             no_matches=True,
             unmatched_count=unmatched_count,
             filter_description=filter_description
         )
 
-    return render_template(
-        "results.html",
-        username=username,
-        year=year,
-        data=completed_results[cache_key],
-        release_scope=release_scope,
-        decade=decade,
-        release_year=release_year,
-        no_matches=False
-    )
+        return render_template(
+            "results.html",
+            username=username,
+            year=year,
+            data=completed_results[cache_key],
+            release_scope=release_scope,
+            decade=decade,
+            release_year=release_year,
+            min_plays=min_plays,
+            min_tracks=min_tracks,
+            no_matches=False
+        )
 
 # Helper function to generate human-readable filter description
 def get_filter_description(release_scope, decade, release_year, listening_year):
@@ -861,6 +906,8 @@ def results_loading():
     release_scope = request.form.get("release_scope", "same")
     decade = request.form.get("decade") if release_scope == "decade" else None
     release_year = request.form.get("release_year") if release_scope == "custom" else None
+    min_plays = request.form.get("min_plays", "10")
+    min_tracks = request.form.get("min_tracks", "3")
 
     if not username or not year:
         logging.warning("Missing username or year in form submission.")
@@ -870,6 +917,8 @@ def results_loading():
         year = int(year)
         if release_year:
             release_year = int(release_year)
+        min_plays = int(min_plays)
+        min_tracks = int(min_tracks)
     except ValueError:
         logging.warning("Invalid year format.")
         return render_template("index.html", error="Year must be a valid number.")
@@ -880,8 +929,17 @@ def results_loading():
 
     task_thread = threading.Thread(
         target=background_task,
-        args=(username, year, sort_mode, release_scope, decade, release_year),
-        daemon=True
+        args=(
+            username,
+            year,
+            sort_mode,
+            release_scope,
+            decade,
+            release_year,
+            min_plays,
+            min_tracks,
+        ),
+        daemon=True,
     )
     task_thread.start()
     # Clear unmatched albums for new request
@@ -889,10 +947,22 @@ def results_loading():
         global UNMATCHED
         UNMATCHED = {}
 
-    return render_template("loading.html", username=username, year=year, sort_by=sort_mode, release_scope=release_scope, decade=decade, release_year=release_year)
+    return render_template(
+        "loading.html",
+        username=username,
+        year=year,
+        sort_by=sort_mode,
+        release_scope=release_scope,
+        decade=decade,
+        release_year=release_year,
+        min_plays=min_plays,
+        min_tracks=min_tracks,
+    )
 
 if __name__ == "__main__":
     import webbrowser
+
+    ensure_api_keys()
 
     url = "http://127.0.0.1:5000/"
     print(f"🌐 Your app is live at: {url}")
