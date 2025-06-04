@@ -36,7 +36,7 @@ This project was initially built to identify top albums released in a specific y
         * Previous year.
         * Specific decades.
         * Custom specific release year.
-    * Define album listening thresholds (minimum track plays and minimum unique tracks per album). *(Note: Custom threshold filtering beyond defaults is currently under development; defaults of 10 plays/3 unique tracks are applied if options are changed).*
+    * Define album listening thresholds (minimum track plays and minimum unique tracks per album). Set your own values—defaults are 10 plays and 3 unique tracks if you don't specify.
 * **Advanced Sorting:**
     * Sort your top albums by **total track play count**.
     * Sort by **total listening time** (calculated from the runtime of tracks you've listened to). *(Note: Playtime sorting is currently undergoing refinement for accuracy).*
@@ -188,7 +188,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 **Key areas for improvement and upcoming features:**
 
 * [ ] Refine and thoroughly test the playtime sorting calculation.
-* [ ] Fully implement and test custom album threshold filtering functionality.
+* [x] Fully implement and test custom album threshold filtering functionality.
 * [ ] Enhance the `loading.html` page with dynamic "fun facts" about the user's listening year.
 * [ ] Further optimize performance for users with very large listening histories.
 * [ ] Improve responsive design, especially for mobile devices.
