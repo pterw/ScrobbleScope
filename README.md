@@ -122,8 +122,8 @@ This project is currently a work in progress. However, if you wish to run it loc
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/]https://github.com/pterw/ScrobbleScope.git
-    cd [ScrobbleScope]
+    git clone https://github.com/pterw/ScrobbleScope.git
+    cd ScrobbleScope
     ```
 2.  **Create a virtual environment (recommended):**
     ```bash
