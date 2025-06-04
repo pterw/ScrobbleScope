@@ -796,9 +796,11 @@ def results_complete():
         # No albums matched the filters
         with unmatched_lock:
             unmatched_count = len(UNMATCHED)
-        
-        filter_description = get_filter_description(release_scope, decade, release_year, year)
-        
+
+        filter_description = get_filter_description(
+            release_scope, decade, release_year, year
+        )
+
         return render_template(
             "results.html",
             username=username,
@@ -811,21 +813,21 @@ def results_complete():
             min_tracks=min_tracks,
             no_matches=True,
             unmatched_count=unmatched_count,
-            filter_description=filter_description
+            filter_description=filter_description,
         )
 
-        return render_template(
-            "results.html",
-            username=username,
-            year=year,
-            data=completed_results[cache_key],
-            release_scope=release_scope,
-            decade=decade,
-            release_year=release_year,
-            min_plays=min_plays,
-            min_tracks=min_tracks,
-            no_matches=False
-        )
+    return render_template(
+        "results.html",
+        username=username,
+        year=year,
+        data=completed_results[cache_key],
+        release_scope=release_scope,
+        decade=decade,
+        release_year=release_year,
+        min_plays=min_plays,
+        min_tracks=min_tracks,
+        no_matches=False,
+    )
 
 # Helper function to generate human-readable filter description
 def get_filter_description(release_scope, decade, release_year, listening_year):
