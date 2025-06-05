@@ -257,45 +257,112 @@ def internal_error(e):
     return render_template("error.html", error="Server Error", message="Something went wrong on our end. Please try again later."), 500
 
 # Background task interface with improved error handling
+
 def background_task(username, year, sort_mode, release_scope,
                     decade=None, release_year=None,
                     min_plays=10, min_tracks=3):
     async def fetch_and_process():
         try:
+            # ── STEP 0: INITIALIZING (0%)
             with progress_lock:
-                current_progress["progress"] = 10
-                current_progress["message"] = "Fetching data from Last.fm..."
-                current_progress["error"] = False
+                current_progress["progress"] = 0
+                current_progress["message"]  = "Initializing..."
+                current_progress["error"]    = False
 
-            # First check if user exists
+            # Force the front-end to see 0% for one second:
+            await asyncio.sleep(1)
+
+            # ── STEP 1: VERIFY USER EXISTS (5%)
+            with progress_lock:
+                current_progress["progress"] = 5
+                current_progress["message"]  = "Verifying your profile..."
+                current_progress["error"]    = False
+
             user_exists = await check_user_exists(username)
             if not user_exists:
                 with progress_lock:
                     current_progress["progress"] = 100
-                    current_progress["message"] = f"Error: User '{username}' not found on Last.fm"
-                    current_progress["error"] = True
+                    current_progress["message"]  = f"Error: User '{username}' not found on Last.fm"
+                    current_progress["error"]    = True
                 return []
 
+            # ── STEP 2: FETCH LAST.FM SCR0BBLES (10% → 20%)
+            with progress_lock:
+                current_progress["progress"] = 10
+                current_progress["message"]  = "Fetching your data from Last.fm..."
+                current_progress["error"]    = False
+
             filtered_albums = await fetch_top_albums_async(
-                username, year, min_plays=min_plays, min_tracks=min_tracks
+                username,
+                year,
+                min_plays=min_plays,
+                min_tracks=min_tracks
             )
 
             if not filtered_albums:
+                # No albums matched the basic criteria. Show “no results” but not a technical error.
                 with progress_lock:
                     current_progress["progress"] = 100
-                    current_progress["message"] = "No albums found for the specified criteria."
+                    current_progress["message"]  = "No albums found for the specified criteria."
+                    current_progress["error"]    = False
                 return []
 
+            # ── STEP 3: Spoofing processing (20% → 40%)
+            #Here we just bump the progress.
             with progress_lock:
-                current_progress["progress"] = 50
-                current_progress["message"] = "Processing album data from Spotify..."
+                current_progress["progress"] = 20
+                current_progress["message"]  = "Processing your albums..."
 
-            albums = await process_albums(filtered_albums, year, sort_mode, release_scope, decade, release_year)
+            # Small sleep to let front-end pick up 20%
+            await asyncio.sleep(1)
+            with progress_lock:
+                current_progress["progress"] = 30
+                current_progress["message"]  = "Preparing to fetch album data..."
+            await asyncio.sleep(1)
+            # Now we’re ready to hand off to process_albums for real Spotify logic—let that occupy 40-60%:
 
+            # ── STEP 4: PROCESS ALBUM METADATA (40% → 80%)
+            with progress_lock:
+                current_progress["progress"] = 40
+                current_progress["message"]  = "Processing album data from Spotify..."
+
+            # This single call does all the cover art + Spotify calls.
+            results = await process_albums(
+                filtered_albums,
+                year,
+                sort_mode,
+                release_scope,
+                decade,
+                release_year
+            )
+            # Immediately after it returns spoof “adding album art” and move to 60%:
+            with progress_lock:
+                current_progress["progress"] = 60
+                current_progress["message"]  = "Adding album art to your results..."
+
+            # ── STEP 5: Simulate compiling (80%)
+            with progress_lock:
+                current_progress["progress"] = 80
+                current_progress["message"]  = "Compiling your top album list..."
+
+            # Small delay so front-end sees 80% for a moment
+            await asyncio.sleep(1)
+            
+            # ── STEP 6: Simulate finalizing work (e.g., sorting, formatting) (90% → 100%)
+            with progress_lock:
+                current_progress["progress"] = 90
+                current_progress["message"]  = "Finalizing list..."
+
+            # Small delay so front-end sees 90% for a moment
+            await asyncio.sleep(1)
+
+            # Now fully done:
             with progress_lock:
                 current_progress["progress"] = 100
-                current_progress["message"] = f"Done! Found {len(albums)} albums matching your criteria."
+                current_progress["message"]  = f"Done! Found {len(results)} albums matching your criteria."
+                current_progress["error"]    = False
 
+            # Cache the results for results_complete
             cache_key = (
                 username,
                 year,
@@ -306,24 +373,26 @@ def background_task(username, year, sort_mode, release_scope,
                 min_plays,
                 min_tracks,
             )
-            completed_results[cache_key] = albums
-            return albums
-            
+            completed_results[cache_key] = results
+            return results
+
         except Exception as e:
+            # Map certain errors to a friendlier string:
             error_message = str(e)
             if "Too Many Requests" in error_message:
                 error_message = "API rate limit reached. Please try again in a few minutes."
             elif "Not Found" in error_message and "user" in error_message.lower():
                 error_message = f"User '{username}' not found on Last.fm"
-            
+
             with progress_lock:
                 current_progress["progress"] = 100
-                current_progress["message"] = f"Error: {error_message}"
-                current_progress["error"] = True
-            
-            logging.exception(f"Error processing request for {username} in {year}")
-            return []
+                current_progress["message"]  = f"Error: {error_message}"
+                current_progress["error"]    = True
 
+            logging.exception(f"Error processing request for {username} in {year}")
+            return []  # return an empty list on failure
+
+    # Actually spawn the coroutine in a background thread
     return run_async_in_thread(fetch_and_process)
 
 # Check if a Last.fm user exists
@@ -336,11 +405,11 @@ async def check_user_exists(username):
         "api_key": LASTFM_API_KEY,
         "format": "json"
     }
-    
+    # Check cache first
     cached_response = get_cached_response(url, params)
     if cached_response:
         return True
-    
+    # If not cached, proceed with the request
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, params=params) as resp:
@@ -378,7 +447,7 @@ async def fetch_recent_tracks_page_async(session, username, from_ts, to_ts, page
     cached_response = get_cached_response(url, params)
     if cached_response:
         return cached_response
-    
+    # If not cached, proceed with the request
     limiter = get_lastfm_limiter()
     for attempt in range(retries):
         try:
@@ -594,14 +663,7 @@ async def fetch_spotify_album_release_date(session, artist, album, token):
     return {}
 
 def format_seconds(seconds):
-    """Return a friendly time string for ``seconds`` of playback.
-
-    The previous implementation attempted to round minutes up while still
-    showing the leftover seconds. This resulted in impossible combinations
-    (e.g. ``61`` seconds displaying as ``2 mins, 1 secs``). The revised
-    version uses ``divmod`` to properly calculate each unit while still
-    rounding the total seconds up to the nearest integer.
-    """
+    """Format seconds into a user-friendly string for sorting by playtime."""
     import math
 
     seconds = int(math.ceil(seconds))
@@ -668,7 +730,7 @@ async def process_albums(filtered_albums, year, sort_mode, release_scope, decade
             return f"Release year {rel_year} does not match filter"
         except ValueError:
             return f"Unknown release year: {release_date}"
-
+    
     async with aiohttp.ClientSession() as session:
         results = []
         for (artist, album), data in filtered_albums.items():
@@ -695,7 +757,7 @@ async def process_albums(filtered_albums, year, sort_mode, release_scope, decade
                     "release_date": release,
                     "album_image": album_details.get("album_image")
                 })
-
+                
             elif album_details and not matches_release_criteria(release):
                 # Create a user-friendly reason for unmatched albums
                 reason = get_user_friendly_reason(release, release_scope, decade, release_year)
@@ -708,7 +770,7 @@ async def process_albums(filtered_albums, year, sort_mode, release_scope, decade
                         "album": album,
                         "reason": reason
                     }
-
+        
             elif not album_details:
                 logging.warning(f"❌ No metadata found for '{album}' by '{artist}' (possibly unmatched)")
                 
@@ -747,7 +809,7 @@ async def process_albums(filtered_albums, year, sort_mode, release_scope, decade
 
         return results
 
-# Refactored results_complete to support all filter params
+# Route to handle form submission and start background processing
 @app.route("/results_complete", methods=["POST"])
 def results_complete():
     username = request.form.get("username")
@@ -774,7 +836,7 @@ def results_complete():
         min_plays,
         min_tracks,
     )
-
+    
     with progress_lock:
         error = current_progress.get("error", False)
         if error:
@@ -783,7 +845,7 @@ def results_complete():
                                   error="Processing Error", 
                                   message=current_progress.get("message", "An unknown error occurred"),
                                   details="Please try again or try different parameters.")
-        
+        # Check if results are already cached
         if cache_key not in completed_results:
             logging.warning("No cached results found. Showing error page.")
             return render_template("error.html", 
@@ -800,7 +862,7 @@ def results_complete():
         filter_description = get_filter_description(
             release_scope, decade, release_year, year
         )
-
+        # Render results page with no matches
         return render_template(
             "results.html",
             username=username,
@@ -815,7 +877,7 @@ def results_complete():
             unmatched_count=unmatched_count,
             filter_description=filter_description,
         )
-
+    # Render results page with cached data
     return render_template(
         "results.html",
         username=username,
@@ -829,9 +891,9 @@ def results_complete():
         no_matches=False,
     )
 
-# Helper function to generate human-readable filter description
+# Helper function to generate filter description
 def get_filter_description(release_scope, decade, release_year, listening_year):
-    """Generate a human-readable description of the filter applied"""
+    """Generate a readable description of the filter applied"""
     if release_scope == "same":
         return f"albums released in {listening_year}"
     elif release_scope == "previous":
@@ -843,10 +905,13 @@ def get_filter_description(release_scope, decade, release_year, listening_year):
     else:
         return "albums matching your criteria"
 
-# Update the unmatched_view route to better organize unmatched albums by reason
+# Update the unmatched_view route to organize unmatched albums by reason
 @app.route("/unmatched_view", methods=["POST"])
+
 def unmatched_view():
-    """Show a dedicated page of unmatched albums"""
+    """Show a dedicated page of unmatched albums that didn't match the filters"""
+
+    # Get form parameters
     username = request.form.get("username")
     year = request.form.get("year")
     release_scope = request.form.get("release_scope", "same")
@@ -896,21 +961,20 @@ def unmatched_view():
         min_tracks=min_tracks
     )
 
-# For unmatched.html template in the templates directory:
-# templates/unmatched.html
-
-# Refactored results_loading to support new form inputs
+# Results loading route to handle form submission and start background task
 @app.route("/results_loading", methods=["POST"])
 def results_loading():
-    username = request.form.get("username")
-    year = request.form.get("year")
-    sort_mode = request.form.get("sort_by", "playcount")
+    """Handle form submission and start the background task to fetch/process data"""
+    username      = request.form.get("username")
+    year          = request.form.get("year")
+    sort_mode     = request.form.get("sort_by", "playcount")
     release_scope = request.form.get("release_scope", "same")
-    decade = request.form.get("decade") if release_scope == "decade" else None
-    release_year = request.form.get("release_year") if release_scope == "custom" else None
-    min_plays = request.form.get("min_plays", "10")
-    min_tracks = request.form.get("min_tracks", "3")
+    decade        = request.form.get("decade") if release_scope == "decade" else None
+    release_year  = request.form.get("release_year") if release_scope == "custom" else None
+    min_plays     = request.form.get("min_plays", "10")
+    min_tracks    = request.form.get("min_tracks", "3")
 
+    # Validate required fields
     if not username or not year:
         logging.warning("Missing username or year in form submission.")
         return render_template("index.html", error="Username and year are required.")
@@ -924,11 +988,14 @@ def results_loading():
     except ValueError:
         logging.warning("Invalid year format.")
         return render_template("index.html", error="Year must be a valid number.")
-
+    
+    # Reset progress to 0% and “Initializing…”
     with progress_lock:
         current_progress["progress"] = 0
-        current_progress["message"] = "Initializing..."
+        current_progress["message"]  = "Initializing..."
+        current_progress["error"]    = False
 
+    # Launch the background thread that actually fetches/processes data        
     task_thread = threading.Thread(
         target=background_task,
         args=(
@@ -944,11 +1011,13 @@ def results_loading():
         daemon=True,
     )
     task_thread.start()
+
     # Clear unmatched albums for new request
     with unmatched_lock:
         global UNMATCHED
         UNMATCHED = {}
 
+    # Return the loading page with the current parameters
     return render_template(
         "loading.html",
         username=username,

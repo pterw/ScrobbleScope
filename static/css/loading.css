@@ -1,0 +1,194 @@
+:root {
+    --bars-color: #6a4baf;
+    --text-color: #333333;
+    --bg-color: #f8f9fa;
+}
+
+.dark-mode {
+    --bars-color: #9370DB;
+    --text-color: #f8f9fa;
+    --bg-color: #121212;
+}
+
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: var(--bg-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+    color: var(--text-color);
+}
+
+.dark-mode .loading-container {
+    background-color: #1e1e1e;
+    color: var(--text-color);
+    border: 1px solid #444;
+}
+
+.loading-container {
+    text-align: center;
+    max-width: 650px;
+    width: 100%;
+    padding: 40px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.progress-bar {
+    height: 20px;
+    background-color: var(--bars-color);
+}
+
+.step-text {
+    font-size: 1.3em;
+    margin-top: 16px;
+}
+
+.step-details {
+    font-size: 1em;
+    color: #6c757d;
+    margin-top: 12px;
+}
+
+.dark-mode .step-details {
+    color: #aaa;
+}
+
+#logo-wrapper svg {
+    width: 100%;
+    height: auto;
+    max-height: 180px;
+    opacity: 0;
+    animation: fadeIn 2s ease forwards;
+}
+
+.dark-mode #logo-wrapper svg .cls-1 {
+    stroke: var(--bars-color);
+}
+
+.dark-mode #logo-wrapper svg #logo-text path,
+.dark-mode #logo-wrapper svg #tagline path {
+    fill: var(--text-color);
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; }
+}
+
+.error-message {
+    color: #dc3545;
+    padding: 10px;
+    margin-top: 15px;
+    border-radius: 4px;
+    background-color: rgba(220, 53, 69, 0.1);
+    border: 1px solid rgba(220, 53, 69, 0.2);
+}
+
+.dark-mode .error-message {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #f8d7da;
+}
+
+.reset-button {
+    margin-top: 15px;
+}
+
+/* Dark-mode toggle switch */
+#darkModeToggle {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.5rem;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.3s ease;
+}
+
+.dark-mode #darkModeToggle {
+    background-color: rgba(30, 30, 30, 0.8);
+}
+
+#darkModeToggle .form-check-input,
+#darkModeToggle .form-check-label {
+    margin: 0;
+}
+
+/* Dark switch slider */
+#darkSwitch {
+    width: 3rem;
+    height: 1.5rem;
+    background-color: #ccc;
+    border-radius: 999px;
+    appearance: none;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.3s ease;
+    outline: none;
+}
+
+#darkSwitch::before {
+    content: "";
+    position: absolute;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    top: 0.15rem;
+    left: 0.15rem;
+    background-color: white;
+    transition: transform 0.3s ease;
+}
+
+#darkSwitch:checked {
+    background-color: var(--bars-color);
+}
+
+#darkSwitch:checked::before {
+    transform: translateX(1.5rem);
+}
+
+/* Parameter summary styles */
+.request-info {
+    margin-top: 25px;
+    text-align: left;
+    background-color: rgba(106, 75, 175, 0.1);
+    border-radius: 8px;
+    padding: 20px;
+}
+
+.dark-mode .request-info {
+    background-color: rgba(147, 112, 219, 0.1);
+}
+
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.info-table tr td {
+    padding: 8px 10px;
+}
+
+.info-table tr td:first-child {
+    font-weight: 600;
+    width: 40%;
+}
+
+.dark-mode .info-table tr:nth-child(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+h4 {
+    margin-bottom: 15px;
+    font-weight: 500;
+}
