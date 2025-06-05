@@ -6,7 +6,36 @@
   <meta name="description" content="ScrobbleScope - Filter your Last.fm album scrobbles by release date and play count.">
   <title>ScrobbleScope</title>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+  <!--CSS style-->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+  <!--SVG-->
+  <link
+  rel="icon"
+  type="image/svg+xml"
+  href="{{ url_for('static', filename='images/favicon.svg') }}"
+  />
+
+  <!--ICO fallback-->
+  <link
+    rel="shortcut icon"
+    type="image/x-icon"
+    href="{{ url_for('static', filename='images/favicon.ico') }}"
+  />
+
+  <!-- PNG fallbacks (both 16x16 and 32x32-->
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="32x32"
+    href="{{ url_for('static', filename='images/favicon-32x32.png') }}"
+  />
+  <link
+    rel="icon"
+    type="image/png"
+    sizes="16x16"
+    href="{{ url_for('static', filename='images/favicon-16x16.png') }}"
+  />
+
 </head>
 <body>
   <!-- Dark mode toggle -->
@@ -121,6 +150,6 @@
       </div>
     </div>
   </div>
-  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
 </body>
 </html>
