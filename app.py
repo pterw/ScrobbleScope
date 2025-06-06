@@ -88,7 +88,7 @@ def run_async_in_thread(coro):
 
 # Flask setup
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = os.getenv('SECRET_KEY', 'dev') # Default to 'dev' if not set
 
 # Make {{ current_year }} available globally in all templates.
 @app.context_processor
