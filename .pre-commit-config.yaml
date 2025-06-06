@@ -1,32 +1,40 @@
+default_stages: [commit]
+exclude: ^(venv|\.venv|env|\.env|node_modules|dist|build|\.vscode|\.github|docs|logs|oldlogs|static|templates)/
+
 repos:
   - repo: https://github.com/psf/black
     rev: 24.3.0
     hooks:
       - id: black
-
+        files: ^.*\.py$
+        
   - repo: https://github.com/pycqa/flake8
     rev: 7.2.0
     hooks:
       - id: flake8
+        additional_dependencies: []
+        files: ^.*\.py$
+        continue-on-error: true
 
   - repo: https://github.com/pycqa/isort
-    rev: 5.12.0
+    rev: 5.13.2
     hooks:
       - id: isort
+        files: ^.*\.py$
 
   - repo: https://github.com/PyCQA/autoflake
     rev: v2.2.1
     hooks:
       - id: autoflake
-        args:
-          - --remove-all-unused-imports
-          - --remove-unused-variables
-          - --in-place
-          - --recursive
-          - .
+        files: ^.*\.py$
+        args: [--remove-unused-variables, --remove-all-unused-imports]   
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
       - id: trailing-whitespace
+        files: ^.*\.py$
       - id: end-of-file-fixer
+        files: ^.*\.py$
+      - id: check-yaml
+        files: ^.*\.py$
