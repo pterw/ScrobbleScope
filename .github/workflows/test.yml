@@ -28,10 +28,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m venv venv
-          source venv/bin/activate
           pip install --upgrade pip
           pip install -r requirements.txt
+
+      - name: Run pre-commit checks
+        run: |
+          pip install pre-commit
+          pre-commit run --all-files
 
       - name: Lint code with flake8 (non-blocking)
         continue-on-error: true
@@ -39,7 +42,10 @@ jobs:
           pip install flake8
           flake8 --config .flake8
 
+      - name: Run Tests with Coverage
+        run: |
+          pytest --cov=./ --cov-report=xml
+
       - name: Run Tests
         run: |
-          source venv/bin/activate
           pytest -q
