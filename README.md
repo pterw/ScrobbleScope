@@ -53,6 +53,7 @@ This project was initially built to identify top albums released in a specific y
 * **User Feedback:**
     * Loading indicators with progress updates during data fetching and processing.
     * Clear error messages and redirection for invalid inputs or API issues.
+    * Rotating messages on the loading screen keep long fetches engaging.
 
 ## Screenshots
 
@@ -107,6 +108,9 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
     * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The main logo is an animated SVG emulating a waveform.
     * **Accessibility:** Efforts have been made to improve accessibility, such as using `aria-labels` on SVGs and interactive elements.
+    * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
+    * **Static Assets:** CSS and JavaScript moved to /static for easier maintenance.
+    * **Rotating loading messages:** Keeps users informed while data is being fetched.
 
 ## Getting Started (Work in Progress)
 
@@ -156,31 +160,51 @@ This project is currently a work in progress. However, if you wish to run it loc
 
 ### Project File Structure:
 
+
 ```
 │  .env                 # API keys & configuration (not committed)
 │  .gitignore           # Specifies intentionally untracked files
 │  app.py               # Main Flask application logic
 │  requirements.txt     # Python package dependencies
-│  README.md            # This file
+│  README.md            # Project documentation
+│  CODE_OF_CONDUCT.md   # Code of conduct
+│  CONTRIBUTING.md      # Contribution guidelines
+│  LICENSE              # MIT license
 │
-├───logs/               # Application logs (e.g., app_debug.log - not committed)
+├── templates/          # Jinja2 HTML templates
+│   │  error.html
+│   │  index.html
+│   │  loading.html
+│   │  results.html
+│   │  unmatched.html
+│   └── inline/
+│       └── scrobble_scope_inline.svg
 │
-├───templates/          # Jinja2 HTML templates
-│   │  error.html       # Custom error page
-│   │  index.html       # Home page / filter submission form
-│   │  loading.html     # Progress display page
-│   │  results.html     # Page to display filtered album results
-│   │  unmatched.html   # Page for albums that didn't meet filters
-│   │
-│   └───inline/
-│           scrobble_scope_inline.svg # Inline SVG logo asset
+├── static/             # CSS, JavaScript, and favicon assets
+│   ├── css/
+│   │   ├── error.css
+│   │   ├── index.css
+│   │   ├── loading.css
+│   │   └── results.css
+│   ├── js/
+│   │   ├── error.js
+│   │   ├── index.js
+│   │   └── loading.js
+│   └── images/
+│       ├── favicon.svg
+│       ├── favicon.ico
+│       ├── favicon-16x16.png
+│       └── favicon-32x32.png
 │
-└───static/             # (Placeholder for future dedicated CSS/JS if not using inline/CDN)
-└───css/
-└───js/
-└───images/         # (Placeholder for other static images, not README screenshots)
+├── docs/
+│   └── images/         # Project screenshots for the README
+│       ├── index_dark_thresholds_decade.png
+│       ├── results_dark_modal.png
+│       ├── results_light_playcount.png
+│       ├── results_loading_dark.png
+│       ├── results_loading_light.png
+│       └── unmatched_dark_top.png
 ```
-
 ## Current Status & Future Plans
 
 ScrobbleScope is nearing its initial launch phase but is still under active development.
@@ -195,8 +219,16 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Write more comprehensive backend function docstrings and comments in `app.py`.
 * [ ] Conduct thorough QA testing across different browsers and use cases.
 * [ ] Improve the landing page (`index.html`) copy to be more descriptive for new users.
-* [ ] Deploy to a cloud platform (e.g., Heroku or Vercel).
+* [ ] Deploy to a cloud platform (e.g., Heroku, Vercel, or Netlify).
 * [ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.
+* [ ] Modularize API calls into `services/` modules (`lastfm.py`, `spotify.py`, and `cache.py`).
+* [ ] Use Flask Blueprints to organize routes.
+* [ ] Consolidate helper functions into `utils.py`.
+* [ ] Move background processing to `tasks.py` or a dedicated task queue.
+* [ ] Separate configuration into `config.py` for cleaner imports.
+* [ ] Optimize network usage via batching or parallel requests.
+* [ ] Create master HTML templates to reduce duplication.
+* [ ] Add unit tests.
 
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
