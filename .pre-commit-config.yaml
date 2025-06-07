@@ -1,4 +1,4 @@
-default_stages: [commit]
+default_stages: [pre-commit]
 exclude: ^(venv|\.venv|env|\.env|node_modules|dist|build|\.vscode|\.github|docs|logs|oldlogs|static|templates)/
 
 repos:
