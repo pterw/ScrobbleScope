@@ -162,25 +162,30 @@ This project is currently a work in progress. However, if you wish to run it loc
 
 
 ```
-│  .env                 # API keys & configuration (not committed)
+.
+│  .env                 # API keys & configuration (ignored by Git)
+│  .env.example         # Example environment variables file
 │  .gitignore           # Specifies intentionally untracked files
+│  .pre-commit-config.yaml # Configuration for pre-commit hooks
 │  app.py               # Main Flask application logic
-│  requirements.txt     # Python package dependencies
-│  README.md            # Project documentation
 │  CODE_OF_CONDUCT.md   # Code of conduct
 │  CONTRIBUTING.md      # Contribution guidelines
 │  LICENSE              # MIT license
+│  README.md            # Project documentation
+│  requirements.txt     # Python package dependencies
 │
-├── templates/          # Jinja2 HTML templates
-│   │  error.html
-│   │  index.html
-│   │  loading.html
-│   │  results.html
-│   │  unmatched.html
-│   └── inline/
-│       └── scrobble_scope_inline.svg
+├── .github/
+│   └── workflows/
+│       └── test.yml    # CI Pipeline for GitHub Actions
 │
-├── static/             # CSS, JavaScript, and favicon assets
+├── docs/
+│   └── images/         # Project screenshots for the README
+│       ├── index_dark_thresholds_decade.png
+│       ├── results_dark_modal.png
+│       ├── results_light_playcount.png
+│       └── unmatched_dark_top.png
+│
+├── static/
 │   ├── css/
 │   │   ├── error.css
 │   │   ├── index.css
@@ -191,19 +196,20 @@ This project is currently a work in progress. However, if you wish to run it loc
 │   │   ├── index.js
 │   │   └── loading.js
 │   └── images/
-│       ├── favicon.svg
 │       ├── favicon.ico
+│       ├── favicon.svg
 │       ├── favicon-16x16.png
 │       └── favicon-32x32.png
 │
-├── docs/
-│   └── images/         # Project screenshots for the README
-│       ├── index_dark_thresholds_decade.png
-│       ├── results_dark_modal.png
-│       ├── results_light_playcount.png
-│       ├── results_loading_dark.png
-│       ├── results_loading_light.png
-│       └── unmatched_dark_top.png
+└── templates/
+    │   error.html
+    │   index.html
+    │   loading.html
+    │   results.html
+    │   unmatched.html
+    │
+    └── inline/
+        └── scrobble_scope_inline.svg
 ```
 ## Current Status & Future Plans
 
