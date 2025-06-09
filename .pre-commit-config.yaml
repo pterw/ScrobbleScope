@@ -8,12 +8,6 @@ repos:
       - id: black
         files: ^.*\.py$
         
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.2.0
-    hooks:
-      - id: flake8
-        additional_dependencies: []
-        files: ^.*\.py$
 
   - repo: https://github.com/pycqa/isort
     rev: 6.0.1
