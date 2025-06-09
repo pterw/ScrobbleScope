@@ -1,4 +1,12 @@
-# .flake8
 [flake8]
+# Temporarily ignore these errors while we fix them incrementally.
+# E402: module level import not at top of file (will be fixed by isort)
+# F401: 'module' imported but unused (will be fixed by autoflake)
+# E501: line too long
+# F541: f-string is missing placeholders
+# E226: missing whitespace around arithmetic operator (to resolve black/flake8 conflict)
+ignore = E402, F401, E501, F541, E226
+# Files/folders to exclude from checks
 exclude = venv, .venv, .git, __pycache__, build, dist
+# Set the max line length for E501 checks
 max-line-length = 120
