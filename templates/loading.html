@@ -33,7 +33,7 @@
         sizes="16x16"
         href="{{ url_for('static', filename='images/favicon-16x16.png') }}"
     />
-      <!-- ─── Bridge script: define window.SCROBBLE with all needed values ─────────── -->
+      <!--Bridge script: define window.SCROBBLE with all needed values (in backend app.py too)-->
   <script>
     window.SCROBBLE = {
       username: "{{ username }}",
@@ -54,7 +54,6 @@
       min_tracks: "{{ min_tracks|default('3') }}"
     };
   </script>
-  <!-- ────────────────────────────────────────────────────────────────────────────── -->
 </head>
 <body>
     <div id="darkModeToggle" class="form-check form-switch">
