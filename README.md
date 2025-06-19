@@ -163,7 +163,7 @@ This project is currently a work in progress. However, if you wish to run it loc
 │  requirements.txt     # Python package dependencies
 │  README.md            # This file
 │
-├───logs/               # Application logs (e.g., app_debug.log - not committed)
+├───logs/               # Auto-created for app_debug.log; ignored via .gitignore (rotation to oldlogs/ planned)
 │
 ├───templates/          # Jinja2 HTML templates
 │   │  error.html       # Custom error page
