@@ -214,8 +214,6 @@ def normalize_name(artist, album):
     # Remove common words and punctuation for better matching
     common_words = [
         "the",
-        "a",
-        "an",
         "deluxe",
         "edition",
         "remastered",
@@ -224,8 +222,7 @@ def normalize_name(artist, album):
         "anniversary",
         "special",
         "bonus",
-        "tracks",
-        "ep",
+        "remaster",
     ]
 
     for word in common_words:
