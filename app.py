@@ -108,8 +108,7 @@ def inject_current_year():
     return {"current_year": datetime.now().year}
 
 
-# Create logs directory if it doesn't exist
-import os
+# Ensure the logs directory exists
 
 os.makedirs("logs", exist_ok=True)
 
@@ -193,27 +192,17 @@ def set_cached_response(url, data, params=None):
     REQUEST_CACHE[key] = (time.time(), data)
 
 
-# Name normalization with improved matching
-def normalize_name(artist, album):
-    """Normalize artist and album names for more accurate matching"""
-    a = (
-        unicodedata.normalize("NFKD", artist)
-        .encode("ascii", "ignore")
-        .decode()
-        .lower()
-        .strip()
-    )
-    b = (
-        unicodedata.normalize("NFKD", album)
-        .encode("ascii", "ignore")
-        .decode()
-        .lower()
-        .strip()
-    )
+import string  # string may not be imported yet, so we keep this one.
 
-    # Remove common words and punctuation for better matching
-    common_words = [
-        "the",
+
+def normalize_name(artist, album):
+    """
+    Normalizes artist and album names for more accurate matching by cleaning
+    unicode, punctuation, and non-essential metadata words.
+    """
+    # This set contains ONLY words that are metadata and not part of a name.
+    # Articles like "a", "an", "the" have been intentionally removed.
+    safe_to_remove_words = {
         "deluxe",
         "edition",
         "remastered",
@@ -222,29 +211,33 @@ def normalize_name(artist, album):
         "anniversary",
         "special",
         "bonus",
+        "tracks",
+        "ep",
         "remaster",
-    ]
+    }
 
-    for word in common_words:
-        a = a.replace(f" {word} ", " ")
-        b = b.replace(f" {word} ", " ")
+    def clean(text):
+        # 1. Normalize unicode characters and convert to lowercase.
+        # The 'unicodedata' module is available from the top of app.py
+        cleaned_text = (
+            unicodedata.normalize("NFKD", text)
+            .encode("ascii", "ignore")
+            .decode("utf-8")
+            .lower()
+        )
 
-    # Remove common punctuation
-    for char in [":", "-", "(", ")", "[", "]", "/", "\\", ".", ",", "!", "?"]:
-        a = a.replace(char, " ")
-        b = b.replace(char, " ")
+        # 2. Replace all punctuation with a space.
+        translator = str.maketrans(string.punctuation, " " * len(string.punctuation))
+        cleaned_text = cleaned_text.translate(translator)
 
-    # Condense multiple spaces
-    while "  " in a:
-        a = a.replace("  ", " ")
-    while "  " in b:
-        b = b.replace("  ", " ")
+        # 3. Split into words, filter out the safe-to-remove words, and rejoin.
+        words = cleaned_text.split()
+        filtered_words = [word for word in words if word not in safe_to_remove_words]
 
-    # Strip trailing/leading spaces
-    a = a.strip()
-    b = b.strip()
+        # 4. Join back into a string and remove any leading/trailing whitespace.
+        return " ".join(filtered_words)
 
-    return a, b
+    return clean(artist), clean(album)
 
 
 # Track name normalization for cross-service comparisons
