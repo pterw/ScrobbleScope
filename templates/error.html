@@ -1,44 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Error | ScrobbleScope</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/error.css') }}">
-    <!--favicon-->
-    <!--SVG-->
-    <link
-    rel="icon"
-    type="image/svg+xml"
-    href="{{ url_for('static', filename='images/favicon.svg') }}"
-    />
-    <!--ICO fallback-->
-    <link
-        rel="shortcut icon"
-        type="image/x-icon"
-        href="{{ url_for('static', filename='images/favicon.ico') }}"
-    />
-    <!--PNG fallbacks (both 16x16 and 32x32-->
-    <link
-        rel="icon"
-        type="image/png"
-        sizes="32x32"
-        href="{{ url_for('static', filename='images/favicon-32x32.png') }}"
-    />
-    <link
-        rel="icon"
-        type="image/png"
-        sizes="16x16"
-        href="{{ url_for('static', filename='images/favicon-16x16.png') }}"
-    />
-</head>
-<body>
-    <div id="darkModeToggle" class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" id="darkSwitch">
-        <label class="form-check-label" for="darkSwitch">Dark Mode</label>
-    </div>
+{% extends 'base.html' %}
 
+{% block title %}Error | ScrobbleScope{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/error.css') }}">
+{% endblock %}
+
+{% block content %}
     <div class="error-container">
         <div class="error-card">
             <div class="col-md-9 text-center mx-auto mb-4" id="logo-wrapper">
@@ -46,31 +14,33 @@
                     {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
                 </div>
             </div>
-            
+
             <div class="error-icon">
                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                     <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
                 </svg>
             </div>
-            
+
             <h1 class="mb-3">{{ error|default('Error') }} <span class="error-code">{{ status_code|default('400') }}</span></h1>
-            
+
             <p class="lead mb-4">{{ message|default('Something went wrong.') }}</p>
-            
+
             {% if details %}
             <div class="error-details">
                 <h5>Additional Information:</h5>
                 <p>{{ details }}</p>
             </div>
             {% endif %}
-            
+
             <div class="actions">
                 <a href="/" class="btn btn-primary">Back to Home</a>
                 <button onclick="window.history.back()" class="btn btn-outline-secondary">Go Back</button>
             </div>
         </div>
     </div>
+{% endblock %}
+
+{% block extra_js %}
 <script src="{{ url_for('static', filename='js/error.js') }}"></script>
-</body>
-</html>
+{% endblock %}
