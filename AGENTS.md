@@ -30,7 +30,7 @@ To work with this project, you must set up a local development environment.
     pip install -r requirements.txt
     ```
 
-3.  **API Keys & Secrets**: The application requires API keys to function. **You have access to these keys as environment variables.** Create a `.env` file in the project root and add the following keys. The application will not run without this file.
+3.  **API Keys & Secrets**: The application requires API keys to function. **You have access to these keys as environment variables.** Use `.env.example` as a template and create a `.env` file in the project root. Fill in the following keys; the application will not run without this file.
     ```env
     LASTFM_API_KEY="your_lastfm_api_key_here"
     SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
@@ -44,11 +44,18 @@ This application **requires an active internet connection** to make API calls to
 
 ## Running the Application
 
-The application is run using `app.py`. To start the local development server, use the following command:
-```bash
-python app.py
-```
-The application will be available at `http://127.0.0.1:5000/`.
+You can run the application using either `run.py` or `app.py`.
+
+* Start the server and automatically open a browser:
+  ```bash
+  python run.py
+  ```
+
+* Or start the server directly:
+  ```bash
+  python app.py
+  ```
+  The application will be available at `http://127.0.0.1:5000/`.
 
 ## Testing and Code Quality
 
@@ -76,3 +83,11 @@ The CI pipeline defined in `.github/workflows/test.yml` runs these same checks. 
 * `templates/`: Contains all Jinja2 HTML templates for the application.
 * `.pre-commit-config.yaml`: Configuration for the pre-commit hooks.
 * `tests/`: Contains all unit tests.
+
+## Commit Message Style
+
+Write commit messages as a single short imperative sentence, e.g., `Add unit tests`.
+
+## Pull Request Summaries
+
+Keep PR descriptions concise. Summarize the main changes and mention any testing done.
