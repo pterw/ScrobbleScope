@@ -217,9 +217,9 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 
 **Key areas for improvement and upcoming features:**
 
-* [ ] Refine and thoroughly test the playtime sorting calculation.
+* [x] Refine and thoroughly test the playtime sorting calculation.
 * [x] Fully implement and test custom album threshold filtering functionality.
-* [ ] Enhance the `loading.html` page with dynamic "fun facts" about the user's listening year.
+* [x] Enhance the `loading.html` page with rotating messages during loading.
 * [ ] Further optimize performance for users with very large listening histories.
 * [ ] Improve responsive design, especially for mobile devices.
 * [ ] Write more comprehensive backend function docstrings and comments in `app.py`.
