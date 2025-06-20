@@ -213,13 +213,14 @@ This project is currently a work in progress. However, if you wish to run it loc
 ```
 ## Current Status & Future Plans
 
-ScrobbleScope is nearing its initial launch phase but is still under active development.
+ScrobbleScope is nearing its initial launch phase but is still under active development. Development and feature integration plans are expected to change depending on robustness of the webapp.
 
 **Key areas for improvement and upcoming features:**
 
 * [x] Refine and thoroughly test the playtime sorting calculation.
 * [x] Fully implement and test custom album threshold filtering functionality.
 * [x] Enhance the `loading.html` page with rotating messages during loading.
+* [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
 * [ ] Further optimize performance for users with very large listening histories.
 * [ ] Improve responsive design, especially for mobile devices.
 * [ ] Write more comprehensive backend function docstrings and comments in `app.py`.
