@@ -798,11 +798,7 @@ async def process_albums(
 
     token = await fetch_spotify_access_token()
     if not token:
-        logging.info(
-            f"Processing {len(filtered_albums)} albums with filters: year={year}, "
-            f"release_scope={release_scope}, decade={decade}, "
-            f"release_year={release_year}"
-        )
+        logging.error("Spotify token fetch failed. Cannot process albums.")
         return []
 
     def matches_release_criteria(release_date):
