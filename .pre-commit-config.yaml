@@ -8,7 +8,6 @@ repos:
       - id: black
         files: ^.*\.py$
         
-
   - repo: https://github.com/pycqa/isort
     rev: 6.0.1
     hooks:
@@ -20,7 +19,13 @@ repos:
     hooks:
       - id: autoflake
         files: ^.*\.py$
-        args: [--remove-unused-variables, --remove-all-unused-imports]   
+        args: [--remove-unused-variables, --remove-all-unused-imports] 
+  
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.2.0 
+    hooks:
+      - id: flake8
+        files: ^.*\.py$
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
