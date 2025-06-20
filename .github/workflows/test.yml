@@ -37,7 +37,7 @@ jobs:
           pre-commit run --all-files
 
       - name: Lint code with flake8 (non-blocking)
-        continue-on-error: true
+        continue-on-error: false
         run: |
           pip install flake8
           flake8 --config .flake8
