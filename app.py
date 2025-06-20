@@ -13,6 +13,7 @@ import logging
 
 # Standard library imports
 import os
+import string
 
 # Enable ANSI escape codes on Windows cmd
 import sys
@@ -109,7 +110,6 @@ def inject_current_year():
 
 
 # Ensure the logs directory exists
-
 os.makedirs("logs", exist_ok=True)
 
 # Setup logging configuration
@@ -190,9 +190,6 @@ def set_cached_response(url, data, params=None):
     """Cache a response with current timestamp"""
     key = get_cache_key(url, params)
     REQUEST_CACHE[key] = (time.time(), data)
-
-
-import string  # string may not be imported yet, so we keep this one.
 
 
 def normalize_name(artist, album):
@@ -573,7 +570,7 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
 # scrobble fetcher for last.fm, batch fetching
 async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
     async with aiohttp.ClientSession() as session:
-        logging.info(f"Fetching first page to determine total pages")
+        logging.info("Fetching first page to determine total pages")
         first = await fetch_recent_tracks_page_async(
             session, username, from_ts, to_ts, 1
         )
@@ -693,7 +690,8 @@ async def fetch_spotify_album_release_date(session, artist, album, token):
                     if response.status == 429:
                         retry_after = response.headers.get("Retry-After", "1")
                         logging.warning(
-                            f"⚠️ Spotify 429 rate limit hit. Retry after {retry_after} seconds on attempt {attempt+1} for '{album}' by '{artist}'"
+                            f"⚠️ Spotify 429 rate limit hit. Retry after {retry_after} seconds "
+                            f"on attempt {attempt + 1} for '{album}' by '{artist}'"
                         )
                         await asyncio.sleep(int(retry_after))
                         continue
@@ -794,12 +792,17 @@ async def process_albums(
     filtered_albums, year, sort_mode, release_scope, decade=None, release_year=None
 ):
     logging.info(
-        f"Processing {len(filtered_albums)} albums with filters: year={year}, release_scope={release_scope}, decade={decade}, release_year={release_year}"
+        f"Processing {len(filtered_albums)} albums with filters: year={year}, "
+        f"release_scope={release_scope}, decade={decade}, release_year={release_year}"
     )
 
     token = await fetch_spotify_access_token()
     if not token:
-        logging.error("Spotify token fetch failed. Cannot process albums.")
+        logging.info(
+            f"Processing {len(filtered_albums)} albums with filters: year={year}, "
+            f"release_scope={release_scope}, decade={decade}, "
+            f"release_year={release_year}"
+        )
         return []
 
     def matches_release_criteria(release_date):
