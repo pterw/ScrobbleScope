@@ -622,6 +622,9 @@ async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
                 continue
             if alb and art and name:
                 key = normalize_name(art, alb)
+                if "original_artist" not in albums[key]:
+                    albums[key]["original_artist"] = art
+                    albums[key]["original_album"] = alb
                 albums[key]["play_count"] += 1
                 normalized = normalize_track_name(name)
                 albums[key]["track_counts"][normalized] += 1
@@ -850,6 +853,10 @@ async def process_albums(
     async with aiohttp.ClientSession() as session:
         results = []
         for (artist, album), data in filtered_albums.items():
+
+            original_artist = data["original_artist"]
+            original_album = data["original_album"]
+
             album_details = await fetch_spotify_album_release_date(
                 session, artist, album, token
             )
@@ -869,8 +876,8 @@ async def process_albums(
 
                 results.append(
                     {
-                        "artist": artist,
-                        "album": album,
+                        "artist": original_artist,
+                        "album": original_album,
                         "play_count": data["play_count"],
                         "play_time": formatted_time,
                         "play_time_seconds": play_time_sec,
@@ -885,26 +892,28 @@ async def process_albums(
                 reason = get_user_friendly_reason(
                     release, release_scope, decade, release_year
                 )
-                logging.info(f"⏩ Skipped '{album}' by '{artist}': {reason}")
+                logging.info(
+                    f"⏩ Skipped '{original_album}' by '{original_artist}': {reason}"
+                )
 
                 with unmatched_lock:
-                    key = "|".join(normalize_name(artist, album))
+                    key = "|".join(normalize_name(original_artist, original_album))
                     UNMATCHED[key] = {
-                        "artist": artist,
-                        "album": album,
+                        "artist": original_artist,
+                        "album": original_album,
                         "reason": reason,
                     }
 
             elif not album_details:
                 logging.warning(
-                    f"❌ No metadata found for '{album}' by '{artist}' (possibly unmatched)"
+                    f"❌ No metadata found for '{original_album}' by '{original_artist}' (possibly unmatched)"
                 )
 
                 with unmatched_lock:
-                    key = "|".join(normalize_name(artist, album))
+                    key = "|".join(normalize_name(original_artist, original_album))
                     UNMATCHED[key] = {
-                        "artist": artist,
-                        "album": album,
+                        "artist": original_artist,
+                        "album": original_album,
                         "reason": "No match found on Spotify",
                     }
 
@@ -913,8 +922,10 @@ async def process_albums(
 
             # Calculate play time proportions
             if results:
-                max_play_time = results[0]["play_time_seconds"]
-                total_play_time = sum(album["play_time_seconds"] for album in results)
+                max_play_time = results[0]["play_time_seconds"] or 1
+                total_play_time = (
+                    sum(album["play_time_seconds"] for album in results) or 1
+                )
 
                 # Add proportion data
                 for album in results:
@@ -929,8 +940,8 @@ async def process_albums(
 
             # Calculate play count proportions
             if results:
-                max_play_count = results[0]["play_count"]
-                total_play_count = sum(album["play_count"] for album in results)
+                max_play_count = results[0]["play_count"] or 1
+                total_play_count = sum(album["play_count"] for album in results) or 1
 
                 # Add proportion data
                 for album in results:
@@ -992,8 +1003,13 @@ def results_complete():
                 details="The processing may have timed out or failed. Please try again.",
             )
 
-    # Check for empty results
-    if not completed_results[cache_key]:
+    results_data = completed_results[cache_key]
+
+    filtered_results = [
+        album for album in results_data if album.get("play_time_seconds", 0) > 0
+    ]
+
+    if not filtered_results:
         # No albums matched the filters
         with unmatched_lock:
             unmatched_count = len(UNMATCHED)
@@ -1022,7 +1038,7 @@ def results_complete():
         "results.html",
         username=username,
         year=year,
-        data=completed_results[cache_key],
+        data=filtered_results,
         release_scope=release_scope,
         decade=decade,
         release_year=release_year,
