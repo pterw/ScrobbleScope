@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib.util
 from datetime import datetime
 from pathlib import Path
-
+from config import Config
 from flask import Flask
 
 def create_app():
