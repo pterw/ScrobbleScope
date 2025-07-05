@@ -6,15 +6,13 @@ from pathlib import Path
 
 from flask import Flask
 
-from config import Config
-
-
 def create_app():
     """Create and configure the Flask application."""
     app = Flask(__name__)
     app.config.from_object(Config)
     # fallback to 'dev' when SECRET_KEY not provided
     app.config["SECRET_KEY"] = __import__("os").getenv("SECRET_KEY", "dev")
+
 
     @app.context_processor
     def inject_current_year():
