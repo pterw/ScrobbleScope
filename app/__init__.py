@@ -21,6 +21,7 @@ def create_app():
     app.register_blueprint(main_bp)
     return app
 
+_root_path = Path(__file__).resolve().parent.parent / "app.py"
 
 # Load legacy functions for tests from the root app.py
 try:
