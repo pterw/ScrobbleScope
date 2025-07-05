@@ -41,8 +41,13 @@ def normalize_track_name(name: str) -> str:
     """Simplify a track name for fuzzy matching across services."""
 
     n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
-    for char in [":", "-", "(", ")", "[", "]", "/", "\\", ".", ",", "!", "?", "'"]:
-        n = n.replace(char, " ")
+    translator = str.maketrans(
+        {
+            c: " "
+            for c in [":", "-", "(", ")", "[", "]", "/", "\\", ".", ",", "!", "?", "'"]
+        }
+    )
+    n = n.translate(translator)
     return " ".join(n.split()).strip()
 
 

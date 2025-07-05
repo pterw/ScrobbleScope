@@ -1,5 +1,5 @@
 # tests/test_app.py
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -37,24 +37,31 @@ def test_normalize_name_simple():
 @pytest.mark.asyncio
 async def test_check_user_exists_success():
     """check_user_exists returns True on 200 responses."""
-
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = AsyncMock()
         mock_response.status = 200
         mock_get.return_value.__aenter__.return_value = mock_response
 
+    async_session = Mock()
+    mock_response = AsyncMock(status=200)
+    cm = AsyncMock()
+    cm.__aenter__.return_value = mock_response
+    async_session.get.return_value = cm
+
+    with patch("app.services.lastfm_service.get_session", return_value=async_session):
         result = await check_user_exists("any_user")
-        assert result is True
+    assert result is True
 
 
 @pytest.mark.asyncio
 async def test_check_user_does_not_exist():
     """check_user_exists returns False on 404 responses."""
+    async_session = Mock()
+    mock_response = AsyncMock(status=404)
+    cm = AsyncMock()
+    cm.__aenter__.return_value = mock_response
+    async_session.get.return_value = cm
 
-    with patch("aiohttp.ClientSession.get") as mock_get:
-        mock_response = AsyncMock()
-        mock_response.status = 404
-        mock_get.return_value.__aenter__.return_value = mock_response
-
+    with patch("app.services.lastfm_service.get_session", return_value=async_session):
         result = await check_user_exists("missing_user")
-        assert result is False
+    assert result is False

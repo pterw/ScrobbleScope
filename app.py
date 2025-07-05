@@ -9,18 +9,17 @@ load_dotenv()
 
 import asyncio
 import contextvars
+import copy
 import logging
 
 # Standard library imports
 import os
-import string
 
 # Enable ANSI escape codes on Windows cmd
 import sys
 import threading
 import time
 import traceback
-import unicodedata
 from collections import defaultdict
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
@@ -30,6 +29,8 @@ from math import ceil
 import aiohttp
 from aiolimiter import AsyncLimiter
 from flask import Flask, jsonify, redirect, render_template, request, url_for
+
+from app.utils import format_seconds, normalize_name, normalize_track_name
 
 sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
@@ -190,61 +191,6 @@ def set_cached_response(url, data, params=None):
     """Cache a response with current timestamp"""
     key = get_cache_key(url, params)
     REQUEST_CACHE[key] = (time.time(), data)
-
-
-def normalize_name(artist, album):
-    """
-    Normalizes artist and album names for more accurate matching by cleaning
-    unicode, punctuation, and non-essential metadata words.
-    """
-    # This set contains ONLY words that are metadata and not part of a name.
-    # Articles like "a", "an", "the" have been intentionally removed.
-    safe_to_remove_words = {
-        "deluxe",
-        "edition",
-        "remastered",
-        "version",
-        "expanded",
-        "anniversary",
-        "special",
-        "bonus",
-        "tracks",
-        "ep",
-        "remaster",
-    }
-
-    def clean(text):
-        # 1. Normalize unicode characters and convert to lowercase.
-        # The 'unicodedata' module is available from the top of app.py
-        cleaned_text = (
-            unicodedata.normalize("NFKD", text)
-            .encode("ascii", "ignore")
-            .decode("utf-8")
-            .lower()
-        )
-
-        # 2. Replace all punctuation with a space.
-        translator = str.maketrans(string.punctuation, " " * len(string.punctuation))
-        cleaned_text = cleaned_text.translate(translator)
-
-        # 3. Split into words, filter out the safe-to-remove words, and rejoin.
-        words = cleaned_text.split()
-        filtered_words = [word for word in words if word not in safe_to_remove_words]
-
-        # 4. Join back into a string and remove any leading/trailing whitespace.
-        return " ".join(filtered_words)
-
-    return clean(artist), clean(album)
-
-
-# Track name normalization for cross-service comparisons
-def normalize_track_name(name):
-    """Return a simplified version of a track name for matching."""
-    n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
-    for char in [":", "-", "(", ")", "[", "]", "/", "\\", ".", ",", "!", "?", "'"]:
-        n = n.replace(char, " ")
-    n = " ".join(n.split())
-    return n.strip()
 
 
 @app.route("/", methods=["GET"])
@@ -769,27 +715,6 @@ async def fetch_spotify_album_release_date(session, artist, album, token):
     return {}
 
 
-def format_seconds(seconds):
-    """Format seconds into a user-friendly string for sorting by playtime."""
-    import math
-
-    seconds = int(math.ceil(seconds))
-
-    if seconds < 60:
-        return f"{seconds} secs"
-
-    minutes, sec_remainder = divmod(seconds, 60)
-    if minutes < 60:
-        return f"{minutes} mins, {sec_remainder} secs"
-
-    hours, min_remainder = divmod(minutes, 60)
-    if hours < 24:
-        return f"{hours} hrs, {min_remainder} mins"
-
-    days, hour_remainder = divmod(hours, 24)
-    return f"{days} day{'s' if days != 1 else ''}, {hour_remainder} hrs, {min_remainder} mins"
-
-
 # Function for processing data from filtered albums, with filtering + sorting
 async def process_albums(
     filtered_albums, year, sort_mode, release_scope, decade=None, release_year=None
@@ -1093,7 +1018,7 @@ def unmatched_view():
         filter_desc = "unknown filter"
 
     with unmatched_lock:
-        unmatched_data = dict(UNMATCHED)  # Create a copy to avoid race conditions
+        unmatched_data = copy.deepcopy(UNMATCHED)
 
     # Group unmatched albums by reason
     reasons = {}

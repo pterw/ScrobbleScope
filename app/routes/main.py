@@ -1,4 +1,5 @@
 """Flask blueprint containing the core routes."""
+from copy import deepcopy
 
 from flask import Blueprint, jsonify, render_template
 
@@ -27,7 +28,7 @@ def unmatched():
     """Expose unmatched album information as JSON."""
 
     with unmatched_lock:
-        data = dict(UNMATCHED)
+        data = deepcopy(UNMATCHED)
         count = len(data)
     return jsonify({"count": count, "data": data})
 
