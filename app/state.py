@@ -6,6 +6,7 @@ from typing import Optional
 
 import aiohttp
 
+
 # Progress tracking
 current_progress = {"progress": 0, "message": "Initializing...", "error": False}
 progress_lock = threading.Lock()

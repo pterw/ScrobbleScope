@@ -1,5 +1,4 @@
 """Flask blueprint containing the core routes."""
-
 from copy import deepcopy
 
 from flask import Blueprint, jsonify, render_template
