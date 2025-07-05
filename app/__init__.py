@@ -10,6 +10,7 @@ from flask import Flask
 def create_app():
     """Application factory."""
     app = Flask(__name__)
+    app.config['SECRET_KEY'] = __import__('os').getenv('SECRET_KEY', 'dev')
 
     @app.context_processor
     def inject_current_year():
