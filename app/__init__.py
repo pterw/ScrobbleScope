@@ -1,36 +1,30 @@
-from __future__ import annotations
+"""Flask application factory and public interface."""
 
-import importlib.util
 from datetime import datetime
-from pathlib import Path
 
 from flask import Flask
 
+from config import Config, ensure_api_keys
 
-def create_app():
-    """Application factory."""
+from .routes.main import main_bp
+from .services.lastfm_service import check_user_exists
+from .utils import normalize_name
+
+
+def create_app(testing: bool = False) -> Flask:
+    """Construct and configure the Flask application."""
+
+    if not testing:
+        ensure_api_keys()
     app = Flask(__name__)
-    app.config['SECRET_KEY'] = __import__('os').getenv('SECRET_KEY', 'dev')
+    app.config["SECRET_KEY"] = Config.SECRET_KEY
 
     @app.context_processor
-    def inject_current_year():
+    def inject_current_year() -> dict[str, int]:
         return {"current_year": datetime.now().year}
-
-    # Register blueprints (currently empty)
-    from .routes.main import main_bp
 
     app.register_blueprint(main_bp)
     return app
 
 
-# Load legacy functions for tests from the root app.py
-_root_path = Path(__file__).resolve().parent.parent / "app.py"
-spec = importlib.util.spec_from_file_location("legacy_app", _root_path)
-legacy_app = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(legacy_app)
-
-check_user_exists = legacy_app.check_user_exists
-normalize_name = legacy_app.normalize_name
-
-# Provide the legacy app object for backward compatibility
-app = legacy_app.app
+__all__ = ["create_app", "check_user_exists", "normalize_name"]
