@@ -23,10 +23,12 @@ def create_app():
 
 
 # Load legacy functions for tests from the root app.py
-_root_path = Path(__file__).resolve().parent.parent / "app.py"
-spec = importlib.util.spec_from_file_location("legacy_app", _root_path)
-legacy_app = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(legacy_app)
+try:
+    spec = importlib.util.spec_from_file_location("legacy_app", _root_path)
+    legacy_app = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(legacy_app)
+except (TypeError, AttributeError) as e:
+    raise ImportError(f"Could not load legacy app from {_root_path}") from e
 
 check_user_exists = legacy_app.check_user_exists
 normalize_name = legacy_app.normalize_name
