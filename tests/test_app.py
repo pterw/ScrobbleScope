@@ -4,12 +4,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 # Imports from your application
-from app import app, check_user_exists, normalize_name
+from app import check_user_exists, create_app, normalize_name
 
 
 @pytest.fixture
 def client():
     """Create a test client for the Flask application."""
+    app = create_app()
     app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
