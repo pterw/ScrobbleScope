@@ -1,8 +1,10 @@
-# in dir for opening with python
+# run.py
 import os
 import webbrowser
 
-from app import app
+from app import create_app
+
+app = create_app()
 
 if __name__ == "__main__":
     # This check prevents the reloader from running this block twice.
