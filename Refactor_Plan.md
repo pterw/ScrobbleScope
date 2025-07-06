@@ -1,10 +1,10 @@
-## Phase 1: Pre-Refactoring Optimization (Do This NOW)
+## Phase 1: Pre-Refactoring Optimization (Optional)
 
-Critical step to take before beginning the major rewrite.
+Only follow this step before beginning the major rewrite if there are no issues with 429/Thundering herd.
 
  - **(CRITICAL) Implement Concurrent API Calls in process_albums**
     - **Goal**: Drastically reduce the ~30-minute processing time for large libraries by running Spotify API calls in parallel.
-    - **Action**: In a new branch, refactor `process_albums` to use `asyncio.gather` to parallelize the Spotify API calls. Specifically, modify the `for` loop to use `asyncio.gather`. Create a list of all `fetch_spotify_album_release_date` tasks and then await them all at once to improve performance. Consider using Semaphore. BE MINDFUL OF THUNDERING HERD PROBLEM. 
+    - **Action**: In a new branch, refactor `process_albums` to use `asyncio.gather` to parallelize the Spotify API calls. Specifically, modify the `for` loop to use `asyncio.gather`. Create a list of all `fetch_spotify_album_release_date` tasks and then await them all at once to improve performance. Consider using Semaphore, however this has led to many thundering herd issues and 429. Please carefully review documentation on the Spotify API. BE MINDFUL OF THUNDERING HERD PROBLEM. 
 
 
 ## Phase 2: Core Backend Refactoring (The Big Rewrite)
@@ -273,3 +273,4 @@ These can be implemented incrementally once the core application is rebuilt and 
 
 
     * *Ideally*, selecting "All Years" would disable the user's ability to define album thresholds so they can't set "1 play 1 track" or a permissive threshold as this would hammer the API and take far too long. It should therefore, keep the default defined threshold and lock the slider for defining album thresholds grayed out. 
+    
