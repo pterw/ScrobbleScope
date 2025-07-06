@@ -4,8 +4,10 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from app import create_app
+from app.cache import get_cached_response, set_cached_response
 from app.services.lastfm_service import check_user_exists
-from app.utils import normalize_name
+from app.tasks import run_async_in_thread
+from app.utils import format_seconds, normalize_name
 
 
 @pytest.fixture
@@ -32,6 +34,22 @@ def test_normalize_name_simple():
     artist, album = normalize_name("The Beatles.", "Let It Be (Deluxe Edition)")
     assert artist == "the beatles"
     assert album == "let it be"
+
+
+def test_format_seconds():
+    """format_seconds turns seconds into human-readable strings."""
+
+    assert format_seconds(3661) == "1h 01m 01s"
+
+
+def test_cache_roundtrip():
+    """set_cached_response stores and retrieves data."""
+
+    url = "http://example.com"
+    params = {"q": 1}
+    data = {"a": "b"}
+    set_cached_response(url, data, params)
+    assert get_cached_response(url, params) == data
 
 
 @pytest.mark.asyncio
@@ -65,3 +83,12 @@ async def test_check_user_does_not_exist():
     with patch("app.services.lastfm_service.get_session", return_value=async_session):
         result = await check_user_exists("missing_user")
     assert result is False
+
+
+def test_run_async_in_thread():
+    """run_async_in_thread executes coroutines synchronously."""
+
+    async def sample():
+        return 42
+
+    assert run_async_in_thread(sample) == 42

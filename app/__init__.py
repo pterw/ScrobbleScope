@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from flask import Flask
+from flask import Flask, render_template
 
 from config import Config, ensure_api_keys
 
@@ -37,6 +37,29 @@ def create_app(testing: bool = False) -> Flask:
 
     app.register_blueprint(main_bp)
     app.register_blueprint(results_bp)
+
+    @app.errorhandler(404)
+    def page_not_found(error: Exception):
+        return (
+            render_template(
+                "error.html",
+                error="Page not found",
+                message="The page you're looking for doesn't exist.",
+            ),
+            404,
+        )
+
+    @app.errorhandler(500)
+    def internal_error(error: Exception):
+        return (
+            render_template(
+                "error.html",
+                error="Server Error",
+                message="Something went wrong on our end. Please try again later.",
+            ),
+            500,
+        )
+
     return app
 
 
