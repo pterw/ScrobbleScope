@@ -37,11 +37,6 @@ def test_normalize_name_simple():
 @pytest.mark.asyncio
 async def test_check_user_exists_success():
     """check_user_exists returns True on 200 responses."""
-    with patch("aiohttp.ClientSession.get") as mock_get:
-        mock_response = AsyncMock()
-        mock_response.status = 200
-        mock_get.return_value.__aenter__.return_value = mock_response
-
     async_session = Mock()
     mock_response = AsyncMock(status=200)
     cm = AsyncMock()
