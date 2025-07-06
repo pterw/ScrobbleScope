@@ -13,9 +13,9 @@ from ..cache import get_cached_response, set_cached_response
 from ..state import get_lastfm_limiter, get_session
 from ..utils import normalize_name, normalize_track_name
 
+
 async def check_user_exists(username: str) -> bool:
     """Return ``True`` if the Last.fm user exists."""
-
 
     url = "https://ws.audioscrobbler.com/2.0/"
 
