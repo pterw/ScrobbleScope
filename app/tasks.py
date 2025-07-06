@@ -56,7 +56,10 @@ def process_albums(
     decade: Optional[str] = None,
     release_year: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Enrich albums with Spotify metadata and calculate totals."""
+    """Enrich albums with Spotify metadata and calculate totals.
+
+    Returns the processed album list.
+    """
 
     async def inner() -> List[Dict[str, Any]]:
         token = await fetch_spotify_access_token()
