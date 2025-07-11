@@ -221,13 +221,14 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Fully implement and test custom album threshold filtering functionality.
 * [x] Enhance the `loading.html` page with rotating messages during loading.
 * [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
-* [ ] Further optimize performance for users with very large listening histories.
+* [x] Further optimize performance for users with very large listening histories.
 * [ ] Improve responsive design, especially for mobile devices.
 * [ ] Write more comprehensive backend function docstrings and comments in `app.py`.
 * [ ] Conduct thorough QA testing across different browsers and use cases.
 * [ ] Improve the landing page (`index.html`) copy to be more descriptive for new users.
 * [ ] Deploy to a cloud platform (e.g., Heroku, Vercel, or Netlify).
-* [ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.
+* ~~[ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.~~
+* [x] Used RotatingFileHandler and start-up banner to delieniate session logs, logsize = 1MB max
 * [ ] Modularize API calls into `services/` modules (`lastfm.py`, `spotify.py`, and `cache.py`).
 * [ ] Use Flask Blueprints to organize routes.
 * [ ] Consolidate helper functions into `utils.py`.
