@@ -113,10 +113,10 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s",
     handlers=[
-        # Main log file with rotation (10MB max size, keep 5 backup files)
+        # Main log file with rotation (1MB max size, keep 5 backup files)
         RotatingFileHandler(
             "logs/app_debug.log",
-            maxBytes=10 * 1024 * 1024,  # 10MB
+            maxBytes=1 * 1024 * 1024,  # 1MB Max Size
             backupCount=5,
             encoding="utf-8",
             mode="a",
@@ -124,6 +124,11 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout),
     ],
 )
+
+# Add start-up banner on application start
+logging.info("=" * 80)
+logging.info(f"ScrobbleScope Application Starting at {datetime.now().isoformat()}")
+logging.info("=" * 80)
 
 # Add an environment variable check for debug mode
 debug_mode = os.getenv("DEBUG_MODE", "0") == "1"
@@ -191,7 +196,7 @@ def set_cached_response(url, data, params=None):
 def normalize_name(artist, album):
     """
     Normalizes artist and album names for more accurate matching by cleaning
-    unicode, punctuation, and non-essential metadata words.
+    punctuation and non-essential metadata words while preserving Unicode characters.
     """
     # This set contains ONLY words that are metadata and not part of a name.
     # Articles like "a", "an", "the" have been intentionally removed.
@@ -210,25 +215,20 @@ def normalize_name(artist, album):
     }
 
     def clean(text):
-        # 1. Normalize unicode characters and convert to lowercase.
-        # The 'unicodedata' module is available from the top of app.py
-        cleaned_text = (
-            unicodedata.normalize("NFKD", text)
-            .encode("ascii", "ignore")
-            .decode("utf-8")
-            .lower()
-        )
+        # 1. normalize Unicode characters for consistency (e.g., full-width to half-width forms).
+        #    as of 2025/07/09 the ASCII encoding has been REMOVED to preserve non-Latin characters.
+        cleaned_text = unicodedata.normalize("NFKC", text).lower()
 
-        # 2. Replace all punctuation with a space.
+        # 2. replace all punctuation with a space.
         translator = str.maketrans(string.punctuation, " " * len(string.punctuation))
         cleaned_text = cleaned_text.translate(translator)
 
-        # 3. Split into words, filter out the safe-to-remove words, and rejoin.
+        # 3. split into words, filter out the safe-to-remove words, and rejoin.
         words = cleaned_text.split()
         filtered_words = [word for word in words if word not in safe_to_remove_words]
 
-        # 4. Join back into a string and remove any leading/trailing whitespace.
-        return " ".join(filtered_words)
+        # 4. re-join into a string and remove any excess whitespace.
+        return " ".join(filtered_words).strip()
 
     return clean(artist), clean(album)
 
