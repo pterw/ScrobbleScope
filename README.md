@@ -236,7 +236,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Separate configuration into `config.py` for cleaner imports.
 * [ ] Optimize network usage via batching or parallel requests.
 * [ ] Create master HTML templates to reduce duplication.
-* [ ] Add unit tests.
+* [ ] Add comprehensive unit tests.
 
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
