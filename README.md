@@ -221,7 +221,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Fully implement and test custom album threshold filtering functionality.
 * [x] Enhance the `loading.html` page with rotating messages during loading.
 * [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
-* [ ] Further optimize performance for users with very large listening histories.
+* [X] Further optimize performance for users with very large listening histories.
 * [ ] Improve responsive design, especially for mobile devices.
 * [ ] Write more comprehensive backend function docstrings and comments in `app.py`.
 * [ ] Conduct thorough QA testing across different browsers and use cases.
@@ -235,7 +235,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Separate configuration into `config.py` for cleaner imports.
 * [ ] Optimize network usage via batching or parallel requests.
 * [ ] Create master HTML templates to reduce duplication.
-* [ ] Add unit tests.
+* [ ] Add comprehensive unit tests.
 
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
