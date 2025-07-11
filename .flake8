@@ -5,7 +5,7 @@
 # E501: line too long (**removed to lint)
 # F541: f-string is missing placeholders (**removed to lint)
 # E226: missing whitespace around arithmetic operator (to resolve black/flake8 conflict)
-ignore = E402, F401, E226, E209, W503
+ignore = E402, F401, E226, E203, W503
 # files/folders to exclude from checks
 exclude = venv, .venv, .git, __pycache__, build, dist
 # max line length for E501 checks

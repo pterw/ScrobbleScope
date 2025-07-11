@@ -31,7 +31,6 @@ import aiohttp
 from aiolimiter import AsyncLimiter
 from flask import Flask, jsonify, redirect, render_template, request, url_for
 
-sys.stdout.reconfigure(encoding="utf-8")
 sys.stderr.reconfigure(encoding="utf-8")
 
 os.system("")
@@ -50,9 +49,7 @@ REQUEST_CACHE_TIMEOUT = 3600  # Cache timeout in seconds (1 hour)
 def get_lastfm_limiter():
     limiter = _lastfm_limiter.get()
     if limiter is None:
-        limiter = AsyncLimiter(
-            20, 1
-        )  # Reduced from 20 to 5 requests per second to be safer
+        limiter = AsyncLimiter(20, 1)
         _lastfm_limiter.set(limiter)
     return limiter
 
@@ -60,9 +57,8 @@ def get_lastfm_limiter():
 def get_spotify_limiter():
     limiter = _spotify_limiter.get()
     if limiter is None:
-        limiter = AsyncLimiter(
-            20, 1
-        )  # Reduced from 20 to 5 requests per second to be safer
+        # Conservative rate limit
+        limiter = AsyncLimiter(20, 1)
         _spotify_limiter.set(limiter)
     return limiter
 
@@ -322,8 +318,9 @@ def background_task(
     min_tracks=3,
 ):
     async def fetch_and_process():
+        """Fetch and process albums in the background with spoofed progress tracking."""
         try:
-            # ── STEP 0: INITIALIZING (0%)
+            # STEP 0: INITIALIZING (0%)
             with progress_lock:
                 current_progress["progress"] = 0
                 current_progress["message"] = "Initializing..."
@@ -332,7 +329,7 @@ def background_task(
             # Force the front-end to see 0% for one second:
             await asyncio.sleep(1)
 
-            # ── STEP 1: VERIFY USER EXISTS (5%)
+            # STEP 1: VERIFY USER EXISTS (5%)
             with progress_lock:
                 current_progress["progress"] = 5
                 current_progress["message"] = "Verifying your profile..."
@@ -348,7 +345,7 @@ def background_task(
                     current_progress["error"] = True
                 return []
 
-            # ── STEP 2: FETCH LAST.FM SCR0BBLES (10% → 20%)
+            # STEP 2: FETCH LAST.FM SCR0BBLES (10% → 20%)
             with progress_lock:
                 current_progress["progress"] = 10
                 current_progress["message"] = "Fetching your data from Last.fm..."
@@ -368,7 +365,7 @@ def background_task(
                     current_progress["error"] = False
                 return []
 
-            # ── STEP 3: Spoofing processing (20% → 40%)
+            # STEP 3: Spoofing processing (20% → 40%)
             # Here we just bump the progress.
             with progress_lock:
                 current_progress["progress"] = 20
@@ -382,7 +379,7 @@ def background_task(
             await asyncio.sleep(1)
             # Now we’re ready to hand off to process_albums for real Spotify logic—let that occupy 40-60%:
 
-            # ── STEP 4: PROCESS ALBUM METADATA (40% → 80%)
+            # STEP 4: PROCESS ALBUM METADATA (40% → 80%)
             with progress_lock:
                 current_progress["progress"] = 40
                 current_progress["message"] = "Processing album data from Spotify..."
@@ -396,7 +393,7 @@ def background_task(
                 current_progress["progress"] = 60
                 current_progress["message"] = "Adding album art to your results..."
 
-            # ── STEP 5: Simulate compiling (80%)
+            # STEP 5: Simulate compiling (80%)
             with progress_lock:
                 current_progress["progress"] = 80
                 current_progress["message"] = "Compiling your top album list..."
@@ -404,7 +401,7 @@ def background_task(
             # Small delay so front-end sees 80% for a moment
             await asyncio.sleep(1)
 
-            # ── STEP 6: Simulate finalizing work (e.g., sorting, formatting) (90% → 100%)
+            # STEP 6: Simulate finalizing work (e.g., sorting, formatting) (90% → 100%)
             with progress_lock:
                 current_progress["progress"] = 90
                 current_progress["message"] = "Finalizing list..."
@@ -452,11 +449,11 @@ def background_task(
             logging.exception(f"Error processing request for {username} in {year}")
             return []  # return an empty list on failure
 
-    # Actually spawn the coroutine in a background thread
+    # actually spawn the coroutine in a background thread
     return run_async_in_thread(fetch_and_process)
 
 
-# Check if a Last.fm user exists
+# check if a Last.fm user exists
 async def check_user_exists(username):
     """Verify if a Last.fm user exists before proceeding with album fetching"""
     url = "http://ws.audioscrobbler.com/2.0/"
@@ -466,7 +463,7 @@ async def check_user_exists(username):
         "api_key": LASTFM_API_KEY,
         "format": "json",
     }
-    # Check cache first
+    # check cache first
     cached_response = get_cached_response(url, params)
     if cached_response:
         return True
@@ -481,12 +478,12 @@ async def check_user_exists(username):
                 elif resp.status == 404:
                     return False
                 else:
-                    # Let the error propagate for other status codes
+                    # let the error propagate for other status codes
                     resp.raise_for_status()
                     return False
         except Exception as e:
             logging.error(f"Error checking user existence: {e}")
-            # Return True to continue processing - we'll get a more specific error later
+            # return True to continue processing - we'll get a more specific error later
             return True
 
 
@@ -506,11 +503,11 @@ async def fetch_recent_tracks_page_async(
         "page": page,
     }
 
-    # Check cache first
+    # check cache first
     cached_response = get_cached_response(url, params)
     if cached_response:
         return cached_response
-    # If not cached, proceed with the request
+    # if not cached, proceed with the request
     limiter = get_lastfm_limiter()
     for attempt in range(retries):
         try:
@@ -533,7 +530,7 @@ async def fetch_recent_tracks_page_async(
                         logging.warning(
                             f"❌ Unexpected Last.fm status {resp.status} on page {page}: {body[:200]}"
                         )
-                        break
+                        continue
                     try:
                         data = await resp.json()
                         # Cache the response for future use
@@ -544,7 +541,7 @@ async def fetch_recent_tracks_page_async(
                         logging.error(
                             f"❌ Invalid JSON from Last.fm page {page}. Body starts with: {body[:200]}"
                         )
-                        break
+                        continue
         except Exception as e:
             logging.error(f"Error fetching page {page}: {e}")
         await asyncio.sleep(2**attempt)
@@ -582,7 +579,7 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
         logging.info(f"Total pages to fetch: {total_pages}")
         all_pages = [first]
 
-        BATCH = 20
+        BATCH = 40
         logging.info(f"Will fetch remaining pages in batches of {BATCH}")
 
         for start in range(2, total_pages + 1, BATCH):
@@ -660,113 +657,120 @@ async def fetch_spotify_access_token():
     return None
 
 
-# Fetch track durations for an album
-async def fetch_spotify_track_durations(session, album_id, token):
-    url = f"https://api.spotify.com/v1/albums/{album_id}"
-    headers = {"Authorization": f"Bearer {token}"}
-    async with session.get(url, headers=headers) as response:
-        if response.status == 200:
-            album_data = await response.json()
-            tracks = {}
-            for t in album_data.get("tracks", {}).get("items", []):
-                name_norm = normalize_track_name(t.get("name", ""))
-                tracks[name_norm] = t.get("duration_ms", 0) // 1000
-            return tracks
-        return {}
-
-
-# Fetches metadata from spotify for artist, album
-async def fetch_spotify_album_release_date(session, artist, album, token):
+async def search_for_spotify_album_id(session, artist, album, token):
+    """
+    Searches Spotify for a single album and returns its Spotify ID.
+    This function is intended to be run sequentially to avoid rate limits.
+    """
     headers = {"Authorization": f"Bearer {token}"}
     params = {"q": f"artist:{artist} album:{album}", "type": "album", "limit": 1}
-    # Spotify limiter function called to use here
     limiter = get_spotify_limiter()
-    # loop for metadata from spotify, reports errors, exponential backoff, 3 retries before returning none
-    for attempt in range(3):
+
+    for attempt in range(4):
         try:
             async with limiter:
-                logging.debug(f"[Attempt {attempt+1}/3] Fetching: {album} by {artist}")
+                logging.debug(
+                    f"[Attempt {attempt+1}/3] Searching for ID: {album} by {artist}"
+                )
                 async with session.get(
                     "https://api.spotify.com/v1/search", params=params, headers=headers
                 ) as response:
-                    # gives response status from api for debugging
                     if response.status == 429:
-                        retry_after = response.headers.get("Retry-After", "1")
+                        retry_after = int(response.headers.get("Retry-After", "1"))
                         logging.warning(
-                            f"⚠️ Spotify 429 rate limit hit. Retry after {retry_after} seconds "
-                            f"on attempt {attempt + 1} for '{album}' by '{artist}'"
+                            f"⚠️ Spotify Search 429 rate limit hit. Retrying after {retry_after}s."
                         )
-                        await asyncio.sleep(int(retry_after))
+                        await asyncio.sleep(retry_after)
                         continue
 
                     if response.status != 200:
                         body = await response.text()
                         logging.warning(
-                            f"❌ Spotify unexpected status {response.status} for {album} by {artist}. Body: {body[:200]}"
+                            f"❌ Spotify search error {response.status} for {album} by {artist}. Body: {body[:200]}"
                         )
                         break
-                    # fuzzy searching handles special characters, etc.
+
                     data = await response.json()
                     items = data.get("albums", {}).get("items", [])
-                    if not items:
-                        logging.debug(
-                            f"🎯 Retrying with relaxed query: {artist} {album}"
-                        )
-                        relaxed_q = {
-                            "q": f"{artist} {album}",
-                            "type": "album",
-                            "limit": 1,
-                        }
-                        async with session.get(
-                            "https://api.spotify.com/v1/search",
-                            params=relaxed_q,
-                            headers=headers,
-                        ) as fallback:
-                            relaxed_data = await fallback.json()
+                    if items:
+                        return items[0].get("id")
+
+                    # if no direct match, try a more relaxed query
+                    logging.debug(f"🎯 Retrying with relaxed query: {artist} {album}")
+                    relaxed_params = {
+                        "q": f"{artist} {album}",
+                        "type": "album",
+                        "limit": 1,
+                    }
+                    async with session.get(
+                        "https://api.spotify.com/v1/search",
+                        params=relaxed_params,
+                        headers=headers,
+                    ) as fallback_resp:
+                        if fallback_resp.status == 200:
+                            relaxed_data = await fallback_resp.json()
                             relaxed_items = relaxed_data.get("albums", {}).get(
                                 "items", []
                             )
-                            if not relaxed_items:
-                                logging.info(
-                                    f"🔎 No match found on Spotify for {album} by {artist}"
-                                )
-                                key = "|".join(normalize_name(artist, album))
-                                with unmatched_lock:
-                                    UNMATCHED[key] = {
-                                        "artist": artist,
-                                        "album": album,
-                                        "reason": "No Spotify match",
-                                    }
+                            if relaxed_items:
+                                return relaxed_items[0].get("id")
 
-                                return {}
-                            album_info = relaxed_items[0]
-                            return {
-                                "release_date": album_info.get("release_date"),
-                                "album_image": album_info.get("images", [{}])[0].get(
-                                    "url"
-                                ),
-                            }
-                    album_info = items[0]
-                    return {
-                        "release_date": album_info.get("release_date"),
-                        "album_image": album_info.get("images", [{}])[0].get("url"),
-                        "id": album_info.get("id"),
-                    }
+                    # if still no match after fallback
+                    logging.info(f"🔎 No Spotify ID found for {album} by {artist}")
+                    return None
 
-        # more error logging
         except Exception as e:
             logging.error(
-                f"Spotify exception on attempt {attempt+1} for {album} by {artist}: {e}"
+                f"Spotify search exception on attempt {attempt+1} for {album} by {artist}: {e}"
             )
 
-        # exponential backoff
-        backoff = 2**attempt
-        logging.debug(
-            f"🔁 Backing off for {backoff} seconds before retrying {album} by {artist}"
-        )
-        await asyncio.sleep(backoff)
+        await asyncio.sleep(2**attempt)  # Exponential backoff
 
-    return {}
+    return None
+
+
+async def fetch_spotify_album_details_batch(session, album_ids, token):
+    """
+    Fetches full album details for a list of up to 50 Spotify album IDs
+    in a single API call.
+    """
+    if not album_ids:
+        return {}
+
+    url = "https://api.spotify.com/v1/albums"
+    headers = {"Authorization": f"Bearer {token}"}
+    # Spotify API takes a comma-separated string of IDs
+    params = {"ids": ",".join(album_ids)}
+
+    limiter = get_spotify_limiter()
+    async with limiter:
+        try:
+            async with session.get(url, params=params, headers=headers) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    # response is a dict with an 'albums' key, which is a list.
+                    # converts this list into a dict keyed by album ID for easy lookup.
+                    return {
+                        album["id"]: album for album in data.get("albums", []) if album
+                    }
+                elif response.status == 429:
+                    retry_after = int(response.headers.get("Retry-After", "1"))
+                    logging.warning(
+                        f"⚠️ Batch fetch 429 hit. Retrying after {retry_after}s."
+                    )
+                    await asyncio.sleep(retry_after)
+                    # need to retry the batch call itself
+                    return await fetch_spotify_album_details_batch(
+                        session, album_ids, token
+                    )
+                else:
+                    logging.error(
+                        f"Failed to fetch batch album details. Status: {response.status}, Body: {await response.text()}"
+                    )
+                    return {}
+        except Exception as e:
+            logging.error(f"Exception in fetch_spotify_album_details_batch: {e}")
+            return {}
 
 
 def format_seconds(seconds):
@@ -790,13 +794,18 @@ def format_seconds(seconds):
     return f"{days} day{'s' if days != 1 else ''}, {hour_remainder} hrs, {min_remainder} mins"
 
 
-# Function for processing data from filtered albums, with filtering + sorting
 async def process_albums(
     filtered_albums, year, sort_mode, release_scope, decade=None, release_year=None
 ):
+    """
+    Processes albums using a reliable sequential search and efficient batching strategy.
+    1. Sequentially searches for all Spotify IDs to avoid rate limits.
+    2. Fetches album details in batches of 20.
+    3. Processes the results.
+    """
     logging.info(
-        f"Processing {len(filtered_albums)} albums with filters: year={year}, "
-        f"release_scope={release_scope}, decade={decade}, release_year={release_year}"
+        f"Processing {len(filtered_albums)} albums with sequential search and batching. "
+        f"Filters: year={year}, release_scope={release_scope}, decade={decade}, release_year={release_year}"
     )
 
     token = await fetch_spotify_access_token()
@@ -829,11 +838,9 @@ async def process_albums(
     def get_user_friendly_reason(
         release_date, release_scope, decade=None, release_year=None
     ):
-        # Generate a more user-friendly reason message
         release_year_str = (
             release_date.split("-")[0] if "-" in release_date else release_date
         )
-
         try:
             rel_year = int(release_year_str)
             if release_scope == "same":
@@ -851,108 +858,124 @@ async def process_albums(
             return f"Unknown release year: {release_date}"
 
     async with aiohttp.ClientSession() as session:
-        results = []
-        for (artist, album), data in filtered_albums.items():
+        # step 1: sequentially search for all Spotify album IDs
+        logging.info("Starting sequential search for Spotify album IDs.")
+        spotify_id_to_original_data = {}
 
-            original_artist = data["original_artist"]
-            original_album = data["original_album"]
-
-            album_details = await fetch_spotify_album_release_date(
+        for key, data in filtered_albums.items():
+            artist, album = key
+            spotify_id = await search_for_spotify_album_id(
                 session, artist, album, token
             )
-            release = album_details.get("release_date", "")
-            album_id = album_details.get("id")
 
-            if album_details and matches_release_criteria(release) and album_id:
-                track_durations = await fetch_spotify_track_durations(
-                    session, album_id, token
+            if spotify_id:
+                spotify_id_to_original_data[spotify_id] = data
+            else:
+                # This album couldn't be found on Spotify, add to unmatched
+                original_artist = data["original_artist"]
+                original_album = data["original_album"]
+                unmatched_key = "|".join(
+                    normalize_name(original_artist, original_album)
                 )
-                play_time_sec = 0
-                for track, count in data["track_counts"].items():
-                    dur = track_durations.get(track)
-                    if dur:
-                        play_time_sec += dur * count
-                formatted_time = format_seconds(play_time_sec)
-
-                results.append(
-                    {
-                        "artist": original_artist,
-                        "album": original_album,
-                        "play_count": data["play_count"],
-                        "play_time": formatted_time,
-                        "play_time_seconds": play_time_sec,
-                        "different_songs": len(data["track_counts"]),
-                        "release_date": release,
-                        "album_image": album_details.get("album_image"),
-                    }
-                )
-
-            elif album_details and not matches_release_criteria(release):
-                # Create a user-friendly reason for unmatched albums
-                reason = get_user_friendly_reason(
-                    release, release_scope, decade, release_year
-                )
-                logging.info(
-                    f"⏩ Skipped '{original_album}' by '{original_artist}': {reason}"
-                )
-
                 with unmatched_lock:
-                    key = "|".join(normalize_name(original_artist, original_album))
-                    UNMATCHED[key] = {
+                    UNMATCHED[unmatched_key] = {
                         "artist": original_artist,
                         "album": original_album,
+                        "reason": "No Spotify match",
+                    }
+
+        valid_spotify_ids = list(spotify_id_to_original_data.keys())
+
+        # step 2: fetch full album details in batches of 20
+        logging.info(
+            f"Fetching details for {len(valid_spotify_ids)} valid Spotify IDs."
+        )
+        all_album_details = {}
+        BATCH_SIZE = 20
+        for i in range(0, len(valid_spotify_ids), BATCH_SIZE):
+            batch_ids = valid_spotify_ids[i : i + BATCH_SIZE]
+            logging.info(f"Fetching details for batch of {len(batch_ids)} albums.")
+            batch_details = await fetch_spotify_album_details_batch(
+                session, batch_ids, token
+            )
+            all_album_details.update(batch_details)
+
+        # step 3: process the batch results
+        results = []
+        for spotify_id, album_details in all_album_details.items():
+            if not album_details:
+                continue
+
+            original_data = spotify_id_to_original_data.get(spotify_id)
+            if not original_data:
+                continue
+
+            release_date = album_details.get("release_date", "")
+
+            if not matches_release_criteria(release_date):
+                artist = original_data["original_artist"]
+                album = original_data["original_album"]
+                reason = get_user_friendly_reason(
+                    release_date, release_scope, decade, release_year
+                )
+                logging.info(f"⏩ Skipped '{album}' by '{artist}': {reason}")
+                unmatched_key = "|".join(normalize_name(artist, album))
+                with unmatched_lock:
+                    UNMATCHED[unmatched_key] = {
+                        "artist": artist,
+                        "album": album,
                         "reason": reason,
                     }
+                continue
 
-            elif not album_details:
-                logging.warning(
-                    f"❌ No metadata found for '{original_album}' by '{original_artist}' (possibly unmatched)"
-                )
+            track_durations = {
+                normalize_track_name(t.get("name", "")): t.get("duration_ms", 0) // 1000
+                for t in album_details.get("tracks", {}).get("items", [])
+            }
 
-                with unmatched_lock:
-                    key = "|".join(normalize_name(original_artist, original_album))
-                    UNMATCHED[key] = {
-                        "artist": original_artist,
-                        "album": original_album,
-                        "reason": "No match found on Spotify",
-                    }
+            play_time_sec = sum(
+                track_durations.get(track, 0) * count
+                for track, count in original_data["track_counts"].items()
+            )
 
+            results.append(
+                {
+                    "artist": original_data["original_artist"],
+                    "album": original_data["original_album"],
+                    "play_count": original_data["play_count"],
+                    "play_time": format_seconds(play_time_sec),
+                    "play_time_seconds": play_time_sec,
+                    "different_songs": len(original_data["track_counts"]),
+                    "release_date": release_date,
+                    "album_image": (
+                        album_details.get("images", [{}])[0].get("url")
+                        if album_details.get("images")
+                        else None
+                    ),
+                }
+            )
+
+    # --- Final Sorting ---
+    if sort_mode == "playtime":
+        results.sort(key=lambda x: x["play_time_seconds"], reverse=True)
+    else:
+        results.sort(key=lambda x: x["play_count"], reverse=True)
+
+    if results:
         if sort_mode == "playtime":
-            results.sort(key=lambda x: x["play_time_seconds"], reverse=True)
-
-            # Calculate play time proportions
-            if results:
-                max_play_time = results[0]["play_time_seconds"] or 1
-                total_play_time = (
-                    sum(album["play_time_seconds"] for album in results) or 1
-                )
-
-                # Add proportion data
-                for album in results:
-                    album["proportion_of_max"] = (
-                        album["play_time_seconds"] / max_play_time * 100
-                    )
-                    album["proportion_of_total"] = (
-                        album["play_time_seconds"] / total_play_time * 100
-                    )
+            max_val = results[0]["play_time_seconds"] or 1
+            total_val = sum(r["play_time_seconds"] for r in results) or 1
+            key = "play_time_seconds"
         else:
-            results.sort(key=lambda x: x["play_count"], reverse=True)
+            max_val = results[0]["play_count"] or 1
+            total_val = sum(r["play_count"] for r in results) or 1
+            key = "play_count"
 
-            # Calculate play count proportions
-            if results:
-                max_play_count = results[0]["play_count"] or 1
-                total_play_count = sum(album["play_count"] for album in results) or 1
+        for r in results:
+            r["proportion_of_max"] = (r[key] / max_val) * 100
+            r["proportion_of_total"] = (r[key] / total_val) * 100
 
-                # Add proportion data
-                for album in results:
-                    album["proportion_of_max"] = (
-                        album["play_count"] / max_play_count * 100
-                    )
-                    album["proportion_of_total"] = (
-                        album["play_count"] / total_play_count * 100
-                    )
-
-        return results
+    return results
 
 
 # Route to handle form submission and start background processing
@@ -1006,7 +1029,9 @@ def results_complete():
     results_data = completed_results[cache_key]
 
     filtered_results = [
-        album for album in results_data if album.get("play_time_seconds", 0) > 0
+        album
+        for album in results_data
+        if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
     ]
 
     if not filtered_results:
@@ -1123,7 +1148,10 @@ def unmatched_view():
 # Results loading route to handle form submission and start background task
 @app.route("/results_loading", methods=["POST"])
 def results_loading():
-    """Handle form submission and start the background task to fetch/process data"""
+    """
+    Handles form submission, performs the main Last.fm fetch,
+    and prepares the session for lazy loading.
+    """
     username = request.form.get("username")
     year = request.form.get("year")
     sort_mode = request.form.get("sort_by", "playcount")

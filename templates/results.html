@@ -1,4 +1,3 @@
-<!-- templates/results.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,58 +7,30 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-      <!--SVG-->
-  <link
-  rel="icon"
-  type="image/svg+xml"
-  href="{{ url_for('static', filename='images/favicon.svg') }}"
-  />
-
-  <!--ICO fallback-->
-  <link
-    rel="shortcut icon"
-    type="image/x-icon"
-    href="{{ url_for('static', filename='images/favicon.ico') }}"
-  />
-
-  <!-- PNG fallbacks (both 16x16 and 32x32-->
-  <link
-    rel="icon"
-    type="image/png"
-    sizes="32x32"
-    href="{{ url_for('static', filename='images/favicon-32x32.png') }}"
-  />
-  <link
-    rel="icon"
-    type="image/png"
-    sizes="16x16"
-    href="{{ url_for('static', filename='images/favicon-16x16.png') }}"
-  />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <link rel="shortcut icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='images/favicon-16x16.png') }}">
 </head>
 <body>
-    <!-- Dark mode toggle -->
     <div id="darkModeToggle" class="form-check form-switch">
         <input class="form-check-input" type="checkbox" id="darkSwitch">
         <label class="form-check-label" for="darkSwitch">Dark Mode</label>
     </div>
 
-    <!-- Toast container for notifications -->
     <div class="toast-container" id="toastContainer"></div>
 
     <div class="container mt-5 mb-5">
         <div class="row justify-content-center">
             <div class="col-md-10">
-                <!-- Logo -->
                 <div class="col-md-8 text-center mx-auto mb-4" id="logo-wrapper">
                     <div aria-label="ScrobbleScope logo visualization" role="img">
                         {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
                     </div>
                 </div>
                 
-                <!-- Main content card -->
                 <div class="card shadow">
                     <div class="card-body">
-                        <!-- Dynamic title based on filter -->
                         <h2 class="text-center mb-3">
                             {% if release_scope == "same" %}
                                 {{ username }}'s Top Albums Played in {{ year }}
@@ -78,14 +49,12 @@
                             {% endif %}
                         </h2>
                         
-                        <!-- Action buttons at the top -->
                         <div class="text-center mb-4">
                             <a href="/" class="btn btn-primary">New Search</a>
                             <button id="export-csv" class="btn btn-outline-secondary ms-2">Export to CSV</button>
                             <button id="save-image" class="btn btn-outline-secondary ms-2">Save as Image</button>
                         </div>
                         
-                        <!-- Summary box -->
                         <div class="summary-box">
                             <div class="row">
                                 <div class="col-md-6">
@@ -121,21 +90,15 @@
                             </div>
                         </div>
 
-                        <!-- Content area -->
                         {% if no_matches %}
                             <div class="alert alert-info text-center" role="alert">
                                 <h4 class="alert-heading">No Albums Found</h4>
                                 <p>We couldn't find any {{ filter_description }} that you listened to in {{ year }}.</p>
                                 <hr>
                                 <p class="mb-0">
-                                    {% if unmatched_count > 0 %}
-                                        We found {{ unmatched_count }} albums that didn't match your filters. 
-                                        <a href="#" id="view-unmatched" data-bs-toggle="modal" data-bs-target="#unmatched-modal">
-                                            View these albums
-                                        </a>
-                                    {% else %}
-                                        Try a different year or relaxing your filter criteria.
-                                    {% endif %}
+                                    <a href="#" id="view-unmatched" data-bs-toggle="modal" data-bs-target="#unmatched-modal">
+                                        Click here to see albums that didn't match your filters.
+                                    </a>
                                 </p>
                             </div>
                         {% elif data and data|length > 0 %}
@@ -189,15 +152,11 @@
                                 </table>
                             </div>
                         {% else %}
-                            <div class="alert alert-info text-center" role="alert">
-                                <h4 class="alert-heading">No Albums Found</h4>
-                                <p>No albums matching the criteria for {{ username }} in {{ year }}.</p>
-                                <hr>
-                                <p class="mb-0">Try a different year or release date filter.</p>
+                            <div class="alert alert-warning text-center" role="alert">
+                                An unexpected issue occurred. No data is available.
                             </div>
                         {% endif %}
 
-                        <!-- Unmatched albums buttons -->
                         <div class="d-flex flex-column align-items-center mt-4 mb-3">
                             <button id="view-unmatched-quick" class="btn btn-outline-secondary mb-2 w-auto" data-bs-toggle="modal" data-bs-target="#unmatched-modal">
                                 Quick View of Unmatched Albums
@@ -226,7 +185,6 @@
         </div>
     </div>
 
-    <!-- Unmatched Albums Modal -->
     <div class="modal fade" id="unmatched-modal" tabindex="-1" aria-labelledby="unmatched-modal-label" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -234,14 +192,8 @@
                     <h5 class="modal-title" id="unmatched-modal-label">Albums That Didn't Match Your Filter</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p>These albums were found in your listening history but didn't match your filter criteria:</p>
-                    <div id="unmatched-list" class="mt-3">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
+                <div class="modal-body" id="unmatched-list">
                     </div>
-                </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
@@ -250,259 +202,14 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    
     <script>
-        // Dark mode toggle
-        const darkSwitch = document.getElementById('darkSwitch');
-        
-        // Check for saved dark mode preference
-        if (localStorage.getItem('darkMode') === 'true') {
-            document.body.classList.add('dark-mode');
-            darkSwitch.checked = true;
-        }
-        
-        // Add event listener for dark mode toggle
-        darkSwitch.addEventListener('change', function() {
-            document.body.classList.toggle('dark-mode', this.checked);
-            localStorage.setItem('darkMode', this.checked);
-            
-            // Update SVG colors
-            const svgElement = document.querySelector('#logo-wrapper svg');
-            if (svgElement) {
-                const bars = svgElement.querySelectorAll('.cls-1');
-                const textPaths = svgElement.querySelectorAll('#logo-text path, #tagline path');
-                
-                if (this.checked) {
-                    bars.forEach(bar => bar.setAttribute('stroke', '#9370DB'));
-                    textPaths.forEach(path => path.setAttribute('fill', '#f8f9fa'));
-                } else {
-                    bars.forEach(bar => bar.setAttribute('stroke', '#6a4baf'));
-                    textPaths.forEach(path => path.setAttribute('fill', '#333333'));
-                }
-            }
-        });
-
-        // Toast notification helper function
-        function showToast(message, type = 'info', duration = 3000) {
-            const toastContainer = document.getElementById('toastContainer');
-            const toastId = 'toast-' + Date.now();
-            const toastHtml = `
-                <div id="${toastId}" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="toast-header${type === 'error' ? ' bg-danger text-white' : ''}">
-                        <strong class="me-auto">ScrobbleScope</strong>
-                        <small>Just now</small>
-                        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                    </div>
-                    <div class="toast-body${type === 'error' ? ' bg-danger text-white' : ''}">
-                        ${message}
-                    </div>
-                </div>
-            `;
-            
-            toastContainer.insertAdjacentHTML('beforeend', toastHtml);
-            
-            // Remove toast after duration
-            setTimeout(() => {
-                const toast = document.getElementById(toastId);
-                if (toast) {
-                    toast.classList.remove('show');
-                    setTimeout(() => toast.remove(), 500);
-                }
-            }, duration);
-        }
-
-        // Fetch unmatched albums
-        function fetchUnmatchedAlbums() {
-            const unmatchedList = document.getElementById('unmatched-list');
-            
-            fetch('/unmatched')
-                .then(response => response.json())
-                .then(unmatchedData => {
-                    let html = '';
-                    if (!unmatchedData || Object.keys(unmatchedData.data || unmatchedData).length === 0) {
-                        html = '<p>No unmatched albums found.</p>';
-                    } else {
-                        const data = unmatchedData.data || unmatchedData;
-                        const count = unmatchedData.count || Object.keys(data).length;
-                        
-                        html = `<p>Found ${count} unmatched albums:</p>`;
-                        html += '<div class="table-responsive"><table class="table table-sm">';
-                        html += '<thead><tr><th>Artist</th><th>Album</th><th>Reason</th></tr></thead><tbody>';
-                        
-                        for (const key in data) {
-                            const item = data[key];
-                            html += `<tr>
-                                <td>${item.artist}</td>
-                                <td>${item.album}</td>
-                                <td>${item.reason}</td>
-                            </tr>`;
-                        }
-                        
-                        html += '</tbody></table></div>';
-                    }
-                    
-                    unmatchedList.innerHTML = html;
-                })
-                .catch(error => {
-                    unmatchedList.innerHTML = `<div class="alert alert-danger">Error loading unmatched albums: ${error}</div>`;
-                });
-        }
-
-        // Attach event listeners for view unmatched buttons
-        document.getElementById('view-unmatched-quick').addEventListener('click', fetchUnmatchedAlbums);
-        
-        if (document.getElementById('view-unmatched')) {
-            document.getElementById('view-unmatched').addEventListener('click', fetchUnmatchedAlbums);
-        }
-
-        // Fixed Export to CSV function
-        document.getElementById('export-csv').addEventListener('click', function() {
-            try {
-                const table = document.querySelector('.table');
-                if (!table) {
-                    showToast('No data available to export', 'error');
-                    return;
-                }
-                
-                let csvContent = [];
-                
-                // Get headers
-                const headerRow = [];
-                const headers = table.querySelectorAll('thead th');
-                headers.forEach(header => {
-                    headerRow.push('"' + header.textContent.trim().replace(/"/g, '""') + '"');
-                });
-                csvContent.push(headerRow.join(','));
-                
-                // Get data rows
-                const rows = table.querySelectorAll('tbody tr');
-                for (let i = 0; i < rows.length; i++) {
-                    const row = [];
-                    const cells = Array.from(rows[i].querySelectorAll('th, td'));
-                    
-                    // Process each cell in the row
-                    for (let j = 0; j < cells.length; j++) {
-                        let content = '';
-                        
-                        // Special handling for album cell which contains image + text
-                        if (j === 1 && cells[j].classList.contains('album-title')) {
-                            const albumInfo = cells[j].querySelector('.album-info');
-                            content = albumInfo ? albumInfo.textContent.trim() : '';
-                        } else {
-                            // Regular cells, just get the text content
-                            content = cells[j].textContent.trim();
-                        }
-                        
-                        // Clean up and escape for CSV
-                        content = content.replace(/\s+/g, ' ');
-                        if (content.includes(',') || content.includes('"') || content.includes('\n')) {
-                            content = '"' + content.replace(/"/g, '""') + '"';
-                        }
-                        
-                        row.push(content);
-                    }
-                    
-                    csvContent.push(row.join(','));
-                }
-                
-                // Create and trigger download
-                const csvString = csvContent.join('\n');
-                const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                
-                const link = document.createElement('a');
-                const username = '{{ username }}';
-                const year = '{{ year }}';
-                link.setAttribute('href', url);
-                link.setAttribute('download', `scrobblescope_${username}_${year}_albums.csv`);
-                link.style.display = 'none';
-                
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-                
-                showToast('CSV file downloaded successfully!');
-            } catch (error) {
-                console.error('Error exporting CSV:', error);
-                showToast('Error creating CSV file: ' + error.message, 'error');
-            }
-        });
-        
-        // Save as image function
-        document.getElementById('save-image').addEventListener('click', function() {
-            showToast('Creating image... Please wait.');
-            
-            // Target the table wrapper for saving
-            const targetElement = document.getElementById('results-table-wrapper');
-            if (!targetElement) {
-                showToast('No content to save as image', 'error');
-                return;
-            }
-            
-            const isDarkMode = document.body.classList.contains('dark-mode');
-            
-            // Capture the element with improved settings
-            html2canvas(targetElement, {
-                backgroundColor: isDarkMode ? '#121212' : '#ffffff',
-                allowTaint: true,
-                useCORS: true,
-                scale: 2, // Higher quality
-                onclone: function(clonedDoc) {
-                    // Fix styling issues in the clone
-                    const clonedTable = clonedDoc.querySelector('.table');
-                    if (clonedTable) {
-                        if (isDarkMode) {
-                            clonedTable.style.color = '#f8f9fa';
-                            clonedTable.style.backgroundColor = '#121212';
-                            
-                            // Fix row styling
-                            clonedTable.querySelectorAll('tr').forEach((row, index) => {
-                                if (index % 2 === 1) { // Odd rows (0-indexed)
-                                    row.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-                                } else if (index > 0) { // Even rows, but not the header
-                                    row.style.backgroundColor = 'rgba(30, 30, 30, 0.7)';
-                                }
-                                
-                                // Ensure all text is visible
-                                row.querySelectorAll('th, td').forEach(cell => {
-                                    cell.style.color = '#f8f9fa';
-                                    cell.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                                });
-                            });
-                            
-                            // Fix header styling
-                            const header = clonedTable.querySelector('thead');
-                            if (header) {
-                                header.style.backgroundColor = '#343a40';
-                                header.style.color = '#ffffff';
-                            }
-                        }
-                    }
-                }
-            }).then(function(canvas) {
-                try {
-                    // Create a link to download the image
-                    const link = document.createElement('a');
-                    const username = '{{ username }}';
-                    const year = '{{ year }}';
-                    
-                    // Use JPEG instead of PNG for smaller file size
-                    link.download = `scrobblescope_${username}_${year}.jpg`;
-                    link.href = canvas.toDataURL('image/jpeg', 0.95); // Higher quality
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    
-                    showToast('Image saved successfully!');
-                } catch (err) {
-                    console.error('Error saving image:', err);
-                    showToast('Failed to save image: ' + err.message, 'error');
-                }
-            }).catch(function(err) {
-                console.error('Error capturing image:', err);
-                showToast('Failed to create image: ' + err.message, 'error');
-            });
-        });
+        window.APP_DATA = {
+            username: "{{ username|e }}",
+            year: "{{ year|e }}"
+        };
     </script>
+    
+    <script src="{{ url_for('static', filename='js/results.js') }}" defer></script>
 </body>
 </html>

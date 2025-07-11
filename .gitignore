@@ -35,3 +35,5 @@ env/
 
 # OS crap
 Thumbs.db
+Backup_batch
+backup.py
