@@ -51,7 +51,8 @@
       // no release year in data
       {% endif %}
       min_plays: "{{ min_plays|default('10') }}",
-      min_tracks: "{{ min_tracks|default('3') }}"
+      min_tracks: "{{ min_tracks|default('3') }}",
+      limit_results: "{{ limit_results|default('all') }}"
     };
   </script>
 </head>

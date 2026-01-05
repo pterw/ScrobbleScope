@@ -7,7 +7,8 @@ const {
   decade,
   release_year,
   min_plays,
-  min_tracks
+  min_tracks,
+  limit_results
 } = window.SCROBBLE || {};
 
 // DARK MODE TOGGLE LOGIC
@@ -261,6 +262,7 @@ function redirectToResults() {
 
   form.appendChild(createHiddenInput('min_plays', min_plays));
   form.appendChild(createHiddenInput('min_tracks', min_tracks));
+  form.appendChild(createHiddenInput('limit_results', limit_results || 'all'));
 
   document.body.appendChild(form);
   form.submit();
