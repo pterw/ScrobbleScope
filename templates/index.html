@@ -1,185 +1,151 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="ScrobbleScope - Filter your Last.fm album scrobbles by release date and play count.">
-  <title>ScrobbleScope</title>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
-  <!--SVG-->
-  <link
-  rel="icon"
-  type="image/svg+xml"
-  href="{{ url_for('static', filename='images/favicon.svg') }}"
-  />
+{% extends "base.html" %}
 
-  <!--ICO fallback-->
-  <link
-    rel="shortcut icon"
-    type="image/x-icon"
-    href="{{ url_for('static', filename='images/favicon.ico') }}"
-  />
+{% block title %}ScrobbleScope{% endblock %}
 
-  <!-- PNG fallbacks (both 16x16 and 32x32-->
-  <link
-    rel="icon"
-    type="image/png"
-    sizes="32x32"
-    href="{{ url_for('static', filename='images/favicon-32x32.png') }}"
-  />
-  <link
-    rel="icon"
-    type="image/png"
-    sizes="16x16"
-    href="{{ url_for('static', filename='images/favicon-16x16.png') }}"
-  />
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}
 
-</head>
-<body>
-  <!-- Dark mode toggle -->
-  <div id="darkModeToggle" class="form-check form-switch">
-    <input class="form-check-input" type="checkbox" id="darkSwitch">
-    <label class="form-check-label" for="darkSwitch">Dark Mode</label>
-  </div>
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8 text-center mb-4" id="logo-wrapper">
+      <div aria-label="ScrobbleScope logo visualization" role="img">
+        {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
+      </div>
+    </div>
 
-  <div class="container mt-5">
-    <div class="row justify-content-center">
-      <div class="col-md-8 text-center mb-4" id="logo-wrapper">
-        <div aria-label="ScrobbleScope logo visualization" role="img">
-          {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
-        </div>
+    <div class="col-md-6">
+      <!-- Informational Blurb -->
+      <div class="alert alert-info mb-4" role="alert">
+        <h5 class="alert-heading">Welcome to ScrobbleScope!</h5>
+        <p class="mb-2">Discover your top albums from Last.fm with powerful filtering and sorting options:</p>
+        <ul class="mb-2">
+          <li><strong>Filter by Release Date:</strong> View albums from a specific year, decade, or all time</li>
+          <li><strong>Sort by Play Count or Listening Time:</strong> See what you played most or listened to longest</li>
+          <li><strong>Customize Thresholds:</strong> Focus on albums you really engaged with</li>
+          <li><strong>Limit Results:</strong> View your top 10, 25, 50, or 100 albums</li>
+          <li><strong>Export & Share:</strong> Download as CSV or save as an image</li>
+        </ul>
+        <p class="mb-0"><small><strong>Default behavior:</strong> Shows albums you listened to in the selected year that were also <em>released</em> in that same year.</small></p>
       </div>
 
-      <div class="col-md-6">
-        <!-- Informational Blurb -->
-        <div class="alert alert-info mb-4" role="alert">
-          <h5 class="alert-heading">Welcome to ScrobbleScope!</h5>
-          <p class="mb-2">Discover your top albums from Last.fm with powerful filtering and sorting options:</p>
-          <ul class="mb-2">
-            <li><strong>Filter by Release Date:</strong> View albums from a specific year, decade, or all time</li>
-            <li><strong>Sort by Play Count or Listening Time:</strong> See what you played most or listened to longest</li>
-            <li><strong>Customize Thresholds:</strong> Focus on albums you really engaged with</li>
-            <li><strong>Limit Results:</strong> View your top 10, 25, 50, or 100 albums</li>
-            <li><strong>Export & Share:</strong> Download as CSV or save as an image</li>
-          </ul>
-          <p class="mb-0"><small><strong>Default behavior:</strong> Shows albums you listened to in the selected year that were also <em>released</em> in that same year.</small></p>
-        </div>
+      <div class="card shadow">
+        <div class="card-body">
+          <h2 class="text-center mb-4">Filter Your Album Scrobbles!</h2>
 
-        <div class="card shadow">
-          <div class="card-body">
-            <h2 class="text-center mb-4">Filter Your Album Scrobbles!</h2>
+          <form method="post" action="/results_loading">
+            <div class="mb-3">
+              <label for="username" class="form-label">Last.fm Username:</label>
+              <input type="text" id="username" name="username" class="form-control" placeholder="Enter your Last.fm username" required>
+            </div>
 
-            <form method="post" action="/results_loading">
+            <div class="mb-3">
+              <label for="year" class="form-label">Listening Year:</label>
+              <select id="year" name="year" class="form-select" required>
+                {% for y in range(2005, current_year + 1) %}
+                  <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+              </select>
+              <div class="form-text">Choose the year you want to check your scrobbles.</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="release_scope" class="form-label">Album Release Date Filter:</label>
+              <select id="release_scope" name="release_scope" class="form-select">
+                <option value="same">Same as Listening Year</option>
+                <option value="previous">Previous Year</option>
+                <option value="decade">Choose Decade</option>
+                <option value="custom">Pick Specific Year</option>
+                <option value="all">All Years (No Filter)</option>
+              </select>
+              <div class="form-text">Choose how you want to filter albums by their release date. Select "All Years" to see every album you listened to.</div>
+            </div>
+
+            <div class="mb-3" id="decade_dropdown">
+              <label for="decade_select" class="form-label">Decade:</label>
+              <select id="decade_select" name="decade" class="form-select">
+                {% for decade in ['1950s','1960s','1970s','1980s','1990s','2000s','2010s','2020s'] %}
+                  <option value="{{ decade }}">{{ decade }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-3" id="release_year_group">
+              <label for="release_year" class="form-label">Custom Release Year:</label>
+              <input type="number" id="release_year" name="release_year" class="form-control" min="1950" max="{{ current_year }}" placeholder="e.g., 1982">
+            </div>
+
+            <div class="mb-3">
+              <label for="sort_by" class="form-label">Sort By:</label>
+              <select id="sort_by" name="sort_by" class="form-select">
+                <option value="playcount">Play Count</option>
+                <option value="playtime">Play Time</option>
+              </select>
+              <div class="form-text">Pick if you want to sort your top albums by play count, or total listening time.</div>
+            </div>
+
+            <!-- Limit Results -->
+            <div class="mb-3">
+              <label for="limit_results" class="form-label">Number of Albums to Display:</label>
+              <select id="limit_results" name="limit_results" class="form-select">
+                <option value="all" selected>Show All Results</option>
+                <option value="10">Top 10</option>
+                <option value="25">Top 25</option>
+                <option value="50">Top 50</option>
+                <option value="100">Top 100</option>
+              </select>
+              <div class="form-text">Limit the number of albums displayed in your results.</div>
+            </div>
+
+            <!-- Define Album Thresholds toggle -->
+            <div class="mb-3 form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="thresholdSwitch">
+              <label class="form-check-label" for="thresholdSwitch">
+                Customize Album Thresholds
+                <small class="text-muted">(Filter out albums with too few plays)</small>
+              </label>
+            </div>
+
+            <div id="thresholdSettings">
               <div class="mb-3">
-                <label for="username" class="form-label">Last.fm Username:</label>
-                <input type="text" id="username" name="username" class="form-control" placeholder="Enter your Last.fm username" required>
+                <label for="min_plays" class="form-label">Minimum Track Plays Per Album</label>
+                <select id="min_plays" name="min_plays" class="form-select">
+                  <option value="1">1 play</option>
+                  <option value="3">3 plays</option>
+                  <option value="5">5 plays</option>
+                  <option value="7">7 plays</option>
+                  <option value="10" selected>10 plays (default)</option>
+                  <option value="15">15 plays</option>
+                  <option value="20">20 plays</option>
+                </select>
+                <div class="form-text">Total plays across all tracks from the album. Lower values show more albums.</div>
               </div>
-
               <div class="mb-3">
-                <label for="year" class="form-label">Listening Year:</label>
-                <select id="year" name="year" class="form-select" required>
-                  {% for y in range(2005, current_year + 1) %}
-                    <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
-                  {% endfor %}
+                <label for="min_tracks" class="form-label">Minimum Unique Tracks Per Album</label>
+                <select id="min_tracks" name="min_tracks" class="form-select">
+                  <option value="1">1 track</option>
+                  <option value="2">2 tracks</option>
+                  <option value="3" selected>3 tracks (default)</option>
+                  <option value="4">4 tracks</option>
+                  <option value="5">5 tracks</option>
                 </select>
-                <div class="form-text">Choose the year you want to check your scrobbles.</div>
+                <div class="form-text">Different tracks you must have played from the album. Filters out single-song listens.</div>
               </div>
+            </div>
 
-              <div class="mb-3">
-                <label for="release_scope" class="form-label">Album Release Date Filter:</label>
-                <select id="release_scope" name="release_scope" class="form-select">
-                  <option value="same">Same as Listening Year</option>
-                  <option value="previous">Previous Year</option>
-                  <option value="decade">Choose Decade</option>
-                  <option value="custom">Pick Specific Year</option>
-                  <option value="all">All Years (No Filter)</option>
-                </select>
-                <div class="form-text">Choose how you want to filter albums by their release date. Select "All Years" to see every album you listened to.</div>
-              </div>
+            <div class="text-center mt-4">
+              <button type="submit" class="btn btn-primary">Search Albums</button>
+            </div>
+          </form>
 
-              <div class="mb-3" id="decade_dropdown">
-                <label for="decade_select" class="form-label">Decade:</label>
-                <select id="decade_select" name="decade" class="form-select">
-                  {% for decade in ['1950s','1960s','1970s','1980s','1990s','2000s','2010s','2020s'] %}
-                    <option value="{{ decade }}">{{ decade }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-
-              <div class="mb-3" id="release_year_group">
-                <label for="release_year" class="form-label">Custom Release Year:</label>
-                <input type="number" id="release_year" name="release_year" class="form-control" min="1950" max="{{ current_year }}" placeholder="e.g., 1982">
-              </div>
-
-              <div class="mb-3">
-                <label for="sort_by" class="form-label">Sort By:</label>
-                <select id="sort_by" name="sort_by" class="form-select">
-                  <option value="playcount">Play Count</option>
-                  <option value="playtime">Play Time</option>
-                </select>
-                <div class="form-text">Pick if you want to sort your top albums by play count, or total listening time.</div>
-              </div>
-
-              <!-- Limit Results -->
-              <div class="mb-3">
-                <label for="limit_results" class="form-label">Number of Albums to Display:</label>
-                <select id="limit_results" name="limit_results" class="form-select">
-                  <option value="all" selected>Show All Results</option>
-                  <option value="10">Top 10</option>
-                  <option value="25">Top 25</option>
-                  <option value="50">Top 50</option>
-                  <option value="100">Top 100</option>
-                </select>
-                <div class="form-text">Limit the number of albums displayed in your results.</div>
-              </div>
-
-              <!-- Define Album Thresholds toggle -->
-              <div class="mb-3 form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="thresholdSwitch">
-                <label class="form-check-label" for="thresholdSwitch">
-                  Customize Album Thresholds
-                  <small class="text-muted">(Filter out albums with too few plays)</small>
-                </label>
-              </div>
-
-              <div id="thresholdSettings">
-                <div class="mb-3">
-                  <label for="min_plays" class="form-label">Minimum Track Plays Per Album</label>
-                  <select id="min_plays" name="min_plays" class="form-select">
-                    <option value="1">1 play</option>
-                    <option value="3">3 plays</option>
-                    <option value="5">5 plays</option>
-                    <option value="7">7 plays</option>
-                    <option value="10" selected>10 plays (default)</option>
-                    <option value="15">15 plays</option>
-                    <option value="20">20 plays</option>
-                  </select>
-                  <div class="form-text">Total plays across all tracks from the album. Lower values show more albums.</div>
-                </div>
-                <div class="mb-3">
-                  <label for="min_tracks" class="form-label">Minimum Unique Tracks Per Album</label>
-                  <select id="min_tracks" name="min_tracks" class="form-select">
-                    <option value="1">1 track</option>
-                    <option value="2">2 tracks</option>
-                    <option value="3" selected>3 tracks (default)</option>
-                    <option value="4">4 tracks</option>
-                    <option value="5">5 tracks</option>
-                  </select>
-                  <div class="form-text">Different tracks you must have played from the album. Filters out single-song listens.</div>
-                </div>
-              </div>
-
-              <div class="text-center mt-4">
-                <button type="submit" class="btn btn-primary">Search Albums</button>
-              </div>
-            </form>
-
-          </div>
         </div>
       </div>
     </div>
   </div>
-  <script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
-</body>
-</html>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
+{% endblock %}
