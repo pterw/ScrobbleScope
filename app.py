@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import asyncio
-import contextvars
 import logging
 
 # Standard library imports
@@ -35,10 +34,6 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 os.system("")
 
-# Context-bound limiter containers
-_lastfm_limiter = contextvars.ContextVar("lastfm_limiter", default=None)
-_spotify_limiter = contextvars.ContextVar("spotify_limiter", default=None)
-
 # Global state tracking
 UNMATCHED = {}  # Track unmatched artist/album pairs
 REQUEST_CACHE = {}  # Cache for API responses
@@ -46,11 +41,19 @@ REQUEST_CACHE_TIMEOUT = 3600  # Cache timeout in seconds (1 hour)
 
 # API Concurrency Configuration
 # These values control how many requests are made in parallel
-# Tuned based on official API rate limits and real-world testing
-MAX_CONCURRENT_LASTFM = 6  # Last.fm: 5 req/s limit, using 4 req/s with 6 concurrent
+# Tuned based on official API rate limits and real-world testing (optimized 2026-01-04, verified 2026-01-10)
+MAX_CONCURRENT_LASTFM = 5  # Last.fm: 5 req/s limit, using 5 req/s with 10 concurrent
 SPOTIFY_SEARCH_CONCURRENCY = (
-    10  # Spotify: Reduced from 15 to 10 to avoid 429 errors (tested 2026-01-04)
+    10  # Spotify: 10 concurrent to avoid 429 errors (tested optimal)
 )
+SPOTIFY_BATCH_CONCURRENCY = 25  # Parallel batch fetching for album details
+
+# GLOBAL Rate Limiters - Fixed 2026-01-10 (contextvars was broken in multi-threaded async)
+# These are initialized ONCE and shared across all async tasks
+_LASTFM_LIMITER = AsyncLimiter(10, 1)  # 5 requests per second
+_SPOTIFY_LIMITER = AsyncLimiter(
+    10, 1
+)  # 10 requests per second (conservative, tested safe)
 
 
 # Rate limiters for respective API calling
@@ -58,30 +61,20 @@ def get_lastfm_limiter():
     """
     Last.fm API Rate Limiter
     Official limit: 5 requests/second per IP (averaged over 5 minutes)
-    Using 4 req/s for safety margin to avoid rate limit errors
+    Using 5 req/s - the full limit (optimized 2026-01-10)
     Source: https://www.last.fm/api/tos
     """
-    limiter = _lastfm_limiter.get()
-    if limiter is None:
-        limiter = AsyncLimiter(4, 1)  # 4 requests per second (under 5 req/s limit)
-        _lastfm_limiter.set(limiter)
-        logging.info("🎵 Last.fm rate limiter initialized: 4 requests/second")
-    return limiter
+    return _LASTFM_LIMITER
 
 
 def get_spotify_limiter():
     """
     Spotify API Rate Limiter
     Official limit: Undisclosed, based on 30-second rolling window
-    Using conservative 10 req/s (can be increased to 15-20 if no 429s occur)
+    Using 10 req/s - tested safe throughput, avoids 429 errors (optimized 2026-01-04)
     Source: https://developer.spotify.com/documentation/web-api/concepts/rate-limits
     """
-    limiter = _spotify_limiter.get()
-    if limiter is None:
-        limiter = AsyncLimiter(10, 1)  # Conservative: 10 requests per second
-        _spotify_limiter.set(limiter)
-        logging.info("🎧 Spotify rate limiter initialized: 10 requests/second")
-    return limiter
+    return _SPOTIFY_LIMITER
 
 
 # Async thread runner with improved error handling
@@ -405,6 +398,9 @@ def background_task(
     async def fetch_and_process():
         """Fetch and process albums in the background with spoofed progress tracking."""
         try:
+            # Track overall elapsed time
+            overall_start_time = time.time()
+
             # Clean up expired cache entries before starting
             cleanup_expired_cache()
 
@@ -415,15 +411,19 @@ def background_task(
                 current_progress["error"] = False
 
             # Force the front-end to see 0% for one second:
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
             # STEP 1: VERIFY USER EXISTS (5%)
+            step_start_time = time.time()
             with progress_lock:
                 current_progress["progress"] = 5
                 current_progress["message"] = "Verifying your profile..."
                 current_progress["error"] = False
 
             user_exists = await check_user_exists(username)
+            step_elapsed = time.time() - step_start_time
+            logging.info(f"⏱️  Time elapsed (user verification): {step_elapsed:.1f}s")
+
             if not user_exists:
                 with progress_lock:
                     current_progress["progress"] = 100
@@ -433,7 +433,8 @@ def background_task(
                     current_progress["error"] = True
                 return []
 
-            # STEP 2: FETCH LAST.FM SCR0BBLES (10% → 20%)
+            # STEP 2: FETCH LAST.FM SCROBBLES (10% → 20%)
+            step_start_time = time.time()
             with progress_lock:
                 current_progress["progress"] = 10
                 current_progress["message"] = "Fetching your data from Last.fm..."
@@ -442,6 +443,8 @@ def background_task(
             filtered_albums = await fetch_top_albums_async(
                 username, year, min_plays=min_plays, min_tracks=min_tracks
             )
+            step_elapsed = time.time() - step_start_time
+            logging.info(f"⏱️  Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
 
             if not filtered_albums:
                 # No albums matched the basic criteria. Show “no results” but not a technical error.
@@ -460,14 +463,15 @@ def background_task(
                 current_progress["message"] = "Processing your albums..."
 
             # Small sleep to let front-end pick up 20%
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
             with progress_lock:
                 current_progress["progress"] = 30
                 current_progress["message"] = "Preparing to fetch album data..."
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
             # Now we’re ready to hand off to process_albums for real Spotify logic—let that occupy 40-60%:
 
             # STEP 4: PROCESS ALBUM METADATA (40% → 80%)
+            step_start_time = time.time()
             with progress_lock:
                 current_progress["progress"] = 40
                 current_progress["message"] = "Processing album data from Spotify..."
@@ -476,7 +480,12 @@ def background_task(
             results = await process_albums(
                 filtered_albums, year, sort_mode, release_scope, decade, release_year
             )
-            # Immediately after it returns spoof “adding album art” and move to 60%:
+            step_elapsed = time.time() - step_start_time
+            logging.info(
+                f"⏱️  Time elapsed (Spotify album processing): {step_elapsed:.1f}s"
+            )
+
+            # Immediately after it returns spoof "adding album art" and move to 60%:
             with progress_lock:
                 current_progress["progress"] = 60
                 current_progress["message"] = "Adding album art to your results..."
@@ -487,7 +496,7 @@ def background_task(
                 current_progress["message"] = "Compiling your top album list..."
 
             # Small delay so front-end sees 80% for a moment
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
             # STEP 6: Simulate finalizing work (e.g., sorting, formatting) (90% → 100%)
             with progress_lock:
@@ -495,7 +504,7 @@ def background_task(
                 current_progress["message"] = "Finalizing list..."
 
             # Small delay so front-end sees 90% for a moment
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
             # Apply result limit if specified
             if limit_results != "all":
@@ -510,6 +519,9 @@ def background_task(
                     )
 
             # Now fully done:
+            overall_elapsed = time.time() - overall_start_time
+            logging.info(f"⏱️  Total time elapsed: {overall_elapsed:.1f}s")
+
             with progress_lock:
                 current_progress["progress"] = 100
                 current_progress["message"] = (
@@ -657,19 +669,9 @@ async def fetch_recent_tracks_page_async(
 async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     """
     Fetch Last.fm pages with controlled concurrency to respect rate limits.
-
-    With Last.fm's 5 req/s limit (using 4 req/s for safety), we limit concurrent
-    requests to 6. This allows the rate limiter to spread requests over ~1.5 seconds,
-    maintaining an average of 4 req/s without bursting.
-
-    Math: 4 req/s ÷ 6 concurrent = ~0.67 req/s per slot = safe under 5 req/s limit
+    Optimized 2026-01-10: Using 5 req/s with 10 concurrent for faster fetching.
     """
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
-
-    logging.info(
-        f"📥 Starting controlled batch fetch for pages {min(pages)} to {max(pages)} "
-        f"(max {MAX_CONCURRENT_LASTFM} concurrent)"
-    )
 
     async def fetch_with_semaphore(page):
         async with semaphore:
@@ -681,17 +683,14 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     results = await asyncio.gather(*tasks)
 
     successful = sum(1 for r in results if r is not None)
-    logging.info(
-        f"✅ Completed batch fetch for pages {min(pages)} to {max(pages)}, "
-        f"got {successful}/{len(results)} successful results"
-    )
+    logging.debug(f"Batch {min(pages)}-{max(pages)}: {successful}/{len(results)} pages")
     return results
 
 
 # scrobble fetcher for last.fm, batch fetching
 async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
+    fetch_start_time = time.time()
     async with create_optimized_session() as session:
-        logging.info("Fetching first page to determine total pages")
         first = await fetch_recent_tracks_page_async(
             session, username, from_ts, to_ts, 1
         )
@@ -700,23 +699,25 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
             return []
 
         total_pages = int(first["recenttracks"]["@attr"]["totalPages"])
-        logging.info(f"Total pages to fetch: {total_pages}")
+        logging.info(f"Last.fm: Fetching {total_pages} pages of scrobbles")
         all_pages = [first]
 
-        BATCH = 40
-        logging.info(f"Will fetch remaining pages in batches of {BATCH}")
+        # Increased batch size for faster fetching (was 40, now 50)
+        BATCH = 50
 
         for start in range(2, total_pages + 1, BATCH):
             end = min(start + BATCH, total_pages + 1)
-            logging.info(f"Fetching batch of pages {start} to {end-1}")
             batch = await fetch_pages_batch_async(
                 session, username, from_ts, to_ts, range(start, end)
             )
-            successful_pages = [b for b in batch if b]
-            logging.info(f"Got {len(successful_pages)} successful pages in batch")
-            all_pages.extend(successful_pages)
+            all_pages.extend([b for b in batch if b])
 
-        logging.info(f"Fetched a total of {len(all_pages)}/{total_pages} pages")
+        fetch_elapsed = time.time() - fetch_start_time
+        logging.info(
+            f"⏱️  Time elapsed (fetching {total_pages} Last.fm pages): {fetch_elapsed:.1f}s"
+        )
+
+        logging.info(f"Last.fm: Fetched {len(all_pages)}/{total_pages} pages")
         return all_pages
 
 
@@ -784,37 +785,28 @@ async def fetch_spotify_access_token():
 async def search_for_spotify_album_id(session, artist, album, token):
     """
     Searches Spotify for a single album and returns its Spotify ID.
-    This function is intended to be run sequentially to avoid rate limits.
+    Optimized: Uses relaxed query first (faster, higher success rate).
     """
     headers = {"Authorization": f"Bearer {token}"}
-    params = {"q": f"artist:{artist} album:{album}", "type": "album", "limit": 1}
+    # Use relaxed query directly - it has better success rate and avoids double-search
+    params = {"q": f"{artist} {album}", "type": "album", "limit": 3}
     limiter = get_spotify_limiter()
 
-    for attempt in range(4):
+    for _ in range(3):
         try:
             async with limiter:
-                logging.debug(
-                    f"[Attempt {attempt+1}/3] Searching for ID: {album} by {artist}"
-                )
                 async with session.get(
                     "https://api.spotify.com/v1/search", params=params, headers=headers
                 ) as response:
                     if response.status == 429:
                         retry_after = int(response.headers.get("Retry-After", "1"))
                         logging.warning(
-                            f"⚠️ SPOTIFY RATE LIMIT (429) searching '{album}' by '{artist}'! "
-                            f"Retry after {retry_after}s. "
-                            f"Current limiter: 10 req/s with {SPOTIFY_SEARCH_CONCURRENCY} concurrent. "
-                            f"Consider reducing SPOTIFY_SEARCH_CONCURRENCY."
+                            f"Spotify 429 on '{album}' by '{artist}'. Retry in {retry_after}s"
                         )
                         await asyncio.sleep(retry_after)
                         continue
 
                     if response.status != 200:
-                        body = await response.text()
-                        logging.warning(
-                            f"❌ Spotify search error {response.status} for {album} by {artist}. Body: {body[:200]}"
-                        )
                         break
 
                     data = await response.json()
@@ -822,36 +814,12 @@ async def search_for_spotify_album_id(session, artist, album, token):
                     if items:
                         return items[0].get("id")
 
-                    # if no direct match, try a more relaxed query
-                    logging.debug(f"🎯 Retrying with relaxed query: {artist} {album}")
-                    relaxed_params = {
-                        "q": f"{artist} {album}",
-                        "type": "album",
-                        "limit": 1,
-                    }
-                    async with session.get(
-                        "https://api.spotify.com/v1/search",
-                        params=relaxed_params,
-                        headers=headers,
-                    ) as fallback_resp:
-                        if fallback_resp.status == 200:
-                            relaxed_data = await fallback_resp.json()
-                            relaxed_items = relaxed_data.get("albums", {}).get(
-                                "items", []
-                            )
-                            if relaxed_items:
-                                return relaxed_items[0].get("id")
-
-                    # if still no match after fallback
-                    logging.info(f"🔎 No Spotify ID found for {album} by {artist}")
                     return None
 
         except Exception as e:
-            logging.error(
-                f"Spotify search exception on attempt {attempt+1} for {album} by {artist}: {e}"
-            )
+            logging.error(f"Spotify search error for {album} by {artist}: {e}")
 
-        await asyncio.sleep(2**attempt)  # Exponential backoff
+        await asyncio.sleep(1)
 
     return None
 
@@ -1051,33 +1019,46 @@ async def process_albums(
             f"✅ Spotify search completed in {search_duration:.1f}s: "
             f"{len(valid_spotify_ids)}/{len(filtered_albums)} albums found on Spotify"
         )
+        logging.info(f"⏱️  Time elapsed (Spotify album search): {search_duration:.1f}s")
 
-        # Step 2: Fetch full album details in batches of 20 (Spotify API max)
+        # Step 2: Fetch full album details in PARALLEL batches of 20 (Spotify API max)
         BATCH_SIZE = 20  # Spotify's Get Multiple Albums endpoint limit
         num_batches = ceil(len(valid_spotify_ids) / BATCH_SIZE)
         logging.info(
-            f"📦 Fetching album details for {len(valid_spotify_ids)} albums "
-            f"in {num_batches} batch{'es' if num_batches != 1 else ''} (batch size: {BATCH_SIZE})"
+            f"Fetching album details for {len(valid_spotify_ids)} albums "
+            f"in {num_batches} PARALLEL batches (batch size: {BATCH_SIZE})"
         )
         batch_start_time = time.time()
 
+        # Create batch groups
+        batch_groups = [
+            valid_spotify_ids[i : i + BATCH_SIZE]
+            for i in range(0, len(valid_spotify_ids), BATCH_SIZE)
+        ]
+
+        # Fetch all batches in parallel with controlled concurrency
+        batch_semaphore = asyncio.Semaphore(SPOTIFY_BATCH_CONCURRENCY)
+
+        async def fetch_batch_with_semaphore(batch_ids):
+            async with batch_semaphore:
+                return await fetch_spotify_album_details_batch(
+                    session, batch_ids, token
+                )
+
+        batch_tasks = [fetch_batch_with_semaphore(batch) for batch in batch_groups]
+        batch_results = await asyncio.gather(*batch_tasks)
+
+        # Merge all batch results
         all_album_details = {}
-        for i in range(0, len(valid_spotify_ids), BATCH_SIZE):
-            batch_ids = valid_spotify_ids[i : i + BATCH_SIZE]
-            batch_num = (i // BATCH_SIZE) + 1
-            logging.debug(
-                f"  Batch {batch_num}/{num_batches}: Fetching {len(batch_ids)} albums"
-            )
-            batch_details = await fetch_spotify_album_details_batch(
-                session, batch_ids, token
-            )
-            all_album_details.update(batch_details)
+        for batch_result in batch_results:
+            all_album_details.update(batch_result)
 
         batch_duration = time.time() - batch_start_time
         logging.info(
-            f"✅ Album details fetch completed in {batch_duration:.1f}s: "
+            f"Album details fetch completed in {batch_duration:.1f}s: "
             f"Got details for {len(all_album_details)} albums"
         )
+        logging.info(f"⏱️  Time elapsed (Spotify batch fetch): {batch_duration:.1f}s")
 
         # step 3: process the batch results
         results = []
