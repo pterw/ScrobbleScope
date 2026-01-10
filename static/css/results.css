@@ -160,6 +160,27 @@
             flex-direction: column;
             justify-content: center;
         }
+
+        .album-link {
+            color: var(--bars-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .album-link:hover {
+            color: var(--bars-color);
+            text-decoration: underline;
+            opacity: 0.8;
+        }
+
+        .dark-mode .album-link {
+            color: var(--bars-color);
+        }
+
+        .dark-mode .album-link:hover {
+            color: #b19cd9;
+        }
         
         .release-badge {
             font-size: 0.75rem;

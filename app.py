@@ -1131,6 +1131,7 @@ async def process_albums(
                         if album_details.get("images")
                         else None
                     ),
+                    "spotify_id": spotify_id,
                 }
             )
 
@@ -1412,7 +1413,7 @@ if __name__ == "__main__":
     ensure_api_keys()
 
     url = "http://127.0.0.1:5000/"
-    print(f"🌐 Your app is live at: {url}")
+    print(f"Your app is live at: {url}")
     webbrowser.open(url)
 
     app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)

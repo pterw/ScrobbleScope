@@ -132,7 +132,13 @@
                                                         </div>
                                                     {% endif %}
                                                     <div class="album-info">
-                                                        {{ album.album }}
+                                                        {% if album.spotify_id %}
+                                                            <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="album-link">
+                                                                {{ album.album }}
+                                                            </a>
+                                                        {% else %}
+                                                            {{ album.album }}
+                                                        {% endif %}
                                                     </div>
                                                 </td>
                                                 <td>{{ album.artist }}</td>
