@@ -170,8 +170,78 @@
     filter: invert(1) grayscale(100%) brightness(200%);
   }
 
+  /* Decade pill selector */
+  .decade-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .decade-radio {
+    display: none;
+  }
+
+  .decade-pill {
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+    user-select: none;
+  }
+
+  .decade-pill:hover {
+    border-color: var(--bars-color);
+    color: var(--bars-color);
+  }
+
+  .decade-radio:checked + .decade-pill {
+    background-color: var(--bars-color);
+    color: #fff;
+    border-color: var(--bars-color);
+  }
+
+  .dark-mode .decade-pill {
+    border-color: #555;
+    color: var(--text-color);
+  }
+
+  .dark-mode .decade-pill:hover {
+    border-color: var(--bars-color);
+  }
+
   /* Info button (matches logo fade-in) */
   #infoButton {
     opacity: 0;
     animation: fadeIn 2s ease forwards;
+  }
+
+  /* Mobile scaling — inputs stay ≥16px to prevent iOS auto-zoom */
+  @media (max-width: 575.98px) {
+    .container.mt-5 {
+      margin-top: 1.5rem !important;
+    }
+
+    .card-body h2 {
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-body .form-label {
+      font-size: 0.88rem;
+    }
+
+    .card-body .form-check-label {
+      font-size: 0.88rem;
+    }
+
+    #logo-wrapper svg {
+      max-height: 100px;
+    }
+
+    .decade-pill {
+      font-size: 0.78rem;
+      padding: 0.28rem 0.6rem;
+    }
   }

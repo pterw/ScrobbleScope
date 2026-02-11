@@ -54,12 +54,13 @@
             </div>
 
             <div class="mb-3" id="decade_dropdown">
-              <label for="decade_select" class="form-label">Decade:</label>
-              <select id="decade_select" name="decade" class="form-select">
-                {% for decade in ['1950s','1960s','1970s','1980s','1990s','2000s','2010s','2020s'] %}
-                  <option value="{{ decade }}">{{ decade }}</option>
+              <label class="form-label">Decade:</label>
+              <div class="decade-pills">
+                {% for decade in ['2020s','2010s','2000s','1990s','1980s','1970s','1960s','1950s'] %}
+                  <input type="radio" id="decade_{{ decade }}" name="decade" value="{{ decade }}" class="decade-radio"{% if loop.first %} checked{% endif %}>
+                  <label for="decade_{{ decade }}" class="decade-pill">{{ decade }}</label>
                 {% endfor %}
-              </select>
+              </div>
             </div>
 
             <div class="mb-3" id="release_year_group">
