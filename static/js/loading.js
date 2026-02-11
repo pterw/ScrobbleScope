@@ -129,6 +129,14 @@ function updateLiveStats(stats) {
     hasAny = true;
   }
   if (hasAny) { liveStatsContainer.classList.remove('d-none'); }
+
+  // Show partial data warning if present
+  const partialWarning = document.getElementById('partial-warning');
+  const partialWarningText = document.getElementById('partial-warning-text');
+  if (stats.partial_data_warning && partialWarning && partialWarningText) {
+    partialWarningText.textContent = stats.partial_data_warning;
+    partialWarning.classList.remove('d-none');
+  }
 }
 
 async function fetchProgress() {
@@ -149,15 +157,14 @@ async function fetchProgress() {
     // Update personalized live stats
     updateLiveStats(progressData.stats || {});
 
-    // If the back end signaled an error, show it and redirect after 3s
+    // If the back end signaled an error, show it with appropriate actions
     if (progressData.error) {
       errorDetected = true;
+      stopRotatingMessages();
+
       if (progressBar) {
         progressBar.classList.remove('bg-primary');
         progressBar.classList.add('bg-danger');
-      }
-      if (stepDetails) {
-        stepDetails.textContent = "An error occurred. Redirecting shortly…";
       }
       if (errorContainer) {
         errorContainer.classList.remove('d-none');
@@ -165,9 +172,37 @@ async function fetchProgress() {
       if (errorText) {
         errorText.textContent = progressData.message;
       }
-      setTimeout(() => {
-        redirectToResults();
-      }, 3000);
+
+      // Show error source if available
+      const errorSource = document.getElementById('error-source');
+      if (errorSource && progressData.error_source) {
+        const sourceLabel = progressData.error_source === 'lastfm' ? 'Last.fm' : 'Spotify';
+        errorSource.textContent = `Source: ${sourceLabel}`;
+        errorSource.classList.remove('d-none');
+      }
+
+      // Show retry button for retryable errors, auto-redirect for non-retryable
+      const retryButton = document.getElementById('retry-button');
+      if (progressData.retryable && retryButton) {
+        retryButton.classList.remove('d-none');
+        retryButton.addEventListener('click', () => {
+          retryButton.disabled = true;
+          retryButton.textContent = 'Retrying\u2026';
+          retryCurrentSearch();
+        }, { once: true });
+
+        if (stepDetails) {
+          stepDetails.textContent = "You can retry or return home.";
+        }
+      } else {
+        // Non-retryable error (e.g., user not found): auto-redirect
+        if (stepDetails) {
+          stepDetails.textContent = "Redirecting shortly\u2026";
+        }
+        setTimeout(() => {
+          redirectToResults();
+        }, 3000);
+      }
       return;
     }
 
@@ -286,6 +321,32 @@ function redirectToResults() {
   form.action = '/results_complete';
 
   form.appendChild(createHiddenInput('job_id', job_id));
+  form.appendChild(createHiddenInput('username', username));
+  form.appendChild(createHiddenInput('year', year));
+  form.appendChild(createHiddenInput('sort_by', sort_by));
+  form.appendChild(createHiddenInput('release_scope', release_scope));
+
+  if (decade) {
+    form.appendChild(createHiddenInput('decade', decade));
+  }
+  if (release_year) {
+    form.appendChild(createHiddenInput('release_year', release_year));
+  }
+
+  form.appendChild(createHiddenInput('min_plays', min_plays));
+  form.appendChild(createHiddenInput('min_tracks', min_tracks));
+  form.appendChild(createHiddenInput('limit_results', limit_results || 'all'));
+
+  document.body.appendChild(form);
+  form.submit();
+}
+
+// Resubmit the original search to /results_loading (creates a fresh job)
+function retryCurrentSearch() {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/results_loading';
+
   form.appendChild(createHiddenInput('username', username));
   form.appendChild(createHiddenInput('year', year));
   form.appendChild(createHiddenInput('sort_by', sort_by));

@@ -97,6 +97,51 @@ body {
     margin-top: 15px;
 }
 
+/* Error actions (retry / home buttons) */
+.error-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+/* Error source label */
+.error-source {
+    font-size: 0.85em;
+    color: #999;
+    margin-top: 4px;
+    margin-bottom: 0;
+}
+
+.dark-mode .error-source {
+    color: #777;
+}
+
+/* Partial data warning */
+.partial-warning {
+    background-color: rgba(255, 193, 7, 0.12);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-top: 14px;
+    text-align: center;
+}
+
+.dark-mode .partial-warning {
+    background-color: rgba(255, 193, 7, 0.08);
+    border-color: rgba(255, 193, 7, 0.2);
+}
+
+.partial-warning p {
+    margin: 0;
+    font-size: 0.9em;
+    color: #856404;
+}
+
+.dark-mode .partial-warning p {
+    color: #ffc107;
+}
+
 /* Dark-mode toggle switch */
 #darkModeToggle {
     position: fixed;

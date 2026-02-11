@@ -58,6 +58,36 @@ _LASTFM_LIMITERS = WeakKeyDictionary()
 _SPOTIFY_LIMITERS = WeakKeyDictionary()
 _LIMITER_LOCK = threading.Lock()
 
+# Error classification codes for upstream failures.
+# Each code maps to a source, retryability flag, and user-facing message.
+ERROR_CODES = {
+    "lastfm_unavailable": {
+        "source": "lastfm",
+        "retryable": True,
+        "message": "Last.fm is currently unavailable. Please try again in a few minutes.",
+    },
+    "spotify_unavailable": {
+        "source": "spotify",
+        "retryable": True,
+        "message": "Spotify is currently unavailable. Please try again in a few minutes.",
+    },
+    "spotify_rate_limited": {
+        "source": "spotify",
+        "retryable": True,
+        "message": "Spotify rate limit reached. Please try again in a few minutes.",
+    },
+    "lastfm_rate_limited": {
+        "source": "lastfm",
+        "retryable": True,
+        "message": "Last.fm rate limit reached. Please try again in a few minutes.",
+    },
+    "user_not_found": {
+        "source": "lastfm",
+        "retryable": False,
+        "message": "User '{username}' was not found on Last.fm.",
+    },
+}
+
 
 def _get_loop_limiter(cache, rate, period):
     loop = asyncio.get_running_loop()
@@ -212,7 +242,15 @@ def create_job(params):
 
 
 def set_job_progress(
-    job_id, progress=None, message=None, error=None, reset_stats=False
+    job_id,
+    progress=None,
+    message=None,
+    error=None,
+    reset_stats=False,
+    error_code=None,
+    error_source=None,
+    retryable=None,
+    retry_after=None,
 ):
     with jobs_lock:
         job = JOBS.get(job_id)
@@ -226,8 +264,35 @@ def set_job_progress(
             job["progress"]["message"] = message
         if error is not None:
             job["progress"]["error"] = error
+        if error_code is not None:
+            job["progress"]["error_code"] = error_code
+        if error_source is not None:
+            job["progress"]["error_source"] = error_source
+        if retryable is not None:
+            job["progress"]["retryable"] = retryable
+        if retry_after is not None:
+            job["progress"]["retry_after"] = retry_after
         job["updated_at"] = time.time()
     return True
+
+
+def set_job_error(job_id, error_code, username=None, retry_after=None):
+    """Set a classified error on a job using a predefined error code."""
+    info = ERROR_CODES.get(error_code, {})
+    message = info.get("message", "An unexpected error occurred.")
+    if username and "{username}" in message:
+        message = message.format(username=username)
+    set_job_progress(
+        job_id,
+        progress=100,
+        message=message,
+        error=True,
+        error_code=error_code,
+        error_source=info.get("source"),
+        retryable=info.get("retryable", False),
+        retry_after=retry_after,
+    )
+    set_job_results(job_id, [])
 
 
 def set_job_stat(job_id, key, value):
@@ -636,12 +701,22 @@ def background_task(
                 error=False,
             )
 
-            filtered_albums = await fetch_top_albums_async(
+            filtered_albums, fetch_metadata = await fetch_top_albums_async(
                 job_id, username, year, min_plays=min_plays, min_tracks=min_tracks
             )
             step_elapsed = time.time() - step_start_time
             logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
 
+            # Upstream failure: Last.fm was unreachable
+            if fetch_metadata.get("status") == "error":
+                set_job_error(
+                    job_id,
+                    fetch_metadata.get("reason", "lastfm_unavailable"),
+                    username=username,
+                )
+                return []
+
+            # Legitimate empty result: user has scrobbles but none pass filters
             if not filtered_albums:
                 set_job_results(job_id, [])
                 set_job_progress(
@@ -659,6 +734,12 @@ def background_task(
                 job_id, progress=30, message="Preparing to fetch album data..."
             )
             await asyncio.sleep(0.5)
+
+            # Pre-check Spotify availability before processing
+            token_check = await fetch_spotify_access_token()
+            if not token_check:
+                set_job_error(job_id, "spotify_unavailable")
+                return []
 
             step_start_time = time.time()
             set_job_progress(
@@ -680,6 +761,20 @@ def background_task(
             logging.info(
                 f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s"
             )
+
+            # Detect Spotify total failure: had albums but got 0 results
+            # because every single one was "No Spotify match"
+            if not results and filtered_albums:
+                job_ctx = get_job_context(job_id)
+                unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
+                spotify_no_match = sum(
+                    1
+                    for v in unmatched.values()
+                    if v.get("reason") == "No Spotify match"
+                )
+                if spotify_no_match == len(filtered_albums):
+                    set_job_error(job_id, "spotify_unavailable")
+                    return []
 
             set_job_progress(
                 job_id, progress=60, message="Adding album art to your results..."
@@ -720,19 +815,30 @@ def background_task(
 
         except Exception as exc:
             error_message = str(exc)
+            error_code = None
+
             if "Too Many Requests" in error_message:
-                error_message = (
-                    "API rate limit reached. Please try again in a few minutes."
-                )
+                if "spotify" in error_message.lower():
+                    error_code = "spotify_rate_limited"
+                else:
+                    error_code = "lastfm_rate_limited"
             elif (
                 "not found" in error_message.lower() and "user" in error_message.lower()
             ):
-                error_message = f"User '{username}' not found on Last.fm"
+                error_code = "user_not_found"
 
-            set_job_results(job_id, [])
-            set_job_progress(
-                job_id, progress=100, message=f"Error: {error_message}", error=True
-            )
+            if error_code:
+                set_job_error(job_id, error_code, username=username)
+            else:
+                set_job_results(job_id, [])
+                set_job_progress(
+                    job_id,
+                    progress=100,
+                    message=f"Error: {error_message}",
+                    error=True,
+                    error_code="unknown",
+                    retryable=True,
+                )
 
             logging.exception(f"Error processing request for {username} in {year}")
             return []
@@ -882,6 +988,7 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
 
 # scrobble fetcher for last.fm, batch fetching
 async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
+    """Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple."""
     fetch_start_time = time.time()
     async with create_optimized_session() as session:
         first = await fetch_recent_tracks_page_async(
@@ -889,7 +996,7 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
         )
         if not first or "recenttracks" not in first:
             logging.error("Failed to fetch initial page from Last.fm")
-            return []
+            return [], {"status": "error", "reason": "lastfm_unavailable"}
 
         total_pages = int(first["recenttracks"]["@attr"]["totalPages"])
         logging.info(f"Last.fm: Fetching {total_pages} pages of scrobbles")
@@ -910,22 +1017,48 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
             f"⏱️  Time elapsed (fetching {total_pages} Last.fm pages): {fetch_elapsed:.1f}s"
         )
 
-        logging.info(f"Last.fm: Fetched {len(all_pages)}/{total_pages} pages")
-        return all_pages
+        pages_expected = total_pages
+        pages_received = len(all_pages)
+        metadata = {
+            "status": "ok",
+            "pages_expected": pages_expected,
+            "pages_received": pages_received,
+        }
+        if pages_received < pages_expected:
+            metadata["status"] = "partial"
+            metadata["pages_dropped"] = pages_expected - pages_received
+
+        logging.info(f"Last.fm: Fetched {pages_received}/{pages_expected} pages")
+        return all_pages, metadata
 
 
 # albums with customizable play and track thresholds
 async def fetch_top_albums_async(job_id, username, year, min_plays=10, min_tracks=3):
+    """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple."""
     logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
     from_ts = int(datetime(year, 1, 1).timestamp())
     to_ts = int(datetime(year, 12, 31, 23, 59, 59).timestamp())
-    pages = await fetch_all_recent_tracks_async(username, from_ts, to_ts)
+    pages, fetch_metadata = await fetch_all_recent_tracks_async(
+        username, from_ts, to_ts
+    )
     logging.debug(f"Pages fetched: {len(pages)}")
     total_tracks = sum(len(p.get("recenttracks", {}).get("track", [])) for p in pages)
     logging.debug(f"Total tracks: {total_tracks}")
 
     set_job_stat(job_id, "total_scrobbles", total_tracks)
     set_job_stat(job_id, "pages_fetched", len(pages))
+
+    if fetch_metadata.get("status") == "partial":
+        dropped = fetch_metadata["pages_dropped"]
+        expected = fetch_metadata["pages_expected"]
+        pct = round((dropped / expected) * 100)
+        set_job_stat(job_id, "pages_dropped", dropped)
+        set_job_stat(
+            job_id,
+            "partial_data_warning",
+            f"Note: {dropped} of {expected} Last.fm pages failed to load "
+            f"({pct}% data loss). Results may be incomplete.",
+        )
 
     albums = defaultdict(lambda: {"play_count": 0, "track_counts": defaultdict(int)})
     for page in pages:
@@ -959,7 +1092,7 @@ async def fetch_top_albums_async(job_id, username, year, min_plays=10, min_track
     set_job_stat(job_id, "unique_albums", len(albums))
     set_job_stat(job_id, "albums_passing_filter", len(filtered))
 
-    return filtered
+    return filtered, fetch_metadata
 
 
 # gets spotify api token
@@ -1377,11 +1510,18 @@ def results_complete():
 
     progress_payload = job_context["progress"]
     if progress_payload.get("error"):
+        error_code = progress_payload.get("error_code")
+        retryable = progress_payload.get("retryable", False)
+        details = "Please try again or use different parameters."
+        if retryable:
+            details = "This appears to be a temporary issue. Please try again."
+        if error_code == "user_not_found":
+            details = "Please check the username and try again."
         return render_template(
             "error.html",
             error="Processing Error",
             message=progress_payload.get("message", "An unknown error occurred"),
-            details="Please try again or use different parameters.",
+            details=details,
         )
 
     params = job_context.get("params", {})

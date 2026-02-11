@@ -47,6 +47,10 @@
             <p id="stat-spotify" class="live-stat d-none"></p>
         </div>
 
+        <div id="partial-warning" class="partial-warning d-none">
+            <p id="partial-warning-text"></p>
+        </div>
+
         <div class="request-info">
             <h4>Your Search Parameters</h4>
             <table class="info-table">
@@ -94,6 +98,11 @@
         <div id="error-container" class="d-none">
             <div class="error-message">
                 <p id="error-text">An error occurred while processing your request.</p>
+                <p id="error-source" class="error-source d-none"></p>
+            </div>
+            <div id="error-actions" class="error-actions">
+                <button id="retry-button" class="btn btn-primary mt-3 d-none">Retry Now</button>
+                <a href="/" id="home-button" class="btn btn-outline-secondary mt-3">Back to Home</a>
             </div>
         </div>
     </div>
