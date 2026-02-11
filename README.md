@@ -94,7 +94,7 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * Last.fm API: `user.getrecenttracks` is used to gather scrobbles, paginated until the specified year's cutoff.
     * Spotify API: Used to search each album and fetch `release_date` for filtering, as well as artwork and track runtimes.
 * **Core Python Libraries:**
-    * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm & Spotify: 20 requests/sec) with built-in retries.
+    * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm: 10 req/s, Spotify: 10 req/s) with built-in retries.
     * `python-dotenv`: For managing API keys and configuration from a `.env` file (which also controls an optional `DEBUG_MODE`).
     * `Jinja2`: For server-side HTML templating.
     * `Flask`: Micro web framework.
@@ -111,6 +111,9 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
     * **Static Assets:** CSS and JavaScript moved to /static for easier maintenance.
     * **Rotating loading messages:** Keeps users informed while data is being fetched.
+    * **Personalized Loading Stats:** Live stats (scrobble count, albums found, Spotify matches) shown during processing.
+    * **Onboarding:** First-visit welcome modal with "Info" button for returning users; contextual tooltip icons on form fields.
+    * **Clickable Album Links:** Album names in results link directly to their Spotify page.
 
 ## Getting Started (Work in Progress)
 
@@ -225,7 +228,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Improve responsive design, especially for mobile devices.
 * [ ] Write more comprehensive backend function docstrings and comments in `app.py`.
 * [ ] Conduct thorough QA testing across different browsers and use cases.
-* [ ] Improve the landing page (`index.html`) copy to be more descriptive for new users.
+* [x] Improve the landing page (`index.html`) copy to be more descriptive for new users.
 * [ ] Deploy to a cloud platform (e.g., Heroku, Vercel, or Netlify).
 * ~~[ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.~~
 * [x] Used RotatingFileHandler and start-up banner to delieniate session logs, logsize = 1MB max
@@ -234,8 +237,8 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Consolidate helper functions into `utils.py`.
 * [ ] Move background processing to `tasks.py` or a dedicated task queue.
 * [ ] Separate configuration into `config.py` for cleaner imports.
-* [ ] Optimize network usage via batching or parallel requests.
-* [ ] Create master HTML templates to reduce duplication.
+* [x] Optimize network usage via batching or parallel requests.
+* [x] Create master HTML templates to reduce duplication.
 * [ ] Add comprehensive unit tests.
 
 ## Contributing

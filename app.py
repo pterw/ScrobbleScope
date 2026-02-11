@@ -42,7 +42,7 @@ REQUEST_CACHE_TIMEOUT = 3600  # Cache timeout in seconds (1 hour)
 # API Concurrency Configuration
 # These values control how many requests are made in parallel
 # Tuned based on official API rate limits and real-world testing (optimized 2026-01-04, verified 2026-01-10)
-MAX_CONCURRENT_LASTFM = 5  # Last.fm: 5 req/s limit, using 5 req/s with 10 concurrent
+MAX_CONCURRENT_LASTFM = 10  # Last.fm: 10 concurrent ensures rate limiter (10 req/s) is always the bottleneck
 SPOTIFY_SEARCH_CONCURRENCY = (
     10  # Spotify: 10 concurrent to avoid 429 errors (tested optimal)
 )
@@ -160,7 +160,12 @@ else:
 logging.info(f"ScrobbleScope starting up, debug mode: {debug_mode}")
 
 # Progress tracking
-current_progress = {"progress": 0, "message": "Initializing...", "error": False}
+current_progress = {
+    "progress": 0,
+    "message": "Initializing...",
+    "error": False,
+    "stats": {},  # Personalized stats populated during processing
+}
 progress_lock = threading.Lock()
 unmatched_lock = threading.Lock()
 # Shared cache
@@ -409,6 +414,7 @@ def background_task(
                 current_progress["progress"] = 0
                 current_progress["message"] = "Initializing..."
                 current_progress["error"] = False
+                current_progress["stats"] = {}
 
             # Force the front-end to see 0% for one second:
             await asyncio.sleep(0.5)
@@ -632,7 +638,7 @@ async def fetch_recent_tracks_page_async(
                         logging.warning(
                             f"⚠️ LAST.FM RATE LIMIT (429) on page {page}! "
                             f"Retry after {retry_after}s. "
-                            f"Current limiter: 4 req/s, consider reducing concurrency."
+                            f"Current limiter: 10 req/s, consider reducing concurrency."
                         )
                         await asyncio.sleep(int(retry_after))
                         continue
@@ -669,7 +675,9 @@ async def fetch_recent_tracks_page_async(
 async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     """
     Fetch Last.fm pages with controlled concurrency to respect rate limits.
-    Optimized 2026-01-10: Using 5 req/s with 10 concurrent for faster fetching.
+    Semaphore (MAX_CONCURRENT_LASTFM) caps in-flight requests; rate limiter
+    (_LASTFM_LIMITER) caps throughput. Called once with all pages rather than
+    in sequential batches to avoid idle gaps.
     """
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
 
@@ -702,15 +710,15 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
         logging.info(f"Last.fm: Fetching {total_pages} pages of scrobbles")
         all_pages = [first]
 
-        # Increased batch size for faster fetching (was 40, now 50)
-        BATCH = 50
-
-        for start in range(2, total_pages + 1, BATCH):
-            end = min(start + BATCH, total_pages + 1)
-            batch = await fetch_pages_batch_async(
-                session, username, from_ts, to_ts, range(start, end)
+        # Launch all remaining page fetches at once — the semaphore
+        # (MAX_CONCURRENT_LASTFM) and rate limiter (_LASTFM_LIMITER) control
+        # throughput. Previous sequential batching of 50 created idle gaps
+        # at batch boundaries when stragglers needed retries.
+        if total_pages > 1:
+            results = await fetch_pages_batch_async(
+                session, username, from_ts, to_ts, range(2, total_pages + 1)
             )
-            all_pages.extend([b for b in batch if b])
+            all_pages.extend([r for r in results if r])
 
         fetch_elapsed = time.time() - fetch_start_time
         logging.info(
@@ -730,6 +738,12 @@ async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
     logging.debug(f"Pages fetched: {len(pages)}")
     total_tracks = sum(len(p.get("recenttracks", {}).get("track", [])) for p in pages)
     logging.debug(f"Total tracks: {total_tracks}")
+
+    # Pipe scrobble stats to the progress endpoint for the loading page
+    with progress_lock:
+        current_progress["stats"]["total_scrobbles"] = total_tracks
+        current_progress["stats"]["pages_fetched"] = len(pages)
+
     albums = defaultdict(lambda: {"play_count": 0, "track_counts": defaultdict(int)})
     for page in pages:
         for t in page.get("recenttracks", {}).get("track", []):
@@ -757,6 +771,12 @@ async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
         if v["play_count"] >= min_plays and len(v["track_counts"]) >= min_tracks
     }
     logging.debug(f"Albums after filter: {len(filtered)}")
+
+    # Pipe album stats to the progress endpoint for the loading page
+    with progress_lock:
+        current_progress["stats"]["unique_albums"] = len(albums)
+        current_progress["stats"]["albums_passing_filter"] = len(filtered)
+
     return filtered
 
 
@@ -1020,6 +1040,13 @@ async def process_albums(
             f"{len(valid_spotify_ids)}/{len(filtered_albums)} albums found on Spotify"
         )
         logging.info(f"⏱️  Time elapsed (Spotify album search): {search_duration:.1f}s")
+
+        # Pipe Spotify match stats to the progress endpoint
+        with progress_lock:
+            current_progress["stats"]["spotify_matched"] = len(valid_spotify_ids)
+            current_progress["stats"]["spotify_unmatched"] = len(filtered_albums) - len(
+                valid_spotify_ids
+            )
 
         # Step 2: Fetch full album details in PARALLEL batches of 20 (Spotify API max)
         BATCH_SIZE = 20  # Spotify's Get Multiple Albums endpoint limit

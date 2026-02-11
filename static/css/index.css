@@ -124,8 +124,54 @@
   }
   
   /* Hide by default */
-  #decade_dropdown, 
+  #decade_dropdown,
   #release_year_group,
   #thresholdSettings {
     display: none;
+  }
+
+  /* Tooltip icon (? circle next to labels) */
+  .tooltip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.1rem;
+    height: 1.1rem;
+    border-radius: 50%;
+    background-color: #999;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    vertical-align: middle;
+    margin-left: 0.3rem;
+    transition: background-color 0.2s ease;
+  }
+
+  .tooltip-icon:hover,
+  .tooltip-icon:focus {
+    background-color: var(--bars-color);
+    outline: none;
+  }
+
+  /* Dark-mode modal styling */
+  .dark-mode .modal-content {
+    background-color: #1e1e1e;
+    color: var(--text-color);
+    border-color: #444;
+  }
+
+  .dark-mode .modal-header,
+  .dark-mode .modal-footer {
+    border-color: #444;
+  }
+
+  .dark-mode .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+  }
+
+  /* Info button (matches logo fade-in) */
+  #infoButton {
+    opacity: 0;
+    animation: fadeIn 2s ease forwards;
   }

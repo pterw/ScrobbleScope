@@ -192,3 +192,35 @@ h4 {
     margin-bottom: 15px;
     font-weight: 500;
 }
+
+/* Live stats (personalized loading messages) */
+.live-stats {
+    background-color: rgba(106, 75, 175, 0.08);
+    border-radius: 8px;
+    padding: 12px 20px;
+    margin-top: 18px;
+    text-align: center;
+}
+
+.dark-mode .live-stats {
+    background-color: rgba(147, 112, 219, 0.12);
+}
+
+.live-stat {
+    margin: 4px 0;
+    font-size: 0.95em;
+    color: var(--bars-color);
+    opacity: 0;
+    animation: fadeInStat 0.5s ease forwards;
+}
+
+@keyframes fadeInStat {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -50,11 +50,15 @@ if (darkSwitch) {
 
 // PROGRESS BAR & POLLING LOGIC
 // Grab all the relevant DOM elements
-const progressBar     = document.getElementById('progress-bar');
-const stepText        = document.getElementById('step-text');
-const stepDetails     = document.getElementById('step-details');
-const errorContainer  = document.getElementById('error-container');
-const errorText       = document.getElementById('error-text');
+const progressBar      = document.getElementById('progress-bar');
+const stepText         = document.getElementById('step-text');
+const stepDetails      = document.getElementById('step-details');
+const errorContainer   = document.getElementById('error-container');
+const errorText        = document.getElementById('error-text');
+const liveStatsContainer = document.getElementById('live-stats');
+const statScrobbles    = document.getElementById('stat-scrobbles');
+const statAlbums       = document.getElementById('stat-albums');
+const statSpotify      = document.getElementById('stat-spotify');
 
 let errorDetected = false;
 
@@ -103,6 +107,29 @@ function createHiddenInput(name, value) {
   return input;
 }
 
+function updateLiveStats(stats) {
+  if (!stats || !liveStatsContainer) return;
+  let hasAny = false;
+
+  if (stats.total_scrobbles && statScrobbles) {
+    const scrobbleCount = stats.total_scrobbles.toLocaleString();
+    statScrobbles.textContent = `Scanned ${scrobbleCount} scrobbles in ${year}`;
+    statScrobbles.classList.remove('d-none');
+    hasAny = true;
+  }
+  if (stats.albums_passing_filter && statAlbums) {
+    statAlbums.textContent = `${stats.albums_passing_filter} albums passed your thresholds (out of ${stats.unique_albums.toLocaleString()} unique albums)`;
+    statAlbums.classList.remove('d-none');
+    hasAny = true;
+  }
+  if (stats.spotify_matched && statSpotify) {
+    statSpotify.textContent = `Matched ${stats.spotify_matched} albums on Spotify`;
+    statSpotify.classList.remove('d-none');
+    hasAny = true;
+  }
+  if (hasAny) { liveStatsContainer.classList.remove('d-none'); }
+}
+
 async function fetchProgress() {
   try {
     const response     = await fetch('/progress');
@@ -113,10 +140,13 @@ async function fetchProgress() {
     if (progressBar) {
       progressBar.style.width = p + '%';
     }
-    // Update the main “message” line (often same as stepDetails)
+    // Update the main "message" line (often same as stepDetails)
     if (stepText) {
       stepText.textContent = progressData.message;
     }
+
+    // Update personalized live stats
+    updateLiveStats(progressData.stats || {});
 
     // If the back end signaled an error, show it and redirect after 3s
     if (progressData.error) {
