@@ -244,8 +244,8 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Username pre-validation endpoint (`/validate_user`).
 * [x] XSS-safe template data injection (`|tojson` bridge, `escapeHtml()`).
 * [x] Loop-scoped rate limiters (fix `AsyncLimiter` reuse-across-loops warning).
-* [ ] Implement proper upstream failure classification and retry UX.
-* [ ] Personalized minimum listening year from Last.fm registration date.
+* [x] Implement proper upstream failure classification and retry UX.
+* [x] Personalized minimum listening year from Last.fm registration date.
 * [ ] Remove nested thread pattern in background task execution.
 * [ ] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
 * [ ] Modularize API calls into `services/` modules (`lastfm.py`, `spotify.py`, and `cache.py`).
