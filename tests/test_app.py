@@ -51,22 +51,22 @@ async def test_check_user_exists_success():
     """
     GIVEN a username that exists
     WHEN check_user_exists is called
-    THEN it should return True by mocking a successful API response.
+    THEN it should return exists=True with a registered_year.
     """
-    # Patch 'aiohttp.ClientSession.get'. Its return value must be an
-    # object that supports the `async with` protocol.
     with patch("aiohttp.ClientSession.get") as mock_get:
-        # Create a mock for the response object itself.
         mock_response = AsyncMock()
         mock_response.status = 200
-        mock_response.json.return_value = {"user": {"name": "testuser"}}
-
-        # This is the key: Configure the return value of the mock's __aenter__
-        # method. This correctly simulates the object `async with` will use.
+        mock_response.json.return_value = {
+            "user": {
+                "name": "testuser",
+                "registered": {"unixtime": "1451606400", "#text": "2016-01-01 00:00"},
+            }
+        }
         mock_get.return_value.__aenter__.return_value = mock_response
 
         result = await check_user_exists("any_user")
-        assert result is True
+        assert result["exists"] is True
+        assert result["registered_year"] == 2016
 
 
 @pytest.mark.asyncio
@@ -74,7 +74,7 @@ async def test_check_user_does_not_exist():
     """
     GIVEN a username that does NOT exist
     WHEN check_user_exists is called
-    THEN it should return False by mocking a 404 API response.
+    THEN it should return exists=False.
     """
     with patch("aiohttp.ClientSession.get") as mock_get:
         mock_response = AsyncMock()
@@ -82,16 +82,19 @@ async def test_check_user_does_not_exist():
         mock_get.return_value.__aenter__.return_value = mock_response
 
         result = await check_user_exists("nonexistent_user")
-        assert result is False
+        assert result["exists"] is False
+        assert result["registered_year"] is None
 
 
 def test_validate_user_success(client):
-    """Validate endpoint should return valid=true when lookup succeeds."""
-    with patch("app.run_async_in_thread", return_value=True):
+    """Validate endpoint should return valid=true with registered_year."""
+    mock_result = {"exists": True, "registered_year": 2016}
+    with patch("app.run_async_in_thread", return_value=mock_result):
         response = client.get("/validate_user", query_string={"username": "flounder14"})
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["valid"] is True
+    assert payload["registered_year"] == 2016
 
 
 def test_validate_user_missing_username(client):

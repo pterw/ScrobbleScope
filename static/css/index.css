@@ -202,6 +202,12 @@
     border-color: var(--bars-color);
   }
 
+  .decade-pill-disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
   .dark-mode .decade-pill {
     border-color: #555;
     color: var(--text-color);

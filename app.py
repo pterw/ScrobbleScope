@@ -21,7 +21,7 @@ import time
 import traceback
 import unicodedata
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from math import ceil
 from uuid import uuid4
@@ -552,7 +552,7 @@ def validate_user():
         return await check_user_exists(username)
 
     try:
-        exists = run_async_in_thread(_check)
+        result = run_async_in_thread(_check)
     except Exception:
         logging.exception("Username validation failed")
         return (
@@ -565,8 +565,11 @@ def validate_user():
             503,
         )
 
-    if exists:
-        return jsonify({"valid": True, "message": "Username found."})
+    if result["exists"]:
+        payload = {"valid": True, "message": "Username found."}
+        if result.get("registered_year"):
+            payload["registered_year"] = result["registered_year"]
+        return jsonify(payload)
     return jsonify({"valid": False, "message": "Username not found on Last.fm."})
 
 
@@ -847,8 +850,20 @@ def background_task(
 
 
 # check if a Last.fm user exists
+def _extract_registered_year(data):
+    """Extract the registration year from a Last.fm user.getinfo response."""
+    try:
+        ts = int(data["user"]["registered"]["unixtime"])
+        return datetime.fromtimestamp(ts, tz=timezone.utc).year
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 async def check_user_exists(username):
-    """Verify if a Last.fm user exists before proceeding with album fetching"""
+    """Verify if a Last.fm user exists and return registration year.
+
+    Returns a dict with ``exists`` (bool) and ``registered_year`` (int or None).
+    """
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "method": "user.getinfo",
@@ -859,7 +874,10 @@ async def check_user_exists(username):
     # check cache first
     cached_response = get_cached_response(url, params)
     if cached_response:
-        return True
+        return {
+            "exists": True,
+            "registered_year": _extract_registered_year(cached_response),
+        }
     # If not cached, proceed with the request
     async with create_optimized_session() as session:
         try:
@@ -867,17 +885,20 @@ async def check_user_exists(username):
                 if resp.status == 200:
                     data = await resp.json()
                     set_cached_response(url, data, params)
-                    return True
+                    return {
+                        "exists": True,
+                        "registered_year": _extract_registered_year(data),
+                    }
                 elif resp.status == 404:
-                    return False
+                    return {"exists": False, "registered_year": None}
                 else:
                     # let the error propagate for other status codes
                     resp.raise_for_status()
-                    return False
+                    return {"exists": False, "registered_year": None}
         except Exception as e:
             logging.error(f"Error checking user existence: {e}")
-            # return True to continue processing - we'll get a more specific error later
-            return True
+            # return exists=True to continue processing - we'll get a more specific error later
+            return {"exists": True, "registered_year": None}
 
 
 # last.fm track fetching with backoff & debug logs
@@ -1708,6 +1729,12 @@ def results_loading():
     except ValueError:
         logging.warning("Invalid year format.")
         return render_template("index.html", error="Year must be a valid number.")
+
+    current_year = datetime.now().year
+    if year < 2002 or year > current_year:
+        return render_template(
+            "index.html", error=f"Year must be between 2002 and {current_year}."
+        )
 
     cleanup_expired_jobs()
 

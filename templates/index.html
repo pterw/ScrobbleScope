@@ -36,7 +36,7 @@
                 Listening Year:
                 <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="The calendar year to scan your scrobbles from. Only plays within this year are counted.">?</span>
               </label>
-              <input type="number" id="year" name="year" class="form-control" min="2002" max="{{ current_year }}" value="{{ current_year }}" placeholder="e.g. {{ current_year }}" required>
+              <input type="number" id="year" name="year" class="form-control" inputmode="numeric" min="2002" max="{{ current_year }}" value="{{ current_year }}" placeholder="e.g. {{ current_year }}" required>
             </div>
 
             <div class="mb-3">
@@ -65,7 +65,7 @@
 
             <div class="mb-3" id="release_year_group">
               <label for="release_year" class="form-label">Custom Release Year:</label>
-              <input type="number" id="release_year" name="release_year" class="form-control" min="1950" max="{{ current_year }}" placeholder="e.g., 1982">
+              <input type="number" id="release_year" name="release_year" class="form-control" inputmode="numeric" min="1900" max="{{ current_year }}" placeholder="e.g., 1982">
             </div>
 
             <div class="mb-3">
