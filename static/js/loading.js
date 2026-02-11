@@ -1,5 +1,6 @@
 // Read "template variables" injected on the page as window.SCROBBLE
 const {
+  job_id,
   username,
   year,
   sort_by,
@@ -132,7 +133,7 @@ function updateLiveStats(stats) {
 
 async function fetchProgress() {
   try {
-    const response     = await fetch('/progress');
+    const response = await fetch(`/progress?job_id=${encodeURIComponent(job_id)}`);
     const progressData = await response.json();
     const p            = progressData.progress;  // numeric progress (0–100)
 
@@ -256,7 +257,13 @@ async function fetchProgress() {
       resetButton.classList.add('btn', 'btn-primary', 'mt-3');
       resetButton.addEventListener('click', async () => {
         try {
-          await fetch('/reset_progress', { method: 'POST' });
+          if (job_id) {
+            await fetch('/reset_progress', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({ job_id }).toString()
+            });
+          }
           window.location.href = '/';
         } catch (e) {
           console.error('Failed to reset progress:', e);
@@ -278,6 +285,7 @@ function redirectToResults() {
   form.method = 'POST';
   form.action = '/results_complete';
 
+  form.appendChild(createHiddenInput('job_id', job_id));
   form.appendChild(createHiddenInput('username', username));
   form.appendChild(createHiddenInput('year', year));
   form.appendChild(createHiddenInput('sort_by', sort_by));
@@ -299,4 +307,13 @@ function redirectToResults() {
 }
 
 // Start polling as soon as this script loads
-fetchProgress();
+if (!job_id) {
+  if (stepText) {
+    stepText.textContent = 'Missing job identifier.';
+  }
+  if (stepDetails) {
+    stepDetails.textContent = 'Please return home and start a new search.';
+  }
+} else {
+  fetchProgress();
+}

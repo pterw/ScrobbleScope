@@ -11,25 +11,18 @@
 {% block head_extra %}
 <!--Bridge script: define window.SCROBBLE with all needed values-->
 <script>
-  window.SCROBBLE = {
-    username: "{{ username }}",
-    year: "{{ year }}",
-    sort_by: "{{ sort_by }}",
-    release_scope: "{{ release_scope }}",
-    {% if decade %}
-    decade: "{{ decade }}",
-    {% else %}
-    // no decade in data
-    {% endif %}
-    {% if release_year %}
-    release_year: "{{ release_year }}",
-    {% else %}
-    // no release year in data
-    {% endif %}
-    min_plays: "{{ min_plays|default('10') }}",
-    min_tracks: "{{ min_tracks|default('3') }}",
-    limit_results: "{{ limit_results|default('all') }}"
-  };
+  window.SCROBBLE = {{ {
+    "job_id": job_id,
+    "username": username,
+    "year": year,
+    "sort_by": sort_by,
+    "release_scope": release_scope,
+    "decade": decade,
+    "release_year": release_year,
+    "min_plays": min_plays|default('10'),
+    "min_tracks": min_tracks|default('3'),
+    "limit_results": limit_results|default('all')
+  } | tojson }};
 </script>
 {% endblock %}
 
@@ -104,7 +97,6 @@
             </div>
         </div>
     </div>
-</div>
 {% endblock %}
 
 {% block scripts %}

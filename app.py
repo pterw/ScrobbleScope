@@ -24,6 +24,8 @@ from collections import defaultdict
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from math import ceil
+from uuid import uuid4
+from weakref import WeakKeyDictionary
 
 # Third-party imports
 import aiohttp
@@ -35,25 +37,36 @@ sys.stderr.reconfigure(encoding="utf-8")
 os.system("")
 
 # Global state tracking
-UNMATCHED = {}  # Track unmatched artist/album pairs
 REQUEST_CACHE = {}  # Cache for API responses
 REQUEST_CACHE_TIMEOUT = 3600  # Cache timeout in seconds (1 hour)
+JOB_TTL_SECONDS = 2 * 60 * 60
 
 # API Concurrency Configuration
-# These values control how many requests are made in parallel
-# Tuned based on official API rate limits and real-world testing (optimized 2026-01-04, verified 2026-01-10)
-MAX_CONCURRENT_LASTFM = 10  # Last.fm: 10 concurrent ensures rate limiter (10 req/s) is always the bottleneck
-SPOTIFY_SEARCH_CONCURRENCY = (
-    10  # Spotify: 10 concurrent to avoid 429 errors (tested optimal)
-)
-SPOTIFY_BATCH_CONCURRENCY = 25  # Parallel batch fetching for album details
+# These values can be overridden via environment variables for tuning without code changes.
+MAX_CONCURRENT_LASTFM = int(os.getenv("MAX_CONCURRENT_LASTFM", "10"))
+LASTFM_REQUESTS_PER_SECOND = int(os.getenv("LASTFM_REQUESTS_PER_SECOND", "10"))
 
-# GLOBAL Rate Limiters - Fixed 2026-01-10 (contextvars was broken in multi-threaded async)
-# These are initialized ONCE and shared across all async tasks
-_LASTFM_LIMITER = AsyncLimiter(10, 1)  # 5 requests per second
-_SPOTIFY_LIMITER = AsyncLimiter(
-    10, 1
-)  # 10 requests per second (conservative, tested safe)
+SPOTIFY_SEARCH_CONCURRENCY = int(os.getenv("SPOTIFY_SEARCH_CONCURRENCY", "10"))
+SPOTIFY_BATCH_CONCURRENCY = int(os.getenv("SPOTIFY_BATCH_CONCURRENCY", "25"))
+SPOTIFY_REQUESTS_PER_SECOND = int(os.getenv("SPOTIFY_REQUESTS_PER_SECOND", "10"))
+SPOTIFY_SEARCH_RETRIES = int(os.getenv("SPOTIFY_SEARCH_RETRIES", "3"))
+SPOTIFY_BATCH_RETRIES = int(os.getenv("SPOTIFY_BATCH_RETRIES", "3"))
+
+# Rate limiters are scoped per running event loop.
+# AsyncLimiter instances cannot be safely reused across loops.
+_LASTFM_LIMITERS = WeakKeyDictionary()
+_SPOTIFY_LIMITERS = WeakKeyDictionary()
+_LIMITER_LOCK = threading.Lock()
+
+
+def _get_loop_limiter(cache, rate, period):
+    loop = asyncio.get_running_loop()
+    with _LIMITER_LOCK:
+        limiter = cache.get(loop)
+        if limiter is None:
+            limiter = AsyncLimiter(rate, period)
+            cache[loop] = limiter
+    return limiter
 
 
 # Rate limiters for respective API calling
@@ -61,20 +74,20 @@ def get_lastfm_limiter():
     """
     Last.fm API Rate Limiter
     Official limit: 5 requests/second per IP (averaged over 5 minutes)
-    Using 5 req/s - the full limit (optimized 2026-01-10)
+    Runtime value comes from LASTFM_REQUESTS_PER_SECOND.
     Source: https://www.last.fm/api/tos
     """
-    return _LASTFM_LIMITER
+    return _get_loop_limiter(_LASTFM_LIMITERS, LASTFM_REQUESTS_PER_SECOND, 1)
 
 
 def get_spotify_limiter():
     """
     Spotify API Rate Limiter
     Official limit: Undisclosed, based on 30-second rolling window
-    Using 10 req/s - tested safe throughput, avoids 429 errors (optimized 2026-01-04)
+    Runtime value comes from SPOTIFY_REQUESTS_PER_SECOND.
     Source: https://developer.spotify.com/documentation/web-api/concepts/rate-limits
     """
-    return _SPOTIFY_LIMITER
+    return _get_loop_limiter(_SPOTIFY_LIMITERS, SPOTIFY_REQUESTS_PER_SECOND, 1)
 
 
 # Async thread runner with improved error handling
@@ -99,11 +112,6 @@ def run_async_in_thread(coro):
     thread.join()
 
     if error:
-        with progress_lock:
-            current_progress["progress"] = 100
-            current_progress["message"] = f"Error: {str(error[0])}"
-            current_progress["error"] = True
-
         raise error[0]
     return result[0]
 
@@ -159,17 +167,151 @@ else:
 # Log application start
 logging.info(f"ScrobbleScope starting up, debug mode: {debug_mode}")
 
-# Progress tracking
-current_progress = {
-    "progress": 0,
-    "message": "Initializing...",
-    "error": False,
-    "stats": {},  # Personalized stats populated during processing
-}
-progress_lock = threading.Lock()
-unmatched_lock = threading.Lock()
-# Shared cache
-completed_results = {}
+# Per-job state tracking
+JOBS = {}
+jobs_lock = threading.Lock()
+
+
+def _initial_progress():
+    return {
+        "progress": 0,
+        "message": "Initializing...",
+        "error": False,
+        "stats": {},
+    }
+
+
+def cleanup_expired_jobs():
+    cutoff = time.time() - JOB_TTL_SECONDS
+    with jobs_lock:
+        expired_job_ids = [
+            job_id
+            for job_id, payload in JOBS.items()
+            if payload.get("updated_at", payload.get("created_at", 0)) < cutoff
+        ]
+        for job_id in expired_job_ids:
+            JOBS.pop(job_id, None)
+
+    if expired_job_ids:
+        logging.info(f"Cleaned up {len(expired_job_ids)} expired jobs")
+
+
+def create_job(params):
+    now = time.time()
+    job_id = uuid4().hex
+    with jobs_lock:
+        JOBS[job_id] = {
+            "created_at": now,
+            "updated_at": now,
+            "progress": _initial_progress(),
+            "results": None,
+            "unmatched": {},
+            "params": params,
+        }
+    return job_id
+
+
+def set_job_progress(
+    job_id, progress=None, message=None, error=None, reset_stats=False
+):
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        if reset_stats:
+            job["progress"]["stats"] = {}
+        if progress is not None:
+            job["progress"]["progress"] = progress
+        if message is not None:
+            job["progress"]["message"] = message
+        if error is not None:
+            job["progress"]["error"] = error
+        job["updated_at"] = time.time()
+    return True
+
+
+def set_job_stat(job_id, key, value):
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        job["progress"].setdefault("stats", {})[key] = value
+        job["updated_at"] = time.time()
+    return True
+
+
+def set_job_results(job_id, results):
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        job["results"] = results
+        job["updated_at"] = time.time()
+    return True
+
+
+def add_job_unmatched(job_id, unmatched_key, unmatched_payload):
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        job["unmatched"][unmatched_key] = unmatched_payload
+        job["updated_at"] = time.time()
+    return True
+
+
+def reset_job_state(job_id):
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        job["progress"] = _initial_progress()
+        job["results"] = None
+        job["unmatched"] = {}
+        job["updated_at"] = time.time()
+    return True
+
+
+def get_job_progress(job_id):
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return None
+        job["updated_at"] = time.time()
+        progress = dict(job["progress"])
+        progress["stats"] = dict(progress.get("stats", {}))
+        return progress
+
+
+def get_job_unmatched(job_id):
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return None
+        job["updated_at"] = time.time()
+        return dict(job["unmatched"])
+
+
+def get_job_context(job_id):
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return None
+        job["updated_at"] = time.time()
+
+        results = job.get("results")
+        if isinstance(results, list):
+            results = list(results)
+
+        progress = dict(job["progress"])
+        progress["stats"] = dict(progress.get("stats", {}))
+        return {
+            "progress": progress,
+            "results": results,
+            "unmatched": dict(job.get("unmatched", {})),
+            "params": dict(job.get("params", {})),
+        }
+
 
 # API keys from .env file
 LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
@@ -332,31 +474,99 @@ def home():
     return render_template("index.html")
 
 
-# Function to track loading bar progress
+@app.route("/validate_user", methods=["GET"])
+def validate_user():
+    """Validate a Last.fm username for client-side blur checks."""
+    username = (request.args.get("username") or "").strip()
+    if not username:
+        return jsonify({"valid": False, "message": "Username is required."}), 400
+    if len(username) > 64:
+        return jsonify({"valid": False, "message": "Username is too long."}), 400
+
+    async def _check():
+        return await check_user_exists(username)
+
+    try:
+        exists = run_async_in_thread(_check)
+    except Exception:
+        logging.exception("Username validation failed")
+        return (
+            jsonify(
+                {
+                    "valid": False,
+                    "message": "Validation service unavailable. Try again.",
+                }
+            ),
+            503,
+        )
+
+    if exists:
+        return jsonify({"valid": True, "message": "Username found."})
+    return jsonify({"valid": False, "message": "Username not found on Last.fm."})
+
+
 @app.route("/progress")
 def progress():
-    """Return current progress as JSON"""
-    with progress_lock:
-        return jsonify(current_progress)
+    """Return current progress for a specific job ID."""
+    job_id = request.args.get("job_id")
+    if not job_id:
+        return (
+            jsonify(
+                {
+                    "progress": 100,
+                    "message": "Missing job identifier.",
+                    "error": True,
+                    "stats": {},
+                }
+            ),
+            400,
+        )
+
+    progress_payload = get_job_progress(job_id)
+    if progress_payload is None:
+        return (
+            jsonify(
+                {
+                    "progress": 100,
+                    "message": "Job not found or expired.",
+                    "error": True,
+                    "stats": {},
+                }
+            ),
+            404,
+        )
+
+    return jsonify(progress_payload)
 
 
 @app.route("/unmatched")
 def unmatched():
-    with unmatched_lock:
-        unmatched_data = dict(
-            UNMATCHED
-        )  # Create a copy to avoid potential race conditions
-        count = len(unmatched_data)
-    return jsonify({"count": count, "data": unmatched_data})
+    """Return unmatched albums for a specific job ID."""
+    job_id = request.args.get("job_id")
+    if not job_id:
+        return (
+            jsonify({"count": 0, "data": {}, "error": "Missing job identifier."}),
+            400,
+        )
+
+    unmatched_data = get_job_unmatched(job_id)
+    if unmatched_data is None:
+        return jsonify({"count": 0, "data": {}, "error": "Job not found."}), 404
+
+    return jsonify({"count": len(unmatched_data), "data": unmatched_data})
 
 
 @app.route("/reset_progress", methods=["POST"])
 def reset_progress():
-    """Reset progress state - useful if a task gets stuck"""
-    with progress_lock:
-        current_progress["progress"] = 0
-        current_progress["message"] = "Reset successful"
-        current_progress["error"] = False
+    """Reset progress state for a specific job ID."""
+    job_id = request.form.get("job_id")
+    if not job_id:
+        return jsonify({"status": "error", "message": "Missing job identifier."}), 400
+
+    if not reset_job_state(job_id):
+        return jsonify({"status": "error", "message": "Job not found."}), 404
+
+    set_job_progress(job_id, message="Reset successful", error=False)
     return jsonify({"status": "success"})
 
 
@@ -390,6 +600,7 @@ def internal_error(e):
 
 
 def background_task(
+    job_id,
     username,
     year,
     sort_mode,
@@ -401,118 +612,89 @@ def background_task(
     limit_results="all",
 ):
     async def fetch_and_process():
-        """Fetch and process albums in the background with spoofed progress tracking."""
+        """Fetch and process albums in the background for a single job."""
         try:
-            # Track overall elapsed time
             overall_start_time = time.time()
-
-            # Clean up expired cache entries before starting
             cleanup_expired_cache()
+            cleanup_expired_jobs()
 
-            # STEP 0: INITIALIZING (0%)
-            with progress_lock:
-                current_progress["progress"] = 0
-                current_progress["message"] = "Initializing..."
-                current_progress["error"] = False
-                current_progress["stats"] = {}
+            set_job_progress(
+                job_id,
+                progress=0,
+                message="Initializing...",
+                error=False,
+                reset_stats=True,
+            )
 
-            # Force the front-end to see 0% for one second:
             await asyncio.sleep(0.5)
 
-            # STEP 1: VERIFY USER EXISTS (5%)
             step_start_time = time.time()
-            with progress_lock:
-                current_progress["progress"] = 5
-                current_progress["message"] = "Verifying your profile..."
-                current_progress["error"] = False
-
-            user_exists = await check_user_exists(username)
-            step_elapsed = time.time() - step_start_time
-            logging.info(f"⏱️  Time elapsed (user verification): {step_elapsed:.1f}s")
-
-            if not user_exists:
-                with progress_lock:
-                    current_progress["progress"] = 100
-                    current_progress["message"] = (
-                        f"Error: User '{username}' not found on Last.fm"
-                    )
-                    current_progress["error"] = True
-                return []
-
-            # STEP 2: FETCH LAST.FM SCROBBLES (10% → 20%)
-            step_start_time = time.time()
-            with progress_lock:
-                current_progress["progress"] = 10
-                current_progress["message"] = "Fetching your data from Last.fm..."
-                current_progress["error"] = False
+            set_job_progress(
+                job_id,
+                progress=5,
+                message="Fetching your data from Last.fm...",
+                error=False,
+            )
 
             filtered_albums = await fetch_top_albums_async(
-                username, year, min_plays=min_plays, min_tracks=min_tracks
+                job_id, username, year, min_plays=min_plays, min_tracks=min_tracks
             )
             step_elapsed = time.time() - step_start_time
-            logging.info(f"⏱️  Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
+            logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
 
             if not filtered_albums:
-                # No albums matched the basic criteria. Show “no results” but not a technical error.
-                with progress_lock:
-                    current_progress["progress"] = 100
-                    current_progress["message"] = (
-                        "No albums found for the specified criteria."
-                    )
-                    current_progress["error"] = False
+                set_job_results(job_id, [])
+                set_job_progress(
+                    job_id,
+                    progress=100,
+                    message="No albums found for the specified criteria.",
+                    error=False,
+                )
                 return []
 
-            # STEP 3: Spoofing processing (20% → 40%)
-            # Here we just bump the progress.
-            with progress_lock:
-                current_progress["progress"] = 20
-                current_progress["message"] = "Processing your albums..."
+            set_job_progress(job_id, progress=20, message="Processing your albums...")
 
-            # Small sleep to let front-end pick up 20%
             await asyncio.sleep(0.5)
-            with progress_lock:
-                current_progress["progress"] = 30
-                current_progress["message"] = "Preparing to fetch album data..."
+            set_job_progress(
+                job_id, progress=30, message="Preparing to fetch album data..."
+            )
             await asyncio.sleep(0.5)
-            # Now we’re ready to hand off to process_albums for real Spotify logic—let that occupy 40-60%:
 
-            # STEP 4: PROCESS ALBUM METADATA (40% → 80%)
             step_start_time = time.time()
-            with progress_lock:
-                current_progress["progress"] = 40
-                current_progress["message"] = "Processing album data from Spotify..."
+            set_job_progress(
+                job_id,
+                progress=40,
+                message="Processing album data from Spotify...",
+            )
 
-            # This single call does all the cover art + Spotify calls.
             results = await process_albums(
-                filtered_albums, year, sort_mode, release_scope, decade, release_year
+                job_id,
+                filtered_albums,
+                year,
+                sort_mode,
+                release_scope,
+                decade,
+                release_year,
             )
             step_elapsed = time.time() - step_start_time
             logging.info(
-                f"⏱️  Time elapsed (Spotify album processing): {step_elapsed:.1f}s"
+                f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s"
             )
 
-            # Immediately after it returns spoof "adding album art" and move to 60%:
-            with progress_lock:
-                current_progress["progress"] = 60
-                current_progress["message"] = "Adding album art to your results..."
+            set_job_progress(
+                job_id, progress=60, message="Adding album art to your results..."
+            )
 
-            # STEP 5: Simulate compiling (80%)
-            with progress_lock:
-                current_progress["progress"] = 80
-                current_progress["message"] = "Compiling your top album list..."
+            set_job_progress(
+                job_id, progress=80, message="Compiling your top album list..."
+            )
 
-            # Small delay so front-end sees 80% for a moment
             await asyncio.sleep(0.5)
 
-            # STEP 6: Simulate finalizing work (e.g., sorting, formatting) (90% → 100%)
-            with progress_lock:
-                current_progress["progress"] = 90
-                current_progress["message"] = "Finalizing list..."
+            set_job_progress(job_id, progress=90, message="Finalizing list...")
 
-            # Small delay so front-end sees 90% for a moment
             await asyncio.sleep(0.5)
 
-            # Apply result limit if specified
             if limit_results != "all":
                 try:
                     limit = int(limit_results)
@@ -524,58 +706,44 @@ def background_task(
                         f"Invalid limit_results value: {limit_results}, showing all results"
                     )
 
-            # Now fully done:
             overall_elapsed = time.time() - overall_start_time
-            logging.info(f"⏱️  Total time elapsed: {overall_elapsed:.1f}s")
+            logging.info(f"Total time elapsed: {overall_elapsed:.1f}s")
 
-            with progress_lock:
-                current_progress["progress"] = 100
-                current_progress["message"] = (
-                    f"Done! Found {len(results)} albums matching your criteria."
-                )
-                current_progress["error"] = False
-
-            # Cache the results for results_complete
-            cache_key = (
-                username,
-                year,
-                sort_mode,
-                release_scope,
-                decade,
-                release_year,
-                min_plays,
-                min_tracks,
-                limit_results,
+            set_job_results(job_id, results)
+            set_job_progress(
+                job_id,
+                progress=100,
+                message=f"Done! Found {len(results)} albums matching your criteria.",
+                error=False,
             )
-            completed_results[cache_key] = results
             return results
 
-        except Exception as e:
-            # Map certain errors to a friendlier string:
-            error_message = str(e)
+        except Exception as exc:
+            error_message = str(exc)
             if "Too Many Requests" in error_message:
                 error_message = (
                     "API rate limit reached. Please try again in a few minutes."
                 )
-            elif "Not Found" in error_message and "user" in error_message.lower():
+            elif (
+                "not found" in error_message.lower() and "user" in error_message.lower()
+            ):
                 error_message = f"User '{username}' not found on Last.fm"
 
-            with progress_lock:
-                current_progress["progress"] = 100
-                current_progress["message"] = f"Error: {error_message}"
-                current_progress["error"] = True
+            set_job_results(job_id, [])
+            set_job_progress(
+                job_id, progress=100, message=f"Error: {error_message}", error=True
+            )
 
             logging.exception(f"Error processing request for {username} in {year}")
-            return []  # return an empty list on failure
+            return []
 
-    # actually spawn the coroutine in a background thread
     return run_async_in_thread(fetch_and_process)
 
 
 # check if a Last.fm user exists
 async def check_user_exists(username):
     """Verify if a Last.fm user exists before proceeding with album fetching"""
-    url = "http://ws.audioscrobbler.com/2.0/"
+    url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "method": "user.getinfo",
         "user": username,
@@ -608,9 +776,9 @@ async def check_user_exists(username):
 
 # last.fm track fetching with backoff & debug logs
 async def fetch_recent_tracks_page_async(
-    session, username, from_ts, to_ts, page, retries=3
+    session, username, from_ts, to_ts, page, retries=3, semaphore=None
 ):
-    url = "http://ws.audioscrobbler.com/2.0/"
+    url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "method": "user.getrecenttracks",
         "user": username,
@@ -626,46 +794,64 @@ async def fetch_recent_tracks_page_async(
     cached_response = get_cached_response(url, params)
     if cached_response:
         return cached_response
-    # if not cached, proceed with the request
+
     limiter = get_lastfm_limiter()
+
+    async def fetch_once():
+        async with limiter:
+            logging.debug(f"Requesting Last.fm page {page}")
+            async with session.get(url, params=params) as resp:
+                if resp.status == 429:
+                    retry_after = int(resp.headers.get("Retry-After", "1"))
+                    logging.warning(
+                        f"⚠️ LAST.FM RATE LIMIT (429) on page {page}! "
+                        f"Retry after {retry_after}s. "
+                        f"Current limiter: {LASTFM_REQUESTS_PER_SECOND} req/s, consider reducing concurrency."
+                    )
+                    return None, retry_after
+                if resp.status == 404:
+                    # User not found
+                    logging.error(f"User {username} not found on Last.fm")
+                    raise ValueError(f"User '{username}' not found on Last.fm")
+                if resp.status != 200:
+                    body = await resp.text()
+                    logging.warning(
+                        f"❌ Unexpected Last.fm status {resp.status} on page {page}: {body[:200]}"
+                    )
+                    return None, None
+                try:
+                    data = await resp.json()
+                    # Cache the response for future use
+                    set_cached_response(url, data, params)
+                    return data, None
+                except Exception:
+                    body = await resp.text()
+                    logging.error(
+                        f"❌ Invalid JSON from Last.fm page {page}. Body starts with: {body[:200]}"
+                    )
+                    return None, None
+
     for attempt in range(retries):
         try:
-            async with limiter:
-                logging.debug(f"Requesting Last.fm page {page}")
-                async with session.get(url, params=params) as resp:
-                    if resp.status == 429:
-                        retry_after = resp.headers.get("Retry-After", "1")
-                        logging.warning(
-                            f"⚠️ LAST.FM RATE LIMIT (429) on page {page}! "
-                            f"Retry after {retry_after}s. "
-                            f"Current limiter: 10 req/s, consider reducing concurrency."
-                        )
-                        await asyncio.sleep(int(retry_after))
-                        continue
-                    elif resp.status == 404:
-                        # User not found
-                        logging.error(f"User {username} not found on Last.fm")
-                        raise ValueError(f"User '{username}' not found on Last.fm")
-                    elif resp.status != 200:
-                        body = await resp.text()
-                        logging.warning(
-                            f"❌ Unexpected Last.fm status {resp.status} on page {page}: {body[:200]}"
-                        )
-                        continue
-                    try:
-                        data = await resp.json()
-                        # Cache the response for future use
-                        set_cached_response(url, data, params)
-                        return data
-                    except Exception:
-                        body = await resp.text()
-                        logging.error(
-                            f"❌ Invalid JSON from Last.fm page {page}. Body starts with: {body[:200]}"
-                        )
-                        continue
+            if semaphore is None:
+                data, retry_after = await fetch_once()
+            else:
+                async with semaphore:
+                    data, retry_after = await fetch_once()
+
+            if data is not None:
+                return data
+            if retry_after is not None:
+                await asyncio.sleep(retry_after)
+                continue
+        except ValueError:
+            raise
         except Exception as e:
             logging.error(f"Error fetching page {page}: {e}")
-        await asyncio.sleep(2**attempt)
+
+        # Transient 5xx errors from Last.fm are common; short backoff recovers
+        # faster without blocking concurrency slots.
+        await asyncio.sleep(min(0.25 * (attempt + 1), 1.0))
 
     logging.error(f"All retries failed for page {page}")
     return None
@@ -682,10 +868,9 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
 
     async def fetch_with_semaphore(page):
-        async with semaphore:
-            return await fetch_recent_tracks_page_async(
-                session, username, from_ts, to_ts, page
-            )
+        return await fetch_recent_tracks_page_async(
+            session, username, from_ts, to_ts, page, semaphore=semaphore
+        )
 
     tasks = [fetch_with_semaphore(p) for p in pages]
     results = await asyncio.gather(*tasks)
@@ -730,7 +915,7 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
 
 
 # albums with customizable play and track thresholds
-async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
+async def fetch_top_albums_async(job_id, username, year, min_plays=10, min_tracks=3):
     logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
     from_ts = int(datetime(year, 1, 1).timestamp())
     to_ts = int(datetime(year, 12, 31, 23, 59, 59).timestamp())
@@ -739,10 +924,8 @@ async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
     total_tracks = sum(len(p.get("recenttracks", {}).get("track", [])) for p in pages)
     logging.debug(f"Total tracks: {total_tracks}")
 
-    # Pipe scrobble stats to the progress endpoint for the loading page
-    with progress_lock:
-        current_progress["stats"]["total_scrobbles"] = total_tracks
-        current_progress["stats"]["pages_fetched"] = len(pages)
+    set_job_stat(job_id, "total_scrobbles", total_tracks)
+    set_job_stat(job_id, "pages_fetched", len(pages))
 
     albums = defaultdict(lambda: {"play_count": 0, "track_counts": defaultdict(int)})
     for page in pages:
@@ -765,6 +948,7 @@ async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
                 normalized = normalize_track_name(name)
                 albums[key]["track_counts"][normalized] += 1
     logging.debug(f"Unique albums: {len(albums)}")
+
     filtered = {
         k: v
         for k, v in albums.items()
@@ -772,10 +956,8 @@ async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
     }
     logging.debug(f"Albums after filter: {len(filtered)}")
 
-    # Pipe album stats to the progress endpoint for the loading page
-    with progress_lock:
-        current_progress["stats"]["unique_albums"] = len(albums)
-        current_progress["stats"]["albums_passing_filter"] = len(filtered)
+    set_job_stat(job_id, "unique_albums", len(albums))
+    set_job_stat(job_id, "albums_passing_filter", len(filtered))
 
     return filtered
 
@@ -802,7 +984,7 @@ async def fetch_spotify_access_token():
     return None
 
 
-async def search_for_spotify_album_id(session, artist, album, token):
+async def search_for_spotify_album_id(session, artist, album, token, semaphore=None):
     """
     Searches Spotify for a single album and returns its Spotify ID.
     Optimized: Uses relaxed query first (faster, higher success rate).
@@ -812,30 +994,42 @@ async def search_for_spotify_album_id(session, artist, album, token):
     params = {"q": f"{artist} {album}", "type": "album", "limit": 3}
     limiter = get_spotify_limiter()
 
-    for _ in range(3):
+    async def search_once():
+        async with limiter:
+            async with session.get(
+                "https://api.spotify.com/v1/search", params=params, headers=headers
+            ) as response:
+                if response.status == 429:
+                    retry_after = int(response.headers.get("Retry-After", "1"))
+                    logging.warning(
+                        f"Spotify 429 on '{album}' by '{artist}'. Retry in {retry_after}s"
+                    )
+                    return None, retry_after, False
+
+                if response.status != 200:
+                    return None, None, True
+
+                data = await response.json()
+                items = data.get("albums", {}).get("items", [])
+                if items:
+                    return items[0].get("id"), None, True
+
+                return None, None, True
+
+    for attempt in range(SPOTIFY_SEARCH_RETRIES):
         try:
-            async with limiter:
-                async with session.get(
-                    "https://api.spotify.com/v1/search", params=params, headers=headers
-                ) as response:
-                    if response.status == 429:
-                        retry_after = int(response.headers.get("Retry-After", "1"))
-                        logging.warning(
-                            f"Spotify 429 on '{album}' by '{artist}'. Retry in {retry_after}s"
-                        )
-                        await asyncio.sleep(retry_after)
-                        continue
+            if semaphore is None:
+                spotify_id, retry_after, done = await search_once()
+            else:
+                async with semaphore:
+                    spotify_id, retry_after, done = await search_once()
 
-                    if response.status != 200:
-                        break
-
-                    data = await response.json()
-                    items = data.get("albums", {}).get("items", [])
-                    if items:
-                        return items[0].get("id")
-
-                    return None
-
+            if done:
+                return spotify_id
+            if retry_after is not None:
+                jitter = (abs(hash((artist, album, attempt))) % 200) / 1000.0
+                await asyncio.sleep(retry_after + jitter)
+                continue
         except Exception as e:
             logging.error(f"Spotify search error for {album} by {artist}: {e}")
 
@@ -844,7 +1038,9 @@ async def search_for_spotify_album_id(session, artist, album, token):
     return None
 
 
-async def fetch_spotify_album_details_batch(session, album_ids, token):
+async def fetch_spotify_album_details_batch(
+    session, album_ids, token, semaphore=None, retries=SPOTIFY_BATCH_RETRIES
+):
     """
     Fetches full album details for a list of up to 50 Spotify album IDs
     in a single API call.
@@ -856,36 +1052,55 @@ async def fetch_spotify_album_details_batch(session, album_ids, token):
     headers = {"Authorization": f"Bearer {token}"}
     # Spotify API takes a comma-separated string of IDs
     params = {"ids": ",".join(album_ids)}
-
     limiter = get_spotify_limiter()
-    async with limiter:
-        try:
+
+    async def fetch_once():
+        async with limiter:
             async with session.get(url, params=params, headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
                     # response is a dict with an 'albums' key, which is a list.
                     # converts this list into a dict keyed by album ID for easy lookup.
-                    return {
-                        album["id"]: album for album in data.get("albums", []) if album
-                    }
-                elif response.status == 429:
+                    return (
+                        {
+                            album["id"]: album
+                            for album in data.get("albums", [])
+                            if album
+                        },
+                        None,
+                        True,
+                    )
+                if response.status == 429:
                     retry_after = int(response.headers.get("Retry-After", "1"))
                     logging.warning(
                         f"⚠️ Batch fetch 429 hit. Retrying after {retry_after}s."
                     )
-                    await asyncio.sleep(retry_after)
-                    # need to retry the batch call itself
-                    return await fetch_spotify_album_details_batch(
-                        session, album_ids, token
-                    )
-                else:
-                    logging.error(
-                        f"Failed to fetch batch album details. Status: {response.status}, Body: {await response.text()}"
-                    )
-                    return {}
+                    return {}, retry_after, False
+                logging.error(
+                    f"Failed to fetch batch album details. Status: {response.status}, Body: {await response.text()}"
+                )
+                return {}, None, True
+
+    for attempt in range(retries):
+        try:
+            if semaphore is None:
+                details, retry_after, done = await fetch_once()
+            else:
+                async with semaphore:
+                    details, retry_after, done = await fetch_once()
+
+            if done:
+                return details
+            if retry_after is not None:
+                jitter = (abs(hash((tuple(album_ids), attempt))) % 200) / 1000.0
+                await asyncio.sleep(retry_after + jitter)
+                continue
         except Exception as e:
             logging.error(f"Exception in fetch_spotify_album_details_batch: {e}")
-            return {}
+
+        await asyncio.sleep(2**attempt)
+
+    return {}
 
 
 def format_seconds(seconds):
@@ -910,20 +1125,17 @@ def format_seconds(seconds):
 
 
 async def process_albums(
-    filtered_albums, year, sort_mode, release_scope, decade=None, release_year=None
+    job_id,
+    filtered_albums,
+    year,
+    sort_mode,
+    release_scope,
+    decade=None,
+    release_year=None,
 ):
-    """
-    Processes albums using OPTIMIZED PARALLEL search and efficient batching.
-
-    Performance optimizations:
-    1. PARALLEL Spotify album search (15 concurrent) with rate limiting (10 req/s)
-    2. Batch album details fetch (20 albums per request, Spotify API max)
-    3. Controlled concurrency with semaphores to prevent thundering herd
-
-    Expected speedup: 5-7x faster than sequential for 100+ albums
-    """
+    """Process albums using parallel Spotify search + batched detail requests."""
     logging.info(
-        f"🎵 Processing {len(filtered_albums)} albums with PARALLEL search and batching. "
+        f"Processing {len(filtered_albums)} albums. "
         f"Filters: year={year}, release_scope={release_scope}, decade={decade}, release_year={release_year}"
     )
 
@@ -933,12 +1145,11 @@ async def process_albums(
         return []
 
     def matches_release_criteria(release_date):
-        # If release_scope is "all", accept everything
         if release_scope == "all":
             return True
-
         if not release_date:
             return False
+
         release_year_str = (
             release_date.split("-")[0] if "-" in release_date else release_date
         )
@@ -946,22 +1157,19 @@ async def process_albums(
             rel_year = int(release_year_str)
             if release_scope == "same":
                 return rel_year == year
-            elif release_scope == "previous":
+            if release_scope == "previous":
                 return rel_year == year - 1
-            elif release_scope == "decade" and decade:
+            if release_scope == "decade" and decade:
                 decade_start = int(decade[:3] + "0")
                 return decade_start <= rel_year < decade_start + 10
-            elif release_scope == "custom" and release_year:
+            if release_scope == "custom" and release_year:
                 return rel_year == release_year
             return True
         except ValueError:
             logging.warning(f"Couldn't parse release year from: {release_date}")
             return False
 
-    def get_user_friendly_reason(
-        release_date, release_scope, decade=None, release_year=None
-    ):
-        # If "all" years selected, we shouldn't be filtering anything
+    def get_user_friendly_reason(release_date):
         if release_scope == "all":
             return "Should not be filtered (All Years selected)"
 
@@ -972,110 +1180,96 @@ async def process_albums(
             rel_year = int(release_year_str)
             if release_scope == "same":
                 return f"Released in {rel_year} instead of {year}"
-            elif release_scope == "previous":
-                return f"Released in {rel_year} instead of {year-1}"
-            elif release_scope == "decade" and decade:
+            if release_scope == "previous":
+                return f"Released in {rel_year} instead of {year - 1}"
+            if release_scope == "decade" and decade:
                 decade_start = int(decade[:3] + "0")
                 decade_end = decade_start + 9
                 return f"Released in {rel_year}, outside of {decade_start}-{decade_end}"
-            elif release_scope == "custom" and release_year:
+            if release_scope == "custom" and release_year:
                 return f"Released in {rel_year} instead of {release_year}"
             return f"Release year {rel_year} does not match filter"
         except ValueError:
             return f"Unknown release year: {release_date}"
 
     async with create_optimized_session() as session:
-        # Step 1: PARALLEL search for all Spotify album IDs with controlled concurrency
-        # Spotify allows higher throughput than Last.fm (30-second rolling window)
-        # Using 15 concurrent requests with 10 req/s rate limiter = safe and fast
-        semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
+        search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
 
         logging.info(
-            f"🔍 Starting PARALLEL search for {len(filtered_albums)} Spotify albums "
-            f"(max {SPOTIFY_SEARCH_CONCURRENCY} concurrent, 10 req/s limit)"
+            f"Starting parallel search for {len(filtered_albums)} Spotify albums "
+            f"(max {SPOTIFY_SEARCH_CONCURRENCY} concurrent, {SPOTIFY_REQUESTS_PER_SECOND} req/s limit)"
         )
         search_start_time = time.time()
 
         async def search_with_semaphore(key, data):
-            """Search with dual protection: semaphore limits burst, rate limiter controls flow"""
-            async with semaphore:
-                artist, album = key
-                spotify_id = await search_for_spotify_album_id(
-                    session, artist, album, token
-                )
-                return key, spotify_id, data
+            artist, album = key
+            spotify_id = await search_for_spotify_album_id(
+                session, artist, album, token, semaphore=search_semaphore
+            )
+            return key, spotify_id, data
 
-        # Create all search tasks
         search_tasks = [
             search_with_semaphore(key, data) for key, data in filtered_albums.items()
         ]
-
-        # Execute searches in parallel (controlled by semaphore + rate limiter)
         search_results = await asyncio.gather(*search_tasks)
 
-        # Process search results
         spotify_id_to_original_data = {}
         for key, spotify_id, data in search_results:
             if spotify_id:
                 spotify_id_to_original_data[spotify_id] = data
             else:
-                # This album couldn't be found on Spotify, add to unmatched
-                artist, album = key
                 original_artist = data["original_artist"]
                 original_album = data["original_album"]
                 unmatched_key = "|".join(
                     normalize_name(original_artist, original_album)
                 )
-                with unmatched_lock:
-                    UNMATCHED[unmatched_key] = {
+                add_job_unmatched(
+                    job_id,
+                    unmatched_key,
+                    {
                         "artist": original_artist,
                         "album": original_album,
                         "reason": "No Spotify match",
-                    }
+                    },
+                )
 
         valid_spotify_ids = list(spotify_id_to_original_data.keys())
         search_duration = time.time() - search_start_time
         logging.info(
-            f"✅ Spotify search completed in {search_duration:.1f}s: "
+            f"Spotify search completed in {search_duration:.1f}s: "
             f"{len(valid_spotify_ids)}/{len(filtered_albums)} albums found on Spotify"
         )
-        logging.info(f"⏱️  Time elapsed (Spotify album search): {search_duration:.1f}s")
 
-        # Pipe Spotify match stats to the progress endpoint
-        with progress_lock:
-            current_progress["stats"]["spotify_matched"] = len(valid_spotify_ids)
-            current_progress["stats"]["spotify_unmatched"] = len(filtered_albums) - len(
-                valid_spotify_ids
-            )
+        set_job_stat(job_id, "spotify_matched", len(valid_spotify_ids))
+        set_job_stat(
+            job_id,
+            "spotify_unmatched",
+            len(filtered_albums) - len(valid_spotify_ids),
+        )
 
-        # Step 2: Fetch full album details in PARALLEL batches of 20 (Spotify API max)
-        BATCH_SIZE = 20  # Spotify's Get Multiple Albums endpoint limit
-        num_batches = ceil(len(valid_spotify_ids) / BATCH_SIZE)
+        batch_size = 20
+        num_batches = ceil(len(valid_spotify_ids) / batch_size)
         logging.info(
             f"Fetching album details for {len(valid_spotify_ids)} albums "
-            f"in {num_batches} PARALLEL batches (batch size: {BATCH_SIZE})"
+            f"in {num_batches} parallel batches (batch size: {batch_size})"
         )
         batch_start_time = time.time()
 
-        # Create batch groups
         batch_groups = [
-            valid_spotify_ids[i : i + BATCH_SIZE]
-            for i in range(0, len(valid_spotify_ids), BATCH_SIZE)
+            valid_spotify_ids[i : i + batch_size]
+            for i in range(0, len(valid_spotify_ids), batch_size)
         ]
 
-        # Fetch all batches in parallel with controlled concurrency
         batch_semaphore = asyncio.Semaphore(SPOTIFY_BATCH_CONCURRENCY)
 
         async def fetch_batch_with_semaphore(batch_ids):
-            async with batch_semaphore:
-                return await fetch_spotify_album_details_batch(
-                    session, batch_ids, token
-                )
+            return await fetch_spotify_album_details_batch(
+                session, batch_ids, token, semaphore=batch_semaphore
+            )
 
         batch_tasks = [fetch_batch_with_semaphore(batch) for batch in batch_groups]
         batch_results = await asyncio.gather(*batch_tasks)
 
-        # Merge all batch results
         all_album_details = {}
         for batch_result in batch_results:
             all_album_details.update(batch_result)
@@ -1085,9 +1279,7 @@ async def process_albums(
             f"Album details fetch completed in {batch_duration:.1f}s: "
             f"Got details for {len(all_album_details)} albums"
         )
-        logging.info(f"⏱️  Time elapsed (Spotify batch fetch): {batch_duration:.1f}s")
 
-        # step 3: process the batch results
         results = []
         for spotify_id, album_details in all_album_details.items():
             if not album_details:
@@ -1098,21 +1290,17 @@ async def process_albums(
                 continue
 
             release_date = album_details.get("release_date", "")
-
             if not matches_release_criteria(release_date):
                 artist = original_data["original_artist"]
                 album = original_data["original_album"]
-                reason = get_user_friendly_reason(
-                    release_date, release_scope, decade, release_year
-                )
-                logging.info(f"⏩ Skipped '{album}' by '{artist}': {reason}")
+                reason = get_user_friendly_reason(release_date)
+                logging.debug(f"Skipped '{album}' by '{artist}': {reason}")
                 unmatched_key = "|".join(normalize_name(artist, album))
-                with unmatched_lock:
-                    UNMATCHED[unmatched_key] = {
-                        "artist": artist,
-                        "album": album,
-                        "reason": reason,
-                    }
+                add_job_unmatched(
+                    job_id,
+                    unmatched_key,
+                    {"artist": artist, "album": album, "reason": reason},
+                )
                 continue
 
             track_durations = {
@@ -1143,7 +1331,6 @@ async def process_albums(
                 }
             )
 
-    # --- Final Sorting ---
     if sort_mode == "playtime":
         results.sort(key=lambda x: x["play_time_seconds"], reverse=True)
     else:
@@ -1159,9 +1346,9 @@ async def process_albums(
             total_val = sum(r["play_count"] for r in results) or 1
             key = "play_count"
 
-        for r in results:
-            r["proportion_of_max"] = (r[key] / max_val) * 100
-            r["proportion_of_total"] = (r[key] / total_val) * 100
+        for result in results:
+            result["proportion_of_max"] = (result[key] / max_val) * 100
+            result["proportion_of_total"] = (result[key] / total_val) * 100
 
     return results
 
@@ -1169,54 +1356,57 @@ async def process_albums(
 # Route to handle form submission and start background processing
 @app.route("/results_complete", methods=["POST"])
 def results_complete():
-    username = request.form.get("username")
-    year = int(request.form.get("year"))
-    sort_mode = request.form.get("sort_by", "playcount")
-    release_scope = request.form.get("release_scope", "same")
-    decade = request.form.get("decade")
-    release_year = request.form.get("release_year")
-    min_plays = request.form.get("min_plays", "10")
-    min_tracks = request.form.get("min_tracks", "3")
-    limit_results = request.form.get("limit_results", "all")
-    if release_year:
-        release_year = int(release_year)
-    min_plays = int(min_plays)
-    min_tracks = int(min_tracks)
+    job_id = request.form.get("job_id")
+    if not job_id:
+        return render_template(
+            "error.html",
+            error="Missing Job Identifier",
+            message="We could not identify your in-progress request.",
+            details="Please start a new search.",
+        )
 
-    logging.info(f"Processing results for user {username} in year {year} with filters")
-    cache_key = (
-        username,
-        year,
-        sort_mode,
-        release_scope,
-        decade,
-        release_year,
-        min_plays,
-        min_tracks,
-        limit_results,
+    job_context = get_job_context(job_id)
+    if not job_context:
+        logging.warning(f"Job context not found for {job_id}")
+        return render_template(
+            "error.html",
+            error="Results Not Found",
+            message="We couldn't find your results.",
+            details="The processing may have expired. Please try again.",
+        )
+
+    progress_payload = job_context["progress"]
+    if progress_payload.get("error"):
+        return render_template(
+            "error.html",
+            error="Processing Error",
+            message=progress_payload.get("message", "An unknown error occurred"),
+            details="Please try again or use different parameters.",
+        )
+
+    params = job_context.get("params", {})
+    username = params.get("username") or request.form.get("username")
+    year = params.get("year")
+    if year is None:
+        year = int(request.form.get("year", datetime.now().year))
+
+    sort_mode = params.get("sort_mode") or request.form.get("sort_by", "playcount")
+    release_scope = params.get("release_scope") or request.form.get(
+        "release_scope", "same"
     )
+    decade = params.get("decade")
+    release_year = params.get("release_year")
+    min_plays = params.get("min_plays", 10)
+    min_tracks = params.get("min_tracks", 3)
 
-    with progress_lock:
-        error = current_progress.get("error", False)
-        if error:
-            # If there was an error during processing, show the error page
-            return render_template(
-                "error.html",
-                error="Processing Error",
-                message=current_progress.get("message", "An unknown error occurred"),
-                details="Please try again or try different parameters.",
-            )
-        # Check if results are already cached
-        if cache_key not in completed_results:
-            logging.warning("No cached results found. Showing error page.")
-            return render_template(
-                "error.html",
-                error="Results Not Found",
-                message="We couldn't find your results.",
-                details="The processing may have timed out or failed. Please try again.",
-            )
-
-    results_data = completed_results[cache_key]
+    results_data = job_context.get("results")
+    if results_data is None:
+        return render_template(
+            "error.html",
+            error="Results Still Processing",
+            message="Your results are not ready yet.",
+            details="Please wait on the loading page and try again.",
+        )
 
     filtered_results = [
         album
@@ -1225,14 +1415,10 @@ def results_complete():
     ]
 
     if not filtered_results:
-        # No albums matched the filters
-        with unmatched_lock:
-            unmatched_count = len(UNMATCHED)
-
+        unmatched_count = len(job_context.get("unmatched", {}))
         filter_description = get_filter_description(
             release_scope, decade, release_year, year
         )
-        # Render results page with no matches
         return render_template(
             "results.html",
             username=username,
@@ -1247,8 +1433,9 @@ def results_complete():
             no_matches=True,
             unmatched_count=unmatched_count,
             filter_description=filter_description,
+            job_id=job_id,
         )
-    # Render results page with cached data
+
     return render_template(
         "results.html",
         username=username,
@@ -1261,6 +1448,7 @@ def results_complete():
         min_plays=min_plays,
         min_tracks=min_tracks,
         no_matches=False,
+        job_id=job_id,
     )
 
 
@@ -1284,20 +1472,34 @@ def get_filter_description(release_scope, decade, release_year, listening_year):
 # Update the unmatched_view route to organize unmatched albums by reason
 @app.route("/unmatched_view", methods=["POST"])
 def unmatched_view():
-    """Show a dedicated page of unmatched albums that didn't match the filters"""
+    """Show a dedicated page of unmatched albums that didn't match the filters."""
+    job_id = request.form.get("job_id")
+    if not job_id:
+        return render_template(
+            "error.html",
+            error="Missing Job Identifier",
+            message="We could not find unmatched albums without a valid job ID.",
+            details="Please return to your results page and try again.",
+        )
 
-    # Get form parameters
-    username = request.form.get("username")
-    year = request.form.get("year")
-    release_scope = request.form.get("release_scope", "same")
-    decade = request.form.get("decade")
-    release_year = request.form.get("release_year")
+    job_context = get_job_context(job_id)
+    if not job_context:
+        return render_template(
+            "error.html",
+            error="Job Not Found",
+            message="Your unmatched album data has expired.",
+            details="Please run a new search.",
+        )
 
-    # Get threshold parameters
-    min_plays = request.form.get("min_plays", "10")
-    min_tracks = request.form.get("min_tracks", "3")
+    params = job_context.get("params", {})
+    username = params.get("username")
+    year = params.get("year")
+    release_scope = params.get("release_scope", "same")
+    decade = params.get("decade")
+    release_year = params.get("release_year")
+    min_plays = params.get("min_plays", 10)
+    min_tracks = params.get("min_tracks", 3)
 
-    # Get user-friendly filter description
     if release_scope == "same":
         filter_desc = f"same year as listening ({year})"
     elif release_scope == "previous":
@@ -1309,18 +1511,15 @@ def unmatched_view():
     else:
         filter_desc = "unknown filter"
 
-    with unmatched_lock:
-        unmatched_data = dict(UNMATCHED)  # Create a copy to avoid race conditions
+    unmatched_data = dict(job_context.get("unmatched", {}))
 
-    # Group unmatched albums by reason
     reasons = {}
-    for key, item in unmatched_data.items():
+    for _, item in unmatched_data.items():
         reason = item.get("reason", "Unknown reason")
         if reason not in reasons:
             reasons[reason] = []
         reasons[reason].append(item)
 
-    # Count albums by reason
     reason_counts = {reason: len(albums) for reason, albums in reasons.items()}
 
     return render_template(
@@ -1356,7 +1555,6 @@ def results_loading():
     min_tracks = request.form.get("min_tracks", "3")
     limit_results = request.form.get("limit_results", "all")
 
-    # Validate required fields
     if not username or not year:
         logging.warning("Missing username or year in form submission.")
         return render_template("index.html", error="Username and year are required.")
@@ -1371,16 +1569,26 @@ def results_loading():
         logging.warning("Invalid year format.")
         return render_template("index.html", error="Year must be a valid number.")
 
-    # Reset progress to 0% and “Initializing…”
-    with progress_lock:
-        current_progress["progress"] = 0
-        current_progress["message"] = "Initializing..."
-        current_progress["error"] = False
+    cleanup_expired_jobs()
 
-    # Launch the background thread that actually fetches/processes data
+    params = {
+        "username": username,
+        "year": year,
+        "sort_mode": sort_mode,
+        "release_scope": release_scope,
+        "decade": decade,
+        "release_year": release_year,
+        "min_plays": min_plays,
+        "min_tracks": min_tracks,
+        "limit_results": limit_results,
+    }
+
+    job_id = create_job(params)
+
     task_thread = threading.Thread(
         target=background_task,
         args=(
+            job_id,
             username,
             year,
             sort_mode,
@@ -1395,14 +1603,9 @@ def results_loading():
     )
     task_thread.start()
 
-    # Clear unmatched albums for new request
-    with unmatched_lock:
-        global UNMATCHED
-        UNMATCHED = {}
-
-    # Return the loading page with the current parameters
     return render_template(
         "loading.html",
+        job_id=job_id,
         username=username,
         year=year,
         sort_by=sort_mode,

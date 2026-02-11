@@ -4,7 +4,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 # Imports from your application
-from app import app, check_user_exists, normalize_name
+from app import (
+    app,
+    check_user_exists,
+    create_job,
+    normalize_name,
+    set_job_progress,
+    set_job_results,
+)
 
 
 @pytest.fixture
@@ -74,3 +81,48 @@ async def test_check_user_does_not_exist():
 
         result = await check_user_exists("nonexistent_user")
         assert result is False
+
+
+def test_validate_user_success(client):
+    """Validate endpoint should return valid=true when lookup succeeds."""
+    with patch("app.run_async_in_thread", return_value=True):
+        response = client.get("/validate_user", query_string={"username": "flounder14"})
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["valid"] is True
+
+
+def test_validate_user_missing_username(client):
+    """Validate endpoint should reject empty usernames."""
+    response = client.get("/validate_user")
+    assert response.status_code == 400
+    payload = response.get_json()
+    assert payload["valid"] is False
+
+
+def test_results_complete_renders_no_matches_for_empty_results(client):
+    """A completed job with empty results should render the no-matches UI."""
+    job_id = create_job(
+        {
+            "username": "flounder14",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "same",
+            "decade": None,
+            "release_year": None,
+            "min_plays": 10,
+            "min_tracks": 3,
+            "limit_results": "10",
+        }
+    )
+    set_job_results(job_id, [])
+    set_job_progress(
+        job_id,
+        progress=100,
+        message="No albums found for the specified criteria.",
+        error=False,
+    )
+
+    response = client.post("/results_complete", data={"job_id": job_id})
+    assert response.status_code == 200
+    assert b"No Albums Found" in response.data

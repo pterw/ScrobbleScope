@@ -1,6 +1,18 @@
 // static/js/results.js
 
 document.addEventListener('DOMContentLoaded', () => {
+    const jobId = window.APP_DATA?.job_id;
+
+    function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/\"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     //Dark Mode Logic
     const darkSwitch = document.getElementById('darkSwitch');
     if (localStorage.getItem('darkMode') === 'true') {
@@ -68,7 +80,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
 
-        fetch('/unmatched')
+        if (!jobId) {
+            unmatchedList.innerHTML = '<div class="alert alert-warning">Missing job identifier.</div>';
+            return;
+        }
+
+        fetch(`/unmatched?job_id=${encodeURIComponent(jobId)}`)
             .then(response => response.json())
             .then(unmatchedData => {
                 let html = '';
@@ -85,14 +102,15 @@ document.addEventListener('DOMContentLoaded', () => {
                                     <tbody>`;
                     for (const key in data) {
                         const item = data[key];
-                        html += `<tr><td>${item.artist}</td><td>${item.album}</td><td>${item.reason}</td></tr>`;
+                        html += `<tr><td>${escapeHtml(item.artist)}</td><td>${escapeHtml(item.album)}</td><td>${escapeHtml(item.reason)}</td></tr>`;
                     }
                     html += `</tbody></table></div>`;
                 }
                 unmatchedList.innerHTML = html;
             })
             .catch(error => {
-                unmatchedList.innerHTML = `<div class="alert alert-danger">Error loading unmatched albums: ${error}</div>`;
+                const safeError = escapeHtml(error && error.message ? error.message : String(error));
+                unmatchedList.innerHTML = `<div class="alert alert-danger">Error loading unmatched albums: ${safeError}</div>`;
             });
     }
 
