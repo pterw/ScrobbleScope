@@ -185,3 +185,13 @@ body {
 .dark-mode #logo-wrapper svg #tagline path {
     fill: var(--text-color);
 }
+
+@media (max-width: 575.98px) {
+    #darkModeToggle {
+        top: auto;
+        bottom: 1rem;
+        font-size: 0.85rem;
+        padding: 0.35rem;
+        gap: 0.5rem;
+    }
+}

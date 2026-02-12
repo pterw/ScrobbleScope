@@ -379,7 +379,7 @@ def test_results_loading_missing_username(client):
     """
     GIVEN a POST to /results_loading without a username
     WHEN the form is submitted
-    THEN it should re-render the index page (not the loading page).
+    THEN it should re-render the index page with an error message.
     """
     response = client.post(
         "/results_loading",
@@ -389,13 +389,15 @@ def test_results_loading_missing_username(client):
     # Should render the index form, NOT the loading page
     assert b"Filter Your Album Scrobbles!" in response.data
     assert b"window.SCROBBLE" not in response.data
+    # Error message should be rendered in the alert block
+    assert b"Username and year are required." in response.data
 
 
 def test_results_loading_year_out_of_bounds(client):
     """
     GIVEN a POST to /results_loading with year before Last.fm existed
     WHEN the form is submitted
-    THEN it should re-render the index page (not the loading page).
+    THEN it should re-render the index page with an error message.
     """
     response = client.post(
         "/results_loading",
@@ -405,6 +407,8 @@ def test_results_loading_year_out_of_bounds(client):
     # Should render the index form, NOT the loading page
     assert b"Filter Your Album Scrobbles!" in response.data
     assert b"window.SCROBBLE" not in response.data
+    # Error message should be rendered in the alert block
+    assert b"Year must be between" in response.data
 
 
 def test_results_complete_missing_job_id(client):

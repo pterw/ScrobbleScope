@@ -18,6 +18,13 @@
 
     <div class="col-md-6">
 
+      {% if error %}
+      <div class="alert alert-danger alert-dismissible fade show text-center mb-3" role="alert">
+        {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+      </div>
+      {% endif %}
+
       <div class="card shadow">
         <div class="card-body">
           <h2 class="text-center mb-4">Filter Your Album Scrobbles!</h2>

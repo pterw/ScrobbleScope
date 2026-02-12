@@ -50,8 +50,8 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | 3 | Remove nested thread pattern | Done | `c4e3dbb` |
 | 4 | Expand test coverage (12 → 43 tests, gaps closed) | Done | `c4e3dbb` |
 | 5 | Docstring + comment normalization | Done | 16 docstrings added, 11 stale comments removed |
-| **6** | **Frontend refinement/tweaks** | **Next** | Includes `index.html` error= gap fix |
-| 7 | Persistent metadata layer (Postgres) | Pending | |
+| 6 | Frontend refinement/tweaks | Done | Error alert, mobile toggle, username submit guard, encoding clean |
+| **7** | **Persistent metadata layer (Postgres)** | **Next** | |
 | 8 | Modular refactor (Blueprints, services/, utils.py) | Pending | |
 
 ---

@@ -226,6 +226,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* ---------- Username validation (blur) ---------- */
+  // Clear validation block while the user is still typing
+  usernameInput.addEventListener('input', () => {
+    usernameInput.setCustomValidity('');
+    usernameInput.classList.remove('is-valid', 'is-invalid');
+  });
+
   usernameInput.addEventListener('blur', async () => {
     const username = usernameInput.value.trim();
 
@@ -242,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.valid) {
           usernameInput.classList.remove('is-invalid');
           usernameInput.classList.add('is-valid');
+          usernameInput.setCustomValidity('');
 
           // Dynamically set year min based on registration date
           if (data.registered_year && yearSelect) {
@@ -254,9 +261,11 @@ document.addEventListener('DOMContentLoaded', () => {
           usernameInput.classList.remove('is-valid');
           usernameInput.classList.add('is-invalid');
           usernameError.textContent = data.message || 'Username not found on Last.fm';
+          usernameInput.setCustomValidity(data.message || 'Username not found on Last.fm');
         }
       } catch (e) {
-        // Silently fail — validation is a nicety, not a blocker
+        // Network error — clear validity so the server can handle it
+        usernameInput.setCustomValidity('');
       }
     }, 300);
   });

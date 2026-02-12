@@ -19,7 +19,8 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
   - `background_task` now owns one event loop directly (no inner thread).
 - All top-level functions in `app.py` have consistent docstrings (Batch 5).
 - Upstream error mapping is partial; retry UX is not complete.
-- Mobile dark-mode toggle overlap risk remains.
+- Mobile dark-mode toggle repositioned to bottom-right on small screens (Batch 6).
+- `index.html` now renders server-side validation errors (Batch 6).
 - Test suite expanded to 43 tests covering job lifecycle, routes, normalization, error classification, template safety, background task structure, reset flow, and async service retry paths.
 
 ## 3. Non-negotiable implementation principles
@@ -177,7 +178,7 @@ Acceptance:
 
 ---
 
-### Batch 6: Frontend refinement/tweaks
+### ~~Batch 6: Frontend refinement/tweaks~~
 Purpose:
 - Close UX debt without major redesign.
 
@@ -306,17 +307,33 @@ After each completed batch, update this playbook immediately:
    - Mark here whether a doc is historical baseline vs current source of truth.
 
 ## 9. Immediate next batch to execute
-- Batch 6: Frontend refinement/tweaks.
+- Batch 7: Persistent metadata layer (Postgres).
 
 Rationale:
-- Batches 1-5 are complete.
-- All top-level functions in app.py are now documented with consistent docstrings.
-- Frontend UX debt (index.html error display, mobile dark-mode toggle, encoding artifacts) is the next logical step before persistence and modular refactor.
+- Batches 1-6 are complete.
+- Frontend UX debt is closed: index.html error display fixed, dark-mode toggle mobile-safe, encoding artifacts confirmed clean.
+- Persistent metadata (Postgres) reduces repeated Spotify lookups across cold starts and users.
 
 ## 10. Batch execution log (for agent handoff)
 Source-of-truth note:
 - For current status, prefer Section 2 and this execution log.
 - Treat `AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` as baseline context from 2026-02-11 unless it is explicitly refreshed.
+
+### 2026-02-12 - Batch 6 completed (frontend refinement/tweaks)
+- Scope: Templates, CSS, JS, and tests — no app.py changes.
+- Implementation:
+  - **index.html error alert:** Added `{% if error %}` block with Bootstrap `alert-danger` component above the form card. Errors from `results_loading` (missing username, bad year) now render visibly.
+  - **Dark-mode toggle mobile fix:** Added `@media (max-width: 575.98px)` rules to all 5 CSS files (index, loading, results, unmatched, error) repositioning the toggle from `top: 1rem` to `bottom: 1rem` on small screens.
+  - **Username submission guard:** Added `setCustomValidity()` to `index.js` so that a username flagged invalid by the AJAX blur check blocks native form submission. An `input` listener clears the block when the user types a new name. Network errors fall through to server-side validation.
+  - **Encoding artifacts:** Investigated all JS files — no artifacts found. `encodeURIComponent()`, `.textContent`, and `escapeHtml()` are used correctly. No action needed.
+  - **Test enhancements:** Updated `test_results_loading_missing_username` and `test_results_loading_year_out_of_bounds` to assert error message text is present in the response, confirming the alert block renders.
+- Deviations: Username submission guard was not in the original playbook scope but was a clear UX gap identified during Batch 6 work.
+- Validation:
+  - `pytest -q`: 43 passed
+  - `pre-commit run --all-files`: all hooks passed
+- Notes:
+  - No new tests added (existing tests enhanced with assertions).
+  - Next batch is Batch 7 (persistent metadata layer).
 
 ### 2026-02-12 - Batch 5 completed (docstring + comment normalization)
 - Scope: `app.py` only — docstrings and comments; no behavior changes.
