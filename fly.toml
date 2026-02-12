@@ -2,7 +2,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 
 app = "scrobblescope"
-primary_region = "iad"
+primary_region = "yyz"
 
 [build]
 
@@ -16,5 +16,5 @@ primary_region = "iad"
 
 [[vm]]
   cpu_kind = "shared"
-  cpus = 1
-  memory_mb = 256
+  cpus = 2
+  memory_mb = 512
