@@ -234,7 +234,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
 * [x] Further optimize performance for users with very large listening histories.
 * [ ] Improve responsive design, especially for mobile devices.
-* [ ] Write more comprehensive backend function docstrings and comments in `app.py`.
+* [x] Write more comprehensive backend function docstrings and comments in `app.py`.
 * [ ] Conduct thorough QA testing across different browsers and use cases.
 * [x] Improve the landing page (`index.html`) copy to be more descriptive for new users.
 * [x] Deploy to Fly.io (ephemeral VM, shared-cpu-2x @ 512MB).

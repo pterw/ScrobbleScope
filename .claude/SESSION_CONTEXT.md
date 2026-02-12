@@ -25,7 +25,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Untracked files | `nul` (Windows artifact, ignorable) |
 | Tests | **43 passing** (`pytest tests/test_app.py -q`) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8) |
-| app.py line count | ~1798 lines (monolith, refactor planned for Batch 8) |
+| app.py line count | ~1790 lines (monolith, refactor planned for Batch 8) |
 
 ---
 
@@ -49,28 +49,17 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | 2 | Personalized min listening year from registration date | Done | `5d3e25f` |
 | 3 | Remove nested thread pattern | Done | `c4e3dbb` |
 | 4 | Expand test coverage (12 → 43 tests, gaps closed) | Done | `c4e3dbb` |
-| **5** | **Docstring + comment normalization** | **Next** | Per playbook Section 9 |
-| 6 | Frontend refinement/tweaks | Pending | Includes `index.html` error= gap fix |
+| 5 | Docstring + comment normalization | Done | 16 docstrings added, 11 stale comments removed |
+| **6** | **Frontend refinement/tweaks** | **Next** | Includes `index.html` error= gap fix |
 | 7 | Persistent metadata layer (Postgres) | Pending | |
 | 8 | Modular refactor (Blueprints, services/, utils.py) | Pending | |
 
 ---
 
-## 5. Known gaps to address before or during Batch 5
+## 5. Known gaps (all prior gaps closed)
 
-These were identified by the user after Batch 4 and should be resolved before moving forward:
-
-### Gap 1: `/reset_progress` route coverage — **Closed**
-- Added tests for success, missing `job_id` (400), and nonexistent `job_id` (404).
-
-### Gap 2: Service-level async retry/error mapping — **Closed**
-- Added retry/error tests for:
-  - `fetch_recent_tracks_page_async` (429 retry success, 404 user-not-found exception)
-  - `search_for_spotify_album_id` (429 retry success)
-  - `fetch_spotify_album_details_batch` (429 retry success, non-200 empty result)
-- Coverage now includes both route/state and service retry semantics.
-
-### Gap 3: (Fixed) Playbook Section 9 said "34 tests" — corrected to "35 tests"
+All Batch 4 coverage gaps (reset_progress route, service-level retry/error mapping)
+were closed in the Batch 4 closure addendum. No outstanding gaps remain for Batch 6.
 
 ---
 

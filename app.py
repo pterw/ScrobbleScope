@@ -13,8 +13,6 @@ import logging
 # Standard library imports
 import os
 import string
-
-# Enable ANSI escape codes on Windows cmd
 import sys
 import threading
 import time
@@ -34,6 +32,7 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 
 sys.stderr.reconfigure(encoding="utf-8")
 
+# Enable ANSI escape codes on Windows cmd
 os.system("")
 
 # Global state tracking
@@ -90,6 +89,7 @@ ERROR_CODES = {
 
 
 def _get_loop_limiter(cache, rate, period):
+    """Return a loop-scoped AsyncLimiter, creating one if it doesn't exist yet."""
     loop = asyncio.get_running_loop()
     with _LIMITER_LOCK:
         limiter = cache.get(loop)
@@ -99,7 +99,6 @@ def _get_loop_limiter(cache, rate, period):
     return limiter
 
 
-# Rate limiters for respective API calling
 def get_lastfm_limiter():
     """
     Last.fm API Rate Limiter
@@ -120,8 +119,11 @@ def get_spotify_limiter():
     return _get_loop_limiter(_SPOTIFY_LIMITERS, SPOTIFY_REQUESTS_PER_SECOND, 1)
 
 
-# Async thread runner with improved error handling
 def run_async_in_thread(coro):
+    """Run an async coroutine synchronously in a short-lived thread.
+
+    Used only by ``/validate_user``; background_task owns its own event loop.
+    """
     result = []
     error = []
 
@@ -154,6 +156,7 @@ app.secret_key = os.getenv("SECRET_KEY", "dev")  # Default to 'dev' if not set
 # Make {{ current_year }} available globally in all templates.
 @app.context_processor
 def inject_current_year():
+    """Inject ``current_year`` into all Jinja2 templates."""
     return {"current_year": datetime.now().year}
 
 
@@ -203,6 +206,7 @@ jobs_lock = threading.Lock()
 
 
 def _initial_progress():
+    """Return the default progress dict for a newly created job."""
     return {
         "progress": 0,
         "message": "Initializing...",
@@ -212,6 +216,7 @@ def _initial_progress():
 
 
 def cleanup_expired_jobs():
+    """Remove jobs older than JOB_TTL_SECONDS from the in-memory JOBS dict."""
     cutoff = time.time() - JOB_TTL_SECONDS
     with jobs_lock:
         expired_job_ids = [
@@ -227,6 +232,7 @@ def cleanup_expired_jobs():
 
 
 def create_job(params):
+    """Create a new job entry in JOBS and return its unique hex ID."""
     now = time.time()
     job_id = uuid4().hex
     with jobs_lock:
@@ -252,6 +258,7 @@ def set_job_progress(
     retryable=None,
     retry_after=None,
 ):
+    """Update one or more progress fields on an existing job."""
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -296,6 +303,7 @@ def set_job_error(job_id, error_code, username=None, retry_after=None):
 
 
 def set_job_stat(job_id, key, value):
+    """Store a single stat key-value pair in a job's progress.stats dict."""
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -306,6 +314,7 @@ def set_job_stat(job_id, key, value):
 
 
 def set_job_results(job_id, results):
+    """Store the final album results list on a job."""
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -316,6 +325,7 @@ def set_job_results(job_id, results):
 
 
 def add_job_unmatched(job_id, unmatched_key, unmatched_payload):
+    """Record an unmatched album entry on a job, keyed by normalized name."""
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -326,6 +336,7 @@ def add_job_unmatched(job_id, unmatched_key, unmatched_payload):
 
 
 def reset_job_state(job_id):
+    """Reset a job's progress, results, and unmatched data to initial state."""
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -338,6 +349,7 @@ def reset_job_state(job_id):
 
 
 def get_job_progress(job_id):
+    """Return a shallow copy of a job's progress dict, or None if not found."""
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -349,6 +361,7 @@ def get_job_progress(job_id):
 
 
 def get_job_unmatched(job_id):
+    """Return a copy of a job's unmatched albums dict, or None if not found."""
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -358,6 +371,11 @@ def get_job_unmatched(job_id):
 
 
 def get_job_context(job_id):
+    """Return the full job context (progress, results, unmatched, params).
+
+    All mutable containers are shallow-copied to prevent callers from
+    mutating shared state. Returns None if the job does not exist.
+    """
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -522,7 +540,6 @@ def normalize_name(artist, album):
     return clean(artist), clean(album)
 
 
-# Track name normalization for cross-service comparisons
 def normalize_track_name(name):
     """Return a simplified version of a track name for matching."""
     n = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
@@ -662,9 +679,6 @@ def internal_error(e):
         ),
         500,
     )
-
-
-# Background task interface with improved error handling
 
 
 async def _fetch_and_process(
@@ -876,7 +890,6 @@ def background_task(
         loop.close()
 
 
-# check if a Last.fm user exists
 def _extract_registered_year(data):
     """Extract the registration year from a Last.fm user.getinfo response."""
     try:
@@ -928,10 +941,14 @@ async def check_user_exists(username):
             return {"exists": True, "registered_year": None}
 
 
-# last.fm track fetching with backoff & debug logs
 async def fetch_recent_tracks_page_async(
     session, username, from_ts, to_ts, page, retries=3, semaphore=None
 ):
+    """Fetch a single page of Last.fm scrobbles with retry and rate limiting.
+
+    Returns parsed JSON on success or None after all retries are exhausted.
+    Raises ``ValueError`` if the user is not found (HTTP 404).
+    """
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "method": "user.getrecenttracks",
@@ -1011,7 +1028,6 @@ async def fetch_recent_tracks_page_async(
     return None
 
 
-# batch fetching for last.fm
 async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     """
     Fetch Last.fm pages with controlled concurrency to respect rate limits.
@@ -1034,7 +1050,6 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     return results
 
 
-# scrobble fetcher for last.fm, batch fetching
 async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
     """Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple."""
     fetch_start_time = time.time()
@@ -1080,7 +1095,6 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
         return all_pages, metadata
 
 
-# albums with customizable play and track thresholds
 async def fetch_top_albums_async(job_id, username, year, min_plays=10, min_tracks=3):
     """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple."""
     logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
@@ -1143,8 +1157,8 @@ async def fetch_top_albums_async(job_id, username, year, min_plays=10, min_track
     return filtered, fetch_metadata
 
 
-# gets spotify api token
 async def fetch_spotify_access_token():
+    """Return a valid Spotify access token, refreshing from the API if expired."""
     if spotify_token_cache["expires_at"] > time.time():
         return spotify_token_cache["token"]
     url = "https://accounts.spotify.com/api/token"
@@ -1534,9 +1548,9 @@ async def process_albums(
     return results
 
 
-# Route to handle form submission and start background processing
 @app.route("/results_complete", methods=["POST"])
 def results_complete():
+    """Render the results page for a completed job, or an error page on failure."""
     job_id = request.form.get("job_id")
     if not job_id:
         return render_template(
@@ -1640,7 +1654,6 @@ def results_complete():
     )
 
 
-# Helper function to generate filter description
 def get_filter_description(release_scope, decade, release_year, listening_year):
     """Generate a readable description of the filter applied"""
     if release_scope == "all":
@@ -1657,7 +1670,6 @@ def get_filter_description(release_scope, decade, release_year, listening_year):
         return "albums matching your criteria"
 
 
-# Update the unmatched_view route to organize unmatched albums by reason
 @app.route("/unmatched_view", methods=["POST"])
 def unmatched_view():
     """Show a dedicated page of unmatched albums that didn't match the filters."""
@@ -1724,7 +1736,6 @@ def unmatched_view():
     )
 
 
-# Results loading route to handle form submission and start background task
 @app.route("/results_loading", methods=["POST"])
 def results_loading():
     """

@@ -17,6 +17,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - Nested thread pattern removed:
   - Outer worker thread remains in `results_loading`.
   - `background_task` now owns one event loop directly (no inner thread).
+- All top-level functions in `app.py` have consistent docstrings (Batch 5).
 - Upstream error mapping is partial; retry UX is not complete.
 - Mobile dark-mode toggle overlap risk remains.
 - Test suite expanded to 43 tests covering job lifecycle, routes, normalization, error classification, template safety, background task structure, reset flow, and async service retry paths.
@@ -156,7 +157,7 @@ Acceptance:
 
 ---
 
-### Batch 5: Docstring + comment normalization
+### ~~Batch 5: Docstring + comment normalization~~
 Purpose:
 - Standardize maintainability and readability.
 
@@ -305,17 +306,39 @@ After each completed batch, update this playbook immediately:
    - Mark here whether a doc is historical baseline vs current source of truth.
 
 ## 9. Immediate next batch to execute
-- Batch 5: Docstring + comment normalization.
+- Batch 6: Frontend refinement/tweaks.
 
 Rationale:
-- Batches 1-4 are complete.
-- Test coverage is now materially expanded (43 tests), locking down correctness.
-- Docstring normalization improves readability before the larger refactors in Batches 7-8.
+- Batches 1-5 are complete.
+- All top-level functions in app.py are now documented with consistent docstrings.
+- Frontend UX debt (index.html error display, mobile dark-mode toggle, encoding artifacts) is the next logical step before persistence and modular refactor.
 
 ## 10. Batch execution log (for agent handoff)
 Source-of-truth note:
 - For current status, prefer Section 2 and this execution log.
 - Treat `AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` as baseline context from 2026-02-11 unless it is explicitly refreshed.
+
+### 2026-02-12 - Batch 5 completed (docstring + comment normalization)
+- Scope: `app.py` only — docstrings and comments; no behavior changes.
+- Implementation:
+  - **Added docstrings to 16 previously undocumented top-level functions:**
+    `_get_loop_limiter`, `run_async_in_thread`, `inject_current_year`,
+    `_initial_progress`, `cleanup_expired_jobs`, `create_job`, `set_job_progress`,
+    `set_job_stat`, `set_job_results`, `add_job_unmatched`, `reset_job_state`,
+    `get_job_progress`, `get_job_unmatched`, `get_job_context`,
+    `fetch_recent_tracks_page_async`, `fetch_spotify_access_token`, `results_complete`.
+  - **Removed 11 redundant or stale pre-function comments** that duplicated what the docstring already says or used stale language ("improved", "update the … route").
+  - **Relocated one misleading comment** ("Enable ANSI escape codes on Windows cmd") from the `import sys` line to the actual `os.system("")` call where the enabling happens.
+  - **Docstring style:** short summary line, optional detail paragraph — consistent with `get_spotify_limiter` as the reference standard.
+  - **Inner/nested functions** (11 closures like `fetch_once`, `clean`, `search_with_semaphore`) were intentionally left without docstrings as they are self-descriptive from naming and parent function context.
+- Deviations: None.
+- Validation:
+  - `pytest -q`: 43 passed
+  - `pre-commit run --all-files`: all hooks passed (isort auto-fixed import grouping after comment removal; re-run confirmed clean)
+- Notes:
+  - `app.py` line count decreased slightly due to comment removal (~1800 → ~1790).
+  - All 49 top-level functions in app.py now have docstrings (100% coverage).
+  - Next batch is Batch 6 (frontend refinement/tweaks).
 
 ### 2026-02-12 - Batch 4 closure addendum (missing coverage completed)
 - Scope: `tests/test_app.py` only.
