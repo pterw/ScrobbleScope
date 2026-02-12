@@ -246,7 +246,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Loop-scoped rate limiters (fix `AsyncLimiter` reuse-across-loops warning).
 * [x] Implement proper upstream failure classification and retry UX.
 * [x] Personalized minimum listening year from Last.fm registration date.
-* [ ] Remove nested thread pattern in background task execution.
+* [x] Remove nested thread pattern in background task execution.
 * [ ] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
 * [ ] Modularize API calls into `services/` modules (`lastfm.py`, `spotify.py`, and `cache.py`).
 * [ ] Use Flask Blueprints to organize routes.
@@ -255,7 +255,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [ ] Separate configuration into `config.py` for cleaner imports.
 * [x] Optimize network usage via batching or parallel requests.
 * [x] Create master HTML templates to reduce duplication.
-* [ ] Expand unit test coverage (async pipelines, error states, job isolation).
+* [x] Expand unit test coverage (async pipelines, error states, job isolation).
 
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.

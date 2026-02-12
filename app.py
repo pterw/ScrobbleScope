@@ -667,6 +667,179 @@ def internal_error(e):
 # Background task interface with improved error handling
 
 
+async def _fetch_and_process(
+    job_id,
+    username,
+    year,
+    sort_mode,
+    release_scope,
+    decade=None,
+    release_year=None,
+    min_plays=10,
+    min_tracks=3,
+    limit_results="all",
+):
+    """Fetch and process albums in the background for a single job."""
+    try:
+        overall_start_time = time.time()
+        cleanup_expired_cache()
+        cleanup_expired_jobs()
+
+        set_job_progress(
+            job_id,
+            progress=0,
+            message="Initializing...",
+            error=False,
+            reset_stats=True,
+        )
+
+        await asyncio.sleep(0.5)
+
+        step_start_time = time.time()
+        set_job_progress(
+            job_id,
+            progress=5,
+            message="Fetching your data from Last.fm...",
+            error=False,
+        )
+
+        filtered_albums, fetch_metadata = await fetch_top_albums_async(
+            job_id, username, year, min_plays=min_plays, min_tracks=min_tracks
+        )
+        step_elapsed = time.time() - step_start_time
+        logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
+
+        # Upstream failure: Last.fm was unreachable
+        if fetch_metadata.get("status") == "error":
+            set_job_error(
+                job_id,
+                fetch_metadata.get("reason", "lastfm_unavailable"),
+                username=username,
+            )
+            return []
+
+        # Legitimate empty result: user has scrobbles but none pass filters
+        if not filtered_albums:
+            set_job_results(job_id, [])
+            set_job_progress(
+                job_id,
+                progress=100,
+                message="No albums found for the specified criteria.",
+                error=False,
+            )
+            return []
+
+        set_job_progress(job_id, progress=20, message="Processing your albums...")
+
+        await asyncio.sleep(0.5)
+        set_job_progress(
+            job_id, progress=30, message="Preparing to fetch album data..."
+        )
+        await asyncio.sleep(0.5)
+
+        # Pre-check Spotify availability before processing
+        token_check = await fetch_spotify_access_token()
+        if not token_check:
+            set_job_error(job_id, "spotify_unavailable")
+            return []
+
+        step_start_time = time.time()
+        set_job_progress(
+            job_id,
+            progress=40,
+            message="Processing album data from Spotify...",
+        )
+
+        results = await process_albums(
+            job_id,
+            filtered_albums,
+            year,
+            sort_mode,
+            release_scope,
+            decade,
+            release_year,
+        )
+        step_elapsed = time.time() - step_start_time
+        logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
+
+        # Detect Spotify total failure: had albums but got 0 results
+        # because every single one was "No Spotify match"
+        if not results and filtered_albums:
+            job_ctx = get_job_context(job_id)
+            unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
+            spotify_no_match = sum(
+                1 for v in unmatched.values() if v.get("reason") == "No Spotify match"
+            )
+            if spotify_no_match == len(filtered_albums):
+                set_job_error(job_id, "spotify_unavailable")
+                return []
+
+        set_job_progress(
+            job_id, progress=60, message="Adding album art to your results..."
+        )
+
+        set_job_progress(
+            job_id, progress=80, message="Compiling your top album list..."
+        )
+
+        await asyncio.sleep(0.5)
+
+        set_job_progress(job_id, progress=90, message="Finalizing list...")
+
+        await asyncio.sleep(0.5)
+
+        if limit_results != "all":
+            try:
+                limit = int(limit_results)
+                if len(results) > limit:
+                    results = results[:limit]
+                    logging.info(f"Limited results to top {limit} albums")
+            except ValueError:
+                logging.warning(
+                    f"Invalid limit_results value: {limit_results}, showing all results"
+                )
+
+        overall_elapsed = time.time() - overall_start_time
+        logging.info(f"Total time elapsed: {overall_elapsed:.1f}s")
+
+        set_job_results(job_id, results)
+        set_job_progress(
+            job_id,
+            progress=100,
+            message=f"Done! Found {len(results)} albums matching your criteria.",
+            error=False,
+        )
+        return results
+
+    except Exception as exc:
+        error_message = str(exc)
+        error_code = None
+
+        if "Too Many Requests" in error_message:
+            if "spotify" in error_message.lower():
+                error_code = "spotify_rate_limited"
+            else:
+                error_code = "lastfm_rate_limited"
+        elif "not found" in error_message.lower() and "user" in error_message.lower():
+            error_code = "user_not_found"
+
+        if error_code:
+            set_job_error(job_id, error_code, username=username)
+        else:
+            set_job_results(job_id, [])
+            set_job_progress(
+                job_id,
+                progress=100,
+                message=f"Error: {error_message}",
+                error=True,
+                error_code="unknown",
+                retryable=True,
+            )
+
+        logging.exception(f"Error processing request for {username} in {year}")
+        return []
+
+
 def background_task(
     job_id,
     username,
@@ -679,174 +852,28 @@ def background_task(
     min_tracks=3,
     limit_results="all",
 ):
-    async def fetch_and_process():
-        """Fetch and process albums in the background for a single job."""
-        try:
-            overall_start_time = time.time()
-            cleanup_expired_cache()
-            cleanup_expired_jobs()
-
-            set_job_progress(
+    """Run the async fetch pipeline in a dedicated event loop on this thread."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(
+            _fetch_and_process(
                 job_id,
-                progress=0,
-                message="Initializing...",
-                error=False,
-                reset_stats=True,
-            )
-
-            await asyncio.sleep(0.5)
-
-            step_start_time = time.time()
-            set_job_progress(
-                job_id,
-                progress=5,
-                message="Fetching your data from Last.fm...",
-                error=False,
-            )
-
-            filtered_albums, fetch_metadata = await fetch_top_albums_async(
-                job_id, username, year, min_plays=min_plays, min_tracks=min_tracks
-            )
-            step_elapsed = time.time() - step_start_time
-            logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
-
-            # Upstream failure: Last.fm was unreachable
-            if fetch_metadata.get("status") == "error":
-                set_job_error(
-                    job_id,
-                    fetch_metadata.get("reason", "lastfm_unavailable"),
-                    username=username,
-                )
-                return []
-
-            # Legitimate empty result: user has scrobbles but none pass filters
-            if not filtered_albums:
-                set_job_results(job_id, [])
-                set_job_progress(
-                    job_id,
-                    progress=100,
-                    message="No albums found for the specified criteria.",
-                    error=False,
-                )
-                return []
-
-            set_job_progress(job_id, progress=20, message="Processing your albums...")
-
-            await asyncio.sleep(0.5)
-            set_job_progress(
-                job_id, progress=30, message="Preparing to fetch album data..."
-            )
-            await asyncio.sleep(0.5)
-
-            # Pre-check Spotify availability before processing
-            token_check = await fetch_spotify_access_token()
-            if not token_check:
-                set_job_error(job_id, "spotify_unavailable")
-                return []
-
-            step_start_time = time.time()
-            set_job_progress(
-                job_id,
-                progress=40,
-                message="Processing album data from Spotify...",
-            )
-
-            results = await process_albums(
-                job_id,
-                filtered_albums,
+                username,
                 year,
                 sort_mode,
                 release_scope,
                 decade,
                 release_year,
+                min_plays,
+                min_tracks,
+                limit_results,
             )
-            step_elapsed = time.time() - step_start_time
-            logging.info(
-                f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s"
-            )
-
-            # Detect Spotify total failure: had albums but got 0 results
-            # because every single one was "No Spotify match"
-            if not results and filtered_albums:
-                job_ctx = get_job_context(job_id)
-                unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
-                spotify_no_match = sum(
-                    1
-                    for v in unmatched.values()
-                    if v.get("reason") == "No Spotify match"
-                )
-                if spotify_no_match == len(filtered_albums):
-                    set_job_error(job_id, "spotify_unavailable")
-                    return []
-
-            set_job_progress(
-                job_id, progress=60, message="Adding album art to your results..."
-            )
-
-            set_job_progress(
-                job_id, progress=80, message="Compiling your top album list..."
-            )
-
-            await asyncio.sleep(0.5)
-
-            set_job_progress(job_id, progress=90, message="Finalizing list...")
-
-            await asyncio.sleep(0.5)
-
-            if limit_results != "all":
-                try:
-                    limit = int(limit_results)
-                    if len(results) > limit:
-                        results = results[:limit]
-                        logging.info(f"Limited results to top {limit} albums")
-                except ValueError:
-                    logging.warning(
-                        f"Invalid limit_results value: {limit_results}, showing all results"
-                    )
-
-            overall_elapsed = time.time() - overall_start_time
-            logging.info(f"Total time elapsed: {overall_elapsed:.1f}s")
-
-            set_job_results(job_id, results)
-            set_job_progress(
-                job_id,
-                progress=100,
-                message=f"Done! Found {len(results)} albums matching your criteria.",
-                error=False,
-            )
-            return results
-
-        except Exception as exc:
-            error_message = str(exc)
-            error_code = None
-
-            if "Too Many Requests" in error_message:
-                if "spotify" in error_message.lower():
-                    error_code = "spotify_rate_limited"
-                else:
-                    error_code = "lastfm_rate_limited"
-            elif (
-                "not found" in error_message.lower() and "user" in error_message.lower()
-            ):
-                error_code = "user_not_found"
-
-            if error_code:
-                set_job_error(job_id, error_code, username=username)
-            else:
-                set_job_results(job_id, [])
-                set_job_progress(
-                    job_id,
-                    progress=100,
-                    message=f"Error: {error_message}",
-                    error=True,
-                    error_code="unknown",
-                    retryable=True,
-                )
-
-            logging.exception(f"Error processing request for {username} in {year}")
-            return []
-
-    return run_async_in_thread(fetch_and_process)
+        )
+    except Exception:
+        logging.exception(f"Unhandled error in background task for {username}/{year}")
+    finally:
+        loop.close()
 
 
 # check if a Last.fm user exists
