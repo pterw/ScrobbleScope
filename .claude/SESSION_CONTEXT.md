@@ -1,7 +1,7 @@
-# ScrobbleScope Session Context (Post-Batch 4)
+# ScrobbleScope Session Context (Post-Batch 4, Committed)
 
 Last updated: 2026-02-12
-Author: Claude Opus 4.6 (for agent handoff / post-compaction recovery)
+Author: Claude Opus 4.6 (for agent handoff / new session bootstrap)
 
 ---
 
@@ -20,10 +20,10 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | `d1933cf` (Mark Batch 1 and Batch 2 as complete in README roadmap) |
-| Uncommitted changes | `app.py` (Batch 3), `tests/test_app.py` (Batch 4), `README.md`, `EXECUTION_PLAYBOOK_2026-02-11.md` |
-| Untracked files | `.claude/`, `AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md`, `EXECUTION_PLAYBOOK_2026-02-11.md`, `nul` |
-| Tests | **43 passing** (`pytest tests/test_app.py -v`) |
+| Latest commit | `c4e3dbb` (Batches 3+4: nested thread removal + 43 tests) |
+| Working tree | **Clean** — all Batch 3+4 changes committed |
+| Untracked files | `nul` (Windows artifact, ignorable) |
+| Tests | **43 passing** (`pytest tests/test_app.py -q`) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8) |
 | app.py line count | ~1798 lines (monolith, refactor planned for Batch 8) |
 
@@ -47,8 +47,8 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 |-------|------|--------|--------------|
 | 1 | Upstream failure classification + retry UX | Done | `130c0b8` |
 | 2 | Personalized min listening year from registration date | Done | `5d3e25f` |
-| 3 | Remove nested thread pattern | Done | Uncommitted (in `app.py`) |
-| 4 | Expand test coverage (12 → 35 tests) | Done | Uncommitted (in `tests/test_app.py`) |
+| 3 | Remove nested thread pattern | Done | `c4e3dbb` |
+| 4 | Expand test coverage (12 → 43 tests, gaps closed) | Done | `c4e3dbb` |
 | **5** | **Docstring + comment normalization** | **Next** | Per playbook Section 9 |
 | 6 | Frontend refinement/tweaks | Pending | Includes `index.html` error= gap fix |
 | 7 | Persistent metadata layer (Postgres) | Pending | |
