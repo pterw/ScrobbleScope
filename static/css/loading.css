@@ -97,6 +97,51 @@ body {
     margin-top: 15px;
 }
 
+/* Error actions (retry / home buttons) */
+.error-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+/* Error source label */
+.error-source {
+    font-size: 0.85em;
+    color: #999;
+    margin-top: 4px;
+    margin-bottom: 0;
+}
+
+.dark-mode .error-source {
+    color: #777;
+}
+
+/* Partial data warning */
+.partial-warning {
+    background-color: rgba(255, 193, 7, 0.12);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-top: 14px;
+    text-align: center;
+}
+
+.dark-mode .partial-warning {
+    background-color: rgba(255, 193, 7, 0.08);
+    border-color: rgba(255, 193, 7, 0.2);
+}
+
+.partial-warning p {
+    margin: 0;
+    font-size: 0.9em;
+    color: #856404;
+}
+
+.dark-mode .partial-warning p {
+    color: #ffc107;
+}
+
 /* Dark-mode toggle switch */
 #darkModeToggle {
     position: fixed;
@@ -191,4 +236,46 @@ body {
 h4 {
     margin-bottom: 15px;
     font-weight: 500;
+}
+
+/* Live stats (personalized loading messages) */
+.live-stats {
+    background-color: rgba(106, 75, 175, 0.08);
+    border-radius: 8px;
+    padding: 12px 20px;
+    margin-top: 18px;
+    text-align: center;
+}
+
+.dark-mode .live-stats {
+    background-color: rgba(147, 112, 219, 0.12);
+}
+
+.live-stat {
+    margin: 4px 0;
+    font-size: 0.95em;
+    color: var(--bars-color);
+    opacity: 0;
+    animation: fadeInStat 0.5s ease forwards;
+}
+
+@keyframes fadeInStat {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 575.98px) {
+    #darkModeToggle {
+        top: auto;
+        bottom: 1rem;
+        font-size: 0.85rem;
+        padding: 0.35rem;
+        gap: 0.5rem;
+    }
 }

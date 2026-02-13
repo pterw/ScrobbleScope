@@ -10,10 +10,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <!--Bridge script: define window.APP_DATA with needed values-->
 <script>
-    window.APP_DATA = {
-        username: "{{ username|e }}",
-        year: "{{ year|e }}"
-    };
+    window.APP_DATA = {{ {
+        "username": username,
+        "year": year,
+        "job_id": job_id
+    } | tojson }};
 </script>
 {% endblock %}
 
@@ -169,6 +170,7 @@
                             </button>
                             
                             <form action="/unmatched_view" method="post" class="mb-2">
+                                <input type="hidden" name="job_id" value="{{ job_id }}">
                                 <input type="hidden" name="username" value="{{ username }}">
                                 <input type="hidden" name="year" value="{{ year }}">
                                 <input type="hidden" name="release_scope" value="{{ release_scope }}">

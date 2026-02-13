@@ -11,25 +11,18 @@
 {% block head_extra %}
 <!--Bridge script: define window.SCROBBLE with all needed values-->
 <script>
-  window.SCROBBLE = {
-    username: "{{ username }}",
-    year: "{{ year }}",
-    sort_by: "{{ sort_by }}",
-    release_scope: "{{ release_scope }}",
-    {% if decade %}
-    decade: "{{ decade }}",
-    {% else %}
-    // no decade in data
-    {% endif %}
-    {% if release_year %}
-    release_year: "{{ release_year }}",
-    {% else %}
-    // no release year in data
-    {% endif %}
-    min_plays: "{{ min_plays|default('10') }}",
-    min_tracks: "{{ min_tracks|default('3') }}",
-    limit_results: "{{ limit_results|default('all') }}"
-  };
+  window.SCROBBLE = {{ {
+    "job_id": job_id,
+    "username": username,
+    "year": year,
+    "sort_by": sort_by,
+    "release_scope": release_scope,
+    "decade": decade,
+    "release_year": release_year,
+    "min_plays": min_plays|default('10'),
+    "min_tracks": min_tracks|default('3'),
+    "limit_results": limit_results|default('all')
+  } | tojson }};
 </script>
 {% endblock %}
 
@@ -47,7 +40,17 @@
         </div>
         <p id="step-text" class="step-text">Initializing...</p>
         <p id="step-details" class="step-details">This might take a few minutes, especially for active Last.fm users</p>
-        
+
+        <div id="live-stats" class="live-stats d-none">
+            <p id="stat-scrobbles" class="live-stat d-none"></p>
+            <p id="stat-albums" class="live-stat d-none"></p>
+            <p id="stat-spotify" class="live-stat d-none"></p>
+        </div>
+
+        <div id="partial-warning" class="partial-warning d-none">
+            <p id="partial-warning-text"></p>
+        </div>
+
         <div class="request-info">
             <h4>Your Search Parameters</h4>
             <table class="info-table">
@@ -95,10 +98,14 @@
         <div id="error-container" class="d-none">
             <div class="error-message">
                 <p id="error-text">An error occurred while processing your request.</p>
+                <p id="error-source" class="error-source d-none"></p>
+            </div>
+            <div id="error-actions" class="error-actions">
+                <button id="retry-button" class="btn btn-primary mt-3 d-none">Retry Now</button>
+                <a href="/" id="home-button" class="btn btn-outline-secondary mt-3">Back to Home</a>
             </div>
         </div>
     </div>
-</div>
 {% endblock %}
 
 {% block scripts %}

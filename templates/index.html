@@ -13,22 +13,17 @@
       <div aria-label="ScrobbleScope logo visualization" role="img">
         {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
       </div>
+      <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="infoButton" data-bs-toggle="modal" data-bs-target="#welcomeModal">Info</button>
     </div>
 
     <div class="col-md-6">
-      <!-- Informational Blurb -->
-      <div class="alert alert-info mb-4" role="alert">
-        <h5 class="alert-heading">Welcome to ScrobbleScope!</h5>
-        <p class="mb-2">Discover your top albums from Last.fm with powerful filtering and sorting options:</p>
-        <ul class="mb-2">
-          <li><strong>Filter by Release Date:</strong> View albums from a specific year, decade, or all time</li>
-          <li><strong>Sort by Play Count or Listening Time:</strong> See what you played most or listened to longest</li>
-          <li><strong>Customize Thresholds:</strong> Focus on albums you really engaged with</li>
-          <li><strong>Limit Results:</strong> View your top 10, 25, 50, or 100 albums</li>
-          <li><strong>Export & Share:</strong> Download as CSV or save as an image</li>
-        </ul>
-        <p class="mb-0"><small><strong>Default behavior:</strong> Shows albums you listened to in the selected year that were also <em>released</em> in that same year.</small></p>
+
+      {% if error %}
+      <div class="alert alert-danger alert-dismissible fade show text-center mb-3" role="alert">
+        {{ error }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
       </div>
+      {% endif %}
 
       <div class="card shadow">
         <div class="card-body">
@@ -36,22 +31,26 @@
 
           <form method="post" action="/results_loading">
             <div class="mb-3">
-              <label for="username" class="form-label">Last.fm Username:</label>
+              <label for="username" class="form-label">
+                Last.fm Username:
+                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Your public Last.fm username — scrobbles are fetched from this account.">?</span>
+              </label>
               <input type="text" id="username" name="username" class="form-control" placeholder="Enter your Last.fm username" required>
             </div>
 
             <div class="mb-3">
-              <label for="year" class="form-label">Listening Year:</label>
-              <select id="year" name="year" class="form-select" required>
-                {% for y in range(2005, current_year + 1) %}
-                  <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
-                {% endfor %}
-              </select>
-              <div class="form-text">Choose the year you want to check your scrobbles.</div>
+              <label for="year" class="form-label">
+                Listening Year:
+                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="The calendar year to scan your scrobbles from. Only plays within this year are counted.">?</span>
+              </label>
+              <input type="number" id="year" name="year" class="form-control" inputmode="numeric" min="2002" max="{{ current_year }}" value="{{ current_year }}" placeholder="e.g. {{ current_year }}" required>
             </div>
 
             <div class="mb-3">
-              <label for="release_scope" class="form-label">Album Release Date Filter:</label>
+              <label for="release_scope" class="form-label">
+                Album Release Date Filter:
+                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Controls which albums appear based on their Spotify release date. 'Same as Listening Year' is ideal for AOTY lists.">?</span>
+              </label>
               <select id="release_scope" name="release_scope" class="form-select">
                 <option value="same">Same as Listening Year</option>
                 <option value="previous">Previous Year</option>
@@ -59,35 +58,40 @@
                 <option value="custom">Pick Specific Year</option>
                 <option value="all">All Years (No Filter)</option>
               </select>
-              <div class="form-text">Choose how you want to filter albums by their release date. Select "All Years" to see every album you listened to.</div>
             </div>
 
             <div class="mb-3" id="decade_dropdown">
-              <label for="decade_select" class="form-label">Decade:</label>
-              <select id="decade_select" name="decade" class="form-select">
-                {% for decade in ['1950s','1960s','1970s','1980s','1990s','2000s','2010s','2020s'] %}
-                  <option value="{{ decade }}">{{ decade }}</option>
+              <label class="form-label">Decade:</label>
+              <div class="decade-pills">
+                {% for decade in ['2020s','2010s','2000s','1990s','1980s','1970s','1960s','1950s'] %}
+                  <input type="radio" id="decade_{{ decade }}" name="decade" value="{{ decade }}" class="decade-radio"{% if loop.first %} checked{% endif %}>
+                  <label for="decade_{{ decade }}" class="decade-pill">{{ decade }}</label>
                 {% endfor %}
-              </select>
+              </div>
             </div>
 
             <div class="mb-3" id="release_year_group">
               <label for="release_year" class="form-label">Custom Release Year:</label>
-              <input type="number" id="release_year" name="release_year" class="form-control" min="1950" max="{{ current_year }}" placeholder="e.g., 1982">
+              <input type="number" id="release_year" name="release_year" class="form-control" inputmode="numeric" min="1900" max="{{ current_year }}" placeholder="e.g., 1982">
             </div>
 
             <div class="mb-3">
-              <label for="sort_by" class="form-label">Sort By:</label>
+              <label for="sort_by" class="form-label">
+                Sort By:
+                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Play Count ranks by total scrobbles. Play Time ranks by how long you actually listened (track runtime × plays).">?</span>
+              </label>
               <select id="sort_by" name="sort_by" class="form-select">
                 <option value="playcount">Play Count</option>
                 <option value="playtime">Play Time</option>
               </select>
-              <div class="form-text">Pick if you want to sort your top albums by play count, or total listening time.</div>
             </div>
 
             <!-- Limit Results -->
             <div class="mb-3">
-              <label for="limit_results" class="form-label">Number of Albums to Display:</label>
+              <label for="limit_results" class="form-label">
+                Number of Albums to Display:
+                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Cap how many albums appear in your results. 'Show All' returns every album that passes your filters.">?</span>
+              </label>
               <select id="limit_results" name="limit_results" class="form-select">
                 <option value="all" selected>Show All Results</option>
                 <option value="10">Top 10</option>
@@ -95,7 +99,6 @@
                 <option value="50">Top 50</option>
                 <option value="100">Top 100</option>
               </select>
-              <div class="form-text">Limit the number of albums displayed in your results.</div>
             </div>
 
             <!-- Define Album Thresholds toggle -->
@@ -144,6 +147,36 @@
     </div>
   </div>
 </div>
+
+<!-- Welcome Modal -->
+<div class="modal fade" id="welcomeModal" tabindex="-1" aria-labelledby="welcomeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="welcomeModalLabel">Welcome to ScrobbleScope!</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Discover your top albums from Last.fm with powerful filtering and sorting options:</p>
+        <ul>
+          <li><strong>Filter by Release Date:</strong> View albums from a specific year, decade, or all time</li>
+          <li><strong>Sort by Play Count or Listening Time:</strong> See what you played most or listened to longest</li>
+          <li><strong>Customize Thresholds:</strong> Focus on albums you really engaged with</li>
+          <li><strong>Limit Results:</strong> View your top 10, 25, 50, or 100 albums</li>
+          <li><strong>Export &amp; Share:</strong> Download as CSV or save as an image</li>
+        </ul>
+        <p class="mb-0"><small><strong>Default behavior:</strong> Shows albums you listened to in the selected year that were also <em>released</em> in that same year &mdash; perfect for building your AOTY list.</small></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Get Started</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block bootstrap_js %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 {% endblock %}
 
 {% block scripts %}

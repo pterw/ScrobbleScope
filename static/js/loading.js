@@ -1,5 +1,6 @@
 // Read "template variables" injected on the page as window.SCROBBLE
 const {
+  job_id,
   username,
   year,
   sort_by,
@@ -50,11 +51,15 @@ if (darkSwitch) {
 
 // PROGRESS BAR & POLLING LOGIC
 // Grab all the relevant DOM elements
-const progressBar     = document.getElementById('progress-bar');
-const stepText        = document.getElementById('step-text');
-const stepDetails     = document.getElementById('step-details');
-const errorContainer  = document.getElementById('error-container');
-const errorText       = document.getElementById('error-text');
+const progressBar      = document.getElementById('progress-bar');
+const stepText         = document.getElementById('step-text');
+const stepDetails      = document.getElementById('step-details');
+const errorContainer   = document.getElementById('error-container');
+const errorText        = document.getElementById('error-text');
+const liveStatsContainer = document.getElementById('live-stats');
+const statScrobbles    = document.getElementById('stat-scrobbles');
+const statAlbums       = document.getElementById('stat-albums');
+const statSpotify      = document.getElementById('stat-spotify');
 
 let errorDetected = false;
 
@@ -103,9 +108,40 @@ function createHiddenInput(name, value) {
   return input;
 }
 
+function updateLiveStats(stats) {
+  if (!stats || !liveStatsContainer) return;
+  let hasAny = false;
+
+  if (stats.total_scrobbles && statScrobbles) {
+    const scrobbleCount = stats.total_scrobbles.toLocaleString();
+    statScrobbles.textContent = `Scanned ${scrobbleCount} scrobbles in ${year}`;
+    statScrobbles.classList.remove('d-none');
+    hasAny = true;
+  }
+  if (stats.albums_passing_filter && statAlbums) {
+    statAlbums.textContent = `${stats.albums_passing_filter} albums passed your thresholds (out of ${stats.unique_albums.toLocaleString()} unique albums)`;
+    statAlbums.classList.remove('d-none');
+    hasAny = true;
+  }
+  if (stats.spotify_matched && statSpotify) {
+    statSpotify.textContent = `Matched ${stats.spotify_matched} albums on Spotify`;
+    statSpotify.classList.remove('d-none');
+    hasAny = true;
+  }
+  if (hasAny) { liveStatsContainer.classList.remove('d-none'); }
+
+  // Show partial data warning if present
+  const partialWarning = document.getElementById('partial-warning');
+  const partialWarningText = document.getElementById('partial-warning-text');
+  if (stats.partial_data_warning && partialWarning && partialWarningText) {
+    partialWarningText.textContent = stats.partial_data_warning;
+    partialWarning.classList.remove('d-none');
+  }
+}
+
 async function fetchProgress() {
   try {
-    const response     = await fetch('/progress');
+    const response = await fetch(`/progress?job_id=${encodeURIComponent(job_id)}`);
     const progressData = await response.json();
     const p            = progressData.progress;  // numeric progress (0–100)
 
@@ -113,20 +149,22 @@ async function fetchProgress() {
     if (progressBar) {
       progressBar.style.width = p + '%';
     }
-    // Update the main “message” line (often same as stepDetails)
+    // Update the main "message" line (often same as stepDetails)
     if (stepText) {
       stepText.textContent = progressData.message;
     }
 
-    // If the back end signaled an error, show it and redirect after 3s
+    // Update personalized live stats
+    updateLiveStats(progressData.stats || {});
+
+    // If the back end signaled an error, show it with appropriate actions
     if (progressData.error) {
       errorDetected = true;
+      stopRotatingMessages();
+
       if (progressBar) {
         progressBar.classList.remove('bg-primary');
         progressBar.classList.add('bg-danger');
-      }
-      if (stepDetails) {
-        stepDetails.textContent = "An error occurred. Redirecting shortly…";
       }
       if (errorContainer) {
         errorContainer.classList.remove('d-none');
@@ -134,9 +172,37 @@ async function fetchProgress() {
       if (errorText) {
         errorText.textContent = progressData.message;
       }
-      setTimeout(() => {
-        redirectToResults();
-      }, 3000);
+
+      // Show error source if available
+      const errorSource = document.getElementById('error-source');
+      if (errorSource && progressData.error_source) {
+        const sourceLabel = progressData.error_source === 'lastfm' ? 'Last.fm' : 'Spotify';
+        errorSource.textContent = `Source: ${sourceLabel}`;
+        errorSource.classList.remove('d-none');
+      }
+
+      // Show retry button for retryable errors, auto-redirect for non-retryable
+      const retryButton = document.getElementById('retry-button');
+      if (progressData.retryable && retryButton) {
+        retryButton.classList.remove('d-none');
+        retryButton.addEventListener('click', () => {
+          retryButton.disabled = true;
+          retryButton.textContent = 'Retrying\u2026';
+          retryCurrentSearch();
+        }, { once: true });
+
+        if (stepDetails) {
+          stepDetails.textContent = "You can retry or return home.";
+        }
+      } else {
+        // Non-retryable error (e.g., user not found): auto-redirect
+        if (stepDetails) {
+          stepDetails.textContent = "Redirecting shortly\u2026";
+        }
+        setTimeout(() => {
+          redirectToResults();
+        }, 3000);
+      }
       return;
     }
 
@@ -226,7 +292,13 @@ async function fetchProgress() {
       resetButton.classList.add('btn', 'btn-primary', 'mt-3');
       resetButton.addEventListener('click', async () => {
         try {
-          await fetch('/reset_progress', { method: 'POST' });
+          if (job_id) {
+            await fetch('/reset_progress', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: new URLSearchParams({ job_id }).toString()
+            });
+          }
           window.location.href = '/';
         } catch (e) {
           console.error('Failed to reset progress:', e);
@@ -247,6 +319,33 @@ function redirectToResults() {
   const form = document.createElement('form');
   form.method = 'POST';
   form.action = '/results_complete';
+
+  form.appendChild(createHiddenInput('job_id', job_id));
+  form.appendChild(createHiddenInput('username', username));
+  form.appendChild(createHiddenInput('year', year));
+  form.appendChild(createHiddenInput('sort_by', sort_by));
+  form.appendChild(createHiddenInput('release_scope', release_scope));
+
+  if (decade) {
+    form.appendChild(createHiddenInput('decade', decade));
+  }
+  if (release_year) {
+    form.appendChild(createHiddenInput('release_year', release_year));
+  }
+
+  form.appendChild(createHiddenInput('min_plays', min_plays));
+  form.appendChild(createHiddenInput('min_tracks', min_tracks));
+  form.appendChild(createHiddenInput('limit_results', limit_results || 'all'));
+
+  document.body.appendChild(form);
+  form.submit();
+}
+
+// Resubmit the original search to /results_loading (creates a fresh job)
+function retryCurrentSearch() {
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/results_loading';
 
   form.appendChild(createHiddenInput('username', username));
   form.appendChild(createHiddenInput('year', year));
@@ -269,4 +368,13 @@ function redirectToResults() {
 }
 
 // Start polling as soon as this script loads
-fetchProgress();
+if (!job_id) {
+  if (stepText) {
+    stepText.textContent = 'Missing job identifier.';
+  }
+  if (stepDetails) {
+    stepDetails.textContent = 'Please return home and start a new search.';
+  }
+} else {
+  fetchProgress();
+}

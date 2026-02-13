@@ -50,6 +50,7 @@ This project was initially built to identify top albums released in a specific y
 * **Unmatched Album Insights:**
     * View a quick list of albums that were in your listening history but didn't match your selected filters via a modal.
     * Access a detailed report categorizing why albums were excluded (sticky navigation bar for easy access on this page).
+* **Username Pre-Validation:** Real-time username validation on blur before submitting the form, catching typos early.
 * **User Feedback:**
     * Loading indicators with progress updates during data fetching and processing.
     * Clear error messages and redirection for invalid inputs or API issues.
@@ -94,16 +95,20 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * Last.fm API: `user.getrecenttracks` is used to gather scrobbles, paginated until the specified year's cutoff.
     * Spotify API: Used to search each album and fetch `release_date` for filtering, as well as artwork and track runtimes.
 * **Core Python Libraries:**
-    * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm & Spotify: 20 requests/sec) with built-in retries.
+    * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm: 10 req/s, Spotify: 10 req/s) with built-in retries and jitter. Concurrency and rate defaults are configurable via environment variables.
     * `python-dotenv`: For managing API keys and configuration from a `.env` file (which also controls an optional `DEBUG_MODE`).
     * `Jinja2`: For server-side HTML templating.
     * `Flask`: Micro web framework.
 
 ### Key Implementation Highlights:
 
-* **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file.
+* **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency and rate-limit defaults can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, etc.).
+* **Per-Job State Isolation:** Each search request creates a unique job (UUID-keyed, in-memory `JOBS` dict with thread-safe locking). Progress, results, and unmatched data are scoped per job, preventing cross-user state collisions on concurrent requests. Jobs expire after 2 hours.
 * **Data Normalization:** Artist and album names are cleaned of punctuation and common suffixes (e.g., "deluxe edition", "remastered") for more robust matching between Last.fm data and Spotify search queries.
-* **Caching:** An in-memory request cache (`REQUEST_CACHE` in `app.py` with a 1-hour TTL) is used to minimize redundant API calls and improve performance during a user session.
+* **Caching:**
+    * In-memory request cache (`REQUEST_CACHE` in `app.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
+    * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
+* **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
 * **Styling & UX:**
     * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
     * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The main logo is an animated SVG emulating a waveform.
@@ -111,6 +116,9 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
     * **Static Assets:** CSS and JavaScript moved to /static for easier maintenance.
     * **Rotating loading messages:** Keeps users informed while data is being fetched.
+    * **Personalized Loading Stats:** Live stats (scrobble count, albums found, Spotify matches) shown during processing.
+    * **Onboarding:** First-visit welcome modal with "Info" button for returning users; contextual tooltip icons on form fields.
+    * **Clickable Album Links:** Album names in results link directly to their Spotify page.
 
 ## Getting Started (Work in Progress)
 
@@ -158,6 +166,21 @@ This project is currently a work in progress. However, if you wish to run it loc
     ```
     The application should then be accessible at `http://127.0.0.1:5000/`.
 
+### Cache smoke test (deployed instance):
+
+To verify warm-cache behavior on Fly.io (example target: `flounder14`, listening year `2025`), run:
+
+```bash
+python scripts/smoke_cache_check.py --base-url https://scrobblescope.fly.dev --username flounder14 --year 2025 --runs 2
+```
+
+What to look for:
+* `db_cache_enabled=True` indicates the app connected to Postgres for this run.
+* `Run 2` should report `cache_hits > 0` once metadata has been persisted.
+* `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
+* `Run 2` elapsed time should usually be lower than `Run 1`.
+* The script prints `verdict=PASS` when the second run observes DB cache hits.
+
 ### Project File Structure:
 
 
@@ -194,14 +217,19 @@ This project is currently a work in progress. However, if you wish to run it loc
 │   ├── js/
 │   │   ├── error.js
 │   │   ├── index.js
-│   │   └── loading.js
+│   │   ├── loading.js
+│   │   └── results.js
 │   └── images/
 │       ├── favicon.ico
 │       ├── favicon.svg
 │       ├── favicon-16x16.png
 │       └── favicon-32x32.png
 │
+├── tests/
+│   └── test_app.py      # Unit tests (pytest + pytest-asyncio)
+│
 └── templates/
+    │   base.html         # Master template (dark mode toggle, shared CSS/JS blocks)
     │   error.html
     │   index.html
     │   loading.html
@@ -223,20 +251,28 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
 * [x] Further optimize performance for users with very large listening histories.
 * [ ] Improve responsive design, especially for mobile devices.
-* [ ] Write more comprehensive backend function docstrings and comments in `app.py`.
+* [x] Write more comprehensive backend function docstrings and comments in `app.py`.
 * [ ] Conduct thorough QA testing across different browsers and use cases.
-* [ ] Improve the landing page (`index.html`) copy to be more descriptive for new users.
-* [ ] Deploy to a cloud platform (e.g., Heroku, Vercel, or Netlify).
+* [x] Improve the landing page (`index.html`) copy to be more descriptive for new users.
+* [x] Deploy to Fly.io (ephemeral VM, shared-cpu-2x @ 512MB).
 * ~~[ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.~~
-* [x] Used RotatingFileHandler and start-up banner to delieniate session logs, logsize = 1MB max
+* [x] Used RotatingFileHandler and start-up banner to delineate session logs, logsize = 1MB max.
+* [x] Per-job state isolation for concurrent user safety.
+* [x] Username pre-validation endpoint (`/validate_user`).
+* [x] XSS-safe template data injection (`|tojson` bridge, `escapeHtml()`).
+* [x] Loop-scoped rate limiters (fix `AsyncLimiter` reuse-across-loops warning).
+* [x] Implement proper upstream failure classification and retry UX.
+* [x] Personalized minimum listening year from Last.fm registration date.
+* [x] Remove nested thread pattern in background task execution.
+* [x] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
 * [ ] Modularize API calls into `services/` modules (`lastfm.py`, `spotify.py`, and `cache.py`).
 * [ ] Use Flask Blueprints to organize routes.
 * [ ] Consolidate helper functions into `utils.py`.
 * [ ] Move background processing to `tasks.py` or a dedicated task queue.
 * [ ] Separate configuration into `config.py` for cleaner imports.
-* [ ] Optimize network usage via batching or parallel requests.
-* [ ] Create master HTML templates to reduce duplication.
-* [ ] Add comprehensive unit tests.
+* [x] Optimize network usage via batching or parallel requests.
+* [x] Create master HTML templates to reduce duplication.
+* [x] Expand unit test coverage (async pipelines, error states, job isolation).
 
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.

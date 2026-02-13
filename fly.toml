@@ -3,10 +3,13 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'scrobblescope'
-primary_region = 'iad'
+app = "scrobblescope"
+primary_region = "yyz"
 
 [build]
+
+[deploy]
+  release_command = "python init_db.py"
 
 [http_service]
   internal_port = 8080
@@ -17,7 +20,6 @@ primary_region = 'iad'
   processes = ['app']
 
 [[vm]]
-  memory = '1gb'
-  cpu_kind = 'shared'
-  cpus = 1
-  memory_mb = 1024
+  cpu_kind = "shared"
+  cpus = 2
+  memory_mb = 512

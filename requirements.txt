@@ -2,6 +2,7 @@ aiohappyeyeballs==2.4.4
 aiohttp==3.11.10
 aiolimiter==1.2.1
 aiosignal==1.3.2
+asyncpg>=0.29.0
 attrs==24.2.0
 blinker==1.9.0
 cachetools==5.5.0
@@ -35,5 +36,4 @@ pre-commit
 pytest
 pytest-cov
 pytest-asyncio
-Flask_Caching
-redis
+

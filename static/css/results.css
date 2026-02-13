@@ -201,7 +201,8 @@
         
         .table-responsive {
             border-radius: 8px;
-            overflow: hidden;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .dark-mode .modal-content {
@@ -242,3 +243,13 @@
             color: #f8f9fa;
             border-bottom-color: #444;
         }
+
+@media (max-width: 575.98px) {
+    #darkModeToggle {
+        top: auto;
+        bottom: 1rem;
+        font-size: 0.85rem;
+        padding: 0.35rem;
+        gap: 0.5rem;
+    }
+}
