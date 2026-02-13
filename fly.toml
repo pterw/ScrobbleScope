@@ -8,6 +8,9 @@ primary_region = "yyz"
 
 [build]
 
+[deploy]
+  release_command = "python init_db.py"
+
 [http_service]
   internal_port = 8080
   force_https = true

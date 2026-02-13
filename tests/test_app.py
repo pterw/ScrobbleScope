@@ -1,4 +1,5 @@
 # tests/test_app.py
+import json
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -8,8 +9,12 @@ import pytest
 from app import (
     JOB_TTL_SECONDS,
     JOBS,
+    SpotifyUnavailableError,
+    _batch_lookup_metadata,
+    _batch_persist_metadata,
     _extract_registered_year,
     _fetch_and_process,
+    _get_db_connection,
     add_job_unmatched,
     app,
     background_task,
@@ -23,6 +28,7 @@ from app import (
     jobs_lock,
     normalize_name,
     normalize_track_name,
+    process_albums,
     search_for_spotify_album_id,
     set_job_error,
     set_job_progress,
@@ -617,9 +623,10 @@ def test_background_task_runs_single_event_loop():
     """
     job_id = create_job(_TEST_JOB_PARAMS)
 
-    with patch("app._fetch_and_process", new_callable=AsyncMock) as mock_fp, patch(
-        "app.threading.Thread"
-    ) as mock_inner_thread:
+    with (
+        patch("app._fetch_and_process", new_callable=AsyncMock) as mock_fp,
+        patch("app.threading.Thread") as mock_inner_thread,
+    ):
         background_task(
             job_id,
             "flounder14",
@@ -741,9 +748,11 @@ async def test_fetch_recent_tracks_page_retries_429_then_succeeds():
         _make_response_context(resp_200),
     ]
 
-    with patch("app.get_cached_response", return_value=None), patch(
-        "app.get_lastfm_limiter", return_value=_NoopAsyncContext()
-    ), patch("app.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+    with (
+        patch("app.get_cached_response", return_value=None),
+        patch("app.get_lastfm_limiter", return_value=_NoopAsyncContext()),
+        patch("app.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
         result = await fetch_recent_tracks_page_async(
             session, "flounder14", 1, 2, page=1, retries=3
         )
@@ -765,8 +774,9 @@ async def test_fetch_recent_tracks_page_404_raises_user_not_found():
     resp_404.status = 404
     session.get.return_value = _make_response_context(resp_404)
 
-    with patch("app.get_cached_response", return_value=None), patch(
-        "app.get_lastfm_limiter", return_value=_NoopAsyncContext()
+    with (
+        patch("app.get_cached_response", return_value=None),
+        patch("app.get_lastfm_limiter", return_value=_NoopAsyncContext()),
     ):
         with pytest.raises(ValueError, match="not found"):
             await fetch_recent_tracks_page_async(
@@ -798,9 +808,10 @@ async def test_search_for_spotify_album_id_retries_429_then_returns_id():
         _make_response_context(resp_200),
     ]
 
-    with patch("app.get_spotify_limiter", return_value=_NoopAsyncContext()), patch(
-        "app.asyncio.sleep", new_callable=AsyncMock
-    ) as mock_sleep:
+    with (
+        patch("app.get_spotify_limiter", return_value=_NoopAsyncContext()),
+        patch("app.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
         result = await search_for_spotify_album_id(session, "Artist", "Album", "token")
 
     assert result == "spotify_album_123"
@@ -832,9 +843,10 @@ async def test_fetch_spotify_album_details_batch_retries_429_then_succeeds():
         _make_response_context(resp_200),
     ]
 
-    with patch("app.get_spotify_limiter", return_value=_NoopAsyncContext()), patch(
-        "app.asyncio.sleep", new_callable=AsyncMock
-    ) as mock_sleep:
+    with (
+        patch("app.get_spotify_limiter", return_value=_NoopAsyncContext()),
+        patch("app.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
         result = await fetch_spotify_album_details_batch(
             session, ["id_1"], "token", retries=2
         )
@@ -858,12 +870,590 @@ async def test_fetch_spotify_album_details_batch_non_200_returns_empty_dict():
     resp_500.text = AsyncMock(return_value="upstream failure")
     session.get.return_value = _make_response_context(resp_500)
 
-    with patch("app.get_spotify_limiter", return_value=_NoopAsyncContext()), patch(
-        "app.asyncio.sleep", new_callable=AsyncMock
-    ) as mock_sleep:
+    with (
+        patch("app.get_spotify_limiter", return_value=_NoopAsyncContext()),
+        patch("app.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
         result = await fetch_spotify_album_details_batch(
             session, ["id_1"], "token", retries=2
         )
 
     assert result == {}
     assert mock_sleep.await_count == 0
+
+
+# --- Spotify metadata cache tests (Batch 7) ---
+
+
+@pytest.mark.asyncio
+async def test_get_db_connection_no_asyncpg():
+    """
+    GIVEN asyncpg is None (not installed)
+    WHEN _get_db_connection is called
+    THEN it should return None immediately.
+    """
+    with patch("app.asyncpg", None):
+        result = await _get_db_connection()
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_db_connection_no_database_url():
+    """
+    GIVEN asyncpg is available but DATABASE_URL is not set
+    WHEN _get_db_connection is called
+    THEN it should return None.
+    """
+    with patch.dict("os.environ", {}, clear=True):
+        result = await _get_db_connection()
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_get_db_connection_connect_failure():
+    """
+    GIVEN DATABASE_URL is set but the connection fails
+    WHEN _get_db_connection is called
+    THEN it should return None and log a warning.
+    """
+    with patch.dict("os.environ", {"DATABASE_URL": "postgres://bad:bad@localhost/bad"}):
+        with patch("app.asyncpg") as mock_asyncpg:
+            mock_asyncpg.connect = AsyncMock(
+                side_effect=Exception("connection refused")
+            )
+            result = await _get_db_connection()
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_batch_lookup_metadata_empty_keys():
+    """
+    GIVEN an empty list of keys
+    WHEN _batch_lookup_metadata is called
+    THEN it should return an empty dict without making a DB call.
+    """
+    mock_conn = AsyncMock()
+    result = await _batch_lookup_metadata(mock_conn, [])
+    assert result == {}
+    mock_conn.fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_batch_lookup_metadata_parses_track_durations():
+    """
+    GIVEN DB rows with track_durations as a JSON string
+    WHEN _batch_lookup_metadata processes the results
+    THEN it should parse them into Python dicts.
+    """
+    mock_row = {
+        "artist_norm": "radiohead",
+        "album_norm": "ok computer",
+        "spotify_id": "abc123",
+        "release_date": "1997-06-16",
+        "album_image_url": "https://img.example.com/ok.jpg",
+        "track_durations": '{"paranoid android": 383, "karma police": 264}',
+    }
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[mock_row])
+
+    result = await _batch_lookup_metadata(mock_conn, [("radiohead", "ok computer")])
+
+    assert ("radiohead", "ok computer") in result
+    td = result[("radiohead", "ok computer")]["track_durations"]
+    assert isinstance(td, dict)
+    assert td["paranoid android"] == 383
+    assert td["karma police"] == 264
+
+
+@pytest.mark.asyncio
+async def test_batch_persist_metadata_empty_rows():
+    """
+    GIVEN an empty list of rows
+    WHEN _batch_persist_metadata is called
+    THEN it should return immediately without making a DB call.
+    """
+    mock_conn = AsyncMock()
+    await _batch_persist_metadata(mock_conn, [])
+    mock_conn.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_batch_persist_metadata_upsert_call_shape():
+    """
+    GIVEN a list of metadata rows
+    WHEN _batch_persist_metadata is called
+    THEN it should execute a single INSERT ... unnest() statement
+    with the correct array parameters.
+    """
+    mock_conn = AsyncMock()
+    rows = [
+        (
+            "artist1",
+            "album1",
+            "sp1",
+            "2025-01-01",
+            "https://img/1.jpg",
+            {"track a": 200},
+        ),
+        ("artist2", "album2", "sp2", "2024-06-15", None, {}),
+    ]
+
+    await _batch_persist_metadata(mock_conn, rows)
+
+    mock_conn.execute.assert_awaited_once()
+    call_args = mock_conn.execute.call_args
+    sql = call_args[0][0]
+    assert "INSERT INTO spotify_cache" in sql
+    assert "unnest" in sql
+    assert "ON CONFLICT" in sql
+    # Verify array parameters
+    assert call_args[0][1] == ["artist1", "artist2"]
+    assert call_args[0][2] == ["album1", "album2"]
+    assert call_args[0][3] == ["sp1", "sp2"]
+    # track_durations should be JSON strings
+    td_param = call_args[0][6]
+    assert json.loads(td_param[0]) == {"track a": 200}
+    assert json.loads(td_param[1]) == {}
+
+
+@pytest.mark.asyncio
+async def test_process_albums_cache_hit_skips_spotify():
+    """
+    GIVEN all albums exist in the DB cache
+    WHEN process_albums is called
+    THEN it should NOT call fetch_spotify_access_token and should
+    build results from cached metadata only.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+    filtered = {
+        ("radiohead", "ok computer"): {
+            "play_count": 50,
+            "track_counts": {"paranoid android": 10, "karma police": 8},
+            "original_artist": "Radiohead",
+            "original_album": "OK Computer",
+        }
+    }
+
+    mock_cached = {
+        ("radiohead", "ok computer"): {
+            "spotify_id": "abc123",
+            "release_date": "1997-06-16",
+            "album_image_url": "https://img.example.com/ok.jpg",
+            "track_durations": {"paranoid android": 383, "karma police": 264},
+        }
+    }
+
+    mock_conn = AsyncMock()
+    with (
+        patch("app._get_db_connection", new_callable=AsyncMock, return_value=mock_conn),
+        patch(
+            "app._batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value=mock_cached,
+        ),
+        patch("app._batch_persist_metadata", new_callable=AsyncMock),
+        patch("app.fetch_spotify_access_token", new_callable=AsyncMock) as mock_token,
+    ):
+        results = await process_albums(job_id, filtered, 1997, "playcount", "same")
+
+    # Spotify token should NOT have been fetched (no cache misses)
+    mock_token.assert_not_awaited()
+    # Connection should have been closed
+    mock_conn.close.assert_awaited_once()
+
+    progress = get_job_progress(job_id)
+    assert len(results) == 1
+    assert results[0]["spotify_id"] == "abc123"
+    assert results[0]["play_time_seconds"] == 383 * 10 + 264 * 8
+    assert results[0]["artist"] == "Radiohead"
+    assert progress["stats"]["db_cache_enabled"] is True
+    assert progress["stats"]["db_cache_lookup_hits"] == 1
+
+
+@pytest.mark.asyncio
+async def test_process_albums_cache_miss_fetches_and_persists():
+    """
+    GIVEN no albums exist in the DB cache
+    WHEN process_albums is called
+    THEN it should call Spotify search + detail fetch, build results,
+    and persist the new metadata to DB.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+    filtered = {
+        ("artist", "album"): {
+            "play_count": 20,
+            "track_counts": {"track one": 5},
+            "original_artist": "Artist",
+            "original_album": "Album",
+        }
+    }
+
+    mock_conn = AsyncMock()
+    mock_session = AsyncMock()
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("app._get_db_connection", new_callable=AsyncMock, return_value=mock_conn),
+        patch(
+            "app._batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        patch("app._batch_persist_metadata", new_callable=AsyncMock) as mock_persist,
+        patch(
+            "app.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch("app.create_optimized_session", return_value=mock_session_ctx),
+        patch(
+            "app.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            return_value="sp1",
+        ),
+        patch(
+            "app.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+            return_value={
+                "sp1": {
+                    "release_date": "2025-01-01",
+                    "images": [{"url": "https://img.example.com/a.jpg"}],
+                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
+                }
+            },
+        ),
+    ):
+        results = await process_albums(job_id, filtered, 2025, "playcount", "same")
+
+    # Persist should have been called with new metadata
+    mock_persist.assert_awaited_once()
+    persist_rows = mock_persist.call_args[0][1]
+    assert len(persist_rows) == 1
+    assert persist_rows[0][2] == "sp1"  # spotify_id
+
+    progress = get_job_progress(job_id)
+    mock_conn.close.assert_awaited_once()
+    assert len(results) == 1
+    assert results[0]["spotify_id"] == "sp1"
+    assert results[0]["album_image"] == "https://img.example.com/a.jpg"
+    assert progress["stats"]["db_cache_enabled"] is True
+    assert progress["stats"]["db_cache_persisted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_process_albums_db_unavailable_falls_back():
+    """
+    GIVEN _get_db_connection returns None (no DATABASE_URL)
+    WHEN process_albums is called
+    THEN it should proceed with full Spotify calls and return results.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+    filtered = {
+        ("artist", "album"): {
+            "play_count": 20,
+            "track_counts": {"track one": 5},
+            "original_artist": "Artist",
+            "original_album": "Album",
+        }
+    }
+
+    mock_session = AsyncMock()
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("app._get_db_connection", new_callable=AsyncMock, return_value=None),
+        patch(
+            "app.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch("app.create_optimized_session", return_value=mock_session_ctx),
+        patch(
+            "app.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            return_value="sp1",
+        ),
+        patch(
+            "app.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+            return_value={
+                "sp1": {
+                    "release_date": "2025-01-01",
+                    "images": [{"url": "https://img.example.com/a.jpg"}],
+                    "tracks": {"items": [{"name": "Track One", "duration_ms": 240000}]},
+                }
+            },
+        ),
+    ):
+        results = await process_albums(job_id, filtered, 2025, "playcount", "same")
+
+    progress = get_job_progress(job_id)
+    assert len(results) == 1
+    assert results[0]["spotify_id"] == "sp1"
+    assert progress["stats"]["db_cache_enabled"] is False
+    assert "db_cache_warning" in progress["stats"]
+
+
+@pytest.mark.asyncio
+async def test_process_albums_conn_always_closed():
+    """
+    GIVEN a DB connection is established but Spotify search raises
+    WHEN process_albums is called
+    THEN the connection should still be closed in the finally block.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+    filtered = {
+        ("artist", "album"): {
+            "play_count": 20,
+            "track_counts": {"track one": 5},
+            "original_artist": "Artist",
+            "original_album": "Album",
+        }
+    }
+
+    mock_conn = AsyncMock()
+    mock_session = AsyncMock()
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("app._get_db_connection", new_callable=AsyncMock, return_value=mock_conn),
+        patch(
+            "app._batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        patch("app._batch_persist_metadata", new_callable=AsyncMock),
+        patch(
+            "app.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch("app.create_optimized_session", return_value=mock_session_ctx),
+        patch(
+            "app.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("Spotify exploded"),
+        ),
+    ):
+        with pytest.raises(RuntimeError, match="Spotify exploded"):
+            await process_albums(job_id, filtered, 2025, "playcount", "same")
+
+    # Connection must be closed even though an error occurred
+    mock_conn.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_albums_empty_input():
+    """
+    GIVEN an empty filtered_albums dict
+    WHEN process_albums is called
+    THEN it should return an empty list and close the connection cleanly.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+
+    mock_conn = AsyncMock()
+    with (
+        patch("app._get_db_connection", new_callable=AsyncMock, return_value=mock_conn),
+        patch(
+            "app._batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        patch("app._batch_persist_metadata", new_callable=AsyncMock),
+    ):
+        results = await process_albums(job_id, {}, 2025, "playcount", "same")
+
+    assert results == []
+    mock_conn.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_albums_all_misses_token_failure_raises():
+    """
+    GIVEN all albums are cache misses and Spotify token fetch fails
+    WHEN process_albums is called
+    THEN it should raise SpotifyUnavailableError and close DB connection.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+    filtered = {
+        ("artist", "album"): {
+            "play_count": 10,
+            "track_counts": {"song": 3},
+            "original_artist": "Artist",
+            "original_album": "Album",
+        }
+    }
+
+    mock_conn = AsyncMock()
+    with (
+        patch("app._get_db_connection", new_callable=AsyncMock, return_value=mock_conn),
+        patch("app._batch_lookup_metadata", new_callable=AsyncMock, return_value={}),
+        patch(
+            "app.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+    ):
+        with pytest.raises(SpotifyUnavailableError, match="token fetch failed"):
+            await process_albums(job_id, filtered, 2025, "playcount", "same")
+
+    mock_conn.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_albums_partial_cache_token_failure_uses_cached_results():
+    """
+    GIVEN some cache hits and some cache misses
+    WHEN Spotify token fetch fails
+    THEN process_albums should return cached results and set a partial-data warning.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+    filtered = {
+        ("radiohead", "ok computer"): {
+            "play_count": 50,
+            "track_counts": {"paranoid android": 10, "karma police": 8},
+            "original_artist": "Radiohead",
+            "original_album": "OK Computer",
+        },
+        ("artist", "album"): {
+            "play_count": 20,
+            "track_counts": {"track one": 5},
+            "original_artist": "Artist",
+            "original_album": "Album",
+        },
+    }
+    mock_cached = {
+        ("radiohead", "ok computer"): {
+            "spotify_id": "abc123",
+            "release_date": "1997-06-16",
+            "album_image_url": "https://img.example.com/ok.jpg",
+            "track_durations": {"paranoid android": 383, "karma police": 264},
+        }
+    }
+
+    mock_conn = AsyncMock()
+    with (
+        patch("app._get_db_connection", new_callable=AsyncMock, return_value=mock_conn),
+        patch(
+            "app._batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value=mock_cached,
+        ),
+        patch(
+            "app.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value=None,
+        ) as mock_token,
+    ):
+        results = await process_albums(job_id, filtered, 1997, "playcount", "all")
+
+    progress = get_job_progress(job_id)
+    assert len(results) == 1
+    assert results[0]["spotify_id"] == "abc123"
+    assert "partial_data_warning" in progress["stats"]
+    assert "cached albums only" in progress["stats"]["partial_data_warning"]
+    assert progress["stats"]["db_cache_enabled"] is True
+    mock_token.assert_awaited_once()
+    mock_conn.close.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
+    """
+    GIVEN _fetch_and_process receives albums and process_albums returns results
+    WHEN _fetch_and_process runs
+    THEN it should not call fetch_spotify_access_token directly.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+    filtered = {
+        ("radiohead", "ok computer"): {
+            "play_count": 50,
+            "track_counts": {"paranoid android": 10},
+            "original_artist": "Radiohead",
+            "original_album": "OK Computer",
+        }
+    }
+    expected_results = [
+        {
+            "artist": "Radiohead",
+            "album": "OK Computer",
+            "play_count": 50,
+            "play_time": "63 mins, 50 secs",
+            "play_time_seconds": 3830,
+            "different_songs": 1,
+            "release_date": "1997-06-16",
+            "album_image": "https://img.example.com/ok.jpg",
+            "spotify_id": "abc123",
+        }
+    ]
+
+    with (
+        patch("app.asyncio.sleep", new_callable=AsyncMock),
+        patch(
+            "app.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=(filtered, {"status": "ok"}),
+        ),
+        patch(
+            "app.process_albums",
+            new_callable=AsyncMock,
+            return_value=expected_results,
+        ),
+        patch("app.fetch_spotify_access_token", new_callable=AsyncMock) as mock_token,
+    ):
+        results = await _fetch_and_process(
+            job_id, "flounder14", 2025, "playcount", "same"
+        )
+
+    progress = get_job_progress(job_id)
+    assert results == expected_results
+    assert progress["error"] is False
+    assert progress["progress"] == 100
+    mock_token.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_process_sets_spotify_error_from_process_albums():
+    """
+    GIVEN process_albums raises SpotifyUnavailableError
+    WHEN _fetch_and_process runs
+    THEN it should set a classified spotify_unavailable job error.
+    """
+    job_id = create_job(_TEST_JOB_PARAMS)
+    filtered = {
+        ("artist", "album"): {
+            "play_count": 10,
+            "track_counts": {"song": 3},
+            "original_artist": "Artist",
+            "original_album": "Album",
+        }
+    }
+
+    with (
+        patch("app.asyncio.sleep", new_callable=AsyncMock),
+        patch(
+            "app.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=(filtered, {"status": "ok"}),
+        ),
+        patch(
+            "app.process_albums",
+            new_callable=AsyncMock,
+            side_effect=SpotifyUnavailableError("Spotify token fetch failed"),
+        ),
+    ):
+        results = await _fetch_and_process(
+            job_id, "flounder14", 2025, "playcount", "same"
+        )
+
+    progress = get_job_progress(job_id)
+    assert results == []
+    assert progress["error"] is True
+    assert progress["error_code"] == "spotify_unavailable"
+    assert progress["error_source"] == "spotify"

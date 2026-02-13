@@ -105,7 +105,9 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
 * **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency and rate-limit defaults can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, etc.).
 * **Per-Job State Isolation:** Each search request creates a unique job (UUID-keyed, in-memory `JOBS` dict with thread-safe locking). Progress, results, and unmatched data are scoped per job, preventing cross-user state collisions on concurrent requests. Jobs expire after 2 hours.
 * **Data Normalization:** Artist and album names are cleaned of punctuation and common suffixes (e.g., "deluxe edition", "remastered") for more robust matching between Last.fm data and Spotify search queries.
-* **Caching:** An in-memory request cache (`REQUEST_CACHE` in `app.py` with a 1-hour TTL) is used to minimize redundant API calls and improve performance during a user session.
+* **Caching:**
+    * In-memory request cache (`REQUEST_CACHE` in `app.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
+    * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
 * **Styling & UX:**
     * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
@@ -163,6 +165,21 @@ This project is currently a work in progress. However, if you wish to run it loc
     python app.py
     ```
     The application should then be accessible at `http://127.0.0.1:5000/`.
+
+### Cache smoke test (deployed instance):
+
+To verify warm-cache behavior on Fly.io (example target: `flounder14`, listening year `2025`), run:
+
+```bash
+python scripts/smoke_cache_check.py --base-url https://scrobblescope.fly.dev --username flounder14 --year 2025 --runs 2
+```
+
+What to look for:
+* `db_cache_enabled=True` indicates the app connected to Postgres for this run.
+* `Run 2` should report `cache_hits > 0` once metadata has been persisted.
+* `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
+* `Run 2` elapsed time should usually be lower than `Run 1`.
+* The script prints `verdict=PASS` when the second run observes DB cache hits.
 
 ### Project File Structure:
 
@@ -247,7 +264,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Implement proper upstream failure classification and retry UX.
 * [x] Personalized minimum listening year from Last.fm registration date.
 * [x] Remove nested thread pattern in background task execution.
-* [ ] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
+* [x] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
 * [ ] Modularize API calls into `services/` modules (`lastfm.py`, `spotify.py`, and `cache.py`).
 * [ ] Use Flask Blueprints to organize routes.
 * [ ] Consolidate helper functions into `utils.py`.
