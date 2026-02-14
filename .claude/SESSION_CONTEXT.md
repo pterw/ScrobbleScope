@@ -164,5 +164,6 @@ POST /results_complete
 - **pytest config** in `pyproject.toml` with `asyncio_mode = "strict"`
 - **API keys** in `.env` (not committed): `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `DATABASE_URL`
 - **DB connect tuning env vars** (optional): `DB_CONNECT_MAX_ATTEMPTS` (default `3`), `DB_CONNECT_BASE_DELAY_SECONDS` (default `0.25`)
+- **Frontend baseline (2026-02-14):** compact fixed-bottom dark-mode toggle across pages; `index` and `results` mobile spacing/typography tightened; decade pills centered.
 - **Gunicorn:** `gunicorn app:app` still works (module-level `app = create_app()`)
 - **Fly DB behavior:** unmanaged `scrobblescope-db` currently uses `FLY_SCALE_TO_ZERO=1h`; stopped/suspended state after idle is expected and DB wakes on demand.

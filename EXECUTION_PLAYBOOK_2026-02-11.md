@@ -27,7 +27,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - Nested thread pattern removed:
   - Outer worker thread remains in `results_loading`.
   - `background_task` now owns one event loop directly (no inner thread).
-- Mobile dark-mode toggle repositioned to bottom-right on small screens (Batch 6).
+- Dark-mode toggle now uses a compact fixed bottom placement across pages; label auto-hides on extra-small screens.
 - `index.html` now renders server-side validation errors (Batch 6).
 - Test suite: 66 tests across 6 files (`test_domain.py`, `test_repositories.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, and DB connect retry/backoff behavior.
 
@@ -353,6 +353,23 @@ Source-of-truth note:
   - If first-request latency after idle is a concern, either increase retry knobs or adjust/remove DB `FLY_SCALE_TO_ZERO`.
   - Keep periodic smoke checks as operational validation for cache persistence and warm-hit behavior.
   - Resolve DB app staged secrets drift (`fly secrets deploy -a scrobblescope-db`) to avoid config ambiguity.
+
+### 2026-02-14 - Frontend responsiveness polish completed (toggle placement + mobile table scaling)
+- Scope: `static/css/index.css`, `static/css/results.css`, `static/css/loading.css`, `static/css/unmatched.css`, `static/css/error.css`, `templates/results.html`.
+- Plan vs implementation:
+  - Standardized dark-mode toggle to a compact fixed bottom control across all page CSS bundles.
+  - Improved `index.html` mobile fit by tightening spacing, typography, and card/logo sizing at mobile breakpoints.
+  - Improved `results.html` mobile readability by shrinking table density, making actions stack cleanly, and reducing album-art footprint.
+  - Added `results-table` class in template for targeted responsive behavior.
+  - Centered decade pills in `index` filter UI.
+- Deviations and why:
+  - To improve fit on common phones, responsive rules were applied up to `max-width: 767.98px` for index/results rather than only `575.98px`.
+- Validation:
+  - `venv\Scripts\python -m pytest tests -q`: **66 passed**.
+  - `venv\Scripts\pre-commit run --all-files`: all hooks passed.
+- Forward guidance:
+  - If users still report table crowding on very small devices, next step is card-style row rendering for results instead of a dense 5-column table.
+  - Consider extracting shared toggle CSS into one common stylesheet to reduce cross-file duplication.
 
 ### 2026-02-14 - Post-Batch-8 hardening completed (low-severity gap closure + test layout split)
 - Scope: `tests/test_routes.py`, `tests/conftest.py`, `tests/helpers.py` (new), `tests/services/` (new split files), `EXECUTION_PLAYBOOK_2026-02-11.md`, `.claude/SESSION_CONTEXT.md`, `README.md`.
