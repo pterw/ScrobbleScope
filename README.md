@@ -36,7 +36,7 @@ This project was initially built to identify top albums released in a specific y
         * Previous year.
         * Specific decades.
         * Custom specific release year.
-    * Define album listening thresholds (minimum track plays and minimum unique tracks per album). Set your own valuesâ€”defaults are 10 plays and 3 unique tracks if you don't specify.
+    * Define album listening thresholds (minimum track plays and minimum unique tracks per album). Set your own values—defaults are 10 plays and 3 unique tracks if you don't specify.
 * **Advanced Sorting:**
     * Sort your top albums by **total track play count**.
     * Sort by **total listening time** (calculated from the runtime of tracks you've listened to). *(Note: Playtime sorting is currently undergoing refinement for accuracy).*
