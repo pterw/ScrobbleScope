@@ -62,32 +62,39 @@
         /* Dark-mode toggle switch */
         #darkModeToggle {
             position: fixed;
-            top: 1rem;
-            right: 1rem;
+            left: 50%;
+            bottom: max(0.75rem, env(safe-area-inset-bottom));
+            transform: translateX(-50%);
             z-index: 1000;
             display: flex;
-            flex-direction: row-reverse;
+            flex-direction: row;
             align-items: center;
-            gap: 1rem;
-            padding: 0.5rem;
-            border-radius: 5px;
-            background-color: rgba(255, 255, 255, 0.8);
+            gap: 0.4rem;
+            padding: 0.3rem 0.5rem;
+            border-radius: 999px;
+            background-color: rgba(255, 255, 255, 0.88);
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(4px);
             transition: background-color 0.3s ease;
         }
 
         .dark-mode #darkModeToggle {
-            background-color: rgba(30, 30, 30, 0.8);
+            background-color: rgba(30, 30, 30, 0.9);
         }
-            
-        #darkModeToggle .form-check-input,
+             
+        #darkModeToggle .form-check-input {
+            margin: 0;
+        }
+
         #darkModeToggle .form-check-label {
             margin: 0;
+            font-size: 0.78rem;
+            line-height: 1;
         }
         
         #darkSwitch {
-            width: 3rem;
-            height: 1.5rem;
+            width: 2.45rem;
+            height: 1.25rem;
             background-color: #ccc;
             border-radius: 999px;
             appearance: none;
@@ -100,8 +107,8 @@
         #darkSwitch::before {
             content: "";
             position: absolute;
-            width: 1.2rem;
-            height: 1.2rem;
+            width: 0.95rem;
+            height: 0.95rem;
             border-radius: 50%;
             top: 0.15rem;
             left: 0.15rem;
@@ -114,7 +121,7 @@
         }
         
         #darkSwitch:checked::before {
-            transform: translateX(1.5rem);
+            transform: translateX(1.2rem);
         }
         
         /* Logo animation */
@@ -205,6 +212,10 @@
             -webkit-overflow-scrolling: touch;
         }
 
+        .results-table {
+            min-width: 620px;
+        }
+
         .dark-mode .modal-content {
             background-color: #1e1e1e;
             color: var(--text-color);
@@ -244,12 +255,114 @@
             border-bottom-color: #444;
         }
 
-@media (max-width: 575.98px) {
-    #darkModeToggle {
-        top: auto;
-        bottom: 1rem;
+@media (max-width: 767.98px) {
+    .container.mt-5.mb-5 {
+        margin-top: 0.85rem !important;
+        margin-bottom: 4.25rem !important;
+        padding-left: 0.6rem;
+        padding-right: 0.6rem;
+    }
+
+    #logo-wrapper {
+        margin-bottom: 0.75rem !important;
+    }
+
+    #logo-wrapper svg {
+        max-height: 92px;
+    }
+
+    .card-body {
+        padding: 0.85rem;
+    }
+
+    .card-body h2 {
+        font-size: 1.06rem;
+        line-height: 1.25;
+    }
+
+    .summary-box {
+        padding: 0.75rem;
+        margin-bottom: 0.8rem;
+    }
+
+    .summary-box h5 {
+        font-size: 0.95rem;
+        margin-bottom: 0.4rem;
+    }
+
+    .summary-box p {
+        font-size: 0.83rem;
+        margin-bottom: 0.35rem;
+    }
+
+    .table {
+        font-size: 0.82rem;
+    }
+
+    .results-table {
+        min-width: 520px;
+    }
+
+    .table th,
+    .table td {
+        padding: 0.45rem 0.32rem;
+        vertical-align: middle;
+    }
+
+    .results-table th:first-child,
+    .results-table td:first-child {
+        display: none;
+    }
+
+    .album-cover {
+        width: 40px;
+        height: 40px;
+        margin-right: 7px;
+    }
+
+    .album-link {
         font-size: 0.85rem;
-        padding: 0.35rem;
-        gap: 0.5rem;
+        line-height: 1.15;
+        word-break: break-word;
+    }
+
+    .release-badge {
+        font-size: 0.63rem;
+        padding: 0.18rem 0.35rem;
+        margin-top: 2px;
+    }
+
+    .text-center.mb-4 {
+        display: grid;
+        gap: 0.45rem;
+        margin-bottom: 0.9rem !important;
+    }
+
+    .text-center.mb-4 .btn {
+        margin-left: 0 !important;
+        width: 100%;
+    }
+
+    #view-unmatched-quick {
+        width: 100% !important;
+    }
+
+    #darkModeToggle {
+        padding: 0.25rem 0.42rem;
+        gap: 0.3rem;
+    }
+
+    #darkModeToggle .form-check-label {
+        font-size: 0.72rem;
+    }
+}
+
+@media (max-width: 380px) {
+    #darkModeToggle {
+        padding: 0.24rem 0.35rem;
+    }
+
+    #darkModeToggle .form-check-label {
+        display: none;
     }
 }

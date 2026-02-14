@@ -1,4 +1,4 @@
-# ScrobbleScope - Your Last.fm Listening Habits Visualized
+﻿# ScrobbleScope - Your Last.fm Listening Habits Visualized
 
 [![Status](https://img.shields.io/badge/status-work_in_progress-yellow.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
@@ -8,7 +8,7 @@ ScrobbleScope is a web application designed for Last.fm users to get a deeper in
 
 This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
 
-## 📖 Table of Contents
+## ðŸ“– Table of Contents
 
 * [Features](#features)
 * [Screenshots](#screenshots)
@@ -95,18 +95,19 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * Last.fm API: `user.getrecenttracks` is used to gather scrobbles, paginated until the specified year's cutoff.
     * Spotify API: Used to search each album and fetch `release_date` for filtering, as well as artwork and track runtimes.
 * **Core Python Libraries:**
-    * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm: 10 req/s, Spotify: 10 req/s) with built-in retries and jitter. Concurrency and rate defaults are configurable via environment variables.
+    * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm: 10 req/s, Spotify: 10 req/s) with built-in retry handling; Spotify retries include jitter. Concurrency and rate defaults are configurable via environment variables.
+    * `asyncpg`: For persistent Postgres-backed Spotify metadata caching on deployed environments.
     * `python-dotenv`: For managing API keys and configuration from a `.env` file (which also controls an optional `DEBUG_MODE`).
     * `Jinja2`: For server-side HTML templating.
     * `Flask`: Micro web framework.
 
 ### Key Implementation Highlights:
 
-* **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency and rate-limit defaults can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, etc.).
+* **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency, rate-limit defaults, and DB wake-up tolerance can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, `DB_CONNECT_MAX_ATTEMPTS`, `DB_CONNECT_BASE_DELAY_SECONDS`, etc.).
 * **Per-Job State Isolation:** Each search request creates a unique job (UUID-keyed, in-memory `JOBS` dict with thread-safe locking). Progress, results, and unmatched data are scoped per job, preventing cross-user state collisions on concurrent requests. Jobs expire after 2 hours.
 * **Data Normalization:** Artist and album names are cleaned of punctuation and common suffixes (e.g., "deluxe edition", "remastered") for more robust matching between Last.fm data and Spotify search queries.
 * **Caching:**
-    * In-memory request cache (`REQUEST_CACHE` in `app.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
+    * In-memory request cache (`REQUEST_CACHE` in `utils.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
     * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
 * **Styling & UX:**
@@ -157,14 +158,30 @@ This project is currently a work in progress. However, if you wish to run it loc
         LASTFM_API_KEY="your_lastfm_api_key_here"
         SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
         SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
+        # Recommended for Flask session security
+        SECRET_KEY="your_random_secret_key_here"
+        # Optional (required for persistent Spotify metadata cache)
+        # DATABASE_URL="postgresql://..."
+        # Optional DB wake-up retry tuning
+        # DB_CONNECT_MAX_ATTEMPTS="3"
+        # DB_CONNECT_BASE_DELAY_SECONDS="0.25"
         # Optional: For enabling more verbose logging
         # DEBUG_MODE="1"
         ```
-5.  **Run the application:**
+5.  **Run the application (recommended):**
     ```bash
     python app.py
     ```
+    Optional convenience launcher (opens browser too):
+    ```bash
+    python run.py
+    ```
     The application should then be accessible at `http://127.0.0.1:5000/`.
+
+6.  **Optional: initialize Postgres schema (only if using `DATABASE_URL` locally):**
+    ```bash
+    python init_db.py
+    ```
 
 ### Cache smoke test (deployed instance):
 
@@ -180,68 +197,50 @@ What to look for:
 * `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
 * `Run 2` elapsed time should usually be lower than `Run 1`.
 * The script prints `verdict=PASS` when the second run observes DB cache hits.
+* If Fly Postgres uses `FLY_SCALE_TO_ZERO`, the first run after idle can be slower while the DB wakes up.
 
 ### Project File Structure:
 
-
 ```
 .
-│  .env                 # API keys & configuration (ignored by Git)
-│  .env.example         # Example environment variables file
-│  .gitignore           # Specifies intentionally untracked files
-│  .pre-commit-config.yaml # Configuration for pre-commit hooks
-│  app.py               # Main Flask application logic
-│  CODE_OF_CONDUCT.md   # Code of conduct
-│  CONTRIBUTING.md      # Contribution guidelines
-│  LICENSE              # MIT license
-│  README.md            # Project documentation
-│  requirements.txt     # Python package dependencies
-│
-├── .github/
-│   └── workflows/
-│       └── test.yml    # CI Pipeline for GitHub Actions
-│
-├── docs/
-│   └── images/         # Project screenshots for the README
-│       ├── index_dark_thresholds_decade.png
-│       ├── results_dark_modal.png
-│       ├── results_light_playcount.png
-│       └── unmatched_dark_top.png
-│
-├── static/
-│   ├── css/
-│   │   ├── error.css
-│   │   ├── index.css
-│   │   ├── loading.css
-│   │   └── results.css
-│   ├── js/
-│   │   ├── error.js
-│   │   ├── index.js
-│   │   ├── loading.js
-│   │   └── results.js
-│   └── images/
-│       ├── favicon.ico
-│       ├── favicon.svg
-│       ├── favicon-16x16.png
-│       └── favicon-32x32.png
-│
-├── tests/
-│   └── test_app.py      # Unit tests (pytest + pytest-asyncio)
-│
-└── templates/
-    │   base.html         # Master template (dark mode toggle, shared CSS/JS blocks)
-    │   error.html
-    │   index.html
-    │   loading.html
-    │   results.html
-    │   unmatched.html
-    │
-    └── inline/
-        └── scrobble_scope_inline.svg
+|-- app.py                       # Flask app factory + logging config
+|-- run.py                       # Optional local launcher (opens browser)
+|-- init_db.py                   # Postgres schema setup (Fly release_command)
+|-- fly.toml                     # Fly.io deployment config
+|-- requirements.txt
+|-- EXECUTION_PLAYBOOK_2026-02-11.md  # Source-of-truth handoff playbook
+|-- scrobblescope/
+|   |-- config.py
+|   |-- domain.py
+|   |-- utils.py
+|   |-- repositories.py
+|   |-- cache.py
+|   |-- lastfm.py
+|   |-- spotify.py
+|   |-- orchestrator.py
+|   `-- routes.py
+|-- templates/
+|-- static/
+|-- scripts/
+|   `-- smoke_cache_check.py
+|-- tests/
+|   |-- conftest.py
+|   |-- helpers.py
+|   |-- test_domain.py
+|   |-- test_repositories.py
+|   |-- test_routes.py
+|   `-- services/
+|-- docs/
+|   |-- images/
+|   `-- history/                 # Archived audits/changelogs/refactor notes
+|-- README.md
+|-- CONTRIBUTING.md
+`-- CODE_OF_CONDUCT.md
 ```
+
 ## Current Status & Future Plans
 
-ScrobbleScope is nearing its initial launch phase but is still under active development. Development and feature integration plans are expected to change depending on robustness of the webapp.
+ScrobbleScope is post-refactor and actively maintained. Core architecture and infra work are complete; the current focus is QA hardening and iterative UX improvements.
 
 **Key areas for improvement and upcoming features:**
 
@@ -250,7 +249,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Enhance the `loading.html` page with rotating messages during loading.
 * [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
 * [x] Further optimize performance for users with very large listening histories.
-* [ ] Improve responsive design, especially for mobile devices.
+* [x] Improve responsive design, especially for mobile devices (ongoing polish).
 * [x] Write more comprehensive backend function docstrings and comments in `app.py`.
 * [ ] Conduct thorough QA testing across different browsers and use cases.
 * [x] Improve the landing page (`index.html`) copy to be more descriptive for new users.
@@ -265,14 +264,15 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Personalized minimum listening year from Last.fm registration date.
 * [x] Remove nested thread pattern in background task execution.
 * [x] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
-* [ ] Modularize API calls into `services/` modules (`lastfm.py`, `spotify.py`, and `cache.py`).
-* [ ] Use Flask Blueprints to organize routes.
-* [ ] Consolidate helper functions into `utils.py`.
-* [ ] Move background processing to `tasks.py` or a dedicated task queue.
-* [ ] Separate configuration into `config.py` for cleaner imports.
+* [x] Modularize API calls into service modules (`lastfm.py`, `spotify.py`, `cache.py`, `orchestrator.py`).
+* [x] Use Flask Blueprints to organize routes.
+* [x] Consolidate helper functions into `utils.py`.
+* [x] Move background processing to `orchestrator.py`.
+* [x] Separate configuration into `config.py` for cleaner imports.
 * [x] Optimize network usage via batching or parallel requests.
 * [x] Create master HTML templates to reduce duplication.
 * [x] Expand unit test coverage (async pipelines, error states, job isolation).
+* [x] Add DB wake-up retry/backoff hardening for Fly Postgres scale-to-zero behavior.
 
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
@@ -306,3 +306,4 @@ Peter Wiercioch (pterw)
 * **Email:** hello@peterwiercioch.com
 
 Feel free to reach out if you have any questions or feedback about ScrobbleScope, or to connect regarding other creative or technical projects!
+

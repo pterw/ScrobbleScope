@@ -145,33 +145,40 @@ body {
 /* Dark-mode toggle switch */
 #darkModeToggle {
     position: fixed;
-    top: 1rem;
-    right: 1rem;
+    left: 50%;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
     z-index: 1000;
     display: flex;
-    flex-direction: row-reverse;
+    flex-direction: row;
     align-items: center;
-    gap: 1rem;
-    padding: 0.5rem;
-    border-radius: 5px;
-    background-color: rgba(255, 255, 255, 0.8);
+    gap: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 999px;
+    background-color: rgba(255, 255, 255, 0.88);
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px);
     transition: background-color 0.3s ease;
 }
 
 .dark-mode #darkModeToggle {
-    background-color: rgba(30, 30, 30, 0.8);
+    background-color: rgba(30, 30, 30, 0.9);
 }
 
-#darkModeToggle .form-check-input,
+#darkModeToggle .form-check-input {
+    margin: 0;
+}
+
 #darkModeToggle .form-check-label {
     margin: 0;
+    font-size: 0.78rem;
+    line-height: 1;
 }
 
 /* Dark switch slider */
 #darkSwitch {
-    width: 3rem;
-    height: 1.5rem;
+    width: 2.45rem;
+    height: 1.25rem;
     background-color: #ccc;
     border-radius: 999px;
     appearance: none;
@@ -184,8 +191,8 @@ body {
 #darkSwitch::before {
     content: "";
     position: absolute;
-    width: 1.2rem;
-    height: 1.2rem;
+    width: 0.95rem;
+    height: 0.95rem;
     border-radius: 50%;
     top: 0.15rem;
     left: 0.15rem;
@@ -198,7 +205,7 @@ body {
 }
 
 #darkSwitch:checked::before {
-    transform: translateX(1.5rem);
+    transform: translateX(1.2rem);
 }
 
 /* Parameter summary styles */
@@ -272,10 +279,17 @@ h4 {
 
 @media (max-width: 575.98px) {
     #darkModeToggle {
-        top: auto;
-        bottom: 1rem;
-        font-size: 0.85rem;
-        padding: 0.35rem;
-        gap: 0.5rem;
+        padding: 0.25rem 0.42rem;
+        gap: 0.3rem;
+    }
+
+    #darkModeToggle .form-check-label {
+        font-size: 0.72rem;
+    }
+}
+
+@media (max-width: 380px) {
+    #darkModeToggle .form-check-label {
+        display: none;
     }
 }
