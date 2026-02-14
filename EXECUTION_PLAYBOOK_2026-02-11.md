@@ -16,7 +16,6 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - Per-job in-memory state in `scrobblescope/repositories.py` (`JOBS` dict).
 - Persistent Spotify metadata cache (Postgres via asyncpg, `scrobblescope/cache.py`):
   - `spotify_cache` table with 30-day TTL, batched reads/writes via `unnest()`.
-  - Per-request `asyncpg.connect()` (no pool â€" each background_task owns its own event loop).
   - DB connection wake-up hardening: `_get_db_connection()` retries with exponential backoff before cache bypass.
   - Graceful fallback: if `DATABASE_URL` unset or DB unreachable, full Spotify flow runs.
   - Full DB cache hits can complete without Spotify availability.
