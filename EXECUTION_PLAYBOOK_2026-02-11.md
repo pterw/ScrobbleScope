@@ -29,6 +29,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
   - `background_task` now owns one event loop directly (no inner thread).
 - Dark-mode toggle now uses a compact fixed bottom placement across pages; label auto-hides on extra-small screens.
 - `index.html` now renders server-side validation errors (Batch 6).
+- Historical audit/changelog/refactor docs are archived under `docs/history/` to reduce repo-root clutter.
 - Test suite: 66 tests across 6 files (`test_domain.py`, `test_repositories.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, and DB connect retry/backoff behavior.
 
 ## 3. Non-negotiable implementation principles
@@ -277,7 +278,7 @@ after each batch.
 ## 7. Agent handoff checklist before starting a batch
 1. Read:
    - `EXECUTION_PLAYBOOK_2026-02-11.md` (this file)
-   - `AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` (historical snapshot; may lag latest batch log in this file)
+   - `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` (historical snapshot; may lag latest batch log in this file)
    - `README.md` (product expectations, deployment context, known limitations)
 2. Inspect current implementation hotspots in modular files before editing:
    - `scrobblescope/repositories.py` (job state lifecycle: `JOBS`, TTL cleanup)
@@ -324,7 +325,30 @@ After each completed batch, update this playbook immediately:
 ## 10. Batch execution log (for agent handoff)
 Source-of-truth note:
 - For current status, prefer Section 2 and this execution log.
-- Treat `AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` as baseline context from 2026-02-11 unless it is explicitly refreshed.
+- Treat `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` as baseline context from 2026-02-11 unless it is explicitly refreshed.
+
+### 2026-02-14 - Repository hygiene completed (historical docs archive + README refresh)
+- Scope: `docs/history/` (new folder), historical markdown moves, `EXECUTION_PLAYBOOK_2026-02-11.md`, `README.md`.
+- Plan vs implementation:
+  - Moved historical docs from repo root into `docs/history/`:
+    - `AUDIT_2026-01-10.md`
+    - `AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md`
+    - `CHANGELOG_2026-01-04.md`
+    - `CHANGELOG_2026-02-10.md`
+    - `OPTIMIZATION_SUMMARY.md`
+    - `PERFORMANCE_TIMING.md`
+    - `Refactor_Plan.md`
+    - `TEMPLATE_REFACTOR_SUMMARY.md`
+  - Updated playbook references to `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md`.
+  - Refreshed `README.md`:
+    - run instructions now show `python app.py` (recommended) and `python run.py` (optional launcher)
+    - project structure updated to current modular layout + `docs/history/`
+    - roadmap/status text updated to reflect current post-refactor state
+- Deviations and why:
+  - Kept `EXECUTION_PLAYBOOK_2026-02-11.md` at repo root intentionally to preserve a stable agent handoff entrypoint.
+- Forward guidance:
+  - Keep new planning/audit/changelog docs in `docs/history/` unless a document is an active operator runbook.
+  - Keep playbook and session-context docs at predictable top-level locations for fast bootstrap.
 
 ### 2026-02-14 - Cache wake-up hardening completed (DB connect retry/backoff + docs refresh)
 - Scope: `scrobblescope/cache.py`, `tests/test_repositories.py`, `EXECUTION_PLAYBOOK_2026-02-11.md`, `.claude/SESSION_CONTEXT.md`, `README.md`.

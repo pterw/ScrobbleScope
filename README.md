@@ -1,4 +1,4 @@
-# ScrobbleScope - Your Last.fm Listening Habits Visualized
+﻿# ScrobbleScope - Your Last.fm Listening Habits Visualized
 
 [![Status](https://img.shields.io/badge/status-work_in_progress-yellow.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
@@ -8,7 +8,7 @@ ScrobbleScope is a web application designed for Last.fm users to get a deeper in
 
 This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
 
-## 📖 Table of Contents
+## ðŸ“– Table of Contents
 
 * [Features](#features)
 * [Screenshots](#screenshots)
@@ -36,7 +36,7 @@ This project was initially built to identify top albums released in a specific y
         * Previous year.
         * Specific decades.
         * Custom specific release year.
-    * Define album listening thresholds (minimum track plays and minimum unique tracks per album). Set your own values—defaults are 10 plays and 3 unique tracks if you don't specify.
+    * Define album listening thresholds (minimum track plays and minimum unique tracks per album). Set your own valuesâ€”defaults are 10 plays and 3 unique tracks if you don't specify.
 * **Advanced Sorting:**
     * Sort your top albums by **total track play count**.
     * Sort by **total listening time** (calculated from the runtime of tracks you've listened to). *(Note: Playtime sorting is currently undergoing refinement for accuracy).*
@@ -95,7 +95,8 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * Last.fm API: `user.getrecenttracks` is used to gather scrobbles, paginated until the specified year's cutoff.
     * Spotify API: Used to search each album and fetch `release_date` for filtering, as well as artwork and track runtimes.
 * **Core Python Libraries:**
-    * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm: 10 req/s, Spotify: 10 req/s) with built-in retries and jitter. Concurrency and rate defaults are configurable via environment variables.
+    * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm: 10 req/s, Spotify: 10 req/s) with built-in retry handling; Spotify retries include jitter. Concurrency and rate defaults are configurable via environment variables.
+    * `asyncpg`: For persistent Postgres-backed Spotify metadata caching on deployed environments.
     * `python-dotenv`: For managing API keys and configuration from a `.env` file (which also controls an optional `DEBUG_MODE`).
     * `Jinja2`: For server-side HTML templating.
     * `Flask`: Micro web framework.
@@ -157,6 +158,8 @@ This project is currently a work in progress. However, if you wish to run it loc
         LASTFM_API_KEY="your_lastfm_api_key_here"
         SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
         SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
+        # Recommended for Flask session security
+        SECRET_KEY="your_random_secret_key_here"
         # Optional (required for persistent Spotify metadata cache)
         # DATABASE_URL="postgresql://..."
         # Optional DB wake-up retry tuning
@@ -165,11 +168,20 @@ This project is currently a work in progress. However, if you wish to run it loc
         # Optional: For enabling more verbose logging
         # DEBUG_MODE="1"
         ```
-5.  **Run the application:**
+5.  **Run the application (recommended):**
     ```bash
     python app.py
     ```
+    Optional convenience launcher (opens browser too):
+    ```bash
+    python run.py
+    ```
     The application should then be accessible at `http://127.0.0.1:5000/`.
+
+6.  **Optional: initialize Postgres schema (only if using `DATABASE_URL` locally):**
+    ```bash
+    python init_db.py
+    ```
 
 ### Cache smoke test (deployed instance):
 
@@ -189,92 +201,46 @@ What to look for:
 
 ### Project File Structure:
 
-
 ```
 .
-│  .env                 # API keys & configuration (ignored by Git)
-│  .env.example         # Example environment variables file
-│  .gitignore           # Specifies intentionally untracked files
-│  .pre-commit-config.yaml # Configuration for pre-commit hooks
-│  app.py               # create_app() factory + logging setup (~91 lines)
-│  init_db.py           # Postgres schema setup (Fly release_command)
-│  CODE_OF_CONDUCT.md   # Code of conduct
-│  CONTRIBUTING.md      # Contribution guidelines
-│  Dockerfile           # gunicorn app:app
-│  fly.toml             # Fly.io deployment config
-│  LICENSE              # MIT license
-│  README.md            # Project documentation
-│  requirements.txt     # Python package dependencies
-│
-├── scrobblescope/         # Application package (modular architecture)
-│   ├── __init__.py        # Package marker
-│   ├── config.py          # Env var reads, API keys, concurrency constants
-│   ├── domain.py          # Error codes, exceptions, normalization functions
-│   ├── utils.py           # Rate limiters, session pooling, caching, helpers
-│   ├── repositories.py    # JOBS dict, job state functions (in-memory)
-│   ├── cache.py           # asyncpg DB helpers (Postgres metadata cache)
-│   ├── lastfm.py          # Last.fm API: user validation, scrobble fetching
-│   ├── spotify.py         # Spotify API: search, album details batch
-│   ├── orchestrator.py    # process_albums, background_task pipeline
-│   └── routes.py          # Flask Blueprint with all route handlers
-│
-├── .github/
-│   └── workflows/
-│       └── test.yml    # CI Pipeline for GitHub Actions
-│
-├── docs/
-│   └── images/         # Project screenshots for the README
-│       ├── index_dark_thresholds_decade.png
-│       ├── results_dark_modal.png
-│       ├── results_light_playcount.png
-│       └── unmatched_dark_top.png
-│
-├── scripts/
-│   └── smoke_cache_check.py  # Deployed cache warm/hit verification
-│
-├── static/
-│   ├── css/
-│   │   ├── error.css
-│   │   ├── index.css
-│   │   ├── loading.css
-│   │   ├── results.css
-│   │   └── unmatched.css
-│   ├── js/
-│   │   ├── error.js
-│   │   ├── index.js
-│   │   ├── loading.js
-│   │   └── results.js
-│   └── images/
-│       ├── favicon.ico
-│       ├── favicon.svg
-│       ├── favicon-16x16.png
-│       └── favicon-32x32.png
-│
-├── tests/
-│   ├── conftest.py          # Shared pytest fixtures (client)
-│   ├── helpers.py           # Shared test constants and async mock helpers
-│   ├── test_domain.py       # 6 tests (normalization, error extraction)
-│   ├── test_repositories.py # 16 tests (job state + DB cache helpers incl retry/backoff)
-│   ├── test_routes.py       # 27 tests (all route handlers incl unmatched_view + 404/500)
-│   └── services/
-│       ├── test_lastfm_service.py       # 4 tests
-│       ├── test_spotify_service.py      # 3 tests
-│       └── test_orchestrator_service.py # 10 tests
-│
-└── templates/
-    │   base.html         # Master template (dark mode toggle, shared CSS/JS blocks)
-    │   error.html
-    │   index.html
-    │   loading.html
-    │   results.html
-    │   unmatched.html
-    │
-    └── inline/
-        └── scrobble_scope_inline.svg
+|-- app.py                       # Flask app factory + logging config
+|-- run.py                       # Optional local launcher (opens browser)
+|-- init_db.py                   # Postgres schema setup (Fly release_command)
+|-- fly.toml                     # Fly.io deployment config
+|-- requirements.txt
+|-- EXECUTION_PLAYBOOK_2026-02-11.md  # Source-of-truth handoff playbook
+|-- scrobblescope/
+|   |-- config.py
+|   |-- domain.py
+|   |-- utils.py
+|   |-- repositories.py
+|   |-- cache.py
+|   |-- lastfm.py
+|   |-- spotify.py
+|   |-- orchestrator.py
+|   `-- routes.py
+|-- templates/
+|-- static/
+|-- scripts/
+|   `-- smoke_cache_check.py
+|-- tests/
+|   |-- conftest.py
+|   |-- helpers.py
+|   |-- test_domain.py
+|   |-- test_repositories.py
+|   |-- test_routes.py
+|   `-- services/
+|-- docs/
+|   |-- images/
+|   `-- history/                 # Archived audits/changelogs/refactor notes
+|-- README.md
+|-- CONTRIBUTING.md
+`-- CODE_OF_CONDUCT.md
 ```
+
 ## Current Status & Future Plans
 
-ScrobbleScope is nearing its initial launch phase but is still under active development. Development and feature integration plans are expected to change depending on robustness of the webapp.
+ScrobbleScope is post-refactor and actively maintained. Core architecture and infra work are complete; the current focus is QA hardening and iterative UX improvements.
 
 **Key areas for improvement and upcoming features:**
 
@@ -283,7 +249,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Enhance the `loading.html` page with rotating messages during loading.
 * [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
 * [x] Further optimize performance for users with very large listening histories.
-* [ ] Improve responsive design, especially for mobile devices.
+* [x] Improve responsive design, especially for mobile devices (ongoing polish).
 * [x] Write more comprehensive backend function docstrings and comments in `app.py`.
 * [ ] Conduct thorough QA testing across different browsers and use cases.
 * [x] Improve the landing page (`index.html`) copy to be more descriptive for new users.
@@ -306,6 +272,7 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Optimize network usage via batching or parallel requests.
 * [x] Create master HTML templates to reduce duplication.
 * [x] Expand unit test coverage (async pipelines, error states, job isolation).
+* [x] Add DB wake-up retry/backoff hardening for Fly Postgres scale-to-zero behavior.
 
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.
@@ -339,3 +306,4 @@ Peter Wiercioch (pterw)
 * **Email:** hello@peterwiercioch.com
 
 Feel free to reach out if you have any questions or feedback about ScrobbleScope, or to connect regarding other creative or technical projects!
+

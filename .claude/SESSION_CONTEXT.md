@@ -35,6 +35,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | `EXECUTION_PLAYBOOK_2026-02-11.md` | **Source of truth** | Batch ordering, acceptance criteria, execution log, next steps. |
 | `.claude/SESSION_CONTEXT.md` (this file) | **Current** | Quick orientation for agents. Architecture, key locations, known gaps. |
 | `README.md` | **Current** | Product description, roadmap checklist, setup instructions. |
+| `docs/history/` | **Historical archive** | Audits/changelogs/refactor notes kept out of repo root for hygiene. |
 
 ---
 
