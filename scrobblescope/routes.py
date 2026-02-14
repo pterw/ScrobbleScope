@@ -1,0 +1,436 @@
+import logging
+import threading
+from datetime import datetime
+
+from flask import Blueprint, jsonify, render_template, request
+
+from scrobblescope.lastfm import check_user_exists
+from scrobblescope.orchestrator import background_task
+from scrobblescope.repositories import (
+    add_job_unmatched,
+    cleanup_expired_jobs,
+    create_job,
+    get_job_context,
+    get_job_progress,
+    get_job_unmatched,
+    reset_job_state,
+    set_job_error,
+    set_job_progress,
+    set_job_results,
+)
+from scrobblescope.utils import run_async_in_thread
+
+bp = Blueprint("main", __name__)
+
+
+@bp.app_context_processor
+def inject_current_year():
+    """Inject ``current_year`` into all Jinja2 templates."""
+    return {"current_year": datetime.now().year}
+
+
+@bp.route("/", methods=["GET"])
+def home():
+    """Serve the home page"""
+    logging.info("Serving index.html as the homepage.")
+    return render_template("index.html")
+
+
+@bp.route("/validate_user", methods=["GET"])
+def validate_user():
+    """Validate a Last.fm username for client-side blur checks."""
+    username = (request.args.get("username") or "").strip()
+    if not username:
+        return jsonify({"valid": False, "message": "Username is required."}), 400
+    if len(username) > 64:
+        return jsonify({"valid": False, "message": "Username is too long."}), 400
+
+    async def _check():
+        return await check_user_exists(username)
+
+    try:
+        result = run_async_in_thread(_check)
+    except Exception:
+        logging.exception("Username validation failed")
+        return (
+            jsonify(
+                {
+                    "valid": False,
+                    "message": "Validation service unavailable. Try again.",
+                }
+            ),
+            503,
+        )
+
+    if result["exists"]:
+        payload = {"valid": True, "message": "Username found."}
+        if result.get("registered_year"):
+            payload["registered_year"] = result["registered_year"]
+        return jsonify(payload)
+    return jsonify({"valid": False, "message": "Username not found on Last.fm."})
+
+
+@bp.route("/progress")
+def progress():
+    """Return current progress for a specific job ID."""
+    job_id = request.args.get("job_id")
+    if not job_id:
+        return (
+            jsonify(
+                {
+                    "progress": 100,
+                    "message": "Missing job identifier.",
+                    "error": True,
+                    "stats": {},
+                }
+            ),
+            400,
+        )
+
+    progress_payload = get_job_progress(job_id)
+    if progress_payload is None:
+        return (
+            jsonify(
+                {
+                    "progress": 100,
+                    "message": "Job not found or expired.",
+                    "error": True,
+                    "stats": {},
+                }
+            ),
+            404,
+        )
+
+    return jsonify(progress_payload)
+
+
+@bp.route("/unmatched")
+def unmatched():
+    """Return unmatched albums for a specific job ID."""
+    job_id = request.args.get("job_id")
+    if not job_id:
+        return (
+            jsonify({"count": 0, "data": {}, "error": "Missing job identifier."}),
+            400,
+        )
+
+    unmatched_data = get_job_unmatched(job_id)
+    if unmatched_data is None:
+        return jsonify({"count": 0, "data": {}, "error": "Job not found."}), 404
+
+    return jsonify({"count": len(unmatched_data), "data": unmatched_data})
+
+
+@bp.route("/reset_progress", methods=["POST"])
+def reset_progress():
+    """Reset progress state for a specific job ID."""
+    job_id = request.form.get("job_id")
+    if not job_id:
+        return jsonify({"status": "error", "message": "Missing job identifier."}), 400
+
+    if not reset_job_state(job_id):
+        return jsonify({"status": "error", "message": "Job not found."}), 404
+
+    set_job_progress(job_id, message="Reset successful", error=False)
+    return jsonify({"status": "success"})
+
+
+@bp.app_errorhandler(404)
+def page_not_found(e):
+    """Handle 404 errors with a nice error page"""
+    return (
+        render_template(
+            "error.html",
+            error="Page not found",
+            message="The page you're looking for doesn't exist.",
+        ),
+        404,
+    )
+
+
+@bp.app_errorhandler(500)
+def internal_error(e):
+    """Handle 500 errors with a nice error page"""
+    return (
+        render_template(
+            "error.html",
+            error="Server Error",
+            message="Something went wrong on our end. Please try again later.",
+        ),
+        500,
+    )
+
+
+@bp.route("/results_complete", methods=["POST"])
+def results_complete():
+    """Render the results page for a completed job, or an error page on failure."""
+    job_id = request.form.get("job_id")
+    if not job_id:
+        return render_template(
+            "error.html",
+            error="Missing Job Identifier",
+            message="We could not identify your in-progress request.",
+            details="Please start a new search.",
+        )
+
+    job_context = get_job_context(job_id)
+    if not job_context:
+        logging.warning(f"Job context not found for {job_id}")
+        return render_template(
+            "error.html",
+            error="Results Not Found",
+            message="We couldn't find your results.",
+            details="The processing may have expired. Please try again.",
+        )
+
+    progress_payload = job_context["progress"]
+    if progress_payload.get("error"):
+        error_code = progress_payload.get("error_code")
+        retryable = progress_payload.get("retryable", False)
+        details = "Please try again or use different parameters."
+        if retryable:
+            details = "This appears to be a temporary issue. Please try again."
+        if error_code == "user_not_found":
+            details = "Please check the username and try again."
+        return render_template(
+            "error.html",
+            error="Processing Error",
+            message=progress_payload.get("message", "An unknown error occurred"),
+            details=details,
+        )
+
+    params = job_context.get("params", {})
+    username = params.get("username") or request.form.get("username")
+    year = params.get("year")
+    if year is None:
+        year = int(request.form.get("year", datetime.now().year))
+
+    sort_mode = params.get("sort_mode") or request.form.get("sort_by", "playcount")
+    release_scope = params.get("release_scope") or request.form.get(
+        "release_scope", "same"
+    )
+    decade = params.get("decade")
+    release_year = params.get("release_year")
+    min_plays = params.get("min_plays", 10)
+    min_tracks = params.get("min_tracks", 3)
+
+    results_data = job_context.get("results")
+    if results_data is None:
+        return render_template(
+            "error.html",
+            error="Results Still Processing",
+            message="Your results are not ready yet.",
+            details="Please wait on the loading page and try again.",
+        )
+
+    filtered_results = [
+        album
+        for album in results_data
+        if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
+    ]
+
+    if not filtered_results:
+        unmatched_count = len(job_context.get("unmatched", {}))
+        filter_description = get_filter_description(
+            release_scope, decade, release_year, year
+        )
+        return render_template(
+            "results.html",
+            username=username,
+            year=year,
+            data=[],
+            release_scope=release_scope,
+            decade=decade,
+            release_year=release_year,
+            sort_by=sort_mode,
+            min_plays=min_plays,
+            min_tracks=min_tracks,
+            no_matches=True,
+            unmatched_count=unmatched_count,
+            filter_description=filter_description,
+            job_id=job_id,
+        )
+
+    return render_template(
+        "results.html",
+        username=username,
+        year=year,
+        data=filtered_results,
+        release_scope=release_scope,
+        decade=decade,
+        release_year=release_year,
+        sort_by=sort_mode,
+        min_plays=min_plays,
+        min_tracks=min_tracks,
+        no_matches=False,
+        job_id=job_id,
+    )
+
+
+def get_filter_description(release_scope, decade, release_year, listening_year):
+    """Generate a readable description of the filter applied"""
+    if release_scope == "all":
+        return "all albums (no release year filter)"
+    elif release_scope == "same":
+        return f"albums released in {listening_year}"
+    elif release_scope == "previous":
+        return f"albums released in {listening_year - 1}"
+    elif release_scope == "decade" and decade:
+        return f"albums released in the {decade}"
+    elif release_scope == "custom" and release_year:
+        return f"albums released in {release_year}"
+    else:
+        return "albums matching your criteria"
+
+
+@bp.route("/unmatched_view", methods=["POST"])
+def unmatched_view():
+    """Show a dedicated page of unmatched albums that didn't match the filters."""
+    job_id = request.form.get("job_id")
+    if not job_id:
+        return render_template(
+            "error.html",
+            error="Missing Job Identifier",
+            message="We could not find unmatched albums without a valid job ID.",
+            details="Please return to your results page and try again.",
+        )
+
+    job_context = get_job_context(job_id)
+    if not job_context:
+        return render_template(
+            "error.html",
+            error="Job Not Found",
+            message="Your unmatched album data has expired.",
+            details="Please run a new search.",
+        )
+
+    params = job_context.get("params", {})
+    username = params.get("username")
+    year = params.get("year")
+    release_scope = params.get("release_scope", "same")
+    decade = params.get("decade")
+    release_year = params.get("release_year")
+    min_plays = params.get("min_plays", 10)
+    min_tracks = params.get("min_tracks", 3)
+
+    if release_scope == "same":
+        filter_desc = f"same year as listening ({year})"
+    elif release_scope == "previous":
+        filter_desc = f"previous year ({int(year) - 1})"
+    elif release_scope == "decade" and decade:
+        filter_desc = f"{decade}"
+    elif release_scope == "custom" and release_year:
+        filter_desc = f"specific year ({release_year})"
+    else:
+        filter_desc = "unknown filter"
+
+    unmatched_data = dict(job_context.get("unmatched", {}))
+
+    reasons = {}
+    for _, item in unmatched_data.items():
+        reason = item.get("reason", "Unknown reason")
+        if reason not in reasons:
+            reasons[reason] = []
+        reasons[reason].append(item)
+
+    reason_counts = {reason: len(albums) for reason, albums in reasons.items()}
+
+    return render_template(
+        "unmatched.html",
+        username=username,
+        year=year,
+        filter_desc=filter_desc,
+        unmatched_data=unmatched_data,
+        reasons=reasons,
+        reason_counts=reason_counts,
+        total_count=len(unmatched_data),
+        min_plays=min_plays,
+        min_tracks=min_tracks,
+    )
+
+
+@bp.route("/results_loading", methods=["POST"])
+def results_loading():
+    """
+    Handles form submission, performs the main Last.fm fetch,
+    and prepares the session for lazy loading.
+    """
+    username = request.form.get("username")
+    year = request.form.get("year")
+    sort_mode = request.form.get("sort_by", "playcount")
+    release_scope = request.form.get("release_scope", "same")
+    decade = request.form.get("decade") if release_scope == "decade" else None
+    release_year = (
+        request.form.get("release_year") if release_scope == "custom" else None
+    )
+    min_plays = request.form.get("min_plays", "10")
+    min_tracks = request.form.get("min_tracks", "3")
+    limit_results = request.form.get("limit_results", "all")
+
+    if not username or not year:
+        logging.warning("Missing username or year in form submission.")
+        return render_template("index.html", error="Username and year are required.")
+
+    try:
+        year = int(year)
+        if release_year:
+            release_year = int(release_year)
+        min_plays = int(min_plays)
+        min_tracks = int(min_tracks)
+    except ValueError:
+        logging.warning("Invalid year format.")
+        return render_template("index.html", error="Year must be a valid number.")
+
+    current_year = datetime.now().year
+    if year < 2002 or year > current_year:
+        return render_template(
+            "index.html", error=f"Year must be between 2002 and {current_year}."
+        )
+
+    cleanup_expired_jobs()
+
+    params = {
+        "username": username,
+        "year": year,
+        "sort_mode": sort_mode,
+        "release_scope": release_scope,
+        "decade": decade,
+        "release_year": release_year,
+        "min_plays": min_plays,
+        "min_tracks": min_tracks,
+        "limit_results": limit_results,
+    }
+
+    job_id = create_job(params)
+
+    task_thread = threading.Thread(
+        target=background_task,
+        args=(
+            job_id,
+            username,
+            year,
+            sort_mode,
+            release_scope,
+            decade,
+            release_year,
+            min_plays,
+            min_tracks,
+            limit_results,
+        ),
+        daemon=True,
+    )
+    task_thread.start()
+
+    return render_template(
+        "loading.html",
+        job_id=job_id,
+        username=username,
+        year=year,
+        sort_by=sort_mode,
+        release_scope=release_scope,
+        decade=decade,
+        release_year=release_year,
+        min_plays=min_plays,
+        min_tracks=min_tracks,
+        limit_results=limit_results,
+    )

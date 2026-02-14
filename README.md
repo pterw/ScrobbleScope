@@ -102,11 +102,11 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
 
 ### Key Implementation Highlights:
 
-* **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency and rate-limit defaults can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, etc.).
+* **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency, rate-limit defaults, and DB wake-up tolerance can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, `DB_CONNECT_MAX_ATTEMPTS`, `DB_CONNECT_BASE_DELAY_SECONDS`, etc.).
 * **Per-Job State Isolation:** Each search request creates a unique job (UUID-keyed, in-memory `JOBS` dict with thread-safe locking). Progress, results, and unmatched data are scoped per job, preventing cross-user state collisions on concurrent requests. Jobs expire after 2 hours.
 * **Data Normalization:** Artist and album names are cleaned of punctuation and common suffixes (e.g., "deluxe edition", "remastered") for more robust matching between Last.fm data and Spotify search queries.
 * **Caching:**
-    * In-memory request cache (`REQUEST_CACHE` in `app.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
+    * In-memory request cache (`REQUEST_CACHE` in `utils.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
     * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
 * **Styling & UX:**
@@ -157,6 +157,11 @@ This project is currently a work in progress. However, if you wish to run it loc
         LASTFM_API_KEY="your_lastfm_api_key_here"
         SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
         SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
+        # Optional (required for persistent Spotify metadata cache)
+        # DATABASE_URL="postgresql://..."
+        # Optional DB wake-up retry tuning
+        # DB_CONNECT_MAX_ATTEMPTS="3"
+        # DB_CONNECT_BASE_DELAY_SECONDS="0.25"
         # Optional: For enabling more verbose logging
         # DEBUG_MODE="1"
         ```
@@ -180,6 +185,7 @@ What to look for:
 * `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
 * `Run 2` elapsed time should usually be lower than `Run 1`.
 * The script prints `verdict=PASS` when the second run observes DB cache hits.
+* If Fly Postgres uses `FLY_SCALE_TO_ZERO`, the first run after idle can be slower while the DB wakes up.
 
 ### Project File Structure:
 
@@ -190,12 +196,27 @@ What to look for:
 │  .env.example         # Example environment variables file
 │  .gitignore           # Specifies intentionally untracked files
 │  .pre-commit-config.yaml # Configuration for pre-commit hooks
-│  app.py               # Main Flask application logic
+│  app.py               # create_app() factory + logging setup (~91 lines)
+│  init_db.py           # Postgres schema setup (Fly release_command)
 │  CODE_OF_CONDUCT.md   # Code of conduct
 │  CONTRIBUTING.md      # Contribution guidelines
+│  Dockerfile           # gunicorn app:app
+│  fly.toml             # Fly.io deployment config
 │  LICENSE              # MIT license
 │  README.md            # Project documentation
 │  requirements.txt     # Python package dependencies
+│
+├── scrobblescope/         # Application package (modular architecture)
+│   ├── __init__.py        # Package marker
+│   ├── config.py          # Env var reads, API keys, concurrency constants
+│   ├── domain.py          # Error codes, exceptions, normalization functions
+│   ├── utils.py           # Rate limiters, session pooling, caching, helpers
+│   ├── repositories.py    # JOBS dict, job state functions (in-memory)
+│   ├── cache.py           # asyncpg DB helpers (Postgres metadata cache)
+│   ├── lastfm.py          # Last.fm API: user validation, scrobble fetching
+│   ├── spotify.py         # Spotify API: search, album details batch
+│   ├── orchestrator.py    # process_albums, background_task pipeline
+│   └── routes.py          # Flask Blueprint with all route handlers
 │
 ├── .github/
 │   └── workflows/
@@ -208,12 +229,16 @@ What to look for:
 │       ├── results_light_playcount.png
 │       └── unmatched_dark_top.png
 │
+├── scripts/
+│   └── smoke_cache_check.py  # Deployed cache warm/hit verification
+│
 ├── static/
 │   ├── css/
 │   │   ├── error.css
 │   │   ├── index.css
 │   │   ├── loading.css
-│   │   └── results.css
+│   │   ├── results.css
+│   │   └── unmatched.css
 │   ├── js/
 │   │   ├── error.js
 │   │   ├── index.js
@@ -226,7 +251,15 @@ What to look for:
 │       └── favicon-32x32.png
 │
 ├── tests/
-│   └── test_app.py      # Unit tests (pytest + pytest-asyncio)
+│   ├── conftest.py          # Shared pytest fixtures (client)
+│   ├── helpers.py           # Shared test constants and async mock helpers
+│   ├── test_domain.py       # 6 tests (normalization, error extraction)
+│   ├── test_repositories.py # 16 tests (job state + DB cache helpers incl retry/backoff)
+│   ├── test_routes.py       # 27 tests (all route handlers incl unmatched_view + 404/500)
+│   └── services/
+│       ├── test_lastfm_service.py       # 4 tests
+│       ├── test_spotify_service.py      # 3 tests
+│       └── test_orchestrator_service.py # 10 tests
 │
 └── templates/
     │   base.html         # Master template (dark mode toggle, shared CSS/JS blocks)
@@ -265,11 +298,11 @@ ScrobbleScope is nearing its initial launch phase but is still under active deve
 * [x] Personalized minimum listening year from Last.fm registration date.
 * [x] Remove nested thread pattern in background task execution.
 * [x] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
-* [ ] Modularize API calls into `services/` modules (`lastfm.py`, `spotify.py`, and `cache.py`).
-* [ ] Use Flask Blueprints to organize routes.
-* [ ] Consolidate helper functions into `utils.py`.
-* [ ] Move background processing to `tasks.py` or a dedicated task queue.
-* [ ] Separate configuration into `config.py` for cleaner imports.
+* [x] Modularize API calls into service modules (`lastfm.py`, `spotify.py`, `cache.py`, `orchestrator.py`).
+* [x] Use Flask Blueprints to organize routes.
+* [x] Consolidate helper functions into `utils.py`.
+* [x] Move background processing to `orchestrator.py`.
+* [x] Separate configuration into `config.py` for cleaner imports.
 * [x] Optimize network usage via batching or parallel requests.
 * [x] Create master HTML templates to reduce duplication.
 * [x] Expand unit test coverage (async pipelines, error states, job isolation).
