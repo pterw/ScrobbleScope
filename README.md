@@ -8,7 +8,7 @@ ScrobbleScope is a web application designed for Last.fm users to get a deeper in
 
 This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
 
-## ðŸ“– Table of Contents
+## Table of Contents
 
 * [Features](#features)
 * [Screenshots](#screenshots)
