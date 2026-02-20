@@ -158,7 +158,13 @@ def test_results_loading_capacity_exceeded_returns_error(client):
     WHEN POST /results_loading is submitted with valid form data
     THEN it should re-render the index page with a capacity error (no thread spawned).
     """
-    with patch("scrobblescope.routes.acquire_job_slot", return_value=False):
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=False),
+    ):
         response = client.post(
             "/results_loading",
             data={
@@ -184,6 +190,10 @@ def test_results_loading_thread_start_failure_renders_error(client):
     THEN the route renders an error page gracefully (slot release is internal to worker).
     """
     with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
         patch("scrobblescope.routes.acquire_job_slot", return_value=True),
         patch(
             "scrobblescope.routes.start_job_thread",
@@ -213,7 +223,13 @@ def test_results_loading_valid_post(client):
     WHEN POST /results_loading is submitted
     THEN it should call start_job_thread with background_task and render the loading page.
     """
-    with patch("scrobblescope.routes.start_job_thread") as mock_start:
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
         response = client.post(
             "/results_loading",
             data={
@@ -594,21 +610,27 @@ def test_csrf_accepts_post_with_valid_token():
         assert token_match, "CSRF token not found in index page HTML"
         token = token_match.group(1).decode()
 
-        with patch("scrobblescope.routes.start_job_thread"):
-            with patch("scrobblescope.routes.acquire_job_slot", return_value=True):
-                response = csrf_client.post(
-                    "/results_loading",
-                    data={
-                        "csrf_token": token,
-                        "username": "flounder14",
-                        "year": "2025",
-                        "sort_by": "playcount",
-                        "release_scope": "same",
-                        "min_plays": "10",
-                        "min_tracks": "3",
-                        "limit_results": "all",
-                    },
-                )
+        with (
+            patch(
+                "scrobblescope.routes.run_async_in_thread",
+                return_value={"exists": True, "registered_year": None},
+            ),
+            patch("scrobblescope.routes.start_job_thread"),
+            patch("scrobblescope.routes.acquire_job_slot", return_value=True),
+        ):
+            response = csrf_client.post(
+                "/results_loading",
+                data={
+                    "csrf_token": token,
+                    "username": "flounder14",
+                    "year": "2025",
+                    "sort_by": "playcount",
+                    "release_scope": "same",
+                    "min_plays": "10",
+                    "min_tracks": "3",
+                    "limit_results": "all",
+                },
+            )
     assert response.status_code == 200
     assert b"window.SCROBBLE" in response.data
 
@@ -650,6 +672,125 @@ def test_csrf_rejects_reset_progress_without_token():
     with application.test_client() as csrf_client:
         response = csrf_client.post("/reset_progress", data={"job_id": "any"})
     assert response.status_code == 400
+
+
+# --- Registration year validation tests (WP-5) ---
+
+
+def test_results_loading_year_below_registration_year_rejected(client):
+    """
+    GIVEN a user whose Last.fm registration year is 2016
+    WHEN POST /results_loading is submitted with year=2015
+    THEN the route re-renders index with an error referencing the registration year.
+    """
+    with patch(
+        "scrobblescope.routes.run_async_in_thread",
+        return_value={"exists": True, "registered_year": 2016},
+    ):
+        response = client.post(
+            "/results_loading",
+            data={
+                "username": "flounder14",
+                "year": "2015",
+                "sort_by": "playcount",
+                "release_scope": "same",
+                "min_plays": "10",
+                "min_tracks": "3",
+                "limit_results": "all",
+            },
+        )
+    assert response.status_code == 200
+    assert b"Filter Your Album Scrobbles!" in response.data
+    assert b"window.SCROBBLE" not in response.data
+    assert b"2016" in response.data
+    assert b"registration year" in response.data
+
+
+def test_results_loading_year_at_registration_year_allowed(client):
+    """
+    GIVEN a user whose Last.fm registration year is 2016
+    WHEN POST /results_loading is submitted with year=2016 (boundary)
+    THEN the route should proceed to the loading page (not rejected).
+    """
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": 2016},
+        ),
+        patch("scrobblescope.routes.start_job_thread"),
+    ):
+        response = client.post(
+            "/results_loading",
+            data={
+                "username": "flounder14",
+                "year": "2016",
+                "sort_by": "playcount",
+                "release_scope": "same",
+                "min_plays": "10",
+                "min_tracks": "3",
+                "limit_results": "all",
+            },
+        )
+    assert response.status_code == 200
+    assert b"window.SCROBBLE" in response.data
+
+
+def test_results_loading_registration_check_unavailable_proceeds(client):
+    """
+    GIVEN the registration year check raises an exception (Last.fm unavailable)
+    WHEN POST /results_loading is submitted
+    THEN the route proceeds to start the job rather than blocking the user.
+    """
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            side_effect=Exception("network error"),
+        ),
+        patch("scrobblescope.routes.start_job_thread"),
+    ):
+        response = client.post(
+            "/results_loading",
+            data={
+                "username": "flounder14",
+                "year": "2025",
+                "sort_by": "playcount",
+                "release_scope": "same",
+                "min_plays": "10",
+                "min_tracks": "3",
+                "limit_results": "all",
+            },
+        )
+    assert response.status_code == 200
+    assert b"window.SCROBBLE" in response.data
+
+
+def test_results_loading_no_registered_year_proceeds(client):
+    """
+    GIVEN the registration year check returns registered_year=None (unknown)
+    WHEN POST /results_loading is submitted
+    THEN the route proceeds normally without a year-comparison error.
+    """
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.start_job_thread"),
+    ):
+        response = client.post(
+            "/results_loading",
+            data={
+                "username": "flounder14",
+                "year": "2025",
+                "sort_by": "playcount",
+                "release_scope": "same",
+                "min_plays": "10",
+                "min_tracks": "3",
+                "limit_results": "all",
+            },
+        )
+    assert response.status_code == 200
+    assert b"window.SCROBBLE" in response.data
 
 
 def test_csrf_accepts_reset_progress_with_header_token():

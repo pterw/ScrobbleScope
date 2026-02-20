@@ -384,6 +384,26 @@ def results_loading():
             "index.html", error=f"Year must be between 2002 and {current_year}."
         )
 
+    try:
+
+        async def _check_user():
+            return await check_user_exists(username)
+
+        user_info = run_async_in_thread(_check_user)
+        registered_year = user_info.get("registered_year")
+        if registered_year and year < registered_year:
+            return render_template(
+                "index.html",
+                error=(
+                    f"Year {year} is before your Last.fm registration year"
+                    f" ({registered_year}). Please choose {registered_year} or later."
+                ),
+            )
+    except Exception:
+        logging.warning(
+            "Registration year check failed for %s; proceeding without it", username
+        )
+
     cleanup_expired_jobs()
 
     if not acquire_job_slot():

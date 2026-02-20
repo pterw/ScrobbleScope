@@ -40,7 +40,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - `index.html` now renders server-side validation errors (Batch 6).
 - Historical audit/changelog/refactor docs are archived under `docs/history/` to reduce repo-root clutter.
 - Comprehensive repo audit completed on 2026-02-20; remediation execution plan is documented at `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`.
-- Test suite: **88 tests** across 8 files (`test_app_factory.py`, `test_domain.py`, `test_repositories.py`, `test_utils.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers + CSRF enforcement on all 4 POST routes), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, DB connect retry/backoff behavior, thread-safe cache operations, concurrency slot lifecycle, and app-factory secret-key startup guard.
+- Test suite: **92 tests** across 8 files (`test_app_factory.py`, `test_domain.py`, `test_repositories.py`, `test_utils.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers + CSRF enforcement on all 4 POST routes + registration-year validation), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, DB connect retry/backoff behavior, thread-safe cache operations, concurrency slot lifecycle, and app-factory secret-key startup guard.
 - **Product roadmap (confirmed 2026-02-20):** Two new background task types are planned:
   - **Top songs:** Rank user's most-played tracks for a year (Last.fm + possibly Spotify enrichment). Separate background task type, separate loading/results flow.
   - **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lighter background task.
@@ -448,6 +448,38 @@ Source-of-truth note:
 - Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-20 - WP-5 completed (enforce registration-year validation server-side)
+- Scope: `scrobblescope/routes.py`, `tests/test_routes.py`.
+- Plan vs implementation:
+  - Added a registration-year guard in `results_loading` immediately after the
+    `2002..current_year` bounds check. The guard calls `check_user_exists(username)`
+    via `run_async_in_thread` (same helper used by `validate_user`). The result is
+    already cached from the blur-validation step, so the call is typically free.
+  - If `registered_year` is present and `year < registered_year`, the route
+    re-renders `index.html` with an explicit error message citing the registration
+    year and the earliest valid year.
+  - If the check raises (Last.fm unavailable, network error, etc.), a `WARNING`
+    is logged and the route proceeds without blocking the user (fail-open policy).
+  - If `registered_year` is `None` (not returned by Last.fm), the check is skipped
+    and the route proceeds normally.
+  - Updated four existing `results_loading` tests that reach the guard to patch
+    `scrobblescope.routes.run_async_in_thread` with a neutral result
+    (`{"exists": True, "registered_year": None}`) to avoid live network calls.
+  - Added four new tests to `tests/test_routes.py`:
+    - `test_results_loading_year_below_registration_year_rejected`
+    - `test_results_loading_year_at_registration_year_allowed`
+    - `test_results_loading_registration_check_unavailable_proceeds`
+    - `test_results_loading_no_registered_year_proceeds`
+- Deviations and why: none. Fail-open on service unavailability was the intended
+  design from the WP-5 spec (client-side validation already covered the common
+  case; server-side guard adds defense-in-depth without blocking on transient errors).
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8,
+    trim, end-of-file, doc-state-sync-check).
+  - `pytest -q`: **92 passed** (88 pre-existing + 4 new).
+- Forward guidance: Next work package is WP-6 (remove or gate artificial
+  orchestration sleeps).
 
 ### 2026-02-20 - WP-4 completed (harden app secret and startup safety)
 - Scope: `app.py`, `tests/conftest.py`, `tests/test_app_factory.py` (new), `.env.example`, `README.md`.
