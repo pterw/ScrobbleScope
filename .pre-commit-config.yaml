@@ -36,4 +36,13 @@ repos:
         files: ^.*\.py$
       - id: check-yaml
         files: ^.*\.py$
+
+  - repo: local
+    hooks:
+      - id: doc-state-sync-check
+        name: doc-state-sync-check
+        entry: python scripts/doc_state_sync.py --check
+        language: python
+        pass_filenames: false
+        always_run: true
         

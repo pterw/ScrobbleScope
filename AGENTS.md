@@ -132,6 +132,9 @@ Use a body when context is needed (why, impact, and scope).
 - Execution-log updates must include: scope, plan vs implementation, deviations (if any), validation, and forward guidance.
 - If requirements are ambiguous, ask clarifying questions before updating process/state docs.
 - Keep only the active log window in `PLAYBOOK.md`; rotate older dated entries into `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+- Use deterministic tooling for rotation/sync:
+  - `python scripts/doc_state_sync.py --fix` after editing playbook/session state.
+  - `python scripts/doc_state_sync.py --check` before commit.
 
 ## Required Documentation Updates
 

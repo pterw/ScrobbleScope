@@ -39,7 +39,6 @@ Read helpers:
   - `start_job_thread()` should release the slot and raise on `Thread.start()` failure so routes get a clean exception to handle (mirrors the current try/except pattern in `routes.py`).
   - After the 3 commits are made, next work package is WP-4 (harden app secret and startup safety).
 
-
 ### 2026-02-14 - Frontend responsiveness polish completed (toggle placement + mobile table scaling)
 - Scope: `static/css/index.css`, `static/css/results.css`, `static/css/loading.css`, `static/css/unmatched.css`, `static/css/error.css`, `templates/results.html`.
 - Plan vs implementation:
@@ -56,7 +55,6 @@ Read helpers:
 - Forward guidance:
   - If users still report table crowding on very small devices, next step is card-style row rendering for results instead of a dense 5-column table.
   - Consider extracting shared toggle CSS into one common stylesheet to reduce cross-file duplication.
-
 
 ### 2026-02-14 - Post-Batch-8 hardening completed (low-severity gap closure + test layout split)
 - Scope: `tests/test_routes.py`, `tests/conftest.py`, `tests/helpers.py` (new), `tests/services/` (new split files), `EXECUTION_PLAYBOOK_2026-02-11.md`, `.claude/SESSION_CONTEXT.md`, `README.md`.
@@ -81,7 +79,6 @@ Read helpers:
 - Forward guidance:
   - Subpackage migration should be sequenced **after** the next feature-heavy batch set (Batch 9+) stabilizes, not before. Keep current flat module layout while churn is high; cut to subpackages once contracts settle.
   - Keep route-handler coverage and helper-module pattern as baseline for future test additions.
-
 
 ### 2026-02-13 - Batch 8 completed (modular refactor -- app factory + blueprints + layered structure)
 - Scope: `app.py` (rewritten), `scrobblescope/` package (9 new modules), `tests/` (4 test files + conftest replacing monolithic `test_app.py`).
@@ -115,7 +112,6 @@ Read helpers:
   - Test convention: patch at the module where the name is looked up (e.g., `"scrobblescope.orchestrator._get_db_connection"`).
   - Adding new routes: add to `scrobblescope/routes.py` using `@bp.route(...)`.
   - Adding new service functions: add to the appropriate module (`lastfm.py`, `spotify.py`, `orchestrator.py`, etc.).
-
 
 ### 2026-02-13 - Batch 7 hardening addendum (cache-orchestrator correctness + smoke validation path)
 - Scope: `app.py`, `tests/test_app.py`, `README.md`, `scripts/smoke_cache_check.py`, this playbook.
@@ -154,7 +150,6 @@ Read helpers:
   - Keep Batch 8 refactor parity tests for the error/warning paths (`SpotifyUnavailableError`, `partial_data_warning`) before moving orchestration into service modules.
   - Local dev has no `DATABASE_URL` -- cache is disabled locally (by design). All cache behavior is tested via mocks in the test suite.
 
-
 ### 2026-02-13 - Operational config fix (Fly machine autostop)
 - Scope: `fly.toml`.
 - Issue:
@@ -165,7 +160,6 @@ Read helpers:
   - This log means capacity scaling, not cache overflow.
   - In-memory caches (`REQUEST_CACHE`, `JOBS`) live in RAM on the app VM and are lost on machine stop/restart.
   - Persistent Spotify metadata cache lives in Fly Postgres (`spotify_cache`) via `DATABASE_URL`.
-
 
 ### 2026-02-12 - Batch 7 completed (persistent Spotify metadata cache -- Postgres via asyncpg)
 - Scope: `requirements.txt`, `.env.example`, `init_db.py` (new), `fly.toml`, `app.py`, `tests/test_app.py`.
@@ -199,7 +193,6 @@ Read helpers:
   - Full cache hit path: zero Spotify API calls (verified via mock assertions -- no token fetch, no session, no search).
   - Next batch is Batch 8 (modular refactor).
 
-
 ### 2026-02-12 - Batch 6 completed (frontend refinement/tweaks)
 - Scope: Templates, CSS, JS, and tests -- no app.py changes.
 - Implementation:
@@ -215,7 +208,6 @@ Read helpers:
 - Notes:
   - No new tests added (existing tests enhanced with assertions).
   - Next batch is Batch 7 (persistent metadata layer).
-
 
 ### 2026-02-12 - Batch 5 completed (docstring + comment normalization)
 - Scope: `app.py` only -- docstrings and comments; no behavior changes.
@@ -239,7 +231,6 @@ Read helpers:
   - All 49 top-level functions in app.py now have docstrings (100% coverage).
   - Next batch is Batch 6 (frontend refinement/tweaks).
 
-
 ### 2026-02-12 - Batch 4 closure addendum (missing coverage completed)
 - Scope: `tests/test_app.py` only.
 - Implementation:
@@ -260,7 +251,6 @@ Read helpers:
 - Notes:
   - Batch 4 is now fully closed from a coverage perspective.
 
-
 ### 2026-02-12 - Batch 4 completed (expanded test coverage)
 - Scope: `tests/test_app.py` only -- 23 new tests added (12 -> 35 total).
 - Implementation:
@@ -277,7 +267,6 @@ Read helpers:
   - No changes to `app.py` or any other file -- tests-only batch.
   - Next batch is Batch 5 (docstring + comment normalization).
 
-
 ### 2026-02-12 - Batch 3 completed (nested thread removal)
 - Scope: `app.py` only for runtime behavior, plus this playbook status/log update.
 - Implementation:
@@ -292,4 +281,3 @@ Read helpers:
 - Notes:
   - No functional changes were intentionally introduced in the fetch/process pipeline logic.
   - Next batch remains Batch 4 (coverage expansion) before deeper architectural moves.
-

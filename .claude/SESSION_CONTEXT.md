@@ -51,19 +51,20 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 
 ---
 
-## 4. Batch completion status
+## 4. Execution status (derived from PLAYBOOK)
 
-| Batch | Task | Status |
-|-------|------|--------|
-| 1 | Upstream failure classification + retry UX | Done |
-| 2 | Personalized min listening year from registration date | Done |
-| 3 | Remove nested thread pattern | Done |
-| 4 | Expand test coverage (12 -> 43 tests, gaps closed) | Done |
-| 5 | Docstring + comment normalization | Done |
-| 6 | Frontend refinement/tweaks | Done |
-| 7 | Persistent metadata layer (Postgres via asyncpg) | Done |
-| **8** | **Modular refactor (app.py -> scrobblescope/ package)** | **Done** |
-| **9** | **Audit-driven remediation work packages (WP-1..WP-8)** | **In progress (WP-1, WP-2, WP-3, WP-4 done; WP-5 next)** |
+`PLAYBOOK.md` remains the source of truth. The block below is machine-managed by `scripts/doc_state_sync.py`.
+
+<!-- DOCSYNC:STATUS-START -->
+- Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
+- Current batch: Batch 9.
+- Current-batch entries in active log block: 6.
+- Completed work packages in current-batch entries: WP-1, WP-2, WP-3, WP-4.
+- Next expected work package: WP-5.
+- Newest current-batch entry: 2026-02-20 - WP-4 completed (harden app secret and startup safety).
+- Rotated to archive in latest sync run: 0.
+- Last sync commit: 94e9150.
+<!-- DOCSYNC:STATUS-END -->
 
 ---
 

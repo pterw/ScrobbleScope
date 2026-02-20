@@ -418,6 +418,7 @@ All commits must comply with the commit message standard in Section 5.
 - Batch/execution log entries must include: scope, plan vs implementation, deviations (if any), validation, and forward guidance.
 - If requirements are ambiguous, ask clarifying questions before writing docs that change process/state contracts.
 - When adding new dated entries, archive-rotate old non-active entries into `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` to maintain the active-window policy in Section 10.
+- After any Section 10 update, run `python scripts/doc_state_sync.py --fix`, then re-run checks.
 
 ## 9. Immediate next batch to execute
 - Batch 9 is now defined as a risk-remediation sequence based on the 2026-02-20 comprehensive audit.
@@ -441,6 +442,12 @@ Source-of-truth note:
   - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - If current context is insufficient, agents must follow archive links and read relevant dated entries before changing code/docs.
 - New entries must use ISO dates (`YYYY-MM-DD`) and include scope, deviations, validation, and forward guidance.
+- Current-batch boundaries are explicit and machine-managed:
+  - `<!-- DOCSYNC:CURRENT-BATCH-START -->`
+  - `<!-- DOCSYNC:CURRENT-BATCH-END -->`
+- Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
+
+<!-- DOCSYNC:CURRENT-BATCH-START -->
 
 ### 2026-02-20 - WP-4 completed (harden app secret and startup safety)
 - Scope: `app.py`, `tests/conftest.py`, `tests/test_app_factory.py` (new), `.env.example`, `README.md`.
@@ -458,7 +465,6 @@ Source-of-truth note:
 - Commit: `eb13a27` feat: refuse startup on weak SECRET_KEY in production.
 - Forward guidance: Next work package is WP-5 (enforce registration-year validation server-side).
 
-
 ### 2026-02-20 - WP-1 correctness fix (slot leak on Thread.start failure)
 - Scope: `scrobblescope/routes.py`, `tests/test_routes.py`.
 - Issue: WP-1 post-audit check found that `acquire_job_slot()` in `results_loading` was not guarded against failure of `Thread.__init__` or `Thread.start()`. If either raises (e.g. `OSError` under OS-level thread exhaustion), the slot is permanently consumed because `background_task`'s `finally` block never runs. This violates WP-1's acceptance criterion "no leaked active slots after worker exceptions."
@@ -470,7 +476,6 @@ Source-of-truth note:
   - `pre-commit run --all-files`: all hooks passed.
   - `pytest -q`: 77 passed.
 - Also: added "callers must not mutate" to `get_cached_response` docstring (latent mutable-reference risk; no active bug since no caller mutates the returned object).
-
 
 ### 2026-02-20 - Comprehensive repo audit completed + Batch 9 remediation plan authored
 - Scope: full-codebase audit (backend Python, frontend templates/JS/CSS, tests/CI/config/docs), plus operational handoff planning.
@@ -487,7 +492,6 @@ Source-of-truth note:
 - Forward guidance:
   - Execute WP-1 and WP-2 first (highest reliability risk reduction).
   - Keep documentation synchronized after each work package per Section 8.
-
 
 ### 2026-02-19 - Batch 9 WP-3 completed (CSRF protection for mutating POST routes)
 - Scope: `requirements.txt`, `app.py`, `templates/index.html`, `templates/results.html`, `templates/loading.html`, `static/js/loading.js`, `tests/conftest.py`, `tests/test_routes.py`.
@@ -514,7 +518,6 @@ Source-of-truth note:
   - The `WTF_CSRF_ENABLED = False` fixture override is intentional and standard; it must remain in `conftest.py` to keep all POST route tests free of token boilerplate.
   - Flask-WTF validates the token from `request.form['csrf_token']` for form POSTs and from `X-CSRFToken` header for XHR/fetch POSTs. Both paths are now covered.
 
-
 ### 2026-02-19 - Batch 9 WP-2 completed (thread-safe REQUEST_CACHE)
 - Scope: `scrobblescope/utils.py`, `tests/test_utils.py` (new file).
 - Plan vs implementation:
@@ -531,7 +534,6 @@ Source-of-truth note:
 - Forward guidance:
   - WP-3 (CSRF protection for mutating POST routes) is the next work package.
   - `_cache_lock` is importable from `scrobblescope.utils` if future tests or modules need to inspect or clear the cache safely.
-
 
 ### 2026-02-19 - Batch 9 WP-1 completed (bound background job concurrency)
 - Scope: `scrobblescope/config.py`, `scrobblescope/repositories.py`, `scrobblescope/routes.py`, `scrobblescope/orchestrator.py`, `tests/test_routes.py`, `tests/services/test_orchestrator_service.py`.
@@ -553,6 +555,7 @@ Source-of-truth note:
   - The `_active_jobs_semaphore` is process-global; it resets on restart. Under Fly.io single-VM deployment this is correct behavior.
   - If the operator wants to verify slot release under real traffic, check logs for `release_job_slot called with no matching acquire` warning (should never appear in normal operation).
 
+<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 ### 2026-02-19 - Fly cold-start recovery validation completed (app + Postgres DB)
 - Scope: operational validation of deployed services and documentation refresh (`.claude/SESSION_CONTEXT.md`, `PLAYBOOK.md`).
@@ -575,7 +578,6 @@ Source-of-truth note:
   - Keep this cold-start check as a regression smoke pattern after infra/config changes.
   - If cold-start latency grows, tune DB wake-up retry knobs (`DB_CONNECT_MAX_ATTEMPTS`, `DB_CONNECT_BASE_DELAY_SECONDS`) and/or Fly machine warmness settings.
 
-
 ### 2026-02-19 - Context reconciliation completed (docs parity + cache fallback logging classification)
 - Scope: `.claude/SESSION_CONTEXT.md`, `PLAYBOOK.md`, `scrobblescope/cache.py`, `tests/test_repositories.py`.
 - Plan vs implementation:
@@ -593,7 +595,6 @@ Source-of-truth note:
   - `venv\Scripts\python -m pytest tests -q`: **66 passed** (2 deprecation warnings from aiohttp connector behavior on Python 3.13.3).
 - Forward guidance:
   - Keep Section 2 and `.claude/SESSION_CONTEXT.md` synchronized whenever runtime snapshots (line counts, branch/commit status, logging behavior) change.
-
 
 ### 2026-02-14 - Repository hygiene completed (historical docs archive + README refresh)
 - Scope: `docs/history/` (new folder), historical markdown moves, `PLAYBOOK.md`, `README.md`.
@@ -617,7 +618,6 @@ Source-of-truth note:
 - Forward guidance:
   - Keep new planning/audit/changelog docs in `docs/history/` unless a document is an active operator runbook.
   - Keep playbook and session-context docs at predictable top-level locations for fast bootstrap.
-
 
 ### 2026-02-14 - Cache wake-up hardening completed (DB connect retry/backoff + docs refresh)
 - Scope: `scrobblescope/cache.py`, `tests/test_repositories.py`, `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, `README.md`.
@@ -646,5 +646,3 @@ Source-of-truth note:
   - If first-request latency after idle is a concern, either increase retry knobs or adjust/remove DB `FLY_SCALE_TO_ZERO`.
   - Keep periodic smoke checks as operational validation for cache persistence and warm-hit behavior.
   - Resolve DB app staged secrets drift (`fly secrets deploy -a scrobblescope-db`) to avoid config ambiguity.
-
-
