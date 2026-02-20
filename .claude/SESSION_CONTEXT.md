@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context (Post-Batch 8 Modular Refactor)
 
-Last updated: 2026-02-19
+Last updated: 2026-02-20
 Author: Claude Opus 4.6 + Codex (for agent handoff / new session bootstrap)
 
 ---
@@ -20,12 +20,14 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | `89b5d4f` - Normalize README heading and broaden pytest allow rule |
+| Latest commit | `b8c54d3` - Sync docs and classify cache fallback logging |
 | Tests | **66 passing** across 6 test files |
+| Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8) |
 | app.py line count | ~66 lines (factory pattern) |
 | Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
+| Batch 9 status | Audit complete; remediation plan ready at `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
 
 ---
 
@@ -34,6 +36,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Document | Status | Purpose |
 |----------|--------|---------|
 | `EXECUTION_PLAYBOOK_2026-02-11.md` | **Source of truth** | Batch ordering, acceptance criteria, execution log, next steps. |
+| `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` | **Active execution plan** | Work-package checklist for security/reliability/correctness remediations from the comprehensive audit. |
 | `.claude/SESSION_CONTEXT.md` (this file) | **Current** | Quick orientation for agents. Architecture, key locations, known gaps. |
 | `README.md` | **Current** | Product description, roadmap checklist, setup instructions. |
 | `docs/history/` | **Historical archive** | Audits/changelogs/refactor notes kept out of repo root for hygiene. |
@@ -52,6 +55,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | 6 | Frontend refinement/tweaks | Done |
 | 7 | Persistent metadata layer (Postgres via asyncpg) | Done |
 | **8** | **Modular refactor (app.py -> scrobblescope/ package)** | **Done** |
+| **9** | **Audit-driven remediation work packages (WP-1..WP-8)** | **Planned / Ready to Execute** |
 
 ---
 
@@ -170,3 +174,4 @@ POST /results_complete
 - **Gunicorn:** `gunicorn app:app` still works (module-level `app = create_app()`)
 - **Fly DB behavior:** unmanaged `scrobblescope-db` currently uses `FLY_SCALE_TO_ZERO=1h`; stopped/suspended state after idle is expected and DB wakes on demand.
 - **Fly cold-start validation (2026-02-19):** `fly machine stop` was used for both `scrobblescope` and `scrobblescope-db`, then `scripts/smoke_cache_check.py` against `https://scrobblescope.fly.dev` (`flounder14`, `2025`, `--runs 1`) succeeded; both machines auto-started and DB checks converged to passing.
+- **Audit focus (2026-02-20):** highest-priority risks are unbounded job concurrency, non-thread-safe in-memory request cache, and missing CSRF protection on POST routes. Execution sequence is documented in `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`.

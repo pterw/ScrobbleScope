@@ -32,6 +32,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - Dark-mode toggle now uses a compact fixed bottom placement across pages; label auto-hides on extra-small screens.
 - `index.html` now renders server-side validation errors (Batch 6).
 - Historical audit/changelog/refactor docs are archived under `docs/history/` to reduce repo-root clutter.
+- Comprehensive repo audit completed on 2026-02-20; remediation execution plan is documented at `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`.
 - Test suite: 66 tests across 6 files (`test_domain.py`, `test_repositories.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, and DB connect retry/backoff behavior.
 
 ## 3. Non-negotiable implementation principles
@@ -42,8 +43,11 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 5. Keep security-safe rendering (`tojson`, escaping) as baseline.
 
 ## 4. High-level batch order (strict sequence)
+Status note:
+- Batches are listed in execution order and kept sequential by batch number.
+- Completed batches remain struck through for quick scanning.
 
-### Batch 0: Baseline freeze + approval parity suite
+### ~~Batch 0: Baseline freeze + approval parity suite~~
 Purpose:
 - Freeze externally visible behavior before risky internal changes.
 
@@ -261,6 +265,38 @@ Acceptance:
 - No monolithic route/data logic in one file.
 - Testability and config management improved.
 
+---
+
+### Batch 9: Audit remediation execution (WP-1 through WP-8)
+Purpose:
+- Execute the remediation track from `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` in strict work-package order.
+
+Execution order:
+1. WP-1: Secret handling + configuration hardening.
+2. WP-2: Upstream resilience + bounded retries/timeouts.
+3. WP-3: Data correctness and contract hardening.
+4. WP-4: Frontend security and rendering safeguards.
+5. WP-5: Observability and runbook updates.
+6. WP-6: Test coverage expansion for high-risk code paths.
+7. WP-7: Performance and cache efficiency follow-ups.
+8. WP-8: Final cleanup, docs sync, and release-readiness checks.
+
+Acceptance:
+- WP-1 through WP-8 are completed and logged in Section 10 with validation evidence.
+- Batch 9 outcomes match the acceptance criteria documented in the Batch 9 plan.
+
+### Sequential completion index (Batch 0-9)
+- ~~Batch 0~~: Done
+- ~~Batch 1~~: Done
+- ~~Batch 2~~: Done
+- ~~Batch 3~~: Done
+- ~~Batch 4~~: Done
+- ~~Batch 5~~: Done
+- ~~Batch 6~~: Done
+- ~~Batch 7~~: Done
+- ~~Batch 8~~: Done
+- Batch 9: In progress
+
 ## 5. Suggested implementation granularity
 - Keep PRs or commits small per batch.
 - Do not mix architecture refactor with behavior changes in one step.
@@ -319,15 +355,36 @@ After each completed batch, update this playbook immediately:
    - Mark here whether a doc is historical baseline vs current source of truth.
 
 ## 9. Immediate next batch to execute
-- All planned batches (1-8) are complete.
-- The codebase is modularized and tested (66 tests).
-- If Batch 9 is used for further structural packaging (subpackage migration), schedule it after currently planned feature/UI batches stabilize to avoid repeated import churn.
-- Future work should focus on items in the README roadmap (mobile responsiveness, QA testing, etc.).
+- Batch 9 is now defined as a risk-remediation sequence based on the 2026-02-20 comprehensive audit.
+- Execute `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` in order (WP-1 through WP-8), one package at a time.
+- Keep all Batch 9 changes scoped, validated, and logged in Section 10 after each completed work package.
 
 ## 10. Batch execution log (for agent handoff)
 Source-of-truth note:
 - For current status, prefer Section 2 and this execution log.
 - Treat `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` as baseline context from 2026-02-11 unless it is explicitly refreshed.
+
+### How to read dated entries
+- Each heading in the form `YYYY-MM-DD - Batch X ...` is a historical completion/addendum log for that batch.
+- Entries are append-only and kept in reverse-chronological order (newest first).
+- Section 4 is the canonical batch status view (completed vs in progress); Section 10 is the implementation/detail history.
+- New entries should keep ISO date format and include scope, deviations, validation, and forward guidance.
+
+### 2026-02-20 - Comprehensive repo audit completed + Batch 9 remediation plan authored
+- Scope: full-codebase audit (backend Python, frontend templates/JS/CSS, tests/CI/config/docs), plus operational handoff planning.
+- Plan vs implementation:
+  - Performed a severity-ranked audit focused on security, reliability, correctness, and optimization pathways.
+  - Identified concrete high/medium/low findings with file-level references.
+  - Authored actionable execution plan for next agent:
+    - `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`
+    - Includes WP-1..WP-8, acceptance criteria, and execution order.
+  - Updated this playbook and session context to treat Batch 9 as the active next execution track.
+- Validation:
+  - `venv\Scripts\python -m pytest tests --cov=scrobblescope --cov-report=term-missing -q`: **66 passed**, overall coverage **72%**.
+  - Coverage highlighted lower-tested hotspots used to seed Batch 9 work-package ordering (`lastfm.py`, `utils.py`, `spotify.py`, portions of `orchestrator.py`).
+- Forward guidance:
+  - Execute WP-1 and WP-2 first (highest reliability risk reduction).
+  - Keep documentation synchronized after each work package per Section 8.
 
 ### 2026-02-19 - Fly cold-start recovery validation completed (app + Postgres DB)
 - Scope: operational validation of deployed services and documentation refresh (`.claude/SESSION_CONTEXT.md`, `EXECUTION_PLAYBOOK_2026-02-11.md`).
@@ -460,7 +517,7 @@ Source-of-truth note:
   - Subpackage migration should be sequenced **after** the next feature-heavy batch set (Batch 9+) stabilizes, not before. Keep current flat module layout while churn is high; cut to subpackages once contracts settle.
   - Keep route-handler coverage and helper-module pattern as baseline for future test additions.
 
-### 2026-02-13 - Batch 8 completed (modular refactor — app factory + blueprints + layered structure)
+### 2026-02-13 - Batch 8 completed (modular refactor -- app factory + blueprints + layered structure)
 - Scope: `app.py` (rewritten), `scrobblescope/` package (9 new modules), `tests/` (4 test files + conftest replacing monolithic `test_app.py`).
 - Plan vs implementation:
   - Followed the approved 7-slice strangler plan exactly. All 59 tests remained green after every slice.
@@ -473,14 +530,14 @@ Source-of-truth note:
   - Slice 7: Cleanup and documentation updates
 - Deviations and why:
   - Plan estimated 19 tests in `test_services.py` and 20 in `test_routes.py`; actual counts are 17 and 22 respectively (same 59 total). Two tests moved between files for better logical grouping.
-  - `create_app()` lives in `app.py` (project root) rather than `scrobblescope/__init__.py` — keeps Flask template/static path resolution simple and `gunicorn app:app` backward compatible.
+  - `create_app()` lives in `app.py` (project root) rather than `scrobblescope/__init__.py` -- keeps Flask template/static path resolution simple and `gunicorn app:app` backward compatible.
 - Key architectural outcomes:
   - `app.py` reduced from ~2091 lines to ~91 lines (factory pattern only).
-  - Acyclic dependency graph: `domain`/`config` → `utils` → `cache` → `repositories` → `lastfm`/`spotify` → `orchestrator` → `routes` → `app`.
+  - Acyclic dependency graph: `domain`/`config` -> `utils` -> `cache` -> `repositories` -> `lastfm`/`spotify` -> `orchestrator` -> `routes` -> `app`.
   - No circular imports. Each module imports only from modules above it in the hierarchy.
   - Flask Blueprint (`bp = Blueprint("main", __name__)`) with `@bp.app_errorhandler` for 404/500 and `@bp.app_context_processor` for template injection.
   - `# noqa: F401` re-export pattern used during transitional slices, fully removed in Slice 6.
-  - Patch targets updated throughout: `"app.X"` → `"scrobblescope.<module>.X"` in all test files.
+  - Patch targets updated throughout: `"app.X"` -> `"scrobblescope.<module>.X"` in all test files.
 - Validation:
   - `pytest tests/ -q`: 59 passed (6 + 14 + 17 + 22 across 4 test files)
   - `pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8)
@@ -493,36 +550,36 @@ Source-of-truth note:
   - Adding new routes: add to `scrobblescope/routes.py` using `@bp.route(...)`.
   - Adding new service functions: add to the appropriate module (`lastfm.py`, `spotify.py`, `orchestrator.py`, etc.).
 
-### 2026-02-12 - Batch 7 completed (persistent Spotify metadata cache â€” Postgres via asyncpg)
+### 2026-02-12 - Batch 7 completed (persistent Spotify metadata cache -- Postgres via asyncpg)
 - Scope: `requirements.txt`, `.env.example`, `init_db.py` (new), `fly.toml`, `app.py`, `tests/test_app.py`.
 - Implementation:
   - **requirements.txt:** Added `asyncpg>=0.29.0`; removed unused `redis` and `Flask_Caching`.
   - **.env.example:** Added `DATABASE_URL` placeholder with Fly.io context comment.
   - **init_db.py (new):** Standalone schema init script. Reads `DATABASE_URL`, creates `spotify_cache` table via `asyncpg`. Runs as Fly `release_command`. Idempotent; exits 0 on success or no-op, exits 1 on failure (rolls back deploy).
   - **fly.toml:** Added `[deploy] release_command = "python init_db.py"`.
-  - **app.py â€” 3 new helper functions:**
+  - **app.py -- 3 new helper functions:**
     - `_get_db_connection()`: Returns `asyncpg.Connection` or `None` (graceful fallback).
     - `_batch_lookup_metadata(conn, keys)`: Single SELECT with `unnest()`, 30-day TTL filter, JSONB deserialization.
     - `_batch_persist_metadata(conn, rows)`: Single INSERT with `unnest() ... ON CONFLICT DO UPDATE`. True single-statement batch (not executemany).
-  - **app.py â€” `process_albums` rewritten** with 5-phase flow:
+  - **app.py -- `process_albums` rewritten** with 5-phase flow:
     - Phase 1: DB batch lookup (try/except, fallback to empty dict).
     - Phase 2: Partition into cache_hits and cache_misses.
-    - Phase 3: Spotify fetch for misses only (entire block guarded by `if cache_misses:` â€” zero API calls on full cache hit).
+    - Phase 3: Spotify fetch for misses only (entire block guarded by `if cache_misses:` -- zero API calls on full cache hit).
     - Phase 4: DB batch persist + `conn.close()` in `finally`.
-    - Phase 5: Build results from unified cache_hits dict â€” identical output shape regardless of source.
-  - **tests/test_app.py â€” 12 new tests (43 â†’ 55):**
+    - Phase 5: Build results from unified cache_hits dict -- identical output shape regardless of source.
+  - **tests/test_app.py -- 12 new tests (43 -> 55):**
     - 7 DB helper unit tests: `_get_db_connection` (no asyncpg, no URL, connect failure), `_batch_lookup_metadata` (empty keys, JSONB parsing), `_batch_persist_metadata` (empty rows, upsert call shape).
     - 5 process_albums integration tests: full cache hit skips Spotify, full cache miss fetches and persists, DB unavailable falls back, conn always closed, empty input.
 - Deviations:
   - Plan called for ~14 tests; implemented 12 (skipped init_db.py tests as the script is trivially simple and tested indirectly by the release_command pattern).
-  - `METADATA_CACHE_TTL_DAYS` made configurable via env var (default 30) â€” not in original plan but natural extension.
+  - `METADATA_CACHE_TTL_DAYS` made configurable via env var (default 30) -- not in original plan but natural extension.
 - Validation:
   - `pytest -q`: 55 passed
   - `pre-commit run --all-files`: all hooks passed
   - Local dev without `DATABASE_URL`: app functions identically to pre-Batch-7
 - Notes:
   - Connection always closed via `finally` block, even on Spotify errors.
-  - Full cache hit path: zero Spotify API calls (verified via mock assertions â€” no token fetch, no session, no search).
+  - Full cache hit path: zero Spotify API calls (verified via mock assertions -- no token fetch, no session, no search).
   - Next batch is Batch 8 (modular refactor).
 
 ### 2026-02-13 - Batch 7 hardening addendum (cache-orchestrator correctness + smoke validation path)
@@ -560,7 +617,7 @@ Source-of-truth note:
   - Cache is deployed and verified. No further infra steps needed before Batch 8.
   - Fly Postgres instance `scrobblescope-db` is unmanaged, single-node. Consider auto-stop to save cost when idle.
   - Keep Batch 8 refactor parity tests for the error/warning paths (`SpotifyUnavailableError`, `partial_data_warning`) before moving orchestration into service modules.
-  - Local dev has no `DATABASE_URL` — cache is disabled locally (by design). All cache behavior is tested via mocks in the test suite.
+  - Local dev has no `DATABASE_URL` -- cache is disabled locally (by design). All cache behavior is tested via mocks in the test suite.
 
 ### 2026-02-13 - Operational config fix (Fly machine autostop)
 - Scope: `fly.toml`.
@@ -574,12 +631,12 @@ Source-of-truth note:
   - Persistent Spotify metadata cache lives in Fly Postgres (`spotify_cache`) via `DATABASE_URL`.
 
 ### 2026-02-12 - Batch 6 completed (frontend refinement/tweaks)
-- Scope: Templates, CSS, JS, and tests â€” no app.py changes.
+- Scope: Templates, CSS, JS, and tests -- no app.py changes.
 - Implementation:
   - **index.html error alert:** Added `{% if error %}` block with Bootstrap `alert-danger` component above the form card. Errors from `results_loading` (missing username, bad year) now render visibly.
   - **Dark-mode toggle mobile fix:** Added `@media (max-width: 575.98px)` rules to all 5 CSS files (index, loading, results, unmatched, error) repositioning the toggle from `top: 1rem` to `bottom: 1rem` on small screens.
   - **Username submission guard:** Added `setCustomValidity()` to `index.js` so that a username flagged invalid by the AJAX blur check blocks native form submission. An `input` listener clears the block when the user types a new name. Network errors fall through to server-side validation.
-  - **Encoding artifacts:** Investigated all JS files â€” no artifacts found. `encodeURIComponent()`, `.textContent`, and `escapeHtml()` are used correctly. No action needed.
+  - **Encoding artifacts:** Investigated all JS files -- no artifacts found. `encodeURIComponent()`, `.textContent`, and `escapeHtml()` are used correctly. No action needed.
   - **Test enhancements:** Updated `test_results_loading_missing_username` and `test_results_loading_year_out_of_bounds` to assert error message text is present in the response, confirming the alert block renders.
 - Deviations: Username submission guard was not in the original playbook scope but was a clear UX gap identified during Batch 6 work.
 - Validation:
@@ -590,7 +647,7 @@ Source-of-truth note:
   - Next batch is Batch 7 (persistent metadata layer).
 
 ### 2026-02-12 - Batch 5 completed (docstring + comment normalization)
-- Scope: `app.py` only â€” docstrings and comments; no behavior changes.
+- Scope: `app.py` only -- docstrings and comments; no behavior changes.
 - Implementation:
   - **Added docstrings to 16 previously undocumented top-level functions:**
     `_get_loop_limiter`, `run_async_in_thread`, `inject_current_year`,
@@ -598,16 +655,16 @@ Source-of-truth note:
     `set_job_stat`, `set_job_results`, `add_job_unmatched`, `reset_job_state`,
     `get_job_progress`, `get_job_unmatched`, `get_job_context`,
     `fetch_recent_tracks_page_async`, `fetch_spotify_access_token`, `results_complete`.
-  - **Removed 11 redundant or stale pre-function comments** that duplicated what the docstring already says or used stale language ("improved", "update the â€¦ route").
+  - **Removed 11 redundant or stale pre-function comments** that duplicated what the docstring already says or used stale language ("improved", "update the ... route").
   - **Relocated one misleading comment** ("Enable ANSI escape codes on Windows cmd") from the `import sys` line to the actual `os.system("")` call where the enabling happens.
-  - **Docstring style:** short summary line, optional detail paragraph â€” consistent with `get_spotify_limiter` as the reference standard.
+  - **Docstring style:** short summary line, optional detail paragraph -- consistent with `get_spotify_limiter` as the reference standard.
   - **Inner/nested functions** (11 closures like `fetch_once`, `clean`, `search_with_semaphore`) were intentionally left without docstrings as they are self-descriptive from naming and parent function context.
 - Deviations: None.
 - Validation:
   - `pytest -q`: 43 passed
   - `pre-commit run --all-files`: all hooks passed (isort auto-fixed import grouping after comment removal; re-run confirmed clean)
 - Notes:
-  - `app.py` line count decreased slightly due to comment removal (~1800 â†’ ~1790).
+  - `app.py` line count decreased slightly due to comment removal (~1800 -> ~1790).
   - All 49 top-level functions in app.py now have docstrings (100% coverage).
   - Next batch is Batch 6 (frontend refinement/tweaks).
 
@@ -632,7 +689,7 @@ Source-of-truth note:
   - Batch 4 is now fully closed from a coverage perspective.
 
 ### 2026-02-12 - Batch 4 completed (expanded test coverage)
-- Scope: `tests/test_app.py` only â€” 23 new tests added (12 â†’ 35 total).
+- Scope: `tests/test_app.py` only -- 23 new tests added (12 -> 35 total).
 - Implementation:
   - **Job lifecycle (5 tests):** unique IDs, job isolation, missing-job guard, stat storage, TTL expiry cleanup.
   - **Route coverage (9 tests):** `/progress` 400+404, `/results_loading` valid+missing+out-of-bounds, `/results_complete` missing+expired+with-data, `/validate_user` too-long+not-found, `/unmatched` 400+data.
@@ -644,7 +701,7 @@ Source-of-truth note:
   - `index.html` does not render the `error=` variable passed by `results_loading` on validation failure. Tests were adjusted to verify the correct page is returned (index form, not loading page) rather than asserting specific error text. This is a minor UX gap that could be addressed in Batch 6 (frontend tweaks).
 - Notes:
   - All 35 tests pass. All pre-commit hooks pass (black, isort, autoflake, flake8).
-  - No changes to `app.py` or any other file â€” tests-only batch.
+  - No changes to `app.py` or any other file -- tests-only batch.
   - Next batch is Batch 5 (docstring + comment normalization).
 
 ### 2026-02-12 - Batch 3 completed (nested thread removal)
