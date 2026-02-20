@@ -439,7 +439,6 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
     ]
 
     with (
-        patch("asyncio.sleep", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
@@ -484,7 +483,6 @@ async def test_fetch_and_process_sets_spotify_error_from_process_albums():
     }
 
     with (
-        patch("asyncio.sleep", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,

@@ -442,8 +442,6 @@ async def _fetch_and_process(
             reset_stats=True,
         )
 
-        await asyncio.sleep(0.5)
-
         step_start_time = time.time()
         set_job_progress(
             job_id,
@@ -480,11 +478,9 @@ async def _fetch_and_process(
 
         set_job_progress(job_id, progress=20, message="Processing your albums...")
 
-        await asyncio.sleep(0.5)
         set_job_progress(
             job_id, progress=30, message="Preparing to fetch album data..."
         )
-        await asyncio.sleep(0.5)
 
         step_start_time = time.time()
         set_job_progress(
@@ -529,11 +525,7 @@ async def _fetch_and_process(
             job_id, progress=80, message="Compiling your top album list..."
         )
 
-        await asyncio.sleep(0.5)
-
         set_job_progress(job_id, progress=90, message="Finalizing list...")
-
-        await asyncio.sleep(0.5)
 
         if limit_results != "all":
             try:

@@ -361,7 +361,7 @@ try/except and call release_job_slot() before returning the error page.
 2. Retry UX policy:
    - immediate retry button only,
    - or retry + cooldown messaging.
-3. Whether to keep `results_loading` progress spoof sleeps or remove once UX states improve.
+3. ~~Whether to keep `results_loading` progress spoof sleeps or remove once UX states improve.~~ Resolved in WP-6: all 5 `asyncio.sleep(0.5)` calls removed.
 4. Error copy style and user-facing tone for upstream failures.
 
 ## 7. Agent handoff checklist before starting a batch
@@ -448,6 +448,34 @@ Source-of-truth note:
 - Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-20 - WP-6 completed (remove artificial orchestration sleeps)
+- Scope: `scrobblescope/orchestrator.py`, `tests/services/test_orchestrator_service.py`.
+- Plan vs implementation:
+  - Removed all 5 `await asyncio.sleep(0.5)` calls from `_fetch_and_process`. The
+    calls were added as a progress-pacing mechanism but served no functional purpose
+    and added a fixed 2.5 s latency overhead to every job.
+  - All `set_job_progress` calls and their messages are preserved at the same
+    progress values (0, 5, 20, 30, 40, 60, 80, 90, 100), so the loading-page
+    progress sequence is unchanged from the user's perspective.
+  - `asyncio` import retained: `asyncio.Semaphore`, `asyncio.gather`,
+    `asyncio.new_event_loop`, and `asyncio.set_event_loop` are still used.
+  - Removed two dead `patch("asyncio.sleep", new_callable=AsyncMock)` lines from
+    `test_fetch_and_process_cache_hit_does_not_precheck_spotify` and
+    `test_fetch_and_process_sets_spotify_error_from_process_albums` in
+    `tests/services/test_orchestrator_service.py`. Those patches were no-ops after
+    the sleep removals.
+- Deviations and why: none. "Gate with debug-only UX flag" option was not needed;
+  the plain removal is simpler and all test coverage is already progress-message
+  based, not timing based.
+- Additions beyond plan: none.
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8,
+    trim, end-of-file, doc-state-sync-check).
+  - `pytest -q`: **92 passed** (no count change; two dead patches removed,
+    no new tests needed).
+- Forward guidance: Next work package is WP-7 (frontend safety and resilience
+  polish).
 
 ### 2026-02-20 - WP-5 completed (enforce registration-year validation server-side)
 - Scope: `scrobblescope/routes.py`, `tests/test_routes.py`.
