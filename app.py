@@ -65,10 +65,43 @@ else:
 logging.info(f"ScrobbleScope starting up, debug mode: {debug_mode}")
 
 
+_KNOWN_WEAK_SECRETS = frozenset({"dev", "changeme_in_production", ""})
+_MIN_SECRET_LENGTH = 16
+
+
+def _validate_secret_key(secret_key: str, is_dev_mode: bool) -> None:
+    """Validate SECRET_KEY strength at startup.
+
+    Raises RuntimeError in production if the key is missing or insecure.
+    Logs a warning in dev mode instead of failing hard.
+    """
+    is_weak = (
+        not secret_key
+        or secret_key in _KNOWN_WEAK_SECRETS
+        or len(secret_key) < _MIN_SECRET_LENGTH
+    )
+    if not is_weak:
+        return
+    guidance = (
+        "Set a strong SECRET_KEY "
+        '(e.g., `python -c "import os; print(os.urandom(32).hex())"`)'
+    )
+    if is_dev_mode:
+        logging.warning(
+            "SECRET_KEY is missing or insecure. %s Continuing in dev mode.", guidance
+        )
+    else:
+        raise RuntimeError(
+            f"Refusing to start: SECRET_KEY is missing or insecure. {guidance}"
+        )
+
+
 def create_app():
     """Application factory for ScrobbleScope."""
+    _raw_secret = os.getenv("SECRET_KEY", "")
+    _validate_secret_key(_raw_secret, debug_mode)
     application = Flask(__name__)
-    application.secret_key = os.getenv("SECRET_KEY", "dev")
+    application.secret_key = _raw_secret or "dev"
 
     csrf.init_app(application)
 

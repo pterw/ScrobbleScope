@@ -158,7 +158,9 @@ This project is currently a work in progress. However, if you wish to run it loc
         LASTFM_API_KEY="your_lastfm_api_key_here"
         SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
         SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
-        # Recommended for Flask session security
+        # Required in production (startup fails without a strong value)
+        # Generate: python -c "import os; print(os.urandom(32).hex())"
+        # For local dev without this set, run with DEBUG_MODE=1 to suppress the check.
         SECRET_KEY="your_random_secret_key_here"
         # Optional (required for persistent Spotify metadata cache)
         # DATABASE_URL="postgresql://..."
