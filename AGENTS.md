@@ -6,12 +6,24 @@ This document provides instructions for interacting with the ScrobbleScope repos
 
 ScrobbleScope is a Python-based Flask web application that allows users to visualize their Last.fm listening history. It fetches "scrobbles" for a given year, enriches the data with album metadata from the Spotify API, and displays the results in a filterable and sortable format.
 
+## Required Session Bootstrap
+
+Before making changes, read these files in order:
+
+1. `.claude/SESSION_CONTEXT.md`
+2. `EXECUTION_PLAYBOOK_2026-02-11.md`
+3. `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` (when Batch 9 is active)
+4. `README.md`
+
+The playbook is the source of truth for batch sequencing and completion status.
+
 ## Tech Stack
 
-* **Backend**: Python 3.11, Flask
+* **Backend**: Python 3.9+ (tested on Python 3.13.x), Flask
 * **Frontend**: HTML, CSS, JavaScript, Bootstrap 5
 * **APIs**: Last.fm and Spotify
 * **Asynchronous Operations**: `aiohttp` and `aiolimiter` for handling API calls.
+* **Persistent Cache**: Postgres via `asyncpg` (optional locally, enabled in deploy)
 * **Dependency Management**: `pip` and `requirements.txt`.
 * **Testing & Linting**: `pytest`, `pre-commit`, `black`, `isort`, `flake8`.
 
@@ -22,6 +34,12 @@ To work with this project, you must set up a local development environment.
 1.  **Virtual Environment**: Always work within a Python virtual environment.
     ```bash
     python -m venv venv
+    ```
+    Activate it:
+    ```bash
+    # Windows PowerShell
+    .\venv\Scripts\Activate.ps1
+    # macOS/Linux (bash/zsh)
     source venv/bin/activate
     ```
 
@@ -36,6 +54,8 @@ To work with this project, you must set up a local development environment.
     SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
     SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
     SECRET_KEY="a_random_secret_key_for_flask_sessions"
+    # Optional locally, required for persistent deployed metadata cache
+    # DATABASE_URL="postgresql://..."
     ```
 
 ## Network Access
@@ -46,14 +66,19 @@ This application **requires an active internet connection** to make API calls to
 
 You can run the application using either `run.py` or `app.py`.
 
-* Start the server and automatically open a browser:
+* Recommended:
+  ```bash
+  python app.py
+  ```
+
+* Optional launcher (starts server and opens browser):
   ```bash
   python run.py
   ```
 
-* Or start the server directly:
+* Optional local DB schema init (only when using `DATABASE_URL`):
   ```bash
-  python app.py
+  python init_db.py
   ```
   The application will be available at `http://127.0.0.1:5000/`.
 
@@ -76,13 +101,16 @@ The CI pipeline defined in `.github/workflows/test.yml` runs these same checks. 
 
 ## Key File Structure
 
-* `app.py`: The main Flask application file containing all routes and core logic.
+* `app.py`: Thin Flask app factory entrypoint (`create_app()` + module-level `app` for Gunicorn).
+* `init_db.py`: Postgres schema initializer used by Fly release command.
+* `scrobblescope/`: Core modular application package (routes, orchestration, services, cache, repositories, domain/config).
 * `requirements.txt`: A list of all Python dependencies.
 * `.env`: **(You must create this)** Stores the API keys and secrets. It is ignored by git.
 * `static/`: Contains all static assets (CSS, JavaScript, images).
 * `templates/`: Contains all Jinja2 HTML templates for the application.
 * `.pre-commit-config.yaml`: Configuration for the pre-commit hooks.
 * `tests/`: Contains all unit tests.
+* `docs/history/`: Historical audits, changelogs, and remediation plans.
 
 ## Commit Message Style
 
