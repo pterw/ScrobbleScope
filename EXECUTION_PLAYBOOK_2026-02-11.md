@@ -309,6 +309,46 @@ Acceptance:
   - `pytest -q`
 after each batch.
 
+### Commit message standard
+All commits must follow the Conventional Commits + imperative-mood convention:
+
+```
+<type>(<optional scope>): <subject>   ← max 72 chars, imperative mood
+
+<body>                                 ← wrap at 72 chars; explain WHY
+                                         not just what
+```
+
+**Types:** `feat`, `fix`, `refactor`, `test`, `chore`, `docs`, `style`, `perf`
+
+**Subject rules (enforced):**
+- Imperative mood: "Add", "Fix", "Remove", "Extract" — NOT "Added", "Fixes", "Introducing"
+- No period at the end
+- No project-management metadata in the subject (`WP-1 (P0):` belongs in the body)
+- Max 72 characters on the subject line
+
+**Body rules:**
+- Separated from subject by a blank line
+- Explain the motivation and what changed, not just a file list
+- File-level bullet lists are acceptable for specificity
+- Wrap lines at 72 characters
+
+**Examples:**
+```
+feat: bound background job concurrency and extract worker module
+
+Introduce MAX_ACTIVE_JOBS (default 10, env-tunable) to cap concurrent
+background jobs. Extract concurrency lifecycle into worker.py ahead of
+planned top-songs and listening-heatmap features.
+```
+```
+fix: release job slot when Thread.start() raises in results_loading
+
+If Thread.__init__ or Thread.start() raises after acquire_job_slot()
+succeeds, the slot was permanently consumed. Wrap thread creation in
+try/except and call release_job_slot() before returning the error page.
+```
+
 ## 6. Open decisions (owner confirmation needed)
 1. Persistent store choice now: Postgres only or Postgres + Redis.
 2. Retry UX policy:
@@ -340,7 +380,8 @@ after each batch.
    - verification results
 
 ## 8. Batch completion logging standard
-After each completed batch, update this playbook immediately:
+After each completed batch, update this playbook immediately.
+All commits must comply with the commit message standard in Section 5.
 1. Status update:
    - Strike through the completed batch title in Section 4.
    - Update "Immediate next batch to execute."
