@@ -10,8 +10,8 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - Prevent risky refactor-first changes before parity tests exist.
 
 ## 2. Current status snapshot
-- `app.py` is a minimal factory (~66 lines): `create_app()` + `app = create_app()` for Gunicorn compat.
-- All application logic lives in the `scrobblescope/` package (10 modules including package marker, acyclic dependency graph).
+- `app.py` is a minimal factory (~109 lines): `create_app()` + logging setup + `CSRFProtect` init + `app = create_app()` for Gunicorn compat.
+- All application logic lives in the `scrobblescope/` package (11 modules including package marker, acyclic dependency graph).
 - Routes use a Flask Blueprint (`scrobblescope/routes.py`).
 - Per-job in-memory state in `scrobblescope/repositories.py` (`JOBS` dict).
 - No app-level keep-alive thread is present; `results_loading` spawns one daemon worker per job and `background_task` owns a single event loop on that worker thread.
@@ -37,7 +37,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - **Product roadmap (confirmed 2026-02-20):** Two new background task types are planned:
   - **Top songs:** Rank user's most-played tracks for a year (Last.fm + possibly Spotify enrichment). Separate background task type, separate loading/results flow.
   - **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lighter background task.
-- **Pending pre-commit refactor (2026-02-20):** `scrobblescope/worker.py` extraction must happen before the 3-commit WP-1/WP-2/WP-3 save-state. `acquire_job_slot()`, `release_job_slot()`, and `start_job_thread()` move from `repositories.py` to a new `worker.py` leaf module (imports `config` only). `repositories.py` becomes pure job state CRUD. This eliminates boilerplate duplication across the multiple background task types planned above. See architectural details in `.claude/SESSION_CONTEXT.md` §7b.
+- `scrobblescope/worker.py` (leaf module, imports `config` only) owns `_active_jobs_semaphore`, `acquire_job_slot()`, `release_job_slot()`, and `start_job_thread()`. `repositories.py` is pure job state CRUD. See architectural rationale in `.claude/SESSION_CONTEXT.md` §7b.
 
 ## 3. Non-negotiable implementation principles
 1. Approval tests before structural refactor.

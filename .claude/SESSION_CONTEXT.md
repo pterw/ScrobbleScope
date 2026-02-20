@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context (Post-Batch 8 Modular Refactor)
 
-Last updated: 2026-02-19
+Last updated: 2026-02-20
 Author: Claude Opus 4.6 + Codex + Claude Sonnet 4.6 (multi-agent orchestration)
 
 ---
@@ -24,16 +24,15 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | `283914d` - Refresh AGENTS guidance for current architecture |
+| Latest commit | `d64edaf` - docs: add commit message standard to playbook (Section 5) |
 | Tests | **81 passing** across 7 test files |
 | Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8) |
-| app.py line count | ~66 lines (factory pattern) |
+| app.py line count | ~109 lines (factory + logging setup + CSRF init) |
 | Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
 | Batch 9 status | **WP-1 + WP-2 + WP-3 complete**; WP-4 is next. See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
-| Pending pre-commit refactor | **worker.py** extraction (see Section 9 note). `acquire_job_slot()`, `release_job_slot()`, and `start_job_thread()` move from `repositories.py` to new `scrobblescope/worker.py` before the 3-commit WP-1/2/3 save-state. |
-| Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` currently in `repositories.py`; moving to `worker.py` (see above). |
+| Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
 
 ---
@@ -70,14 +69,14 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 
 ```
 ScrobbleScope/
-  app.py                      # create_app() factory + logging setup (~66 lines)
+  app.py                      # create_app() factory + logging setup + CSRF init (~109 lines)
   scrobblescope/
     __init__.py                # package marker
     config.py                  # env var reads, API keys, concurrency constants
     domain.py                  # SpotifyUnavailableError, ERROR_CODES, normalize_*
     utils.py                   # rate limiters, session pooling, request caching, helpers
-    repositories.py            # JOBS dict, jobs_lock, all job state functions (pure CRUD after worker.py refactor)
-    worker.py                  # [PENDING] _active_jobs_semaphore, acquire_job_slot(), release_job_slot(), start_job_thread()
+    repositories.py            # JOBS dict, jobs_lock, all job state functions (pure CRUD)
+    worker.py                  # _active_jobs_semaphore, acquire_job_slot(), release_job_slot(), start_job_thread()
     cache.py                   # asyncpg DB helpers (_get_db_connection with retry/backoff, batch lookup/persist)
     lastfm.py                  # check_user_exists, fetch_recent_tracks, fetch_top_albums
     spotify.py                 # fetch_spotify_access_token, search, batch details
@@ -104,28 +103,13 @@ ScrobbleScope/
 
 ## 6. Module dependency graph (acyclic)
 
-**Current (pre-worker.py refactor):**
 ```
 domain.py        <- (no internal deps)
 config.py        <- (no internal deps)
 utils.py         <- config
 cache.py         <- config
+worker.py        <- config
 repositories.py  <- config, domain
-lastfm.py        <- config, domain, utils, repositories
-spotify.py       <- config, utils
-orchestrator.py  <- cache, config, domain, lastfm, repositories, spotify, utils
-routes.py        <- lastfm, orchestrator, repositories, utils
-app.py           <- routes (via Blueprint registration)
-```
-
-**Target (post-worker.py refactor, PENDING):**
-```
-domain.py        <- (no internal deps)
-config.py        <- (no internal deps)
-utils.py         <- config
-cache.py         <- config
-worker.py        <- config                                           (NEW leaf module)
-repositories.py  <- config, domain                                   (semaphore removed)
 lastfm.py        <- config, domain, utils, repositories
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, lastfm, repositories, spotify, utils, worker
@@ -133,7 +117,7 @@ routes.py        <- lastfm, orchestrator, repositories, utils, worker
 app.py           <- routes (via Blueprint registration)
 ```
 
-No circular dependencies in either state.
+No circular dependencies.
 
 ---
 
@@ -144,7 +128,7 @@ No circular dependencies in either state.
 User submits form (index.html)
   -> POST /results_loading (routes.py)
     -> Creates job (UUID in JOBS dict)
-    -> Spawns daemon Thread(target=background_task)
+    -> Calls start_job_thread(background_task, args=(...)) [worker.py]
     -> Renders loading.html with job_id via tojson bridge
 
 background_task (orchestrator.py, Thread):
@@ -172,23 +156,23 @@ POST /results_complete
 
 ## 7b. worker.py architectural decision
 
-**Decision (2026-02-20):** Extract concurrency lifecycle into `scrobblescope/worker.py` before committing WP-1.
+**Decision (2026-02-20, implemented in WP-1 commit):** Extract concurrency lifecycle into `scrobblescope/worker.py`.
 
-**Rationale:** The confirmed product roadmap adds at least two new background task types (top songs, listening heatmap). Without `worker.py`, every new route that spawns a background task must duplicate the acquire → try-Thread-start → except-release pattern. With `worker.py`, all routes call `start_job_thread(target_fn, args)` — one call, no duplication.
+**Rationale:** The confirmed product roadmap adds at least two new background task types (top songs, listening heatmap). Without `worker.py`, every new route that spawns a background task must duplicate the acquire -> try-Thread-start -> except-release pattern. With `worker.py`, all routes call `start_job_thread(target_fn, args)` -- one call, no duplication.
 
 **What worker.py owns:**
 - `_active_jobs_semaphore = threading.BoundedSemaphore(MAX_ACTIVE_JOBS)`
-- `acquire_job_slot()` — non-blocking acquire, returns bool; called in routes.py before `create_job()` to avoid orphaned jobs on capacity rejection
-- `release_job_slot()` — safe release with over-release guard; called in orchestrator.py `background_task` finally block
-- `start_job_thread(target, args=())` — starts daemon Thread(target, args), releases slot and raises on Thread.start() failure
+- `acquire_job_slot()` -- non-blocking acquire, returns bool; called in routes.py before `create_job()` to avoid orphaned jobs on capacity rejection
+- `release_job_slot()` -- safe release with over-release guard; called in orchestrator.py `background_task` finally block
+- `start_job_thread(target, args=())` -- starts daemon Thread(target, args), releases slot and raises on Thread.start() failure
 
 **What repositories.py keeps:** pure job state CRUD only (`create_job`, `set_job_*`, `get_job_*`, `add_job_unmatched`, `reset_job_state`, `cleanup_expired_jobs`, `jobs_lock`, `JOBS`). `jobs_lock` stays in repositories because it guards the JOBS dict (data concern), whereas the semaphore guards worker slots (concurrency concern).
 
-**Patch targets after refactor:** tests that patch `scrobblescope.routes.acquire_job_slot` and `scrobblescope.routes.release_job_slot` must update to patch `scrobblescope.worker.acquire_job_slot` etc. Tests that patch `scrobblescope.orchestrator.release_job_slot` must update to `scrobblescope.worker.release_job_slot`.
+**Patch target convention (as-implemented):** tests patch at the module where the name is looked up. `acquire_job_slot` is imported into `routes.py` via `from scrobblescope.worker import ...`, so the patch target is `scrobblescope.routes.acquire_job_slot`. Similarly, `release_job_slot` is imported into `orchestrator.py`, so the patch target is `scrobblescope.orchestrator.release_job_slot`. Direct `start_job_thread` failures are tested by patching `scrobblescope.routes.start_job_thread`.
 
 ---
 
-## 8. Test structure (74 tests)
+## 8. Test structure (81 tests)
 
 | File | Count | Scope |
 |------|-------|-------|
@@ -197,8 +181,8 @@ POST /results_complete
 | test_utils.py | 6 | REQUEST_CACHE hit/miss/expiry/overwrite/cleanup + concurrent-access stress test |
 | tests/services/test_lastfm_service.py | 4 | Last.fm user-check and page-retry behavior |
 | tests/services/test_spotify_service.py | 3 | Spotify search/details retry and non-200 behavior |
-| tests/services/test_orchestrator_service.py | 12 | process_albums, _fetch_and_process, background_task (incl WP-1 slot-release tests) |
-| test_routes.py | 34 | All Flask route handlers (incl unmatched_view, 404/500, WP-1 capacity/slot-leak, WP-3 CSRF all 4 routes + XHR header path) |
+| tests/services/test_orchestrator_service.py | 11 | process_albums, _fetch_and_process, background_task (incl WP-1 slot-release tests) |
+| test_routes.py | 35 | All Flask route handlers (incl unmatched_view, 404/500, WP-1 capacity/start-failure, WP-3 CSRF all 4 routes + XHR header path) |
 
 **Shared fixtures/helpers:** `conftest.py` provides only pytest fixtures (`client`); `tests/helpers.py` provides `TEST_JOB_PARAMS`, `NoopAsyncContext`, and `make_response_context`.
 
@@ -218,6 +202,6 @@ POST /results_complete
 - **Fly DB behavior:** unmanaged `scrobblescope-db` currently uses `FLY_SCALE_TO_ZERO=1h`; stopped/suspended state after idle is expected and DB wakes on demand.
 - **Fly cold-start validation (2026-02-19):** `fly machine stop` was used for both `scrobblescope` and `scrobblescope-db`, then `scripts/smoke_cache_check.py` against `https://scrobblescope.fly.dev` (`flounder14`, `2025`, `--runs 1`) succeeded; both machines auto-started and DB checks converged to passing.
 - **Audit focus (2026-02-20):** highest-priority risks are unbounded job concurrency, non-thread-safe in-memory request cache, and missing CSRF protection on POST routes. Execution sequence is documented in `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`.
-- **WP-1 (2026-02-19):** Bounded job concurrency implemented. `MAX_ACTIVE_JOBS` (default 10) in `config.py`. `acquire_job_slot()` / `release_job_slot()` using `threading.BoundedSemaphore` in `repositories.py`. Slot acquired before thread spawn in `routes.py`; released in `background_task` `finally` block in `orchestrator.py`.
+- **WP-1 (2026-02-20):** Bounded job concurrency implemented. `MAX_ACTIVE_JOBS` (default 10) in `config.py`. `acquire_job_slot()`, `release_job_slot()`, and `start_job_thread()` in `worker.py` (leaf module, imports `config` only). Slot acquired via `acquire_job_slot()` before `create_job()` in `routes.py`; thread started via `start_job_thread()` which releases slot and re-raises on failure; slot released in `background_task` `finally` block in `orchestrator.py`.
 - **WP-2 (2026-02-19):** `REQUEST_CACHE` thread-safe. `_cache_lock = threading.Lock()` in `utils.py` wraps all read/write/cleanup operations. 6 tests in new `tests/test_utils.py` including concurrent-access stress test.
 - **WP-3 (2026-02-19):** CSRF protection on all mutating POST routes. `Flask-WTF>=1.2.0` installed; `CSRFProtect` initialized in `app.py` with a `CSRFError` 400 handler. Hidden `csrf_token` input added to `index.html` and `results.html` forms. `csrf-token` meta tag added to `loading.html`; `loading.js` reads it and injects token into all programmatic form POSTs (`redirectToResults`, `retryCurrentSearch`) and the `fetch('/reset_progress')` XHR header (`X-CSRFToken`). `conftest.py` sets `WTF_CSRF_ENABLED=False` for test isolation; 6 CSRF tests added to `test_routes.py`: reject-without-token and accept-with-token for `/results_loading`; reject-without-token for `/results_complete`, `/unmatched_view`, `/reset_progress`; accept-with-`X-CSRFToken`-header for `/reset_progress` (XHR path). 81 tests passing.
