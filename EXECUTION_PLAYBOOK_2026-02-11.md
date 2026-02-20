@@ -33,7 +33,11 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - `index.html` now renders server-side validation errors (Batch 6).
 - Historical audit/changelog/refactor docs are archived under `docs/history/` to reduce repo-root clutter.
 - Comprehensive repo audit completed on 2026-02-20; remediation execution plan is documented at `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`.
-- Test suite: 66 tests across 6 files (`test_domain.py`, `test_repositories.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, and DB connect retry/backoff behavior.
+- Test suite: **81 tests** across 7 files (`test_domain.py`, `test_repositories.py`, `test_utils.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers + CSRF enforcement on all 4 POST routes), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, DB connect retry/backoff behavior, thread-safe cache operations, and concurrency slot lifecycle.
+- **Product roadmap (confirmed 2026-02-20):** Two new background task types are planned:
+  - **Top songs:** Rank user's most-played tracks for a year (Last.fm + possibly Spotify enrichment). Separate background task type, separate loading/results flow.
+  - **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lighter background task.
+- **Pending pre-commit refactor (2026-02-20):** `scrobblescope/worker.py` extraction must happen before the 3-commit WP-1/WP-2/WP-3 save-state. `acquire_job_slot()`, `release_job_slot()`, and `start_job_thread()` move from `repositories.py` to a new `worker.py` leaf module (imports `config` only). `repositories.py` becomes pure job state CRUD. This eliminates boilerplate duplication across the multiple background task types planned above. See architectural details in `.claude/SESSION_CONTEXT.md` §7b.
 
 ## 3. Non-negotiable implementation principles
 1. Approval tests before structural refactor.
@@ -272,14 +276,14 @@ Purpose:
 - Execute the remediation track from `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` in strict work-package order.
 
 Execution order:
-1. WP-1: Secret handling + configuration hardening.
-2. WP-2: Upstream resilience + bounded retries/timeouts.
-3. WP-3: Data correctness and contract hardening.
-4. WP-4: Frontend security and rendering safeguards.
-5. WP-5: Observability and runbook updates.
-6. WP-6: Test coverage expansion for high-risk code paths.
-7. WP-7: Performance and cache efficiency follow-ups.
-8. WP-8: Final cleanup, docs sync, and release-readiness checks.
+1. WP-1 (P0): Bound background job concurrency.
+2. WP-2 (P0): Make request cache thread-safe.
+3. WP-3 (P0): Add CSRF protection for mutating POST routes.
+4. WP-4 (P1): Harden app secret and startup safety.
+5. WP-5 (P1): Enforce registration-year validation server-side.
+6. WP-6 (P1): Remove or gate artificial orchestration sleeps.
+7. WP-7 (P2): Frontend safety and resilience polish.
+8. WP-8 (P2): CI, lint, dependency hygiene.
 
 Acceptance:
 - WP-1 through WP-8 are completed and logged in Section 10 with validation evidence.
@@ -369,6 +373,110 @@ Source-of-truth note:
 - Entries are append-only and kept in reverse-chronological order (newest first).
 - Section 4 is the canonical batch status view (completed vs in progress); Section 10 is the implementation/detail history.
 - New entries should keep ISO date format and include scope, deviations, validation, and forward guidance.
+
+### 2026-02-20 - worker.py architectural decision + product roadmap + CSRF coverage expansion
+
+- Scope: Documentation updates only (`.claude/SESSION_CONTEXT.md`, `EXECUTION_PLAYBOOK_2026-02-11.md`). No runtime code changes yet.
+- Decisions made:
+  - **Product roadmap confirmed:** Two additional background task types are planned — "top songs" (Last.fm + possibly Spotify, separate background task/results flow) and "listening heatmap" (Last.fm only, last 365 days, lighter task). This means the `results_loading` acquire→Thread→release pattern will be needed by at least 3 routes.
+  - **worker.py chosen as home for concurrency lifecycle:** With multiple background task types incoming, keeping the semaphore and thread-start boilerplate in `repositories.py` would require each new route to duplicate the `acquire → try Thread.start → except release` block. A new `scrobblescope/worker.py` leaf module (imports `config` only) will own `_active_jobs_semaphore`, `acquire_job_slot()`, `release_job_slot()`, and `start_job_thread(target, args=())`. `repositories.py` becomes pure job state CRUD. `start_job_thread()` encapsulates the full try/start/except/release pattern for all callers.
+  - **Refactor must precede the 3-commit save-state:** WP-1 originally placed the semaphore in `repositories.py`. The worker.py refactor corrects this before committing; the WP-1 commit will reflect the final architecture.
+- CSRF test coverage expansion (also completed this session, before context compaction):
+  - Initial WP-3 implementation added 2 CSRF tests covering only `/results_loading`.
+  - Expanded to 6 total CSRF tests covering all 4 POST routes:
+    - `test_csrf_rejects_post_without_token` (→ `/results_loading` 400)
+    - `test_csrf_accepts_post_with_valid_token` (→ `/results_loading` 200)
+    - `test_csrf_rejects_results_complete_without_token` (→ 400)
+    - `test_csrf_rejects_unmatched_view_without_token` (→ 400)
+    - `test_csrf_rejects_reset_progress_without_token` (→ 400)
+    - `test_csrf_accepts_reset_progress_with_header_token` (→ `/reset_progress` XHR path with `X-CSRFToken` header, 200)
+  - Total tests after expansion: **81 passing**.
+- Pending implementation (next agent actions in order):
+  1. Create `scrobblescope/worker.py` with semaphore, `acquire_job_slot()`, `release_job_slot()`, `start_job_thread()`.
+  2. Remove semaphore/slot functions from `scrobblescope/repositories.py`.
+  3. Update imports in `routes.py` and `orchestrator.py` to use `worker`.
+  4. Update patch targets in `test_routes.py` and `test_orchestrator_service.py` from `scrobblescope.routes.acquire_job_slot` / `scrobblescope.orchestrator.release_job_slot` → `scrobblescope.worker.*`.
+  5. Run `pre-commit run --all-files` and `pytest -q` (must stay at 81 passing).
+  6. Make 3 separate commits: WP-1, WP-2, WP-3.
+- Validation: N/A (doc-only session-end update).
+- Forward guidance:
+  - worker.py is a leaf module — it must NOT import from `repositories`, `routes`, `orchestrator`, or any higher module (would create cycles).
+  - `start_job_thread()` should release the slot and raise on `Thread.start()` failure so routes get a clean exception to handle (mirrors the current try/except pattern in `routes.py`).
+  - After the 3 commits are made, next work package is WP-4 (harden app secret and startup safety).
+
+### 2026-02-20 - WP-1 correctness fix (slot leak on Thread.start failure)
+- Scope: `scrobblescope/routes.py`, `tests/test_routes.py`.
+- Issue: WP-1 post-audit check found that `acquire_job_slot()` in `results_loading` was not guarded against failure of `Thread.__init__` or `Thread.start()`. If either raises (e.g. `OSError` under OS-level thread exhaustion), the slot is permanently consumed because `background_task`'s `finally` block never runs. This violates WP-1's acceptance criterion "no leaked active slots after worker exceptions."
+- Fix:
+  - Added `release_job_slot` to imports in `routes.py`.
+  - Wrapped `threading.Thread(...)` and `task_thread.start()` in try/except; on exception: `release_job_slot()`, `logging.exception(...)`, return `index.html` with error message.
+  - Added `test_results_loading_thread_start_failure_releases_slot`: patches `Thread` to raise `OSError`, asserts slot is released and index re-rendered.
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed.
+  - `pytest -q`: 77 passed.
+- Also: added "callers must not mutate" to `get_cached_response` docstring (latent mutable-reference risk; no active bug since no caller mutates the returned object).
+
+### 2026-02-19 - Batch 9 WP-3 completed (CSRF protection for mutating POST routes)
+- Scope: `requirements.txt`, `app.py`, `templates/index.html`, `templates/results.html`, `templates/loading.html`, `static/js/loading.js`, `tests/conftest.py`, `tests/test_routes.py`.
+- Plan vs implementation:
+  - Added `Flask-WTF>=1.2.0` to `requirements.txt` (installed v1.2.2).
+  - Added `CSRFProtect` to `app.py`: `csrf = CSRFProtect()` at module level, `csrf.init_app(application)` in `create_app()`, plus a `CSRFError` handler that returns a 400 with the `error.html` template and a user-facing message.
+  - Added `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">` inside the `<form>` element in `templates/index.html` and `templates/results.html` (unmatched_view form).
+  - Added `<meta name="csrf-token" content="{{ csrf_token() }}">` to the `head_extra` block in `templates/loading.html`.
+  - Updated `static/js/loading.js`:
+    - Added `const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';` near the top (after the `window.SCROBBLE` destructure).
+    - Prepended `form.appendChild(createHiddenInput('csrf_token', csrfToken));` as the first hidden input in both `redirectToResults()` and `retryCurrentSearch()`.
+    - Added `'X-CSRFToken': csrfToken` to the headers of the `fetch('/reset_progress', ...)` call in the error handler.
+  - Updated `tests/conftest.py`: added `application.config["WTF_CSRF_ENABLED"] = False` so all existing tests continue to pass without supplying tokens.
+  - Added two CSRF tests to `tests/test_routes.py`:
+    - `test_csrf_rejects_post_without_token`: creates a CSRF-enabled app client, POSTs without a token, asserts 400.
+    - `test_csrf_accepts_post_with_valid_token`: GETs `/` to capture the token from the rendered HTML, POSTs with it, asserts 200 and `window.SCROBBLE` in response.
+- Deviations and why: none.
+- Additions beyond plan: none.
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8, trim, end-of-file).
+  - `pytest -q`: 76 passed (2 new tests added).
+- Forward guidance:
+  - WP-4 (secret hardening) is the next work package.
+  - The `WTF_CSRF_ENABLED = False` fixture override is intentional and standard; it must remain in `conftest.py` to keep all POST route tests free of token boilerplate.
+  - Flask-WTF validates the token from `request.form['csrf_token']` for form POSTs and from `X-CSRFToken` header for XHR/fetch POSTs. Both paths are now covered.
+
+### 2026-02-19 - Batch 9 WP-2 completed (thread-safe REQUEST_CACHE)
+- Scope: `scrobblescope/utils.py`, `tests/test_utils.py` (new file).
+- Plan vs implementation:
+  - Added `_cache_lock = threading.Lock()` to guard all `REQUEST_CACHE` access in `utils.py`.
+  - Wrapped `get_cached_response` in `_cache_lock` to eliminate TOCTOU between `key in REQUEST_CACHE` and `REQUEST_CACHE[key]`.
+  - Wrapped `set_cached_response` in `_cache_lock` for atomic writes.
+  - Wrapped the full iterate-and-pop sequence in `cleanup_expired_cache` in `_cache_lock` to prevent `RuntimeError: dictionary changed size during iteration`. Cache count and size captured inside the lock; logging calls happen outside to minimize hold time.
+  - Created `tests/test_utils.py` (6 tests): cache hit, absent miss, expired miss, overwrite, cleanup correctness, and a concurrent-write-plus-cleanup stress test with 6 threads.
+- Deviations and why: none.
+- Additions beyond plan: none.
+- Validation:
+  - `venv\Scripts\python -m pytest tests -q`: 74 passed (6 new tests in `test_utils.py`).
+  - `venv\Scripts\pre-commit run --all-files`: all hooks passed (black auto-reformatted `utils.py` on first run; re-run confirmed clean).
+- Forward guidance:
+  - WP-3 (CSRF protection for mutating POST routes) is the next work package.
+  - `_cache_lock` is importable from `scrobblescope.utils` if future tests or modules need to inspect or clear the cache safely.
+
+### 2026-02-19 - Batch 9 WP-1 completed (bound background job concurrency)
+- Scope: `scrobblescope/config.py`, `scrobblescope/repositories.py`, `scrobblescope/routes.py`, `scrobblescope/orchestrator.py`, `tests/test_routes.py`, `tests/services/test_orchestrator_service.py`.
+- Plan vs implementation:
+  - Added `MAX_ACTIVE_JOBS = int(os.getenv("MAX_ACTIVE_JOBS", "10"))` to `config.py`.
+  - Added `_active_jobs_semaphore = threading.BoundedSemaphore(MAX_ACTIVE_JOBS)` to `repositories.py`.
+  - Added `acquire_job_slot()` (non-blocking acquire, returns bool) and `release_job_slot()` (safe release with over-release guard) to `repositories.py`.
+  - In `routes.py` `results_loading`: capacity check runs after `cleanup_expired_jobs()` and before `create_job()`; if at capacity, re-renders `index.html` with a retryable error message (no thread spawned, no job created).
+  - In `orchestrator.py` `background_task`: `release_job_slot()` called in the `finally` block after `loop.close()`, guaranteeing release on all termination paths (success, handled exception, unhandled exception).
+- Deviations and why:
+  - Default of 10 (not lower) chosen to match existing concurrency constants and be tunable via `MAX_ACTIVE_JOBS` env var without code changes.
+  - Capacity rejection renders `index.html` (same as other input validation errors) rather than a JSON 503, keeping the UX flow consistent with the existing form-submission error pattern.
+- Additions beyond plan: none.
+- Validation:
+  - `venv\Scripts\python -m pytest tests -q`: 68 passed (2 new tests added: capacity-rejection route test + release-on-exception orchestrator test).
+  - `venv\Scripts\pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8, trim, end-of-file).
+- Forward guidance:
+  - WP-2 (make `REQUEST_CACHE` thread-safe) is the next work package.
+  - The `_active_jobs_semaphore` is process-global; it resets on restart. Under Fly.io single-VM deployment this is correct behavior.
+  - If the operator wants to verify slot release under real traffic, check logs for `release_job_slot called with no matching acquire` warning (should never appear in normal operation).
 
 ### 2026-02-20 - Comprehensive repo audit completed + Batch 9 remediation plan authored
 - Scope: full-codebase audit (backend Python, frontend templates/JS/CSS, tests/CI/config/docs), plus operational handoff planning.

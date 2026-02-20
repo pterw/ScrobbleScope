@@ -14,7 +14,10 @@ import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask
+from flask import Flask, render_template
+from flask_wtf.csrf import CSRFError, CSRFProtect
+
+csrf = CSRFProtect()
 
 sys.stderr.reconfigure(encoding="utf-8")
 
@@ -66,6 +69,22 @@ def create_app():
     """Application factory for ScrobbleScope."""
     application = Flask(__name__)
     application.secret_key = os.getenv("SECRET_KEY", "dev")
+
+    csrf.init_app(application)
+
+    @application.errorhandler(CSRFError)
+    def handle_csrf_error(e):
+        """Return a user-friendly error page on CSRF token validation failure."""
+        logging.warning(f"CSRF validation failed: {e.description}")
+        return (
+            render_template(
+                "error.html",
+                error="Request Validation Failed",
+                message="Your request could not be verified. Please try again.",
+                details="If this keeps happening, try refreshing the page.",
+            ),
+            400,
+        )
 
     from scrobblescope.routes import bp
 

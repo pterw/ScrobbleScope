@@ -12,6 +12,9 @@ const {
   limit_results
 } = window.SCROBBLE || {};
 
+// CSRF token for all JS-initiated POST requests (injected by server via meta tag)
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
 // DARK MODE TOGGLE LOGIC
 // Find the checkbox in the DOM
 const darkSwitch = document.getElementById('darkSwitch');
@@ -295,7 +298,7 @@ async function fetchProgress() {
           if (job_id) {
             await fetch('/reset_progress', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken },
               body: new URLSearchParams({ job_id }).toString()
             });
           }
@@ -320,6 +323,7 @@ function redirectToResults() {
   form.method = 'POST';
   form.action = '/results_complete';
 
+  form.appendChild(createHiddenInput('csrf_token', csrfToken));
   form.appendChild(createHiddenInput('job_id', job_id));
   form.appendChild(createHiddenInput('username', username));
   form.appendChild(createHiddenInput('year', year));
@@ -347,6 +351,7 @@ function retryCurrentSearch() {
   form.method = 'POST';
   form.action = '/results_loading';
 
+  form.appendChild(createHiddenInput('csrf_token', csrfToken));
   form.appendChild(createHiddenInput('username', username));
   form.appendChild(createHiddenInput('year', year));
   form.appendChild(createHiddenInput('sort_by', sort_by));
