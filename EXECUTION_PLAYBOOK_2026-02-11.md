@@ -10,7 +10,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - Prevent risky refactor-first changes before parity tests exist.
 
 ## 2. Current status snapshot
-- `app.py` is a minimal factory (~109 lines): `create_app()` + logging setup + `CSRFProtect` init + `app = create_app()` for Gunicorn compat.
+- `app.py` is a minimal factory (~142 lines): `create_app()` + logging setup + `CSRFProtect` init + secret-key startup guard + `app = create_app()` for Gunicorn compat.
 - All application logic lives in the `scrobblescope/` package (11 modules including package marker, acyclic dependency graph).
 - Routes use a Flask Blueprint (`scrobblescope/routes.py`).
 - Per-job in-memory state in `scrobblescope/repositories.py` (`JOBS` dict).
@@ -33,7 +33,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - `index.html` now renders server-side validation errors (Batch 6).
 - Historical audit/changelog/refactor docs are archived under `docs/history/` to reduce repo-root clutter.
 - Comprehensive repo audit completed on 2026-02-20; remediation execution plan is documented at `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`.
-- Test suite: **81 tests** across 7 files (`test_domain.py`, `test_repositories.py`, `test_utils.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers + CSRF enforcement on all 4 POST routes), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, DB connect retry/backoff behavior, thread-safe cache operations, and concurrency slot lifecycle.
+- Test suite: **88 tests** across 8 files (`test_app_factory.py`, `test_domain.py`, `test_repositories.py`, `test_utils.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers + CSRF enforcement on all 4 POST routes), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, DB connect retry/backoff behavior, thread-safe cache operations, concurrency slot lifecycle, and app-factory secret-key startup guard.
 - **Product roadmap (confirmed 2026-02-20):** Two new background task types are planned:
   - **Top songs:** Rank user's most-played tracks for a year (Last.fm + possibly Spotify enrichment). Separate background task type, separate loading/results flow.
   - **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lighter background task.
@@ -414,6 +414,22 @@ Source-of-truth note:
 - Entries are append-only and kept in reverse-chronological order (newest first).
 - Section 4 is the canonical batch status view (completed vs in progress); Section 10 is the implementation/detail history.
 - New entries should keep ISO date format and include scope, deviations, validation, and forward guidance.
+
+### 2026-02-20 - WP-4 completed (harden app secret and startup safety)
+- Scope: `app.py`, `tests/conftest.py`, `tests/test_app_factory.py` (new), `.env.example`, `README.md`.
+- Plan vs implementation:
+  - Added `_KNOWN_WEAK_SECRETS = frozenset({"dev", "changeme_in_production", ""})` and `_MIN_SECRET_LENGTH = 16` constants in `app.py`.
+  - Added `_validate_secret_key(secret_key: str, is_dev_mode: bool) -> None` in `app.py`. Logic: if key is falsy, in weak set, or shorter than 16 chars -> "weak". In production (`debug_mode=False`): raises `RuntimeError("Refusing to start: ...")`. In dev mode (`DEBUG_MODE=1`): logs `WARNING "SECRET_KEY is missing or insecure. ..."`.
+  - Updated `create_app()` to read `_raw_secret = os.getenv("SECRET_KEY", "")`, call `_validate_secret_key(_raw_secret, debug_mode)`, then set `application.secret_key = _raw_secret or "dev"`. "dev" is the dev-mode fallback; in production, `_validate_secret_key` raises before it can be used.
+  - `tests/conftest.py` updated: added `import os` + `os.environ.setdefault("SECRET_KEY", "test-only-secret-key-min-16chars!!")` before `from app import create_app`. This seeds the guard before `app.py`'s module-level `create_app()` call (which runs at import time).
+  - New `tests/test_app_factory.py` with 7 tests: production-fail on missing/dev/changeme/too-short keys; dev-mode warning; strong-key success in both modes.
+  - `.env.example` `SECRET_KEY` comment updated to say "REQUIRED in production. Startup fails if missing or set to placeholder."
+  - `README.md` setup step 4 comment updated from "Recommended" to "Required in production" with note that `DEBUG_MODE=1` suppresses the check for local dev.
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed (black reformatted `app.py` quote style on first run; clean on second).
+  - `pytest -q`: **88 passed** (81 pre-existing + 7 new).
+- Commit: `eb13a27` feat: refuse startup on weak SECRET_KEY in production.
+- Forward guidance: Next work package is WP-5 (enforce registration-year validation server-side).
 
 ### 2026-02-20 - worker.py architectural decision + product roadmap + CSRF coverage expansion
 

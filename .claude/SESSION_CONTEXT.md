@@ -24,14 +24,14 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | `d64edaf` - docs: add commit message standard to playbook (Section 5) |
-| Tests | **81 passing** across 7 test files |
+| Latest commit | `eb13a27` - feat: refuse startup on weak SECRET_KEY in production |
+| Tests | **88 passing** across 8 test files |
 | Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8) |
-| app.py line count | ~109 lines (factory + logging setup + CSRF init) |
+| app.py line count | ~142 lines (factory + logging setup + CSRF init + secret-key guard) |
 | Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
-| Batch 9 status | **WP-1 + WP-2 + WP-3 complete**; WP-4 is next. See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
+| Batch 9 status | **WP-1 + WP-2 + WP-3 + WP-4 complete**; WP-5 is next. See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
 | Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
 
@@ -61,7 +61,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | 6 | Frontend refinement/tweaks | Done |
 | 7 | Persistent metadata layer (Postgres via asyncpg) | Done |
 | **8** | **Modular refactor (app.py -> scrobblescope/ package)** | **Done** |
-| **9** | **Audit-driven remediation work packages (WP-1..WP-8)** | **In progress (WP-1, WP-2, WP-3 done; WP-4 next)** |
+| **9** | **Audit-driven remediation work packages (WP-1..WP-8)** | **In progress (WP-1, WP-2, WP-3, WP-4 done; WP-5 next)** |
 
 ---
 
@@ -85,9 +85,10 @@ ScrobbleScope/
   tests/
     conftest.py                # pytest fixtures only (client)
     helpers.py                 # shared test constants + async mock helpers
+    test_app_factory.py        # 7 tests (WP-4 secret-key validation)
     test_domain.py             # 6 tests
     test_repositories.py       # 16 tests (job state + DB helpers incl retry/backoff)
-    test_routes.py             # 27 tests (all route handlers incl unmatched_view + 404/500)
+    test_routes.py             # 35 tests (all route handlers incl unmatched_view + 404/500)
     services/
       test_lastfm_service.py   # 4 tests
       test_spotify_service.py  # 3 tests
@@ -172,10 +173,11 @@ POST /results_complete
 
 ---
 
-## 8. Test structure (81 tests)
+## 8. Test structure (88 tests)
 
 | File | Count | Scope |
 |------|-------|-------|
+| test_app_factory.py | 7 | _validate_secret_key: production-fail paths, dev-mode warn, strong-key pass (WP-4) |
 | test_domain.py | 6 | normalize_name, normalize_track_name, _extract_registered_year |
 | test_repositories.py | 16 | Job state functions (7) + DB cache helpers (9 incl DB connect retry/backoff) |
 | test_utils.py | 6 | REQUEST_CACHE hit/miss/expiry/overwrite/cleanup + concurrent-access stress test |
@@ -205,3 +207,4 @@ POST /results_complete
 - **WP-1 (2026-02-20):** Bounded job concurrency implemented. `MAX_ACTIVE_JOBS` (default 10) in `config.py`. `acquire_job_slot()`, `release_job_slot()`, and `start_job_thread()` in `worker.py` (leaf module, imports `config` only). Slot acquired via `acquire_job_slot()` before `create_job()` in `routes.py`; thread started via `start_job_thread()` which releases slot and re-raises on failure; slot released in `background_task` `finally` block in `orchestrator.py`.
 - **WP-2 (2026-02-19):** `REQUEST_CACHE` thread-safe. `_cache_lock = threading.Lock()` in `utils.py` wraps all read/write/cleanup operations. 6 tests in new `tests/test_utils.py` including concurrent-access stress test.
 - **WP-3 (2026-02-19):** CSRF protection on all mutating POST routes. `Flask-WTF>=1.2.0` installed; `CSRFProtect` initialized in `app.py` with a `CSRFError` 400 handler. Hidden `csrf_token` input added to `index.html` and `results.html` forms. `csrf-token` meta tag added to `loading.html`; `loading.js` reads it and injects token into all programmatic form POSTs (`redirectToResults`, `retryCurrentSearch`) and the `fetch('/reset_progress')` XHR header (`X-CSRFToken`). `conftest.py` sets `WTF_CSRF_ENABLED=False` for test isolation; 6 CSRF tests added to `test_routes.py`: reject-without-token and accept-with-token for `/results_loading`; reject-without-token for `/results_complete`, `/unmatched_view`, `/reset_progress`; accept-with-`X-CSRFToken`-header for `/reset_progress` (XHR path). 81 tests passing.
+- **WP-4 (2026-02-20):** App secret hardened. `_validate_secret_key(secret_key, is_dev_mode)` added to `app.py`; called inside `create_app()`. Raises `RuntimeError` in production when `SECRET_KEY` is absent, in known-weak set (`"dev"`, `"changeme_in_production"`, `""`), or shorter than 16 chars. Logs a warning in dev mode (`DEBUG_MODE=1`) instead of failing. `conftest.py` seeds `os.environ.setdefault("SECRET_KEY", "test-only-secret-key-min-16chars!!")` before importing `app` so module-level `create_app()` does not trip the guard. 7 tests in new `tests/test_app_factory.py`. `.env.example` and `README.md` updated to document the requirement. 88 tests passing.
