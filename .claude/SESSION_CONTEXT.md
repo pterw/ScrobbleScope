@@ -24,7 +24,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | `eb13a27` - feat: refuse startup on weak SECRET_KEY in production |
+| Latest commit | `11317b5` - docs: record WP-4 completion in SESSION_CONTEXT and EXECUTION_PLAYBOOK |
 | Tests | **88 passing** across 8 test files |
 | Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8) |
@@ -34,6 +34,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Batch 9 status | **WP-1 + WP-2 + WP-3 + WP-4 complete**; WP-5 is next. See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
 | Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
+| Known open risk | On rare thread-start failure, route flow can leave an orphan job entry in `JOBS`; log this as next runtime fix package (do not lose the semaphore slot). |
 
 ---
 
@@ -41,8 +42,9 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 
 | Document | Status | Purpose |
 |----------|--------|---------|
-| `EXECUTION_PLAYBOOK_2026-02-11.md` | **Source of truth** | Batch ordering, acceptance criteria, execution log, next steps. |
+| `PLAYBOOK.md` | **Source of truth** | Batch ordering, acceptance criteria, active execution log, next steps. |
 | `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` | **Active execution plan** | Work-package checklist for security/reliability/correctness remediations from the comprehensive audit. |
+| `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` | **Historical execution log** | Older dated playbook entries rotated out of the active window. |
 | `.claude/SESSION_CONTEXT.md` (this file) | **Current** | Quick orientation for agents. Architecture, key locations, known gaps. |
 | `README.md` | **Current** | Product description, roadmap checklist, setup instructions. |
 | `docs/history/` | **Historical archive** | Audits/changelogs/refactor notes kept out of repo root for hygiene. |

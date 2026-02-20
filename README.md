@@ -210,7 +210,8 @@ What to look for:
 |-- init_db.py                   # Postgres schema setup (Fly release_command)
 |-- fly.toml                     # Fly.io deployment config
 |-- requirements.txt
-|-- EXECUTION_PLAYBOOK_2026-02-11.md  # Source-of-truth handoff playbook
+|-- PLAYBOOK.md                   # Source-of-truth active handoff playbook
+|-- EXECUTION_PLAYBOOK_2026-02-11.md  # Legacy shim; points to PLAYBOOK.md
 |-- scrobblescope/
 |   |-- config.py
 |   |-- domain.py
@@ -234,7 +235,9 @@ What to look for:
 |   `-- services/
 |-- docs/
 |   |-- images/
-|   `-- history/                 # Archived audits/changelogs/refactor notes
+|   `-- history/
+|       |-- PLAYBOOK_EXECUTION_LOG_ARCHIVE.md  # Rotated dated playbook entries
+|       `-- ...                                # Audits/changelogs/refactor notes
 |-- README.md
 |-- CONTRIBUTING.md
 `-- CODE_OF_CONDUCT.md

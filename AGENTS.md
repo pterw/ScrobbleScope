@@ -11,9 +11,10 @@ ScrobbleScope is a Python-based Flask web application that allows users to visua
 Before making changes, read these files in order:
 
 1. `.claude/SESSION_CONTEXT.md`
-2. `EXECUTION_PLAYBOOK_2026-02-11.md`
+2. `PLAYBOOK.md`
 3. `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` (when Batch 9 is active)
-4. `README.md`
+4. `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (when the active playbook context is not sufficient)
+5. `README.md`
 
 The playbook is the source of truth for batch sequencing and completion status.
 
@@ -114,7 +115,31 @@ The CI pipeline defined in `.github/workflows/test.yml` runs these same checks. 
 
 ## Commit Message Style
 
-Write commit messages as a single short imperative sentence, e.g., `Add unit tests`.
+Use Conventional Commits with an imperative subject, for example:
+
+```text
+feat: add unit tests for route validation
+fix: reject invalid registration year server-side
+docs: update PLAYBOOK and session context after WP-5
+```
+
+Use a body when context is needed (why, impact, and scope).
+
+## Markdown Authoring Rules
+
+- Use ASCII-only characters in markdown files.
+- Use ISO dates in logs: `YYYY-MM-DD`.
+- Execution-log updates must include: scope, plan vs implementation, deviations (if any), validation, and forward guidance.
+- If requirements are ambiguous, ask clarifying questions before updating process/state docs.
+- Keep only the active log window in `PLAYBOOK.md`; rotate older dated entries into `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+
+## Required Documentation Updates
+
+After any behavior, config, or process-contract change, update all applicable docs in the same work package:
+
+- `PLAYBOOK.md` for active execution contract and batch log updates.
+- `.claude/SESSION_CONTEXT.md` for current-state snapshot and risks.
+- `README.md` for user/developer-facing setup or behavior changes.
 
 ## Pull Request Summaries
 

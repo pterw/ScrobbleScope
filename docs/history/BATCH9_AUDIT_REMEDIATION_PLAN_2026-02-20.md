@@ -216,11 +216,11 @@ Rationale:
 - Docs updated when behavior/config changes:
   - `README.md`
   - `.claude/SESSION_CONTEXT.md`
-  - `EXECUTION_PLAYBOOK_2026-02-11.md`
+  - `PLAYBOOK.md`
 
 ## 5. Handoff note for next agent
 
 When executing Batch 9:
 - Treat this file as the task contract.
-- Update playbook execution log after each completed work package.
+- Update `PLAYBOOK.md` execution log after each completed work package.
 - Keep changes batch-scoped and avoid combining unrelated remediations in one commit.
