@@ -1,5 +1,6 @@
 # tests/test_repositories.py
 import json
+import logging
 import time
 from unittest.mock import AsyncMock, patch
 
@@ -136,31 +137,35 @@ def test_expired_job_cleanup():
 
 
 @pytest.mark.asyncio
-async def test_get_db_connection_no_asyncpg():
+async def test_get_db_connection_no_asyncpg(caplog):
     """
     GIVEN asyncpg is None (not installed)
     WHEN _get_db_connection is called
     THEN it should return None immediately.
     """
     with patch("scrobblescope.cache.asyncpg", None):
-        result = await _get_db_connection()
+        with caplog.at_level(logging.INFO):
+            result = await _get_db_connection()
     assert result is None
+    assert "asyncpg-missing" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_get_db_connection_no_database_url():
+async def test_get_db_connection_no_database_url(caplog):
     """
     GIVEN asyncpg is available but DATABASE_URL is not set
     WHEN _get_db_connection is called
     THEN it should return None.
     """
     with patch.dict("os.environ", {}, clear=True):
-        result = await _get_db_connection()
+        with caplog.at_level(logging.INFO):
+            result = await _get_db_connection()
     assert result is None
+    assert "missing-env-var" in caplog.text
 
 
 @pytest.mark.asyncio
-async def test_get_db_connection_connect_failure():
+async def test_get_db_connection_connect_failure(caplog):
     """
     GIVEN DATABASE_URL is set but the connection fails
     WHEN _get_db_connection is called
@@ -177,8 +182,10 @@ async def test_get_db_connection_connect_failure():
             mock_asyncpg.connect = AsyncMock(
                 side_effect=Exception("connection refused")
             )
-            result = await _get_db_connection()
+            with caplog.at_level(logging.INFO):
+                result = await _get_db_connection()
     assert result is None
+    assert "db-down" in caplog.text
 
 
 @pytest.mark.asyncio

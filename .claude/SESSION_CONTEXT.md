@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context (Post-Batch 8 Modular Refactor)
 
-Last updated: 2026-02-14
+Last updated: 2026-02-19
 Author: Claude Opus 4.6 + Codex (for agent handoff / new session bootstrap)
 
 ---
@@ -20,11 +20,12 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | Batch 8 modular refactor; local cache wake-up hardening is uncommitted |
+| Latest commit | `89b5d4f` - Normalize README heading and broaden pytest allow rule |
 | Tests | **66 passing** across 6 test files |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8) |
-| app.py line count | ~91 lines (factory pattern) |
-| Deploy status | Batch 7 live on Fly. Batch 8 + DB connect retry/backoff hardening are local/uncommitted until next deploy. |
+| app.py line count | ~66 lines (factory pattern) |
+| Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
+| Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
 
 ---
 
@@ -58,7 +59,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 
 ```
 ScrobbleScope/
-  app.py                      # create_app() factory + logging setup (~91 lines)
+  app.py                      # create_app() factory + logging setup (~66 lines)
   scrobblescope/
     __init__.py                # package marker
     config.py                  # env var reads, API keys, concurrency constants
@@ -168,3 +169,4 @@ POST /results_complete
 - **Frontend baseline (2026-02-14):** compact fixed-bottom dark-mode toggle across pages; `index` and `results` mobile spacing/typography tightened; decade pills centered.
 - **Gunicorn:** `gunicorn app:app` still works (module-level `app = create_app()`)
 - **Fly DB behavior:** unmanaged `scrobblescope-db` currently uses `FLY_SCALE_TO_ZERO=1h`; stopped/suspended state after idle is expected and DB wakes on demand.
+- **Fly cold-start validation (2026-02-19):** `fly machine stop` was used for both `scrobblescope` and `scrobblescope-db`, then `scripts/smoke_cache_check.py` against `https://scrobblescope.fly.dev` (`flounder14`, `2025`, `--runs 1`) succeeded; both machines auto-started and DB checks converged to passing.

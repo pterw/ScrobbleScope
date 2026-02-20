@@ -10,17 +10,20 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - Prevent risky refactor-first changes before parity tests exist.
 
 ## 2. Current status snapshot
-- `app.py` is a minimal factory (~91 lines): `create_app()` + `app = create_app()` for Gunicorn compat.
+- `app.py` is a minimal factory (~66 lines): `create_app()` + `app = create_app()` for Gunicorn compat.
 - All application logic lives in the `scrobblescope/` package (10 modules including package marker, acyclic dependency graph).
 - Routes use a Flask Blueprint (`scrobblescope/routes.py`).
 - Per-job in-memory state in `scrobblescope/repositories.py` (`JOBS` dict).
+- No app-level keep-alive thread is present; `results_loading` spawns one daemon worker per job and `background_task` owns a single event loop on that worker thread.
 - Persistent Spotify metadata cache (Postgres via asyncpg, `scrobblescope/cache.py`):
   - `spotify_cache` table with 30-day TTL, batched reads/writes via `unnest()`.
   - DB connection wake-up hardening: `_get_db_connection()` retries with exponential backoff before cache bypass.
-  - Graceful fallback: if `DATABASE_URL` unset or DB unreachable, full Spotify flow runs.
+  - Graceful fallback: if `DATABASE_URL` is unset, `asyncpg` is unavailable, or DB is unreachable, full Spotify flow runs.
+  - `_get_db_connection()` emits classified fallback logs for `missing-env-var`, `asyncpg-missing`, and `db-down`.
   - Full DB cache hits can complete without Spotify availability.
   - If Spotify is unavailable while cache hits exist, cached results still return with `partial_data_warning`.
   - Schema automated via `init_db.py` release_command on Fly deploys.
+- Fly cold-start recovery was validated on 2026-02-19 by manually stopping both app and DB machines, then triggering one end-to-end smoke run that auto-started both and completed successfully (`elapsed=18.75s`, `db_cache_lookup_hits=247`).
 - `tojson` JS data bridge is in place in templates.
 - Unmatched modal has escaping in `static/js/results.js`.
 - Nested thread pattern removed:
@@ -317,7 +320,7 @@ After each completed batch, update this playbook immediately:
 
 ## 9. Immediate next batch to execute
 - All planned batches (1-8) are complete.
-- The codebase is modularized, tested (66 tests), and deployed.
+- The codebase is modularized and tested (66 tests).
 - If Batch 9 is used for further structural packaging (subpackage migration), schedule it after currently planned feature/UI batches stabilize to avoid repeated import churn.
 - Future work should focus on items in the README roadmap (mobile responsiveness, QA testing, etc.).
 
@@ -325,6 +328,45 @@ After each completed batch, update this playbook immediately:
 Source-of-truth note:
 - For current status, prefer Section 2 and this execution log.
 - Treat `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` as baseline context from 2026-02-11 unless it is explicitly refreshed.
+
+### 2026-02-19 - Fly cold-start recovery validation completed (app + Postgres DB)
+- Scope: operational validation of deployed services and documentation refresh (`.claude/SESSION_CONTEXT.md`, `EXECUTION_PLAYBOOK_2026-02-11.md`).
+- Plan vs implementation:
+  - Confirmed both machines were started (`fly status -a scrobblescope`, `fly status -a scrobblescope-db`).
+  - Forced cold state by stopping both machines:
+    - `fly machine stop 807339f1595248 -a scrobblescope`
+    - `fly machine stop 8e7ed9ad205118 -a scrobblescope-db`
+  - Verified both reported `State: stopped` via `fly machine status`.
+  - Triggered one end-to-end request:
+    - `venv\Scripts\python scripts/smoke_cache_check.py --base-url https://scrobblescope.fly.dev --username flounder14 --year 2025 --runs 1 --timeout-seconds 180`
+  - Verified smoke run completion and auto-start behavior for both app and DB machines.
+  - Rechecked DB health until all checks passed (`pg`, `role`, `vm`).
+- Deviations and why:
+  - No code changes were required; this was an operational verification step requested by the owner.
+- Validation:
+  - Smoke output: `elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`, `db_cache_persisted=0`, `spotify_matched=247`, message `Done! Found 57 albums matching your criteria.`
+  - Post-run status: app machine `started`, DB machine `started`, DB checks all passing.
+- Forward guidance:
+  - Keep this cold-start check as a regression smoke pattern after infra/config changes.
+  - If cold-start latency grows, tune DB wake-up retry knobs (`DB_CONNECT_MAX_ATTEMPTS`, `DB_CONNECT_BASE_DELAY_SECONDS`) and/or Fly machine warmness settings.
+
+### 2026-02-19 - Context reconciliation completed (docs parity + cache fallback logging classification)
+- Scope: `.claude/SESSION_CONTEXT.md`, `EXECUTION_PLAYBOOK_2026-02-11.md`, `scrobblescope/cache.py`, `tests/test_repositories.py`.
+- Plan vs implementation:
+  - Re-verified playbook/session claims against the active repo for `init_db.py`, thread model, and cache fallback behavior.
+  - Refreshed stale status fields (latest commit snapshot, app.py line count, and current runtime notes).
+  - Updated `_get_db_connection()` to log explicit fallback categories:
+    - `asyncpg-missing`
+    - `missing-env-var`
+    - `db-down`
+  - Extended DB helper tests to assert those log categories are emitted on each path.
+- Deviations and why:
+  - No keep-alive thread was added to `app.py`; this is intentional because the current architecture uses per-job daemon worker threads from `results_loading` and avoids additional idle background loops.
+- Validation:
+  - `venv\Scripts\python -m pytest tests\test_repositories.py -q`: **16 passed**.
+  - `venv\Scripts\python -m pytest tests -q`: **66 passed** (2 deprecation warnings from aiohttp connector behavior on Python 3.13.3).
+- Forward guidance:
+  - Keep Section 2 and `.claude/SESSION_CONTEXT.md` synchronized whenever runtime snapshots (line counts, branch/commit status, logging behavior) change.
 
 ### 2026-02-14 - Repository hygiene completed (historical docs archive + README refresh)
 - Scope: `docs/history/` (new folder), historical markdown moves, `EXECUTION_PLAYBOOK_2026-02-11.md`, `README.md`.
