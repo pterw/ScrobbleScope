@@ -39,6 +39,7 @@ from scrobblescope.utils import (
     create_optimized_session,
     format_seconds,
 )
+from scrobblescope.worker import release_job_slot
 
 
 async def process_albums(
@@ -620,3 +621,4 @@ def background_task(
         logging.exception(f"Unhandled error in background task for {username}/{year}")
     finally:
         loop.close()
+        release_job_slot()

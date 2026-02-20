@@ -19,6 +19,7 @@ SPOTIFY_BATCH_RETRIES = int(os.getenv("SPOTIFY_BATCH_RETRIES", "3"))
 # Global state tracking
 REQUEST_CACHE_TIMEOUT = 3600  # Cache timeout in seconds (1 hour)
 JOB_TTL_SECONDS = 2 * 60 * 60
+MAX_ACTIVE_JOBS = int(os.getenv("MAX_ACTIVE_JOBS", "10"))
 METADATA_CACHE_TTL_DAYS = int(os.getenv("METADATA_CACHE_TTL_DAYS", "30"))
 
 spotify_token_cache = {"token": None, "expires_at": 0}
