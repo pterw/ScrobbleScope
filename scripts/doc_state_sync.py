@@ -18,7 +18,6 @@ import argparse
 import dataclasses
 import hashlib
 import re
-import subprocess
 import sys
 from pathlib import Path
 from typing import Iterable
@@ -217,19 +216,6 @@ def _collect_wp_numbers(entries: list[Entry]) -> list[int]:
     return sorted(numbers)
 
 
-def _git_head_short() -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except Exception:
-        return "unknown"
-    return result.stdout.strip() or "unknown"
-
-
 def _date_key(date_str: str) -> int:
     return int(date_str.replace("-", ""))
 
@@ -262,7 +248,6 @@ def _build_status_block(
         else "none"
     )
     batch_label = f"Batch {batch_number}" if batch_number is not None else "unknown"
-    sync_commit = _git_head_short()
 
     return [
         "- Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).",
@@ -272,7 +257,6 @@ def _build_status_block(
         f"- Next expected work package: {next_wp}.",
         f"- Newest current-batch entry: {newest_heading}.",
         f"- Rotated to archive in latest sync run: {rotated_count}.",
-        f"- Last sync commit: {sync_commit}.",
     ]
 
 

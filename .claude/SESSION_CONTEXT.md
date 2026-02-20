@@ -63,7 +63,6 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 - Next expected work package: WP-7.
 - Newest current-batch entry: 2026-02-20 - WP-6 completed (remove artificial orchestration sleeps).
 - Rotated to archive in latest sync run: 0.
-- Last sync commit: 476a93e.
 <!-- DOCSYNC:STATUS-END -->
 
 ---
