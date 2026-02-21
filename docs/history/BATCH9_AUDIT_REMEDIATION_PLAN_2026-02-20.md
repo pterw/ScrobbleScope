@@ -22,7 +22,7 @@ Execution rules:
 
 ## 2. Prioritized work packages
 
-## WP-1 (P0): Bound background job concurrency
+## ~~WP-1 (P0): Bound background job concurrency~~ [DONE - 2026-02-19]
 
 Problem:
 - `results_loading` spawns unbounded daemon threads per request, which can exhaust CPU/memory under burst traffic.
@@ -46,7 +46,7 @@ Acceptance criteria:
 - Rejected requests fail gracefully with user-facing guidance.
 - No leaked active slots after worker exceptions.
 
-## WP-2 (P0): Make request cache thread-safe
+## ~~WP-2 (P0): Make request cache thread-safe~~ [DONE - 2026-02-19]
 
 Problem:
 - `REQUEST_CACHE` is shared across threads without locking; cleanup and writes can race.
@@ -65,7 +65,7 @@ Acceptance criteria:
 - No dict-size-change runtime errors under concurrent paths.
 - Cache hit/miss behavior remains unchanged functionally.
 
-## WP-3 (P0): Add CSRF protection for mutating POST routes
+## ~~WP-3 (P0): Add CSRF protection for mutating POST routes~~ [DONE - 2026-02-19]
 
 Problem:
 - Forms and POST endpoints currently have no CSRF safeguards.
@@ -89,7 +89,7 @@ Acceptance criteria:
 - Cross-site POST without valid token fails.
 - Normal in-app POST flows continue to work.
 
-## WP-4 (P1): Harden app secret and startup safety
+## ~~WP-4 (P1): Harden app secret and startup safety~~ [DONE - 2026-02-20]
 
 Problem:
 - App falls back to insecure `SECRET_KEY="dev"` when unset.
@@ -109,7 +109,7 @@ Acceptance criteria:
 - Production-like startup refuses insecure secret config.
 - Local developer instructions remain clear and functional.
 
-## WP-5 (P1): Enforce registration-year validation server-side
+## ~~WP-5 (P1): Enforce registration-year validation server-side~~ [DONE - 2026-02-20]
 
 Problem:
 - Frontend validates min year from registration, but server currently only enforces `2002..current_year`.
@@ -128,7 +128,7 @@ Acceptance criteria:
 - Submissions below registration year are rejected server-side.
 - Existing valid flows remain unchanged.
 
-## WP-6 (P1): Remove or gate artificial orchestration sleeps
+## ~~WP-6 (P1): Remove or gate artificial orchestration sleeps~~ [DONE - 2026-02-20]
 
 Problem:
 - Multiple fixed `asyncio.sleep(0.5)` calls add avoidable latency to all jobs.

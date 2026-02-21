@@ -176,6 +176,16 @@ def get_job_unmatched(job_id):
         return dict(job["unmatched"])
 
 
+def delete_job(job_id):
+    """Remove a job entry from JOBS, if it exists.
+
+    Used to clean up an orphaned job when thread startup fails after
+    create_job() has already been called.
+    """
+    with jobs_lock:
+        JOBS.pop(job_id, None)
+
+
 def get_job_context(job_id):
     """Return the full job context (progress, results, unmatched, params).
 

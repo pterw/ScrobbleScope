@@ -20,7 +20,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - All application logic lives in the `scrobblescope/` package (11 modules including package marker, acyclic dependency graph).
 - Routes use a Flask Blueprint (`scrobblescope/routes.py`).
 - Per-job in-memory state in `scrobblescope/repositories.py` (`JOBS` dict).
-- Known open runtime risk: `routes.results_loading` still creates a job before `start_job_thread(...)`; if thread start fails, an orphan `JOBS` entry can remain. Keep this logged as a follow-up fix package.
+- Orphan job on thread-start failure: resolved 2026-02-20. `delete_job(job_id)` added to `repositories.py` and called in `routes.results_loading` except block.
 - No app-level keep-alive thread is present; `results_loading` spawns one daemon worker per job and `background_task` owns a single event loop on that worker thread.
 - Persistent Spotify metadata cache (Postgres via asyncpg, `scrobblescope/cache.py`):
   - `spotify_cache` table with 30-day TTL, batched reads/writes via `unnest()`.
@@ -448,6 +448,64 @@ Source-of-truth note:
 - Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-20 - P0 fix: delete orphan JOBS entry on thread-start failure
+- Scope: `scrobblescope/repositories.py`, `scrobblescope/routes.py`,
+  `tests/test_repositories.py`, `tests/test_routes.py`.
+- Problem: `create_job()` was called before `start_job_thread()`; on thread-start
+  failure the semaphore slot was correctly released by `worker.py`, but the
+  `JOBS[job_id]` entry persisted as an orphan until the 2-hour TTL cleanup.
+- Fix:
+  - Added `delete_job(job_id)` to `repositories.py`:
+    `with jobs_lock: JOBS.pop(job_id, None)`.
+  - Imported `delete_job` in `routes.py`; called it in the `except` block after
+    thread-start failure, before returning the error page.
+  - Added 2 tests to `test_repositories.py`:
+    `test_delete_job_removes_existing_job`,
+    `test_delete_job_on_missing_job_is_noop`.
+  - Strengthened existing `test_results_loading_thread_start_failure_renders_error`
+    to assert `mock_delete_job.assert_called_once()`.
+- Validation:
+  - `pytest -q`: **94 passed** (92 pre-existing + 2 new).
+  - `pre-commit run --all-files`: all hooks passed.
+- Forward guidance: The known orphan-job open risk (SESSION_CONTEXT.md Section 2)
+  is now closed. Remaining P1 items: cache_size_mb in `cleanup_expired_cache`,
+  and test boilerplate extraction in `test_routes.py`. Next required work package
+  is WP-7 (frontend safety and resilience polish).
+
+### 2026-02-20 - README refreshed (Batch 9 completions and roadmap)
+- Scope: `README.md`.
+- Changes:
+  - Python badge updated from `3.9+` to `3.13+`.
+  - Removed stale playtime-sorting caveat from Features section.
+  - Tech Stack: `Python 3.x` -> `Python 3.13`; added `Flask-WTF` to Core Python
+    Libraries bullet.
+  - Key Implementation Highlights: added three bullets (Bounded Job Concurrency,
+    CSRF Protection, Startup Secret Guard).
+  - Project File Structure: added `worker.py`, `test_app_factory.py`,
+    `test_utils.py`, `scripts/doc_state_sync.py`.
+  - Current Status checklist: added six new `[x]` items for WP-1 through WP-6
+    outcomes.
+  - Added "Confirmed upcoming features" subsection (top songs, listening heatmap).
+  - Added "UI enrichments (planned, lower priority)" subsection.
+- Commit: `14f251a` docs: refresh README for Batch 9 completions and roadmap.
+- Forward guidance: README is now accurate as of WP-6 completion. Next step is WP-7.
+
+### 2026-02-20 - doc_state_sync maintenance (remove volatile Last sync commit field)
+- Scope: `scripts/doc_state_sync.py`, `.claude/SESSION_CONTEXT.md`.
+- Issue: `doc-state-sync-check` pre-commit hook was failing on PR merge to main.
+  Root cause: `_build_status_block()` called `git rev-parse --short HEAD` to write
+  `Last sync commit: <hash>` into SESSION_CONTEXT.md. On `--check`, the command
+  returned the NEW merge commit hash, which did not match the stored hash, causing
+  drift detection failure on every merge.
+- Fix: Removed `_git_head_short()` function, `subprocess` import, and the
+  `Last sync commit` line from `_build_status_block`. The `--check` now validates
+  only stable content-level fields (batch number, WP numbers, entry count, newest
+  heading). Ran `--fix` to drop the stale `Last sync commit` line from
+  SESSION_CONTEXT.md.
+- Commit: `cdedd65` fix: remove Last sync commit from doc_state_sync status block.
+- Forward guidance: The doc-state-sync-check hook will no longer false-positive on
+  merge commits. SESSION_CONTEXT DOCSYNC block is validated on content only.
 
 ### 2026-02-20 - WP-6 completed (remove artificial orchestration sleeps)
 - Scope: `scrobblescope/orchestrator.py`, `tests/services/test_orchestrator_service.py`.

@@ -16,6 +16,7 @@ from scrobblescope.repositories import (
     JOBS,
     cleanup_expired_jobs,
     create_job,
+    delete_job,
     get_job_progress,
     jobs_lock,
     set_job_error,
@@ -131,6 +132,21 @@ def test_expired_job_cleanup():
     cleanup_expired_jobs()
 
     assert get_job_progress(job_id) is None
+
+
+def test_delete_job_removes_existing_job():
+    """delete_job removes a job that exists in JOBS."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    with jobs_lock:
+        assert job_id in JOBS
+    delete_job(job_id)
+    with jobs_lock:
+        assert job_id not in JOBS
+
+
+def test_delete_job_on_missing_job_is_noop():
+    """delete_job does not raise when called on a nonexistent job_id."""
+    delete_job("nonexistent_id_xyz")  # must not raise
 
 
 # --- DB helper tests ---

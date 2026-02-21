@@ -187,7 +187,7 @@ def test_results_loading_thread_start_failure_renders_error(client):
     """
     GIVEN start_job_thread raises (e.g. OS resource exhaustion after slot acquire)
     WHEN POST /results_loading is processed
-    THEN the route renders an error page gracefully (slot release is internal to worker).
+    THEN the route renders an error page gracefully and deletes the orphan job.
     """
     with (
         patch(
@@ -199,6 +199,7 @@ def test_results_loading_thread_start_failure_renders_error(client):
             "scrobblescope.routes.start_job_thread",
             side_effect=OSError("too many threads"),
         ),
+        patch("scrobblescope.routes.delete_job") as mock_delete_job,
     ):
         response = client.post(
             "/results_loading",
@@ -215,6 +216,7 @@ def test_results_loading_thread_start_failure_renders_error(client):
     assert response.status_code == 200
     assert b"Filter Your Album Scrobbles!" in response.data
     assert b"window.SCROBBLE" not in response.data
+    mock_delete_job.assert_called_once()
 
 
 def test_results_loading_valid_post(client):

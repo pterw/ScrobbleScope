@@ -8,6 +8,7 @@ from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
     cleanup_expired_jobs,
     create_job,
+    delete_job,
     get_job_context,
     get_job_progress,
     get_job_unmatched,
@@ -444,6 +445,7 @@ def results_loading():
         )
     except Exception:
         logging.exception("Failed to start background task thread")
+        delete_job(job_id)
         return render_template(
             "index.html",
             error="Failed to start processing. Please try again.",
