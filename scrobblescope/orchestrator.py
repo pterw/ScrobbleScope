@@ -7,6 +7,7 @@ from math import ceil
 from scrobblescope.cache import (
     _batch_lookup_metadata,
     _batch_persist_metadata,
+    _cleanup_stale_metadata,
     _get_db_connection,
 )
 from scrobblescope.config import (
@@ -126,6 +127,8 @@ async def process_albums(
                 job_id, "db_cache_warning", "DB lookup failed; cache bypassed."
             )
             cached_metadata = {}
+        # Opportunistic stale-row cleanup -- non-fatal, errors swallowed inside.
+        await _cleanup_stale_metadata(conn)
     else:
         set_job_stat(
             job_id,
@@ -474,6 +477,30 @@ async def _fetch_and_process(
             return []
 
         set_job_progress(job_id, progress=20, message="Processing your albums...")
+
+        # For playcount sort, ranking is fully determined by Last.fm play counts,
+        # so we can slice filtered_albums to the requested limit before handing off
+        # to process_albums -- avoiding Spotify API calls for albums that won't
+        # appear in the final result.
+        #
+        # For playtime sort this is not possible: ranking requires Spotify track
+        # durations, which are only available after the full Spotify fetch. The
+        # post-process slice below (search for limit_results) still applies.
+        if sort_mode == "playcount" and limit_results != "all":
+            try:
+                limit = int(limit_results)
+                if len(filtered_albums) > limit:
+                    sorted_items = sorted(
+                        filtered_albums.items(),
+                        key=lambda kv: kv[1]["play_count"],
+                        reverse=True,
+                    )
+                    filtered_albums = dict(sorted_items[:limit])
+                    logging.info(
+                        f"Pre-sliced filtered_albums to top {limit} by play_count"
+                    )
+            except ValueError:
+                pass  # malformed limit_results handled by the post-process slice
 
         set_job_progress(
             job_id, progress=30, message="Preparing to fetch album data..."
