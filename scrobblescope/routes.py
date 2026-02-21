@@ -311,16 +311,7 @@ def unmatched_view():
     min_plays = params.get("min_plays", 10)
     min_tracks = params.get("min_tracks", 3)
 
-    if release_scope == "same":
-        filter_desc = f"same year as listening ({year})"
-    elif release_scope == "previous":
-        filter_desc = f"previous year ({int(year) - 1})"
-    elif release_scope == "decade" and decade:
-        filter_desc = f"{decade}"
-    elif release_scope == "custom" and release_year:
-        filter_desc = f"specific year ({release_year})"
-    else:
-        filter_desc = "unknown filter"
+    filter_desc = get_filter_description(release_scope, decade, release_year, int(year))
 
     unmatched_data = dict(job_context.get("unmatched", {}))
 
