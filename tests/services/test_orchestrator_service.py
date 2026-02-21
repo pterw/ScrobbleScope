@@ -1,14 +1,15 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
-from scrobblescope.domain import SpotifyUnavailableError
+from scrobblescope.cache import _cleanup_stale_metadata
+from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import (
     _fetch_and_process,
     background_task,
     process_albums,
 )
-from scrobblescope.repositories import create_job, get_job_progress
+from scrobblescope.repositories import JOBS, create_job, get_job_progress, jobs_lock
 from tests.helpers import TEST_JOB_PARAMS
 
 
@@ -413,7 +414,14 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
     """
     GIVEN _fetch_and_process receives albums and process_albums returns results
     WHEN _fetch_and_process runs
-    THEN it should not call fetch_spotify_access_token directly.
+    THEN it must store results via set_job_results (not just return them), set job
+    progress to 100, and not call fetch_spotify_access_token directly.
+
+    The critical side-effect assertion is that JOBS[job_id]["results"] equals the
+    processed list.  background_task ignores _fetch_and_process's return value and
+    relies entirely on the stored job state, so a regression that removes the
+    set_job_results call would break production but would not be caught by a
+    return-value-only assertion.
     """
     job_id = create_job(TEST_JOB_PARAMS)
     filtered = {
@@ -463,6 +471,10 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
     assert progress["error"] is False
     assert progress["progress"] == 100
     mock_token.assert_not_awaited()
+    # Verify set_job_results was called: background_task reads job state, not the
+    # return value.  If this assertion fails, results are returned but not stored.
+    with jobs_lock:
+        assert JOBS[job_id]["results"] == expected_results
 
 
 @pytest.mark.asyncio
@@ -503,6 +515,145 @@ async def test_fetch_and_process_sets_spotify_error_from_process_albums():
     assert progress["error"] is True
     assert progress["error_code"] == "spotify_unavailable"
     assert progress["error_source"] == "spotify"
+
+
+@pytest.mark.asyncio
+async def test_cleanup_stale_metadata_issues_delete():
+    """
+    GIVEN a live DB connection
+    WHEN _cleanup_stale_metadata is called
+    THEN it should execute a DELETE statement parameterised with the TTL value.
+    """
+    mock_conn = AsyncMock()
+    mock_conn.execute.return_value = "DELETE 3"
+
+    await _cleanup_stale_metadata(mock_conn)
+
+    mock_conn.execute.assert_awaited_once()
+    sql, ttl = mock_conn.execute.call_args[0]
+    assert "DELETE FROM spotify_cache" in sql
+    assert "updated_at" in sql
+    assert isinstance(ttl, int) and ttl > 0
+
+
+@pytest.mark.asyncio
+async def test_cleanup_stale_metadata_nonfatal(caplog):
+    """
+    GIVEN conn.execute raises an exception
+    WHEN _cleanup_stale_metadata is called
+    THEN no exception should propagate and a warning must be logged.
+
+    Previously this test had no assertion at all: it passed vacuously and would
+    have passed even if the function body was empty.  The logging.warning call is
+    the only observable production side-effect when cleanup fails, so asserting on
+    it is the minimum meaningful check for this path.
+    """
+    import logging
+
+    mock_conn = AsyncMock()
+    mock_conn.execute.side_effect = RuntimeError("DB gone away")
+
+    with caplog.at_level(logging.WARNING):
+        await _cleanup_stale_metadata(mock_conn)  # must not raise
+
+    assert "Stale cache cleanup failed" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_playcount_limit_slices_before_spotify():
+    """
+    GIVEN filtered_albums has 5 entries and limit_results="2" with sort_mode="playcount"
+    WHEN _fetch_and_process runs
+    THEN process_albums should be called with at most 2 albums (pre-sliced by play_count)
+    so that Spotify is not queried for albums outside the requested top N.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {
+        (f"artist{i}", f"album{i}"): {
+            "play_count": i * 10,
+            "track_counts": {f"track{i}": i},
+            "original_artist": f"Artist{i}",
+            "original_album": f"Album{i}",
+        }
+        for i in range(1, 6)  # 5 albums with play_counts 10..50
+    }
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=(filtered, {"status": "ok"}),
+        ),
+        patch(
+            "scrobblescope.orchestrator.process_albums",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_process,
+    ):
+        await _fetch_and_process(
+            job_id,
+            "testuser",
+            2025,
+            "playcount",
+            "same",
+            limit_results="2",
+        )
+
+    called_albums = mock_process.call_args[0][1]
+    assert len(called_albums) <= 2, (
+        "process_albums should receive at most 2 albums when limit_results='2' "
+        "and sort_mode='playcount'. Late-slicing wastes Spotify API calls."
+    )
+    # The top-2 should be the highest play_count entries (artist5/artist4)
+    assert ("artist5", "album5") in called_albums
+    assert ("artist4", "album4") in called_albums
+
+
+@pytest.mark.asyncio
+async def test_playtime_limit_does_not_preslice():
+    """
+    GIVEN filtered_albums has 5 entries and limit_results="2" with sort_mode="playtime"
+    WHEN _fetch_and_process runs
+    THEN process_albums should receive all 5 albums because playtime ranking requires
+    Spotify track duration data and cannot be determined before the Spotify fetch.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {
+        (f"artist{i}", f"album{i}"): {
+            "play_count": i * 10,
+            "track_counts": {f"track{i}": i},
+            "original_artist": f"Artist{i}",
+            "original_album": f"Album{i}",
+        }
+        for i in range(1, 6)  # 5 albums
+    }
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=(filtered, {"status": "ok"}),
+        ),
+        patch(
+            "scrobblescope.orchestrator.process_albums",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_process,
+    ):
+        await _fetch_and_process(
+            job_id,
+            "testuser",
+            2025,
+            "playtime",
+            "same",
+            limit_results="2",
+        )
+
+    called_albums = mock_process.call_args[0][1]
+    assert len(called_albums) == 5, (
+        "process_albums should receive all albums for playtime sort -- "
+        "pre-slicing is impossible without Spotify track duration data."
+    )
 
 
 def test_background_task_runs_single_event_loop():

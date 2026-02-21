@@ -175,8 +175,17 @@ def test_results_loading_thread_start_failure_renders_error(client):
     """
     GIVEN start_job_thread raises (e.g. OS resource exhaustion after slot acquire)
     WHEN POST /results_loading is processed
-    THEN the route renders an error page gracefully and deletes the orphan job.
+    THEN the route renders the index page gracefully and leaves no orphan job in JOBS.
+
+    Previously this test patched delete_job and only asserted assert_called_once(),
+    which verified the mock was called but not which job_id was passed, and left the
+    actual JOBS dict containing the orphaned entry unchecked.  This version drops the
+    mock and asserts directly on JOBS state: any regression in the cleanup path
+    (wrong job_id, missing call, wrong branch) will cause the assertion to fail.
     """
+    with jobs_lock:
+        jobs_before = set(JOBS.keys())
+
     with (
         patch(
             "scrobblescope.routes.run_async_in_thread",
@@ -187,13 +196,16 @@ def test_results_loading_thread_start_failure_renders_error(client):
             "scrobblescope.routes.start_job_thread",
             side_effect=OSError("too many threads"),
         ),
-        patch("scrobblescope.routes.delete_job") as mock_delete_job,
     ):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
+
     assert response.status_code == 200
     assert b"Filter Your Album Scrobbles!" in response.data
     assert b"window.SCROBBLE" not in response.data
-    mock_delete_job.assert_called_once()
+    # The route must have called delete_job on the job it created: JOBS must be
+    # back to its pre-request size with no orphan entry left behind.
+    with jobs_lock:
+        assert set(JOBS.keys()) == jobs_before
 
 
 def test_results_loading_valid_post(client):

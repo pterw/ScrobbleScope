@@ -101,6 +101,25 @@ async def _batch_lookup_metadata(conn, keys):
     return result
 
 
+async def _cleanup_stale_metadata(conn):
+    """Delete spotify_cache rows older than METADATA_CACHE_TTL_DAYS.
+
+    Called opportunistically after each batch lookup. Non-fatal: any error
+    is logged as a warning and silently suppressed so the job continues.
+    """
+    try:
+        result = await conn.execute(
+            """
+            DELETE FROM spotify_cache
+            WHERE updated_at < NOW() - make_interval(days => $1)
+            """,
+            METADATA_CACHE_TTL_DAYS,
+        )
+        logging.info("Stale cache cleanup: %s", result)
+    except Exception as exc:
+        logging.warning("Stale cache cleanup failed (non-fatal): %s", exc)
+
+
 async def _batch_persist_metadata(conn, rows):
     """Persist newly fetched Spotify metadata in a single INSERT statement.
 

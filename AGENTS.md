@@ -12,7 +12,7 @@ Before making changes, read these files in order:
 
 1. `.claude/SESSION_CONTEXT.md`
 2. `PLAYBOOK.md`
-3. `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` (when Batch 9 is active)
+3. The most recent audit/remediation plan in `docs/history/` (check PLAYBOOK Section 10 for the relevant filename)
 4. `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (when the active playbook context is not sufficient)
 5. `README.md`
 
@@ -108,7 +108,7 @@ The CI pipeline defined in `.github/workflows/test.yml` runs these same checks. 
 
 * `app.py`: Thin Flask app factory entrypoint (`create_app()` + module-level `app` for Gunicorn).
 * `init_db.py`: Postgres schema initializer used by Fly release command.
-* `scrobblescope/`: Core modular application package (routes, orchestration, services, cache, repositories, domain/config).
+* `scrobblescope/`: Core modular application package (routes, orchestration, services, cache, repositories, domain/config/errors).
 * `requirements.txt`: Runtime dependencies.
 * `requirements-dev.txt`: Development/test/tooling dependencies (includes `-r requirements.txt`).
 * `.env`: **(You must create this)** Stores the API keys and secrets. It is ignored by git.
