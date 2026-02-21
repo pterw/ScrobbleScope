@@ -39,6 +39,96 @@ Read helpers:
   - `start_job_thread()` should release the slot and raise on `Thread.start()` failure so routes get a clean exception to handle (mirrors the current try/except pattern in `routes.py`).
   - After the 3 commits are made, next work package is WP-4 (harden app secret and startup safety).
 
+### 2026-02-19 - Fly cold-start recovery validation completed (app + Postgres DB)
+- Scope: operational validation of deployed services and documentation refresh (`.claude/SESSION_CONTEXT.md`, `PLAYBOOK.md`).
+- Plan vs implementation:
+  - Confirmed both machines were started (`fly status -a scrobblescope`, `fly status -a scrobblescope-db`).
+  - Forced cold state by stopping both machines:
+    - `fly machine stop 807339f1595248 -a scrobblescope`
+    - `fly machine stop 8e7ed9ad205118 -a scrobblescope-db`
+  - Verified both reported `State: stopped` via `fly machine status`.
+  - Triggered one end-to-end request:
+    - `venv\Scripts\python scripts/smoke_cache_check.py --base-url https://scrobblescope.fly.dev --username flounder14 --year 2025 --runs 1 --timeout-seconds 180`
+  - Verified smoke run completion and auto-start behavior for both app and DB machines.
+  - Rechecked DB health until all checks passed (`pg`, `role`, `vm`).
+- Deviations and why:
+  - No code changes were required; this was an operational verification step requested by the owner.
+- Validation:
+  - Smoke output: `elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`, `db_cache_persisted=0`, `spotify_matched=247`, message `Done! Found 57 albums matching your criteria.`
+  - Post-run status: app machine `started`, DB machine `started`, DB checks all passing.
+- Forward guidance:
+  - Keep this cold-start check as a regression smoke pattern after infra/config changes.
+  - If cold-start latency grows, tune DB wake-up retry knobs (`DB_CONNECT_MAX_ATTEMPTS`, `DB_CONNECT_BASE_DELAY_SECONDS`) and/or Fly machine warmness settings.
+
+### 2026-02-19 - Context reconciliation completed (docs parity + cache fallback logging classification)
+- Scope: `.claude/SESSION_CONTEXT.md`, `PLAYBOOK.md`, `scrobblescope/cache.py`, `tests/test_repositories.py`.
+- Plan vs implementation:
+  - Re-verified playbook/session claims against the active repo for `init_db.py`, thread model, and cache fallback behavior.
+  - Refreshed stale status fields (latest commit snapshot, app.py line count, and current runtime notes).
+  - Updated `_get_db_connection()` to log explicit fallback categories:
+    - `asyncpg-missing`
+    - `missing-env-var`
+    - `db-down`
+  - Extended DB helper tests to assert those log categories are emitted on each path.
+- Deviations and why:
+  - No keep-alive thread was added to `app.py`; this is intentional because the current architecture uses per-job daemon worker threads from `results_loading` and avoids additional idle background loops.
+- Validation:
+  - `venv\Scripts\python -m pytest tests\test_repositories.py -q`: **16 passed**.
+  - `venv\Scripts\python -m pytest tests -q`: **66 passed** (2 deprecation warnings from aiohttp connector behavior on Python 3.13.3).
+- Forward guidance:
+  - Keep Section 2 and `.claude/SESSION_CONTEXT.md` synchronized whenever runtime snapshots (line counts, branch/commit status, logging behavior) change.
+
+### 2026-02-14 - Repository hygiene completed (historical docs archive + README refresh)
+- Scope: `docs/history/` (new folder), historical markdown moves, `PLAYBOOK.md`, `README.md`.
+- Plan vs implementation:
+  - Moved historical docs from repo root into `docs/history/`:
+    - `AUDIT_2026-01-10.md`
+    - `AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md`
+    - `CHANGELOG_2026-01-04.md`
+    - `CHANGELOG_2026-02-10.md`
+    - `OPTIMIZATION_SUMMARY.md`
+    - `PERFORMANCE_TIMING.md`
+    - `Refactor_Plan.md`
+    - `TEMPLATE_REFACTOR_SUMMARY.md`
+  - Updated playbook references to `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md`.
+  - Refreshed `README.md`:
+    - run instructions now show `python app.py` (recommended) and `python run.py` (optional launcher)
+    - project structure updated to current modular layout + `docs/history/`
+    - roadmap/status text updated to reflect current post-refactor state
+- Deviations and why:
+  - Keep a shim at `EXECUTION_PLAYBOOK_2026-02-11.md` to preserve a stable handoff entrypoint.
+- Forward guidance:
+  - Keep new planning/audit/changelog docs in `docs/history/` unless a document is an active operator runbook.
+  - Keep playbook and session-context docs at predictable top-level locations for fast bootstrap.
+
+### 2026-02-14 - Cache wake-up hardening completed (DB connect retry/backoff + docs refresh)
+- Scope: `scrobblescope/cache.py`, `tests/test_repositories.py`, `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, `README.md`.
+- Plan vs implementation:
+  - Added exponential-backoff DB connection retries in `_get_db_connection()` to reduce false cache bypass during Fly Postgres wake-up windows.
+  - Added two DB helper tests:
+    - retry-then-success path
+    - retry-exhaustion path
+  - Updated existing connect-failure test to force single-attempt behavior (`DB_CONNECT_MAX_ATTEMPTS=1`) for deterministic assertions.
+  - Refreshed handoff docs for the new test count and operational behavior.
+- Deviations and why:
+  - No orchestration/routing behavior changes were needed; hardening was isolated to cache connection setup and DB helper tests.
+- Additions beyond plan:
+  - Added env-tunable retry knobs:
+    - `DB_CONNECT_MAX_ATTEMPTS` (default `3`)
+    - `DB_CONNECT_BASE_DELAY_SECONDS` (default `0.25`)
+  - Live Fly verification confirmed:
+    - app cache hits persisted after DB stop/start
+    - DB app `scrobblescope-db` uses `FLY_SCALE_TO_ZERO=1h`, explaining suspended/stopped state after idle periods.
+- Validation:
+  - `venv\Scripts\python -m pytest tests\test_repositories.py -q`: **16 passed**.
+  - `venv\Scripts\python -m pytest tests -q`: **66 passed**.
+  - `venv\Scripts\pre-commit run --all-files`: all hooks passed.
+  - `venv\Scripts\python scripts/smoke_cache_check.py --base-url https://scrobblescope.fly.dev --username flounder14 --year 2025 --runs 2`: **PASS** (`db_cache_enabled=True`, `db_cache_lookup_hits=247`).
+- Forward guidance:
+  - If first-request latency after idle is a concern, either increase retry knobs or adjust/remove DB `FLY_SCALE_TO_ZERO`.
+  - Keep periodic smoke checks as operational validation for cache persistence and warm-hit behavior.
+  - Resolve DB app staged secrets drift (`fly secrets deploy -a scrobblescope-db`) to avoid config ambiguity.
+
 ### 2026-02-14 - Frontend responsiveness polish completed (toggle placement + mobile table scaling)
 - Scope: `static/css/index.css`, `static/css/results.css`, `static/css/loading.css`, `static/css/unmatched.css`, `static/css/error.css`, `templates/results.html`.
 - Plan vs implementation:
