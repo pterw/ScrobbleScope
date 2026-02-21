@@ -2,7 +2,6 @@
 import re
 from unittest.mock import patch
 
-from app import create_app
 from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
     JOBS,
@@ -15,7 +14,7 @@ from scrobblescope.repositories import (
     set_job_progress,
     set_job_results,
 )
-from tests.helpers import TEST_JOB_PARAMS
+from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 
 
 def test_home_page(client):
@@ -165,18 +164,7 @@ def test_results_loading_capacity_exceeded_returns_error(client):
         ),
         patch("scrobblescope.routes.acquire_job_slot", return_value=False),
     ):
-        response = client.post(
-            "/results_loading",
-            data={
-                "username": "flounder14",
-                "year": "2025",
-                "sort_by": "playcount",
-                "release_scope": "same",
-                "min_plays": "10",
-                "min_tracks": "3",
-                "limit_results": "all",
-            },
-        )
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 200
     assert b"Filter Your Album Scrobbles!" in response.data
     assert b"window.SCROBBLE" not in response.data
@@ -201,18 +189,7 @@ def test_results_loading_thread_start_failure_renders_error(client):
         ),
         patch("scrobblescope.routes.delete_job") as mock_delete_job,
     ):
-        response = client.post(
-            "/results_loading",
-            data={
-                "username": "flounder14",
-                "year": "2025",
-                "sort_by": "playcount",
-                "release_scope": "same",
-                "min_plays": "10",
-                "min_tracks": "3",
-                "limit_results": "all",
-            },
-        )
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 200
     assert b"Filter Your Album Scrobbles!" in response.data
     assert b"window.SCROBBLE" not in response.data
@@ -232,18 +209,7 @@ def test_results_loading_valid_post(client):
         ),
         patch("scrobblescope.routes.start_job_thread") as mock_start,
     ):
-        response = client.post(
-            "/results_loading",
-            data={
-                "username": "flounder14",
-                "year": "2025",
-                "sort_by": "playcount",
-                "release_scope": "same",
-                "min_plays": "10",
-                "min_tracks": "3",
-                "limit_results": "all",
-            },
-        )
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 200
     assert b"window.SCROBBLE" in response.data
     assert b"flounder14" in response.data
@@ -573,106 +539,70 @@ def test_app_500_handler_renders_error_template(client):
 # --- CSRF protection tests ---
 
 
-def test_csrf_rejects_post_without_token():
+def test_csrf_rejects_post_without_token(csrf_app_client):
     """
     GIVEN CSRF protection is active (default)
     WHEN a POST to /results_loading is submitted without a csrf_token
     THEN the response should be 400 (CSRF validation failure).
     """
-    application = create_app()
-    application.config["TESTING"] = True
-    # Do NOT set WTF_CSRF_ENABLED=False — CSRF enforcement is the subject under test
-    with application.test_client() as csrf_client:
-        response = csrf_client.post(
-            "/results_loading",
-            data={
-                "username": "flounder14",
-                "year": "2025",
-                "sort_by": "playcount",
-                "release_scope": "same",
-                "min_plays": "10",
-                "min_tracks": "3",
-                "limit_results": "all",
-            },
-        )
+    response = csrf_app_client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 400
 
 
-def test_csrf_accepts_post_with_valid_token():
+def test_csrf_accepts_post_with_valid_token(csrf_app_client):
     """
     GIVEN CSRF protection is active (default)
     WHEN a POST to /results_loading includes the CSRF token from the index page
     THEN the request should be accepted (not rejected as 400).
     """
-    application = create_app()
-    application.config["TESTING"] = True
-    with application.test_client() as csrf_client:
-        get_resp = csrf_client.get("/")
-        token_match = re.search(rb'name="csrf_token" value="([^"]+)"', get_resp.data)
-        assert token_match, "CSRF token not found in index page HTML"
-        token = token_match.group(1).decode()
+    get_resp = csrf_app_client.get("/")
+    token_match = re.search(rb'name="csrf_token" value="([^"]+)"', get_resp.data)
+    assert token_match, "CSRF token not found in index page HTML"
+    token = token_match.group(1).decode()
 
-        with (
-            patch(
-                "scrobblescope.routes.run_async_in_thread",
-                return_value={"exists": True, "registered_year": None},
-            ),
-            patch("scrobblescope.routes.start_job_thread"),
-            patch("scrobblescope.routes.acquire_job_slot", return_value=True),
-        ):
-            response = csrf_client.post(
-                "/results_loading",
-                data={
-                    "csrf_token": token,
-                    "username": "flounder14",
-                    "year": "2025",
-                    "sort_by": "playcount",
-                    "release_scope": "same",
-                    "min_plays": "10",
-                    "min_tracks": "3",
-                    "limit_results": "all",
-                },
-            )
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.start_job_thread"),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=True),
+    ):
+        response = csrf_app_client.post(
+            "/results_loading",
+            data={**VALID_FORM_DATA, "csrf_token": token},
+        )
     assert response.status_code == 200
     assert b"window.SCROBBLE" in response.data
 
 
-def test_csrf_rejects_results_complete_without_token():
+def test_csrf_rejects_results_complete_without_token(csrf_app_client):
     """
     GIVEN CSRF protection is active (default)
     WHEN POST /results_complete is submitted without a csrf_token
     THEN the response should be 400 (CSRF validation failure).
     """
-    application = create_app()
-    application.config["TESTING"] = True
-    with application.test_client() as csrf_client:
-        response = csrf_client.post("/results_complete", data={"job_id": "any"})
+    response = csrf_app_client.post("/results_complete", data={"job_id": "any"})
     assert response.status_code == 400
 
 
-def test_csrf_rejects_unmatched_view_without_token():
+def test_csrf_rejects_unmatched_view_without_token(csrf_app_client):
     """
     GIVEN CSRF protection is active (default)
     WHEN POST /unmatched_view is submitted without a csrf_token
     THEN the response should be 400 (CSRF validation failure).
     """
-    application = create_app()
-    application.config["TESTING"] = True
-    with application.test_client() as csrf_client:
-        response = csrf_client.post("/unmatched_view", data={"job_id": "any"})
+    response = csrf_app_client.post("/unmatched_view", data={"job_id": "any"})
     assert response.status_code == 400
 
 
-def test_csrf_rejects_reset_progress_without_token():
+def test_csrf_rejects_reset_progress_without_token(csrf_app_client):
     """
     GIVEN CSRF protection is active (default)
     WHEN POST /reset_progress is submitted without a csrf_token form field or X-CSRFToken header
     THEN the response should be 400 (CSRF validation failure).
     """
-    application = create_app()
-    application.config["TESTING"] = True
-    with application.test_client() as csrf_client:
-        response = csrf_client.post("/reset_progress", data={"job_id": "any"})
+    response = csrf_app_client.post("/reset_progress", data={"job_id": "any"})
     assert response.status_code == 400
 
 
@@ -690,16 +620,7 @@ def test_results_loading_year_below_registration_year_rejected(client):
         return_value={"exists": True, "registered_year": 2016},
     ):
         response = client.post(
-            "/results_loading",
-            data={
-                "username": "flounder14",
-                "year": "2015",
-                "sort_by": "playcount",
-                "release_scope": "same",
-                "min_plays": "10",
-                "min_tracks": "3",
-                "limit_results": "all",
-            },
+            "/results_loading", data={**VALID_FORM_DATA, "year": "2015"}
         )
     assert response.status_code == 200
     assert b"Filter Your Album Scrobbles!" in response.data
@@ -722,16 +643,7 @@ def test_results_loading_year_at_registration_year_allowed(client):
         patch("scrobblescope.routes.start_job_thread"),
     ):
         response = client.post(
-            "/results_loading",
-            data={
-                "username": "flounder14",
-                "year": "2016",
-                "sort_by": "playcount",
-                "release_scope": "same",
-                "min_plays": "10",
-                "min_tracks": "3",
-                "limit_results": "all",
-            },
+            "/results_loading", data={**VALID_FORM_DATA, "year": "2016"}
         )
     assert response.status_code == 200
     assert b"window.SCROBBLE" in response.data
@@ -750,18 +662,7 @@ def test_results_loading_registration_check_unavailable_proceeds(client):
         ),
         patch("scrobblescope.routes.start_job_thread"),
     ):
-        response = client.post(
-            "/results_loading",
-            data={
-                "username": "flounder14",
-                "year": "2025",
-                "sort_by": "playcount",
-                "release_scope": "same",
-                "min_plays": "10",
-                "min_tracks": "3",
-                "limit_results": "all",
-            },
-        )
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 200
     assert b"window.SCROBBLE" in response.data
 
@@ -779,42 +680,28 @@ def test_results_loading_no_registered_year_proceeds(client):
         ),
         patch("scrobblescope.routes.start_job_thread"),
     ):
-        response = client.post(
-            "/results_loading",
-            data={
-                "username": "flounder14",
-                "year": "2025",
-                "sort_by": "playcount",
-                "release_scope": "same",
-                "min_plays": "10",
-                "min_tracks": "3",
-                "limit_results": "all",
-            },
-        )
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 200
     assert b"window.SCROBBLE" in response.data
 
 
-def test_csrf_accepts_reset_progress_with_header_token():
+def test_csrf_accepts_reset_progress_with_header_token(csrf_app_client):
     """
     GIVEN CSRF protection is active (default)
     WHEN POST /reset_progress is submitted with a valid X-CSRFToken header (XHR path)
     THEN the request should pass CSRF validation and return a success response.
     """
-    application = create_app()
-    application.config["TESTING"] = True
-    with application.test_client() as csrf_client:
-        get_resp = csrf_client.get("/")
-        token_match = re.search(rb'name="csrf_token" value="([^"]+)"', get_resp.data)
-        assert token_match, "CSRF token not found in index page HTML"
-        token = token_match.group(1).decode()
+    get_resp = csrf_app_client.get("/")
+    token_match = re.search(rb'name="csrf_token" value="([^"]+)"', get_resp.data)
+    assert token_match, "CSRF token not found in index page HTML"
+    token = token_match.group(1).decode()
 
-        job_id = create_job(TEST_JOB_PARAMS)
-        response = csrf_client.post(
-            "/reset_progress",
-            data={"job_id": job_id},
-            headers={"X-CSRFToken": token},
-        )
+    job_id = create_job(TEST_JOB_PARAMS)
+    response = csrf_app_client.post(
+        "/reset_progress",
+        data={"job_id": job_id},
+        headers={"X-CSRFToken": token},
+    )
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["status"] == "success"

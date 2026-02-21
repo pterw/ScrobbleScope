@@ -1,5 +1,17 @@
 from unittest.mock import AsyncMock
 
+# Standard form data for POST /results_loading tests (year as string, flounder14).
+# Use {**VALID_FORM_DATA, "year": "2015"} to override individual fields.
+VALID_FORM_DATA = {
+    "username": "flounder14",
+    "year": "2025",
+    "sort_by": "playcount",
+    "release_scope": "same",
+    "min_plays": "10",
+    "min_tracks": "3",
+    "limit_results": "all",
+}
+
 TEST_JOB_PARAMS = {
     "username": "testuser",
     "year": 2025,

@@ -449,6 +449,28 @@ Source-of-truth note:
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-20 - P1 refactor: extract VALID_FORM_DATA and csrf_app_client fixture
+- Scope: `tests/helpers.py`, `tests/conftest.py`, `tests/test_routes.py`.
+- Problem: `VALID_FORM_DATA` (the flounder14/2025 form dict for `/results_loading`
+  tests) was copy-pasted verbatim 7 times across `test_routes.py`. The 5-line
+  CSRF-enabled app + test-client setup was repeated in every CSRF test function.
+- Fix:
+  - Added `VALID_FORM_DATA` constant to `tests/helpers.py`.
+  - Added `csrf_app_client` pytest fixture to `tests/conftest.py`; it creates a
+    CSRF-enabled app client (WTF_CSRF_ENABLED not disabled) for CSRF enforcement
+    tests.
+  - Updated `tests/test_routes.py`: removed `from app import create_app` (now
+    unused); imported `VALID_FORM_DATA` from `tests.helpers`; replaced all 7
+    inline form dicts with `VALID_FORM_DATA` (or `{**VALID_FORM_DATA, "year": "X"}`
+    for year-override cases); replaced all 6 CSRF test inline app setups with the
+    `csrf_app_client` fixture parameter.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **94 passed** (no count change; pure refactor, no behaviour
+    change).
+  - `pre-commit run --all-files`: all hooks passed.
+- Forward guidance: Next is WP-7 (frontend safety and resilience polish).
+
 ### 2026-02-20 - P1 perf: remove O(n) cache-size scan from cleanup_expired_cache
 - Scope: `scrobblescope/utils.py`.
 - Problem: `cache_size_mb = sum(len(str(v)) for v in REQUEST_CACHE.values()) / ...`
