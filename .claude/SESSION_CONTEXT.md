@@ -91,7 +91,7 @@ ScrobbleScope/
     test_app_factory.py        # 7 tests (WP-4 secret-key validation)
     test_domain.py             # 15 tests (normalize_name, normalize_track_name incl non-Latin + artist-fix, _extract_registered_year)
     test_repositories.py       # 18 tests (job state + DB helpers incl retry/backoff + delete_job)
-    test_routes.py             # 39 tests (all route handlers incl unmatched_view + 404/500 + WP-5)
+    test_routes.py             # 42 tests (all route handlers incl unmatched_view + 404/500 + WP-5 + WP-6 adversarial helpers)
     services/
       test_lastfm_service.py   # 4 tests
       test_lastfm_logic.py     # 7 tests (fetch_top_albums_async: aggregation, filters, timestamp bounds, now-playing, non-Latin, job stats)
