@@ -478,15 +478,21 @@ async def _fetch_and_process(
 
         set_job_progress(job_id, progress=20, message="Processing your albums...")
 
-        # For playcount sort, ranking is fully determined by Last.fm play counts,
-        # so we can slice filtered_albums to the requested limit before handing off
-        # to process_albums -- avoiding Spotify API calls for albums that won't
-        # appear in the final result.
+        # Pre-slicing by play_count is only safe when release_scope == "all".
+        # When a release-year filter is active, albums outside the raw top-N
+        # might still qualify after the release filter runs inside process_albums.
+        # Slicing early would silently discard those albums, producing a truncated
+        # result without any indication that matching records were dropped.
         #
-        # For playtime sort this is not possible: ranking requires Spotify track
-        # durations, which are only available after the full Spotify fetch. The
-        # post-process slice below (search for limit_results) still applies.
-        if sort_mode == "playcount" and limit_results != "all":
+        # For playtime sort, pre-slicing is never possible: ranking requires
+        # Spotify track durations, which are only available after the Spotify
+        # fetch. The post-process slice below (search for limit_results) applies
+        # to both sort modes after process_albums returns.
+        if (
+            sort_mode == "playcount"
+            and limit_results != "all"
+            and release_scope == "all"
+        ):
             try:
                 limit = int(limit_results)
                 if len(filtered_albums) > limit:
