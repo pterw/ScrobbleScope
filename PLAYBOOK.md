@@ -449,6 +449,38 @@ Source-of-truth note:
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-20 - fix(tooling): remove transient rotated field from SESSION_CONTEXT status block
+- Scope: `scripts/doc_state_sync.py`, `AGENTS.md`.
+- Problem: `_build_status_block` wrote `rotated=N` into the managed SESSION_CONTEXT
+  block based on the current run's rotation count. The subsequent `--check` always
+  recomputed `rotated=0` from the now-clean playbook, causing permanent drift after
+  any `--fix --keep-non-current N` run. The workaround required a two-pass sequence.
+- Fix: Removed the `Rotated to archive in latest sync run` line from `_build_status_block`.
+  The count is still reported on stdout; it is no longer written to a file that `--check`
+  re-derives. `--fix --keep-non-current 0` is now a single idempotent command.
+- Updated `AGENTS.md` to document the one-pass rotation pattern for agent handoff.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **94 passed**.
+  - `pre-commit run --all-files`: all hooks passed.
+  - `python scripts/doc_state_sync.py --check`: passed.
+- Forward guidance: tooling is stable. WP-8 (CI/lint/dependency hygiene) is next.
+
+### 2026-02-20 - docs: rotate 4 stale non-current Section 10 entries to archive
+- Scope: `PLAYBOOK.md`, `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, `.claude/SESSION_CONTEXT.md`.
+- Problem: Four pre-Batch-9 entries (2026-02-19 x2, 2026-02-14 x2) had accumulated
+  below `CURRENT-BATCH-END` as `kept_non_current=4` with `rotated=0`, creating
+  visible bloat in Section 10.
+- Fix: Ran `python scripts/doc_state_sync.py --fix --keep-non-current 0` to flush
+  all non-current entries to the archive. Section 10 now contains only active-batch
+  entries.
+- Deviations: none (purely mechanical doc maintenance).
+- Validation:
+  - `python scripts/doc_state_sync.py --check`: passed.
+  - `pre-commit run --all-files`: all hooks passed.
+- Forward guidance: run `--fix --keep-non-current 0` at each batch boundary to keep
+  Section 10 clean.
+
 ### 2026-02-20 - WP-7: frontend safety — showToast DOM construction + non-200 fetch guard
 - Scope: `static/js/results.js`.
 - Problem 1: `showToast` built its HTML via a template-literal string injected with
