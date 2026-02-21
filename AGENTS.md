@@ -135,6 +135,9 @@ Use a body when context is needed (why, impact, and scope).
 - Use deterministic tooling for rotation/sync:
   - `python scripts/doc_state_sync.py --fix` after editing playbook/session state.
   - `python scripts/doc_state_sync.py --check` before commit.
+  - To flush non-current Section 10 entries to the archive at a batch boundary, run:
+    `python scripts/doc_state_sync.py --fix --keep-non-current 0`
+    This is a single idempotent command; no second normalisation pass is required.
 
 ## Required Documentation Updates
 

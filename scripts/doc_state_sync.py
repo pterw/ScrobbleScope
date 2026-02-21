@@ -235,7 +235,6 @@ class SyncResult:
 def _build_status_block(
     batch_number: int | None,
     current_entries: list[Entry],
-    rotated_count: int,
 ) -> list[str]:
     wp_numbers = _collect_wp_numbers(current_entries)
     completed_wp = (
@@ -256,7 +255,6 @@ def _build_status_block(
         f"- Completed work packages in current-batch entries: {completed_wp}.",
         f"- Next expected work package: {next_wp}.",
         f"- Newest current-batch entry: {newest_heading}.",
-        f"- Rotated to archive in latest sync run: {rotated_count}.",
     ]
 
 
@@ -360,7 +358,6 @@ def _sync(keep_non_current: int) -> SyncResult:
     status_block = _build_status_block(
         batch_number=batch_number,
         current_entries=current_entries,
-        rotated_count=len(rotated_entries),
     )
     new_session_lines = (
         session_lines[: status_start + 1] + status_block + session_lines[status_end:]
