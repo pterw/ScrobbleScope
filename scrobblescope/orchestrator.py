@@ -39,6 +39,14 @@ from scrobblescope.utils import (
 )
 from scrobblescope.worker import release_job_slot
 
+# Hard upper bound on the number of albums sent to process_albums when sorting
+# by playtime. Playtime ranking requires Spotify track durations, so pre-slicing
+# is impossible -- but an unbounded album count creates proportional Spotify API
+# load. 500 albums at 20 per batch = 25 batch requests, well within practical
+# limits. A user with 500+ albums passing min_plays/min_tracks is an extreme
+# outlier; raw play_count is the best available proxy for culling the tail.
+_PLAYTIME_ALBUM_CAP = 500
+
 
 async def process_albums(
     job_id,
@@ -507,6 +515,23 @@ async def _fetch_and_process(
                     )
             except ValueError:
                 pass  # malformed limit_results handled by the post-process slice
+
+        # Defensive cap for playtime sort: ranking requires Spotify track durations
+        # so the full set must reach process_albums, but an unbounded count creates
+        # proportional Spotify API load. Cap at _PLAYTIME_ALBUM_CAP by raw play_count
+        # (the best available proxy before Spotify data exists). Fires only for
+        # extreme outliers; does not affect playcount sort (already handled above).
+        if sort_mode == "playtime" and len(filtered_albums) > _PLAYTIME_ALBUM_CAP:
+            sorted_items = sorted(
+                filtered_albums.items(),
+                key=lambda kv: kv[1]["play_count"],
+                reverse=True,
+            )
+            filtered_albums = dict(sorted_items[:_PLAYTIME_ALBUM_CAP])
+            logging.warning(
+                f"Playtime album cap applied: capped {len(sorted_items)} albums "
+                f"to top {_PLAYTIME_ALBUM_CAP} by play_count before Spotify fetch"
+            )
 
         set_job_progress(
             job_id, progress=30, message="Preparing to fetch album data..."
