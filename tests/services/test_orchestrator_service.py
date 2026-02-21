@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from scrobblescope.cache import _cleanup_stale_metadata
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import (
+    _PLAYTIME_ALBUM_CAP,
     _fetch_and_process,
     background_task,
     process_albums,
@@ -560,12 +562,67 @@ async def test_cleanup_stale_metadata_nonfatal(caplog):
 
 
 @pytest.mark.asyncio
-async def test_playcount_limit_slices_before_spotify():
+async def test_playcount_limit_slices_before_spotify_when_scope_is_all():
     """
-    GIVEN filtered_albums has 5 entries and limit_results="2" with sort_mode="playcount"
+    GIVEN filtered_albums has 5 entries, limit_results="2", sort_mode="playcount",
+    and release_scope="all"
     WHEN _fetch_and_process runs
-    THEN process_albums should be called with at most 2 albums (pre-sliced by play_count)
-    so that Spotify is not queried for albums outside the requested top N.
+    THEN process_albums should receive at most 2 albums (pre-sliced by play_count)
+    because release_scope="all" means no downstream filter can discard albums from
+    the top-N, so the optimisation is safe.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {
+        (f"artist{i}", f"album{i}"): {
+            "play_count": i * 10,
+            "track_counts": {f"track{i}": i},
+            "original_artist": f"Artist{i}",
+            "original_album": f"Album{i}",
+        }
+        for i in range(1, 6)  # 5 albums with play_counts 10..50
+    }
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=(filtered, {"status": "ok"}),
+        ),
+        patch(
+            "scrobblescope.orchestrator.process_albums",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_process,
+    ):
+        await _fetch_and_process(
+            job_id,
+            "testuser",
+            2025,
+            "playcount",
+            "all",
+            limit_results="2",
+        )
+
+    called_albums = mock_process.call_args[0][1]
+    assert len(called_albums) <= 2, (
+        "process_albums should receive at most 2 albums when release_scope='all' "
+        "and limit_results='2': the optimisation is safe with no release filter."
+    )
+    assert ("artist5", "album5") in called_albums
+    assert ("artist4", "album4") in called_albums
+
+
+@pytest.mark.asyncio
+async def test_playcount_limit_not_presliced_with_scoped_release():
+    """
+    GIVEN filtered_albums has 5 entries, limit_results="2", sort_mode="playcount",
+    and release_scope="same" (a release-year filter is active)
+    WHEN _fetch_and_process runs
+    THEN process_albums should receive all 5 albums -- NOT just 2.
+
+    Pre-slicing is unsafe when release_scope != "all": albums ranked #3-#5 by raw
+    play_count might be the only ones matching the release-year filter. Discarding
+    them early would silently return fewer results than exist without any warning.
     """
     job_id = create_job(TEST_JOB_PARAMS)
     filtered = {
@@ -600,13 +657,11 @@ async def test_playcount_limit_slices_before_spotify():
         )
 
     called_albums = mock_process.call_args[0][1]
-    assert len(called_albums) <= 2, (
-        "process_albums should receive at most 2 albums when limit_results='2' "
-        "and sort_mode='playcount'. Late-slicing wastes Spotify API calls."
+    assert len(called_albums) == 5, (
+        "All 5 albums must reach process_albums when release_scope='same': "
+        "the release-year filter inside process_albums may keep albums ranked "
+        "outside the top-2 by raw play_count, so pre-slicing is forbidden."
     )
-    # The top-2 should be the highest play_count entries (artist5/artist4)
-    assert ("artist5", "album5") in called_albums
-    assert ("artist4", "album4") in called_albums
 
 
 @pytest.mark.asyncio
@@ -654,6 +709,93 @@ async def test_playtime_limit_does_not_preslice():
         "process_albums should receive all albums for playtime sort -- "
         "pre-slicing is impossible without Spotify track duration data."
     )
+
+
+@pytest.mark.asyncio
+async def test_playtime_cap_fires_and_warns_when_album_count_exceeds_limit(caplog):
+    """
+    GIVEN filtered_albums has _PLAYTIME_ALBUM_CAP + 1 entries and sort_mode="playtime"
+    WHEN _fetch_and_process runs
+    THEN process_albums should receive exactly _PLAYTIME_ALBUM_CAP albums (the highest
+    by raw play_count) and a WARNING must be logged identifying the cap as the cause.
+
+    The cap is the only protection against unbounded Spotify API load for playtime
+    sorts. A regression that removes it would make the test fail on the album count
+    assertion; a regression that silences the log would fail on the caplog assertion.
+    """
+    over_limit = _PLAYTIME_ALBUM_CAP + 1
+    filtered = {
+        (f"artist{i}", f"album{i}"): {
+            "play_count": i,
+            "track_counts": {f"track{i}": 1},
+            "original_artist": f"Artist{i}",
+            "original_album": f"Album{i}",
+        }
+        for i in range(1, over_limit + 1)
+    }
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=(filtered, {"status": "ok"}),
+        ),
+        patch(
+            "scrobblescope.orchestrator.process_albums",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_process,
+        caplog.at_level(logging.WARNING),
+    ):
+        await _fetch_and_process(job_id, "testuser", 2025, "playtime", "all")
+
+    called_albums = mock_process.call_args[0][1]
+    assert len(called_albums) == _PLAYTIME_ALBUM_CAP, (
+        f"process_albums should receive exactly {_PLAYTIME_ALBUM_CAP} albums "
+        f"when the input exceeds the playtime cap, got {len(called_albums)}"
+    )
+    # The cap should keep the highest play_count entries.
+    assert (f"artist{over_limit}", f"album{over_limit}") in called_albums
+    assert ("artist1", "album1") not in called_albums
+    assert "Playtime album cap applied" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_playtime_cap_does_not_fire_below_limit():
+    """
+    GIVEN filtered_albums has fewer than _PLAYTIME_ALBUM_CAP entries
+    WHEN _fetch_and_process runs with sort_mode="playtime"
+    THEN process_albums should receive all albums unchanged -- the cap must not
+    interfere with normal-sized requests.
+    """
+    filtered = {
+        (f"artist{i}", f"album{i}"): {
+            "play_count": i * 10,
+            "track_counts": {f"track{i}": i},
+            "original_artist": f"Artist{i}",
+            "original_album": f"Album{i}",
+        }
+        for i in range(1, 6)  # well below the cap
+    }
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=(filtered, {"status": "ok"}),
+        ),
+        patch(
+            "scrobblescope.orchestrator.process_albums",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_process,
+    ):
+        await _fetch_and_process(job_id, "testuser", 2025, "playtime", "all")
+
+    called_albums = mock_process.call_args[0][1]
+    assert len(called_albums) == 5
 
 
 def test_background_task_runs_single_event_loop():

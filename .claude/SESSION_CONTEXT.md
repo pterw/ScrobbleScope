@@ -25,16 +25,18 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 |------|-------|
 | Branch | `wip/pc-snapshot` |
 | Latest commit | Use `git rev-parse --short HEAD` for current snapshot |
-| Tests | **116 passing** across 9 test files |
+| Tests | **121 passing** across 9 test files |
 | Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run; not re-measured after 2026-02-21 fixes) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8, doc-state-sync-check) |
 | app.py line count | ~142 lines (factory + logging setup + CSRF init + secret-key guard) |
 | Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
 | Batch 9 status | **Complete** (WP-1 through WP-8 all done). See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
-| Batch 10 status | **Complete**. WP-1 through WP-6 done. WP-6 = routes.py SoC audit (4 helpers extracted, 3 adversarial tests added, 116 tests). See `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md`. |
+| Batch 10 status | **Complete**. WP-1 through WP-9 done. WP-7 = cross-job rate limiting fix; WP-8 = pre-slice gate fix; WP-9 = playtime album cap. 121 tests. |
 | Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
+| Global API rate limiting | `_GlobalThrottle` + `_ThrottledLimiter` in `utils.py` cap aggregate Last.fm and Spotify throughput across all concurrent event loops. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
+| Playtime album cap | `_PLAYTIME_ALBUM_CAP = 500` in `orchestrator.py` limits albums sent to Spotify fetch for playtime sort; logs WARNING when triggered. |
 | Known open risk | None open. Orphan job on thread-start failure closed 2026-02-20 (`delete_job` in repositories.py + routes.py). |
 
 ---
@@ -59,10 +61,10 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
 - Current batch: Batch 11.
-- Current-batch entries in active log block: 3.
-- Completed work packages in current-batch entries: WP-5, WP-6.
-- Next expected work package: WP-7.
-- Newest current-batch entry: 2026-02-21 - refactor/test: routes.py SoC and duplication audit (Batch 10 WP-6).
+- Current-batch entries in active log block: 4.
+- Completed work packages in current-batch entries: WP-5, WP-6, WP-7, WP-8, WP-9.
+- Next expected work package: WP-10.
+- Newest current-batch entry: 2026-02-21 - fix: Gemini 3.1 Pro P0/P1 audit remediation (Batch 10 WP-7, WP-8, WP-9).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -96,7 +98,7 @@ ScrobbleScope/
       test_lastfm_service.py   # 4 tests
       test_lastfm_logic.py     # 7 tests (fetch_top_albums_async: aggregation, filters, timestamp bounds, now-playing, non-Latin, job stats)
       test_spotify_service.py  # 3 tests
-      test_orchestrator_service.py # 11 tests
+      test_orchestrator_service.py # 18 tests
   templates/                   # Jinja2 templates (unchanged)
   static/                      # CSS/JS (unchanged)
   init_db.py                   # Postgres schema setup
@@ -178,18 +180,18 @@ POST /results_complete
 
 ---
 
-## 8. Test structure (116 tests)
+## 8. Test structure (121 tests)
 
 | File | Count | Scope |
 |------|-------|-------|
 | test_app_factory.py | 6 | _validate_secret_key: production-fail paths, dev-mode warn, strong-key pass (WP-4). Dev-mode strong-key duplicate removed in Batch 10 WP-5. |
 | test_domain.py | 15 | normalize_name (incl artist-name preservation, album-only word stripping, collision prevention), normalize_track_name (incl Japanese/Cyrillic preservation, punctuation consistency), _extract_registered_year |
 | test_repositories.py | 18 | Job state functions (7) + DB cache helpers (9 incl retry/backoff) + delete_job (2) |
-| test_utils.py | 6 | REQUEST_CACHE hit/miss/expiry/overwrite/cleanup + concurrent-access stress test |
+| test_utils.py | 8 | REQUEST_CACHE hit/miss/expiry/overwrite/cleanup + concurrent-access stress test; _GlobalThrottle serialization + cross-thread shared throttle identity |
 | tests/services/test_lastfm_service.py | 4 | Last.fm user-check and page-retry behavior |
 | tests/services/test_lastfm_logic.py | 7 | fetch_top_albums_async: play-count aggregation, min_plays filter, min_tracks filter, out-of-bounds timestamp exclusion, now-playing sentinel, non-Latin track deduplication, job-stat reporting |
 | tests/services/test_spotify_service.py | 3 | Spotify search/details retry and non-200 behavior |
-| tests/services/test_orchestrator_service.py | 15 | process_albums, _fetch_and_process, background_task (incl slot-release); _cleanup_stale_metadata (delete + nonfatal); playcount pre-slice; playtime no-preslice |
+| tests/services/test_orchestrator_service.py | 18 | process_albums, _fetch_and_process, background_task (incl slot-release); _cleanup_stale_metadata (delete + nonfatal); playcount pre-slice (scope=all only); playcount no-preslice when scoped; playtime cap fires + warns; playtime no-cap below threshold |
 | test_routes.py | 42 | All Flask route handlers (incl unmatched_view, 404/500, WP-1 capacity/start-failure, WP-3 CSRF all 4 routes + XHR header path, WP-5 registration-year guard: reject/allow/fail-open/no-year paths) + 3 adversarial helper unit tests (WP-6) |
 
 **Shared fixtures/helpers:** `conftest.py` provides `client` (CSRF disabled) and `csrf_app_client` (CSRF enabled) fixtures; `tests/helpers.py` provides `TEST_JOB_PARAMS`, `VALID_FORM_DATA`, `NoopAsyncContext`, and `make_response_context`.
@@ -222,4 +224,7 @@ POST /results_complete
 - **Normalization bug fixes (2026-02-21):** Three production bugs fixed in `scrobblescope/domain.py` following a third-party audit review. (1) `normalize_track_name` used NFKD + encode("ascii","ignore"), silently stripping all non-Latin characters to "" and causing any Japanese/Cyrillic/etc. album to fail the min_tracks filter without an unmatched entry or log warning -- fixed to NFKC. (2) `normalize_name` applied `album_metadata_words` to the artist string as well as album, corrupting proper nouns like "New Edition" and causing empty-key collisions for artists named "Special", "Bonus", or "EP" -- fixed to album-only removal. (3) `normalize_track_name` had a 13-char hardcoded punctuation list vs `str.maketrans(string.punctuation,...)` in `normalize_name` -- fixed to use the same approach. Coverage gap also closed: `fetch_top_albums_async` (aggregation, filtering, timestamp logic) now has 7 tests in new `tests/services/test_lastfm_logic.py`. Owner validated with a real non-Latin-script album that was previously absent from results. Full detail in `docs/history/BUGFIX_NORMALIZATION_2026-02-21.md`. 110 tests passing.
 - **Gemini audit remediation (2026-02-21):** Four issues from a second Gemini audit pass fixed. (1) Late slicing: `_fetch_and_process` now pre-slices `filtered_albums` by `play_count` before `process_albums` when `sort_mode="playcount"` and a finite `limit_results` is set -- eliminating unnecessary Spotify searches for albums outside the top N. Playtime sort cannot be pre-sliced (documented). (2) DB stale row cleanup: `_cleanup_stale_metadata(conn)` added to `cache.py`, called opportunistically from `process_albums` after Phase 1 lookup -- DELETEs rows older than `METADATA_CACHE_TTL_DAYS`. Non-fatal. (3) `ERROR_CODES` and `SpotifyUnavailableError` extracted from `domain.py` to new leaf module `scrobblescope/errors.py`; import sites in `orchestrator.py`, `repositories.py`, and the orchestrator test file updated. (4) Duplicate release_scope->text translation in `routes.py:unmatched_view` replaced with call to existing `get_filter_description`. Full detail in `docs/history/BUGFIX_AUDIT_REMEDIATION_2026-02-21.md`. 114 tests passing.
 - **Sycophantic test audit (2026-02-21, Batch 10 WP-5):** Five tests strengthened or removed following a Gemini 2.5 Pro characterisation of the suite as providing "mock-call-only" and "vacuously passing" coverage. (1) `test_results_loading_thread_start_failure_renders_error` -- dropped delete_job mock, replaced with JOBS snapshot diff so orphan-job regressions are caught. (2) `test_fetch_and_process_cache_hit_does_not_precheck_spotify` -- added `JOBS[job_id]["results"]` assertion to verify set_job_results side-effect (background_task reads job state, not return value). (3) `test_succeeds_with_strong_key_in_dev_mode` -- removed as near-duplicate of production strong-key test. (4) `test_cleanup_stale_metadata_nonfatal` -- added caplog warning assertion. (5) `test_delete_job_on_missing_job_is_noop` -- added JOBS membership check. Full detail in `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`. 113 tests passing.
+- **Cross-job rate limiting (2026-02-21, Batch 10 WP-7):** Per-loop `AsyncLimiter` design gave each background job an independent rate limiter; with `MAX_ACTIVE_JOBS=10`, aggregate throughput could reach 10x the configured cap. Fixed by introducing `_GlobalThrottle` (thread-safe token bucket via `threading.Lock`) and `_ThrottledLimiter` (async context manager composing global throttle + per-loop `AsyncLimiter`) in `utils.py`. `_LASTFM_THROTTLE` and `_SPOTIFY_THROTTLE` are module-level singletons shared across all threads. Call sites in `lastfm.py` and `spotify.py` are unchanged. 2 adversarial tests added to `test_utils.py`. 118 tests passing.
+- **Pre-slice gate fix (2026-02-21, Batch 10 WP-8):** Playcount pre-slice in `_fetch_and_process` ran before `process_albums` applied the `release_scope` filter. With `release_scope != "all"`, albums outside the raw top-N could be the only ones matching the year filter, silently returning fewer results. Fixed by adding `and release_scope == "all"` to the gate condition. Renamed existing test to document the `scope=all` invariant; added adversarial test confirming all albums pass through for scoped queries. 119 tests passing.
+- **Playtime album cap (2026-02-21, Batch 10 WP-9):** No upper bound on `filtered_albums` for playtime sort (pre-slicing impossible without Spotify track durations). Added `_PLAYTIME_ALBUM_CAP = 500` in `orchestrator.py`; cap block sorts by `play_count` (best available proxy) and logs a `WARNING` when triggered. 2 tests added (cap fires + warns; no-op below threshold). 121 tests passing.
 - **Routes SoC audit (2026-02-21, Batch 10 WP-6):** Four SoC and duplication findings in `routes.py` resolved. (R1) Duplicate inner async wrappers for `check_user_exists` in `validate_user()` and `results_loading()` extracted to `_check_user_exists(username)`. (R2) Eight-field job params extraction duplicated in `results_complete()` and `unmatched_view()` extracted to `_extract_job_params(job_context)`. (R3) Reason-grouping data transform in `unmatched_view()` extracted to `_group_unmatched_by_reason(unmatched_data)`. (R4) Zero-playtime filter business rule in `results_complete()` extracted to `_filter_results_for_display(results_data, sort_mode)`. Follow-up: three adversarial unit tests added after route tests were found to only exercise happy paths for `_filter_results_for_display` (filter never fired) and `_group_unmatched_by_reason` ("Unknown reason" fallback untested). Full detail in `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md`. 116 tests passing. Batch 10 complete.

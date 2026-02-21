@@ -421,7 +421,8 @@ All commits must comply with the commit message standard in Section 5.
 - After any Section 10 update, run `python scripts/doc_state_sync.py --fix`, then re-run checks.
 
 ## 9. Immediate next batch to execute
-- **Batch 10 is complete** (Gemini audit remediation -- non-normalization track).
+- **Batch 10 is complete** (Gemini audit remediation -- non-normalization track,
+  extended with Gemini 3.1 Pro P0/P1 audit remediation).
   - WP-1 (Medium): Eager slice for playcount sort before Spotify calls. Done.
   - WP-2 (Low-Medium): DB stale row cleanup (_cleanup_stale_metadata). Done.
   - WP-3 (Low): Consolidate duplicate filter-text translation in routes.py. Done.
@@ -432,6 +433,13 @@ All commits must comply with the commit message standard in Section 5.
   - WP-6: SoC and duplication audit of routes.py. Done. (4 helpers extracted,
     3 adversarial tests added. 116 tests passing. See
     `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md`.)
+  - WP-7: Fix cross-job rate limiting. Done. (_GlobalThrottle + _ThrottledLimiter
+    added to utils.py; 2 adversarial tests. 118 tests passing.)
+  - WP-8: Fix destructive pre-slice with release_scope != "all". Done. (Gate
+    condition tightened; existing test corrected; adversarial test added.
+    119 tests passing.)
+  - WP-9: Add defensive playtime album cap. Done. (_PLAYTIME_ALBUM_CAP=500 in
+    orchestrator.py; warning log on trigger; 2 tests. 121 tests passing.)
 - **Batch 11 is not yet defined.** Scope will be set after a third-party audit
   informs findings. The expected focus is ongoing code quality:
   - SoC concerns: front-end JS and back-end route/service layer violations.
@@ -470,6 +478,40 @@ Source-of-truth note:
 - Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-21 - fix: Gemini 3.1 Pro P0/P1 audit remediation (Batch 10 WP-7, WP-8, WP-9)
+
+- Scope: `scrobblescope/utils.py`, `scrobblescope/orchestrator.py`,
+  `tests/test_utils.py`, `tests/services/test_orchestrator_service.py`.
+- Problem: Three confirmed findings from a Gemini 3.1 Pro audit pass:
+  WP-7 -- Per-loop AsyncLimiter design meant each background job (which
+  creates its own asyncio event loop) got an independent rate limiter.
+  With MAX_ACTIVE_JOBS=10, aggregate throughput could reach 10x the
+  configured API rate cap, risking 429s or IP bans.
+  WP-8 -- The playcount pre-slice fired before process_albums applied
+  the release-year filter. With release_scope != "all", albums outside
+  the raw top-N could be the only ones matching the filter; discarding
+  them early silently returned fewer results with no warning to the user.
+  WP-9 -- No upper bound on filtered_albums for playtime sort. Pre-slicing
+  is impossible (ranking requires Spotify track durations), but an extreme
+  outlier with 2000+ qualifying albums would force proportional Spotify API
+  load with no safety valve.
+- Plan vs implementation: all three implemented as one commit each, tests
+  first per AGENTS.md adversarial rule. No scope additions.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **121 passed** (116 baseline + 5 new tests).
+  - `pre-commit run --all-files`: all 8 hooks passed on every commit.
+  - WP-7: _GlobalThrottle.next_wait() serialization test + cross-thread
+    identity test confirm the shared throttle is in place.
+  - WP-8: adversarial test confirms all 5 albums reach process_albums when
+    release_scope="same" and limit_results="2".
+  - WP-9: cap fires + warning logged test + below-threshold no-op test.
+- Forward guidance: Batch 10 is now complete (WP-1 through WP-9). Batch 11
+  is not yet defined. Feature work (top songs, heatmap) and further audit
+  work require owner scope definition before implementation begins.
+  _PLAYTIME_ALBUM_CAP=500 is conservative; monitor "Playtime album cap
+  applied" warnings in production logs to tune if needed.
 
 ### 2026-02-21 - refactor/test: routes.py SoC and duplication audit (Batch 10 WP-6)
 
