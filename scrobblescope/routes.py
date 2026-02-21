@@ -21,6 +21,15 @@ from scrobblescope.worker import acquire_job_slot, start_job_thread
 bp = Blueprint("main", __name__)
 
 
+def _check_user_exists(username):
+    """Call check_user_exists in a dedicated async thread."""
+
+    async def _check():
+        return await check_user_exists(username)
+
+    return run_async_in_thread(_check)
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
@@ -43,11 +52,8 @@ def validate_user():
     if len(username) > 64:
         return jsonify({"valid": False, "message": "Username is too long."}), 400
 
-    async def _check():
-        return await check_user_exists(username)
-
     try:
-        result = run_async_in_thread(_check)
+        result = _check_user_exists(username)
     except Exception:
         logging.exception("Username validation failed")
         return (
@@ -377,11 +383,7 @@ def results_loading():
         )
 
     try:
-
-        async def _check_user():
-            return await check_user_exists(username)
-
-        user_info = run_async_in_thread(_check_user)
+        user_info = _check_user_exists(username)
         registered_year = user_info.get("registered_year")
         if registered_year and year < registered_year:
             return render_template(
