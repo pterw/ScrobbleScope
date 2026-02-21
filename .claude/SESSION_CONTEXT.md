@@ -25,13 +25,14 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 |------|-------|
 | Branch | `wip/pc-snapshot` |
 | Latest commit | Use `git rev-parse --short HEAD` for current snapshot |
-| Tests | **114 passing** across 9 test files |
+| Tests | **113 passing** across 9 test files |
 | Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run; not re-measured after 2026-02-21 fixes) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8, doc-state-sync-check) |
 | app.py line count | ~142 lines (factory + logging setup + CSRF init + secret-key guard) |
 | Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
 | Batch 9 status | **Complete** (WP-1 through WP-8 all done). See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
+| Batch 10 status | **In progress**. WP-1 through WP-5 done. WP-5 = sycophantic test audit (5 findings, 4 strengthened, 1 removed). Next: SoC audit of routes.py. See `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`. |
 | Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
 | Known open risk | None open. Orphan job on thread-start failure closed 2026-02-20 (`delete_job` in repositories.py + routes.py). |
@@ -58,10 +59,10 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
 - Current batch: Batch 10.
-- Current-batch entries in active log block: 1.
-- Completed work packages in current-batch entries: none.
-- Next expected work package: unknown.
-- Newest current-batch entry: 2026-02-21 - refactor/fix: Gemini audit remediation (non-normalization track).
+- Current-batch entries in active log block: 2.
+- Completed work packages in current-batch entries: WP-5.
+- Next expected work package: WP-6.
+- Newest current-batch entry: 2026-02-21 - test: sycophantic test coverage audit (Batch 10 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -181,7 +182,7 @@ POST /results_complete
 
 | File | Count | Scope |
 |------|-------|-------|
-| test_app_factory.py | 7 | _validate_secret_key: production-fail paths, dev-mode warn, strong-key pass (WP-4) |
+| test_app_factory.py | 6 | _validate_secret_key: production-fail paths, dev-mode warn, strong-key pass (WP-4). Dev-mode strong-key duplicate removed in Batch 10 WP-5. |
 | test_domain.py | 15 | normalize_name (incl artist-name preservation, album-only word stripping, collision prevention), normalize_track_name (incl Japanese/Cyrillic preservation, punctuation consistency), _extract_registered_year |
 | test_repositories.py | 18 | Job state functions (7) + DB cache helpers (9 incl retry/backoff) + delete_job (2) |
 | test_utils.py | 6 | REQUEST_CACHE hit/miss/expiry/overwrite/cleanup + concurrent-access stress test |
@@ -220,3 +221,4 @@ POST /results_complete
 - **doc_state_sync fix (2026-02-20):** `_git_head_short()` function and `subprocess` import removed from `scripts/doc_state_sync.py`. The `Last sync commit` field was volatile (merge commits advanced HEAD) and caused `doc-state-sync-check` pre-commit hook to false-positive on every PR merge. The `--check` now validates only stable content-level fields. The transient `rotated=N` field was also removed from the managed SESSION_CONTEXT block to eliminate post-rotation drift.
 - **Normalization bug fixes (2026-02-21):** Three production bugs fixed in `scrobblescope/domain.py` following a third-party audit review. (1) `normalize_track_name` used NFKD + encode("ascii","ignore"), silently stripping all non-Latin characters to "" and causing any Japanese/Cyrillic/etc. album to fail the min_tracks filter without an unmatched entry or log warning -- fixed to NFKC. (2) `normalize_name` applied `album_metadata_words` to the artist string as well as album, corrupting proper nouns like "New Edition" and causing empty-key collisions for artists named "Special", "Bonus", or "EP" -- fixed to album-only removal. (3) `normalize_track_name` had a 13-char hardcoded punctuation list vs `str.maketrans(string.punctuation,...)` in `normalize_name` -- fixed to use the same approach. Coverage gap also closed: `fetch_top_albums_async` (aggregation, filtering, timestamp logic) now has 7 tests in new `tests/services/test_lastfm_logic.py`. Owner validated with a real non-Latin-script album that was previously absent from results. Full detail in `docs/history/BUGFIX_NORMALIZATION_2026-02-21.md`. 110 tests passing.
 - **Gemini audit remediation (2026-02-21):** Four issues from a second Gemini audit pass fixed. (1) Late slicing: `_fetch_and_process` now pre-slices `filtered_albums` by `play_count` before `process_albums` when `sort_mode="playcount"` and a finite `limit_results` is set -- eliminating unnecessary Spotify searches for albums outside the top N. Playtime sort cannot be pre-sliced (documented). (2) DB stale row cleanup: `_cleanup_stale_metadata(conn)` added to `cache.py`, called opportunistically from `process_albums` after Phase 1 lookup -- DELETEs rows older than `METADATA_CACHE_TTL_DAYS`. Non-fatal. (3) `ERROR_CODES` and `SpotifyUnavailableError` extracted from `domain.py` to new leaf module `scrobblescope/errors.py`; import sites in `orchestrator.py`, `repositories.py`, and the orchestrator test file updated. (4) Duplicate release_scope->text translation in `routes.py:unmatched_view` replaced with call to existing `get_filter_description`. Full detail in `docs/history/BUGFIX_AUDIT_REMEDIATION_2026-02-21.md`. 114 tests passing.
+- **Sycophantic test audit (2026-02-21, Batch 10 WP-5):** Five tests strengthened or removed following a Gemini 2.5 Pro characterisation of the suite as providing "mock-call-only" and "vacuously passing" coverage. (1) `test_results_loading_thread_start_failure_renders_error` -- dropped delete_job mock, replaced with JOBS snapshot diff so orphan-job regressions are caught. (2) `test_fetch_and_process_cache_hit_does_not_precheck_spotify` -- added `JOBS[job_id]["results"]` assertion to verify set_job_results side-effect (background_task reads job state, not return value). (3) `test_succeeds_with_strong_key_in_dev_mode` -- removed as near-duplicate of production strong-key test. (4) `test_cleanup_stale_metadata_nonfatal` -- added caplog warning assertion. (5) `test_delete_job_on_missing_job_is_noop` -- added JOBS membership check. Full detail in `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`. 113 tests passing.

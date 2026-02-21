@@ -426,7 +426,10 @@ All commits must comply with the commit message standard in Section 5.
   - WP-2 (Low-Medium): DB stale row cleanup (_cleanup_stale_metadata). Done.
   - WP-3 (Low): Consolidate duplicate filter-text translation in routes.py. Done.
   - WP-4 (Low): Extract ERROR_CODES + SpotifyUnavailableError to errors.py. Done.
-  - Next: "sycophantic test coverage" audit (owner to elaborate scope).
+  - WP-5: Sycophantic test coverage audit. Done. (5 findings: 4 strengthened, 1
+    removed. 113 tests passing. See
+    `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`.)
+  - Next: SoC and duplication audit of routes.py (and related .py files).
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days (Last.fm-only, lighter background task).
@@ -455,6 +458,39 @@ Source-of-truth note:
 - Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-21 - test: sycophantic test coverage audit (Batch 10 WP-5)
+
+- Scope: `tests/test_routes.py`, `tests/services/test_orchestrator_service.py`,
+  `tests/test_app_factory.py`, `tests/test_repositories.py`,
+  `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md` (new doc).
+- Problem: A Gemini 2.5 Pro audit of the 94-test baseline characterised the suite
+  as "sycophantic" -- three structural patterns: assumption mirroring (tests use
+  the same data shortcuts as production code), circular mocking (orchestrator tests
+  return perfect fixture data and confirm perfect results), and interface-only
+  validation (route tests patch start_job_thread so background state is never
+  verified). Review of the current 114-test suite identified five specific instances:
+  1. `test_results_loading_thread_start_failure_renders_error`: patched delete_job
+     and only called assert_called_once() -- no arg check, no JOBS state check.
+  2. `test_fetch_and_process_cache_hit_does_not_precheck_spotify`: only asserted
+     on return value; background_task reads job state not return value, so the
+     critical set_job_results side-effect was unchecked.
+  3. `test_succeeds_with_strong_key_in_dev_mode`: near-duplicate of the production
+     strong-key test; zero unique regression protection.
+  4. `test_cleanup_stale_metadata_nonfatal`: no assertion at all.
+  5. `test_delete_job_on_missing_job_is_noop`: no assertion at all.
+- Plan vs implementation: all five fixed as described in
+  `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`. No scope additions.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **113 passed** (114 - 1 removed duplicate).
+  - `pre-commit run --all-files`: all 8 hooks passed.
+  - No production code changes. Test-only commit.
+- Forward guidance: next sub-track is SoC and duplication audit of routes.py.
+  The suite-level "circular mocking" concern (no integration layer between
+  fetch_top_albums_async aggregation and orchestrator processing) is a valid
+  observation but out of scope for this task -- it would require new integration
+  tests, not quality fixes to existing ones. Document as a known gap.
 
 ### 2026-02-21 - refactor/fix: Gemini audit remediation (non-normalization track)
 
