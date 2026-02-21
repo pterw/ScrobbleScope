@@ -146,7 +146,7 @@ Acceptance criteria:
 - End-to-end runtime improves measurably.
 - Progress transitions remain coherent for users.
 
-## WP-7 (P2): Frontend safety and resilience polish
+## ~~WP-7 (P2): Frontend safety and resilience polish~~ [DONE - 2026-02-20]
 
 Problem:
 - Some UI rendering paths still rely on HTML insertion patterns that are fragile.

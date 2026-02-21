@@ -449,6 +449,29 @@ Source-of-truth note:
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-20 - WP-7: frontend safety — showToast DOM construction + non-200 fetch guard
+- Scope: `static/js/results.js`.
+- Problem 1: `showToast` built its HTML via a template-literal string injected with
+  `insertAdjacentHTML`. The `message` argument was interpolated without escaping,
+  creating an HTML injection pathway if any caller passed server-sourced content.
+- Problem 2: `fetchUnmatchedAlbums` piped `fetch()` directly to `.json()` without
+  checking `response.ok`. A non-200 response (404, 500, etc.) would be silently
+  treated as valid data, surfacing as "No unmatched albums found" instead of an
+  error.
+- Fix:
+  - Rewrote `showToast` to build the toast element tree with `document.createElement`
+    / `textContent` / `setAttribute`; eliminated `insertAdjacentHTML` and the unused
+    `toastId`. Message content is now set via `.textContent` (XSS-safe).
+  - Added `response.ok` guard before `response.json()` in `fetchUnmatchedAlbums`;
+    throws `Error("Server error: <status>")` on non-2xx, which the existing `.catch`
+    handler surfaces to the user.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **94 passed**.
+  - `pre-commit run --all-files`: all hooks passed.
+  - `python scripts/doc_state_sync.py --check`: passed.
+- Forward guidance: WP-7 complete. WP-8 (CI/lint/dependency hygiene) is next.
+
 ### 2026-02-20 - P1 refactor: extract VALID_FORM_DATA and csrf_app_client fixture
 - Scope: `tests/helpers.py`, `tests/conftest.py`, `tests/test_routes.py`.
 - Problem: `VALID_FORM_DATA` (the flounder14/2025 form dict for `/results_loading`
