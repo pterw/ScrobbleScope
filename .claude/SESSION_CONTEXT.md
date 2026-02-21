@@ -24,7 +24,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | `ea1a3e4` - docs(tooling): close out Batch 9 and archive all execution log entries |
+| Latest commit | Use `git rev-parse --short HEAD` for current snapshot |
 | Tests | **94 passing** across 8 test files |
 | Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8, doc-state-sync-check) |
@@ -57,10 +57,12 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
-- Current batch: Batch 9.
+- Current batch: none (between batches).
+- Last completed batch in PLAYBOOK Section 9: Batch 9.
+- Next batch definition status: Batch 10 is not yet defined.
 - Current-batch entries in active log block: 0.
-- Completed work packages in current-batch entries: none.
-- Next expected work package: unknown.
+- Completed work packages in current-batch entries: n/a (no active batch).
+- Next expected work package: n/a (next batch not defined).
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 

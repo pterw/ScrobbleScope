@@ -36,6 +36,17 @@ SECTION_10_RE = re.compile(
 )
 GENERIC_SECTION_RE = re.compile(r"^##\s+")
 ENTRY_HEADING_RE = re.compile(r"^###\s+(\d{4}-\d{2}-\d{2})\s+-\s+(.+?)\s*$")
+BATCH_COMPLETE_RE = re.compile(r"\bBatch\s+(\d+)\s+is\s+complete\b", re.IGNORECASE)
+BATCH_NOT_DEFINED_RE = re.compile(
+    r"\bBatch\s+(\d+)\s+is\s+not\s+yet\s+defined\b", re.IGNORECASE
+)
+BATCH_CURRENT_RE = re.compile(
+    r"\bBatch\s+(\d+)\s+is\s+(?:active|current|in[\s-]?progress)\b", re.IGNORECASE
+)
+BATCH_NEXT_RE = re.compile(
+    r"\bnext\s+batch(?:\s+to\s+execute)?[^0-9]*Batch\s+(\d+)\b",
+    re.IGNORECASE,
+)
 
 CURRENT_BATCH_START_MARKER = "<!-- DOCSYNC:CURRENT-BATCH-START -->"
 CURRENT_BATCH_END_MARKER = "<!-- DOCSYNC:CURRENT-BATCH-END -->"
@@ -57,6 +68,15 @@ class Entry:
     lines: tuple[str, ...]
     start_idx: int
     fingerprint: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Section9BatchState:
+    """Parsed batch state signals from PLAYBOOK Section 9."""
+
+    current_batch: int | None
+    last_completed_batch: int | None
+    next_undefined_batch: int | None
 
 
 def _read_lines(path: Path) -> list[str]:
@@ -200,12 +220,42 @@ def _render_archive(prefix_lines: list[str], entries: list[Entry]) -> list[str]:
     return _trim_trailing_blank(out)
 
 
-def _extract_batch_number(section_9_lines: list[str]) -> int | None:
-    text = "\n".join(section_9_lines)
-    match = re.search(r"\bBatch\s+(\d+)\b", text, re.IGNORECASE)
-    if not match:
-        return None
-    return int(match.group(1))
+def _parse_section9_batch_state(section_9_lines: list[str]) -> Section9BatchState:
+    completed: list[int] = []
+    not_defined: list[int] = []
+    explicit_current: list[int] = []
+    explicit_next: list[int] = []
+
+    for line in section_9_lines:
+        completed.extend(int(m.group(1)) for m in BATCH_COMPLETE_RE.finditer(line))
+        not_defined.extend(int(m.group(1)) for m in BATCH_NOT_DEFINED_RE.finditer(line))
+        explicit_current.extend(
+            int(m.group(1)) for m in BATCH_CURRENT_RE.finditer(line)
+        )
+        explicit_next.extend(int(m.group(1)) for m in BATCH_NEXT_RE.finditer(line))
+
+    last_completed = max(completed) if completed else None
+    next_undefined = max(not_defined) if not_defined else None
+
+    current_batch = explicit_current[-1] if explicit_current else None
+    if current_batch is None and explicit_next:
+        candidate = explicit_next[-1]
+        if next_undefined != candidate:
+            current_batch = candidate
+
+    if current_batch is None and last_completed is not None and next_undefined is None:
+        # No explicit "current" signal and no "not yet defined" guard; this can
+        # happen when Section 9 is terse while Section 10 already has active logs.
+        current_batch = last_completed + 1
+
+    if next_undefined is not None and current_batch == next_undefined:
+        current_batch = None
+
+    return Section9BatchState(
+        current_batch=current_batch,
+        last_completed_batch=last_completed,
+        next_undefined_batch=next_undefined,
+    )
 
 
 def _collect_wp_numbers(entries: list[Entry]) -> list[int]:
@@ -233,29 +283,48 @@ class SyncResult:
 
 
 def _build_status_block(
-    batch_number: int | None,
+    section_9_state: Section9BatchState,
     current_entries: list[Entry],
 ) -> list[str]:
-    wp_numbers = _collect_wp_numbers(current_entries)
-    completed_wp = (
-        ", ".join(f"WP-{num}" for num in wp_numbers) if wp_numbers else "none"
-    )
-    next_wp = f"WP-{max(wp_numbers) + 1}" if wp_numbers else "unknown"
-    newest_heading = (
-        current_entries[0].heading.removeprefix("### ").strip()
-        if current_entries
-        else "none"
-    )
-    batch_label = f"Batch {batch_number}" if batch_number is not None else "unknown"
+    if current_entries:
+        wp_numbers = _collect_wp_numbers(current_entries)
+        completed_wp = (
+            ", ".join(f"WP-{num}" for num in wp_numbers) if wp_numbers else "none"
+        )
+        next_wp = f"WP-{max(wp_numbers) + 1}" if wp_numbers else "unknown"
+        newest_heading = current_entries[0].heading.removeprefix("### ").strip()
+        batch_num = section_9_state.current_batch
+        if batch_num is None and section_9_state.last_completed_batch is not None:
+            batch_num = section_9_state.last_completed_batch + 1
+        batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
+        return [
+            "- Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).",
+            f"- Current batch: {batch_label}.",
+            f"- Current-batch entries in active log block: {len(current_entries)}.",
+            f"- Completed work packages in current-batch entries: {completed_wp}.",
+            f"- Next expected work package: {next_wp}.",
+            f"- Newest current-batch entry: {newest_heading}.",
+        ]
 
-    return [
+    # Valid between-batch state: no entries inside the current-batch markers.
+    last_completed = section_9_state.last_completed_batch
+    lines = [
         "- Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).",
-        f"- Current batch: {batch_label}.",
-        f"- Current-batch entries in active log block: {len(current_entries)}.",
-        f"- Completed work packages in current-batch entries: {completed_wp}.",
-        f"- Next expected work package: {next_wp}.",
-        f"- Newest current-batch entry: {newest_heading}.",
+        "- Current batch: none (between batches).",
+        f"- Last completed batch in PLAYBOOK Section 9: "
+        f"{f'Batch {last_completed}' if last_completed is not None else 'unknown'}.",
+        "- Current-batch entries in active log block: 0.",
+        "- Completed work packages in current-batch entries: n/a (no active batch).",
+        "- Next expected work package: n/a (next batch not defined).",
+        "- Newest current-batch entry: none.",
     ]
+    if section_9_state.next_undefined_batch is not None:
+        lines.insert(
+            3,
+            "- Next batch definition status: "
+            f"Batch {section_9_state.next_undefined_batch} is not yet defined.",
+        )
+    return lines
 
 
 def _sync(keep_non_current: int) -> SyncResult:
@@ -353,9 +422,11 @@ def _sync(keep_non_current: int) -> SyncResult:
         SESSION_STATUS_END_MARKER,
         "SESSION_CONTEXT",
     )
-    batch_number = _extract_batch_number(playbook_lines[section_9_start:section_9_end])
+    section_9_state = _parse_section9_batch_state(
+        playbook_lines[section_9_start:section_9_end]
+    )
     status_block = _build_status_block(
-        batch_number=batch_number,
+        section_9_state=section_9_state,
         current_entries=current_entries,
     )
     new_session_lines = (

@@ -25,7 +25,7 @@ The playbook is the source of truth for batch sequencing and completion status.
 * **APIs**: Last.fm and Spotify
 * **Asynchronous Operations**: `aiohttp` and `aiolimiter` for handling API calls.
 * **Persistent Cache**: Postgres via `asyncpg` (optional locally, enabled in deploy)
-* **Dependency Management**: `pip` and `requirements.txt`.
+* **Dependency Management**: `pip`, `requirements.txt` (runtime), and `requirements-dev.txt` (runtime + dev/test tooling).
 * **Testing & Linting**: `pytest`, `pre-commit`, `black`, `isort`, `flake8`.
 
 ## Environment Setup
@@ -44,7 +44,11 @@ To work with this project, you must set up a local development environment.
     source venv/bin/activate
     ```
 
-2.  **Install Dependencies**: Install all required packages from `requirements.txt`.
+2.  **Install Dependencies**: For agent/development work, install from `requirements-dev.txt` (this includes runtime dependencies plus pytest/pre-commit/lint tooling).
+    ```bash
+    pip install -r requirements-dev.txt
+    ```
+    Runtime-only install (optional):
     ```bash
     pip install -r requirements.txt
     ```
@@ -105,7 +109,8 @@ The CI pipeline defined in `.github/workflows/test.yml` runs these same checks. 
 * `app.py`: Thin Flask app factory entrypoint (`create_app()` + module-level `app` for Gunicorn).
 * `init_db.py`: Postgres schema initializer used by Fly release command.
 * `scrobblescope/`: Core modular application package (routes, orchestration, services, cache, repositories, domain/config).
-* `requirements.txt`: A list of all Python dependencies.
+* `requirements.txt`: Runtime dependencies.
+* `requirements-dev.txt`: Development/test/tooling dependencies (includes `-r requirements.txt`).
 * `.env`: **(You must create this)** Stores the API keys and secrets. It is ignored by git.
 * `static/`: Contains all static assets (CSS, JavaScript, images).
 * `templates/`: Contains all Jinja2 HTML templates for the application.

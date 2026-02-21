@@ -151,7 +151,11 @@ This project is currently a work in progress. However, if you wish to run it loc
     * Windows (PowerShell): `.\venv\Scripts\Activate.ps1`
         *(If script execution is disabled, you may need to run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process`)*
     * macOS/Linux (bash/zsh): `source venv/bin/activate`
-3.  **Install dependencies:**
+3.  **Install dependencies (recommended for contributors/agents):**
+    ```bash
+    pip install -r requirements-dev.txt
+    ```
+    Runtime-only install (optional, if you only want to run the app):
     ```bash
     pip install -r requirements.txt
     ```
@@ -214,6 +218,7 @@ What to look for:
 |-- init_db.py                   # Postgres schema setup (Fly release_command)
 |-- fly.toml                     # Fly.io deployment config
 |-- requirements.txt
+|-- requirements-dev.txt           # Dev/test/tooling deps (includes requirements.txt)
 |-- PLAYBOOK.md                   # Source-of-truth active handoff playbook
 |-- EXECUTION_PLAYBOOK_2026-02-11.md  # Legacy shim; points to PLAYBOOK.md
 |-- scrobblescope/
