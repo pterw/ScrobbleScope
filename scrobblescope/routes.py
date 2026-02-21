@@ -45,6 +45,20 @@ def _extract_job_params(job_context):
     }
 
 
+def _filter_results_for_display(results_data, sort_mode):
+    """Remove albums with no play-time data when sorting by playtime.
+
+    Albums without ``play_time_seconds`` would sort to zero and produce
+    misleading playtime rankings. All albums are kept for every other
+    sort mode.
+    """
+    return [
+        album
+        for album in results_data
+        if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
+    ]
+
+
 def _group_unmatched_by_reason(unmatched_data):
     """Group unmatched-album items by their ``reason`` string.
 
@@ -254,11 +268,7 @@ def results_complete():
             details="Please wait on the loading page and try again.",
         )
 
-    filtered_results = [
-        album
-        for album in results_data
-        if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
-    ]
+    filtered_results = _filter_results_for_display(results_data, sort_mode)
 
     if not filtered_results:
         unmatched_count = len(job_context.get("unmatched", {}))
