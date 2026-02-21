@@ -58,10 +58,10 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
 - Current batch: Batch 9.
-- Current-batch entries in active log block: 17.
-- Completed work packages in current-batch entries: WP-1, WP-2, WP-3, WP-4, WP-5, WP-6, WP-7, WP-8.
-- Next expected work package: WP-9.
-- Newest current-batch entry: 2026-02-20 - fix(tooling): remove transient rotated field from SESSION_CONTEXT status block.
+- Current-batch entries in active log block: 0.
+- Completed work packages in current-batch entries: none.
+- Next expected work package: unknown.
+- Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
 ---

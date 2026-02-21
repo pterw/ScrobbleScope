@@ -138,6 +138,10 @@ Use a body when context is needed (why, impact, and scope).
   - To flush non-current Section 10 entries to the archive at a batch boundary, run:
     `python scripts/doc_state_sync.py --fix --keep-non-current 0`
     This is a single idempotent command; no second normalisation pass is required.
+  - At full batch close-out, also move the `<!-- DOCSYNC:CURRENT-BATCH-START -->` marker
+    to just above `<!-- DOCSYNC:CURRENT-BATCH-END -->` (leaving the block empty), then
+    run the above command. The script supports an empty current-batch block as a valid
+    state between batches.
 
 ## Required Documentation Updates
 

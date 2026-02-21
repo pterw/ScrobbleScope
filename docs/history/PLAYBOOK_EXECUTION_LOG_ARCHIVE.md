@@ -9,6 +9,279 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-20 - fix(tooling): remove transient rotated field from SESSION_CONTEXT status block
+- Scope: `scripts/doc_state_sync.py`, `AGENTS.md`.
+- Problem: `_build_status_block` wrote `rotated=N` into the managed SESSION_CONTEXT
+  block based on the current run's rotation count. The subsequent `--check` always
+  recomputed `rotated=0` from the now-clean playbook, causing permanent drift after
+  any `--fix --keep-non-current N` run. The workaround required a two-pass sequence.
+- Fix: Removed the `Rotated to archive in latest sync run` line from `_build_status_block`.
+  The count is still reported on stdout; it is no longer written to a file that `--check`
+  re-derives. `--fix --keep-non-current 0` is now a single idempotent command.
+- Updated `AGENTS.md` to document the one-pass rotation pattern for agent handoff.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **94 passed**.
+  - `pre-commit run --all-files`: all hooks passed.
+  - `python scripts/doc_state_sync.py --check`: passed.
+- Forward guidance: tooling is stable. WP-8 (CI/lint/dependency hygiene) is next.
+
+### 2026-02-20 - docs: rotate 4 stale non-current Section 10 entries to archive
+- Scope: `PLAYBOOK.md`, `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, `.claude/SESSION_CONTEXT.md`.
+- Problem: Four pre-Batch-9 entries (2026-02-19 x2, 2026-02-14 x2) had accumulated
+  below `CURRENT-BATCH-END` as `kept_non_current=4` with `rotated=0`, creating
+  visible bloat in Section 10.
+- Fix: Ran `python scripts/doc_state_sync.py --fix --keep-non-current 0` to flush
+  all non-current entries to the archive. Section 10 now contains only active-batch
+  entries.
+- Deviations: none (purely mechanical doc maintenance).
+- Validation:
+  - `python scripts/doc_state_sync.py --check`: passed.
+  - `pre-commit run --all-files`: all hooks passed.
+- Forward guidance: run `--fix --keep-non-current 0` at each batch boundary to keep
+  Section 10 clean.
+
+### 2026-02-20 - WP-7: frontend safety — showToast DOM construction + non-200 fetch guard
+- Scope: `static/js/results.js`.
+- Problem 1: `showToast` built its HTML via a template-literal string injected with
+  `insertAdjacentHTML`. The `message` argument was interpolated without escaping,
+  creating an HTML injection pathway if any caller passed server-sourced content.
+- Problem 2: `fetchUnmatchedAlbums` piped `fetch()` directly to `.json()` without
+  checking `response.ok`. A non-200 response (404, 500, etc.) would be silently
+  treated as valid data, surfacing as "No unmatched albums found" instead of an
+  error.
+- Fix:
+  - Rewrote `showToast` to build the toast element tree with `document.createElement`
+    / `textContent` / `setAttribute`; eliminated `insertAdjacentHTML` and the unused
+    `toastId`. Message content is now set via `.textContent` (XSS-safe).
+  - Added `response.ok` guard before `response.json()` in `fetchUnmatchedAlbums`;
+    throws `Error("Server error: <status>")` on non-2xx, which the existing `.catch`
+    handler surfaces to the user.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **94 passed**.
+  - `pre-commit run --all-files`: all hooks passed.
+  - `python scripts/doc_state_sync.py --check`: passed.
+- Forward guidance: WP-7 complete. WP-8 (CI/lint/dependency hygiene) is next.
+
+### 2026-02-20 - P1 refactor: extract VALID_FORM_DATA and csrf_app_client fixture
+- Scope: `tests/helpers.py`, `tests/conftest.py`, `tests/test_routes.py`.
+- Problem: `VALID_FORM_DATA` (the flounder14/2025 form dict for `/results_loading`
+  tests) was copy-pasted verbatim 7 times across `test_routes.py`. The 5-line
+  CSRF-enabled app + test-client setup was repeated in every CSRF test function.
+- Fix:
+  - Added `VALID_FORM_DATA` constant to `tests/helpers.py`.
+  - Added `csrf_app_client` pytest fixture to `tests/conftest.py`; it creates a
+    CSRF-enabled app client (WTF_CSRF_ENABLED not disabled) for CSRF enforcement
+    tests.
+  - Updated `tests/test_routes.py`: removed `from app import create_app` (now
+    unused); imported `VALID_FORM_DATA` from `tests.helpers`; replaced all 7
+    inline form dicts with `VALID_FORM_DATA` (or `{**VALID_FORM_DATA, "year": "X"}`
+    for year-override cases); replaced all 6 CSRF test inline app setups with the
+    `csrf_app_client` fixture parameter.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **94 passed** (no count change; pure refactor, no behaviour
+    change).
+  - `pre-commit run --all-files`: all hooks passed.
+- Forward guidance: Next is WP-7 (frontend safety and resilience polish).
+
+### 2026-02-20 - P1 perf: remove O(n) cache-size scan from cleanup_expired_cache
+- Scope: `scrobblescope/utils.py`.
+- Problem: `cache_size_mb = sum(len(str(v)) for v in REQUEST_CACHE.values()) / ...`
+  ran inside `_cache_lock` on every cleanup call, even when debug logging was
+  disabled. This O(n) string-serialization of all cached values held the lock
+  unnecessarily and added CPU overhead proportional to cache size.
+- Fix: removed the `cache_size_mb` line and simplified the debug log to
+  `f"Cache status: {cache_count} entries"`. Count-only logging is sufficient
+  for operational visibility; size estimation is not a runtime requirement.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **94 passed** (no count change; no test needed for log format).
+  - `pre-commit run --all-files`: all hooks passed.
+- Forward guidance: Next P1 item is test boilerplate extraction in
+  `test_routes.py` (VALID_FORM_DATA + csrf_app_client fixture).
+
+### 2026-02-20 - P0 fix: delete orphan JOBS entry on thread-start failure
+- Scope: `scrobblescope/repositories.py`, `scrobblescope/routes.py`,
+  `tests/test_repositories.py`, `tests/test_routes.py`.
+- Problem: `create_job()` was called before `start_job_thread()`; on thread-start
+  failure the semaphore slot was correctly released by `worker.py`, but the
+  `JOBS[job_id]` entry persisted as an orphan until the 2-hour TTL cleanup.
+- Fix:
+  - Added `delete_job(job_id)` to `repositories.py`:
+    `with jobs_lock: JOBS.pop(job_id, None)`.
+  - Imported `delete_job` in `routes.py`; called it in the `except` block after
+    thread-start failure, before returning the error page.
+  - Added 2 tests to `test_repositories.py`:
+    `test_delete_job_removes_existing_job`,
+    `test_delete_job_on_missing_job_is_noop`.
+  - Strengthened existing `test_results_loading_thread_start_failure_renders_error`
+    to assert `mock_delete_job.assert_called_once()`.
+- Validation:
+  - `pytest -q`: **94 passed** (92 pre-existing + 2 new).
+  - `pre-commit run --all-files`: all hooks passed.
+- Forward guidance: The known orphan-job open risk (SESSION_CONTEXT.md Section 2)
+  is now closed. Remaining P1 items: cache_size_mb in `cleanup_expired_cache`,
+  and test boilerplate extraction in `test_routes.py`. Next required work package
+  is WP-7 (frontend safety and resilience polish).
+
+### 2026-02-20 - README refreshed (Batch 9 completions and roadmap)
+- Scope: `README.md`.
+- Changes:
+  - Python badge updated from `3.9+` to `3.13+`.
+  - Removed stale playtime-sorting caveat from Features section.
+  - Tech Stack: `Python 3.x` -> `Python 3.13`; added `Flask-WTF` to Core Python
+    Libraries bullet.
+  - Key Implementation Highlights: added three bullets (Bounded Job Concurrency,
+    CSRF Protection, Startup Secret Guard).
+  - Project File Structure: added `worker.py`, `test_app_factory.py`,
+    `test_utils.py`, `scripts/doc_state_sync.py`.
+  - Current Status checklist: added six new `[x]` items for WP-1 through WP-6
+    outcomes.
+  - Added "Confirmed upcoming features" subsection (top songs, listening heatmap).
+  - Added "UI enrichments (planned, lower priority)" subsection.
+- Commit: `14f251a` docs: refresh README for Batch 9 completions and roadmap.
+- Forward guidance: README is now accurate as of WP-6 completion. Next step is WP-7.
+
+### 2026-02-20 - doc_state_sync maintenance (remove volatile Last sync commit field)
+- Scope: `scripts/doc_state_sync.py`, `.claude/SESSION_CONTEXT.md`.
+- Issue: `doc-state-sync-check` pre-commit hook was failing on PR merge to main.
+  Root cause: `_build_status_block()` called `git rev-parse --short HEAD` to write
+  `Last sync commit: <hash>` into SESSION_CONTEXT.md. On `--check`, the command
+  returned the NEW merge commit hash, which did not match the stored hash, causing
+  drift detection failure on every merge.
+- Fix: Removed `_git_head_short()` function, `subprocess` import, and the
+  `Last sync commit` line from `_build_status_block`. The `--check` now validates
+  only stable content-level fields (batch number, WP numbers, entry count, newest
+  heading). Ran `--fix` to drop the stale `Last sync commit` line from
+  SESSION_CONTEXT.md.
+- Commit: `cdedd65` fix: remove Last sync commit from doc_state_sync status block.
+- Forward guidance: The doc-state-sync-check hook will no longer false-positive on
+  merge commits. SESSION_CONTEXT DOCSYNC block is validated on content only.
+
+### 2026-02-20 - WP-6 completed (remove artificial orchestration sleeps)
+- Scope: `scrobblescope/orchestrator.py`, `tests/services/test_orchestrator_service.py`.
+- Plan vs implementation:
+  - Removed all 5 `await asyncio.sleep(0.5)` calls from `_fetch_and_process`. The
+    calls were added as a progress-pacing mechanism but served no functional purpose
+    and added a fixed 2.5 s latency overhead to every job.
+  - All `set_job_progress` calls and their messages are preserved at the same
+    progress values (0, 5, 20, 30, 40, 60, 80, 90, 100), so the loading-page
+    progress sequence is unchanged from the user's perspective.
+  - `asyncio` import retained: `asyncio.Semaphore`, `asyncio.gather`,
+    `asyncio.new_event_loop`, and `asyncio.set_event_loop` are still used.
+  - Removed two dead `patch("asyncio.sleep", new_callable=AsyncMock)` lines from
+    `test_fetch_and_process_cache_hit_does_not_precheck_spotify` and
+    `test_fetch_and_process_sets_spotify_error_from_process_albums` in
+    `tests/services/test_orchestrator_service.py`. Those patches were no-ops after
+    the sleep removals.
+- Deviations and why: none. "Gate with debug-only UX flag" option was not needed;
+  the plain removal is simpler and all test coverage is already progress-message
+  based, not timing based.
+- Additions beyond plan: none.
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8,
+    trim, end-of-file, doc-state-sync-check).
+  - `pytest -q`: **92 passed** (no count change; two dead patches removed,
+    no new tests needed).
+- Forward guidance: Next work package is WP-7 (frontend safety and resilience
+  polish).
+
+### 2026-02-20 - WP-5 completed (enforce registration-year validation server-side)
+- Scope: `scrobblescope/routes.py`, `tests/test_routes.py`.
+- Plan vs implementation:
+  - Added a registration-year guard in `results_loading` immediately after the
+    `2002..current_year` bounds check. The guard calls `check_user_exists(username)`
+    via `run_async_in_thread` (same helper used by `validate_user`). The result is
+    already cached from the blur-validation step, so the call is typically free.
+  - If `registered_year` is present and `year < registered_year`, the route
+    re-renders `index.html` with an explicit error message citing the registration
+    year and the earliest valid year.
+  - If the check raises (Last.fm unavailable, network error, etc.), a `WARNING`
+    is logged and the route proceeds without blocking the user (fail-open policy).
+  - If `registered_year` is `None` (not returned by Last.fm), the check is skipped
+    and the route proceeds normally.
+  - Updated four existing `results_loading` tests that reach the guard to patch
+    `scrobblescope.routes.run_async_in_thread` with a neutral result
+    (`{"exists": True, "registered_year": None}`) to avoid live network calls.
+  - Added four new tests to `tests/test_routes.py`:
+    - `test_results_loading_year_below_registration_year_rejected`
+    - `test_results_loading_year_at_registration_year_allowed`
+    - `test_results_loading_registration_check_unavailable_proceeds`
+    - `test_results_loading_no_registered_year_proceeds`
+- Deviations and why: none. Fail-open on service unavailability was the intended
+  design from the WP-5 spec (client-side validation already covered the common
+  case; server-side guard adds defense-in-depth without blocking on transient errors).
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8,
+    trim, end-of-file, doc-state-sync-check).
+  - `pytest -q`: **92 passed** (88 pre-existing + 4 new).
+- Forward guidance: Next work package is WP-6 (remove or gate artificial
+  orchestration sleeps).
+
+### 2026-02-20 - WP-4 completed (harden app secret and startup safety)
+- Scope: `app.py`, `tests/conftest.py`, `tests/test_app_factory.py` (new), `.env.example`, `README.md`.
+- Plan vs implementation:
+  - Added `_KNOWN_WEAK_SECRETS = frozenset({"dev", "changeme_in_production", ""})` and `_MIN_SECRET_LENGTH = 16` constants in `app.py`.
+  - Added `_validate_secret_key(secret_key: str, is_dev_mode: bool) -> None` in `app.py`. Logic: if key is falsy, in weak set, or shorter than 16 chars -> "weak". In production (`debug_mode=False`): raises `RuntimeError("Refusing to start: ...")`. In dev mode (`DEBUG_MODE=1`): logs `WARNING "SECRET_KEY is missing or insecure. ..."`.
+  - Updated `create_app()` to read `_raw_secret = os.getenv("SECRET_KEY", "")`, call `_validate_secret_key(_raw_secret, debug_mode)`, then set `application.secret_key = _raw_secret or "dev"`. "dev" is the dev-mode fallback; in production, `_validate_secret_key` raises before it can be used.
+  - `tests/conftest.py` updated: added `import os` + `os.environ.setdefault("SECRET_KEY", "test-only-secret-key-min-16chars!!")` before `from app import create_app`. This seeds the guard before `app.py`'s module-level `create_app()` call (which runs at import time).
+  - New `tests/test_app_factory.py` with 7 tests: production-fail on missing/dev/changeme/too-short keys; dev-mode warning; strong-key success in both modes.
+  - `.env.example` `SECRET_KEY` comment updated to say "REQUIRED in production. Startup fails if missing or set to placeholder."
+  - `README.md` setup step 4 comment updated from "Recommended" to "Required in production" with note that `DEBUG_MODE=1` suppresses the check for local dev.
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed (black reformatted `app.py` quote style on first run; clean on second).
+  - `pytest -q`: **88 passed** (81 pre-existing + 7 new).
+- Commit: `eb13a27` feat: refuse startup on weak SECRET_KEY in production.
+- Forward guidance: Next work package is WP-5 (enforce registration-year validation server-side).
+
+### 2026-02-20 - WP-1 correctness fix (slot leak on Thread.start failure)
+- Scope: `scrobblescope/routes.py`, `tests/test_routes.py`.
+- Issue: WP-1 post-audit check found that `acquire_job_slot()` in `results_loading` was not guarded against failure of `Thread.__init__` or `Thread.start()`. If either raises (e.g. `OSError` under OS-level thread exhaustion), the slot is permanently consumed because `background_task`'s `finally` block never runs. This violates WP-1's acceptance criterion "no leaked active slots after worker exceptions."
+- Fix:
+  - Added `release_job_slot` to imports in `routes.py`.
+  - Wrapped `threading.Thread(...)` and `task_thread.start()` in try/except; on exception: `release_job_slot()`, `logging.exception(...)`, return `index.html` with error message.
+  - Added `test_results_loading_thread_start_failure_releases_slot`: patches `Thread` to raise `OSError`, asserts slot is released and index re-rendered.
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed.
+  - `pytest -q`: 77 passed.
+- Also: added "callers must not mutate" to `get_cached_response` docstring (latent mutable-reference risk; no active bug since no caller mutates the returned object).
+
+### 2026-02-20 - Comprehensive repo audit completed + Batch 9 remediation plan authored
+- Scope: full-codebase audit (backend Python, frontend templates/JS/CSS, tests/CI/config/docs), plus operational handoff planning.
+- Plan vs implementation:
+  - Performed a severity-ranked audit focused on security, reliability, correctness, and optimization pathways.
+  - Identified concrete high/medium/low findings with file-level references.
+  - Authored actionable execution plan for next agent:
+    - `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`
+    - Includes WP-1..WP-8, acceptance criteria, and execution order.
+  - Updated this playbook and session context to treat Batch 9 as the active next execution track.
+- Validation:
+  - `venv\Scripts\python -m pytest tests --cov=scrobblescope --cov-report=term-missing -q`: **66 passed**, overall coverage **72%**.
+  - Coverage highlighted lower-tested hotspots used to seed Batch 9 work-package ordering (`lastfm.py`, `utils.py`, `spotify.py`, portions of `orchestrator.py`).
+- Forward guidance:
+  - Execute WP-1 and WP-2 first (highest reliability risk reduction).
+  - Keep documentation synchronized after each work package per Section 8.
+
+### 2026-02-20 - Batch 9 WP-8 completed (CI, lint, dependency hygiene)
+- Scope: `.pre-commit-config.yaml`, `requirements.txt`, `requirements-dev.txt` (new), `.gitignore`, `.github/workflows/test.yml`.
+- Plan vs implementation:
+  - Fixed `check-yaml` pre-commit hook: changed `files: ^.*\.py$` to `files: ^.*\.(yaml|yml)$` so the hook validates YAML files rather than Python files. Removed `.github` from the global `exclude` pattern so `.github/workflows/test.yml` is now reachable by `check-yaml`.
+  - Split runtime vs dev dependencies: moved `pre-commit`, `pytest`, `pytest-asyncio`, `pytest-cov` from `requirements.txt` into new `requirements-dev.txt`. Added `flake8` explicitly to `requirements-dev.txt`. `requirements-dev.txt` includes `-r requirements.txt` so a single install covers everything for dev.
+  - Added `.coverage` to `.gitignore` (coverage artifact from pytest-cov runs).
+  - Updated `.github/workflows/test.yml`: install step now uses `requirements-dev.txt`; removed redundant `pip install pre-commit` and `pip install flake8` lines (covered by requirements-dev.txt); added `--cov=scrobblescope --cov-fail-under=70` to pytest invocation.
+- Deviations and why:
+  - Coverage threshold set at 70% (current measured: ~72%) to provide a realistic floor without false-failing immediately; can be tightened once new feature coverage is added.
+  - `flake8` added explicitly to `requirements-dev.txt` so the direct `flake8 --config .flake8` CI step can rely on it rather than pre-commit's isolated env.
+- Additions beyond plan: none.
+- Validation:
+  - `venv\Scripts\pre-commit run --all-files`: all hooks passed (check yaml now runs against .yaml/.yml files and passes for `.pre-commit-config.yaml` and `.github/workflows/test.yml`).
+  - `venv\Scripts\python -m pytest tests -q`: 94 passed (no regressions).
+- Forward guidance:
+  - Batch 9 remediation complete. Next tracks are product feature batches: **Top songs** (rank most-played tracks per year) and **Listening heatmap** (scrobble density calendar, Last.fm-only).
+  - Coverage gate starts at 70%; aim to raise the threshold incrementally as new features gain test coverage.
+
 ### 2026-02-20 - worker.py architectural decision + product roadmap + CSRF coverage expansion
 
 - Scope: Documentation updates only (`.claude/SESSION_CONTEXT.md`, `EXECUTION_PLAYBOOK_2026-02-11.md`). No runtime code changes yet.
@@ -38,6 +311,68 @@ Read helpers:
   - worker.py is a leaf module -- it must NOT import from `repositories`, `routes`, `orchestrator`, or any higher module (would create cycles).
   - `start_job_thread()` should release the slot and raise on `Thread.start()` failure so routes get a clean exception to handle (mirrors the current try/except pattern in `routes.py`).
   - After the 3 commits are made, next work package is WP-4 (harden app secret and startup safety).
+
+### 2026-02-19 - Batch 9 WP-3 completed (CSRF protection for mutating POST routes)
+- Scope: `requirements.txt`, `app.py`, `templates/index.html`, `templates/results.html`, `templates/loading.html`, `static/js/loading.js`, `tests/conftest.py`, `tests/test_routes.py`.
+- Plan vs implementation:
+  - Added `Flask-WTF>=1.2.0` to `requirements.txt` (installed v1.2.2).
+  - Added `CSRFProtect` to `app.py`: `csrf = CSRFProtect()` at module level, `csrf.init_app(application)` in `create_app()`, plus a `CSRFError` handler that returns a 400 with the `error.html` template and a user-facing message.
+  - Added `<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">` inside the `<form>` element in `templates/index.html` and `templates/results.html` (unmatched_view form).
+  - Added `<meta name="csrf-token" content="{{ csrf_token() }}">` to the `head_extra` block in `templates/loading.html`.
+  - Updated `static/js/loading.js`:
+    - Added `const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';` near the top (after the `window.SCROBBLE` destructure).
+    - Prepended `form.appendChild(createHiddenInput('csrf_token', csrfToken));` as the first hidden input in both `redirectToResults()` and `retryCurrentSearch()`.
+    - Added `'X-CSRFToken': csrfToken` to the headers of the `fetch('/reset_progress', ...)` call in the error handler.
+  - Updated `tests/conftest.py`: added `application.config["WTF_CSRF_ENABLED"] = False` so all existing tests continue to pass without supplying tokens.
+  - Added two CSRF tests to `tests/test_routes.py`:
+    - `test_csrf_rejects_post_without_token`: creates a CSRF-enabled app client, POSTs without a token, asserts 400.
+    - `test_csrf_accepts_post_with_valid_token`: GETs `/` to capture the token from the rendered HTML, POSTs with it, asserts 200 and `window.SCROBBLE` in response.
+- Deviations and why: none.
+- Additions beyond plan: none.
+- Validation:
+  - `pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8, trim, end-of-file).
+  - `pytest -q`: 76 passed (2 new tests added).
+- Forward guidance:
+  - WP-4 (secret hardening) is the next work package.
+  - The `WTF_CSRF_ENABLED = False` fixture override is intentional and standard; it must remain in `conftest.py` to keep all POST route tests free of token boilerplate.
+  - Flask-WTF validates the token from `request.form['csrf_token']` for form POSTs and from `X-CSRFToken` header for XHR/fetch POSTs. Both paths are now covered.
+
+### 2026-02-19 - Batch 9 WP-2 completed (thread-safe REQUEST_CACHE)
+- Scope: `scrobblescope/utils.py`, `tests/test_utils.py` (new file).
+- Plan vs implementation:
+  - Added `_cache_lock = threading.Lock()` to guard all `REQUEST_CACHE` access in `utils.py`.
+  - Wrapped `get_cached_response` in `_cache_lock` to eliminate TOCTOU between `key in REQUEST_CACHE` and `REQUEST_CACHE[key]`.
+  - Wrapped `set_cached_response` in `_cache_lock` for atomic writes.
+  - Wrapped the full iterate-and-pop sequence in `cleanup_expired_cache` in `_cache_lock` to prevent `RuntimeError: dictionary changed size during iteration`. Cache count and size captured inside the lock; logging calls happen outside to minimize hold time.
+  - Created `tests/test_utils.py` (6 tests): cache hit, absent miss, expired miss, overwrite, cleanup correctness, and a concurrent-write-plus-cleanup stress test with 6 threads.
+- Deviations and why: none.
+- Additions beyond plan: none.
+- Validation:
+  - `venv\Scripts\python -m pytest tests -q`: 74 passed (6 new tests in `test_utils.py`).
+  - `venv\Scripts\pre-commit run --all-files`: all hooks passed (black auto-reformatted `utils.py` on first run; re-run confirmed clean).
+- Forward guidance:
+  - WP-3 (CSRF protection for mutating POST routes) is the next work package.
+  - `_cache_lock` is importable from `scrobblescope.utils` if future tests or modules need to inspect or clear the cache safely.
+
+### 2026-02-19 - Batch 9 WP-1 completed (bound background job concurrency)
+- Scope: `scrobblescope/config.py`, `scrobblescope/repositories.py`, `scrobblescope/routes.py`, `scrobblescope/orchestrator.py`, `tests/test_routes.py`, `tests/services/test_orchestrator_service.py`.
+- Plan vs implementation:
+  - Added `MAX_ACTIVE_JOBS = int(os.getenv("MAX_ACTIVE_JOBS", "10"))` to `config.py`.
+  - Added `_active_jobs_semaphore = threading.BoundedSemaphore(MAX_ACTIVE_JOBS)` to `repositories.py`.
+  - Added `acquire_job_slot()` (non-blocking acquire, returns bool) and `release_job_slot()` (safe release with over-release guard) to `repositories.py`.
+  - In `routes.py` `results_loading`: capacity check runs after `cleanup_expired_jobs()` and before `create_job()`; if at capacity, re-renders `index.html` with a retryable error message (no thread spawned, no job created).
+  - In `orchestrator.py` `background_task`: `release_job_slot()` called in the `finally` block after `loop.close()`, guaranteeing release on all termination paths (success, handled exception, unhandled exception).
+- Deviations and why:
+  - Default of 10 (not lower) chosen to match existing concurrency constants and be tunable via `MAX_ACTIVE_JOBS` env var without code changes.
+  - Capacity rejection renders `index.html` (same as other input validation errors) rather than a JSON 503, keeping the UX flow consistent with the existing form-submission error pattern.
+- Additions beyond plan: none.
+- Validation:
+  - `venv\Scripts\python -m pytest tests -q`: 68 passed (2 new tests added: capacity-rejection route test + release-on-exception orchestrator test).
+  - `venv\Scripts\pre-commit run --all-files`: all hooks passed (black, isort, autoflake, flake8, trim, end-of-file).
+- Forward guidance:
+  - WP-2 (make `REQUEST_CACHE` thread-safe) is the next work package.
+  - The `_active_jobs_semaphore` is process-global; it resets on restart. Under Fly.io single-VM deployment this is correct behavior.
+  - If the operator wants to verify slot release under real traffic, check logs for `release_job_slot called with no matching acquire` warning (should never appear in normal operation).
 
 ### 2026-02-19 - Fly cold-start recovery validation completed (app + Postgres DB)
 - Scope: operational validation of deployed services and documentation refresh (`.claude/SESSION_CONTEXT.md`, `PLAYBOOK.md`).

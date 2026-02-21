@@ -279,10 +279,11 @@ def _sync(keep_non_current: int) -> SyncResult:
     )
 
     section_10_entries, first_entry_idx = _parse_entries(section_10_lines)
-    if not section_10_entries or first_entry_idx is None:
-        raise SyncError("PLAYBOOK section 10 does not contain any dated entries.")
-
-    prefix_lines = _remove_marker_lines(section_10_lines[:first_entry_idx])
+    # first_entry_idx may be None when section 10 has no dated entries (valid
+    # at a batch boundary after all entries have been rotated to archive).
+    prefix_lines = _remove_marker_lines(
+        section_10_lines[:first_entry_idx]  # [:None] == [:] when no entries
+    )
     cleaned_entries: list[Entry] = []
     for entry in section_10_entries:
         cleaned_list = _trim_trailing_blank(_remove_marker_lines(entry.lines))
@@ -305,10 +306,8 @@ def _sync(keep_non_current: int) -> SyncResult:
         for entry in cleaned_entries
         if marker_start < entry.start_idx < marker_end
     ]
-    if not current_entries:
-        raise SyncError(
-            "No dated entries were found inside the current-batch marker block in PLAYBOOK section 10."
-        )
+    # Empty current-batch block is valid at a batch boundary (all entries
+    # rotated, new batch not yet started).
 
     non_current_entries = [
         entry
