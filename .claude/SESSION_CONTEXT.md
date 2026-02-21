@@ -24,14 +24,14 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | `14f251a` - docs: refresh README for Batch 9 completions and roadmap |
+| Latest commit | `bcbef1e` - docs: fix stale 92 → 94 test count in PLAYBOOK Section 2 |
 | Tests | **94 passing** across 8 test files |
 | Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8, doc-state-sync-check) |
 | app.py line count | ~142 lines (factory + logging setup + CSRF init + secret-key guard) |
 | Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
-| Batch 9 status | **WP-1 through WP-6 complete**; WP-7 is next. See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
+| Batch 9 status | **WP-1 through WP-7 complete**; WP-8 is next. See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
 | Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
 | Known open risk | None open. Orphan job on thread-start failure closed 2026-02-20 (`delete_job` in repositories.py + routes.py). |
@@ -70,7 +70,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 
 ```
 ScrobbleScope/
-  app.py                      # create_app() factory + logging setup + CSRF init (~109 lines)
+  app.py                      # create_app() factory + logging setup + CSRF init + secret-key guard (~142 lines)
   scrobblescope/
     __init__.py                # package marker
     config.py                  # env var reads, API keys, concurrency constants
@@ -84,16 +84,16 @@ ScrobbleScope/
     orchestrator.py            # process_albums, _fetch_and_process, background_task
     routes.py                  # Flask Blueprint with all route handlers + error handlers
   tests/
-    conftest.py                # pytest fixtures only (client)
-    helpers.py                 # shared test constants + async mock helpers
+    conftest.py                # pytest fixtures: client (CSRF disabled) + csrf_app_client (CSRF enabled)
+    helpers.py                 # shared test constants (TEST_JOB_PARAMS, VALID_FORM_DATA) + async mock helpers
     test_app_factory.py        # 7 tests (WP-4 secret-key validation)
     test_domain.py             # 6 tests
-    test_repositories.py       # 16 tests (job state + DB helpers incl retry/backoff)
+    test_repositories.py       # 18 tests (job state + DB helpers incl retry/backoff + delete_job)
     test_routes.py             # 39 tests (all route handlers incl unmatched_view + 404/500 + WP-5)
     services/
       test_lastfm_service.py   # 4 tests
       test_spotify_service.py  # 3 tests
-      test_orchestrator_service.py # 10 tests
+      test_orchestrator_service.py # 11 tests
   templates/                   # Jinja2 templates (unchanged)
   static/                      # CSS/JS (unchanged)
   init_db.py                   # Postgres schema setup
@@ -174,20 +174,20 @@ POST /results_complete
 
 ---
 
-## 8. Test structure (88 tests)
+## 8. Test structure (94 tests)
 
 | File | Count | Scope |
 |------|-------|-------|
 | test_app_factory.py | 7 | _validate_secret_key: production-fail paths, dev-mode warn, strong-key pass (WP-4) |
 | test_domain.py | 6 | normalize_name, normalize_track_name, _extract_registered_year |
-| test_repositories.py | 16 | Job state functions (7) + DB cache helpers (9 incl DB connect retry/backoff) |
+| test_repositories.py | 18 | Job state functions (7) + DB cache helpers (9 incl retry/backoff) + delete_job (2) |
 | test_utils.py | 6 | REQUEST_CACHE hit/miss/expiry/overwrite/cleanup + concurrent-access stress test |
 | tests/services/test_lastfm_service.py | 4 | Last.fm user-check and page-retry behavior |
 | tests/services/test_spotify_service.py | 3 | Spotify search/details retry and non-200 behavior |
 | tests/services/test_orchestrator_service.py | 11 | process_albums, _fetch_and_process, background_task (incl WP-1 slot-release tests) |
 | test_routes.py | 39 | All Flask route handlers (incl unmatched_view, 404/500, WP-1 capacity/start-failure, WP-3 CSRF all 4 routes + XHR header path, WP-5 registration-year guard: reject/allow/fail-open/no-year paths) |
 
-**Shared fixtures/helpers:** `conftest.py` provides only pytest fixtures (`client`); `tests/helpers.py` provides `TEST_JOB_PARAMS`, `NoopAsyncContext`, and `make_response_context`.
+**Shared fixtures/helpers:** `conftest.py` provides `client` (CSRF disabled) and `csrf_app_client` (CSRF enabled) fixtures; `tests/helpers.py` provides `TEST_JOB_PARAMS`, `VALID_FORM_DATA`, `NoopAsyncContext`, and `make_response_context`.
 
 **Patch target convention:** Tests patch at the module where the name is looked up. E.g., `"scrobblescope.routes.run_async_in_thread"`, `"scrobblescope.orchestrator._get_db_connection"`.
 
@@ -211,4 +211,5 @@ POST /results_complete
 - **WP-4 (2026-02-20):** App secret hardened. `_validate_secret_key(secret_key, is_dev_mode)` added to `app.py`; called inside `create_app()`. Raises `RuntimeError` in production when `SECRET_KEY` is absent, in known-weak set (`"dev"`, `"changeme_in_production"`, `""`), or shorter than 16 chars. Logs a warning in dev mode (`DEBUG_MODE=1`) instead of failing. `conftest.py` seeds `os.environ.setdefault("SECRET_KEY", "test-only-secret-key-min-16chars!!")` before importing `app` so module-level `create_app()` does not trip the guard. 7 tests in new `tests/test_app_factory.py`. `.env.example` and `README.md` updated to document the requirement. 88 tests passing.
 - **WP-5 (2026-02-20):** Server-side registration-year validation added. In `results_loading`, after the `2002..current_year` bounds check, calls `check_user_exists(username)` via `run_async_in_thread` (typically a free cache hit from the blur-validation step). If `registered_year` is present and `year < registered_year`, re-renders `index.html` with an explicit error. Fail-open on service unavailability. 4 new tests in `test_routes.py` (reject, allow at boundary, fail-open, no-registered-year). 92 tests passing.
 - **WP-6 (2026-02-20):** All 5 `await asyncio.sleep(0.5)` calls removed from `_fetch_and_process` in `orchestrator.py`. Eliminated 2.5 s fixed latency overhead per job. `asyncio` import retained (still used for Semaphore, gather, new_event_loop, set_event_loop). Removed 2 dead `patch("asyncio.sleep", ...)` lines from `test_orchestrator_service.py`. 92 tests still passing.
-- **doc_state_sync fix (2026-02-20):** `_git_head_short()` function and `subprocess` import removed from `scripts/doc_state_sync.py`. The `Last sync commit` field was volatile (merge commits advanced HEAD) and caused `doc-state-sync-check` pre-commit hook to false-positive on every PR merge. The `--check` now validates only stable content-level fields.
+- **WP-7 (2026-02-20):** Frontend safety polish. `showToast` in `results.js` converted from `insertAdjacentHTML`+template-literal to safe DOM construction (`createElement`/`textContent`). `fetchUnmatchedAlbums` now throws on non-200 responses via `response.ok` guard before `.json()`. 94 tests still passing.
+- **doc_state_sync fix (2026-02-20):** `_git_head_short()` function and `subprocess` import removed from `scripts/doc_state_sync.py`. The `Last sync commit` field was volatile (merge commits advanced HEAD) and caused `doc-state-sync-check` pre-commit hook to false-positive on every PR merge. The `--check` now validates only stable content-level fields. The transient `rotated=N` field was also removed from the managed SESSION_CONTEXT block to eliminate post-rotation drift.
