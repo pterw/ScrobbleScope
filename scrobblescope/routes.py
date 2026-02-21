@@ -30,6 +30,21 @@ def _check_user_exists(username):
     return run_async_in_thread(_check)
 
 
+def _extract_job_params(job_context):
+    """Return a dict of job parameters stored in *job_context*."""
+    params = job_context.get("params", {})
+    return {
+        "username": params.get("username"),
+        "year": params.get("year"),
+        "sort_mode": params.get("sort_mode"),
+        "release_scope": params.get("release_scope", "same"),
+        "decade": params.get("decade"),
+        "release_year": params.get("release_year"),
+        "min_plays": params.get("min_plays", 10),
+        "min_tracks": params.get("min_tracks", 3),
+    }
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
@@ -203,20 +218,17 @@ def results_complete():
             details=details,
         )
 
-    params = job_context.get("params", {})
-    username = params.get("username") or request.form.get("username")
-    year = params.get("year")
+    p = _extract_job_params(job_context)
+    username = p["username"] or request.form.get("username")
+    year = p["year"]
     if year is None:
         year = int(request.form.get("year", datetime.now().year))
-
-    sort_mode = params.get("sort_mode") or request.form.get("sort_by", "playcount")
-    release_scope = params.get("release_scope") or request.form.get(
-        "release_scope", "same"
-    )
-    decade = params.get("decade")
-    release_year = params.get("release_year")
-    min_plays = params.get("min_plays", 10)
-    min_tracks = params.get("min_tracks", 3)
+    sort_mode = p["sort_mode"] or request.form.get("sort_by", "playcount")
+    release_scope = p["release_scope"] or request.form.get("release_scope", "same")
+    decade = p["decade"]
+    release_year = p["release_year"]
+    min_plays = p["min_plays"]
+    min_tracks = p["min_tracks"]
 
     results_data = job_context.get("results")
     if results_data is None:
@@ -308,14 +320,14 @@ def unmatched_view():
             details="Please run a new search.",
         )
 
-    params = job_context.get("params", {})
-    username = params.get("username")
-    year = params.get("year")
-    release_scope = params.get("release_scope", "same")
-    decade = params.get("decade")
-    release_year = params.get("release_year")
-    min_plays = params.get("min_plays", 10)
-    min_tracks = params.get("min_tracks", 3)
+    p = _extract_job_params(job_context)
+    username = p["username"]
+    year = p["year"]
+    release_scope = p["release_scope"]
+    decade = p["decade"]
+    release_year = p["release_year"]
+    min_plays = p["min_plays"]
+    min_tracks = p["min_tracks"]
 
     filter_desc = get_filter_description(release_scope, decade, release_year, int(year))
 
