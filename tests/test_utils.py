@@ -1,4 +1,5 @@
 # tests/test_utils.py
+import asyncio
 import threading
 import time
 
@@ -7,8 +8,10 @@ import pytest
 from scrobblescope.utils import (
     REQUEST_CACHE,
     _cache_lock,
+    _GlobalThrottle,
     cleanup_expired_cache,
     get_cached_response,
+    get_lastfm_limiter,
     set_cached_response,
 )
 
@@ -116,3 +119,53 @@ def test_cache_concurrent_write_and_cleanup_no_error():
         t.join()
 
     assert errors == [], f"Concurrent cache access raised errors: {errors}"
+
+
+def test_global_throttle_serializes_rapid_calls():
+    """
+    GIVEN a _GlobalThrottle at rate=10 (0.1s minimum interval)
+    WHEN next_wait() is called 5 times in rapid succession
+    THEN the first call returns 0 and subsequent calls return increasing
+    positive waits, proving that concurrent callers are serialized.
+    """
+    throttle = _GlobalThrottle(10, 1.0)
+    waits = [throttle.next_wait() for _ in range(5)]
+
+    assert waits[0] == 0.0
+    assert all(w > 0 for w in waits[1:])
+    for i in range(1, len(waits) - 1):
+        assert waits[i + 1] > waits[i]
+
+
+def test_cross_thread_limiters_share_global_throttle():
+    """
+    GIVEN two threads each creating their own asyncio event loop
+    WHEN both call get_lastfm_limiter()
+    THEN the returned _ThrottledLimiter instances share the same
+    _GlobalThrottle object, so aggregate throughput across all
+    concurrent background jobs is capped at the configured rate.
+    """
+    throttles = []
+
+    def capture_throttle():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def _get():
+            return get_lastfm_limiter()
+
+        try:
+            limiter = loop.run_until_complete(_get())
+            throttles.append(limiter._throttle)
+        finally:
+            loop.close()
+
+    t1 = threading.Thread(target=capture_throttle)
+    t2 = threading.Thread(target=capture_throttle)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert len(throttles) == 2
+    assert throttles[0] is throttles[1]
