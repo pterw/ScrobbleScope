@@ -31,7 +31,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | app.py line count | ~142 lines (factory + logging setup + CSRF init + secret-key guard) |
 | Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
-| Batch 9 status | **WP-1 through WP-7 complete**; WP-8 is next. See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
+| Batch 9 status | **Complete** (WP-1 through WP-8 all done). See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
 | Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
 | Known open risk | None open. Orphan job on thread-start failure closed 2026-02-20 (`delete_job` in repositories.py + routes.py). |
@@ -58,9 +58,9 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
 - Current batch: Batch 9.
-- Current-batch entries in active log block: 16.
-- Completed work packages in current-batch entries: WP-1, WP-2, WP-3, WP-4, WP-5, WP-6, WP-7.
-- Next expected work package: WP-8.
+- Current-batch entries in active log block: 17.
+- Completed work packages in current-batch entries: WP-1, WP-2, WP-3, WP-4, WP-5, WP-6, WP-7, WP-8.
+- Next expected work package: WP-9.
 - Newest current-batch entry: 2026-02-20 - fix(tooling): remove transient rotated field from SESSION_CONTEXT status block.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -212,4 +212,5 @@ POST /results_complete
 - **WP-5 (2026-02-20):** Server-side registration-year validation added. In `results_loading`, after the `2002..current_year` bounds check, calls `check_user_exists(username)` via `run_async_in_thread` (typically a free cache hit from the blur-validation step). If `registered_year` is present and `year < registered_year`, re-renders `index.html` with an explicit error. Fail-open on service unavailability. 4 new tests in `test_routes.py` (reject, allow at boundary, fail-open, no-registered-year). 92 tests passing.
 - **WP-6 (2026-02-20):** All 5 `await asyncio.sleep(0.5)` calls removed from `_fetch_and_process` in `orchestrator.py`. Eliminated 2.5 s fixed latency overhead per job. `asyncio` import retained (still used for Semaphore, gather, new_event_loop, set_event_loop). Removed 2 dead `patch("asyncio.sleep", ...)` lines from `test_orchestrator_service.py`. 92 tests still passing.
 - **WP-7 (2026-02-20):** Frontend safety polish. `showToast` in `results.js` converted from `insertAdjacentHTML`+template-literal to safe DOM construction (`createElement`/`textContent`). `fetchUnmatchedAlbums` now throws on non-200 responses via `response.ok` guard before `.json()`. 94 tests still passing.
+- **WP-8 (2026-02-20):** CI, lint, and dependency hygiene. `check-yaml` pre-commit hook fixed: `files` pattern changed from `^.*\.py$` to `^.*\.(yaml|yml)$`; `.github` removed from global `exclude` so the workflow YAML is now validated. Dev-only packages (`pre-commit`, `pytest`, `pytest-asyncio`, `pytest-cov`, `flake8`) moved to new `requirements-dev.txt` (`-r requirements.txt` + dev tools); `requirements.txt` is now runtime-only. `.coverage` added to `.gitignore`. CI workflow updated to install `requirements-dev.txt`, drop redundant `pip install` steps, and enforce `--cov-fail-under=70` coverage gate. Batch 9 remediation complete.
 - **doc_state_sync fix (2026-02-20):** `_git_head_short()` function and `subprocess` import removed from `scripts/doc_state_sync.py`. The `Last sync commit` field was volatile (merge commits advanced HEAD) and caused `doc-state-sync-check` pre-commit hook to false-positive on every PR merge. The `--check` now validates only stable content-level fields. The transient `rotated=N` field was also removed from the managed SESSION_CONTEXT block to eliminate post-rotation drift.

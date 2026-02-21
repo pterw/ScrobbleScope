@@ -766,4 +766,22 @@ Source-of-truth note:
   - The `_active_jobs_semaphore` is process-global; it resets on restart. Under Fly.io single-VM deployment this is correct behavior.
   - If the operator wants to verify slot release under real traffic, check logs for `release_job_slot called with no matching acquire` warning (should never appear in normal operation).
 
+### 2026-02-20 - Batch 9 WP-8 completed (CI, lint, dependency hygiene)
+- Scope: `.pre-commit-config.yaml`, `requirements.txt`, `requirements-dev.txt` (new), `.gitignore`, `.github/workflows/test.yml`.
+- Plan vs implementation:
+  - Fixed `check-yaml` pre-commit hook: changed `files: ^.*\.py$` to `files: ^.*\.(yaml|yml)$` so the hook validates YAML files rather than Python files. Removed `.github` from the global `exclude` pattern so `.github/workflows/test.yml` is now reachable by `check-yaml`.
+  - Split runtime vs dev dependencies: moved `pre-commit`, `pytest`, `pytest-asyncio`, `pytest-cov` from `requirements.txt` into new `requirements-dev.txt`. Added `flake8` explicitly to `requirements-dev.txt`. `requirements-dev.txt` includes `-r requirements.txt` so a single install covers everything for dev.
+  - Added `.coverage` to `.gitignore` (coverage artifact from pytest-cov runs).
+  - Updated `.github/workflows/test.yml`: install step now uses `requirements-dev.txt`; removed redundant `pip install pre-commit` and `pip install flake8` lines (covered by requirements-dev.txt); added `--cov=scrobblescope --cov-fail-under=70` to pytest invocation.
+- Deviations and why:
+  - Coverage threshold set at 70% (current measured: ~72%) to provide a realistic floor without false-failing immediately; can be tightened once new feature coverage is added.
+  - `flake8` added explicitly to `requirements-dev.txt` so the direct `flake8 --config .flake8` CI step can rely on it rather than pre-commit's isolated env.
+- Additions beyond plan: none.
+- Validation:
+  - `venv\Scripts\pre-commit run --all-files`: all hooks passed (check yaml now runs against .yaml/.yml files and passes for `.pre-commit-config.yaml` and `.github/workflows/test.yml`).
+  - `venv\Scripts\python -m pytest tests -q`: 94 passed (no regressions).
+- Forward guidance:
+  - Batch 9 remediation complete. Next tracks are product feature batches: **Top songs** (rank most-played tracks per year) and **Listening heatmap** (scrobble density calendar, Last.fm-only).
+  - Coverage gate starts at 70%; aim to raise the threshold incrementally as new features gain test coverage.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->

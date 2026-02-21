@@ -1,5 +1,5 @@
 default_stages: [pre-commit]
-exclude: ^(venv|\.venv|env|\.env|node_modules|dist|build|\.vscode|\.github|docs|logs|oldlogs|static|templates)/
+exclude: ^(venv|\.venv|env|\.env|node_modules|dist|build|\.vscode|docs|logs|oldlogs|static|templates)/
 
 repos:
   - repo: https://github.com/psf/black
@@ -35,7 +35,7 @@ repos:
       - id: end-of-file-fixer
         files: ^.*\.py$
       - id: check-yaml
-        files: ^.*\.py$
+        files: ^.*\.(yaml|yml)$
 
   - repo: local
     hooks:

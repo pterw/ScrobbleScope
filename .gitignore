@@ -27,8 +27,9 @@ env/
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
-# Pytest cache
+# Pytest cache and coverage artifacts
 .pytest_cache/
+.coverage
 
 # VS Code Local History
 .vscode/History/

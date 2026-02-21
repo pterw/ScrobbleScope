@@ -29,20 +29,17 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
       - name: Run pre-commit checks
         run: |
-          pip install pre-commit
           pre-commit run --all-files
 
       - name: Lint code with flake8
         continue-on-error: false
         run: |
-          pip install flake8
           flake8 --config .flake8
 
       - name: Run Tests with Coverage
         run: |
-          pytest --cov=./ --cov-report=xml
-          
+          pytest --cov=scrobblescope --cov-report=xml --cov-fail-under=70

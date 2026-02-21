@@ -167,7 +167,7 @@ Acceptance criteria:
 - No unsanitized user-derived HTML injection pathways in JS.
 - Error states are accurately surfaced (not silently shown as "no data").
 
-## WP-8 (P2): CI, lint, dependency hygiene
+## ~~WP-8 (P2): CI, lint, dependency hygiene~~ [DONE - 2026-02-20]
 
 Problem:
 - Tooling config has inconsistencies (e.g., ineffective `check-yaml` hook); dependencies are not split by runtime/dev concerns.
