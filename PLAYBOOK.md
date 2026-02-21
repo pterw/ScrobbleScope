@@ -449,6 +449,22 @@ Source-of-truth note:
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-20 - P1 perf: remove O(n) cache-size scan from cleanup_expired_cache
+- Scope: `scrobblescope/utils.py`.
+- Problem: `cache_size_mb = sum(len(str(v)) for v in REQUEST_CACHE.values()) / ...`
+  ran inside `_cache_lock` on every cleanup call, even when debug logging was
+  disabled. This O(n) string-serialization of all cached values held the lock
+  unnecessarily and added CPU overhead proportional to cache size.
+- Fix: removed the `cache_size_mb` line and simplified the debug log to
+  `f"Cache status: {cache_count} entries"`. Count-only logging is sufficient
+  for operational visibility; size estimation is not a runtime requirement.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **94 passed** (no count change; no test needed for log format).
+  - `pre-commit run --all-files`: all hooks passed.
+- Forward guidance: Next P1 item is test boilerplate extraction in
+  `test_routes.py` (VALID_FORM_DATA + csrf_app_client fixture).
+
 ### 2026-02-20 - P0 fix: delete orphan JOBS entry on thread-start failure
 - Scope: `scrobblescope/repositories.py`, `scrobblescope/routes.py`,
   `tests/test_repositories.py`, `tests/test_routes.py`.

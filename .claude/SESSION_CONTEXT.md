@@ -58,10 +58,10 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
 - Current batch: Batch 9.
-- Current-batch entries in active log block: 11.
+- Current-batch entries in active log block: 12.
 - Completed work packages in current-batch entries: WP-1, WP-2, WP-3, WP-4, WP-5, WP-6.
 - Next expected work package: WP-7.
-- Newest current-batch entry: 2026-02-20 - P0 fix: delete orphan JOBS entry on thread-start failure.
+- Newest current-batch entry: 2026-02-20 - P1 perf: remove O(n) cache-size scan from cleanup_expired_cache.
 - Rotated to archive in latest sync run: 0.
 <!-- DOCSYNC:STATUS-END -->
 

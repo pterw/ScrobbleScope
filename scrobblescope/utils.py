@@ -170,11 +170,10 @@ def cleanup_expired_cache():
         for key in expired_keys:
             REQUEST_CACHE.pop(key, None)
         cache_count = len(REQUEST_CACHE)
-        cache_size_mb = sum(len(str(v)) for v in REQUEST_CACHE.values()) / (1024 * 1024)
 
     if expired_keys:
         logging.info(f"Cleaned up {len(expired_keys)} expired cache entries")
-    logging.debug(f"Cache status: {cache_count} entries (~{cache_size_mb:.2f} MB)")
+    logging.debug(f"Cache status: {cache_count} entries")
 
 
 def format_seconds(seconds):
