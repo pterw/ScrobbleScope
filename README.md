@@ -114,6 +114,7 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
 * **Bounded Job Concurrency:** `MAX_ACTIVE_JOBS` (default 10, env-tunable) caps simultaneous background jobs via a `BoundedSemaphore` in `scrobblescope/worker.py`. Requests beyond the cap are rejected at the route before any job is created, and the concurrency slot is always released -- even on thread-start failure.
 * **CSRF Protection:** All mutating POST routes (`/results_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Form submissions include a hidden `csrf_token` input; programmatic POSTs from `loading.js` read a `<meta name="csrf-token">` tag and inject the token into both form bodies and the `X-CSRFToken` header.
 * **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
+* **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
 * **Styling & UX:**
     * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
     * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The main logo is an animated SVG emulating a waveform.
@@ -131,7 +132,7 @@ This project is currently a work in progress. However, if you wish to run it loc
 
 ### Prerequisites:
 
-* Python (3.9+ recommended)
+* Python 3.13+
 * Pip (Python package installer)
 * Git
 
@@ -220,9 +221,10 @@ What to look for:
 |-- requirements.txt
 |-- requirements-dev.txt           # Dev/test/tooling deps (includes requirements.txt)
 |-- PLAYBOOK.md                   # Source-of-truth active handoff playbook
-|-- EXECUTION_PLAYBOOK_2026-02-11.md  # Legacy shim; points to PLAYBOOK.md
+|-- AGENTS.md                     # AI agent bootstrap and contribution rules
 |-- scrobblescope/
 |   |-- config.py
+|   |-- errors.py
 |   |-- domain.py
 |   |-- utils.py
 |   |-- repositories.py
@@ -246,6 +248,10 @@ What to look for:
 |   |-- test_routes.py
 |   |-- test_utils.py
 |   `-- services/
+|       |-- test_lastfm_service.py
+|       |-- test_lastfm_logic.py
+|       |-- test_spotify_service.py
+|       `-- test_orchestrator_service.py
 |-- docs/
 |   |-- images/
 |   `-- history/
@@ -302,6 +308,15 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 
 * [ ] **Top songs:** Rank a user's most-played tracks for a given year (Last.fm + optional Spotify enrichment). Separate background task type with its own loading/results flow.
 * [ ] **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lightweight background task.
+
+**Ongoing code quality track (Batch 11 -- scope TBD, informed by third-party audit):**
+
+* [ ] Separation-of-concerns review: front-end JS and back-end route/service layers.
+* [ ] DRY (Don't Repeat Yourself) violations across templates, JS, and Python modules.
+* [ ] Data integrity checks: edge cases in aggregation, filtering, and normalization.
+* [ ] Logic flaw review: identify silent failure modes and incorrect assumptions.
+* [ ] Performance bottlenecks: profile hot paths under realistic load.
+* [ ] General best-practices fixes surfaced by static analysis or audit tooling.
 
 **UI enrichments (planned, lower priority):**
 

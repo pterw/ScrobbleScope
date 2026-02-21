@@ -432,7 +432,16 @@ All commits must comply with the commit message standard in Section 5.
   - WP-6: SoC and duplication audit of routes.py. Done. (4 helpers extracted,
     3 adversarial tests added. 116 tests passing. See
     `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md`.)
-- **Batch 11 is not yet defined.** No active work package.
+- **Batch 11 is not yet defined.** Scope will be set after a third-party audit
+  informs findings. The expected focus is ongoing code quality:
+  - SoC concerns: front-end JS and back-end route/service layer violations.
+  - DRY violations: repeated logic across templates, JS, and Python modules.
+  - Data integrity: edge cases in aggregation, filtering, and normalization paths.
+  - Logic flaws: silent failure modes, incorrect assumptions, off-by-one errors.
+  - Performance bottlenecks: profile hot paths under realistic scrobble loads.
+  - General best-practices fixes surfaced by static analysis or audit tooling.
+  Batch 11 work packages will be defined when the audit findings are available.
+  Do not start implementation until the owner assigns a batch number and scope.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days (Last.fm-only, lighter background task).
