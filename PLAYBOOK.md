@@ -421,7 +421,7 @@ All commits must comply with the commit message standard in Section 5.
 - After any Section 10 update, run `python scripts/doc_state_sync.py --fix`, then re-run checks.
 
 ## 9. Immediate next batch to execute
-- **Batch 10 is in progress** (Gemini audit remediation -- non-normalization track).
+- **Batch 10 is complete** (Gemini audit remediation -- non-normalization track).
   - WP-1 (Medium): Eager slice for playcount sort before Spotify calls. Done.
   - WP-2 (Low-Medium): DB stale row cleanup (_cleanup_stale_metadata). Done.
   - WP-3 (Low): Consolidate duplicate filter-text translation in routes.py. Done.
@@ -429,7 +429,19 @@ All commits must comply with the commit message standard in Section 5.
   - WP-5: Sycophantic test coverage audit. Done. (5 findings: 4 strengthened, 1
     removed. 113 tests passing. See
     `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`.)
-  - Next: SoC and duplication audit of routes.py (and related .py files).
+  - WP-6: SoC and duplication audit of routes.py. Done. (4 helpers extracted,
+    3 adversarial tests added. 116 tests passing. See
+    `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md`.)
+- **Batch 11 is not yet defined.** Scope will be set after a third-party audit
+  informs findings. The expected focus is ongoing code quality:
+  - SoC concerns: front-end JS and back-end route/service layer violations.
+  - DRY violations: repeated logic across templates, JS, and Python modules.
+  - Data integrity: edge cases in aggregation, filtering, and normalization paths.
+  - Logic flaws: silent failure modes, incorrect assumptions, off-by-one errors.
+  - Performance bottlenecks: profile hot paths under realistic scrobble loads.
+  - General best-practices fixes surfaced by static analysis or audit tooling.
+  Batch 11 work packages will be defined when the audit findings are available.
+  Do not start implementation until the owner assigns a batch number and scope.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days (Last.fm-only, lighter background task).
@@ -458,6 +470,32 @@ Source-of-truth note:
 - Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-21 - refactor/test: routes.py SoC and duplication audit (Batch 10 WP-6)
+
+- Scope: `scrobblescope/routes.py`, `tests/test_routes.py`,
+  `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md` (new doc).
+- Problem: Four SoC and duplication issues identified in `routes.py`:
+  R1 -- two identical inner async wrappers for `check_user_exists` in
+  `validate_user()` and `results_loading()`. R2 -- eight-field job params
+  extraction duplicated verbatim in `results_complete()` and
+  `unmatched_view()`. R3 -- reason-grouping data transform (group-by loop
+  + count dict) embedded in `unmatched_view()`. R4 -- zero-playtime filter
+  business rule (list comprehension) embedded in `results_complete()`.
+  Follow-up: route-level tests only exercised happy paths for two of the
+  new helpers; the playtime filter rule never fired in any test and the
+  "Unknown reason" fallback was untested.
+- Plan vs implementation: all four findings implemented as separate commits
+  (R1-R4), then three adversarial unit tests added in a fifth commit.
+  No scope additions.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **116 passed** (113 pre-existing + 3 adversarial tests).
+  - `pre-commit run --all-files`: all 8 hooks passed on every commit.
+  - No behavior changes. Pure structural refactors + targeted tests.
+- Forward guidance: Batch 10 is complete. Batch 11 is not yet defined.
+  Feature work (top songs, heatmap) requires owner scope definition before
+  implementation begins. No production risk introduced.
 
 ### 2026-02-21 - test: sycophantic test coverage audit (Batch 10 WP-5)
 

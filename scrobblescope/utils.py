@@ -26,6 +26,62 @@ _SPOTIFY_LIMITERS = WeakKeyDictionary()
 _LIMITER_LOCK = threading.Lock()
 
 
+class _GlobalThrottle:
+    """Thread-safe throttle enforcing a global rate limit across all event loops.
+
+    Each background job creates its own asyncio event loop, which means
+    per-loop AsyncLimiter instances are independent. This throttle sits
+    above them to cap aggregate throughput from all concurrent jobs within
+    the configured API rate.
+    """
+
+    def __init__(self, max_rate, period=1.0):
+        self._lock = threading.Lock()
+        self._min_interval = period / max_rate
+        self._next_allowed = 0.0
+
+    def next_wait(self):
+        """Return seconds to wait before the next call is allowed.
+
+        Thread-safe. Advances the internal clock so concurrent callers
+        are serialized at the configured rate.
+        """
+        with self._lock:
+            now = time.time()
+            if now >= self._next_allowed:
+                self._next_allowed = now + self._min_interval
+                return 0.0
+            wait = self._next_allowed - now
+            self._next_allowed += self._min_interval
+            return wait
+
+
+class _ThrottledLimiter:
+    """Async context manager combining a global throttle with a per-loop limiter.
+
+    The global throttle enforces the aggregate rate across all threads, then
+    the per-loop AsyncLimiter handles intra-loop concurrency as before.
+    """
+
+    def __init__(self, throttle, limiter):
+        self._throttle = throttle
+        self._limiter = limiter
+
+    async def __aenter__(self):
+        wait = self._throttle.next_wait()
+        if wait > 0:
+            await asyncio.sleep(wait)
+        await self._limiter.__aenter__()
+        return self
+
+    async def __aexit__(self, *args):
+        await self._limiter.__aexit__(*args)
+
+
+_LASTFM_THROTTLE = _GlobalThrottle(LASTFM_REQUESTS_PER_SECOND)
+_SPOTIFY_THROTTLE = _GlobalThrottle(SPOTIFY_REQUESTS_PER_SECOND)
+
+
 def _get_loop_limiter(cache, rate, period):
     """Return a loop-scoped AsyncLimiter, creating one if it doesn't exist yet."""
     loop = asyncio.get_running_loop()
@@ -38,23 +94,31 @@ def _get_loop_limiter(cache, rate, period):
 
 
 def get_lastfm_limiter():
-    """
-    Last.fm API Rate Limiter
-    Official limit: 5 requests/second per IP (averaged over 5 minutes)
+    """Return a throttled rate limiter for Last.fm API calls.
+
+    Official limit: 5 requests/second per IP (averaged over 5 minutes).
     Runtime value comes from LASTFM_REQUESTS_PER_SECOND.
     Source: https://www.last.fm/api/tos
+
+    Returns a _ThrottledLimiter that enforces a global cross-thread rate
+    cap via _LASTFM_THROTTLE, then delegates to a per-loop AsyncLimiter.
     """
-    return _get_loop_limiter(_LASTFM_LIMITERS, LASTFM_REQUESTS_PER_SECOND, 1)
+    loop_limiter = _get_loop_limiter(_LASTFM_LIMITERS, LASTFM_REQUESTS_PER_SECOND, 1)
+    return _ThrottledLimiter(_LASTFM_THROTTLE, loop_limiter)
 
 
 def get_spotify_limiter():
-    """
-    Spotify API Rate Limiter
-    Official limit: Undisclosed, based on 30-second rolling window
+    """Return a throttled rate limiter for Spotify API calls.
+
+    Official limit: Undisclosed, based on 30-second rolling window.
     Runtime value comes from SPOTIFY_REQUESTS_PER_SECOND.
     Source: https://developer.spotify.com/documentation/web-api/concepts/rate-limits
+
+    Returns a _ThrottledLimiter that enforces a global cross-thread rate
+    cap via _SPOTIFY_THROTTLE, then delegates to a per-loop AsyncLimiter.
     """
-    return _get_loop_limiter(_SPOTIFY_LIMITERS, SPOTIFY_REQUESTS_PER_SECOND, 1)
+    loop_limiter = _get_loop_limiter(_SPOTIFY_LIMITERS, SPOTIFY_REQUESTS_PER_SECOND, 1)
+    return _ThrottledLimiter(_SPOTIFY_THROTTLE, loop_limiter)
 
 
 def run_async_in_thread(coro):

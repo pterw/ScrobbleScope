@@ -1,161 +1,149 @@
 # AGENTS.md: Instructions for AI Agents
 
-This document provides instructions for interacting with the ScrobbleScope repository.
+ScrobbleScope is a Flask web app that fetches a user's Last.fm scrobbles for a
+given year, enriches album data with Spotify metadata, and presents filterable
+top-album rankings. Built on Python 3.13, aiohttp/aiolimiter, Flask-WTF, asyncpg
+(Postgres), and pytest.
 
-## Project Overview
+---
 
-ScrobbleScope is a Python-based Flask web application that allows users to visualize their Last.fm listening history. It fetches "scrobbles" for a given year, enriches the data with album metadata from the Spotify API, and displays the results in a filterable and sortable format.
+## Session Bootstrap (required, in order)
 
-## Required Session Bootstrap
+1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture snapshot,
+   risk notes, and env notes. Read this first to orient fast.
+2. `PLAYBOOK.md` -- batch ordering, acceptance criteria, active execution log (Section
+   9 = next action, Section 10 = current-batch log).
+3. `README.md` -- product context and setup when needed.
+4. Relevant `docs/history/` doc if the PLAYBOOK Section 10 log references one for the
+   current work package.
 
-Before making changes, read these files in order:
+SESSION_CONTEXT Section 2 has the current test count and batch status. PLAYBOOK
+Section 9 is the source of truth for what to do next. If those two agree, you have
+enough context to start without reading anything else.
 
-1. `.claude/SESSION_CONTEXT.md`
-2. `PLAYBOOK.md`
-3. The most recent audit/remediation plan in `docs/history/` (check PLAYBOOK Section 10 for the relevant filename)
-4. `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (when the active playbook context is not sufficient)
-5. `README.md`
-
-The playbook is the source of truth for batch sequencing and completion status.
-
-## Tech Stack
-
-* **Backend**: Python 3.9+ (tested on Python 3.13.x), Flask
-* **Frontend**: HTML, CSS, JavaScript, Bootstrap 5
-* **APIs**: Last.fm and Spotify
-* **Asynchronous Operations**: `aiohttp` and `aiolimiter` for handling API calls.
-* **Persistent Cache**: Postgres via `asyncpg` (optional locally, enabled in deploy)
-* **Dependency Management**: `pip`, `requirements.txt` (runtime), and `requirements-dev.txt` (runtime + dev/test tooling).
-* **Testing & Linting**: `pytest`, `pre-commit`, `black`, `isort`, `flake8`.
+---
 
 ## Environment Setup
 
-To work with this project, you must set up a local development environment.
-
-1.  **Virtual Environment**: Always work within a Python virtual environment.
-    ```bash
-    python -m venv venv
-    ```
-    Activate it:
-    ```bash
-    # Windows PowerShell
-    .\venv\Scripts\Activate.ps1
-    # macOS/Linux (bash/zsh)
-    source venv/bin/activate
-    ```
-
-2.  **Install Dependencies**: For agent/development work, install from `requirements-dev.txt` (this includes runtime dependencies plus pytest/pre-commit/lint tooling).
-    ```bash
-    pip install -r requirements-dev.txt
-    ```
-    Runtime-only install (optional):
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3.  **API Keys & Secrets**: The application requires API keys to function. **You have access to these keys as environment variables.** Use `.env.example` as a template and create a `.env` file in the project root. Fill in the following keys; the application will not run without this file.
-    ```env
-    LASTFM_API_KEY="your_lastfm_api_key_here"
-    SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
-    SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
-    SECRET_KEY="a_random_secret_key_for_flask_sessions"
-    # Optional locally, required for persistent deployed metadata cache
-    # DATABASE_URL="postgresql://..."
-    ```
-
-## Network Access
-
-This application **requires an active internet connection** to make API calls to the Last.fm and Spotify services. The environment you are in has this capability.
-
-## Running the Application
-
-You can run the application using either `run.py` or `app.py`.
-
-* Recommended:
-  ```bash
-  python app.py
-  ```
-
-* Optional launcher (starts server and opens browser):
-  ```bash
-  python run.py
-  ```
-
-* Optional local DB schema init (only when using `DATABASE_URL`):
-  ```bash
-  python init_db.py
-  ```
-  The application will be available at `http://127.0.0.1:5000/`.
-
-## Testing and Code Quality
-
-This repository uses `pre-commit` hooks to enforce code style and quality. It also uses `pytest` for unit testing.
-
-1.  **Run Pre-Commit Checks**: Before committing any changes, run the pre-commit hooks against all files. This ensures consistency with formatting (`black`), import sorting (`isort`), and other checks.
-    ```bash
-    pre-commit run --all-files
-    ```
-    If any checks fail, you must fix the reported issues and stage the files again before committing.
-
-2.  **Run Tests**: Use `pytest` to run the test suite. The tests are located in the `tests/` directory.
-    ```bash
-    pytest
-    ```
-
-The CI pipeline defined in `.github/workflows/test.yml` runs these same checks. Ensure they pass locally before submitting a Pull Request.
-
-## Key File Structure
-
-* `app.py`: Thin Flask app factory entrypoint (`create_app()` + module-level `app` for Gunicorn).
-* `init_db.py`: Postgres schema initializer used by Fly release command.
-* `scrobblescope/`: Core modular application package (routes, orchestration, services, cache, repositories, domain/config/errors).
-* `requirements.txt`: Runtime dependencies.
-* `requirements-dev.txt`: Development/test/tooling dependencies (includes `-r requirements.txt`).
-* `.env`: **(You must create this)** Stores the API keys and secrets. It is ignored by git.
-* `static/`: Contains all static assets (CSS, JavaScript, images).
-* `templates/`: Contains all Jinja2 HTML templates for the application.
-* `.pre-commit-config.yaml`: Configuration for the pre-commit hooks.
-* `tests/`: Contains all unit tests.
-* `docs/history/`: Historical audits, changelogs, and remediation plans.
-
-## Commit Message Style
-
-Use Conventional Commits with an imperative subject, for example:
-
-```text
-feat: add unit tests for route validation
-fix: reject invalid registration year server-side
-docs: update PLAYBOOK and session context after WP-5
+```bash
+pip install -r requirements-dev.txt   # runtime + pytest/pre-commit/lint
 ```
 
-Use a body when context is needed (why, impact, and scope).
+API keys go in `.env` (git-ignored). Template: `.env.example`.
+Required keys: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
+`SECRET_KEY` (min 16 chars; startup refuses weak values in production).
+Optional: `DATABASE_URL` (Postgres; enables persistent Spotify metadata cache).
+
+---
+
+## Pre-Work Checklist
+
+Before touching any file, confirm:
+
+1. `pytest -q` passes (note the baseline count from SESSION_CONTEXT).
+2. `pre-commit run --all-files` passes.
+3. The batch/work-package you are implementing matches PLAYBOOK Section 9.
+
+---
+
+## Commit Rules
+
+All commits must follow Conventional Commits with imperative-mood subject:
+
+```
+<type>(<scope>): <subject>   # max 72 chars, imperative, no trailing period
+<blank line>
+<body>                        # explain WHY; wrap at 72 chars
+```
+
+**Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `style`, `perf`
+
+**Subject rules:**
+- Imperative: "Add", "Fix", "Extract", "Remove" -- NOT "Added", "Fixes"
+- No period at the end
+- Max 72 characters
+
+**Procedure before every commit:**
+1. `pytest -q` -- all tests must pass
+2. `pre-commit run --all-files` -- all hooks must pass (black, isort, autoflake,
+   flake8, trim-whitespace, fix-end-of-files, check-yaml, doc-state-sync-check)
+3. Stage only the files changed for this work package
+4. Commit and push after each completed work package (do not batch multiple WPs
+   into one commit unless they are inseparable)
+
+---
+
+## Test Quality Rules
+
+Tests must challenge real behaviour, not just confirm mocks were called.
+
+**Forbidden patterns (sycophantic tests):**
+- Mock-call-only: `mock_fn.assert_called_once()` with no argument check and no
+  state assertion. Replace with a state diff (e.g., snapshot `JOBS.keys()` before
+  and after).
+- Return-value-only: asserting on what a function returns when the real consumer
+  reads from shared state (e.g., `JOBS` dict). Assert on the shared state too.
+- Vacuous (no assertion): a test that passes if the function under test is deleted.
+  Every test must have at least one meaningful assertion.
+- Near-duplicate: two tests that cover the same code path with no unique regression
+  protection. Merge or remove the weaker one.
+- Happy-path only: new helpers extracted from production code must have at least one
+  adversarial test that triggers the non-happy path (error branch, fallback value,
+  filter firing, etc.).
+
+**Good patterns:**
+- Assert on JOBS/shared-state side-effects, not just return values.
+- Use `caplog` to verify warning/error log lines for failure paths.
+- Use boundary inputs (zero, None, empty, missing keys) to hit fallback branches.
+- Import helpers directly in tests to document their contract independently of the
+  HTTP routing layer.
+
+---
+
+## Doc Sync Rules
+
+After any change to PLAYBOOK Section 10 or SESSION_CONTEXT managed blocks, run:
+
+```bash
+python scripts/doc_state_sync.py --fix
+```
+
+Then re-run pre-commit (the `doc-state-sync-check` hook validates the sync).
+
+**At batch close-out** (all WPs done, moving to between-batch state), clear the
+`<!-- DOCSYNC:CURRENT-BATCH-START -->` block and rotate entries:
+
+```bash
+python scripts/doc_state_sync.py --fix --keep-non-current 0
+```
+
+Then manually move the `<!-- DOCSYNC:CURRENT-BATCH-START -->` marker to just above
+`<!-- DOCSYNC:CURRENT-BATCH-END -->` (leaving the block empty). The script treats an
+empty current-batch block as a valid between-batch state.
+
+---
+
+## Required Doc Updates
+
+After any behavior, config, or process-contract change, update all applicable docs in
+the same work package commit (or a separate docs commit in the same WP):
+
+- `PLAYBOOK.md` Section 9 (status) + Section 10 (log entry inside CURRENT-BATCH
+  markers) for any batch work.
+- `.claude/SESSION_CONTEXT.md` Section 2 (test count, batch status row) + Section 8
+  (test table) + Section 9 (env note).
+- `README.md` for user/developer-visible setup or behavior changes.
+- A `docs/history/<TOPIC>_<DATE>.md` file for any significant finding or audit.
+
+Run `python scripts/doc_state_sync.py --fix` after any Section 10 edit, then verify
+`pre-commit run --all-files` is clean before committing.
+
+---
 
 ## Markdown Authoring Rules
 
-- Use ASCII-only characters in markdown files.
-- Use ISO dates in logs: `YYYY-MM-DD`.
-- Execution-log updates must include: scope, plan vs implementation, deviations (if any), validation, and forward guidance.
-- If requirements are ambiguous, ask clarifying questions before updating process/state docs.
-- Keep only the active log window in `PLAYBOOK.md`; rotate older dated entries into `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
-- Use deterministic tooling for rotation/sync:
-  - `python scripts/doc_state_sync.py --fix` after editing playbook/session state.
-  - `python scripts/doc_state_sync.py --check` before commit.
-  - To flush non-current Section 10 entries to the archive at a batch boundary, run:
-    `python scripts/doc_state_sync.py --fix --keep-non-current 0`
-    This is a single idempotent command; no second normalisation pass is required.
-  - At full batch close-out, also move the `<!-- DOCSYNC:CURRENT-BATCH-START -->` marker
-    to just above `<!-- DOCSYNC:CURRENT-BATCH-END -->` (leaving the block empty), then
-    run the above command. The script supports an empty current-batch block as a valid
-    state between batches.
-
-## Required Documentation Updates
-
-After any behavior, config, or process-contract change, update all applicable docs in the same work package:
-
-- `PLAYBOOK.md` for active execution contract and batch log updates.
-- `.claude/SESSION_CONTEXT.md` for current-state snapshot and risks.
-- `README.md` for user/developer-facing setup or behavior changes.
-
-## Pull Request Summaries
-
-Keep PR descriptions concise. Summarize the main changes and mention any testing done.
+- ASCII-only characters (no smart quotes, no em-dash -- use `--`).
+- ISO dates: `YYYY-MM-DD`.
+- Execution log entries must include: scope, plan vs implementation, deviations,
+  validation results (test count), and forward guidance.
+- Do not manually move entries across DOCSYNC markers; use `doc_state_sync.py`.

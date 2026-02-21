@@ -21,6 +21,59 @@ from scrobblescope.worker import acquire_job_slot, start_job_thread
 bp = Blueprint("main", __name__)
 
 
+def _check_user_exists(username):
+    """Call check_user_exists in a dedicated async thread."""
+
+    async def _check():
+        return await check_user_exists(username)
+
+    return run_async_in_thread(_check)
+
+
+def _extract_job_params(job_context):
+    """Return a dict of job parameters stored in *job_context*."""
+    params = job_context.get("params", {})
+    return {
+        "username": params.get("username"),
+        "year": params.get("year"),
+        "sort_mode": params.get("sort_mode"),
+        "release_scope": params.get("release_scope", "same"),
+        "decade": params.get("decade"),
+        "release_year": params.get("release_year"),
+        "min_plays": params.get("min_plays", 10),
+        "min_tracks": params.get("min_tracks", 3),
+    }
+
+
+def _filter_results_for_display(results_data, sort_mode):
+    """Remove albums with no play-time data when sorting by playtime.
+
+    Albums without ``play_time_seconds`` would sort to zero and produce
+    misleading playtime rankings. All albums are kept for every other
+    sort mode.
+    """
+    return [
+        album
+        for album in results_data
+        if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
+    ]
+
+
+def _group_unmatched_by_reason(unmatched_data):
+    """Group unmatched-album items by their ``reason`` string.
+
+    Returns a tuple of (reasons, reason_counts) where *reasons* maps each
+    reason string to a list of items and *reason_counts* maps each reason
+    string to the length of that list.
+    """
+    reasons = {}
+    for item in unmatched_data.values():
+        reason = item.get("reason", "Unknown reason")
+        reasons.setdefault(reason, []).append(item)
+    reason_counts = {reason: len(albums) for reason, albums in reasons.items()}
+    return reasons, reason_counts
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
@@ -43,11 +96,8 @@ def validate_user():
     if len(username) > 64:
         return jsonify({"valid": False, "message": "Username is too long."}), 400
 
-    async def _check():
-        return await check_user_exists(username)
-
     try:
-        result = run_async_in_thread(_check)
+        result = _check_user_exists(username)
     except Exception:
         logging.exception("Username validation failed")
         return (
@@ -197,20 +247,17 @@ def results_complete():
             details=details,
         )
 
-    params = job_context.get("params", {})
-    username = params.get("username") or request.form.get("username")
-    year = params.get("year")
+    p = _extract_job_params(job_context)
+    username = p["username"] or request.form.get("username")
+    year = p["year"]
     if year is None:
         year = int(request.form.get("year", datetime.now().year))
-
-    sort_mode = params.get("sort_mode") or request.form.get("sort_by", "playcount")
-    release_scope = params.get("release_scope") or request.form.get(
-        "release_scope", "same"
-    )
-    decade = params.get("decade")
-    release_year = params.get("release_year")
-    min_plays = params.get("min_plays", 10)
-    min_tracks = params.get("min_tracks", 3)
+    sort_mode = p["sort_mode"] or request.form.get("sort_by", "playcount")
+    release_scope = p["release_scope"] or request.form.get("release_scope", "same")
+    decade = p["decade"]
+    release_year = p["release_year"]
+    min_plays = p["min_plays"]
+    min_tracks = p["min_tracks"]
 
     results_data = job_context.get("results")
     if results_data is None:
@@ -221,11 +268,7 @@ def results_complete():
             details="Please wait on the loading page and try again.",
         )
 
-    filtered_results = [
-        album
-        for album in results_data
-        if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
-    ]
+    filtered_results = _filter_results_for_display(results_data, sort_mode)
 
     if not filtered_results:
         unmatched_count = len(job_context.get("unmatched", {}))
@@ -302,27 +345,19 @@ def unmatched_view():
             details="Please run a new search.",
         )
 
-    params = job_context.get("params", {})
-    username = params.get("username")
-    year = params.get("year")
-    release_scope = params.get("release_scope", "same")
-    decade = params.get("decade")
-    release_year = params.get("release_year")
-    min_plays = params.get("min_plays", 10)
-    min_tracks = params.get("min_tracks", 3)
+    p = _extract_job_params(job_context)
+    username = p["username"]
+    year = p["year"]
+    release_scope = p["release_scope"]
+    decade = p["decade"]
+    release_year = p["release_year"]
+    min_plays = p["min_plays"]
+    min_tracks = p["min_tracks"]
 
     filter_desc = get_filter_description(release_scope, decade, release_year, int(year))
 
     unmatched_data = dict(job_context.get("unmatched", {}))
-
-    reasons = {}
-    for _, item in unmatched_data.items():
-        reason = item.get("reason", "Unknown reason")
-        if reason not in reasons:
-            reasons[reason] = []
-        reasons[reason].append(item)
-
-    reason_counts = {reason: len(albums) for reason, albums in reasons.items()}
+    reasons, reason_counts = _group_unmatched_by_reason(unmatched_data)
 
     return render_template(
         "unmatched.html",
@@ -377,11 +412,7 @@ def results_loading():
         )
 
     try:
-
-        async def _check_user():
-            return await check_user_exists(username)
-
-        user_info = run_async_in_thread(_check_user)
+        user_info = _check_user_exists(username)
         registered_year = user_info.get("registered_year")
         if registered_year and year < registered_year:
             return render_template(

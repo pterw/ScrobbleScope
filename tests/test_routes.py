@@ -14,6 +14,7 @@ from scrobblescope.repositories import (
     set_job_progress,
     set_job_results,
 )
+from scrobblescope.routes import _filter_results_for_display, _group_unmatched_by_reason
 from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 
 
@@ -717,3 +718,43 @@ def test_csrf_accepts_reset_progress_with_header_token(csrf_app_client):
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["status"] == "success"
+
+
+# --- Helper unit tests ---
+
+
+def test_filter_results_for_display_removes_zero_playtime_when_sorting_by_playtime():
+    """Albums with play_time_seconds=0 must be dropped when sort_mode='playtime'.
+
+    This is the key business rule: sorting by playtime with zero-duration albums
+    would produce misleading rankings. The filter must fire, not pass through.
+    """
+    albums = [
+        {"artist": "A", "album": "X", "play_time_seconds": 0},
+        {"artist": "B", "album": "Y", "play_time_seconds": 3600},
+        {"artist": "C", "album": "Z"},  # missing key -- treated as 0
+    ]
+    result = _filter_results_for_display(albums, "playtime")
+    assert len(result) == 1
+    assert result[0]["artist"] == "B"
+
+
+def test_filter_results_for_display_keeps_zero_playtime_for_non_playtime_sort():
+    """Albums without playtime data must NOT be filtered for non-playtime sort modes."""
+    albums = [
+        {"artist": "A", "album": "X", "play_time_seconds": 0},
+        {"artist": "B", "album": "Y"},  # missing key entirely
+    ]
+    result = _filter_results_for_display(albums, "playcount")
+    assert len(result) == 2
+
+
+def test_group_unmatched_by_reason_uses_fallback_for_missing_reason_key():
+    """Items without a 'reason' key must be grouped under 'Unknown reason'."""
+    data = {
+        "key_one": {"artist": "A", "album": "X"},  # no reason key
+    }
+    reasons, reason_counts = _group_unmatched_by_reason(data)
+    assert "Unknown reason" in reasons
+    assert len(reasons["Unknown reason"]) == 1
+    assert reason_counts["Unknown reason"] == 1
