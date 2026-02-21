@@ -4,7 +4,7 @@ import time
 from uuid import uuid4
 
 from scrobblescope.config import JOB_TTL_SECONDS
-from scrobblescope.domain import ERROR_CODES
+from scrobblescope.errors import ERROR_CODES
 
 # Per-job state tracking
 JOBS = {}

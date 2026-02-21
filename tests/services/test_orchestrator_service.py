@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scrobblescope.domain import SpotifyUnavailableError
+from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import (
     _fetch_and_process,
     background_task,

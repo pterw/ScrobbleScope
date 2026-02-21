@@ -14,11 +14,8 @@ from scrobblescope.config import (
     SPOTIFY_REQUESTS_PER_SECOND,
     SPOTIFY_SEARCH_CONCURRENCY,
 )
-from scrobblescope.domain import (
-    SpotifyUnavailableError,
-    normalize_name,
-    normalize_track_name,
-)
+from scrobblescope.domain import normalize_name, normalize_track_name
+from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.lastfm import fetch_top_albums_async
 from scrobblescope.repositories import (
     add_job_unmatched,
