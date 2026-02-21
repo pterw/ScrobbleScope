@@ -45,6 +45,21 @@ def _extract_job_params(job_context):
     }
 
 
+def _group_unmatched_by_reason(unmatched_data):
+    """Group unmatched-album items by their ``reason`` string.
+
+    Returns a tuple of (reasons, reason_counts) where *reasons* maps each
+    reason string to a list of items and *reason_counts* maps each reason
+    string to the length of that list.
+    """
+    reasons = {}
+    for item in unmatched_data.values():
+        reason = item.get("reason", "Unknown reason")
+        reasons.setdefault(reason, []).append(item)
+    reason_counts = {reason: len(albums) for reason, albums in reasons.items()}
+    return reasons, reason_counts
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
@@ -332,15 +347,7 @@ def unmatched_view():
     filter_desc = get_filter_description(release_scope, decade, release_year, int(year))
 
     unmatched_data = dict(job_context.get("unmatched", {}))
-
-    reasons = {}
-    for _, item in unmatched_data.items():
-        reason = item.get("reason", "Unknown reason")
-        if reason not in reasons:
-            reasons[reason] = []
-        reasons[reason].append(item)
-
-    reason_counts = {reason: len(albums) for reason, albums in reasons.items()}
+    reasons, reason_counts = _group_unmatched_by_reason(unmatched_data)
 
     return render_template(
         "unmatched.html",
