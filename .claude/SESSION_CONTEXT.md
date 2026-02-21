@@ -24,7 +24,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Latest commit | `bcbef1e` - docs: fix stale 92 → 94 test count in PLAYBOOK Section 2 |
+| Latest commit | `ea1a3e4` - docs(tooling): close out Batch 9 and archive all execution log entries |
 | Tests | **94 passing** across 8 test files |
 | Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8, doc-state-sync-check) |
