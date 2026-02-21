@@ -40,7 +40,7 @@ Primary goal: Improve reliability, UX, and maintainability without behavior regr
 - `index.html` now renders server-side validation errors (Batch 6).
 - Historical audit/changelog/refactor docs are archived under `docs/history/` to reduce repo-root clutter.
 - Comprehensive repo audit completed on 2026-02-20; remediation execution plan is documented at `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`.
-- Test suite: **94 tests** across 8 files (`test_app_factory.py`, `test_domain.py`, `test_repositories.py`, `test_utils.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers + CSRF enforcement on all 4 POST routes + registration-year validation), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, DB connect retry/backoff behavior, thread-safe cache operations, concurrency slot lifecycle, and app-factory secret-key startup guard.
+- Test suite: **110 tests** across 9 files (`test_app_factory.py`, `test_domain.py`, `test_repositories.py`, `test_utils.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_lastfm_logic.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers + CSRF enforcement on all 4 POST routes + registration-year validation), normalization (including non-Latin character preservation and artist-name integrity), error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, DB connect retry/backoff behavior, thread-safe cache operations, concurrency slot lifecycle, app-factory secret-key startup guard, and fetch_top_albums_async aggregation/filter/timestamp logic.
 - **Product roadmap (confirmed 2026-02-20):** Two new background task types are planned:
   - **Top songs:** Rank user's most-played tracks for a year (Last.fm + possibly Spotify enrichment). Separate background task type, separate loading/results flow.
   - **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lighter background task.
@@ -421,17 +421,16 @@ All commits must comply with the commit message standard in Section 5.
 - After any Section 10 update, run `python scripts/doc_state_sync.py --fix`, then re-run checks.
 
 ## 9. Immediate next batch to execute
-- **Batch 9 is complete** (WP-1 through WP-8, all remediation work done 2026-02-20).
-- **Batch 10 is not yet defined.** Before feature work begins, a pre-Batch-10 housekeeping track is planned (scope TBD by owner):
-  - UI/UX tweaks and visual polish.
-  - Performance and optimization review.
-  - Repo comb-over: redundancies, discrepancies, dead code.
-  - Test file audit: coverage gaps, test quality.
-  - Agent-to-agent handoff improvements (session context, token efficiency).
-- Batch 10 feature candidates (confirmed by owner roadmap, pending detailed planning):
+- **Batch 10 is in progress** (Gemini audit remediation -- non-normalization track).
+  - WP-1 (Medium): Eager slice for playcount sort before Spotify calls. Done.
+  - WP-2 (Low-Medium): DB stale row cleanup (_cleanup_stale_metadata). Done.
+  - WP-3 (Low): Consolidate duplicate filter-text translation in routes.py. Done.
+  - WP-4 (Low): Extract ERROR_CODES + SpotifyUnavailableError to errors.py. Done.
+  - Next: "sycophantic test coverage" audit (owner to elaborate scope).
+- Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days (Last.fm-only, lighter background task).
-- Do not start any new batch until the owner defines scope and updates this section.
+- Do not start feature work (top songs, heatmap) until owner defines scope and assigns a batch number.
 
 
 ## 10. Batch execution log (for agent handoff)
@@ -457,4 +456,80 @@ Source-of-truth note:
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-21 - refactor/fix: Gemini audit remediation (non-normalization track)
+
+- Scope: `scrobblescope/orchestrator.py`, `scrobblescope/cache.py`,
+  `scrobblescope/routes.py`, `scrobblescope/domain.py`,
+  new `scrobblescope/errors.py`, `scrobblescope/repositories.py`,
+  `tests/services/test_orchestrator_service.py` (+4 tests),
+  `docs/history/BUGFIX_AUDIT_REMEDIATION_2026-02-21.md` (new doc).
+- Problem: A second Gemini Pro audit pass identified four issues beyond the previously
+  fixed normalization bugs. Three were confirmed real against the live codebase:
+  1. Late slicing: `limit_results` applied after Spotify calls in `_fetch_and_process`.
+     For playcount sort the ranking is fully known from Last.fm data; pre-slicing
+     to the requested limit eliminates unnecessary Spotify searches on cache misses.
+     (Playtime sort cannot be pre-sliced -- ranking requires track duration data.)
+  2. Indefinite DB growth: `_batch_lookup_metadata` filtered stale rows at read time
+     but no DELETE ever ran. Stale rows accumulated in `spotify_cache` indefinitely.
+  3. ERROR_CODES + SpotifyUnavailableError in `domain.py`: a SoC violation -- domain
+     logic should not own user-facing message strings or retryability flags.
+  A fourth SoC issue not in the original report was also fixed: duplicate release_scope
+  -> human-text translation in `routes.py` (inline block in `unmatched_view`
+  duplicating `get_filter_description`). A fifth issue (empty-result hallucination)
+  was assessed and deferred as near-false-alarm -- the trigger conditions require
+  zero cache hits AND every album absent from Spotify, which is extremely unlikely.
+- Plan vs implementation: all four confirmed issues fixed as described in
+  `docs/history/BUGFIX_AUDIT_REMEDIATION_2026-02-21.md`. No scope additions.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **114 passed** (110 pre-existing + 4 new tests).
+  - `pre-commit run --all-files`: all 8 hooks passed.
+  - Import graph: `errors.py` is a leaf module (no package imports). Acyclic structure
+    preserved. `domain.py` now contains only normalization logic.
+- Forward guidance: next sub-track is "sycophantic test coverage" audit (owner to
+  elaborate scope). Feature work (top songs, heatmap) blocked until owner assigns a
+  future batch number and defines scope. `_cleanup_stale_metadata` is opportunistic and non-fatal;
+  monitor logs for "Stale cache cleanup" entries to confirm it fires in production.
+  The playtime late-slicing limitation is documented inline in `_fetch_and_process`.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-02-21 - fix(domain): fix normalization bugs silently excluding non-Latin albums
+
+- Scope: `scrobblescope/domain.py`, `tests/test_domain.py` (9 new tests),
+  `tests/services/test_lastfm_logic.py` (new file, 7 tests),
+  `docs/history/BUGFIX_NORMALIZATION_2026-02-21.md` (new doc).
+- Problem: A third-party static analysis review (Gemini Pro) identified four
+  defects in `domain.py` and a coverage gap in `lastfm.py`. All four were
+  confirmed against the live codebase and three had measurable production impact:
+  1. `normalize_track_name` used `NFKD + encode("ascii","ignore")`, stripping all
+     non-Latin characters to `""`. Any album with Japanese/Cyrillic/etc. track names
+     had `len(track_counts) == 1` regardless of distinct tracks played, silently
+     failing the `min_tracks` filter and disappearing from results without an
+     unmatched entry or any log warning.
+  2. `normalize_name` applied its `album_metadata_words` set to the artist string as
+     well as the album string, corrupting proper nouns like "New Edition" -> "new"
+     and reducing artists named "Special", "Bonus", or "EP" to an empty string.
+     Two artists with all-metadata-word names could collide on the same dict key.
+  3. `normalize_track_name` used a 13-character hardcoded list while `normalize_name`
+     used `str.maketrans(string.punctuation, ...)` covering all 32 ASCII punctuation
+     characters. Characters like `&` were inconsistently handled.
+  4. `fetch_top_albums_async` (aggregation, timestamp filtering, min_plays/min_tracks)
+     had zero test coverage despite being the core business logic function.
+- Plan vs implementation: all four defects addressed as described in
+  `docs/history/BUGFIX_NORMALIZATION_2026-02-21.md`. No scope additions or removals.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **110 passed** (94 pre-existing + 9 new domain tests + 7 new logic tests).
+  - `pre-commit run --all-files`: all hooks passed (black reformatted test_domain.py
+    on first pass; clean on second).
+  - Owner live test: Japanese-title 2025 album (betcover!!) now appears in results
+    for listening year 2025 with "Same as release year" filter. Previously absent with
+    no unmatched entry. Second validation: same artist's 2021 album (10 unique tracks,
+    68 plays) also appeared correctly.
+  - "New Edition" self-titled album test: artist key now "new edition" (not "new");
+    album deduplication with "(Deluxe Edition)" suffix confirmed still working.
+- Forward guidance: no schema, API contract, or route changes. No migration needed.
+  The new `test_lastfm_logic.py` file should be extended if `fetch_top_albums_async`
+  logic changes (e.g., top-songs feature). Pre-Batch-10 housekeeping is ongoing;
+  Batch 10 scope remains TBD by owner.

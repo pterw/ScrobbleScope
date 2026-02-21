@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context (Post-Batch 8 Modular Refactor)
 
-Last updated: 2026-02-20
+Last updated: 2026-02-21
 Author: Claude Opus 4.6 + Codex + Claude Sonnet 4.6 (multi-agent orchestration)
 
 ---
@@ -25,8 +25,8 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 |------|-------|
 | Branch | `wip/pc-snapshot` |
 | Latest commit | Use `git rev-parse --short HEAD` for current snapshot |
-| Tests | **94 passing** across 8 test files |
-| Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run) |
+| Tests | **114 passing** across 9 test files |
+| Coverage snapshot | **72%** (`pytest --cov=scrobblescope`, 2026-02-20 audit run; not re-measured after 2026-02-21 fixes) |
 | Pre-commit | All hooks pass (black, isort, autoflake, flake8, doc-state-sync-check) |
 | app.py line count | ~142 lines (factory + logging setup + CSRF init + secret-key guard) |
 | Cache fallback logging | `_get_db_connection()` logs classified reasons: `asyncpg-missing`, `missing-env-var`, `db-down` |
@@ -57,13 +57,11 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
-- Current batch: none (between batches).
-- Last completed batch in PLAYBOOK Section 9: Batch 9.
-- Next batch definition status: Batch 10 is not yet defined.
-- Current-batch entries in active log block: 0.
-- Completed work packages in current-batch entries: n/a (no active batch).
-- Next expected work package: n/a (next batch not defined).
-- Newest current-batch entry: none.
+- Current batch: Batch 10.
+- Current-batch entries in active log block: 1.
+- Completed work packages in current-batch entries: none.
+- Next expected work package: unknown.
+- Newest current-batch entry: 2026-02-21 - refactor/fix: Gemini audit remediation (non-normalization track).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -76,7 +74,8 @@ ScrobbleScope/
   scrobblescope/
     __init__.py                # package marker
     config.py                  # env var reads, API keys, concurrency constants
-    domain.py                  # SpotifyUnavailableError, ERROR_CODES, normalize_*
+    errors.py                  # SpotifyUnavailableError, ERROR_CODES (leaf module)
+    domain.py                  # normalize_name, normalize_track_name, _extract_registered_year
     utils.py                   # rate limiters, session pooling, request caching, helpers
     repositories.py            # JOBS dict, jobs_lock, all job state functions (pure CRUD)
     worker.py                  # _active_jobs_semaphore, acquire_job_slot(), release_job_slot(), start_job_thread()
@@ -89,11 +88,12 @@ ScrobbleScope/
     conftest.py                # pytest fixtures: client (CSRF disabled) + csrf_app_client (CSRF enabled)
     helpers.py                 # shared test constants (TEST_JOB_PARAMS, VALID_FORM_DATA) + async mock helpers
     test_app_factory.py        # 7 tests (WP-4 secret-key validation)
-    test_domain.py             # 6 tests
+    test_domain.py             # 15 tests (normalize_name, normalize_track_name incl non-Latin + artist-fix, _extract_registered_year)
     test_repositories.py       # 18 tests (job state + DB helpers incl retry/backoff + delete_job)
     test_routes.py             # 39 tests (all route handlers incl unmatched_view + 404/500 + WP-5)
     services/
       test_lastfm_service.py   # 4 tests
+      test_lastfm_logic.py     # 7 tests (fetch_top_albums_async: aggregation, filters, timestamp bounds, now-playing, non-Latin, job stats)
       test_spotify_service.py  # 3 tests
       test_orchestrator_service.py # 11 tests
   templates/                   # Jinja2 templates (unchanged)
@@ -108,15 +108,16 @@ ScrobbleScope/
 ## 6. Module dependency graph (acyclic)
 
 ```
+errors.py        <- (no internal deps)
 domain.py        <- (no internal deps)
 config.py        <- (no internal deps)
 utils.py         <- config
 cache.py         <- config
 worker.py        <- config
-repositories.py  <- config, domain
+repositories.py  <- config, errors
 lastfm.py        <- config, domain, utils, repositories
 spotify.py       <- config, utils
-orchestrator.py  <- cache, config, domain, lastfm, repositories, spotify, utils, worker
+orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
 routes.py        <- lastfm, orchestrator, repositories, utils, worker
 app.py           <- routes (via Blueprint registration)
 ```
@@ -176,17 +177,18 @@ POST /results_complete
 
 ---
 
-## 8. Test structure (94 tests)
+## 8. Test structure (114 tests)
 
 | File | Count | Scope |
 |------|-------|-------|
 | test_app_factory.py | 7 | _validate_secret_key: production-fail paths, dev-mode warn, strong-key pass (WP-4) |
-| test_domain.py | 6 | normalize_name, normalize_track_name, _extract_registered_year |
+| test_domain.py | 15 | normalize_name (incl artist-name preservation, album-only word stripping, collision prevention), normalize_track_name (incl Japanese/Cyrillic preservation, punctuation consistency), _extract_registered_year |
 | test_repositories.py | 18 | Job state functions (7) + DB cache helpers (9 incl retry/backoff) + delete_job (2) |
 | test_utils.py | 6 | REQUEST_CACHE hit/miss/expiry/overwrite/cleanup + concurrent-access stress test |
 | tests/services/test_lastfm_service.py | 4 | Last.fm user-check and page-retry behavior |
+| tests/services/test_lastfm_logic.py | 7 | fetch_top_albums_async: play-count aggregation, min_plays filter, min_tracks filter, out-of-bounds timestamp exclusion, now-playing sentinel, non-Latin track deduplication, job-stat reporting |
 | tests/services/test_spotify_service.py | 3 | Spotify search/details retry and non-200 behavior |
-| tests/services/test_orchestrator_service.py | 11 | process_albums, _fetch_and_process, background_task (incl WP-1 slot-release tests) |
+| tests/services/test_orchestrator_service.py | 15 | process_albums, _fetch_and_process, background_task (incl slot-release); _cleanup_stale_metadata (delete + nonfatal); playcount pre-slice; playtime no-preslice |
 | test_routes.py | 39 | All Flask route handlers (incl unmatched_view, 404/500, WP-1 capacity/start-failure, WP-3 CSRF all 4 routes + XHR header path, WP-5 registration-year guard: reject/allow/fail-open/no-year paths) |
 
 **Shared fixtures/helpers:** `conftest.py` provides `client` (CSRF disabled) and `csrf_app_client` (CSRF enabled) fixtures; `tests/helpers.py` provides `TEST_JOB_PARAMS`, `VALID_FORM_DATA`, `NoopAsyncContext`, and `make_response_context`.
@@ -216,3 +218,5 @@ POST /results_complete
 - **WP-7 (2026-02-20):** Frontend safety polish. `showToast` in `results.js` converted from `insertAdjacentHTML`+template-literal to safe DOM construction (`createElement`/`textContent`). `fetchUnmatchedAlbums` now throws on non-200 responses via `response.ok` guard before `.json()`. 94 tests still passing.
 - **WP-8 (2026-02-20):** CI, lint, and dependency hygiene. `check-yaml` pre-commit hook fixed: `files` pattern changed from `^.*\.py$` to `^.*\.(yaml|yml)$`; `.github` removed from global `exclude` so the workflow YAML is now validated. Dev-only packages (`pre-commit`, `pytest`, `pytest-asyncio`, `pytest-cov`, `flake8`) moved to new `requirements-dev.txt` (`-r requirements.txt` + dev tools); `requirements.txt` is now runtime-only. `.coverage` added to `.gitignore`. CI workflow updated to install `requirements-dev.txt`, drop redundant `pip install` steps, and enforce `--cov-fail-under=70` coverage gate. Batch 9 remediation complete.
 - **doc_state_sync fix (2026-02-20):** `_git_head_short()` function and `subprocess` import removed from `scripts/doc_state_sync.py`. The `Last sync commit` field was volatile (merge commits advanced HEAD) and caused `doc-state-sync-check` pre-commit hook to false-positive on every PR merge. The `--check` now validates only stable content-level fields. The transient `rotated=N` field was also removed from the managed SESSION_CONTEXT block to eliminate post-rotation drift.
+- **Normalization bug fixes (2026-02-21):** Three production bugs fixed in `scrobblescope/domain.py` following a third-party audit review. (1) `normalize_track_name` used NFKD + encode("ascii","ignore"), silently stripping all non-Latin characters to "" and causing any Japanese/Cyrillic/etc. album to fail the min_tracks filter without an unmatched entry or log warning -- fixed to NFKC. (2) `normalize_name` applied `album_metadata_words` to the artist string as well as album, corrupting proper nouns like "New Edition" and causing empty-key collisions for artists named "Special", "Bonus", or "EP" -- fixed to album-only removal. (3) `normalize_track_name` had a 13-char hardcoded punctuation list vs `str.maketrans(string.punctuation,...)` in `normalize_name` -- fixed to use the same approach. Coverage gap also closed: `fetch_top_albums_async` (aggregation, filtering, timestamp logic) now has 7 tests in new `tests/services/test_lastfm_logic.py`. Owner validated with a real non-Latin-script album that was previously absent from results. Full detail in `docs/history/BUGFIX_NORMALIZATION_2026-02-21.md`. 110 tests passing.
+- **Gemini audit remediation (2026-02-21):** Four issues from a second Gemini audit pass fixed. (1) Late slicing: `_fetch_and_process` now pre-slices `filtered_albums` by `play_count` before `process_albums` when `sort_mode="playcount"` and a finite `limit_results` is set -- eliminating unnecessary Spotify searches for albums outside the top N. Playtime sort cannot be pre-sliced (documented). (2) DB stale row cleanup: `_cleanup_stale_metadata(conn)` added to `cache.py`, called opportunistically from `process_albums` after Phase 1 lookup -- DELETEs rows older than `METADATA_CACHE_TTL_DAYS`. Non-fatal. (3) `ERROR_CODES` and `SpotifyUnavailableError` extracted from `domain.py` to new leaf module `scrobblescope/errors.py`; import sites in `orchestrator.py`, `repositories.py`, and the orchestrator test file updated. (4) Duplicate release_scope->text translation in `routes.py:unmatched_view` replaced with call to existing `get_filter_description`. Full detail in `docs/history/BUGFIX_AUDIT_REMEDIATION_2026-02-21.md`. 114 tests passing.
