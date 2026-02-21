@@ -30,6 +30,7 @@
           <h2 class="text-center mb-4">Filter Your Album Scrobbles!</h2>
 
           <form method="post" action="/results_loading">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="mb-3">
               <label for="username" class="form-label">
                 Last.fm Username:

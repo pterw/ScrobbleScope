@@ -17,6 +17,7 @@ from scrobblescope.config import (
 
 # Global state tracking
 REQUEST_CACHE = {}  # Cache for API responses
+_cache_lock = threading.Lock()  # Guards all REQUEST_CACHE read/write/cleanup ops
 
 # Rate limiters are scoped per running event loop.
 # AsyncLimiter instances cannot be safely reused across loops.
@@ -131,20 +132,25 @@ def get_cache_key(url, params=None):
 
 
 def get_cached_response(url, params=None):
-    """Get cached response if available and not expired"""
+    """Get cached response if available and not expired.
+
+    Returns a direct reference to the cached object — callers must not mutate it.
+    """
     key = get_cache_key(url, params)
-    if key in REQUEST_CACHE:
-        timestamp, data = REQUEST_CACHE[key]
-        if time.time() - timestamp < REQUEST_CACHE_TIMEOUT:
-            logging.debug(f"Cache hit for {key}")
-            return data
+    with _cache_lock:
+        if key in REQUEST_CACHE:
+            timestamp, data = REQUEST_CACHE[key]
+            if time.time() - timestamp < REQUEST_CACHE_TIMEOUT:
+                logging.debug(f"Cache hit for {key}")
+                return data
     return None
 
 
 def set_cached_response(url, data, params=None):
     """Cache a response with current timestamp"""
     key = get_cache_key(url, params)
-    REQUEST_CACHE[key] = (time.time(), data)
+    with _cache_lock:
+        REQUEST_CACHE[key] = (time.time(), data)
 
 
 def cleanup_expired_cache():
@@ -155,23 +161,19 @@ def cleanup_expired_cache():
     This is critical for production deployment on Fly.io to avoid OOM errors.
     """
     current_time = time.time()
-    expired_keys = [
-        key
-        for key, (timestamp, _) in REQUEST_CACHE.items()
-        if current_time - timestamp >= REQUEST_CACHE_TIMEOUT
-    ]
-
-    for key in expired_keys:
-        REQUEST_CACHE.pop(key, None)
+    with _cache_lock:
+        expired_keys = [
+            key
+            for key, (timestamp, _) in REQUEST_CACHE.items()
+            if current_time - timestamp >= REQUEST_CACHE_TIMEOUT
+        ]
+        for key in expired_keys:
+            REQUEST_CACHE.pop(key, None)
+        cache_count = len(REQUEST_CACHE)
 
     if expired_keys:
         logging.info(f"Cleaned up {len(expired_keys)} expired cache entries")
-
-    # Log current cache size for monitoring
-    cache_size_mb = sum(len(str(v)) for v in REQUEST_CACHE.values()) / (1024 * 1024)
-    logging.debug(
-        f"Cache status: {len(REQUEST_CACHE)} entries (~{cache_size_mb:.2f} MB)"
-    )
+    logging.debug(f"Cache status: {cache_count} entries")
 
 
 def format_seconds(seconds):

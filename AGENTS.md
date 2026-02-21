@@ -6,13 +6,26 @@ This document provides instructions for interacting with the ScrobbleScope repos
 
 ScrobbleScope is a Python-based Flask web application that allows users to visualize their Last.fm listening history. It fetches "scrobbles" for a given year, enriches the data with album metadata from the Spotify API, and displays the results in a filterable and sortable format.
 
+## Required Session Bootstrap
+
+Before making changes, read these files in order:
+
+1. `.claude/SESSION_CONTEXT.md`
+2. `PLAYBOOK.md`
+3. `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` (when Batch 9 is active)
+4. `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (when the active playbook context is not sufficient)
+5. `README.md`
+
+The playbook is the source of truth for batch sequencing and completion status.
+
 ## Tech Stack
 
-* **Backend**: Python 3.11, Flask
+* **Backend**: Python 3.9+ (tested on Python 3.13.x), Flask
 * **Frontend**: HTML, CSS, JavaScript, Bootstrap 5
 * **APIs**: Last.fm and Spotify
 * **Asynchronous Operations**: `aiohttp` and `aiolimiter` for handling API calls.
-* **Dependency Management**: `pip` and `requirements.txt`.
+* **Persistent Cache**: Postgres via `asyncpg` (optional locally, enabled in deploy)
+* **Dependency Management**: `pip`, `requirements.txt` (runtime), and `requirements-dev.txt` (runtime + dev/test tooling).
 * **Testing & Linting**: `pytest`, `pre-commit`, `black`, `isort`, `flake8`.
 
 ## Environment Setup
@@ -22,10 +35,20 @@ To work with this project, you must set up a local development environment.
 1.  **Virtual Environment**: Always work within a Python virtual environment.
     ```bash
     python -m venv venv
+    ```
+    Activate it:
+    ```bash
+    # Windows PowerShell
+    .\venv\Scripts\Activate.ps1
+    # macOS/Linux (bash/zsh)
     source venv/bin/activate
     ```
 
-2.  **Install Dependencies**: Install all required packages from `requirements.txt`.
+2.  **Install Dependencies**: For agent/development work, install from `requirements-dev.txt` (this includes runtime dependencies plus pytest/pre-commit/lint tooling).
+    ```bash
+    pip install -r requirements-dev.txt
+    ```
+    Runtime-only install (optional):
     ```bash
     pip install -r requirements.txt
     ```
@@ -36,6 +59,8 @@ To work with this project, you must set up a local development environment.
     SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
     SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
     SECRET_KEY="a_random_secret_key_for_flask_sessions"
+    # Optional locally, required for persistent deployed metadata cache
+    # DATABASE_URL="postgresql://..."
     ```
 
 ## Network Access
@@ -46,14 +71,19 @@ This application **requires an active internet connection** to make API calls to
 
 You can run the application using either `run.py` or `app.py`.
 
-* Start the server and automatically open a browser:
+* Recommended:
+  ```bash
+  python app.py
+  ```
+
+* Optional launcher (starts server and opens browser):
   ```bash
   python run.py
   ```
 
-* Or start the server directly:
+* Optional local DB schema init (only when using `DATABASE_URL`):
   ```bash
-  python app.py
+  python init_db.py
   ```
   The application will be available at `http://127.0.0.1:5000/`.
 
@@ -76,17 +106,55 @@ The CI pipeline defined in `.github/workflows/test.yml` runs these same checks. 
 
 ## Key File Structure
 
-* `app.py`: The main Flask application file containing all routes and core logic.
-* `requirements.txt`: A list of all Python dependencies.
+* `app.py`: Thin Flask app factory entrypoint (`create_app()` + module-level `app` for Gunicorn).
+* `init_db.py`: Postgres schema initializer used by Fly release command.
+* `scrobblescope/`: Core modular application package (routes, orchestration, services, cache, repositories, domain/config).
+* `requirements.txt`: Runtime dependencies.
+* `requirements-dev.txt`: Development/test/tooling dependencies (includes `-r requirements.txt`).
 * `.env`: **(You must create this)** Stores the API keys and secrets. It is ignored by git.
 * `static/`: Contains all static assets (CSS, JavaScript, images).
 * `templates/`: Contains all Jinja2 HTML templates for the application.
 * `.pre-commit-config.yaml`: Configuration for the pre-commit hooks.
 * `tests/`: Contains all unit tests.
+* `docs/history/`: Historical audits, changelogs, and remediation plans.
 
 ## Commit Message Style
 
-Write commit messages as a single short imperative sentence, e.g., `Add unit tests`.
+Use Conventional Commits with an imperative subject, for example:
+
+```text
+feat: add unit tests for route validation
+fix: reject invalid registration year server-side
+docs: update PLAYBOOK and session context after WP-5
+```
+
+Use a body when context is needed (why, impact, and scope).
+
+## Markdown Authoring Rules
+
+- Use ASCII-only characters in markdown files.
+- Use ISO dates in logs: `YYYY-MM-DD`.
+- Execution-log updates must include: scope, plan vs implementation, deviations (if any), validation, and forward guidance.
+- If requirements are ambiguous, ask clarifying questions before updating process/state docs.
+- Keep only the active log window in `PLAYBOOK.md`; rotate older dated entries into `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+- Use deterministic tooling for rotation/sync:
+  - `python scripts/doc_state_sync.py --fix` after editing playbook/session state.
+  - `python scripts/doc_state_sync.py --check` before commit.
+  - To flush non-current Section 10 entries to the archive at a batch boundary, run:
+    `python scripts/doc_state_sync.py --fix --keep-non-current 0`
+    This is a single idempotent command; no second normalisation pass is required.
+  - At full batch close-out, also move the `<!-- DOCSYNC:CURRENT-BATCH-START -->` marker
+    to just above `<!-- DOCSYNC:CURRENT-BATCH-END -->` (leaving the block empty), then
+    run the above command. The script supports an empty current-batch block as a valid
+    state between batches.
+
+## Required Documentation Updates
+
+After any behavior, config, or process-contract change, update all applicable docs in the same work package:
+
+- `PLAYBOOK.md` for active execution contract and batch log updates.
+- `.claude/SESSION_CONTEXT.md` for current-state snapshot and risks.
+- `README.md` for user/developer-facing setup or behavior changes.
 
 ## Pull Request Summaries
 

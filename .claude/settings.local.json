@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:developer.spotify.com)",
-      "Bash(python -m pytest tests/test_app.py -v)"
+      "Bash(python -m pytest tests/test_app.py -v)",
+      "Bash(python -m pytest:*)"
     ]
   }
 }

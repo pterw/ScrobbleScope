@@ -1,14 +1,14 @@
 ﻿# ScrobbleScope - Your Last.fm Listening Habits Visualized
 
 [![Status](https://img.shields.io/badge/status-work_in_progress-yellow.svg)](https://github.com/pterw/ScrobbleScope)
-[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ScrobbleScope is a web application designed for Last.fm users to get a deeper insight into their music listening habits. It fetches your track scrobbles for a selected year, processes them with various filters, and enriches album data with metadata from the Spotify API. The primary goal is to help you visualize your top albums, especially for creating your Album of the Year (AOTY) lists, creating top listening charts, or simply exploring your musical journey through your years of scrobbling.
 
 This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
 
-## ðŸ“– Table of Contents
+## Table of Contents
 
 * [Features](#features)
 * [Screenshots](#screenshots)
@@ -39,7 +39,7 @@ This project was initially built to identify top albums released in a specific y
     * Define album listening thresholds (minimum track plays and minimum unique tracks per album). Set your own values—defaults are 10 plays and 3 unique tracks if you don't specify.
 * **Advanced Sorting:**
     * Sort your top albums by **total track play count**.
-    * Sort by **total listening time** (calculated from the runtime of tracks you've listened to). *(Note: Playtime sorting is currently undergoing refinement for accuracy).*
+    * Sort by **total listening time** (calculated from the runtime of tracks you've listened to).
 * **Dynamic UI:**
     * User-friendly interface with options that appear dynamically based on your selections.
     * Light and Dark mode support for comfortable viewing (toggle available on all pages).
@@ -89,7 +89,7 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
 
 ### Core Technologies:
 
-* **Backend:** Python 3.x, Flask
+* **Backend:** Python 3.13, Flask
 * **Frontend:** HTML5, CSS3, JavaScript (ES6+), Bootstrap 5 for responsive layout & components.
 * **APIs:**
     * Last.fm API: `user.getrecenttracks` is used to gather scrobbles, paginated until the specified year's cutoff.
@@ -97,6 +97,7 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
 * **Core Python Libraries:**
     * `aiohttp` & `aiolimiter`: For asynchronous API calls. Rate limits are managed (Last.fm: 10 req/s, Spotify: 10 req/s) with built-in retry handling; Spotify retries include jitter. Concurrency and rate defaults are configurable via environment variables.
     * `asyncpg`: For persistent Postgres-backed Spotify metadata caching on deployed environments.
+    * `Flask-WTF`: CSRF protection on all mutating POST routes via `CSRFProtect`.
     * `python-dotenv`: For managing API keys and configuration from a `.env` file (which also controls an optional `DEBUG_MODE`).
     * `Jinja2`: For server-side HTML templating.
     * `Flask`: Micro web framework.
@@ -110,6 +111,9 @@ ScrobbleScope is built with a focus on asynchronous operations for API interacti
     * In-memory request cache (`REQUEST_CACHE` in `utils.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
     * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
+* **Bounded Job Concurrency:** `MAX_ACTIVE_JOBS` (default 10, env-tunable) caps simultaneous background jobs via a `BoundedSemaphore` in `scrobblescope/worker.py`. Requests beyond the cap are rejected at the route before any job is created, and the concurrency slot is always released -- even on thread-start failure.
+* **CSRF Protection:** All mutating POST routes (`/results_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Form submissions include a hidden `csrf_token` input; programmatic POSTs from `loading.js` read a `<meta name="csrf-token">` tag and inject the token into both form bodies and the `X-CSRFToken` header.
+* **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
 * **Styling & UX:**
     * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
     * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The main logo is an animated SVG emulating a waveform.
@@ -147,7 +151,11 @@ This project is currently a work in progress. However, if you wish to run it loc
     * Windows (PowerShell): `.\venv\Scripts\Activate.ps1`
         *(If script execution is disabled, you may need to run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process`)*
     * macOS/Linux (bash/zsh): `source venv/bin/activate`
-3.  **Install dependencies:**
+3.  **Install dependencies (recommended for contributors/agents):**
+    ```bash
+    pip install -r requirements-dev.txt
+    ```
+    Runtime-only install (optional, if you only want to run the app):
     ```bash
     pip install -r requirements.txt
     ```
@@ -158,7 +166,9 @@ This project is currently a work in progress. However, if you wish to run it loc
         LASTFM_API_KEY="your_lastfm_api_key_here"
         SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
         SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
-        # Recommended for Flask session security
+        # Required in production (startup fails without a strong value)
+        # Generate: python -c "import os; print(os.urandom(32).hex())"
+        # For local dev without this set, run with DEBUG_MODE=1 to suppress the check.
         SECRET_KEY="your_random_secret_key_here"
         # Optional (required for persistent Spotify metadata cache)
         # DATABASE_URL="postgresql://..."
@@ -208,12 +218,15 @@ What to look for:
 |-- init_db.py                   # Postgres schema setup (Fly release_command)
 |-- fly.toml                     # Fly.io deployment config
 |-- requirements.txt
-|-- EXECUTION_PLAYBOOK_2026-02-11.md  # Source-of-truth handoff playbook
+|-- requirements-dev.txt           # Dev/test/tooling deps (includes requirements.txt)
+|-- PLAYBOOK.md                   # Source-of-truth active handoff playbook
+|-- EXECUTION_PLAYBOOK_2026-02-11.md  # Legacy shim; points to PLAYBOOK.md
 |-- scrobblescope/
 |   |-- config.py
 |   |-- domain.py
 |   |-- utils.py
 |   |-- repositories.py
+|   |-- worker.py
 |   |-- cache.py
 |   |-- lastfm.py
 |   |-- spotify.py
@@ -222,17 +235,22 @@ What to look for:
 |-- templates/
 |-- static/
 |-- scripts/
-|   `-- smoke_cache_check.py
+|   |-- smoke_cache_check.py
+|   `-- doc_state_sync.py
 |-- tests/
 |   |-- conftest.py
 |   |-- helpers.py
+|   |-- test_app_factory.py
 |   |-- test_domain.py
 |   |-- test_repositories.py
 |   |-- test_routes.py
+|   |-- test_utils.py
 |   `-- services/
 |-- docs/
 |   |-- images/
-|   `-- history/                 # Archived audits/changelogs/refactor notes
+|   `-- history/
+|       |-- PLAYBOOK_EXECUTION_LOG_ARCHIVE.md  # Rotated dated playbook entries
+|       `-- ...                                # Audits/changelogs/refactor notes
 |-- README.md
 |-- CONTRIBUTING.md
 `-- CODE_OF_CONDUCT.md
@@ -273,6 +291,26 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [x] Create master HTML templates to reduce duplication.
 * [x] Expand unit test coverage (async pipelines, error states, job isolation).
 * [x] Add DB wake-up retry/backoff hardening for Fly Postgres scale-to-zero behavior.
+* [x] Bounded background job concurrency with graceful capacity rejection (`MAX_ACTIVE_JOBS`, `scrobblescope/worker.py`).
+* [x] Thread-safe in-memory request cache (`_cache_lock` in `utils.py`).
+* [x] CSRF protection on all mutating POST routes (Flask-WTF `CSRFProtect`).
+* [x] Hardened secret key: startup refuses weak or missing `SECRET_KEY` in production.
+* [x] Server-side registration year validation (defense-in-depth; rejects year before user's Last.fm join date).
+* [x] Removed artificial orchestration delays (2.5 s of fixed `asyncio.sleep` overhead eliminated).
+
+**Confirmed upcoming features (planned, not yet started):**
+
+* [ ] **Top songs:** Rank a user's most-played tracks for a given year (Last.fm + optional Spotify enrichment). Separate background task type with its own loading/results flow.
+* [ ] **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lightweight background task.
+
+**UI enrichments (planned, lower priority):**
+
+* [ ] Replace top header logo with updated SVG.
+* [ ] Animated SVG on loading page during Last.fm fetch phase (before Spotify progress bar appears).
+* [ ] More dynamic loading progress bar.
+* [ ] Personalized loading stats (e.g. average scrobble count per year alongside live fetch counts).
+* [ ] Lock dark mode toggle to bottom of viewport (non-scrolling).
+* [ ] Improved unmatched albums page (`unmatched.html`).
 
 ## Contributing
 While this is currently a personal project, feedback and suggestions are welcome! If you encounter any issues or have ideas for improvement, please feel free to open an issue in this repository.

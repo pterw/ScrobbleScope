@@ -439,7 +439,6 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
     ]
 
     with (
-        patch("asyncio.sleep", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
@@ -484,7 +483,6 @@ async def test_fetch_and_process_sets_spotify_error_from_process_albums():
     }
 
     with (
-        patch("asyncio.sleep", new_callable=AsyncMock),
         patch(
             "scrobblescope.orchestrator.fetch_top_albums_async",
             new_callable=AsyncMock,
@@ -521,7 +519,7 @@ def test_background_task_runs_single_event_loop():
             "scrobblescope.orchestrator._fetch_and_process",
             new_callable=AsyncMock,
         ) as mock_fp,
-        patch("scrobblescope.orchestrator.threading.Thread") as mock_inner_thread,
+        patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
     ):
         background_task(job_id, "flounder14", 2025, "playcount", "same")
 
@@ -529,4 +527,25 @@ def test_background_task_runs_single_event_loop():
         call_args = mock_fp.call_args
         assert call_args[0][0] == job_id
         assert call_args[0][1] == "flounder14"
-        mock_inner_thread.assert_not_called()
+        mock_release.assert_called_once()
+
+
+def test_background_task_releases_slot_on_exception():
+    """
+    GIVEN _fetch_and_process raises an unhandled exception
+    WHEN background_task is called
+    THEN release_job_slot should still be called in the finally block.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator._fetch_and_process",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("unhandled crash"),
+        ),
+        patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
+    ):
+        background_task(job_id, "flounder14", 2025, "playcount", "same")
+
+    mock_release.assert_called_once()

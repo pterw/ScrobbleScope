@@ -170,6 +170,7 @@
                             </button>
                             
                             <form action="/unmatched_view" method="post" class="mb-2">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="job_id" value="{{ job_id }}">
                                 <input type="hidden" name="username" value="{{ username }}">
                                 <input type="hidden" name="year" value="{{ year }}">

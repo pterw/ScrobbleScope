@@ -14,17 +14,26 @@ from scrobblescope.config import METADATA_CACHE_TTL_DAYS
 async def _get_db_connection():
     """Open a single asyncpg connection from DATABASE_URL, or return None.
 
-    Returns None (with a debug log) if DATABASE_URL is unset, asyncpg is
-    unavailable, or the connection attempt fails.  The caller is responsible
-    for closing the returned connection.
+    Returns None if DATABASE_URL is unset, asyncpg is unavailable, or the
+    connection attempt fails. The caller is responsible for closing the
+    returned connection.
+
+    Failure reasons are logged with explicit classification labels:
+    - `asyncpg-missing`
+    - `missing-env-var`
+    - `db-down`
 
     To smooth over Fly Postgres wake-up races, connection attempts use a small
     exponential backoff before giving up.
     """
     if asyncpg is None:
+        logging.warning(
+            "DB cache unavailable (asyncpg-missing): asyncpg is not installed."
+        )
         return None
     dsn = os.environ.get("DATABASE_URL")
     if not dsn:
+        logging.info("DB cache disabled (missing-env-var): DATABASE_URL is not set.")
         return None
     max_attempts = max(1, int(os.environ.get("DB_CONNECT_MAX_ATTEMPTS", "3")))
     base_delay_seconds = float(os.environ.get("DB_CONNECT_BASE_DELAY_SECONDS", "0.25"))
@@ -35,14 +44,16 @@ async def _get_db_connection():
         except Exception as exc:
             if attempt >= max_attempts:
                 logging.warning(
-                    "DB connection failed after %s attempts (cache disabled): %s",
+                    "DB cache unavailable (db-down): connection failed after %s "
+                    "attempts (cache disabled): %s",
                     max_attempts,
                     exc,
                 )
                 return None
             delay = base_delay_seconds * (2 ** (attempt - 1))
             logging.warning(
-                "DB connection attempt %s/%s failed: %s. Retrying in %.2fs.",
+                "DB connection attempt %s/%s failed (db-down): %s. "
+                "Retrying in %.2fs.",
                 attempt,
                 max_attempts,
                 exc,

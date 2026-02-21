@@ -1,5 +1,4 @@
 import logging
-import threading
 from datetime import datetime
 
 from flask import Blueprint, jsonify, render_template, request
@@ -7,18 +6,17 @@ from flask import Blueprint, jsonify, render_template, request
 from scrobblescope.lastfm import check_user_exists
 from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
-    add_job_unmatched,
     cleanup_expired_jobs,
     create_job,
+    delete_job,
     get_job_context,
     get_job_progress,
     get_job_unmatched,
     reset_job_state,
-    set_job_error,
     set_job_progress,
-    set_job_results,
 )
 from scrobblescope.utils import run_async_in_thread
+from scrobblescope.worker import acquire_job_slot, start_job_thread
 
 bp = Blueprint("main", __name__)
 
@@ -387,7 +385,33 @@ def results_loading():
             "index.html", error=f"Year must be between 2002 and {current_year}."
         )
 
+    try:
+
+        async def _check_user():
+            return await check_user_exists(username)
+
+        user_info = run_async_in_thread(_check_user)
+        registered_year = user_info.get("registered_year")
+        if registered_year and year < registered_year:
+            return render_template(
+                "index.html",
+                error=(
+                    f"Year {year} is before your Last.fm registration year"
+                    f" ({registered_year}). Please choose {registered_year} or later."
+                ),
+            )
+    except Exception:
+        logging.warning(
+            "Registration year check failed for %s; proceeding without it", username
+        )
+
     cleanup_expired_jobs()
+
+    if not acquire_job_slot():
+        return render_template(
+            "index.html",
+            error="Too many requests in progress. Please try again in a moment.",
+        )
 
     params = {
         "username": username,
@@ -403,23 +427,29 @@ def results_loading():
 
     job_id = create_job(params)
 
-    task_thread = threading.Thread(
-        target=background_task,
-        args=(
-            job_id,
-            username,
-            year,
-            sort_mode,
-            release_scope,
-            decade,
-            release_year,
-            min_plays,
-            min_tracks,
-            limit_results,
-        ),
-        daemon=True,
-    )
-    task_thread.start()
+    try:
+        start_job_thread(
+            background_task,
+            args=(
+                job_id,
+                username,
+                year,
+                sort_mode,
+                release_scope,
+                decade,
+                release_year,
+                min_plays,
+                min_tracks,
+                limit_results,
+            ),
+        )
+    except Exception:
+        logging.exception("Failed to start background task thread")
+        delete_job(job_id)
+        return render_template(
+            "index.html",
+            error="Failed to start processing. Please try again.",
+        )
 
     return render_template(
         "loading.html",

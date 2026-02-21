@@ -48,21 +48,36 @@ document.addEventListener('DOMContentLoaded', () => {
     function showToast(message, type = 'info', duration = 3000) {
         const toastContainer = document.getElementById('toastContainer');
         if (!toastContainer) return;
-        const toastId = 'toast-' + Date.now();
-        const toastHtml = `
-            <div id="${toastId}" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-                <div class="toast-header${type === 'error' ? ' bg-danger text-white' : ''}">
-                    <strong class="me-auto">ScrobbleScope</strong>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-                <div class="toast-body">
-                    ${message}
-                </div>
-            </div>`;
-        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+
+        const toast = document.createElement('div');
+        toast.className = 'toast show';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+
+        const header = document.createElement('div');
+        header.className = 'toast-header' + (type === 'error' ? ' bg-danger text-white' : '');
+        const title = document.createElement('strong');
+        title.className = 'me-auto';
+        title.textContent = 'ScrobbleScope';
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'btn-close';
+        closeBtn.setAttribute('data-bs-dismiss', 'toast');
+        closeBtn.setAttribute('aria-label', 'Close');
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        const body = document.createElement('div');
+        body.className = 'toast-body';
+        body.textContent = message;
+
+        toast.appendChild(header);
+        toast.appendChild(body);
+        toastContainer.appendChild(toast);
+
         setTimeout(() => {
-            const toast = document.getElementById(toastId);
-            if (toast) toast.classList.remove('show');
+            toast.classList.remove('show');
             setTimeout(() => toast.remove(), 500);
         }, duration);
     }
@@ -86,7 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         fetch(`/unmatched?job_id=${encodeURIComponent(jobId)}`)
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(unmatchedData => {
                 let html = '';
                 const data = unmatchedData.data || {};

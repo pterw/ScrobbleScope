@@ -9,6 +9,7 @@
 {% endblock %}
 
 {% block head_extra %}
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <!--Bridge script: define window.SCROBBLE with all needed values-->
 <script>
   window.SCROBBLE = {{ {

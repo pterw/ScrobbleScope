@@ -1,0 +1,460 @@
+﻿# ScrobbleScope Execution Playbook (Post-Compact Handoff)
+
+Date: 2026-02-11
+Owner context: This playbook defines the implementation order, standards, and guardrails for the next major batches.
+Primary goal: Improve reliability, UX, and maintainability without behavior regressions, then refactor monolithic `app.py` safely.
+
+## 1. Why this document exists
+- Provide a single source of truth for work sequencing.
+- Enable continuation by another agent with minimal context loss.
+- Prevent risky refactor-first changes before parity tests exist.
+
+## 1b. Document roles (anti-drift contract)
+- `PLAYBOOK.md`: active execution contract (batch order, standards, active log window, next actions).
+- `.claude/SESSION_CONTEXT.md`: concise current-state snapshot (status, architecture, risks, environment notes).
+- `README.md`: product and setup reference for users/developers, not batch execution history.
+- `AGENTS.md`: agent behavior rules (bootstrap order, commit style, markdown and update duties).
+
+## 2. Current status snapshot
+- `app.py` is a minimal factory (~142 lines): `create_app()` + logging setup + `CSRFProtect` init + secret-key startup guard + `app = create_app()` for Gunicorn compat.
+- All application logic lives in the `scrobblescope/` package (11 modules including package marker, acyclic dependency graph).
+- Routes use a Flask Blueprint (`scrobblescope/routes.py`).
+- Per-job in-memory state in `scrobblescope/repositories.py` (`JOBS` dict).
+- Orphan job on thread-start failure: resolved 2026-02-20. `delete_job(job_id)` added to `repositories.py` and called in `routes.results_loading` except block.
+- No app-level keep-alive thread is present; `results_loading` spawns one daemon worker per job and `background_task` owns a single event loop on that worker thread.
+- Persistent Spotify metadata cache (Postgres via asyncpg, `scrobblescope/cache.py`):
+  - `spotify_cache` table with 30-day TTL, batched reads/writes via `unnest()`.
+  - DB connection wake-up hardening: `_get_db_connection()` retries with exponential backoff before cache bypass.
+  - Graceful fallback: if `DATABASE_URL` is unset, `asyncpg` is unavailable, or DB is unreachable, full Spotify flow runs.
+  - `_get_db_connection()` emits classified fallback logs for `missing-env-var`, `asyncpg-missing`, and `db-down`.
+  - Full DB cache hits can complete without Spotify availability.
+  - If Spotify is unavailable while cache hits exist, cached results still return with `partial_data_warning`.
+  - Schema automated via `init_db.py` release_command on Fly deploys.
+- Fly cold-start recovery was validated on 2026-02-19 by manually stopping both app and DB machines, then triggering one end-to-end smoke run that auto-started both and completed successfully (`elapsed=18.75s`, `db_cache_lookup_hits=247`).
+- `tojson` JS data bridge is in place in templates.
+- Unmatched modal has escaping in `static/js/results.js`.
+- Nested thread pattern removed:
+  - Outer worker thread remains in `results_loading`.
+  - `background_task` now owns one event loop directly (no inner thread).
+- Dark-mode toggle now uses a compact fixed bottom placement across pages; label auto-hides on extra-small screens.
+- `index.html` now renders server-side validation errors (Batch 6).
+- Historical audit/changelog/refactor docs are archived under `docs/history/` to reduce repo-root clutter.
+- Comprehensive repo audit completed on 2026-02-20; remediation execution plan is documented at `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`.
+- Test suite: **94 tests** across 8 files (`test_app_factory.py`, `test_domain.py`, `test_repositories.py`, `test_utils.py`, `test_routes.py`, `tests/services/test_lastfm_service.py`, `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_service.py`) covering job lifecycle, routes (including unmatched_view + 404/500 handlers + CSRF enforcement on all 4 POST routes + registration-year validation), normalization, error classification, template safety, background task structure, reset flow, async service retry paths, DB helpers, cache integration, orchestrator correctness, DB connect retry/backoff behavior, thread-safe cache operations, concurrency slot lifecycle, and app-factory secret-key startup guard.
+- **Product roadmap (confirmed 2026-02-20):** Two new background task types are planned:
+  - **Top songs:** Rank user's most-played tracks for a year (Last.fm + possibly Spotify enrichment). Separate background task type, separate loading/results flow.
+  - **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lighter background task.
+- `scrobblescope/worker.py` (leaf module, imports `config` only) owns `_active_jobs_semaphore`, `acquire_job_slot()`, `release_job_slot()`, and `start_job_thread()`. `repositories.py` is pure job state CRUD. See architectural rationale in `.claude/SESSION_CONTEXT.md` Section 7b.
+
+## 3. Non-negotiable implementation principles
+1. Approval tests before structural refactor.
+2. No behavior-breaking refactors without parity checks.
+3. Add observability before optimization where possible.
+4. Keep changes batch-scoped and reversible.
+5. Keep security-safe rendering (`tojson`, escaping) as baseline.
+
+## 4. High-level batch order (strict sequence)
+Status note:
+- Batches are listed in execution order and kept sequential by batch number.
+- Completed batches remain struck through for quick scanning.
+
+### ~~Batch 0: Baseline freeze + approval parity suite~~
+Purpose:
+- Freeze externally visible behavior before risky internal changes.
+
+Deliverables:
+- Golden-path approval tests for:
+  - `results_loading` -> polling -> `results_complete`.
+  - No-match flow.
+  - Invalid username flow.
+  - Unmatched quick-view flow.
+- Stable fixtures/mocks for Last.fm + Spotify responses.
+- Snapshot or assertions for key response fields/messages.
+
+Acceptance:
+- Approval tests pass consistently in CI/local.
+- Documented baseline outputs and constraints.
+
+Risk:
+- Flaky network-coupled tests. Mitigation: mock all external APIs.
+
+---
+
+### ~~Batch 1: Proper upstream failure state + retry UX~~
+Purpose:
+- Distinguish "no data" from "upstream unavailable".
+
+Backend tasks:
+- Introduce typed upstream failure classification:
+  - `lastfm_upstream_unavailable`
+  - `spotify_upstream_unavailable`
+  - `user_not_found`
+  - `rate_limited`
+- Update progress payload to include structured error metadata:
+  - `error_code`
+  - `source`
+  - `retryable`
+  - `retry_after` (when known)
+- Ensure Last.fm 5xx exhaustion does NOT map to "No albums found."
+
+Frontend tasks:
+- Loading page failure panel with explicit CTAs:
+  - `Retry now` for retryable failures.
+  - `Back home` fallback.
+- Preserve existing reset behavior but align messaging to error type.
+
+Acceptance:
+- Last.fm repeated 5xx produces explicit upstream-failure message.
+- "No albums found" only for legitimate empty-result conditions.
+- Retry action works when failure is retryable.
+
+---
+
+### ~~Batch 2: Personalized minimum listening year from registration~~
+Purpose:
+- Improve input validation UX and reduce impossible queries.
+
+Backend tasks:
+- Extend `/validate_user` response with `registered_year` when available.
+- Use Last.fm `user.getinfo.registered.unixtime`.
+- Add server-side guard for submitted `year < registered_year` with clear error.
+
+Frontend tasks:
+- On successful username validation:
+  - Set `#year.min` to `registered_year`.
+  - Show inline guidance text.
+- If user enters lower year:
+  - Show inline validation error.
+  - Block submission or rely on native validity + custom message.
+
+Acceptance:
+- For `flounder14`, min year resolves to 2016.
+- Inline and server-side validation both enforce constraints.
+
+---
+
+### ~~Batch 3: Remove nested thread pattern~~
+Purpose:
+- Eliminate unnecessary thread layering and event-loop confusion risk.
+
+Current anti-pattern:
+- `results_loading` starts a thread that calls `background_task`.
+- `background_task` calls `run_async_in_thread`.
+
+Target:
+- Single background thread runs async coroutine directly once.
+
+Implementation options:
+1. Keep thread in `results_loading`, convert `background_task` to run sync wrapper that owns loop directly (no second thread).
+2. Or remove outer thread and keep `run_async_in_thread` (less preferred for request lifecycle).
+
+Acceptance:
+- No nested thread creation.
+- No AsyncLimiter loop warnings.
+- Same user-visible behavior.
+
+---
+
+### ~~Batch 4: Expand test coverage significantly~~
+Purpose:
+- Lock down correctness before larger refactor.
+
+Test additions:
+- Service-level tests:
+  - Last.fm retry classification and error mapping.
+  - Spotify 429 retry path.
+  - User not found path.
+- Route tests:
+  - Structured progress errors.
+  - Retry endpoint behavior.
+  - Registration-year validation.
+- Concurrency/state tests:
+  - Multiple job isolation.
+  - Expired job handling.
+- Frontend-focused tests (where feasible):
+  - Escaping for unmatched modal content.
+  - Presence of `tojson` bridges in templates.
+
+Docstring requirement for tests:
+- Use the existing format style seen in `test_home_page(client)`.
+
+Acceptance:
+- Coverage materially increased around async paths and failure states.
+- No regressions in approval suite.
+
+---
+
+### ~~Batch 5: Docstring + comment normalization~~
+Purpose:
+- Standardize maintainability and readability.
+
+Scope:
+- Fill missing function docstrings in `app.py`.
+- Match style of existing best docstrings (example: `get_spotify_limiter`).
+- Add brief comments only where logic is non-obvious.
+
+Docstring format:
+- Short summary line.
+- Optional detail paragraph.
+- Keep concise and consistent; avoid stale claims.
+
+Acceptance:
+- All top-level functions documented.
+- No misleading or outdated docstrings.
+
+---
+
+### ~~Batch 6: Frontend refinement/tweaks~~
+Purpose:
+- Close UX debt without major redesign.
+
+Tasks:
+- Move fixed dark-mode toggle into mobile-safe header/action region.
+- Clean encoding artifacts in JS strings.
+- Improve loading-state readability and consistency.
+- Ensure retry/error states are visually clear and accessible.
+- **Known gap from Batch 4:** `index.html` does not render the `error=` variable passed by `results_loading` on validation failure (missing username, year out of bounds). The index page re-renders but the error message is silently dropped. Add an error alert block to `index.html` that displays `{{ error }}` when set.
+
+Acceptance:
+- No overlap with primary content on mobile.
+- Clean text rendering.
+- Error states understandable and actionable.
+
+---
+
+### ~~Batch 7: Persistent metadata layer (performance and cost)~~
+Purpose:
+- Reduce repeated Spotify lookups across cold starts and users.
+
+Recommended architecture:
+- Durable store first (Postgres preferred on Fly).
+- Optional Redis as a hot cache in front.
+
+Data model (minimum):
+- `artist_norm`
+- `album_norm`
+- `spotify_id`
+- `release_date`
+- `album_image_url`
+- `track_durations_json`
+- `updated_at`
+
+Lookup flow:
+1. Check durable metadata store by normalized key.
+2. Hit -> return immediately.
+3. Miss -> call Spotify -> persist -> return.
+
+Concerns:
+- Validate Spotify API terms for metadata persistence.
+- Add TTL or refresh policy to avoid stale data.
+
+Acceptance:
+- Repeat queries show reduced Spotify calls and latency.
+- Cold-start behavior improved over time.
+
+---
+
+### ~~Batch 8: Modular refactor (app factory + blueprints + layered structure)~~
+Prerequisite:
+- Batches 0-7 complete and green.
+
+Target structure (example):
+- `scrobblescope/__init__.py` with `create_app()`
+- `scrobblescope/routes/` (web/api blueprints)
+- `scrobblescope/services/` (Last.fm, Spotify, orchestration)
+- `scrobblescope/repositories/` (job store, metadata store)
+- `scrobblescope/domain/` (models/errors)
+
+Refactor method:
+- Strangler pattern:
+  - Move one slice at a time.
+  - Keep route behavior identical.
+  - Run approval suite after each slice move.
+
+Acceptance:
+- Functional parity preserved.
+- No monolithic route/data logic in one file.
+- Testability and config management improved.
+
+---
+
+### ~~Batch 9: Audit remediation execution (WP-1 through WP-8)~~
+Purpose:
+- Execute the remediation track from `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` in strict work-package order.
+
+Execution order:
+1. WP-1 (P0): Bound background job concurrency.
+2. WP-2 (P0): Make request cache thread-safe.
+3. WP-3 (P0): Add CSRF protection for mutating POST routes.
+4. WP-4 (P1): Harden app secret and startup safety.
+5. WP-5 (P1): Enforce registration-year validation server-side.
+6. WP-6 (P1): Remove or gate artificial orchestration sleeps.
+7. WP-7 (P2): Frontend safety and resilience polish.
+8. WP-8 (P2): CI, lint, dependency hygiene.
+
+Acceptance:
+- WP-1 through WP-8 are completed and logged in Section 10 with validation evidence.
+- Batch 9 outcomes match the acceptance criteria documented in the Batch 9 plan.
+
+### Sequential completion index (Batch 0-9)
+- ~~Batch 0~~: Done
+- ~~Batch 1~~: Done
+- ~~Batch 2~~: Done
+- ~~Batch 3~~: Done
+- ~~Batch 4~~: Done
+- ~~Batch 5~~: Done
+- ~~Batch 6~~: Done
+- ~~Batch 7~~: Done
+- ~~Batch 8~~: Done
+- ~~Batch 9~~: Done
+
+## 5. Suggested implementation granularity
+- Keep PRs or commits small per batch.
+- Do not mix architecture refactor with behavior changes in one step.
+- Re-run:
+  - `pre-commit run --all-files`
+  - `pytest -q`
+after each batch.
+
+### Commit message standard
+All commits must follow the Conventional Commits + imperative-mood convention:
+
+```
+<type>(<optional scope>): <subject>   <- max 72 chars, imperative mood
+
+<body>                                 <- wrap at 72 chars; explain WHY
+                                         not just what
+```
+
+**Types:** `feat`, `fix`, `refactor`, `test`, `chore`, `docs`, `style`, `perf`
+
+**Subject rules (enforced):**
+- Imperative mood: "Add", "Fix", "Remove", "Extract" -- NOT "Added", "Fixes", "Introducing"
+- No period at the end
+- No project-management metadata in the subject (`WP-1 (P0):` belongs in the body)
+- Max 72 characters on the subject line
+
+**Body rules:**
+- Separated from subject by a blank line
+- Explain the motivation and what changed, not just a file list
+- File-level bullet lists are acceptable for specificity
+- Wrap lines at 72 characters
+
+**Examples:**
+```
+feat: bound background job concurrency and extract worker module
+
+Introduce MAX_ACTIVE_JOBS (default 10, env-tunable) to cap concurrent
+background jobs. Extract concurrency lifecycle into worker.py ahead of
+planned top-songs and listening-heatmap features.
+```
+```
+fix: release job slot when Thread.start() raises in results_loading
+
+If Thread.__init__ or Thread.start() raises after acquire_job_slot()
+succeeds, the slot was permanently consumed. Wrap thread creation in
+try/except and call release_job_slot() before returning the error page.
+```
+
+## 6. Open decisions (owner confirmation needed)
+1. Persistent store choice now: Postgres only or Postgres + Redis.
+2. Retry UX policy:
+   - immediate retry button only,
+   - or retry + cooldown messaging.
+3. ~~Whether to keep `results_loading` progress spoof sleeps or remove once UX states improve.~~ Resolved in WP-6: all 5 `asyncio.sleep(0.5)` calls removed.
+4. Error copy style and user-facing tone for upstream failures.
+
+## 7. Agent handoff checklist before starting a batch
+1. Read:
+   - `.claude/SESSION_CONTEXT.md`
+   - `PLAYBOOK.md` (this file)
+   - `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` (historical snapshot; may lag latest batch log in this file)
+   - `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (when active-window history is insufficient)
+   - `README.md` (product expectations, deployment context, known limitations)
+2. Inspect current implementation hotspots in modular files before editing:
+   - `scrobblescope/repositories.py` (job state lifecycle: `JOBS`, TTL cleanup)
+   - `scrobblescope/routes.py` (`/progress`, `/results_complete`, `/unmatched_view`, error handlers)
+   - `scrobblescope/orchestrator.py` (`background_task`, async pipeline, cache-hit/miss flow)
+   - `scrobblescope/lastfm.py`, `scrobblescope/spotify.py`, `scrobblescope/cache.py` (API/cache path)
+3. Confirm latest completed batches in this playbook before trusting older docs.
+4. Confirm repo is green:
+   - `pre-commit run --all-files`
+   - `pytest -q`
+5. Confirm no unrelated local edits are reverted.
+6. Implement one batch only.
+7. Provide post-batch summary:
+   - behavior change
+   - files touched
+   - tests added/updated
+   - verification results
+
+## 8. Batch completion logging standard
+After each completed batch, update this playbook immediately.
+All commits must comply with the commit message standard in Section 5.
+1. Status update:
+   - Strike through the completed batch title in Section 4.
+   - Update "Immediate next batch to execute."
+2. Snapshot update:
+   - Update Section 2 only for material architecture/runtime state changes.
+3. Required cross-doc sync after behavior/config/process changes:
+   - Update `.claude/SESSION_CONTEXT.md` for current-state accuracy and risk notes.
+   - Update `README.md` for setup, runtime, or user-visible behavior changes.
+   - Keep `PLAYBOOK.md` as the active execution contract and log source.
+4. Add one dated entry under "Batch execution log" with:
+   - scope
+   - plan vs implementation
+   - deviations and why they were taken
+   - additions beyond plan
+   - struggles/constraints and unresolved risks
+   - validation performed
+   - forward guidance for the next agent
+5. Document stale references:
+   - Keep historical docs; do not delete.
+   - Mark here whether a doc is historical baseline vs current source of truth.
+
+### Markdown authoring rules (agent-facing)
+- Use ASCII-only characters in markdown files. Replace smart punctuation with plain ASCII (`--`, `->`, `<-`, quotes).
+- Use ISO dates: `YYYY-MM-DD`.
+- Batch/execution log entries must include: scope, plan vs implementation, deviations (if any), validation, and forward guidance.
+- If requirements are ambiguous, ask clarifying questions before writing docs that change process/state contracts.
+- When adding new dated entries, archive-rotate old non-active entries into `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` to maintain the active-window policy in Section 10.
+- After any Section 10 update, run `python scripts/doc_state_sync.py --fix`, then re-run checks.
+
+## 9. Immediate next batch to execute
+- **Batch 9 is complete** (WP-1 through WP-8, all remediation work done 2026-02-20).
+- **Batch 10 is not yet defined.** Before feature work begins, a pre-Batch-10 housekeeping track is planned (scope TBD by owner):
+  - UI/UX tweaks and visual polish.
+  - Performance and optimization review.
+  - Repo comb-over: redundancies, discrepancies, dead code.
+  - Test file audit: coverage gaps, test quality.
+  - Agent-to-agent handoff improvements (session context, token efficiency).
+- Batch 10 feature candidates (confirmed by owner roadmap, pending detailed planning):
+  - **Top songs**: rank most-played tracks for a year (Last.fm + possibly Spotify enrichment, separate background task + loading/results flow).
+  - **Listening heatmap**: scrobble density calendar for last 365 days (Last.fm-only, lighter background task).
+- Do not start any new batch until the owner defines scope and updates this section.
+
+
+## 10. Batch execution log (for agent handoff)
+Source-of-truth note:
+- For current status, prefer Section 2 and this execution log.
+- Keep only the active window here: current batch entries plus the latest 4 non-current operational logs.
+- Older dated entries live in `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+
+### How to read dated entries
+- Each heading in the form `YYYY-MM-DD - Batch X ...` is a historical completion/addendum log.
+- Active-window policy: this section keeps current-batch logs (inside the CURRENT-BATCH markers) and only 4 non-current historical logs. Between batches the current-batch block may be empty.
+- Archive location: `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (reverse-chronological order, newest first).
+- Open/archive search commands:
+  - `Get-Content docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+  - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+  - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- If current context is insufficient, agents must follow archive links and read relevant dated entries before changing code/docs.
+- New entries must use ISO dates (`YYYY-MM-DD`) and include scope, deviations, validation, and forward guidance.
+- Current-batch boundaries are explicit and machine-managed:
+  - `<!-- DOCSYNC:CURRENT-BATCH-START -->`
+  - `<!-- DOCSYNC:CURRENT-BATCH-END -->`
+- Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
+
+<!-- DOCSYNC:CURRENT-BATCH-START -->
+
+<!-- DOCSYNC:CURRENT-BATCH-END -->
