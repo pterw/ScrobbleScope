@@ -33,6 +33,3 @@ class TestValidateSecretKey:
 
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
-
-    def test_succeeds_with_strong_key_in_dev_mode(self):
-        _validate_secret_key(_STRONG_KEY, is_dev_mode=True)

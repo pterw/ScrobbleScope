@@ -145,8 +145,18 @@ def test_delete_job_removes_existing_job():
 
 
 def test_delete_job_on_missing_job_is_noop():
-    """delete_job does not raise when called on a nonexistent job_id."""
+    """
+    GIVEN a job_id that does not exist in JOBS
+    WHEN delete_job is called with that id
+    THEN it must not raise AND must not corrupt JOBS by inserting a new key.
+
+    Previously no assertion existed, so the test would pass vacuously even if
+    delete_job was completely empty.  Adding the JOBS-membership check makes the
+    implicit contract explicit.
+    """
     delete_job("nonexistent_id_xyz")  # must not raise
+    with jobs_lock:
+        assert "nonexistent_id_xyz" not in JOBS
 
 
 # --- DB helper tests ---

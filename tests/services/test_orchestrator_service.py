@@ -9,7 +9,7 @@ from scrobblescope.orchestrator import (
     background_task,
     process_albums,
 )
-from scrobblescope.repositories import create_job, get_job_progress
+from scrobblescope.repositories import JOBS, create_job, get_job_progress, jobs_lock
 from tests.helpers import TEST_JOB_PARAMS
 
 
@@ -414,7 +414,14 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
     """
     GIVEN _fetch_and_process receives albums and process_albums returns results
     WHEN _fetch_and_process runs
-    THEN it should not call fetch_spotify_access_token directly.
+    THEN it must store results via set_job_results (not just return them), set job
+    progress to 100, and not call fetch_spotify_access_token directly.
+
+    The critical side-effect assertion is that JOBS[job_id]["results"] equals the
+    processed list.  background_task ignores _fetch_and_process's return value and
+    relies entirely on the stored job state, so a regression that removes the
+    set_job_results call would break production but would not be caught by a
+    return-value-only assertion.
     """
     job_id = create_job(TEST_JOB_PARAMS)
     filtered = {
@@ -464,6 +471,10 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
     assert progress["error"] is False
     assert progress["progress"] == 100
     mock_token.assert_not_awaited()
+    # Verify set_job_results was called: background_task reads job state, not the
+    # return value.  If this assertion fails, results are returned but not stored.
+    with jobs_lock:
+        assert JOBS[job_id]["results"] == expected_results
 
 
 @pytest.mark.asyncio
@@ -526,17 +537,26 @@ async def test_cleanup_stale_metadata_issues_delete():
 
 
 @pytest.mark.asyncio
-async def test_cleanup_stale_metadata_nonfatal():
+async def test_cleanup_stale_metadata_nonfatal(caplog):
     """
     GIVEN conn.execute raises an exception
     WHEN _cleanup_stale_metadata is called
-    THEN no exception should propagate -- the function is purely opportunistic.
+    THEN no exception should propagate and a warning must be logged.
+
+    Previously this test had no assertion at all: it passed vacuously and would
+    have passed even if the function body was empty.  The logging.warning call is
+    the only observable production side-effect when cleanup fails, so asserting on
+    it is the minimum meaningful check for this path.
     """
+    import logging
+
     mock_conn = AsyncMock()
     mock_conn.execute.side_effect = RuntimeError("DB gone away")
 
-    # Must not raise
-    await _cleanup_stale_metadata(mock_conn)
+    with caplog.at_level(logging.WARNING):
+        await _cleanup_stale_metadata(mock_conn)  # must not raise
+
+    assert "Stale cache cleanup failed" in caplog.text
 
 
 @pytest.mark.asyncio
