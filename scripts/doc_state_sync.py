@@ -2,7 +2,7 @@
 """Deterministically sync playbook execution state and archive rotation.
 
 This tool makes markdown-state updates reproducible across agents:
-- Enforces the PLAYBOOK Section 10 active-window policy.
+- Enforces the PLAYBOOK Section 4 active-window policy.
 - Rotates overflow dated entries into the archive file.
 - Deduplicates archive entries by SHA-256 fingerprint of full entry blocks.
 - Refreshes a managed status block in SESSION_CONTEXT from PLAYBOOK truth.
@@ -26,12 +26,12 @@ PLAYBOOK_PATH = Path("PLAYBOOK.md")
 ARCHIVE_PATH = Path("docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 SESSION_CONTEXT_PATH = Path(".claude/SESSION_CONTEXT.md")
 
-SECTION_9_RE = re.compile(
-    r"^##\s*9\.?\s*Immediate\s+next\s+batch\s+to\s+execute\b.*$",
+SECTION_3_RE = re.compile(
+    r"^##\s*3\.?\s*Active\s+batch\b.*$",
     re.IGNORECASE,
 )
-SECTION_10_RE = re.compile(
-    r"^##\s*10\.?\s*Batch\s+execution\s+log\b.*$",
+SECTION_4_RE = re.compile(
+    r"^##\s*4\.?\s*Execution\s+log\b.*$",
     re.IGNORECASE,
 )
 GENERIC_SECTION_RE = re.compile(r"^##\s+")
@@ -72,8 +72,8 @@ class Entry:
 
 
 @dataclasses.dataclass(frozen=True)
-class Section9BatchState:
-    """Parsed batch state signals from PLAYBOOK Section 9."""
+class ActiveBatchState:
+    """Parsed batch state signals from PLAYBOOK Section 3."""
 
     current_batch: int | None
     last_completed_batch: int | None
@@ -180,7 +180,7 @@ def _trim_trailing_blank(lines: list[str]) -> list[str]:
     return out
 
 
-def _render_section10(
+def _render_section4(
     prefix_lines: list[str], current_entries: list[Entry], non_current_kept: list[Entry]
 ) -> list[str]:
     out = _trim_trailing_blank(prefix_lines)
@@ -221,13 +221,13 @@ def _render_archive(prefix_lines: list[str], entries: list[Entry]) -> list[str]:
     return _trim_trailing_blank(out)
 
 
-def _parse_section9_batch_state(section_9_lines: list[str]) -> Section9BatchState:
+def _parse_active_batch_state(section_lines: list[str]) -> ActiveBatchState:
     completed: list[int] = []
     not_defined: list[int] = []
     explicit_current: list[int] = []
     explicit_next: list[int] = []
 
-    for line in section_9_lines:
+    for line in section_lines:
         completed.extend(int(m.group(1)) for m in BATCH_COMPLETE_RE.finditer(line))
         not_defined.extend(int(m.group(1)) for m in BATCH_NOT_DEFINED_RE.finditer(line))
         explicit_current.extend(
@@ -246,13 +246,13 @@ def _parse_section9_batch_state(section_9_lines: list[str]) -> Section9BatchStat
 
     if current_batch is None and last_completed is not None and next_undefined is None:
         # No explicit "current" signal and no "not yet defined" guard; this can
-        # happen when Section 9 is terse while Section 10 already has active logs.
+        # happen when Section 3 is terse while Section 4 already has active logs.
         current_batch = last_completed + 1
 
     if next_undefined is not None and current_batch == next_undefined:
         current_batch = None
 
-    return Section9BatchState(
+    return ActiveBatchState(
         current_batch=current_batch,
         last_completed_batch=last_completed,
         next_undefined_batch=next_undefined,
@@ -290,7 +290,7 @@ class SyncResult:
 
 
 def _build_status_block(
-    section_9_state: Section9BatchState,
+    section_3_state: ActiveBatchState,
     current_entries: list[Entry],
 ) -> list[str]:
     if current_entries:
@@ -308,12 +308,12 @@ def _build_status_block(
         else:
             next_wp = "unknown"
         newest_heading = current_entries[0].heading.removeprefix("### ").strip()
-        batch_num = section_9_state.current_batch
-        if batch_num is None and section_9_state.last_completed_batch is not None:
-            batch_num = section_9_state.last_completed_batch + 1
+        batch_num = section_3_state.current_batch
+        if batch_num is None and section_3_state.last_completed_batch is not None:
+            batch_num = section_3_state.last_completed_batch + 1
         batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
         return [
-            "- Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).",
+            "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
             f"- Current batch: {batch_label}.",
             f"- Current-batch entries in active log block: {len(current_entries)}.",
             f"- Completed work packages in current-batch entries: {completed_wp}.",
@@ -322,22 +322,22 @@ def _build_status_block(
         ]
 
     # Valid between-batch state: no entries inside the current-batch markers.
-    last_completed = section_9_state.last_completed_batch
+    last_completed = section_3_state.last_completed_batch
     lines = [
-        "- Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).",
+        "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
         "- Current batch: none (between batches).",
-        f"- Last completed batch in PLAYBOOK Section 9: "
+        f"- Last completed batch in PLAYBOOK Section 3: "
         f"{f'Batch {last_completed}' if last_completed is not None else 'unknown'}.",
         "- Current-batch entries in active log block: 0.",
         "- Completed work packages in current-batch entries: n/a (no active batch).",
         "- Next expected work package: n/a (next batch not defined).",
         "- Newest current-batch entry: none.",
     ]
-    if section_9_state.next_undefined_batch is not None:
+    if section_3_state.next_undefined_batch is not None:
         lines.insert(
             3,
             "- Next batch definition status: "
-            f"Batch {section_9_state.next_undefined_batch} is not yet defined.",
+            f"Batch {section_3_state.next_undefined_batch} is not yet defined.",
         )
     return lines
 
@@ -347,29 +347,29 @@ def _sync(keep_non_current: int) -> SyncResult:
     archive_lines = _read_lines(ARCHIVE_PATH)
     session_lines = _read_lines(SESSION_CONTEXT_PATH)
 
-    section_9_start, section_9_end = _find_section(
-        playbook_lines, SECTION_9_RE, "PLAYBOOK section 9"
+    section_3_start, section_3_end = _find_section(
+        playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
     )
-    section_10_start, section_10_end = _find_section(
-        playbook_lines, SECTION_10_RE, "PLAYBOOK section 10"
+    section_4_start, section_4_end = _find_section(
+        playbook_lines, SECTION_4_RE, "PLAYBOOK section 4"
     )
 
-    section_10_lines = playbook_lines[section_10_start:section_10_end]
+    section_4_lines = playbook_lines[section_4_start:section_4_end]
     marker_start, marker_end = _find_marker_pair(
-        section_10_lines,
+        section_4_lines,
         CURRENT_BATCH_START_MARKER,
         CURRENT_BATCH_END_MARKER,
-        "PLAYBOOK section 10",
+        "PLAYBOOK section 4",
     )
 
-    section_10_entries, first_entry_idx = _parse_entries(section_10_lines)
-    # first_entry_idx may be None when section 10 has no dated entries (valid
+    section_4_entries, first_entry_idx = _parse_entries(section_4_lines)
+    # first_entry_idx may be None when section 4 has no dated entries (valid
     # at a batch boundary after all entries have been rotated to archive).
     prefix_lines = _remove_marker_lines(
-        section_10_lines[:first_entry_idx]  # [:None] == [:] when no entries
+        section_4_lines[:first_entry_idx]  # [:None] == [:] when no entries
     )
     cleaned_entries: list[Entry] = []
-    for entry in section_10_entries:
+    for entry in section_4_entries:
         cleaned_list = _trim_trailing_blank(_remove_marker_lines(entry.lines))
         cleaned_lines = tuple(cleaned_list)
         if not cleaned_lines:
@@ -385,9 +385,9 @@ def _sync(keep_non_current: int) -> SyncResult:
             )
         )
 
-    # Parse Section 9 batch state early -- needed for batch-aware filtering.
-    section_9_state = _parse_section9_batch_state(
-        playbook_lines[section_9_start:section_9_end]
+    # Parse Section 3 batch state early -- needed for batch-aware filtering.
+    section_3_state = _parse_active_batch_state(
+        playbook_lines[section_3_start:section_3_end]
     )
 
     current_entries = [
@@ -407,16 +407,16 @@ def _sync(keep_non_current: int) -> SyncResult:
     # Batch-aware filtering: entries inside the current-batch markers that
     # belong to a different (completed) batch are stale and should be
     # rotated out rather than kept as current.
-    if section_9_state.current_batch is not None:
+    if section_3_state.current_batch is not None:
         truly_current: list[Entry] = []
         stale_in_markers: list[Entry] = []
         has_tagged_current = any(
-            _extract_entry_batch(e) == section_9_state.current_batch
+            _extract_entry_batch(e) == section_3_state.current_batch
             for e in current_entries
         )
         for entry in current_entries:
             entry_batch = _extract_entry_batch(entry)
-            if entry_batch == section_9_state.current_batch:
+            if entry_batch == section_3_state.current_batch:
                 # Explicitly tagged for the current batch -- keep.
                 truly_current.append(entry)
             elif entry_batch is not None:
@@ -436,8 +436,8 @@ def _sync(keep_non_current: int) -> SyncResult:
     # 1. Completed-batch entries (tagged for a batch != current) -- always rotate.
     # 2. Ambiguous/untagged entries -- subject to --keep-non-current limit.
     current_batch_num = (
-        section_9_state.current_batch
-        if section_9_state.current_batch is not None
+        section_3_state.current_batch
+        if section_3_state.current_batch is not None
         else -1
     )
     always_rotate: list[Entry] = []
@@ -451,13 +451,13 @@ def _sync(keep_non_current: int) -> SyncResult:
     non_current_kept = keepable[:keep_non_current]
     rotated_entries = always_rotate + keepable[keep_non_current:]
 
-    new_section_10_lines = _render_section10(
+    new_section_4_lines = _render_section4(
         prefix_lines, current_entries, non_current_kept
     )
     new_playbook_lines = (
-        playbook_lines[:section_10_start]
-        + new_section_10_lines
-        + playbook_lines[section_10_end:]
+        playbook_lines[:section_4_start]
+        + new_section_4_lines
+        + playbook_lines[section_4_end:]
     )
 
     archive_entries, archive_first_entry_idx = _parse_entries(archive_lines)
@@ -488,7 +488,7 @@ def _sync(keep_non_current: int) -> SyncResult:
         "SESSION_CONTEXT",
     )
     status_block = _build_status_block(
-        section_9_state=section_9_state,
+        section_3_state=section_3_state,
         current_entries=current_entries,
     )
     new_session_lines = (
@@ -505,6 +505,51 @@ def _sync(keep_non_current: int) -> SyncResult:
     )
 
 
+def _cross_validate(playbook_lines: list[str], session_lines: list[str]) -> list[str]:
+    """Cross-check content across files; return list of warning strings."""
+    warnings: list[str] = []
+
+    # 1. Test count consistency: look for "**N passing**" in SESSION_CONTEXT
+    #    and PLAYBOOK and warn if they disagree.
+    test_count_re = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
+    session_counts: set[int] = set()
+    playbook_counts: set[int] = set()
+    for line in session_lines:
+        for m in test_count_re.finditer(line):
+            session_counts.add(int(m.group(1)))
+    for line in playbook_lines:
+        for m in test_count_re.finditer(line):
+            playbook_counts.add(int(m.group(1)))
+    if session_counts and playbook_counts and session_counts != playbook_counts:
+        warnings.append(
+            f"Test count mismatch: SESSION_CONTEXT has {session_counts}, "
+            f"PLAYBOOK has {playbook_counts}."
+        )
+
+    # 2. Stale header detection: warn if PLAYBOOK header still mentions
+    #    completed milestones (e.g., "refactor monolithic app.py").
+    stale_phrases = [
+        "refactor monolithic",
+        "Post-Batch 8",
+    ]
+    for line in playbook_lines[:5]:
+        for phrase in stale_phrases:
+            if phrase.lower() in line.lower():
+                warnings.append(
+                    f"Stale header detected in PLAYBOOK: '{phrase}' "
+                    f"found in: {line.strip()}"
+                )
+    for line in session_lines[:5]:
+        for phrase in stale_phrases:
+            if phrase.lower() in line.lower():
+                warnings.append(
+                    f"Stale header detected in SESSION_CONTEXT: '{phrase}' "
+                    f"found in: {line.strip()}"
+                )
+
+    return warnings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Sync PLAYBOOK/SESSION_CONTEXT/archive state deterministically."
@@ -519,7 +564,7 @@ def main() -> int:
         "--keep-non-current",
         type=int,
         default=4,
-        help="How many non-current entries to keep in PLAYBOOK section 10 (default: 4).",
+        help="How many non-current entries to keep in PLAYBOOK section 4 (default: 4).",
     )
     args = parser.parse_args()
 
@@ -543,6 +588,12 @@ def main() -> int:
     current_playbook = _read_lines(PLAYBOOK_PATH)
     current_archive = _read_lines(ARCHIVE_PATH)
     current_session = _read_lines(SESSION_CONTEXT_PATH)
+
+    # Cross-validation warnings (non-blocking).
+    xv_warnings = _cross_validate(result.playbook_lines, result.session_lines)
+    if xv_warnings:
+        for w in xv_warnings:
+            print(f"WARNING: {w}", file=sys.stderr)
 
     changed: list[Path] = []
     if current_playbook != result.playbook_lines:
