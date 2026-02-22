@@ -9,6 +9,175 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-21 - fix: Gemini 3.1 Pro P0/P1 audit remediation (Batch 10 WP-7, WP-8, WP-9)
+
+- Scope: `scrobblescope/utils.py`, `scrobblescope/orchestrator.py`,
+  `tests/test_utils.py`, `tests/services/test_orchestrator_service.py`.
+- Problem: Three confirmed findings from a Gemini 3.1 Pro audit pass:
+  WP-7 -- Per-loop AsyncLimiter design meant each background job (which
+  creates its own asyncio event loop) got an independent rate limiter.
+  With MAX_ACTIVE_JOBS=10, aggregate throughput could reach 10x the
+  configured API rate cap, risking 429s or IP bans.
+  WP-8 -- The playcount pre-slice fired before process_albums applied
+  the release-year filter. With release_scope != "all", albums outside
+  the raw top-N could be the only ones matching the filter; discarding
+  them early silently returned fewer results with no warning to the user.
+  WP-9 -- No upper bound on filtered_albums for playtime sort. Pre-slicing
+  is impossible (ranking requires Spotify track durations), but an extreme
+  outlier with 2000+ qualifying albums would force proportional Spotify API
+  load with no safety valve.
+- Plan vs implementation: all three implemented as one commit each, tests
+  first per AGENTS.md adversarial rule. No scope additions.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **121 passed** (116 baseline + 5 new tests).
+  - `pre-commit run --all-files`: all 8 hooks passed on every commit.
+  - WP-7: _GlobalThrottle.next_wait() serialization test + cross-thread
+    identity test confirm the shared throttle is in place.
+  - WP-8: adversarial test confirms all 5 albums reach process_albums when
+    release_scope="same" and limit_results="2".
+  - WP-9: cap fires + warning logged test + below-threshold no-op test.
+- Forward guidance: Batch 10 is now complete (WP-1 through WP-9). Batch 11
+  is not yet defined. Feature work (top songs, heatmap) and further audit
+  work require owner scope definition before implementation begins.
+  _PLAYTIME_ALBUM_CAP=500 is conservative; monitor "Playtime album cap
+  applied" warnings in production logs to tune if needed.
+
+### 2026-02-21 - refactor/test: routes.py SoC and duplication audit (Batch 10 WP-6)
+
+- Scope: `scrobblescope/routes.py`, `tests/test_routes.py`,
+  `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md` (new doc).
+- Problem: Four SoC and duplication issues identified in `routes.py`:
+  R1 -- two identical inner async wrappers for `check_user_exists` in
+  `validate_user()` and `results_loading()`. R2 -- eight-field job params
+  extraction duplicated verbatim in `results_complete()` and
+  `unmatched_view()`. R3 -- reason-grouping data transform (group-by loop
+  + count dict) embedded in `unmatched_view()`. R4 -- zero-playtime filter
+  business rule (list comprehension) embedded in `results_complete()`.
+  Follow-up: route-level tests only exercised happy paths for two of the
+  new helpers; the playtime filter rule never fired in any test and the
+  "Unknown reason" fallback was untested.
+- Plan vs implementation: all four findings implemented as separate commits
+  (R1-R4), then three adversarial unit tests added in a fifth commit.
+  No scope additions.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **116 passed** (113 pre-existing + 3 adversarial tests).
+  - `pre-commit run --all-files`: all 8 hooks passed on every commit.
+  - No behavior changes. Pure structural refactors + targeted tests.
+- Forward guidance: Batch 10 is complete. Batch 11 is not yet defined.
+  Feature work (top songs, heatmap) requires owner scope definition before
+  implementation begins. No production risk introduced.
+
+### 2026-02-21 - test: sycophantic test coverage audit (Batch 10 WP-5)
+
+- Scope: `tests/test_routes.py`, `tests/services/test_orchestrator_service.py`,
+  `tests/test_app_factory.py`, `tests/test_repositories.py`,
+  `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md` (new doc).
+- Problem: A Gemini 2.5 Pro audit of the 94-test baseline characterised the suite
+  as "sycophantic" -- three structural patterns: assumption mirroring (tests use
+  the same data shortcuts as production code), circular mocking (orchestrator tests
+  return perfect fixture data and confirm perfect results), and interface-only
+  validation (route tests patch start_job_thread so background state is never
+  verified). Review of the current 114-test suite identified five specific instances:
+  1. `test_results_loading_thread_start_failure_renders_error`: patched delete_job
+     and only called assert_called_once() -- no arg check, no JOBS state check.
+  2. `test_fetch_and_process_cache_hit_does_not_precheck_spotify`: only asserted
+     on return value; background_task reads job state not return value, so the
+     critical set_job_results side-effect was unchecked.
+  3. `test_succeeds_with_strong_key_in_dev_mode`: near-duplicate of the production
+     strong-key test; zero unique regression protection.
+  4. `test_cleanup_stale_metadata_nonfatal`: no assertion at all.
+  5. `test_delete_job_on_missing_job_is_noop`: no assertion at all.
+- Plan vs implementation: all five fixed as described in
+  `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`. No scope additions.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **113 passed** (114 - 1 removed duplicate).
+  - `pre-commit run --all-files`: all 8 hooks passed.
+  - No production code changes. Test-only commit.
+- Forward guidance: next sub-track is SoC and duplication audit of routes.py.
+  The suite-level "circular mocking" concern (no integration layer between
+  fetch_top_albums_async aggregation and orchestrator processing) is a valid
+  observation but out of scope for this task -- it would require new integration
+  tests, not quality fixes to existing ones. Document as a known gap.
+
+### 2026-02-21 - refactor/fix: Gemini audit remediation (non-normalization track)
+
+- Scope: `scrobblescope/orchestrator.py`, `scrobblescope/cache.py`,
+  `scrobblescope/routes.py`, `scrobblescope/domain.py`,
+  new `scrobblescope/errors.py`, `scrobblescope/repositories.py`,
+  `tests/services/test_orchestrator_service.py` (+4 tests),
+  `docs/history/BUGFIX_AUDIT_REMEDIATION_2026-02-21.md` (new doc).
+- Problem: A second Gemini Pro audit pass identified four issues beyond the previously
+  fixed normalization bugs. Three were confirmed real against the live codebase:
+  1. Late slicing: `limit_results` applied after Spotify calls in `_fetch_and_process`.
+     For playcount sort the ranking is fully known from Last.fm data; pre-slicing
+     to the requested limit eliminates unnecessary Spotify searches on cache misses.
+     (Playtime sort cannot be pre-sliced -- ranking requires track duration data.)
+  2. Indefinite DB growth: `_batch_lookup_metadata` filtered stale rows at read time
+     but no DELETE ever ran. Stale rows accumulated in `spotify_cache` indefinitely.
+  3. ERROR_CODES + SpotifyUnavailableError in `domain.py`: a SoC violation -- domain
+     logic should not own user-facing message strings or retryability flags.
+  A fourth SoC issue not in the original report was also fixed: duplicate release_scope
+  -> human-text translation in `routes.py` (inline block in `unmatched_view`
+  duplicating `get_filter_description`). A fifth issue (empty-result hallucination)
+  was assessed and deferred as near-false-alarm -- the trigger conditions require
+  zero cache hits AND every album absent from Spotify, which is extremely unlikely.
+- Plan vs implementation: all four confirmed issues fixed as described in
+  `docs/history/BUGFIX_AUDIT_REMEDIATION_2026-02-21.md`. No scope additions.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **114 passed** (110 pre-existing + 4 new tests).
+  - `pre-commit run --all-files`: all 8 hooks passed.
+  - Import graph: `errors.py` is a leaf module (no package imports). Acyclic structure
+    preserved. `domain.py` now contains only normalization logic.
+- Forward guidance: next sub-track is "sycophantic test coverage" audit (owner to
+  elaborate scope). Feature work (top songs, heatmap) blocked until owner assigns a
+  future batch number and defines scope. `_cleanup_stale_metadata` is opportunistic and non-fatal;
+  monitor logs for "Stale cache cleanup" entries to confirm it fires in production.
+  The playtime late-slicing limitation is documented inline in `_fetch_and_process`.
+
+### 2026-02-21 - fix(domain): fix normalization bugs silently excluding non-Latin albums
+
+- Scope: `scrobblescope/domain.py`, `tests/test_domain.py` (9 new tests),
+  `tests/services/test_lastfm_logic.py` (new file, 7 tests),
+  `docs/history/BUGFIX_NORMALIZATION_2026-02-21.md` (new doc).
+- Problem: A third-party static analysis review (Gemini Pro) identified four
+  defects in `domain.py` and a coverage gap in `lastfm.py`. All four were
+  confirmed against the live codebase and three had measurable production impact:
+  1. `normalize_track_name` used `NFKD + encode("ascii","ignore")`, stripping all
+     non-Latin characters to `""`. Any album with Japanese/Cyrillic/etc. track names
+     had `len(track_counts) == 1` regardless of distinct tracks played, silently
+     failing the `min_tracks` filter and disappearing from results without an
+     unmatched entry or any log warning.
+  2. `normalize_name` applied its `album_metadata_words` set to the artist string as
+     well as the album string, corrupting proper nouns like "New Edition" -> "new"
+     and reducing artists named "Special", "Bonus", or "EP" to an empty string.
+     Two artists with all-metadata-word names could collide on the same dict key.
+  3. `normalize_track_name` used a 13-character hardcoded list while `normalize_name`
+     used `str.maketrans(string.punctuation, ...)` covering all 32 ASCII punctuation
+     characters. Characters like `&` were inconsistently handled.
+  4. `fetch_top_albums_async` (aggregation, timestamp filtering, min_plays/min_tracks)
+     had zero test coverage despite being the core business logic function.
+- Plan vs implementation: all four defects addressed as described in
+  `docs/history/BUGFIX_NORMALIZATION_2026-02-21.md`. No scope additions or removals.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **110 passed** (94 pre-existing + 9 new domain tests + 7 new logic tests).
+  - `pre-commit run --all-files`: all hooks passed (black reformatted test_domain.py
+    on first pass; clean on second).
+  - Owner live test: Japanese-title 2025 album (betcover!!) now appears in results
+    for listening year 2025 with "Same as release year" filter. Previously absent with
+    no unmatched entry. Second validation: same artist's 2021 album (10 unique tracks,
+    68 plays) also appeared correctly.
+  - "New Edition" self-titled album test: artist key now "new edition" (not "new");
+    album deduplication with "(Deluxe Edition)" suffix confirmed still working.
+- Forward guidance: no schema, API contract, or route changes. No migration needed.
+  The new `test_lastfm_logic.py` file should be extended if `fetch_top_albums_async`
+  logic changes (e.g., top-songs feature). Pre-Batch-10 housekeeping is ongoing;
+  Batch 10 scope remains TBD by owner.
+
 ### 2026-02-20 - fix(tooling): remove transient rotated field from SESSION_CONTEXT status block
 - Scope: `scripts/doc_state_sync.py`, `AGENTS.md`.
 - Problem: `_build_status_block` wrote `rotated=N` into the managed SESSION_CONTEXT

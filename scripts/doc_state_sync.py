@@ -43,6 +43,7 @@ BATCH_NOT_DEFINED_RE = re.compile(
 BATCH_CURRENT_RE = re.compile(
     r"\bBatch\s+(\d+)\s+is\s+(?:active|current|in[\s-]?progress)\b", re.IGNORECASE
 )
+ENTRY_BATCH_RE = re.compile(r"\bBatch\s+(\d+)\b", re.IGNORECASE)
 BATCH_NEXT_RE = re.compile(
     r"\bnext\s+batch(?:\s+to\s+execute)?[^0-9]*Batch\s+(\d+)\b",
     re.IGNORECASE,
@@ -258,6 +259,12 @@ def _parse_section9_batch_state(section_9_lines: list[str]) -> Section9BatchStat
     )
 
 
+def _extract_entry_batch(entry: Entry) -> int | None:
+    """Extract the batch number from an entry heading, if present."""
+    match = ENTRY_BATCH_RE.search(entry.title)
+    return int(match.group(1)) if match else None
+
+
 def _collect_wp_numbers(entries: list[Entry]) -> list[int]:
     numbers: set[int] = set()
     for entry in entries:
@@ -291,7 +298,15 @@ def _build_status_block(
         completed_wp = (
             ", ".join(f"WP-{num}" for num in wp_numbers) if wp_numbers else "none"
         )
-        next_wp = f"WP-{max(wp_numbers) + 1}" if wp_numbers else "unknown"
+        # Find the first gap in the WP sequence (e.g., [1, 3] -> next is 2).
+        if wp_numbers:
+            wp_set = set(wp_numbers)
+            candidate = 1
+            while candidate in wp_set:
+                candidate += 1
+            next_wp = f"WP-{candidate}"
+        else:
+            next_wp = "unknown"
         newest_heading = current_entries[0].heading.removeprefix("### ").strip()
         batch_num = section_9_state.current_batch
         if batch_num is None and section_9_state.last_completed_batch is not None:
@@ -370,6 +385,11 @@ def _sync(keep_non_current: int) -> SyncResult:
             )
         )
 
+    # Parse Section 9 batch state early -- needed for batch-aware filtering.
+    section_9_state = _parse_section9_batch_state(
+        playbook_lines[section_9_start:section_9_end]
+    )
+
     current_entries = [
         entry
         for entry in cleaned_entries
@@ -383,8 +403,53 @@ def _sync(keep_non_current: int) -> SyncResult:
         for entry in cleaned_entries
         if not (marker_start < entry.start_idx < marker_end)
     ]
-    non_current_kept = non_current_entries[:keep_non_current]
-    rotated_entries = non_current_entries[keep_non_current:]
+
+    # Batch-aware filtering: entries inside the current-batch markers that
+    # belong to a different (completed) batch are stale and should be
+    # rotated out rather than kept as current.
+    if section_9_state.current_batch is not None:
+        truly_current: list[Entry] = []
+        stale_in_markers: list[Entry] = []
+        has_tagged_current = any(
+            _extract_entry_batch(e) == section_9_state.current_batch
+            for e in current_entries
+        )
+        for entry in current_entries:
+            entry_batch = _extract_entry_batch(entry)
+            if entry_batch == section_9_state.current_batch:
+                # Explicitly tagged for the current batch -- keep.
+                truly_current.append(entry)
+            elif entry_batch is not None:
+                # Explicitly tagged for a different batch -- stale.
+                stale_in_markers.append(entry)
+            elif has_tagged_current:
+                # No batch tag but tagged current entries exist -- stale.
+                stale_in_markers.append(entry)
+            else:
+                # No batch tag and no tagged current entries -- ambiguous,
+                # keep to avoid losing entries during a transition.
+                truly_current.append(entry)
+        current_entries = truly_current
+        non_current_entries = stale_in_markers + non_current_entries
+
+    # Separate non-current entries into two groups:
+    # 1. Completed-batch entries (tagged for a batch != current) -- always rotate.
+    # 2. Ambiguous/untagged entries -- subject to --keep-non-current limit.
+    current_batch_num = (
+        section_9_state.current_batch
+        if section_9_state.current_batch is not None
+        else -1
+    )
+    always_rotate: list[Entry] = []
+    keepable: list[Entry] = []
+    for entry in non_current_entries:
+        entry_batch = _extract_entry_batch(entry)
+        if entry_batch is not None and entry_batch != current_batch_num:
+            always_rotate.append(entry)
+        else:
+            keepable.append(entry)
+    non_current_kept = keepable[:keep_non_current]
+    rotated_entries = always_rotate + keepable[keep_non_current:]
 
     new_section_10_lines = _render_section10(
         prefix_lines, current_entries, non_current_kept
@@ -421,9 +486,6 @@ def _sync(keep_non_current: int) -> SyncResult:
         SESSION_STATUS_START_MARKER,
         SESSION_STATUS_END_MARKER,
         "SESSION_CONTEXT",
-    )
-    section_9_state = _parse_section9_batch_state(
-        playbook_lines[section_9_start:section_9_end]
     )
     status_block = _build_status_block(
         section_9_state=section_9_state,
