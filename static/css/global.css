@@ -1,0 +1,180 @@
+/* global.css -- shared theme for every page.
+   Included via base.html; do not duplicate in per-page stylesheets. */
+
+/* ------------------------------------------------------------------ */
+/* CSS custom properties                                               */
+/* ------------------------------------------------------------------ */
+:root {
+    --bars-color: #6a4baf;
+    --text-color: #333333;
+    --bg-color: #f8f9fa;
+    --info-bg: rgba(106, 75, 175, 0.1);
+}
+
+.dark-mode {
+    --bars-color: #9370DB;
+    --text-color: #f8f9fa;
+    --bg-color: #121212;
+    --info-bg: rgba(147, 112, 219, 0.1);
+}
+
+/* ------------------------------------------------------------------ */
+/* Base body theme                                                     */
+/* ------------------------------------------------------------------ */
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ------------------------------------------------------------------ */
+/* SVG logo color overrides                                            */
+/* ------------------------------------------------------------------ */
+.dark-mode svg .cls-1 {
+    stroke: var(--bars-color);
+}
+
+.dark-mode svg #logo-text path,
+.dark-mode svg #tagline path {
+    fill: var(--text-color);
+}
+
+/* ------------------------------------------------------------------ */
+/* Page footer bar (in-flow, centered, present on all pages)          */
+/* ------------------------------------------------------------------ */
+.page-footer-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1rem 1.5rem;
+    margin-top: 0.5rem;
+    opacity: 0;
+    animation: fadeInCard 1.2s ease 0.6s forwards;
+}
+
+/* Dark-mode toggle widget (in-flow inside .page-footer-bar)          */
+#darkModeToggle {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    background-color: #ffffff;
+    transition: background-color 0.3s ease;
+}
+
+.dark-mode #darkModeToggle {
+    background-color: #1e1e1e;
+}
+
+#darkModeToggle input {
+    margin: 0;
+}
+
+#darkModeToggle label {
+    margin: 0;
+    font-size: 0.78rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark-mode switch slider                                             */
+/* ------------------------------------------------------------------ */
+#darkSwitch {
+    width: 2.45rem;
+    height: 1.25rem;
+    background-color: #ccc;
+    border-radius: 999px;
+    appearance: none;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    transition: background-color 0.3s ease;
+}
+
+#darkSwitch::before {
+    content: "";
+    position: absolute;
+    width: 0.95rem;
+    height: 0.95rem;
+    border-radius: 50%;
+    top: 0.15rem;
+    left: 0.15rem;
+    background-color: white;
+    transition: transform 0.3s ease;
+}
+
+#darkSwitch:checked {
+    background-color: var(--bars-color);
+}
+
+.dark-mode #darkSwitch:checked {
+    background-color: var(--bg-color);
+}
+
+#darkSwitch:checked::before {
+    transform: translateX(1.2rem);
+}
+
+/* ------------------------------------------------------------------ */
+/* Fluid typography: card content scales proportionally with viewport  */
+/* ------------------------------------------------------------------ */
+.card-body {
+    font-size: clamp(0.84rem, 2vw, 1rem);
+}
+
+/* Dark-mode card (shared: index, loading, results, error)             */
+.dark-mode .card {
+    background-color: #1e1e1e;
+    border-color: #444;
+    color: var(--text-color);
+}
+
+/* ------------------------------------------------------------------ */
+/* Dark-mode modal (shared: any page that uses a Bootstrap modal)      */
+/* ------------------------------------------------------------------ */
+.dark-mode .modal-content {
+    background-color: #1e1e1e;
+    color: var(--text-color);
+    border-color: #444;
+}
+
+.dark-mode .modal-header,
+.dark-mode .modal-footer {
+    border-color: #444;
+}
+
+.dark-mode .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* ------------------------------------------------------------------ */
+/* Card fade-in (shared: all pages using Bootstrap .card)              */
+/* ------------------------------------------------------------------ */
+.card {
+    background-color: #fff;
+    opacity: 0;
+    animation: fadeInCard 1.2s ease 0.2s forwards;
+}
+
+@keyframes fadeInCard {
+    to { opacity: 1; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Logo SVG fade-in (shared: all pages with #logo-wrapper)             */
+/* ------------------------------------------------------------------ */
+#logo-wrapper svg {
+    width: 100%;
+    height: auto;
+    max-height: 150px;
+    opacity: 0;
+    animation: fadeIn 2s ease forwards;
+}
+
+@keyframes fadeIn {
+    to { opacity: 1; }
+}

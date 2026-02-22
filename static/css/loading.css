@@ -1,42 +1,5 @@
-:root {
-    --bars-color: #6a4baf;
-    --text-color: #333333;
-    --bg-color: #f8f9fa;
-}
-
-.dark-mode {
-    --bars-color: #9370DB;
-    --text-color: #f8f9fa;
-    --bg-color: #121212;
-}
-
-body {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    background-color: var(--bg-color);
-    transition: background-color 0.3s ease, color 0.3s ease;
-    color: var(--text-color);
-}
-
-.dark-mode .loading-container {
-    background-color: #1e1e1e;
-    color: var(--text-color);
-    border: 1px solid #444;
-}
-
-.loading-container {
-    text-align: center;
-    max-width: 650px;
-    width: 100%;
-    padding: 40px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: background-color 0.3s ease, color 0.3s ease;
-}
+/* loading.css -- page-specific styles for the loading page (loading.html).
+   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
 
 .progress-bar {
     height: 20px;
@@ -46,37 +9,18 @@ body {
 .step-text {
     font-size: 1.3em;
     margin-top: 16px;
+    text-align: center;
 }
 
 .step-details {
     font-size: 1em;
     color: #6c757d;
     margin-top: 12px;
+    text-align: center;
 }
 
 .dark-mode .step-details {
     color: #aaa;
-}
-
-#logo-wrapper svg {
-    width: 100%;
-    height: auto;
-    max-height: 180px;
-    opacity: 0;
-    animation: fadeIn 2s ease forwards;
-}
-
-.dark-mode #logo-wrapper svg .cls-1 {
-    stroke: var(--bars-color);
-}
-
-.dark-mode #logo-wrapper svg #logo-text path,
-.dark-mode #logo-wrapper svg #tagline path {
-    fill: var(--text-color);
-}
-
-@keyframes fadeIn {
-    to { opacity: 1; }
 }
 
 .error-message {
@@ -142,83 +86,13 @@ body {
     color: #ffc107;
 }
 
-/* Dark-mode toggle switch */
-#darkModeToggle {
-    position: fixed;
-    left: 50%;
-    bottom: max(0.75rem, env(safe-area-inset-bottom));
-    transform: translateX(-50%);
-    z-index: 1000;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.5rem;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(4px);
-    transition: background-color 0.3s ease;
-}
-
-.dark-mode #darkModeToggle {
-    background-color: rgba(30, 30, 30, 0.9);
-}
-
-#darkModeToggle .form-check-input {
-    margin: 0;
-}
-
-#darkModeToggle .form-check-label {
-    margin: 0;
-    font-size: 0.78rem;
-    line-height: 1;
-}
-
-/* Dark switch slider */
-#darkSwitch {
-    width: 2.45rem;
-    height: 1.25rem;
-    background-color: #ccc;
-    border-radius: 999px;
-    appearance: none;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.3s ease;
-    outline: none;
-}
-
-#darkSwitch::before {
-    content: "";
-    position: absolute;
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 50%;
-    top: 0.15rem;
-    left: 0.15rem;
-    background-color: white;
-    transition: transform 0.3s ease;
-}
-
-#darkSwitch:checked {
-    background-color: var(--bars-color);
-}
-
-#darkSwitch:checked::before {
-    transform: translateX(1.2rem);
-}
-
 /* Parameter summary styles */
 .request-info {
     margin-top: 25px;
     text-align: left;
-    background-color: rgba(106, 75, 175, 0.1);
+    background-color: var(--info-bg);
     border-radius: 8px;
     padding: 20px;
-}
-
-.dark-mode .request-info {
-    background-color: rgba(147, 112, 219, 0.1);
 }
 
 .info-table {
@@ -277,19 +151,21 @@ h4 {
     }
 }
 
-@media (max-width: 575.98px) {
-    #darkModeToggle {
-        padding: 0.25rem 0.42rem;
-        gap: 0.3rem;
+/* ------------------------------------------------------------------ */
+/* Mobile responsive overrides                                         */
+/* ------------------------------------------------------------------ */
+@media (max-width: 767.98px) {
+    #logo-wrapper svg {
+        max-height: 100px;
     }
 
-    #darkModeToggle .form-check-label {
-        font-size: 0.72rem;
+    .request-info {
+        padding: 12px 14px;
+        margin-top: 14px;
     }
-}
 
-@media (max-width: 380px) {
-    #darkModeToggle .form-check-label {
-        display: none;
+    .live-stats {
+        padding: 8px 14px;
+        margin-top: 12px;
     }
 }

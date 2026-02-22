@@ -1,315 +1,166 @@
-  :root {
-    --bars-color: #6a4baf;
-    --text-color: #333333;
-    --bg-color: #f8f9fa;
-  }
-  
-  .dark-mode {
-    --bars-color: #9370DB;
-    --text-color: #f8f9fa;
-    --bg-color: #121212;
-  }
-  
+/* index.css -- page-specific styles for the search form (index.html).
+   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
+
+.dark-mode .form-control,
+.dark-mode .form-select {
+  background-color: #333;
+  border-color: #555;
+  color: #f8f9fa;
+}
+
+.dark-mode .form-text {
+  color: #aaa;
+}
+
+/* Hide by default */
+#decade_dropdown,
+#release_year_group,
+#thresholdSettings {
+  display: none;
+}
+
+/* Tooltip icon (? circle next to labels) */
+.tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background-color: #999;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  vertical-align: middle;
+  margin-left: 0.3rem;
+  transition: background-color 0.2s ease;
+}
+
+.tooltip-icon:hover,
+.tooltip-icon:focus {
+  background-color: var(--bars-color);
+  outline: none;
+}
+
+/* Decade pill selector */
+.decade-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.decade-radio {
+  display: none;
+}
+
+.decade-pill {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.decade-pill:hover {
+  border-color: var(--bars-color);
+  color: var(--bars-color);
+}
+
+.decade-radio:checked + .decade-pill {
+  background-color: var(--bars-color);
+  color: #fff;
+  border-color: var(--bars-color);
+}
+
+.decade-pill-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.dark-mode .decade-pill {
+  border-color: #555;
+  color: var(--text-color);
+}
+
+.dark-mode .decade-pill:hover {
+  border-color: var(--bars-color);
+}
+
+/* Info button (matches logo fade-in) */
+#infoButton {
+  opacity: 0;
+  animation: fadeIn 2s ease forwards;
+}
+
+/* Mobile scaling -- inputs stay >=16px to prevent iOS auto-zoom */
+@media (max-width: 767.98px) {
   body {
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    transition: background-color 0.3s ease, color 0.3s ease;
-  }
-  
-  .dark-mode .card {
-    background-color: #1e1e1e;
-    border-color: #444;
-    color: var(--text-color);
-  }
-  
-  .dark-mode .form-control,
-  .dark-mode .form-select {
-    background-color: #333;
-    border-color: #555;
-    color: #f8f9fa;
-  }
-  
-  .dark-mode .form-text {
-    color: #aaa;
-  }
-  
-  /* SVG color overrides */
-  .dark-mode svg .cls-1 {
-    stroke: var(--bars-color);
-  }
-  .dark-mode svg #logo-text path,
-  .dark-mode svg #tagline path {
-    fill: var(--text-color);
-  }
-  
-  /* Dark-mode toggle switch */
-  #darkModeToggle {
-    position: fixed;
-    left: 50%;
-    bottom: max(0.75rem, env(safe-area-inset-bottom));
-    transform: translateX(-50%);
-    z-index: 1000;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.5rem;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(4px);
-    transition: background-color 0.3s ease;
-  }
-  
-  .dark-mode #darkModeToggle {
-    background-color: rgba(30, 30, 30, 0.9);
+    min-height: 100dvh;
+    overflow-x: hidden;
   }
 
-  #darkModeToggle .form-check-input {
-    margin: 0;
+  .container.mt-5 {
+    margin-top: 0.5rem !important;
+    margin-bottom: 1rem !important;
+    padding-left: 0.6rem;
+    padding-right: 0.6rem;
   }
 
-  #darkModeToggle .form-check-label {
-    margin: 0;
-    font-size: 0.78rem;
-    line-height: 1;
+  #logo-wrapper {
+    margin-bottom: 0.5rem !important;
   }
-      
-  #darkSwitch {
-    width: 2.45rem;
-    height: 1.25rem;
-    background-color: #ccc;
-    border-radius: 999px;
-    appearance: none;
-    outline: none;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.3s ease;
+
+  .card-body {
+    padding: 0.85rem;
   }
-  
-  #darkSwitch::before {
-    content: "";
-    position: absolute;
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 50%;
-    top: 0.15rem;
-    left: 0.15rem;
-    background-color: white;
-    transition: transform 0.3s ease;
+
+  .card-body h2 {
+    font-size: 1.05rem;
+    margin-bottom: 0.7rem !important;
   }
-  
-  #darkSwitch:checked {
-    background-color: var(--bars-color);
+
+  .card-body .form-label {
+    font-size: 0.8rem;
+    margin-bottom: 0.2rem;
   }
-  
-  #darkSwitch:checked::before {
-    transform: translateX(1.2rem);
+
+  .card-body .form-check-label {
+    font-size: 0.8rem;
   }
-  
-  /* Logo animation */
+
   #logo-wrapper svg {
-    width: 100%;
-    height: auto;
-    max-height: 150px;
-    opacity: 0;
-    animation: fadeIn 2s ease forwards;
-  }
-  
-  @keyframes fadeIn {
-    to { opacity: 1; }
-  }
-  
-  /* Card fade-in */
-  .card {
-    background-color: #fff;
-    opacity: 0;
-    animation: fadeInCard 1.2s ease 0.2s forwards;
-  }
-  
-  @keyframes fadeInCard {
-    to { opacity: 1; }
-  }
-  
-  /* Hide by default */
-  #decade_dropdown,
-  #release_year_group,
-  #thresholdSettings {
-    display: none;
+    max-height: 72px;
   }
 
-  /* Tooltip icon (? circle next to labels) */
-  .tooltip-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.1rem;
-    height: 1.1rem;
-    border-radius: 50%;
-    background-color: #999;
-    color: #fff;
-    font-size: 0.7rem;
-    font-weight: 700;
-    cursor: pointer;
-    vertical-align: middle;
-    margin-left: 0.3rem;
-    transition: background-color 0.2s ease;
+  #infoButton {
+    margin-top: 0.3rem !important;
+    font-size: 0.72rem;
+    padding: 0.2rem 0.45rem;
   }
 
-  .tooltip-icon:hover,
-  .tooltip-icon:focus {
-    background-color: var(--bars-color);
-    outline: none;
+  .mb-3 {
+    margin-bottom: 0.55rem !important;
   }
 
-  /* Dark-mode modal styling */
-  .dark-mode .modal-content {
-    background-color: #1e1e1e;
-    color: var(--text-color);
-    border-color: #444;
+  .form-control,
+  .form-select {
+    font-size: 16px;
+    padding: 0.35rem 0.55rem;
   }
 
-  .dark-mode .modal-header,
-  .dark-mode .modal-footer {
-    border-color: #444;
-  }
-
-  .dark-mode .btn-close {
-    filter: invert(1) grayscale(100%) brightness(200%);
-  }
-
-  /* Decade pill selector */
-  .decade-pills {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.4rem;
-  }
-
-  .decade-radio {
-    display: none;
+  .form-text {
+    font-size: 0.73rem;
+    margin-top: 0.15rem;
   }
 
   .decade-pill {
-    padding: 0.35rem 0.75rem;
-    border-radius: 999px;
-    border: 1px solid #ccc;
-    cursor: pointer;
-    font-size: 0.85rem;
-    transition: all 0.2s ease;
-    user-select: none;
+    font-size: 0.75rem;
+    padding: 0.28rem 0.6rem;
   }
 
-  .decade-pill:hover {
-    border-color: var(--bars-color);
-    color: var(--bars-color);
-  }
-
-  .decade-radio:checked + .decade-pill {
-    background-color: var(--bars-color);
-    color: #fff;
-    border-color: var(--bars-color);
-  }
-
-  .decade-pill-disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    pointer-events: none;
-  }
-
-  .dark-mode .decade-pill {
-    border-color: #555;
-    color: var(--text-color);
-  }
-
-  .dark-mode .decade-pill:hover {
-    border-color: var(--bars-color);
-  }
-
-  /* Info button (matches logo fade-in) */
-  #infoButton {
-    opacity: 0;
-    animation: fadeIn 2s ease forwards;
-  }
-
-  /* Mobile scaling — inputs stay ≥16px to prevent iOS auto-zoom */
-  @media (max-width: 767.98px) {
-    body {
-      min-height: 100dvh;
-      overflow-x: hidden;
-    }
-
-    .container.mt-5 {
-      margin-top: 0.5rem !important;
-      margin-bottom: 4rem !important;
-      padding-left: 0.6rem;
-      padding-right: 0.6rem;
-    }
-
-    #logo-wrapper {
-      margin-bottom: 0.5rem !important;
-    }
-
-    .card-body {
-      padding: 0.85rem;
-    }
-
-    .card-body h2 {
-      font-size: 1.05rem;
-      margin-bottom: 0.7rem !important;
-    }
-
-    .card-body .form-label {
-      font-size: 0.8rem;
-      margin-bottom: 0.2rem;
-    }
-
-    .card-body .form-check-label {
-      font-size: 0.8rem;
-    }
-
-    #logo-wrapper svg {
-      max-height: 72px;
-    }
-
-    #infoButton {
-      margin-top: 0.3rem !important;
-      font-size: 0.72rem;
-      padding: 0.2rem 0.45rem;
-    }
-
-    .mb-3 {
-      margin-bottom: 0.55rem !important;
-    }
-
-    .form-control,
-    .form-select {
-      font-size: 16px;
-      padding: 0.35rem 0.55rem;
-    }
-
-    .form-text {
-      font-size: 0.73rem;
-      margin-top: 0.15rem;
-    }
-
-    .decade-pill {
-      font-size: 0.75rem;
-      padding: 0.28rem 0.6rem;
-    }
-
-    #darkModeToggle {
-      padding: 0.25rem 0.42rem;
-      gap: 0.3rem;
-    }
-
-    #darkModeToggle .form-check-label {
-      font-size: 0.72rem;
-    }
-  }
-
-  @media (max-width: 380px) {
-    #darkModeToggle .form-check-label {
-      display: none;
-    }
-  }
+}

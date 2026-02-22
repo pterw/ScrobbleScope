@@ -13,37 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/'/g, '&#39;');
     }
 
-    //Dark Mode Logic
-    const darkSwitch = document.getElementById('darkSwitch');
-    if (localStorage.getItem('darkMode') === 'true') {
-        document.body.classList.add('dark-mode');
-        if (darkSwitch) darkSwitch.checked = true;
-    }
-    if (darkSwitch) {
-        darkSwitch.addEventListener('change', function() {
-            document.body.classList.toggle('dark-mode', this.checked);
-            localStorage.setItem('darkMode', this.checked);
-            updateSvgColors(this.checked);
-        });
-    }
-
-    function updateSvgColors(isDark) {
-        const svgElement = document.querySelector('#logo-wrapper svg');
-        if (!svgElement) return;
-        const bars = svgElement.querySelectorAll('.cls-1');
-        const textPaths = svgElement.querySelectorAll('#logo-text path, #tagline path');
-        if (isDark) {
-            bars.forEach(bar => bar.setAttribute('stroke', '#9370DB'));
-            textPaths.forEach(path => path.setAttribute('fill', '#f8f9fa'));
-        } else {
-            bars.forEach(bar => bar.setAttribute('stroke', '#6a4baf'));
-            textPaths.forEach(path => path.setAttribute('fill', '#333333'));
-        }
-    }
-    // Initial SVG color update on page load
-    updateSvgColors(darkSwitch ? darkSwitch.checked : false);
-
-
     // Toast Notification Helper
     function showToast(message, type = 'info', duration = 3000) {
         const toastContainer = document.getElementById('toastContainer');
@@ -203,10 +172,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             
-            html2canvas(targetElement, {
-                scale: 2,
+            const el = targetElement;
+            // windowWidth:1200 forces desktop CSS layout (hides mobile media queries),
+            // scale:3 produces a high-resolution image regardless of device pixel ratio.
+            html2canvas(el, {
+                scale: 3,
                 useCORS: true,
                 backgroundColor: document.body.classList.contains('dark-mode') ? '#121212' : '#ffffff',
+                windowWidth: 1200,
+                scrollX: 0,
+                scrollY: 0,
+                onclone: (clonedDoc) => {
+                    // Remove overflow clip in the clone so the full table renders
+                    const w = clonedDoc.getElementById('results-table-wrapper');
+                    if (w) { w.style.overflow = 'visible'; }
+                },
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/jpeg', 0.95);
@@ -222,4 +202,5 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+
 });

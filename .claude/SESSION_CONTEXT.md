@@ -33,6 +33,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
 | Batch 9 status | **Complete** (WP-1 through WP-8 all done). See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
 | Batch 10 status | **Complete**. WP-1 through WP-9 done. WP-7 = cross-job rate limiting fix; WP-8 = pre-slice gate fix; WP-9 = playtime album cap. 121 tests. |
+| Batch 11 status | **In progress**. WP-1 done (CSS/JS theme consolidation: `global.css` + `theme.js`, html2canvas mobile fix, back-to-top button). WP-2 pending (decompose `process_albums`). WP-3 done (CSS/JS DRY violations + toggle markup bug + loading text centering + `var`->`const` in `theme.js`). |
 | Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
 | Global API rate limiting | `_GlobalThrottle` + `_ThrottledLimiter` in `utils.py` cap aggregate Last.fm and Spotify throughput across all concurrent event loops. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
@@ -61,10 +62,10 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
 - Current batch: Batch 11.
-- Current-batch entries in active log block: 4.
-- Completed work packages in current-batch entries: WP-5, WP-6, WP-7, WP-8, WP-9.
+- Current-batch entries in active log block: 6.
+- Completed work packages in current-batch entries: WP-1, WP-3, WP-5, WP-6, WP-7, WP-8, WP-9.
 - Next expected work package: WP-10.
-- Newest current-batch entry: 2026-02-21 - fix: Gemini 3.1 Pro P0/P1 audit remediation (Batch 10 WP-7, WP-8, WP-9).
+- Newest current-batch entry: 2026-02-21 - refactor(static): theme CSS/JS consolidation + results UX (Batch 11 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -228,3 +229,4 @@ POST /results_complete
 - **Pre-slice gate fix (2026-02-21, Batch 10 WP-8):** Playcount pre-slice in `_fetch_and_process` ran before `process_albums` applied the `release_scope` filter. With `release_scope != "all"`, albums outside the raw top-N could be the only ones matching the year filter, silently returning fewer results. Fixed by adding `and release_scope == "all"` to the gate condition. Renamed existing test to document the `scope=all` invariant; added adversarial test confirming all albums pass through for scoped queries. 119 tests passing.
 - **Playtime album cap (2026-02-21, Batch 10 WP-9):** No upper bound on `filtered_albums` for playtime sort (pre-slicing impossible without Spotify track durations). Added `_PLAYTIME_ALBUM_CAP = 500` in `orchestrator.py`; cap block sorts by `play_count` (best available proxy) and logs a `WARNING` when triggered. 2 tests added (cap fires + warns; no-op below threshold). 121 tests passing.
 - **Routes SoC audit (2026-02-21, Batch 10 WP-6):** Four SoC and duplication findings in `routes.py` resolved. (R1) Duplicate inner async wrappers for `check_user_exists` in `validate_user()` and `results_loading()` extracted to `_check_user_exists(username)`. (R2) Eight-field job params extraction duplicated in `results_complete()` and `unmatched_view()` extracted to `_extract_job_params(job_context)`. (R3) Reason-grouping data transform in `unmatched_view()` extracted to `_group_unmatched_by_reason(unmatched_data)`. (R4) Zero-playtime filter business rule in `results_complete()` extracted to `_filter_results_for_display(results_data, sort_mode)`. Follow-up: three adversarial unit tests added after route tests were found to only exercise happy paths for `_filter_results_for_display` (filter never fired) and `_group_unmatched_by_reason` ("Unknown reason" fallback untested). Full detail in `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md`. 116 tests passing. Batch 10 complete.
+- **CSS/JS DRY + toggle fix (2026-02-21, Batch 11 WP-3):** Five findings from a post-WP-1 owner code review fixed. (1) `--info-bg` promoted to `global.css` `:root`/`.dark-mode`; removed split definition from `results.css` and hard-coded rgba from `loading.css` (now uses `var(--info-bg)`). (2) Duplicate `.dark-mode .modal-content/.modal-header/.modal-footer/.btn-close` block moved from `index.css` and `results.css` to `global.css` (single definition). (3) Bootstrap `form-check form-switch`/`form-check-input`/`form-check-label` classes stripped from toggle markup in `base.html`; Bootstrap's `.form-switch .form-check-input` was injecting a conflicting SVG `background-image` knob and `margin-left: -2.5em` that fought the custom layout; CSS selectors updated to bare `input`/`label` with `cursor: pointer` added to label; dark-mode toggle track changed from `var(--bars-color)` to `var(--bg-color)` when checked. (4) `text-align: center` added to `.step-text` and `.step-details` in `loading.css`. (5) Redundant mobile release-date JS block removed from `results.js` (already handled server-side by Bootstrap `d-none d-md-inline`/`d-md-none` spans). Also: `var`->`const` for `darkSwitch`/`backToTop` in `theme.js`. 121 tests passing (no Python changes).

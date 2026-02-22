@@ -8,13 +8,14 @@
 
 {% block head_extra %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<!--Bridge script: define window.APP_DATA with needed values-->
+<!--Bridge data: Jinja2 values injected as JSON; read by results.js via window.APP_DATA-->
+<script id="app-data-config" type="application/json">{{ {
+    "username": username,
+    "year": year,
+    "job_id": job_id
+} | tojson }}</script>
 <script>
-    window.APP_DATA = {{ {
-        "username": username,
-        "year": year,
-        "job_id": job_id
-    } | tojson }};
+    window.APP_DATA = JSON.parse(document.getElementById('app-data-config').textContent);
 </script>
 {% endblock %}
 
@@ -58,19 +59,19 @@
                         
                         <div class="summary-box">
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-6">
                                     <h5>Listening Summary</h5>
                                     <p><strong>Username:</strong> {{ username }}</p>
                                     <p><strong>Year:</strong> {{ year }}</p>
-                                    <p><strong>Total Albums Found:</strong> {{ data|length }}</p>
+                                    <p><strong>Total Albums:</strong> {{ data|length }}</p>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-6">
                                     <h5>Filter Applied</h5>
-                                    <p><strong>Release Filter:</strong> 
+                                    <p><strong>Release:</strong>
                                     {% if release_scope == "same" %}
-                                        Same as Listening Year ({{ year }})
+                                        {{ year }} only
                                     {% elif release_scope == "previous" %}
-                                        Previous Year ({{ year - 1 }})
+                                        {{ year - 1 }}
                                     {% elif release_scope == "decade" %}
                                         {{ decade }}
                                     {% elif release_scope == "custom" %}
@@ -79,14 +80,14 @@
                                         All Years
                                     {% endif %}
                                     </p>
-                                    <p><strong>Sort By:</strong> 
+                                    <p><strong>Sort:</strong>
                                     {% if sort_by == "playtime" %}
-                                        Total Listening Time
+                                        Listening Time
                                     {% else %}
-                                        Track Play Count
+                                        Play Count
                                     {% endif %}
                                     </p>
-                                    <p><strong>Album Thresholds:</strong> Minimum {{ min_plays|default('10') }} plays, {{ min_tracks|default('3') }} unique tracks</p>
+                                    <p class="d-none d-md-block"><strong>Thresholds:</strong> ≥{{ min_plays|default('10') }} plays, ≥{{ min_tracks|default('3') }} tracks</p>
                                 </div>
                             </div>
                         </div>
@@ -112,9 +113,9 @@
                                             <th scope="col">Artist</th>
                                             <th scope="col">
                                                 {% if sort_by == "playtime" %}
-                                                Your Listening Time
+                                                Listening Time
                                                 {% else %}
-                                                Your Track Plays
+                                                Track Plays
                                                 {% endif %}
                                             </th>
                                             <th scope="col">Release</th>
@@ -151,7 +152,10 @@
                                                     {% endif %}
                                                 </td>
                                                 <td>
-                                                    <span class="release-badge">{{ album.release_date }}</span>
+                                                    <span class="release-badge">
+                                                        <span class="d-none d-md-inline">{{ album.release_date }}</span>
+                                                        <span class="d-md-none">{{ (album.release_date or '')[:7] }}</span>
+                                                    </span>
                                                 </td>
                                             </tr>
                                         {% endfor %}
@@ -210,6 +214,10 @@
         </div>
     </div>
 
+{% endblock %}
+
+{% block page_footer_extra %}
+<a id="back-to-top" href="#" class="btn btn-sm btn-outline-secondary">&#8593; Top</a>
 {% endblock %}
 
 {% block bootstrap_js %}

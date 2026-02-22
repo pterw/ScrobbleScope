@@ -440,16 +440,25 @@ All commits must comply with the commit message standard in Section 5.
     119 tests passing.)
   - WP-9: Add defensive playtime album cap. Done. (_PLAYTIME_ALBUM_CAP=500 in
     orchestrator.py; warning log on trigger; 2 tests. 121 tests passing.)
-- **Batch 11 is not yet defined.** Scope will be set after a third-party audit
-  informs findings. The expected focus is ongoing code quality:
-  - SoC concerns: front-end JS and back-end route/service layer violations.
-  - DRY violations: repeated logic across templates, JS, and Python modules.
-  - Data integrity: edge cases in aggregation, filtering, and normalization paths.
-  - Logic flaws: silent failure modes, incorrect assumptions, off-by-one errors.
-  - Performance bottlenecks: profile hot paths under realistic scrobble loads.
-  - General best-practices fixes surfaced by static analysis or audit tooling.
-  Batch 11 work packages will be defined when the audit findings are available.
-  Do not start implementation until the owner assigns a batch number and scope.
+- **Batch 11 is in progress** (Gemini 3.1 Pro Priority 2 audit remediation --
+  SoC, DRY, and architectural findings).
+  - WP-1 (Low): CSS/JS theme consolidation. Done. (Created `global.css` +
+    `theme.js`; stripped ~250 lines of duplicate CSS from 5 per-page files;
+    removed dark-mode toggle JS from 5 JS files; fixed html2canvas mobile
+    export; added back-to-top button on results page. 121 tests passing.)
+  - WP-2 (Medium): Decompose `process_albums` in `orchestrator.py`. Pending.
+  - WP-3 (Low): CSS/JS DRY violations, toggle markup bug, and UX polish.
+    Done. (Promoted `--info-bg` to `global.css`, removing split `:root`/
+    `.dark-mode` blocks from `results.css` and hard-coded rgba from
+    `loading.css`; moved duplicate modal dark-mode block from `index.css`
+    and `results.css` to `global.css`; stripped Bootstrap `form-check
+    form-switch` classes from toggle markup that conflicted with custom CSS
+    via Bootstrap's injected SVG background-image knob; added `text-align:
+    center` to loading-page `.step-text`/`.step-details`; removed redundant
+    mobile release-date shortening JS from `results.js`; `var`->`const` for
+    `darkSwitch`/`backToTop` in `theme.js`; dark-mode toggle track changed
+    from `var(--bars-color)` to `var(--bg-color)` when checked. 121 tests
+    passing.)
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days (Last.fm-only, lighter background task).
@@ -478,6 +487,91 @@ Source-of-truth note:
 - Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-21 - refactor(static): theme CSS/JS consolidation + results UX (Batch 11 WP-1)
+
+- Scope: `static/css/global.css` (new), `static/js/theme.js` (new),
+  `templates/base.html`, `templates/results.html`,
+  `static/css/index.css`, `static/css/results.css`, `static/css/loading.css`,
+  `static/css/error.css`, `static/css/unmatched.css`,
+  `static/js/index.js`, `static/js/results.js`, `static/js/loading.js`,
+  `static/js/error.js`, `static/js/unmatched.js`.
+- Problem: Four verified findings from a Gemini 3.1 Pro Priority 2 audit:
+  CSS finding -- `:root` vars, `.dark-mode` overrides, `#darkModeToggle` block,
+  `#darkSwitch` block, SVG color rules, and media queries duplicated verbatim
+  across all five per-page CSS files (~250 lines, 5×). JS finding -- dark-mode
+  toggle logic (`localStorage` read, class toggle, `addEventListener`) duplicated
+  in all five JS files; `updateSvgColors` in four files redundant because
+  `global.css` `.dark-mode svg .cls-1` already handles SVG color via CSS.
+  UX finding (owner addition) -- html2canvas JPEG export on mobile captured only
+  the visible viewport of the horizontally-overflowed table, not the full table.
+  UX finding (owner addition) -- no "Back to top" button on results page.
+- Plan vs implementation: implemented as planned. No scope additions.
+  `#darkModeToggle { position: fixed; }` preserved in `global.css`; verified
+  toggle stays pinned at bottom center on all pages. `error.js` and `unmatched.js`
+  reduced to comment stubs (all their logic was dark-mode only). `loading.js`
+  module-level dark-mode block removed; progress-polling logic unchanged.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **121 passed** (no Python changes; suite unchanged).
+  - `pre-commit run --all-files`: all 8 hooks passed.
+  - html2canvas fix: added `width: el.scrollWidth`, `height: el.scrollHeight`,
+    `windowWidth: el.scrollWidth`, `scrollX: 0`, `scrollY: 0` to capture full
+    table width on mobile.
+  - Back-to-top: fixed bottom-right button, visible after 300px scroll,
+    smooth-scrolls to top on click. JS in `results.js`; HTML in `results.html`.
+- Forward guidance: WP-2 pending -- decompose `process_albums` in
+  `orchestrator.py` (extract closure helpers + `_fetch_spotify_misses` +
+  `_build_results`; add 4 adversarial tests). No production behavior change from
+  WP-1; pure CSS/JS reorganization.
+
+### 2026-02-21 - style/fix(static): CSS/JS DRY violations, toggle bug, UX polish (Batch 11 WP-3)
+
+- Scope: `static/css/global.css`, `static/css/results.css`,
+  `static/css/index.css`, `static/css/loading.css`,
+  `static/js/results.js`, `static/js/theme.js`,
+  `templates/base.html`.
+- Problem: Five findings from a post-WP-1 owner code review:
+  (1) DRY/SoC -- `--info-bg` was defined in `results.css` `:root`/
+  `.dark-mode` blocks while `loading.css` hard-coded the identical rgba
+  values inline; neither could share the variable because loading.css does
+  not import results.css. Promoted `--info-bg` to `global.css` and replaced
+  loading.css hard-codes with `var(--info-bg)`.
+  (2) DRY -- Three `.dark-mode .modal-content/.modal-header/.modal-footer/
+  .btn-close` rules were byte-for-byte duplicated in both `index.css` and
+  `results.css`. Moved once to `global.css` and removed from both files.
+  (3) Bug -- Dark-mode toggle markup used Bootstrap `form-check form-switch`/
+  `form-check-input`/`form-check-label` classes while the widget was 100%
+  custom-styled with `appearance: none` + `::before`. Bootstrap's
+  `.form-switch .form-check-input` injected a conflicting SVG `background-
+  image` knob and a `margin-left: -2.5em`, fighting the custom layout.
+  Stripped Bootstrap classes from HTML markup in `base.html`; updated CSS
+  selectors from `.form-check-input`/`.form-check-label` to bare
+  `input`/`label`; added `cursor: pointer` to label (previously inherited
+  from Bootstrap). Also fixed dark-mode toggle track color: was purple
+  (`var(--bars-color)`); added `.dark-mode #darkSwitch:checked` override
+  using `var(--bg-color)` so it blends with the dark background instead.
+  (4) UX -- `.step-text` and `.step-details` on the loading page lacked
+  `text-align: center`; text was left-aligned inside the centered card.
+  (5) Redundant JS -- Mobile release-date shortening block in `results.js`
+  (`window.innerWidth < 768` regex-replace on `.release-badge` text)
+  duplicated logic already handled server-side by Bootstrap `d-none d-md-
+  inline`/`d-md-none` spans in `results.html`. Removed.
+  Additionally: `var` -> `const` for `darkSwitch` and `backToTop` in
+  `theme.js` (neither is reassigned).
+- Plan vs implementation: all findings addressed in-session. No scope
+  additions beyond owner-requested dark-mode track color fix.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **121 passed** (no Python changes; suite unchanged).
+  - `pre-commit run --all-files`: all hooks passed.
+  - No Python behavior change. Pure CSS/JS/template hygiene.
+- Forward guidance: WP-2 (decompose `process_albums` in `orchestrator.py`)
+  remains the next pending Batch 11 work package. Claim 3 from the review
+  (toggle desync -- hardcoded `#1e1e1e` and `#333` spread across files
+  instead of semantic `--surface-color`/`--border-color` variables) is a
+  valid architectural observation but is a larger refactor; the current
+  values are consistent and functional. Deferred.
 
 ### 2026-02-21 - fix: Gemini 3.1 Pro P0/P1 audit remediation (Batch 10 WP-7, WP-8, WP-9)
 
