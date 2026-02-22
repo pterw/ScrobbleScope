@@ -620,6 +620,18 @@ class TestCrossValidate:
         archive_warnings = [w for w in warnings if "Broken archive link" in w]
         assert len(archive_warnings) == 2
 
+    def test_archive_link_multiple_on_same_line(self, tmp_path, monkeypatch):
+        """Multiple archive links on one line are all validated."""
+        monkeypatch.chdir(tmp_path)
+        playbook = [
+            "| 0 | A | `docs/history/A.md` `docs/history/B.md` |",
+        ]
+        warnings = dss._cross_validate(playbook, ["# SESSION"])
+        archive_warnings = [w for w in warnings if "Broken archive link" in w]
+        assert len(archive_warnings) == 2
+        assert "A.md" in archive_warnings[0]
+        assert "B.md" in archive_warnings[1]
+
 
 # ---------------------------------------------------------------------------
 # _render_section4 -- edge and empty cases

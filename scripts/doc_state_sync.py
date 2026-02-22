@@ -541,8 +541,7 @@ def _cross_validate(playbook_lines: list[str], session_lines: list[str]) -> list
     #    batches table actually exist on disk.
     archive_link_re = re.compile(r"`(docs/history/[^`]+\.md)`")
     for line in playbook_lines:
-        m = archive_link_re.search(line)
-        if m:
+        for m in archive_link_re.finditer(line):
             linked_path = Path(m.group(1))
             if not linked_path.exists():
                 warnings.append(
