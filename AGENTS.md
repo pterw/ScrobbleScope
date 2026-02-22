@@ -160,18 +160,11 @@ These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
 **Real issues** (act on these):
 - "Test count mismatch" where SESSION_CONTEXT Section 2 and PLAYBOOK
   Section 3 disagree on the **current** test count. Fix whichever file
-  is stale.
+  is stale. The scan is scoped to PLAYBOOK Section 3 only -- historical
+  `**N passed**` strings in Section 4 log entries are ignored.
 - "Stale header detected" in the first 5 lines of either file.
-
-**Known false positives** (safe to ignore):
-- "Test count mismatch" caused by **historical** `**N passed**` strings
-  inside PLAYBOOK Section 4 log entries. These record what passed at
-  commit time and are correct historical data -- they are not current-state
-  claims. The regex cannot distinguish current vs historical counts.
-
-When you see a cross-validation warning, check whether the matched text is
-in a `### YYYY-MM-DD` log entry (historical -- ignore) or in a status
-declaration (current -- fix it).
+- "Broken archive link" when a `docs/history/*.md` path in PLAYBOOK does
+  not exist on disk.
 
 ### What to update after a WP or side-task commit
 

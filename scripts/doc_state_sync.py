@@ -510,14 +510,25 @@ def _cross_validate(playbook_lines: list[str], session_lines: list[str]) -> list
     warnings: list[str] = []
 
     # 1. Test count consistency: look for "**N passing**" in SESSION_CONTEXT
-    #    and PLAYBOOK and warn if they disagree.
+    #    and PLAYBOOK Section 3 only.  Section 4 (execution log) contains
+    #    historical counts from prior commits that are correct archival data
+    #    -- scanning them would produce false positives.
     test_count_re = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
     session_counts: set[int] = set()
     playbook_counts: set[int] = set()
     for line in session_lines:
         for m in test_count_re.finditer(line):
             session_counts.add(int(m.group(1)))
-    for line in playbook_lines:
+    try:
+        s3_start, s3_end = _find_section(
+            playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
+        )
+        playbook_section3 = playbook_lines[s3_start:s3_end]
+    except SyncError:
+        # Section 3 not present (e.g. minimal/test input) -- scan all lines
+        # as a fallback so the check still works on simple inputs.
+        playbook_section3 = playbook_lines
+    for line in playbook_section3:
         for m in test_count_re.finditer(line):
             playbook_counts.add(int(m.group(1)))
     if session_counts and playbook_counts and session_counts != playbook_counts:

@@ -545,6 +545,47 @@ class TestCrossValidate:
         )
         assert warnings == []
 
+    def test_section4_historical_count_ignored(self):
+        """Historical counts in Section 4 should not trigger a mismatch."""
+        playbook = [
+            "# PLAYBOOK",
+            "",
+            "## 3. Active batch",
+            "",
+            "Current test count: **199 tests passing**",
+            "",
+            "## 4. Execution log",
+            "",
+            "### 2026-02-20 - Some prior commit",
+            "",
+            "Validated: **185 passed**",
+            "",
+        ]
+        session = ["# SESSION", "", "Test count: **199 tests passing**"]
+        warnings = dss._cross_validate(playbook, session)
+        count_warnings = [w for w in warnings if "mismatch" in w.lower()]
+        assert count_warnings == []
+
+    def test_section3_mismatch_still_detected(self):
+        """A genuine mismatch in Section 3 vs SESSION_CONTEXT still warns."""
+        playbook = [
+            "# PLAYBOOK",
+            "",
+            "## 3. Active batch",
+            "",
+            "Current test count: **195 tests passing**",
+            "",
+            "## 4. Execution log",
+            "",
+            "### 2026-02-20 - Some prior commit",
+            "",
+            "Validated: **185 passed**",
+            "",
+        ]
+        session = ["# SESSION", "", "Test count: **199 tests passing**"]
+        warnings = dss._cross_validate(playbook, session)
+        assert any("mismatch" in w.lower() for w in warnings)
+
     def test_archive_link_exists_no_warning(self, tmp_path, monkeypatch):
         """No warning when linked archive file exists."""
         archive_dir = tmp_path / "docs" / "history"
@@ -999,10 +1040,13 @@ class TestMainArgs:
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
     ):
         """Cross-validation warnings should appear on stderr."""
-        # Inject mismatched test counts.
+        # Inject mismatched test counts into Section 3 (not Section 4).
         playbook_path = sync_env / "PLAYBOOK.md"
         content = playbook_path.read_text(encoding="utf-8")
-        content += "\n**121 tests passing**\n"
+        content = content.replace(
+            "Batch 11 is active.",
+            "Batch 11 is active.\n\n**121 tests passing**",
+        )
         playbook_path.write_text(content, encoding="utf-8")
 
         session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"
