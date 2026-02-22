@@ -162,6 +162,9 @@ These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
   Section 3 disagree on the **current** test count. Fix whichever file
   is stale. The scan is scoped to PLAYBOOK Section 3 only -- historical
   `**N passed**` strings in Section 4 log entries are ignored.
+  Convention: only `**bold**`-wrapped counts are machine-parseable
+  current-state declarations; plain-text counts in narrative prose
+  (e.g. batch-completion summaries) are intentionally excluded.
 - "Stale header detected" in the first 5 lines of either file.
 - "Broken archive link" when a `docs/history/*.md` path in PLAYBOOK does
   not exist on disk.
@@ -171,6 +174,8 @@ These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
 - PLAYBOOK Section 3 (status) + Section 4 (dated log entry -- inside markers
   for batch work, after end marker for side-tasks; see Side-Task Handling).
 - SESSION_CONTEXT Section 2 (test count, batch status row) if changed.
+- SESSION_CONTEXT Section 4 (project structure) and Section 5 (dependency
+  graph) if modules are added, removed, renamed, or dependencies change.
 - `README.md` for user/developer-visible setup or behavior changes.
 - `docs/history/<TOPIC>_<DATE>.md` for significant findings or audits.
 
