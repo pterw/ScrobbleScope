@@ -3,6 +3,7 @@ import logging
 import threading
 import time
 from math import ceil
+from typing import cast
 
 from scrobblescope.cache import (
     _batch_lookup_metadata,
@@ -506,7 +507,7 @@ async def _fetch_and_process(
                 if len(filtered_albums) > limit:
                     sorted_items = sorted(
                         filtered_albums.items(),
-                        key=lambda kv: kv[1]["play_count"],
+                        key=lambda kv: cast(int, kv[1]["play_count"]),
                         reverse=True,
                     )
                     filtered_albums = dict(sorted_items[:limit])
@@ -524,7 +525,7 @@ async def _fetch_and_process(
         if sort_mode == "playtime" and len(filtered_albums) > _PLAYTIME_ALBUM_CAP:
             sorted_items = sorted(
                 filtered_albums.items(),
-                key=lambda kv: kv[1]["play_count"],
+                key=lambda kv: cast(int, kv[1]["play_count"]),
                 reverse=True,
             )
             filtered_albums = dict(sorted_items[:_PLAYTIME_ALBUM_CAP])

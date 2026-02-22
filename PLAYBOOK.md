@@ -50,9 +50,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Batch 10 is complete.** All 9 WPs done, 121 tests passing.
-  Definition and completion record: `docs/history/BATCH10_DEFINITION_2026-02-21.md`.
-  Execution logs: `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+- **Batch 10 is complete.** Definition: `docs/history/BATCH10_DEFINITION_2026-02-21.md`.
 - **Batch 11 is in progress** (Gemini 3.1 Pro Priority 2 audit remediation --
   SoC, DRY, and architectural findings).
   - WP-1 (Low): CSS/JS theme consolidation. Done. (Created `global.css` +

@@ -68,6 +68,7 @@ async def test_process_albums_cache_hit_skips_spotify():
     mock_conn.close.assert_awaited_once()
 
     progress = get_job_progress(job_id)
+    assert progress is not None
     assert len(results) == 1
     assert results[0]["spotify_id"] == "abc123"
     assert results[0]["play_time_seconds"] == 383 * 10 + 264 * 8
@@ -149,6 +150,7 @@ async def test_process_albums_cache_miss_fetches_and_persists():
     assert persist_rows[0][2] == "sp1"
 
     progress = get_job_progress(job_id)
+    assert progress is not None
     mock_conn.close.assert_awaited_once()
     assert len(results) == 1
     assert results[0]["spotify_id"] == "sp1"
@@ -214,6 +216,7 @@ async def test_process_albums_db_unavailable_falls_back():
         results = await process_albums(job_id, filtered, 2025, "playcount", "same")
 
     progress = get_job_progress(job_id)
+    assert progress is not None
     assert len(results) == 1
     assert results[0]["spotify_id"] == "sp1"
     assert progress["stats"]["db_cache_enabled"] is False
@@ -402,6 +405,7 @@ async def test_process_albums_partial_cache_token_failure_uses_cached_results():
         results = await process_albums(job_id, filtered, 1997, "playcount", "all")
 
     progress = get_job_progress(job_id)
+    assert progress is not None
     assert len(results) == 1
     assert results[0]["spotify_id"] == "abc123"
     assert "partial_data_warning" in progress["stats"]
@@ -469,6 +473,7 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
         )
 
     progress = get_job_progress(job_id)
+    assert progress is not None
     assert results == expected_results
     assert progress["error"] is False
     assert progress["progress"] == 100
@@ -513,6 +518,7 @@ async def test_fetch_and_process_sets_spotify_error_from_process_albums():
         )
 
     progress = get_job_progress(job_id)
+    assert progress is not None
     assert results == []
     assert progress["error"] is True
     assert progress["error_code"] == "spotify_unavailable"

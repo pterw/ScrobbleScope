@@ -16,21 +16,23 @@ def normalize_name(artist, album):
     # Applied to album only -- these are release-metadata suffixes, not artist names.
     # Applying them to the artist string would corrupt proper nouns (e.g. the R&B
     # group "New Edition" would reduce to "new", and "Special" or "Bonus" to "").
-    album_metadata_words = {
-        "deluxe",
-        "edition",
-        "remastered",
-        "version",
-        "expanded",
-        "anniversary",
-        "special",
-        "bonus",
-        "tracks",
-        "ep",
-        "remaster",
-    }
+    album_metadata_words = frozenset(
+        {
+            "deluxe",
+            "edition",
+            "remastered",
+            "version",
+            "expanded",
+            "anniversary",
+            "special",
+            "bonus",
+            "tracks",
+            "ep",
+            "remaster",
+        }
+    )
 
-    def clean(text, remove_words=frozenset()):
+    def clean(text, remove_words: frozenset[str] = frozenset()):
         # 1. normalize Unicode characters for consistency (e.g., full-width to half-width).
         #    NFKC is used (not NFKD + ascii-encode) to preserve non-Latin characters.
         cleaned_text = unicodedata.normalize("NFKC", text).lower()
