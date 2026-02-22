@@ -7,7 +7,10 @@ from scrobblescope.cache import _cleanup_stale_metadata
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import (
     _PLAYTIME_ALBUM_CAP,
+    _build_results,
     _fetch_and_process,
+    _get_user_friendly_reason,
+    _matches_release_criteria,
     background_task,
     process_albums,
 )
@@ -848,3 +851,170 @@ def test_background_task_releases_slot_on_exception():
         background_task(job_id, "flounder14", 2025, "playcount", "same")
 
     mock_release.assert_called_once()
+
+
+# =====================================================================
+# Adversarial tests for extracted helpers (Batch 11 WP-2)
+# =====================================================================
+
+
+@pytest.mark.parametrize(
+    "release_date, expected",
+    [
+        ("XXXX-01-01", False),  # unparseable year -> ValueError fallback
+        ("not-a-date", False),  # fully non-numeric prefix
+        ("", False),  # empty string -> guard returns False
+        (None, False),  # None -> guard returns False
+        ("2025", True),  # year-only string, no dash, matches year=2025
+    ],
+)
+def test_matches_release_criteria_adversarial(release_date, expected):
+    """Edge-case inputs must not crash -- they must return False gracefully
+    via the ValueError fallback or the empty-string guard.
+
+    The parametrized cases cover:
+    - Unparseable year prefix ("XXXX") -> ValueError -> returns False
+    - Non-numeric prefix ("not") -> ValueError -> returns False
+    - Empty string -> `if not release_date` guard -> returns False
+    - None -> same guard -> returns False
+    - Year-only string without dash -> succeeds (no split needed)
+    """
+    result = _matches_release_criteria(release_date, release_scope="same", year=2025)
+    assert result is expected
+
+
+def test_get_user_friendly_reason_adversarial():
+    """When release_scope='decade' but decade=None, the function must not
+    raise a TypeError on `decade[:3]`.  It should fall through to the
+    generic mismatch message instead.
+
+    Also verifies the ValueError branch for unparseable dates.
+    """
+    # decade=None: the `if release_scope == "decade" and decade:` guard
+    # is False, so it falls through to the generic message.
+    reason = _get_user_friendly_reason(
+        "2020-01-01", release_scope="decade", year=2025, decade=None
+    )
+    assert "does not match filter" in reason
+    assert "2020" in reason
+
+    # Unparseable date -> ValueError branch
+    reason_bad = _get_user_friendly_reason("XXXX", release_scope="same", year=2025)
+    assert reason_bad == "Unknown release year: XXXX"
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_misses_malformed_album_details():
+    """When Spotify returns album details missing the 'tracks' key or with
+    a None entry, the extraction loop must not raise KeyError or TypeError.
+
+    The `.get('tracks', {}).get('items', [])` chain handles missing keys;
+    the `if not album_details: continue` guard handles None entries.
+    Both paths must produce zero track_durations (empty dict) rather than
+    crashing the pipeline.
+    """
+    from scrobblescope.orchestrator import _fetch_spotify_misses
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_misses = {
+        ("artist1", "album1"): {
+            "play_count": 10,
+            "track_counts": {"song": 3},
+            "original_artist": "Artist1",
+            "original_album": "Album1",
+        },
+        ("artist2", "album2"): {
+            "play_count": 5,
+            "track_counts": {"tune": 2},
+            "original_artist": "Artist2",
+            "original_album": "Album2",
+        },
+    }
+    cache_hits = {}
+
+    mock_session = AsyncMock()
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    # search returns both IDs; batch details returns one with no 'tracks'
+    # key and one as None (simulating a deleted album).
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            return_value=mock_session_ctx,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            side_effect=["sp1", "sp2"],
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+            return_value={
+                "sp1": {
+                    "release_date": "2025-01-01",
+                    "images": [{"url": "https://img.example.com/a.jpg"}],
+                    # 'tracks' key deliberately missing
+                },
+                "sp2": None,  # deleted/unavailable album
+            },
+        ),
+    ):
+        new_rows = await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
+
+    # sp1 should be promoted with empty track_durations (missing 'tracks')
+    assert ("artist1", "album1") in cache_hits
+    promoted = cache_hits[("artist1", "album1")]["cached"]
+    assert promoted["track_durations"] == {}
+    assert promoted["spotify_id"] == "sp1"
+
+    # sp2 (None details) should be skipped entirely -- not promoted
+    assert ("artist2", "album2") not in cache_hits
+
+    # Only sp1 should produce a persist row
+    assert len(new_rows) == 1
+    assert new_rows[0][2] == "sp1"
+
+
+def test_build_results_zero_playtime_no_division_error():
+    """When all albums have zero play_time_seconds and sort_mode='playtime',
+    the `or 1` guard in proportion calculation must prevent ZeroDivisionError.
+
+    Also verifies that missing track_durations (None) defaults to an empty
+    dict, producing play_time_seconds=0 rather than a TypeError.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_hits = {
+        ("artist", "album"): {
+            "cached": {
+                "spotify_id": "sp1",
+                "release_date": "2025-01-01",
+                "album_image_url": "https://img.example.com/a.jpg",
+                "track_durations": None,  # missing durations
+            },
+            "original": {
+                "play_count": 20,
+                "track_counts": {"song a": 5, "song b": 3},
+                "original_artist": "Artist",
+                "original_album": "Album",
+            },
+        }
+    }
+
+    results = _build_results(
+        cache_hits, job_id, year=2025, sort_mode="playtime", release_scope="same"
+    )
+
+    assert len(results) == 1
+    assert results[0]["play_time_seconds"] == 0
+    assert results[0]["play_time"] == "0 secs"
+    # proportion_of_max uses `or 1` guard: 0 / 1 * 100 = 0.0
+    assert results[0]["proportion_of_max"] == 0.0
+    assert results[0]["proportion_of_total"] == 0.0
