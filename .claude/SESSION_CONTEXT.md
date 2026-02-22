@@ -26,10 +26,10 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **202 passing** across 10 test files |
+| Tests | **210 passing** across 10 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
-| Batch 11 status | **In progress**. WP-1 done, WP-3 done, WP-2 pending. |
+| Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -47,11 +47,12 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: Batch 11.
-- Current-batch entries in active log block: 2.
-- Completed work packages in current-batch entries: WP-1, WP-3.
-- Next expected work package: WP-2.
-- Newest current-batch entry: 2026-02-21 - refactor(static): theme CSS/JS consolidation + results UX (Batch 11 WP-1).
+- Current batch: none (between batches).
+- Last completed batch in PLAYBOOK Section 3: Batch 11.
+- Current-batch entries in active log block: 0.
+- Completed work packages in current-batch entries: n/a (no active batch).
+- Next expected work package: n/a (next batch not defined).
+- Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -122,7 +123,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (201 tests)
+## 7. Test structure (210 tests)
 
 | File | Count |
 |------|-------|
@@ -135,7 +136,7 @@ loading.js polls GET /progress?job_id=...
 | services/test_lastfm_service.py | 4 |
 | services/test_lastfm_logic.py | 7 |
 | services/test_spotify_service.py | 3 |
-| services/test_orchestrator_service.py | 18 |
+| services/test_orchestrator_service.py | 26 |
 
 ---
 
