@@ -282,6 +282,85 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     return new_metadata_rows
 
 
+def _build_results(
+    cache_hits, job_id, year, sort_mode, release_scope, decade=None, release_year=None
+):
+    """Transform unified cache_hits into the sorted results list for the frontend.
+
+    Applies release-date filtering, computes play-time totals, sorts by the
+    chosen mode, and calculates proportion-of-max/total percentages.
+    Albums that fail the release filter are logged and added to job unmatched.
+
+    Pure synchronous logic -- no I/O.  Extracted from process_albums Phase 5
+    so the data-transformation layer can be tested independently of the async
+    fetch pipeline.
+    """
+    results = []
+    for key, entry in cache_hits.items():
+        cached = entry["cached"]
+        original_data = entry["original"]
+
+        release_date = cached.get("release_date", "")
+        if not _matches_release_criteria(
+            release_date, release_scope, year, decade, release_year
+        ):
+            artist = original_data["original_artist"]
+            album = original_data["original_album"]
+            reason = _get_user_friendly_reason(
+                release_date, release_scope, year, decade, release_year
+            )
+            logging.debug(f"Skipped '{album}' by '{artist}': {reason}")
+            unmatched_key = "|".join(normalize_name(artist, album))
+            add_job_unmatched(
+                job_id,
+                unmatched_key,
+                {"artist": artist, "album": album, "reason": reason},
+            )
+            continue
+
+        track_durations = cached.get("track_durations") or {}
+
+        play_time_sec = sum(
+            track_durations.get(track, 0) * count
+            for track, count in original_data["track_counts"].items()
+        )
+
+        results.append(
+            {
+                "artist": original_data["original_artist"],
+                "album": original_data["original_album"],
+                "play_count": original_data["play_count"],
+                "play_time": format_seconds(play_time_sec),
+                "play_time_seconds": play_time_sec,
+                "different_songs": len(original_data["track_counts"]),
+                "release_date": release_date,
+                "album_image": cached.get("album_image_url"),
+                "spotify_id": cached.get("spotify_id", ""),
+            }
+        )
+
+    if sort_mode == "playtime":
+        results.sort(key=lambda x: x["play_time_seconds"], reverse=True)
+    else:
+        results.sort(key=lambda x: x["play_count"], reverse=True)
+
+    if results:
+        if sort_mode == "playtime":
+            max_val = results[0]["play_time_seconds"] or 1
+            total_val = sum(r["play_time_seconds"] for r in results) or 1
+            sort_key = "play_time_seconds"
+        else:
+            max_val = results[0]["play_count"] or 1
+            total_val = sum(r["play_count"] for r in results) or 1
+            sort_key = "play_count"
+
+        for result in results:
+            result["proportion_of_max"] = (result[sort_key] / max_val) * 100
+            result["proportion_of_total"] = (result[sort_key] / total_val) * 100
+
+    return results
+
+
 async def process_albums(
     job_id,
     filtered_albums,
@@ -386,70 +465,9 @@ async def process_albums(
         len(filtered_albums) - total_matched,
     )
 
-    results = []
-    for key, entry in cache_hits.items():
-        cached = entry["cached"]
-        original_data = entry["original"]
-
-        release_date = cached.get("release_date", "")
-        if not _matches_release_criteria(
-            release_date, release_scope, year, decade, release_year
-        ):
-            artist = original_data["original_artist"]
-            album = original_data["original_album"]
-            reason = _get_user_friendly_reason(
-                release_date, release_scope, year, decade, release_year
-            )
-            logging.debug(f"Skipped '{album}' by '{artist}': {reason}")
-            unmatched_key = "|".join(normalize_name(artist, album))
-            add_job_unmatched(
-                job_id,
-                unmatched_key,
-                {"artist": artist, "album": album, "reason": reason},
-            )
-            continue
-
-        track_durations = cached.get("track_durations") or {}
-
-        play_time_sec = sum(
-            track_durations.get(track, 0) * count
-            for track, count in original_data["track_counts"].items()
-        )
-
-        results.append(
-            {
-                "artist": original_data["original_artist"],
-                "album": original_data["original_album"],
-                "play_count": original_data["play_count"],
-                "play_time": format_seconds(play_time_sec),
-                "play_time_seconds": play_time_sec,
-                "different_songs": len(original_data["track_counts"]),
-                "release_date": release_date,
-                "album_image": cached.get("album_image_url"),
-                "spotify_id": cached.get("spotify_id", ""),
-            }
-        )
-
-    if sort_mode == "playtime":
-        results.sort(key=lambda x: x["play_time_seconds"], reverse=True)
-    else:
-        results.sort(key=lambda x: x["play_count"], reverse=True)
-
-    if results:
-        if sort_mode == "playtime":
-            max_val = results[0]["play_time_seconds"] or 1
-            total_val = sum(r["play_time_seconds"] for r in results) or 1
-            sort_key = "play_time_seconds"
-        else:
-            max_val = results[0]["play_count"] or 1
-            total_val = sum(r["play_count"] for r in results) or 1
-            sort_key = "play_count"
-
-        for result in results:
-            result["proportion_of_max"] = (result[sort_key] / max_val) * 100
-            result["proportion_of_total"] = (result[sort_key] / total_val) * 100
-
-    return results
+    return _build_results(
+        cache_hits, job_id, year, sort_mode, release_scope, decade, release_year
+    )
 
 
 async def _fetch_and_process(
