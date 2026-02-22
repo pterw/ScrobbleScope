@@ -112,6 +112,25 @@ Tests must challenge real behaviour, not just confirm mocks were called.
 
 ## Doc Sync Rules
 
+### What `doc_state_sync.py` does and why it exists
+
+`scripts/doc_state_sync.py` is a deterministic sync tool that keeps
+PLAYBOOK, SESSION_CONTEXT, and the archive file consistent so that every
+agent starts from identical state. It:
+
+1. **Rotates** overflow dated entries from PLAYBOOK Section 4 into
+   `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+2. **Deduplicates** archive entries by SHA-256 fingerprint (same content
+   is never stored twice).
+3. **Refreshes** the machine-managed `DOCSYNC:STATUS` block in
+   SESSION_CONTEXT from PLAYBOOK truth (Section 3 + Section 4).
+4. **Cross-validates** content across files (test counts, stale headers).
+
+Without this script, agents would drift: one might update PLAYBOOK but
+forget SESSION_CONTEXT, or manually move entries and break marker order.
+
+### How to run
+
 After any change to PLAYBOOK Section 4 or SESSION_CONTEXT managed blocks:
 
 ```bash
@@ -125,7 +144,32 @@ At batch close-out (all WPs done):
 python scripts/doc_state_sync.py --fix --keep-non-current 0
 ```
 
-**What to update after a WP or side-task commit:**
+Modes: `--check` (read-only, exit 1 on drift) or `--fix` (write updates).
+The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
+
+### Cross-validation warnings
+
+The script prints `WARNING:` lines to stderr for cross-file inconsistencies.
+These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
+
+**Real issues** (act on these):
+- "Test count mismatch" where SESSION_CONTEXT Section 2 and PLAYBOOK
+  Section 3 disagree on the **current** test count. Fix whichever file
+  is stale.
+- "Stale header detected" in the first 5 lines of either file.
+
+**Known false positives** (safe to ignore):
+- "Test count mismatch" caused by **historical** `**N passed**` strings
+  inside PLAYBOOK Section 4 log entries. These record what passed at
+  commit time and are correct historical data -- they are not current-state
+  claims. The regex cannot distinguish current vs historical counts.
+
+When you see a cross-validation warning, check whether the matched text is
+in a `### YYYY-MM-DD` log entry (historical -- ignore) or in a status
+declaration (current -- fix it).
+
+### What to update after a WP or side-task commit
+
 - PLAYBOOK Section 3 (status) + Section 4 (dated log entry inside markers).
 - SESSION_CONTEXT Section 2 (test count, batch status row) if changed.
 - `README.md` for user/developer-visible setup or behavior changes.
