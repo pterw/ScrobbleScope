@@ -26,7 +26,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **201 passing** across 10 test files |
+| Tests | **202 passing** across 10 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **In progress**. WP-1 done, WP-3 done, WP-2 pending. |
