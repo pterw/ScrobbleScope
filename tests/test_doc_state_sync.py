@@ -545,6 +545,40 @@ class TestCrossValidate:
         )
         assert warnings == []
 
+    def test_archive_link_exists_no_warning(self, tmp_path, monkeypatch):
+        """No warning when linked archive file exists."""
+        archive_dir = tmp_path / "docs" / "history"
+        archive_dir.mkdir(parents=True)
+        (archive_dir / "BATCH0_DEFINITION.md").write_text("# Batch 0")
+        monkeypatch.chdir(tmp_path)
+        playbook = [
+            "| 0 | Title | `docs/history/BATCH0_DEFINITION.md` |",
+        ]
+        warnings = dss._cross_validate(playbook, ["# SESSION"])
+        archive_warnings = [w for w in warnings if "Broken archive link" in w]
+        assert archive_warnings == []
+
+    def test_archive_link_missing_warns(self, tmp_path, monkeypatch):
+        """Warning when linked archive file does not exist."""
+        monkeypatch.chdir(tmp_path)
+        playbook = [
+            "| 1 | Title | `docs/history/BATCH1_DEFINITION.md` |",
+        ]
+        warnings = dss._cross_validate(playbook, ["# SESSION"])
+        assert any("Broken archive link" in w for w in warnings)
+        assert any("BATCH1_DEFINITION.md" in w for w in warnings)
+
+    def test_archive_link_multiple_missing(self, tmp_path, monkeypatch):
+        """Each broken link produces its own warning."""
+        monkeypatch.chdir(tmp_path)
+        playbook = [
+            "| 0 | A | `docs/history/BATCH0_DEFINITION.md` |",
+            "| 1 | B | `docs/history/BATCH1_DEFINITION.md` |",
+        ]
+        warnings = dss._cross_validate(playbook, ["# SESSION"])
+        archive_warnings = [w for w in warnings if "Broken archive link" in w]
+        assert len(archive_warnings) == 2
+
 
 # ---------------------------------------------------------------------------
 # _render_section4 -- edge and empty cases

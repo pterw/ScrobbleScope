@@ -526,7 +526,19 @@ def _cross_validate(playbook_lines: list[str], session_lines: list[str]) -> list
             f"PLAYBOOK has {playbook_counts}."
         )
 
-    # 2. Stale header detection: warn if PLAYBOOK header still mentions
+    # 2. Archive link validation: check that file paths in the completed
+    #    batches table actually exist on disk.
+    archive_link_re = re.compile(r"`(docs/history/[^`]+\.md)`")
+    for line in playbook_lines:
+        m = archive_link_re.search(line)
+        if m:
+            linked_path = Path(m.group(1))
+            if not linked_path.exists():
+                warnings.append(
+                    f"Broken archive link in PLAYBOOK: {linked_path} does not exist."
+                )
+
+    # 3. Stale header detection: warn if PLAYBOOK header still mentions
     #    completed milestones (e.g., "refactor monolithic app.py").
     stale_phrases = [
         "refactor monolithic",
