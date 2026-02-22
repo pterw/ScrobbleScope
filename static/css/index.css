@@ -43,22 +43,6 @@
   outline: none;
 }
 
-/* Dark-mode modal styling */
-.dark-mode .modal-content {
-  background-color: #1e1e1e;
-  color: var(--text-color);
-  border-color: #444;
-}
-
-.dark-mode .modal-header,
-.dark-mode .modal-footer {
-  border-color: #444;
-}
-
-.dark-mode .btn-close {
-  filter: invert(1) grayscale(100%) brightness(200%);
-}
-
 /* Decade pill selector */
 .decade-pills {
   display: flex;

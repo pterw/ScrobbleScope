@@ -203,13 +203,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Mobile: shorten release dates to YYYY-MM (omit day) to reduce column width
-    if (window.innerWidth < 768) {
-        document.querySelectorAll('.release-badge').forEach(badge => {
-            const text = badge.textContent.trim();
-            if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-                badge.textContent = text.slice(0, 7);
-            }
-        });
-    }
 });

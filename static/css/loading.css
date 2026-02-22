@@ -9,12 +9,14 @@
 .step-text {
     font-size: 1.3em;
     margin-top: 16px;
+    text-align: center;
 }
 
 .step-details {
     font-size: 1em;
     color: #6c757d;
     margin-top: 12px;
+    text-align: center;
 }
 
 .dark-mode .step-details {
@@ -88,13 +90,9 @@
 .request-info {
     margin-top: 25px;
     text-align: left;
-    background-color: rgba(106, 75, 175, 0.1);
+    background-color: var(--info-bg);
     border-radius: 8px;
     padding: 20px;
-}
-
-.dark-mode .request-info {
-    background-color: rgba(147, 112, 219, 0.1);
 }
 
 .info-table {

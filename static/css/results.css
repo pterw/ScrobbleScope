@@ -1,15 +1,6 @@
 /* results.css -- page-specific styles for the results page (results.html).
    Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
 
-/* Page-specific custom properties */
-:root {
-    --info-bg: rgba(106, 75, 175, 0.1);
-}
-
-.dark-mode {
-    --info-bg: rgba(147, 112, 219, 0.1);
-}
-
 /* Dark-mode overrides for results-page components */
 .dark-mode .table {
     color: var(--text-color);
@@ -107,21 +98,6 @@
 
 .results-table th {
     white-space: nowrap;
-}
-
-.dark-mode .modal-content {
-    background-color: #1e1e1e;
-    color: var(--text-color);
-    border-color: #444;
-}
-
-.dark-mode .modal-header,
-.dark-mode .modal-footer {
-    border-color: #444;
-}
-
-.dark-mode .btn-close {
-    filter: invert(1) grayscale(100%) brightness(200%);
 }
 
 #unmatched-modal .modal-body {

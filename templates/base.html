@@ -38,9 +38,9 @@
 
     {# Footer bar: dark-mode toggle (all pages) + optional page extras (e.g. back-to-top) #}
     <div class="page-footer-bar">
-        <div id="darkModeToggle" class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="darkSwitch">
-            <label class="form-check-label" for="darkSwitch">Dark Mode</label>
+        <div id="darkModeToggle">
+            <input type="checkbox" id="darkSwitch">
+            <label for="darkSwitch">Dark Mode</label>
         </div>
         {% block page_footer_extra %}{% endblock %}
     </div>

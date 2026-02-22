@@ -3,7 +3,7 @@
 // Handles: dark-mode toggle persistence, back-to-top smooth scroll.
 (function () {
     // Dark-mode toggle
-    var darkSwitch = document.getElementById('darkSwitch');
+    const darkSwitch = document.getElementById('darkSwitch');
     if (localStorage.getItem('darkMode') === 'true') {
         document.body.classList.add('dark-mode');
         if (darkSwitch) darkSwitch.checked = true;
@@ -17,7 +17,7 @@
 
     // Back-to-top button (present only on pages that inject it via
     // {% block page_footer_extra %}, e.g. results.html)
-    var backToTop = document.getElementById('back-to-top');
+    const backToTop = document.getElementById('back-to-top');
     if (backToTop) {
         backToTop.addEventListener('click', function (e) {
             e.preventDefault();
