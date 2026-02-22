@@ -440,16 +440,13 @@ All commits must comply with the commit message standard in Section 5.
     119 tests passing.)
   - WP-9: Add defensive playtime album cap. Done. (_PLAYTIME_ALBUM_CAP=500 in
     orchestrator.py; warning log on trigger; 2 tests. 121 tests passing.)
-- **Batch 11 is not yet defined.** Scope will be set after a third-party audit
-  informs findings. The expected focus is ongoing code quality:
-  - SoC concerns: front-end JS and back-end route/service layer violations.
-  - DRY violations: repeated logic across templates, JS, and Python modules.
-  - Data integrity: edge cases in aggregation, filtering, and normalization paths.
-  - Logic flaws: silent failure modes, incorrect assumptions, off-by-one errors.
-  - Performance bottlenecks: profile hot paths under realistic scrobble loads.
-  - General best-practices fixes surfaced by static analysis or audit tooling.
-  Batch 11 work packages will be defined when the audit findings are available.
-  Do not start implementation until the owner assigns a batch number and scope.
+- **Batch 11 is in progress** (Gemini 3.1 Pro Priority 2 audit remediation --
+  SoC, DRY, and architectural findings).
+  - WP-1 (Low): CSS/JS theme consolidation. Done. (Created `global.css` +
+    `theme.js`; stripped ~250 lines of duplicate CSS from 5 per-page files;
+    removed dark-mode toggle JS from 5 JS files; fixed html2canvas mobile
+    export; added back-to-top button on results page. 121 tests passing.)
+  - WP-2 (Medium): Decompose `process_albums` in `orchestrator.py`. Pending.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days (Last.fm-only, lighter background task).
@@ -478,6 +475,43 @@ Source-of-truth note:
 - Do not manually move entries across these markers; run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-21 - refactor(static): theme CSS/JS consolidation + results UX (Batch 11 WP-1)
+
+- Scope: `static/css/global.css` (new), `static/js/theme.js` (new),
+  `templates/base.html`, `templates/results.html`,
+  `static/css/index.css`, `static/css/results.css`, `static/css/loading.css`,
+  `static/css/error.css`, `static/css/unmatched.css`,
+  `static/js/index.js`, `static/js/results.js`, `static/js/loading.js`,
+  `static/js/error.js`, `static/js/unmatched.js`.
+- Problem: Four verified findings from a Gemini 3.1 Pro Priority 2 audit:
+  CSS finding -- `:root` vars, `.dark-mode` overrides, `#darkModeToggle` block,
+  `#darkSwitch` block, SVG color rules, and media queries duplicated verbatim
+  across all five per-page CSS files (~250 lines, 5×). JS finding -- dark-mode
+  toggle logic (`localStorage` read, class toggle, `addEventListener`) duplicated
+  in all five JS files; `updateSvgColors` in four files redundant because
+  `global.css` `.dark-mode svg .cls-1` already handles SVG color via CSS.
+  UX finding (owner addition) -- html2canvas JPEG export on mobile captured only
+  the visible viewport of the horizontally-overflowed table, not the full table.
+  UX finding (owner addition) -- no "Back to top" button on results page.
+- Plan vs implementation: implemented as planned. No scope additions.
+  `#darkModeToggle { position: fixed; }` preserved in `global.css`; verified
+  toggle stays pinned at bottom center on all pages. `error.js` and `unmatched.js`
+  reduced to comment stubs (all their logic was dark-mode only). `loading.js`
+  module-level dark-mode block removed; progress-polling logic unchanged.
+- Deviations: none.
+- Validation:
+  - `pytest -q`: **121 passed** (no Python changes; suite unchanged).
+  - `pre-commit run --all-files`: all 8 hooks passed.
+  - html2canvas fix: added `width: el.scrollWidth`, `height: el.scrollHeight`,
+    `windowWidth: el.scrollWidth`, `scrollX: 0`, `scrollY: 0` to capture full
+    table width on mobile.
+  - Back-to-top: fixed bottom-right button, visible after 300px scroll,
+    smooth-scrolls to top on click. JS in `results.js`; HTML in `results.html`.
+- Forward guidance: WP-2 pending -- decompose `process_albums` in
+  `orchestrator.py` (extract closure helpers + `_fetch_spotify_misses` +
+  `_build_results`; add 4 adversarial tests). No production behavior change from
+  WP-1; pure CSS/JS reorganization.
 
 ### 2026-02-21 - fix: Gemini 3.1 Pro P0/P1 audit remediation (Batch 10 WP-7, WP-8, WP-9)
 

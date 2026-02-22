@@ -10,9 +10,8 @@
 
 {% block head_extra %}
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<!--Bridge script: define window.SCROBBLE with all needed values-->
-<script>
-  window.SCROBBLE = {{ {
+<!--Bridge data: Jinja2 values injected as JSON; read by loading.js via window.SCROBBLE-->
+<script id="scrobble-config" type="application/json">{{ {
     "job_id": job_id,
     "username": username,
     "year": year,
@@ -23,91 +22,107 @@
     "min_plays": min_plays|default('10'),
     "min_tracks": min_tracks|default('3'),
     "limit_results": limit_results|default('all')
-  } | tojson }};
+} | tojson }}</script>
+<script>
+  window.SCROBBLE = JSON.parse(document.getElementById('scrobble-config').textContent);
 </script>
 {% endblock %}
 
 {% block content %}
-<div class="loading-container">
-        <div class="col-md-9 text-center mx-auto mb-4" id="logo-wrapper">
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center mb-4" id="logo-wrapper">
             <div aria-label="ScrobbleScope logo visualization" role="img">
                 {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
             </div>
         </div>
-        
-        <h2>Loading your results...</h2>
-        <div class="progress mt-4">
-            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" id="progress-bar"></div>
-        </div>
-        <p id="step-text" class="step-text">Initializing...</p>
-        <p id="step-details" class="step-details">This might take a few minutes, especially for active Last.fm users</p>
+    </div>
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2 class="text-center mb-3">Loading your results...</h2>
+                    <div class="progress mt-4">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" id="progress-bar"></div>
+                    </div>
+                    <p id="step-text" class="step-text">Initializing...</p>
+                    <p id="step-details" class="step-details"></p>
 
-        <div id="live-stats" class="live-stats d-none">
-            <p id="stat-scrobbles" class="live-stat d-none"></p>
-            <p id="stat-albums" class="live-stat d-none"></p>
-            <p id="stat-spotify" class="live-stat d-none"></p>
-        </div>
+                    <div id="live-stats" class="live-stats d-none">
+                        <p id="stat-scrobbles" class="live-stat d-none"></p>
+                        <p id="stat-pages"    class="live-stat d-none"></p>
+                        <p id="stat-albums"   class="live-stat d-none"></p>
+                        <p id="stat-cache"    class="live-stat d-none"></p>
+                        <p id="stat-spotify"  class="live-stat d-none"></p>
+                    </div>
 
-        <div id="partial-warning" class="partial-warning d-none">
-            <p id="partial-warning-text"></p>
-        </div>
+                    <div id="partial-warning" class="partial-warning d-none">
+                        <p id="partial-warning-text"></p>
+                    </div>
 
-        <div class="request-info">
-            <h4>Your Search Parameters</h4>
-            <table class="info-table">
-                <tr>
-                    <td>Username:</td>
-                    <td>{{ username }}</td>
-                </tr>
-                <tr>
-                    <td>Year:</td>
-                    <td>{{ year }}</td>
-                </tr>
-                {% if release_scope %}
-                <tr>
-                    <td>Release Filter:</td>
-                    <td>
-                        {% if release_scope == "same" %}
-                            Same as Listening Year ({{ year }})
-                        {% elif release_scope == "previous" %}
-                            Previous Year ({{ year - 1 }})
-                        {% elif release_scope == "decade" %}
-                            {{ decade }}
-                        {% elif release_scope == "custom" %}
-                            {{ release_year }}
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endif %}
-                <tr>
-                    <td>Sort By:</td>
-                    <td>
-                        {% if sort_by == "playtime" %}
-                            Listening Time
-                        {% else %}
-                            Play Count
-                        {% endif %}
-                    </td>
-                </tr>
-                <tr>
-                    <td>Album Thresholds:</td>
-                    <td>Minimum {{ min_plays|default('10') }} plays, {{ min_tracks|default('3') }} unique tracks per album</td>
-                </tr>
-            </table>
-        </div>
-        
-        <div id="error-container" class="d-none">
-            <div class="error-message">
-                <p id="error-text">An error occurred while processing your request.</p>
-                <p id="error-source" class="error-source d-none"></p>
-            </div>
-            <div id="error-actions" class="error-actions">
-                <button id="retry-button" class="btn btn-primary mt-3 d-none">Retry Now</button>
-                <a href="/" id="home-button" class="btn btn-outline-secondary mt-3">Back to Home</a>
+                    <div class="request-info">
+                        <h4>Your Search Parameters</h4>
+                        <table class="info-table">
+                            <tr>
+                                <td>Username:</td>
+                                <td>{{ username }}</td>
+                            </tr>
+                            <tr>
+                                <td>Year:</td>
+                                <td>{{ year }}</td>
+                            </tr>
+                            {% if release_scope %}
+                            <tr>
+                                <td>Release Filter:</td>
+                                <td>
+                                    {% if release_scope == "same" %}
+                                        Same as Listening Year ({{ year }})
+                                    {% elif release_scope == "previous" %}
+                                        Previous Year ({{ year - 1 }})
+                                    {% elif release_scope == "decade" %}
+                                        {{ decade }}
+                                    {% elif release_scope == "custom" %}
+                                        {{ release_year }}
+                                    {% else %}
+                                        All Years
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            <tr>
+                                <td>Sort By:</td>
+                                <td>
+                                    {% if sort_by == "playtime" %}
+                                        Listening Time
+                                    {% else %}
+                                        Play Count
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Thresholds:</td>
+                                <td>≥{{ min_plays|default('10') }} plays, ≥{{ min_tracks|default('3') }} tracks</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <div id="error-container" class="d-none">
+                        <div class="error-message">
+                            <p id="error-text">An error occurred while processing your request.</p>
+                            <p id="error-source" class="error-source d-none"></p>
+                        </div>
+                        <div id="error-actions" class="error-actions">
+                            <button id="retry-button" class="btn btn-primary mt-3 d-none">Retry Now</button>
+                            <a href="/" id="home-button" class="btn btn-outline-secondary mt-3">Back to Home</a>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+</div>
 {% endblock %}
+
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/loading.js') }}"></script>

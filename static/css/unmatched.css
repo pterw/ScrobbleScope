@@ -1,23 +1,18 @@
+/* unmatched.css -- page-specific styles for the unmatched report (unmatched.html).
+   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
+
+/* Page-specific custom properties */
 :root {
-    --bars-color: #6a4baf;
-    --text-color: #333333;
-    --bg-color: #f8f9fa;
     --info-bg: rgba(106, 75, 175, 0.1);
     --header-bg: #6a4baf;
 }
 
 .dark-mode {
-    --bars-color: #9370DB;
-    --text-color: #f8f9fa;
-    --bg-color: #121212;
     --info-bg: rgba(147, 112, 219, 0.1);
     --header-bg: #9370DB;
 }
 
 body {
-    transition: background-color 0.3s ease, color 0.3s ease;
-    background-color: var(--bg-color);
-    color: var(--text-color);
     padding-bottom: 2rem;
 }
 
@@ -62,80 +57,6 @@ body {
 .dark-mode .table-dark th,
 .dark-mode thead th {
     color: var(--text-color) !important;
-}
-
-.dark-mode svg .cls-1 {
-    stroke: var(--bars-color);
-}
-
-.dark-mode svg #logo-text path,
-.dark-mode svg #tagline path {
-    fill: var(--text-color);
-}
-
-/* Dark-mode toggle switch */
-#darkModeToggle {
-    position: fixed;
-    left: 50%;
-    bottom: max(0.75rem, env(safe-area-inset-bottom));
-    transform: translateX(-50%);
-    z-index: 1000;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.5rem;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(4px);
-    transition: background-color 0.3s ease;
-}
-
-.dark-mode #darkModeToggle {
-    background-color: rgba(30, 30, 30, 0.9);
-}
-
-#darkModeToggle .form-check-input {
-    margin: 0;
-}
-
-#darkModeToggle .form-check-label {
-    margin: 0;
-    font-size: 0.78rem;
-    line-height: 1;
-}
-
-#darkSwitch {
-    width: 2.45rem;
-    height: 1.25rem;
-    background-color: #ccc;
-    border-radius: 999px;
-    appearance: none;
-    outline: none;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.3s ease;
-}
-
-#darkSwitch::before {
-    content: "";
-    position: absolute;
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 50%;
-    top: 0.15rem;
-    left: 0.15rem;
-    background-color: white;
-    transition: transform 0.3s ease;
-}
-
-#darkSwitch:checked {
-    background-color: var(--bars-color);
-}
-
-#darkSwitch:checked::before {
-    transform: translateX(1.2rem);
 }
 
 .reason-section {
@@ -221,21 +142,4 @@ body {
 .dark-mode .table tbody td,
 .dark-mode .table tbody th {
     color: var(--text-color) !important;
-}
-
-@media (max-width: 575.98px) {
-    #darkModeToggle {
-        padding: 0.25rem 0.42rem;
-        gap: 0.3rem;
-    }
-
-    #darkModeToggle .form-check-label {
-        font-size: 0.72rem;
-    }
-}
-
-@media (max-width: 380px) {
-    #darkModeToggle .form-check-label {
-        display: none;
-    }
 }

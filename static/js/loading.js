@@ -15,43 +15,6 @@ const {
 // CSRF token for all JS-initiated POST requests (injected by server via meta tag)
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
-// DARK MODE TOGGLE LOGIC
-// Find the checkbox in the DOM
-const darkSwitch = document.getElementById('darkSwitch');
-
-// If the user has a saved preference for dark mode, apply it on load
-const prefersDark = localStorage.getItem('darkMode') === 'true';
-if (prefersDark) {
-  document.body.classList.add('dark-mode');
-  if (darkSwitch) {
-    darkSwitch.checked = true;
-  }
-}
-
-// Whenever the user flips the switch, toggle the .dark-mode class and persist the choice
-if (darkSwitch) {
-  darkSwitch.addEventListener('change', () => {
-    const isDark = darkSwitch.checked;
-    document.body.classList.toggle('dark-mode', isDark);
-    localStorage.setItem('darkMode', isDark);
-
-    // If there's an inline SVG logo, update its colors manually
-    const svgElement = document.querySelector('#logo-wrapper svg');
-    if (svgElement) {
-      const bars = svgElement.querySelectorAll('.cls-1');
-      const textPaths = svgElement.querySelectorAll('#logo-text path, #tagline path');
-
-      if (isDark) {
-        bars.forEach(bar => bar.setAttribute('stroke', '#9370DB'));
-        textPaths.forEach(path => path.setAttribute('fill', '#f8f9fa'));
-      } else {
-        bars.forEach(bar => bar.setAttribute('stroke', '#6a4baf'));
-        textPaths.forEach(path => path.setAttribute('fill', '#333333'));
-      }
-    }
-  });
-}
-
 // PROGRESS BAR & POLLING LOGIC
 // Grab all the relevant DOM elements
 const progressBar      = document.getElementById('progress-bar');
@@ -61,12 +24,57 @@ const errorContainer   = document.getElementById('error-container');
 const errorText        = document.getElementById('error-text');
 const liveStatsContainer = document.getElementById('live-stats');
 const statScrobbles    = document.getElementById('stat-scrobbles');
+const statPages        = document.getElementById('stat-pages');
 const statAlbums       = document.getElementById('stat-albums');
+const statCache        = document.getElementById('stat-cache');
 const statSpotify      = document.getElementById('stat-spotify');
 
 let errorDetected = false;
 
-// ROTATOR: wait 5 sec in [40,60) before cycling messages 
+// SCROBBLE CYCLING: alternates between "Scanned N" and "That's N/365 per day"
+let scrobbleCycleTimeoutId = null;
+let scrobbleCycleActive    = false;
+
+function startScrobbleCycle(count) {
+  if (scrobbleCycleActive || !statScrobbles) return;
+  scrobbleCycleActive = true;
+  const avgPerDay = Math.round(count / 365);
+  const avgText  = `Average: ~${avgPerDay.toLocaleString()} scrobbles/day in ${year}`;
+  const scanText = `Scanned ${count.toLocaleString()} scrobbles in ${year}`;
+
+  function fadeTo(text, thenCb, thenDelay) {
+    // Clear the CSS entrance animation so JS transition takes full control
+    statScrobbles.style.animation = 'none';
+    statScrobbles.style.opacity = '1';  // lock starting opacity before transition
+    requestAnimationFrame(() => {
+      statScrobbles.style.transition = 'opacity 0.6s ease';
+      statScrobbles.style.opacity = '0';
+      setTimeout(() => {
+        statScrobbles.textContent = text;
+        statScrobbles.style.opacity = '1';
+        if (thenCb) scrobbleCycleTimeoutId = setTimeout(thenCb, thenDelay);
+      }, 650);
+    });
+  }
+
+  function showAvg()  { fadeTo(avgText,  showScan, 5000); }
+  function showScan() { fadeTo(scanText, showAvg,  4000); }
+
+  // Begin cycle after 6 s (user needs time to read the initial stat)
+  scrobbleCycleTimeoutId = setTimeout(showAvg, 6000);
+}
+
+function stopScrobbleCycle() {
+  scrobbleCycleActive = false;
+  if (scrobbleCycleTimeoutId !== null) {
+    clearTimeout(scrobbleCycleTimeoutId);
+    scrobbleCycleTimeoutId = null;
+  }
+  // Restore opacity in case a fade-out was in progress
+  if (statScrobbles) statScrobbles.style.opacity = '1';
+}
+
+// ROTATOR: wait 5 sec in [40,60) before cycling messages
 let rotateTimeoutId   = null;
 let rotatorIntervalId = null;
 
@@ -116,14 +124,27 @@ function updateLiveStats(stats) {
   let hasAny = false;
 
   if (stats.total_scrobbles && statScrobbles) {
-    const scrobbleCount = stats.total_scrobbles.toLocaleString();
-    statScrobbles.textContent = `Scanned ${scrobbleCount} scrobbles in ${year}`;
-    statScrobbles.classList.remove('d-none');
+    // Only update text while cycle is idle; cycle owns the element once started
+    if (!scrobbleCycleActive) {
+      statScrobbles.textContent = `Scanned ${stats.total_scrobbles.toLocaleString()} scrobbles in ${year}`;
+      statScrobbles.classList.remove('d-none');
+      startScrobbleCycle(stats.total_scrobbles);
+    }
+    hasAny = true;
+  }
+  if (stats.pages_fetched && statPages) {
+    statPages.textContent = `Fetched ${stats.pages_fetched} pages of scrobbles`;
+    statPages.classList.remove('d-none');
     hasAny = true;
   }
   if (stats.albums_passing_filter && statAlbums) {
-    statAlbums.textContent = `${stats.albums_passing_filter} albums passed your thresholds (out of ${stats.unique_albums.toLocaleString()} unique albums)`;
+    statAlbums.textContent = `${stats.albums_passing_filter} albums passed your thresholds (out of ${stats.unique_albums.toLocaleString()} unique)`;
     statAlbums.classList.remove('d-none');
+    hasAny = true;
+  }
+  if (stats.cache_hits && statCache) {
+    statCache.textContent = `${stats.cache_hits.toLocaleString()} albums loaded from cache`;
+    statCache.classList.remove('d-none');
     hasAny = true;
   }
   if (stats.spotify_matched && statSpotify) {
@@ -164,6 +185,7 @@ async function fetchProgress() {
     if (progressData.error) {
       errorDetected = true;
       stopRotatingMessages();
+      stopScrobbleCycle();
 
       if (progressBar) {
         progressBar.classList.remove('bg-primary');
@@ -212,9 +234,9 @@ async function fetchProgress() {
     // Bucketed stepDetails + rotator integration
     if (stepDetails) {
     if (p < 10) {
-        // 0–9%: show static text, cancel any rotator
+        // 0–9%: clear any rotator; leave details blank while initializing
         stopRotatingMessages();
-        stepDetails.textContent = "Connecting to last.fm…";
+        stepDetails.textContent = "";
 
     } else if (p < 20) {
         // 10–19%: show static text, cancel any rotator
@@ -264,6 +286,7 @@ async function fetchProgress() {
     }
     // Final redirect on successful 100%
     else if (p >= 100 && !errorDetected) {
+      stopScrobbleCycle();
       setTimeout(() => {
         redirectToResults();
       }, 3000);

@@ -1,25 +1,21 @@
+/* error.css -- page-specific styles for the error page (error.html).
+   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
+
+/* Page-specific custom property */
 :root {
-    --bars-color: #6a4baf;
-    --text-color: #333333;
-    --bg-color: #f8f9fa;
     --error-accent: #dc3545;
 }
 
 .dark-mode {
-    --bars-color: #9370DB;
-    --text-color: #f8f9fa;
-    --bg-color: #121212;
     --error-accent: #dc3545;
 }
 
 body {
     min-height: 100vh;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .dark-mode .error-card {
@@ -27,71 +23,6 @@ body {
     color: var(--text-color);
     border: 1px solid #444;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-}
-
-/* Dark-mode toggle switch */
-#darkModeToggle {
-    position: fixed;
-    left: 50%;
-    bottom: max(0.75rem, env(safe-area-inset-bottom));
-    transform: translateX(-50%);
-    z-index: 1000;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.5rem;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.88);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    backdrop-filter: blur(4px);
-    transition: background-color 0.3s ease;
-}
-
-.dark-mode #darkModeToggle {
-    background-color: rgba(30, 30, 30, 0.9);
-}
-
-#darkModeToggle .form-check-input {
-    margin: 0;
-}
-
-#darkModeToggle .form-check-label {
-    margin: 0;
-    font-size: 0.78rem;
-    line-height: 1;
-}
-    
-#darkSwitch {
-    width: 2.45rem;
-    height: 1.25rem;
-    background-color: #ccc;
-    border-radius: 999px;
-    appearance: none;
-    outline: none;
-    cursor: pointer;
-    position: relative;
-    transition: background-color 0.3s ease;
-}
-
-#darkSwitch::before {
-    content: "";
-    position: absolute;
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 50%;
-    top: 0.15rem;
-    left: 0.15rem;
-    background-color: white;
-    transition: transform 0.3s ease;
-}
-
-#darkSwitch:checked {
-    background-color: var(--bars-color);
-}
-
-#darkSwitch:checked::before {
-    transform: translateX(1.2rem);
 }
 
 .error-container {
@@ -176,36 +107,3 @@ body {
     gap: 1rem;
 }
 
-#logo-wrapper svg {
-    width: 100%;
-    height: auto;
-    max-height: 150px;
-    opacity: 0;
-    animation: fadeIn 2s ease forwards;
-}
-
-.dark-mode #logo-wrapper svg .cls-1 {
-    stroke: var(--bars-color);
-}
-
-.dark-mode #logo-wrapper svg #logo-text path,
-.dark-mode #logo-wrapper svg #tagline path {
-    fill: var(--text-color);
-}
-
-@media (max-width: 575.98px) {
-    #darkModeToggle {
-        padding: 0.25rem 0.42rem;
-        gap: 0.3rem;
-    }
-
-    #darkModeToggle .form-check-label {
-        font-size: 0.72rem;
-    }
-}
-
-@media (max-width: 380px) {
-    #darkModeToggle .form-check-label {
-        display: none;
-    }
-}

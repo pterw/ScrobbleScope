@@ -33,6 +33,7 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 | Deploy status | Cold-start validated on 2026-02-19 by manually stopping app+DB machines and running an end-to-end smoke request (`elapsed=18.75s`, `db_cache_enabled=True`, `db_cache_lookup_hits=247`). |
 | Batch 9 status | **Complete** (WP-1 through WP-8 all done). See `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` |
 | Batch 10 status | **Complete**. WP-1 through WP-9 done. WP-7 = cross-job rate limiting fix; WP-8 = pre-slice gate fix; WP-9 = playtime album cap. 121 tests. |
+| Batch 11 status | **In progress**. WP-1 done (CSS/JS theme consolidation: `global.css` + `theme.js`, html2canvas mobile fix, back-to-top button). WP-2 pending (decompose `process_albums`). |
 | Job concurrency cap | `MAX_ACTIVE_JOBS` (default 10, env-tunable). `acquire_job_slot()` / `release_job_slot()` / `start_job_thread()` in `scrobblescope/worker.py`. |
 | Global API rate limiting | `_GlobalThrottle` + `_ThrottledLimiter` in `utils.py` cap aggregate Last.fm and Spotify throughput across all concurrent event loops. |
 | Request cache thread safety | `_cache_lock = threading.Lock()` in `utils.py` guards all `REQUEST_CACHE` read/write/cleanup ops. |
@@ -61,10 +62,10 @@ A Flask web app that fetches a user's Last.fm scrobble history for a given year,
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 9 and Section 10).
 - Current batch: Batch 11.
-- Current-batch entries in active log block: 4.
-- Completed work packages in current-batch entries: WP-5, WP-6, WP-7, WP-8, WP-9.
+- Current-batch entries in active log block: 5.
+- Completed work packages in current-batch entries: WP-1, WP-5, WP-6, WP-7, WP-8, WP-9.
 - Next expected work package: WP-10.
-- Newest current-batch entry: 2026-02-21 - fix: Gemini 3.1 Pro P0/P1 audit remediation (Batch 10 WP-7, WP-8, WP-9).
+- Newest current-batch entry: 2026-02-21 - refactor(static): theme CSS/JS consolidation + results UX (Batch 11 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
