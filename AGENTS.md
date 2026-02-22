@@ -85,9 +85,14 @@ Not all work is batch work (e.g., a leap-year bugfix, a dark-mode polish commit)
 For non-batch changes:
 
 1. Commit normally following the commit rules above.
-2. Add a dated entry in PLAYBOOK Section 4 (inside the CURRENT-BATCH markers)
-   using the same format but **without** a `(Batch N WP-X)` suffix in the heading.
-3. Run `doc_state_sync.py --fix`. Untagged entries rotate to the archive normally.
+2. Add a dated entry in PLAYBOOK Section 4 **after** the
+   `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker, using the same log format
+   but **without** a `(Batch N WP-X)` suffix in the heading.
+   Placing it outside the current-batch markers avoids the batch-aware
+   filter that would treat untagged entries as stale when tagged entries
+   exist. Entries after the end marker are subject to the standard
+   `--keep-non-current` rotation policy (default: keep 4).
+3. Run `doc_state_sync.py --fix`.
 4. Update SESSION_CONTEXT Section 2 if the change affects test count or project state.
 
 ---
@@ -170,7 +175,8 @@ declaration (current -- fix it).
 
 ### What to update after a WP or side-task commit
 
-- PLAYBOOK Section 3 (status) + Section 4 (dated log entry inside markers).
+- PLAYBOOK Section 3 (status) + Section 4 (dated log entry -- inside markers
+  for batch work, after end marker for side-tasks; see Side-Task Handling).
 - SESSION_CONTEXT Section 2 (test count, batch status row) if changed.
 - `README.md` for user/developer-visible setup or behavior changes.
 - `docs/history/<TOPIC>_<DATE>.md` for significant findings or audits.
