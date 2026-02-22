@@ -38,7 +38,7 @@ let scrobbleCycleActive    = false;
 function startScrobbleCycle(count) {
   if (scrobbleCycleActive || !statScrobbles) return;
   scrobbleCycleActive = true;
-  const avgPerDay = Math.round(count / 365);
+  const avgPerDay = Math.round(count / (((year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0)) ? 366 : 365));
   const avgText  = `Average: ~${avgPerDay.toLocaleString()} scrobbles/day in ${year}`;
   const scanText = `Scanned ${count.toLocaleString()} scrobbles in ${year}`;
 
