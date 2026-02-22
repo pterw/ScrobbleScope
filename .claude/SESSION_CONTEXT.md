@@ -26,7 +26,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **121 passing** across 9 test files |
+| Tests | **196 passing** across 10 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **In progress**. WP-1 done, WP-3 done, WP-2 pending. |
@@ -122,11 +122,12 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (121 tests)
+## 7. Test structure (196 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
+| test_doc_state_sync.py | 75 |
 | test_domain.py | 15 |
 | test_repositories.py | 18 |
 | test_utils.py | 8 |
