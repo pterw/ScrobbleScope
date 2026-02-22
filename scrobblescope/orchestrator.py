@@ -49,6 +49,70 @@ from scrobblescope.worker import release_job_slot
 _PLAYTIME_ALBUM_CAP = 500
 
 
+def _matches_release_criteria(
+    release_date, release_scope, year, decade=None, release_year=None
+):
+    """Check whether a release date matches the user's filter criteria.
+
+    Pure function: data-in, bool-out.  Extracted from process_albums so it
+    can be unit-tested in isolation without mocking the async I/O pipeline.
+    """
+    if release_scope == "all":
+        return True
+    if not release_date:
+        return False
+
+    release_year_str = (
+        release_date.split("-")[0] if "-" in release_date else release_date
+    )
+    try:
+        rel_year = int(release_year_str)
+        if release_scope == "same":
+            return rel_year == year
+        if release_scope == "previous":
+            return rel_year == year - 1
+        if release_scope == "decade" and decade:
+            decade_start = int(decade[:3] + "0")
+            return decade_start <= rel_year < decade_start + 10
+        if release_scope == "custom" and release_year:
+            return rel_year == release_year
+        return True
+    except ValueError:
+        logging.warning(f"Couldn't parse release year from: {release_date}")
+        return False
+
+
+def _get_user_friendly_reason(
+    release_date, release_scope, year, decade=None, release_year=None
+):
+    """Return a human-readable explanation for why an album was filtered out.
+
+    Pure function: data-in, string-out.  Extracted from process_albums so it
+    can be unit-tested in isolation without mocking the async I/O pipeline.
+    """
+    if release_scope == "all":
+        return "Should not be filtered (All Years selected)"
+
+    release_year_str = (
+        release_date.split("-")[0] if "-" in release_date else release_date
+    )
+    try:
+        rel_year = int(release_year_str)
+        if release_scope == "same":
+            return f"Released in {rel_year} instead of {year}"
+        if release_scope == "previous":
+            return f"Released in {rel_year} instead of {year - 1}"
+        if release_scope == "decade" and decade:
+            decade_start = int(decade[:3] + "0")
+            decade_end = decade_start + 9
+            return f"Released in {rel_year}, outside of {decade_start}-{decade_end}"
+        if release_scope == "custom" and release_year:
+            return f"Released in {rel_year} instead of {release_year}"
+        return f"Release year {rel_year} does not match filter"
+    except ValueError:
+        return f"Unknown release year: {release_date}"
+
+
 async def process_albums(
     job_id,
     filtered_albums,
@@ -65,54 +129,6 @@ async def process_albums(
         f"Filters: year={year}, release_scope={release_scope}, "
         f"decade={decade}, release_year={release_year}"
     )
-
-    def matches_release_criteria(release_date):
-        if release_scope == "all":
-            return True
-        if not release_date:
-            return False
-
-        release_year_str = (
-            release_date.split("-")[0] if "-" in release_date else release_date
-        )
-        try:
-            rel_year = int(release_year_str)
-            if release_scope == "same":
-                return rel_year == year
-            if release_scope == "previous":
-                return rel_year == year - 1
-            if release_scope == "decade" and decade:
-                decade_start = int(decade[:3] + "0")
-                return decade_start <= rel_year < decade_start + 10
-            if release_scope == "custom" and release_year:
-                return rel_year == release_year
-            return True
-        except ValueError:
-            logging.warning(f"Couldn't parse release year from: {release_date}")
-            return False
-
-    def get_user_friendly_reason(release_date):
-        if release_scope == "all":
-            return "Should not be filtered (All Years selected)"
-
-        release_year_str = (
-            release_date.split("-")[0] if "-" in release_date else release_date
-        )
-        try:
-            rel_year = int(release_year_str)
-            if release_scope == "same":
-                return f"Released in {rel_year} instead of {year}"
-            if release_scope == "previous":
-                return f"Released in {rel_year} instead of {year - 1}"
-            if release_scope == "decade" and decade:
-                decade_start = int(decade[:3] + "0")
-                decade_end = decade_start + 9
-                return f"Released in {rel_year}, outside of {decade_start}-{decade_end}"
-            if release_scope == "custom" and release_year:
-                return f"Released in {rel_year} instead of {release_year}"
-            return f"Release year {rel_year} does not match filter"
-        except ValueError:
-            return f"Unknown release year: {release_date}"
 
     # =================================================================
     # Phase 1: DB Batch Lookup
@@ -369,10 +385,14 @@ async def process_albums(
         original_data = entry["original"]
 
         release_date = cached.get("release_date", "")
-        if not matches_release_criteria(release_date):
+        if not _matches_release_criteria(
+            release_date, release_scope, year, decade, release_year
+        ):
             artist = original_data["original_artist"]
             album = original_data["original_album"]
-            reason = get_user_friendly_reason(release_date)
+            reason = _get_user_friendly_reason(
+                release_date, release_scope, year, decade, release_year
+            )
             logging.debug(f"Skipped '{album}' by '{artist}': {reason}")
             unmatched_key = "|".join(normalize_name(artist, album))
             add_job_unmatched(
