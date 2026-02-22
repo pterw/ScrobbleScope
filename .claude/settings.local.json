@@ -3,7 +3,9 @@
     "allow": [
       "WebFetch(domain:developer.spotify.com)",
       "Bash(python -m pytest tests/test_app.py -v)",
-      "Bash(python -m pytest:*)"
+      "Bash(python -m pytest:*)",
+      "Bash(python3:*)",
+      "Bash(git add:*)"
     ]
   }
 }
