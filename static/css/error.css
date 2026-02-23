@@ -1,15 +1,6 @@
 /* error.css -- page-specific styles for the error page (error.html).
    Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
 
-/* Page-specific custom property */
-:root {
-    --error-accent: #dc3545;
-}
-
-.dark-mode {
-    --error-accent: #dc3545;
-}
-
 body {
     min-height: 100vh;
     display: flex;
