@@ -26,11 +26,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **223 passing** across 10 test files |
+| Tests | **222 passing** across 10 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
-| Batch 12 status | **Active**. WP-1 done, WP-2 done, WP-3 not started, WP-4 not started. |
+| Batch 12 status | **Active**. WP-1 done, WP-2 done, WP-3 done, WP-4 not started. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -49,9 +49,9 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 12.
-- Current-batch entries in active log block: 2.
-- Completed work packages in current-batch entries: WP-1, WP-2.
-- Next expected work package: WP-3.
+- Current-batch entries in active log block: 3.
+- Completed work packages in current-batch entries: WP-1, WP-2, WP-3.
+- Next expected work package: WP-4.
 - Newest current-batch entry: 2026-02-23 - style(css): semantic CSS variable enforcement (Batch 12 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -64,14 +64,14 @@ app.py                      # create_app() factory (~142 lines)
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # SpotifyUnavailableError, ERROR_CODES
-  domain.py                 # normalize_name, normalize_track_name, _extract_registered_year
+  domain.py                 # normalize_name, normalize_track_name
   utils.py                  # rate limiters, session pooling, request caching
   repositories.py           # JOBS dict, jobs_lock, job state CRUD
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
-  lastfm.py                 # check_user_exists, fetch_recent_tracks, fetch_top_albums
+  lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
   spotify.py                # fetch_spotify_access_token, search, batch details
-  orchestrator.py           # process_albums, _fetch_and_process, background_task
+  orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
   routes.py                 # Flask Blueprint, all route + error handlers
 ```
 
@@ -87,7 +87,7 @@ utils.py         <- config
 cache.py         <- config
 worker.py        <- config
 repositories.py  <- config, errors
-lastfm.py        <- config, domain, utils, repositories
+lastfm.py        <- config, utils
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
 routes.py        <- lastfm, orchestrator, repositories, utils, worker

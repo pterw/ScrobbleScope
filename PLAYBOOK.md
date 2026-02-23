@@ -79,7 +79,7 @@ Completed batch definitions are archived individually under `docs/history/`.
   pipeline. 4 WPs. Next action: WP-1.
   - WP-1 (P0): Semantic CSS Variable Enforcement. Done.
   - WP-2 (P1): Responsive Data Formatting & Export Parity. Done.
-  - WP-3 (P1): Backend SoC Extraction. Not started.
+  - WP-3 (P1): Backend SoC Extraction. Done.
   - WP-4 (P2): Granular Backend Progress Pipeline. Not started.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
@@ -140,6 +140,22 @@ non-current operational logs. Older dated entries live in
   (3) `onclone` callback explicitly shows desktop spans, hides mobile spans,
   and unhides rank columns in cloned DOM.
 - Validation: `pytest -q`: **223 passed**. `pre-commit`: all hooks passed.
+
+### 2026-02-23 - refactor(lastfm,orchestrator): backend SoC extraction (Batch 12 WP-3)
+
+- Scope: `scrobblescope/lastfm.py`, `scrobblescope/domain.py`,
+  `scrobblescope/orchestrator.py`, `tests/test_domain.py`,
+  `tests/services/test_lastfm_logic.py`, `tests/services/test_lastfm_service.py`.
+- Problem: `lastfm.py` housed business logic (`fetch_top_albums_async`: album
+  aggregation, filtering, normalization) alongside raw HTTP client functions.
+  It imported `domain.py` functions and was not a pure infrastructure client.
+- Fix: (1) Inlined `_extract_registered_year` (vendor-specific JSON parsing)
+  into `check_user_exists`. Removed from `domain.py`. (2) Moved
+  `fetch_top_albums_async` (~66 lines) to `orchestrator.py`. (3) Updated
+  `test_lastfm_logic.py` imports and mock paths.
+- Post-state: `lastfm.py` has zero `domain` imports, zero `repositories`
+  imports. Pure HTTP client. `orchestrator.py` grew to ~800 lines.
+- Validation: `pytest -q`: **222 passed**. `pre-commit`: all hooks passed.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
