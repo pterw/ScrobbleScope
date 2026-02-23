@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from scrobblescope.lastfm import fetch_top_albums_async
+from scrobblescope.orchestrator import fetch_top_albums_async
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,7 +56,7 @@ async def test_fetch_top_albums_aggregates_play_counts():
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -82,7 +82,7 @@ async def test_fetch_top_albums_min_plays_filter():
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -110,7 +110,7 @@ async def test_fetch_top_albums_min_tracks_filter():
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -137,7 +137,7 @@ async def test_fetch_top_albums_skips_out_of_bounds_timestamps():
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -172,7 +172,7 @@ async def test_fetch_top_albums_skips_now_playing_track():
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -211,7 +211,7 @@ async def test_fetch_top_albums_non_latin_tracks_counted_distinctly():
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -241,7 +241,7 @@ async def test_fetch_top_albums_returns_stats_in_metadata():
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):

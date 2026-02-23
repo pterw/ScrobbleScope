@@ -2,8 +2,10 @@ import asyncio
 import logging
 import threading
 import time
+from collections import defaultdict
+from datetime import datetime
 from math import ceil
-from typing import cast
+from typing import Any, cast
 
 from scrobblescope.cache import (
     _batch_lookup_metadata,
@@ -18,7 +20,7 @@ from scrobblescope.config import (
 )
 from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.errors import SpotifyUnavailableError
-from scrobblescope.lastfm import fetch_top_albums_async
+from scrobblescope.lastfm import fetch_all_recent_tracks_async
 from scrobblescope.repositories import (
     add_job_unmatched,
     cleanup_expired_jobs,
@@ -48,6 +50,73 @@ from scrobblescope.worker import release_job_slot
 # limits. A user with 500+ albums passing min_plays/min_tracks is an extreme
 # outlier; raw play_count is the best available proxy for culling the tail.
 _PLAYTIME_ALBUM_CAP = 500
+
+
+async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
+    """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple.
+
+    The returned ``fetch_metadata`` dict includes a ``stats`` key with
+    aggregation counters (total_scrobbles, pages_fetched, unique_albums,
+    albums_passing_filter) so the caller can record them as job stats.
+    """
+    logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
+    from_ts = int(datetime(year, 1, 1).timestamp())
+    to_ts = int(datetime(year, 12, 31, 23, 59, 59).timestamp())
+    pages, fetch_metadata = await fetch_all_recent_tracks_async(
+        username, from_ts, to_ts
+    )
+    logging.debug(f"Pages fetched: {len(pages)}")
+    total_tracks = sum(len(p.get("recenttracks", {}).get("track", [])) for p in pages)
+    logging.debug(f"Total tracks: {total_tracks}")
+
+    if fetch_metadata.get("status") == "partial":
+        dropped = fetch_metadata["pages_dropped"]
+        expected = fetch_metadata["pages_expected"]
+        pct = round((dropped / expected) * 100)
+        fetch_metadata["partial_data_warning"] = (
+            f"Note: {dropped} of {expected} Last.fm pages failed to load "
+            f"({pct}% data loss). Results may be incomplete."
+        )
+
+    albums: defaultdict[str, dict[str, Any]] = defaultdict(
+        lambda: {"play_count": 0, "track_counts": defaultdict(int)}
+    )
+    for page in pages:
+        for t in page.get("recenttracks", {}).get("track", []):
+            alb = t.get("album", {}).get("#text", "...")
+            art = t.get("artist", {}).get("#text", "...")
+            name = t.get("name", "...")
+            date = t.get("date", {}).get("uts")
+            if not date:
+                continue
+            ts = int(date)
+            if ts < from_ts or ts > to_ts:
+                continue
+            if alb and art and name:
+                key = normalize_name(art, alb)
+                if "original_artist" not in albums[key]:
+                    albums[key]["original_artist"] = art
+                    albums[key]["original_album"] = alb
+                albums[key]["play_count"] += 1
+                normalized = normalize_track_name(name)
+                albums[key]["track_counts"][normalized] += 1
+    logging.debug(f"Unique albums: {len(albums)}")
+
+    filtered = {
+        k: v
+        for k, v in albums.items()
+        if v["play_count"] >= min_plays and len(v["track_counts"]) >= min_tracks
+    }
+    logging.debug(f"Albums after filter: {len(filtered)}")
+
+    fetch_metadata["stats"] = {
+        "total_scrobbles": total_tracks,
+        "pages_fetched": len(pages),
+        "unique_albums": len(albums),
+        "albums_passing_filter": len(filtered),
+    }
+
+    return filtered, fetch_metadata
 
 
 def _matches_release_criteria(
