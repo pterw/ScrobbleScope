@@ -259,3 +259,25 @@ def format_seconds(seconds):
 
     days, hour_remainder = divmod(hours, 24)
     return f"{days} day{'s' if days != 1 else ''}, {hour_remainder} hrs, {min_remainder} mins"
+
+
+def format_seconds_mobile(seconds):
+    """Format seconds into an abbreviated mobile-friendly string (max 2 units).
+
+    Examples: "1d 12h", "4h 30m", "38m 15s", "15s".
+    """
+    seconds = int(math.ceil(seconds))
+
+    if seconds < 60:
+        return f"{seconds}s"
+
+    minutes, sec_remainder = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{minutes}m {sec_remainder}s"
+
+    hours, min_remainder = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours}h {min_remainder}m"
+
+    days, hour_remainder = divmod(hours, 24)
+    return f"{days}d {hour_remainder}h"
