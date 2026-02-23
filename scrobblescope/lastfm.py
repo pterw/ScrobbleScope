@@ -192,7 +192,11 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
         )
         if not first or "recenttracks" not in first:
             logging.error("Failed to fetch initial page from Last.fm")
-            return [], {"status": "error", "reason": "lastfm_unavailable"}
+            error_meta: dict[str, Any] = {
+                "status": "error",
+                "reason": "lastfm_unavailable",
+            }
+            return [], error_meta
 
         total_pages = int(first["recenttracks"]["@attr"]["totalPages"])
         logging.info(f"Last.fm: Fetching {total_pages} pages of scrobbles")

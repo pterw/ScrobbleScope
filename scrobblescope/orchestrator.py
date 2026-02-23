@@ -84,7 +84,7 @@ async def fetch_top_albums_async(
             f"({pct}% data loss). Results may be incomplete."
         )
 
-    albums: defaultdict[str, dict[str, Any]] = defaultdict(
+    albums: defaultdict[tuple[str, str], dict[str, Any]] = defaultdict(
         lambda: {"play_count": 0, "track_counts": defaultdict(int)}
     )
     for page in pages:
