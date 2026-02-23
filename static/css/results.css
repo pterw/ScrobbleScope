@@ -21,6 +21,12 @@
     background-color: rgba(30, 30, 30, 0.7);
 }
 
+/* Neutralise Bootstrap's cell-level --bs-table-accent-bg so our
+   row-level dark-mode backgrounds are the ones that show through. */
+.dark-mode .table-striped > tbody > tr > * {
+    --bs-table-accent-bg: transparent;
+}
+
 /* Remove vertical separating lines */
 .dark-mode .table td,
 .dark-mode .table th {

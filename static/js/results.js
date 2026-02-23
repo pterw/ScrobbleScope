@@ -181,12 +181,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const el = targetElement;
+            const isDark = document.body.classList.contains('dark-mode');
             // windowWidth:1200 forces desktop CSS layout (hides mobile media queries),
             // scale:3 produces a high-resolution image regardless of device pixel ratio.
+            // Read --bg-color from <body> (not <html>) so the dark-mode override
+            // (#121212) is picked up; :root still holds the light-mode fallback.
             html2canvas(el, {
                 scale: 3,
                 useCORS: true,
-                backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim(),
+                backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg-color').trim() || '#ffffff',
                 windowWidth: 1200,
                 scrollX: 0,
                 scrollY: 0,
@@ -194,6 +197,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Remove overflow clip in the clone so the full table renders
                     const w = clonedDoc.getElementById('results-table-wrapper');
                     if (w) { w.style.overflow = 'visible'; }
+
+                    // Ensure dark-mode class transfers to cloned body
+                    if (isDark) {
+                        clonedDoc.body.classList.add('dark-mode');
+                    }
 
                     // Force desktop layout in the clone: show desktop spans,
                     // hide mobile spans, and unhide rank columns. html2canvas
@@ -211,6 +219,43 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (table) {
                         table.querySelectorAll('th:first-child, td:first-child').forEach(el => {
                             el.style.display = '';
+                        });
+                    }
+
+                    // Dark-mode: inline resolved colours so html2canvas
+                    // renders them correctly.  html2canvas 1.x mishandles
+                    // Bootstrap's --bs-table-accent-bg on striped odd rows,
+                    // causing light text on a near-white composited background.
+                    if (isDark && table) {
+                        const txt = '#f8f9fa';
+                        const accent = '#9370DB';
+
+                        table.style.color = txt;
+                        table.style.borderColor = 'transparent';
+
+                        // Force text colour on every cell and neutralise
+                        // Bootstrap's --bs-table-accent-bg variable.
+                        table.querySelectorAll('th, td').forEach(c => {
+                            c.style.setProperty('color', txt, 'important');
+                            c.style.setProperty('--bs-table-accent-bg', 'transparent');
+                            c.style.borderLeftColor = 'transparent';
+                            c.style.borderRightColor = 'transparent';
+                        });
+
+                        // Alternate row backgrounds (mirrors results.css)
+                        table.querySelectorAll('tbody > tr').forEach((row, i) => {
+                            row.style.backgroundColor = (i % 2 === 0)
+                                ? 'rgba(255,255,255,0.1)'
+                                : 'rgba(30,30,30,0.7)';
+                        });
+
+                        // Accent elements
+                        w?.querySelectorAll('.album-link').forEach(a => {
+                            a.style.color = accent;
+                        });
+                        w?.querySelectorAll('.release-badge').forEach(b => {
+                            b.style.backgroundColor = accent;
+                            b.style.color = 'white';
                         });
                     }
                 },
