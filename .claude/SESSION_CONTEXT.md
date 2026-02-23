@@ -26,11 +26,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **210 passing** across 10 test files |
+| Tests | **223 passing** across 10 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
-| Batch 12 status | **Active**. WP-1 done, WP-2 not started, WP-3 not started, WP-4 not started. |
+| Batch 12 status | **Active**. WP-1 done, WP-2 done, WP-3 not started, WP-4 not started. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -49,9 +49,9 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 12.
-- Current-batch entries in active log block: 1.
-- Completed work packages in current-batch entries: WP-1.
-- Next expected work package: WP-2.
+- Current-batch entries in active log block: 2.
+- Completed work packages in current-batch entries: WP-1, WP-2.
+- Next expected work package: WP-3.
 - Newest current-batch entry: 2026-02-23 - style(css): semantic CSS variable enforcement (Batch 12 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 

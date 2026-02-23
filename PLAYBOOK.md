@@ -78,7 +78,7 @@ Completed batch definitions are archived individually under `docs/history/`.
   formatting + export parity, backend SoC extraction, granular progress
   pipeline. 4 WPs. Next action: WP-1.
   - WP-1 (P0): Semantic CSS Variable Enforcement. Done.
-  - WP-2 (P1): Responsive Data Formatting & Export Parity. Not started.
+  - WP-2 (P1): Responsive Data Formatting & Export Parity. Done.
   - WP-3 (P1): Backend SoC Extraction. Not started.
   - WP-4 (P2): Granular Backend Progress Pipeline. Not started.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
@@ -123,6 +123,23 @@ non-current operational logs. Older dated entries live in
   `--bg-color` instead of hardcoded `#121212`/`#ffffff` ternary (light-mode
   JPEG export was `#ffffff` vs actual `--bg-color` of `#f8f9fa`).
 - Validation: `pytest -q`: **210 passed**. `pre-commit`: all hooks passed.
+
+### 2026-02-23 - feat(templates,js): responsive table formatting and export parity (Batch 12 WP-2)
+
+- Scope: `scrobblescope/utils.py`, `scrobblescope/orchestrator.py`,
+  `templates/results.html`, `static/css/results.css`, `static/js/results.js`,
+  `tests/test_utils.py`, `tests/services/test_orchestrator_service.py`.
+- Problem: (1) Long time strings ('1 day, 12 hrs, 38 mins') caused table
+  spillover on mobile. (2) CSV export concatenated both responsive spans
+  (e.g. '2024-03-152024-03'). (3) html2canvas JPEG export did not force
+  desktop layout on mobile viewports.
+- Fix: (1) Added `format_seconds_mobile()` (max 2 units, abbreviated) with
+  14 parametrized tests. `_build_results` emits `play_time_mobile`. Template
+  uses dual d-none/d-md-inline spans. (2) CSV extraction reads `.d-md-inline`
+  text when present, fixing existing release_date and new play_time bugs.
+  (3) `onclone` callback explicitly shows desktop spans, hides mobile spans,
+  and unhides rank columns in cloned DOM.
+- Validation: `pytest -q`: **223 passed**. `pre-commit`: all hooks passed.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
