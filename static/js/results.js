@@ -194,6 +194,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Remove overflow clip in the clone so the full table renders
                     const w = clonedDoc.getElementById('results-table-wrapper');
                     if (w) { w.style.overflow = 'visible'; }
+
+                    // Force desktop layout in the clone: show desktop spans,
+                    // hide mobile spans, and unhide rank columns. html2canvas
+                    // captures computed styles at clone time -- on mobile
+                    // viewports, d-none d-md-inline elements are already
+                    // display:none and windowWidth cannot override that.
+                    w?.querySelectorAll('.d-md-inline').forEach(el => {
+                        el.style.display = 'inline';
+                    });
+                    w?.querySelectorAll('.d-md-none').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    // Unhide rank column (hidden on mobile via CSS)
+                    const table = w?.querySelector('.results-table');
+                    if (table) {
+                        table.querySelectorAll('th:first-child, td:first-child').forEach(el => {
+                            el.style.display = '';
+                        });
+                    }
                 },
             }).then(canvas => {
                 const link = document.createElement('a');
