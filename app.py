@@ -6,9 +6,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import logging
-
 # Standard library imports
+import io
+import logging
 import os
 import sys
 from datetime import datetime
@@ -19,7 +19,8 @@ from flask_wtf.csrf import CSRFError, CSRFProtect
 
 csrf = CSRFProtect()
 
-sys.stderr.reconfigure(encoding="utf-8")
+if isinstance(sys.stderr, io.TextIOWrapper):
+    sys.stderr.reconfigure(encoding="utf-8")
 
 # Enable ANSI escape codes on Windows cmd
 os.system("")
