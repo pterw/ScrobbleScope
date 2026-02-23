@@ -100,3 +100,14 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-02-22 - fix(app): guard sys.stderr.reconfigure with isinstance check
+
+- Scope: `app.py`.
+- Problem: Pyright/Pylance reported "Cannot access attribute reconfigure for
+  class TextIO" because `sys.stderr` is typed as `TextIO`, which lacks
+  `reconfigure`. The method exists at runtime on `io.TextIOWrapper`.
+- Fix: Added `import io` and wrapped the call in
+  `if isinstance(sys.stderr, io.TextIOWrapper):` -- a type-narrowing guard
+  that satisfies both the type checker and runtime safety.
+- Validation: `pytest -q`: **210 passed**. `pre-commit`: all hooks passed.
