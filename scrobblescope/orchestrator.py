@@ -241,7 +241,23 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
         search_tasks = [
             search_with_semaphore(key, data) for key, data in cache_misses.items()
         ]
-        search_results = await asyncio.gather(*search_tasks)
+
+        search_results = []
+        searches_done = 0
+        total_searches = len(search_tasks)
+        for fut in asyncio.as_completed(search_tasks):
+            result = await fut
+            search_results.append(result)
+            searches_done += 1
+            # Map search progress into the 20%-40% range
+            pct = 20 + int(20 * searches_done / total_searches)
+            set_job_progress(
+                job_id,
+                progress=pct,
+                message=(
+                    f"Searching Spotify: {searches_done}/" f"{total_searches} albums..."
+                ),
+            )
 
         spotify_id_to_key = {}
         spotify_id_to_original_data = {}
@@ -695,15 +711,12 @@ async def _fetch_and_process(
             )
 
         set_job_progress(
-            job_id, progress=30, message="Preparing to fetch album data..."
+            job_id,
+            progress=20,
+            message=f"Preparing {len(filtered_albums)} albums for Spotify lookup...",
         )
 
         step_start_time = time.time()
-        set_job_progress(
-            job_id,
-            progress=40,
-            message="Processing album data from Spotify...",
-        )
 
         try:
             results = await process_albums(

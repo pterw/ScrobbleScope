@@ -939,6 +939,11 @@ async def test_fetch_spotify_misses_malformed_album_details():
 
     # search returns both IDs; batch details returns one with no 'tracks'
     # key and one as None (simulating a deleted album).
+    # Use a side_effect function (not list) to ensure ID assignment is
+    # deterministic regardless of asyncio.as_completed scheduling order.
+    async def _search_by_artist(session, artist, album, token, semaphore=None):
+        return {"artist1": "sp1", "artist2": "sp2"}[artist]
+
     with (
         patch(
             "scrobblescope.orchestrator.fetch_spotify_access_token",
@@ -952,7 +957,7 @@ async def test_fetch_spotify_misses_malformed_album_details():
         patch(
             "scrobblescope.orchestrator.search_for_spotify_album_id",
             new_callable=AsyncMock,
-            side_effect=["sp1", "sp2"],
+            side_effect=_search_by_artist,
         ),
         patch(
             "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
@@ -1073,6 +1078,100 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
     assert page_calls[0] == {"progress": 10, "message": "Fetching Last.fm page 1/3..."}
     assert page_calls[1] == {"progress": 15, "message": "Fetching Last.fm page 2/3..."}
     assert page_calls[2] == {"progress": 20, "message": "Fetching Last.fm page 3/3..."}
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_misses_reports_search_progress():
+    """
+    GIVEN _fetch_spotify_misses searches for 5 Spotify albums
+    WHEN each search completes via asyncio.as_completed
+    THEN set_job_progress is called with values in the 20%-40% range
+    and messages like "Searching Spotify: N/T albums...".
+
+    Arithmetic: pct = 20 + int(20 * searches_done / total_searches)
+    For 5 searches: 24, 28, 32, 36, 40.
+    """
+    from scrobblescope.orchestrator import _fetch_spotify_misses
+    from scrobblescope.repositories import set_job_progress as real_set
+
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    cache_misses = {
+        (f"artist{i}", f"album{i}"): {
+            "play_count": 10,
+            "track_counts": {"song": 3},
+            "original_artist": f"Artist{i}",
+            "original_album": f"Album{i}",
+        }
+        for i in range(5)
+    }
+    cache_hits = {}
+
+    mock_session = AsyncMock()
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    # All 5 searches return IDs; batch detail returns minimal data
+    spotify_ids = [f"sp{i}" for i in range(5)]
+
+    def _batch_details(session, batch_ids, token, semaphore=None):
+        return {
+            sid: {
+                "release_date": "2025-01-01",
+                "images": [{"url": "https://img.example.com/a.jpg"}],
+                "tracks": {"items": []},
+            }
+            for sid in batch_ids
+        }
+
+    progress_calls = []
+
+    def _tracking_set(jid, **kwargs):
+        progress_calls.append(kwargs)
+        return real_set(jid, **kwargs)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            return_value=mock_session_ctx,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            side_effect=spotify_ids,
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+            side_effect=_batch_details,
+        ),
+        patch(
+            "scrobblescope.orchestrator.set_job_progress",
+            side_effect=_tracking_set,
+        ),
+    ):
+        await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
+
+    # Filter for search-phase progress calls
+    search_calls = [
+        c
+        for c in progress_calls
+        if "message" in c and "Searching Spotify:" in c["message"]
+    ]
+    assert len(search_calls) == 5
+    # All progress values must be in the 20-40% range
+    for sc in search_calls:
+        assert 20 <= sc["progress"] <= 40
+    # Final search call reaches 40%
+    assert search_calls[-1]["progress"] == 40
+    # Messages reference the total album count
+    assert "/5 albums..." in search_calls[-1]["message"]
 
 
 @pytest.mark.asyncio
