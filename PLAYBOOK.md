@@ -116,6 +116,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-02-23 - chore(merge): integrate main into wip/pc-snapshot (side-task)
+
+- Scope: `scripts/doc_state_sync.py`, `tests/test_doc_state_sync.py` (merge
+  resolution only -- no net change from branch perspective).
+- Problem: `main` had one commit ahead (`05c7b19`) that was already
+  cherry-picked into `wip/pc-snapshot` as part of `4e4c9a1`. The branch
+  needed to formally integrate `main` before PR #36 could merge cleanly.
+- Fix: `git merge origin/main --no-edit`; ort strategy resolved cleanly
+  (identical content on both sides for the two touched files). Merge commit
+  `d98c90b` amended to conventional format.
+- Validation: **260 tests passing**, pre-commit all 8 hooks passed.
+
 ### 2026-02-23 - fix/docs: cherry-pick SESSION_CONTEXT optional + DEVELOPMENT.md (side-task)
 
 - Scope: `scripts/doc_state_sync.py`, `tests/test_doc_state_sync.py`,
