@@ -37,6 +37,7 @@ from scrobblescope.utils import (
     cleanup_expired_cache,
     create_optimized_session,
     format_seconds,
+    format_seconds_mobile,
 )
 from scrobblescope.worker import release_job_slot
 
@@ -331,6 +332,7 @@ def _build_results(
                 "album": original_data["original_album"],
                 "play_count": original_data["play_count"],
                 "play_time": format_seconds(play_time_sec),
+                "play_time_mobile": format_seconds_mobile(play_time_sec),
                 "play_time_seconds": play_time_sec,
                 "different_songs": len(original_data["track_counts"]),
                 "release_date": release_date,

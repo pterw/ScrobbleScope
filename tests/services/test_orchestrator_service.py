@@ -1015,6 +1015,7 @@ def test_build_results_zero_playtime_no_division_error():
     assert len(results) == 1
     assert results[0]["play_time_seconds"] == 0
     assert results[0]["play_time"] == "0 secs"
+    assert results[0]["play_time_mobile"] == "0s"
     # proportion_of_max uses `or 1` guard: 0 / 1 * 100 = 0.0
     assert results[0]["proportion_of_max"] == 0.0
     assert results[0]["proportion_of_total"] == 0.0
