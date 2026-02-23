@@ -139,3 +139,23 @@ non-current operational logs. Older dated entries live in
   ~10 lines. Error titles intentionally differ between routes, so
   `expired_error` was parameterized rather than hardcoded.
 - Validation: `pytest -q`: **210 passed**. `pre-commit`: all 8 hooks passed.
+
+### 2026-02-22 - fix(types): resolve 10 Pylance type errors in production code
+
+- Scope: `scrobblescope/lastfm.py`, `scrobblescope/spotify.py`,
+  `scrobblescope/utils.py`.
+- Problem: Pylance reported 10 type errors across 3 production files:
+  (1) `lastfm.py` (7): `metadata` dict inferred as `dict[str, str | int]`
+  caused arithmetic and nested-dict assignment failures; `albums` defaultdict
+  inferred heterogeneous union on all value accesses.
+  (2) `spotify.py` (2): `SPOTIFY_CLIENT_ID/SECRET` typed `str | None` from
+  `os.getenv()` but `aiohttp.BasicAuth` requires `str`.
+  (3) `utils.py` (1): `loop` assigned inside `try:` block, referenced in
+  `finally:` -- possibly unbound if `new_event_loop()` raises.
+- Fix: Annotated `metadata: dict[str, Any]` and
+  `albums: defaultdict[str, dict[str, Any]]` in lastfm.py; added assert
+  guards for Spotify credentials in spotify.py; initialized `loop = None`
+  with `if loop is not None:` guard in utils.py.
+- Test file type errors (25 across 3 files) assessed as low-impact
+  mock-related noise -- deferred.
+- Validation: `pytest -q`: **210 passed**. `pre-commit`: all 8 hooks passed.
