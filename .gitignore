@@ -1,6 +1,9 @@
 # Environment variables (API keys)
 .env
 
+# Claude Code agent state (machine-local)
+.claude/
+
 # Logs
 *.log
 logs/
