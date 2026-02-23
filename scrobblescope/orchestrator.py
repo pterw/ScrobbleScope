@@ -52,18 +52,24 @@ from scrobblescope.worker import release_job_slot
 _PLAYTIME_ALBUM_CAP = 500
 
 
-async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
+async def fetch_top_albums_async(
+    username, year, min_plays=10, min_tracks=3, progress_cb=None
+):
     """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple.
 
     The returned ``fetch_metadata`` dict includes a ``stats`` key with
     aggregation counters (total_scrobbles, pages_fetched, unique_albums,
     albums_passing_filter) so the caller can record them as job stats.
+
+    Args:
+        progress_cb: Optional ``Callable[[int, int], None]`` forwarded to
+            ``fetch_all_recent_tracks_async`` for per-page progress.
     """
     logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
     from_ts = int(datetime(year, 1, 1).timestamp())
     to_ts = int(datetime(year, 12, 31, 23, 59, 59).timestamp())
     pages, fetch_metadata = await fetch_all_recent_tracks_async(
-        username, from_ts, to_ts
+        username, from_ts, to_ts, progress_cb=progress_cb
     )
     logging.debug(f"Pages fetched: {len(pages)}")
     total_tracks = sum(len(p.get("recenttracks", {}).get("track", [])) for p in pages)
@@ -575,8 +581,21 @@ async def _fetch_and_process(
             error=False,
         )
 
+        def _lastfm_progress(pages_done, total_pages):
+            """Map page-fetching progress into the 5%-20% range."""
+            pct = 5 + int(15 * pages_done / max(total_pages, 1))
+            set_job_progress(
+                job_id,
+                progress=pct,
+                message=f"Fetching Last.fm page {pages_done}/{total_pages}...",
+            )
+
         filtered_albums, fetch_metadata = await fetch_top_albums_async(
-            username, year, min_plays=min_plays, min_tracks=min_tracks
+            username,
+            year,
+            min_plays=min_plays,
+            min_tracks=min_tracks,
+            progress_cb=_lastfm_progress,
         )
         step_elapsed = time.time() - step_start_time
         logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
