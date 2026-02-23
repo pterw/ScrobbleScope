@@ -86,6 +86,12 @@ def _read_lines(path: Path) -> list[str]:
     return path.read_text(encoding="utf-8").splitlines()
 
 
+def _read_lines_optional(path: Path) -> list[str] | None:
+    if not path.exists():
+        return None
+    return path.read_text(encoding="utf-8").splitlines()
+
+
 def _write_lines(path: Path, lines: Iterable[str]) -> None:
     text = "\n".join(lines).rstrip() + "\n"
     path.write_text(text, encoding="utf-8", newline="\n")
@@ -283,7 +289,7 @@ class SyncResult:
 
     playbook_lines: list[str]
     archive_lines: list[str]
-    session_lines: list[str]
+    session_lines: list[str] | None
     rotated_count: int
     kept_non_current_count: int
     current_batch_entry_count: int
@@ -345,7 +351,7 @@ def _build_status_block(
 def _sync(keep_non_current: int) -> SyncResult:
     playbook_lines = _read_lines(PLAYBOOK_PATH)
     archive_lines = _read_lines(ARCHIVE_PATH)
-    session_lines = _read_lines(SESSION_CONTEXT_PATH)
+    session_lines = _read_lines_optional(SESSION_CONTEXT_PATH)
 
     section_3_start, section_3_end = _find_section(
         playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
@@ -481,19 +487,23 @@ def _sync(keep_non_current: int) -> SyncResult:
 
     new_archive_lines = _render_archive(archive_prefix, deduped_entries)
 
-    status_start, status_end = _find_marker_pair(
-        session_lines,
-        SESSION_STATUS_START_MARKER,
-        SESSION_STATUS_END_MARKER,
-        "SESSION_CONTEXT",
-    )
-    status_block = _build_status_block(
-        section_3_state=section_3_state,
-        current_entries=current_entries,
-    )
-    new_session_lines = (
-        session_lines[: status_start + 1] + status_block + session_lines[status_end:]
-    )
+    new_session_lines: list[str] | None = None
+    if session_lines is not None:
+        status_start, status_end = _find_marker_pair(
+            session_lines,
+            SESSION_STATUS_START_MARKER,
+            SESSION_STATUS_END_MARKER,
+            "SESSION_CONTEXT",
+        )
+        status_block = _build_status_block(
+            section_3_state=section_3_state,
+            current_entries=current_entries,
+        )
+        new_session_lines = (
+            session_lines[: status_start + 1]
+            + status_block
+            + session_lines[status_end:]
+        )
 
     return SyncResult(
         playbook_lines=new_playbook_lines,
@@ -505,7 +515,9 @@ def _sync(keep_non_current: int) -> SyncResult:
     )
 
 
-def _cross_validate(playbook_lines: list[str], session_lines: list[str]) -> list[str]:
+def _cross_validate(
+    playbook_lines: list[str], session_lines: list[str] | None
+) -> list[str]:
     """Cross-check content across files; return list of warning strings."""
     warnings: list[str] = []
 
@@ -516,9 +528,10 @@ def _cross_validate(playbook_lines: list[str], session_lines: list[str]) -> list
     test_count_re = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
     session_counts: set[int] = set()
     playbook_counts: set[int] = set()
-    for line in session_lines:
-        for m in test_count_re.finditer(line):
-            session_counts.add(int(m.group(1)))
+    if session_lines is not None:
+        for line in session_lines:
+            for m in test_count_re.finditer(line):
+                session_counts.add(int(m.group(1)))
     try:
         s3_start, s3_end = _find_section(
             playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
@@ -561,13 +574,14 @@ def _cross_validate(playbook_lines: list[str], session_lines: list[str]) -> list
                     f"Stale header detected in PLAYBOOK: '{phrase}' "
                     f"found in: {line.strip()}"
                 )
-    for line in session_lines[:5]:
-        for phrase in stale_phrases:
-            if phrase.lower() in line.lower():
-                warnings.append(
-                    f"Stale header detected in SESSION_CONTEXT: '{phrase}' "
-                    f"found in: {line.strip()}"
-                )
+    if session_lines is not None:
+        for line in session_lines[:5]:
+            for phrase in stale_phrases:
+                if phrase.lower() in line.lower():
+                    warnings.append(
+                        f"Stale header detected in SESSION_CONTEXT: '{phrase}' "
+                        f"found in: {line.strip()}"
+                    )
 
     return warnings
 
@@ -609,7 +623,7 @@ def main() -> int:
 
     current_playbook = _read_lines(PLAYBOOK_PATH)
     current_archive = _read_lines(ARCHIVE_PATH)
-    current_session = _read_lines(SESSION_CONTEXT_PATH)
+    current_session = _read_lines_optional(SESSION_CONTEXT_PATH)
 
     # Cross-validation warnings (non-blocking).
     xv_warnings = _cross_validate(result.playbook_lines, result.session_lines)
@@ -622,7 +636,7 @@ def main() -> int:
         changed.append(PLAYBOOK_PATH)
     if current_archive != result.archive_lines:
         changed.append(ARCHIVE_PATH)
-    if current_session != result.session_lines:
+    if result.session_lines is not None and current_session != result.session_lines:
         changed.append(SESSION_CONTEXT_PATH)
 
     if args.check:
@@ -644,7 +658,8 @@ def main() -> int:
     if changed:
         _write_lines(PLAYBOOK_PATH, result.playbook_lines)
         _write_lines(ARCHIVE_PATH, result.archive_lines)
-        _write_lines(SESSION_CONTEXT_PATH, result.session_lines)
+        if SESSION_CONTEXT_PATH in changed:
+            _write_lines(SESSION_CONTEXT_PATH, result.session_lines)  # type: ignore[arg-type]
         print("doc_state_sync wrote updates:")
         for path in changed:
             print(f"- {path}")

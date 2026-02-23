@@ -739,10 +739,12 @@ class TestSyncIntegration:
         with pytest.raises(dss.SyncError, match="Required file is missing"):
             dss._sync(keep_non_current=4)
 
-    def test_missing_session_context_raises(self, sync_env: Path):
+    def test_missing_session_context_succeeds(self, sync_env: Path):
+        """SESSION_CONTEXT.md is optional; missing file should not raise."""
         (sync_env / ".claude" / "SESSION_CONTEXT.md").unlink()
-        with pytest.raises(dss.SyncError, match="Required file is missing"):
-            dss._sync(keep_non_current=4)
+        result = dss._sync(keep_non_current=4)
+        assert result.session_lines is None
+        assert result.current_batch_entry_count == 1
 
     def test_missing_section_3_raises(self, sync_env: Path):
         playbook = sync_env / "PLAYBOOK.md"
@@ -1074,8 +1076,38 @@ class TestMainArgs:
 
 
 # ---------------------------------------------------------------------------
-# Regex pattern edge cases
+# Missing SESSION_CONTEXT.md regression tests (CI environment)
 # ---------------------------------------------------------------------------
+
+
+class TestMissingSessionContext:
+    def test_check_passes_without_session_context(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """--check must not fail solely because SESSION_CONTEXT.md is missing."""
+        (sync_env / ".claude" / "SESSION_CONTEXT.md").unlink()
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        exit_code = dss.main()
+        # Playbook and archive are already in sync for the minimal fixture,
+        # so check should pass (exit 0) even without SESSION_CONTEXT.md.
+        assert exit_code == 0
+
+    def test_fix_does_not_create_session_context(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """--fix must not create SESSION_CONTEXT.md when it does not exist."""
+        session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"
+        session_path.unlink()
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+        dss.main()
+        assert not session_path.exists()
+
+    def test_cross_validate_skips_session_checks_when_none(self):
+        """_cross_validate with session_lines=None should not raise and
+        should produce no session-specific warnings."""
+        warnings = dss._cross_validate(["# PLAYBOOK", "content"], None)
+        session_warnings = [w for w in warnings if "SESSION_CONTEXT" in w]
+        assert session_warnings == []
 
 
 class TestRegexPatterns:
