@@ -137,7 +137,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             const albumInfo = cell.querySelector('.album-info');
                             content = albumInfo ? albumInfo.textContent.trim() : '';
                         } else {
-                            content = cell.textContent.trim();
+                            // When a cell has responsive spans, extract only
+                            // the desktop (.d-md-inline) text to avoid
+                            // concatenating both spans (e.g. "2024-03-152024-03").
+                            const desktopSpan = cell.querySelector('.d-md-inline');
+                            if (desktopSpan) {
+                                content = desktopSpan.textContent.trim();
+                            } else {
+                                content = cell.textContent.trim();
+                            }
                         }
                         content = content.replace(/\s+/g, ' ').replace(/"/g, '""');
                         rowData.push(`"${content}"`);
