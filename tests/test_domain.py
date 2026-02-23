@@ -1,5 +1,4 @@
 from scrobblescope.domain import (
-    _extract_registered_year,
     normalize_name,
     normalize_track_name,
 )
@@ -180,26 +179,3 @@ def test_normalize_name_and_track_name_agree_on_non_latin():
         "Non-Latin track names must survive normalization; "
         "empty string means NFKD+ascii-encode regression has been reintroduced."
     )
-
-
-def test_extract_registered_year_valid():
-    """
-    GIVEN a Last.fm user.getinfo response with a valid registration timestamp
-    WHEN _extract_registered_year is called
-    THEN it should return the correct year (2016 for flounder14's timestamp).
-    """
-    data = {
-        "user": {"registered": {"unixtime": "1451606400", "#text": "2016-01-01 00:00"}}
-    }
-    assert _extract_registered_year(data) == 2016
-
-
-def test_extract_registered_year_missing_key():
-    """
-    GIVEN a response missing the registered field
-    WHEN _extract_registered_year is called
-    THEN it should return None without raising an exception.
-    """
-    assert _extract_registered_year({}) is None
-    assert _extract_registered_year({"user": {}}) is None
-    assert _extract_registered_year({"user": {"registered": {}}}) is None

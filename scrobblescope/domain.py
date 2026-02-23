@@ -1,6 +1,5 @@
 import string
 import unicodedata
-from datetime import datetime, timezone
 
 
 def normalize_name(artist, album):
@@ -68,12 +67,3 @@ def normalize_track_name(name):
     n = n.translate(translator)
     n = " ".join(n.split())
     return n.strip()
-
-
-def _extract_registered_year(data):
-    """Extract the registration year from a Last.fm user.getinfo response."""
-    try:
-        ts = int(data["user"]["registered"]["unixtime"])
-        return datetime.fromtimestamp(ts, tz=timezone.utc).year
-    except (KeyError, TypeError, ValueError):
-        return None

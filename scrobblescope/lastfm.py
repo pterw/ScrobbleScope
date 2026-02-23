@@ -2,7 +2,7 @@ import asyncio
 import logging
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from scrobblescope.config import (
@@ -11,7 +11,6 @@ from scrobblescope.config import (
     MAX_CONCURRENT_LASTFM,
 )
 from scrobblescope.domain import (
-    _extract_registered_year,
     normalize_name,
     normalize_track_name,
 )
@@ -28,6 +27,14 @@ async def check_user_exists(username):
 
     Returns a dict with ``exists`` (bool) and ``registered_year`` (int or None).
     """
+
+    def _extract_year(data):
+        try:
+            ts = int(data["user"]["registered"]["unixtime"])
+            return datetime.fromtimestamp(ts, tz=timezone.utc).year
+        except (KeyError, TypeError, ValueError):
+            return None
+
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "method": "user.getinfo",
@@ -40,7 +47,7 @@ async def check_user_exists(username):
     if cached_response:
         return {
             "exists": True,
-            "registered_year": _extract_registered_year(cached_response),
+            "registered_year": _extract_year(cached_response),
         }
     # If not cached, proceed with the request
     async with create_optimized_session() as session:
@@ -51,7 +58,7 @@ async def check_user_exists(username):
                     set_cached_response(url, data, params)
                     return {
                         "exists": True,
-                        "registered_year": _extract_registered_year(data),
+                        "registered_year": _extract_year(data),
                     }
                 elif resp.status == 404:
                     return {"exists": False, "registered_year": None}

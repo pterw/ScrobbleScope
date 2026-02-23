@@ -107,3 +107,24 @@ async def test_fetch_recent_tracks_page_404_raises_user_not_found():
             await fetch_recent_tracks_page_async(
                 session, "ghost_user_xyz", 1, 2, page=1, retries=1
             )
+
+
+@pytest.mark.asyncio
+async def test_check_user_exists_missing_registration_data():
+    """
+    GIVEN a 200 OK response with an empty body (no user/registered keys)
+    WHEN check_user_exists is called
+    THEN it should return exists=True with registered_year=None.
+
+    Covers the missing-key fallback path now inlined inside check_user_exists
+    (previously tested via _extract_registered_year in test_domain.py).
+    """
+    with patch("aiohttp.ClientSession.get") as mock_get:
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = {}
+        mock_get.return_value.__aenter__.return_value = mock_response
+
+        result = await check_user_exists("sparse_user")
+        assert result["exists"] is True
+        assert result["registered_year"] is None
