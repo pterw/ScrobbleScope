@@ -74,6 +74,60 @@ def _group_unmatched_by_reason(unmatched_data):
     return reasons, reason_counts
 
 
+def _get_filter_description(release_scope, decade, release_year, listening_year):
+    """Generate a readable description of the active release-year filter."""
+    if release_scope == "all":
+        return "all albums (no release year filter)"
+    elif release_scope == "same":
+        return f"albums released in {listening_year}"
+    elif release_scope == "previous":
+        return f"albums released in {listening_year - 1}"
+    elif release_scope == "decade" and decade:
+        return f"albums released in the {decade}"
+    elif release_scope == "custom" and release_year:
+        return f"albums released in {release_year}"
+    else:
+        return "albums matching your criteria"
+
+
+def _get_validated_job_context(
+    missing_id_message, expired_error, expired_message, expired_details
+):
+    """Validate ``job_id`` from the current request form.
+
+    Returns ``(job_id, job_context, None)`` on success, or
+    ``(None, None, error_response)`` when validation fails.
+    """
+    job_id = request.form.get("job_id")
+    if not job_id:
+        return (
+            None,
+            None,
+            render_template(
+                "error.html",
+                error="Missing Job Identifier",
+                message=missing_id_message,
+                details="Please start a new search.",
+            ),
+        )
+
+    job_context = get_job_context(job_id)
+    if not job_context:
+        logging.warning(f"Job context not found for {job_id}")
+        return (
+            None,
+            None,
+            render_template(
+                "error.html",
+                error=expired_error,
+                message=expired_message,
+                details=expired_details,
+            ),
+        )
+
+    return job_id, job_context, None
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
@@ -212,24 +266,17 @@ def internal_error(e):
 @bp.route("/results_complete", methods=["POST"])
 def results_complete():
     """Render the results page for a completed job, or an error page on failure."""
-    job_id = request.form.get("job_id")
-    if not job_id:
-        return render_template(
-            "error.html",
-            error="Missing Job Identifier",
-            message="We could not identify your in-progress request.",
-            details="Please start a new search.",
-        )
+    job_id, job_context, err = _get_validated_job_context(
+        missing_id_message="We could not identify your in-progress request.",
+        expired_error="Results Not Found",
+        expired_message="We couldn't find your results.",
+        expired_details="The processing may have expired. Please try again.",
+    )
+    if err:
+        return err
 
-    job_context = get_job_context(job_id)
-    if not job_context:
-        logging.warning(f"Job context not found for {job_id}")
-        return render_template(
-            "error.html",
-            error="Results Not Found",
-            message="We couldn't find your results.",
-            details="The processing may have expired. Please try again.",
-        )
+    # Type narrowing: after the err guard, job_context is guaranteed non-None.
+    assert job_context is not None
 
     progress_payload = job_context["progress"]
     if progress_payload.get("error"):
@@ -272,7 +319,7 @@ def results_complete():
 
     if not filtered_results:
         unmatched_count = len(job_context.get("unmatched", {}))
-        filter_description = get_filter_description(
+        filter_description = _get_filter_description(
             release_scope, decade, release_year, year
         )
         return render_template(
@@ -308,42 +355,20 @@ def results_complete():
     )
 
 
-def get_filter_description(release_scope, decade, release_year, listening_year):
-    """Generate a readable description of the filter applied"""
-    if release_scope == "all":
-        return "all albums (no release year filter)"
-    elif release_scope == "same":
-        return f"albums released in {listening_year}"
-    elif release_scope == "previous":
-        return f"albums released in {listening_year - 1}"
-    elif release_scope == "decade" and decade:
-        return f"albums released in the {decade}"
-    elif release_scope == "custom" and release_year:
-        return f"albums released in {release_year}"
-    else:
-        return "albums matching your criteria"
-
-
 @bp.route("/unmatched_view", methods=["POST"])
 def unmatched_view():
     """Show a dedicated page of unmatched albums that didn't match the filters."""
-    job_id = request.form.get("job_id")
-    if not job_id:
-        return render_template(
-            "error.html",
-            error="Missing Job Identifier",
-            message="We could not find unmatched albums without a valid job ID.",
-            details="Please return to your results page and try again.",
-        )
+    job_id, job_context, err = _get_validated_job_context(
+        missing_id_message="We could not find unmatched albums without a valid job ID.",
+        expired_error="Job Not Found",
+        expired_message="Your unmatched album data has expired.",
+        expired_details="Please run a new search.",
+    )
+    if err:
+        return err
 
-    job_context = get_job_context(job_id)
-    if not job_context:
-        return render_template(
-            "error.html",
-            error="Job Not Found",
-            message="Your unmatched album data has expired.",
-            details="Please run a new search.",
-        )
+    # Type narrowing: after the err guard, job_context is guaranteed non-None.
+    assert job_context is not None
 
     p = _extract_job_params(job_context)
     username = p["username"]
@@ -354,7 +379,9 @@ def unmatched_view():
     min_plays = p["min_plays"]
     min_tracks = p["min_tracks"]
 
-    filter_desc = get_filter_description(release_scope, decade, release_year, int(year))
+    filter_desc = _get_filter_description(
+        release_scope, decade, release_year, int(year)
+    )
 
     unmatched_data = dict(job_context.get("unmatched", {}))
     reasons, reason_counts = _group_unmatched_by_reason(unmatched_data)
