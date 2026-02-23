@@ -73,7 +73,7 @@ Completed batch definitions are archived individually under `docs/history/`.
     `darkSwitch`/`backToTop` in `theme.js`; dark-mode toggle track changed
     from `var(--bars-color)` to `var(--bg-color)` when checked. 121 tests
     passing.)
-- **Batch 12 is complete.** Definition: `BATCH12_PROPOSAL.md`.
+- **Batch 12 is complete.** Definition: `docs/history/BATCH12_PROPOSAL.md`.
   Polish and observability: CSS variable enforcement, responsive data
   formatting + export parity, backend SoC extraction, granular progress
   pipeline. 4 WPs. All done.
@@ -111,3 +111,27 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-02-23 - chore/docs: repo hygiene and README rewrite (side-task)
+
+- Scope: root directory, `.gitignore`, `README.md`, `.claude/`.
+- Problem: (1) Root directory cluttered with completed batch definitions
+  (`BATCH12_PROPOSAL.md`, `BATCH8_REFACTOR_PLAN.md`) and an obsolete
+  playbook compatibility shim (`EXECUTION_PLAYBOOK_2026-02-11.md`).
+  (2) `.claude/` tracked in git (agent-local state, stale `BATCH3_CONTEXT.md`,
+  machine-specific `settings.local.json`). (3) `README.md` outdated --
+  "work in progress" status badge, 30+ completed checkbox items, missing
+  Architecture/Deployment sections, stale Tech Stack section.
+- Fix:
+  (1) `git mv` both batch definitions to `docs/history/`. `git rm`
+  the playbook shim. Deleted untracked stale files (`backup.py`,
+  `Backup_batch`, empty `app/` directory).
+  (2) Added `.claude/` to `.gitignore`, `git rm --cached` all 3 tracked files,
+  deleted stale `BATCH3_CONTEXT.md` locally.
+  (3) Comprehensive README rewrite: active status badge + test count badge,
+  new Architecture section with pipeline diagram + design decisions, Tech
+  Stack table, Deployment section with Fly.io commands + smoke test,
+  condensed Roadmap (upcoming + recent completions only), accurate Project
+  Structure tree with per-file annotations and test counts, Running Tests
+  section, trimmed Contributing/License/Acknowledgements.
+- Validation: **257 tests passing**, pre-commit all 8 hooks passed.
