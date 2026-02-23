@@ -10,6 +10,7 @@ from scrobblescope.utils import (
     _cache_lock,
     _GlobalThrottle,
     cleanup_expired_cache,
+    format_seconds,
     format_seconds_mobile,
     get_cached_response,
     get_lastfm_limiter,
@@ -170,6 +171,34 @@ def test_cross_thread_limiters_share_global_throttle():
 
     assert len(throttles) == 2
     assert throttles[0] is throttles[1]
+
+
+# ------------------------------------------------------------------ #
+# format_seconds tests                                                 #
+# ------------------------------------------------------------------ #
+
+
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [
+        (0, "0 secs"),
+        (1, "1 secs"),
+        (59, "59 secs"),
+        (60, "1 mins, 0 secs"),
+        (75, "1 mins, 15 secs"),
+        (3599, "59 mins, 59 secs"),
+        (3600, "1 hrs, 0 mins"),
+        (3661, "1 hrs, 1 mins"),
+        (16200, "4 hrs, 30 mins"),
+        (86400, "1 day, 0 hrs, 0 mins"),
+        (172800, "2 days, 0 hrs, 0 mins"),
+        (129600, "1 day, 12 hrs, 0 mins"),
+        (0.4, "1 secs"),  # ceil rounds up fractional seconds
+    ],
+)
+def test_format_seconds(seconds, expected):
+    """format_seconds returns verbose user-friendly time strings."""
+    assert format_seconds(seconds) == expected
 
 
 # ------------------------------------------------------------------ #
