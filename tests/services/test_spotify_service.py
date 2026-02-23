@@ -1,8 +1,10 @@
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from scrobblescope.spotify import (
+    fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
 )
@@ -111,3 +113,107 @@ async def test_fetch_spotify_album_details_batch_non_200_returns_empty_dict():
 
     assert result == {}
     assert mock_sleep.await_count == 0
+
+
+# ------------------------------------------------------------------ #
+# fetch_spotify_access_token tests                                     #
+# ------------------------------------------------------------------ #
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_access_token_returns_cached_when_valid():
+    """
+    GIVEN a cached token whose expires_at is in the future
+    WHEN fetch_spotify_access_token is called
+    THEN it should return the cached token without making any HTTP request.
+    """
+    fake_cache = {"token": "cached_tok_123", "expires_at": time.time() + 3600}
+    with patch("scrobblescope.spotify.spotify_token_cache", fake_cache):
+        token = await fetch_spotify_access_token()
+
+    assert token == "cached_tok_123"
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_access_token_refreshes_expired_token():
+    """
+    GIVEN an expired token cache
+    WHEN fetch_spotify_access_token is called
+    THEN it should POST to the Spotify token endpoint and update the cache.
+    """
+    fake_cache = {"token": None, "expires_at": 0}
+
+    resp_200 = AsyncMock()
+    resp_200.status = 200
+    resp_200.json = AsyncMock(
+        return_value={"access_token": "fresh_tok_456", "expires_in": 3600}
+    )
+
+    mock_session = MagicMock()
+    mock_session.post.return_value = make_response_context(resp_200)
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("scrobblescope.spotify.spotify_token_cache", fake_cache),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "test_id"),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "test_secret"),
+        patch(
+            "scrobblescope.spotify.create_optimized_session",
+            return_value=mock_session_ctx,
+        ),
+    ):
+        token = await fetch_spotify_access_token()
+
+    assert token == "fresh_tok_456"
+    assert fake_cache["token"] == "fresh_tok_456"
+    assert fake_cache["expires_at"] > time.time()
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_access_token_returns_none_on_non_200():
+    """
+    GIVEN the Spotify token endpoint returns a non-200 status
+    WHEN fetch_spotify_access_token is called
+    THEN it should log the error and return None.
+    """
+    fake_cache = {"token": None, "expires_at": 0}
+
+    resp_403 = AsyncMock()
+    resp_403.status = 403
+
+    mock_session = MagicMock()
+    mock_session.post.return_value = make_response_context(resp_403)
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    with (
+        patch("scrobblescope.spotify.spotify_token_cache", fake_cache),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", "test_id"),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", "test_secret"),
+        patch(
+            "scrobblescope.spotify.create_optimized_session",
+            return_value=mock_session_ctx,
+        ),
+    ):
+        token = await fetch_spotify_access_token()
+
+    assert token is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_access_token_asserts_on_missing_credentials():
+    """
+    GIVEN SPOTIFY_CLIENT_ID is None
+    WHEN fetch_spotify_access_token is called with an expired cache
+    THEN it should raise AssertionError before making any HTTP request.
+    """
+    fake_cache = {"token": None, "expires_at": 0}
+    with (
+        patch("scrobblescope.spotify.spotify_token_cache", fake_cache),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", None),
+        pytest.raises(AssertionError, match="SPOTIFY_CLIENT_ID not set"),
+    ):
+        await fetch_spotify_access_token()
