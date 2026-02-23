@@ -7,12 +7,15 @@
 
 ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists, but it works equally well for exploring your musical journey across any year of scrobbling.
 
+This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
+
 ## Table of Contents
 
 * [Features](#features)
 * [Screenshots](#screenshots)
 * [Tech Stack](#tech-stack)
 * [Architecture](#architecture)
+* [Key Implementation Highlights](#key-implementation-highlights)
 * [Getting Started](#getting-started)
     * [Prerequisites](#prerequisites)
     * [Setup](#setup)
@@ -20,7 +23,7 @@ ScrobbleScope is a web application for Last.fm users who want deeper insight int
     * [Running Tests](#running-tests)
 * [Project Structure](#project-structure)
 * [Deployment](#deployment)
-* [Roadmap](#roadmap)
+* [Current Status & Roadmap](#current-status--roadmap)
 * [Contributing](#contributing)
 * [License](#license)
 * [Acknowledgements](#acknowledgements)
@@ -33,7 +36,7 @@ ScrobbleScope is a web application for Last.fm users who want deeper insight int
 * **Flexible Filtering:**
     * Filter albums by listening year.
     * Filter by release date: same year, previous year, specific decade, or a custom release year.
-    * Configurable album thresholds (minimum track plays and minimum unique tracks). Defaults: 10 plays, 3 unique tracks.
+    * Configurable album thresholds (minimum track plays and minimum unique tracks per album). Set your own values -- defaults are 10 plays and 3 unique tracks if you don't specify.
 * **Dual Sort Modes:**
     * Sort by **total track play count**.
     * Sort by **total listening time** (computed from Spotify track runtimes).
@@ -129,6 +132,30 @@ loading.js polls GET /progress?job_id=...
 * **Data normalization:** Artist and album names are cleaned of punctuation and common suffixes ("deluxe edition", "remastered") for robust Last.fm-to-Spotify matching.
 * **Global rate limiting:** `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 * **Acyclic module graph:** Leaf modules (`config`, `domain`, `errors`) have no internal imports. `orchestrator.py` sits at the top; `routes.py` imports only what it needs. See `AGENTS.md` for the full dependency graph.
+
+## Key Implementation Highlights
+
+* **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency, rate-limit defaults, and DB wake-up tolerance can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, `DB_CONNECT_MAX_ATTEMPTS`, `DB_CONNECT_BASE_DELAY_SECONDS`, etc.).
+* **Per-Job State Isolation:** Each search request creates a unique job (UUID-keyed, in-memory `JOBS` dict with thread-safe locking). Progress, results, and unmatched data are scoped per job, preventing cross-user state collisions on concurrent requests. Jobs expire after 2 hours.
+* **Data Normalization:** Artist and album names are cleaned of punctuation and common suffixes (e.g., "deluxe edition", "remastered") for more robust matching between Last.fm data and Spotify search queries.
+* **Caching:**
+    * In-memory request cache (`REQUEST_CACHE` in `utils.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
+    * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
+* **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
+* **Bounded Job Concurrency:** `MAX_ACTIVE_JOBS` (default 10, env-tunable) caps simultaneous background jobs via a `BoundedSemaphore` in `scrobblescope/worker.py`. Requests beyond the cap are rejected at the route before any job is created, and the concurrency slot is always released -- even on thread-start failure.
+* **CSRF Protection:** All mutating POST routes (`/results_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Form submissions include a hidden `csrf_token` input; programmatic POSTs from `loading.js` read a `<meta name="csrf-token">` tag and inject the token into both form bodies and the `X-CSRFToken` header.
+* **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
+* **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
+* **Styling & UX:**
+    * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
+    * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The main logo is an animated SVG emulating a waveform.
+    * **Accessibility:** `aria-labels` on SVGs and interactive elements; semantic form markup.
+    * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
+    * **Static Assets:** CSS and JavaScript served from `/static` for cacheability and clean separation.
+    * **Rotating loading messages:** Keeps users informed while data is being fetched.
+    * **Personalized Loading Stats:** Live stats (scrobble count, albums found, Spotify matches) shown during processing.
+    * **Onboarding:** First-visit welcome modal with "Info" button for returning users; contextual tooltip icons on form fields.
+    * **Clickable Album Links:** Album names in results link directly to their Spotify page.
 
 ## Getting Started
 
@@ -324,27 +351,55 @@ python scripts/smoke_cache_check.py --base-url https://scrobblescope.fly.dev \
     --username flounder14 --year 2025 --runs 2
 ```
 
-`Run 2` should show `cache_hits > 0` and `verdict=PASS`.
+What to look for:
+* `db_cache_enabled=True` indicates the app connected to Postgres for this run.
+* `Run 2` should report `cache_hits > 0` once metadata has been persisted.
+* `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
+* `Run 2` elapsed time should usually be lower than `Run 1`.
+* The script prints `verdict=PASS` when the second run observes DB cache hits.
+* If Fly Postgres uses `FLY_SCALE_TO_ZERO`, the first run after idle can be slower while the DB wakes up.
 
-## Roadmap
+## Current Status & Roadmap
 
-ScrobbleScope is post-refactor and actively maintained. Core architecture is stable; current focus is feature expansion and QA hardening.
+ScrobbleScope is post-refactor and actively maintained. Core architecture and infra work are complete; the current focus is feature expansion and QA hardening.
 
-**Upcoming features:**
+**Key areas for improvement and upcoming features:**
 
-* [ ] **Top songs:** Rank most-played tracks for a year (Last.fm + optional Spotify enrichment). Separate task type with its own loading/results flow.
-* [ ] **Listening heatmap:** Calendar-style scrobble density map (Last.fm only, lightweight).
-* [ ] Cross-browser QA testing.
-
-**UI polish (lower priority):**
-
-* [ ] Updated header SVG logo.
-* [ ] Animated SVG on loading page during Last.fm fetch phase.
-* [ ] More dynamic progress bar.
-* [ ] Improved unmatched albums page layout.
-
-**Recently completed:**
-
+* [x] Refine and thoroughly test the playtime sorting calculation.
+* [x] Fully implement and test custom album threshold filtering functionality.
+* [x] Enhance the `loading.html` page with rotating messages during loading.
+* [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
+* [x] Further optimize performance for users with very large listening histories.
+* [x] Improve responsive design, especially for mobile devices (ongoing polish).
+* [x] Write more comprehensive backend function docstrings and comments in `app.py`.
+* [ ] Conduct thorough QA testing across different browsers and use cases.
+* [x] Improve the landing page (`index.html`) copy to be more descriptive for new users.
+* [x] Deploy to Fly.io (ephemeral VM, shared-cpu-2x @ 512MB).
+* ~~[ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.~~
+* [x] Used RotatingFileHandler and start-up banner to delineate session logs, logsize = 1MB max.
+* [x] Per-job state isolation for concurrent user safety.
+* [x] Username pre-validation endpoint (`/validate_user`).
+* [x] XSS-safe template data injection (`|tojson` bridge, `escapeHtml()`).
+* [x] Loop-scoped rate limiters (fix `AsyncLimiter` reuse-across-loops warning).
+* [x] Implement proper upstream failure classification and retry UX.
+* [x] Personalized minimum listening year from Last.fm registration date.
+* [x] Remove nested thread pattern in background task execution.
+* [x] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
+* [x] Modularize API calls into service modules (`lastfm.py`, `spotify.py`, `cache.py`, `orchestrator.py`).
+* [x] Use Flask Blueprints to organize routes.
+* [x] Consolidate helper functions into `utils.py`.
+* [x] Move background processing to `orchestrator.py`.
+* [x] Separate configuration into `config.py` for cleaner imports.
+* [x] Optimize network usage via batching or parallel requests.
+* [x] Create master HTML templates to reduce duplication.
+* [x] Expand unit test coverage (async pipelines, error states, job isolation).
+* [x] Add DB wake-up retry/backoff hardening for Fly Postgres scale-to-zero behavior.
+* [x] Bounded background job concurrency with graceful capacity rejection (`MAX_ACTIVE_JOBS`, `scrobblescope/worker.py`).
+* [x] Thread-safe in-memory request cache (`_cache_lock` in `utils.py`).
+* [x] CSRF protection on all mutating POST routes (Flask-WTF `CSRFProtect`).
+* [x] Hardened secret key: startup refuses weak or missing `SECRET_KEY` in production.
+* [x] Server-side registration year validation (defense-in-depth; rejects year before user's Last.fm join date).
+* [x] Removed artificial orchestration delays (2.5 s of fixed `asyncio.sleep` overhead eliminated).
 * [x] Granular per-page and per-album progress feedback across the full pipeline.
 * [x] Responsive table formatting with mobile playtime abbreviations.
 * [x] Full-width JPEG export that captures the complete table on mobile.
@@ -354,9 +409,30 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture is sta
 * [x] Backend SoC: `lastfm.py` is now a pure HTTP client; all business logic in `orchestrator.py`.
 * [x] Route helper extraction (`_get_validated_job_context`, `_get_filter_description`).
 * [x] Global rate throttle, playtime album cap, bounded job concurrency.
-* [x] Persistent Postgres metadata cache with retry/backoff for Fly scale-to-zero.
-* [x] CSRF protection, startup secret guard, server-side registration year validation.
 * [x] 257 tests across 10 test files, ~72% coverage.
+
+**Confirmed upcoming features (planned, not yet started):**
+
+* [ ] **Top songs:** Rank a user's most-played tracks for a given year (Last.fm + optional Spotify enrichment). Separate background task type with its own loading/results flow.
+* [ ] **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lightweight background task.
+
+**Ongoing code quality track (scope TBD, informed by third-party audit):**
+
+* [ ] Separation-of-concerns review: front-end JS and back-end route/service layers.
+* [ ] DRY (Don't Repeat Yourself) violations across templates, JS, and Python modules.
+* [ ] Data integrity checks: edge cases in aggregation, filtering, and normalization.
+* [ ] Logic flaw review: identify silent failure modes and incorrect assumptions.
+* [ ] Performance bottlenecks: profile hot paths under realistic load.
+* [ ] General best-practices fixes surfaced by static analysis or audit tooling.
+
+**UI enrichments (planned, lower priority):**
+
+* [ ] Replace top header logo with updated SVG.
+* [ ] Animated SVG on loading page during Last.fm fetch phase (before Spotify progress bar appears).
+* [ ] More dynamic loading progress bar.
+* [ ] Personalized loading stats (e.g. average scrobble count per year alongside live fetch counts).
+* [ ] Lock dark mode toggle to bottom of viewport (non-scrolling).
+* [ ] Improved unmatched albums page (`unmatched.html`).
 
 ## Contributing
 
