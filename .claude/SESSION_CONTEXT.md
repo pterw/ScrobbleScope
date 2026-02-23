@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-02-22
+Last updated: 2026-02-23
 
 ---
 
@@ -26,7 +26,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **228 passing** across 10 test files |
+| Tests | **257 passing** across 10 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
@@ -124,20 +124,20 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (210 tests)
+## 7. Test structure (257 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
-| test_doc_state_sync.py | 80 |
-| test_domain.py | 15 |
+| test_doc_state_sync.py | 81 |
+| test_domain.py | 13 |
 | test_repositories.py | 18 |
-| test_utils.py | 8 |
-| test_routes.py | 42 |
-| services/test_lastfm_service.py | 4 |
+| test_utils.py | 34 |
+| test_routes.py | 50 |
+| services/test_lastfm_service.py | 9 |
 | services/test_lastfm_logic.py | 7 |
-| services/test_spotify_service.py | 3 |
-| services/test_orchestrator_service.py | 26 |
+| services/test_spotify_service.py | 10 |
+| services/test_orchestrator_service.py | 29 |
 
 ---
 

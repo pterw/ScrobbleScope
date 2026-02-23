@@ -9,6 +9,31 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-23 - Post-Batch 12 audit improvements (side-task, 5 commits)
+
+**Scope:** Comprehensive audit of Batch 12 implementation identified 5
+priority actions: untested functions, missing branch coverage, and a
+Spotify search progress feedback gap.
+
+**Commits (incremental, each green):**
+
+1. `2fbbe99` `test(spotify): add fetch_spotify_access_token coverage`
+   -- 4 tests: cached reuse, expired refresh, non-200 returns None,
+   missing credentials assertion. (228 -> 232 tests)
+2. `ec5a00c` `test(utils): add format_seconds parametrized coverage`
+   -- 13 parametrised cases mirroring `format_seconds_mobile`. (232 -> 245)
+3. `6db66a4` `feat(orchestrator): add granular Spotify search progress feedback`
+   -- Converted `_fetch_spotify_misses` search phase from `asyncio.gather`
+   to `asyncio.as_completed` with per-album progress in 20-40% range.
+   Fixed order-dependent mock side_effect. +1 test. (245 -> 246)
+4. `497bf1e` `test(spotify): add search_for_spotify_album_id unhappy-path coverage`
+   -- 3 tests: empty results, non-200/non-429, successful first-try. (246 -> 249)
+5. `3de537f` `test(routes): add _get_filter_description branch coverage`
+   -- 8 parametrised cases covering all 5 release_scope branches + 3
+   fallback paths. (249 -> 257)
+
+**Validation:** 257 tests passing, pre-commit clean.
+
 ### 2026-02-23 - style(css): semantic CSS variable enforcement (Batch 12 WP-1)
 
 - Scope: `static/css/global.css`, `static/css/index.css`, `static/css/results.css`,

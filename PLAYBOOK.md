@@ -81,6 +81,9 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-2 (P1): Responsive Data Formatting & Export Parity. Done.
   - WP-3 (P1): Backend SoC Extraction. Done.
   - WP-4 (P2): Granular Backend Progress Pipeline. Done.
+- **Post-Batch 12 audit improvements** (side-task, 5 commits): Added
+  test coverage for untested functions and added granular Spotify search
+  progress feedback. 228 -> **257 tests passing**.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
