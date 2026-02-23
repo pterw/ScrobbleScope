@@ -137,7 +137,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             const albumInfo = cell.querySelector('.album-info');
                             content = albumInfo ? albumInfo.textContent.trim() : '';
                         } else {
-                            content = cell.textContent.trim();
+                            // When a cell has responsive spans, extract only
+                            // the desktop (.d-md-inline) text to avoid
+                            // concatenating both spans (e.g. "2024-03-152024-03").
+                            const desktopSpan = cell.querySelector('.d-md-inline');
+                            if (desktopSpan) {
+                                content = desktopSpan.textContent.trim();
+                            } else {
+                                content = cell.textContent.trim();
+                            }
                         }
                         content = content.replace(/\s+/g, ' ').replace(/"/g, '""');
                         rowData.push(`"${content}"`);
@@ -173,12 +181,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             const el = targetElement;
+            const isDark = document.body.classList.contains('dark-mode');
             // windowWidth:1200 forces desktop CSS layout (hides mobile media queries),
             // scale:3 produces a high-resolution image regardless of device pixel ratio.
+            // Read --bg-color from <body> (not <html>) so the dark-mode override
+            // (#121212) is picked up; :root still holds the light-mode fallback.
             html2canvas(el, {
                 scale: 3,
                 useCORS: true,
-                backgroundColor: document.body.classList.contains('dark-mode') ? '#121212' : '#ffffff',
+                backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg-color').trim() || '#ffffff',
                 windowWidth: 1200,
                 scrollX: 0,
                 scrollY: 0,
@@ -186,6 +197,67 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Remove overflow clip in the clone so the full table renders
                     const w = clonedDoc.getElementById('results-table-wrapper');
                     if (w) { w.style.overflow = 'visible'; }
+
+                    // Ensure dark-mode class transfers to cloned body
+                    if (isDark) {
+                        clonedDoc.body.classList.add('dark-mode');
+                    }
+
+                    // Force desktop layout in the clone: show desktop spans,
+                    // hide mobile spans, and unhide rank columns. html2canvas
+                    // captures computed styles at clone time -- on mobile
+                    // viewports, d-none d-md-inline elements are already
+                    // display:none and windowWidth cannot override that.
+                    w?.querySelectorAll('.d-md-inline').forEach(el => {
+                        el.style.display = 'inline';
+                    });
+                    w?.querySelectorAll('.d-md-none').forEach(el => {
+                        el.style.display = 'none';
+                    });
+                    // Unhide rank column (hidden on mobile via CSS)
+                    const table = w?.querySelector('.results-table');
+                    if (table) {
+                        table.querySelectorAll('th:first-child, td:first-child').forEach(el => {
+                            el.style.display = '';
+                        });
+                    }
+
+                    // Dark-mode: inline resolved colours so html2canvas
+                    // renders them correctly.  html2canvas 1.x mishandles
+                    // Bootstrap's --bs-table-accent-bg on striped odd rows,
+                    // causing light text on a near-white composited background.
+                    if (isDark && table) {
+                        const txt = '#f8f9fa';
+                        const accent = '#9370DB';
+
+                        table.style.color = txt;
+                        table.style.borderColor = 'transparent';
+
+                        // Force text colour on every cell and neutralise
+                        // Bootstrap's --bs-table-accent-bg variable.
+                        table.querySelectorAll('th, td').forEach(c => {
+                            c.style.setProperty('color', txt, 'important');
+                            c.style.setProperty('--bs-table-accent-bg', 'transparent');
+                            c.style.borderLeftColor = 'transparent';
+                            c.style.borderRightColor = 'transparent';
+                        });
+
+                        // Alternate row backgrounds (mirrors results.css)
+                        table.querySelectorAll('tbody > tr').forEach((row, i) => {
+                            row.style.backgroundColor = (i % 2 === 0)
+                                ? 'rgba(255,255,255,0.1)'
+                                : 'rgba(30,30,30,0.7)';
+                        });
+
+                        // Accent elements
+                        w?.querySelectorAll('.album-link').forEach(a => {
+                            a.style.color = accent;
+                        });
+                        w?.querySelectorAll('.release-badge').forEach(b => {
+                            b.style.backgroundColor = accent;
+                            b.style.color = 'white';
+                        });
+                    }
                 },
             }).then(canvas => {
                 const link = document.createElement('a');

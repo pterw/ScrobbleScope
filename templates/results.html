@@ -146,7 +146,8 @@
                                                 <td>{{ album.artist }}</td>
                                                 <td>
                                                     {% if sort_by == "playtime" %}
-                                                    {{ album.play_time }}
+                                                    <span class="d-none d-md-inline">{{ album.play_time }}</span>
+                                                    <span class="d-inline d-md-none">{{ album.play_time_mobile }}</span>
                                                     {% else %}
                                                     {{ album.play_count }}
                                                     {% endif %}

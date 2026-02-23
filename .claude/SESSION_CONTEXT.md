@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-02-22
+Last updated: 2026-02-23
 
 ---
 
@@ -26,10 +26,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **210 passing** across 10 test files |
+| Tests | **257 passing** across 10 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
+| Batch 12 status | **Complete**. WP-1 done, WP-2 done, WP-3 done, WP-4 done. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -48,7 +49,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: none (between batches).
-- Last completed batch in PLAYBOOK Section 3: Batch 11.
+- Last completed batch in PLAYBOOK Section 3: Batch 12.
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: n/a (no active batch).
 - Next expected work package: n/a (next batch not defined).
@@ -64,14 +65,14 @@ app.py                      # create_app() factory (~142 lines)
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # SpotifyUnavailableError, ERROR_CODES
-  domain.py                 # normalize_name, normalize_track_name, _extract_registered_year
+  domain.py                 # normalize_name, normalize_track_name
   utils.py                  # rate limiters, session pooling, request caching
   repositories.py           # JOBS dict, jobs_lock, job state CRUD
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
-  lastfm.py                 # check_user_exists, fetch_recent_tracks, fetch_top_albums
+  lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
   spotify.py                # fetch_spotify_access_token, search, batch details
-  orchestrator.py           # process_albums, _fetch_and_process, background_task
+  orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
   routes.py                 # Flask Blueprint, all route + error handlers
 ```
 
@@ -87,7 +88,7 @@ utils.py         <- config
 cache.py         <- config
 worker.py        <- config
 repositories.py  <- config, errors
-lastfm.py        <- config, domain, utils, repositories
+lastfm.py        <- config, utils
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
 routes.py        <- lastfm, orchestrator, repositories, utils, worker
@@ -123,20 +124,20 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (210 tests)
+## 7. Test structure (257 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
-| test_doc_state_sync.py | 80 |
-| test_domain.py | 15 |
+| test_doc_state_sync.py | 81 |
+| test_domain.py | 13 |
 | test_repositories.py | 18 |
-| test_utils.py | 8 |
-| test_routes.py | 42 |
-| services/test_lastfm_service.py | 4 |
+| test_utils.py | 34 |
+| test_routes.py | 50 |
+| services/test_lastfm_service.py | 9 |
 | services/test_lastfm_logic.py | 7 |
-| services/test_spotify_service.py | 3 |
-| services/test_orchestrator_service.py | 26 |
+| services/test_spotify_service.py | 10 |
+| services/test_orchestrator_service.py | 29 |
 
 ---
 

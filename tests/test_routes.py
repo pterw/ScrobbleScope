@@ -14,7 +14,11 @@ from scrobblescope.repositories import (
     set_job_progress,
     set_job_results,
 )
-from scrobblescope.routes import _filter_results_for_display, _group_unmatched_by_reason
+from scrobblescope.routes import (
+    _filter_results_for_display,
+    _get_filter_description,
+    _group_unmatched_by_reason,
+)
 from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 
 
@@ -758,3 +762,35 @@ def test_group_unmatched_by_reason_uses_fallback_for_missing_reason_key():
     assert "Unknown reason" in reasons
     assert len(reasons["Unknown reason"]) == 1
     assert reason_counts["Unknown reason"] == 1
+
+
+# --- _get_filter_description branch tests ---
+
+
+import pytest
+
+
+@pytest.mark.parametrize(
+    "release_scope, decade, release_year, listening_year, expected",
+    [
+        ("all", None, None, 2025, "all albums (no release year filter)"),
+        ("same", None, None, 2025, "albums released in 2025"),
+        ("previous", None, None, 2025, "albums released in 2024"),
+        ("decade", "2010s", None, 2025, "albums released in the 2010s"),
+        ("custom", None, 2019, 2025, "albums released in 2019"),
+        # Fallback: decade scope without a decade value
+        ("decade", None, None, 2025, "albums matching your criteria"),
+        # Fallback: custom scope without a release_year value
+        ("custom", None, None, 2025, "albums matching your criteria"),
+        # Fallback: unrecognised scope
+        ("unknown_scope", None, None, 2025, "albums matching your criteria"),
+    ],
+)
+def test_get_filter_description(
+    release_scope, decade, release_year, listening_year, expected
+):
+    """Each release_scope branch produces the correct user-facing string."""
+    assert (
+        _get_filter_description(release_scope, decade, release_year, listening_year)
+        == expected
+    )

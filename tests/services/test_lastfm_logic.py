@@ -6,11 +6,12 @@ and fetch-metadata stat reporting.  Network calls are fully mocked.
 """
 
 from datetime import datetime
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from scrobblescope.lastfm import fetch_top_albums_async
+from scrobblescope.orchestrator import fetch_top_albums_async
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -52,11 +53,15 @@ async def test_fetch_top_albums_aggregates_play_counts():
         + [_track("Radiohead", "OK Computer", "Exit Music")] * 3
     )
     pages = [_page(tracks)]
-    fetch_meta = {"status": "ok", "pages_expected": 1, "pages_received": 1}
+    fetch_meta: dict[str, Any] = {
+        "status": "ok",
+        "pages_expected": 1,
+        "pages_received": 1,
+    }
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -78,11 +83,11 @@ async def test_fetch_top_albums_min_plays_filter():
     tracks_a = [_track("Artist A", "Album A", f"Track {i}") for i in range(8)]
     tracks_b = [_track("Artist B", "Album B", f"Track {i}") for i in range(12)]
     pages = [_page(tracks_a + tracks_b)]
-    fetch_meta = {"status": "ok"}
+    fetch_meta: dict[str, Any] = {"status": "ok"}
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -106,11 +111,11 @@ async def test_fetch_top_albums_min_tracks_filter():
     ] * 7
     tracks_b = [_track("Artist B", "Album B", f"Song {i}") for i in range(5)] * 3
     pages = [_page(tracks_a + tracks_b)]
-    fetch_meta = {"status": "ok"}
+    fetch_meta: dict[str, Any] = {"status": "ok"}
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -133,11 +138,11 @@ async def test_fetch_top_albums_skips_out_of_bounds_timestamps():
     ]
     in_bounds = [_track("Artist Y", "Album Y", f"Track {i}") for i in range(10)]
     pages = [_page(out_of_bounds + in_bounds)]
-    fetch_meta = {"status": "ok"}
+    fetch_meta: dict[str, Any] = {"status": "ok"}
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -168,11 +173,11 @@ async def test_fetch_top_albums_skips_now_playing_track():
         + [_track("Artist Z", "Album Z", "Song Three")] * 4
     )
     pages = [_page([now_playing] + normal_tracks)]
-    fetch_meta = {"status": "ok"}
+    fetch_meta: dict[str, Any] = {"status": "ok"}
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -207,11 +212,11 @@ async def test_fetch_top_albums_non_latin_tracks_counted_distinctly():
         + [_track("BABYMETAL", "BABYMETAL", "\u3044\u3044\u306d\uff01")] * 6
     )
     pages = [_page(tracks)]
-    fetch_meta = {"status": "ok"}
+    fetch_meta: dict[str, Any] = {"status": "ok"}
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
@@ -237,11 +242,11 @@ async def test_fetch_top_albums_returns_stats_in_metadata():
     """
     tracks = [_track("Artist A", "Album A", f"Track {i}") for i in range(3)] * 6
     pages = [_page(tracks)]
-    fetch_meta = {"status": "ok"}
+    fetch_meta: dict[str, Any] = {"status": "ok"}
 
     with (
         patch(
-            "scrobblescope.lastfm.fetch_all_recent_tracks_async",
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):

@@ -3,8 +3,8 @@
 
 .dark-mode .form-control,
 .dark-mode .form-select {
-  background-color: #333;
-  border-color: #555;
+  background-color: var(--input-bg);
+  border-color: var(--border-color);
   color: #f8f9fa;
 }
 
@@ -58,7 +58,7 @@
 .decade-pill {
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-color);
   cursor: pointer;
   font-size: 0.85rem;
   transition: all 0.2s ease;
@@ -83,7 +83,7 @@
 }
 
 .dark-mode .decade-pill {
-  border-color: #555;
+  border-color: var(--border-color);
   color: var(--text-color);
 }
 

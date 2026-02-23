@@ -10,6 +10,8 @@ from scrobblescope.utils import (
     _cache_lock,
     _GlobalThrottle,
     cleanup_expired_cache,
+    format_seconds,
+    format_seconds_mobile,
     get_cached_response,
     get_lastfm_limiter,
     set_cached_response,
@@ -169,3 +171,64 @@ def test_cross_thread_limiters_share_global_throttle():
 
     assert len(throttles) == 2
     assert throttles[0] is throttles[1]
+
+
+# ------------------------------------------------------------------ #
+# format_seconds tests                                                 #
+# ------------------------------------------------------------------ #
+
+
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [
+        (0, "0 secs"),
+        (1, "1 secs"),
+        (59, "59 secs"),
+        (60, "1 mins, 0 secs"),
+        (75, "1 mins, 15 secs"),
+        (3599, "59 mins, 59 secs"),
+        (3600, "1 hrs, 0 mins"),
+        (3661, "1 hrs, 1 mins"),
+        (16200, "4 hrs, 30 mins"),
+        (86400, "1 day, 0 hrs, 0 mins"),
+        (172800, "2 days, 0 hrs, 0 mins"),
+        (129600, "1 day, 12 hrs, 0 mins"),
+        (0.4, "1 secs"),  # ceil rounds up fractional seconds
+    ],
+)
+def test_format_seconds(seconds, expected):
+    """format_seconds returns verbose user-friendly time strings."""
+    assert format_seconds(seconds) == expected
+
+
+# ------------------------------------------------------------------ #
+# format_seconds_mobile tests                                         #
+# ------------------------------------------------------------------ #
+
+
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [
+        (0, "0s"),
+        (1, "1s"),
+        (59, "59s"),
+        (60, "1m 0s"),
+        (75, "1m 15s"),
+        (3599, "59m 59s"),
+        (3600, "1h 0m"),
+        (3661, "1h 1m"),
+        (16200, "4h 30m"),
+        (86400, "1d 0h"),
+        (129600, "1d 12h"),
+        (0.4, "1s"),  # ceil rounds up fractional seconds
+    ],
+)
+def test_format_seconds_mobile(seconds, expected):
+    """format_seconds_mobile returns abbreviated max-2-unit strings."""
+    assert format_seconds_mobile(seconds) == expected
+
+
+def test_format_seconds_mobile_negative_passes_through():
+    """Negative input is not clamped (matches format_seconds behavior)."""
+    result = format_seconds_mobile(-5)
+    assert result == "-5s"

@@ -1,19 +1,14 @@
 import asyncio
 import logging
 import time
-from collections import defaultdict
-from datetime import datetime
+from collections.abc import Callable
+from datetime import datetime, timezone
 from typing import Any
 
 from scrobblescope.config import (
     LASTFM_API_KEY,
     LASTFM_REQUESTS_PER_SECOND,
     MAX_CONCURRENT_LASTFM,
-)
-from scrobblescope.domain import (
-    _extract_registered_year,
-    normalize_name,
-    normalize_track_name,
 )
 from scrobblescope.utils import (
     create_optimized_session,
@@ -28,6 +23,14 @@ async def check_user_exists(username):
 
     Returns a dict with ``exists`` (bool) and ``registered_year`` (int or None).
     """
+
+    def _extract_year(data):
+        try:
+            ts = int(data["user"]["registered"]["unixtime"])
+            return datetime.fromtimestamp(ts, tz=timezone.utc).year
+        except (KeyError, TypeError, ValueError):
+            return None
+
     url = "https://ws.audioscrobbler.com/2.0/"
     params = {
         "method": "user.getinfo",
@@ -40,7 +43,7 @@ async def check_user_exists(username):
     if cached_response:
         return {
             "exists": True,
-            "registered_year": _extract_registered_year(cached_response),
+            "registered_year": _extract_year(cached_response),
         }
     # If not cached, proceed with the request
     async with create_optimized_session() as session:
@@ -51,7 +54,7 @@ async def check_user_exists(username):
                     set_cached_response(url, data, params)
                     return {
                         "exists": True,
-                        "registered_year": _extract_registered_year(data),
+                        "registered_year": _extract_year(data),
                     }
                 elif resp.status == 404:
                     return {"exists": False, "registered_year": None}
@@ -174,8 +177,14 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     return results
 
 
-async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
-    """Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple."""
+async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=None):
+    """Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple.
+
+    Args:
+        progress_cb: Optional ``Callable[[int, int], None]`` invoked as
+            ``progress_cb(pages_done, total_pages)`` after each page
+            fetch completes.
+    """
     fetch_start_time = time.time()
     async with create_optimized_session() as session:
         first = await fetch_recent_tracks_page_async(
@@ -183,21 +192,50 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
         )
         if not first or "recenttracks" not in first:
             logging.error("Failed to fetch initial page from Last.fm")
-            return [], {"status": "error", "reason": "lastfm_unavailable"}
+            error_meta: dict[str, Any] = {
+                "status": "error",
+                "reason": "lastfm_unavailable",
+            }
+            return [], error_meta
 
         total_pages = int(first["recenttracks"]["@attr"]["totalPages"])
         logging.info(f"Last.fm: Fetching {total_pages} pages of scrobbles")
         all_pages = [first]
 
-        # Launch all remaining page fetches at once — the semaphore
-        # (MAX_CONCURRENT_LASTFM) and rate limiter (_LASTFM_LIMITER) control
-        # throughput. Previous sequential batching of 50 created idle gaps
-        # at batch boundaries when stragglers needed retries.
+        if progress_cb is not None:
+            progress_cb(1, total_pages)
+
         if total_pages > 1:
-            results = await fetch_pages_batch_async(
-                session, username, from_ts, to_ts, range(2, total_pages + 1)
-            )
-            all_pages.extend([r for r in results if r])
+            remaining = range(2, total_pages + 1)
+
+            if progress_cb is not None:
+                # Per-page progress: use as_completed instead of gather
+                semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
+                tasks = [
+                    asyncio.ensure_future(
+                        fetch_recent_tracks_page_async(
+                            session,
+                            username,
+                            from_ts,
+                            to_ts,
+                            p,
+                            semaphore=semaphore,
+                        )
+                    )
+                    for p in remaining
+                ]
+                completed = 1  # page 1 already done
+                for fut in asyncio.as_completed(tasks):
+                    result = await fut
+                    completed += 1
+                    if result is not None:
+                        all_pages.append(result)
+                    progress_cb(completed, total_pages)
+            else:
+                results = await fetch_pages_batch_async(
+                    session, username, from_ts, to_ts, remaining
+                )
+                all_pages.extend([r for r in results if r])
 
         fetch_elapsed = time.time() - fetch_start_time
         logging.info(
@@ -217,70 +255,3 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
 
         logging.info(f"Last.fm: Fetched {pages_received}/{pages_expected} pages")
         return all_pages, metadata
-
-
-async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
-    """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple.
-
-    The returned ``fetch_metadata`` dict includes a ``stats`` key with
-    aggregation counters (total_scrobbles, pages_fetched, unique_albums,
-    albums_passing_filter) so the caller can record them as job stats.
-    """
-    logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
-    from_ts = int(datetime(year, 1, 1).timestamp())
-    to_ts = int(datetime(year, 12, 31, 23, 59, 59).timestamp())
-    pages, fetch_metadata = await fetch_all_recent_tracks_async(
-        username, from_ts, to_ts
-    )
-    logging.debug(f"Pages fetched: {len(pages)}")
-    total_tracks = sum(len(p.get("recenttracks", {}).get("track", [])) for p in pages)
-    logging.debug(f"Total tracks: {total_tracks}")
-
-    if fetch_metadata.get("status") == "partial":
-        dropped = fetch_metadata["pages_dropped"]
-        expected = fetch_metadata["pages_expected"]
-        pct = round((dropped / expected) * 100)
-        fetch_metadata["partial_data_warning"] = (
-            f"Note: {dropped} of {expected} Last.fm pages failed to load "
-            f"({pct}% data loss). Results may be incomplete."
-        )
-
-    albums: defaultdict[str, dict[str, Any]] = defaultdict(
-        lambda: {"play_count": 0, "track_counts": defaultdict(int)}
-    )
-    for page in pages:
-        for t in page.get("recenttracks", {}).get("track", []):
-            alb = t.get("album", {}).get("#text", "...")
-            art = t.get("artist", {}).get("#text", "...")
-            name = t.get("name", "...")
-            date = t.get("date", {}).get("uts")
-            if not date:
-                continue
-            ts = int(date)
-            if ts < from_ts or ts > to_ts:
-                continue
-            if alb and art and name:
-                key = normalize_name(art, alb)
-                if "original_artist" not in albums[key]:
-                    albums[key]["original_artist"] = art
-                    albums[key]["original_album"] = alb
-                albums[key]["play_count"] += 1
-                normalized = normalize_track_name(name)
-                albums[key]["track_counts"][normalized] += 1
-    logging.debug(f"Unique albums: {len(albums)}")
-
-    filtered = {
-        k: v
-        for k, v in albums.items()
-        if v["play_count"] >= min_plays and len(v["track_counts"]) >= min_tracks
-    }
-    logging.debug(f"Albums after filter: {len(filtered)}")
-
-    fetch_metadata["stats"] = {
-        "total_scrobbles": total_tracks,
-        "pages_fetched": len(pages),
-        "unique_albums": len(albums),
-        "albums_passing_filter": len(filtered),
-    }
-
-    return filtered, fetch_metadata

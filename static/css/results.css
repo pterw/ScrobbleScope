@@ -21,6 +21,12 @@
     background-color: rgba(30, 30, 30, 0.7);
 }
 
+/* Neutralise Bootstrap's cell-level --bs-table-accent-bg so our
+   row-level dark-mode backgrounds are the ones that show through. */
+.dark-mode .table-striped > tbody > tr > * {
+    --bs-table-accent-bg: transparent;
+}
+
 /* Remove vertical separating lines */
 .dark-mode .table td,
 .dark-mode .table th {
@@ -77,6 +83,7 @@
     color: white;
     display: inline-block;
     margin-top: 4px;
+    white-space: nowrap;
 }
 
 .summary-box {
@@ -114,14 +121,14 @@
 }
 
 .dark-mode .toast {
-    background-color: #2a2a2a;
+    background-color: var(--surface-elevated);
     color: #f8f9fa;
 }
 
 .dark-mode .toast-header {
-    background-color: #343a40;
+    background-color: var(--surface-elevated);
     color: #f8f9fa;
-    border-bottom-color: #444;
+    border-bottom-color: var(--border-color);
 }
 
 @media (max-width: 767.98px) {

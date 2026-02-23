@@ -73,6 +73,17 @@ Completed batch definitions are archived individually under `docs/history/`.
     `darkSwitch`/`backToTop` in `theme.js`; dark-mode toggle track changed
     from `var(--bars-color)` to `var(--bg-color)` when checked. 121 tests
     passing.)
+- **Batch 12 is complete.** Definition: `BATCH12_PROPOSAL.md`.
+  Polish and observability: CSS variable enforcement, responsive data
+  formatting + export parity, backend SoC extraction, granular progress
+  pipeline. 4 WPs. All done.
+  - WP-1 (P0): Semantic CSS Variable Enforcement. Done.
+  - WP-2 (P1): Responsive Data Formatting & Export Parity. Done.
+  - WP-3 (P1): Backend SoC Extraction. Done.
+  - WP-4 (P2): Granular Backend Progress Pipeline. Done.
+- **Post-Batch 12 audit improvements** (side-task, 5 commits): Added
+  test coverage for untested functions and added granular Spotify search
+  progress feedback. 228 -> **257 tests passing**.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
@@ -100,62 +111,3 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
-
-### 2026-02-22 - fix(app): guard sys.stderr.reconfigure with isinstance check
-
-- Scope: `app.py`.
-- Problem: Pyright/Pylance reported "Cannot access attribute reconfigure for
-  class TextIO" because `sys.stderr` is typed as `TextIO`, which lacks
-  `reconfigure`. The method exists at runtime on `io.TextIOWrapper`.
-- Fix: Added `import io` and wrapped the call in
-  `if isinstance(sys.stderr, io.TextIOWrapper):` -- a type-narrowing guard
-  that satisfies both the type checker and runtime safety.
-- Validation: `pytest -q`: **210 passed**. `pre-commit`: all hooks passed.
-
-### 2026-02-22 - refactor(routes,lastfm): SoC/DRY cleanup from third-party audit
-
-- Scope: `scrobblescope/routes.py`, `scrobblescope/lastfm.py`,
-  `scrobblescope/orchestrator.py`, `tests/services/test_lastfm_logic.py`.
-- Problem: Three findings from a third-party structural audit:
-  (1) SoC -- `get_filter_description` was a public helper placed between HTTP
-  handlers; lacked `_` prefix used by the other private helpers.
-  (2) DRY -- `/results_complete` and `/unmatched_view` duplicated ~10 lines
-  of identical `job_id`/`job_context` guard logic.
-  (3) SoC -- `fetch_top_albums_async` in `lastfm.py` imported `set_job_stat`
-  from `repositories.py` and made 5 direct job-state mutations. An API client
-  module should return pure data, not mutate application state. `spotify.py`
-  already follows this pattern correctly.
-- Fix:
-  (1) Renamed to `_get_filter_description` and hoisted above HTTP handlers,
-  below `_group_unmatched_by_reason`.
-  (2) Extracted `_get_validated_job_context(missing_id_message, expired_error,
-  expired_message, expired_details)` returning `(job_id, job_context, None)`
-  or `(None, None, error_response)`.
-  (3) Removed `job_id` param and `set_job_stat` import from
-  `fetch_top_albums_async`. Stats now returned in `fetch_metadata["stats"]`
-  dict. `orchestrator._fetch_and_process` extracts and records them.
-  Partial-data warning also moved to `fetch_metadata` return path.
-- Deviations: Audit claimed ~15-20 lines of duplication; actual overlap was
-  ~10 lines. Error titles intentionally differ between routes, so
-  `expired_error` was parameterized rather than hardcoded.
-- Validation: `pytest -q`: **210 passed**. `pre-commit`: all 8 hooks passed.
-
-### 2026-02-22 - fix(types): resolve 10 Pylance type errors in production code
-
-- Scope: `scrobblescope/lastfm.py`, `scrobblescope/spotify.py`,
-  `scrobblescope/utils.py`.
-- Problem: Pylance reported 10 type errors across 3 production files:
-  (1) `lastfm.py` (7): `metadata` dict inferred as `dict[str, str | int]`
-  caused arithmetic and nested-dict assignment failures; `albums` defaultdict
-  inferred heterogeneous union on all value accesses.
-  (2) `spotify.py` (2): `SPOTIFY_CLIENT_ID/SECRET` typed `str | None` from
-  `os.getenv()` but `aiohttp.BasicAuth` requires `str`.
-  (3) `utils.py` (1): `loop` assigned inside `try:` block, referenced in
-  `finally:` -- possibly unbound if `new_event_loop()` raises.
-- Fix: Annotated `metadata: dict[str, Any]` and
-  `albums: defaultdict[str, dict[str, Any]]` in lastfm.py; added assert
-  guards for Spotify credentials in spotify.py; initialized `loop = None`
-  with `if loop is not None:` guard in utils.py.
-- Test file type errors (25 across 3 files) assessed as low-impact
-  mock-related noise -- deferred.
-- Validation: `pytest -q`: **210 passed**. `pre-commit`: all 8 hooks passed.
