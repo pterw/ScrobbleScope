@@ -2,7 +2,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from scrobblescope.lastfm import check_user_exists, fetch_recent_tracks_page_async
+from scrobblescope.lastfm import (
+    check_user_exists,
+    fetch_all_recent_tracks_async,
+    fetch_recent_tracks_page_async,
+)
 from tests.helpers import NoopAsyncContext, make_response_context
 
 
@@ -128,3 +132,138 @@ async def test_check_user_exists_missing_registration_data():
         result = await check_user_exists("sparse_user")
         assert result["exists"] is True
         assert result["registered_year"] is None
+
+
+# --- progress_cb tests for fetch_all_recent_tracks_async ---
+
+
+def _make_page(total_pages, tracks=None):
+    """Build a minimal Last.fm page payload."""
+    return {
+        "recenttracks": {
+            "@attr": {"totalPages": str(total_pages)},
+            "track": tracks or [],
+        }
+    }
+
+
+@pytest.mark.asyncio
+async def test_progress_cb_called_per_page():
+    """
+    GIVEN a 3-page fetch with progress_cb provided
+    WHEN fetch_all_recent_tracks_async runs
+    THEN progress_cb is invoked 3 times: (1,3), (2,3), (3,3).
+    """
+    cb = MagicMock()
+    page_payload = _make_page(3)
+
+    with (
+        patch(
+            "scrobblescope.lastfm.fetch_recent_tracks_page_async",
+            new_callable=AsyncMock,
+            return_value=page_payload,
+        ),
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        pages, meta = await fetch_all_recent_tracks_async("user", 0, 1, progress_cb=cb)
+
+    assert cb.call_count == 3
+    # First call is always (1, total_pages) after page 1
+    cb.assert_any_call(1, 3)
+    # Final call should report all pages done
+    cb.assert_any_call(3, 3)
+    assert meta["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_progress_cb_single_page():
+    """
+    GIVEN a 1-page fetch with progress_cb provided
+    WHEN fetch_all_recent_tracks_async runs
+    THEN progress_cb is invoked exactly once with (1, 1).
+    """
+    cb = MagicMock()
+    page_payload = _make_page(1)
+
+    with (
+        patch(
+            "scrobblescope.lastfm.fetch_recent_tracks_page_async",
+            new_callable=AsyncMock,
+            return_value=page_payload,
+        ),
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        pages, meta = await fetch_all_recent_tracks_async("user", 0, 1, progress_cb=cb)
+
+    cb.assert_called_once_with(1, 1)
+    assert len(pages) == 1
+
+
+@pytest.mark.asyncio
+async def test_progress_cb_none_uses_gather_path():
+    """
+    GIVEN a multi-page fetch with progress_cb=None
+    WHEN fetch_all_recent_tracks_async runs
+    THEN fetch_pages_batch_async is called (gather path), not as_completed.
+    """
+    page_payload = _make_page(2)
+
+    with (
+        patch(
+            "scrobblescope.lastfm.fetch_recent_tracks_page_async",
+            new_callable=AsyncMock,
+            return_value=page_payload,
+        ),
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+        patch(
+            "scrobblescope.lastfm.fetch_pages_batch_async",
+            new_callable=AsyncMock,
+            return_value=[page_payload],
+        ) as mock_batch,
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        pages, meta = await fetch_all_recent_tracks_async("user", 0, 1)
+
+    mock_batch.assert_called_once()
+    assert meta["status"] == "ok"
+
+
+@pytest.mark.asyncio
+async def test_progress_cb_counts_failed_pages():
+    """
+    GIVEN a 3-page fetch where page 3 fails (returns None)
+    WHEN fetch_all_recent_tracks_async runs with progress_cb
+    THEN progress_cb still fires for the failed page and metadata shows partial.
+    """
+    cb = MagicMock()
+    page_payload = _make_page(3)
+
+    side_effects = [page_payload, page_payload, None]  # page 1, 2 ok; 3 fails
+
+    with (
+        patch(
+            "scrobblescope.lastfm.fetch_recent_tracks_page_async",
+            new_callable=AsyncMock,
+            side_effect=side_effects,
+        ),
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        pages, meta = await fetch_all_recent_tracks_async("user", 0, 1, progress_cb=cb)
+
+    # All 3 pages trigger callbacks (1 initial + 2 remaining)
+    assert cb.call_count == 3
+    assert meta["status"] == "partial"
+    assert meta["pages_dropped"] == 1
+    # Only 2 successful pages collected
+    assert len(pages) == 2

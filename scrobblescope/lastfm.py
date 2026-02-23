@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any
 
@@ -176,8 +177,14 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     return results
 
 
-async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
-    """Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple."""
+async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=None):
+    """Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple.
+
+    Args:
+        progress_cb: Optional ``Callable[[int, int], None]`` invoked as
+            ``progress_cb(pages_done, total_pages)`` after each page
+            fetch completes.
+    """
     fetch_start_time = time.time()
     async with create_optimized_session() as session:
         first = await fetch_recent_tracks_page_async(
@@ -191,15 +198,40 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
         logging.info(f"Last.fm: Fetching {total_pages} pages of scrobbles")
         all_pages = [first]
 
-        # Launch all remaining page fetches at once — the semaphore
-        # (MAX_CONCURRENT_LASTFM) and rate limiter (_LASTFM_LIMITER) control
-        # throughput. Previous sequential batching of 50 created idle gaps
-        # at batch boundaries when stragglers needed retries.
+        if progress_cb is not None:
+            progress_cb(1, total_pages)
+
         if total_pages > 1:
-            results = await fetch_pages_batch_async(
-                session, username, from_ts, to_ts, range(2, total_pages + 1)
-            )
-            all_pages.extend([r for r in results if r])
+            remaining = range(2, total_pages + 1)
+
+            if progress_cb is not None:
+                # Per-page progress: use as_completed instead of gather
+                semaphore = asyncio.Semaphore(MAX_CONCURRENT_LASTFM)
+                tasks = [
+                    asyncio.ensure_future(
+                        fetch_recent_tracks_page_async(
+                            session,
+                            username,
+                            from_ts,
+                            to_ts,
+                            p,
+                            semaphore=semaphore,
+                        )
+                    )
+                    for p in remaining
+                ]
+                completed = 1  # page 1 already done
+                for fut in asyncio.as_completed(tasks):
+                    result = await fut
+                    completed += 1
+                    if result is not None:
+                        all_pages.append(result)
+                    progress_cb(completed, total_pages)
+            else:
+                results = await fetch_pages_batch_async(
+                    session, username, from_ts, to_ts, remaining
+                )
+                all_pages.extend([r for r in results if r])
 
         fetch_elapsed = time.time() - fetch_start_time
         logging.info(
