@@ -71,12 +71,12 @@ body {
     gap: 0.4rem;
     padding: 0.3rem 0.65rem;
     border-radius: 999px;
-    background-color: #ffffff;
+    background-color: var(--surface-color);
     transition: background-color 0.3s ease;
 }
 
 .dark-mode #darkModeToggle {
-    background-color: #1e1e1e;
+    background-color: var(--surface-color);
 }
 
 #darkModeToggle input {
@@ -96,7 +96,7 @@ body {
 #darkSwitch {
     width: 2.45rem;
     height: 1.25rem;
-    background-color: #ccc;
+    background-color: var(--border-color);
     border-radius: 999px;
     appearance: none;
     outline: none;
@@ -138,8 +138,8 @@ body {
 
 /* Dark-mode card (shared: index, loading, results, error)             */
 .dark-mode .card {
-    background-color: #1e1e1e;
-    border-color: #444;
+    background-color: var(--surface-color);
+    border-color: var(--border-color);
     color: var(--text-color);
 }
 
@@ -147,14 +147,14 @@ body {
 /* Dark-mode modal (shared: any page that uses a Bootstrap modal)      */
 /* ------------------------------------------------------------------ */
 .dark-mode .modal-content {
-    background-color: #1e1e1e;
+    background-color: var(--surface-color);
     color: var(--text-color);
-    border-color: #444;
+    border-color: var(--border-color);
 }
 
 .dark-mode .modal-header,
 .dark-mode .modal-footer {
-    border-color: #444;
+    border-color: var(--border-color);
 }
 
 .dark-mode .btn-close {
@@ -165,7 +165,7 @@ body {
 /* Card fade-in (shared: all pages using Bootstrap .card)              */
 /* ------------------------------------------------------------------ */
 .card {
-    background-color: #fff;
+    background-color: var(--surface-color);
     opacity: 0;
     animation: fadeInCard 1.2s ease 0.2s forwards;
 }

@@ -10,9 +10,9 @@ body {
 }
 
 .dark-mode .error-card {
-    background-color: #1e1e1e;
+    background-color: var(--surface-color);
     color: var(--text-color);
-    border: 1px solid #444;
+    border: 1px solid var(--border-color);
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
 }
 
@@ -30,7 +30,7 @@ body {
 }
 
 .error-card {
-    background-color: white;
+    background-color: var(--surface-color);
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
     padding: 2.5rem 2rem;

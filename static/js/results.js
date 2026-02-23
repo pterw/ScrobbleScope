@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', () => {
             html2canvas(el, {
                 scale: 3,
                 useCORS: true,
-                backgroundColor: document.body.classList.contains('dark-mode') ? '#121212' : '#ffffff',
+                backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-color').trim(),
                 windowWidth: 1200,
                 scrollX: 0,
                 scrollY: 0,

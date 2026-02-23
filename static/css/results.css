@@ -114,14 +114,14 @@
 }
 
 .dark-mode .toast {
-    background-color: #2a2a2a;
+    background-color: var(--surface-elevated);
     color: #f8f9fa;
 }
 
 .dark-mode .toast-header {
-    background-color: #343a40;
+    background-color: var(--surface-elevated);
     color: #f8f9fa;
-    border-bottom-color: #444;
+    border-bottom-color: var(--border-color);
 }
 
 @media (max-width: 767.98px) {
