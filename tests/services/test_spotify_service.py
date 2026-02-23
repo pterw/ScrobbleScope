@@ -217,3 +217,85 @@ async def test_fetch_spotify_access_token_asserts_on_missing_credentials():
         pytest.raises(AssertionError, match="SPOTIFY_CLIENT_ID not set"),
     ):
         await fetch_spotify_access_token()
+
+
+# ------------------------------------------------------------------ #
+# search_for_spotify_album_id unhappy-path tests                       #
+# ------------------------------------------------------------------ #
+
+
+@pytest.mark.asyncio
+async def test_search_returns_none_on_empty_results():
+    """
+    GIVEN Spotify search returns 200 with an empty items list
+    WHEN search_for_spotify_album_id runs
+    THEN it should return None (no match found).
+    """
+    session = MagicMock()
+
+    resp_200 = AsyncMock()
+    resp_200.status = 200
+    resp_200.json = AsyncMock(return_value={"albums": {"items": []}})
+
+    session.get.return_value = make_response_context(resp_200)
+
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await search_for_spotify_album_id(session, "Artist", "Album", "token")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_search_returns_none_on_non_200_non_429():
+    """
+    GIVEN Spotify search returns a 500 error (not 429)
+    WHEN search_for_spotify_album_id runs
+    THEN it should return None without retrying (done=True on non-429).
+    """
+    session = MagicMock()
+
+    resp_500 = AsyncMock()
+    resp_500.status = 500
+
+    session.get.return_value = make_response_context(resp_500)
+
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await search_for_spotify_album_id(session, "Artist", "Album", "token")
+
+    assert result is None
+    # Non-429 errors return done=True immediately, so only 1 call
+    assert session.get.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_search_succeeds_on_first_try():
+    """
+    GIVEN Spotify search returns 200 with a valid album on the first attempt
+    WHEN search_for_spotify_album_id runs
+    THEN it should return the album ID with exactly 1 HTTP call and no sleeps.
+    """
+    session = MagicMock()
+
+    resp_200 = AsyncMock()
+    resp_200.status = 200
+    resp_200.json = AsyncMock(
+        return_value={"albums": {"items": [{"id": "direct_hit_123"}]}}
+    )
+
+    session.get.return_value = make_response_context(resp_200)
+
+    with (
+        patch(
+            "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
+        result = await search_for_spotify_album_id(session, "Artist", "Album", "token")
+
+    assert result == "direct_hit_123"
+    assert session.get.call_count == 1
+    assert mock_sleep.await_count == 0
