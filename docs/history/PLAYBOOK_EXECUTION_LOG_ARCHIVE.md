@@ -9,6 +9,135 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-23 - style(css): semantic CSS variable enforcement (Batch 12 WP-1)
+
+- Scope: `static/css/global.css`, `static/css/index.css`, `static/css/results.css`,
+  `static/css/loading.css`, `static/css/error.css`, `static/css/unmatched.css`,
+  `static/js/results.js`.
+- Problem: Structural UI elements (backgrounds, borders, form inputs, error
+  accent) duplicated hardcoded hex values across 6 CSS files and 1 JS file,
+  violating DRY and breaking the centralized theme architecture.
+- Fix: Added 5 semantic CSS variables (`--surface-color`, `--surface-elevated`,
+  `--border-color`, `--input-bg`, `--error-accent`) to `:root`/`.dark-mode` in
+  `global.css`. Replaced all structural hardcoded hex across 6 CSS files.
+  Promoted orphaned `--error-accent` from `error.css` to `global.css`. Fixed
+  `results.js` `html2canvas` `backgroundColor` to use `getComputedStyle` for
+  `--bg-color` instead of hardcoded `#121212`/`#ffffff` ternary (light-mode
+  JPEG export was `#ffffff` vs actual `--bg-color` of `#f8f9fa`).
+- Validation: `pytest -q`: **210 passed**. `pre-commit`: all hooks passed.
+
+### 2026-02-23 - feat(templates,js): responsive table formatting and export parity (Batch 12 WP-2)
+
+- Scope: `scrobblescope/utils.py`, `scrobblescope/orchestrator.py`,
+  `templates/results.html`, `static/css/results.css`, `static/js/results.js`,
+  `tests/test_utils.py`, `tests/services/test_orchestrator_service.py`.
+- Problem: (1) Long time strings ('1 day, 12 hrs, 38 mins') caused table
+  spillover on mobile. (2) CSV export concatenated both responsive spans
+  (e.g. '2024-03-152024-03'). (3) html2canvas JPEG export did not force
+  desktop layout on mobile viewports.
+- Fix: (1) Added `format_seconds_mobile()` (max 2 units, abbreviated) with
+  14 parametrized tests. `_build_results` emits `play_time_mobile`. Template
+  uses dual d-none/d-md-inline spans. (2) CSV extraction reads `.d-md-inline`
+  text when present, fixing existing release_date and new play_time bugs.
+  (3) `onclone` callback explicitly shows desktop spans, hides mobile spans,
+  and unhides rank columns in cloned DOM.
+- Validation: `pytest -q`: **223 passed**. `pre-commit`: all hooks passed.
+
+### 2026-02-23 - refactor(lastfm,orchestrator): backend SoC extraction (Batch 12 WP-3)
+
+- Scope: `scrobblescope/lastfm.py`, `scrobblescope/domain.py`,
+  `scrobblescope/orchestrator.py`, `tests/test_domain.py`,
+  `tests/services/test_lastfm_logic.py`, `tests/services/test_lastfm_service.py`.
+- Problem: `lastfm.py` housed business logic (`fetch_top_albums_async`: album
+  aggregation, filtering, normalization) alongside raw HTTP client functions.
+  It imported `domain.py` functions and was not a pure infrastructure client.
+- Fix: (1) Inlined `_extract_registered_year` (vendor-specific JSON parsing)
+  into `check_user_exists`. Removed from `domain.py`. (2) Moved
+  `fetch_top_albums_async` (~66 lines) to `orchestrator.py`. (3) Updated
+  `test_lastfm_logic.py` imports and mock paths.
+- Post-state: `lastfm.py` has zero `domain` imports, zero `repositories`
+  imports. Pure HTTP client. `orchestrator.py` grew to ~800 lines.
+- Validation: `pytest -q`: **222 passed**. `pre-commit`: all hooks passed.
+
+### 2026-02-23 - feat(lastfm,orchestrator): granular backend progress pipeline (Batch 12 WP-4)
+
+- Scope: `scrobblescope/lastfm.py`, `scrobblescope/orchestrator.py`,
+  `tests/services/test_lastfm_service.py`,
+  `tests/services/test_orchestrator_service.py`.
+- Problem: Progress polling jumped 5% -> 40% (entire Last.fm fetch) and
+  40% -> 60% (entire Spotify batch) with no intermediate updates.
+- Fix: (1) Added `progress_cb: Callable[[int, int], None] | None` parameter
+  to `fetch_all_recent_tracks_async`. When provided, uses
+  `asyncio.as_completed` for per-page callbacks; when None, preserves
+  existing `asyncio.gather` path. (2) `_fetch_and_process` passes a
+  `_lastfm_progress` closure mapping page completion into 5%-20% range with
+  messages "Fetching Last.fm page N/T...". (3) Replaced `asyncio.gather`
+  with `asyncio.as_completed` for Spotify batch detail fetch in
+  `_fetch_spotify_misses`, incrementing within 40%-60% range with messages
+  "Enriched N/T albums from Spotify...".
+- Tests: 4 new `progress_cb` tests in `test_lastfm_service.py`, 1 wiring test
+  for `_lastfm_progress` arithmetic, 1 Spotify batch progress test.
+- Validation: `pytest -q`: **228 passed**. `pre-commit`: all hooks passed.
+
+### 2026-02-22 - fix(app): guard sys.stderr.reconfigure with isinstance check
+
+- Scope: `app.py`.
+- Problem: Pyright/Pylance reported "Cannot access attribute reconfigure for
+  class TextIO" because `sys.stderr` is typed as `TextIO`, which lacks
+  `reconfigure`. The method exists at runtime on `io.TextIOWrapper`.
+- Fix: Added `import io` and wrapped the call in
+  `if isinstance(sys.stderr, io.TextIOWrapper):` -- a type-narrowing guard
+  that satisfies both the type checker and runtime safety.
+- Validation: `pytest -q`: **210 passed**. `pre-commit`: all hooks passed.
+
+### 2026-02-22 - refactor(routes,lastfm): SoC/DRY cleanup from third-party audit
+
+- Scope: `scrobblescope/routes.py`, `scrobblescope/lastfm.py`,
+  `scrobblescope/orchestrator.py`, `tests/services/test_lastfm_logic.py`.
+- Problem: Three findings from a third-party structural audit:
+  (1) SoC -- `get_filter_description` was a public helper placed between HTTP
+  handlers; lacked `_` prefix used by the other private helpers.
+  (2) DRY -- `/results_complete` and `/unmatched_view` duplicated ~10 lines
+  of identical `job_id`/`job_context` guard logic.
+  (3) SoC -- `fetch_top_albums_async` in `lastfm.py` imported `set_job_stat`
+  from `repositories.py` and made 5 direct job-state mutations. An API client
+  module should return pure data, not mutate application state. `spotify.py`
+  already follows this pattern correctly.
+- Fix:
+  (1) Renamed to `_get_filter_description` and hoisted above HTTP handlers,
+  below `_group_unmatched_by_reason`.
+  (2) Extracted `_get_validated_job_context(missing_id_message, expired_error,
+  expired_message, expired_details)` returning `(job_id, job_context, None)`
+  or `(None, None, error_response)`.
+  (3) Removed `job_id` param and `set_job_stat` import from
+  `fetch_top_albums_async`. Stats now returned in `fetch_metadata["stats"]`
+  dict. `orchestrator._fetch_and_process` extracts and records them.
+  Partial-data warning also moved to `fetch_metadata` return path.
+- Deviations: Audit claimed ~15-20 lines of duplication; actual overlap was
+  ~10 lines. Error titles intentionally differ between routes, so
+  `expired_error` was parameterized rather than hardcoded.
+- Validation: `pytest -q`: **210 passed**. `pre-commit`: all 8 hooks passed.
+
+### 2026-02-22 - fix(types): resolve 10 Pylance type errors in production code
+
+- Scope: `scrobblescope/lastfm.py`, `scrobblescope/spotify.py`,
+  `scrobblescope/utils.py`.
+- Problem: Pylance reported 10 type errors across 3 production files:
+  (1) `lastfm.py` (7): `metadata` dict inferred as `dict[str, str | int]`
+  caused arithmetic and nested-dict assignment failures; `albums` defaultdict
+  inferred heterogeneous union on all value accesses.
+  (2) `spotify.py` (2): `SPOTIFY_CLIENT_ID/SECRET` typed `str | None` from
+  `os.getenv()` but `aiohttp.BasicAuth` requires `str`.
+  (3) `utils.py` (1): `loop` assigned inside `try:` block, referenced in
+  `finally:` -- possibly unbound if `new_event_loop()` raises.
+- Fix: Annotated `metadata: dict[str, Any]` and
+  `albums: defaultdict[str, dict[str, Any]]` in lastfm.py; added assert
+  guards for Spotify credentials in spotify.py; initialized `loop = None`
+  with `if loop is not None:` guard in utils.py.
+- Test file type errors (25 across 3 files) assessed as low-impact
+  mock-related noise -- deferred.
+- Validation: `pytest -q`: **210 passed**. `pre-commit`: all 8 hooks passed.
+
 ### 2026-02-22 - refactor(orchestrator): decompose process_albums into helpers (Batch 11 WP-2)
 
 - Scope: `scrobblescope/orchestrator.py`,
