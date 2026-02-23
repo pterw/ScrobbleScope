@@ -83,7 +83,11 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-4 (P2): Granular Backend Progress Pipeline. Done.
 - **Post-Batch 12 audit improvements** (side-task, 5 commits): Added
   test coverage for untested functions and added granular Spotify search
-  progress feedback. 228 -> **257 tests passing**.
+  progress feedback. 228 -> 257 tests passing.
+- **SESSION_CONTEXT optional + DEVELOPMENT.md** (side-task): Cherry-picked
+  `05c7b19` from `main`; added 3 `TestMissingSessionContext` regression tests;
+  created `DEVELOPMENT.md` and `docs/history/SESSION_CONTEXT_REFERENCE.md`.
+  257 -> **260 tests passing**.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
@@ -111,6 +115,30 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-02-23 - fix/docs: cherry-pick SESSION_CONTEXT optional + DEVELOPMENT.md (side-task)
+
+- Scope: `scripts/doc_state_sync.py`, `tests/test_doc_state_sync.py`,
+  `DEVELOPMENT.md`, `docs/history/SESSION_CONTEXT_REFERENCE.md`, `README.md`.
+- Problem: (1) CI failed on `main` when `.claude/SESSION_CONTEXT.md` was
+  absent (gitignored). The script called `_read_lines()` unconditionally,
+  raising `SyncError`. (2) No documentation existed for the multi-agent
+  orchestration methodology implemented during this sprint.
+- Fix:
+  (1) Cherry-picked commit `05c7b19` from `main`: added `_read_lines_optional()`
+  returning `None` when the file is absent; gated all SESSION_CONTEXT
+  operations in `_sync()`, `_cross_validate()`, and `main()` behind
+  presence check; `SyncResult.session_lines` typed as `list[str] | None`;\
+  renamed `test_missing_session_context_raises` to `_succeeds`; added
+  `TestMissingSessionContext` class (3 regression tests).
+  (2) Created `DEVELOPMENT.md` explaining the orchestration architecture,
+  why `doc_state_sync.py` is a deterministic script, the batch/WP SDLC
+  mapping, review-rejection rationale, and what failed before the current
+  system stabilized. Created `docs/history/SESSION_CONTEXT_REFERENCE.md`
+  as a tracked reference snapshot of the gitignored live file. Linked
+  both from `README.md` (new "Development Methodology" section in ToC).
+- Validation: **260 tests passing** (3 new from cherry-pick),
+  pre-commit all 8 hooks passed.
 
 ### 2026-02-23 - chore/docs: repo hygiene and README rewrite (side-task)
 
