@@ -73,6 +73,14 @@ Completed batch definitions are archived individually under `docs/history/`.
     `darkSwitch`/`backToTop` in `theme.js`; dark-mode toggle track changed
     from `var(--bars-color)` to `var(--bg-color)` when checked. 121 tests
     passing.)
+- **Batch 12 is active.** Definition: `BATCH12_PROPOSAL.md`.
+  Polish and observability: CSS variable enforcement, responsive data
+  formatting + export parity, backend SoC extraction, granular progress
+  pipeline. 4 WPs. Next action: WP-1.
+  - WP-1 (P0): Semantic CSS Variable Enforcement. Not started.
+  - WP-2 (P1): Responsive Data Formatting & Export Parity. Not started.
+  - WP-3 (P1): Backend SoC Extraction. Not started.
+  - WP-4 (P2): Granular Backend Progress Pipeline. Not started.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).

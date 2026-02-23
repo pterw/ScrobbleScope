@@ -30,6 +30,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
+| Batch 12 status | **Active**. WP-1 not started, WP-2 not started, WP-3 not started, WP-4 not started. |
 | Known open risk | None. |
 
 **Key runtime facts:**
