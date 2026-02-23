@@ -300,11 +300,24 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                 )
 
             batch_tasks = [fetch_batch_with_semaphore(batch) for batch in batch_groups]
-            batch_results = await asyncio.gather(*batch_tasks)
 
             all_album_details = {}
-            for batch_result in batch_results:
+            batches_done = 0
+            for fut in asyncio.as_completed(batch_tasks):
+                batch_result = await fut
                 all_album_details.update(batch_result)
+                batches_done += 1
+                # Map batch progress into the 40%-60% range
+                pct = 40 + int(20 * batches_done / num_batches)
+                enriched_so_far = len(all_album_details)
+                set_job_progress(
+                    job_id,
+                    progress=pct,
+                    message=(
+                        f"Enriched {enriched_so_far}/"
+                        f"{len(valid_spotify_ids)} albums from Spotify..."
+                    ),
+                )
 
             batch_duration = time.time() - batch_start_time
             logging.info(

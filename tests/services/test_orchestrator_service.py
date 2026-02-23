@@ -1073,3 +1073,99 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
     assert page_calls[0] == {"progress": 10, "message": "Fetching Last.fm page 1/3..."}
     assert page_calls[1] == {"progress": 15, "message": "Fetching Last.fm page 2/3..."}
     assert page_calls[2] == {"progress": 20, "message": "Fetching Last.fm page 3/3..."}
+
+
+@pytest.mark.asyncio
+async def test_fetch_spotify_misses_reports_batch_progress():
+    """
+    GIVEN _fetch_spotify_misses processes 2 batches of Spotify album details
+    WHEN each batch completes via asyncio.as_completed
+    THEN set_job_progress is called with values in the 40%-60% range
+    and messages like "Enriched N/T albums from Spotify...".
+
+    Arithmetic: pct = 40 + int(20 * batches_done / num_batches)
+    For 2 batches: batch 1 -> 50, batch 2 -> 60.
+    """
+    from scrobblescope.orchestrator import _fetch_spotify_misses
+    from scrobblescope.repositories import set_job_progress as real_set
+
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    # Build 25 cache misses to produce 2 batches (batch_size=20)
+    cache_misses = {
+        (f"artist{i}", f"album{i}"): {
+            "play_count": 10,
+            "track_counts": {"song": 3},
+            "original_artist": f"Artist{i}",
+            "original_album": f"Album{i}",
+        }
+        for i in range(25)
+    }
+    cache_hits = {}
+
+    mock_session = AsyncMock()
+    mock_session_ctx = MagicMock()
+    mock_session_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session_ctx.__aexit__ = AsyncMock(return_value=False)
+
+    # All 25 searches succeed
+    spotify_ids = [f"sp{i}" for i in range(25)]
+
+    # Batch detail responses: batch 1 (20 albums), batch 2 (5 albums)
+    def _batch_details(session, batch_ids, token, semaphore=None):
+        return {
+            sid: {
+                "release_date": "2025-01-01",
+                "images": [{"url": "https://img.example.com/a.jpg"}],
+                "tracks": {"items": []},
+            }
+            for sid in batch_ids
+        }
+
+    progress_calls = []
+
+    def _tracking_set(jid, **kwargs):
+        progress_calls.append(kwargs)
+        return real_set(jid, **kwargs)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="tok",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            return_value=mock_session_ctx,
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            side_effect=spotify_ids,
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+            side_effect=_batch_details,
+        ),
+        patch(
+            "scrobblescope.orchestrator.set_job_progress",
+            side_effect=_tracking_set,
+        ),
+    ):
+        await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
+
+    # Filter for Spotify enrichment progress calls
+    enrich_calls = [
+        c
+        for c in progress_calls
+        if "message" in c and "albums from Spotify" in c["message"]
+    ]
+    assert len(enrich_calls) == 2
+    # Batch 1: 40 + int(20 * 1/2) = 50
+    assert enrich_calls[0]["progress"] == 50
+    # Batch 2: 40 + int(20 * 2/2) = 60
+    assert enrich_calls[1]["progress"] == 60
+    # Both messages should reference total album count
+    assert "/25 albums from Spotify..." in enrich_calls[0]["message"]
+    assert "/25 albums from Spotify..." in enrich_calls[1]["message"]
