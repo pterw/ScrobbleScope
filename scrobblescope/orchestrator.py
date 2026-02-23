@@ -250,7 +250,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
             search_results.append(result)
             searches_done += 1
             # Map search progress into the 20%-40% range
-            pct = 20 + int(20 * searches_done / total_searches)
+            pct = 20 + int(20 * searches_done / max(total_searches, 1))
             set_job_progress(
                 job_id,
                 progress=pct,
@@ -324,7 +324,7 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
                 all_album_details.update(batch_result)
                 batches_done += 1
                 # Map batch progress into the 40%-60% range
-                pct = 40 + int(20 * batches_done / num_batches)
+                pct = 40 + int(20 * batches_done / max(num_batches, 1))
                 enriched_so_far = len(all_album_details)
                 set_job_progress(
                     job_id,
