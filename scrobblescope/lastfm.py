@@ -14,7 +14,6 @@ from scrobblescope.domain import (
     normalize_name,
     normalize_track_name,
 )
-from scrobblescope.repositories import set_job_stat
 from scrobblescope.utils import (
     create_optimized_session,
     get_cached_response,
@@ -219,8 +218,13 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
         return all_pages, metadata
 
 
-async def fetch_top_albums_async(job_id, username, year, min_plays=10, min_tracks=3):
-    """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple."""
+async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
+    """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple.
+
+    The returned ``fetch_metadata`` dict includes a ``stats`` key with
+    aggregation counters (total_scrobbles, pages_fetched, unique_albums,
+    albums_passing_filter) so the caller can record them as job stats.
+    """
     logging.debug(f"Start fetch_top_albums_async(user={username}, year={year})")
     from_ts = int(datetime(year, 1, 1).timestamp())
     to_ts = int(datetime(year, 12, 31, 23, 59, 59).timestamp())
@@ -231,19 +235,13 @@ async def fetch_top_albums_async(job_id, username, year, min_plays=10, min_track
     total_tracks = sum(len(p.get("recenttracks", {}).get("track", [])) for p in pages)
     logging.debug(f"Total tracks: {total_tracks}")
 
-    set_job_stat(job_id, "total_scrobbles", total_tracks)
-    set_job_stat(job_id, "pages_fetched", len(pages))
-
     if fetch_metadata.get("status") == "partial":
         dropped = fetch_metadata["pages_dropped"]
         expected = fetch_metadata["pages_expected"]
         pct = round((dropped / expected) * 100)
-        set_job_stat(job_id, "pages_dropped", dropped)
-        set_job_stat(
-            job_id,
-            "partial_data_warning",
+        fetch_metadata["partial_data_warning"] = (
             f"Note: {dropped} of {expected} Last.fm pages failed to load "
-            f"({pct}% data loss). Results may be incomplete.",
+            f"({pct}% data loss). Results may be incomplete."
         )
 
     albums = defaultdict(lambda: {"play_count": 0, "track_counts": defaultdict(int)})
@@ -275,7 +273,11 @@ async def fetch_top_albums_async(job_id, username, year, min_plays=10, min_track
     }
     logging.debug(f"Albums after filter: {len(filtered)}")
 
-    set_job_stat(job_id, "unique_albums", len(albums))
-    set_job_stat(job_id, "albums_passing_filter", len(filtered))
+    fetch_metadata["stats"] = {
+        "total_scrobbles": total_tracks,
+        "pages_fetched": len(pages),
+        "unique_albums": len(albums),
+        "albums_passing_filter": len(filtered),
+    }
 
     return filtered, fetch_metadata

@@ -505,10 +505,22 @@ async def _fetch_and_process(
         )
 
         filtered_albums, fetch_metadata = await fetch_top_albums_async(
-            job_id, username, year, min_plays=min_plays, min_tracks=min_tracks
+            username, year, min_plays=min_plays, min_tracks=min_tracks
         )
         step_elapsed = time.time() - step_start_time
         logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
+
+        # Record Last.fm aggregation stats returned by the fetch layer.
+        lastfm_stats = fetch_metadata.get("stats")
+        if isinstance(lastfm_stats, dict):
+            for stat_key, stat_val in lastfm_stats.items():
+                set_job_stat(job_id, stat_key, stat_val)
+        partial_warning = fetch_metadata.get("partial_data_warning")
+        if partial_warning:
+            set_job_stat(job_id, "partial_data_warning", partial_warning)
+            set_job_stat(
+                job_id, "pages_dropped", fetch_metadata.get("pages_dropped", 0)
+            )
 
         # Upstream failure: Last.fm was unreachable
         if fetch_metadata.get("status") == "error":

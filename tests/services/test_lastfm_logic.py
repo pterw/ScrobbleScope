@@ -2,7 +2,7 @@
 
 Covers aggregation, min_plays/min_tracks filters, timestamp-boundary
 enforcement, the now-playing sentinel, non-Latin track deduplication,
-and job-stat reporting.  Network calls are fully mocked.
+and fetch-metadata stat reporting.  Network calls are fully mocked.
 """
 
 from datetime import datetime
@@ -59,9 +59,8 @@ async def test_fetch_top_albums_aggregates_play_counts():
             "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
-        patch("scrobblescope.lastfm.set_job_stat"),
     ):
-        result, _ = await fetch_top_albums_async("job1", "testuser", 2023)
+        result, _ = await fetch_top_albums_async("testuser", 2023)
 
     assert len(result) == 1
     key = next(iter(result))
@@ -86,9 +85,8 @@ async def test_fetch_top_albums_min_plays_filter():
             "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
-        patch("scrobblescope.lastfm.set_job_stat"),
     ):
-        result, _ = await fetch_top_albums_async("job1", "testuser", 2023)
+        result, _ = await fetch_top_albums_async("testuser", 2023)
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist B" in artist_keys
@@ -115,9 +113,8 @@ async def test_fetch_top_albums_min_tracks_filter():
             "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
-        patch("scrobblescope.lastfm.set_job_stat"),
     ):
-        result, _ = await fetch_top_albums_async("job1", "testuser", 2023)
+        result, _ = await fetch_top_albums_async("testuser", 2023)
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist B" in artist_keys
@@ -143,9 +140,8 @@ async def test_fetch_top_albums_skips_out_of_bounds_timestamps():
             "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
-        patch("scrobblescope.lastfm.set_job_stat"),
     ):
-        result, _ = await fetch_top_albums_async("job1", "testuser", 2023, min_plays=5)
+        result, _ = await fetch_top_albums_async("testuser", 2023, min_plays=5)
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist X" not in artist_keys
@@ -179,10 +175,9 @@ async def test_fetch_top_albums_skips_now_playing_track():
             "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
-        patch("scrobblescope.lastfm.set_job_stat"),
     ):
         result, _ = await fetch_top_albums_async(
-            "job1", "testuser", 2023, min_plays=10, min_tracks=3
+            "testuser", 2023, min_plays=10, min_tracks=3
         )
 
     assert len(result) == 1
@@ -219,10 +214,9 @@ async def test_fetch_top_albums_non_latin_tracks_counted_distinctly():
             "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
-        patch("scrobblescope.lastfm.set_job_stat"),
     ):
         result, _ = await fetch_top_albums_async(
-            "job1", "testuser", 2023, min_plays=10, min_tracks=3
+            "testuser", 2023, min_plays=10, min_tracks=3
         )
 
     assert len(result) == 1, (
@@ -234,33 +228,28 @@ async def test_fetch_top_albums_non_latin_tracks_counted_distinctly():
 
 
 @pytest.mark.asyncio
-async def test_fetch_top_albums_sets_job_stats():
+async def test_fetch_top_albums_returns_stats_in_metadata():
     """
     GIVEN 18 scrobbles of one album with 3 distinct tracks (passes both filters)
     WHEN fetch_top_albums_async runs
-    THEN set_job_stat is called with total_scrobbles=18, unique_albums=1,
+    THEN fetch_metadata["stats"] contains total_scrobbles=18, unique_albums=1,
     and albums_passing_filter=1.
     """
     tracks = [_track("Artist A", "Album A", f"Track {i}") for i in range(3)] * 6
     pages = [_page(tracks)]
     fetch_meta = {"status": "ok"}
 
-    stats_recorded = {}
-
-    def capture_stat(job_id, key, value):
-        stats_recorded[key] = value
-
     with (
         patch(
             "scrobblescope.lastfm.fetch_all_recent_tracks_async",
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
-        patch("scrobblescope.lastfm.set_job_stat", side_effect=capture_stat),
     ):
-        await fetch_top_albums_async(
-            "job1", "testuser", 2023, min_plays=10, min_tracks=3
+        _, metadata = await fetch_top_albums_async(
+            "testuser", 2023, min_plays=10, min_tracks=3
         )
 
-    assert stats_recorded.get("total_scrobbles") == 18
-    assert stats_recorded.get("unique_albums") == 1
-    assert stats_recorded.get("albums_passing_filter") == 1
+    stats = metadata["stats"]
+    assert stats["total_scrobbles"] == 18
+    assert stats["unique_albums"] == 1
+    assert stats["albums_passing_filter"] == 1
