@@ -30,7 +30,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
-| Batch 12 status | **Active**. WP-1 not started, WP-2 not started, WP-3 not started, WP-4 not started. |
+| Batch 12 status | **Active**. WP-1 done, WP-2 not started, WP-3 not started, WP-4 not started. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -48,12 +48,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: none (between batches).
-- Last completed batch in PLAYBOOK Section 3: Batch 11.
-- Current-batch entries in active log block: 0.
-- Completed work packages in current-batch entries: n/a (no active batch).
-- Next expected work package: n/a (next batch not defined).
-- Newest current-batch entry: none.
+- Current batch: Batch 12.
+- Current-batch entries in active log block: 1.
+- Completed work packages in current-batch entries: WP-1.
+- Next expected work package: WP-2.
+- Newest current-batch entry: 2026-02-23 - style(css): semantic CSS variable enforcement (Batch 12 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

@@ -77,7 +77,7 @@ Completed batch definitions are archived individually under `docs/history/`.
   Polish and observability: CSS variable enforcement, responsive data
   formatting + export parity, backend SoC extraction, granular progress
   pipeline. 4 WPs. Next action: WP-1.
-  - WP-1 (P0): Semantic CSS Variable Enforcement. Not started.
+  - WP-1 (P0): Semantic CSS Variable Enforcement. Done.
   - WP-2 (P1): Responsive Data Formatting & Export Parity. Not started.
   - WP-3 (P1): Backend SoC Extraction. Not started.
   - WP-4 (P2): Granular Backend Progress Pipeline. Not started.
@@ -106,6 +106,23 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-23 - style(css): semantic CSS variable enforcement (Batch 12 WP-1)
+
+- Scope: `static/css/global.css`, `static/css/index.css`, `static/css/results.css`,
+  `static/css/loading.css`, `static/css/error.css`, `static/css/unmatched.css`,
+  `static/js/results.js`.
+- Problem: Structural UI elements (backgrounds, borders, form inputs, error
+  accent) duplicated hardcoded hex values across 6 CSS files and 1 JS file,
+  violating DRY and breaking the centralized theme architecture.
+- Fix: Added 5 semantic CSS variables (`--surface-color`, `--surface-elevated`,
+  `--border-color`, `--input-bg`, `--error-accent`) to `:root`/`.dark-mode` in
+  `global.css`. Replaced all structural hardcoded hex across 6 CSS files.
+  Promoted orphaned `--error-accent` from `error.css` to `global.css`. Fixed
+  `results.js` `html2canvas` `backgroundColor` to use `getComputedStyle` for
+  `--bg-color` instead of hardcoded `#121212`/`#ffffff` ternary (light-mode
+  JPEG export was `#ffffff` vs actual `--bg-color` of `#f8f9fa`).
+- Validation: `pytest -q`: **210 passed**. `pre-commit`: all hooks passed.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
