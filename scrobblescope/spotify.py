@@ -19,6 +19,8 @@ async def fetch_spotify_access_token():
     if spotify_token_cache["expires_at"] > time.time():
         return spotify_token_cache["token"]
     url = "https://accounts.spotify.com/api/token"
+    assert SPOTIFY_CLIENT_ID is not None, "SPOTIFY_CLIENT_ID not set"
+    assert SPOTIFY_CLIENT_SECRET is not None, "SPOTIFY_CLIENT_SECRET not set"
     auth = aiohttp.BasicAuth(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
     data = {"grant_type": "client_credentials"}
     async with create_optimized_session() as s:

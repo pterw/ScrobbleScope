@@ -3,6 +3,7 @@ import logging
 import time
 from collections import defaultdict
 from datetime import datetime
+from typing import Any
 
 from scrobblescope.config import (
     LASTFM_API_KEY,
@@ -205,7 +206,7 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts):
 
         pages_expected = total_pages
         pages_received = len(all_pages)
-        metadata = {
+        metadata: dict[str, Any] = {
             "status": "ok",
             "pages_expected": pages_expected,
             "pages_received": pages_received,
@@ -244,7 +245,9 @@ async def fetch_top_albums_async(username, year, min_plays=10, min_tracks=3):
             f"({pct}% data loss). Results may be incomplete."
         )
 
-    albums = defaultdict(lambda: {"play_count": 0, "track_counts": defaultdict(int)})
+    albums: defaultdict[str, dict[str, Any]] = defaultdict(
+        lambda: {"play_count": 0, "track_counts": defaultdict(int)}
+    )
     for page in pages:
         for t in page.get("recenttracks", {}).get("track", []):
             alb = t.get("album", {}).get("#text", "...")

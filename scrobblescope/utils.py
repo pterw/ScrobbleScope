@@ -130,6 +130,7 @@ def run_async_in_thread(coro):
     error = []
 
     def runner():
+        loop = None
         try:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -139,7 +140,8 @@ def run_async_in_thread(coro):
             logging.error(f"Error in async thread: {e}\n{error_traceback}")
             error.append(e)
         finally:
-            loop.close()
+            if loop is not None:
+                loop.close()
 
     thread = threading.Thread(target=runner)
     thread.start()
