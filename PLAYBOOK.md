@@ -39,6 +39,8 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 8 | Modular refactor (app factory + blueprints) | `docs/history/BATCH8_DEFINITION.md` |
 | 9 | Audit remediation (WP-1 through WP-8) | `docs/history/BATCH9_DEFINITION.md` |
 | 10 | Gemini audit remediation (WP-1 through WP-9) | `docs/history/BATCH10_DEFINITION_2026-02-21.md` |
+| 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | (inline -- Section 3) |
+| 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/BATCH12_PROPOSAL.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -50,49 +52,19 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Batch 10 is complete.** Definition: `docs/history/BATCH10_DEFINITION_2026-02-21.md`.
-- **Batch 11 is complete.** Definition was inline (Gemini 3.1 Pro Priority 2
-  audit remediation -- SoC, DRY, and architectural findings).
-  - WP-1 (Low): CSS/JS theme consolidation. Done. (Created `global.css` +
-    `theme.js`; stripped ~250 lines of duplicate CSS from 5 per-page files;
-    removed dark-mode toggle JS from 5 JS files; fixed html2canvas mobile
-    export; added back-to-top button on results page. 121 tests passing.)
-  - WP-2 (Medium): Decompose `process_albums` in `orchestrator.py`. Done.
-    (Extracted 2 closures to module-level pure functions, extracted
-    `_fetch_spotify_misses` and `_build_results` helpers, added 8
-    adversarial test cases. 210 tests passing.)
-  - WP-3 (Low): CSS/JS DRY violations, toggle markup bug, and UX polish.
-    Done. (Promoted `--info-bg` to `global.css`, removing split `:root`/
-    `.dark-mode` blocks from `results.css` and hard-coded rgba from
-    `loading.css`; moved duplicate modal dark-mode block from `index.css`
-    and `results.css` to `global.css`; stripped Bootstrap `form-check
-    form-switch` classes from toggle markup that conflicted with custom CSS
-    via Bootstrap's injected SVG background-image knob; added `text-align:
-    center` to loading-page `.step-text`/`.step-details`; removed redundant
-    mobile release-date shortening JS from `results.js`; `var`->`const` for
-    `darkSwitch`/`backToTop` in `theme.js`; dark-mode toggle track changed
-    from `var(--bars-color)` to `var(--bg-color)` when checked. 121 tests
-    passing.)
-- **Batch 12 is complete.** Definition: `docs/history/BATCH12_PROPOSAL.md`.
-  Polish and observability: CSS variable enforcement, responsive data
-  formatting + export parity, backend SoC extraction, granular progress
-  pipeline. 4 WPs. All done.
-  - WP-1 (P0): Semantic CSS Variable Enforcement. Done.
-  - WP-2 (P1): Responsive Data Formatting & Export Parity. Done.
-  - WP-3 (P1): Backend SoC Extraction. Done.
-  - WP-4 (P2): Granular Backend Progress Pipeline. Done.
-- **Post-Batch 12 audit improvements** (side-task, 5 commits): Added
-  test coverage for untested functions and added granular Spotify search
-  progress feedback. 228 -> 257 tests passing.
-- **SESSION_CONTEXT optional + DEVELOPMENT.md** (side-task): Cherry-picked
-  `05c7b19` from `main`; added 3 `TestMissingSessionContext` regression tests;
-  created `DEVELOPMENT.md` and `docs/history/SESSION_CONTEXT_REFERENCE.md`.
-  257 -> **260 tests passing**.
+- **Batches 10-12 are complete.** See Section 2 table for definitions.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days
     (Last.fm-only, lighter background task).
+- **Batch 13 is active.** Definition: `BATCH13_PROPOSAL.md`. Internal
+  decomposition and coverage hardening. 5 WPs. Next: WP-1.
+  - WP-1 (P0): Add direct unit tests for worker.py. Done.
+  - WP-2 (P1): Extract search/batch-detail phases from `_fetch_spotify_misses()`. Pending.
+  - WP-3 (P1): Extract five private helpers from `_fetch_and_process()`. Pending.
+  - WP-4 (P1): Split `test_orchestrator_service.py` into four files. Pending.
+  - WP-5 (P2): DRY async retry loop shared by `lastfm.py` and `spotify.py`. Pending.
 - Do not start feature work (top songs, heatmap) until owner defines scope
   and assigns a batch number.
 
@@ -113,6 +85,20 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-24 - test(worker): add 6 direct unit tests for worker.py (Batch 13 WP-1)
+
+- Scope: `tests/test_worker.py` (new).
+- Problem: `worker.py` (43 lines, 3 functions) had no dedicated test file.
+  Coverage was indirect only via orchestrator integration tests. Three distinct
+  failure paths were untested: semaphore exhaustion, double-release warning,
+  and thread construction failure slot release.
+- Fix: Created `tests/test_worker.py` with 6 tests using `unittest.mock.patch`
+  to replace `_active_jobs_semaphore` with isolated `BoundedSemaphore` instances.
+  Tests cover: acquire success, acquire at capacity, release restores capacity,
+  double-release warning via `caplog`, daemon thread creation, and slot release
+  on thread construction failure.
+- Validation: **266 tests passing** (260 + 6 new), pre-commit all 8 hooks passed.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
