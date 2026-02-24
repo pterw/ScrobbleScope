@@ -11,6 +11,8 @@ from scrobblescope.orchestrator import (
     _fetch_and_process,
     _get_user_friendly_reason,
     _matches_release_criteria,
+    _run_spotify_batch_detail_phase,
+    _run_spotify_search_phase,
     background_task,
     process_albums,
 )
@@ -1268,3 +1270,135 @@ async def test_fetch_spotify_misses_reports_batch_progress():
     # Both messages should reference total album count
     assert "/25 albums from Spotify..." in enrich_calls[0]["message"]
     assert "/25 albums from Spotify..." in enrich_calls[1]["message"]
+
+
+# ---------------------------------------------------------------------------
+# WP-2 adversarial tests for extracted search/batch-detail helpers
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
+    """All search_for_spotify_album_id calls return None: both dicts empty,
+    every album registered as unmatched."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_misses = {
+        ("artist1", "album1"): {
+            "original_artist": "Artist1",
+            "original_album": "Album1",
+            "play_count": 10,
+            "track_counts": {"t1": 5},
+        },
+        ("artist2", "album2"): {
+            "original_artist": "Artist2",
+            "original_album": "Album2",
+            "play_count": 8,
+            "track_counts": {"t2": 4},
+        },
+    }
+    session = AsyncMock()
+    semaphore = __import__("asyncio").Semaphore(5)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch("scrobblescope.orchestrator.set_job_progress"),
+        patch("scrobblescope.orchestrator.add_job_unmatched") as mock_unmatched,
+    ):
+        id_to_key, id_to_data = await _run_spotify_search_phase(
+            job_id, session, cache_misses, "fake_token", semaphore
+        )
+
+    assert id_to_key == {}
+    assert id_to_data == {}
+    assert mock_unmatched.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call():
+    """valid_spotify_ids=[]: fetch_spotify_album_details_batch not called."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+            return_value="token",
+        ),
+        patch(
+            "scrobblescope.orchestrator.create_optimized_session",
+            return_value=AsyncMock(),
+        ),
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            new_callable=AsyncMock,
+        ) as mock_batch,
+        patch("scrobblescope.orchestrator.set_job_progress"),
+        patch("scrobblescope.orchestrator.add_job_unmatched"),
+    ):
+        from scrobblescope.orchestrator import _fetch_spotify_misses
+
+        result = await _fetch_spotify_misses(
+            job_id,
+            {
+                ("a", "b"): {
+                    "original_artist": "A",
+                    "original_album": "B",
+                    "play_count": 5,
+                    "track_counts": {},
+                }
+            },
+            {},
+        )
+
+    assert result == []
+    mock_batch.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_run_spotify_search_phase_progress_stays_in_20_to_40_range():
+    """All set_job_progress calls from search phase have progress in [20, 40]."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_misses = {
+        (f"artist{i}", f"album{i}"): {
+            "original_artist": f"Artist{i}",
+            "original_album": f"Album{i}",
+            "play_count": 10,
+            "track_counts": {f"t{i}": 5},
+        }
+        for i in range(5)
+    }
+    session = AsyncMock()
+    semaphore = __import__("asyncio").Semaphore(5)
+
+    progress_values = []
+
+    def capture_progress(job_id, **kwargs):
+        if "progress" in kwargs:
+            progress_values.append(kwargs["progress"])
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.search_for_spotify_album_id",
+            new_callable=AsyncMock,
+            return_value="some_id",
+        ),
+        patch(
+            "scrobblescope.orchestrator.set_job_progress",
+            side_effect=capture_progress,
+        ),
+    ):
+        await _run_spotify_search_phase(
+            job_id, session, cache_misses, "fake_token", semaphore
+        )
+
+    assert len(progress_values) == 5
+    for pct in progress_values:
+        assert 20 <= pct <= 40, f"Progress {pct} outside [20, 40] range"
