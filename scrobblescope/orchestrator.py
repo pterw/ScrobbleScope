@@ -618,6 +618,103 @@ async def process_albums(
     )
 
 
+def _record_lastfm_stats(job_id, fetch_metadata):
+    """Write Last.fm aggregation stats and partial-data warning into the job."""
+    lastfm_stats = fetch_metadata.get("stats")
+    if isinstance(lastfm_stats, dict):
+        for stat_key, stat_val in lastfm_stats.items():
+            set_job_stat(job_id, stat_key, stat_val)
+    partial_warning = fetch_metadata.get("partial_data_warning")
+    if partial_warning:
+        set_job_stat(job_id, "partial_data_warning", partial_warning)
+        set_job_stat(job_id, "pages_dropped", fetch_metadata.get("pages_dropped", 0))
+
+
+def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
+    """Apply pre-Spotify pre-slicing and playtime cap.
+
+    Playcount pre-slice: only when sort_mode='playcount', release_scope='all',
+    and limit_results is a valid integer. Playtime cap: fires at
+    _PLAYTIME_ALBUM_CAP when sort_mode='playtime'. Returns the (possibly
+    reduced) dict.
+    """
+    if sort_mode == "playcount" and limit_results != "all" and release_scope == "all":
+        try:
+            limit = int(limit_results)
+            if len(filtered_albums) > limit:
+                sorted_items = sorted(
+                    filtered_albums.items(),
+                    key=lambda kv: cast(int, kv[1]["play_count"]),
+                    reverse=True,
+                )
+                filtered_albums = dict(sorted_items[:limit])
+                logging.info(f"Pre-sliced filtered_albums to top {limit} by play_count")
+        except ValueError:
+            pass  # malformed limit_results handled by the post-process slice
+
+    if sort_mode == "playtime" and len(filtered_albums) > _PLAYTIME_ALBUM_CAP:
+        sorted_items = sorted(
+            filtered_albums.items(),
+            key=lambda kv: cast(int, kv[1]["play_count"]),
+            reverse=True,
+        )
+        filtered_albums = dict(sorted_items[:_PLAYTIME_ALBUM_CAP])
+        logging.warning(
+            f"Playtime album cap applied: capped {len(sorted_items)} albums "
+            f"to top {_PLAYTIME_ALBUM_CAP} by play_count before Spotify fetch"
+        )
+
+    return filtered_albums
+
+
+def _detect_spotify_total_failure(job_id, results, filtered_albums):
+    """Return True and set job error if all filtered albums had no Spotify match.
+
+    Only fires when results is empty but filtered_albums is non-empty.
+    Reads job unmatched state to count 'No Spotify match' entries.
+    """
+    if not results and filtered_albums:
+        job_ctx = get_job_context(job_id)
+        unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
+        spotify_no_match = sum(
+            1 for v in unmatched.values() if v.get("reason") == "No Spotify match"
+        )
+        if spotify_no_match == len(filtered_albums):
+            set_job_error(job_id, "spotify_unavailable")
+            return True
+    return False
+
+
+def _apply_post_slice(results, limit_results):
+    """Truncate results to limit_results if it is a valid integer."""
+    if limit_results != "all":
+        try:
+            limit = int(limit_results)
+            if len(results) > limit:
+                results = results[:limit]
+                logging.info(f"Limited results to top {limit} albums")
+        except ValueError:
+            logging.warning(
+                f"Invalid limit_results value: {limit_results}, showing all results"
+            )
+    return results
+
+
+def _classify_exception_to_error_code(error_message):
+    """Map an exception message to a classified error code, or None.
+
+    Returns 'spotify_rate_limited', 'lastfm_rate_limited', 'user_not_found',
+    or None for unclassified errors.
+    """
+    if "Too Many Requests" in error_message:
+        if "spotify" in error_message.lower():
+            return "spotify_rate_limited"
+        return "lastfm_rate_limited"
+    if "not found" in error_message.lower() and "user" in error_message.lower():
+        return "user_not_found"
+    return None
+
+
 async def _fetch_and_process(
     job_id,
     username,
@@ -671,17 +768,7 @@ async def _fetch_and_process(
         step_elapsed = time.time() - step_start_time
         logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
 
-        # Record Last.fm aggregation stats returned by the fetch layer.
-        lastfm_stats = fetch_metadata.get("stats")
-        if isinstance(lastfm_stats, dict):
-            for stat_key, stat_val in lastfm_stats.items():
-                set_job_stat(job_id, stat_key, stat_val)
-        partial_warning = fetch_metadata.get("partial_data_warning")
-        if partial_warning:
-            set_job_stat(job_id, "partial_data_warning", partial_warning)
-            set_job_stat(
-                job_id, "pages_dropped", fetch_metadata.get("pages_dropped", 0)
-            )
+        _record_lastfm_stats(job_id, fetch_metadata)
 
         # Upstream failure: Last.fm was unreachable
         if fetch_metadata.get("status") == "error":
@@ -705,52 +792,9 @@ async def _fetch_and_process(
 
         set_job_progress(job_id, progress=20, message="Processing your albums...")
 
-        # Pre-slicing by play_count is only safe when release_scope == "all".
-        # When a release-year filter is active, albums outside the raw top-N
-        # might still qualify after the release filter runs inside process_albums.
-        # Slicing early would silently discard those albums, producing a truncated
-        # result without any indication that matching records were dropped.
-        #
-        # For playtime sort, pre-slicing is never possible: ranking requires
-        # Spotify track durations, which are only available after the Spotify
-        # fetch. The post-process slice below (search for limit_results) applies
-        # to both sort modes after process_albums returns.
-        if (
-            sort_mode == "playcount"
-            and limit_results != "all"
-            and release_scope == "all"
-        ):
-            try:
-                limit = int(limit_results)
-                if len(filtered_albums) > limit:
-                    sorted_items = sorted(
-                        filtered_albums.items(),
-                        key=lambda kv: cast(int, kv[1]["play_count"]),
-                        reverse=True,
-                    )
-                    filtered_albums = dict(sorted_items[:limit])
-                    logging.info(
-                        f"Pre-sliced filtered_albums to top {limit} by play_count"
-                    )
-            except ValueError:
-                pass  # malformed limit_results handled by the post-process slice
-
-        # Defensive cap for playtime sort: ranking requires Spotify track durations
-        # so the full set must reach process_albums, but an unbounded count creates
-        # proportional Spotify API load. Cap at _PLAYTIME_ALBUM_CAP by raw play_count
-        # (the best available proxy before Spotify data exists). Fires only for
-        # extreme outliers; does not affect playcount sort (already handled above).
-        if sort_mode == "playtime" and len(filtered_albums) > _PLAYTIME_ALBUM_CAP:
-            sorted_items = sorted(
-                filtered_albums.items(),
-                key=lambda kv: cast(int, kv[1]["play_count"]),
-                reverse=True,
-            )
-            filtered_albums = dict(sorted_items[:_PLAYTIME_ALBUM_CAP])
-            logging.warning(
-                f"Playtime album cap applied: capped {len(sorted_items)} albums "
-                f"to top {_PLAYTIME_ALBUM_CAP} by play_count before Spotify fetch"
-            )
+        filtered_albums = _apply_pre_slice(
+            filtered_albums, sort_mode, limit_results, release_scope
+        )
 
         set_job_progress(
             job_id,
@@ -776,17 +820,8 @@ async def _fetch_and_process(
         step_elapsed = time.time() - step_start_time
         logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
 
-        # Detect Spotify total failure: had albums but got 0 results
-        # because every single one was "No Spotify match"
-        if not results and filtered_albums:
-            job_ctx = get_job_context(job_id)
-            unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
-            spotify_no_match = sum(
-                1 for v in unmatched.values() if v.get("reason") == "No Spotify match"
-            )
-            if spotify_no_match == len(filtered_albums):
-                set_job_error(job_id, "spotify_unavailable")
-                return []
+        if _detect_spotify_total_failure(job_id, results, filtered_albums):
+            return []
 
         set_job_progress(
             job_id, progress=60, message="Adding album art to your results..."
@@ -798,16 +833,7 @@ async def _fetch_and_process(
 
         set_job_progress(job_id, progress=90, message="Finalizing list...")
 
-        if limit_results != "all":
-            try:
-                limit = int(limit_results)
-                if len(results) > limit:
-                    results = results[:limit]
-                    logging.info(f"Limited results to top {limit} albums")
-            except ValueError:
-                logging.warning(
-                    f"Invalid limit_results value: {limit_results}, showing all results"
-                )
+        results = _apply_post_slice(results, limit_results)
 
         overall_elapsed = time.time() - overall_start_time
         logging.info(f"Total time elapsed: {overall_elapsed:.1f}s")
@@ -823,15 +849,7 @@ async def _fetch_and_process(
 
     except Exception as exc:
         error_message = str(exc)
-        error_code = None
-
-        if "Too Many Requests" in error_message:
-            if "spotify" in error_message.lower():
-                error_code = "spotify_rate_limited"
-            else:
-                error_code = "lastfm_rate_limited"
-        elif "not found" in error_message.lower() and "user" in error_message.lower():
-            error_code = "user_not_found"
+        error_code = _classify_exception_to_error_code(error_message)
 
         if error_code:
             set_job_error(job_id, error_code, username=username)
