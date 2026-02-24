@@ -1,8 +1,8 @@
 ﻿# ScrobbleScope -- Your Last.fm Listening Habits Visualized
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
-[![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-257_passing-brightgreen.svg)](tests/)
+[![Python Version](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-260_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists, but it works equally well for exploring your musical journey across any year of scrobbling.
@@ -310,7 +310,7 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |-- conftest.py                # Shared fixtures
 |   |-- helpers.py                 # Test utilities
 |   |-- test_app_factory.py        # App creation, secret validation (6)
-|   |-- test_doc_state_sync.py     # Doc sync script tests (81)
+|   |-- test_doc_state_sync.py     # Doc sync script tests (84)
 |   |-- test_domain.py             # Name normalization (13)
 |   |-- test_repositories.py       # Job state CRUD (18)
 |   |-- test_utils.py              # Rate limiters, caching, formatting (34)
