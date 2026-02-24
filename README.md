@@ -25,6 +25,7 @@ This project was initially built to identify top albums released in a specific y
 * [Deployment](#deployment)
 * [Current Status & Roadmap](#current-status--roadmap)
 * [Contributing](#contributing)
+* [Development Methodology](#development-methodology)
 * [License](#license)
 * [Acknowledgements](#acknowledgements)
 * [Author & Contact](#author--contact)
@@ -439,6 +440,12 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 Feedback and suggestions are welcome! If you encounter bugs or have ideas, please [open an issue](https://github.com/pterw/ScrobbleScope/issues).
 
 For code contributions, see [CONTRIBUTING.md](CONTRIBUTING.md). All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Development Methodology
+
+ScrobbleScope was built using a multi-agent LLM orchestration strategy -- multiple AI code agents (Claude Sonnet, Gemini Code Review) coordinated via a shared external-memory layer to maintain consistency across sessions and agents.
+
+[DEVELOPMENT.md](DEVELOPMENT.md) explains the full approach: why external memory files exist, how `doc_state_sync.py` works and why it had to be a deterministic script rather than a prompt, the batch/work-package planning system, how code review suggestions were evaluated and rejected, and what failed before the current system stabilized.
 
 ## License
 
