@@ -89,3 +89,27 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-02-25 - Post-batch test suite audit (doc hygiene)
+
+**Scope:** `tests/test_docsync_logic.py`, `tests/test_docsync_cli.py`,
+`tests/test_docsync_parser.py`; deleted `tests/test_docsync_models.py`.
+
+**Changes:**
+- Fixed `test_deduplication_across_archive`: was passing vacuously -- tagged
+  entry routed to `batch_log_updates`, bypassing monolith dedup entirely;
+  rewrite uses untagged entry and asserts `batch_log_updates == {}`.
+- Dropped `test_current_entry_count_mismatch_warns`: near-duplicate of
+  `test_mismatched_counts_warns` (identical `_cross_validate` code path).
+- Rewrote `test_section4_historical_count_ignored`: old version had no
+  CURRENT-BATCH markers so `_latest_test_count_from_entries` returned None
+  vacuously; new version confirms below-end-marker counts are ignored while
+  inside-marker count is used for comparison.
+- Removed unused `LOGS_DIR` name import from `test_docsync_cli.py`.
+- Merged 5 `_fingerprint`/`_extract_entry_batch` tests from misnamed
+  `test_docsync_models.py` into `test_docsync_parser.py`; deleted old file.
+- Added `TestSplitArchiveMode.test_split_archive_routes_tagged_entry` for
+  the previously uncovered `--split-archive` CLI branch.
+
+**Test count:** **306 passed** (net zero: -6 removed, +6 added).
+**Validation:** `pytest -q` 306 passed; `pre-commit run --all-files` clean.
