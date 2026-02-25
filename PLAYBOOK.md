@@ -39,9 +39,9 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 8 | Modular refactor (app factory + blueprints) | `docs/history/BATCH8_DEFINITION.md` |
 | 9 | Audit remediation (WP-1 through WP-8) | `docs/history/BATCH9_DEFINITION.md` |
 | 10 | Gemini audit remediation (WP-1 through WP-9) | `docs/history/BATCH10_DEFINITION_2026-02-21.md` |
-| 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | (inline -- Section 3) |
-| 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/BATCH12_PROPOSAL.md` |
-| 13 | Internal decomposition and coverage hardening | `BATCH13_PROPOSAL.md` |
+| 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | `docs/history/BATCH11_DEFINITION.md` |
+| 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/BATCH12_DEFINITION.md` |
+| 13 | Internal decomposition and coverage hardening | `docs/history/BATCH13_DEFINITION.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -59,7 +59,7 @@ Completed batch definitions are archived individually under `docs/history/`.
     Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days
     (Last.fm-only, lighter background task).
-- **Batch 13 is complete.** All 5 WPs done. Definition: `BATCH13_PROPOSAL.md`.
+- **Batch 13 is complete.** All 5 WPs done. Definition: `docs/history/BATCH13_DEFINITION.md`.
   - WP-1: 6 worker.py tests. WP-2: search/batch-detail extraction. WP-3: 5
     _fetch_and_process helpers. WP-4: test file split (4 files). WP-5: DRY
     retry_with_semaphore utility.
@@ -107,6 +107,30 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-25 - docs(history): archive and rename definition files for batches 11/12/13 (Batch 14 WP-1)
+
+- Scope: `docs/history/BATCH11_DEFINITION.md` (new), `docs/history/BATCH12_DEFINITION.md`
+  (renamed from BATCH12_PROPOSAL.md), `docs/history/BATCH13_DEFINITION.md`
+  (moved from root BATCH13_PROPOSAL.md), `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`.
+- Problem: Three archival inconsistencies accumulated during Batch 13 delivery:
+  BATCH11 had no definition file (inline PLAYBOOK only); BATCH12 used a
+  `_PROPOSAL.md` suffix breaking the `_DEFINITION.md` convention; BATCH13 was
+  in the repo root, not archived, and also used `_PROPOSAL.md`.
+- Plan vs implementation: Followed WP-1 deliverables exactly. Created
+  BATCH11_DEFINITION.md synthesised from archive log entries (WP-1, WP-3,
+  WP-2 entries, date range 2026-02-21 to 2026-02-22, net +8 tests from WP-2).
+  Renamed BATCH12 and moved/renamed BATCH13 via `git mv`. Updated PLAYBOOK
+  Section 2 table (all three rows) and Section 3 BATCH13 reference; updated
+  SESSION_CONTEXT Batch 13 status row, Batch 14 status, and Branch rows.
+- Deviations: Discovered that log entry headings containing "Batch N" for
+  old batches (e.g. "Batch 11-13") cause `_extract_entry_batch` to match the
+  old number before the "(Batch 14 WP-X)" suffix tag, mis-classifying the
+  entry as stale and rotating it to the archive. Fixed by using "batches
+  11/12/13" (plural form -- regex requires "Batch \\d+") in the heading body.
+- Validation: **288 passed**, all 8 pre-commit hooks passed.
+- Forward guidance: WP-2 next -- extract `scripts/doc_state_sync.py` into
+  `scripts/docsync/` package (pure structural refactor, zero logic changes).
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
