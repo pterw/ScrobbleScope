@@ -34,11 +34,80 @@ from docsync.renderer import (
 )
 
 
+def _merge_entries_into_log(
+    existing_lines: list[str],
+    new_entries: list[Entry],
+    batch_num: int,
+) -> list[str]:
+    """Merge new_entries into an existing per-batch log, deduplicating by fingerprint.
+
+    If existing_lines is empty a minimal header is generated.  The returned
+    content is sorted newest-first and deduplicated.
+    """
+    if existing_lines:
+        existing_entries, first_idx = _parse_entries(existing_lines)
+        prefix: list[str] = (
+            existing_lines[:first_idx] if first_idx is not None else existing_lines
+        )
+    else:
+        prefix = [
+            f"# Batch {batch_num} Execution Log",
+            "",
+            f"Archived entries for Batch {batch_num} work packages.",
+        ]
+        existing_entries = []
+
+    combined = list(new_entries) + list(existing_entries)
+    combined_annotated = list(enumerate(combined))
+    combined_annotated.sort(key=lambda pair: (-_date_key(pair[1].date), pair[0]))
+
+    deduped: list[Entry] = []
+    seen: set[str] = set()
+    for _, entry in combined_annotated:
+        if entry.fingerprint in seen:
+            continue
+        seen.add(entry.fingerprint)
+        deduped.append(entry)
+
+    return _render_archive(prefix, deduped)
+
+
+def _split_archive(
+    monolith_lines: list[str],
+) -> tuple[list[str], dict[int, list[Entry]]]:
+    """Partition all entries in monolith_lines by batch tag.
+
+    Returns:
+        remaining_lines: rendered lines for the monolith retaining only
+            untagged / side-task entries.
+        batch_groups: mapping from batch number to the Entry objects that
+            carry that batch tag.  Callers pass these to
+            _merge_entries_into_log to produce per-batch log content.
+    """
+    all_entries, first_idx = _parse_entries(monolith_lines)
+    prefix: list[str] = (
+        monolith_lines[:first_idx] if first_idx is not None else monolith_lines
+    )
+
+    untagged: list[Entry] = []
+    batch_groups: dict[int, list[Entry]] = {}
+    for entry in all_entries:
+        batch_num = _extract_entry_batch(entry)
+        if batch_num is None:
+            untagged.append(entry)
+        else:
+            batch_groups.setdefault(batch_num, []).append(entry)
+
+    remaining_lines = _render_archive(prefix, untagged)
+    return remaining_lines, batch_groups
+
+
 def _sync(
     playbook_lines: list[str],
     archive_lines: list[str],
     session_lines: list[str] | None,
     keep_non_current: int,
+    batch_log_lines: dict[int, list[str]] | None = None,
 ) -> SyncResult:
     section_3_start, section_3_end = _find_section(
         playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
@@ -144,7 +213,18 @@ def _sync(
         else archive_lines
     )
 
-    combined = list(rotated_entries) + list(archive_entries)
+    # Route rotated entries: tagged → per-batch log; untagged → monolith.
+    tagged_rotated: dict[int, list[Entry]] = {}
+    untagged_rotated: list[Entry] = []
+    for entry in rotated_entries:
+        entry_batch = _extract_entry_batch(entry)
+        if entry_batch is not None:
+            tagged_rotated.setdefault(entry_batch, []).append(entry)
+        else:
+            untagged_rotated.append(entry)
+
+    # Monolith archive receives only untagged rotated entries.
+    combined = list(untagged_rotated) + list(archive_entries)
     combined_annotated = list(enumerate(combined))
     combined_annotated.sort(key=lambda pair: (-_date_key(pair[1].date), pair[0]))
 
@@ -157,6 +237,15 @@ def _sync(
         deduped_entries.append(entry)
 
     new_archive_lines = _render_archive(archive_prefix, deduped_entries)
+
+    # Merge tagged rotated entries into per-batch log files.
+    effective_batch_log_lines: dict[int, list[str]] = batch_log_lines or {}
+    batch_log_updates: dict[int, list[str]] = {}
+    for batch_num, entries in tagged_rotated.items():
+        existing = effective_batch_log_lines.get(batch_num, [])
+        batch_log_updates[batch_num] = _merge_entries_into_log(
+            existing, entries, batch_num
+        )
 
     new_session_lines: list[str] | None = None
     if session_lines is not None:
@@ -183,6 +272,7 @@ def _sync(
         rotated_count=len(rotated_entries),
         kept_non_current_count=len(non_current_kept),
         current_batch_entry_count=len(current_entries),
+        batch_log_updates=batch_log_updates,
     )
 
 

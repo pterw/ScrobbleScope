@@ -32,7 +32,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
 | Batch 12 status | **Complete**. WP-1 done, WP-2 done, WP-3 done, WP-4 done. |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/BATCH13_DEFINITION.md`. |
-| Batch 14 status | **In progress**. WP-1 done. WP-2 done. Staleness fix done (+6 tests). Definition: `BATCH14_PROPOSAL.md`. |
+| Batch 14 status | **In progress**. WP-1 done. WP-2 done. WP-3 done. Staleness fix done (+6 tests). Definition: `BATCH14_PROPOSAL.md`. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -51,11 +51,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 14.
-- Current-batch entries in active log block: 2.
-- Completed work packages in current-batch entries: WP-1, WP-2.
-- Next expected work package: WP-3.
-- Latest validated test count: **288 passed**.
-- Newest current-batch entry: 2026-02-25 - refactor(doc-sync): extract docsync package and split test monolith (Batch 14 WP-2).
+- Current-batch entries in active log block: 3.
+- Completed work packages in current-batch entries: WP-1, WP-2, WP-3.
+- Next expected work package: WP-4.
+- Latest validated test count: **294 passed**.
+- Newest current-batch entry: 2026-02-25 - feat(doc-sync): per-batch log routing and --split-archive migration (Batch 14 WP-3).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

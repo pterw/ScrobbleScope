@@ -391,8 +391,12 @@ class TestSyncIntegration:
         result = _sync(playbook, archive, session, keep_non_current=4)
         assert result.rotated_count == 1
         assert result.current_batch_entry_count == 1
+        # Tagged (Batch 10 WP-5) entry routes to per-batch log, not monolith.
+        assert 10 in result.batch_log_updates
+        batch_10_text = "\n".join(result.batch_log_updates[10])
+        assert "Batch 10 WP-5" in batch_10_text
         archive_text = "\n".join(result.archive_lines)
-        assert "Batch 10 WP-5" in archive_text
+        assert "Batch 10 WP-5" not in archive_text
         playbook_text_after = "\n".join(result.playbook_lines)
         assert "Batch 11 WP-1" in playbook_text_after
 

@@ -108,6 +108,37 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-25 - feat(doc-sync): per-batch log routing and --split-archive migration (Batch 14 WP-3)
+
+- Scope: `scripts/docsync/models.py` (SyncResult +`batch_log_updates`),
+  `scripts/docsync/logic.py` (`_merge_entries_into_log`, `_split_archive`, `_sync` routing),
+  `scripts/docsync/cli.py` (`LOGS_DIR`, `DEFINITIONS_DIR`, `_get_batch_log_path`,
+  `_check_root_batch_files`, `_read_batch_log_lines`, `--split-archive` flag, write/check
+  loop for per-batch logs), `tests/conftest.py` (`LOGS_DIR` monkeypatch + `logs/` dir),
+  `tests/test_docsync_logic.py` (1 test updated for new routing behaviour).
+- Problem: All rotated log entries went to the monolith archive regardless of batch tag.
+  Per-batch log routing (one file per batch in `docs/history/logs/`) was needed so each
+  batch's history is self-contained and searchable.  A one-time `--split-archive` command
+  was needed to migrate existing monolith entries.  Root unarchived `BATCH*.md` files
+  were not warned about during `--check`/`--fix`.
+- Plan vs implementation: Followed WP-3 spec.  `_sync` now routes tagged
+  `(Batch N ...)` rotated entries to `batch_log_updates[N]` via `_merge_entries_into_log`;
+  untagged/side-task entries continue to the monolith archive.  `--split-archive` is a
+  separate code path (not `--check`/`--fix`) to avoid breaking the pre-commit hook before
+  migration is run.  Import chain unchanged (models ← parser ← renderer ← logic ← cli).
+  `_check_root_batch_files` added to cli.py; called after `_cross_validate` in main().
+  `_write_lines` gained `path.parent.mkdir(parents=True, exist_ok=True)` to auto-create
+  `docs/history/logs/` on first write.
+- Deviations: `--check` and `--fix` changed to be verified as mutually exclusive via a
+  manual `mode_count` check (instead of argparse `add_mutually_exclusive_group`) to preserve
+  existing test `test_both_check_and_fix_returns_2` which expects `main()` to return 2
+  (not raise SystemExit).  `test_stale_entries_rotated_to_archive` updated to assert
+  entry lands in `batch_log_updates[10]` (not monolith) per new routing rules.
+- Validation: **294 passed**, all 8 pre-commit hooks passed.
+- Forward guidance: WP-3b next — run `--split-archive` to migrate the monolith, then
+  move BATCHN_DEFINITION.md files to `docs/history/definitions/`, update ARCHIVE_PATH
+  to `docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, update PLAYBOOK Section 2 links.
+
 ### 2026-02-25 - refactor(doc-sync): extract docsync package and split test monolith (Batch 14 WP-2)
 
 - Scope: `scripts/doc_state_sync.py` (thin wrapper), `scripts/docsync/` (new package:

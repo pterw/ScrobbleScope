@@ -40,3 +40,4 @@ class SyncResult:
     rotated_count: int
     kept_non_current_count: int
     current_batch_entry_count: int
+    batch_log_updates: dict[int, list[str]] = dataclasses.field(default_factory=dict)

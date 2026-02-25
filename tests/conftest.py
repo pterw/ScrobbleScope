@@ -107,8 +107,10 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         cli_module, "SESSION_CONTEXT_PATH", tmp_path / ".claude" / "SESSION_CONTEXT.md"
     )
+    monkeypatch.setattr(cli_module, "LOGS_DIR", tmp_path / "docs" / "history" / "logs")
 
     (tmp_path / "docs" / "history").mkdir(parents=True)
+    (tmp_path / "docs" / "history" / "logs").mkdir(parents=True)
     (tmp_path / ".claude").mkdir(parents=True)
 
     (tmp_path / "PLAYBOOK.md").write_text(MINIMAL_PLAYBOOK, encoding="utf-8")
