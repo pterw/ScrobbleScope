@@ -139,28 +139,8 @@ class TestCrossValidate:
         assert warnings == []
 
     def test_section4_historical_count_ignored(self):
-        """Historical counts in Section 4 should not trigger a mismatch."""
-        playbook = [
-            "# PLAYBOOK",
-            "",
-            "## 3. Active batch",
-            "",
-            "Current test count: **199 tests passing**",
-            "",
-            "## 4. Execution log",
-            "",
-            "### 2026-02-20 - Some prior commit",
-            "",
-            "Validated: **185 passed**",
-            "",
-        ]
-        session = ["# SESSION", "", "Test count: **199 tests passing**"]
-        warnings = _cross_validate(playbook, session)
-        count_warnings = [w for w in warnings if "mismatch" in w.lower()]
-        assert count_warnings == []
-
-    def test_current_entry_count_mismatch_warns(self):
-        """Count from most-recent current-batch Section 4 entry vs SESSION_CONTEXT warns."""
+        """Count from a non-current entry BELOW the DOCSYNC markers is not
+        scanned -- only entries inside CURRENT-BATCH-START/END are compared."""
         playbook = [
             "# PLAYBOOK",
             "",
@@ -172,15 +152,21 @@ class TestCrossValidate:
             "",
             "<!-- DOCSYNC:CURRENT-BATCH-START -->",
             "",
-            "### 2026-02-20 - Recent work (Batch 11 WP-1)",
+            "### 2026-02-20 - Current work (Batch 11 WP-1)",
+            "",
+            "**199 tests passing**",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+            "",
+            "### 2026-02-10 - Old side task",
             "",
             "Validated: **185 passed**",
             "",
-            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
         ]
         session = ["# SESSION", "", "Test count: **199 tests passing**"]
         warnings = _cross_validate(playbook, session)
-        assert any("mismatch" in w.lower() for w in warnings)
+        count_warnings = [w for w in warnings if "mismatch" in w.lower()]
+        assert count_warnings == []
 
     def test_archive_link_exists_no_warning(self, tmp_path, monkeypatch):
         """No warning when linked archive file exists."""
@@ -413,19 +399,17 @@ class TestSyncIntegration:
         assert "Batch 11 WP-1" in playbook_text_after
 
     def test_deduplication_across_archive(self, sync_env: Path):
-        """An entry that already exists in the archive (same fingerprint)
-        should not be duplicated on rotation."""
-        entry_text = (
-            "### 2026-02-15 - Duplicate entry (Batch 10 WP-1)\n\nSame content.\n"
-        )
+        """An untagged entry already in the monolith archive should not be
+        duplicated when the same entry is rotated from PLAYBOOK."""
+        # Entry must be UNTAGGED so it routes to untagged_rotated -> monolith dedup.
+        entry_text = "### 2026-02-15 - Duplicate side-task entry\n\nSame content.\n"
         playbook_text = dedent(
             f"""\
             # PLAYBOOK
 
             ## 3. Active batch
 
-            Batch 10 is complete.
-            Batch 11 is active.
+            Batch 11 is active. Batch 10 is complete.
 
             ## 4. Execution log
 
@@ -450,9 +434,10 @@ class TestSyncIntegration:
         archive_path.write_text(archive_text, encoding="utf-8")
         playbook, archive, session = self._files(sync_env)
         result = _sync(playbook, archive, session, keep_non_current=0)
+        # Tagged entries go to batch_log_updates -- untagged go to archive_lines.
+        assert result.batch_log_updates == {}
         archive_out = "\n".join(result.archive_lines)
-        count = archive_out.count("Duplicate entry (Batch 10 WP-1)")
-        assert count == 1
+        assert archive_out.count("Duplicate side-task entry") == 1
 
     def test_keep_non_current_zero_rotates_all(self, sync_env: Path):
         """With keep_non_current=0, all non-current entries should rotate."""

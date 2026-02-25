@@ -7,7 +7,6 @@ from pathlib import Path
 import docsync.cli as cli_mod
 import pytest
 from docsync.cli import (
-    LOGS_DIR,
     _check_root_batch_files,
     _get_batch_log_path,
     _read_lines,
@@ -220,3 +219,47 @@ class TestBatchLogHelpers:
         batch_log = logs_dir / "BATCH10_LOG.md"
         assert batch_log.exists()
         assert "Batch 10 WP-5" in batch_log.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# --split-archive mode
+# ---------------------------------------------------------------------------
+
+
+class TestSplitArchiveMode:
+    def test_split_archive_routes_tagged_entry(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """GIVEN a monolith archive with a tagged entry and an untagged entry,
+        WHEN --split-archive runs, THEN the tagged entry is moved to a per-batch
+        log and the untagged entry stays in the monolith archive."""
+        from textwrap import dedent
+
+        archive_text = dedent(
+            """\
+            # Archive
+
+            ### 2026-01-10 - Work done (Batch 5 WP-2)
+
+            Tagged content.
+
+            ### 2026-01-05 - Untagged side task
+
+            Untagged content.
+        """
+        )
+        archive_path = (
+            sync_env / "docs" / "history" / "logs" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+        )
+        archive_path.write_text(archive_text, encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--split-archive"])
+        exit_code = cli_mod.main()
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "split-archive" in captured.out.lower()
+        batch_log = sync_env / "docs" / "history" / "logs" / "BATCH5_LOG.md"
+        assert batch_log.exists()
+        assert "Batch 5 WP-2" in batch_log.read_text(encoding="utf-8")
+        archive_out = archive_path.read_text(encoding="utf-8")
+        assert "Batch 5 WP-2" not in archive_out
+        assert "Untagged side task" in archive_out
