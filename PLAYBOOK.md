@@ -108,6 +108,35 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-25 - refactor(doc-sync): extract docsync package and split test monolith (Batch 14 WP-2)
+
+- Scope: `scripts/doc_state_sync.py` (thin wrapper), `scripts/docsync/` (new package:
+  `__init__.py`, `models.py`, `parser.py`, `renderer.py`, `logic.py`, `cli.py`),
+  `tests/conftest.py` (sync_env fixture + MINIMAL_* constants added),
+  `tests/test_doc_state_sync.py` (deleted), 5 new test files
+  (`test_docsync_models.py`, `test_docsync_parser.py`, `test_docsync_renderer.py`,
+  `test_docsync_logic.py`, `test_docsync_cli.py`).
+- Problem: `scripts/doc_state_sync.py` was a 679-line monolith with no internal module
+  boundaries; `tests/test_doc_state_sync.py` was a 1149-line test monolith with 18
+  classes. Both needed structural separation before WP-3 adds new logic.
+- Plan vs implementation: Followed WP-2 deliverables exactly. Import chain (models ←
+  parser ← renderer ← logic ← cli) is acyclic. `_fingerprint` and `_normalize_block`
+  placed in `parser.py` to avoid a circular import (used in `_parse_entries` which builds
+  Entry objects, and `logic.py` imports from `parser.py`). `_sync` signature changed from
+  `_sync(keep_non_current)` to `_sync(playbook_lines, archive_lines, session_lines,
+  keep_non_current)` -- I/O responsibility moved entirely to `cli.py`. Test split:
+  models(5) + parser(24) + renderer(15) + logic(28) + cli(12) = 84. TestSyncIntegration
+  tests restructured to read files from sync_env and pass lines to logic._sync() directly.
+  Two missing-file tests (previously in TestSyncIntegration) restructured to test via
+  cli.main() and moved to TestMainArgs.
+- Deviations: BATCH14_PROPOSAL.md listed `_fingerprint` in `logic.py`; placed in
+  `parser.py` instead to break a circular import between parser and logic. No logic
+  changes; purely a placement decision. Test distribution differs slightly from proposal
+  table (~19 renderer → 15, ~30 logic → 28, ~10 cli → 12); total 84 unchanged.
+- Validation: **288 passed**, all 8 pre-commit hooks passed.
+- Forward guidance: WP-3 next -- add per-batch log routing and `--split-archive` flag
+  to `docsync/logic.py` and `docsync/cli.py`.
+
 ### 2026-02-25 - docs(history): archive and rename definition files for batches 11/12/13 (Batch 14 WP-1)
 
 - Scope: `docs/history/BATCH11_DEFINITION.md` (new), `docs/history/BATCH12_DEFINITION.md`
