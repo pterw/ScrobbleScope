@@ -6,7 +6,12 @@ from pathlib import Path
 
 import docsync.cli as cli_mod
 import pytest
-from docsync.cli import _read_lines
+from docsync.cli import (
+    LOGS_DIR,
+    _check_root_batch_files,
+    _get_batch_log_path,
+    _read_lines,
+)
 from docsync.models import SyncError
 
 # ---------------------------------------------------------------------------
@@ -143,3 +148,75 @@ class TestMissingSessionContext:
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
         cli_mod.main()
         assert not session_path.exists()
+
+
+# ---------------------------------------------------------------------------
+# _get_batch_log_path and _check_root_batch_files -- unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestBatchLogHelpers:
+    def test_get_batch_log_path_returns_correct_path(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ):
+        """GIVEN LOGS_DIR monkeypatched to tmp_path/logs, WHEN _get_batch_log_path(7) is called,
+        THEN it returns LOGS_DIR / BATCH7_LOG.md."""
+        monkeypatch.setattr(cli_mod, "LOGS_DIR", tmp_path / "logs")
+        result = _get_batch_log_path(7)
+        assert result == tmp_path / "logs" / "BATCH7_LOG.md"
+
+    def test_check_root_batch_files_warns(self, tmp_path: Path):
+        """GIVEN a BATCH14_PROPOSAL.md file in root, WHEN checked,
+        THEN a warning mentioning the file is returned."""
+        (tmp_path / "BATCH14_PROPOSAL.md").write_text("# Proposal")
+        warnings = _check_root_batch_files(tmp_path)
+        assert len(warnings) == 1
+        assert "BATCH14_PROPOSAL.md" in warnings[0]
+
+    def test_check_root_batch_files_no_warn_when_clean(self, tmp_path: Path):
+        """GIVEN no BATCH*.md files in root, WHEN checked,
+        THEN no warnings are returned."""
+        warnings = _check_root_batch_files(tmp_path)
+        assert warnings == []
+
+    def test_fix_creates_batch_log_file_for_stale_tagged_entry(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """GIVEN a PLAYBOOK with a stale Batch 10 entry inside current-batch markers,
+        WHEN --fix is run, THEN a BATCH10_LOG.md is created in LOGS_DIR."""
+        from textwrap import dedent
+
+        playbook_text = dedent(
+            """\
+            # PLAYBOOK
+
+            ## 3. Active batch
+
+            Batch 10 is complete.
+            Batch 11 is active.
+
+            ## 4. Execution log
+
+            Preamble.
+
+            <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+            ### 2026-02-18 - Old work (Batch 10 WP-5)
+
+            This is stale.
+
+            ### 2026-02-20 - Current work (Batch 11 WP-1)
+
+            **294 passed**
+
+            <!-- DOCSYNC:CURRENT-BATCH-END -->
+        """
+        )
+        (sync_env / "PLAYBOOK.md").write_text(playbook_text, encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+        exit_code = cli_mod.main()
+        assert exit_code == 0
+        logs_dir = sync_env / "docs" / "history" / "logs"
+        batch_log = logs_dir / "BATCH10_LOG.md"
+        assert batch_log.exists()
+        assert "Batch 10 WP-5" in batch_log.read_text(encoding="utf-8")

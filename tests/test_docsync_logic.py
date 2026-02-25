@@ -6,9 +6,15 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from docsync.logic import _cross_validate, _latest_test_count_from_entries, _sync
+from docsync.logic import (
+    _cross_validate,
+    _latest_test_count_from_entries,
+    _merge_entries_into_log,
+    _split_archive,
+    _sync,
+)
 from docsync.models import ActiveBatchState, Entry, SyncError
-from docsync.parser import _collect_wp_numbers
+from docsync.parser import _collect_wp_numbers, _fingerprint
 
 # ---------------------------------------------------------------------------
 # _collect_wp_numbers -- edge cases
@@ -586,3 +592,200 @@ class TestSyncIntegration:
         result = _sync(playbook, archive, session, keep_non_current=4)
         assert result.current_batch_entry_count == 1
         assert result.kept_non_current_count == 1
+
+    def test_batch_log_lines_parameter_merges_into_existing(self, sync_env: Path):
+        """GIVEN existing batch log content passed via batch_log_lines,
+        WHEN a stale tagged entry is rotated by _sync,
+        THEN the prior log content is preserved alongside the new entry."""
+        playbook_text = dedent(
+            """\
+            # PLAYBOOK
+
+            ## 3. Active batch
+
+            Batch 10 is complete.
+            Batch 11 is active.
+
+            ## 4. Execution log
+
+            Preamble.
+
+            <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+            ### 2026-02-18 - Old work (Batch 10 WP-3)
+
+            This is stale.
+
+            ### 2026-02-20 - Current work (Batch 11 WP-1)
+
+            This is current.
+
+            <!-- DOCSYNC:CURRENT-BATCH-END -->
+        """
+        )
+        (sync_env / "PLAYBOOK.md").write_text(playbook_text, encoding="utf-8")
+        playbook, archive, session = self._files(sync_env)
+        prior_log_lines = [
+            "# Batch 10 Execution Log",
+            "",
+            "### 2026-02-01 - Earlier work (Batch 10 WP-1)",
+            "",
+            "Prior content.",
+        ]
+        result = _sync(
+            playbook,
+            archive,
+            session,
+            keep_non_current=4,
+            batch_log_lines={10: prior_log_lines},
+        )
+        assert 10 in result.batch_log_updates
+        batch_10_text = "\n".join(result.batch_log_updates[10])
+        assert "Earlier work" in batch_10_text
+        assert "Old work" in batch_10_text
+
+    def test_untagged_rotated_entry_stays_in_monolith(self, sync_env: Path):
+        """GIVEN a non-current untagged entry below the current-batch markers,
+        WHEN _sync rotates it with keep_non_current=0,
+        THEN it goes to archive_lines, not batch_log_updates."""
+        playbook_text = dedent(
+            """\
+            # PLAYBOOK
+
+            ## 3. Active batch
+
+            Batch 11 is active. Batch 10 is complete.
+
+            ## 4. Execution log
+
+            Preamble.
+
+            <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+            ### 2026-02-20 - Current (Batch 11 WP-1)
+
+            Current.
+
+            <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+            ### 2026-02-10 - Untagged old entry
+
+            No batch tag here.
+        """
+        )
+        (sync_env / "PLAYBOOK.md").write_text(playbook_text, encoding="utf-8")
+        playbook, archive, session = self._files(sync_env)
+        result = _sync(playbook, archive, session, keep_non_current=0)
+        assert result.rotated_count == 1
+        assert result.batch_log_updates == {}
+        archive_text = "\n".join(result.archive_lines)
+        assert "Untagged old entry" in archive_text
+
+
+# ---------------------------------------------------------------------------
+# _merge_entries_into_log -- unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestMergeEntriesIntoLog:
+    def _make_entry(self, date: str, batch: int, wp: int, body: str) -> Entry:
+        """Build a minimal Entry with a properly computed fingerprint."""
+        heading = f"### {date} - Work done (Batch {batch} WP-{wp})"
+        lines = (heading, "", body)
+        return Entry(
+            heading=heading,
+            date=date,
+            title=f"Work done (Batch {batch} WP-{wp})",
+            lines=lines,
+            start_idx=0,
+            fingerprint=_fingerprint(lines),
+        )
+
+    def test_empty_existing_creates_header(self):
+        """GIVEN no existing log, WHEN an entry is merged,
+        THEN a batch header line is created."""
+        entry = self._make_entry("2026-01-01", 5, 1, "Some work.")
+        result = _merge_entries_into_log([], [entry], 5)
+        result_text = "\n".join(result)
+        assert "# Batch 5 Execution Log" in result_text
+        assert "Batch 5 WP-1" in result_text
+
+    def test_deduplicates_by_fingerprint(self):
+        """GIVEN an entry already in the log, WHEN merged again with same entry,
+        THEN the heading appears exactly once."""
+        entry = self._make_entry("2026-01-01", 5, 1, "Unique content.")
+        first_pass = _merge_entries_into_log([], [entry], 5)
+        result = _merge_entries_into_log(first_pass, [entry], 5)
+        result_text = "\n".join(result)
+        assert result_text.count("Batch 5 WP-1") == 1
+
+    def test_newest_entry_appears_first(self):
+        """GIVEN an older and a newer entry, WHEN merged,
+        THEN the newer date appears before the older date in the output."""
+        older = self._make_entry("2026-01-01", 5, 1, "Older work.")
+        newer = self._make_entry("2026-01-02", 5, 2, "Newer work.")
+        result = _merge_entries_into_log([], [older, newer], 5)
+        text = "\n".join(result)
+        assert text.index("2026-01-02") < text.index("2026-01-01")
+
+
+# ---------------------------------------------------------------------------
+# _split_archive -- unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestSplitArchive:
+    def test_tagged_entries_routed_by_batch(self):
+        """GIVEN archive with a Batch 10 tagged entry,
+        WHEN split, THEN the entry is in batch_groups[10] and not in remaining."""
+        monolith = [
+            "# Archive",
+            "",
+            "### 2026-01-05 - Work done (Batch 10 WP-1)",
+            "",
+            "Some content.",
+            "",
+        ]
+        remaining, batch_groups = _split_archive(monolith)
+        assert 10 in batch_groups
+        assert len(batch_groups[10]) == 1
+        remaining_text = "\n".join(remaining)
+        assert "Batch 10 WP-1" not in remaining_text
+
+    def test_untagged_entries_remain_in_monolith(self):
+        """GIVEN archive with an untagged entry,
+        WHEN split, THEN batch_groups is empty and entry stays in remaining."""
+        monolith = [
+            "# Archive",
+            "",
+            "### 2026-01-05 - Side task fix",
+            "",
+            "Some content.",
+            "",
+        ]
+        remaining, batch_groups = _split_archive(monolith)
+        assert batch_groups == {}
+        remaining_text = "\n".join(remaining)
+        assert "Side task fix" in remaining_text
+
+    def test_mixed_entries_split_correctly(self):
+        """GIVEN archive with both tagged and untagged entries,
+        WHEN split, THEN each routes to the correct destination."""
+        monolith = [
+            "# Archive",
+            "",
+            "### 2026-01-06 - Tagged work (Batch 9 WP-2)",
+            "",
+            "Tagged content.",
+            "",
+            "### 2026-01-05 - Untagged side task",
+            "",
+            "Untagged content.",
+            "",
+        ]
+        remaining, batch_groups = _split_archive(monolith)
+        assert 9 in batch_groups
+        assert len(batch_groups[9]) == 1
+        remaining_text = "\n".join(remaining)
+        assert "Untagged side task" in remaining_text
+        assert "Tagged work" not in remaining_text

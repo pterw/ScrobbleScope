@@ -26,13 +26,13 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-14-doc-hygiene` |
-| Tests | **294 passing** across 19 test files |
+| Tests | **306 passing** across 19 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
 | Batch 12 status | **Complete**. WP-1 done, WP-2 done, WP-3 done, WP-4 done. |
-| Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/BATCH13_DEFINITION.md`. |
-| Batch 14 status | **In progress**. WP-1 done. WP-2 done. WP-3 done. Staleness fix done (+6 tests). Definition: `BATCH14_PROPOSAL.md`. |
+| Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
+| Batch 14 status | **In progress**. WP-1 done. WP-2 done. WP-3 done. WP-4 done. Staleness fix done (+6 tests). Definition: `BATCH14_PROPOSAL.md`. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -51,11 +51,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 14.
-- Current-batch entries in active log block: 3.
-- Completed work packages in current-batch entries: WP-1, WP-2, WP-3.
-- Next expected work package: WP-4.
-- Latest validated test count: **294 passed**.
-- Newest current-batch entry: 2026-02-25 - feat(doc-sync): per-batch log routing and --split-archive migration (Batch 14 WP-3).
+- Current-batch entries in active log block: 4.
+- Completed work packages in current-batch entries: WP-1, WP-2, WP-3, WP-4.
+- Next expected work package: WP-5.
+- Latest validated test count: **306 passed**.
+- Newest current-batch entry: 2026-02-25 - test(doc-sync): add 12 new tests for WP-3 per-batch routing enhancements (Batch 14 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -126,13 +126,13 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (294 tests)
+## 7. Test structure (306 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
-| test_docsync_cli.py | 12 |
-| test_docsync_logic.py | 32 |
+| test_docsync_cli.py | 16 |
+| test_docsync_logic.py | 44 |
 | test_docsync_models.py | 5 |
 | test_docsync_parser.py | 24 |
 | test_docsync_renderer.py | 17 |

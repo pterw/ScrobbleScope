@@ -108,6 +108,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-25 - test(doc-sync): add 12 new tests for WP-3 per-batch routing enhancements (Batch 14 WP-4)
+
+- Scope: `tests/test_docsync_logic.py` (+8: `TestMergeEntriesIntoLog` 3 tests,
+  `TestSplitArchive` 3 tests, 2 new `TestSyncIntegration` tests for routing and
+  `batch_log_lines` parameter), `tests/test_docsync_cli.py` (+4: `TestBatchLogHelpers`
+  covering `_get_batch_log_path`, `_check_root_batch_files`, and `--fix` e2e batch log
+  creation).
+- Problem: WP-3 added `_merge_entries_into_log`, `_split_archive`, and `batch_log_lines`
+  routing logic with no direct unit tests. `_get_batch_log_path` and `_check_root_batch_files`
+  were also untested.
+- Plan vs implementation: Followed WP-4 spec exactly. 8 logic tests + 4 cli tests = 12.
+  `_fingerprint` imported from `docsync.parser` to build Entry objects with valid fingerprints
+  in `TestMergeEntriesIntoLog._make_entry`. `test_fix_creates_batch_log_file_for_stale_tagged_entry`
+  is an end-to-end test confirming `--fix` writes `BATCH10_LOG.md` when a stale tagged entry
+  rotates.
+- Deviations: None. No logic was changed; test-only changes.
+- Validation: **306 passed** (+12 vs WP-3 baseline), all 8 pre-commit hooks passed.
+- Forward guidance: WP-5 next -- update `AGENTS.md` with doc-sync architecture
+  description and explicit batch close-out procedure.
+
 ### 2026-02-25 - feat(doc-sync): per-batch log routing and --split-archive migration (Batch 14 WP-3)
 
 - Scope: `scripts/docsync/models.py` (SyncResult +`batch_log_updates`),
