@@ -9,6 +9,139 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-24 - docs(audit): BATCH13 pre-approval audit report (side-task)
+
+- Scope: `BATCH13_PROPOSAL.md`, `docs/history/BATCH13_AUDIT_2026-02-23.md`.
+- Problem: BATCH13 proposal required independent technical verification before
+  owner approval. Line references, test coverage claims, retry extraction
+  design, and convention compliance needed validation against actual codebase.
+- Fix: Completed 4-WP audit. Found 5 discrepancies: `_apply_pre_slice` line
+  start off by 2 (L664 -> L666), `_JOB_SEMAPHORE` variable name incorrect
+  (actual: `_active_jobs_semaphore`), batch retry missing jitter declaration,
+  batch backoff incorrectly stated as fixed 1.0 (actual: `2**attempt`
+  exponential). Applied all corrections to the proposal. Created audit report.
+- Validation: **260 tests passing**, pre-commit all 8 hooks passed. No source
+  code changes -- audit only.
+
+### 2026-02-24 - refactor(retry): DRY async retry loop into retry_with_semaphore (Batch 13 WP-5)
+
+- Scope: `scrobblescope/utils.py`, `scrobblescope/lastfm.py`, `scrobblescope/spotify.py`,
+  `tests/test_retry_with_semaphore.py` (new).
+- Problem: Three nearly-identical retry loops (lastfm `fetch_once`, spotify
+  `search_once`, spotify batch `fetch_once`) duplicated semaphore gating,
+  retry-after handling, backoff sleep, and exhaustion logging.
+- Fix: Extracted `retry_with_semaphore()` to `utils.py` with parameterized
+  `is_done`, `get_retry_after`, `extract_result`, `backoff`, `jitter`, and
+  `reraise`. Refactored all three call sites. Added 7 adversarial tests.
+- Validation: **287 tests passing** (280 + 7 new), pre-commit all 8 hooks passed.
+
+### 2026-02-24 - refactor(tests): split test_orchestrator_service.py into four files (Batch 13 WP-4)
+
+- Scope: `tests/services/test_orchestrator_service.py` (deleted),
+  `tests/services/test_orchestrator_process_albums.py` (new, 7 tests),
+  `tests/services/test_orchestrator_fetch_spotify.py` (new, 8 tests),
+  `tests/services/test_orchestrator_fetch_and_process.py` (new, 10 tests),
+  `tests/services/test_orchestrator_helpers.py` (new, 18 tests).
+- Problem: Monolith test file (1523 lines, 43 pytest cases) mixed concerns
+  across process_albums, fetch_spotify_misses, fetch_and_process, background_task,
+  and pure helpers. Slow to navigate and find related tests.
+- Fix: Split into four focused files by SUT function group. Verified each file
+  in isolation, confirmed full suite count identical (280) before and after
+  deleting original.
+- Validation: **280 tests passing**, pre-commit all 8 hooks passed.
+
+### 2026-02-24 - refactor(orchestrator): extract five helpers from _fetch_and_process (Batch 13 WP-3)
+
+- Scope: `scrobblescope/orchestrator.py`, `tests/services/test_orchestrator_service.py`.
+- Fix: Extracted `_record_lastfm_stats`, `_apply_pre_slice`,
+  `_detect_spotify_total_failure`, `_apply_post_slice`, and
+  `_classify_exception_to_error_code` from `_fetch_and_process()`. Coordinator
+  reduced from ~230 to ~80 lines. Added 11 adversarial tests. All existing tests
+  pass without modification.
+- Validation: **280 tests passing** (269 + 11 new), pre-commit all 8 hooks passed.
+
+### 2026-02-24 - refactor(orchestrator): extract search/batch-detail phases (Batch 13 WP-2)
+
+- Scope: `scrobblescope/orchestrator.py`, `tests/services/test_orchestrator_service.py`.
+- Fix: Extracted `_run_spotify_search_phase` and `_run_spotify_batch_detail_phase`
+  from `_fetch_spotify_misses()`. Coordinator reduced from ~196 to ~25 lines.
+  Added 3 adversarial tests. All existing tests pass without modification.
+- Validation: **269 tests passing** (266 + 3 new), pre-commit all 8 hooks passed.
+
+### 2026-02-24 - test(worker): add 6 direct unit tests for worker.py (Batch 13 WP-1)
+
+- Scope: `tests/test_worker.py` (new).
+- Problem: `worker.py` (43 lines, 3 functions) had no dedicated test file.
+  Coverage was indirect only via orchestrator integration tests. Three distinct
+  failure paths were untested: semaphore exhaustion, double-release warning,
+  and thread construction failure slot release.
+- Fix: Created `tests/test_worker.py` with 6 tests using `unittest.mock.patch`
+  to replace `_active_jobs_semaphore` with isolated `BoundedSemaphore` instances.
+  Tests cover: acquire success, acquire at capacity, release restores capacity,
+  double-release warning via `caplog`, daemon thread creation, and slot release
+  on thread construction failure.
+- Validation: **266 tests passing** (260 + 6 new), pre-commit all 8 hooks passed.
+
+### 2026-02-23 - chore(merge): integrate main into wip/pc-snapshot (side-task)
+
+- Scope: `scripts/doc_state_sync.py`, `tests/test_doc_state_sync.py` (merge
+  resolution only -- no net change from branch perspective).
+- Problem: `main` had one commit ahead (`05c7b19`) that was already
+  cherry-picked into `wip/pc-snapshot` as part of `4e4c9a1`. The branch
+  needed to formally integrate `main` before PR #36 could merge cleanly.
+- Fix: `git merge origin/main --no-edit`; ort strategy resolved cleanly
+  (identical content on both sides for the two touched files). Merge commit
+  `d98c90b` amended to conventional format.
+- Validation: **260 tests passing**, pre-commit all 8 hooks passed.
+
+### 2026-02-23 - fix/docs: cherry-pick SESSION_CONTEXT optional + DEVELOPMENT.md (side-task)
+
+- Scope: `scripts/doc_state_sync.py`, `tests/test_doc_state_sync.py`,
+  `DEVELOPMENT.md`, `docs/history/SESSION_CONTEXT_REFERENCE.md`, `README.md`.
+- Problem: (1) CI failed on `main` when `.claude/SESSION_CONTEXT.md` was
+  absent (gitignored). The script called `_read_lines()` unconditionally,
+  raising `SyncError`. (2) No documentation existed for the multi-agent
+  orchestration methodology implemented during this sprint.
+- Fix:
+  (1) Cherry-picked commit `05c7b19` from `main`: added `_read_lines_optional()`
+  returning `None` when the file is absent; gated all SESSION_CONTEXT
+  operations in `_sync()`, `_cross_validate()`, and `main()` behind
+  presence check; `SyncResult.session_lines` typed as `list[str] | None`;\
+  renamed `test_missing_session_context_raises` to `_succeeds`; added
+  `TestMissingSessionContext` class (3 regression tests).
+  (2) Created `DEVELOPMENT.md` explaining the orchestration architecture,
+  why `doc_state_sync.py` is a deterministic script, the batch/WP SDLC
+  mapping, review-rejection rationale, and what failed before the current
+  system stabilized. Created `docs/history/SESSION_CONTEXT_REFERENCE.md`
+  as a tracked reference snapshot of the gitignored live file. Linked
+  both from `README.md` (new "Development Methodology" section in ToC).
+- Validation: **260 tests passing** (3 new from cherry-pick),
+  pre-commit all 8 hooks passed.
+
+### 2026-02-23 - chore/docs: repo hygiene and README rewrite (side-task)
+
+- Scope: root directory, `.gitignore`, `README.md`, `.claude/`.
+- Problem: (1) Root directory cluttered with completed batch definitions
+  (`BATCH12_PROPOSAL.md`, `BATCH8_REFACTOR_PLAN.md`) and an obsolete
+  playbook compatibility shim (`EXECUTION_PLAYBOOK_2026-02-11.md`).
+  (2) `.claude/` tracked in git (agent-local state, stale `BATCH3_CONTEXT.md`,
+  machine-specific `settings.local.json`). (3) `README.md` outdated --
+  "work in progress" status badge, 30+ completed checkbox items, missing
+  Architecture/Deployment sections, stale Tech Stack section.
+- Fix:
+  (1) `git mv` both batch definitions to `docs/history/`. `git rm`
+  the playbook shim. Deleted untracked stale files (`backup.py`,
+  `Backup_batch`, empty `app/` directory).
+  (2) Added `.claude/` to `.gitignore`, `git rm --cached` all 3 tracked files,
+  deleted stale `BATCH3_CONTEXT.md` locally.
+  (3) Comprehensive README rewrite: active status badge + test count badge,
+  new Architecture section with pipeline diagram + design decisions, Tech
+  Stack table, Deployment section with Fly.io commands + smoke test,
+  condensed Roadmap (upcoming + recent completions only), accurate Project
+  Structure tree with per-file annotations and test counts, Running Tests
+  section, trimmed Contributing/License/Acknowledgements.
+- Validation: **257 tests passing**, pre-commit all 8 hooks passed.
+
 ### 2026-02-23 - Post-Batch 12 audit improvements (side-task, 5 commits)
 
 **Scope:** Comprehensive audit of Batch 12 implementation identified 5

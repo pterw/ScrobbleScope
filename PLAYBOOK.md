@@ -39,6 +39,9 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 8 | Modular refactor (app factory + blueprints) | `docs/history/BATCH8_DEFINITION.md` |
 | 9 | Audit remediation (WP-1 through WP-8) | `docs/history/BATCH9_DEFINITION.md` |
 | 10 | Gemini audit remediation (WP-1 through WP-9) | `docs/history/BATCH10_DEFINITION_2026-02-21.md` |
+| 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | (inline -- Section 3) |
+| 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/BATCH12_PROPOSAL.md` |
+| 13 | Internal decomposition and coverage hardening | `BATCH13_PROPOSAL.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -50,49 +53,40 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Batch 10 is complete.** Definition: `docs/history/BATCH10_DEFINITION_2026-02-21.md`.
-- **Batch 11 is complete.** Definition was inline (Gemini 3.1 Pro Priority 2
-  audit remediation -- SoC, DRY, and architectural findings).
-  - WP-1 (Low): CSS/JS theme consolidation. Done. (Created `global.css` +
-    `theme.js`; stripped ~250 lines of duplicate CSS from 5 per-page files;
-    removed dark-mode toggle JS from 5 JS files; fixed html2canvas mobile
-    export; added back-to-top button on results page. 121 tests passing.)
-  - WP-2 (Medium): Decompose `process_albums` in `orchestrator.py`. Done.
-    (Extracted 2 closures to module-level pure functions, extracted
-    `_fetch_spotify_misses` and `_build_results` helpers, added 8
-    adversarial test cases. 210 tests passing.)
-  - WP-3 (Low): CSS/JS DRY violations, toggle markup bug, and UX polish.
-    Done. (Promoted `--info-bg` to `global.css`, removing split `:root`/
-    `.dark-mode` blocks from `results.css` and hard-coded rgba from
-    `loading.css`; moved duplicate modal dark-mode block from `index.css`
-    and `results.css` to `global.css`; stripped Bootstrap `form-check
-    form-switch` classes from toggle markup that conflicted with custom CSS
-    via Bootstrap's injected SVG background-image knob; added `text-align:
-    center` to loading-page `.step-text`/`.step-details`; removed redundant
-    mobile release-date shortening JS from `results.js`; `var`->`const` for
-    `darkSwitch`/`backToTop` in `theme.js`; dark-mode toggle track changed
-    from `var(--bars-color)` to `var(--bg-color)` when checked. 121 tests
-    passing.)
-- **Batch 12 is complete.** Definition: `docs/history/BATCH12_PROPOSAL.md`.
-  Polish and observability: CSS variable enforcement, responsive data
-  formatting + export parity, backend SoC extraction, granular progress
-  pipeline. 4 WPs. All done.
-  - WP-1 (P0): Semantic CSS Variable Enforcement. Done.
-  - WP-2 (P1): Responsive Data Formatting & Export Parity. Done.
-  - WP-3 (P1): Backend SoC Extraction. Done.
-  - WP-4 (P2): Granular Backend Progress Pipeline. Done.
-- **Post-Batch 12 audit improvements** (side-task, 5 commits): Added
-  test coverage for untested functions and added granular Spotify search
-  progress feedback. 228 -> 257 tests passing.
-- **SESSION_CONTEXT optional + DEVELOPMENT.md** (side-task): Cherry-picked
-  `05c7b19` from `main`; added 3 `TestMissingSessionContext` regression tests;
-  created `DEVELOPMENT.md` and `docs/history/SESSION_CONTEXT_REFERENCE.md`.
-  257 -> **260 tests passing**.
+- **Batches 10-12 are complete.** See Section 2 table for definitions.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days
     (Last.fm-only, lighter background task).
+- **Batch 13 is complete.** All 5 WPs done. Definition: `BATCH13_PROPOSAL.md`.
+  - WP-1: 6 worker.py tests. WP-2: search/batch-detail extraction. WP-3: 5
+    _fetch_and_process helpers. WP-4: test file split (4 files). WP-5: DRY
+    retry_with_semaphore utility.
+  - **Post-batch note:** orchestrator.py (906 lines, 14 functions) is now
+    modularization-ready but splitting into sub-modules is premature. The file
+    has clean internal seams; splitting would add inter-module import complexity
+    without reducing cognitive load. Revisit when a new feature (top songs,
+    heatmap) adds a second pipeline and the file actually needs the room.
+- **Side-task (doc hygiene):** The doc archival system has accumulated
+  inconsistencies that should be addressed before the next batch:
+  1. **Batch definitions not archived:** `BATCH13_PROPOSAL.md` is in the repo
+     root instead of `docs/history/`. Batch 11 has no definition file at all
+     (marked "inline -- Section 3"). Completed batch definitions should be
+     moved to `docs/history/` as `BATCHN_DEFINITION.md` (or `_PROPOSAL.md`) and
+     linked in the Section 2 table.
+  2. **Monolith execution log archive:** `PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+     is 1200+ lines of interleaved log entries from all batches. Should be
+     split into per-batch files (e.g., `BATCH13_LOG.md`) so each
+     batch's history is self-contained and searchable.
+  3. **`doc_state_sync.py` enhancements needed:** The script currently rotates
+     log entries into the single archive file. It needs: (a) batch-definition
+     archival (move root `BATCHN_*.md` to `docs/history/` on batch close),
+     (b) per-batch log splitting instead of appending to the monolith archive,
+     (c) Section 2 table link validation for all completed batches.
+  4. **`AGENTS.md` update needed:** Add explicit rules for batch close-out:
+     definition file must be in `docs/history/`, Section 2 table must link it,
+     and log entries route to per-batch log files.
 - Do not start feature work (top songs, heatmap) until owner defines scope
   and assigns a batch number.
 
@@ -116,62 +110,46 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-02-23 - chore(merge): integrate main into wip/pc-snapshot (side-task)
+### 2026-02-25 - test(worker): assert daemon=True via Thread patch, expand docstrings (side-task)
 
-- Scope: `scripts/doc_state_sync.py`, `tests/test_doc_state_sync.py` (merge
-  resolution only -- no net change from branch perspective).
-- Problem: `main` had one commit ahead (`05c7b19`) that was already
-  cherry-picked into `wip/pc-snapshot` as part of `4e4c9a1`. The branch
-  needed to formally integrate `main` before PR #36 could merge cleanly.
-- Fix: `git merge origin/main --no-edit`; ort strategy resolved cleanly
-  (identical content on both sides for the two touched files). Merge commit
-  `d98c90b` amended to conventional format.
-- Validation: **260 tests passing**, pre-commit all 8 hooks passed.
+- Scope: `tests/test_worker.py`.
+- Problem: `test_start_job_thread_creates_daemon_thread` only asserted the target
+  was called; it never verified `threading.Thread` was constructed with `daemon=True`,
+  despite the test name and docstring claiming otherwise. Tests 1–4 had minimal
+  single-line docstrings inconsistent with the GIVEN/WHEN/THEN standard.
+- Fix: Introduced `DummyThread` class, patched at `scrobblescope.worker.threading.Thread`;
+  asserts `daemon=True` and target invocation. Dropped `*args` from `DummyThread.__init__`
+  (Pylance hint; Thread is called with keyword args only). Expanded tests 1–4 docstrings
+  to GIVEN/WHEN/THEN inline format.
+- Validation: 288 passed, all 8 pre-commit hooks passed.
 
-### 2026-02-23 - fix/docs: cherry-pick SESSION_CONTEXT optional + DEVELOPMENT.md (side-task)
+### 2026-02-25 - test(retry): use public semaphore API in semaphore-gates test (side-task)
 
-- Scope: `scripts/doc_state_sync.py`, `tests/test_doc_state_sync.py`,
-  `DEVELOPMENT.md`, `docs/history/SESSION_CONTEXT_REFERENCE.md`, `README.md`.
-- Problem: (1) CI failed on `main` when `.claude/SESSION_CONTEXT.md` was
-  absent (gitignored). The script called `_read_lines()` unconditionally,
-  raising `SyncError`. (2) No documentation existed for the multi-agent
-  orchestration methodology implemented during this sprint.
-- Fix:
-  (1) Cherry-picked commit `05c7b19` from `main`: added `_read_lines_optional()`
-  returning `None` when the file is absent; gated all SESSION_CONTEXT
-  operations in `_sync()`, `_cross_validate()`, and `main()` behind
-  presence check; `SyncResult.session_lines` typed as `list[str] | None`;\
-  renamed `test_missing_session_context_raises` to `_succeeds`; added
-  `TestMissingSessionContext` class (3 regression tests).
-  (2) Created `DEVELOPMENT.md` explaining the orchestration architecture,
-  why `doc_state_sync.py` is a deterministic script, the batch/WP SDLC
-  mapping, review-rejection rationale, and what failed before the current
-  system stabilized. Created `docs/history/SESSION_CONTEXT_REFERENCE.md`
-  as a tracked reference snapshot of the gitignored live file. Linked
-  both from `README.md` (new "Development Methodology" section in ToC).
-- Validation: **260 tests passing** (3 new from cherry-pick),
-  pre-commit all 8 hooks passed.
+- Scope: `tests/test_retry_with_semaphore.py`.
+- Problem: Reviewer flagged `sem._value == 0` as a private implementation detail
+  of `asyncio.Semaphore`, suppressed with `# noqa: SLF001`, making the assertion
+  brittle across Python versions.
+- Fix: Replaced with `sem.locked()`, the public equivalent (stable since Python 3.4).
+  Updated comment; noqa suppression removed. Confirmed only occurrence in suite.
+- Validation: 288 passed, all 8 pre-commit hooks passed.
 
-### 2026-02-23 - chore/docs: repo hygiene and README rewrite (side-task)
+### 2026-02-25 - fix(utils): support constant backoff value in retry_with_semaphore (side-task)
 
-- Scope: root directory, `.gitignore`, `README.md`, `.claude/`.
-- Problem: (1) Root directory cluttered with completed batch definitions
-  (`BATCH12_PROPOSAL.md`, `BATCH8_REFACTOR_PLAN.md`) and an obsolete
-  playbook compatibility shim (`EXECUTION_PLAYBOOK_2026-02-11.md`).
-  (2) `.claude/` tracked in git (agent-local state, stale `BATCH3_CONTEXT.md`,
-  machine-specific `settings.local.json`). (3) `README.md` outdated --
-  "work in progress" status badge, 30+ completed checkbox items, missing
-  Architecture/Deployment sections, stale Tech Stack section.
-- Fix:
-  (1) `git mv` both batch definitions to `docs/history/`. `git rm`
-  the playbook shim. Deleted untracked stale files (`backup.py`,
-  `Backup_batch`, empty `app/` directory).
-  (2) Added `.claude/` to `.gitignore`, `git rm --cached` all 3 tracked files,
-  deleted stale `BATCH3_CONTEXT.md` locally.
-  (3) Comprehensive README rewrite: active status badge + test count badge,
-  new Architecture section with pipeline diagram + design decisions, Tech
-  Stack table, Deployment section with Fly.io commands + smoke test,
-  condensed Roadmap (upcoming + recent completions only), accurate Project
-  Structure tree with per-file annotations and test counts, Running Tests
-  section, trimmed Contributing/License/Acknowledgements.
-- Validation: **257 tests passing**, pre-commit all 8 hooks passed.
+- Scope: `scrobblescope/utils.py`, `scrobblescope/spotify.py`,
+  `tests/test_retry_with_semaphore.py`.
+- Problem: Reviewer 1 flagged that `backoff` only accepted a callable, requiring
+  `backoff=lambda _a: 1` for constant delays. Updating call sites to use a plain
+  float was not possible without a utility change.
+- Fix: Added `callable(backoff)` guard at line 341 of `utils.py`; updated docstring
+  type annotation. Simplified `spotify.py` search call site to `backoff=1`. Added
+  `test_constant_float_backoff_accepted` to `test_retry_with_semaphore.py`.
+- Validation: 288 passed (+1 vs Batch 13 baseline), all 8 pre-commit hooks passed.
+
+### 2026-02-25 - test(orchestrator): use standard asyncio import in fetch_spotify tests (side-task)
+
+- Scope: `tests/services/test_orchestrator_fetch_spotify.py`.
+- Problem: Reviewer 2 flagged two `__import__("asyncio").Semaphore(5)` usages
+  bypassing Pylance type resolution; root cause was missing top-level `import asyncio`.
+- Fix: Added `import asyncio` to stdlib imports block; replaced both
+  `__import__("asyncio").Semaphore(5)` occurrences with `asyncio.Semaphore(5)`.
+- Validation: 288 passed, all 8 pre-commit hooks passed.

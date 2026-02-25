@@ -189,6 +189,197 @@ def _get_user_friendly_reason(
         return f"Unknown release year: {release_date}"
 
 
+async def _run_spotify_search_phase(
+    job_id,
+    session,
+    cache_misses,
+    token,
+    search_semaphore,
+):
+    """Parallel Spotify search for all cache misses.
+
+    Reports progress in the 20-40% range. Registers unmatched albums via
+    add_job_unmatched. Returns (spotify_id_to_key, spotify_id_to_original_data).
+    """
+    logging.info(
+        f"Starting parallel search for {len(cache_misses)} "
+        f"Spotify albums (max {SPOTIFY_SEARCH_CONCURRENCY} "
+        f"concurrent, {SPOTIFY_REQUESTS_PER_SECOND} req/s limit)"
+    )
+    search_start_time = time.time()
+
+    async def search_with_semaphore(key, data):
+        artist, album = key
+        spotify_id = await search_for_spotify_album_id(
+            session,
+            artist,
+            album,
+            token,
+            semaphore=search_semaphore,
+        )
+        return key, spotify_id, data
+
+    search_tasks = [
+        search_with_semaphore(key, data) for key, data in cache_misses.items()
+    ]
+
+    search_results = []
+    searches_done = 0
+    total_searches = len(search_tasks)
+    for fut in asyncio.as_completed(search_tasks):
+        result = await fut
+        search_results.append(result)
+        searches_done += 1
+        # Map search progress into the 20%-40% range
+        pct = 20 + int(20 * searches_done / max(total_searches, 1))
+        set_job_progress(
+            job_id,
+            progress=pct,
+            message=(
+                f"Searching Spotify: {searches_done}/" f"{total_searches} albums..."
+            ),
+        )
+
+    spotify_id_to_key = {}
+    spotify_id_to_original_data = {}
+    for key, spotify_id, data in search_results:
+        if spotify_id:
+            spotify_id_to_key[spotify_id] = key
+            spotify_id_to_original_data[spotify_id] = data
+        else:
+            original_artist = data["original_artist"]
+            original_album = data["original_album"]
+            unmatched_key = "|".join(normalize_name(original_artist, original_album))
+            add_job_unmatched(
+                job_id,
+                unmatched_key,
+                {
+                    "artist": original_artist,
+                    "album": original_album,
+                    "reason": "No Spotify match",
+                },
+            )
+
+    search_duration = time.time() - search_start_time
+    logging.info(
+        f"Spotify search completed in {search_duration:.1f}s: "
+        f"{len(spotify_id_to_key)}/{len(cache_misses)} "
+        f"misses found on Spotify"
+    )
+
+    return spotify_id_to_key, spotify_id_to_original_data
+
+
+async def _run_spotify_batch_detail_phase(
+    job_id,
+    session,
+    valid_spotify_ids,
+    token,
+    spotify_id_to_key,
+    spotify_id_to_original_data,
+    cache_hits,
+):
+    """Batch-fetch Spotify album details for all found IDs.
+
+    Reports progress in the 40-60% range. Promotes enriched albums into
+    cache_hits (mutated in place). Returns new_metadata_rows.
+    """
+    new_metadata_rows = []
+    batch_size = 20
+    num_batches = ceil(len(valid_spotify_ids) / batch_size)
+    logging.info(
+        f"Fetching album details for "
+        f"{len(valid_spotify_ids)} albums "
+        f"in {num_batches} parallel batches "
+        f"(batch size: {batch_size})"
+    )
+    batch_start_time = time.time()
+
+    batch_groups = [
+        valid_spotify_ids[i : i + batch_size]
+        for i in range(0, len(valid_spotify_ids), batch_size)
+    ]
+    batch_semaphore = asyncio.Semaphore(SPOTIFY_BATCH_CONCURRENCY)
+
+    async def fetch_batch_with_semaphore(batch_ids):
+        return await fetch_spotify_album_details_batch(
+            session,
+            batch_ids,
+            token,
+            semaphore=batch_semaphore,
+        )
+
+    batch_tasks = [fetch_batch_with_semaphore(batch) for batch in batch_groups]
+
+    all_album_details = {}
+    batches_done = 0
+    for fut in asyncio.as_completed(batch_tasks):
+        batch_result = await fut
+        all_album_details.update(batch_result)
+        batches_done += 1
+        # Map batch progress into the 40%-60% range
+        pct = 40 + int(20 * batches_done / max(num_batches, 1))
+        enriched_so_far = len(all_album_details)
+        set_job_progress(
+            job_id,
+            progress=pct,
+            message=(
+                f"Enriched {enriched_so_far}/"
+                f"{len(valid_spotify_ids)} albums from Spotify..."
+            ),
+        )
+
+    batch_duration = time.time() - batch_start_time
+    logging.info(
+        f"Album details fetch completed in "
+        f"{batch_duration:.1f}s: Got details for "
+        f"{len(all_album_details)} albums"
+    )
+
+    # Extract cacheable fields, promote to cache_hits
+    for spotify_id, album_details in all_album_details.items():
+        if not album_details:
+            continue
+        original_data = spotify_id_to_original_data.get(spotify_id)
+        if not original_data:
+            continue
+        key = spotify_id_to_key[spotify_id]
+
+        release_date = album_details.get("release_date", "")
+        album_image_url = (
+            album_details.get("images", [{}])[0].get("url")
+            if album_details.get("images")
+            else None
+        )
+        track_durations = {
+            normalize_track_name(t.get("name", "")): t.get("duration_ms", 0) // 1000
+            for t in album_details.get("tracks", {}).get("items", [])
+        }
+
+        cache_hits[key] = {
+            "cached": {
+                "spotify_id": spotify_id,
+                "release_date": release_date,
+                "album_image_url": album_image_url,
+                "track_durations": track_durations,
+            },
+            "original": original_data,
+        }
+
+        new_metadata_rows.append(
+            (
+                key[0],
+                key[1],
+                spotify_id,
+                release_date,
+                album_image_url,
+                track_durations,
+            )
+        )
+
+    return new_metadata_rows
+
+
 async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     """Fetch Spotify metadata for cache misses via search + batch detail.
 
@@ -219,171 +410,22 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     new_metadata_rows = []
     async with create_optimized_session() as session:
         search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
-
-        logging.info(
-            f"Starting parallel search for {len(cache_misses)} "
-            f"Spotify albums (max {SPOTIFY_SEARCH_CONCURRENCY} "
-            f"concurrent, {SPOTIFY_REQUESTS_PER_SECOND} req/s limit)"
+        spotify_id_to_key, spotify_id_to_original_data = (
+            await _run_spotify_search_phase(
+                job_id, session, cache_misses, token, search_semaphore
+            )
         )
-        search_start_time = time.time()
-
-        async def search_with_semaphore(key, data):
-            artist, album = key
-            spotify_id = await search_for_spotify_album_id(
-                session,
-                artist,
-                album,
-                token,
-                semaphore=search_semaphore,
-            )
-            return key, spotify_id, data
-
-        search_tasks = [
-            search_with_semaphore(key, data) for key, data in cache_misses.items()
-        ]
-
-        search_results = []
-        searches_done = 0
-        total_searches = len(search_tasks)
-        for fut in asyncio.as_completed(search_tasks):
-            result = await fut
-            search_results.append(result)
-            searches_done += 1
-            # Map search progress into the 20%-40% range
-            pct = 20 + int(20 * searches_done / max(total_searches, 1))
-            set_job_progress(
-                job_id,
-                progress=pct,
-                message=(
-                    f"Searching Spotify: {searches_done}/" f"{total_searches} albums..."
-                ),
-            )
-
-        spotify_id_to_key = {}
-        spotify_id_to_original_data = {}
-        for key, spotify_id, data in search_results:
-            if spotify_id:
-                spotify_id_to_key[spotify_id] = key
-                spotify_id_to_original_data[spotify_id] = data
-            else:
-                original_artist = data["original_artist"]
-                original_album = data["original_album"]
-                unmatched_key = "|".join(
-                    normalize_name(original_artist, original_album)
-                )
-                add_job_unmatched(
-                    job_id,
-                    unmatched_key,
-                    {
-                        "artist": original_artist,
-                        "album": original_album,
-                        "reason": "No Spotify match",
-                    },
-                )
-
         valid_spotify_ids = list(spotify_id_to_original_data.keys())
-        search_duration = time.time() - search_start_time
-        logging.info(
-            f"Spotify search completed in {search_duration:.1f}s: "
-            f"{len(valid_spotify_ids)}/{len(cache_misses)} "
-            f"misses found on Spotify"
-        )
-
-        # Batch detail fetch
         if valid_spotify_ids:
-            batch_size = 20
-            num_batches = ceil(len(valid_spotify_ids) / batch_size)
-            logging.info(
-                f"Fetching album details for "
-                f"{len(valid_spotify_ids)} albums "
-                f"in {num_batches} parallel batches "
-                f"(batch size: {batch_size})"
+            new_metadata_rows = await _run_spotify_batch_detail_phase(
+                job_id,
+                session,
+                valid_spotify_ids,
+                token,
+                spotify_id_to_key,
+                spotify_id_to_original_data,
+                cache_hits,
             )
-            batch_start_time = time.time()
-
-            batch_groups = [
-                valid_spotify_ids[i : i + batch_size]
-                for i in range(0, len(valid_spotify_ids), batch_size)
-            ]
-            batch_semaphore = asyncio.Semaphore(SPOTIFY_BATCH_CONCURRENCY)
-
-            async def fetch_batch_with_semaphore(batch_ids):
-                return await fetch_spotify_album_details_batch(
-                    session,
-                    batch_ids,
-                    token,
-                    semaphore=batch_semaphore,
-                )
-
-            batch_tasks = [fetch_batch_with_semaphore(batch) for batch in batch_groups]
-
-            all_album_details = {}
-            batches_done = 0
-            for fut in asyncio.as_completed(batch_tasks):
-                batch_result = await fut
-                all_album_details.update(batch_result)
-                batches_done += 1
-                # Map batch progress into the 40%-60% range
-                pct = 40 + int(20 * batches_done / max(num_batches, 1))
-                enriched_so_far = len(all_album_details)
-                set_job_progress(
-                    job_id,
-                    progress=pct,
-                    message=(
-                        f"Enriched {enriched_so_far}/"
-                        f"{len(valid_spotify_ids)} albums from Spotify..."
-                    ),
-                )
-
-            batch_duration = time.time() - batch_start_time
-            logging.info(
-                f"Album details fetch completed in "
-                f"{batch_duration:.1f}s: Got details for "
-                f"{len(all_album_details)} albums"
-            )
-
-            # Extract cacheable fields, promote to cache_hits
-            for spotify_id, album_details in all_album_details.items():
-                if not album_details:
-                    continue
-                original_data = spotify_id_to_original_data.get(spotify_id)
-                if not original_data:
-                    continue
-                key = spotify_id_to_key[spotify_id]
-
-                release_date = album_details.get("release_date", "")
-                album_image_url = (
-                    album_details.get("images", [{}])[0].get("url")
-                    if album_details.get("images")
-                    else None
-                )
-                track_durations = {
-                    normalize_track_name(t.get("name", "")): t.get("duration_ms", 0)
-                    // 1000
-                    for t in album_details.get("tracks", {}).get("items", [])
-                }
-
-                cache_hits[key] = {
-                    "cached": {
-                        "spotify_id": spotify_id,
-                        "release_date": release_date,
-                        "album_image_url": album_image_url,
-                        "track_durations": track_durations,
-                    },
-                    "original": original_data,
-                }
-
-                new_metadata_rows.append(
-                    (
-                        key[0],
-                        key[1],
-                        spotify_id,
-                        release_date,
-                        album_image_url,
-                        track_durations,
-                    )
-                )
-
     return new_metadata_rows
 
 
@@ -576,6 +618,103 @@ async def process_albums(
     )
 
 
+def _record_lastfm_stats(job_id, fetch_metadata):
+    """Write Last.fm aggregation stats and partial-data warning into the job."""
+    lastfm_stats = fetch_metadata.get("stats")
+    if isinstance(lastfm_stats, dict):
+        for stat_key, stat_val in lastfm_stats.items():
+            set_job_stat(job_id, stat_key, stat_val)
+    partial_warning = fetch_metadata.get("partial_data_warning")
+    if partial_warning:
+        set_job_stat(job_id, "partial_data_warning", partial_warning)
+        set_job_stat(job_id, "pages_dropped", fetch_metadata.get("pages_dropped", 0))
+
+
+def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
+    """Apply pre-Spotify pre-slicing and playtime cap.
+
+    Playcount pre-slice: only when sort_mode='playcount', release_scope='all',
+    and limit_results is a valid integer. Playtime cap: fires at
+    _PLAYTIME_ALBUM_CAP when sort_mode='playtime'. Returns the (possibly
+    reduced) dict.
+    """
+    if sort_mode == "playcount" and limit_results != "all" and release_scope == "all":
+        try:
+            limit = int(limit_results)
+            if len(filtered_albums) > limit:
+                sorted_items = sorted(
+                    filtered_albums.items(),
+                    key=lambda kv: cast(int, kv[1]["play_count"]),
+                    reverse=True,
+                )
+                filtered_albums = dict(sorted_items[:limit])
+                logging.info(f"Pre-sliced filtered_albums to top {limit} by play_count")
+        except ValueError:
+            pass  # malformed limit_results handled by the post-process slice
+
+    if sort_mode == "playtime" and len(filtered_albums) > _PLAYTIME_ALBUM_CAP:
+        sorted_items = sorted(
+            filtered_albums.items(),
+            key=lambda kv: cast(int, kv[1]["play_count"]),
+            reverse=True,
+        )
+        filtered_albums = dict(sorted_items[:_PLAYTIME_ALBUM_CAP])
+        logging.warning(
+            f"Playtime album cap applied: capped {len(sorted_items)} albums "
+            f"to top {_PLAYTIME_ALBUM_CAP} by play_count before Spotify fetch"
+        )
+
+    return filtered_albums
+
+
+def _detect_spotify_total_failure(job_id, results, filtered_albums):
+    """Return True and set job error if all filtered albums had no Spotify match.
+
+    Only fires when results is empty but filtered_albums is non-empty.
+    Reads job unmatched state to count 'No Spotify match' entries.
+    """
+    if not results and filtered_albums:
+        job_ctx = get_job_context(job_id)
+        unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
+        spotify_no_match = sum(
+            1 for v in unmatched.values() if v.get("reason") == "No Spotify match"
+        )
+        if spotify_no_match == len(filtered_albums):
+            set_job_error(job_id, "spotify_unavailable")
+            return True
+    return False
+
+
+def _apply_post_slice(results, limit_results):
+    """Truncate results to limit_results if it is a valid integer."""
+    if limit_results != "all":
+        try:
+            limit = int(limit_results)
+            if len(results) > limit:
+                results = results[:limit]
+                logging.info(f"Limited results to top {limit} albums")
+        except ValueError:
+            logging.warning(
+                f"Invalid limit_results value: {limit_results}, showing all results"
+            )
+    return results
+
+
+def _classify_exception_to_error_code(error_message):
+    """Map an exception message to a classified error code, or None.
+
+    Returns 'spotify_rate_limited', 'lastfm_rate_limited', 'user_not_found',
+    or None for unclassified errors.
+    """
+    if "Too Many Requests" in error_message:
+        if "spotify" in error_message.lower():
+            return "spotify_rate_limited"
+        return "lastfm_rate_limited"
+    if "not found" in error_message.lower() and "user" in error_message.lower():
+        return "user_not_found"
+    return None
+
+
 async def _fetch_and_process(
     job_id,
     username,
@@ -629,17 +768,7 @@ async def _fetch_and_process(
         step_elapsed = time.time() - step_start_time
         logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
 
-        # Record Last.fm aggregation stats returned by the fetch layer.
-        lastfm_stats = fetch_metadata.get("stats")
-        if isinstance(lastfm_stats, dict):
-            for stat_key, stat_val in lastfm_stats.items():
-                set_job_stat(job_id, stat_key, stat_val)
-        partial_warning = fetch_metadata.get("partial_data_warning")
-        if partial_warning:
-            set_job_stat(job_id, "partial_data_warning", partial_warning)
-            set_job_stat(
-                job_id, "pages_dropped", fetch_metadata.get("pages_dropped", 0)
-            )
+        _record_lastfm_stats(job_id, fetch_metadata)
 
         # Upstream failure: Last.fm was unreachable
         if fetch_metadata.get("status") == "error":
@@ -663,52 +792,9 @@ async def _fetch_and_process(
 
         set_job_progress(job_id, progress=20, message="Processing your albums...")
 
-        # Pre-slicing by play_count is only safe when release_scope == "all".
-        # When a release-year filter is active, albums outside the raw top-N
-        # might still qualify after the release filter runs inside process_albums.
-        # Slicing early would silently discard those albums, producing a truncated
-        # result without any indication that matching records were dropped.
-        #
-        # For playtime sort, pre-slicing is never possible: ranking requires
-        # Spotify track durations, which are only available after the Spotify
-        # fetch. The post-process slice below (search for limit_results) applies
-        # to both sort modes after process_albums returns.
-        if (
-            sort_mode == "playcount"
-            and limit_results != "all"
-            and release_scope == "all"
-        ):
-            try:
-                limit = int(limit_results)
-                if len(filtered_albums) > limit:
-                    sorted_items = sorted(
-                        filtered_albums.items(),
-                        key=lambda kv: cast(int, kv[1]["play_count"]),
-                        reverse=True,
-                    )
-                    filtered_albums = dict(sorted_items[:limit])
-                    logging.info(
-                        f"Pre-sliced filtered_albums to top {limit} by play_count"
-                    )
-            except ValueError:
-                pass  # malformed limit_results handled by the post-process slice
-
-        # Defensive cap for playtime sort: ranking requires Spotify track durations
-        # so the full set must reach process_albums, but an unbounded count creates
-        # proportional Spotify API load. Cap at _PLAYTIME_ALBUM_CAP by raw play_count
-        # (the best available proxy before Spotify data exists). Fires only for
-        # extreme outliers; does not affect playcount sort (already handled above).
-        if sort_mode == "playtime" and len(filtered_albums) > _PLAYTIME_ALBUM_CAP:
-            sorted_items = sorted(
-                filtered_albums.items(),
-                key=lambda kv: cast(int, kv[1]["play_count"]),
-                reverse=True,
-            )
-            filtered_albums = dict(sorted_items[:_PLAYTIME_ALBUM_CAP])
-            logging.warning(
-                f"Playtime album cap applied: capped {len(sorted_items)} albums "
-                f"to top {_PLAYTIME_ALBUM_CAP} by play_count before Spotify fetch"
-            )
+        filtered_albums = _apply_pre_slice(
+            filtered_albums, sort_mode, limit_results, release_scope
+        )
 
         set_job_progress(
             job_id,
@@ -734,17 +820,8 @@ async def _fetch_and_process(
         step_elapsed = time.time() - step_start_time
         logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
 
-        # Detect Spotify total failure: had albums but got 0 results
-        # because every single one was "No Spotify match"
-        if not results and filtered_albums:
-            job_ctx = get_job_context(job_id)
-            unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
-            spotify_no_match = sum(
-                1 for v in unmatched.values() if v.get("reason") == "No Spotify match"
-            )
-            if spotify_no_match == len(filtered_albums):
-                set_job_error(job_id, "spotify_unavailable")
-                return []
+        if _detect_spotify_total_failure(job_id, results, filtered_albums):
+            return []
 
         set_job_progress(
             job_id, progress=60, message="Adding album art to your results..."
@@ -756,16 +833,7 @@ async def _fetch_and_process(
 
         set_job_progress(job_id, progress=90, message="Finalizing list...")
 
-        if limit_results != "all":
-            try:
-                limit = int(limit_results)
-                if len(results) > limit:
-                    results = results[:limit]
-                    logging.info(f"Limited results to top {limit} albums")
-            except ValueError:
-                logging.warning(
-                    f"Invalid limit_results value: {limit_results}, showing all results"
-                )
+        results = _apply_post_slice(results, limit_results)
 
         overall_elapsed = time.time() - overall_start_time
         logging.info(f"Total time elapsed: {overall_elapsed:.1f}s")
@@ -781,15 +849,7 @@ async def _fetch_and_process(
 
     except Exception as exc:
         error_message = str(exc)
-        error_code = None
-
-        if "Too Many Requests" in error_message:
-            if "spotify" in error_message.lower():
-                error_code = "spotify_rate_limited"
-            else:
-                error_code = "lastfm_rate_limited"
-        elif "not found" in error_message.lower() and "user" in error_message.lower():
-            error_code = "user_not_found"
+        error_code = _classify_exception_to_error_code(error_message)
 
         if error_code:
             set_job_error(job_id, error_code, username=username)
