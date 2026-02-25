@@ -68,6 +68,54 @@ Read helpers:
   on thread construction failure.
 - Validation: **266 tests passing** (260 + 6 new), pre-commit all 8 hooks passed.
 
+### 2026-02-23 - fix/docs: cherry-pick SESSION_CONTEXT optional + DEVELOPMENT.md (side-task)
+
+- Scope: `scripts/doc_state_sync.py`, `tests/test_doc_state_sync.py`,
+  `DEVELOPMENT.md`, `docs/history/SESSION_CONTEXT_REFERENCE.md`, `README.md`.
+- Problem: (1) CI failed on `main` when `.claude/SESSION_CONTEXT.md` was
+  absent (gitignored). The script called `_read_lines()` unconditionally,
+  raising `SyncError`. (2) No documentation existed for the multi-agent
+  orchestration methodology implemented during this sprint.
+- Fix:
+  (1) Cherry-picked commit `05c7b19` from `main`: added `_read_lines_optional()`
+  returning `None` when the file is absent; gated all SESSION_CONTEXT
+  operations in `_sync()`, `_cross_validate()`, and `main()` behind
+  presence check; `SyncResult.session_lines` typed as `list[str] | None`;\
+  renamed `test_missing_session_context_raises` to `_succeeds`; added
+  `TestMissingSessionContext` class (3 regression tests).
+  (2) Created `DEVELOPMENT.md` explaining the orchestration architecture,
+  why `doc_state_sync.py` is a deterministic script, the batch/WP SDLC
+  mapping, review-rejection rationale, and what failed before the current
+  system stabilized. Created `docs/history/SESSION_CONTEXT_REFERENCE.md`
+  as a tracked reference snapshot of the gitignored live file. Linked
+  both from `README.md` (new "Development Methodology" section in ToC).
+- Validation: **260 tests passing** (3 new from cherry-pick),
+  pre-commit all 8 hooks passed.
+
+### 2026-02-23 - chore/docs: repo hygiene and README rewrite (side-task)
+
+- Scope: root directory, `.gitignore`, `README.md`, `.claude/`.
+- Problem: (1) Root directory cluttered with completed batch definitions
+  (`BATCH12_PROPOSAL.md`, `BATCH8_REFACTOR_PLAN.md`) and an obsolete
+  playbook compatibility shim (`EXECUTION_PLAYBOOK_2026-02-11.md`).
+  (2) `.claude/` tracked in git (agent-local state, stale `BATCH3_CONTEXT.md`,
+  machine-specific `settings.local.json`). (3) `README.md` outdated --
+  "work in progress" status badge, 30+ completed checkbox items, missing
+  Architecture/Deployment sections, stale Tech Stack section.
+- Fix:
+  (1) `git mv` both batch definitions to `docs/history/`. `git rm`
+  the playbook shim. Deleted untracked stale files (`backup.py`,
+  `Backup_batch`, empty `app/` directory).
+  (2) Added `.claude/` to `.gitignore`, `git rm --cached` all 3 tracked files,
+  deleted stale `BATCH3_CONTEXT.md` locally.
+  (3) Comprehensive README rewrite: active status badge + test count badge,
+  new Architecture section with pipeline diagram + design decisions, Tech
+  Stack table, Deployment section with Fly.io commands + smoke test,
+  condensed Roadmap (upcoming + recent completions only), accurate Project
+  Structure tree with per-file annotations and test counts, Running Tests
+  section, trimmed Contributing/License/Acknowledgements.
+- Validation: **257 tests passing**, pre-commit all 8 hooks passed.
+
 ### 2026-02-23 - Post-Batch 12 audit improvements (side-task, 5 commits)
 
 **Scope:** Comprehensive audit of Batch 12 implementation identified 5
