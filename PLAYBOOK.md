@@ -41,6 +41,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 10 | Gemini audit remediation (WP-1 through WP-9) | `docs/history/BATCH10_DEFINITION_2026-02-21.md` |
 | 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | (inline -- Section 3) |
 | 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/BATCH12_PROPOSAL.md` |
+| 13 | Internal decomposition and coverage hardening | `BATCH13_PROPOSAL.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -67,6 +68,25 @@ Completed batch definitions are archived individually under `docs/history/`.
     has clean internal seams; splitting would add inter-module import complexity
     without reducing cognitive load. Revisit when a new feature (top songs,
     heatmap) adds a second pipeline and the file actually needs the room.
+- **Side-task (doc hygiene):** The doc archival system has accumulated
+  inconsistencies that should be addressed before the next batch:
+  1. **Batch definitions not archived:** `BATCH13_PROPOSAL.md` is in the repo
+     root instead of `docs/history/`. Batch 11 has no definition file at all
+     (marked "inline -- Section 3"). Completed batch definitions should be
+     moved to `docs/history/` as `BATCHN_DEFINITION.md` (or `_PROPOSAL.md`) and
+     linked in the Section 2 table.
+  2. **Monolith execution log archive:** `PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+     is 1200+ lines of interleaved log entries from all batches. Should be
+     split into per-batch files (e.g., `BATCH13_LOG.md`) so each
+     batch's history is self-contained and searchable.
+  3. **`doc_state_sync.py` enhancements needed:** The script currently rotates
+     log entries into the single archive file. It needs: (a) batch-definition
+     archival (move root `BATCHN_*.md` to `docs/history/` on batch close),
+     (b) per-batch log splitting instead of appending to the monolith archive,
+     (c) Section 2 table link validation for all completed batches.
+  4. **`AGENTS.md` update needed:** Add explicit rules for batch close-out:
+     definition file must be in `docs/history/`, Section 2 table must link it,
+     and log entries route to per-batch log files.
 - Do not start feature work (top songs, heatmap) until owner defines scope
   and assigns a batch number.
 
