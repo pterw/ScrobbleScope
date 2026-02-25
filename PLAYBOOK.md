@@ -110,6 +110,19 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-02-25 - test(worker): assert daemon=True via Thread patch, expand docstrings (side-task)
+
+- Scope: `tests/test_worker.py`.
+- Problem: `test_start_job_thread_creates_daemon_thread` only asserted the target
+  was called; it never verified `threading.Thread` was constructed with `daemon=True`,
+  despite the test name and docstring claiming otherwise. Tests 1–4 had minimal
+  single-line docstrings inconsistent with the GIVEN/WHEN/THEN standard.
+- Fix: Introduced `DummyThread` class, patched at `scrobblescope.worker.threading.Thread`;
+  asserts `daemon=True` and target invocation. Dropped `*args` from `DummyThread.__init__`
+  (Pylance hint; Thread is called with keyword args only). Expanded tests 1–4 docstrings
+  to GIVEN/WHEN/THEN inline format.
+- Validation: 288 passed, all 8 pre-commit hooks passed.
+
 ### 2026-02-25 - test(retry): use public semaphore API in semaphore-gates test (side-task)
 
 - Scope: `tests/test_retry_with_semaphore.py`.
@@ -140,17 +153,3 @@ non-current operational logs. Older dated entries live in
 - Fix: Added `import asyncio` to stdlib imports block; replaced both
   `__import__("asyncio").Semaphore(5)` occurrences with `asyncio.Semaphore(5)`.
 - Validation: 288 passed, all 8 pre-commit hooks passed.
-
-### 2026-02-24 - docs(audit): BATCH13 pre-approval audit report (side-task)
-
-- Scope: `BATCH13_PROPOSAL.md`, `docs/history/BATCH13_AUDIT_2026-02-23.md`.
-- Problem: BATCH13 proposal required independent technical verification before
-  owner approval. Line references, test coverage claims, retry extraction
-  design, and convention compliance needed validation against actual codebase.
-- Fix: Completed 4-WP audit. Found 5 discrepancies: `_apply_pre_slice` line
-  start off by 2 (L664 -> L666), `_JOB_SEMAPHORE` variable name incorrect
-  (actual: `_active_jobs_semaphore`), batch retry missing jitter declaration,
-  batch backoff incorrectly stated as fixed 1.0 (actual: `2**attempt`
-  exponential). Applied all corrections to the proposal. Created audit report.
-- Validation: **260 tests passing**, pre-commit all 8 hooks passed. No source
-  code changes -- audit only.

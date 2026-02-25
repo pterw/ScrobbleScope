@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-24 - docs(audit): BATCH13 pre-approval audit report (side-task)
+
+- Scope: `BATCH13_PROPOSAL.md`, `docs/history/BATCH13_AUDIT_2026-02-23.md`.
+- Problem: BATCH13 proposal required independent technical verification before
+  owner approval. Line references, test coverage claims, retry extraction
+  design, and convention compliance needed validation against actual codebase.
+- Fix: Completed 4-WP audit. Found 5 discrepancies: `_apply_pre_slice` line
+  start off by 2 (L664 -> L666), `_JOB_SEMAPHORE` variable name incorrect
+  (actual: `_active_jobs_semaphore`), batch retry missing jitter declaration,
+  batch backoff incorrectly stated as fixed 1.0 (actual: `2**attempt`
+  exponential). Applied all corrections to the proposal. Created audit report.
+- Validation: **260 tests passing**, pre-commit all 8 hooks passed. No source
+  code changes -- audit only.
+
 ### 2026-02-24 - refactor(retry): DRY async retry loop into retry_with_semaphore (Batch 13 WP-5)
 
 - Scope: `scrobblescope/utils.py`, `scrobblescope/lastfm.py`, `scrobblescope/spotify.py`,
