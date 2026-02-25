@@ -6,7 +6,7 @@
 
 # Logs
 *.log
-logs/
+/logs/
 oldlogs/
 
 # Python cache/compiled files

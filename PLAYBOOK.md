@@ -28,20 +28,20 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 | Batch | Title | Definition |
 |-------|-------|------------|
-| 0 | Baseline freeze + approval parity suite | `docs/history/BATCH0_DEFINITION.md` |
-| 1 | Proper upstream failure state + retry UX | `docs/history/BATCH1_DEFINITION.md` |
-| 2 | Personalized minimum listening year | `docs/history/BATCH2_DEFINITION.md` |
-| 3 | Remove nested thread pattern | `docs/history/BATCH3_DEFINITION.md` |
-| 4 | Expand test coverage significantly | `docs/history/BATCH4_DEFINITION.md` |
-| 5 | Docstring + comment normalization | `docs/history/BATCH5_DEFINITION.md` |
-| 6 | Frontend refinement/tweaks | `docs/history/BATCH6_DEFINITION.md` |
-| 7 | Persistent metadata layer (Postgres) | `docs/history/BATCH7_DEFINITION.md` |
-| 8 | Modular refactor (app factory + blueprints) | `docs/history/BATCH8_DEFINITION.md` |
-| 9 | Audit remediation (WP-1 through WP-8) | `docs/history/BATCH9_DEFINITION.md` |
-| 10 | Gemini audit remediation (WP-1 through WP-9) | `docs/history/BATCH10_DEFINITION_2026-02-21.md` |
-| 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | `docs/history/BATCH11_DEFINITION.md` |
-| 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/BATCH12_DEFINITION.md` |
-| 13 | Internal decomposition and coverage hardening | `docs/history/BATCH13_DEFINITION.md` |
+| 0 | Baseline freeze + approval parity suite | `docs/history/definitions/BATCH0_DEFINITION.md` |
+| 1 | Proper upstream failure state + retry UX | `docs/history/definitions/BATCH1_DEFINITION.md` |
+| 2 | Personalized minimum listening year | `docs/history/definitions/BATCH2_DEFINITION.md` |
+| 3 | Remove nested thread pattern | `docs/history/definitions/BATCH3_DEFINITION.md` |
+| 4 | Expand test coverage significantly | `docs/history/definitions/BATCH4_DEFINITION.md` |
+| 5 | Docstring + comment normalization | `docs/history/definitions/BATCH5_DEFINITION.md` |
+| 6 | Frontend refinement/tweaks | `docs/history/definitions/BATCH6_DEFINITION.md` |
+| 7 | Persistent metadata layer (Postgres) | `docs/history/definitions/BATCH7_DEFINITION.md` |
+| 8 | Modular refactor (app factory + blueprints) | `docs/history/definitions/BATCH8_DEFINITION.md` |
+| 9 | Audit remediation (WP-1 through WP-8) | `docs/history/definitions/BATCH9_DEFINITION.md` |
+| 10 | Gemini audit remediation (WP-1 through WP-9) | `docs/history/definitions/BATCH10_DEFINITION_2026-02-21.md` |
+| 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | `docs/history/definitions/BATCH11_DEFINITION.md` |
+| 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/definitions/BATCH12_DEFINITION.md` |
+| 13 | Internal decomposition and coverage hardening | `docs/history/definitions/BATCH13_DEFINITION.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -59,7 +59,7 @@ Completed batch definitions are archived individually under `docs/history/`.
     Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days
     (Last.fm-only, lighter background task).
-- **Batch 13 is complete.** All 5 WPs done. Definition: `docs/history/BATCH13_DEFINITION.md`.
+- **Batch 13 is complete.** All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`.
   - WP-1: 6 worker.py tests. WP-2: search/batch-detail extraction. WP-3: 5
     _fetch_and_process helpers. WP-4: test file split (4 files). WP-5: DRY
     retry_with_semaphore utility.
@@ -96,7 +96,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 Keep only the active window here: current batch entries plus the latest 4
 non-current operational logs. Older dated entries live in
-`docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+`docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
 
 **How to read dated entries:**
 - Each heading `YYYY-MM-DD - ...` is a completion/addendum log.
@@ -104,7 +104,7 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-START -->`
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->`
 - After any edit here, run `python scripts/doc_state_sync.py --fix`.
-- Archive search: `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- Archive search: `rg -n "^### 20" docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
@@ -170,8 +170,8 @@ non-current operational logs. Older dated entries live in
 
 ### 2026-02-25 - docs(history): archive and rename definition files for batches 11/12/13 (Batch 14 WP-1)
 
-- Scope: `docs/history/BATCH11_DEFINITION.md` (new), `docs/history/BATCH12_DEFINITION.md`
-  (renamed from BATCH12_PROPOSAL.md), `docs/history/BATCH13_DEFINITION.md`
+- Scope: `docs/history/definitions/BATCH11_DEFINITION.md` (new), `docs/history/definitions/BATCH12_DEFINITION.md`
+  (renamed from BATCH12_PROPOSAL.md), `docs/history/definitions/BATCH13_DEFINITION.md`
   (moved from root BATCH13_PROPOSAL.md), `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`.
 - Problem: Three archival inconsistencies accumulated during Batch 13 delivery:
   BATCH11 had no definition file (inline PLAYBOOK only); BATCH12 used a

@@ -310,7 +310,13 @@ class TestSyncIntegration:
         """Read the standard three files from the sync_env tmp directory."""
         playbook = (sync_env / "PLAYBOOK.md").read_text(encoding="utf-8").splitlines()
         archive = (
-            (sync_env / "docs" / "history" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
+            (
+                sync_env
+                / "docs"
+                / "history"
+                / "logs"
+                / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+            )
             .read_text(encoding="utf-8")
             .splitlines()
         )
@@ -433,7 +439,7 @@ class TestSyncIntegration:
         archive_text = f"# Archive\n\n{entry_text}"
         (sync_env / "PLAYBOOK.md").write_text(playbook_text, encoding="utf-8")
         archive_path = (
-            sync_env / "docs" / "history" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+            sync_env / "docs" / "history" / "logs" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
         )
         archive_path.write_text(archive_text, encoding="utf-8")
         playbook, archive, session = self._files(sync_env)

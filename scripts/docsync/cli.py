@@ -15,7 +15,7 @@ from docsync.logic import (
 )
 
 PLAYBOOK_PATH = Path("PLAYBOOK.md")
-ARCHIVE_PATH = Path("docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
+ARCHIVE_PATH = Path("docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 SESSION_CONTEXT_PATH = Path(".claude/SESSION_CONTEXT.md")
 LOGS_DIR = Path("docs/history/logs")
 DEFINITIONS_DIR = Path("docs/history/definitions")

@@ -1,0 +1,72 @@
+# Batch 7 Execution Log
+
+Archived entries for Batch 7 work packages.
+
+### 2026-02-13 - Batch 7 hardening addendum (cache-orchestrator correctness + smoke validation path)
+- Scope: `app.py`, `tests/test_app.py`, `README.md`, `scripts/smoke_cache_check.py`, this playbook.
+- Plan vs implementation:
+  - Batch 7 intent said full cache hits should avoid Spotify dependency.
+  - Implementation was corrected to match intent by removing `_fetch_and_process` Spotify pre-check and making Spotify-unavailable signaling explicit.
+- Deviations and why:
+  - Added `SpotifyUnavailableError` instead of generic string matching to avoid false "successful empty results" when Spotify token fetch fails on all misses.
+  - Added partial-response behavior: when token fetch fails but cache hits exist, return cached subset and set `partial_data_warning`.
+- Additions beyond plan:
+  - Added deploy-targeted smoke utility: `scripts/smoke_cache_check.py` for warm-cache verification (`flounder14`, `2025` defaults supported).
+  - Added cache observability stats in `process_albums`: `db_cache_enabled`, `db_cache_lookup_hits`, `db_cache_persisted`, and `db_cache_warning`.
+  - README now documents persistent cache behavior and smoke-test usage.
+- Struggles/constraints and unresolved risks:
+  - End-to-end cache validation against live Fly/Postgres cannot be fully asserted by unit tests; smoke script is provided for operational verification.
+  - Existing heuristic that treats "all unmatched == Spotify unavailable" remains unchanged and should be revisited during Batch 8 service extraction.
+  - Initial smoke run (pre-deploy) was inconclusive (`cache_hits=0` both runs) because Fly was still running Batch 6 code. Root cause resolved by deploying with Postgres attached.
+- Validation performed:
+  - `pytest -q`: 59 passed.
+  - `pre-commit run --all-files`: all hooks passed.
+  - **Post-deploy smoke test (PASS):**
+    - Postgres provisioned: `scrobblescope-db` (unmanaged, yyz region)
+    - Attached via `fly postgres attach scrobblescope-db --app scrobblescope` (auto-set `DATABASE_URL`)
+    - `python scripts/smoke_cache_check.py --base-url https://scrobblescope.fly.dev --username flounder14 --year 2025 --runs 2`:
+      - Run 1 (cold): 41.84s, `cache_hits=0`, `db_cache_persisted=243`, `spotify_matched=243`
+      - Run 2 (warm): 4.34s, `cache_hits=243`, `db_cache_lookup_hits=243`, `db_cache_persisted=3`
+      - **~10x speedup on warm cache. Verdict: PASS.**
+  - New tests added:
+    - `process_albums` all-miss token failure raises classified exception.
+    - `process_albums` partial cache hit + token failure returns cached subset and warning stat.
+    - `_fetch_and_process` no longer directly pre-checks Spotify token.
+    - `_fetch_and_process` maps `SpotifyUnavailableError` to `spotify_unavailable` job error.
+- Forward guidance for next agent:
+  - Cache is deployed and verified. No further infra steps needed before Batch 8.
+  - Fly Postgres instance `scrobblescope-db` is unmanaged, single-node. Consider auto-stop to save cost when idle.
+  - Keep Batch 8 refactor parity tests for the error/warning paths (`SpotifyUnavailableError`, `partial_data_warning`) before moving orchestration into service modules.
+  - Local dev has no `DATABASE_URL` -- cache is disabled locally (by design). All cache behavior is tested via mocks in the test suite.
+
+### 2026-02-12 - Batch 7 completed (persistent Spotify metadata cache -- Postgres via asyncpg)
+- Scope: `requirements.txt`, `.env.example`, `init_db.py` (new), `fly.toml`, `app.py`, `tests/test_app.py`.
+- Implementation:
+  - **requirements.txt:** Added `asyncpg>=0.29.0`; removed unused `redis` and `Flask_Caching`.
+  - **.env.example:** Added `DATABASE_URL` placeholder with Fly.io context comment.
+  - **init_db.py (new):** Standalone schema init script. Reads `DATABASE_URL`, creates `spotify_cache` table via `asyncpg`. Runs as Fly `release_command`. Idempotent; exits 0 on success or no-op, exits 1 on failure (rolls back deploy).
+  - **fly.toml:** Added `[deploy] release_command = "python init_db.py"`.
+  - **app.py -- 3 new helper functions:**
+    - `_get_db_connection()`: Returns `asyncpg.Connection` or `None` (graceful fallback).
+    - `_batch_lookup_metadata(conn, keys)`: Single SELECT with `unnest()`, 30-day TTL filter, JSONB deserialization.
+    - `_batch_persist_metadata(conn, rows)`: Single INSERT with `unnest() ... ON CONFLICT DO UPDATE`. True single-statement batch (not executemany).
+  - **app.py -- `process_albums` rewritten** with 5-phase flow:
+    - Phase 1: DB batch lookup (try/except, fallback to empty dict).
+    - Phase 2: Partition into cache_hits and cache_misses.
+    - Phase 3: Spotify fetch for misses only (entire block guarded by `if cache_misses:` -- zero API calls on full cache hit).
+    - Phase 4: DB batch persist + `conn.close()` in `finally`.
+    - Phase 5: Build results from unified cache_hits dict -- identical output shape regardless of source.
+  - **tests/test_app.py -- 12 new tests (43 -> 55):**
+    - 7 DB helper unit tests: `_get_db_connection` (no asyncpg, no URL, connect failure), `_batch_lookup_metadata` (empty keys, JSONB parsing), `_batch_persist_metadata` (empty rows, upsert call shape).
+    - 5 process_albums integration tests: full cache hit skips Spotify, full cache miss fetches and persists, DB unavailable falls back, conn always closed, empty input.
+- Deviations:
+  - Plan called for ~14 tests; implemented 12 (skipped init_db.py tests as the script is trivially simple and tested indirectly by the release_command pattern).
+  - `METADATA_CACHE_TTL_DAYS` made configurable via env var (default 30) -- not in original plan but natural extension.
+- Validation:
+  - `pytest -q`: 55 passed
+  - `pre-commit run --all-files`: all hooks passed
+  - Local dev without `DATABASE_URL`: app functions identically to pre-Batch-7
+- Notes:
+  - Connection always closed via `finally` block, even on Spotify errors.
+  - Full cache hit path: zero Spotify API calls (verified via mock assertions -- no token fetch, no session, no search).
+  - Next batch is Batch 8 (modular refactor).

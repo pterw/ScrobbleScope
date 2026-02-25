@@ -102,7 +102,7 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         cli_module,
         "ARCHIVE_PATH",
-        tmp_path / "docs" / "history" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md",
+        tmp_path / "docs" / "history" / "logs" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md",
     )
     monkeypatch.setattr(
         cli_module, "SESSION_CONTEXT_PATH", tmp_path / ".claude" / "SESSION_CONTEXT.md"
@@ -114,7 +114,9 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     (tmp_path / ".claude").mkdir(parents=True)
 
     (tmp_path / "PLAYBOOK.md").write_text(MINIMAL_PLAYBOOK, encoding="utf-8")
-    archive_path = tmp_path / "docs" / "history" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+    archive_path = (
+        tmp_path / "docs" / "history" / "logs" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+    )
     archive_path.write_text(MINIMAL_ARCHIVE, encoding="utf-8")
     session_path = tmp_path / ".claude" / "SESSION_CONTEXT.md"
     session_path.write_text(MINIMAL_SESSION_CONTEXT, encoding="utf-8")

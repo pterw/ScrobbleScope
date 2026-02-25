@@ -112,7 +112,9 @@ class TestMainArgs:
     def test_missing_archive_raises_exits_2(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
     ):
-        (sync_env / "docs" / "history" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md").unlink()
+        (
+            sync_env / "docs" / "history" / "logs" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+        ).unlink()
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         assert cli_mod.main() == 2
 
