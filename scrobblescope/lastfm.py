@@ -14,6 +14,7 @@ from scrobblescope.utils import (
     create_optimized_session,
     get_cached_response,
     get_lastfm_limiter,
+    retry_with_semaphore,
     set_cached_response,
 )
 
@@ -129,30 +130,18 @@ async def fetch_recent_tracks_page_async(
                     )
                     return None, None
 
-    for attempt in range(retries):
-        try:
-            if semaphore is None:
-                data, retry_after = await fetch_once()
-            else:
-                async with semaphore:
-                    data, retry_after = await fetch_once()
-
-            if data is not None:
-                return data
-            if retry_after is not None:
-                await asyncio.sleep(retry_after)
-                continue
-        except ValueError:
-            raise
-        except Exception as e:
-            logging.error(f"Error fetching page {page}: {e}")
-
-        # Transient 5xx errors from Last.fm are common; short backoff recovers
-        # faster without blocking concurrency slots.
-        await asyncio.sleep(min(0.25 * (attempt + 1), 1.0))
-
-    logging.error(f"All retries failed for page {page}")
-    return None
+    return await retry_with_semaphore(
+        fetch_once,
+        retries=retries,
+        semaphore=semaphore,
+        is_done=lambda t: t[0] is not None,
+        get_retry_after=lambda t: t[1],
+        extract_result=lambda t: t[0],
+        default=None,
+        backoff=lambda a: min(0.25 * (a + 1), 1.0),
+        reraise=(ValueError,),
+        error_label=f"Last.fm page {page}",
+    )
 
 
 async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):

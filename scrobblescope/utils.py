@@ -281,3 +281,64 @@ def format_seconds_mobile(seconds):
 
     days, hour_remainder = divmod(hours, 24)
     return f"{days}d {hour_remainder}h"
+
+
+async def retry_with_semaphore(
+    inner_fn,
+    *,
+    retries,
+    semaphore=None,
+    is_done,
+    get_retry_after,
+    extract_result,
+    default,
+    backoff,
+    jitter=None,
+    reraise=(),
+    error_label="operation",
+):
+    """Generic async retry loop with optional semaphore gating.
+
+    Parameters
+    ----------
+    inner_fn : async callable returning a result tuple
+    retries : int, max attempts
+    semaphore : optional asyncio.Semaphore to gate each attempt
+    is_done : callable(result_tuple) -> bool, whether the attempt succeeded
+        or hit a terminal failure (no more retries needed)
+    get_retry_after : callable(result_tuple) -> float | None, extract
+        Retry-After seconds from a rate-limited response
+    extract_result : callable(result_tuple) -> value to return on success
+    default : value returned when all retries are exhausted
+    backoff : callable(attempt: int) -> float, sleep seconds on transient error
+    jitter : optional callable(attempt: int) -> float, added to retry_after
+    reraise : tuple of exception types to propagate immediately
+    error_label : str, used in log messages on exception
+    """
+    for attempt in range(retries):
+        try:
+            if semaphore is None:
+                result_tuple = await inner_fn()
+            else:
+                async with semaphore:
+                    result_tuple = await inner_fn()
+
+            if is_done(result_tuple):
+                return extract_result(result_tuple)
+
+            retry_after = get_retry_after(result_tuple)
+            if retry_after is not None:
+                sleep_time = retry_after
+                if jitter is not None:
+                    sleep_time += jitter(attempt)
+                await asyncio.sleep(sleep_time)
+                continue
+        except reraise:
+            raise
+        except Exception as e:
+            logging.error(f"Error in {error_label}: {e}")
+
+        await asyncio.sleep(backoff(attempt))
+
+    logging.error(f"All {retries} retries failed for {error_label}")
+    return default

@@ -64,7 +64,7 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-2 (P1): Extract search/batch-detail phases from `_fetch_spotify_misses()`. Done.
   - WP-3 (P1): Extract five private helpers from `_fetch_and_process()`. Done.
   - WP-4 (P1): Split `test_orchestrator_service.py` into four files. Done.
-  - WP-5 (P2): DRY async retry loop shared by `lastfm.py` and `spotify.py`. Pending.
+  - WP-5 (P2): DRY async retry loop shared by `lastfm.py` and `spotify.py`. Done.
 - Do not start feature work (top songs, heatmap) until owner defines scope
   and assigns a batch number.
 
@@ -85,6 +85,18 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-02-24 - refactor(retry): DRY async retry loop into retry_with_semaphore (Batch 13 WP-5)
+
+- Scope: `scrobblescope/utils.py`, `scrobblescope/lastfm.py`, `scrobblescope/spotify.py`,
+  `tests/test_retry_with_semaphore.py` (new).
+- Problem: Three nearly-identical retry loops (lastfm `fetch_once`, spotify
+  `search_once`, spotify batch `fetch_once`) duplicated semaphore gating,
+  retry-after handling, backoff sleep, and exhaustion logging.
+- Fix: Extracted `retry_with_semaphore()` to `utils.py` with parameterized
+  `is_done`, `get_retry_after`, `extract_result`, `backoff`, `jitter`, and
+  `reraise`. Refactored all three call sites. Added 7 adversarial tests.
+- Validation: **287 tests passing** (280 + 7 new), pre-commit all 8 hooks passed.
 
 ### 2026-02-24 - refactor(tests): split test_orchestrator_service.py into four files (Batch 13 WP-4)
 

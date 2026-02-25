@@ -11,7 +11,11 @@ from scrobblescope.config import (
     SPOTIFY_SEARCH_RETRIES,
     spotify_token_cache,
 )
-from scrobblescope.utils import create_optimized_session, get_spotify_limiter
+from scrobblescope.utils import (
+    create_optimized_session,
+    get_spotify_limiter,
+    retry_with_semaphore,
+)
 
 
 async def fetch_spotify_access_token():
@@ -70,26 +74,18 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
 
                 return None, None, True
 
-    for attempt in range(SPOTIFY_SEARCH_RETRIES):
-        try:
-            if semaphore is None:
-                spotify_id, retry_after, done = await search_once()
-            else:
-                async with semaphore:
-                    spotify_id, retry_after, done = await search_once()
-
-            if done:
-                return spotify_id
-            if retry_after is not None:
-                jitter = (abs(hash((artist, album, attempt))) % 200) / 1000.0
-                await asyncio.sleep(retry_after + jitter)
-                continue
-        except Exception as e:
-            logging.error(f"Spotify search error for {album} by {artist}: {e}")
-
-        await asyncio.sleep(1)
-
-    return None
+    return await retry_with_semaphore(
+        search_once,
+        retries=SPOTIFY_SEARCH_RETRIES,
+        semaphore=semaphore,
+        is_done=lambda t: t[2],
+        get_retry_after=lambda t: t[1],
+        extract_result=lambda t: t[0],
+        default=None,
+        backoff=lambda _a: 1,
+        jitter=lambda a: (abs(hash((artist, album, a))) % 200) / 1000.0,
+        error_label=f"Spotify search for '{album}' by '{artist}'",
+    )
 
 
 async def fetch_spotify_album_details_batch(
@@ -135,23 +131,15 @@ async def fetch_spotify_album_details_batch(
                 )
                 return {}, None, True
 
-    for attempt in range(retries):
-        try:
-            if semaphore is None:
-                details, retry_after, done = await fetch_once()
-            else:
-                async with semaphore:
-                    details, retry_after, done = await fetch_once()
-
-            if done:
-                return details
-            if retry_after is not None:
-                jitter = (abs(hash((tuple(album_ids), attempt))) % 200) / 1000.0
-                await asyncio.sleep(retry_after + jitter)
-                continue
-        except Exception as e:
-            logging.error(f"Exception in fetch_spotify_album_details_batch: {e}")
-
-        await asyncio.sleep(2**attempt)
-
-    return {}
+    return await retry_with_semaphore(
+        fetch_once,
+        retries=retries,
+        semaphore=semaphore,
+        is_done=lambda t: t[2],
+        get_retry_after=lambda t: t[1],
+        extract_result=lambda t: t[0],
+        default={},
+        backoff=lambda a: 2**a,
+        jitter=lambda a: (abs(hash((tuple(album_ids), a))) % 200) / 1000.0,
+        error_label="Spotify batch album details",
+    )
