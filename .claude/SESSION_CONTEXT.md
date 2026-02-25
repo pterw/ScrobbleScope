@@ -32,7 +32,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
 | Batch 12 status | **Complete**. WP-1 done, WP-2 done, WP-3 done, WP-4 done. |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
-| Batch 14 status | **In progress**. WP-1 done. WP-2 done. WP-3 done. WP-4 done. Staleness fix done (+6 tests). Definition: `BATCH14_PROPOSAL.md`. |
+| Batch 14 status | **In progress**. WP-1 done. WP-2 done. WP-3 done. WP-4 done. WP-5 done. Staleness fix done (+6 tests). Definition: `BATCH14_PROPOSAL.md`. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -51,11 +51,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 14.
-- Current-batch entries in active log block: 4.
-- Completed work packages in current-batch entries: WP-1, WP-2, WP-3, WP-4.
-- Next expected work package: WP-5.
+- Current-batch entries in active log block: 5.
+- Completed work packages in current-batch entries: WP-1, WP-2, WP-3, WP-4, WP-5.
+- Next expected work package: WP-6.
 - Latest validated test count: **306 passed**.
-- Newest current-batch entry: 2026-02-25 - test(doc-sync): add 12 new tests for WP-3 per-batch routing enhancements (Batch 14 WP-4).
+- Newest current-batch entry: 2026-02-25 - docs(agents): update doc-sync architecture and add close-out procedure (Batch 14 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

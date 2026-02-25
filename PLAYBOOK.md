@@ -108,6 +108,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-02-25 - docs(agents): update doc-sync architecture and add close-out procedure (Batch 14 WP-5)
+
+- Scope: `AGENTS.md` (Document Roles table, "What does" description, modes,
+  cross-validation warning description, new Batch Close-Out Procedure section).
+- Problem: Four stale items: (a) `docs/history/` row missing `definitions/` and `logs/`
+  subdirectory split; (b) point 1 of "What does" still referenced the flat
+  `PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` path, omitting per-batch routing; (c)
+  modes list did not include `--split-archive`; (d) "Test count mismatch" warning
+  doc said "Section 3 only" but code now scans Section 4 current-batch entries.
+  No batch close-out procedure existed -- agents had no authoritative checklist.
+- Plan vs implementation: Followed WP-5 spec. Updated four doc items + added
+  explicit 7-step close-out section (runs --fix --keep-non-current 0, archives
+  BATCHN_DEFINITION, updates Section 2 table, runs --check to verify clean).
+- Deviations: None.
+- Validation: **306 passed** (unchanged), all 8 pre-commit hooks passed.
+- Forward guidance: All 5 WPs complete. Proceed to batch close-out.
+
 ### 2026-02-25 - test(doc-sync): add 12 new tests for WP-3 per-batch routing enhancements (Batch 14 WP-4)
 
 - Scope: `tests/test_docsync_logic.py` (+8: `TestMergeEntriesIntoLog` 3 tests,
