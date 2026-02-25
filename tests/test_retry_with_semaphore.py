@@ -184,3 +184,27 @@ async def test_semaphore_gates_inner_calls():
     )
     assert result == "ok"
     assert inside_sem == [True]
+
+
+@pytest.mark.asyncio
+async def test_constant_float_backoff_accepted():
+    """backoff may be a plain float instead of a callable."""
+    calls = []
+
+    async def inner():
+        calls.append(1)
+        if len(calls) < 2:
+            return (None, None)
+        return ("ok", None)
+
+    result = await retry_with_semaphore(
+        inner,
+        retries=3,
+        is_done=lambda t: t[0] is not None,
+        get_retry_after=lambda t: t[1],
+        extract_result=lambda t: t[0],
+        default="fallback",
+        backoff=0,  # constant float, not a callable
+    )
+    assert result == "ok"
+    assert len(calls) == 2

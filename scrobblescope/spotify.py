@@ -82,7 +82,7 @@ async def search_for_spotify_album_id(session, artist, album, token, semaphore=N
         get_retry_after=lambda t: t[1],
         extract_result=lambda t: t[0],
         default=None,
-        backoff=lambda _a: 1,
+        backoff=1,
         jitter=lambda a: (abs(hash((artist, album, a))) % 200) / 1000.0,
         error_label=f"Spotify search for '{album}' by '{artist}'",
     )

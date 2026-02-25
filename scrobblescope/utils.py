@@ -310,7 +310,9 @@ async def retry_with_semaphore(
         Retry-After seconds from a rate-limited response
     extract_result : callable(result_tuple) -> value to return on success
     default : value returned when all retries are exhausted
-    backoff : callable(attempt: int) -> float, sleep seconds on transient error
+    backoff : callable(attempt: int) -> float | float, sleep seconds on
+        transient error; accepts a constant float or a callable taking the
+        attempt number
     jitter : optional callable(attempt: int) -> float, added to retry_after
     reraise : tuple of exception types to propagate immediately
     error_label : str, used in log messages on exception
@@ -338,7 +340,7 @@ async def retry_with_semaphore(
         except Exception as e:
             logging.error(f"Error in {error_label}: {e}")
 
-        await asyncio.sleep(backoff(attempt))
+        await asyncio.sleep(backoff(attempt) if callable(backoff) else backoff)
 
     logging.error(f"All {retries} retries failed for {error_label}")
     return default
