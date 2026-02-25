@@ -9,6 +9,15 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-25 - test(orchestrator): use standard asyncio import in fetch_spotify tests (side-task)
+
+- Scope: `tests/services/test_orchestrator_fetch_spotify.py`.
+- Problem: Reviewer 2 flagged two `__import__("asyncio").Semaphore(5)` usages
+  bypassing Pylance type resolution; root cause was missing top-level `import asyncio`.
+- Fix: Added `import asyncio` to stdlib imports block; replaced both
+  `__import__("asyncio").Semaphore(5)` occurrences with `asyncio.Semaphore(5)`.
+- Validation: 288 passed, all 8 pre-commit hooks passed.
+
 ### 2026-02-24 - docs(audit): BATCH13 pre-approval audit report (side-task)
 
 - Scope: `BATCH13_PROPOSAL.md`, `docs/history/BATCH13_AUDIT_2026-02-23.md`.

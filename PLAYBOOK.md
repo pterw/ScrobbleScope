@@ -110,6 +110,19 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-02-25 - docs(audit): add BATCH14 pre-approval audit report and apply corrections to proposal (side-task)
+
+- Scope: `BATCH14_PROPOSAL.md`, `docs/history/BATCH14_AUDIT_2026-02-25.md`.
+- Purpose: Pre-batch audit of BATCH14_PROPOSAL.md before owner sign-off. Verified
+  all five structural checks (WP-1 naming conventions, WP-2 package extraction
+  symmetry, WP-3 feature isolation, WP-4 test distribution, WP-5 AGENTS.md
+  close-out / MEMORY.md hallucination check). All five checks confirmed correct.
+- Correction: "~450-line" description for `doc_state_sync.py` corrected to "~679-line"
+  in two places (Current state table and WP-2 goal). Actual measured line count: 679.
+- Verdict: APPROVED WITH CORRECTIONS.
+- Validation: 288 passed (unchanged -- audit makes no code changes), all 8 pre-commit
+  hooks passed.
+
 ### 2026-02-25 - test(worker): assert daemon=True via Thread patch, expand docstrings (side-task)
 
 - Scope: `tests/test_worker.py`.
@@ -144,12 +157,3 @@ non-current operational logs. Older dated entries live in
   type annotation. Simplified `spotify.py` search call site to `backoff=1`. Added
   `test_constant_float_backoff_accepted` to `test_retry_with_semaphore.py`.
 - Validation: 288 passed (+1 vs Batch 13 baseline), all 8 pre-commit hooks passed.
-
-### 2026-02-25 - test(orchestrator): use standard asyncio import in fetch_spotify tests (side-task)
-
-- Scope: `tests/services/test_orchestrator_fetch_spotify.py`.
-- Problem: Reviewer 2 flagged two `__import__("asyncio").Semaphore(5)` usages
-  bypassing Pylance type resolution; root cause was missing top-level `import asyncio`.
-- Fix: Added `import asyncio` to stdlib imports block; replaced both
-  `__import__("asyncio").Semaphore(5)` occurrences with `asyncio.Semaphore(5)`.
-- Validation: 288 passed, all 8 pre-commit hooks passed.
