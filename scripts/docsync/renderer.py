@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Iterable
 
 from docsync.models import ActiveBatchState, Entry
@@ -10,6 +11,8 @@ from docsync.parser import (
     CURRENT_BATCH_START_MARKER,
     _collect_wp_numbers,
 )
+
+_TEST_COUNT_RE = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
 
 
 def _trim_trailing_blank(lines: list[str]) -> list[str]:
@@ -84,12 +87,28 @@ def _build_status_block(
         if batch_num is None and section_3_state.last_completed_batch is not None:
             batch_num = section_3_state.last_completed_batch + 1
         batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
+        # Extract test count from validation line of most recent entry.
+        latest_count: int | None = None
+        for entry in current_entries:
+            for line in entry.lines:
+                m = _TEST_COUNT_RE.search(line)
+                if m:
+                    latest_count = int(m.group(1))
+                    break
+            if latest_count is not None:
+                break
+        count_line = (
+            f"- Latest validated test count: **{latest_count} passed**."
+            if latest_count is not None
+            else "- Latest validated test count: unknown (no bold count in log entries)."
+        )
         return [
             "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
             f"- Current batch: {batch_label}.",
             f"- Current-batch entries in active log block: {len(current_entries)}.",
             f"- Completed work packages in current-batch entries: {completed_wp}.",
             f"- Next expected work package: {next_wp}.",
+            count_line,
             f"- Newest current-batch entry: {newest_heading}.",
         ]
 

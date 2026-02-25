@@ -84,9 +84,12 @@ class TestMainArgs:
         """Cross-validation warnings should appear on stderr."""
         playbook_path = sync_env / "PLAYBOOK.md"
         content = playbook_path.read_text(encoding="utf-8")
+        # Add the count inside the Section 4 log entry body so that
+        # _latest_test_count_from_entries (which scans current-batch entries,
+        # not Section 3) can find it.
         content = content.replace(
-            "Batch 11 is active.",
-            "Batch 11 is active.\n\n**121 tests passing**",
+            "Did some work.",
+            "Did some work.\n\nValidated: **121 tests passing**",
         )
         playbook_path.write_text(content, encoding="utf-8")
         session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"

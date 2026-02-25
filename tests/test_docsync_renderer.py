@@ -154,6 +154,41 @@ class TestBuildStatusBlock:
         # Should infer Batch 11 from last_completed_batch + 1.
         assert "Batch 11" in text
 
+    def test_entry_with_count_shows_count(self):
+        """Bold test count in entry body appears as a STATUS block line."""
+        entry = Entry(
+            heading="### 2026-02-20 - Work (Batch 11 WP-1)",
+            date="2026-02-20",
+            title="Work (Batch 11 WP-1)",
+            lines=("### 2026-02-20 - Work (Batch 11 WP-1)", "**157 tests passing**"),
+            start_idx=0,
+            fingerprint="a",
+        )
+        state = ActiveBatchState(
+            current_batch=11, last_completed_batch=10, next_undefined_batch=None
+        )
+        block = _build_status_block(state, [entry])
+        text = "\n".join(block)
+        assert "157" in text
+        assert "unknown" not in text.lower()
+
+    def test_entry_without_count_shows_unknown_count(self):
+        """When no bold count is found, the STATUS block says 'unknown'."""
+        entry = Entry(
+            heading="### 2026-02-20 - Work (Batch 11 WP-1)",
+            date="2026-02-20",
+            title="Work (Batch 11 WP-1)",
+            lines=("### 2026-02-20 - Work (Batch 11 WP-1)", "No count here."),
+            start_idx=0,
+            fingerprint="a",
+        )
+        state = ActiveBatchState(
+            current_batch=11, last_completed_batch=10, next_undefined_batch=None
+        )
+        block = _build_status_block(state, [entry])
+        text = "\n".join(block)
+        assert "unknown" in text.lower()
+
 
 # ---------------------------------------------------------------------------
 # _render_section4 -- edge and empty cases

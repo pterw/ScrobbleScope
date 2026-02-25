@@ -81,7 +81,7 @@ def main() -> int:
     current_archive = _read_lines(ARCHIVE_PATH)
     current_session = _read_lines_optional(SESSION_CONTEXT_PATH)
 
-    xv_warnings = _cross_validate(result.playbook_lines, result.session_lines)
+    xv_warnings = _cross_validate(playbook_lines, session_lines)
     if xv_warnings:
         for w in xv_warnings:
             print(f"WARNING: {w}", file=sys.stderr)

@@ -186,6 +186,38 @@ def _sync(
     )
 
 
+def _latest_test_count_from_entries(playbook_lines: list[str]) -> int | None:
+    """Return the most recent bold passing-test count from Section 4 log entries.
+
+    Agents record test counts as ``**N passed**`` (or similar) in Validation
+    fields of Section 4 log entries.  Section 3 rarely contains such counts.
+    Scanning entries newest-first ensures we get the live state, not history.
+    """
+    test_count_re = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
+    try:
+        s4_start, s4_end = _find_section(
+            playbook_lines, SECTION_4_RE, "PLAYBOOK section 4"
+        )
+        section_4_lines = playbook_lines[s4_start:s4_end]
+        marker_start, marker_end = _find_marker_pair(
+            section_4_lines,
+            CURRENT_BATCH_START_MARKER,
+            CURRENT_BATCH_END_MARKER,
+            "PLAYBOOK section 4",
+        )
+        inside = section_4_lines[marker_start + 1 : marker_end]
+        entries, _ = _parse_entries(inside)
+    except SyncError:
+        return None
+    # Entries are newest-first in Section 4; scan each in order.
+    for entry in entries:
+        for line in entry.lines:
+            m = test_count_re.search(line)
+            if m:
+                return int(m.group(1))
+    return None
+
+
 def _cross_validate(
     playbook_lines: list[str], session_lines: list[str] | None
 ) -> list[str]:
@@ -193,26 +225,22 @@ def _cross_validate(
     warnings: list[str] = []
 
     test_count_re = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
+    # Extract test count from the most recent Section 4 log entry so that the
+    # check fires on real agent output (Section 3 rarely contains these counts).
+    playbook_count = _latest_test_count_from_entries(playbook_lines)
     session_counts: set[int] = set()
-    playbook_counts: set[int] = set()
     if session_lines is not None:
         for line in session_lines:
             for m in test_count_re.finditer(line):
                 session_counts.add(int(m.group(1)))
-    try:
-        s3_start, s3_end = _find_section(
-            playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
-        )
-        playbook_section3 = playbook_lines[s3_start:s3_end]
-    except SyncError:
-        playbook_section3 = playbook_lines
-    for line in playbook_section3:
-        for m in test_count_re.finditer(line):
-            playbook_counts.add(int(m.group(1)))
-    if session_counts and playbook_counts and session_counts != playbook_counts:
+    if (
+        playbook_count is not None
+        and session_counts
+        and playbook_count not in session_counts
+    ):
         warnings.append(
             f"Test count mismatch: SESSION_CONTEXT has {session_counts}, "
-            f"PLAYBOOK has {playbook_counts}."
+            f"most recent PLAYBOOK log entry has {playbook_count}."
         )
 
     archive_link_re = re.compile(r"`(docs/history/[^`]+\.md)`")

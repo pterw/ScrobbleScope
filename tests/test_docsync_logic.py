@@ -6,7 +6,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from docsync.logic import _cross_validate, _sync
+from docsync.logic import _cross_validate, _latest_test_count_from_entries, _sync
 from docsync.models import ActiveBatchState, Entry, SyncError
 from docsync.parser import _collect_wp_numbers
 
@@ -61,17 +61,45 @@ class TestCrossValidate:
         assert warnings == []
 
     def test_matching_counts_no_warning(self):
-        warnings = _cross_validate(
-            ["**121 tests passing**"],
-            ["**121 passing**"],
-        )
+        playbook = [
+            "# PLAYBOOK",
+            "",
+            "## 3. Active batch",
+            "",
+            "Batch 11 is active.",
+            "",
+            "## 4. Execution log",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+            "",
+            "### 2026-02-20 - Work (Batch 11 WP-1)",
+            "",
+            "**121 tests passing**",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        ]
+        warnings = _cross_validate(playbook, ["**121 passing**"])
         assert warnings == []
 
     def test_mismatched_counts_warns(self):
-        warnings = _cross_validate(
-            ["**121 tests passing**"],
-            ["**119 passing**"],
-        )
+        playbook = [
+            "# PLAYBOOK",
+            "",
+            "## 3. Active batch",
+            "",
+            "Batch 11 is active.",
+            "",
+            "## 4. Execution log",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+            "",
+            "### 2026-02-20 - Work (Batch 11 WP-1)",
+            "",
+            "**121 tests passing**",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        ]
+        warnings = _cross_validate(playbook, ["**119 passing**"])
         assert len(warnings) == 1
         assert "mismatch" in warnings[0].lower()
 
@@ -125,21 +153,24 @@ class TestCrossValidate:
         count_warnings = [w for w in warnings if "mismatch" in w.lower()]
         assert count_warnings == []
 
-    def test_section3_mismatch_still_detected(self):
-        """A genuine mismatch in Section 3 vs SESSION_CONTEXT still warns."""
+    def test_current_entry_count_mismatch_warns(self):
+        """Count from most-recent current-batch Section 4 entry vs SESSION_CONTEXT warns."""
         playbook = [
             "# PLAYBOOK",
             "",
             "## 3. Active batch",
             "",
-            "Current test count: **195 tests passing**",
+            "Batch 11 is active.",
             "",
             "## 4. Execution log",
             "",
-            "### 2026-02-20 - Some prior commit",
+            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+            "",
+            "### 2026-02-20 - Recent work (Batch 11 WP-1)",
             "",
             "Validated: **185 passed**",
             "",
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
         ]
         session = ["# SESSION", "", "Test count: **199 tests passing**"]
         warnings = _cross_validate(playbook, session)
@@ -197,6 +228,76 @@ class TestCrossValidate:
         warnings = _cross_validate(["# PLAYBOOK", "content"], None)
         session_warnings = [w for w in warnings if "SESSION_CONTEXT" in w]
         assert session_warnings == []
+
+
+# ---------------------------------------------------------------------------
+# _latest_test_count_from_entries -- unit tests
+# ---------------------------------------------------------------------------
+
+
+class TestLatestTestCount:
+    def _minimal_playbook(self, entry_body_lines: list[str]) -> list[str]:
+        """Wrap entry_body_lines inside a minimal PLAYBOOK with Section 4 markers."""
+        return [
+            "# PLAYBOOK",
+            "",
+            "## 3. Active batch",
+            "",
+            "Batch 11 is active.",
+            "",
+            "## 4. Execution log",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+            "",
+            "### 2026-02-20 - Work (Batch 11 WP-1)",
+            "",
+            *entry_body_lines,
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        ]
+
+    def test_no_markers_returns_none(self):
+        """Flat playbook with no Section 4 markers returns None."""
+        playbook = ["# PLAYBOOK", "", "## 4. Execution log", "", "Some content."]
+        assert _latest_test_count_from_entries(playbook) is None
+
+    def test_entry_with_count_returns_count(self):
+        """Bold test count in a current-batch entry body is extracted."""
+        playbook = self._minimal_playbook(["Validated: **142 passed**"])
+        assert _latest_test_count_from_entries(playbook) == 142
+
+    def test_entry_without_count_returns_none(self):
+        """Entry with no bold count produces None."""
+        playbook = self._minimal_playbook(["No count here."])
+        assert _latest_test_count_from_entries(playbook) is None
+
+    def test_multiple_entries_uses_newest(self):
+        """With two entries inside markers, the newest (first) entry's count is used."""
+        playbook = [
+            "# PLAYBOOK",
+            "",
+            "## 3. Active batch",
+            "",
+            "Batch 11 is active.",
+            "",
+            "## 4. Execution log",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+            "",
+            "### 2026-02-21 - Newer work (Batch 11 WP-2)",
+            "",
+            "**200 tests passing**",
+            "",
+            "### 2026-02-20 - Older work (Batch 11 WP-1)",
+            "",
+            "**190 tests passing**",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        ]
+        # Parser returns entries in file order (newest heading is first here);
+        # _latest_test_count_from_entries scans in that order.
+        result = _latest_test_count_from_entries(playbook)
+        assert result == 200
 
 
 # ---------------------------------------------------------------------------

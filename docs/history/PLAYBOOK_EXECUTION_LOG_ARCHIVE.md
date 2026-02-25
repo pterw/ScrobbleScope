@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-25 - fix(utils): support constant backoff value in retry_with_semaphore (side-task)
+
+- Scope: `scrobblescope/utils.py`, `scrobblescope/spotify.py`,
+  `tests/test_retry_with_semaphore.py`.
+- Problem: Reviewer 1 flagged that `backoff` only accepted a callable, requiring
+  `backoff=lambda _a: 1` for constant delays. Updating call sites to use a plain
+  float was not possible without a utility change.
+- Fix: Added `callable(backoff)` guard at line 341 of `utils.py`; updated docstring
+  type annotation. Simplified `spotify.py` search call site to `backoff=1`. Added
+  `test_constant_float_backoff_accepted` to `test_retry_with_semaphore.py`.
+- Validation: 288 passed (+1 vs Batch 13 baseline), all 8 pre-commit hooks passed.
+
 ### 2026-02-25 - test(orchestrator): use standard asyncio import in fetch_spotify tests (side-task)
 
 - Scope: `tests/services/test_orchestrator_fetch_spotify.py`.

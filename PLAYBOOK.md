@@ -163,6 +163,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-02-25 - fix(doc-sync): remediate SESSION_CONTEXT staleness in _cross_validate and _build_status_block (side-task)
+
+- Scope: `scripts/docsync/logic.py`, `scripts/docsync/renderer.py`, `scripts/docsync/cli.py`,
+  `tests/test_docsync_logic.py` (+6 tests: 4 TestLatestTestCount + 2 rewritten + 1 renamed),
+  `tests/test_docsync_renderer.py` (+2 TestBuildStatusBlock count tests),
+  `tests/test_docsync_cli.py` (1 test updated).
+- Problem: Two root causes for SESSION_CONTEXT staleness: (1) `_cross_validate` scanned
+  PLAYBOOK Section 3 for `**N passed**` counts, but agents write test counts in Section 4
+  log entry Validation fields — Section 3 is narrative prose. `playbook_counts` was always
+  empty so the mismatch warning never fired. (2) `_build_status_block` did not include the
+  test count in the STATUS block output, forcing agents to check stale manual rows.
+  Additionally, `_cross_validate` was called with `result.session_lines` (post-sync), which
+  already had the correct count injected by `_build_status_block`, laundering mismatch away.
+- Fix: Added `_latest_test_count_from_entries(playbook_lines)` to `logic.py` — parses
+  Section 4 current-batch entries newest-first and returns the first `**N passed**` count.
+  Updated `_cross_validate` to call this function (scalar comparison) instead of scanning
+  Section 3. Added `_TEST_COUNT_RE` to `renderer.py`; `_build_status_block` now emits
+  `"- Latest validated test count: **N passed**."` using the most-recent entry body count.
+  Fixed `cli.py` to call `_cross_validate(playbook_lines, session_lines)` (original, pre-sync
+  lines) so the STATUS block update cannot launder a pre-existing mismatch.
+- Deviations: None. All changes additive; no logic in `_sync` was touched.
+- Validation: **294 passed** (+6 vs WP-2 baseline), all 8 pre-commit hooks passed.
+
 ### 2026-02-25 - docs(audit): add BATCH14 pre-approval audit report and apply corrections to proposal (side-task)
 
 - Scope: `BATCH14_PROPOSAL.md`, `docs/history/BATCH14_AUDIT_2026-02-25.md`.
@@ -198,15 +221,3 @@ non-current operational logs. Older dated entries live in
 - Fix: Replaced with `sem.locked()`, the public equivalent (stable since Python 3.4).
   Updated comment; noqa suppression removed. Confirmed only occurrence in suite.
 - Validation: 288 passed, all 8 pre-commit hooks passed.
-
-### 2026-02-25 - fix(utils): support constant backoff value in retry_with_semaphore (side-task)
-
-- Scope: `scrobblescope/utils.py`, `scrobblescope/spotify.py`,
-  `tests/test_retry_with_semaphore.py`.
-- Problem: Reviewer 1 flagged that `backoff` only accepted a callable, requiring
-  `backoff=lambda _a: 1` for constant delays. Updating call sites to use a plain
-  float was not possible without a utility change.
-- Fix: Added `callable(backoff)` guard at line 341 of `utils.py`; updated docstring
-  type annotation. Simplified `spotify.py` search call site to `backoff=1`. Added
-  `test_constant_float_backoff_accepted` to `test_retry_with_semaphore.py`.
-- Validation: 288 passed (+1 vs Batch 13 baseline), all 8 pre-commit hooks passed.
