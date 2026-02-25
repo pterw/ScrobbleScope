@@ -167,8 +167,8 @@ async def test_semaphore_gates_inner_calls():
     inside_sem = []
 
     async def inner():
-        # If semaphore is properly acquired, we can't acquire it again
-        acquired = sem._value == 0  # noqa: SLF001
+        # If semaphore is properly acquired, it should appear locked here
+        acquired = sem.locked()
         inside_sem.append(acquired)
         return ("ok", None)
 
