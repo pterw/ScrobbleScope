@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -351,7 +352,7 @@ async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
         },
     }
     session = AsyncMock()
-    semaphore = __import__("asyncio").Semaphore(5)
+    semaphore = asyncio.Semaphore(5)
 
     with (
         patch(
@@ -430,7 +431,7 @@ async def test_run_spotify_search_phase_progress_stays_in_20_to_40_range():
         for i in range(5)
     }
     session = AsyncMock()
-    semaphore = __import__("asyncio").Semaphore(5)
+    semaphore = asyncio.Semaphore(5)
 
     progress_values = []
 
