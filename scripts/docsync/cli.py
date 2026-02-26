@@ -13,6 +13,7 @@ from docsync.logic import (
     _split_archive,
     _sync,
 )
+from docsync.models import SyncError
 
 PLAYBOOK_PATH = Path("PLAYBOOK.md")
 ARCHIVE_PATH = Path("docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
@@ -39,8 +40,6 @@ def _check_root_batch_files(root: Path) -> list[str]:
 
 
 def _read_lines(path: Path) -> list[str]:
-    from docsync.models import SyncError
-
     if not path.exists():
         raise SyncError(f"Required file is missing: {path}")
     return path.read_text(encoding="utf-8").splitlines()
@@ -111,8 +110,6 @@ def main() -> int:
     if args.keep_non_current < 0:
         print("--keep-non-current must be >= 0.", file=sys.stderr)
         return 2
-
-    from docsync.models import SyncError
 
     # ------------------------------------------------------------------ #
     # --split-archive mode                                                 #
@@ -213,8 +210,10 @@ def main() -> int:
 
     # args.fix
     if changed:
-        _write_lines(PLAYBOOK_PATH, result.playbook_lines)
-        _write_lines(ARCHIVE_PATH, result.archive_lines)
+        if PLAYBOOK_PATH in changed:
+            _write_lines(PLAYBOOK_PATH, result.playbook_lines)
+        if ARCHIVE_PATH in changed:
+            _write_lines(ARCHIVE_PATH, result.archive_lines)
         if SESSION_CONTEXT_PATH in changed:
             _write_lines(SESSION_CONTEXT_PATH, result.session_lines)  # type: ignore[arg-type]
         for batch_num, new_batch_lines in result.batch_log_updates.items():
