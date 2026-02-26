@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import re
 from typing import Iterable
 
 from docsync.models import ActiveBatchState, Entry
 from docsync.parser import (
     CURRENT_BATCH_END_MARKER,
     CURRENT_BATCH_START_MARKER,
+    TEST_COUNT_RE,
     _collect_wp_numbers,
 )
-
-_TEST_COUNT_RE = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
 
 
 def _trim_trailing_blank(lines: list[str]) -> list[str]:
@@ -91,7 +89,7 @@ def _build_status_block(
         latest_count: int | None = None
         for entry in current_entries:
             for line in entry.lines:
-                m = _TEST_COUNT_RE.search(line)
+                m = TEST_COUNT_RE.search(line)
                 if m:
                     latest_count = int(m.group(1))
                     break

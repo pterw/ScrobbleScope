@@ -35,6 +35,7 @@ BATCH_CURRENT_RE = re.compile(
     r"\bBatch\s+(\d+)\s+is\s+(?:active|current|in[\s-]?progress)\b", re.IGNORECASE
 )
 ENTRY_BATCH_RE = re.compile(r"\bBatch\s+(\d+)\b", re.IGNORECASE)
+TEST_COUNT_RE = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
 BATCH_NEXT_RE = re.compile(
     r"\bnext\s+batch(?:\s+to\s+execute)?[^0-9]*Batch\s+(\d+)\b",
     re.IGNORECASE,

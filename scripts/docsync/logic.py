@@ -17,6 +17,7 @@ from docsync.parser import (
     SECTION_4_RE,
     SESSION_STATUS_END_MARKER,
     SESSION_STATUS_START_MARKER,
+    TEST_COUNT_RE,
     _date_key,
     _extract_entry_batch,
     _find_marker_pair,
@@ -32,6 +33,19 @@ from docsync.renderer import (
     _render_section4,
     _trim_trailing_blank,
 )
+
+
+def _dedup_sorted(entries: list[Entry]) -> list[Entry]:
+    """Sort entries newest-first and deduplicate by fingerprint."""
+    annotated = list(enumerate(entries))
+    annotated.sort(key=lambda pair: (-_date_key(pair[1].date), pair[0]))
+    seen: set[str] = set()
+    out: list[Entry] = []
+    for _, entry in annotated:
+        if entry.fingerprint not in seen:
+            seen.add(entry.fingerprint)
+            out.append(entry)
+    return out
 
 
 def _merge_entries_into_log(
@@ -57,17 +71,7 @@ def _merge_entries_into_log(
         ]
         existing_entries = []
 
-    combined = list(new_entries) + list(existing_entries)
-    combined_annotated = list(enumerate(combined))
-    combined_annotated.sort(key=lambda pair: (-_date_key(pair[1].date), pair[0]))
-
-    deduped: list[Entry] = []
-    seen: set[str] = set()
-    for _, entry in combined_annotated:
-        if entry.fingerprint in seen:
-            continue
-        seen.add(entry.fingerprint)
-        deduped.append(entry)
+    deduped = _dedup_sorted(list(new_entries) + list(existing_entries))
 
     return _render_archive(prefix, deduped)
 
@@ -224,17 +228,7 @@ def _sync(
             untagged_rotated.append(entry)
 
     # Monolith archive receives only untagged rotated entries.
-    combined = list(untagged_rotated) + list(archive_entries)
-    combined_annotated = list(enumerate(combined))
-    combined_annotated.sort(key=lambda pair: (-_date_key(pair[1].date), pair[0]))
-
-    deduped_entries: list[Entry] = []
-    seen_fingerprints: set[str] = set()
-    for _, entry in combined_annotated:
-        if entry.fingerprint in seen_fingerprints:
-            continue
-        seen_fingerprints.add(entry.fingerprint)
-        deduped_entries.append(entry)
+    deduped_entries = _dedup_sorted(list(untagged_rotated) + list(archive_entries))
 
     new_archive_lines = _render_archive(archive_prefix, deduped_entries)
 
@@ -283,7 +277,6 @@ def _latest_test_count_from_entries(playbook_lines: list[str]) -> int | None:
     fields of Section 4 log entries.  Section 3 rarely contains such counts.
     Scanning entries newest-first ensures we get the live state, not history.
     """
-    test_count_re = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
     try:
         s4_start, s4_end = _find_section(
             playbook_lines, SECTION_4_RE, "PLAYBOOK section 4"
@@ -302,7 +295,7 @@ def _latest_test_count_from_entries(playbook_lines: list[str]) -> int | None:
     # Entries are newest-first in Section 4; scan each in order.
     for entry in entries:
         for line in entry.lines:
-            m = test_count_re.search(line)
+            m = TEST_COUNT_RE.search(line)
             if m:
                 return int(m.group(1))
     return None
@@ -314,14 +307,13 @@ def _cross_validate(
     """Cross-check content across files; return list of warning strings."""
     warnings: list[str] = []
 
-    test_count_re = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
     # Extract test count from the most recent Section 4 log entry so that the
     # check fires on real agent output (Section 3 rarely contains these counts).
     playbook_count = _latest_test_count_from_entries(playbook_lines)
     session_counts: set[int] = set()
     if session_lines is not None:
         for line in session_lines:
-            for m in test_count_re.finditer(line):
+            for m in TEST_COUNT_RE.finditer(line):
                 session_counts.add(int(m.group(1)))
     if (
         playbook_count is not None
