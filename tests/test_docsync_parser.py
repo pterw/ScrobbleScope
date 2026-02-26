@@ -92,9 +92,26 @@ class TestFindMarkerPair:
             )
 
     def test_same_line_markers_raises(self):
-        """Start and end on same index (only end marker present once) -- edge case."""
+        """Only start marker present (no end marker) -- edge case."""
         lines = ["other", CURRENT_BATCH_START_MARKER]
         with pytest.raises(SyncError, match="must contain start marker"):
+            _find_marker_pair(
+                lines,
+                CURRENT_BATCH_START_MARKER,
+                CURRENT_BATCH_END_MARKER,
+                "test",
+            )
+
+    def test_duplicate_start_markers_raises_sync_error(self):
+        """Duplicate start markers should raise SyncError, not silently span."""
+        lines = [
+            CURRENT_BATCH_START_MARKER,
+            "content",
+            CURRENT_BATCH_START_MARKER,
+            "more content",
+            CURRENT_BATCH_END_MARKER,
+        ]
+        with pytest.raises(SyncError, match="duplicate markers"):
             _find_marker_pair(
                 lines,
                 CURRENT_BATCH_START_MARKER,
@@ -296,3 +313,24 @@ class TestExtractEntryBatch:
             fingerprint="abc",
         )
         assert _extract_entry_batch(entry) == 11
+
+    def test_loose_batch_mentions_not_tagged(self):
+        """Titles mentioning batches without (Batch N WP-X) are untagged."""
+        post_batch = Entry(
+            heading="### 2026-01-01 - Post-Batch 8 cleanup",
+            date="2026-01-01",
+            title="Post-Batch 8 cleanup",
+            lines=("### 2026-01-01 - Post-Batch 8 cleanup",),
+            start_idx=0,
+            fingerprint="abc",
+        )
+        assert _extract_entry_batch(post_batch) is None
+        multi_batch = Entry(
+            heading="### 2026-01-01 - Covers Batch 13 and Batch 14 results",
+            date="2026-01-01",
+            title="Covers Batch 13 and Batch 14 results",
+            lines=("### 2026-01-01 - Covers Batch 13 and Batch 14 results",),
+            start_idx=0,
+            fingerprint="def",
+        )
+        assert _extract_entry_batch(multi_batch) is None

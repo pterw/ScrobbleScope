@@ -34,7 +34,7 @@ BATCH_NOT_DEFINED_RE = re.compile(
 BATCH_CURRENT_RE = re.compile(
     r"\bBatch\s+(\d+)\s+is\s+(?:active|current|in[\s-]?progress)\b", re.IGNORECASE
 )
-ENTRY_BATCH_RE = re.compile(r"\bBatch\s+(\d+)\b", re.IGNORECASE)
+ENTRY_BATCH_RE = re.compile(r"\(Batch\s+(\d+)\s+WP-\d+\)", re.IGNORECASE)
 TEST_COUNT_RE = re.compile(r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*")
 BATCH_NEXT_RE = re.compile(
     r"\bnext\s+batch(?:\s+to\s+execute)?[^0-9]*Batch\s+(\d+)\b",
@@ -99,6 +99,12 @@ def _find_marker_pair(
         raise SyncError(
             f"{label} must contain start marker ({start_marker}) and end marker"
             f" ({end_marker})."
+        )
+    if len(starts) > 1 or len(ends) > 1:
+        raise SyncError(
+            f"{label} has duplicate markers: "
+            f"{len(starts)} start(s), {len(ends)} end(s). "
+            f"Expected exactly 1 of each."
         )
     start_idx = starts[0]
     end_idx = ends[-1]

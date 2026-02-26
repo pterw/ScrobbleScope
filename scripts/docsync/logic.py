@@ -185,6 +185,9 @@ def _sync(
         current_entries = truly_current
         non_current_entries = stale_in_markers + non_current_entries
 
+    # Sentinel -1: no real batch is negative.  When current_batch is None,
+    # -1 ensures every tagged entry satisfies entry_batch != current_batch_num
+    # and routes to always_rotate.
     current_batch_num = (
         section_3_state.current_batch
         if section_3_state.current_batch is not None
