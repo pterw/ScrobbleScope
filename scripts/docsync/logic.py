@@ -337,24 +337,4 @@ def _cross_validate(
                     f"Broken archive link in PLAYBOOK: {linked_path} does not exist."
                 )
 
-    stale_phrases = [
-        "refactor monolithic",
-        "Post-Batch 8",
-    ]
-    for line in playbook_lines[:5]:
-        for phrase in stale_phrases:
-            if phrase.lower() in line.lower():
-                warnings.append(
-                    f"Stale header detected in PLAYBOOK: '{phrase}' "
-                    f"found in: {line.strip()}"
-                )
-    if session_lines is not None:
-        for line in session_lines[:5]:
-            for phrase in stale_phrases:
-                if phrase.lower() in line.lower():
-                    warnings.append(
-                        f"Stale header detected in SESSION_CONTEXT: '{phrase}' "
-                        f"found in: {line.strip()}"
-                    )
-
     return warnings

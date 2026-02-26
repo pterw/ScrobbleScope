@@ -50,6 +50,19 @@ class TestFindSection:
         assert start == 0
         assert end == 2  # stops at ## 4
 
+    def test_duplicate_headings_picks_first(self):
+        """When duplicate section headings exist, _find_section picks the first."""
+        lines = [
+            "## 3. Active batch",
+            "Content A",
+            "## 4. Execution log",
+            "## 3. Active batch",
+            "Content B",
+        ]
+        start, end = _find_section(lines, SECTION_3_RE, "test section")
+        assert start == 0
+        assert end == 2
+
 
 # ---------------------------------------------------------------------------
 # _find_marker_pair -- missing or inverted markers

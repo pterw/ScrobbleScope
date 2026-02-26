@@ -169,7 +169,6 @@ These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
   or `**N tests passing**` (bold-wrapped only) from the newest Section 4
   entry inside the `DOCSYNC:CURRENT-BATCH-START/END` markers. Historical
   entries outside those markers are not scanned.
-- "Stale header detected" in the first 5 lines of either file.
 - "Broken archive link" when a `docs/history/*.md` path in PLAYBOOK does
   not exist on disk.
 

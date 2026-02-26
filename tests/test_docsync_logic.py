@@ -109,27 +109,6 @@ class TestCrossValidate:
         assert len(warnings) == 1
         assert "mismatch" in warnings[0].lower()
 
-    def test_stale_header_in_playbook(self):
-        warnings = _cross_validate(
-            ["# PLAYBOOK: refactor monolithic app.py", "content"],
-            ["# SESSION", "content"],
-        )
-        assert any("Stale header" in w for w in warnings)
-
-    def test_stale_header_in_session_context(self):
-        warnings = _cross_validate(
-            ["# PLAYBOOK", "content"],
-            ["# SESSION: Post-Batch 8 cleanup", "content"],
-        )
-        assert any("Stale header" in w for w in warnings)
-
-    def test_stale_phrase_beyond_first_5_lines_not_detected(self):
-        """Stale phrase detection only scans the first 5 lines."""
-        playbook = ["line"] * 6 + ["refactor monolithic mentioned late"]
-        warnings = _cross_validate(playbook, ["# SESSION"])
-        stale_warnings = [w for w in warnings if "Stale header" in w]
-        assert stale_warnings == []
-
     def test_counts_only_in_one_file_no_warning(self):
         """If only one file has counts, there's nothing to compare."""
         warnings = _cross_validate(
@@ -290,6 +269,32 @@ class TestLatestTestCount:
         # _latest_test_count_from_entries scans in that order.
         result = _latest_test_count_from_entries(playbook)
         assert result == 200
+
+    def test_oldest_first_file_order_returns_first_count(self):
+        """Documents file-order dependency: function scans entries in file
+        order and returns the first bold count found, not the newest by date."""
+        playbook = [
+            "# PLAYBOOK",
+            "",
+            "## 3. Active batch",
+            "",
+            "Batch 11 is active.",
+            "",
+            "## 4. Execution log",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+            "",
+            "### 2026-02-20 - Older work (Batch 11 WP-1)",
+            "",
+            "**190 tests passing**",
+            "",
+            "### 2026-02-21 - Newer work (Batch 11 WP-2)",
+            "",
+            "**200 tests passing**",
+            "",
+            "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        ]
+        assert _latest_test_count_from_entries(playbook) == 190
 
 
 # ---------------------------------------------------------------------------

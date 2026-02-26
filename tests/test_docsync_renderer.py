@@ -133,7 +133,8 @@ class TestBuildStatusBlock:
         )
         block = _build_status_block(state, [entry])
         text = "\n".join(block)
-        assert "none" in text.lower() or "unknown" in text.lower()
+        assert "none" in text.lower()
+        assert "unknown" in text.lower()
 
     def test_current_batch_none_infers_from_completed(self):
         """When current_batch is None but last_completed_batch exists,
