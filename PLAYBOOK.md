@@ -90,6 +90,27 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-02-26 - Remediate docsync audit findings (side-task)
+
+**Scope:** `scripts/docsync/` (cli, parser, renderer, logic),
+test suite (parser, renderer, logic), `AGENTS.md`.
+
+**Changes:**
+- Fixed unconditional PLAYBOOK/ARCHIVE writes in --fix mode (F1).
+- Consolidated SyncError import to top-level in cli.py (F11).
+- Defined TEST_COUNT_RE once in parser.py (F2).
+- Extracted _dedup_sorted() helper in logic.py (F3).
+- Tightened ENTRY_BATCH_RE to require (Batch N WP-X) format (F6).
+- Added duplicate-marker detection in _find_marker_pair (F7).
+- Added sentinel -1 comment (F5).
+- Removed dead stale-phrase detection + 3 tests (F8).
+- Fixed misleading docstring (9a), weak assertion (9b).
+- Added 4 tests: duplicate headings (9c), adversarial regex (9d),
+  duplicate markers (F7), file-order dependency (9e).
+
+**Test count:** **307 passed** (net +1: -3 removed, +4 added).
+**Validation:** `pytest -q` 307 passed; `pre-commit run --all-files` clean.
+
 ### 2026-02-25 - Post-batch test suite audit (doc hygiene)
 
 **Scope:** `tests/test_docsync_logic.py`, `tests/test_docsync_cli.py`,

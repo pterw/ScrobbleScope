@@ -26,7 +26,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-14-doc-hygiene` |
-| Tests | **306 passing** across 19 test files |
+| Tests | **307 passing** across 18 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
@@ -126,15 +126,14 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (306 tests)
+## 7. Test structure (307 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
-| test_docsync_cli.py | 16 |
-| test_docsync_logic.py | 44 |
-| test_docsync_models.py | 5 |
-| test_docsync_parser.py | 24 |
+| test_docsync_cli.py | 17 |
+| test_docsync_logic.py | 37 |
+| test_docsync_parser.py | 32 |
 | test_docsync_renderer.py | 17 |
 | test_domain.py | 13 |
 | test_repositories.py | 18 |
