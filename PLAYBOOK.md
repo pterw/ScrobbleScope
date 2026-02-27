@@ -54,7 +54,8 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Batches 10-13 are complete.** See Section 2 table for definitions.
+- **Between batches.** No active batch is open right now.
+- **Current mode:** side-task patching and quality fixes only (no new feature batch).
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
@@ -76,61 +77,129 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 Keep only the active window here: current batch entries plus the latest 4
 non-current operational logs. Older dated entries live in
-`docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
 
 **How to read dated entries:**
 - Each heading `YYYY-MM-DD - ...` is a completion/addendum log.
+- Untagged side-task history: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+- Tagged batch history: per-batch logs under `docs/history/logs/`.
+- Batch scope/acceptance criteria: definitions under `docs/history/definitions/`.
 - Current-batch boundaries are machine-managed (do not move entries manually):
   - `<!-- DOCSYNC:CURRENT-BATCH-START -->`
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->`
 - After any edit here, run `python scripts/doc_state_sync.py --fix`.
-- Archive search: `rg -n "^### 20" docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-02-26 - Remediate docsync audit findings (side-task)
+### 2026-02-27 - Revalidate audit findings and prepare next-agent packet (side-task)
 
-**Scope:** `scripts/docsync/` (cli, parser, renderer, logic),
-test suite (parser, renderer, logic), `AGENTS.md`.
+**Scope:** `docs/history/AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md`,
+`tests/test_docsync_logic.py` (format-only), repo-wide quality gates.
 
-**Changes:**
-- Fixed unconditional PLAYBOOK/ARCHIVE writes in --fix mode (F1).
-- Consolidated SyncError import to top-level in cli.py (F11).
-- Defined TEST_COUNT_RE once in parser.py (F2).
-- Extracted _dedup_sorted() helper in logic.py (F3).
-- Tightened ENTRY_BATCH_RE to require (Batch N WP-X) format (F6).
-- Added duplicate-marker detection in _find_marker_pair (F7).
-- Added sentinel -1 comment (F5).
-- Removed dead stale-phrase detection + 3 tests (F8).
-- Fixed misleading docstring (9a), weak assertion (9b).
-- Added 4 tests: duplicate headings (9c), adversarial regex (9d),
-  duplicate markers (F7), file-order dependency (9e).
+**Plan vs implementation:**
+- Planned: verify previously reported findings against current branch state,
+  refresh stale assertions, and produce implementation-ready guidance for the
+  next agent handoff.
+- Implemented: re-ran full validations, updated stale test baseline and
+  resolved-item status in the audit report, and added a scoped next-agent
+  implementation packet with acceptance criteria.
 
-**Test count:** **307 passed** (net +1: -3 removed, +4 added).
-**Validation:** `pytest -q` 307 passed; `pre-commit run --all-files` clean.
+**Deviations:**
+- No behavioral code changes were required; only audit/report updates plus
+  formatter-normalized whitespace in `tests/test_docsync_logic.py`.
 
-### 2026-02-25 - Post-batch test suite audit (doc hygiene)
+**Validation:**
+- `pre-commit run --all-files` (pass)
+- `pytest -q` (**310 passed**, 3 deprecation warnings from aiohttp connector)
+- `python scripts/doc_state_sync.py --check` (pass)
+
+**Forward guidance:**
+- Execute the next-agent packet in commit-sized slices: test-module split,
+  low-risk orchestrator extraction, then CI/session policy wording alignment.
+
+### 2026-02-27 - Harden docsync non-happy-path coverage + path guidance (side-task)
 
 **Scope:** `tests/test_docsync_logic.py`, `tests/test_docsync_cli.py`,
-`tests/test_docsync_parser.py`; deleted `tests/test_docsync_models.py`.
+`AGENTS.md`, `PLAYBOOK.md`.
 
-**Changes:**
-- Fixed `test_deduplication_across_archive`: was passing vacuously -- tagged
-  entry routed to `batch_log_updates`, bypassing monolith dedup entirely;
-  rewrite uses untagged entry and asserts `batch_log_updates == {}`.
-- Dropped `test_current_entry_count_mismatch_warns`: near-duplicate of
-  `test_mismatched_counts_warns` (identical `_cross_validate` code path).
-- Rewrote `test_section4_historical_count_ignored`: old version had no
-  CURRENT-BATCH markers so `_latest_test_count_from_entries` returned None
-  vacuously; new version confirms below-end-marker counts are ignored while
-  inside-marker count is used for comparison.
-- Removed unused `LOGS_DIR` name import from `test_docsync_cli.py`.
-- Merged 5 `_fingerprint`/`_extract_entry_batch` tests from misnamed
-  `test_docsync_models.py` into `test_docsync_parser.py`; deleted old file.
-- Added `TestSplitArchiveMode.test_split_archive_routes_tagged_entry` for
-  the previously uncovered `--split-archive` CLI branch.
+**Plan vs implementation:**
+- Planned: enforce anti-happy-path discipline for docsync archive-link and
+  migration handling, and remove path ambiguity between untagged archive,
+  per-batch logs, and definitions.
+- Implemented: added adversarial tests for `docs/logarchive` link validation
+  (exists/missing) and for `--split-archive` missing-input failure (`exit 2`),
+  plus explicit archive/log/definition lookup guidance in AGENTS and PLAYBOOK.
 
-**Test count:** **306 passed** (net zero: -6 removed, +6 added).
-**Validation:** `pytest -q` 306 passed; `pre-commit run --all-files` clean.
+**Deviations:**
+- One assertion was adjusted to be path-separator-agnostic on Windows
+  (`PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` substring) after first run exposed
+  slash-vs-backslash brittleness.
+
+**Validation:**
+- `pytest -q tests/test_docsync_logic.py tests/test_docsync_cli.py`
+  (**57 passed**)
+- `pytest -q` (**310 passed**, 3 deprecation warnings from aiohttp connector)
+- `python scripts/doc_state_sync.py --check` (pass)
+
+**Forward guidance:**
+- Keep new docsync tests behavior-focused (real inputs + failure paths), not
+  mock-call-only checks, when adding future archive-routing rules.
+
+### 2026-02-27 - Migrate monolith archive path to docs/logarchive (side-task)
+
+**Scope:** `scripts/docsync` path canonicalization, pointer compatibility docs,
+doc references, regression validation.
+
+**Plan vs implementation:**
+- Planned: stop using the legacy history monolith paths
+  (`docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
+  `docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`) as the
+  canonical monolith location and move to a dedicated `docs/logarchive/`
+  folder with clear pointers from legacy paths.
+- Implemented: switched docsync `ARCHIVE_PATH` to
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, copied canonical
+  archive content there, converted both legacy monolith files into pointer
+  documents, and added `docs/logarchive/README.md` lookup guidance.
+
+**Deviations:**
+- Historical documents under `docs/history/definitions/` and batch logs were
+  left unchanged to preserve historical wording; compatibility pointers prevent
+  breakage for legacy references.
+
+**Validation:**
+- `python scripts/doc_state_sync.py --fix`
+- `python scripts/doc_state_sync.py --check`
+- `pytest -q tests/test_docsync_cli.py tests/test_docsync_logic.py`
+  `tests/test_docsync_parser.py tests/test_docsync_renderer.py` (**103 passed**)
+- `pytest -q` (**307 passed**, 3 deprecation warnings from aiohttp connector)
+
+**Forward guidance:**
+- Use `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for untagged archive
+  search and keep per-batch logs under `docs/history/logs/` as the tagged route.
+
+### 2026-02-27 - Branch hygiene cleanup after main diff review (side-task)
+
+**Scope:** orchestration hygiene (`.gitignore`, PLAYBOOK state consistency,
+root audit-file placement), docsync warning cleanup.
+
+**Plan vs implementation:**
+- Planned: remove non-actionable docsync warning noise and align tracked state
+  with the "local-only" `.claude/SESSION_CONTEXT.md` policy.
+- Implemented: scoped `BATCH*_AUDIT*.md` ignore rule to repo root only,
+  moved `BATCH14_PROPOSAL_AUDIT1.md` from root into `docs/history/`, and
+  recorded the side-task in Section 4.
+
+**Deviations:**
+- `git mv` could not be used for `BATCH14_PROPOSAL_AUDIT1.md` because the file
+  was not under version control; file-system move was used instead.
+
+**Validation:**
+- Ran `python scripts/doc_state_sync.py --fix` and
+  `python scripts/doc_state_sync.py --check` after edits.
+
+**Forward guidance:**
+- Keep root-only draft/audit patterns scoped with leading `/` in `.gitignore`
+  so archive destinations under `docs/history/` remain trackable.

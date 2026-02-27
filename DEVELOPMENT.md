@@ -100,7 +100,7 @@ archive exists because LLM agents benefit from being able to grep past
 decisions without loading them into the active context.
 
 Specific documents worth noting:
-- `PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: auto-managed rotated execution log
+- `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: auto-managed rotated execution log
 - `BATCHN_DEFINITION.md`: acceptance criteria written before work started
 - `AUDIT_*.md` / `BUGFIX_*.md`: external review findings and responses
 
@@ -238,7 +238,7 @@ If you have cloned this repository and want to understand any decision:
 1. Read the relevant `docs/history/BATCHN_DEFINITION.md` to see what the
    acceptance criteria were before work started.
 2. Search `PLAYBOOK.md` Section 4 and
-   `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries
    covering the relevant date range.
 3. Check `docs/history/AUDIT_*.md` for any third-party review findings
    that influenced the current structure.

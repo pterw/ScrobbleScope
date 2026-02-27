@@ -30,6 +30,11 @@ reference a fact owned by another file, link to it -- do not copy it.
 If SESSION_CONTEXT Section 2 and PLAYBOOK Section 3 agree on the current batch
 and next WP, you have enough context to start.
 
+**Token discipline for bootstrap:**
+- Read only Sections 2-5 of `.claude/SESSION_CONTEXT.md` and Sections 3-4 of `PLAYBOOK.md` by default.
+- Open archive files only when Section 4 links to one for the task at hand.
+- Do not paste long historical logs into prompts; link files instead.
+
 ---
 
 ## Environment Setup
@@ -126,13 +131,18 @@ agent starts from identical state. It:
 1. **Rotates** overflow dated entries from PLAYBOOK Section 4 into
    per-batch log files (`docs/history/logs/BATCHN_LOG.md`) when the entry
    carries a `(Batch N WP-X)` tag, or into the monolith archive
-   (`docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`) for untagged
+   (`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`) for untagged
    side-task entries.
 2. **Deduplicates** archive entries by SHA-256 fingerprint (same content
    is never stored twice).
 3. **Refreshes** the machine-managed `DOCSYNC:STATUS` block in
    SESSION_CONTEXT from PLAYBOOK truth (Section 3 + Section 4).
 4. **Cross-validates** content across files (test counts, stale headers).
+
+**Lookup map (avoid path confusion):**
+- Untagged side-task archive: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- Tagged per-batch logs: `docs/history/logs/BATCHN_LOG.md`
+- Batch definitions: `docs/history/definitions/BATCHN_DEFINITION.md`
 
 Without this script, agents would drift: one might update PLAYBOOK but
 forget SESSION_CONTEXT, or manually move entries and break marker order.
@@ -162,6 +172,10 @@ The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
 The script prints `WARNING:` lines to stderr for cross-file inconsistencies.
 These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
 
+`SESSION_CONTEXT.md` is treated as a local dashboard. If it is stale relative
+to PLAYBOOK, docsync emits a warning and continues; keep stale SESSION_CONTEXT
+local-only and do not commit stale state.
+
 **Real issues** (act on these):
 - "Test count mismatch" where SESSION_CONTEXT Section 2 and the most-recent
   current-batch log entry in PLAYBOOK Section 4 disagree on the **current**
@@ -169,7 +183,8 @@ These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
   or `**N tests passing**` (bold-wrapped only) from the newest Section 4
   entry inside the `DOCSYNC:CURRENT-BATCH-START/END` markers. Historical
   entries outside those markers are not scanned.
-- "Broken archive link" when a `docs/history/*.md` path in PLAYBOOK does
+- "Broken archive link" when a `docs/history/*.md` or
+   `docs/logarchive/*.md` path in PLAYBOOK does
   not exist on disk.
 
 ### What to update after a WP or side-task commit

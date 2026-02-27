@@ -328,7 +328,7 @@ def _cross_validate(
             f"most recent PLAYBOOK log entry has {playbook_count}."
         )
 
-    archive_link_re = re.compile(r"`(docs/history/[^`]+\.md)`")
+    archive_link_re = re.compile(r"`((?:docs/history|docs/logarchive)/[^`]+\.md)`")
     for line in playbook_lines:
         for m in archive_link_re.finditer(line):
             linked_path = Path(m.group(1))

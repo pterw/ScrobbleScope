@@ -170,6 +170,32 @@ class TestCrossValidate:
         assert any("Broken archive link" in w for w in warnings)
         assert any("BATCH1_DEFINITION.md" in w for w in warnings)
 
+    def test_logarchive_link_exists_no_warning(self, tmp_path, monkeypatch):
+        """No warning when linked docs/logarchive file exists."""
+        logarchive_dir = tmp_path / "docs" / "logarchive"
+        logarchive_dir.mkdir(parents=True)
+        (logarchive_dir / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md").write_text(
+            "# Archive",
+            encoding="utf-8",
+        )
+        monkeypatch.chdir(tmp_path)
+        playbook = [
+            "Use `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for search.",
+        ]
+        warnings = _cross_validate(playbook, ["# SESSION"])
+        archive_warnings = [w for w in warnings if "Broken archive link" in w]
+        assert archive_warnings == []
+
+    def test_logarchive_link_missing_warns(self, tmp_path, monkeypatch):
+        """Warning when linked docs/logarchive file does not exist."""
+        monkeypatch.chdir(tmp_path)
+        playbook = [
+            "Use `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for search.",
+        ]
+        warnings = _cross_validate(playbook, ["# SESSION"])
+        assert any("Broken archive link" in w for w in warnings)
+        assert any("PLAYBOOK_EXECUTION_LOG_ARCHIVE.md" in w for w in warnings)
+
     def test_archive_link_multiple_missing(self, tmp_path, monkeypatch):
         """Each broken link produces its own warning."""
         monkeypatch.chdir(tmp_path)
@@ -307,13 +333,7 @@ class TestSyncIntegration:
         """Read the standard three files from the sync_env tmp directory."""
         playbook = (sync_env / "PLAYBOOK.md").read_text(encoding="utf-8").splitlines()
         archive = (
-            (
-                sync_env
-                / "docs"
-                / "history"
-                / "logs"
-                / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
-            )
+            (sync_env / "docs" / "logarchive" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
             .read_text(encoding="utf-8")
             .splitlines()
         )
@@ -434,7 +454,7 @@ class TestSyncIntegration:
         archive_text = f"# Archive\n\n{entry_text}"
         (sync_env / "PLAYBOOK.md").write_text(playbook_text, encoding="utf-8")
         archive_path = (
-            sync_env / "docs" / "history" / "logs" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+            sync_env / "docs" / "logarchive" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
         )
         archive_path.write_text(archive_text, encoding="utf-8")
         playbook, archive, session = self._files(sync_env)

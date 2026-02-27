@@ -49,20 +49,20 @@ class TestMainArgs:
         exit_code = cli_mod.main()
         captured = capsys.readouterr()
         assert "defaulting to --check" in captured.err
-        # Fresh fixture has a stale placeholder in SESSION_CONTEXT, so
-        # check mode should detect drift (exit 1).
-        assert exit_code == 1
+        # Fresh fixture has a stale placeholder in SESSION_CONTEXT, but stale
+        # SESSION_CONTEXT is warning-only and should not fail --check.
+        assert exit_code == 0
 
-    def test_check_detects_drift(
+    def test_check_warns_on_stale_session_context(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
     ):
         """Dirty SESSION_CONTEXT (status block is stale placeholder) should
-        cause --check to return 1."""
+        emit warning text but not fail --check."""
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         exit_code = cli_mod.main()
-        assert exit_code == 1
+        assert exit_code == 0
         captured = capsys.readouterr()
-        assert "drift detected" in captured.out
+        assert "SESSION_CONTEXT is stale" in captured.err
 
     def test_fix_writes_files(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
@@ -117,7 +117,7 @@ class TestMainArgs:
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
     ):
         (
-            sync_env / "docs" / "history" / "logs" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+            sync_env / "docs" / "logarchive" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
         ).unlink()
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         assert cli_mod.main() == 2
@@ -227,6 +227,18 @@ class TestBatchLogHelpers:
 
 
 class TestSplitArchiveMode:
+    def test_split_archive_missing_archive_returns_2(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """GIVEN no archive file, WHEN --split-archive runs,
+        THEN it exits with code 2 (SyncError surfaced)."""
+        archive_path = (
+            sync_env / "docs" / "logarchive" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+        )
+        archive_path.unlink()
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--split-archive"])
+        assert cli_mod.main() == 2
+
     def test_split_archive_routes_tagged_entry(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
     ):
@@ -249,7 +261,7 @@ class TestSplitArchiveMode:
         """
         )
         archive_path = (
-            sync_env / "docs" / "history" / "logs" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+            sync_env / "docs" / "logarchive" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
         )
         archive_path.write_text(archive_text, encoding="utf-8")
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--split-archive"])

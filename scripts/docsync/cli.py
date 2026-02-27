@@ -16,7 +16,7 @@ from docsync.logic import (
 from docsync.models import SyncError
 
 PLAYBOOK_PATH = Path("PLAYBOOK.md")
-ARCHIVE_PATH = Path("docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
+ARCHIVE_PATH = Path("docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 SESSION_CONTEXT_PATH = Path(".claude/SESSION_CONTEXT.md")
 LOGS_DIR = Path("docs/history/logs")
 DEFINITIONS_DIR = Path("docs/history/definitions")
@@ -180,18 +180,27 @@ def main() -> int:
         for w in xv_warnings:
             print(f"WARNING: {w}", file=sys.stderr)
 
+    session_drift = (
+        result.session_lines is not None and current_session != result.session_lines
+    )
+
     changed: list[Path] = []
     if current_playbook != result.playbook_lines:
         changed.append(PLAYBOOK_PATH)
     if current_archive != result.archive_lines:
         changed.append(ARCHIVE_PATH)
-    if result.session_lines is not None and current_session != result.session_lines:
-        changed.append(SESSION_CONTEXT_PATH)
     for batch_num, new_batch_lines in result.batch_log_updates.items():
         batch_log_path = _get_batch_log_path(batch_num)
         current_batch = _read_lines_optional(batch_log_path)
         if current_batch != new_batch_lines:
             changed.append(batch_log_path)
+
+    if session_drift:
+        print(
+            "WARNING: SESSION_CONTEXT is stale relative to PLAYBOOK; "
+            "keep it local-only and do not commit stale state.",
+            file=sys.stderr,
+        )
 
     if args.check:
         if changed:
@@ -214,8 +223,6 @@ def main() -> int:
             _write_lines(PLAYBOOK_PATH, result.playbook_lines)
         if ARCHIVE_PATH in changed:
             _write_lines(ARCHIVE_PATH, result.archive_lines)
-        if SESSION_CONTEXT_PATH in changed:
-            _write_lines(SESSION_CONTEXT_PATH, result.session_lines)  # type: ignore[arg-type]
         for batch_num, new_batch_lines in result.batch_log_updates.items():
             batch_log_path = _get_batch_log_path(batch_num)
             if batch_log_path in changed:
