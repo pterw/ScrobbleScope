@@ -1,5 +1,9 @@
 # BATCH14_PROPOSAL.md
 
+> Historical note (2026-02-27): references below to SESSION_CONTEXT
+> auto-updates via `doc_state_sync.py --fix` are superseded. Current behavior
+> is warning-only for stale `.claude/SESSION_CONTEXT.md`.
+
 ## Batch 14 — Doc Hygiene
 
 **Status:** Proposed (awaiting audit)
