@@ -1,5 +1,9 @@
 # BATCH14_PROPOSAL.md
 
+> Historical note (2026-02-27): references below to SESSION_CONTEXT
+> auto-updates via `doc_state_sync.py --fix` are superseded. Current behavior
+> is warning-only for stale `.claude/SESSION_CONTEXT.md`.
+
 ## Batch 14 — Doc Hygiene
 
 **Status:** Proposed (awaiting audit)
@@ -50,7 +54,7 @@ heatmap) is explicitly deferred until this batch merges.
 | Batch 13 definition file | `BATCH13_PROPOSAL.md` (root) | **Not archived; wrong suffix** — should be `BATCH13_DEFINITION.md` |
 | Execution log archive | `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` | 1279-line monolith (Batches 10–13 interleaved) |
 | Per-batch log files | `docs/history/BATCHN_LOG.md` | **None exist** |
-| `doc_state_sync.py` | `scripts/doc_state_sync.py` | ~450-line monolith; all entries → monolith; no batch-aware routing |
+| `doc_state_sync.py` | `scripts/doc_state_sync.py` | ~679-line monolith; all entries → monolith; no batch-aware routing |
 | `test_doc_state_sync.py` | `tests/test_doc_state_sync.py` | 1149 lines, 84 tests, 18 classes — monolith |
 | AGENTS.md close-out rules | `AGENTS.md` | Implicit only; no numbered checklist |
 
@@ -108,7 +112,7 @@ files; update PLAYBOOK cross-references. No script changes.
 
 ### WP-2 — `doc_state_sync.py`: structural package extraction
 
-**Goal:** Extract the ~450-line `scripts/doc_state_sync.py` monolith into a proper
+**Goal:** Extract the ~679-line `scripts/doc_state_sync.py` monolith into a proper
 Python package (`scripts/docsync/`) with modules scoped by responsibility, and split
 the 1149-line test monolith into files that map 1:1 to the new modules. This is a
 **pure structural refactor** — zero feature changes, zero logic changes.

@@ -14,7 +14,7 @@ are external memory shared across agents.
 | `.claude/SESSION_CONTEXT.md` | **Dashboard** | Current project state snapshot. No rules, no history. |
 | `PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
-| `docs/history/` | **Archive** | Completed batch definitions, rotated execution logs, audit reports. |
+| `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audit reports. |
 
 **Anti-duplication rule:** Each fact lives in exactly one file. If you need to
 reference a fact owned by another file, link to it -- do not copy it.
@@ -29,6 +29,11 @@ reference a fact owned by another file, link to it -- do not copy it.
 
 If SESSION_CONTEXT Section 2 and PLAYBOOK Section 3 agree on the current batch
 and next WP, you have enough context to start.
+
+**Token discipline for bootstrap:**
+- Read only Sections 2-5 of `.claude/SESSION_CONTEXT.md` and Sections 3-4 of `PLAYBOOK.md` by default.
+- Open archive files only when Section 4 links to one for the task at hand.
+- Do not paste long historical logs into prompts; link files instead.
 
 ---
 
@@ -124,12 +129,20 @@ PLAYBOOK, SESSION_CONTEXT, and the archive file consistent so that every
 agent starts from identical state. It:
 
 1. **Rotates** overflow dated entries from PLAYBOOK Section 4 into
-   `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`.
+   per-batch log files (`docs/history/logs/BATCHN_LOG.md`) when the entry
+   carries a `(Batch N WP-X)` tag, or into the monolith archive
+   (`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`) for untagged
+   side-task entries.
 2. **Deduplicates** archive entries by SHA-256 fingerprint (same content
    is never stored twice).
 3. **Refreshes** the machine-managed `DOCSYNC:STATUS` block in
    SESSION_CONTEXT from PLAYBOOK truth (Section 3 + Section 4).
 4. **Cross-validates** content across files (test counts, stale headers).
+
+**Lookup map (avoid path confusion):**
+- Untagged side-task archive: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- Tagged per-batch logs: `docs/history/logs/BATCHN_LOG.md`
+- Batch definitions: `docs/history/definitions/BATCHN_DEFINITION.md`
 
 Without this script, agents would drift: one might update PLAYBOOK but
 forget SESSION_CONTEXT, or manually move entries and break marker order.
@@ -149,7 +162,9 @@ At batch close-out (all WPs done):
 python scripts/doc_state_sync.py --fix --keep-non-current 0
 ```
 
-Modes: `--check` (read-only, exit 1 on drift) or `--fix` (write updates).
+Modes: `--check` (read-only, exit 1 on drift), `--fix` (write updates), or
+`--split-archive` (one-time migration: partition the monolith archive into
+per-batch log files; run once after upgrading to per-batch routing).
 The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
 
 ### Cross-validation warnings
@@ -157,16 +172,19 @@ The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
 The script prints `WARNING:` lines to stderr for cross-file inconsistencies.
 These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
 
+`SESSION_CONTEXT.md` is treated as a local dashboard. If it is stale relative
+to PLAYBOOK, docsync emits a warning and continues; keep stale SESSION_CONTEXT
+local-only and do not commit stale state.
+
 **Real issues** (act on these):
-- "Test count mismatch" where SESSION_CONTEXT Section 2 and PLAYBOOK
-  Section 3 disagree on the **current** test count. Fix whichever file
-  is stale. The scan is scoped to PLAYBOOK Section 3 only -- historical
-  `**N passed**` strings in Section 4 log entries are ignored.
-  Convention: only `**bold**`-wrapped counts are machine-parseable
-  current-state declarations; plain-text counts in narrative prose
-  (e.g. batch-completion summaries) are intentionally excluded.
-- "Stale header detected" in the first 5 lines of either file.
-- "Broken archive link" when a `docs/history/*.md` path in PLAYBOOK does
+- "Test count mismatch" where SESSION_CONTEXT Section 2 and the most-recent
+  current-batch log entry in PLAYBOOK Section 4 disagree on the **current**
+  test count. Fix whichever file is stale. The scan reads `**N passed**`
+  or `**N tests passing**` (bold-wrapped only) from the newest Section 4
+  entry inside the `DOCSYNC:CURRENT-BATCH-START/END` markers. Historical
+  entries outside those markers are not scanned.
+- "Broken archive link" when a `docs/history/*.md` or
+   `docs/logarchive/*.md` path in PLAYBOOK does
   not exist on disk.
 
 ### What to update after a WP or side-task commit
@@ -178,6 +196,26 @@ These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
   graph) if modules are added, removed, renamed, or dependencies change.
 - `README.md` for user/developer-visible setup or behavior changes.
 - `docs/history/<TOPIC>_<DATE>.md` for significant findings or audits.
+
+---
+
+## Batch Close-Out Procedure
+
+When all WPs in the active batch are committed and validated:
+
+1. **Run final sync:** `python scripts/doc_state_sync.py --fix --keep-non-current 0`
+   (purges old non-current entries from PLAYBOOK Section 4 to keep it lean).
+2. **Archive the definition file:** rename `BATCHN_PROPOSAL.md` (or equivalent)
+   to `docs/history/definitions/BATCHN_DEFINITION.md` using `git mv`.
+3. **Update PLAYBOOK Section 2** table: add a row for the batch linking to
+   `docs/history/definitions/BATCHN_DEFINITION.md`.
+4. **Update SESSION_CONTEXT** Section 2 batch status row: `**Complete**. All N WPs done.
+   Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
+5. **Run `--fix` again** to refresh the STATUS block.
+6. **Verify clean:** `python scripts/doc_state_sync.py --check` must exit 0 with no
+   "Broken archive link" warnings (the two expected root BATCH file warnings disappear
+   once the proposal is archived in step 2).
+7. **Commit:** `chore(close-out): Batch N complete; archive definition and purge log`.
 
 ---
 
