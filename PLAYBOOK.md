@@ -59,7 +59,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Current mode:** Batch 15 execution.
   - WP-1: align Python version to 3.13 in Dockerfile + CI, fix deploy wording. **Done.**
     - Deviation: docsync `--fix` SESSION_CONTEXT write bug discovered and fixed (+1 test, 311 total). **Done.**
-  - WP-2: fix stale counts in README and SESSION_CONTEXT.
+  - WP-2: fix stale counts in README and SESSION_CONTEXT. **Done.**
   - WP-3: reject malformed `### ` headings in docsync parser + 3 tests.
   - WP-4: add 6 negative/boundary tests for docsync renderer and logic.
   - WP-5: replace HANDOFF_PROMPT.md with minimal stable cross-agent template.
@@ -126,6 +126,31 @@ non-current operational logs. Older dated entries live in
 - Push each WP commit individually so CI validates each one separately.
 - Update PLAYBOOK Section 3+4 and run `doc_state_sync.py --fix` before
   every commit, not after.
+
+### 2026-03-02 - Fix stale counts in README and SESSION_CONTEXT (Batch 15 WP-2)
+
+**Scope:** `README.md`, `.claude/SESSION_CONTEXT.md`.
+
+**Plan vs implementation:**
+- Planned: update README test badge (257->311), Tech Stack testing row,
+  Code Quality hooks list (add fix end-of-files + check yaml), project
+  structure test listing (10 old files -> 18 current files), scripts section
+  (add docsync package), and roadmap line. Update SESSION_CONTEXT Section 2
+  test count (310->311) and Section 7 test table to match actual counts.
+- Implemented: all planned changes. Actual baseline is 311 (not 310 from
+  BATCH15_DEFINITION) because WP-1 deviation fix added +1 test.
+
+**Deviations:**
+- BATCH15_DEFINITION.md says WP-2 target is 310 but actual baseline is 311
+  due to WP-1 deviation fix. All references updated to 311 (truth).
+
+**Validation:**
+- `pytest -q` (**311 passed**, 3 deprecation warnings from aiohttp connector)
+- `pre-commit run --all-files` (pass, all 8 hooks)
+- `python scripts/doc_state_sync.py --check` (pass)
+
+**Forward guidance:**
+- WP-3 next: reject malformed `### ` headings in docsync parser + 3 tests.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
