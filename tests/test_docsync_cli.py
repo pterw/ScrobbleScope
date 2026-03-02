@@ -62,7 +62,25 @@ class TestMainArgs:
         exit_code = cli_mod.main()
         assert exit_code == 0
         captured = capsys.readouterr()
-        assert "SESSION_CONTEXT is stale" in captured.err
+        assert "SESSION_CONTEXT STATUS block is stale" in captured.err
+
+    def test_fix_refreshes_session_context_status_block(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """--fix should write the refreshed STATUS block to SESSION_CONTEXT
+        when it is stale, matching PLAYBOOK truth."""
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+        exit_code = cli_mod.main()
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "SESSION_CONTEXT" in captured.out or "wrote updates" in captured.out
+        # After --fix, SESSION_CONTEXT STATUS block should match PLAYBOOK.
+        # Running --check should no longer warn about staleness.
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        exit_code = cli_mod.main()
+        assert exit_code == 0
+        captured = capsys.readouterr()
+        assert "SESSION_CONTEXT STATUS block is stale" not in captured.err
 
     def test_fix_writes_files(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys

@@ -54,20 +54,23 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Between batches.** No active batch is open right now.
-- **Current mode:** side-task patching and quality fixes only (no new feature batch).
+- **Batch 15 is active.** Alignment, Hardening, and Handoff.
+  Definition: `BATCH15_DEFINITION.md` (repo root, active).
+- **Current mode:** Batch 15 execution.
+  - WP-1: align Python version to 3.13 in Dockerfile + CI, fix deploy wording. **Done.**
+    - Deviation: docsync `--fix` SESSION_CONTEXT write bug discovered and fixed (+1 test, 311 total). **Done.**
+  - WP-2: fix stale counts in README and SESSION_CONTEXT.
+  - WP-3: reject malformed `### ` headings in docsync parser + 3 tests.
+  - WP-4: add 6 negative/boundary tests for docsync renderer and logic.
+  - WP-5: replace HANDOFF_PROMPT.md with minimal stable cross-agent template.
+  - WP-6: add proposal discipline and anti-pattern rules to AGENTS.md.
+- **Batch 14 is complete.** All 5 WPs done + staleness fix side-task.
+  Definition: `docs/history/definitions/BATCH14_DEFINITION.md`.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days
     (Last.fm-only, lighter background task).
-- **Batch 14 is complete.** All 5 WPs done + staleness fix side-task.
-  Definition: `docs/history/definitions/BATCH14_DEFINITION.md`.
-  - WP-1: archive and rename definition files for batches 11/12/13.
-  - WP-2: extract `scripts/docsync/` package and split test monolith.
-  - WP-3: per-batch log routing and `--split-archive` migration.
-  - WP-4: 12 new tests for WP-3 enhancements (+306 total).
-  - WP-5: update `AGENTS.md` with doc-sync architecture + close-out procedure.
 - Do not start feature work (top songs, heatmap) until owner defines scope
   and assigns a batch number.
 
@@ -92,7 +95,73 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-03-02 - Align Python version, CI triggers, and deploy wording (Batch 15 WP-1)
+
+**Scope:** `Dockerfile`, `.github/workflows/test.yml`, `DEVELOPMENT.md`,
+`docs/history/definitions/BATCH14_DEFINITION.md`, `BATCH15_DEFINITION.md`.
+
+**Plan vs implementation:**
+- Planned: align Python 3.11 in Dockerfile/CI to 3.13; fix deploy wording
+  ambiguity in DEVELOPMENT.md; fix BATCH14_DEFINITION.md header.
+- Implemented: all planned changes plus two additional fixes discovered
+  during execution: added `wip/**` push triggers to CI so every commit on
+  working branches is validated, and created `BATCH15_DEFINITION.md` (which
+  should have existed before WP-1 began).
+
+**Deviations:**
+- BATCH15_DEFINITION.md was created after WP-1 commit instead of before it.
+  This violated the convention that definition files precede work. The CI
+  trigger addition (`wip/**`) was not in the original WP-1 scope but was
+  required to meet the owner's requirement that every push triggers CI.
+- PLAYBOOK Section 3+4 were not updated with WP-1 commit. This log entry
+  corrects that omission retroactively.
+
+**Validation:**
+- `pytest -q` (**310 passed**, 3 deprecation warnings from aiohttp connector)
+- `pre-commit run --all-files` (pass, all 8 hooks)
+- `python scripts/doc_state_sync.py --check` (pass)
+- CI triggered on push to `wip/pc-snapshot` after `wip/**` trigger added
+
+**Forward guidance:**
+- Push each WP commit individually so CI validates each one separately.
+- Update PLAYBOOK Section 3+4 and run `doc_state_sync.py --fix` before
+  every commit, not after.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-03-02 - Fix docsync --fix not writing SESSION_CONTEXT STATUS block (Batch 15 WP-1 deviation)
+
+**Scope:** `scripts/docsync/cli.py`, `tests/test_docsync_cli.py`, `AGENTS.md`.
+
+**Plan vs implementation:**
+- Planned: during WP-1 execution, discovered that `doc_state_sync.py --fix`
+  computes the correct STATUS block for SESSION_CONTEXT but never writes it
+  to disk. AGENTS.md line 138-139 claimed the script "Refreshes the
+  machine-managed DOCSYNC:STATUS block" but the code only warned on staleness
+  without writing. This was a bug, not a design choice.
+- Implemented: modified `cli.py` so `--fix` writes the refreshed STATUS block
+  to SESSION_CONTEXT when stale. `--check` continues to warn-only (does not
+  fail) because SESSION_CONTEXT is gitignored and should not block commits.
+  Updated AGENTS.md cross-validation section to reflect corrected behavior.
+  Added 1 new test (`test_fix_refreshes_session_context_status_block`) and
+  updated the stale-warning assertion text in existing test.
+
+**Deviations:**
+- This fix was not in the Batch 15 definition. It was discovered during WP-1
+  when the agent attempted to run `--fix` and found SESSION_CONTEXT unchanged.
+  The fix is scoped to the bug and does not change any other docsync behavior.
+
+**Validation:**
+- `pytest tests/test_docsync_cli.py -v` (**19 passed**)
+- `pytest -q` (**311 passed**, 3 deprecation warnings from aiohttp connector)
+- `python scripts/doc_state_sync.py --fix` (wrote SESSION_CONTEXT)
+- `python scripts/doc_state_sync.py --check` (pass, no stale warning)
+- `pre-commit run --all-files` (pass, all 8 hooks)
+
+**Forward guidance:**
+- After any PLAYBOOK Section 4 edit, run `doc_state_sync.py --fix` and verify
+  SESSION_CONTEXT STATUS block was updated. The script now handles this
+  automatically.
 
 ### 2026-02-27 - Revalidate audit findings and prepare next-agent packet (side-task)
 
@@ -179,27 +248,3 @@ doc references, regression validation.
 **Forward guidance:**
 - Use `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for untagged archive
   search and keep per-batch logs under `docs/history/logs/` as the tagged route.
-
-### 2026-02-27 - Branch hygiene cleanup after main diff review (side-task)
-
-**Scope:** orchestration hygiene (`.gitignore`, PLAYBOOK state consistency,
-root audit-file placement), docsync warning cleanup.
-
-**Plan vs implementation:**
-- Planned: remove non-actionable docsync warning noise and align tracked state
-  with the "local-only" `.claude/SESSION_CONTEXT.md` policy.
-- Implemented: scoped `BATCH*_AUDIT*.md` ignore rule to repo root only,
-  moved `BATCH14_PROPOSAL_AUDIT1.md` from root into `docs/history/`, and
-  recorded the side-task in Section 4.
-
-**Deviations:**
-- `git mv` could not be used for `BATCH14_PROPOSAL_AUDIT1.md` because the file
-  was not under version control; file-system move was used instead.
-
-**Validation:**
-- Ran `python scripts/doc_state_sync.py --fix` and
-  `python scripts/doc_state_sync.py --check` after edits.
-
-**Forward guidance:**
-- Keep root-only draft/audit patterns scoped with leading `/` in `.gitignore`
-  so archive destinations under `docs/history/` remain trackable.

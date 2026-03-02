@@ -172,9 +172,10 @@ The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
 The script prints `WARNING:` lines to stderr for cross-file inconsistencies.
 These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
 
-`SESSION_CONTEXT.md` is treated as a local dashboard. If it is stale relative
-to PLAYBOOK, docsync emits a warning and continues; keep stale SESSION_CONTEXT
-local-only and do not commit stale state.
+`SESSION_CONTEXT.md` is treated as a local dashboard. `--check` warns on
+stderr when the STATUS block is stale but does not fail (SESSION_CONTEXT is
+gitignored and should not block commits). `--fix` writes the refreshed STATUS
+block to disk so the next agent session starts with accurate state.
 
 **Real issues** (act on these):
 - "Test count mismatch" where SESSION_CONTEXT Section 2 and the most-recent
@@ -196,6 +197,13 @@ local-only and do not commit stale state.
   graph) if modules are added, removed, renamed, or dependencies change.
 - `README.md` for user/developer-visible setup or behavior changes.
 - `docs/history/<TOPIC>_<DATE>.md` for significant findings or audits.
+
+**Mid-batch handoff discipline:** PLAYBOOK Section 3 must reflect the true
+state of every WP at all times -- not just after commits. If a deviation fix
+is discovered and implemented during a WP, mark it in Section 3 immediately
+(before committing) so any agent arriving mid-batch sees accurate state. The
+log entry in Section 4 provides detail; Section 3 provides the at-a-glance
+status. Both must agree.
 
 ---
 

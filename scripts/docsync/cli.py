@@ -197,8 +197,7 @@ def main() -> int:
 
     if session_drift:
         print(
-            "WARNING: SESSION_CONTEXT is stale relative to PLAYBOOK; "
-            "keep it local-only and do not commit stale state.",
+            "WARNING: SESSION_CONTEXT STATUS block is stale relative to PLAYBOOK.",
             file=sys.stderr,
         )
 
@@ -218,6 +217,13 @@ def main() -> int:
         return 0
 
     # args.fix
+    # Write SESSION_CONTEXT STATUS block when stale (local-only, not in
+    # the changed list because it is gitignored and should not block
+    # --check / pre-commit).
+    if session_drift and result.session_lines is not None:
+        _write_lines(SESSION_CONTEXT_PATH, result.session_lines)
+        changed.append(SESSION_CONTEXT_PATH)
+
     if changed:
         if PLAYBOOK_PATH in changed:
             _write_lines(PLAYBOOK_PATH, result.playbook_lines)

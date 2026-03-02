@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-27 - Branch hygiene cleanup after main diff review (side-task)
+
+**Scope:** orchestration hygiene (`.gitignore`, PLAYBOOK state consistency,
+root audit-file placement), docsync warning cleanup.
+
+**Plan vs implementation:**
+- Planned: remove non-actionable docsync warning noise and align tracked state
+  with the "local-only" `.claude/SESSION_CONTEXT.md` policy.
+- Implemented: scoped `BATCH*_AUDIT*.md` ignore rule to repo root only,
+  moved `BATCH14_PROPOSAL_AUDIT1.md` from root into `docs/history/`, and
+  recorded the side-task in Section 4.
+
+**Deviations:**
+- `git mv` could not be used for `BATCH14_PROPOSAL_AUDIT1.md` because the file
+  was not under version control; file-system move was used instead.
+
+**Validation:**
+- Ran `python scripts/doc_state_sync.py --fix` and
+  `python scripts/doc_state_sync.py --check` after edits.
+
+**Forward guidance:**
+- Keep root-only draft/audit patterns scoped with leading `/` in `.gitignore`
+  so archive destinations under `docs/history/` remain trackable.
+
 ### 2026-02-26 - Remediate docsync audit findings (side-task)
 
 **Scope:** `scripts/docsync/` (cli, parser, renderer, logic),
