@@ -9,6 +9,122 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-03-02 - Session findings and handoff notes (side-task)
+
+**Scope:** Observations from Batch 15 WP-1 execution session, documented for
+next-agent orientation.
+
+**Findings:**
+1. **docsync `--fix` SESSION_CONTEXT write bug (fixed):** `cli.py` computed the
+   correct STATUS block but never wrote it. Fixed in commit `67fa1dc`. AGENTS.md
+   cross-validation section updated to reflect corrected behavior.
+2. **Deviation tag routing:** Headings with non-standard tags like
+   `(Batch 15 WP-1 deviation)` do NOT match `ENTRY_BATCH_RE` regex
+   (`\(Batch\s+(\d+)\s+WP-\d+\)`). They are routed outside CURRENT-BATCH
+   markers as untagged entries. This is correct behavior -- use standard
+   `(Batch N WP-X)` tags only for entries that should stay inside markers.
+3. **Mid-batch handoff discipline (added):** AGENTS.md now requires PLAYBOOK
+   Section 3 to reflect true state at all times, not just after commits.
+4. **SESSION_CONTEXT Section 7 is stale:** Shows 307 tests across old counts.
+   Actual: 311 tests across 18 files. WP-2 will fix this.
+5. **README.md is stale:** Says 257 tests, lists incomplete pre-commit hooks,
+   project structure test section outdated. WP-2 will fix this.
+6. **HANDOFF_PROMPT.md is stale:** References deleted branch, old audit, old
+   tasks. WP-5 will replace it; interim handoff written for this transition.
+
+**Forward guidance:**
+- Next agent should start with WP-2 per BATCH15_DEFINITION.md execution order.
+- Always use standard `(Batch N WP-X)` tags for batch log entries.
+- Run `doc_state_sync.py --fix` after every PLAYBOOK Section 4 edit.
+
+### 2026-03-02 - Fix docsync --fix not writing SESSION_CONTEXT STATUS block (Batch 15 WP-1 deviation)
+
+**Scope:** `scripts/docsync/cli.py`, `tests/test_docsync_cli.py`, `AGENTS.md`.
+
+**Plan vs implementation:**
+- Planned: during WP-1 execution, discovered that `doc_state_sync.py --fix`
+  computes the correct STATUS block for SESSION_CONTEXT but never writes it
+  to disk. AGENTS.md line 138-139 claimed the script "Refreshes the
+  machine-managed DOCSYNC:STATUS block" but the code only warned on staleness
+  without writing. This was a bug, not a design choice.
+- Implemented: modified `cli.py` so `--fix` writes the refreshed STATUS block
+  to SESSION_CONTEXT when stale. `--check` continues to warn-only (does not
+  fail) because SESSION_CONTEXT is gitignored and should not block commits.
+  Updated AGENTS.md cross-validation section to reflect corrected behavior.
+  Added 1 new test (`test_fix_refreshes_session_context_status_block`) and
+  updated the stale-warning assertion text in existing test.
+
+**Deviations:**
+- This fix was not in the Batch 15 definition. It was discovered during WP-1
+  when the agent attempted to run `--fix` and found SESSION_CONTEXT unchanged.
+  The fix is scoped to the bug and does not change any other docsync behavior.
+
+**Validation:**
+- `pytest tests/test_docsync_cli.py -v` (**19 passed**)
+- `pytest -q` (**311 passed**, 3 deprecation warnings from aiohttp connector)
+- `python scripts/doc_state_sync.py --fix` (wrote SESSION_CONTEXT)
+- `python scripts/doc_state_sync.py --check` (pass, no stale warning)
+- `pre-commit run --all-files` (pass, all 8 hooks)
+
+**Forward guidance:**
+- After any PLAYBOOK Section 4 edit, run `doc_state_sync.py --fix` and verify
+  SESSION_CONTEXT STATUS block was updated. The script now handles this
+  automatically.
+
+### 2026-02-27 - Revalidate audit findings and prepare next-agent packet (side-task)
+
+**Scope:** `docs/history/AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md`,
+`tests/test_docsync_logic.py` (format-only), repo-wide quality gates.
+
+**Plan vs implementation:**
+- Planned: verify previously reported findings against current branch state,
+  refresh stale assertions, and produce implementation-ready guidance for the
+  next agent handoff.
+- Implemented: re-ran full validations, updated stale test baseline and
+  resolved-item status in the audit report, and added a scoped next-agent
+  implementation packet with acceptance criteria.
+
+**Deviations:**
+- No behavioral code changes were required; only audit/report updates plus
+  formatter-normalized whitespace in `tests/test_docsync_logic.py`.
+
+**Validation:**
+- `pre-commit run --all-files` (pass)
+- `pytest -q` (**310 passed**, 3 deprecation warnings from aiohttp connector)
+- `python scripts/doc_state_sync.py --check` (pass)
+
+**Forward guidance:**
+- Execute the next-agent packet in commit-sized slices: test-module split,
+  low-risk orchestrator extraction, then CI/session policy wording alignment.
+
+### 2026-02-27 - Harden docsync non-happy-path coverage + path guidance (side-task)
+
+**Scope:** `tests/test_docsync_logic.py`, `tests/test_docsync_cli.py`,
+`AGENTS.md`, `PLAYBOOK.md`.
+
+**Plan vs implementation:**
+- Planned: enforce anti-happy-path discipline for docsync archive-link and
+  migration handling, and remove path ambiguity between untagged archive,
+  per-batch logs, and definitions.
+- Implemented: added adversarial tests for `docs/logarchive` link validation
+  (exists/missing) and for `--split-archive` missing-input failure (`exit 2`),
+  plus explicit archive/log/definition lookup guidance in AGENTS and PLAYBOOK.
+
+**Deviations:**
+- One assertion was adjusted to be path-separator-agnostic on Windows
+  (`PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` substring) after first run exposed
+  slash-vs-backslash brittleness.
+
+**Validation:**
+- `pytest -q tests/test_docsync_logic.py tests/test_docsync_cli.py`
+  (**57 passed**)
+- `pytest -q` (**310 passed**, 3 deprecation warnings from aiohttp connector)
+- `python scripts/doc_state_sync.py --check` (pass)
+
+**Forward guidance:**
+- Keep new docsync tests behavior-focused (real inputs + failure paths), not
+  mock-call-only checks, when adding future archive-routing rules.
+
 ### 2026-02-27 - Migrate monolith archive path to docs/logarchive (side-task)
 
 **Scope:** `scripts/docsync` path canonicalization, pointer compatibility docs,
