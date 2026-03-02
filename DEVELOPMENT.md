@@ -163,7 +163,7 @@ Looking back, the batch system maps onto a conventional software process:
 | Retrospective / ADR | `docs/history/AUDIT_*.md`, `BUGFIX_*.md` |
 | CI gate | GitHub Actions: pre-commit + flake8 + pytest + coverage |
 | Code review | Gemini (automated, on PR) + manual review of suggestions |
-| Release | `fly deploy` after PR merge to `main` |
+| Release | `flyctl deploy` (manual, after PR merge to `main`) |
 
 The key difference from a human SDLC is that the "team members" have
 amnesia between sessions. This forced an unusually rigorous documentation

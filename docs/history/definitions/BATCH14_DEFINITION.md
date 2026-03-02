@@ -1,4 +1,4 @@
-# BATCH14_PROPOSAL.md
+# BATCH14: Doc Hygiene
 
 > Historical note (2026-02-27): references below to SESSION_CONTEXT
 > auto-updates via `doc_state_sync.py --fix` are superseded. Current behavior
