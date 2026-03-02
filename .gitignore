@@ -43,4 +43,5 @@ Backup_batch
 backup.py
 HANDOFF_PROMPT.md
 MEMORY.md
+FINDINGS.md
 /BATCH*_AUDIT*.md
