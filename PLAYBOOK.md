@@ -63,7 +63,7 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-3: reject malformed `### ` headings in docsync parser + 3 tests. **Done.**
   - WP-4: add 6 negative/boundary tests for docsync renderer and logic. **Done.**
   - WP-5: replace HANDOFF_PROMPT.md with minimal stable cross-agent template. **Done.**
-  - WP-6: add proposal discipline and anti-pattern rules to AGENTS.md.
+  - WP-6: add proposal discipline and anti-pattern rules to AGENTS.md. **Done.**
 - **Batch 14 is complete.** All 5 WPs done + staleness fix side-task.
   Definition: `docs/history/definitions/BATCH14_DEFINITION.md`.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
@@ -218,6 +218,27 @@ non-current operational logs. Older dated entries live in
 
 **Forward guidance:**
 - WP-6 next: add proposal discipline and anti-pattern rules to AGENTS.md.
+
+### 2026-03-02 - Add proposal discipline rules and anti-pattern registry (Batch 15 WP-6)
+
+**Scope:** `AGENTS.md`.
+
+**Plan vs implementation:**
+- Planned: add two new sections after Batch Close-Out Procedure -- "Proposal
+  and Design Rules" (4 numbered rules) and "Anti-Pattern Registry" (3 items).
+- Implemented: exactly as planned. 4 proposal rules (definition before
+  execution, scope discipline, size limits, refactor requires parity tests)
+  and 3 anti-patterns (test bloat, undocumented SoC violations, silent doc
+  staleness) added between Close-Out and Markdown Authoring Rules sections.
+
+**Deviations:** None.
+
+**Validation:**
+- `pre-commit run --all-files` (pass, all 8 hooks)
+- `python scripts/doc_state_sync.py --check` (pass)
+
+**Forward guidance:**
+- All 6 WPs complete. Batch 15 is ready for close-out.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

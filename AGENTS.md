@@ -227,6 +227,48 @@ When all WPs in the active batch are committed and validated:
 
 ---
 
+## Proposal and Design Rules
+
+1. **Definition before execution:** Every batch must have a definition file
+   (`BATCHN_DEFINITION.md` or equivalent) with acceptance criteria written
+   and committed before any WP work begins. Retroactive definitions are a
+   deviation and must be logged.
+2. **Scope discipline:** Do not add work packages mid-batch unless the owner
+   approves. Discovered issues that are out of scope become deviation notes
+   in the log entry, not new WPs. If a fix is urgent and small (under ~20
+   lines of code change), treat it as a deviation within the current WP; if
+   it is larger, log it as a future-batch candidate.
+3. **Size limits on new files:** No new file should be larger than the
+   largest peer in its directory. If a new module or test file exceeds this
+   threshold, split it before committing.
+4. **Refactor requires parity tests:** Do not restructure existing code
+   (rename, move, split, merge modules) without first verifying that
+   existing tests cover the affected paths. If coverage is insufficient,
+   add tests in a preceding WP.
+
+---
+
+## Anti-Pattern Registry
+
+Patterns that have caused regressions or quality issues in past batches.
+Agents must check their work against this list before committing.
+
+1. **Test bloat without value:** Adding tests that duplicate existing
+   coverage or that pass vacuously (test succeeds even if the function
+   under test is deleted). Every new test must exercise a unique code path
+   or boundary condition not covered by any existing test.
+2. **Undocumented SoC violations:** Importing a leaf module into a
+   higher-level module without updating the dependency graph in
+   SESSION_CONTEXT Section 5. Any new cross-module import must be reflected
+   in the documented acyclic dependency graph.
+3. **Silent doc staleness:** Committing code changes that affect test count,
+   module structure, or dependency graph without updating the corresponding
+   documentation (README project structure, SESSION_CONTEXT Sections 4-5,
+   PLAYBOOK Section 3). Every code commit must include any doc updates
+   needed to keep bootstrap files accurate.
+
+---
+
 ## Markdown Authoring Rules
 
 - ASCII-only characters (no smart quotes, no em-dash -- use `--`).
