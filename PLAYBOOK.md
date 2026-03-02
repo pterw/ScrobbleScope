@@ -61,7 +61,7 @@ Completed batch definitions are archived individually under `docs/history/`.
     - Deviation: docsync `--fix` SESSION_CONTEXT write bug discovered and fixed (+1 test, 311 total). **Done.**
   - WP-2: fix stale counts in README and SESSION_CONTEXT. **Done.**
   - WP-3: reject malformed `### ` headings in docsync parser + 3 tests. **Done.**
-  - WP-4: add 6 negative/boundary tests for docsync renderer and logic.
+  - WP-4: add 6 negative/boundary tests for docsync renderer and logic. **Done.**
   - WP-5: replace HANDOFF_PROMPT.md with minimal stable cross-agent template.
   - WP-6: add proposal discipline and anti-pattern rules to AGENTS.md.
 - **Batch 14 is complete.** All 5 WPs done + staleness fix side-task.
@@ -175,6 +175,27 @@ non-current operational logs. Older dated entries live in
 
 **Forward guidance:**
 - WP-4 next: add 6 negative/boundary tests for docsync renderer and logic.
+
+### 2026-03-02 - Add 6 negative/boundary tests for renderer and logic (Batch 15 WP-4)
+
+**Scope:** `tests/test_docsync_renderer.py`, `tests/test_docsync_logic.py`.
+
+**Plan vs implementation:**
+- Planned: add 4 renderer tests (contradictory state, zero batch, empty entry
+  lines, empty archive prefix) and 2 logic tests (dedup same fingerprint,
+  conflicting batch state signals). No source code changes.
+- Implemented: exactly as planned. 4 renderer tests in 3 new test classes
+  plus 1 added to existing TestRenderArchive. 2 logic tests in 2 new classes.
+
+**Deviations:** None.
+
+**Validation:**
+- `pytest tests/test_docsync_renderer.py tests/test_docsync_logic.py -v` (**62 passed**)
+- `pytest -q` (**320 passed**, 3 deprecation warnings from aiohttp connector)
+- `pre-commit run --all-files` (pass, all 8 hooks)
+
+**Forward guidance:**
+- WP-5 next: replace HANDOFF_PROMPT.md with minimal stable template.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

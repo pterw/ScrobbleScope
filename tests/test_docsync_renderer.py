@@ -248,3 +248,92 @@ class TestRenderArchive:
         )
         result = _render_archive(prefix, [entry])
         assert any("Entry" in line for line in result)
+
+    def test_empty_prefix(self):
+        """Empty prefix still renders entries correctly."""
+        entry = Entry(
+            heading="### 2026-01-01 - Entry",
+            date="2026-01-01",
+            title="Entry",
+            lines=("### 2026-01-01 - Entry", "Content"),
+            start_idx=0,
+            fingerprint="a",
+        )
+        result = _render_archive([], [entry])
+        assert any("### 2026-01-01 - Entry" in line for line in result)
+        assert any("Content" in line for line in result)
+
+
+# ---------------------------------------------------------------------------
+# _build_status_block -- boundary and adversarial cases
+# ---------------------------------------------------------------------------
+
+
+class TestBuildStatusBlockBoundary:
+    def test_contradictory_state(self):
+        """current_batch=None with entries present: falls back to last_completed+1."""
+        state = ActiveBatchState(
+            current_batch=None, last_completed_batch=9, next_undefined_batch=None
+        )
+        entry = Entry(
+            heading="### 2026-01-01 - Some work (Batch 10 WP-1)",
+            date="2026-01-01",
+            title="Some work (Batch 10 WP-1)",
+            lines=(
+                "### 2026-01-01 - Some work (Batch 10 WP-1)",
+                "**311 passed**",
+            ),
+            start_idx=0,
+            fingerprint="a",
+        )
+        block = _build_status_block(state, [entry])
+        text = "\n".join(block)
+        # Should infer Batch 10 from last_completed=9.
+        assert "Batch 10" in text
+        assert "WP-1" in text
+
+    def test_zero_batch_number(self):
+        """Batch 0 is a valid batch number and must render correctly."""
+        state = ActiveBatchState(
+            current_batch=0, last_completed_batch=None, next_undefined_batch=None
+        )
+        entry = Entry(
+            heading="### 2026-01-01 - Baseline (Batch 0 WP-1)",
+            date="2026-01-01",
+            title="Baseline (Batch 0 WP-1)",
+            lines=(
+                "### 2026-01-01 - Baseline (Batch 0 WP-1)",
+                "**10 passed**",
+            ),
+            start_idx=0,
+            fingerprint="b",
+        )
+        block = _build_status_block(state, [entry])
+        text = "\n".join(block)
+        assert "Batch 0" in text
+        # Batch 0 should NOT be treated as falsy/None.
+        assert "unknown" not in text.lower()
+
+
+# ---------------------------------------------------------------------------
+# _render_section4 -- empty entry lines edge case
+# ---------------------------------------------------------------------------
+
+
+class TestRenderSection4EmptyEntryLines:
+    def test_entry_with_single_heading_line(self):
+        """An entry whose content is just the heading (no body) still renders."""
+        prefix = ["## 4. Execution log"]
+        entry = Entry(
+            heading="### 2026-01-01 - Minimal entry",
+            date="2026-01-01",
+            title="Minimal entry",
+            lines=("### 2026-01-01 - Minimal entry",),
+            start_idx=0,
+            fingerprint="c",
+        )
+        result = _render_section4(prefix, [entry], [])
+        text = "\n".join(result)
+        assert "Minimal entry" in text
+        assert CURRENT_BATCH_START_MARKER in text
+        assert CURRENT_BATCH_END_MARKER in text

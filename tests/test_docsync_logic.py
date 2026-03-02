@@ -8,13 +8,14 @@ from textwrap import dedent
 import pytest
 from docsync.logic import (
     _cross_validate,
+    _dedup_sorted,
     _latest_test_count_from_entries,
     _merge_entries_into_log,
     _split_archive,
     _sync,
 )
 from docsync.models import ActiveBatchState, Entry, SyncError
-from docsync.parser import _collect_wp_numbers, _fingerprint
+from docsync.parser import _collect_wp_numbers, _fingerprint, _parse_active_batch_state
 
 # ---------------------------------------------------------------------------
 # _collect_wp_numbers -- edge cases
@@ -799,3 +800,53 @@ class TestSplitArchive:
         remaining_text = "\n".join(remaining)
         assert "Untagged side task" in remaining_text
         assert "Tagged work" not in remaining_text
+
+
+# ---------------------------------------------------------------------------
+# _dedup_sorted -- fingerprint deduplication
+# ---------------------------------------------------------------------------
+
+
+class TestDedupSorted:
+    def test_same_fingerprint_keeps_newest(self):
+        """When two entries have the same fingerprint, only the newest survives."""
+        shared_lines = ("### 2026-01-01 - Duplicate entry", "Same content")
+        fp = _fingerprint(shared_lines)
+        older = Entry(
+            heading="### 2026-01-01 - Duplicate entry",
+            date="2026-01-01",
+            title="Duplicate entry",
+            lines=shared_lines,
+            start_idx=0,
+            fingerprint=fp,
+        )
+        newer = Entry(
+            heading="### 2026-01-01 - Duplicate entry",
+            date="2026-02-15",
+            title="Duplicate entry",
+            lines=shared_lines,
+            start_idx=10,
+            fingerprint=fp,
+        )
+        result = _dedup_sorted([older, newer])
+        assert len(result) == 1
+        assert result[0].date == "2026-02-15"
+
+
+# ---------------------------------------------------------------------------
+# _parse_active_batch_state -- conflicting signals
+# ---------------------------------------------------------------------------
+
+
+class TestParseActiveBatchStateConflicting:
+    def test_conflicting_complete_and_active_same_batch(self):
+        """When a batch is marked both complete and active, active wins."""
+        lines = [
+            "## 3. Active batch",
+            "- Batch 10 is complete.",
+            "- Batch 10 is active.",
+        ]
+        state = _parse_active_batch_state(lines)
+        # Active signal should override complete for the same batch number.
+        assert state.current_batch == 10
+        assert state.last_completed_batch == 10
