@@ -62,7 +62,7 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-2: fix stale counts in README and SESSION_CONTEXT. **Done.**
   - WP-3: reject malformed `### ` headings in docsync parser + 3 tests. **Done.**
   - WP-4: add 6 negative/boundary tests for docsync renderer and logic. **Done.**
-  - WP-5: replace HANDOFF_PROMPT.md with minimal stable cross-agent template.
+  - WP-5: replace HANDOFF_PROMPT.md with minimal stable cross-agent template. **Done.**
   - WP-6: add proposal discipline and anti-pattern rules to AGENTS.md.
 - **Batch 14 is complete.** All 5 WPs done + staleness fix side-task.
   Definition: `docs/history/definitions/BATCH14_DEFINITION.md`.
@@ -196,6 +196,28 @@ non-current operational logs. Older dated entries live in
 
 **Forward guidance:**
 - WP-5 next: replace HANDOFF_PROMPT.md with minimal stable template.
+
+### 2026-03-02 - Replace HANDOFF_PROMPT.md with stable template (Batch 15 WP-5)
+
+**Scope:** `HANDOFF_PROMPT.md`.
+
+**Plan vs implementation:**
+- Planned: rewrite HANDOFF_PROMPT.md to be batch-agnostic, under 60 lines,
+  referencing only AGENTS.md and PLAYBOOK.md for bootstrap, with explicit
+  anti-pattern list. No branch names, commit SHAs, or dates.
+- Implemented: exactly as planned. Replaced BATCH15_DEFINITION.md reference
+  with generic "the batch definition file named in PLAYBOOK Section 3".
+  59 lines total.
+
+**Deviations:** None.
+
+**Validation:**
+- Line count: 59 (under 60)
+- No batch-specific, branch, SHA, or date references found via grep
+- `pre-commit run --all-files` (pass, all 8 hooks)
+
+**Forward guidance:**
+- WP-6 next: add proposal discipline and anti-pattern rules to AGENTS.md.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
