@@ -133,7 +133,7 @@ Section 4 that does not match `ENTRY_HEADING_RE`, closing the silent data loss g
 **Acceptance criteria:**
 - `pytest tests/test_docsync_renderer.py tests/test_docsync_logic.py -v` passes
   with 6 new tests
-- `pytest -q` passes (319 passed)
+- `pytest -q` passes (320 passed)
 - `pre-commit run --all-files` passes
 - No source code changes -- tests only
 
@@ -193,7 +193,7 @@ test bloat, and undocumented refactoring.
 | WP-5 | P1 | Minimal stable HANDOFF_PROMPT.md (< 60 lines) | +0 |
 | WP-6 | P2 | AGENTS.md proposal rules + anti-pattern registry | +0 |
 
-**Total after Batch 15:** 310 + 9 = **319 tests passing**
+**Total after Batch 15:** 311 + 9 = **320 tests passing**
 
 ---
 

@@ -34,7 +34,7 @@ def _check_root_batch_files(root: Path) -> list[str]:
     warnings = []
     for f in sorted(root.glob("BATCH*.md")):
         warnings.append(
-            f"Root BATCH file detected: {f.name} should be archived under docs/history/."
+            f"Root BATCH file detected: {f.name} should be archived under docs/history/definitions/."
         )
     return warnings
 

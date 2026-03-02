@@ -1,7 +1,9 @@
 """Core sync logic and cross-validation for docsync.
 
-All functions in this module are pure (no file I/O). File reading/writing
-is handled exclusively by docsync.cli.
+All functions in this module are pure (no file I/O) with one exception:
+_cross_validate checks Path.exists() to verify archive links in PLAYBOOK
+resolve to real files on disk. All other file reading/writing is handled
+exclusively by docsync.cli.
 """
 
 from __future__ import annotations

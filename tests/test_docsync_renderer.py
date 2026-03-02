@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from docsync.models import ActiveBatchState, Entry
 from docsync.parser import CURRENT_BATCH_END_MARKER, CURRENT_BATCH_START_MARKER
 from docsync.renderer import (
