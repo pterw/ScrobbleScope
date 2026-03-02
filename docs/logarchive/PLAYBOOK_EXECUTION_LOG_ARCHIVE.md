@@ -9,6 +9,38 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-02-27 - Migrate monolith archive path to docs/logarchive (side-task)
+
+**Scope:** `scripts/docsync` path canonicalization, pointer compatibility docs,
+doc references, regression validation.
+
+**Plan vs implementation:**
+- Planned: stop using the legacy history monolith paths
+  (`docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
+  `docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`) as the
+  canonical monolith location and move to a dedicated `docs/logarchive/`
+  folder with clear pointers from legacy paths.
+- Implemented: switched docsync `ARCHIVE_PATH` to
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, copied canonical
+  archive content there, converted both legacy monolith files into pointer
+  documents, and added `docs/logarchive/README.md` lookup guidance.
+
+**Deviations:**
+- Historical documents under `docs/history/definitions/` and batch logs were
+  left unchanged to preserve historical wording; compatibility pointers prevent
+  breakage for legacy references.
+
+**Validation:**
+- `python scripts/doc_state_sync.py --fix`
+- `python scripts/doc_state_sync.py --check`
+- `pytest -q tests/test_docsync_cli.py tests/test_docsync_logic.py`
+  `tests/test_docsync_parser.py tests/test_docsync_renderer.py` (**103 passed**)
+- `pytest -q` (**307 passed**, 3 deprecation warnings from aiohttp connector)
+
+**Forward guidance:**
+- Use `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for untagged archive
+  search and keep per-batch logs under `docs/history/logs/` as the tagged route.
+
 ### 2026-02-27 - Branch hygiene cleanup after main diff review (side-task)
 
 **Scope:** orchestration hygiene (`.gitignore`, PLAYBOOK state consistency,

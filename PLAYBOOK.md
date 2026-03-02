@@ -129,6 +129,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-03-02 - Session findings and handoff notes (side-task)
+
+**Scope:** Observations from Batch 15 WP-1 execution session, documented for
+next-agent orientation.
+
+**Findings:**
+1. **docsync `--fix` SESSION_CONTEXT write bug (fixed):** `cli.py` computed the
+   correct STATUS block but never wrote it. Fixed in commit `67fa1dc`. AGENTS.md
+   cross-validation section updated to reflect corrected behavior.
+2. **Deviation tag routing:** Headings with non-standard tags like
+   `(Batch 15 WP-1 deviation)` do NOT match `ENTRY_BATCH_RE` regex
+   (`\(Batch\s+(\d+)\s+WP-\d+\)`). They are routed outside CURRENT-BATCH
+   markers as untagged entries. This is correct behavior -- use standard
+   `(Batch N WP-X)` tags only for entries that should stay inside markers.
+3. **Mid-batch handoff discipline (added):** AGENTS.md now requires PLAYBOOK
+   Section 3 to reflect true state at all times, not just after commits.
+4. **SESSION_CONTEXT Section 7 is stale:** Shows 307 tests across old counts.
+   Actual: 311 tests across 18 files. WP-2 will fix this.
+5. **README.md is stale:** Says 257 tests, lists incomplete pre-commit hooks,
+   project structure test section outdated. WP-2 will fix this.
+6. **HANDOFF_PROMPT.md is stale:** References deleted branch, old audit, old
+   tasks. WP-5 will replace it; interim handoff written for this transition.
+
+**Forward guidance:**
+- Next agent should start with WP-2 per BATCH15_DEFINITION.md execution order.
+- Always use standard `(Batch N WP-X)` tags for batch log entries.
+- Run `doc_state_sync.py --fix` after every PLAYBOOK Section 4 edit.
+
 ### 2026-03-02 - Fix docsync --fix not writing SESSION_CONTEXT STATUS block (Batch 15 WP-1 deviation)
 
 **Scope:** `scripts/docsync/cli.py`, `tests/test_docsync_cli.py`, `AGENTS.md`.
@@ -216,35 +244,3 @@ non-current operational logs. Older dated entries live in
 **Forward guidance:**
 - Keep new docsync tests behavior-focused (real inputs + failure paths), not
   mock-call-only checks, when adding future archive-routing rules.
-
-### 2026-02-27 - Migrate monolith archive path to docs/logarchive (side-task)
-
-**Scope:** `scripts/docsync` path canonicalization, pointer compatibility docs,
-doc references, regression validation.
-
-**Plan vs implementation:**
-- Planned: stop using the legacy history monolith paths
-  (`docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
-  `docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`) as the
-  canonical monolith location and move to a dedicated `docs/logarchive/`
-  folder with clear pointers from legacy paths.
-- Implemented: switched docsync `ARCHIVE_PATH` to
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, copied canonical
-  archive content there, converted both legacy monolith files into pointer
-  documents, and added `docs/logarchive/README.md` lookup guidance.
-
-**Deviations:**
-- Historical documents under `docs/history/definitions/` and batch logs were
-  left unchanged to preserve historical wording; compatibility pointers prevent
-  breakage for legacy references.
-
-**Validation:**
-- `python scripts/doc_state_sync.py --fix`
-- `python scripts/doc_state_sync.py --check`
-- `pytest -q tests/test_docsync_cli.py tests/test_docsync_logic.py`
-  `tests/test_docsync_parser.py tests/test_docsync_renderer.py` (**103 passed**)
-- `pytest -q` (**307 passed**, 3 deprecation warnings from aiohttp connector)
-
-**Forward guidance:**
-- Use `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for untagged archive
-  search and keep per-batch logs under `docs/history/logs/` as the tagged route.
