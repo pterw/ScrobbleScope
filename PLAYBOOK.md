@@ -60,7 +60,7 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-1: align Python version to 3.13 in Dockerfile + CI, fix deploy wording. **Done.**
     - Deviation: docsync `--fix` SESSION_CONTEXT write bug discovered and fixed (+1 test, 311 total). **Done.**
   - WP-2: fix stale counts in README and SESSION_CONTEXT. **Done.**
-  - WP-3: reject malformed `### ` headings in docsync parser + 3 tests.
+  - WP-3: reject malformed `### ` headings in docsync parser + 3 tests. **Done.**
   - WP-4: add 6 negative/boundary tests for docsync renderer and logic.
   - WP-5: replace HANDOFF_PROMPT.md with minimal stable cross-agent template.
   - WP-6: add proposal discipline and anti-pattern rules to AGENTS.md.
@@ -151,6 +151,30 @@ non-current operational logs. Older dated entries live in
 
 **Forward guidance:**
 - WP-3 next: reject malformed `### ` headings in docsync parser + 3 tests.
+
+### 2026-03-02 - Reject malformed ### headings in docsync parser (Batch 15 WP-3)
+
+**Scope:** `scripts/docsync/parser.py`, `tests/test_docsync_parser.py`.
+
+**Plan vs implementation:**
+- Planned: add validation pass in `_parse_entries()` to reject any bare
+  `### ` line that does not match `ENTRY_HEADING_RE`, excluding lines inside
+  fenced code blocks. Add 3 tests: malformed heading, missing dash, and
+  code-block exclusion.
+- Implemented: exactly as planned. Added fenced-code-block tracking
+  (`in_code_block` flag toggled on ```` ``` ```` lines) and an `elif` branch
+  that raises `SyncError` for any non-matching `### ` line outside code blocks.
+
+**Deviations:** None.
+
+**Validation:**
+- `pytest tests/test_docsync_parser.py -v` (**35 passed**)
+- `pytest -q` (**314 passed**, 3 deprecation warnings from aiohttp connector)
+- `python scripts/doc_state_sync.py --check` (pass)
+- `pre-commit run --all-files` (pass, all 8 hooks)
+
+**Forward guidance:**
+- WP-4 next: add 6 negative/boundary tests for docsync renderer and logic.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

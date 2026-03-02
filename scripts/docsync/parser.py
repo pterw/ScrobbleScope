@@ -122,9 +122,21 @@ def _find_marker_pair(
 
 def _parse_entries(lines: list[str]) -> tuple[list[Entry], int | None]:
     heading_idxs: list[int] = []
+    in_code_block = False
     for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
         if ENTRY_HEADING_RE.match(line):
             heading_idxs.append(idx)
+        elif re.match(r"^###\s+", line):
+            raise SyncError(
+                f"Malformed entry heading at line {idx + 1}: {line.rstrip()!r}. "
+                f"Expected format: '### YYYY-MM-DD - <title>'"
+            )
 
     if not heading_idxs:
         return [], None

@@ -172,6 +172,41 @@ class TestParseEntries:
         entries_b, _ = _parse_entries(lines_b)
         assert entries_a[0].fingerprint == entries_b[0].fingerprint
 
+    def test_malformed_h3_raises_sync_error(self):
+        """A bare ### line without date-dash-title format is rejected."""
+        lines = [
+            "### 2026-01-01 - Valid entry",
+            "Content",
+            "### This heading has no date",
+            "More content",
+        ]
+        with pytest.raises(SyncError, match="Malformed entry heading"):
+            _parse_entries(lines)
+
+    def test_h3_missing_dash_raises_sync_error(self):
+        """A ### line with a date but no ' - ' separator is rejected."""
+        lines = [
+            "### 2026-01-01 Missing the dash separator",
+            "Content",
+        ]
+        with pytest.raises(SyncError, match="Malformed entry heading"):
+            _parse_entries(lines)
+
+    def test_h3_inside_code_block_not_rejected(self):
+        """### lines inside fenced code blocks are ignored, not rejected."""
+        lines = [
+            "### 2026-01-01 - Valid entry",
+            "Some explanation:",
+            "```",
+            "### This is inside a code block and should be fine",
+            "```",
+            "More content after the code block",
+        ]
+        entries, first_idx = _parse_entries(lines)
+        assert len(entries) == 1
+        assert first_idx == 0
+        assert entries[0].date == "2026-01-01"
+
 
 # ---------------------------------------------------------------------------
 # _parse_active_batch_state -- boundary conditions
