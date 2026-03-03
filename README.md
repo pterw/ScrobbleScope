@@ -304,14 +304,16 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |   `-- unmatched.js           # (stub -- logic moved to theme.js)
 |   `-- images/                    # Favicons (SVG, PNG, ICO)
 |-- scripts/
-|   |-- smoke_cache_check.py       # Deployed cache verification tool
 |   |-- doc_state_sync.py          # PLAYBOOK/SESSION_CONTEXT sync (entry point)
-|   `-- docsync/                   # Docsync package (parser, renderer, logic, CLI)
-|       |-- cli.py                 # --check / --fix / --split-archive modes
-|       |-- parser.py              # Section 4 entry parser + heading validation
-|       |-- renderer.py            # STATUS block + archive rendering
-|       |-- logic.py               # Rotation, dedup, cross-validation
-|       `-- models.py              # Entry + BatchState dataclasses
+|   |-- docsync/                   # Docsync package (parser, renderer, logic, CLI)
+|   |   |-- cli.py                 # --check / --fix / --split-archive modes
+|   |   |-- parser.py              # Section 4 entry parser + heading validation
+|   |   |-- renderer.py            # STATUS block + archive rendering
+|   |   |-- logic.py               # Rotation, dedup, cross-validation
+|   |   `-- models.py              # Entry + BatchState dataclasses
+|   |-- dev/                       # Local development utilities
+|   `-- testing/
+|       `-- smoke_cache_check.py   # Deployed cache verification tool
 |-- tests/
 |   |-- conftest.py                # Shared fixtures
 |   |-- helpers.py                 # Test utilities
@@ -362,8 +364,8 @@ fly deploy
 **Cache smoke test** (verify Postgres cache on a deployed instance):
 
 ```bash
-python scripts/smoke_cache_check.py --base-url https://scrobblescope.fly.dev \
-    --username flounder14 --year 2025 --runs 2
+python scripts/testing/smoke_cache_check.py --base-url https://scrobblescope.fly.dev \
+    --username YOUR_USERNAME --year 2025 --runs 2
 ```
 
 What to look for:

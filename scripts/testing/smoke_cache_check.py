@@ -2,7 +2,7 @@
 """Smoke-test persistent Spotify metadata cache via HTTP endpoints.
 
 Usage example:
-    python scripts/smoke_cache_check.py \
+    python scripts/testing/smoke_cache_check.py \
         --base-url https://scrobblescope.fly.dev \
         --username flounder14 \
         --year 2025 \

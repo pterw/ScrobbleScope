@@ -57,8 +57,8 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 - **Batch 16 is active.** Script Hygiene, Local Dev Hardening, and Integration
   Testing. Definition: `BATCH16_DEFINITION.md`.
-  - WP-0: migrate `smoke_cache_check.py` to `scripts/testing/`; create `scripts/dev/`. **Next.**
-  - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Pending.**
+  - WP-0: migrate `smoke_cache_check.py` to `scripts/testing/`; create `scripts/dev/`. **Done.**
+  - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Next.**
   - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Pending.**
   - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Pending.**
   - WP-4: `concurrent_users_test.py` + 6 unit tests. **Pending.**
@@ -92,6 +92,33 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-03-03 - WP-0: migrate smoke_cache_check to scripts/testing/ (Batch 16 WP-0)
+
+**Scope:** Create `scripts/testing/` and `scripts/dev/` directories with `__init__.py`;
+move `smoke_cache_check.py` via `git mv`; update README.md tree and command references.
+
+**Plan:** Per BATCH16_DEFINITION WP-0: create directories, `git mv`, update doc path
+references. No logic changes.
+
+**Implementation:** Created `scripts/testing/__init__.py` and `scripts/dev/__init__.py`.
+`git mv scripts/smoke_cache_check.py scripts/testing/smoke_cache_check.py`. Fixed
+README.md project tree (corrected broken nesting where docsync children appeared under
+testing/) and updated smoke test command path. Replaced hardcoded username with
+placeholder `YOUR_USERNAME` in README. No references found in AGENTS.md or
+SESSION_CONTEXT.md requiring update.
+
+**Deviations:** README tree structure from prior edit was malformed (docsync sub-items
+nested under testing/ instead of docsync/) -- corrected in this WP.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all
+hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** WP-1 is next: extract `_http_client.py` from
+`smoke_cache_check.py`, fix CSRF token handling, update verdict key to
+`db_cache_lookup_hits`, add comprehensive docstrings.
+
+<!-- DOCSYNC:CURRENT-BATCH-END -->
+
 ### 2026-03-03 - Batch 16 definition written and activated (Batch 16 activation)
 
 **Scope:** Define Batch 16 and activate it in PLAYBOOK + SESSION_CONTEXT.
@@ -115,8 +142,6 @@ hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
 **Forward guidance:** WP-0 is next: create `scripts/testing/` and `scripts/dev/`
 directories, move `smoke_cache_check.py` via `git mv`, update AGENTS.md and
 SESSION_CONTEXT path references. No logic changes in WP-0.
-
-<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 ### 2026-03-03 - Fix SESSION_CONTEXT.md commit convention and stage accumulated changes
 
