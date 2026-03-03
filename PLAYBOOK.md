@@ -60,8 +60,8 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-0: migrate `smoke_cache_check.py` to `scripts/testing/`; create `scripts/dev/`. **Done.**
   - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Done.**
   - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Done.**
-  - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Next.**
-  - WP-4: `concurrent_users_test.py` + 6 unit tests. **Pending.**
+  - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Done.**
+  - WP-4: `concurrent_users_test.py` + 6 unit tests. **Next.**
   - WP-5: README local dev section + SESSION_CONTEXT final sync. **Pending.**
 - **Batch 15 is complete.** All 6 WPs done.
   Definition: `docs/history/definitions/BATCH15_DEFINITION.md`.
@@ -91,6 +91,38 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-03 - WP-3: add dev_start.py Docker+Flask startup helper (Batch 16 WP-3)
+
+**Scope:** Provide a single-command local dev startup helper that checks and
+starts the `ss-postgres` Docker container then replaces the current process
+with Flask. Eliminates the need to consult MEMORY.md or SESSION_CONTEXT for
+manual Docker steps. Update AGENTS.md and SESSION_CONTEXT to reference the
+script as the primary local dev startup method.
+
+**Plan:** Per BATCH16_DEFINITION WP-3: `scripts/dev/dev_start.py` with three
+functions (`check_container_status`, `start_container`, `main`) and comprehensive
+docstrings. AGENTS.md Environment Setup: add `dev_start.py` sentence after the
+`init_db.py` caveat. SESSION_CONTEXT Section 8: replace manual Docker step with
+one-command startup reference.
+
+**Implementation:** Created `scripts/dev/dev_start.py` (135 lines): module-level
+docstring with usage + prerequisites; `check_container_status` uses
+`docker inspect --format={{.State.Status}}` and returns `None` for absent
+containers; `start_container` calls `docker start` and raises `RuntimeError` on
+non-zero exit; `main` branches on status (running / exited+paused / None /
+unexpected) with all output prefixed `[dev_start]`; `os.execvp` replaces the
+process with Flask with inline comments on why execvp over subprocess.
+
+**Deviations:** None.
+
+**Validation:** `pytest -q` -- **333 passed**. `pre-commit run --all-files` -- all
+hooks pass. Manual acceptance test: (1) container running -> prints "already running",
+continues; (2) container exited -> starts container, prints "started ss-postgres",
+continues; (3) absent container name -> prints error with instructions, exits 1.
+
+**Forward guidance:** WP-4 is next: `scripts/testing/concurrent_users_test.py` +
+6 unit tests. Depends on `_http_client.py` from WP-1 (already available).
 
 ### 2026-03-03 - WP-2: add 13 unit tests for _http_client and smoke_cache_check (Batch 16 WP-2)
 

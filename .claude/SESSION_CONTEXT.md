@@ -32,7 +32,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
-| Batch 16 status | **In Progress**. WP-0, WP-1, WP-2 done, WP-3 next. Two side-tasks done: agent orientation docs + Windows DB cache fix. Definition: `BATCH16_DEFINITION.md`. |
+| Batch 16 status | **In Progress**. WP-0 through WP-3 done, WP-4 next. Two side-tasks done: agent orientation docs + Windows DB cache fix. Definition: `BATCH16_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -53,11 +53,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 16.
-- Current-batch entries in active log block: 3.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2.
-- Next expected work package: WP-3.
+- Current-batch entries in active log block: 4.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
+- Next expected work package: WP-4.
 - Latest validated test count: **333 passed**.
-- Newest current-batch entry: 2026-03-03 - WP-2: add 13 unit tests for _http_client and smoke_cache_check (Batch 16 WP-2).
+- Newest current-batch entry: 2026-03-03 - WP-3: add dev_start.py Docker+Flask startup helper (Batch 16 WP-3).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -165,7 +165,9 @@ loading.js polls GET /progress?job_id=...
 - Browser MCP runs in Docker: use `http://host.docker.internal:5000/` for local app access (not `localhost`).
 - Local Postgres cache: Docker container `ss-postgres`, volume `ss-postgres-data`.
   Connection: `postgresql://postgres:postgres@localhost:5432/scrobblescope`.
-  Start: `docker start ss-postgres`. Check: `docker ps --filter name=ss-postgres`.
+  **One-command startup:** `python scripts/dev/dev_start.py` -- checks/starts container, then launches Flask.
+  Manual fallback: `docker start ss-postgres` then `python app.py`.
+  Check status: `docker ps --filter name=ss-postgres`.
   `init_db.py` has no `load_dotenv()` -- set DATABASE_URL in shell before running it.
 - Windows asyncio: `background_task()` in `orchestrator.py` explicitly uses
   `asyncio.ProactorEventLoop()` on `sys.platform == "win32"`. This is required

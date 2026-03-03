@@ -57,6 +57,10 @@ Run `python init_db.py` once to create the schema. **Caveat:** `init_db.py` has 
 `load_dotenv()` call -- set `DATABASE_URL` directly in the shell before running it;
 the Flask app reads `.env` automatically via `load_dotenv()` at startup.
 
+For local development with the Postgres cache, use `python scripts/dev/dev_start.py`
+instead of `python app.py` directly. This script checks and starts the `ss-postgres`
+Docker container if needed, then launches Flask in one command.
+
 ---
 
 ## Pre-Work Checklist
