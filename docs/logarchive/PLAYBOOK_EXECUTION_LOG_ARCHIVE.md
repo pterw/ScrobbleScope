@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-03-03 - Add browser MCP environment note to SESSION_CONTEXT
+
+**Scope:** Side-task -- documentation only, no code changes.
+
+**What:** Added one line to SESSION_CONTEXT Section 8 (Environment notes) documenting
+that the browser MCP accesses the local Flask app via `http://host.docker.internal:5000/`
+rather than `localhost`, because the MCP browser runs inside a Docker container.
+
+**Why:** This is a runtime fact that future agent sessions need to reproduce local
+browser testing correctly. Absent from SESSION_CONTEXT, an agent would attempt
+`localhost` and get a connection refused error with no clear diagnosis path.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
+`python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** No batch active. Awaiting owner scope definition for next batch.
+
 ### 2026-03-02 - Session findings and handoff notes (side-task)
 
 **Scope:** Observations from Batch 15 WP-1 execution session, documented for

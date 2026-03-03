@@ -40,6 +40,10 @@ and next WP, you have enough context to start.
 ## Environment Setup
 
 ```bash
+# Activate the virtual environment first:
+# Windows:  venv\Scripts\activate
+# Linux:    source venv/bin/activate
+
 pip install -r requirements-dev.txt   # runtime + pytest/pre-commit/lint
 ```
 
@@ -201,6 +205,9 @@ state.
 - SESSION_CONTEXT Section 4 (project structure) and Section 5 (dependency
   graph) if modules are added, removed, renamed, or dependencies change.
 - `README.md` for user/developer-visible setup or behavior changes.
+  **Exception:** If the active batch definition includes a dedicated README
+  WP (e.g., WP-5), README updates may be deferred to that WP to avoid
+  churn from intermediate WPs that change paths or structure.
 - `docs/history/<TOPIC>_<DATE>.md` for significant findings or audits.
 
 **Mid-batch handoff discipline:** PLAYBOOK Section 3 must reflect the true

@@ -119,6 +119,27 @@ hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-03-03 - Improve agent orientation docs (side-task)
+
+**Scope:** Side-task -- documentation only, no code changes. Improve agent
+bootstrap reliability by fixing stale references and adding missing setup steps.
+
+**Changes:**
+- DEVELOPMENT.md: replaced stale "SESSION_CONTEXT is gitignored/ephemeral" text
+  (lines 83-93) with accurate description of committed+tracked status, explicit
+  `.gitignore` exception, and rationale for sharing across agents.
+- AGENTS.md Environment Setup: added venv activation commands (Windows + Linux)
+  so agents can run `pytest` and `pre-commit` without trial-and-error.
+- AGENTS.md "What to update after a WP": added README deferral exception noting
+  that README updates may be batched into a dedicated WP when the batch definition
+  specifies one (e.g., Batch 16 WP-5).
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all
+hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** WP-1 is next. README will be stale during intermediate WPs;
+updates deferred to WP-5 per batch definition.
+
 ### 2026-03-03 - Batch 16 definition written and activated (Batch 16 activation)
 
 **Scope:** Define Batch 16 and activate it in PLAYBOOK + SESSION_CONTEXT.
@@ -178,23 +199,6 @@ all agents (Gemini CLI, Copilot, Codex, Claude Code) running local DB tests.
 **Why:** `init_db.py` has no `load_dotenv()` call. Any agent running it will get
 "DATABASE_URL not set" unless the env var is set directly in the shell. Absent from
 canonical docs, every agent would hit this silently and assume cache is unavailable.
-
-**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
-`python scripts/doc_state_sync.py --check` -- exit 0.
-
-**Forward guidance:** No batch active. Awaiting owner scope definition for next batch.
-
-### 2026-03-03 - Add browser MCP environment note to SESSION_CONTEXT
-
-**Scope:** Side-task -- documentation only, no code changes.
-
-**What:** Added one line to SESSION_CONTEXT Section 8 (Environment notes) documenting
-that the browser MCP accesses the local Flask app via `http://host.docker.internal:5000/`
-rather than `localhost`, because the MCP browser runs inside a Docker container.
-
-**Why:** This is a runtime fact that future agent sessions need to reproduce local
-browser testing correctly. Absent from SESSION_CONTEXT, an agent would attempt
-`localhost` and get a connection refused error with no clear diagnosis path.
 
 **Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
 `python scripts/doc_state_sync.py --check` -- exit 0.

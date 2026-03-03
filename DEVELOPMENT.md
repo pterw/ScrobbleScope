@@ -77,19 +77,21 @@ a rules file and not a history file. It exists so a new agent session
 can read one file and understand the current runtime state without
 parsing PLAYBOOK.md or running tests.
 
-This file lives in `.claude/` and is gitignored. It is ephemeral agent
-working memory -- it reflects the state at the end of a session and is
-updated at the start of the next one. A reference snapshot (showing what
-the file looks like) is kept at
+This file lives in `.claude/` and is committed to the repo (tracked via
+an explicit `.gitignore` exception: `.claude/*` + `!.claude/SESSION_CONTEXT.md`).
+It is the shared cross-agent dashboard -- all agents bootstrap from it.
+A reference snapshot (showing what the file looks like) is kept at
 `docs/history/SESSION_CONTEXT_REFERENCE.md` for readers curious about
 the format.
 
-**Why gitignored?** Because CI does not need it to run, and committing it
-on every session change creates noisy diffs of no engineering value.
-`doc_state_sync.py` makes SESSION_CONTEXT a derived file (generated from
-PLAYBOOK truth) rather than a source file, which means forgetting to
-update it is self-correcting: the next `--fix` run rebuilds the managed
-block from scratch.
+**Why committed?** Because every agent (Copilot, Claude Code, Gemini CLI,
+Codex) needs to start from identical state. Leaving it uncommitted caused
+drift: agents would start sessions with stale branch, test count, and batch
+status. CI does not depend on it -- if the file is absent, `doc_state_sync.py`
+skips SESSION_CONTEXT operations gracefully via `_read_lines_optional()`.
+The machine-managed `DOCSYNC:STATUS` block is a derived view (rebuilt from
+PLAYBOOK truth by `--fix`), which means forgetting to update it manually
+is self-correcting.
 
 ### `docs/history/` -- The Archive
 
