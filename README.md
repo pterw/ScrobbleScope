@@ -104,6 +104,22 @@ This project was initially built to identify top albums released in a specific y
 
 ## Architecture
 
+```mermaid
+graph LR
+    A[Browser] -->|form POST| B[routes.py]
+    B --> C[repositories.py]
+    B -->|daemon thread| D[worker.py]
+    D --> E[orchestrator.py]
+    E --> F[lastfm.py]
+    E --> G[spotify.py]
+    E --> H[cache.py]
+    H --> I[(PostgreSQL)]
+    A -.->|poll /progress| B
+```
+
+<details>
+<summary>Detailed request flow (text)</summary>
+
 ```
 User submits form (index.html)
   -> POST /results_loading (routes.py)
@@ -126,6 +142,8 @@ loading.js polls GET /progress?job_id=...
   -> 100% + no error -> POST /results_complete -> renders results.html
   -> error + retryable -> show Retry button
 ```
+
+</details>
 
 **Key design decisions:**
 
