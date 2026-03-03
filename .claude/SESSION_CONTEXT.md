@@ -32,8 +32,8 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
-| Batch 16 status | **In Progress**. WP-0 + WP-1 done, WP-2 next. Definition: `BATCH16_DEFINITION.md`. |
-| Known open risk | None. |
+| Batch 16 status | **In Progress**. WP-0 + WP-1 done, WP-2 next. Two side-tasks done: agent orientation docs + Windows DB cache fix. Definition: `BATCH16_DEFINITION.md`. |
+| Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
 - `MAX_ACTIVE_JOBS` (default 10) caps concurrent background jobs via `worker.py`.
@@ -41,6 +41,8 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 - `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
 - `_PLAYTIME_ALBUM_CAP = 500` in `orchestrator.py` limits Spotify fetch for playtime sort.
 - Cold-start validated 2026-02-19 (both app + DB auto-wake on demand).
+- DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
+  elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
 
 ---
 
