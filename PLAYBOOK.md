@@ -44,6 +44,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 13 | Internal decomposition and coverage hardening | `docs/history/definitions/BATCH13_DEFINITION.md` |
 | 14 | Doc hygiene (archive restructure, docsync package, per-batch routing) | `docs/history/definitions/BATCH14_DEFINITION.md` |
 | 15 | Alignment, hardening, and handoff | `docs/history/definitions/BATCH15_DEFINITION.md` |
+| 16 | Script hygiene, local dev hardening, and integration testing | `docs/history/definitions/BATCH16_DEFINITION.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -55,25 +56,21 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Batch 15 is complete.** Alignment, Hardening, and Handoff. All 6 WPs done.
+- **Batch 16 is active.** Script Hygiene, Local Dev Hardening, and Integration
+  Testing. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`.
+  - WP-0: migrate `smoke_cache_check.py` to `scripts/testing/`; create `scripts/dev/`. **Next.**
+  - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Pending.**
+  - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Pending.**
+  - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Pending.**
+  - WP-4: `concurrent_users_test.py` + 6 unit tests. **Pending.**
+  - WP-5: README local dev section + SESSION_CONTEXT final sync. **Pending.**
+- **Batch 15 is complete.** All 6 WPs done.
   Definition: `docs/history/definitions/BATCH15_DEFINITION.md`.
-- **Current mode:** No active batch.
-  - WP-1: align Python version to 3.13 in Dockerfile + CI, fix deploy wording. **Done.**
-    - Deviation: docsync `--fix` SESSION_CONTEXT write bug discovered and fixed (+1 test, 311 total). **Done.**
-  - WP-2: fix stale counts in README and SESSION_CONTEXT. **Done.**
-  - WP-3: reject malformed `### ` headings in docsync parser + 3 tests. **Done.**
-  - WP-4: add 6 negative/boundary tests for docsync renderer and logic. **Done.**
-  - WP-5: replace HANDOFF_PROMPT.md with minimal stable cross-agent template. **Done.**
-  - WP-6: add proposal discipline and anti-pattern rules to AGENTS.md. **Done.**
-- **Batch 14 is complete.** All 5 WPs done + staleness fix side-task.
-  Definition: `docs/history/definitions/BATCH14_DEFINITION.md`.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
   - **Listening heatmap**: scrobble density calendar for last 365 days
     (Last.fm-only, lighter background task).
-- Do not start feature work (top songs, heatmap) until owner defines scope
-  and assigns a batch number.
 
 ---
 
@@ -95,6 +92,30 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-03 - Batch 16 definition written and activated (Batch 16 WP-0)
+
+**Scope:** Define Batch 16 and activate it in PLAYBOOK + SESSION_CONTEXT.
+
+**Plan:** Write `BATCH16_DEFINITION.md` incorporating audit corrections (stat key
+fix, size caps removed, MEMORY.md references clarified as agent-private). Move to
+`docs/history/definitions/`. Activate Batch 16 in PLAYBOOK Section 3. Update
+SESSION_CONTEXT Section 2. Update HANDOFF_PROMPT.md and MEMORY.md for handoff.
+
+**Implementation:** Definition written; audit findings applied (verdict key
+`cache_hits` corrected to `db_cache_lookup_hits`, size caps removed per owner
+instruction, `memory/MEMORY.md` removed from formal acceptance criteria). Definition
+placed at `docs/history/definitions/BATCH16_DEFINITION.md`. PLAYBOOK and
+SESSION_CONTEXT activated. HANDOFF_PROMPT and MEMORY updated for clean handoff.
+
+**Deviations:** None.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all
+hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** WP-0 is next: create `scripts/testing/` and `scripts/dev/`
+directories, move `smoke_cache_check.py` via `git mv`, update AGENTS.md and
+SESSION_CONTEXT path references. No logic changes in WP-0.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
