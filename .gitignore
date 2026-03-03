@@ -6,7 +6,7 @@
 
 # Logs
 *.log
-logs/
+/logs/
 oldlogs/
 
 # Python cache/compiled files
@@ -42,3 +42,6 @@ Thumbs.db
 Backup_batch
 backup.py
 HANDOFF_PROMPT.md
+MEMORY.md
+FINDINGS.md
+/BATCH*_AUDIT*.md

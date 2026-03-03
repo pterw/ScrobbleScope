@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-257_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-320_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists, but it works equally well for exploring your musical journey across any year of scrobbling.
@@ -95,10 +95,10 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (257 tests), ~72% coverage |
+| Testing | pytest (320 tests across 18 files), ~72% coverage |
 | CI/CD | GitHub Actions (pre-commit, flake8, pytest + coverage gate) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
-| Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, doc-state-sync) |
+| Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, doc-state-sync) |
 
 ## Architecture
 
@@ -305,21 +305,35 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   `-- images/                    # Favicons (SVG, PNG, ICO)
 |-- scripts/
 |   |-- smoke_cache_check.py       # Deployed cache verification tool
-|   `-- doc_state_sync.py          # PLAYBOOK/SESSION_CONTEXT sync utility
+|   |-- doc_state_sync.py          # PLAYBOOK/SESSION_CONTEXT sync (entry point)
+|   `-- docsync/                   # Docsync package (parser, renderer, logic, CLI)
+|       |-- cli.py                 # --check / --fix / --split-archive modes
+|       |-- parser.py              # Section 4 entry parser + heading validation
+|       |-- renderer.py            # STATUS block + archive rendering
+|       |-- logic.py               # Rotation, dedup, cross-validation
+|       `-- models.py              # Entry + BatchState dataclasses
 |-- tests/
 |   |-- conftest.py                # Shared fixtures
 |   |-- helpers.py                 # Test utilities
 |   |-- test_app_factory.py        # App creation, secret validation (6)
-|   |-- test_doc_state_sync.py     # Doc sync script tests (81)
+|   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (19)
+|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (39)
+|   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (32)
+|   |-- test_docsync_renderer.py   # Docsync status block renderer (17)
 |   |-- test_domain.py             # Name normalization (13)
 |   |-- test_repositories.py       # Job state CRUD (18)
-|   |-- test_utils.py              # Rate limiters, caching, formatting (34)
+|   |-- test_retry_with_semaphore.py  # Retry + semaphore logic (8)
 |   |-- test_routes.py             # Route handlers + helpers (50)
+|   |-- test_utils.py              # Rate limiters, caching, formatting (34)
+|   |-- test_worker.py             # Job slot + thread management (6)
 |   `-- services/
-|       |-- test_lastfm_service.py     # Last.fm client + progress (9)
 |       |-- test_lastfm_logic.py       # Album aggregation logic (7)
-|       |-- test_spotify_service.py    # Spotify client + token mgmt (10)
-|       `-- test_orchestrator_service.py  # Pipeline + result building (29)
+|       |-- test_lastfm_service.py     # Last.fm client + progress (9)
+|       |-- test_orchestrator_fetch_and_process.py  # Fetch pipeline (10)
+|       |-- test_orchestrator_fetch_spotify.py      # Spotify fetch (8)
+|       |-- test_orchestrator_helpers.py            # Result helpers (18)
+|       |-- test_orchestrator_process_albums.py     # Album processing (7)
+|       `-- test_spotify_service.py    # Spotify client + token mgmt (10)
 |-- docs/
 |   |-- images/                    # Screenshots for README
 |   `-- history/                   # Archived batch defs, audits, changelogs
@@ -410,7 +424,7 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [x] Backend SoC: `lastfm.py` is now a pure HTTP client; all business logic in `orchestrator.py`.
 * [x] Route helper extraction (`_get_validated_job_context`, `_get_filter_description`).
 * [x] Global rate throttle, playtime album cap, bounded job concurrency.
-* [x] 257 tests across 10 test files, ~72% coverage.
+* [x] 320 tests across 18 test files, ~72% coverage.
 
 **Confirmed upcoming features (planned, not yet started):**
 
