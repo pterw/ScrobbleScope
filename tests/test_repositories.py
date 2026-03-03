@@ -37,6 +37,7 @@ def test_set_job_error_sets_classified_fields():
     job_id = create_job(TEST_JOB_PARAMS)
     set_job_error(job_id, "lastfm_unavailable")
     progress = get_job_progress(job_id)
+    assert progress is not None
     assert progress["error"] is True
     assert progress["error_code"] == "lastfm_unavailable"
     assert progress["error_source"] == "lastfm"
@@ -53,6 +54,7 @@ def test_set_job_error_user_not_found_not_retryable():
     job_id = create_job(TEST_JOB_PARAMS)
     set_job_error(job_id, "user_not_found", username="ghost")
     progress = get_job_progress(job_id)
+    assert progress is not None
     assert progress["retryable"] is False
     assert "ghost" in progress["message"]
     assert progress["error_code"] == "user_not_found"
@@ -83,6 +85,8 @@ def test_job_isolation_separate_progress():
 
     progress_a = get_job_progress(id_a)
     progress_b = get_job_progress(id_b)
+    assert progress_a is not None
+    assert progress_b is not None
 
     assert progress_a["progress"] == 75
     assert progress_a["message"] == "Almost done"
@@ -111,6 +115,7 @@ def test_set_job_stat_stores_and_retrieves():
     set_job_stat(job_id, "albums_found", 42)
 
     progress = get_job_progress(job_id)
+    assert progress is not None
     assert progress["stats"]["scrobbles_fetched"] == 1234
     assert progress["stats"]["albums_found"] == 42
 
@@ -183,7 +188,7 @@ async def test_get_db_connection_no_database_url(caplog):
     WHEN _get_db_connection is called
     THEN it should return None.
     """
-    with patch.dict("os.environ", {}, clear=True):
+    with patch("scrobblescope.cache._DATABASE_URL", None):
         with caplog.at_level(logging.INFO):
             result = await _get_db_connection()
     assert result is None
@@ -197,19 +202,17 @@ async def test_get_db_connection_connect_failure(caplog):
     WHEN _get_db_connection is called
     THEN it should return None and log a warning.
     """
-    with patch.dict(
-        "os.environ",
-        {
-            "DATABASE_URL": "postgres://bad:bad@localhost/bad",
-            "DB_CONNECT_MAX_ATTEMPTS": "1",
-        },
-    ):
-        with patch("scrobblescope.cache.asyncpg") as mock_asyncpg:
-            mock_asyncpg.connect = AsyncMock(
-                side_effect=Exception("connection refused")
-            )
-            with caplog.at_level(logging.INFO):
-                result = await _get_db_connection()
+    with patch("scrobblescope.cache._DATABASE_URL", "postgres://bad:bad@localhost/bad"):
+        with patch.dict(
+            "os.environ",
+            {"DB_CONNECT_MAX_ATTEMPTS": "1"},
+        ):
+            with patch("scrobblescope.cache.asyncpg") as mock_asyncpg:
+                mock_asyncpg.connect = AsyncMock(
+                    side_effect=Exception("connection refused")
+                )
+                with caplog.at_level(logging.INFO):
+                    result = await _get_db_connection()
     assert result is None
     assert "db-down" in caplog.text
 
@@ -222,24 +225,27 @@ async def test_get_db_connection_retries_then_succeeds():
     THEN _get_db_connection should return the connection object.
     """
     mock_conn = AsyncMock()
-    with patch.dict(
-        "os.environ",
-        {
-            "DATABASE_URL": "postgres://good:good@localhost/good",
-            "DB_CONNECT_MAX_ATTEMPTS": "3",
-            "DB_CONNECT_BASE_DELAY_SECONDS": "0",
-        },
+    with patch(
+        "scrobblescope.cache._DATABASE_URL",
+        "postgres://good:good@localhost/good",
     ):
-        with (
-            patch("scrobblescope.cache.asyncpg") as mock_asyncpg,
-            patch(
-                "scrobblescope.cache.asyncio.sleep", new_callable=AsyncMock
-            ) as mock_sleep,
+        with patch.dict(
+            "os.environ",
+            {
+                "DB_CONNECT_MAX_ATTEMPTS": "3",
+                "DB_CONNECT_BASE_DELAY_SECONDS": "0",
+            },
         ):
-            mock_asyncpg.connect = AsyncMock(
-                side_effect=[Exception("temporary fail"), mock_conn]
-            )
-            result = await _get_db_connection()
+            with (
+                patch("scrobblescope.cache.asyncpg") as mock_asyncpg,
+                patch(
+                    "scrobblescope.cache.asyncio.sleep", new_callable=AsyncMock
+                ) as mock_sleep,
+            ):
+                mock_asyncpg.connect = AsyncMock(
+                    side_effect=[Exception("temporary fail"), mock_conn]
+                )
+                result = await _get_db_connection()
     assert result is mock_conn
     assert mock_asyncpg.connect.await_count == 2
     mock_sleep.assert_awaited_once_with(0.0)
@@ -252,24 +258,27 @@ async def test_get_db_connection_retry_exhaustion_returns_none():
     WHEN retry budget is exhausted
     THEN _get_db_connection should return None.
     """
-    with patch.dict(
-        "os.environ",
-        {
-            "DATABASE_URL": "postgres://bad:bad@localhost/bad",
-            "DB_CONNECT_MAX_ATTEMPTS": "3",
-            "DB_CONNECT_BASE_DELAY_SECONDS": "0",
-        },
+    with patch(
+        "scrobblescope.cache._DATABASE_URL",
+        "postgres://bad:bad@localhost/bad",
     ):
-        with (
-            patch("scrobblescope.cache.asyncpg") as mock_asyncpg,
-            patch(
-                "scrobblescope.cache.asyncio.sleep", new_callable=AsyncMock
-            ) as mock_sleep,
+        with patch.dict(
+            "os.environ",
+            {
+                "DB_CONNECT_MAX_ATTEMPTS": "3",
+                "DB_CONNECT_BASE_DELAY_SECONDS": "0",
+            },
         ):
-            mock_asyncpg.connect = AsyncMock(
-                side_effect=Exception("connection refused")
-            )
-            result = await _get_db_connection()
+            with (
+                patch("scrobblescope.cache.asyncpg") as mock_asyncpg,
+                patch(
+                    "scrobblescope.cache.asyncio.sleep", new_callable=AsyncMock
+                ) as mock_sleep,
+            ):
+                mock_asyncpg.connect = AsyncMock(
+                    side_effect=Exception("connection refused")
+                )
+                result = await _get_db_connection()
     assert result is None
     assert mock_asyncpg.connect.await_count == 3
     assert mock_sleep.await_count == 2
