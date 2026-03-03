@@ -152,6 +152,58 @@ hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-03-03 - Fix Windows asyncpg startup packet (ProactorEventLoop) (side-task)
+
+**Scope:** Side-task -- two-stage Windows-only cache fix. No code changes for
+the Fly.io (Linux) deployment path.
+
+**Errors encountered and resolved (session log):**
+
+1. `.env` typo `DDATABASE_URL` (double-D prefix) -- cache silently disabled.
+   Fixed by correcting the typo in `.env`.
+
+2. `os.environ.get("DATABASE_URL")` returned `None` in background worker threads
+   on Windows. Werkzeug debug reloader spawns a child process; `load_dotenv()`
+   ran in the parent but environment variables were not reliably inherited.
+   Fixed in `468b519`: capture `_DATABASE_URL = os.environ.get("DATABASE_URL")`
+   at module import time in `cache.py` (runs once after `app.py` calls
+   `load_dotenv()`). Also path-anchored `load_dotenv()` in `app.py` so it
+   finds `.env` regardless of working directory.
+
+3. `_DATABASE_URL` confirmed set (len=59) but asyncpg still failed silently.
+   Docker logs revealed: `invalid length of startup packet` (10 rapid rejections
+   -- matching 3 retries x multiple test runs). Root cause: `asyncio.new_event_loop()`
+   in a daemon thread under Werkzeug's debug reloader on Windows creates a
+   `SelectorEventLoop`, not a `ProactorEventLoop`. asyncpg uses Windows IOCP
+   via `ProactorEventLoop`; with `SelectorEventLoop` it sends incorrect startup
+   bytes and Postgres rejects the connection immediately.
+   Fixed in `97db0c9`: `background_task()` in `orchestrator.py` now calls
+   `asyncio.ProactorEventLoop()` when `sys.platform == "win32"`, falling back to
+   `asyncio.new_event_loop()` on all other platforms (Linux/Fly.io unchanged).
+
+4. `RotatingFileHandler` fails with `PermissionError: [WinError 32]` when
+   multiple Flask processes hold the log file open simultaneously (Werkzeug
+   debug reloader + interleaved restarts). Cosmetic only -- Flask continues to
+   serve. Not fixed; documented here for future reference.
+
+**Deploy safety:** Fix 3 uses `if sys.platform == "win32":` guard exclusively.
+Fly.io (Linux) takes `asyncio.new_event_loop()` unchanged.
+
+**Implementation:**
+- `scrobblescope/orchestrator.py` -- `background_task()` updated (`97db0c9`)
+- `scrobblescope/cache.py` -- `_DATABASE_URL` captured at module level (`468b519`)
+- `app.py` -- path-anchored `load_dotenv()` (`468b519`)
+- `tests/test_repositories.py` -- 4 tests updated to patch
+  `scrobblescope.cache._DATABASE_URL` directly instead of `os.environ` (`468b519`)
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all
+hooks pass. Smoke test: `verdict=PASS`, `db_cache_lookup_hits=44`, elapsed ~1.05s
+(vs ~6s cold Spotify fetch). Fly.io deploy path confirmed unaffected by guard.
+
+**Forward guidance:** Cache subsystem is fully working locally. WP-2 is next:
+13 unit tests for `_http_client` and `smoke_cache_check` in
+`tests/test_smoke_cache_check.py`.
+
 ### 2026-03-03 - Improve agent orientation docs (side-task)
 
 **Scope:** Side-task -- documentation only, no code changes. Improve agent
@@ -220,20 +272,3 @@ is machine-local.
 `python scripts/doc_state_sync.py --check` -- exit 0.
 
 **Forward guidance:** No batch active. BATCH16_PROPOSAL.md written; awaiting owner review.
-
-### 2026-03-03 - Add local DB setup and init_db.py caveat to env docs
-
-**Scope:** Side-task -- documentation only, no code changes.
-
-**What:** Added local Postgres DB setup details and `init_db.py` load_dotenv caveat
-to AGENTS.md Environment Setup and SESSION_CONTEXT Section 8. These facts apply to
-all agents (Gemini CLI, Copilot, Codex, Claude Code) running local DB tests.
-
-**Why:** `init_db.py` has no `load_dotenv()` call. Any agent running it will get
-"DATABASE_URL not set" unless the env var is set directly in the shell. Absent from
-canonical docs, every agent would hit this silently and assume cache is unavailable.
-
-**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
-`python scripts/doc_state_sync.py --check` -- exit 0.
-
-**Forward guidance:** No batch active. Awaiting owner scope definition for next batch.

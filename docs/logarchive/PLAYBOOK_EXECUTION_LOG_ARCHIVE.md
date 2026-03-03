@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-03-03 - Add local DB setup and init_db.py caveat to env docs
+
+**Scope:** Side-task -- documentation only, no code changes.
+
+**What:** Added local Postgres DB setup details and `init_db.py` load_dotenv caveat
+to AGENTS.md Environment Setup and SESSION_CONTEXT Section 8. These facts apply to
+all agents (Gemini CLI, Copilot, Codex, Claude Code) running local DB tests.
+
+**Why:** `init_db.py` has no `load_dotenv()` call. Any agent running it will get
+"DATABASE_URL not set" unless the env var is set directly in the shell. Absent from
+canonical docs, every agent would hit this silently and assume cache is unavailable.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
+`python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** No batch active. Awaiting owner scope definition for next batch.
+
 ### 2026-03-03 - Add browser MCP environment note to SESSION_CONTEXT
 
 **Scope:** Side-task -- documentation only, no code changes.

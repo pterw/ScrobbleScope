@@ -164,3 +164,9 @@ loading.js polls GET /progress?job_id=...
   Connection: `postgresql://postgres:postgres@localhost:5432/scrobblescope`.
   Start: `docker start ss-postgres`. Check: `docker ps --filter name=ss-postgres`.
   `init_db.py` has no `load_dotenv()` -- set DATABASE_URL in shell before running it.
+- Windows asyncio: `background_task()` in `orchestrator.py` explicitly uses
+  `asyncio.ProactorEventLoop()` on `sys.platform == "win32"`. This is required
+  because Werkzeug's debug reloader leaves `SelectorEventLoop` as the thread-local
+  policy in background threads on Windows; asyncpg sends incorrect PostgreSQL
+  startup bytes with `SelectorEventLoop`, causing the `invalid length of startup
+  packet` error. The guard is Windows-only; Fly.io (Linux) is unaffected.
