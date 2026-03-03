@@ -62,7 +62,7 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Done.**
   - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Done.**
   - WP-4: `concurrent_users_test.py` + 6 unit tests. **Done.**
-  - WP-5: README local dev section + SESSION_CONTEXT final sync. **Next.**
+  - WP-5: README local dev section + SESSION_CONTEXT final sync. **Done.**
 - **Batch 15 is complete.** All 6 WPs done.
   Definition: `docs/history/definitions/BATCH15_DEFINITION.md`.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
@@ -91,6 +91,36 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-03 - WP-5: README local dev section and SESSION_CONTEXT final sync (Batch 16 WP-5)
+
+**Scope:** Document the full local dev workflow with Postgres cache in README so
+any developer can set up the environment without consulting internal agent docs.
+Update stale test counts and project structure references throughout README.
+
+**Plan:** Per BATCH16_DEFINITION WP-5: add "Local Development with DB Cache"
+subsection under "Running the App"; update badge, Tech Stack testing row, Project
+Structure (scripts/testing/ and tests/scripts/ trees), and Current Status test
+count. Verify SESSION_CONTEXT Section 8 reflects final state (already accurate
+after WP-3 update). Update PLAYBOOK Section 3 (WP-5 Done). Run doc_state_sync.
+
+**Implementation:** Updated `README.md`: badge 320 -> 339; Tech Stack row 320/18
+files -> 339/22 files; added "Local Development with DB Cache" subsection after
+`init_db.py` block (Docker prerequisite, `dev_start.py` startup, smoke test one-liner,
+concurrent test one-liner); expanded `scripts/dev/` and `scripts/testing/` entries
+in Project Structure to show all three scripts and `dev_start.py`; added
+`tests/scripts/testing/` with two new test files to Project Structure tree;
+updated Current Status 320 -> 339 test count. SESSION_CONTEXT Section 8 confirmed
+accurate -- no changes needed.
+
+**Deviations:** None.
+
+**Validation:** `pytest -q` -- **339 passed**. `pre-commit run --all-files` -- all
+hooks pass. `python scripts/doc_state_sync.py --check` -- exits 0.
+
+**Forward guidance:** All Batch 16 WPs complete. Next: Batch 16 close-out
+(run `doc_state_sync --fix --keep-non-current 0`, archive `BATCH16_DEFINITION.md`,
+update PLAYBOOK Section 2, commit `chore(close-out)`).
 
 ### 2026-03-03 - WP-4: add concurrent_users_test.py and 6 unit tests (Batch 16 WP-4)
 

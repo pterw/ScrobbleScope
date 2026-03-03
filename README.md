@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-320_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-339_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists, but it works equally well for exploring your musical journey across any year of scrobbling.
@@ -95,7 +95,7 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (320 tests across 18 files), ~72% coverage |
+| Testing | pytest (339 tests across 22 files), ~72% coverage |
 | CI/CD | GitHub Actions (pre-commit, flake8, pytest + coverage gate) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, doc-state-sync) |
@@ -243,6 +243,49 @@ The app will be available at `http://127.0.0.1:5000/`.
 python init_db.py
 ```
 
+### Local Development with DB Cache
+
+To run the app locally with the persistent Postgres metadata cache enabled:
+
+**Prerequisites:**
+
+* Docker installed and running.
+* The `ss-postgres` container must exist (created once via `docker run`; see
+  `.claude/SESSION_CONTEXT.md` Section 8 for the full command).
+* `DATABASE_URL` set in `.env`:
+  ```
+  DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
+  ```
+* Schema initialized (once): set `DATABASE_URL` in the shell, then run `python init_db.py`.
+
+**One-command startup:**
+
+```bash
+python scripts/dev/dev_start.py
+```
+
+This checks whether `ss-postgres` is running, starts it if needed, then launches Flask.
+`load_dotenv()` in the Flask startup picks up `DATABASE_URL` from `.env` automatically.
+
+**Verify the cache is working** (run twice; second run should report DB hits):
+
+```bash
+python scripts/testing/smoke_cache_check.py \
+    --base-url http://localhost:5000/ --username YOUR_USERNAME --year 2024 --runs 2
+```
+
+Prints `verdict=PASS` when the second run observes `db_cache_lookup_hits > 0`.
+
+**Observe concurrent-user behavior** (fires N simultaneous job submissions):
+
+```bash
+python scripts/testing/concurrent_users_test.py \
+    --concurrency 3 --base-url http://localhost:5000/ --username YOUR_USERNAME --year 2024
+```
+
+Reports per-thread outcome and aggregate statistics. Set `--concurrency` above
+`MAX_ACTIVE_JOBS` (default 10) to observe semaphore-limit and queuing behavior.
+
 ### Running Tests
 
 ```bash
@@ -311,9 +354,12 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |   |-- renderer.py            # STATUS block + archive rendering
 |   |   |-- logic.py               # Rotation, dedup, cross-validation
 |   |   `-- models.py              # Entry + BatchState dataclasses
-|   |-- dev/                       # Local development utilities
+|   |-- dev/
+|   |   `-- dev_start.py           # One-command local dev startup (Postgres + Flask)
 |   `-- testing/
-|       `-- smoke_cache_check.py   # Deployed cache verification tool
+|       |-- _http_client.py        # Shared HTTP transport (CSRF, submit, poll)
+|       |-- smoke_cache_check.py   # Cache correctness smoke test (2-run DB hit check)
+|       `-- concurrent_users_test.py  # Concurrent load observation (N threads, semaphore)
 |-- tests/
 |   |-- conftest.py                # Shared fixtures
 |   |-- helpers.py                 # Test utilities
@@ -328,6 +374,9 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |-- test_routes.py             # Route handlers + helpers (50)
 |   |-- test_utils.py              # Rate limiters, caching, formatting (34)
 |   |-- test_worker.py             # Job slot + thread management (6)
+|   |-- scripts/testing/
+|   |   |-- test_smoke_cache_check.py       # HTTP client + smoke test unit tests (13)
+|   |   `-- test_concurrent_users_test.py   # Concurrency script unit tests (6)
 |   `-- services/
 |       |-- test_lastfm_logic.py       # Album aggregation logic (7)
 |       |-- test_lastfm_service.py     # Last.fm client + progress (9)
@@ -426,7 +475,7 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [x] Backend SoC: `lastfm.py` is now a pure HTTP client; all business logic in `orchestrator.py`.
 * [x] Route helper extraction (`_get_validated_job_context`, `_get_filter_description`).
 * [x] Global rate throttle, playtime album cap, bounded job concurrency.
-* [x] 320 tests across 18 test files, ~72% coverage.
+* [x] 339 tests across 22 test files, ~72% coverage.
 
 **Confirmed upcoming features (planned, not yet started):**
 
