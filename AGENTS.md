@@ -47,6 +47,11 @@ API keys in `.env` (git-ignored). Template: `.env.example`.
 Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
 `SECRET_KEY` (min 16 chars; startup refuses weak values in production).
 Optional: `DATABASE_URL` (Postgres; enables persistent Spotify metadata cache).
+Local dev connection string: `postgresql://postgres:postgres@localhost:5432/scrobblescope`
+(requires a running Postgres instance; see Docker setup in SESSION_CONTEXT Section 8).
+Run `python init_db.py` once to create the schema. **Caveat:** `init_db.py` has no
+`load_dotenv()` call -- set `DATABASE_URL` directly in the shell before running it;
+the Flask app reads `.env` automatically via `load_dotenv()` at startup.
 
 ---
 
