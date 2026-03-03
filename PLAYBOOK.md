@@ -58,8 +58,8 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 16 is active.** Script Hygiene, Local Dev Hardening, and Integration
   Testing. Definition: `BATCH16_DEFINITION.md`.
   - WP-0: migrate `smoke_cache_check.py` to `scripts/testing/`; create `scripts/dev/`. **Done.**
-  - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Next.**
-  - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Pending.**
+  - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Done.**
+  - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Next.**
   - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Pending.**
   - WP-4: `concurrent_users_test.py` + 6 unit tests. **Pending.**
   - WP-5: README local dev section + SESSION_CONTEXT final sync. **Pending.**
@@ -91,6 +91,39 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-03 - WP-1: extract _http_client, fix CSRF, update verdict key (Batch 16 WP-1)
+
+**Scope:** Extract shared HTTP transport into `scripts/testing/_http_client.py`;
+refactor `smoke_cache_check.py` to import from it; fix CSRF token handling so the
+script works without disabling Flask-WTF protection; update verdict branch to use
+`db_cache_lookup_hits`; add comprehensive docstrings to all functions.
+
+**Plan:** Per BATCH16_DEFINITION WP-1: create `_http_client.py` with
+`fetch_csrf_token()`, `submit_job()`, `poll_until_complete()`. Remove `start_job()`
+and `poll_job()` from smoke script; replace with imports. Fix regex: old code used
+`window.SCROBBLE = {...}` pattern but the loading template uses a
+`<script id="scrobble-config" type="application/json">` tag -- updated to
+`SCROBBLE_CONFIG_RE`. Change verdict from `cache_hits` to `db_cache_lookup_hits`.
+
+**Implementation:** Created `_http_client.py` (267 lines) with 3 public functions,
+2 compiled regex constants, comprehensive NumPy-style docstrings, and inline
+comments on non-obvious logic. Refactored `smoke_cache_check.py` (276 lines):
+removed `start_job`, `poll_job`, `JOB_JSON_RE`, `json`, `re` imports; added import
+from `_http_client`; verdict branch now reads `db_cache_lookup_hits` (lines 259-260);
+all retained functions have comprehensive docstrings.
+
+**Deviations:** Discovered the existing `JOB_JSON_RE` regex
+(`window.SCROBBLE = {...}`) would not match the actual loading template, which uses
+`JSON.parse(document.getElementById('scrobble-config').textContent)`. Replaced with
+`SCROBBLE_CONFIG_RE` targeting the `<script id="scrobble-config">` tag. This is a
+correctness fix, not a scope addition.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all
+hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** WP-2 is next: add 13 unit tests for `_http_client` and
+`smoke_cache_check` in `tests/test_smoke_cache_check.py`.
 
 ### 2026-03-03 - WP-0: migrate smoke_cache_check to scripts/testing/ (Batch 16 WP-0)
 

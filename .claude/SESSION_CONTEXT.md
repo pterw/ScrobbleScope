@@ -32,7 +32,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
-| Batch 16 status | **In Progress**. WP-0 done, WP-1 next. Definition: `BATCH16_DEFINITION.md`. |
+| Batch 16 status | **In Progress**. WP-0 + WP-1 done, WP-2 next. Definition: `BATCH16_DEFINITION.md`. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -51,11 +51,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 16.
-- Current-batch entries in active log block: 1.
-- Completed work packages in current-batch entries: WP-0.
-- Next expected work package: WP-1.
+- Current-batch entries in active log block: 2.
+- Completed work packages in current-batch entries: WP-0, WP-1.
+- Next expected work package: WP-2.
 - Latest validated test count: **320 passed**.
-- Newest current-batch entry: 2026-03-03 - WP-0: migrate smoke_cache_check to scripts/testing/ (Batch 16 WP-0).
+- Newest current-batch entry: 2026-03-03 - WP-1: extract _http_client, fix CSRF, update verdict key (Batch 16 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

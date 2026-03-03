@@ -1,107 +1,65 @@
 #!/usr/bin/env python3
 """Smoke-test persistent Spotify metadata cache via HTTP endpoints.
 
-Usage example:
-    python scripts/testing/smoke_cache_check.py \
-        --base-url https://scrobblescope.fly.dev \
-        --username flounder14 \
-        --year 2025 \
+Runs one or more end-to-end searches against a live ScrobbleScope instance
+and checks whether the Postgres metadata cache is functioning.  The primary
+signal is the ``db_cache_lookup_hits`` stat -- on a second run the app
+should find cached metadata in the database rather than re-fetching from
+Spotify.
+
+Usage example::
+
+    python scripts/testing/smoke_cache_check.py \\
+        --base-url http://localhost:5000 \\
+        --username YOUR_USERNAME \\
+        --year 2025 \\
         --runs 2
+
+**CSRF handling:** The script obtains a CSRF token from the index page
+before POSTing, so the app can run with standard Flask-WTF CSRF protection
+enabled (no need for ``WTF_CSRF_ENABLED=False``).
+
+Exit code 0 on success; non-zero on failure.
 """
 
 from __future__ import annotations
 
 import argparse
-import json
-import re
 import time
 from dataclasses import dataclass
 from typing import Any
 
 import requests
 
-JOB_JSON_RE = re.compile(r"window\.SCROBBLE\s*=\s*(\{.*?\})\s*;", re.DOTALL)
+# Shared HTTP transport -- handles CSRF, job submission, and polling.
+from scripts.testing._http_client import poll_until_complete, submit_job
 
 
 @dataclass
 class RunResult:
-    """Summary of one end-to-end run."""
+    """Summary of one end-to-end smoke-test run.
+
+    Attributes
+    ----------
+    run_index : int
+        1-based index identifying which run this is (e.g. 1 for first run).
+    job_id : str
+        The server-assigned UUID for the background task.
+    elapsed_seconds : float
+        Wall-clock time from job submission to completion.
+    stats : dict[str, Any]
+        The ``stats`` dict from the final ``/progress`` payload.  Contains
+        cache counters (``db_cache_lookup_hits``, ``db_cache_persisted``,
+        ``cache_hits``) and match counters (``spotify_matched``, etc.).
+    message : str
+        Human-readable completion message from the server.
+    """
 
     run_index: int
     job_id: str
     elapsed_seconds: float
     stats: dict[str, Any]
     message: str
-
-
-def start_job(
-    session: requests.Session,
-    base_url: str,
-    username: str,
-    year: int,
-    sort_by: str,
-    release_scope: str,
-    min_plays: int,
-    min_tracks: int,
-) -> str:
-    """Start a new job and return its job_id extracted from loading page HTML."""
-    response = session.post(
-        f"{base_url}/results_loading",
-        data={
-            "username": username,
-            "year": str(year),
-            "sort_by": sort_by,
-            "release_scope": release_scope,
-            "min_plays": str(min_plays),
-            "min_tracks": str(min_tracks),
-            "limit_results": "all",
-        },
-        timeout=30,
-    )
-    response.raise_for_status()
-
-    match = JOB_JSON_RE.search(response.text)
-    if not match:
-        raise RuntimeError("Could not locate window.SCROBBLE payload in loading page.")
-
-    payload = json.loads(match.group(1))
-    job_id = payload.get("job_id")
-    if not job_id:
-        raise RuntimeError("Loading page payload did not include job_id.")
-    return job_id
-
-
-def poll_job(
-    session: requests.Session,
-    base_url: str,
-    job_id: str,
-    timeout_seconds: int,
-    poll_interval: float,
-) -> dict[str, Any]:
-    """Poll /progress until completion or timeout and return final progress payload."""
-    deadline = time.time() + timeout_seconds
-    while time.time() < deadline:
-        response = session.get(
-            f"{base_url}/progress",
-            params={"job_id": job_id},
-            timeout=30,
-        )
-        if response.status_code not in (200, 404):
-            raise RuntimeError(
-                f"/progress returned unexpected status {response.status_code}: "
-                f"{response.text[:200]}"
-            )
-
-        payload = response.json()
-        progress = int(payload.get("progress", 0))
-        if progress >= 100:
-            return payload
-
-        time.sleep(poll_interval)
-
-    raise TimeoutError(
-        f"Timed out waiting for job {job_id} after {timeout_seconds} seconds."
-    )
 
 
 def run_once(
@@ -117,9 +75,41 @@ def run_once(
     poll_interval: float,
     run_index: int,
 ) -> RunResult:
-    """Execute one full search and return completion metrics."""
+    """Execute one full search cycle and return completion metrics.
+
+    Delegates HTTP work to :mod:`scripts.testing._http_client`:
+    ``submit_job`` handles CSRF + POST, ``poll_until_complete`` waits for
+    the background task to finish.
+
+    Parameters
+    ----------
+    session : requests.Session
+        Persistent session (cookies survive across the CSRF fetch, POST,
+        and polling).
+    base_url : str
+        Root URL of the ScrobbleScope instance (no trailing slash).
+    username, year, sort_by, release_scope, min_plays, min_tracks
+        Search parameters forwarded to ``submit_job``.
+    timeout_seconds : int
+        Maximum seconds to wait for job completion.
+    poll_interval : float
+        Seconds between ``/progress`` polls.
+    run_index : int
+        1-based run counter for labelling output.
+
+    Returns
+    -------
+    RunResult
+        Metrics and stats for this run.
+
+    Raises
+    ------
+    RuntimeError
+        If the job finishes with an error flag in the progress payload.
+    """
     start = time.time()
-    job_id = start_job(
+
+    job_id = submit_job(
         session=session,
         base_url=base_url,
         username=username,
@@ -129,15 +119,18 @@ def run_once(
         min_plays=min_plays,
         min_tracks=min_tracks,
     )
-    progress_payload = poll_job(
+
+    progress_payload = poll_until_complete(
         session=session,
         base_url=base_url,
         job_id=job_id,
         timeout_seconds=timeout_seconds,
         poll_interval=poll_interval,
     )
+
     elapsed = time.time() - start
 
+    # Check for server-side job error (e.g. upstream API failure).
     if progress_payload.get("error"):
         raise RuntimeError(
             "Job failed: "
@@ -155,7 +148,16 @@ def run_once(
 
 
 def print_run_summary(result: RunResult) -> None:
-    """Print one run summary in a stable, grep-friendly format."""
+    """Print one run's results in a stable, grep-friendly format.
+
+    Output includes all cache-relevant counters so that automated tooling
+    or human operators can quickly assess cache behavior at a glance.
+
+    Parameters
+    ----------
+    result : RunResult
+        The completed run to summarise.
+    """
     stats = result.stats
     print(
         f"Run {result.run_index}: "
@@ -176,9 +178,18 @@ def print_run_summary(result: RunResult) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Create and return CLI argument parser."""
+    """Create and return the CLI argument parser.
+
+    Defaults are tuned for local development (``http://localhost:5000``).
+    Override ``--base-url`` for deployed instances.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Configured parser ready for ``parse_args()``.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="https://scrobblescope.fly.dev")
+    parser.add_argument("--base-url", default="http://localhost:5000")
     parser.add_argument("--username", default="flounder14")
     parser.add_argument("--year", type=int, default=2025)
     parser.add_argument(
@@ -198,7 +209,23 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    """Run cache smoke test and print cache effectiveness hints."""
+    """Run the cache smoke test and print cache effectiveness hints.
+
+    Executes ``--runs`` sequential searches (default 2).  After the second
+    run, compares ``db_cache_lookup_hits`` between runs to determine whether
+    the Postgres cache layer is functioning:
+
+    - **PASS**: Run 2 shows ``db_cache_lookup_hits > 0`` -- the DB cache
+      returned previously persisted metadata.
+    - **INCONCLUSIVE**: Run 2 shows ``db_cache_lookup_hits == 0`` -- the
+      cache may not be populated, the DB may be unreachable, or the TTL
+      may have expired.
+
+    Returns
+    -------
+    int
+        Exit code (0 = success).
+    """
     args = build_parser().parse_args()
     base_url = args.base_url.rstrip("/")
 
@@ -221,19 +248,28 @@ def main() -> int:
             results.append(result)
             print_run_summary(result)
 
+    # --- Verdict: compare run 1 vs run 2 cache counters ---
     if len(results) >= 2:
         first = results[0]
         second = results[1]
-        hit_delta = second.stats.get("cache_hits", 0) - first.stats.get("cache_hits", 0)
+
+        # db_cache_lookup_hits is the Postgres-specific counter -- the
+        # correct signal for DB cache validation (not the broader
+        # cache_hits which may include in-memory hits).
+        db_hits_r1 = first.stats.get("db_cache_lookup_hits", 0)
+        db_hits_r2 = second.stats.get("db_cache_lookup_hits", 0)
+        hit_delta = db_hits_r2 - db_hits_r1
         elapsed_delta = first.elapsed_seconds - second.elapsed_seconds
+
         print("")
         print("Warm-cache check:")
-        print(f"  cache_hits_delta(run2-run1)={hit_delta}")
+        print(f"  db_cache_lookup_hits_delta(run2-run1)={hit_delta}")
         print(f"  elapsed_delta(run1-run2)={elapsed_delta:.2f}s")
-        if second.stats.get("cache_hits", 0) > 0:
+
+        if db_hits_r2 > 0:
             print("  verdict=PASS (run 2 observed DB cache hits)")
         else:
-            print("  verdict=INCONCLUSIVE (no cache hits observed on run 2)")
+            print("  verdict=INCONCLUSIVE (no DB cache hits observed on run 2)")
 
     return 0
 
