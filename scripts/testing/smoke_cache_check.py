@@ -25,14 +25,24 @@ Exit code 0 on success; non-zero on failure.
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import requests
 
+# When executed directly (python scripts/testing/smoke_cache_check.py) Python
+# adds the script's own directory to sys.path, not the repo root.  Insert the
+# repo root so that ``from scripts.testing._http_client import ...`` resolves.
+# pytest handles this automatically via pythonpath="." in pyproject.toml.
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 # Shared HTTP transport -- handles CSRF, job submission, and polling.
-from scripts.testing._http_client import poll_until_complete, submit_job
+from scripts.testing._http_client import poll_until_complete, submit_job  # noqa: E402
 
 
 @dataclass

@@ -59,8 +59,8 @@ Completed batch definitions are archived individually under `docs/history/`.
   Testing. Definition: `BATCH16_DEFINITION.md`.
   - WP-0: migrate `smoke_cache_check.py` to `scripts/testing/`; create `scripts/dev/`. **Done.**
   - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Done.**
-  - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Next.**
-  - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Pending.**
+  - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Done.**
+  - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Next.**
   - WP-4: `concurrent_users_test.py` + 6 unit tests. **Pending.**
   - WP-5: README local dev section + SESSION_CONTEXT final sync. **Pending.**
 - **Batch 15 is complete.** All 6 WPs done.
@@ -91,6 +91,39 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-03 - WP-2: add 13 unit tests for _http_client and smoke_cache_check (Batch 16 WP-2)
+
+**Scope:** Add automated regression coverage for the HTTP client and smoke-test
+logic added in WP-1. All tests use mocked sessions; no live server required.
+
+**Plan:** Per BATCH16_DEFINITION WP-2: create `tests/scripts/testing/` (mirrors
+`scripts/testing/` source tree, per owner SoC directive) with 13 unit tests across
+8 functions: `fetch_csrf_token` (2), `submit_job` (3), `poll_until_complete` (3),
+`run_once` (1), `print_run_summary` (1), `build_parser` (1), verdict logic (2).
+
+**Implementation:** Created `tests/scripts/__init__.py`, `tests/scripts/testing/__init__.py`,
+and `tests/scripts/testing/test_smoke_cache_check.py` (13 tests). Fixed a correctness
+gap in `smoke_cache_check.py`: when executed directly (`python scripts/testing/...`)
+the script failed with `ModuleNotFoundError: No module named 'scripts'` because Python
+adds the script directory, not the repo root, to sys.path. Added a `sys.path.insert`
+guard (6 lines) at module level to insert `_REPO_ROOT` when missing; pytest is
+unaffected (its `pythonpath="."` already covers this). Test folder placement in
+`tests/scripts/testing/` deviates from the definition's `tests/test_smoke_cache_check.py`
+per owner instruction to apply SoC.
+
+**Deviations:** (1) Test file placed in `tests/scripts/testing/` instead of
+`tests/test_smoke_cache_check.py` -- per owner SoC directive. (2) `smoke_cache_check.py`
+received a `sys.path` fix so the direct `python scripts/testing/smoke_cache_check.py`
+invocation works; WP-1 acceptance criteria required this but it was missed.
+
+**Validation:** `pytest -q` -- **333 passed**. `pre-commit run --all-files` -- all
+hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0. Live smoke test:
+`verdict=PASS`, `db_cache_lookup_hits=388` on run 2, elapsed delta ~18s (warm cache
+~6x faster than cold fetch).
+
+**Forward guidance:** WP-3 is next: `scripts/dev/dev_start.py` Docker+Flask startup
+helper. Standalone -- no dependencies on WP-2.
 
 ### 2026-03-03 - WP-1: extract _http_client, fix CSRF, update verdict key (Batch 16 WP-1)
 

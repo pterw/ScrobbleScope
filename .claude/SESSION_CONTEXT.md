@@ -26,13 +26,13 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **320 passing** across 18 test files |
+| Tests | **333 passing** across 21 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
-| Batch 16 status | **In Progress**. WP-0 + WP-1 done, WP-2 next. Two side-tasks done: agent orientation docs + Windows DB cache fix. Definition: `BATCH16_DEFINITION.md`. |
+| Batch 16 status | **In Progress**. WP-0, WP-1, WP-2 done, WP-3 next. Two side-tasks done: agent orientation docs + Windows DB cache fix. Definition: `BATCH16_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -53,11 +53,11 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 16.
-- Current-batch entries in active log block: 2.
-- Completed work packages in current-batch entries: WP-0, WP-1.
-- Next expected work package: WP-2.
-- Latest validated test count: **320 passed**.
-- Newest current-batch entry: 2026-03-03 - WP-1: extract _http_client, fix CSRF, update verdict key (Batch 16 WP-1).
+- Current-batch entries in active log block: 3.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2.
+- Next expected work package: WP-3.
+- Latest validated test count: **333 passed**.
+- Newest current-batch entry: 2026-03-03 - WP-2: add 13 unit tests for _http_client and smoke_cache_check (Batch 16 WP-2).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -128,7 +128,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (320 tests)
+## 7. Test structure (333 tests)
 
 | File | Count |
 |------|-------|
@@ -143,6 +143,7 @@ loading.js polls GET /progress?job_id=...
 | test_routes.py | 50 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
+| scripts/testing/test_smoke_cache_check.py | 13 |
 | services/test_lastfm_logic.py | 7 |
 | services/test_lastfm_service.py | 9 |
 | services/test_orchestrator_fetch_and_process.py | 10 |
