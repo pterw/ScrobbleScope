@@ -446,6 +446,9 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [x] Route helper extraction (`_get_validated_job_context`, `_get_filter_description`).
 * [x] Global rate throttle, playtime album cap, bounded job concurrency.
 * [x] 320 tests across 18 test files, ~72% coverage.
+* [x] Modular docsync package (`scripts/docsync/`) with per-batch log routing, SHA-256 dedup, and cross-validation.
+* [x] Parser hardening: strict heading validation, malformed-entry tolerance, edge-case coverage (35 parser tests).
+* [x] AGENTS.md consolidation: anti-pattern registry, batch close-out procedure, side-task handling, doc sync rules.
 
 **Confirmed upcoming features (planned, not yet started):**
 
