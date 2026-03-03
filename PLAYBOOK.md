@@ -44,7 +44,6 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 13 | Internal decomposition and coverage hardening | `docs/history/definitions/BATCH13_DEFINITION.md` |
 | 14 | Doc hygiene (archive restructure, docsync package, per-batch routing) | `docs/history/definitions/BATCH14_DEFINITION.md` |
 | 15 | Alignment, hardening, and handoff | `docs/history/definitions/BATCH15_DEFINITION.md` |
-| 16 | Script hygiene, local dev hardening, and integration testing | `docs/history/definitions/BATCH16_DEFINITION.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -57,7 +56,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 16 is active.** Script Hygiene, Local Dev Hardening, and Integration
-  Testing. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`.
+  Testing. Definition: `BATCH16_DEFINITION.md`.
   - WP-0: migrate `smoke_cache_check.py` to `scripts/testing/`; create `scripts/dev/`. **Next.**
   - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Pending.**
   - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Pending.**
@@ -93,7 +92,7 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
-### 2026-03-03 - Batch 16 definition written and activated (Batch 16 WP-0)
+### 2026-03-03 - Batch 16 definition written and activated (Batch 16 activation)
 
 **Scope:** Define Batch 16 and activate it in PLAYBOOK + SESSION_CONTEXT.
 
@@ -105,7 +104,7 @@ SESSION_CONTEXT Section 2. Update HANDOFF_PROMPT.md and MEMORY.md for handoff.
 **Implementation:** Definition written; audit findings applied (verdict key
 `cache_hits` corrected to `db_cache_lookup_hits`, size caps removed per owner
 instruction, `memory/MEMORY.md` removed from formal acceptance criteria). Definition
-placed at `docs/history/definitions/BATCH16_DEFINITION.md`. PLAYBOOK and
+placed at `BATCH16_DEFINITION.md` (root; moves to archive at batch close-out). PLAYBOOK and
 SESSION_CONTEXT activated. HANDOFF_PROMPT and MEMORY updated for clean handoff.
 
 **Deviations:** None.
