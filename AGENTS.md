@@ -184,8 +184,8 @@ block to disk so the next agent session starts with accurate state.
   or `**N tests passing**` (bold-wrapped only) from the newest Section 4
   entry inside the `DOCSYNC:CURRENT-BATCH-START/END` markers. Historical
   entries outside those markers are not scanned.
-- "Broken archive link" when a `docs/history/*.md` or
-   `docs/logarchive/*.md` path in PLAYBOOK does
+- "Broken archive link" when a markdown file path under `docs/history/` or
+   `docs/logarchive/` in PLAYBOOK does
   not exist on disk.
 
 ### What to update after a WP or side-task commit
