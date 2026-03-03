@@ -97,3 +97,20 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-03-03 - Add browser MCP environment note to SESSION_CONTEXT
+
+**Scope:** Side-task -- documentation only, no code changes.
+
+**What:** Added one line to SESSION_CONTEXT Section 8 (Environment notes) documenting
+that the browser MCP accesses the local Flask app via `http://host.docker.internal:5000/`
+rather than `localhost`, because the MCP browser runs inside a Docker container.
+
+**Why:** This is a runtime fact that future agent sessions need to reproduce local
+browser testing correctly. Absent from SESSION_CONTEXT, an agent would attempt
+`localhost` and get a connection refused error with no clear diagnosis path.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
+`python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** No batch active. Awaiting owner scope definition for next batch.
