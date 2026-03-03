@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-02-25
+Last updated: 2026-03-02
 
 ---
 
@@ -25,14 +25,13 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 
 | Item | Value |
 |------|-------|
-| Branch | `wip/batch-14-doc-hygiene` |
-| Tests | **307 passing** across 18 test files |
+| Branch | `wip/pc-snapshot` |
+| Tests | **320 passing** across 18 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
-| Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
-| Batch 12 status | **Complete**. WP-1 done, WP-2 done, WP-3 done, WP-4 done. |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
+| Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
 | Known open risk | None. |
 
 **Key runtime facts:**
@@ -51,7 +50,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: none (between batches).
-- Last completed batch in PLAYBOOK Section 3: Batch 14.
+- Last completed batch in PLAYBOOK Section 3: Batch 15.
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: n/a (no active batch).
 - Next expected work package: n/a (next batch not defined).
@@ -126,15 +125,15 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (307 tests)
+## 7. Test structure (320 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
-| test_docsync_cli.py | 17 |
-| test_docsync_logic.py | 37 |
-| test_docsync_parser.py | 32 |
-| test_docsync_renderer.py | 17 |
+| test_docsync_cli.py | 19 |
+| test_docsync_logic.py | 41 |
+| test_docsync_parser.py | 35 |
+| test_docsync_renderer.py | 21 |
 | test_domain.py | 13 |
 | test_repositories.py | 18 |
 | test_retry_with_semaphore.py | 8 |
@@ -159,3 +158,8 @@ loading.js polls GET /progress?job_id=...
 - API keys in `.env` (git-ignored); template: `.env.example`.
 - Gunicorn compat: `app = create_app()` at module level in `app.py`.
 - worker.py ADR archived at `docs/history/WORKER_ADR_2026-02-20.md`.
+- Browser MCP runs in Docker: use `http://host.docker.internal:5000/` for local app access (not `localhost`).
+- Local Postgres cache: Docker container `ss-postgres`, volume `ss-postgres-data`.
+  Connection: `postgresql://postgres:postgres@localhost:5432/scrobblescope`.
+  Start: `docker start ss-postgres`. Check: `docker ps --filter name=ss-postgres`.
+  `init_db.py` has no `load_dotenv()` -- set DATABASE_URL in shell before running it.

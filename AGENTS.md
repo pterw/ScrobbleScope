@@ -177,10 +177,10 @@ The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
 The script prints `WARNING:` lines to stderr for cross-file inconsistencies.
 These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
 
-`SESSION_CONTEXT.md` is treated as a local dashboard. `--check` warns on
-stderr when the STATUS block is stale but does not fail (SESSION_CONTEXT is
-gitignored and should not block commits). `--fix` writes the refreshed STATUS
-block to disk so the next agent session starts with accurate state.
+`SESSION_CONTEXT.md` is committed and shared across all agents. `--check` warns on
+stderr when the STATUS block is stale but does not fail. `--fix` writes the refreshed
+STATUS block to disk; commit the result so the next agent session starts with accurate
+state.
 
 **Real issues** (act on these):
 - "Test count mismatch" where SESSION_CONTEXT Section 2 and the most-recent

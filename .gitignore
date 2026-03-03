@@ -1,8 +1,9 @@
 # Environment variables (API keys)
 .env
 
-# Claude Code agent state (machine-local)
-.claude/
+# Claude Code agent state -- SESSION_CONTEXT.md is committed (shared across all agents)
+.claude/*
+!.claude/SESSION_CONTEXT.md
 
 # Logs
 *.log
