@@ -5,6 +5,8 @@
 [![Tests](https://img.shields.io/badge/tests-320_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**[Try it live →](https://scrobblescope.fly.dev)**
+
 ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists, but it works equally well for exploring your musical journey across any year of scrobbling.
 
 This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
@@ -65,25 +67,25 @@ This project was initially built to identify top albums released in a specific y
 
 *Configure your search with listening year, release date filters, decade selection, and custom thresholds.*
 
-![ScrobbleScope Input Form - Dark Mode](docs/images/index_dark_thresholds_decade.png)
+*Screenshot coming soon.*
 
 **2. Results Page (Light Mode)**
 
 *Filtered and sorted albums with cover art, artist, play count, and release date. Export buttons and unmatched-album access visible.*
 
-![ScrobbleScope Results - Light Mode](docs/images/results_light_playcount.png)
+*Screenshot coming soon.*
 
 **3. Quick Unmatched Modal (Dark Mode)**
 
 *Albums that did not meet filter criteria, accessible directly from the results page.*
 
-![ScrobbleScope Results with Unmatched Modal - Dark Mode](docs/images/results_dark_modal.png)
+*Screenshot coming soon.*
 
 **4. Detailed Unmatched Report (Dark Mode)**
 
 *Comprehensive exclusion report grouped by reason, with filter summary context.*
 
-![ScrobbleScope Detailed Unmatched Report - Dark Mode](docs/images/unmatched_dark_top.png)
+*Screenshot coming soon.*
 
 ## Tech Stack
 
