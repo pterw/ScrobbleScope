@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 import threading
 import time
 from collections import defaultdict
@@ -880,8 +881,18 @@ def background_task(
     min_tracks=3,
     limit_results="all",
 ):
-    """Run the async fetch pipeline in a dedicated event loop on this thread."""
-    loop = asyncio.new_event_loop()
+    """Run the async fetch pipeline in a dedicated event loop on this thread.
+
+    On Windows, explicitly use ProactorEventLoop so asyncpg sends the correct
+    PostgreSQL startup packet.  With the default SelectorEventLoop (which
+    Werkzeug's debug reloader can leave as the policy in child threads) asyncpg
+    mis-negotiates the connection and Postgres logs 'invalid length of startup
+    packet'.
+    """
+    if sys.platform == "win32":
+        loop = asyncio.ProactorEventLoop()
+    else:
+        loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(
