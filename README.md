@@ -338,9 +338,9 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |-- helpers.py                 # Test utilities
 |   |-- test_app_factory.py        # App creation, secret validation (6)
 |   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (19)
-|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (39)
-|   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (32)
-|   |-- test_docsync_renderer.py   # Docsync status block renderer (17)
+|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (41)
+|   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (35)
+|   |-- test_docsync_renderer.py   # Docsync status block renderer (21)
 |   |-- test_domain.py             # Name normalization (13)
 |   |-- test_repositories.py       # Job state CRUD (18)
 |   |-- test_retry_with_semaphore.py  # Retry + semaphore logic (8)
