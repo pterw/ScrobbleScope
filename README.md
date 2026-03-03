@@ -5,6 +5,8 @@
 [![Tests](https://img.shields.io/badge/tests-320_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+**[Try it live →](https://scrobblescope.fly.dev)**
+
 ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists, but it works equally well for exploring your musical journey across any year of scrobbling.
 
 This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
@@ -65,25 +67,25 @@ This project was initially built to identify top albums released in a specific y
 
 *Configure your search with listening year, release date filters, decade selection, and custom thresholds.*
 
-![ScrobbleScope Input Form - Dark Mode](docs/images/index_dark_thresholds_decade.png)
+*Screenshot coming soon.*
 
 **2. Results Page (Light Mode)**
 
 *Filtered and sorted albums with cover art, artist, play count, and release date. Export buttons and unmatched-album access visible.*
 
-![ScrobbleScope Results - Light Mode](docs/images/results_light_playcount.png)
+*Screenshot coming soon.*
 
 **3. Quick Unmatched Modal (Dark Mode)**
 
 *Albums that did not meet filter criteria, accessible directly from the results page.*
 
-![ScrobbleScope Results with Unmatched Modal - Dark Mode](docs/images/results_dark_modal.png)
+*Screenshot coming soon.*
 
 **4. Detailed Unmatched Report (Dark Mode)**
 
 *Comprehensive exclusion report grouped by reason, with filter summary context.*
 
-![ScrobbleScope Detailed Unmatched Report - Dark Mode](docs/images/unmatched_dark_top.png)
+*Screenshot coming soon.*
 
 ## Tech Stack
 
@@ -101,6 +103,22 @@ This project was initially built to identify top albums released in a specific y
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, doc-state-sync) |
 
 ## Architecture
+
+```mermaid
+graph LR
+    A[Browser] -->|form POST| B[routes.py]
+    B --> C[repositories.py]
+    B -->|daemon thread| D[worker.py]
+    D --> E[orchestrator.py]
+    E --> F[lastfm.py]
+    E --> G[spotify.py]
+    E --> H[cache.py]
+    H --> I[(PostgreSQL)]
+    A -.->|poll /progress| B
+```
+
+<details>
+<summary>Detailed request flow (text)</summary>
 
 ```
 User submits form (index.html)
@@ -125,6 +143,8 @@ loading.js polls GET /progress?job_id=...
   -> error + retryable -> show Retry button
 ```
 
+</details>
+
 **Key design decisions:**
 
 * **Per-job state isolation:** UUID-keyed `JOBS` dict with `threading.Lock`. Progress, results, and unmatched data are scoped per job. Jobs expire after 2 hours.
@@ -145,6 +165,7 @@ loading.js polls GET /progress?job_id=...
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
 * **Bounded Job Concurrency:** `MAX_ACTIVE_JOBS` (default 10, env-tunable) caps simultaneous background jobs via a `BoundedSemaphore` in `scrobblescope/worker.py`. Requests beyond the cap are rejected at the route before any job is created, and the concurrency slot is always released -- even on thread-start failure.
 * **CSRF Protection:** All mutating POST routes (`/results_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Form submissions include a hidden `csrf_token` input; programmatic POSTs from `loading.js` read a `<meta name="csrf-token">` tag and inject the token into both form bodies and the `X-CSRFToken` header.
+* **Doc-State Sync Tooling:** A modular Python package (`scripts/docsync/`) keeps orchestration docs (PLAYBOOK, SESSION_CONTEXT, archive) consistent across agent handoffs. Deterministic rotation, SHA-256 dedup, and cross-validation replace manual copy-paste that drifted in earlier sessions. See [DEVELOPMENT.md](DEVELOPMENT.md) for rationale.
 * **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
 * **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
 * **Styling & UX:**
@@ -317,9 +338,9 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |-- helpers.py                 # Test utilities
 |   |-- test_app_factory.py        # App creation, secret validation (6)
 |   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (19)
-|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (39)
-|   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (32)
-|   |-- test_docsync_renderer.py   # Docsync status block renderer (17)
+|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (41)
+|   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (35)
+|   |-- test_docsync_renderer.py   # Docsync status block renderer (21)
 |   |-- test_domain.py             # Name normalization (13)
 |   |-- test_repositories.py       # Job state CRUD (18)
 |   |-- test_retry_with_semaphore.py  # Retry + semaphore logic (8)
@@ -425,6 +446,9 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [x] Route helper extraction (`_get_validated_job_context`, `_get_filter_description`).
 * [x] Global rate throttle, playtime album cap, bounded job concurrency.
 * [x] 320 tests across 18 test files, ~72% coverage.
+* [x] Modular docsync package (`scripts/docsync/`) with per-batch log routing, SHA-256 dedup, and cross-validation.
+* [x] Parser hardening: strict heading validation, malformed-entry tolerance, edge-case coverage (35 parser tests).
+* [x] AGENTS.md consolidation: anti-pattern registry, batch close-out procedure, side-task handling, doc sync rules.
 
 **Confirmed upcoming features (planned, not yet started):**
 
