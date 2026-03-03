@@ -61,8 +61,8 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-1: extract `_http_client.py`; fix CSRF; update verdict to `db_cache_lookup_hits`; docstrings. **Done.**
   - WP-2: 13 unit tests for `_http_client` + `smoke_cache_check`. **Done.**
   - WP-3: `scripts/dev/dev_start.py` Docker+Flask startup helper. **Done.**
-  - WP-4: `concurrent_users_test.py` + 6 unit tests. **Next.**
-  - WP-5: README local dev section + SESSION_CONTEXT final sync. **Pending.**
+  - WP-4: `concurrent_users_test.py` + 6 unit tests. **Done.**
+  - WP-5: README local dev section + SESSION_CONTEXT final sync. **Next.**
 - **Batch 15 is complete.** All 6 WPs done.
   Definition: `docs/history/definitions/BATCH15_DEFINITION.md`.
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
@@ -91,6 +91,42 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-03 - WP-4: add concurrent_users_test.py and 6 unit tests (Batch 16 WP-4)
+
+**Scope:** Provide a concurrent-user load-observation script that fires N
+simultaneous job submissions against a live ScrobbleScope instance and reports
+per-thread outcomes plus aggregate statistics. Add 6 unit tests covering the
+dataclass, `run_thread` (success + error paths), `print_aggregate`, `build_parser`,
+and `main` thread-count behavior.
+
+**Plan:** Per BATCH16_DEFINITION WP-4: `scripts/testing/concurrent_users_test.py`
+with `ConcurrentResult` dataclass, `run_thread` (barrier sync + exception capture),
+`print_thread_result`, `print_aggregate`, `build_parser`, `main`. Unit tests in
+`tests/scripts/testing/test_concurrent_users_test.py` (6 tests). Same `sys.path`
+guard pattern as `smoke_cache_check.py` for direct execution.
+
+**Implementation:** Created `scripts/testing/concurrent_users_test.py` (338 lines):
+comprehensive module/function docstrings; `ConcurrentResult` dataclass with full
+attribute docstring; `run_thread` with `threading.Barrier` synchronization, exception
+capture into `error` field, and CPython GIL atomicity note for `list.append`;
+`print_thread_result` with `[thread-N]` prefix; `print_aggregate` with elapsed range;
+`build_parser` with 9 CLI args; `main` with one `requests.Session` per thread (not
+thread-safe for concurrent use across threads). Created
+`tests/scripts/testing/test_concurrent_users_test.py` (6 tests): dataclass fields,
+run_thread success, run_thread error capture, print_aggregate counts, build_parser
+default, main thread count via patched `threading.Thread`.
+
+**Deviations:** None.
+
+**Validation:** `pytest -q` -- **339 passed**. `pre-commit run --all-files` -- all
+hooks pass (no reformatting needed). Live run: `python scripts/testing/concurrent_users_test.py
+--concurrency 3 --username flounder14 --year 2024` -- 3/3 threads completed, 0 failed,
+elapsed 2.12s-2.20s. `final_state=None` is expected: `/progress` payload does not
+include a `"status"` key; threads are still reported as OK.
+
+**Forward guidance:** WP-5 is next: README local dev section + SESSION_CONTEXT final
+sync. Last WP before Batch 16 close-out.
 
 ### 2026-03-03 - WP-3: add dev_start.py Docker+Flask startup helper (Batch 16 WP-3)
 
