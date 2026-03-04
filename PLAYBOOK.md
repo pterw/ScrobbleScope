@@ -98,6 +98,13 @@ non-current operational logs. Older dated entries live in
 - Load test findings (local, 1-5 concurrent users) documented in agent memory.
   Spotify cache TTL verified correct (ToS compliant). No upstream 429s at 2-5 users.
 
+### 2026-03-04 - side-task: log rotation fix
+
+- **Log rotation**: changed `RotatingFileHandler` to 2MB files / 10 backups (was 1MB / 5).
+  Small files stay granular and parseable; 10 backups cover a full load test session.
+  No production impact -- file is ephemeral on Fly.io; stdout is the prod log channel.
+- **350 tests passing**, all hooks green.
+
 ### 2026-03-04 - side-task: PR code review fixes
 
 - **theme.js**: `var` -> `const` for `saved` and `prefersDark` (neither reassigned;
