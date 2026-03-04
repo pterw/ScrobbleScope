@@ -205,7 +205,10 @@ async def test_get_db_connection_connect_failure(caplog):
     with patch("scrobblescope.cache._DATABASE_URL", "postgres://bad:bad@localhost/bad"):
         with patch.dict(
             "os.environ",
-            {"DB_CONNECT_MAX_ATTEMPTS": "1"},
+            {
+                "DB_CONNECT_MAX_ATTEMPTS": "1",
+                "DB_CONNECT_BASE_DELAY_SECONDS": "0",
+            },
         ):
             with patch("scrobblescope.cache.asyncpg") as mock_asyncpg:
                 mock_asyncpg.connect = AsyncMock(
