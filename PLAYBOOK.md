@@ -283,6 +283,30 @@ hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-03-03 - Review-driven fixes: barrier safety, session cleanup, Docker error handling, dev_start tests
+
+**Scope:** Side-task -- address three legitimate Co-Pilot code review findings from
+PR #56 and add the deferred `dev_start.py` unit tests (now warranted by increased
+error-handling complexity).
+
+**Fixes applied:**
+1. `concurrent_users_test.py` -- moved `barrier.wait()` inside `try` block so
+   `BrokenBarrierError` is captured and a `ConcurrentResult` is always appended
+   (docstring guarantee upheld).
+2. `concurrent_users_test.py` -- track sessions in a list, call `session.close()`
+   after `join()` to prevent connection/socket leaks.
+3. `dev_start.py` -- `check_container_status()` now distinguishes "No such object"
+   (returns `None`) from Docker daemon errors (raises `RuntimeError` with actionable
+   message) and unexpected errors (raises with stderr details).
+
+**New tests:** 9 unit tests in `tests/scripts/dev/test_dev_start.py` covering
+`check_container_status` (5 paths: running, absent, docker-not-found, daemon-not-
+running, unexpected error), `start_container` (success + failure), `main` (absent
+container exit, exited container start+exec).
+
+**Validation:** `pytest -q` -- **348 passed**. `pre-commit run --all-files` -- all
+hooks pass.
+
 ### 2026-03-03 - Fix Windows asyncpg startup packet (ProactorEventLoop) (side-task)
 
 **Scope:** Side-task -- two-stage Windows-only cache fix. No code changes for
@@ -379,27 +403,3 @@ hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
 **Forward guidance:** WP-0 is next: create `scripts/testing/` and `scripts/dev/`
 directories, move `smoke_cache_check.py` via `git mv`, update AGENTS.md and
 SESSION_CONTEXT path references. No logic changes in WP-0.
-
-### 2026-03-03 - Fix SESSION_CONTEXT.md commit convention and stage accumulated changes
-
-**Scope:** Side-task -- documentation and gitignore fix, no code changes.
-
-**What:** SESSION_CONTEXT.md was never staged in the two previous side-task commits
-(`c4bf737`, `4f1cf6a`) despite commit messages implying it. SESSION_CONTEXT.md has
-been git-tracked since before `edee612` (when `.claude/` was added to .gitignore).
-The `.gitignore` entry `.claude/` is misleading -- SESSION_CONTEXT.md is grandfathered
-in as a tracked file. Fix: update `.gitignore` to `.claude/*` + `!.claude/SESSION_CONTEXT.md`
-so the exception is explicit. Fix AGENTS.md: remove incorrect "SESSION_CONTEXT is
-gitignored" language. Stage the accumulated SESSION_CONTEXT.md changes (Batch 15 state
-update, Section 8 browser MCP note, Section 8 local Postgres note).
-
-**Why:** SESSION_CONTEXT.md is the shared cross-agent dashboard. All agents (Gemini,
-Copilot, Codex, Claude Code) bootstrap from it. Leaving it uncommitted means every agent
-starts with stale branch, test count, and batch status. The gitignore fix makes the
-tracked-exception visible and prevents future agents from falsely concluding the file
-is machine-local.
-
-**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
-`python scripts/doc_state_sync.py --check` -- exit 0.
-
-**Forward guidance:** No batch active. BATCH16_PROPOSAL.md written; awaiting owner review.

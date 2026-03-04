@@ -136,9 +136,6 @@ def run_thread(
         Synchronization point that holds all threads until every thread has
         called ``barrier.wait()``, then releases them simultaneously.
     """
-    # Hold here until all threads are ready, then release simultaneously.
-    barrier.wait()
-
     start = time.time()
     http_status: int | None = None
     job_id: str | None = None
@@ -146,6 +143,11 @@ def run_thread(
     error: str | None = None
 
     try:
+        # Hold here until all threads are ready, then release simultaneously.
+        # Inside the try block so BrokenBarrierError (e.g. another thread dies
+        # before reaching wait()) is captured and a result is always appended.
+        barrier.wait()
+
         job_id = submit_job(
             session=session,
             base_url=base_url,
@@ -296,11 +298,13 @@ def main() -> None:
     # of hitting the MAX_ACTIVE_JOBS semaphore limit in worker.py.
     barrier = threading.Barrier(n)
 
+    sessions: list[requests.Session] = []
     threads = []
     for i in range(n):
         # One session per thread: requests.Session is not thread-safe for
         # concurrent use across multiple threads.
         session = requests.Session()
+        sessions.append(session)
         t = threading.Thread(
             target=run_thread,
             kwargs={
@@ -326,6 +330,10 @@ def main() -> None:
 
     for t in threads:
         t.join()
+
+    # Close sessions to release connection pools and avoid socket leaks.
+    for s in sessions:
+        s.close()
 
     for result in sorted(results, key=lambda r: r.thread_index):
         print_thread_result(result)

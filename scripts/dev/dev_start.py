@@ -85,10 +85,32 @@ def check_container_status(container_name: str) -> str | None:
         )
 
     if result.returncode != 0:
-        # Non-zero exit means the container does not exist ("No such object")
-        # or Docker encountered an error.  Treat both as absent so the caller
-        # can print the docker run instructions.
-        return None
+        stderr_lower = (result.stderr or "").lower()
+
+        # Container genuinely does not exist -- caller prints docker run help.
+        if "no such object" in stderr_lower:
+            return None
+
+        # Docker is installed but the daemon is not reachable or the user
+        # lacks permissions -- raise so the error message is actionable.
+        if (
+            "cannot connect to the docker daemon" in stderr_lower
+            or "is the docker daemon running" in stderr_lower
+            or "permission denied" in stderr_lower
+        ):
+            details = (result.stderr or result.stdout or "").strip()
+            raise RuntimeError(
+                "Docker daemon is not reachable or permissions are "
+                f"insufficient while inspecting container "
+                f"'{container_name}'.\nUnderlying error: {details}"
+            )
+
+        # Any other unexpected docker error.
+        details = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(
+            f"Unexpected error while inspecting container "
+            f"'{container_name}': {details}"
+        )
 
     return result.stdout.strip()
 
