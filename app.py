@@ -38,11 +38,15 @@ logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(threadName)s] [%(levelname)s] %(message)s",
     handlers=[
-        # Main log file with rotation (1MB max size, keep 5 backup files)
+        # Main log file with rotation: 2MB files, 10 backups = 20MB max.
+        # Small files stay quick to open and search; 10 backups give enough
+        # granular time-window chunks to cover a full load test session.
+        # On Fly.io this file is ephemeral (wiped on restart/deploy);
+        # stdout (below) is the canonical production log channel.
         RotatingFileHandler(
             "logs/app_debug.log",
-            maxBytes=1 * 1024 * 1024,  # 1MB Max Size
-            backupCount=5,
+            maxBytes=2 * 1024 * 1024,
+            backupCount=10,
             encoding="utf-8",
             mode="a",
         ),
@@ -69,7 +73,6 @@ else:
 
 # Log application start
 logging.info(f"ScrobbleScope starting up, debug mode: {debug_mode}")
-
 
 _KNOWN_WEAK_SECRETS = frozenset({"dev", "changeme_in_production", ""})
 _MIN_SECRET_LENGTH = 16
