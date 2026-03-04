@@ -56,8 +56,15 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Batch 16 is complete.** All 6 WPs done.
-  Definition: `docs/history/definitions/BATCH16_DEFINITION.md`.
+- **Batch 17 is active.** Branch: `wip/batch-17`. Definition: `BATCH17_DEFINITION.md`.
+- **Next action:** Begin WP-1 -- fix 3 problems in `HANDOFF_PROMPT.md` (commit order
+  conflict, batch definition path hint, MEMORY.md absent from bootstrap list).
+- WP status:
+  - WP-1: HANDOFF_PROMPT.md fixes -- **pending**
+  - WP-2: CI/CD improvements (rename, remove dup flake8, caching, artifact, pip-audit, dependabot) -- **pending**
+  - WP-3: PR template -- **pending**
+  - WP-4: SESSION_CONTEXT.md cleanup + cross-reference updates -- **pending**
+  - WP-5: Flask-Talisman security headers -- **pending**
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
@@ -84,6 +91,14 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-04 - Batch 17 WP-0: definition committed (Batch 17 WP-0)
+
+- **Batch 17 started.** Branch `wip/batch-17` created from `main`.
+- Definition committed: `BATCH17_DEFINITION.md` (5 WPs: HANDOFF_PROMPT fix, CI/CD,
+  PR template, SESSION_CONTEXT cleanup, Flask-Talisman security headers).
+- Baseline: **350 tests passing**, branch clean, all hooks green.
+- Next: WP-1 -- fix 3 problems in HANDOFF_PROMPT.md.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

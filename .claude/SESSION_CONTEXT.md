@@ -52,12 +52,12 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: none (between batches).
-- Last completed batch in PLAYBOOK Section 3: Batch 16.
-- Current-batch entries in active log block: 0.
-- Completed work packages in current-batch entries: n/a (no active batch).
-- Next expected work package: n/a (next batch not defined).
-- Newest current-batch entry: none.
+- Current batch: Batch 17.
+- Current-batch entries in active log block: 1.
+- Completed work packages in current-batch entries: WP-0.
+- Next expected work package: WP-1.
+- Latest validated test count: **350 passed**.
+- Newest current-batch entry: 2026-03-04 - Batch 17 WP-0: definition committed (Batch 17 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
