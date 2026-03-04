@@ -2,9 +2,14 @@
 # ==============================================================
 
 # Load environment variables once
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-load_dotenv()
+# Use an explicit path anchored to this file so load_dotenv never depends
+# on the working directory (which can differ in background terminals,
+# Docker containers, or when invoked via dev_start.py).
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 # Standard library imports
 import io

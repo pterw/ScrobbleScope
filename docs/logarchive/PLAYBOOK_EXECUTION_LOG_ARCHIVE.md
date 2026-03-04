@@ -9,6 +9,64 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-03-03 - Fix SESSION_CONTEXT.md commit convention and stage accumulated changes
+
+**Scope:** Side-task -- documentation and gitignore fix, no code changes.
+
+**What:** SESSION_CONTEXT.md was never staged in the two previous side-task commits
+(`c4bf737`, `4f1cf6a`) despite commit messages implying it. SESSION_CONTEXT.md has
+been git-tracked since before `edee612` (when `.claude/` was added to .gitignore).
+The `.gitignore` entry `.claude/` is misleading -- SESSION_CONTEXT.md is grandfathered
+in as a tracked file. Fix: update `.gitignore` to `.claude/*` + `!.claude/SESSION_CONTEXT.md`
+so the exception is explicit. Fix AGENTS.md: remove incorrect "SESSION_CONTEXT is
+gitignored" language. Stage the accumulated SESSION_CONTEXT.md changes (Batch 15 state
+update, Section 8 browser MCP note, Section 8 local Postgres note).
+
+**Why:** SESSION_CONTEXT.md is the shared cross-agent dashboard. All agents (Gemini,
+Copilot, Codex, Claude Code) bootstrap from it. Leaving it uncommitted means every agent
+starts with stale branch, test count, and batch status. The gitignore fix makes the
+tracked-exception visible and prevents future agents from falsely concluding the file
+is machine-local.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
+`python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** No batch active. BATCH16_PROPOSAL.md written; awaiting owner review.
+
+### 2026-03-03 - Add local DB setup and init_db.py caveat to env docs
+
+**Scope:** Side-task -- documentation only, no code changes.
+
+**What:** Added local Postgres DB setup details and `init_db.py` load_dotenv caveat
+to AGENTS.md Environment Setup and SESSION_CONTEXT Section 8. These facts apply to
+all agents (Gemini CLI, Copilot, Codex, Claude Code) running local DB tests.
+
+**Why:** `init_db.py` has no `load_dotenv()` call. Any agent running it will get
+"DATABASE_URL not set" unless the env var is set directly in the shell. Absent from
+canonical docs, every agent would hit this silently and assume cache is unavailable.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
+`python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** No batch active. Awaiting owner scope definition for next batch.
+
+### 2026-03-03 - Add browser MCP environment note to SESSION_CONTEXT
+
+**Scope:** Side-task -- documentation only, no code changes.
+
+**What:** Added one line to SESSION_CONTEXT Section 8 (Environment notes) documenting
+that the browser MCP accesses the local Flask app via `http://host.docker.internal:5000/`
+rather than `localhost`, because the MCP browser runs inside a Docker container.
+
+**Why:** This is a runtime fact that future agent sessions need to reproduce local
+browser testing correctly. Absent from SESSION_CONTEXT, an agent would attempt
+`localhost` and get a connection refused error with no clear diagnosis path.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all hooks pass.
+`python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** No batch active. Awaiting owner scope definition for next batch.
+
 ### 2026-03-02 - Session findings and handoff notes (side-task)
 
 **Scope:** Observations from Batch 15 WP-1 execution session, documented for

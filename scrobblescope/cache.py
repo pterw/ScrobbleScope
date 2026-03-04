@@ -10,6 +10,13 @@ except ImportError:
 
 from scrobblescope.config import METADATA_CACHE_TTL_DAYS
 
+# Capture DATABASE_URL once at import time.  load_dotenv() in app.py runs
+# before any module in scrobblescope is imported, so the value is guaranteed
+# to be present here if it exists in .env.  Reading os.environ later from a
+# worker thread has proven unreliable on Windows (the value disappears
+# between app startup and the first background-task invocation).
+_DATABASE_URL: str | None = os.environ.get("DATABASE_URL")
+
 
 async def _get_db_connection():
     """Open a single asyncpg connection from DATABASE_URL, or return None.
@@ -31,7 +38,7 @@ async def _get_db_connection():
             "DB cache unavailable (asyncpg-missing): asyncpg is not installed."
         )
         return None
-    dsn = os.environ.get("DATABASE_URL")
+    dsn = _DATABASE_URL
     if not dsn:
         logging.info("DB cache disabled (missing-env-var): DATABASE_URL is not set.")
         return None

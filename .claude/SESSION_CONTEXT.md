@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-02-25
+Last updated: 2026-03-03
 
 ---
 
@@ -25,15 +25,15 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 
 | Item | Value |
 |------|-------|
-| Branch | `wip/batch-14-doc-hygiene` |
-| Tests | **307 passing** across 18 test files |
+| Branch | `wip/pc-snapshot` |
+| Tests | **350 passing** across 23 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
-| Batch 11 status | **Complete**. WP-1 done, WP-2 done, WP-3 done. |
-| Batch 12 status | **Complete**. WP-1 done, WP-2 done, WP-3 done, WP-4 done. |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
-| Known open risk | None. |
+| Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
+| Batch 16 status | **In Progress**. WP-0 through WP-5 done. Two side-tasks done: agent orientation docs + Windows DB cache fix. Close-out next. Definition: `BATCH16_DEFINITION.md`. |
+| Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
 - `MAX_ACTIVE_JOBS` (default 10) caps concurrent background jobs via `worker.py`.
@@ -41,6 +41,8 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 - `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
 - `_PLAYTIME_ALBUM_CAP = 500` in `orchestrator.py` limits Spotify fetch for playtime sort.
 - Cold-start validated 2026-02-19 (both app + DB auto-wake on demand).
+- DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
+  elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
 
 ---
 
@@ -50,12 +52,12 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: none (between batches).
-- Last completed batch in PLAYBOOK Section 3: Batch 14.
-- Current-batch entries in active log block: 0.
-- Completed work packages in current-batch entries: n/a (no active batch).
-- Next expected work package: n/a (next batch not defined).
-- Newest current-batch entry: none.
+- Current batch: Batch 16.
+- Current-batch entries in active log block: 6.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
+- Next expected work package: WP-6.
+- Latest validated test count: **339 passed**.
+- Newest current-batch entry: 2026-03-03 - WP-5: README local dev section and SESSION_CONTEXT final sync (Batch 16 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -126,21 +128,24 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (307 tests)
+## 7. Test structure (350 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
-| test_docsync_cli.py | 17 |
-| test_docsync_logic.py | 37 |
-| test_docsync_parser.py | 32 |
-| test_docsync_renderer.py | 17 |
+| test_docsync_cli.py | 19 |
+| test_docsync_logic.py | 41 |
+| test_docsync_parser.py | 35 |
+| test_docsync_renderer.py | 21 |
 | test_domain.py | 13 |
 | test_repositories.py | 18 |
 | test_retry_with_semaphore.py | 8 |
 | test_routes.py | 50 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
+| scripts/dev/test_dev_start.py | 11 |
+| scripts/testing/test_smoke_cache_check.py | 13 |
+| scripts/testing/test_concurrent_users_test.py | 6 |
 | services/test_lastfm_logic.py | 7 |
 | services/test_lastfm_service.py | 9 |
 | services/test_orchestrator_fetch_and_process.py | 10 |
@@ -159,3 +164,16 @@ loading.js polls GET /progress?job_id=...
 - API keys in `.env` (git-ignored); template: `.env.example`.
 - Gunicorn compat: `app = create_app()` at module level in `app.py`.
 - worker.py ADR archived at `docs/history/WORKER_ADR_2026-02-20.md`.
+- Browser MCP runs in Docker: use `http://host.docker.internal:5000/` for local app access (not `localhost`).
+- Local Postgres cache: Docker container `ss-postgres`, volume `ss-postgres-data`.
+  Connection: `postgresql://postgres:postgres@localhost:5432/scrobblescope`.
+  **One-command startup:** `python scripts/dev/dev_start.py` -- checks/starts container, then launches Flask.
+  Manual fallback: `docker start ss-postgres` then `python app.py`.
+  Check status: `docker ps --filter name=ss-postgres`.
+  `init_db.py` has no `load_dotenv()` -- set DATABASE_URL in shell before running it.
+- Windows asyncio: `background_task()` in `orchestrator.py` explicitly uses
+  `asyncio.ProactorEventLoop()` on `sys.platform == "win32"`. This is required
+  because Werkzeug's debug reloader leaves `SelectorEventLoop` as the thread-local
+  policy in background threads on Windows; asyncpg sends incorrect PostgreSQL
+  startup bytes with `SelectorEventLoop`, causing the `invalid length of startup
+  packet` error. The guard is Windows-only; Fly.io (Linux) is unaffected.

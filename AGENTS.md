@@ -40,6 +40,10 @@ and next WP, you have enough context to start.
 ## Environment Setup
 
 ```bash
+# Activate the virtual environment first:
+# Windows:  venv\Scripts\activate
+# Linux:    source venv/bin/activate
+
 pip install -r requirements-dev.txt   # runtime + pytest/pre-commit/lint
 ```
 
@@ -47,6 +51,15 @@ API keys in `.env` (git-ignored). Template: `.env.example`.
 Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
 `SECRET_KEY` (min 16 chars; startup refuses weak values in production).
 Optional: `DATABASE_URL` (Postgres; enables persistent Spotify metadata cache).
+Local dev connection string: `postgresql://postgres:postgres@localhost:5432/scrobblescope`
+(requires a running Postgres instance; see Docker setup in SESSION_CONTEXT Section 8).
+Run `python init_db.py` once to create the schema. **Caveat:** `init_db.py` has no
+`load_dotenv()` call -- set `DATABASE_URL` directly in the shell before running it;
+the Flask app reads `.env` automatically via `load_dotenv()` at startup.
+
+For local development with the Postgres cache, use `python scripts/dev/dev_start.py`
+instead of `python app.py` directly. This script checks and starts the `ss-postgres`
+Docker container if needed, then launches Flask in one command.
 
 ---
 
@@ -172,10 +185,10 @@ The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
 The script prints `WARNING:` lines to stderr for cross-file inconsistencies.
 These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
 
-`SESSION_CONTEXT.md` is treated as a local dashboard. `--check` warns on
-stderr when the STATUS block is stale but does not fail (SESSION_CONTEXT is
-gitignored and should not block commits). `--fix` writes the refreshed STATUS
-block to disk so the next agent session starts with accurate state.
+`SESSION_CONTEXT.md` is committed and shared across all agents. `--check` warns on
+stderr when the STATUS block is stale but does not fail. `--fix` writes the refreshed
+STATUS block to disk; commit the result so the next agent session starts with accurate
+state.
 
 **Real issues** (act on these):
 - "Test count mismatch" where SESSION_CONTEXT Section 2 and the most-recent
@@ -196,6 +209,9 @@ block to disk so the next agent session starts with accurate state.
 - SESSION_CONTEXT Section 4 (project structure) and Section 5 (dependency
   graph) if modules are added, removed, renamed, or dependencies change.
 - `README.md` for user/developer-visible setup or behavior changes.
+  **Exception:** If the active batch definition includes a dedicated README
+  WP (e.g., WP-5), README updates may be deferred to that WP to avoid
+  churn from intermediate WPs that change paths or structure.
 - `docs/history/<TOPIC>_<DATE>.md` for significant findings or audits.
 
 **Mid-batch handoff discipline:** PLAYBOOK Section 3 must reflect the true
