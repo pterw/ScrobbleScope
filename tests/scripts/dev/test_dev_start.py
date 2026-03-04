@@ -56,6 +56,19 @@ def test_check_container_status_raises_when_docker_not_found():
             check_container_status("ss-postgres")
 
 
+def test_check_container_status_raises_on_timeout():
+    """GIVEN docker inspect times out (hung daemon)
+    WHEN check_container_status is called
+    THEN it raises RuntimeError mentioning 'timed out'.
+    """
+    with patch(
+        "scripts.dev.dev_start.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="docker", timeout=10),
+    ):
+        with pytest.raises(RuntimeError, match="timed out"):
+            check_container_status("ss-postgres")
+
+
 def test_check_container_status_raises_when_daemon_not_running():
     """GIVEN docker inspect exits non-zero with 'Cannot connect to the Docker daemon'
     WHEN check_container_status is called
@@ -113,6 +126,19 @@ def test_start_container_raises_on_failure():
     )
     with patch("scripts.dev.dev_start.subprocess.run", return_value=mock_result):
         with pytest.raises(RuntimeError, match="Failed to start container"):
+            start_container("ss-postgres")
+
+
+def test_start_container_raises_on_timeout():
+    """GIVEN docker start times out (hung daemon)
+    WHEN start_container is called
+    THEN it raises RuntimeError mentioning 'timed out'.
+    """
+    with patch(
+        "scripts.dev.dev_start.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="docker", timeout=30),
+    ):
+        with pytest.raises(RuntimeError, match="timed out"):
             start_container("ss-postgres")
 
 

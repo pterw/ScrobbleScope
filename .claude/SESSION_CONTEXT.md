@@ -26,7 +26,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Item | Value |
 |------|-------|
 | Branch | `wip/pc-snapshot` |
-| Tests | **348 passing** across 23 test files |
+| Tests | **350 passing** across 23 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -128,7 +128,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (348 tests)
+## 7. Test structure (350 tests)
 
 | File | Count |
 |------|-------|
@@ -143,7 +143,7 @@ loading.js polls GET /progress?job_id=...
 | test_routes.py | 50 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
-| scripts/dev/test_dev_start.py | 9 |
+| scripts/dev/test_dev_start.py | 11 |
 | scripts/testing/test_smoke_cache_check.py | 13 |
 | scripts/testing/test_concurrent_users_test.py | 6 |
 | services/test_lastfm_logic.py | 7 |

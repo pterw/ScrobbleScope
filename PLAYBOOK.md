@@ -285,9 +285,9 @@ hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
 
 ### 2026-03-03 - Review-driven fixes: barrier safety, session cleanup, Docker error handling, dev_start tests
 
-**Scope:** Side-task -- address three legitimate Co-Pilot code review findings from
-PR #56 and add the deferred `dev_start.py` unit tests (now warranted by increased
-error-handling complexity).
+**Scope:** Side-task -- address Co-Pilot code review findings from PR #56, add
+subprocess timeout guards, and add the deferred `dev_start.py` unit tests (now
+warranted by increased error-handling complexity).
 
 **Fixes applied:**
 1. `concurrent_users_test.py` -- moved `barrier.wait()` inside `try` block so
@@ -298,13 +298,16 @@ error-handling complexity).
 3. `dev_start.py` -- `check_container_status()` now distinguishes "No such object"
    (returns `None`) from Docker daemon errors (raises `RuntimeError` with actionable
    message) and unexpected errors (raises with stderr details).
+4. `dev_start.py` -- added `timeout=10` to `docker inspect` and `timeout=30` to
+   `docker start` subprocess calls; catches `subprocess.TimeoutExpired` and raises
+   `RuntimeError` with clear messaging.
 
-**New tests:** 9 unit tests in `tests/scripts/dev/test_dev_start.py` covering
-`check_container_status` (5 paths: running, absent, docker-not-found, daemon-not-
-running, unexpected error), `start_container` (success + failure), `main` (absent
-container exit, exited container start+exec).
+**New tests:** 11 unit tests in `tests/scripts/dev/test_dev_start.py` covering
+`check_container_status` (6 paths: running, absent, docker-not-found, timeout,
+daemon-not-running, unexpected error), `start_container` (success, failure, timeout),
+`main` (absent container exit, exited container start+exec).
 
-**Validation:** `pytest -q` -- **348 passed**. `pre-commit run --all-files` -- all
+**Validation:** `pytest -q` -- **350 passed**. `pre-commit run --all-files` -- all
 hooks pass.
 
 ### 2026-03-03 - Fix Windows asyncpg startup packet (ProactorEventLoop) (side-task)

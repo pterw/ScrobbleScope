@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-348_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-350_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists, but it works equally well for exploring your musical journey across any year of scrobbling.
@@ -95,7 +95,7 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (348 tests across 23 files), ~72% coverage |
+| Testing | pytest (350 tests across 23 files), ~72% coverage |
 | CI/CD | GitHub Actions (pre-commit, flake8, pytest + coverage gate) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, doc-state-sync) |
@@ -375,7 +375,7 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |-- test_utils.py              # Rate limiters, caching, formatting (34)
 |   |-- test_worker.py             # Job slot + thread management (6)
 |   |-- scripts/dev/
-|   |   `-- test_dev_start.py              # Docker startup helper unit tests (9)
+|   |   `-- test_dev_start.py              # Docker startup helper unit tests (11)
 |   |-- scripts/testing/
 |   |   |-- test_smoke_cache_check.py       # HTTP client + smoke test unit tests (13)
 |   |   `-- test_concurrent_users_test.py   # Concurrency script unit tests (6)
@@ -477,7 +477,7 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [x] Backend SoC: `lastfm.py` is now a pure HTTP client; all business logic in `orchestrator.py`.
 * [x] Route helper extraction (`_get_validated_job_context`, `_get_filter_description`).
 * [x] Global rate throttle, playtime album cap, bounded job concurrency.
-* [x] 348 tests across 23 test files, ~72% coverage.
+* [x] 350 tests across 23 test files, ~72% coverage.
 
 **Confirmed upcoming features (planned, not yet started):**
 

@@ -64,8 +64,10 @@ def check_container_status(container_name: str) -> str | None:
     Raises
     ------
     RuntimeError
-        If the ``docker`` executable is not found on ``PATH``.  Docker
-        Desktop must be installed and running before this script is used.
+        If the ``docker`` executable is not found on ``PATH``, if the
+        Docker daemon is not reachable or permissions are insufficient,
+        if ``docker inspect`` times out (10-second guard against a hung
+        daemon), or if an unexpected Docker error occurs.
     """
     try:
         result = subprocess.run(
@@ -77,6 +79,14 @@ def check_container_status(container_name: str) -> str | None:
             ],
             capture_output=True,
             text=True,
+            # Guard against a hung Docker daemon or credential helper.
+            # docker inspect is normally instant (<100ms); 10s is generous.
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"docker inspect timed out after 10 seconds while checking "
+            f"container '{container_name}'. Is the Docker daemon healthy?"
         )
     except FileNotFoundError:
         raise RuntimeError(
@@ -130,14 +140,22 @@ def start_container(container_name: str) -> None:
     Raises
     ------
     RuntimeError
-        If ``docker start`` exits with a non-zero exit code, indicating
-        that Docker could not start the container.
+        If ``docker start`` exits with a non-zero exit code or times out
+        (30-second guard against a hung daemon).
     """
-    result = subprocess.run(
-        ["docker", "start", container_name],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["docker", "start", container_name],
+            capture_output=True,
+            text=True,
+            # docker start typically completes in 1-3s; 30s covers slow disks.
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(
+            f"docker start timed out after 30 seconds for container "
+            f"'{container_name}'. The Docker daemon may be unhealthy."
+        )
     if result.returncode != 0:
         raise RuntimeError(
             f"Failed to start container '{container_name}': " f"{result.stderr.strip()}"
