@@ -97,3 +97,11 @@ non-current operational logs. Older dated entries live in
   enabled will see dark theme automatically. Explicit toggle still overrides.
 - Load test findings (local, 1-5 concurrent users) documented in agent memory.
   Spotify cache TTL verified correct (ToS compliant). No upstream 429s at 2-5 users.
+
+### 2026-03-04 - side-task: PR code review fixes
+
+- **theme.js**: `var` -> `const` for `saved` and `prefersDark` (neither reassigned;
+  aligns with `const`/`let` convention in all other JS files).
+- **Dockerfile**: added comment explaining `--workers 1 --threads 4` rationale for
+  Fly.io deployment (shared-cpu-2x / 512MB, JOBS dict requires single process).
+- **350 tests passing**, all hooks green.

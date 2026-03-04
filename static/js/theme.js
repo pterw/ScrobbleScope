@@ -5,8 +5,8 @@
     // Dark-mode toggle
     const darkSwitch = document.getElementById('darkSwitch');
     // Respect saved preference first; fall back to browser/OS dark mode setting.
-    var saved = localStorage.getItem('darkMode');
-    var prefersDark = saved === 'true' ||
+    const saved = localStorage.getItem('darkMode');
+    const prefersDark = saved === 'true' ||
         (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
     if (prefersDark) {
         document.body.classList.add('dark-mode');
