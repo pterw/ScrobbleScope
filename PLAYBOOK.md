@@ -86,3 +86,14 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-03-04 - side-task: gunicorn threading + dark mode browser preference
+
+- **Gunicorn threading**: added `--threads 4` to Dockerfile CMD. Single sync worker
+  was serializing all HTTP requests in production; threads allow concurrent request
+  handling while keeping JOBS dict in shared process memory.
+- **Dark mode fix**: `theme.js` now falls back to `window.matchMedia('(prefers-color-scheme: dark)')`
+  when no localStorage preference is saved. First-visit users with browser dark mode
+  enabled will see dark theme automatically. Explicit toggle still overrides.
+- Load test findings (local, 1-5 concurrent users) documented in agent memory.
+  Spotify cache TTL verified correct (ToS compliant). No upstream 429s at 2-5 users.
