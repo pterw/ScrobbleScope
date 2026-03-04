@@ -10,7 +10,7 @@ the project is structured the way it is beyond what `AGENTS.md` prescribes.
 ## The Core Problem: Collaborating With Amnesiac Engineers
 
 ScrobbleScope was built primarily by a single developer using multiple LLM
-code agents (Claude Sonnet and Claude Opus via VS Code Copilo + Claude Code, Gemini Code Review via GitHub PRs, GPT-5.3 Codex) as the development team. The project went from a fragile prototype to a deployed, tested, multi-module application in roughly 7--10
+code agents (Claude Sonnet and Claude Opus via VS Code Copilot + Claude Code, Gemini Code Review via GitHub PRs, GPT-5.3 Codex) as the development team. The project went from a fragile prototype to a deployed, tested, multi-module application in roughly 7--10
 days of active development.
 
 The central challenge is that LLMs have finite context windows and no
@@ -101,9 +101,12 @@ here automatically when the window overflows. Nothing is deleted -- the
 archive exists because LLM agents benefit from being able to grep past
 decisions without loading them into the active context.
 
-Specific documents worth noting:
-- `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`: auto-managed rotated execution log
-- `BATCHN_DEFINITION.md`: acceptance criteria written before work started
+The archive is organized into subdirectories:
+- `docs/history/definitions/`: archived batch definition files (`BATCHN_DEFINITION.md`)
+- `docs/history/logs/`: per-batch execution logs rotated from PLAYBOOK Section 4
+- `docs/logarchive/`: auto-managed monolith archive for non-batch (side-task) entries
+
+Other notable documents:
 - `AUDIT_*.md` / `BUGFIX_*.md`: external review findings and responses
 
 ---
@@ -144,6 +147,13 @@ The script runs as a pre-commit hook (`doc-state-sync-check` in
 `.pre-commit-config.yaml`) in `--check` mode. This means any commit that
 leaves PLAYBOOK and SESSION_CONTEXT out of sync is rejected at the gate,
 before it reaches CI.
+
+**Package structure (Batch 14 refactor).** The script was originally a
+monolithic 600-line file. Batch 14 decomposed it into a proper Python
+package (`scripts/docsync/`) with separate modules for parsing, rendering,
+logic, CLI, and dataclass models. This made each concern independently
+testable -- 97 docsync tests now cover rotation, dedup, cross-validation,
+and CLI modes.
 
 **SESSION_CONTEXT.md is optional in CI.** The file is gitignored and
 absent in GitHub Actions. `doc_state_sync.py` handles this gracefully
