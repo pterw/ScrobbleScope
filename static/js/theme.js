@@ -4,7 +4,11 @@
 (function () {
     // Dark-mode toggle
     const darkSwitch = document.getElementById('darkSwitch');
-    if (localStorage.getItem('darkMode') === 'true') {
+    // Respect saved preference first; fall back to browser/OS dark mode setting.
+    const saved = localStorage.getItem('darkMode');
+    const prefersDark = saved === 'true' ||
+        (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (prefersDark) {
         document.body.classList.add('dark-mode');
         if (darkSwitch) darkSwitch.checked = true;
     }
