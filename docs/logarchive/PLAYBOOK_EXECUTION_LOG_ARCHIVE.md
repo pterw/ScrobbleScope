@@ -9,6 +9,130 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-03-03 - Review-driven fixes: barrier safety, session cleanup, Docker error handling, dev_start tests
+
+**Scope:** Side-task -- address Co-Pilot code review findings from PR #56, add
+subprocess timeout guards, and add the deferred `dev_start.py` unit tests (now
+warranted by increased error-handling complexity).
+
+**Fixes applied:**
+1. `concurrent_users_test.py` -- moved `barrier.wait()` inside `try` block so
+   `BrokenBarrierError` is captured and a `ConcurrentResult` is always appended
+   (docstring guarantee upheld).
+2. `concurrent_users_test.py` -- track sessions in a list, call `session.close()`
+   after `join()` to prevent connection/socket leaks.
+3. `dev_start.py` -- `check_container_status()` now distinguishes "No such object"
+   (returns `None`) from Docker daemon errors (raises `RuntimeError` with actionable
+   message) and unexpected errors (raises with stderr details).
+4. `dev_start.py` -- added `timeout=10` to `docker inspect` and `timeout=30` to
+   `docker start` subprocess calls; catches `subprocess.TimeoutExpired` and raises
+   `RuntimeError` with clear messaging.
+
+**New tests:** 11 unit tests in `tests/scripts/dev/test_dev_start.py` covering
+`check_container_status` (6 paths: running, absent, docker-not-found, timeout,
+daemon-not-running, unexpected error), `start_container` (success, failure, timeout),
+`main` (absent container exit, exited container start+exec).
+
+**Validation:** `pytest -q` -- **350 passed**. `pre-commit run --all-files` -- all
+hooks pass.
+
+### 2026-03-03 - Fix Windows asyncpg startup packet (ProactorEventLoop) (side-task)
+
+**Scope:** Side-task -- two-stage Windows-only cache fix. No code changes for
+the Fly.io (Linux) deployment path.
+
+**Errors encountered and resolved (session log):**
+
+1. `.env` typo `DDATABASE_URL` (double-D prefix) -- cache silently disabled.
+   Fixed by correcting the typo in `.env`.
+
+2. `os.environ.get("DATABASE_URL")` returned `None` in background worker threads
+   on Windows. Werkzeug debug reloader spawns a child process; `load_dotenv()`
+   ran in the parent but environment variables were not reliably inherited.
+   Fixed in `468b519`: capture `_DATABASE_URL = os.environ.get("DATABASE_URL")`
+   at module import time in `cache.py` (runs once after `app.py` calls
+   `load_dotenv()`). Also path-anchored `load_dotenv()` in `app.py` so it
+   finds `.env` regardless of working directory.
+
+3. `_DATABASE_URL` confirmed set (len=59) but asyncpg still failed silently.
+   Docker logs revealed: `invalid length of startup packet` (10 rapid rejections
+   -- matching 3 retries x multiple test runs). Root cause: `asyncio.new_event_loop()`
+   in a daemon thread under Werkzeug's debug reloader on Windows creates a
+   `SelectorEventLoop`, not a `ProactorEventLoop`. asyncpg uses Windows IOCP
+   via `ProactorEventLoop`; with `SelectorEventLoop` it sends incorrect startup
+   bytes and Postgres rejects the connection immediately.
+   Fixed in `97db0c9`: `background_task()` in `orchestrator.py` now calls
+   `asyncio.ProactorEventLoop()` when `sys.platform == "win32"`, falling back to
+   `asyncio.new_event_loop()` on all other platforms (Linux/Fly.io unchanged).
+
+4. `RotatingFileHandler` fails with `PermissionError: [WinError 32]` when
+   multiple Flask processes hold the log file open simultaneously (Werkzeug
+   debug reloader + interleaved restarts). Cosmetic only -- Flask continues to
+   serve. Not fixed; documented here for future reference.
+
+**Deploy safety:** Fix 3 uses `if sys.platform == "win32":` guard exclusively.
+Fly.io (Linux) takes `asyncio.new_event_loop()` unchanged.
+
+**Implementation:**
+- `scrobblescope/orchestrator.py` -- `background_task()` updated (`97db0c9`)
+- `scrobblescope/cache.py` -- `_DATABASE_URL` captured at module level (`468b519`)
+- `app.py` -- path-anchored `load_dotenv()` (`468b519`)
+- `tests/test_repositories.py` -- 4 tests updated to patch
+  `scrobblescope.cache._DATABASE_URL` directly instead of `os.environ` (`468b519`)
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all
+hooks pass. Smoke test: `verdict=PASS`, `db_cache_lookup_hits=44`, elapsed ~1.05s
+(vs ~6s cold Spotify fetch). Fly.io deploy path confirmed unaffected by guard.
+
+**Forward guidance:** Cache subsystem is fully working locally. WP-2 is next:
+13 unit tests for `_http_client` and `smoke_cache_check` in
+`tests/test_smoke_cache_check.py`.
+
+### 2026-03-03 - Improve agent orientation docs (side-task)
+
+**Scope:** Side-task -- documentation only, no code changes. Improve agent
+bootstrap reliability by fixing stale references and adding missing setup steps.
+
+**Changes:**
+- DEVELOPMENT.md: replaced stale "SESSION_CONTEXT is gitignored/ephemeral" text
+  (lines 83-93) with accurate description of committed+tracked status, explicit
+  `.gitignore` exception, and rationale for sharing across agents.
+- AGENTS.md Environment Setup: added venv activation commands (Windows + Linux)
+  so agents can run `pytest` and `pre-commit` without trial-and-error.
+- AGENTS.md "What to update after a WP": added README deferral exception noting
+  that README updates may be batched into a dedicated WP when the batch definition
+  specifies one (e.g., Batch 16 WP-5).
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all
+hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** WP-1 is next. README will be stale during intermediate WPs;
+updates deferred to WP-5 per batch definition.
+
+### 2026-03-03 - Batch 16 definition written and activated (Batch 16 activation)
+
+**Scope:** Define Batch 16 and activate it in PLAYBOOK + SESSION_CONTEXT.
+
+**Plan:** Write `BATCH16_DEFINITION.md` incorporating audit corrections (stat key
+fix, size caps removed, MEMORY.md references clarified as agent-private). Move to
+`docs/history/definitions/`. Activate Batch 16 in PLAYBOOK Section 3. Update
+SESSION_CONTEXT Section 2. Update HANDOFF_PROMPT.md and MEMORY.md for handoff.
+
+**Implementation:** Definition written; audit findings applied (verdict key
+`cache_hits` corrected to `db_cache_lookup_hits`, size caps removed per owner
+instruction, `memory/MEMORY.md` removed from formal acceptance criteria). Definition
+placed at `BATCH16_DEFINITION.md` (root; moves to archive at batch close-out). PLAYBOOK and
+SESSION_CONTEXT activated. HANDOFF_PROMPT and MEMORY updated for clean handoff.
+
+**Deviations:** None.
+
+**Validation:** `pytest -q` -- **320 passed**. `pre-commit run --all-files` -- all
+hooks pass. `python scripts/doc_state_sync.py --check` -- exit 0.
+
+**Forward guidance:** WP-0 is next: create `scripts/testing/` and `scripts/dev/`
+directories, move `smoke_cache_check.py` via `git mv`, update AGENTS.md and
+SESSION_CONTEXT path references. No logic changes in WP-0.
+
 ### 2026-03-03 - Fix SESSION_CONTEXT.md commit convention and stage accumulated changes
 
 **Scope:** Side-task -- documentation and gitignore fix, no code changes.
