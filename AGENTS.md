@@ -23,9 +23,10 @@ reference a fact owned by another file, link to it -- do not copy it.
 
 ## Session Bootstrap (in order)
 
-1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
+1. `AGENTS.md` (this file) -- rules, commit format, anti-patterns.
 2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
 3. Relevant `docs/history/` doc if the log references one.
+4. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
 
 If SESSION_CONTEXT Section 1 and PLAYBOOK Section 3 agree on the current batch
 and next WP, you have enough context to start.
@@ -56,6 +57,11 @@ All packages in `requirements.txt` and `requirements-dev.txt` are pinned
 with `==`. Do not add `>=` or unversioned entries. If a new package is
 needed for a WP, propose it to the owner and wait for explicit approval
 before running any pip command.
+
+**Note:** The qualified-path rule (`.venv/Scripts/pip`) applies to **local
+development only**. In GitHub Actions (CI), the runner manages its own Python
+environment and bare `pip install` is correct -- do not add `.venv/` paths
+to the workflow file.
 
 API keys in `.env` (git-ignored). Template: `.env.example`.
 Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
