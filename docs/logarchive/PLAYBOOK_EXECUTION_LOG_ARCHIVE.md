@@ -9,6 +9,15 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-03-05 - side-task: doc accuracy fixes (AGENTS.md, HANDOFF_PROMPT.md)
+
+- **AGENTS.md**: "these doc files" -> "the doc files listed below" (dangling pronoun
+  with no referent; table follows the section break, not the sentence).
+- **HANDOFF_PROMPT.md**: SESSION_CONTEXT step 4 now reads "Sections 3-5" instead of
+  "Sections 3-4". Section 5 is the dedicated Architecture overview; "Sections 3-4"
+  would have left agents one section short when looking for architecture detail.
+- **350 tests passing**, all hooks green.
+
 ### 2026-03-03 - Review-driven fixes: barrier safety, session cleanup, Docker error handling, dev_start tests
 
 **Scope:** Side-task -- address Co-Pilot code review findings from PR #56, add

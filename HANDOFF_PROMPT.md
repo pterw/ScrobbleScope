@@ -15,7 +15,7 @@ before doing anything else. Do not skip any step.
    Completed batches: file is under `docs/history/definitions/`.
 4. `.claude/SESSION_CONTEXT.md` -- **required**, not optional.
    Read Section 1 (current state + test count) and Section 2 (status block)
-   at minimum. Sections 3-4 if you need architecture or dependency detail.
+   at minimum. Sections 3-5 if you need structure, dependency, or architecture detail.
 5. `AGENT_NOTES.md` (repo root) -- owner preferences, local dev setup,
    architectural constraints, and known issues. Tracked in the repo;
    readable by all agents.
