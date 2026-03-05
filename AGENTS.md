@@ -40,12 +40,22 @@ and next WP, you have enough context to start.
 ## Environment Setup
 
 ```bash
-# Activate the virtual environment first:
-# Windows:  venv\Scripts\activate
-# Linux:    source venv/bin/activate
-
-pip install -r requirements-dev.txt   # runtime + pytest/pre-commit/lint
+# The ONLY virtualenv is .venv/ in the repo root.
+# Never use venv/, bare pip, or python -m pip without the qualified path.
+#
+# Activate (for interactive use):
+# Windows:  .venv\Scripts\activate
+# Linux:    source .venv/bin/activate
+#
+# Install deps (always use the qualified pip path, never bare pip):
+# Windows:  .venv\Scripts\pip install -r requirements-dev.txt
+# Linux:    .venv/bin/pip install -r requirements-dev.txt
 ```
+
+All packages in `requirements.txt` and `requirements-dev.txt` are pinned
+with `==`. Do not add `>=` or unversioned entries. If a new package is
+needed for a WP, propose it to the owner and wait for explicit approval
+before running any pip command.
 
 API keys in `.env` (git-ignored). Template: `.env.example`.
 Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
@@ -282,6 +292,17 @@ Agents must check their work against this list before committing.
    documentation (README project structure, SESSION_CONTEXT Sections 3-4,
    PLAYBOOK Section 3). Every code commit must include any doc updates
    needed to keep bootstrap files accurate.
+4. **Wrong venv or bare pip (incident 2026-03-04):** Using `venv/` instead
+   of `.venv/`, or running bare `pip install` without the explicit
+   `.venv/Scripts/pip` path, can silently install into the wrong environment
+   or drain the active venv. This happened in Batch 17 and caused a full
+   package reinstall with version drift. Always use `.venv/Scripts/pip`
+   (Windows) or `.venv/bin/pip` (Linux) explicitly.
+5. **Background server processes:** Starting `python app.py` or any Flask
+   server in a background Bash process and not cleaning it up blocks the
+   owner's terminal. Never start a server via the Bash tool. The owner runs
+   the app in their own terminal. To probe a running server use
+   `python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:5000/').status)"`.
 
 ---
 
