@@ -57,11 +57,11 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 17 is active.** Branch: `wip/batch-17`. Definition: `BATCH17_DEFINITION.md`.
-- **Next action:** Begin WP-3 -- PR template.
+- **Next action:** Begin WP-4 -- SESSION_CONTEXT.md cleanup + cross-reference updates.
 - WP status:
   - WP-1: HANDOFF_PROMPT.md fixes -- **done**
   - WP-2: CI/CD improvements (rename, remove dup flake8, caching, artifact, pip-audit, dependabot) -- **done**
-  - WP-3: PR template -- **pending**
+  - WP-3: PR template -- **done**
   - WP-4: SESSION_CONTEXT.md cleanup + cross-reference updates -- **pending**
   - WP-5: Flask-Talisman security headers -- **pending**
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
@@ -162,6 +162,20 @@ non-current operational logs. Older dated entries live in
   already gitignored; this catches inline leakage. Same repo, no new dep.
 - **350 tests passing**, all hooks green.
 - Next: WP-3 -- PR template.
+
+### 2026-03-04 - Batch 17 WP-3: PR template (Batch 17 WP-3)
+
+- Created `.github/PULL_REQUEST_TEMPLATE.md` with Summary section and a
+  6-item validation checklist. The checklist mirrors existing requirements
+  from `AGENTS.md` and `HANDOFF_PROMPT.md` -- no new requirements added.
+- Checklist items: pytest pass + test count update, pre-commit pass,
+  doc_state_sync --check, PLAYBOOK Section 3 state, PLAYBOOK Section 4
+  log entry (with batch-vs-side-task placement reminder), and scope gate.
+- "SESSION_CONTEXT Section 1" in the checklist reflects post-WP-4
+  numbering; after WP-4 removes the product context section and renumbers,
+  Section 1 will be the current state table (currently Section 2).
+- **350 tests passing**, all hooks green.
+- Next: WP-4 -- SESSION_CONTEXT.md cleanup + cross-reference updates.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
