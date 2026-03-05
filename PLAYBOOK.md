@@ -57,12 +57,12 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 17 is active.** Branch: `wip/batch-17`. Definition: `BATCH17_DEFINITION.md`.
-- **Next action:** Begin WP-4 -- SESSION_CONTEXT.md cleanup + cross-reference updates.
+- **Next action:** Begin WP-5 -- Flask-Talisman security headers.
 - WP status:
   - WP-1: HANDOFF_PROMPT.md fixes -- **done**
   - WP-2: CI/CD improvements (rename, remove dup flake8, caching, artifact, pip-audit, dependabot) -- **done**
   - WP-3: PR template -- **done**
-  - WP-4: SESSION_CONTEXT.md cleanup + cross-reference updates -- **pending**
+  - WP-4: SESSION_CONTEXT.md cleanup + cross-reference updates -- **done**
   - WP-5: Flask-Talisman security headers -- **pending**
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
@@ -176,6 +176,36 @@ non-current operational logs. Older dated entries live in
   Section 1 will be the current state table (currently Section 2).
 - **350 tests passing**, all hooks green.
 - Next: WP-4 -- SESSION_CONTEXT.md cleanup + cross-reference updates.
+
+### 2026-03-04 - Batch 17 WP-4: SESSION_CONTEXT cleanup + cross-reference updates (Batch 17 WP-4)
+
+- **Deleted SESSION_CONTEXT Section 1 "What is ScrobbleScope?"** (product
+  description: app summary, upcoming features, stack, deployment). This
+  content already exists in full in README.md. An agent state dashboard
+  should contain runtime facts only; the section added 15 lines of
+  overhead to every bootstrap read with no information gain for agents.
+- **Renumbered sections** -1: Section 2 -> 1, 3 -> 2, 4 -> 3, 5 -> 4,
+  6 -> 5, 7 -> 6, 8 -> 7. All internal heading numbers updated.
+- **Fixed staleness in new Section 1** (was Section 2): Branch updated
+  to `wip/batch-17`; Batch 17 row added as `**Active**`. app.py line
+  count updated from ~142 to ~152 (actual: 151 lines).
+- **Updated Section 7 env notes**: dev_start.py description now notes
+  `--workers 1 --threads 4` (Gunicorn production config via Dockerfile).
+  Pre-commit hook list updated to include check-merge-conflict and
+  detect-private-key (added in WP-2 addendum).
+- **AGENTS.md**: updated all SESSION_CONTEXT section number references
+  (Section 2 -> 1, Section 4 -> 3, Section 5 -> 4, Sections 2-5 -> 1-4,
+  Sections 4-5 -> 3-4, Section 8 -> 7). 8 references updated across
+  bootstrap, pre-work checklist, side-task handling, doc sync, and
+  anti-pattern registry sections.
+- **HANDOFF_PROMPT.md**: updated 2 section number references -- step 4
+  bootstrap instruction (Sections 2/3/4-5 -> 1/2/3-4) and the
+  "agree on what is next" sentence (Section 3 -> Section 2).
+- **Note:** DEVELOPMENT.md line 174 has a stale "SESSION_CONTEXT Section 2"
+  reference; out of scope for this WP (definition lists AGENTS.md and
+  HANDOFF_PROMPT.md only). Candidate for a future cleanup pass.
+- **350 tests passing**, all hooks green.
+- Next: WP-5 -- Flask-Talisman security headers.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
