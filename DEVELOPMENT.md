@@ -10,7 +10,8 @@ the project is structured the way it is beyond what `AGENTS.md` prescribes.
 ## The Core Problem: Collaborating With Amnesiac Engineers
 
 ScrobbleScope was built primarily by a single developer using multiple LLM
-code agents (Claude Sonnet and Claude Opus via VS Code Copilot + Claude Code, Gemini Code Review via GitHub PRs, GPT-5.3 Codex) as the development team. The project went from a fragile prototype to a deployed, tested, multi-module application in roughly 7--10
+code agents (Claude Code, GitHub Copilot in VS Code, Gemini Code Review via
+GitHub PRs, Gemini CLI, and Jules) as the development team. The project went from a fragile prototype to a deployed, tested, multi-module application in roughly 7--10
 days of active development.
 
 The central challenge is that LLMs have finite context windows and no
@@ -35,8 +36,15 @@ these failure modes.
 
 ## The Orchestration Architecture
 
-Five files constitute the external-memory layer. Each owns exactly one
-concern; no fact is duplicated across them.
+The external-memory layer consists of five tracked files and two archive
+directories. Each has a primary concern, and the design goal is that
+canonical facts live in exactly one place. In practice there is some
+intentional overlap: `HANDOFF_PROMPT.md` condenses key rules and
+procedures from `AGENTS.md` into a cold-start checklist -- it is a
+convenience summary for session handoffs, not a second source of truth.
+`AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
+restating them. `README.md` is excluded from the agent memory layer; it
+exists for human readers and is explicitly not used for orchestration.
 
 ### `AGENTS.md` -- Rules
 
@@ -49,6 +57,23 @@ current state; it does not contain history. It changes rarely.
 The language is deliberately prescriptive ("Must", "Do not", "Forbidden")
 because LLMs handle ambiguity poorly when the cost of a wrong inference
 is a broken pipeline or a mis-scoped commit.
+
+### `HANDOFF_PROMPT.md` -- Bootstrap Procedure
+
+The step-by-step session-start checklist given to any agent beginning
+work. Lists which files to read in what order, the validation gates to
+run before every commit, commit discipline rules, and the handoff
+procedure when leaving work for the next agent. Intended to be passed
+verbatim as context when delegating to a new agent session.
+
+### `AGENT_NOTES.md` -- Owner Context
+
+Tracks facts that belong to no other file: owner workflow preferences,
+local dev setup (Docker, Postgres, Browser MCP), architectural
+constraints discovered during development, and known open issues. Tracked
+in git so every agent -- regardless of tool or machine -- reads the same
+preferences. Replaces an earlier local-only MEMORY.md root file that was
+invisible to non-Claude-Code agents.
 
 ### `PLAYBOOK.md` -- Work Orders
 
@@ -155,8 +180,9 @@ logic, CLI, and dataclass models. This made each concern independently
 testable -- 97 docsync tests now cover rotation, dedup, cross-validation,
 and CLI modes.
 
-**SESSION_CONTEXT.md is optional in CI.** The file is gitignored and
-absent in GitHub Actions. `doc_state_sync.py` handles this gracefully
+**SESSION_CONTEXT.md is optional in CI.** The file is committed to the
+repo but absent in GitHub Actions (the runner does a fresh checkout with
+no `.env` or local state). `doc_state_sync.py` handles this gracefully
 via `_read_lines_optional()`: if the file is missing, all operations that
 depend on it are silently skipped. Tests still pass; the PLAYBOOK rotation
 still occurs. See commit `05c7b19` on `main` for the fix.
@@ -171,7 +197,7 @@ Looking back, the batch system maps onto a conventional software process:
 |---|---|
 | Sprint / milestone | Batch (e.g., Batch 7: Persistent metadata layer) |
 | Definition of done | `docs/history/BATCHN_DEFINITION.md` acceptance criteria |
-| Stand-up / status | SESSION_CONTEXT Section 2 (current state table) |
+| Stand-up / status | SESSION_CONTEXT Section 1 (current state table) |
 | Retrospective / ADR | `docs/history/AUDIT_*.md`, `BUGFIX_*.md` |
 | CI gate | GitHub Actions: pre-commit + flake8 + pytest + coverage |
 | Code review | Gemini (automated, on PR) + manual review of suggestions |
@@ -258,5 +284,6 @@ If you have cloned this repository and want to understand any decision:
    and what rules govern commits, tests, and documentation.
 
 `.claude/SESSION_CONTEXT.md` is the current-state snapshot for an active
-development session. It is gitignored but a reference copy of its format
-and structure is at `docs/history/SESSION_CONTEXT_REFERENCE.md`.
+development session. It is committed and shared across all agents (tracked
+via `.gitignore` exception). A reference copy of its format and structure
+is at `docs/history/SESSION_CONTEXT_REFERENCE.md`.

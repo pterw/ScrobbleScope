@@ -34,7 +34,8 @@ If SESSION_CONTEXT Section 1 and PLAYBOOK Section 3 agree on the current batch
 and next WP, you have enough context to start.
 
 **Token discipline for bootstrap:**
-- Read only Sections 1-4 of `.claude/SESSION_CONTEXT.md` and Sections 3-4 of `PLAYBOOK.md` by default.
+- Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; Sections 3-5 only if structure, dependency, or architecture detail is needed.
+- Read only Sections 3-4 of `PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
 
@@ -70,7 +71,7 @@ Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
 `SECRET_KEY` (min 16 chars; startup refuses weak values in production).
 Optional: `DATABASE_URL` (Postgres; enables persistent Spotify metadata cache).
 Local dev connection string: `postgresql://postgres:postgres@localhost:5432/scrobblescope`
-(requires a running Postgres instance; see Docker setup in SESSION_CONTEXT Section 7).
+(requires a running Postgres instance; see Docker setup in `AGENT_NOTES.md` Local Dev Setup).
 Run `python init_db.py` once to create the schema. **Caveat:** `init_db.py` has no
 `load_dotenv()` call -- set `DATABASE_URL` directly in the shell before running it;
 the Flask app reads `.env` automatically via `load_dotenv()` at startup.
@@ -251,7 +252,7 @@ When all WPs in the active batch are committed and validated:
    to `docs/history/definitions/BATCHN_DEFINITION.md` using `git mv`.
 3. **Update PLAYBOOK Section 2** table: add a row for the batch linking to
    `docs/history/definitions/BATCHN_DEFINITION.md`.
-4. **Update SESSION_CONTEXT** Section 2 batch status row: `**Complete**. All N WPs done.
+4. **Update SESSION_CONTEXT** Section 1 batch status row: `**Complete**. All N WPs done.
    Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
 5. **Run `--fix` again** to refresh the STATUS block.
 6. **Verify clean:** `python scripts/doc_state_sync.py --check` must exit 0 with no
