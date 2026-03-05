@@ -16,11 +16,9 @@ before doing anything else. Do not skip any step.
 4. `.claude/SESSION_CONTEXT.md` -- **required**, not optional.
    Read Section 1 (current state + test count) and Section 2 (status block)
    at minimum. Sections 3-4 if you need architecture or dependency detail.
-5. `MEMORY.md` (repo root) -- user preferences, workflow conventions, local
-   dev setup, discovered constraints. This is the only persistent cross-agent
-   memory; non-Claude-Code agents do not have access to any other memory layer.
-   Read it even if it appears similar to `AGENTS.md`; it contains facts that
-   `AGENTS.md` explicitly does not duplicate.
+5. `AGENT_NOTES.md` (repo root) -- owner preferences, local dev setup,
+   architectural constraints, and known issues. Tracked in the repo;
+   readable by all agents.
 
 After reading all five files, run:
 
