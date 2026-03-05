@@ -67,6 +67,9 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   re-searches with different filters. Clears on Fly.io machine sleep. By design.
 - **Spotify cache TTL:** cache hits do not refresh `updated_at`; albums expire
   30 days from last Spotify fetch regardless of access frequency (ToS compliant).
+- **CSRF:** `CSRFProtect` is active on all POST routes including `/results_loading`.
+  Disabled only in `tests/conftest.py`. Token is a hidden form field:
+  `<input name="csrf_token" value="...">`.
 
 ---
 
