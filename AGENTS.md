@@ -23,7 +23,7 @@ reference a fact owned by another file, link to it -- do not copy it.
 
 ## Session Bootstrap (in order)
 
-1. `AGENTS.md` (this file) -- rules, commit format, anti-patterns.
+1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
 3. Relevant `docs/history/` doc if the log references one.
 4. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
