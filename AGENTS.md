@@ -1,8 +1,8 @@
 # AGENTS.md: Rules for AI Agents
 
 ScrobbleScope: Flask + Python 3.13, Last.fm scrobbles + Spotify enrichment,
-asyncpg/Postgres cache, pytest. Multi-agent orchestration -- these doc files
-are external memory shared across agents.
+asyncpg/Postgres cache, pytest. Multi-agent orchestration -- the doc files
+listed below serve as external memory shared across agents.
 
 ---
 
