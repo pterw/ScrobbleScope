@@ -57,13 +57,15 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 17 is active.** Branch: `wip/batch-17`. Definition: `BATCH17_DEFINITION.md`.
-- **Next action:** Begin WP-5 -- Flask-Talisman security headers.
+- **Next action:** All WPs complete or resolved. Batch 17 ready for close-out.
 - WP status:
   - WP-1: HANDOFF_PROMPT.md fixes -- **done**
   - WP-2: CI/CD improvements (rename, remove dup flake8, caching, artifact, pip-audit, dependabot) -- **done**
   - WP-3: PR template -- **done**
   - WP-4: SESSION_CONTEXT.md cleanup + cross-reference updates -- **done**
-  - WP-5: Flask-Talisman security headers -- **pending**
+  - WP-5: Flask-Talisman security headers -- **DROPPED** (YAGNI; CSP broke inline
+    styles in SVG logo, Bootstrap progress bar, and album cover fallback; fixing
+    requires template refactor outside batch scope; reverted cleanly to WP-4 state)
 - Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
   - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
@@ -208,6 +210,26 @@ non-current operational logs. Older dated entries live in
 - Next: WP-5 -- Flask-Talisman security headers.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-03-04 - side-task: requirements pinning + venv/agent safety rules
+
+- **Pin previously unpinned packages**: `asyncpg>=0.29.0` -> `==0.31.0` and
+  `Flask-WTF>=1.2.0` -> `==1.2.2` in `requirements.txt`. All five packages in
+  `requirements-dev.txt` pinned to exact installed versions (flake8==7.3.0,
+  pre-commit==4.5.1, pytest==9.0.2, pytest-asyncio==1.3.0, pytest-cov==7.0.0).
+  Eliminates version drift on venv reinstall.
+- **Incident root cause (2026-03-04):** Prior agent session ran
+  `source venv/Scripts/activate && pip install flask-talisman` targeting the
+  wrong `venv/` directory instead of `.venv/`. The `.venv/` was subsequently
+  found empty (likely drained by the same session); reinstall from requirements
+  files brought packages back at new versions for previously unpinned entries.
+  Multiple background `python app.py` processes were also started via Bash tool
+  and not cleaned up, blocking the owner terminal. User touched zero code.
+- **AGENTS.md updated**: Environment Setup section corrected (`venv/` -> `.venv/`,
+  bare `pip` -> `.venv/Scripts/pip`, added pinning requirement). Anti-Pattern
+  Registry entries 4 and 5 added (wrong venv / bare pip, background server
+  processes).
+- **350 tests passing**, all hooks green.
 
 ### 2026-03-04 - side-task: gunicorn threading + dark mode browser preference
 
