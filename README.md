@@ -560,4 +560,3 @@ MIT License -- see [LICENSE](LICENSE) for details.
 * **Portfolio:** [peterwiercioch.com](https://peterwiercioch.com/) -- photography, writing, vector illustration, and graphic design
 * **LinkedIn:** [pter-w](https://www.linkedin.com/in/pter-w/)
 * **Email:** hello@peterwiercioch.com
-

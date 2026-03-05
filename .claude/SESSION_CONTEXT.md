@@ -53,7 +53,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 17.
-- Current-batch entries in active log block: 3.
+- Current-batch entries in active log block: 4.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2.
 - Next expected work package: WP-3.
 - Latest validated test count: **350 passed**.
