@@ -87,8 +87,6 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ## Known Open Issues / Future Candidates
 
-- `DEVELOPMENT.md` line 174 has a stale "SESSION_CONTEXT Section 2" reference.
-  Candidate for a future cleanup pass.
 - Flask-Talisman (CSP) was attempted in Batch 17 WP-5 and dropped (YAGNI).
   The templates use inline styles (SVG logo `<defs><style>`, Bootstrap progress
   bar `style="width: 0%"`, album cover fallback) that would need refactoring
