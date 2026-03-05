@@ -33,7 +33,7 @@ Verify the branch, last commits, and any staged/modified files match what
 PLAYBOOK Section 3 describes. If they do not match, resolve the discrepancy
 before doing any work.
 
-If PLAYBOOK Section 3, the definition file, and SESSION_CONTEXT Section 2
+If PLAYBOOK Section 3, the definition file, and SESSION_CONTEXT Section 1
 all agree on what is done and what is next, you have enough context to start.
 
 ---
