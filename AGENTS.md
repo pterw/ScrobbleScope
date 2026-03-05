@@ -27,11 +27,11 @@ reference a fact owned by another file, link to it -- do not copy it.
 2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
 3. Relevant `docs/history/` doc if the log references one.
 
-If SESSION_CONTEXT Section 2 and PLAYBOOK Section 3 agree on the current batch
+If SESSION_CONTEXT Section 1 and PLAYBOOK Section 3 agree on the current batch
 and next WP, you have enough context to start.
 
 **Token discipline for bootstrap:**
-- Read only Sections 2-5 of `.claude/SESSION_CONTEXT.md` and Sections 3-4 of `PLAYBOOK.md` by default.
+- Read only Sections 1-4 of `.claude/SESSION_CONTEXT.md` and Sections 3-4 of `PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
 
@@ -52,7 +52,7 @@ Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
 `SECRET_KEY` (min 16 chars; startup refuses weak values in production).
 Optional: `DATABASE_URL` (Postgres; enables persistent Spotify metadata cache).
 Local dev connection string: `postgresql://postgres:postgres@localhost:5432/scrobblescope`
-(requires a running Postgres instance; see Docker setup in SESSION_CONTEXT Section 8).
+(requires a running Postgres instance; see Docker setup in SESSION_CONTEXT Section 7).
 Run `python init_db.py` once to create the schema. **Caveat:** `init_db.py` has no
 `load_dotenv()` call -- set `DATABASE_URL` directly in the shell before running it;
 the Flask app reads `.env` automatically via `load_dotenv()` at startup.
@@ -65,7 +65,7 @@ Docker container if needed, then launches Flask in one command.
 
 ## Pre-Work Checklist
 
-1. `pytest -q` passes (baseline count is in SESSION_CONTEXT Section 2).
+1. `pytest -q` passes (baseline count is in SESSION_CONTEXT Section 1).
 2. `pre-commit run --all-files` passes.
 3. The work you are implementing matches PLAYBOOK Section 3.
 
@@ -111,7 +111,7 @@ For non-batch changes:
    exist. Entries after the end marker are subject to the standard
    `--keep-non-current` rotation policy (default: keep 4).
 3. Run `doc_state_sync.py --fix`.
-4. Update SESSION_CONTEXT Section 2 if the change affects test count or project state.
+4. Update SESSION_CONTEXT Section 1 if the change affects test count or project state.
 
 ---
 
@@ -191,7 +191,7 @@ STATUS block to disk; commit the result so the next agent session starts with ac
 state.
 
 **Real issues** (act on these):
-- "Test count mismatch" where SESSION_CONTEXT Section 2 and the most-recent
+- "Test count mismatch" where SESSION_CONTEXT Section 1 and the most-recent
   current-batch log entry in PLAYBOOK Section 4 disagree on the **current**
   test count. Fix whichever file is stale. The scan reads `**N passed**`
   or `**N tests passing**` (bold-wrapped only) from the newest Section 4
@@ -205,8 +205,8 @@ state.
 
 - PLAYBOOK Section 3 (status) + Section 4 (dated log entry -- inside markers
   for batch work, after end marker for side-tasks; see Side-Task Handling).
-- SESSION_CONTEXT Section 2 (test count, batch status row) if changed.
-- SESSION_CONTEXT Section 4 (project structure) and Section 5 (dependency
+- SESSION_CONTEXT Section 1 (test count, batch status row) if changed.
+- SESSION_CONTEXT Section 3 (project structure) and Section 4 (dependency
   graph) if modules are added, removed, renamed, or dependencies change.
 - `README.md` for user/developer-visible setup or behavior changes.
   **Exception:** If the active batch definition includes a dedicated README
@@ -275,11 +275,11 @@ Agents must check their work against this list before committing.
    or boundary condition not covered by any existing test.
 2. **Undocumented SoC violations:** Importing a leaf module into a
    higher-level module without updating the dependency graph in
-   SESSION_CONTEXT Section 5. Any new cross-module import must be reflected
+   SESSION_CONTEXT Section 4. Any new cross-module import must be reflected
    in the documented acyclic dependency graph.
 3. **Silent doc staleness:** Committing code changes that affect test count,
    module structure, or dependency graph without updating the corresponding
-   documentation (README project structure, SESSION_CONTEXT Sections 4-5,
+   documentation (README project structure, SESSION_CONTEXT Sections 3-4,
    PLAYBOOK Section 3). Every code commit must include any doc updates
    needed to keep bootstrap files accurate.
 

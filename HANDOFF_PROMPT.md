@@ -14,8 +14,8 @@ before doing anything else. Do not skip any step.
    Between batches: no definition file exists yet -- skip this step.
    Completed batches: file is under `docs/history/definitions/`.
 4. `.claude/SESSION_CONTEXT.md` -- **required**, not optional.
-   Read Section 2 (current state + test count) and Section 3 (status block)
-   at minimum. Sections 4-5 if you need architecture or dependency detail.
+   Read Section 1 (current state + test count) and Section 2 (status block)
+   at minimum. Sections 3-4 if you need architecture or dependency detail.
 5. `MEMORY.md` (repo root) -- user preferences, workflow conventions, local
    dev setup, discovered constraints. This is the only persistent cross-agent
    memory; non-Claude-Code agents do not have access to any other memory layer.
@@ -33,7 +33,7 @@ Verify the branch, last commits, and any staged/modified files match what
 PLAYBOOK Section 3 describes. If they do not match, resolve the discrepancy
 before doing any work.
 
-If PLAYBOOK Section 3, the definition file, and SESSION_CONTEXT Section 3
+If PLAYBOOK Section 3, the definition file, and SESSION_CONTEXT Section 2
 all agree on what is done and what is next, you have enough context to start.
 
 ---

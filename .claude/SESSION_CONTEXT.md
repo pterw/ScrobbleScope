@@ -1,31 +1,14 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-03-03
+Last updated: 2026-03-04
 
 ---
 
-## 1. What is ScrobbleScope?
-
-A Flask web app that fetches a user's Last.fm scrobble history for a given
-year, enriches album data with Spotify metadata (release dates, artwork,
-track runtimes), and presents filtered/sorted top-album rankings.
-
-**Confirmed upcoming features (owner roadmap):**
-- **Top songs**: rank most-played tracks for a year (separate background task).
-- **Listening heatmap**: scrobble density calendar (Last.fm only, lighter task).
-
-**Stack:** Python 3.13, Flask, aiohttp/aiolimiter, Bootstrap 5, Jinja2, pytest.
-
-**Deployment:** Fly.io (shared-cpu-2x @ 512MB). Postgres for Spotify metadata
-cache (asyncpg). In-memory job state (`JOBS` dict).
-
----
-
-## 2. Current state
+## 1. Current state
 
 | Item | Value |
 |------|-------|
-| Branch | `wip/pc-snapshot` |
+| Branch | `wip/batch-17` |
 | Tests | **350 passing** across 23 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
@@ -33,6 +16,7 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
+| Batch 17 status | **Active**. Branch: wip/batch-17. Definition: BATCH17_DEFINITION.md. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -46,26 +30,26 @@ cache (asyncpg). In-memory job state (`JOBS` dict).
 
 ---
 
-## 3. Execution status (machine-managed)
+## 2. Execution status (machine-managed)
 
 `PLAYBOOK.md` is the source of truth. Block below managed by `doc_state_sync.py`.
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 17.
-- Current-batch entries in active log block: 5.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
-- Next expected work package: WP-4.
+- Current-batch entries in active log block: 6.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
+- Next expected work package: WP-5.
 - Latest validated test count: **350 passed**.
 - Newest current-batch entry: 2026-03-04 - Batch 17 WP-0: definition committed (Batch 17 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
 
-## 4. Project structure
+## 3. Project structure
 
 ```
-app.py                      # create_app() factory (~142 lines)
+app.py                      # create_app() factory (~152 lines)
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # SpotifyUnavailableError, ERROR_CODES
@@ -82,7 +66,7 @@ scrobblescope/
 
 ---
 
-## 5. Module dependency graph (acyclic)
+## 4. Module dependency graph (acyclic)
 
 ```
 errors.py        <- (leaf)
@@ -101,7 +85,7 @@ app.py           <- routes (Blueprint)
 
 ---
 
-## 6. Architecture overview
+## 5. Architecture overview
 
 ```
 User submits form (index.html)
@@ -128,7 +112,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 7. Test structure (350 tests)
+## 6. Test structure (350 tests)
 
 | File | Count |
 |------|-------|
@@ -156,10 +140,10 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 8. Environment notes
+## 7. Environment notes
 
 - Python 3.13.3, Windows 11, venv.
-- Pre-commit: black, isort, autoflake, flake8, trailing whitespace, end-of-file, check yaml, doc-state-sync-check.
+- Pre-commit: black, isort, autoflake, flake8, trailing whitespace, end-of-file, check yaml, check-merge-conflict, detect-private-key, doc-state-sync-check.
 - pytest in `pyproject.toml` with `asyncio_mode = "strict"`.
 - API keys in `.env` (git-ignored); template: `.env.example`.
 - Gunicorn compat: `app = create_app()` at module level in `app.py`.
@@ -167,7 +151,7 @@ loading.js polls GET /progress?job_id=...
 - Browser MCP runs in Docker: use `http://host.docker.internal:5000/` for local app access (not `localhost`).
 - Local Postgres cache: Docker container `ss-postgres`, volume `ss-postgres-data`.
   Connection: `postgresql://postgres:postgres@localhost:5432/scrobblescope`.
-  **One-command startup:** `python scripts/dev/dev_start.py` -- checks/starts container, then launches Flask.
+  **One-command startup:** `python scripts/dev/dev_start.py` -- checks/starts container, then launches Flask (`--workers 1 --threads 4` in production via Dockerfile).
   Manual fallback: `docker start ss-postgres` then `python app.py`.
   Check status: `docker ps --filter name=ss-postgres`.
   `init_db.py` has no `load_dotenv()` -- set DATABASE_URL in shell before running it.
