@@ -42,7 +42,8 @@ env/
 Thumbs.db
 Backup_batch
 backup.py
-HANDOFF_PROMPT.md
+# HANDOFF_PROMPT.md is committed -- shared cross-agent bootstrapping procedure.
+# MEMORY.md (root) stays local-only: machine-specific state (local DB paths, branch, etc.)
 MEMORY.md
 FINDINGS.md
 /BATCH*_AUDIT*.md
