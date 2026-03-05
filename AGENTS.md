@@ -11,6 +11,8 @@ listed below serve as external memory shared across agents.
 | File | Role | Contains |
 |------|------|----------|
 | `AGENTS.md` (this file) | **Rules** | How agents must behave. Stable; rarely changes. |
+| `HANDOFF_PROMPT.md` | **Bootstrap procedure** | Step-by-step session start, validation gates, commit discipline, handoff checklist. |
+| `AGENT_NOTES.md` | **Owner context** | Owner preferences, local dev setup, architectural constraints, known issues. |
 | `.claude/SESSION_CONTEXT.md` | **Dashboard** | Current project state snapshot. No rules, no history. |
 | `PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
