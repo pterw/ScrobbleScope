@@ -57,10 +57,9 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 17 is active.** Branch: `wip/batch-17`. Definition: `BATCH17_DEFINITION.md`.
-- **Next action:** Begin WP-1 -- fix 3 problems in `HANDOFF_PROMPT.md` (commit order
-  conflict, batch definition path hint, MEMORY.md absent from bootstrap list).
+- **Next action:** Begin WP-2 -- CI/CD pipeline improvements.
 - WP status:
-  - WP-1: HANDOFF_PROMPT.md fixes -- **pending**
+  - WP-1: HANDOFF_PROMPT.md fixes -- **done**
   - WP-2: CI/CD improvements (rename, remove dup flake8, caching, artifact, pip-audit, dependabot) -- **pending**
   - WP-3: PR template -- **pending**
   - WP-4: SESSION_CONTEXT.md cleanup + cross-reference updates -- **pending**
@@ -99,6 +98,27 @@ non-current operational logs. Older dated entries live in
   PR template, SESSION_CONTEXT cleanup, Flask-Talisman security headers).
 - Baseline: **350 tests passing**, branch clean, all hooks green.
 - Next: WP-1 -- fix 3 problems in HANDOFF_PROMPT.md.
+
+### 2026-03-04 - Batch 17 WP-1: HANDOFF_PROMPT.md fixes (Batch 17 WP-1)
+
+- Applied 3 targeted edits to `HANDOFF_PROMPT.md` per definition Section 2 WP-1.
+- Edit 1 (Section 1 step 3): replaced "Active batch: file is at the repo root"
+  with "Active batch: definition file is at repo root" and added "Between batches:
+  no definition file exists yet -- skip this step."
+- Edit 2 (Section 5): added introductory sentence "After your code changes are
+  committed (following AGENTS.md commit rules and side-task handling), document
+  completion:" before the 5-step numbered list. List unchanged.
+- Edit 3 (Section 1): added step 5 for `MEMORY.md` (root) after SESSION_CONTEXT
+  step; updated "all four files" to "all five files".
+- **Deviation:** `HANDOFF_PROMPT.md` was in `.gitignore` (line 45) with no git
+  history. The WP definition specified a commit including it. Because the file's
+  purpose is cross-agent bootstrapping -- it must be accessible on any clone or
+  to any agent (Copilot, Gemini, Codex) -- gitignoring it defeats its purpose.
+  Owner confirmed: remove from `.gitignore` and commit. `.gitignore` updated with
+  a comment explaining the distinction: HANDOFF_PROMPT.md is committed (shared
+  procedure); MEMORY.md (root) stays local-only (machine-specific state).
+- `AGENTS.md` unchanged. **350 tests passing**, all hooks green.
+- Next: WP-2 -- CI/CD pipeline improvements.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
