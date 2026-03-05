@@ -203,13 +203,41 @@ non-current operational logs. Older dated entries live in
 - **HANDOFF_PROMPT.md**: updated 2 section number references -- step 4
   bootstrap instruction (Sections 2/3/4-5 -> 1/2/3-4) and the
   "agree on what is next" sentence (Section 3 -> Section 2).
-- **Note:** DEVELOPMENT.md line 174 has a stale "SESSION_CONTEXT Section 2"
+- **Note:** DEVELOPMENT.md line 174 had a stale "SESSION_CONTEXT Section 2"
   reference; out of scope for this WP (definition lists AGENTS.md and
-  HANDOFF_PROMPT.md only). Candidate for a future cleanup pass.
+  HANDOFF_PROMPT.md only). Subsequently fixed in a side-task (see logarchive).
 - **350 tests passing**, all hooks green.
 - Next: WP-5 -- Flask-Talisman security headers.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-03-05 - side-task: PR review fixes (CI cache, DEVELOPMENT.md, README, doc tidiness)
+
+- **`.github/workflows/test.yml`**: fixed `cache-dependency-path` from
+  `requirements-dev.txt` to `requirements*.txt`. The dev file starts with
+  `-r requirements.txt` but pip's cache key computation does not follow
+  transitive includes; changes to `requirements.txt` alone would not
+  invalidate the cache. Fix ensures both files are hashed for the key.
+- **`DEVELOPMENT.md`**: corrected the SESSION_CONTEXT.md CI presence
+  claim. Previous text said the file is "absent in GitHub Actions" --
+  inaccurate since SESSION_CONTEXT.md is now committed and a standard
+  `actions/checkout@v4` includes it. Updated to say "normally present;
+  `_read_lines_optional()` is a fallback for edge cases (sparse checkout
+  or custom workflow)."
+- **`README.md`**: three stale items corrected from Batch 17 changes:
+  (1) CI/CD table row updated -- standalone flake8 removed in WP-2; pip-audit
+  added in WP-2; description now reads "Quality Gate (pre-commit, pytest +
+  coverage gate, pip-audit)"; (2) Code Quality row: added
+  check-merge-conflict and detect-private-key (added in WP-2 addendum);
+  (3) Local Dev section: SESSION_CONTEXT.md Section 8 ref (broken after
+  WP-4 renumbering + Docker setup moved to AGENT_NOTES.md) -> AGENT_NOTES.md.
+- **`BATCH17_DEFINITION.md`**: removed duplicate `---` separator between
+  "## 6. Deferred" and "## Supplementary Info" (double rule was redundant).
+- **`PLAYBOOK.md` WP-4 note**: updated "Candidate for a future cleanup
+  pass" -> "Subsequently fixed in a side-task (see logarchive)" so PR
+  reviewers do not see the WP-4 note as an open item that is also fixed
+  in the same PR diff.
+- **350 tests passing**, all hooks green.
 
 ### 2026-03-04 - side-task: requirements pinning + venv/agent safety rules
 
@@ -247,12 +275,4 @@ non-current operational logs. Older dated entries live in
 - **Log rotation**: changed `RotatingFileHandler` to 2MB files / 10 backups (was 1MB / 5).
   Small files stay granular and parseable; 10 backups cover a full load test session.
   No production impact -- file is ephemeral on Fly.io; stdout is the prod log channel.
-- **350 tests passing**, all hooks green.
-
-### 2026-03-04 - side-task: PR code review fixes
-
-- **theme.js**: `var` -> `const` for `saved` and `prefersDark` (neither reassigned;
-  aligns with `const`/`let` convention in all other JS files).
-- **Dockerfile**: added comment explaining `--workers 1 --threads 4` rationale for
-  Fly.io deployment (shared-cpu-2x / 512MB, JOBS dict requires single process).
 - **350 tests passing**, all hooks green.
