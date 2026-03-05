@@ -145,6 +145,24 @@ non-current operational logs. Older dated entries live in
 - **350 tests passing**, all hooks green.
 - Next: WP-3 -- PR template.
 
+### 2026-03-04 - Batch 17 WP-2 addendum: pre-commit hook improvements (Batch 17 WP-2)
+
+- **Widened scope of `trailing-whitespace` and `end-of-file-fixer`** from
+  `^.*\.py$` to `^.*\.(py|md|yaml|yml|txt)$`. These hooks were silently
+  skipping all markdown, YAML, and text files; the project has substantial
+  `.md` doc content that was unchecked. Auto-fixed on first run: trailing
+  space in `.pre-commit-config.yaml`; missing final newline in `README.md`
+  and `requirements.txt`.
+- **Added `check-merge-conflict`**: catches `<<<<<<<` conflict markers left
+  in files before they reach a commit. Uses the same `pre-commit-hooks`
+  repo already pinned at v5.0.0 -- no new dependency.
+- **Added `detect-private-key`**: defense-in-depth catch for accidentally
+  staged API keys or secrets. Relevant given this project handles
+  `LASTFM_API_KEY`, `SPOTIFY_CLIENT_SECRET`, and `SECRET_KEY`. `.env` is
+  already gitignored; this catches inline leakage. Same repo, no new dep.
+- **350 tests passing**, all hooks green.
+- Next: WP-3 -- PR template.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
 ### 2026-03-04 - side-task: gunicorn threading + dark mode browser preference
