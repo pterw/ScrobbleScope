@@ -181,11 +181,12 @@ testable -- 97 docsync tests now cover rotation, dedup, cross-validation,
 and CLI modes.
 
 **SESSION_CONTEXT.md is optional in CI.** The file is committed to the
-repo but absent in GitHub Actions (the runner does a fresh checkout with
-no `.env` or local state). `doc_state_sync.py` handles this gracefully
-via `_read_lines_optional()`: if the file is missing, all operations that
+repo and is normally present in GitHub Actions (with a standard
+`actions/checkout@v4` workspace). `doc_state_sync.py` still treats it as
+optional via `_read_lines_optional()`: if the file is missing (for
+example, in a sparse checkout or custom workflow), all operations that
 depend on it are silently skipped. Tests still pass; the PLAYBOOK rotation
-still occurs. See commit `05c7b19` on `main` for the fix.
+still occurs. See commit `05c7b19` on `main` for the original change.
 
 ---
 

@@ -18,6 +18,14 @@ Read helpers:
   would have left agents one section short when looking for architecture detail.
 - **350 tests passing**, all hooks green.
 
+### 2026-03-04 - side-task: PR code review fixes
+
+- **theme.js**: `var` -> `const` for `saved` and `prefersDark` (neither reassigned;
+  aligns with `const`/`let` convention in all other JS files).
+- **Dockerfile**: added comment explaining `--workers 1 --threads 4` rationale for
+  Fly.io deployment (shared-cpu-2x / 512MB, JOBS dict requires single process).
+- **350 tests passing**, all hooks green.
+
 ### 2026-03-03 - Review-driven fixes: barrier safety, session cleanup, Docker error handling, dev_start tests
 
 **Scope:** Side-task -- address Co-Pilot code review findings from PR #56, add

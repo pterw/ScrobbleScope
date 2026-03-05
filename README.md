@@ -98,9 +98,9 @@ This project was initially built to identify top albums released in a specific y
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
 | Testing | pytest (350 tests across 23 files), ~72% coverage |
-| CI/CD | GitHub Actions (pre-commit, flake8, pytest + coverage gate) |
+| CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
-| Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, doc-state-sync) |
+| Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
 
 ## Architecture
 
@@ -272,7 +272,7 @@ To run the app locally with the persistent Postgres metadata cache enabled:
 
 * Docker installed and running.
 * The `ss-postgres` container must exist (created once via `docker run`; see
-  `.claude/SESSION_CONTEXT.md` Section 8 for the full command).
+  `AGENT_NOTES.md` Local Dev Setup section for the full command).
 * `DATABASE_URL` set in `.env`:
   ```
   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"

@@ -446,8 +446,6 @@ image export works).
 
 ---
 
----
-
 ## Supplementary Info
 
 ### Owner: Post-Batch Agent Hand-Off Best Practices
