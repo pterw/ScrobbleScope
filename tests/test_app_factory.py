@@ -40,6 +40,7 @@ def test_security_headers_applied(monkeypatch):
     monkeypatch.setenv("SECRET_KEY", _STRONG_KEY)
 
     from app import create_app
+
     app = create_app()
 
     with app.test_client() as client:
@@ -47,4 +48,6 @@ def test_security_headers_applied(monkeypatch):
 
         assert response.headers.get("X-Frame-Options") == "DENY"
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
-        assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        assert (
+            response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        )
