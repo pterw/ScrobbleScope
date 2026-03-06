@@ -33,3 +33,18 @@ class TestValidateSecretKey:
 
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
+
+
+def test_security_headers_applied(monkeypatch):
+    """Verify standard HTTP security headers are applied globally."""
+    monkeypatch.setenv("SECRET_KEY", _STRONG_KEY)
+
+    from app import create_app
+    app = create_app()
+
+    with app.test_client() as client:
+        response = client.get("/")
+
+        assert response.headers.get("X-Frame-Options") == "DENY"
+        assert response.headers.get("X-Content-Type-Options") == "nosniff"
+        assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
