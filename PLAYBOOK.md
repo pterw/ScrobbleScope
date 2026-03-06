@@ -45,6 +45,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 14 | Doc hygiene (archive restructure, docsync package, per-batch routing) | `docs/history/definitions/BATCH14_DEFINITION.md` |
 | 15 | Alignment, hardening, and handoff | `docs/history/definitions/BATCH15_DEFINITION.md` |
 | 16 | Script hygiene, local dev hardening, and integration testing | `docs/history/definitions/BATCH16_DEFINITION.md` |
+| 17 | Agent bootstrap hardening, CI/CD improvements, and dep pinning | `docs/history/definitions/BATCH17_DEFINITION.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -210,73 +211,3 @@ non-current operational logs. Older dated entries live in
 - Next: WP-5 -- Flask-Talisman security headers.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
-
-### 2026-03-05 - side-task: PR review fixes (CI cache, DEVELOPMENT.md, README, doc tidiness, SDLC table)
-
-- **`.github/workflows/test.yml`**: fixed `cache-dependency-path` from
-  `requirements-dev.txt` to `requirements*.txt`. The dev file starts with
-  `-r requirements.txt` but pip's cache key computation does not follow
-  transitive includes; changes to `requirements.txt` alone would not
-  invalidate the cache. Fix ensures both files are hashed for the key.
-- **`DEVELOPMENT.md`**: corrected the SESSION_CONTEXT.md CI presence
-  claim. Previous text said the file is "absent in GitHub Actions" --
-  inaccurate since SESSION_CONTEXT.md is now committed and a standard
-  `actions/checkout@v4` includes it. Updated to say "normally present;
-  `_read_lines_optional()` is a fallback for edge cases (sparse checkout
-  or custom workflow)."
-- **`README.md`**: three stale items corrected from Batch 17 changes:
-  (1) CI/CD table row updated -- standalone flake8 removed in WP-2; pip-audit
-  added in WP-2; description now reads "Quality Gate (pre-commit, pytest +
-  coverage gate, pip-audit)"; (2) Code Quality row: added
-  check-merge-conflict and detect-private-key (added in WP-2 addendum);
-  (3) Local Dev section: SESSION_CONTEXT.md Section 8 ref (broken after
-  WP-4 renumbering + Docker setup moved to AGENT_NOTES.md) -> AGENT_NOTES.md.
-- **`BATCH17_DEFINITION.md`**: removed duplicate `---` separator between
-  "## 6. Deferred" and "## Supplementary Info" (double rule was redundant).
-- **`PLAYBOOK.md` WP-4 note**: updated "Candidate for a future cleanup
-  pass" -> "Subsequently fixed in a side-task (see logarchive)" so PR
-  reviewers do not see the WP-4 note as an open item that is also fixed
-  in the same PR diff.
-- **`DEVELOPMENT.md` SDLC table**: CI gate row updated from stale
-  "GitHub Actions: pre-commit + flake8 + pytest + coverage" to "Quality
-  Gate (pre-commit, pytest + coverage gate, pip-audit)" to match the
-  README change and the WP-2 workflow rename.
-- **350 tests passing**, all hooks green.
-
-### 2026-03-04 - side-task: requirements pinning + venv/agent safety rules
-
-- **Pin previously unpinned packages**: `asyncpg>=0.29.0` -> `==0.31.0` and
-  `Flask-WTF>=1.2.0` -> `==1.2.2` in `requirements.txt`. All five packages in
-  `requirements-dev.txt` pinned to exact installed versions (flake8==7.3.0,
-  pre-commit==4.5.1, pytest==9.0.2, pytest-asyncio==1.3.0, pytest-cov==7.0.0).
-  Eliminates version drift on venv reinstall.
-- **Incident root cause (2026-03-04):** Prior agent session ran
-  `source venv/Scripts/activate && pip install flask-talisman` targeting the
-  wrong `venv/` directory instead of `.venv/`. The `.venv/` was subsequently
-  found empty (likely drained by the same session); reinstall from requirements
-  files brought packages back at new versions for previously unpinned entries.
-  Multiple background `python app.py` processes were also started via Bash tool
-  and not cleaned up, blocking the owner terminal. User touched zero code.
-- **AGENTS.md updated**: Environment Setup section corrected (`venv/` -> `.venv/`,
-  bare `pip` -> `.venv/Scripts/pip`, added pinning requirement). Anti-Pattern
-  Registry entries 4 and 5 added (wrong venv / bare pip, background server
-  processes).
-- **350 tests passing**, all hooks green.
-
-### 2026-03-04 - side-task: gunicorn threading + dark mode browser preference
-
-- **Gunicorn threading**: added `--threads 4` to Dockerfile CMD. Single sync worker
-  was serializing all HTTP requests in production; threads allow concurrent request
-  handling while keeping JOBS dict in shared process memory.
-- **Dark mode fix**: `theme.js` now falls back to `window.matchMedia('(prefers-color-scheme: dark)')`
-  when no localStorage preference is saved. First-visit users with browser dark mode
-  enabled will see dark theme automatically. Explicit toggle still overrides.
-- Load test findings (local, 1-5 concurrent users) documented in agent memory.
-  Spotify cache TTL verified correct (ToS compliant). No upstream 429s at 2-5 users.
-
-### 2026-03-04 - side-task: log rotation fix
-
-- **Log rotation**: changed `RotatingFileHandler` to 2MB files / 10 backups (was 1MB / 5).
-  Small files stay granular and parseable; 10 backups cover a full load test session.
-  No production impact -- file is ephemeral on Fly.io; stdout is the prod log channel.
-- **350 tests passing**, all hooks green.
