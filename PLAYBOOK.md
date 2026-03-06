@@ -211,7 +211,7 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-03-05 - side-task: PR review fixes (CI cache, DEVELOPMENT.md, README, doc tidiness)
+### 2026-03-05 - side-task: PR review fixes (CI cache, DEVELOPMENT.md, README, doc tidiness, SDLC table)
 
 - **`.github/workflows/test.yml`**: fixed `cache-dependency-path` from
   `requirements-dev.txt` to `requirements*.txt`. The dev file starts with
@@ -237,6 +237,10 @@ non-current operational logs. Older dated entries live in
   pass" -> "Subsequently fixed in a side-task (see logarchive)" so PR
   reviewers do not see the WP-4 note as an open item that is also fixed
   in the same PR diff.
+- **`DEVELOPMENT.md` SDLC table**: CI gate row updated from stale
+  "GitHub Actions: pre-commit + flake8 + pytest + coverage" to "Quality
+  Gate (pre-commit, pytest + coverage gate, pip-audit)" to match the
+  README change and the WP-2 workflow rename.
 - **350 tests passing**, all hooks green.
 
 ### 2026-03-04 - side-task: requirements pinning + venv/agent safety rules
