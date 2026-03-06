@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-03-04
+Last updated: 2026-03-05
 
 ---
 
@@ -8,7 +8,7 @@ Last updated: 2026-03-04
 
 | Item | Value |
 |------|-------|
-| Branch | `wip/batch-17` |
+| Branch | `feat/heatmap` |
 | Tests | **350 passing** across 23 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
@@ -36,7 +36,7 @@ Last updated: 2026-03-04
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: Batch 17.
+- Current batch: unknown.
 - Current-batch entries in active log block: 6.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
 - Next expected work package: WP-5.
