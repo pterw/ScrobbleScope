@@ -200,7 +200,7 @@ Looking back, the batch system maps onto a conventional software process:
 | Definition of done | `docs/history/BATCHN_DEFINITION.md` acceptance criteria |
 | Stand-up / status | SESSION_CONTEXT Section 1 (current state table) |
 | Retrospective / ADR | `docs/history/AUDIT_*.md`, `BUGFIX_*.md` |
-| CI gate | GitHub Actions: pre-commit + flake8 + pytest + coverage |
+| CI gate | Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Code review | Gemini (automated, on PR) + manual review of suggestions |
 | Release | `flyctl deploy` (manual, after PR merge to `main`) |
 
