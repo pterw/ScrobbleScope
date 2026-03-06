@@ -57,21 +57,16 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Batch 17 is active.** Branch: `wip/batch-17`. Definition: `BATCH17_DEFINITION.md`.
-- **Next action:** All WPs complete or resolved. Batch 17 ready for close-out.
-- WP status:
-  - WP-1: HANDOFF_PROMPT.md fixes -- **done**
-  - WP-2: CI/CD improvements (rename, remove dup flake8, caching, artifact, pip-audit, dependabot) -- **done**
-  - WP-3: PR template -- **done**
-  - WP-4: SESSION_CONTEXT.md cleanup + cross-reference updates -- **done**
-  - WP-5: Flask-Talisman security headers -- **DROPPED** (YAGNI; CSP broke inline
-    styles in SVG logo, Bootstrap progress bar, and album cover fallback; fixing
-    requires template refactor outside batch scope; reverted cleanly to WP-4 state)
-- Future batch feature candidates (confirmed by owner roadmap, batch number TBD):
-  - **Top songs**: rank most-played tracks for a year (Last.fm + possibly
+- **Between batches.** Batch 17 merged to `main`. Branch `wip/batch-17` deleted.
+- **Next action:** Scrobble heatmap feature design and implementation.
+  Branch: `feat/heatmap` (from `main`). Batch definition not yet written.
+- Feature candidates (confirmed by owner roadmap):
+  - **Listening heatmap** (next): scrobble density calendar for last 365 days
+    (Last.fm-only, lighter background task). May span multiple batches --
+    UI/UX, routing, and back-end work expected; SoC/DRY remediation passes
+    after initial implementation.
+  - **Top songs** (future): rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
-  - **Listening heatmap**: scrobble density calendar for last 365 days
-    (Last.fm-only, lighter background task).
 
 ---
 
@@ -211,3 +206,16 @@ non-current operational logs. Older dated entries live in
 - Next: WP-5 -- Flask-Talisman security headers.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-03-05 - Post-Batch-17 doc staleness fix
+
+- PLAYBOOK Section 3 still said "Batch 17 is active" and listed all WP
+  statuses after the close-out commit (743f8ae). Updated to "Between batches"
+  with heatmap feature noted as next action on branch `feat/heatmap`.
+- SESSION_CONTEXT Section 1 branch updated from `wip/batch-17` to
+  `feat/heatmap`; date bumped to 2026-03-05.
+- STATUS block refreshed by `doc_state_sync --fix`.
+- Batch 17 log entries remain inside CURRENT-BATCH markers per docsync
+  design -- they will auto-rotate to `BATCH17_LOG.md` when the next batch
+  is declared active in Section 3.
+- **350 tests passing**, all hooks green.
