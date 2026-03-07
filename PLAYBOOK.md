@@ -46,6 +46,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 15 | Alignment, hardening, and handoff | `docs/history/definitions/BATCH15_DEFINITION.md` |
 | 16 | Script hygiene, local dev hardening, and integration testing | `docs/history/definitions/BATCH16_DEFINITION.md` |
 | 17 | Agent bootstrap hardening, CI/CD improvements, and dep pinning | `docs/history/definitions/BATCH17_DEFINITION.md` |
+| 18 | Scrobble heatmap -- iteration 1 | `BATCH18_DEFINITION.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -57,14 +58,15 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ## 3. Active batch + next action
 
-- **Between batches.** Batch 17 merged to `main`. Branch `wip/batch-17` deleted.
-- **Next action:** Scrobble heatmap feature design and implementation.
-  Branch: `feat/heatmap` (from `main`). Batch definition not yet written.
-- Feature candidates (confirmed by owner roadmap):
-  - **Listening heatmap** (next): scrobble density calendar for last 365 days
-    (Last.fm-only, lighter background task). May span multiple batches --
-    UI/UX, routing, and back-end work expected; SoC/DRY remediation passes
-    after initial implementation.
+- **Batch 18 is active.** Branch: `feat/heatmap`. Definition: `BATCH18_DEFINITION.md`.
+- **Next action:** WP-1 -- backend heatmap task module + error code.
+- WP status:
+  - WP-1: Backend heatmap task module + error code -- **pending**
+  - WP-2: Backend heatmap routes -- **pending**
+  - WP-3: Frontend pill tabs + heatmap form + CSS -- **pending**
+  - WP-4: Frontend heatmap.js (SVG rendering, polling, tooltips) -- **pending**
+  - WP-5: Expanded tests + edge cases -- **pending**
+- Future feature candidates (confirmed by owner roadmap):
   - **Top songs** (future): rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
 
@@ -89,121 +91,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
-### 2026-03-04 - Batch 17 WP-0: definition committed (Batch 17 WP-0)
+### 2026-03-06 - Batch 18 WP-0: definition committed (Batch 18 WP-0)
 
-- **Batch 17 started.** Branch `wip/batch-17` created from `main`.
-- Definition committed: `BATCH17_DEFINITION.md` (5 WPs: HANDOFF_PROMPT fix, CI/CD,
-  PR template, SESSION_CONTEXT cleanup, Flask-Talisman security headers).
+- **Batch 18 started.** Branch `feat/heatmap` (from `main` after Batch 17 merge).
+- Definition committed: `BATCH18_DEFINITION.md` (5 WPs: heatmap task module,
+  heatmap routes, frontend pill tabs + form, heatmap.js SVG rendering, expanded tests).
+- Owner-approved design: GitHub/Last.fm-Labs-style calendar grid, rocket_r palette,
+  vanilla SVG, no new Python dependencies, no heatmap caching in iteration 1.
+- AGENT_NOTES.md updated with heatmap context, software principles, testing pyramid.
 - Baseline: **350 tests passing**, branch clean, all hooks green.
-- Next: WP-1 -- fix 3 problems in HANDOFF_PROMPT.md.
-
-### 2026-03-04 - Batch 17 WP-1: HANDOFF_PROMPT.md fixes (Batch 17 WP-1)
-
-- Applied 3 targeted edits to `HANDOFF_PROMPT.md` per definition Section 2 WP-1.
-- Edit 1 (Section 1 step 3): replaced "Active batch: file is at the repo root"
-  with "Active batch: definition file is at repo root" and added "Between batches:
-  no definition file exists yet -- skip this step."
-- Edit 2 (Section 5): added introductory sentence "After your code changes are
-  committed (following AGENTS.md commit rules and side-task handling), document
-  completion:" before the 5-step numbered list. List unchanged.
-- Edit 3 (Section 1): added step 5 for `MEMORY.md` (root) after SESSION_CONTEXT
-  step; updated "all four files" to "all five files".
-- **Deviation:** `HANDOFF_PROMPT.md` was in `.gitignore` (line 45) with no git
-  history. The WP definition specified a commit including it. Because the file's
-  purpose is cross-agent bootstrapping -- it must be accessible on any clone or
-  to any agent (Copilot, Gemini, Codex) -- gitignoring it defeats its purpose.
-  Owner confirmed: remove from `.gitignore` and commit. `.gitignore` updated with
-  a comment explaining the distinction: HANDOFF_PROMPT.md is committed (shared
-  procedure); MEMORY.md (root) stays local-only (machine-specific state).
-- `AGENTS.md` unchanged. **350 tests passing**, all hooks green.
-- Next: WP-2 -- CI/CD pipeline improvements.
-
-### 2026-03-04 - Batch 17 WP-2: CI/CD pipeline improvements (Batch 17 WP-2)
-
-- Renamed workflow `name:` from `"CI Pipeline"` to `"Quality Gate"` and job id
-  from `test` to `quality-gate`. Name change is a breaking change if branch
-  protection rules reference the old check name -- no branch protection rules
-  are currently configured so there is no impact. Documented in definition.
-- Removed standalone "Lint code with flake8" step. Pre-commit runs flake8 with
-  identical `.flake8` config in the preceding step; the standalone step was a
-  pure duplicate adding ~20s per run with identical output.
-- Added pip caching to `setup-python` step (`cache: 'pip'`,
-  `cache-dependency-path: requirements-dev.txt`). Cache key hashes the dev
-  requirements file and invalidates automatically when dependencies change,
-  eliminating a full reinstall on every unchanged run.
-- Added `Upload coverage report` step (actions/upload-artifact@v4, 14-day
-  retention). `coverage.xml` was already generated by pytest but silently
-  discarded; this makes it available for review after each run.
-- Added `Security audit (pip-audit)` step (pypa/gh-action-pip-audit@v1.1.0,
-  `continue-on-error: true`). Informational only -- findings do not block
-  builds; review manually when step shows warnings.
-- Created `.github/dependabot.yml`: weekly pip + github-actions updates,
-  5-PR cap for pip and 3 for actions. Dependabot PRs go through the same
-  Quality Gate as any other PR.
-- **350 tests passing**, all hooks green.
-- Next: WP-3 -- PR template.
-
-### 2026-03-04 - Batch 17 WP-2 addendum: pre-commit hook improvements (Batch 17 WP-2)
-
-- **Widened scope of `trailing-whitespace` and `end-of-file-fixer`** from
-  `^.*\.py$` to `^.*\.(py|md|yaml|yml|txt)$`. These hooks were silently
-  skipping all markdown, YAML, and text files; the project has substantial
-  `.md` doc content that was unchecked. Auto-fixed on first run: trailing
-  space in `.pre-commit-config.yaml`; missing final newline in `README.md`
-  and `requirements.txt`.
-- **Added `check-merge-conflict`**: catches `<<<<<<<` conflict markers left
-  in files before they reach a commit. Uses the same `pre-commit-hooks`
-  repo already pinned at v5.0.0 -- no new dependency.
-- **Added `detect-private-key`**: defense-in-depth catch for accidentally
-  staged API keys or secrets. Relevant given this project handles
-  `LASTFM_API_KEY`, `SPOTIFY_CLIENT_SECRET`, and `SECRET_KEY`. `.env` is
-  already gitignored; this catches inline leakage. Same repo, no new dep.
-- **350 tests passing**, all hooks green.
-- Next: WP-3 -- PR template.
-
-### 2026-03-04 - Batch 17 WP-3: PR template (Batch 17 WP-3)
-
-- Created `.github/PULL_REQUEST_TEMPLATE.md` with Summary section and a
-  6-item validation checklist. The checklist mirrors existing requirements
-  from `AGENTS.md` and `HANDOFF_PROMPT.md` -- no new requirements added.
-- Checklist items: pytest pass + test count update, pre-commit pass,
-  doc_state_sync --check, PLAYBOOK Section 3 state, PLAYBOOK Section 4
-  log entry (with batch-vs-side-task placement reminder), and scope gate.
-- "SESSION_CONTEXT Section 1" in the checklist reflects post-WP-4
-  numbering; after WP-4 removes the product context section and renumbers,
-  Section 1 will be the current state table (currently Section 2).
-- **350 tests passing**, all hooks green.
-- Next: WP-4 -- SESSION_CONTEXT.md cleanup + cross-reference updates.
-
-### 2026-03-04 - Batch 17 WP-4: SESSION_CONTEXT cleanup + cross-reference updates (Batch 17 WP-4)
-
-- **Deleted SESSION_CONTEXT Section 1 "What is ScrobbleScope?"** (product
-  description: app summary, upcoming features, stack, deployment). This
-  content already exists in full in README.md. An agent state dashboard
-  should contain runtime facts only; the section added 15 lines of
-  overhead to every bootstrap read with no information gain for agents.
-- **Renumbered sections** -1: Section 2 -> 1, 3 -> 2, 4 -> 3, 5 -> 4,
-  6 -> 5, 7 -> 6, 8 -> 7. All internal heading numbers updated.
-- **Fixed staleness in new Section 1** (was Section 2): Branch updated
-  to `wip/batch-17`; Batch 17 row added as `**Active**`. app.py line
-  count updated from ~142 to ~152 (actual: 151 lines).
-- **Updated Section 7 env notes**: dev_start.py description now notes
-  `--workers 1 --threads 4` (Gunicorn production config via Dockerfile).
-  Pre-commit hook list updated to include check-merge-conflict and
-  detect-private-key (added in WP-2 addendum).
-- **AGENTS.md**: updated all SESSION_CONTEXT section number references
-  (Section 2 -> 1, Section 4 -> 3, Section 5 -> 4, Sections 2-5 -> 1-4,
-  Sections 4-5 -> 3-4, Section 8 -> 7). 8 references updated across
-  bootstrap, pre-work checklist, side-task handling, doc sync, and
-  anti-pattern registry sections.
-- **HANDOFF_PROMPT.md**: updated 2 section number references -- step 4
-  bootstrap instruction (Sections 2/3/4-5 -> 1/2/3-4) and the
-  "agree on what is next" sentence (Section 3 -> Section 2).
-- **Note:** DEVELOPMENT.md line 174 had a stale "SESSION_CONTEXT Section 2"
-  reference; out of scope for this WP (definition lists AGENTS.md and
-  HANDOFF_PROMPT.md only). Subsequently fixed in a side-task (see logarchive).
-- **350 tests passing**, all hooks green.
-- Next: WP-5 -- Flask-Talisman security headers.
+- Next: WP-1 -- backend heatmap task module + error code.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

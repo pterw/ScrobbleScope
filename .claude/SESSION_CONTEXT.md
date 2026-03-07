@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-03-05
+Last updated: 2026-03-06
 
 ---
 
@@ -17,6 +17,7 @@ Last updated: 2026-03-05
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
+| Batch 18 status | **Active**. Scrobble heatmap iteration 1. Definition: `BATCH18_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -36,12 +37,12 @@ Last updated: 2026-03-05
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: unknown.
-- Current-batch entries in active log block: 6.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
-- Next expected work package: WP-5.
+- Current batch: Batch 18.
+- Current-batch entries in active log block: 1.
+- Completed work packages in current-batch entries: WP-0.
+- Next expected work package: WP-1.
 - Latest validated test count: **350 passed**.
-- Newest current-batch entry: 2026-03-04 - Batch 17 WP-0: definition committed (Batch 17 WP-0).
+- Newest current-batch entry: 2026-03-06 - Batch 18 WP-0: definition committed (Batch 18 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
