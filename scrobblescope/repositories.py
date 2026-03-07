@@ -120,7 +120,7 @@ def set_job_stat(job_id, key, value):
 
 
 def set_job_results(job_id, results):
-    """Store the final album results list on a job."""
+    """Store the final results payload (list or dict) on a job."""
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
@@ -201,6 +201,8 @@ def get_job_context(job_id):
         results = job.get("results")
         if isinstance(results, list):
             results = list(results)
+        elif isinstance(results, dict):
+            results = dict(results)
 
         progress = dict(job["progress"])
         progress["stats"] = dict(progress.get("stats", {}))

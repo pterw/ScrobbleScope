@@ -61,7 +61,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 18 is active.** Branch: `feat/heatmap`. Definition: `BATCH18_DEFINITION.md`.
 - **Next action:** WP-1 -- backend heatmap task module + error code.
 - WP status:
-  - WP-1: Backend heatmap task module + error code -- **pending**
+  - WP-1: Backend heatmap task module + error code -- **done**
   - WP-2: Backend heatmap routes -- **pending**
   - WP-3: Frontend pill tabs + heatmap form + CSS -- **pending**
   - WP-4: Frontend heatmap.js (SVG rendering, polling, tooltips) -- **pending**
@@ -90,6 +90,25 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-07 - Batch 18 WP-1: heatmap task module + error code (Batch 18 WP-1)
+
+- Created `scrobblescope/heatmap.py`: `heatmap_task` (thread entry),
+  `_fetch_and_process_heatmap` (async orchestrator), `_aggregate_daily_counts`
+  (pure function). Reuses `lastfm.fetch_all_recent_tracks_async`, job state
+  machine, and worker slot system. ProactorEventLoop guard on Windows.
+- Added `no_scrobbles_in_range` error code to `errors.py`.
+- Boy Scout: `repositories.py` -- `get_job_context` now shallow-copies dict
+  results (`elif isinstance(results, dict)`); `set_job_results` docstring
+  updated to reflect list-or-dict payload.
+- Created `tests/test_heatmap.py` with 17 tests covering aggregation
+  (basic, now-playing skip, 365/366-day fill, boundary, out-of-range,
+  empty, multi-page), async orchestrator (upstream error, partial data,
+  zero scrobbles, happy path, progress), task lifecycle (release on
+  success/exception), and error code registry.
+- Also added XSS acceptance criterion to WP-4 in BATCH18_DEFINITION.md.
+- **367 tests passing**, all pre-commit hooks green.
+- Next: WP-2 -- backend heatmap routes.
 
 ### 2026-03-06 - Batch 18 WP-0: definition committed (Batch 18 WP-0)
 

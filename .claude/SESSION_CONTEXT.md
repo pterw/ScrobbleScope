@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-03-06
+Last updated: 2026-03-07
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-03-06
 | Item | Value |
 |------|-------|
 | Branch | `feat/heatmap` |
-| Tests | **350 passing** across 23 test files |
+| Tests | **367 passing** across 24 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -38,11 +38,11 @@ Last updated: 2026-03-06
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 18.
-- Current-batch entries in active log block: 1.
-- Completed work packages in current-batch entries: WP-0.
-- Next expected work package: WP-1.
-- Latest validated test count: **350 passed**.
-- Newest current-batch entry: 2026-03-06 - Batch 18 WP-0: definition committed (Batch 18 WP-0).
+- Current-batch entries in active log block: 2.
+- Completed work packages in current-batch entries: WP-0, WP-1.
+- Next expected work package: WP-2.
+- Latest validated test count: **367 passed**.
+- Newest current-batch entry: 2026-03-07 - Batch 18 WP-1: heatmap task module + error code (Batch 18 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -62,6 +62,7 @@ scrobblescope/
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
   spotify.py                # fetch_spotify_access_token, search, batch details
   orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
+  heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
   routes.py                 # Flask Blueprint, all route + error handlers
 ```
 
@@ -80,6 +81,7 @@ repositories.py  <- config, errors
 lastfm.py        <- config, utils
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
+heatmap.py       <- config, lastfm, repositories, utils, worker
 routes.py        <- lastfm, orchestrator, repositories, utils, worker
 app.py           <- routes (Blueprint)
 ```
@@ -113,7 +115,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (350 tests)
+## 6. Test structure (367 tests)
 
 | File | Count |
 |------|-------|
@@ -123,6 +125,7 @@ loading.js polls GET /progress?job_id=...
 | test_docsync_parser.py | 35 |
 | test_docsync_renderer.py | 21 |
 | test_domain.py | 13 |
+| test_heatmap.py | 17 |
 | test_repositories.py | 18 |
 | test_retry_with_semaphore.py | 8 |
 | test_routes.py | 50 |
