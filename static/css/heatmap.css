@@ -194,6 +194,15 @@
 /* rect.heatmap-cell { rx: 2; ry: 2; }                                */
 /* Zero-scrobble fill: #e0e0e0 (light) / #2a2a2a (dark)              */
 
+/* SVG text labels inherit page color via currentColor */
+.heatmap-day-label,
+.heatmap-month-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  fill: currentColor;
+  opacity: 0.6;
+}
+
 /* ------------------------------------------------------------------ */
 /* Mobile responsive                                                   */
 /* ------------------------------------------------------------------ */

@@ -59,12 +59,12 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 18 is active.** Branch: `feat/heatmap`. Definition: `BATCH18_DEFINITION.md`.
-- **Next action:** WP-4 -- frontend heatmap.js (SVG rendering, polling, tooltips).
+- **Next action:** WP-5 -- expanded backend tests + edge cases.
 - WP status:
   - WP-1: Backend heatmap task module + error code -- **done**
   - WP-2: Backend heatmap routes -- **done**
   - WP-3: Frontend pill tabs + heatmap form + CSS -- **done**
-  - WP-4: Frontend heatmap.js (SVG rendering, polling, tooltips) -- **pending**
+  - WP-4: Frontend heatmap.js (SVG rendering, polling, tooltips) -- **done**
   - WP-5: Expanded tests + edge cases -- **pending**
 - Future feature candidates (confirmed by owner roadmap):
   - **Top songs** (future): rank most-played tracks for a year (Last.fm + possibly
@@ -90,6 +90,37 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-07 - Batch 18 WP-4: frontend heatmap.js with SVG rendering and polling (Batch 18 WP-4)
+
+- Created `static/js/heatmap.js` (~400 lines, IIFE, strict mode):
+  - Pill switching: click/keyboard handlers toggle `.d-none` on album/heatmap
+    form sections, update `.active` class on pills.
+  - Username validation: blur handler on `#heatmap-username` calls
+    `/validate_user` endpoint, shows `is-valid`/`is-invalid` feedback.
+  - AJAX form submission: reads CSRF token from `<meta>`, POST to
+    `/heatmap_loading` with `URLSearchParams`, handles 202 + error states.
+  - Polling: 1-second interval on `/progress?job_id=...`, updates
+    `#heatmap-progress-text` with server message. On progress >= 100,
+    fetches `/heatmap_data?job_id=...`.
+  - SVG grid rendering: 7 rows (Mon-Sun) x 52-53 columns, rounded rects
+    with gap, rocket_r palette (7-stop interpolation), log10 color mapping.
+    Month labels above first week of each month, day labels (Mon/Wed/Fri).
+  - Tooltips: positioned `<div>` on mouseenter/touchstart, "Sunday 1 March
+    2026 -- 34 scrobbles" format, viewport-aware positioning, dismiss on
+    mouseleave/touchend/scroll.
+  - Dark mode observer: MutationObserver on `body.class` updates
+    zero-scrobble cell fills (#e0e0e0 light / #2a2a2a dark).
+  - Legend: rocket_r CSS gradient on `.heatmap-legend-bar`.
+  - State transitions: form -> loading (fade-in), loading -> result
+    (fade-in), result -> form (search-again button).
+- Added `<script>` tag for heatmap.js in `index.html` `{% block scripts %}`.
+- Added `.heatmap-day-label` / `.heatmap-month-label` CSS classes in
+  `heatmap.css` for SVG text label font/opacity.
+- No `innerHTML` used with user data (`textContent` exclusively, F-B18-9).
+- No test changes (+0 tests, JS -- owner tests visually).
+- **381 tests passing**, all 10 pre-commit hooks green.
+- Next: WP-5 -- expanded backend tests + edge cases.
 
 ### 2026-03-07 - Batch 18 WP-3: frontend pill tabs, heatmap form, CSS (Batch 18 WP-3)
 
