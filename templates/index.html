@@ -4,6 +4,7 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/heatmap.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -14,9 +15,16 @@
         {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
       </div>
       <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="infoButton" data-bs-toggle="modal" data-bs-target="#welcomeModal">Info</button>
+
+      {# Pill tabs: switch between Album Filtering and Heatmap modes #}
+      <div class="mode-pills mt-3">
+        <span class="mode-pill active" data-mode="album" role="button" tabindex="0">Album Filtering</span>
+        <span class="mode-pill" data-mode="heatmap" role="button" tabindex="0">Heatmap</span>
+      </div>
     </div>
 
-    <div class="col-md-6">
+    {# ---- Album Filtering form (default visible) ---- #}
+    <div class="col-md-6" id="album-form-section">
 
       {% if error %}
       <div class="alert alert-danger alert-dismissible fade show text-center mb-3" role="alert">
@@ -146,6 +154,78 @@
         </div>
       </div>
     </div>
+    {# ---- end Album Filtering form ---- #}
+
+    {# ---- Heatmap form (hidden by default) ---- #}
+    <div class="col-md-6 d-none" id="heatmap-form-section">
+      <div class="card shadow">
+        <div class="card-body">
+          <h2 class="text-center mb-4">Scrobble Heatmap</h2>
+          <p class="text-center text-muted mb-3" style="font-size: 0.85rem;">
+            Visualize your listening activity over the last 365 days.
+          </p>
+
+          <form id="heatmap-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label for="heatmap-username" class="form-label">Last.fm Username:</label>
+              <input type="text" id="heatmap-username" name="username" class="form-control" placeholder="Enter your Last.fm username" required autocomplete="username">
+            </div>
+
+            <div class="text-center mt-4">
+              <button type="submit" class="btn btn-primary">Generate Heatmap</button>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+    {# ---- end Heatmap form ---- #}
+
+    {# ---- Heatmap loading container (hidden) ---- #}
+    <div class="col-md-8 d-none" id="heatmap-loading">
+      <div class="card shadow">
+        <div class="card-body">
+          <div class="heatmap-spinner-wrapper" aria-label="Loading animation" role="img">
+            {% include 'inline/scrobblescope_pinwheel.svg' ignore missing %}
+          </div>
+          <p id="heatmap-progress-text">Initializing...</p>
+
+          <div id="heatmap-error" class="d-none">
+            <p id="heatmap-error-message"></p>
+            <button type="button" class="btn btn-outline-primary btn-sm" id="heatmap-retry-btn">Retry</button>
+            <a href="/" class="btn btn-outline-secondary btn-sm ms-2">Home</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {# ---- end Heatmap loading ---- #}
+
+    {# ---- Heatmap result container (hidden) ---- #}
+    <div class="col-md-8 d-none" id="heatmap-result">
+      <div class="card shadow">
+        <div class="card-body">
+          <div class="heatmap-result-header">
+            <h3 id="heatmap-result-title"></h3>
+            <p class="heatmap-subtitle" id="heatmap-result-subtitle"></p>
+          </div>
+
+          <div id="heatmap-grid"></div>
+
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="heatmap-legend-bar" id="heatmap-legend-bar"></div>
+            <span>More</span>
+          </div>
+
+          <div class="text-center mt-3">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="heatmap-search-again">Search Again</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {# ---- end Heatmap result ---- #}
+
   </div>
 </div>
 
@@ -165,8 +245,9 @@
           <li><strong>Customize Thresholds:</strong> Focus on albums you really engaged with</li>
           <li><strong>Limit Results:</strong> View your top 10, 25, 50, or 100 albums</li>
           <li><strong>Export &amp; Share:</strong> Download as CSV or save as an image</li>
+          <li><strong>Scrobble Heatmap:</strong> Visualize your daily listening activity over the last year</li>
         </ul>
-        <p class="mb-0"><small><strong>Default behavior:</strong> Shows albums you listened to in the selected year that were also <em>released</em> in that same year &mdash; perfect for building your AOTY list.</small></p>
+        <p class="mb-0"><small><strong>Tip:</strong> Use the pill tabs above the form to switch between Album Filtering and Heatmap modes.</small></p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Get Started</button>
@@ -182,4 +263,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/index.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/heatmap.js') }}" defer></script>
 {% endblock %}

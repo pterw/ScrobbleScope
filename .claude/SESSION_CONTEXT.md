@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-03-05
+Last updated: 2026-03-07
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-03-05
 | Item | Value |
 |------|-------|
 | Branch | `feat/heatmap` |
-| Tests | **350 passing** across 23 test files |
+| Tests | **381 passing** across 24 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -17,6 +17,7 @@ Last updated: 2026-03-05
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
+| Batch 18 status | **Active**. Scrobble heatmap iteration 1. Definition: `BATCH18_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -36,12 +37,12 @@ Last updated: 2026-03-05
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: unknown.
-- Current-batch entries in active log block: 6.
+- Current batch: Batch 18.
+- Current-batch entries in active log block: 5.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
 - Next expected work package: WP-5.
-- Latest validated test count: **350 passed**.
-- Newest current-batch entry: 2026-03-04 - Batch 17 WP-0: definition committed (Batch 17 WP-0).
+- Latest validated test count: **381 passed**.
+- Newest current-batch entry: 2026-03-07 - Batch 18 WP-4: frontend heatmap.js with SVG rendering and polling (Batch 18 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -61,7 +62,13 @@ scrobblescope/
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
   spotify.py                # fetch_spotify_access_token, search, batch details
   orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
+  heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
   routes.py                 # Flask Blueprint, all route + error handlers
+templates/
+  inline/scrobblescope_pinwheel.svg  # animated pinwheel loading spinner
+static/
+  css/heatmap.css            # heatmap pill tabs, form, loading, result styles
+  js/heatmap.js              # pill switching, AJAX, polling, SVG grid, tooltips
 ```
 
 ---
@@ -79,7 +86,8 @@ repositories.py  <- config, errors
 lastfm.py        <- config, utils
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
-routes.py        <- lastfm, orchestrator, repositories, utils, worker
+heatmap.py       <- config, lastfm, repositories, utils, worker
+routes.py        <- heatmap, lastfm, orchestrator, repositories, utils, worker
 app.py           <- routes (Blueprint)
 ```
 
@@ -112,7 +120,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (350 tests)
+## 6. Test structure (381 tests)
 
 | File | Count |
 |------|-------|
@@ -122,9 +130,10 @@ loading.js polls GET /progress?job_id=...
 | test_docsync_parser.py | 35 |
 | test_docsync_renderer.py | 21 |
 | test_domain.py | 13 |
+| test_heatmap.py | 17 |
 | test_repositories.py | 18 |
 | test_retry_with_semaphore.py | 8 |
-| test_routes.py | 50 |
+| test_routes.py | 64 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
 | scripts/dev/test_dev_start.py | 11 |

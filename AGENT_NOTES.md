@@ -16,6 +16,14 @@ that agents need but that do not belong in either of those files.
 - Pause after each WP commit for owner review.
 - Pause and notify owner if Docker config or external MCP setup is needed.
 - Always explain why in log entries and inline comments -- not just what.
+- Owner tests locally in Firefox (+ Responsive Design Mode for mobile)
+  between WPs before approving the next one.
+- Software principles enforced: DRY, SoC, SRP, KISS, Dependency Inversion,
+  Composition over Inheritance, Clean Architecture, Boy Scout Rule, Least
+  Knowledge Principle, Fail Fast. Not aspirational -- mandatory.
+- Testing pyramid: unit tests (mocked, base), integration tests (routes,
+  middle), E2E (owner-driven, top). Every test must fail if the function
+  under test is deleted.
 
 ---
 
@@ -85,6 +93,23 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ---
 
+## Heatmap Feature (Batch 18 -- iteration 1)
+
+- **Design doc:** see `BATCH18_DEFINITION.md` (repo root while active, then
+  `docs/history/definitions/` after close-out).
+- **Key decisions:** username-only input (last 365 days), pill tabs on index.html,
+  all states on one page (no navigation), GitHub-style 7x52 SVG grid, rocket_r
+  palette, log-adjusted intensity, no heatmap-specific caching (REQUEST_CACHE
+  covers Last.fm pages), no new Python dependencies, no matplotlib/seaborn.
+- **Cache note:** heatmap uses different `from`/`to` timestamps than album
+  search, producing different REQUEST_CACHE keys. No interference.
+- **Windows asyncio:** heatmap_task must use same ProactorEventLoop guard as
+  orchestrator.py background_task. See AGENT_NOTES Architectural Constraints.
+- **Feature may span multiple batches.** Iteration 1 = working end-to-end.
+  Follow-up: orchestrator split, export, date range, summary stats.
+
+---
+
 ## Known Open Issues / Future Candidates
 
 - Flask-Talisman (CSP) was attempted in Batch 17 WP-5 and dropped (YAGNI).
@@ -92,3 +117,6 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   bar `style="width: 0%"`, album cover fallback) that would need refactoring
   before a strict CSP is viable. See PLAYBOOK WP-5 entry for details.
 - Scaling path if needed: Celery/Redis RQ -- out of scope until features complete.
+- Orchestrator monolith split: deferred until heatmap exists alongside album
+  pipeline. Natural SoC cleanup candidate for a follow-up batch.
+- Cache + bounded semaphore load testing: per `load-test-findings.md`.
