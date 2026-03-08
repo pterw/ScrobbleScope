@@ -21,6 +21,8 @@ from scrobblescope.routes import (
 )
 from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 
+HEATMAP_JOB_PARAMS = {"username": "testuser", "mode": "heatmap"}
+
 
 def test_home_page(client):
     """
@@ -722,6 +724,212 @@ def test_csrf_accepts_reset_progress_with_header_token(csrf_app_client):
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["status"] == "success"
+
+
+# --- Heatmap route tests ---
+
+
+def test_heatmap_loading_valid_username(client):
+    """POST /heatmap_loading with a valid user returns 202 and a job_id."""
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": 2016},
+        ),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/heatmap_loading", data={"username": "flounder14"})
+    assert response.status_code == 202
+    data = response.get_json()
+    assert "job_id" in data
+    assert "error" not in data
+    # Verify the thread target is heatmap_task, not background_task.
+    from scrobblescope.heatmap import heatmap_task
+
+    mock_start.assert_called_once()
+    assert mock_start.call_args[0][0] is heatmap_task
+
+
+def test_heatmap_loading_missing_username(client):
+    """POST /heatmap_loading without a username returns 400."""
+    response = client.post("/heatmap_loading", data={})
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] is True
+    assert "required" in data["message"].lower()
+
+
+def test_heatmap_loading_nonexistent_user(client):
+    """POST /heatmap_loading for a user that doesn't exist returns 404."""
+    with patch(
+        "scrobblescope.routes.run_async_in_thread",
+        return_value={"exists": False, "registered_year": None},
+    ):
+        response = client.post("/heatmap_loading", data={"username": "ghost_user"})
+    assert response.status_code == 404
+    data = response.get_json()
+    assert data["error"] is True
+    assert data["error_code"] == "user_not_found"
+    assert data["retryable"] is False
+
+
+def test_heatmap_loading_no_job_slot(client):
+    """POST /heatmap_loading when all slots are busy returns 429."""
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=False),
+    ):
+        response = client.post("/heatmap_loading", data={"username": "flounder14"})
+    assert response.status_code == 429
+    data = response.get_json()
+    assert data["error"] is True
+    assert data["retryable"] is True
+
+
+def test_heatmap_loading_thread_failure_cleans_up(client):
+    """POST /heatmap_loading returns 500 and deletes orphan job on thread failure."""
+    with jobs_lock:
+        jobs_before = set(JOBS.keys())
+
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=True),
+        patch(
+            "scrobblescope.routes.start_job_thread",
+            side_effect=OSError("too many threads"),
+        ),
+    ):
+        response = client.post("/heatmap_loading", data={"username": "flounder14"})
+    assert response.status_code == 500
+    data = response.get_json()
+    assert data["error"] is True
+    assert data["retryable"] is True
+    # Orphan job must have been cleaned up.
+    with jobs_lock:
+        assert set(JOBS.keys()) == jobs_before
+
+
+def test_heatmap_loading_user_check_unavailable(client):
+    """POST /heatmap_loading returns 503 when the user check raises."""
+    with patch(
+        "scrobblescope.routes.run_async_in_thread",
+        side_effect=Exception("network error"),
+    ):
+        response = client.post("/heatmap_loading", data={"username": "flounder14"})
+    assert response.status_code == 503
+    data = response.get_json()
+    assert data["error"] is True
+    assert data["retryable"] is True
+
+
+def test_heatmap_loading_json_body(client):
+    """POST /heatmap_loading accepts username from a JSON body (AJAX path)."""
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.start_job_thread"),
+    ):
+        response = client.post(
+            "/heatmap_loading",
+            json={"username": "flounder14"},
+        )
+    assert response.status_code == 202
+    assert "job_id" in response.get_json()
+
+
+def test_heatmap_data_completed_with_results(client):
+    """GET /heatmap_data for a completed job returns 200 with daily_counts."""
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+    heatmap_results = {
+        "username": "testuser",
+        "from_date": "2024-01-01",
+        "to_date": "2025-01-01",
+        "total_scrobbles": 500,
+        "daily_counts": {"2024-06-15": 12, "2024-06-16": 3},
+    }
+    set_job_results(job_id, heatmap_results)
+    set_job_progress(job_id, progress=100, message="Done!", error=False)
+
+    response = client.get(f"/heatmap_data?job_id={job_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["ready"] is True
+    assert data["daily_counts"]["2024-06-15"] == 12
+    assert data["username"] == "testuser"
+
+
+def test_heatmap_data_completed_with_error(client):
+    """GET /heatmap_data for a failed job returns 200 with error details."""
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+    set_job_error(job_id, "lastfm_rate_limited")
+
+    response = client.get(f"/heatmap_data?job_id={job_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["error"] is True
+    assert data["error_code"] == "lastfm_rate_limited"
+    assert data["retryable"] is True
+    # Must NOT return ready:true with empty results.
+    assert "ready" not in data
+
+
+def test_heatmap_data_missing_job_id(client):
+    """GET /heatmap_data without job_id returns 400."""
+    response = client.get("/heatmap_data")
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] is True
+    assert "Missing" in data["message"]
+
+
+def test_heatmap_data_expired_job(client):
+    """GET /heatmap_data for a nonexistent job returns 404."""
+    response = client.get("/heatmap_data?job_id=does_not_exist")
+    assert response.status_code == 404
+    data = response.get_json()
+    assert data["error"] is True
+
+
+def test_heatmap_data_still_processing(client):
+    """GET /heatmap_data for an in-progress job returns 202 with ready=false."""
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+    set_job_progress(job_id, progress=45, message="Fetching page 3...", error=False)
+
+    response = client.get(f"/heatmap_data?job_id={job_id}")
+    assert response.status_code == 202
+    data = response.get_json()
+    assert data["ready"] is False
+
+
+def test_heatmap_data_error_with_empty_results(client):
+    """Error jobs have results=[] via set_job_error; must return error, not ready.
+
+    set_job_error() calls set_job_results(job_id, []), which is truthy for
+    ``is not None``. The error check must come before the results check to
+    avoid returning ``{"ready": true, ...}`` with an empty list.
+    """
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+    set_job_error(job_id, "no_scrobbles_in_range", username="testuser")
+
+    response = client.get(f"/heatmap_data?job_id={job_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["error"] is True
+    assert "ready" not in data
+
+
+def test_csrf_rejects_heatmap_loading_without_token(csrf_app_client):
+    """CSRF protection rejects POST /heatmap_loading without a token."""
+    response = csrf_app_client.post("/heatmap_loading", data={"username": "flounder14"})
+    assert response.status_code == 400
 
 
 # --- Helper unit tests ---

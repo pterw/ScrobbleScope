@@ -3,6 +3,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, render_template, request
 
+from scrobblescope.heatmap import heatmap_task
 from scrobblescope.lastfm import check_user_exists
 from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
@@ -513,3 +514,129 @@ def results_loading():
         min_tracks=min_tracks,
         limit_results=limit_results,
     )
+
+
+@bp.route("/heatmap_loading", methods=["POST"])
+def heatmap_loading():
+    """Start a heatmap background job for the given Last.fm username.
+
+    Accepts ``username`` from form data or a JSON body (for AJAX callers).
+    Returns a JSON response with ``job_id`` on success (202) or an error
+    payload with the appropriate HTTP status code on failure.
+    """
+    # Support both form-encoded and JSON request bodies.
+    username = request.form.get("username")
+    if not username and request.is_json:
+        username = (request.get_json(silent=True) or {}).get("username")
+    if username:
+        username = username.strip()
+
+    if not username:
+        return (
+            jsonify({"error": True, "message": "Username is required."}),
+            400,
+        )
+
+    try:
+        user_info = _check_user_exists(username)
+    except Exception:
+        logging.exception("User existence check failed for %s", username)
+        return (
+            jsonify(
+                {
+                    "error": True,
+                    "message": "Validation service unavailable. Try again.",
+                    "retryable": True,
+                }
+            ),
+            503,
+        )
+
+    if not user_info["exists"]:
+        return (
+            jsonify(
+                {
+                    "error": True,
+                    "error_code": "user_not_found",
+                    "message": f"User '{username}' was not found on Last.fm.",
+                    "retryable": False,
+                }
+            ),
+            404,
+        )
+
+    cleanup_expired_jobs()
+
+    if not acquire_job_slot():
+        return (
+            jsonify(
+                {
+                    "error": True,
+                    "message": "Too many requests in progress. Please try again in a moment.",
+                    "retryable": True,
+                }
+            ),
+            429,
+        )
+
+    job_id = create_job({"username": username, "mode": "heatmap"})
+
+    try:
+        start_job_thread(heatmap_task, args=(job_id, username))
+    except Exception:
+        logging.exception("Failed to start heatmap task thread")
+        delete_job(job_id)
+        return (
+            jsonify(
+                {
+                    "error": True,
+                    "message": "Failed to start processing.",
+                    "retryable": True,
+                }
+            ),
+            500,
+        )
+
+    return jsonify({"job_id": job_id}), 202
+
+
+@bp.route("/heatmap_data")
+def heatmap_data():
+    """Return heatmap results, error details, or a processing-in-progress marker.
+
+    Callers poll this endpoint with a ``job_id`` query parameter until the
+    response contains ``"ready": true`` (success) or ``"error": true``
+    (terminal failure).
+    """
+    job_id = request.args.get("job_id")
+    if not job_id:
+        return (
+            jsonify({"error": True, "message": "Missing job identifier."}),
+            400,
+        )
+
+    ctx = get_job_context(job_id)
+    if ctx is None:
+        return (
+            jsonify({"error": True, "message": "Job not found or expired."}),
+            404,
+        )
+
+    progress = ctx["progress"]
+    if progress.get("error"):
+        return (
+            jsonify(
+                {
+                    "error": True,
+                    "message": progress.get("message"),
+                    "error_code": progress.get("error_code"),
+                    "retryable": progress.get("retryable", False),
+                }
+            ),
+            200,
+        )
+
+    if ctx["results"] is not None:
+        return jsonify({"ready": True, **ctx["results"]}), 200
+
+    return jsonify({"ready": False}), 202

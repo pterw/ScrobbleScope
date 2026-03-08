@@ -9,7 +9,7 @@ Last updated: 2026-03-07
 | Item | Value |
 |------|-------|
 | Branch | `feat/heatmap` |
-| Tests | **367 passing** across 24 test files |
+| Tests | **381 passing** across 24 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -38,11 +38,11 @@ Last updated: 2026-03-07
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 18.
-- Current-batch entries in active log block: 2.
-- Completed work packages in current-batch entries: WP-0, WP-1.
-- Next expected work package: WP-2.
-- Latest validated test count: **367 passed**.
-- Newest current-batch entry: 2026-03-07 - Batch 18 WP-1: heatmap task module + error code (Batch 18 WP-1).
+- Current-batch entries in active log block: 3.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2.
+- Next expected work package: WP-3.
+- Latest validated test count: **381 passed**.
+- Newest current-batch entry: 2026-03-07 - Batch 18 WP-2: heatmap route handlers (Batch 18 WP-2).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -82,7 +82,7 @@ lastfm.py        <- config, utils
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
 heatmap.py       <- config, lastfm, repositories, utils, worker
-routes.py        <- lastfm, orchestrator, repositories, utils, worker
+routes.py        <- heatmap, lastfm, orchestrator, repositories, utils, worker
 app.py           <- routes (Blueprint)
 ```
 
@@ -115,7 +115,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (367 tests)
+## 6. Test structure (381 tests)
 
 | File | Count |
 |------|-------|
@@ -128,7 +128,7 @@ loading.js polls GET /progress?job_id=...
 | test_heatmap.py | 17 |
 | test_repositories.py | 18 |
 | test_retry_with_semaphore.py | 8 |
-| test_routes.py | 50 |
+| test_routes.py | 64 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
 | scripts/dev/test_dev_start.py | 11 |

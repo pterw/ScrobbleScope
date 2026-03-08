@@ -59,10 +59,10 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 18 is active.** Branch: `feat/heatmap`. Definition: `BATCH18_DEFINITION.md`.
-- **Next action:** WP-1 -- backend heatmap task module + error code.
+- **Next action:** WP-3 -- frontend pill tabs + heatmap form + CSS.
 - WP status:
   - WP-1: Backend heatmap task module + error code -- **done**
-  - WP-2: Backend heatmap routes -- **pending**
+  - WP-2: Backend heatmap routes -- **done**
   - WP-3: Frontend pill tabs + heatmap form + CSS -- **pending**
   - WP-4: Frontend heatmap.js (SVG rendering, polling, tooltips) -- **pending**
   - WP-5: Expanded tests + edge cases -- **pending**
@@ -90,6 +90,25 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-07 - Batch 18 WP-2: heatmap route handlers (Batch 18 WP-2)
+
+- Added `POST /heatmap_loading` and `GET /heatmap_data` to `routes.py`.
+  Both are JSON-only (no render_template). `/heatmap_loading` validates
+  username, checks user existence, acquires slot, starts `heatmap_task`
+  thread, returns 202 with `job_id`. Supports both form data and JSON
+  body for AJAX. `/heatmap_data` returns completed results (200),
+  error details (200), processing-in-progress (202), or missing/expired
+  (400/404). Error check before `results is not None` guard ensures
+  `set_job_error` result=[] edge case returns error, not ready.
+- Added import `from scrobblescope.heatmap import heatmap_task` to routes.py.
+- 14 new route tests: valid user (202), missing username (400), nonexistent
+  user (404), no slot (429), thread failure (500 + cleanup), user check
+  unavailable (503), JSON body path, completed results, completed error,
+  missing job_id, expired job, still processing, error-with-empty-results
+  edge case, CSRF rejection.
+- **381 tests passing**, all pre-commit hooks green.
+- Next: WP-3 -- frontend pill tabs + heatmap form + CSS.
 
 ### 2026-03-07 - Batch 18 WP-1: heatmap task module + error code (Batch 18 WP-1)
 
