@@ -4,9 +4,33 @@ import logging
 
 import pytest
 
-from app import _validate_secret_key
+from app import _validate_secret_key, create_app
 
 _STRONG_KEY = "a" * 64
+
+
+class TestSecurityHeaders:
+    @pytest.fixture
+    def client(self):
+        app = create_app()
+        app.config["TESTING"] = True
+        app.config["WTF_CSRF_ENABLED"] = False
+        with app.test_client() as client:
+            yield client
+
+    def test_security_header_x_frame_options(self, client):
+        response = client.get("/")
+        assert response.headers.get("X-Frame-Options") == "DENY"
+
+    def test_security_header_x_content_type_options(self, client):
+        response = client.get("/")
+        assert response.headers.get("X-Content-Type-Options") == "nosniff"
+
+    def test_security_header_referrer_policy_present(self, client):
+        response = client.get("/")
+        assert (
+            response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        )
 
 
 class TestValidateSecretKey:
