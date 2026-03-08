@@ -59,11 +59,11 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 18 is active.** Branch: `feat/heatmap`. Definition: `BATCH18_DEFINITION.md`.
-- **Next action:** WP-3 -- frontend pill tabs + heatmap form + CSS.
+- **Next action:** WP-4 -- frontend heatmap.js (SVG rendering, polling, tooltips).
 - WP status:
   - WP-1: Backend heatmap task module + error code -- **done**
   - WP-2: Backend heatmap routes -- **done**
-  - WP-3: Frontend pill tabs + heatmap form + CSS -- **pending**
+  - WP-3: Frontend pill tabs + heatmap form + CSS -- **done**
   - WP-4: Frontend heatmap.js (SVG rendering, polling, tooltips) -- **pending**
   - WP-5: Expanded tests + edge cases -- **pending**
 - Future feature candidates (confirmed by owner roadmap):
@@ -90,6 +90,27 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-03-07 - Batch 18 WP-3: frontend pill tabs, heatmap form, CSS (Batch 18 WP-3)
+
+- Added CSRF meta tag to `base.html` `<head>` for AJAX POST token access.
+- Created `static/css/heatmap.css`: pill tab bar (flex, centered, decade-pill
+  style), heatmap form card, loading container with spinner, result container
+  with grid/legend/header, tooltip styling (positioned div with dark/light
+  variants), fade transitions, responsive mobile rules, SVG grid cell comments.
+- Copied pinwheel SVG to `templates/inline/scrobblescope_pinwheel.svg` for
+  Jinja2 inline include (animated 4-blade spinner with rotation + expansion).
+- Updated `index.html`: pill tabs ("Album Filtering" | "Heatmap") below logo,
+  album form wrapped in `#album-form-section`, new `#heatmap-form-section`
+  (hidden by default, username-only form), `#heatmap-loading` container
+  (pinwheel + progress text + error display), `#heatmap-result` container
+  (grid + legend + search-again button). Welcome modal updated with heatmap
+  feature description and pill tab tip. Linked `heatmap.css` in stylesheets.
+- All containers have correct IDs for WP-4 JS targeting. Pill switching
+  JS deferred to WP-4 (WP-3 is markup + CSS only per definition).
+- No test changes (HTML/CSS only -- +0 tests, owner tests visually).
+- **381 tests passing**, all pre-commit hooks green.
+- Next: WP-4 -- frontend heatmap.js (SVG rendering, polling, tooltips).
 
 ### 2026-03-07 - Batch 18 WP-2: heatmap route handlers (Batch 18 WP-2)
 

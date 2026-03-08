@@ -1,0 +1,235 @@
+/* heatmap.css -- styles for heatmap pill tabs, form, loading, and result.
+   Global theme (variables, dark-mode, toggle, SVG) is in global.css.
+   index.css handles album form controls; this file handles heatmap-specific
+   layout only. */
+
+/* ------------------------------------------------------------------ */
+/* Pill tab bar                                                        */
+/* ------------------------------------------------------------------ */
+.mode-pills {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.mode-pill {
+  padding: 0.4rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  user-select: none;
+  color: var(--text-color);
+  background-color: transparent;
+  text-decoration: none;
+}
+
+.mode-pill:hover {
+  border-color: var(--bars-color);
+  color: var(--bars-color);
+}
+
+.mode-pill.active {
+  background-color: var(--bars-color);
+  color: #fff;
+  border-color: var(--bars-color);
+}
+
+/* ------------------------------------------------------------------ */
+/* Heatmap form card                                                   */
+/* ------------------------------------------------------------------ */
+#heatmap-form-section .card-body h2 {
+  color: var(--text-color);
+}
+
+/* Username validation feedback icons */
+#heatmap-form-section .is-valid {
+  border-color: #198754;
+}
+
+#heatmap-form-section .is-invalid {
+  border-color: var(--error-accent);
+}
+
+/* ------------------------------------------------------------------ */
+/* Heatmap loading container                                           */
+/* ------------------------------------------------------------------ */
+#heatmap-loading {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.heatmap-spinner-wrapper {
+  display: inline-block;
+  max-width: 80px;
+  margin: 0 auto 1rem;
+}
+
+.heatmap-spinner-wrapper svg {
+  width: 100%;
+  height: auto;
+  max-height: 64px;
+}
+
+#heatmap-progress-text {
+  font-size: 0.9rem;
+  color: var(--text-color);
+  opacity: 0.7;
+  margin-top: 0.5rem;
+}
+
+/* Error display within the loading container */
+#heatmap-error {
+  margin-top: 1.5rem;
+}
+
+#heatmap-error-message {
+  color: var(--error-accent);
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Heatmap result container                                            */
+/* ------------------------------------------------------------------ */
+#heatmap-result .card {
+  /* Wider than the form card for the SVG grid */
+  max-width: 100%;
+}
+
+#heatmap-grid {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#heatmap-grid svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Color scale legend */
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--text-color);
+  opacity: 0.7;
+}
+
+.heatmap-legend-bar {
+  width: 120px;
+  height: 10px;
+  border-radius: 3px;
+  /* Gradient set by JS or inline style using rocket_r stops */
+}
+
+/* Result header with username */
+.heatmap-result-header {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.heatmap-result-header h3 {
+  font-size: 1.1rem;
+  color: var(--text-color);
+  margin-bottom: 0.25rem;
+}
+
+.heatmap-result-header .heatmap-subtitle {
+  font-size: 0.82rem;
+  color: var(--text-color);
+  opacity: 0.6;
+}
+
+/* ------------------------------------------------------------------ */
+/* Tooltip (positioned div, injected by JS)                            */
+/* ------------------------------------------------------------------ */
+.heatmap-tooltip {
+  position: absolute;
+  pointer-events: none;
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  background-color: var(--surface-elevated);
+  color: var(--text-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-color);
+  z-index: 1000;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.heatmap-tooltip.visible {
+  opacity: 1;
+}
+
+.dark-mode .heatmap-tooltip {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ------------------------------------------------------------------ */
+/* Fade transitions for state changes                                  */
+/* ------------------------------------------------------------------ */
+.heatmap-fade {
+  transition: opacity 0.3s ease;
+}
+
+.heatmap-fade.fading-out {
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* SVG grid cell styles (applied via JS, documented here for reference)*/
+/* ------------------------------------------------------------------ */
+/* rect.heatmap-cell { rx: 2; ry: 2; }                                */
+/* Zero-scrobble fill: #e0e0e0 (light) / #2a2a2a (dark)              */
+
+/* ------------------------------------------------------------------ */
+/* Mobile responsive                                                   */
+/* ------------------------------------------------------------------ */
+@media (max-width: 767.98px) {
+  .mode-pills {
+    gap: 0.35rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .mode-pill {
+    font-size: 0.78rem;
+    padding: 0.32rem 0.75rem;
+  }
+
+  .heatmap-spinner-wrapper svg {
+    max-height: 48px;
+  }
+
+  #heatmap-progress-text {
+    font-size: 0.8rem;
+  }
+
+  .heatmap-legend {
+    font-size: 0.7rem;
+  }
+
+  .heatmap-legend-bar {
+    width: 90px;
+    height: 8px;
+  }
+
+  .heatmap-result-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .heatmap-result-header .heatmap-subtitle {
+    font-size: 0.75rem;
+  }
+}

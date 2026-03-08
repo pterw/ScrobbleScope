@@ -38,11 +38,11 @@ Last updated: 2026-03-07
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 18.
-- Current-batch entries in active log block: 3.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2.
-- Next expected work package: WP-3.
+- Current-batch entries in active log block: 4.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
+- Next expected work package: WP-4.
 - Latest validated test count: **381 passed**.
-- Newest current-batch entry: 2026-03-07 - Batch 18 WP-2: heatmap route handlers (Batch 18 WP-2).
+- Newest current-batch entry: 2026-03-07 - Batch 18 WP-3: frontend pill tabs, heatmap form, CSS (Batch 18 WP-3).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -64,6 +64,10 @@ scrobblescope/
   orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
   routes.py                 # Flask Blueprint, all route + error handlers
+templates/
+  inline/scrobblescope_pinwheel.svg  # animated pinwheel loading spinner
+static/
+  css/heatmap.css            # heatmap pill tabs, form, loading, result styles
 ```
 
 ---
