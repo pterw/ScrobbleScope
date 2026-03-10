@@ -34,6 +34,7 @@ class TestValidateSecretKey:
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
 
+
 def test_security_headers(monkeypatch):
     """GIVEN the Flask application factory
     WHEN a request is made to an endpoint
@@ -42,13 +43,14 @@ def test_security_headers(monkeypatch):
     monkeypatch.setenv("SECRET_KEY", _STRONG_KEY)
 
     from app import create_app
+
     app = create_app()
     app.testing = True
 
     with app.test_client() as client:
         # Requesting a non-existent route just to get a response
         # that passes through after_request hooks
-        response = client.get('/non_existent_route_for_headers_test')
+        response = client.get("/non_existent_route_for_headers_test")
 
         headers = response.headers
         assert headers.get("X-Frame-Options") == "SAMEORIGIN"
