@@ -1,0 +1,4 @@
+## 2024-05-18 - Missing Global Security Headers in Application Factory
+**Vulnerability:** The Flask application was missing standard HTTP security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`) on its responses.
+**Learning:** Despite memory context suggesting these headers were already applied globally via an `@application.after_request` hook in `app.py`, they were actually missing in the codebase.
+**Prevention:** Always verify the actual codebase state instead of relying solely on provided context. Implement an `@application.after_request` hook globally to ensure all responses are secured.
