@@ -1,0 +1,4 @@
+## 2024-05-24 - Missing Global Security Headers
+**Vulnerability:** The application was missing standard HTTP security headers such as `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` across all responses.
+**Learning:** These headers were omitted, leaving the application vulnerable to clickjacking (`X-Frame-Options` missing), MIME-type sniffing (`X-Content-Type-Options` missing), and potentially leaking sensitive referrer information (`Referrer-Policy` missing). The decision to skip a strict CSP due to inline styles did not preclude adding these standard protections.
+**Prevention:** Implement security headers using a global framework hook (e.g., Flask's `@application.after_request`) early in the development lifecycle to ensure all responses (including errors like 404s) are protected by default.
