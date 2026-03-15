@@ -33,3 +33,14 @@ class TestValidateSecretKey:
 
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
+
+
+def test_global_security_headers(client):
+    """Verify that global security headers are applied to all responses,
+    including 404s.
+    """
+    response = client.get("/test-404-nonexistent-route")
+    assert response.status_code == 404
+    assert response.headers.get("X-Frame-Options") == "SAMEORIGIN"
+    assert response.headers.get("X-Content-Type-Options") == "nosniff"
+    assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
