@@ -33,3 +33,20 @@ class TestValidateSecretKey:
 
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
+
+
+class TestSecurityHeaders:
+    def test_global_security_headers(self, client):
+        """Verify that standard security headers are applied to all responses,
+        even 404s for non-existent routes."""
+        response = client.get("/test-404-nonexistent-route")
+
+        # We expect a 404 because the route doesn't exist, but the after_request
+        # hook should still attach the headers.
+        assert response.status_code == 404
+
+        assert response.headers.get("X-Frame-Options") == "SAMEORIGIN"
+        assert response.headers.get("X-Content-Type-Options") == "nosniff"
+        assert (
+            response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        )
