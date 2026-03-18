@@ -1,0 +1,4 @@
+## 2026-03-05 - Missing Security Headers
+**Vulnerability:** The application omitted standard HTTP security response headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`), which was confirmed through codebase auditing and existing plan execution definitions.
+**Learning:** `Flask-Talisman` and a full `Content-Security-Policy` (CSP) were intentionally omitted in this project previously due to causing regressions (e.g., breaking inline styles). Because of this design choice, simple standard HTTP security headers were missed entirely and must be applied manually.
+**Prevention:** Apply standard headers (`X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`) manually using Flask's `@application.after_request` hook when full CSP/Flask-Talisman implementation is unviable or abandoned.
