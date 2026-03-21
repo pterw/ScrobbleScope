@@ -30,6 +30,7 @@ if isinstance(sys.stderr, io.TextIOWrapper):
 # Enable ANSI escape codes on Windows cmd (securely)
 if os.name == "nt":
     import ctypes
+
     kernel32 = ctypes.windll.kernel32
     kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
