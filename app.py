@@ -27,8 +27,11 @@ csrf = CSRFProtect()
 if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
-# Enable ANSI escape codes on Windows cmd
-os.system("")
+# Enable ANSI escape codes on Windows cmd (securely)
+if os.name == "nt":
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
 # Ensure the logs directory exists
 os.makedirs("logs", exist_ok=True)
@@ -113,6 +116,14 @@ def create_app():
     application.secret_key = _raw_secret or "dev"
 
     csrf.init_app(application)
+
+    @application.after_request
+    def set_security_headers(response):
+        """Add global HTTP security headers to every response."""
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
 
     @application.errorhandler(CSRFError)
     def handle_csrf_error(e):
