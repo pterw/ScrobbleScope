@@ -1,0 +1,4 @@
+## 2024-05-16 - [Fix OS Command Injection Vulnerability via os.system("")]
+**Vulnerability:** A bare call to `os.system("")` was being used in `app.py` as a hack to enable ANSI escape code support for Windows consoles. This presents a potential command injection vulnerability if the string ever becomes controllable by user input, and is an unnecessary use of a dangerous function.
+**Learning:** `os.system("")` was being used for a side-effect (enabling ANSI support) rather than its intended purpose, which exposes the application to command injection if not handled carefully, and triggers security linters.
+**Prevention:** Use direct Win32 API calls (e.g., `ctypes.windll.kernel32.SetConsoleMode`) or standard libraries like `colorama` for enabling Windows console ANSI support instead of the vulnerable `os.system` hack.
