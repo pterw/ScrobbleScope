@@ -33,3 +33,29 @@ class TestValidateSecretKey:
 
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
+
+
+class TestSecurityHeaders:
+    @pytest.fixture
+    def app(self):
+        from app import create_app
+        import os
+        os.environ["SECRET_KEY"] = _STRONG_KEY
+        return create_app()
+
+    @pytest.fixture
+    def client(self, app):
+        return app.test_client()
+
+    def test_security_headers_present_on_valid_route(self, client):
+        response = client.get("/")
+        assert response.headers.get("X-Frame-Options") == "DENY"
+        assert response.headers.get("X-Content-Type-Options") == "nosniff"
+        assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+
+    def test_security_headers_present_on_404_route(self, client):
+        response = client.get("/test-404-nonexistent-route")
+        assert response.status_code == 404
+        assert response.headers.get("X-Frame-Options") == "DENY"
+        assert response.headers.get("X-Content-Type-Options") == "nosniff"
+        assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
