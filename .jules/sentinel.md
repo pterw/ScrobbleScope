@@ -1,0 +1,4 @@
+## 2026-03-05 - Missing Security Headers
+**Vulnerability:** The application was missing standard security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`) on its HTTP responses, which could lead to attacks like clickjacking and MIME-type sniffing.
+**Learning:** This existed because Flask does not enforce these by default, and `Flask-Talisman` or a similar tool was omitted (CSP headers were dropped as YAGNI in Batch 17 WP-5 since they broke inline styles).
+**Prevention:** I added an `@application.after_request` hook inside the `create_app` factory in `app.py` to globally set the `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin` headers. A test was also added to ensure these are applied globally to all routes (including 404 responses).

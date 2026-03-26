@@ -9,7 +9,7 @@ Last updated: 2026-03-05
 | Item | Value |
 |------|-------|
 | Branch | `feat/heatmap` |
-| Tests | **350 passing** across 23 test files |
+| Tests | **351 passing** across 23 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
