@@ -219,3 +219,10 @@ non-current operational logs. Older dated entries live in
   design -- they will auto-rotate to `BATCH17_LOG.md` when the next batch
   is declared active in Section 3.
 - **350 tests passing**, all hooks green.
+
+### 2026-03-05 - Added standard security headers (Sentinel)
+
+- Addressed a missing security headers vulnerability reported by the Sentinel agent.
+- Added `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin` to all responses using an `@application.after_request` hook in `app.py`.
+- Added `test_global_security_headers` to `tests/test_app_factory.py` to verify the headers are globally applied to all responses, including 404s.
+- **351 tests passing**, all hooks green.
