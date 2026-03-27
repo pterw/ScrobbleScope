@@ -1,0 +1,4 @@
+## 2024-03-27 - Missing HTTP Security Headers
+**Vulnerability:** The application was missing standard HTTP security headers such as `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` across its responses.
+**Learning:** These headers were likely omitted during initial development or because they were assumed to be handled by a proxy. However, failing to set them at the application level leaves the app vulnerable to attacks like Clickjacking (`X-Frame-Options: DENY`), MIME-type sniffing (`X-Content-Type-Options: nosniff`), and inadvertently leaking sensitive URL information via referrers (`Referrer-Policy: strict-origin-when-cross-origin`).
+**Prevention:** Ensure that all applications define global response hooks (e.g., using `@app.after_request` in Flask) to apply these headers universally, and write unit tests against non-existent routes to guarantee they are applied to every HTTP response (including errors).
