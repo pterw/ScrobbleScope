@@ -27,8 +27,15 @@ csrf = CSRFProtect()
 if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
-# Enable ANSI escape codes on Windows cmd
-os.system("")
+# Enable ANSI escape codes on Windows cmd safely without subshell
+if os.name == "nt":
+    import ctypes
+
+    # ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+    # STD_OUTPUT_HANDLE = -11
+    # See: https://docs.microsoft.com/en-us/windows/console/setconsolemode
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
 # Ensure the logs directory exists
 os.makedirs("logs", exist_ok=True)
