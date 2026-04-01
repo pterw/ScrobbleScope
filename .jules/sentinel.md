@@ -1,0 +1,4 @@
+## 2026-04-01 - Command Injection Risk with os.system
+**Vulnerability:** The application used `os.system("")` to enable ANSI escape codes on Windows.
+**Learning:** `os.system` spawns a subshell, which introduces a potential vector for command injection vulnerabilities if user input were ever inadvertently concatenated with the command string. Furthermore, calling `os.system` with an empty string isn't an explicit or secure way to manipulate Windows console modes.
+**Prevention:** To securely interact with OS-specific system APIs (like Windows console modes), use direct system calls such as `ctypes.windll.kernel32.SetConsoleMode` rather than relying on subshell command execution.

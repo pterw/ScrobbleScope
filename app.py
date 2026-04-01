@@ -28,7 +28,10 @@ if isinstance(sys.stderr, io.TextIOWrapper):
     sys.stderr.reconfigure(encoding="utf-8")
 
 # Enable ANSI escape codes on Windows cmd
-os.system("")
+if sys.platform == "win32":
+    import ctypes
+    kernel32 = ctypes.windll.kernel32
+    kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
 # Ensure the logs directory exists
 os.makedirs("logs", exist_ok=True)
