@@ -32,6 +32,7 @@ if isinstance(sys.stderr, io.TextIOWrapper):
 # injection risk in some environments or configurations.
 if os.name == "nt":
     import ctypes
+
     kernel32 = ctypes.windll.kernel32
     kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
 
