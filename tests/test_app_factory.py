@@ -40,11 +40,15 @@ class TestSecurityHeaders:
         response = client.get("/")
         assert response.headers.get("X-Frame-Options") == "DENY"
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
-        assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        assert (
+            response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        )
 
     def test_security_headers_present_on_404_error(self, client):
         response = client.get("/test-404-nonexistent-route")
         assert response.status_code == 404
         assert response.headers.get("X-Frame-Options") == "DENY"
         assert response.headers.get("X-Content-Type-Options") == "nosniff"
-        assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        assert (
+            response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        )
