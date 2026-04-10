@@ -33,3 +33,19 @@ class TestValidateSecretKey:
 
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
+
+
+class TestSecurityHeaders:
+    def test_x_frame_options_is_deny(self, client):
+        response = client.get("/test-404-nonexistent-route")
+        assert response.headers.get("X-Frame-Options") == "DENY"
+
+    def test_x_content_type_options_is_nosniff(self, client):
+        response = client.get("/test-404-nonexistent-route")
+        assert response.headers.get("X-Content-Type-Options") == "nosniff"
+
+    def test_referrer_policy_is_strict_origin(self, client):
+        response = client.get("/test-404-nonexistent-route")
+        assert (
+            response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+        )
