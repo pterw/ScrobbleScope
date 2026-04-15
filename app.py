@@ -131,9 +131,9 @@ def create_app():
     @application.after_request
     def add_security_headers(response):
         """Add standard HTTP security headers to all responses."""
-        response.headers['X-Frame-Options'] = 'DENY'
-        response.headers['X-Content-Type-Options'] = 'nosniff'
-        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
 
     from scrobblescope.routes import bp
