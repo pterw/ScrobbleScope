@@ -1,0 +1,4 @@
+## 2026-04-15 - Missing Security Headers Added Manually
+**Vulnerability:** The application was missing basic HTTP security headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`). Flask-Talisman was deemed YAGNI due to inline styles and strict CSP incompatibility, but the standard security headers were omitted as a result, leaving the app open to framing and MIME-sniffing vulnerabilities.
+**Learning:** Dropping a comprehensive security dependency (Flask-Talisman) often leads to dropping the foundational security controls it provides, rather than implementing the subset that is safe to use.
+**Prevention:** Implement standard, universally-safe security headers natively (e.g., via `@app.after_request`) when dropping an external security extension to ensure baseline protections are maintained.
