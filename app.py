@@ -114,6 +114,15 @@ def create_app():
 
     csrf.init_app(application)
 
+    # SECURITY: Set standard HTTP security headers globally on all responses to
+    # mitigate clickjacking, MIME-sniffing, and limit referrer data leakage.
+    @application.after_request
+    def set_security_headers(response):
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     @application.errorhandler(CSRFError)
     def handle_csrf_error(e):
         """Return a user-friendly error page on CSRF token validation failure."""
