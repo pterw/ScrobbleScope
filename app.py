@@ -128,7 +128,6 @@ def create_app():
             400,
         )
 
-
     @application.after_request
     def add_security_headers(response):
         """Add standard HTTP security headers to all responses."""
