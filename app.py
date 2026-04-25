@@ -128,6 +128,19 @@ def create_app():
             400,
         )
 
+    @application.after_request
+    def add_security_headers(response):
+        """Add standard HTTP security headers to all responses.
+
+        Note: Content-Security-Policy (CSP) is intentionally omitted here
+        because a strict CSP broke inline styles and was deemed not currently
+        viable for this application.
+        """
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     from scrobblescope.routes import bp
 
     application.register_blueprint(bp)
