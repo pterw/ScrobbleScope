@@ -114,6 +114,17 @@ def create_app():
 
     csrf.init_app(application)
 
+    @application.after_request
+    def add_security_headers(response):
+        """Add global HTTP security headers to all responses.
+
+        Note: CSP is intentionally omitted per YAGNI (Batch 17 WP-5).
+        """
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     @application.errorhandler(CSRFError)
     def handle_csrf_error(e):
         """Return a user-friendly error page on CSRF token validation failure."""
