@@ -131,6 +131,15 @@ def create_app():
     from scrobblescope.routes import bp
 
     application.register_blueprint(bp)
+
+    @application.after_request
+    def set_security_headers(response):
+        """Add global HTTP security headers."""
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     return application
 
 
