@@ -610,6 +610,46 @@ integration scenarios discovered during implementation. Verify no regressions.
 
 ---
 
+## Phase 2: Owner Review + UI/UX Fine-Tuning (WP-6+)
+
+After WP-5, the base heatmap feature is working end-to-end. Phase 2 is a
+review and refinement cycle:
+
+1. **Owner reviews the full implementation** in Firefox + Responsive Design
+   Mode and uploads annotated screenshots (Photoshop analysis) showing
+   visual issues, layout problems, and optimization needs.
+2. **Agent reviews FINDINGS.md, server logs, and load data** to identify
+   performance bottlenecks and code-quality issues worth addressing.
+3. **Together they scope WP-6, WP-7, ...** where each WP addresses at
+   least one user-visible issue (CSS fix, layout fix, performance
+   improvement, UX polish, etc.).
+
+Phase 2 WPs are defined dynamically based on owner feedback. They are NOT
+pre-scoped in this definition because they depend on real-world testing.
+
+**Guiding principles for Phase 2 WPs:**
+- Each WP must fix at least one user-visible issue.
+- Purely internal refactors without user-visible impact should be
+  combined with a visible fix or deferred to a follow-up batch.
+- Owner approves each WP scope before implementation begins.
+- Same commit discipline, test rules, and doc sync as Phase 1.
+
+**Known performance issue (critical, scope TBD):**
+Last.fm page fetching for the heatmap is sequential (~100ms/page). A user
+with 103 pages of scrobbles in the last 365 days takes ~11-13 seconds to
+load. This is the dominant bottleneck -- not polling overhead, not
+aggregation, not rendering. Optimization options include:
+- Parallel page fetches with rate-limit-aware batching (e.g., 5 concurrent
+  requests within the global 10 req/s throttle).
+- Partial rendering (show grid as pages arrive, fill in progressively).
+- Heatmap-specific caching (if same user re-requests within TTL).
+- Reducing page count (Last.fm API `limit` param, max 200 tracks/page --
+  currently using default 50).
+This may need its own WP or may be combined with other fixes. The owner
+will decide scope after reviewing load times.
+
+---
+
 ## 3. Testing strategy (pyramid)
 
 **Unit tests (base -- most tests):**

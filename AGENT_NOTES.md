@@ -97,6 +97,10 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 - **Design doc:** see `BATCH18_DEFINITION.md` (repo root while active, then
   `docs/history/definitions/` after close-out).
+- **Two-phase structure:** Phase 1 = WP-1 through WP-5 (core feature, E2E).
+  Phase 2 = WP-6+ (UI/UX fine-tuning, scoped dynamically after owner review
+  with annotated Photoshop screenshots). Each Phase 2 WP must fix at least
+  one user-visible issue.
 - **Key decisions:** username-only input (last 365 days), pill tabs on index.html,
   all states on one page (no navigation), GitHub-style 7x52 SVG grid, rocket_r
   palette, log-adjusted intensity, no heatmap-specific caching (REQUEST_CACHE
@@ -107,6 +111,19 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   orchestrator.py background_task. See AGENT_NOTES Architectural Constraints.
 - **Feature may span multiple batches.** Iteration 1 = working end-to-end.
   Follow-up: orchestrator split, export, date range, summary stats.
+- **Critical performance bottleneck:** Last.fm page fetching for heatmap is
+  sequential (~100ms/page). A user with 103 pages takes 11-13 seconds.
+  This is the dominant load time -- not polling, not aggregation, not SVG
+  rendering. Optimization options to explore in Phase 2:
+  1. Parallel page fetches with rate-limit-aware batching (e.g., 5 concurrent
+     within the global 10 req/s throttle).
+  2. Increase Last.fm API `limit` param from default 50 to 200 tracks/page
+     (reduces 103 pages to ~26 pages -- 4x speedup if API supports it).
+  3. Heatmap-specific caching (if same user re-requests within TTL).
+  4. Partial/progressive rendering (show grid as pages arrive).
+- **Known UI issues (flagged by owner, Phase 2 scope):**
+  - Pill tabs mismatched in width ("Album Filtering" wider than "Heatmap")
+  - Additional issues TBD from owner's Photoshop analysis
 
 ---
 

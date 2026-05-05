@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-03-07
+Last updated: 2026-03-09
 
 ---
 
@@ -17,7 +17,7 @@ Last updated: 2026-03-07
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
-| Batch 18 status | **Active**. Scrobble heatmap iteration 1. Definition: `BATCH18_DEFINITION.md`. |
+| Batch 18 status | **Active**. Scrobble heatmap iteration 1. Phase 1 (WP-1 through WP-4) done. WP-5 (tests) pending. Phase 2 (UI/UX fine-tuning, WP-6+) scoped after owner review. Definition: `BATCH18_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -28,6 +28,9 @@ Last updated: 2026-03-07
 - Cold-start validated 2026-02-19 (both app + DB auto-wake on demand).
 - DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
   elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
+- **Heatmap perf bottleneck:** Last.fm page fetching is sequential (~100ms/page).
+  103 pages = ~11-13s. Optimization (parallel fetches, larger page size, caching)
+  to be scoped as a Phase 2 WP after owner review.
 
 ---
 
@@ -38,11 +41,11 @@ Last updated: 2026-03-07
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 18.
-- Current-batch entries in active log block: 5.
+- Current-batch entries in active log block: 6.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
 - Next expected work package: WP-5.
 - Latest validated test count: **381 passed**.
-- Newest current-batch entry: 2026-03-07 - Batch 18 WP-4: frontend heatmap.js with SVG rendering and polling (Batch 18 WP-4).
+- Newest current-batch entry: 2026-05-05 - Batch 18 doc update: Phase 2 scoping + perf findings (Batch 18 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

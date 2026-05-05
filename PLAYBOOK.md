@@ -59,6 +59,11 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 18 is active.** Branch: `feat/heatmap`. Definition: `BATCH18_DEFINITION.md`.
+- **Phase 1 (core feature) nearly complete.** WP-1 through WP-4 done. WP-5 (tests) pending.
+- **Phase 2 (UI/UX fine-tuning) starts after WP-5.** Owner will review the full
+  implementation, upload annotated screenshots (Photoshop analysis), and
+  together with the agent scope WP-6+ where each WP addresses at least one
+  user-visible issue (pill size mismatch, layout, responsiveness, etc.).
 - **Next action:** WP-5 -- expanded backend tests + edge cases.
 - WP status:
   - WP-1: Backend heatmap task module + error code -- **done**
@@ -66,6 +71,14 @@ Completed batch definitions are archived individually under `docs/history/`.
   - WP-3: Frontend pill tabs + heatmap form + CSS -- **done**
   - WP-4: Frontend heatmap.js (SVG rendering, polling, tooltips) -- **done**
   - WP-5: Expanded tests + edge cases -- **pending**
+  - WP-6+: UI/UX fine-tuning (owner-driven, scoped after review) -- **pending**
+- **Critical perf note:** Last.fm page fetching is sequential (~100ms/page).
+  A heavy user (103 pages) takes 11-13s. This is the dominant heatmap
+  bottleneck. Optimization (parallel fetches, larger page size, caching)
+  will be scoped as a Phase 2 WP. See BATCH18_DEFINITION.md Phase 2 section.
+- Known UI issues flagged by owner (to be scoped in Phase 2):
+  - Pill tabs ("Album Filtering" vs "Heatmap") are mismatched in width
+  - Additional issues TBD from owner's Photoshop analysis
 - Future feature candidates (confirmed by owner roadmap):
   - **Top songs** (future): rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
@@ -90,6 +103,18 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-05-05 - Batch 18 doc update: Phase 2 scoping + perf findings (Batch 18 WP-0)
+
+- BATCH18_DEFINITION.md: added Phase 2 section (owner-review-driven WP-6+ cycle).
+- PLAYBOOK.md Section 3: updated WP status (WP-1 through WP-4 done, WP-5 pending),
+  added Phase 2 description, documented perf bottleneck (sequential Last.fm fetches,
+  ~11-13s for 103 pages) and known UI issues (pill width mismatch).
+- SESSION_CONTEXT.md: bumped date to 2026-03-09, updated Batch 18 status row,
+  added heatmap perf bottleneck note.
+- AGENT_NOTES.md: added Phase 2 two-phase structure description, detailed perf
+  bottleneck options (parallel fetches, larger page size, caching, progressive
+  rendering), listed known UI issues flagged by owner.
 
 ### 2026-03-07 - Batch 18 WP-4: frontend heatmap.js with SVG rendering and polling (Batch 18 WP-4)
 
