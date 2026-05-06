@@ -33,3 +33,22 @@ class TestValidateSecretKey:
 
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
+
+
+class TestSecurityHeaders:
+    def test_global_security_headers(self):
+        import os
+
+        from app import create_app
+
+        os.environ["SECRET_KEY"] = "test-only-secret-key-min-16chars!!"
+        app = create_app()
+        app.config["TESTING"] = True
+        with app.test_client() as client:
+            response = client.get("/test-404-nonexistent-route")
+            assert response.headers.get("X-Content-Type-Options") == "nosniff"
+            assert response.headers.get("X-Frame-Options") == "DENY"
+            assert (
+                response.headers.get("Referrer-Policy")
+                == "strict-origin-when-cross-origin"
+            )
