@@ -128,6 +128,18 @@ def create_app():
             400,
         )
 
+    @application.after_request
+    def add_security_headers(response):
+        """Add standard HTTP security headers to all responses."""
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        if not debug_mode:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+        return response
+
     from scrobblescope.routes import bp
 
     application.register_blueprint(bp)
