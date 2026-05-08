@@ -2,7 +2,7 @@
 import os
 import webbrowser
 
-from app import app
+from app import app, debug_mode
 
 if __name__ == "__main__":
     # This check prevents the reloader from running this block twice.
@@ -14,4 +14,4 @@ if __name__ == "__main__":
         webbrowser.open(url)
 
     # Starts the server in debug mode with auto-reloading
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=debug_mode)

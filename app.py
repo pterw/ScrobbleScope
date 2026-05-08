@@ -148,4 +148,4 @@ if __name__ == "__main__":
     print(f"Your app is live at: {url}")
     webbrowser.open(url)
 
-    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
+    app.run(host="127.0.0.1", port=5000, debug=debug_mode, use_reloader=False)
