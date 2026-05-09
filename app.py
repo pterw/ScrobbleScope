@@ -114,6 +114,20 @@ def create_app():
 
     csrf.init_app(application)
 
+    @application.after_request
+    def add_security_headers(response):
+        """Add HTTP security headers to all responses.
+
+        Security Concern:
+        - X-Content-Type-Options: prevents MIME-sniffing, mitigating some XSS attacks.
+        - X-Frame-Options: prevents clickjacking by restricting embedding in iframes.
+        - Referrer-Policy: prevents leaking cross-origin referrers.
+        """
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     @application.errorhandler(CSRFError)
     def handle_csrf_error(e):
         """Return a user-friendly error page on CSRF token validation failure."""
