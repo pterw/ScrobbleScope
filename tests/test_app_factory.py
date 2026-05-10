@@ -34,6 +34,7 @@ class TestValidateSecretKey:
     def test_succeeds_with_strong_key_in_production(self):
         _validate_secret_key(_STRONG_KEY, is_dev_mode=False)
 
+
 def test_security_headers_present(client):
     """Test that all basic security headers are set on an arbitrary response.
 
