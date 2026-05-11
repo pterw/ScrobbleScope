@@ -128,6 +128,14 @@ def create_app():
             400,
         )
 
+    @application.after_request
+    def add_security_headers(response):
+        """Add basic security headers to all responses to prevent MIME-sniffing, clickjacking, and referrer leakage."""
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     from scrobblescope.routes import bp
 
     application.register_blueprint(bp)
