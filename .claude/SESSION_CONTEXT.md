@@ -9,7 +9,7 @@ Last updated: 2026-03-09
 | Item | Value |
 |------|-------|
 | Branch | `feat/heatmap` |
-| Tests | **381 passing** across 24 test files |
+| Tests | **385 passing** across 24 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -17,7 +17,7 @@ Last updated: 2026-03-09
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
-| Batch 18 status | **Active**. Scrobble heatmap iteration 1. Phase 1 (WP-1 through WP-4) done. WP-5 (tests) pending. Phase 2 (UI/UX fine-tuning, WP-6+) scoped after owner review. Definition: `BATCH18_DEFINITION.md`. |
+| Batch 18 status | **Active**. Scrobble heatmap iteration 1. Phase 1 complete (WP-1 through WP-5 done). Phase 2 (UI/UX fine-tuning, WP-6+) scoped after owner review. Definition: `BATCH18_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -41,11 +41,11 @@ Last updated: 2026-03-09
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 18.
-- Current-batch entries in active log block: 6.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
-- Next expected work package: WP-5.
-- Latest validated test count: **381 passed**.
-- Newest current-batch entry: 2026-05-05 - Batch 18 doc update: Phase 2 scoping + perf findings (Batch 18 WP-0).
+- Current-batch entries in active log block: 7.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
+- Next expected work package: WP-6.
+- Latest validated test count: **385 passed**.
+- Newest current-batch entry: 2026-05-05 - Batch 18 WP-5: expanded edge case and integration tests (Batch 18 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -123,7 +123,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (381 tests)
+## 6. Test structure (385 tests)
 
 | File | Count |
 |------|-------|
@@ -133,10 +133,10 @@ loading.js polls GET /progress?job_id=...
 | test_docsync_parser.py | 35 |
 | test_docsync_renderer.py | 21 |
 | test_domain.py | 13 |
-| test_heatmap.py | 17 |
-| test_repositories.py | 18 |
+| test_heatmap.py | 19 |
+| test_repositories.py | 19 |
 | test_retry_with_semaphore.py | 8 |
-| test_routes.py | 64 |
+| test_routes.py | 65 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
 | scripts/dev/test_dev_start.py | 11 |

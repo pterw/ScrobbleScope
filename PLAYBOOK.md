@@ -59,18 +59,18 @@ Completed batch definitions are archived individually under `docs/history/`.
 ## 3. Active batch + next action
 
 - **Batch 18 is active.** Branch: `feat/heatmap`. Definition: `BATCH18_DEFINITION.md`.
-- **Phase 1 (core feature) nearly complete.** WP-1 through WP-4 done. WP-5 (tests) pending.
-- **Phase 2 (UI/UX fine-tuning) starts after WP-5.** Owner will review the full
+- **Phase 1 (core feature) complete.** WP-1 through WP-5 done.
+- **Phase 2 (UI/UX fine-tuning) ready to start.** Owner will review the full
   implementation, upload annotated screenshots (Photoshop analysis), and
   together with the agent scope WP-6+ where each WP addresses at least one
   user-visible issue (pill size mismatch, layout, responsiveness, etc.).
-- **Next action:** WP-5 -- expanded backend tests + edge cases.
+- **Next action:** Owner reviews Phase 1, then scopes WP-6+.
 - WP status:
   - WP-1: Backend heatmap task module + error code -- **done**
   - WP-2: Backend heatmap routes -- **done**
   - WP-3: Frontend pill tabs + heatmap form + CSS -- **done**
   - WP-4: Frontend heatmap.js (SVG rendering, polling, tooltips) -- **done**
-  - WP-5: Expanded tests + edge cases -- **pending**
+  - WP-5: Expanded tests + edge cases -- **done**
   - WP-6+: UI/UX fine-tuning (owner-driven, scoped after review) -- **pending**
 - **Critical perf note:** Last.fm page fetching is sequential (~100ms/page).
   A heavy user (103 pages) takes 11-13s. This is the dominant heatmap
@@ -103,6 +103,31 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-05-05 - Batch 18 WP-5: expanded edge case and integration tests (Batch 18 WP-5)
+
+- Added 4 new tests across 3 files; all existing 381 tests still pass (385 total).
+- `tests/test_heatmap.py` (+2 tests, 19 total):
+  - `test_midnight_boundary_attribution`: tracks at 23:59:59 on day D and
+    00:00:01 on day D+1 are attributed to their correct calendar days.
+    Adversarial for off-by-one in the uts->date conversion.
+  - `test_partial_data_with_zero_scrobbles_fires_error`: partial fetch with
+    no in-range tracks triggers both the partial-data warning stat and the
+    no_scrobbles_in_range error (tests the combined code path).
+- `tests/test_repositories.py` (+1 test, 19 total):
+  - `test_get_job_context_dict_results_are_shallow_copied`: mutating the dict
+    returned by get_job_context does not corrupt the live JOBS entry. Adversarial
+    for the `elif isinstance(results, dict): dict(results)` branch added in WP-1.
+- `tests/test_routes.py` (+1 test, 65 total):
+  - `test_heatmap_loading_whitespace_username`: whitespace-only username is
+    stripped and treated as missing (400). Adversarial for absent strip() call.
+- **No vacuous tests added.** Each new test fails if the function under test
+  or the specific branch being exercised is removed.
+- File size note: test_routes.py (65 tests) is the largest in the suite; a
+  future split into test_album_routes.py / test_heatmap_routes.py is a
+  candidate for a follow-up batch.
+- **385 tests passing**, all 10 pre-commit hooks green.
+- Phase 1 complete. Next: owner reviews implementation and scopes WP-6+.
 
 ### 2026-05-05 - Batch 18 doc update: Phase 2 scoping + perf findings (Batch 18 WP-0)
 

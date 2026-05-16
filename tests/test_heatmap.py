@@ -2,9 +2,11 @@
 
 Covers:
 - _aggregate_daily_counts: pure function with mock page data, "now playing"
-  skips, 365/366-day range fill, boundary timestamps, empty pages.
-- _fetch_and_process_heatmap: upstream error, partial data, zero scrobbles,
-  happy path result dict, progress callback percentages.
+  skips, 365/366-day range fill, boundary timestamps, midnight boundary
+  attribution, empty pages.
+- _fetch_and_process_heatmap: upstream error, partial data, partial+zero
+  scrobbles combination, zero scrobbles, happy path result dict, progress
+  callback percentages.
 - heatmap_task: release_job_slot called in finally (even on exception).
 - no_scrobbles_in_range error code existence.
 """
@@ -183,6 +185,28 @@ class TestAggregateDailyCounts:
         assert result["2026-02-01"] == 2
         assert result["2026-02-02"] == 1
 
+    def test_midnight_boundary_attribution(self):
+        """Tracks at 23:59:59 on day D and 00:00:01 on day D+1 land on correct days.
+
+        Adversarial: catches an off-by-one in the uts->date conversion (e.g.
+        using UTC instead of local time, or rounding to the wrong second).
+        """
+        d1 = date(2026, 3, 1)
+        d2 = date(2026, 3, 2)
+        late_uts = int(datetime.combine(d1, dt_time(23, 59, 59)).timestamp())
+        early_uts = int(datetime.combine(d2, dt_time(0, 0, 1)).timestamp())
+        pages = [
+            _wrap_tracks(
+                [
+                    _make_track(d1, uts_override=late_uts),
+                    _make_track(d2, uts_override=early_uts),
+                ]
+            )
+        ]
+        result = _aggregate_daily_counts(pages, d1, d2)
+        assert result["2026-03-01"] == 1
+        assert result["2026-03-02"] == 1
+
 
 # ===========================================================================
 # _fetch_and_process_heatmap
@@ -251,6 +275,46 @@ class TestFetchAndProcessHeatmap:
             # Results were stored (not an error).
             mock_results.assert_called_once()
             mock_error.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_partial_data_with_zero_scrobbles_fires_error(self):
+        """Partial fetch that yields no in-range tracks triggers no_scrobbles_in_range.
+
+        Adversarial: verifies the zero-scrobble guard runs *after* the partial-data
+        warning, so both branches execute correctly in combination.  A naive
+        implementation might skip the zero check when status is "partial".
+        """
+        meta = {
+            "status": "partial",
+            "pages_expected": 5,
+            "pages_received": 2,
+            "pages_dropped": 3,
+        }
+        with (
+            patch("scrobblescope.heatmap.cleanup_expired_cache"),
+            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
+            patch("scrobblescope.heatmap.set_job_progress"),
+            patch(
+                "scrobblescope.heatmap.fetch_all_recent_tracks_async",
+                new_callable=AsyncMock,
+                return_value=([], meta),  # partial status but no tracks returned
+            ),
+            patch("scrobblescope.heatmap.set_job_stat") as mock_stat,
+            patch("scrobblescope.heatmap.set_job_error") as mock_error,
+            patch("scrobblescope.heatmap.set_job_results") as mock_results,
+        ):
+            await _fetch_and_process_heatmap("job-partial-zero", "partialuser")
+
+        # Partial-data warning must still be recorded.
+        warning_calls = [
+            c for c in mock_stat.call_args_list if c[0][1] == "partial_data_warning"
+        ]
+        assert len(warning_calls) == 1
+        # Zero-scrobble guard fires, not success.
+        mock_error.assert_called_once_with(
+            "job-partial-zero", "no_scrobbles_in_range", username="partialuser"
+        )
+        mock_results.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_zero_scrobbles_fires_no_scrobbles_error(self):

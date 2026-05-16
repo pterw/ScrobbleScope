@@ -932,6 +932,20 @@ def test_csrf_rejects_heatmap_loading_without_token(csrf_app_client):
     assert response.status_code == 400
 
 
+def test_heatmap_loading_whitespace_username(client):
+    """POST /heatmap_loading with a whitespace-only username returns 400.
+
+    Adversarial: the route strips the username before the empty check.  Without
+    the strip() call a whitespace string would be truthy and bypass validation,
+    reaching the Last.fm user-existence check with an invalid username instead
+    of failing fast with a 400.
+    """
+    response = client.post("/heatmap_loading", data={"username": "   "})
+    assert response.status_code == 400
+    data = response.get_json()
+    assert data["error"] is True
+
+
 # --- Helper unit tests ---
 
 
