@@ -2,12 +2,15 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-350_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-385_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Try it live →](https://scrobblescope.fly.dev)**
 
-ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists, but it works equally well for exploring your musical journey across any year of scrobbling.
+ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It offers two features on a single page, switchable via pill tabs:
+
+* **Album Filtering** -- fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists.
+* **Scrobble Heatmap** -- renders a GitHub-style calendar grid showing your daily listening density for the last 365 days. No year picker needed; the grid is always current.
 
 This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
 
@@ -60,6 +63,14 @@ This project was initially built to identify top albums released in a specific y
     * Rotating messages and live stats (scrobble count, albums found, Spotify matches) during processing.
     * Clear error classification with retry UX for transient upstream failures.
 * **Onboarding:** First-visit welcome modal with an "Info" button for returning users; contextual tooltip icons on form fields.
+* **Scrobble Heatmap:**
+    * GitHub/Last.fm-Labs-style 7x52 calendar grid (one cell per day, last 365 days).
+    * rocket_r colour palette (near-black → deep purple → red → orange → cream); log-adjusted intensity so sparse and heavy listeners both get readable gradients.
+    * Zero-scrobble days rendered as muted cells so grid structure stays visible.
+    * Hover/tap tooltip: day label + scrobble count ("Sunday 1 March 2026 -- 34 scrobbles").
+    * Colour-scale legend at grid edge.
+    * Dark mode aware; responsive SVG scales to any viewport width.
+    * Animated pinwheel spinner + live page-fetch progress during data load.
 
 ## Screenshots
 
@@ -93,11 +104,11 @@ This project was initially built to identify top albums released in a specific y
 |-------|-----------|
 | Backend | Python 3.13, Flask 3.1, Gunicorn |
 | Frontend | HTML5, CSS3, JavaScript (ES6+), Bootstrap 5 |
-| APIs | Last.fm (`user.getrecenttracks`, `user.getinfo`), Spotify (search, album details) |
+| APIs | Last.fm (`user.getrecenttracks`, `user.getinfo`), Spotify (search, album details) -- heatmap uses Last.fm only |
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (350 tests across 23 files), ~72% coverage |
+| Testing | pytest (385 tests across 24 files), ~72% coverage |
 | CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
@@ -340,7 +351,8 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |-- cache.py                   # asyncpg helpers (retry/backoff, batch ops)
 |   |-- lastfm.py                  # Last.fm HTTP client (pure I/O, no state)
 |   |-- spotify.py                 # Spotify HTTP client (search, batch details)
-|   |-- orchestrator.py            # Pipeline: fetch -> process -> results
+|   |-- orchestrator.py            # Album pipeline: fetch -> process -> results
+|   |-- heatmap.py                 # Heatmap pipeline: fetch -> aggregate daily counts
 |   `-- routes.py                  # Flask Blueprint, route + error handlers
 |-- templates/
 |   |-- base.html                  # Master template (nav, dark-mode toggle)
@@ -350,7 +362,8 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |-- unmatched.html             # Detailed exclusion report
 |   |-- error.html                 # Error display
 |   `-- inline/
-|       `-- scrobble_scope_inline.svg  # Animated logo
+|       |-- scrobble_scope_inline.svg  # Animated logo
+|       `-- scrobblescope_pinwheel.svg # Animated heatmap loading spinner
 |-- static/
 |   |-- css/
 |   |   |-- global.css             # Shared variables, dark-mode, toggle
@@ -358,14 +371,16 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |   |-- loading.css
 |   |   |-- results.css
 |   |   |-- error.css
-|   |   `-- unmatched.css
+|   |   |-- unmatched.css
+|   |   `-- heatmap.css            # Pill tabs, heatmap form, loading, result, tooltips
 |   |-- js/
 |   |   |-- theme.js               # Dark-mode init + toggle logic
 |   |   |-- index.js               # Form validation, dynamic options
 |   |   |-- loading.js             # Progress polling, rotating messages
 |   |   |-- results.js             # CSV/JPEG export, modal, back-to-top
 |   |   |-- error.js               # (stub -- logic moved to theme.js)
-|   |   `-- unmatched.js           # (stub -- logic moved to theme.js)
+|   |   |-- unmatched.js           # (stub -- logic moved to theme.js)
+|   |   `-- heatmap.js             # Pill switching, AJAX, polling, SVG grid, tooltips
 |   `-- images/                    # Favicons (SVG, PNG, ICO)
 |-- scripts/
 |   |-- doc_state_sync.py          # PLAYBOOK/SESSION_CONTEXT sync (entry point)
@@ -390,9 +405,10 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (35)
 |   |-- test_docsync_renderer.py   # Docsync status block renderer (21)
 |   |-- test_domain.py             # Name normalization (13)
-|   |-- test_repositories.py       # Job state CRUD (18)
+|   |-- test_heatmap.py             # Heatmap aggregation + task lifecycle (19)
+|   |-- test_repositories.py       # Job state CRUD (19)
 |   |-- test_retry_with_semaphore.py  # Retry + semaphore logic (8)
-|   |-- test_routes.py             # Route handlers + helpers (50)
+|   |-- test_routes.py             # Route handlers + helpers (65)
 |   |-- test_utils.py              # Rate limiters, caching, formatting (34)
 |   |-- test_worker.py             # Job slot + thread management (6)
 |   |-- scripts/dev/
@@ -498,7 +514,7 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [x] Backend SoC: `lastfm.py` is now a pure HTTP client; all business logic in `orchestrator.py`.
 * [x] Route helper extraction (`_get_validated_job_context`, `_get_filter_description`).
 * [x] Global rate throttle, playtime album cap, bounded job concurrency.
-* [x] 350 tests across 23 test files, ~72% coverage.
+* [x] 385 tests across 24 test files, ~72% coverage.
 * [x] Modular docsync package (`scripts/docsync/`) with per-batch log routing, SHA-256 dedup, and cross-validation.
 * [x] Parser hardening: strict heading validation, malformed-entry tolerance, edge-case coverage (35 parser tests).
 * [x] AGENTS.md consolidation: anti-pattern registry, batch close-out procedure, side-task handling, doc sync rules.
@@ -506,7 +522,7 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 **Confirmed upcoming features (planned, not yet started):**
 
 * [ ] **Top songs:** Rank a user's most-played tracks for a given year (Last.fm + optional Spotify enrichment). Separate background task type with its own loading/results flow.
-* [ ] **Listening heatmap:** Calendar-style scrobble density map for the last 365 days. Last.fm API only (no Spotify), lightweight background task.
+* [x] **Scrobble heatmap:** GitHub/Last.fm-Labs-style calendar grid showing daily listening density for the last 365 days. Last.fm API only (no Spotify). Vanilla SVG, rocket_r palette, hover/tap tooltips, dark mode, responsive. (Batch 18 -- Phase 1 complete; Phase 2 UI/UX fine-tuning in progress.)
 
 **Ongoing code quality track (scope TBD, informed by third-party audit):**
 

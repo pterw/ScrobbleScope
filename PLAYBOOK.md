@@ -244,6 +244,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-05-16 - README update: heatmap feature + stale data
+
+- Added heatmap feature description to intro paragraph (was album-only).
+- Added Scrobble Heatmap bullet to Features section (grid, palette, tooltips,
+  dark mode, responsive, pinwheel spinner).
+- Updated project structure: heatmap.py, heatmap.css, heatmap.js,
+  scrobblescope_pinwheel.svg, test_heatmap.py all added; stale test counts
+  corrected (test_repositories.py 18->19, test_routes.py 50->65).
+- Updated tech stack table: test count 350/23 -> 385/24; APIs note that
+  heatmap uses Last.fm only (no Spotify).
+- Roadmap: checked off heatmap (Batch 18 Phase 1 complete, Phase 2 in progress);
+  corrected "350 tests / 23 files" to "385 / 24".
+- Test badge: 350 -> 385.
+
 ### 2026-03-05 - Post-Batch-17 doc staleness fix
 
 - PLAYBOOK Section 3 still said "Batch 17 is active" and listed all WP
