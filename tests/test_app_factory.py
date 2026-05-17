@@ -17,7 +17,10 @@ class TestSecurityHeaders:
             response = client.get("/")
             assert response.headers.get("X-Frame-Options") == "DENY"
             assert response.headers.get("X-Content-Type-Options") == "nosniff"
-            assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+            assert (
+                response.headers.get("Referrer-Policy")
+                == "strict-origin-when-cross-origin"
+            )
 
 
 class TestValidateSecretKey:
