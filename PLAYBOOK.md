@@ -244,6 +244,13 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-05-16 - Remove dependabot.yml (side-task)
+
+- Removed `.github/dependabot.yml`: all packages are pinned with `==` so
+  dependabot can only open PRs that break the pinning policy. Pure noise for
+  this project. No functional change.
+- **385 tests passing**, all hooks green.
+
 ### 2026-05-16 - README update: heatmap feature + stale data
 
 - Added heatmap feature description to intro paragraph (was album-only).
