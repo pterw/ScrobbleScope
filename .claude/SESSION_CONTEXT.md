@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-03-09
+Last updated: 2026-05-17
 
 ---
 
@@ -17,7 +17,8 @@ Last updated: 2026-03-09
 | Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
-| Batch 18 status | **Active**. Scrobble heatmap iteration 1. Phase 1 complete (WP-1 through WP-5 done). Phase 2 (UI/UX fine-tuning, WP-6+) scoped after owner review. Definition: `BATCH18_DEFINITION.md`. |
+| Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
+| Batch 19 status | **Active**. Heatmap polish -- frame, KPIs, mobile layout. WP-0 committed. Definition: `BATCH19_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -28,9 +29,10 @@ Last updated: 2026-03-09
 - Cold-start validated 2026-02-19 (both app + DB auto-wake on demand).
 - DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
   elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
-- **Heatmap perf bottleneck:** Last.fm page fetching is sequential (~100ms/page).
-  103 pages = ~11-13s. Optimization (parallel fetches, larger page size, caching)
-  to be scoped as a Phase 2 WP after owner review.
+- **Heatmap perf (measured 2026-05-16):** 10.9s for 103 pages (`flounder14`).
+  `lastfm.py` already uses `limit=200` and concurrent `as_completed` fetching.
+  10.9s is the rate-limit floor (103 pages / 10 req/s). No further optimization
+  without heatmap-specific caching or rate-limit risk. See FINDINGS.md F-B18-11.
 
 ---
 
@@ -40,12 +42,12 @@ Last updated: 2026-03-09
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: Batch 18.
-- Current-batch entries in active log block: 7.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
-- Next expected work package: WP-6.
+- Current batch: Batch 19.
+- Current-batch entries in active log block: 1.
+- Completed work packages in current-batch entries: WP-0.
+- Next expected work package: WP-1.
 - Latest validated test count: **385 passed**.
-- Newest current-batch entry: 2026-05-05 - Batch 18 WP-5: expanded edge case and integration tests (Batch 18 WP-5).
+- Newest current-batch entry: 2026-05-17 - Batch 19 WP-0: definition committed (Batch 19 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
