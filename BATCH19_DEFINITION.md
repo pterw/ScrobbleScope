@@ -281,7 +281,8 @@ Four stats above the grid, inside the frame. Monospaced labels, large values.
 #### 2d. CSS + JS -- legend repositioned
 
 Move legend from below the grid to the top-right of the frame, inline with
-the KPI row. On mobile it moves below the grid (stacks naturally).
+the KPI row. On mobile it stacks below the KPI row and remains above the
+grid, matching the WP-5 mobile-layout dependency.
 
 ```css
 .heatmap-frame-top {
@@ -373,7 +374,7 @@ and `resultSubtitle` (replaced by headline + KPIs).
 **Acceptance criteria:**
 - Headline renders: username in accent color (italic), rest in text-color
 - Four KPI stats render with correct values and mono labels
-- Legend is top-right on desktop, below grid on mobile
+- Legend is top-right on desktop, stacked below KPIs and above grid on mobile
 - Frame has 14px radius, warm cream light / inky purple-dark surface
 - No Bootstrap `.card` class on the result frame
 - Month labels use monospaced font in SVG
@@ -679,7 +680,7 @@ After WP-5 owner sign-off, `feat/heatmap` is ready for the PR to main.
 | WP | Files |
 |----|-------|
 | WP-1 | `PLAYBOOK.md`, `AGENT_NOTES.md`, `.claude/SESSION_CONTEXT.md`, `FINDINGS.md`, `AGENTS.md`, `HANDOFF_PROMPT.md`, `.gitignore`, `BATCH19_DEFINITION.md` |
-| WP-2 | `static/css/heatmap.css`, `static/js/heatmap.js`, `templates/index.html` |
+| WP-2 | `static/css/heatmap.css`, `static/js/heatmap.js`, `templates/index.html`, `BATCH19_DEFINITION.md` |
 | WP-3 | `templates/index.html`, `static/js/heatmap.js` |
 | WP-4 | `templates/inline/scrobblescope_pinwheel.svg`, `static/css/heatmap.css` |
 | WP-5 | `static/js/heatmap.js`, `static/css/heatmap.css` |

@@ -116,14 +116,95 @@
     return 'linear-gradient(to right, ' + stops.join(', ') + ')';
   }
 
+  function clearChildren(el) {
+    while (el.firstChild) {
+      el.removeChild(el.firstChild);
+    }
+  }
+
+  function formatMonthDayUpper(d) {
+    return MONTH_NAMES[d.getMonth()].toUpperCase() + ' ' + d.getDate();
+  }
+
+  function computeStreak(dailyCounts, toDate) {
+    var streak = 0;
+    var d = new Date(toDate);
+    while (true) {
+      var key = isoDate(d);
+      if (!dailyCounts[key] || dailyCounts[key] === 0) break;
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function renderHeadline(username) {
+    clearChildren(resultHeadline);
+
+    var nameSpan = document.createElement('span');
+    nameSpan.className = 'heatmap-headline-username';
+    nameSpan.textContent = username || '';
+
+    resultHeadline.appendChild(nameSpan);
+    resultHeadline.appendChild(document.createTextNode("'s last 365 days, day by day."));
+  }
+
+  function appendKpi(label, value, subLabel) {
+    var item = document.createElement('div');
+    item.className = 'heatmap-kpi';
+
+    var labelEl = document.createElement('span');
+    labelEl.className = 'heatmap-kpi-label';
+    labelEl.textContent = label;
+
+    var valueEl = document.createElement('span');
+    valueEl.className = 'heatmap-kpi-value';
+    valueEl.textContent = value;
+
+    item.appendChild(labelEl);
+    item.appendChild(valueEl);
+
+    if (subLabel) {
+      var subEl = document.createElement('span');
+      subEl.className = 'heatmap-kpi-sub';
+      subEl.textContent = subLabel;
+      item.appendChild(subEl);
+    }
+
+    kpiRow.appendChild(item);
+  }
+
+  function renderKpis(data, dailyCounts, toDate) {
+    clearChildren(kpiRow);
+
+    var total = Number(data.total_scrobbles || 0);
+    var dayKeys = Object.keys(dailyCounts);
+    var bestDate = dayKeys.length > 0
+      ? dayKeys.reduce(function (a, b) {
+          return dailyCounts[a] >= dailyCounts[b] ? a : b;
+        })
+      : isoDate(toDate);
+    var bestCount = dailyCounts[bestDate] || 0;
+    var bestLabel = formatMonthDayUpper(parseLocalDate(bestDate));
+    var activeDays = dayKeys.filter(function (key) {
+      return dailyCounts[key] > 0;
+    }).length;
+    var streak = computeStreak(dailyCounts, toDate);
+
+    appendKpi('TOTAL SCROBBLES', total.toLocaleString(), '');
+    appendKpi('BEST DAY', String(bestCount), bestLabel);
+    appendKpi('ACTIVE DAYS', String(activeDays), '/ 365');
+    appendKpi('CURRENT STREAK', streak + 'd', '');
+  }
+
   // ----------------------------------------------------------------
   // DOM references (set on DOMContentLoaded)
   // ----------------------------------------------------------------
   var pills, albumSection, heatmapSection, heatmapLoading,
       heatmapResult, heatmapForm, heatmapUsernameInput,
       progressText, errorContainer, errorMessage,
-      retryBtn, searchAgainBtn, resultTitle, resultSubtitle,
-      gridContainer, legendBar, tooltip;
+      retryBtn, searchAgainBtn, resultHeadline, resultFrame,
+      kpiRow, gridContainer, legendBar, tooltip;
 
   // ----------------------------------------------------------------
   // State
@@ -252,8 +333,9 @@
     errorMessage   = document.getElementById('heatmap-error-message');
     retryBtn       = document.getElementById('heatmap-retry-btn');
     searchAgainBtn = document.getElementById('heatmap-search-again');
-    resultTitle    = document.getElementById('heatmap-result-title');
-    resultSubtitle = document.getElementById('heatmap-result-subtitle');
+    resultHeadline = document.getElementById('heatmap-result-headline');
+    resultFrame    = document.getElementById('heatmap-result-frame');
+    kpiRow         = document.getElementById('heatmap-kpi-row');
     gridContainer  = document.getElementById('heatmap-grid');
     legendBar      = document.getElementById('heatmap-legend-bar');
 
@@ -417,7 +499,9 @@
     var svgHeight = TOP_PAD + 7 * STEP;
 
     // Clear previous content
-    gridContainer.innerHTML = '';
+    clearChildren(gridContainer);
+    renderHeadline(data.username);
+    renderKpis(data, dailyCounts, toDate);
 
     var svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
@@ -435,6 +519,9 @@
       txt.setAttribute('y', TOP_PAD + dl.row * STEP + CELL_SIZE * 0.75);
       txt.setAttribute('text-anchor', 'end');
       txt.setAttribute('font-size', '9');
+      txt.setAttribute('font-family',
+        'ui-monospace, "Cascadia Code", "Fira Mono", monospace');
+      txt.setAttribute('letter-spacing', '0.04em');
       txt.setAttribute('fill', 'currentColor');
       txt.setAttribute('class', 'heatmap-day-label');
       txt.textContent = dl.text;
@@ -454,6 +541,9 @@
           mTxt.setAttribute('x', LEFT_PAD + col * STEP);
           mTxt.setAttribute('y', TOP_PAD - 5);
           mTxt.setAttribute('font-size', '9');
+          mTxt.setAttribute('font-family',
+            'ui-monospace, "Cascadia Code", "Fira Mono", monospace');
+          mTxt.setAttribute('letter-spacing', '0.04em');
           mTxt.setAttribute('fill', 'currentColor');
           mTxt.setAttribute('class', 'heatmap-month-label');
           mTxt.textContent = MONTH_NAMES[d.getMonth()];
@@ -503,15 +593,10 @@
     // -- Legend gradient --
     legendBar.style.background = legendGradient();
 
-    // -- Result header --
-    resultTitle.textContent = data.username + "'s Scrobble Heatmap";
-    var fromStr = formatDateLong(fromDate);
-    var toStr   = formatDateLong(toDate);
-    resultSubtitle.textContent = fromStr + ' -- ' + toStr +
-      ' | ' + data.total_scrobbles.toLocaleString() + ' scrobbles';
-
     // Transition: loading -> result
     hideElement(heatmapLoading);
+    fadeIn(resultHeadline);
+    fadeIn(resultFrame);
     fadeIn(heatmapResult);
 
     // Attach tooltip handlers

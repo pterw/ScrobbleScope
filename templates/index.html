@@ -203,25 +203,20 @@
 
     {# ---- Heatmap result container (hidden) ---- #}
     <div class="col-md-8 d-none" id="heatmap-result">
-      <div class="card shadow">
-        <div class="card-body">
-          <div class="heatmap-result-header">
-            <h3 id="heatmap-result-title"></h3>
-            <p class="heatmap-subtitle" id="heatmap-result-subtitle"></p>
-          </div>
-
-          <div id="heatmap-grid"></div>
-
+      <p class="heatmap-headline d-none" id="heatmap-result-headline"></p>
+      <div class="heatmap-frame d-none" id="heatmap-result-frame">
+        <div class="heatmap-frame-top">
+          <div class="heatmap-kpi-row" id="heatmap-kpi-row"></div>
           <div class="heatmap-legend">
             <span>Less</span>
             <div class="heatmap-legend-bar" id="heatmap-legend-bar"></div>
             <span>More</span>
           </div>
-
-          <div class="text-center mt-3">
-            <button type="button" class="btn btn-outline-primary btn-sm" id="heatmap-search-again">Search Again</button>
-          </div>
         </div>
+        <div id="heatmap-grid"></div>
+      </div>
+      <div class="text-center mt-3">
+        <button type="button" class="btn btn-outline-primary btn-sm" id="heatmap-search-again">Search Again</button>
       </div>
     </div>
     {# ---- end Heatmap result ---- #}

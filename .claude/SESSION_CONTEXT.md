@@ -18,7 +18,7 @@ Last updated: 2026-05-17
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
-| Batch 19 status | **Active**. Heatmap polish -- frame, KPIs, mobile layout. WP-1 complete; WP-2 next. Definition: `BATCH19_DEFINITION.md`. |
+| Batch 19 status | **Active**. Heatmap polish -- frame, KPIs, mobile layout. WP-2 complete; WP-3 next. Definition: `BATCH19_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -43,11 +43,11 @@ Last updated: 2026-05-17
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 19.
-- Current-batch entries in active log block: 2.
-- Completed work packages in current-batch entries: WP-0, WP-1.
-- Next expected work package: WP-2.
+- Current-batch entries in active log block: 3.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2.
+- Next expected work package: WP-3.
 - Latest validated test count: **385 passed**.
-- Newest current-batch entry: 2026-05-17 - Batch 19 WP-1: stale perf docs and bootstrap drift controls (Batch 19 WP-1).
+- Newest current-batch entry: 2026-05-17 - Batch 19 WP-2: heatmap frame, headline, KPIs, and legend (Batch 19 WP-2).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

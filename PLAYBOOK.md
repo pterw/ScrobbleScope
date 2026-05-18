@@ -62,10 +62,10 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 18 complete.** All 5 WPs done. Definition archived:
   `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 is active.** Branch: `feat/heatmap`. Definition: `BATCH19_DEFINITION.md`.
-- **Next action:** WP-2 -- heatmap result redesign (frame, headline, KPIs, legend).
+- **Next action:** WP-3 -- pill rename to "Top Albums" + subtitle removal.
 - WP status:
   - WP-1: Correct stale perf docs + update FINDINGS.md -- **done**
-  - WP-2: Heatmap result redesign (frame, headline, KPIs, legend) -- **pending**
+  - WP-2: Heatmap result redesign (frame, headline, KPIs, legend) -- **done**
   - WP-3: Pill rename to "Top Albums" + subtitle removal -- **pending**
   - WP-4: Pinwheel SVG clipping fix -- **pending**
   - WP-5: Mobile vertical heatmap layout -- **pending**
@@ -98,6 +98,36 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-05-17 - Batch 19 WP-2: heatmap frame, headline, KPIs, and legend (Batch 19 WP-2)
+
+- Scope: redesigned the heatmap result surface into a shareable artifact with
+  a custom frame, accent username headline, four KPI stats, and a frame-top
+  legend.
+- Plan vs implementation:
+  - Replaced the Bootstrap result `.card` wrapper with `heatmap-headline`,
+    `heatmap-frame`, `heatmap-frame-top`, `heatmap-kpi-row`, and the existing
+    grid/legend elements.
+  - Added heatmap-scoped surface tokens and responsive frame/KPI/legend CSS
+    without touching `global.css`, `base.html`, or Python files.
+  - Added JS helpers for headline building, KPI rendering, best-day/active-day
+    counts, current streak, and safe DOM clearing.
+  - Kept user-provided username rendering on `textContent` plus
+    `createTextNode`; no user data is written through HTML parsing.
+  - Applied monospaced font attributes directly to SVG month/day labels.
+- Deviations: clarified `BATCH19_DEFINITION.md` wording for the mobile legend.
+  The original line contradicted the provided WP-2 markup and WP-5 dependency;
+  the canonical behavior is now legend top-right on desktop and stacked below
+  KPIs above the grid on mobile.
+- Validation: `.venv\Scripts\python.exe -m pytest -q` passed with
+  **385 passed** and 3 existing aiohttp/Python 3.13 warnings.
+  `node --check static/js/heatmap.js` exited 0. Headless Chrome rendered a
+  temporary local light/dark fixture using the actual heatmap CSS at desktop
+  and mobile widths; the temporary fixture was removed before commit.
+  `pre-commit run --all-files` passed with all 10 hooks green.
+- Forward guidance: WP-3 can remove the old subtitle references next. Keep
+  `formatDateLong` unless a fresh search proves it is unused, because tooltip
+  copy still depends on it after WP-2.
 
 ### 2026-05-17 - Batch 19 WP-1: stale perf docs and bootstrap drift controls (Batch 19 WP-1)
 
