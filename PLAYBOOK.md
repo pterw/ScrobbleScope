@@ -62,11 +62,11 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 18 complete.** All 5 WPs done. Definition archived:
   `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 is active.** Branch: `feat/heatmap`. Definition: `BATCH19_DEFINITION.md`.
-- **Next action:** WP-3 -- pill rename to "Top Albums" + subtitle removal.
+- **Next action:** WP-4 -- pinwheel SVG clipping fix.
 - WP status:
   - WP-1: Correct stale perf docs + update FINDINGS.md -- **done**
   - WP-2: Heatmap result redesign (frame, headline, KPIs, legend) -- **done**
-  - WP-3: Pill rename to "Top Albums" + subtitle removal -- **pending**
+  - WP-3: Pill rename to "Top Albums" + subtitle removal -- **done**
   - WP-4: Pinwheel SVG clipping fix -- **pending**
   - WP-5: Mobile vertical heatmap layout -- **pending**
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
@@ -98,6 +98,23 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-05-17 - Batch 19 WP-3: Top Albums pill and subtitle cleanup (Batch 19 WP-3)
+
+- Scope: renamed the album-mode pill and modal guidance from "Album Filtering"
+  to "Top Albums" and verified the heatmap subtitle cleanup from WP-2.
+- Plan vs implementation:
+  - Updated `templates/index.html` pill text, comments, and welcome-modal tip.
+  - Confirmed the old `#heatmap-result-subtitle`, `resultSubtitle`, and
+    `heatmap-subtitle` result logic were already removed by WP-2.
+  - Kept `formatDateLong` because tooltip rendering still calls it.
+- Deviations: added a focused route regression test for the rendered index
+  page label and modal copy, increasing the expected test count by 1.
+- Validation so far: the new regression test failed before the template
+  change, then passed after the copy update. The full pytest gate passed with
+  **386 passed** and 3 existing aiohttp/Python 3.13 warnings.
+- Forward guidance: WP-4 can proceed next. Do not remove `formatDateLong`
+  unless tooltip date formatting is replaced too.
 
 ### 2026-05-17 - Batch 19 WP-2 follow-up: contain mobile heatmap scrolling (Batch 19 WP-2)
 

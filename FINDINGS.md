@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-17
 Status: Batch 19 active on `feat/heatmap`. Batch 18 heatmap iteration 1 is
-complete and archived. 385 tests, 24 test files.
+complete and archived. 386 tests, 24 test files.
 Batch 19 polish is in progress: perf documentation cleanup, result frame/KPIs,
 pill rename, pinwheel clipping fix, and mobile heatmap layout.
 Includes findings from load testing + cache verification session (2026-03-04)

@@ -35,6 +35,17 @@ def test_home_page(client):
     assert b"Filter Your Album Scrobbles!" in response.data
 
 
+def test_home_page_uses_top_albums_mode_label(client):
+    """The index page labels the album mode as Top Albums in tabs and help copy."""
+    response = client.get("/")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert ">Top Albums</span>" in html
+    assert "switch between Top Albums and Heatmap modes" in html
+    assert ">Album Filtering</span>" not in html
+
+
 def test_validate_user_success(client):
     """Validate endpoint should return valid=true with registered_year."""
     mock_result = {"exists": True, "registered_year": 2016}

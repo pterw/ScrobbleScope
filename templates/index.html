@@ -16,14 +16,14 @@
       </div>
       <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="infoButton" data-bs-toggle="modal" data-bs-target="#welcomeModal">Info</button>
 
-      {# Pill tabs: switch between Album Filtering and Heatmap modes #}
+      {# Pill tabs: switch between Top Albums and Heatmap modes #}
       <div class="mode-pills mt-3">
-        <span class="mode-pill active" data-mode="album" role="button" tabindex="0">Album Filtering</span>
+        <span class="mode-pill active" data-mode="album" role="button" tabindex="0">Top Albums</span>
         <span class="mode-pill" data-mode="heatmap" role="button" tabindex="0">Heatmap</span>
       </div>
     </div>
 
-    {# ---- Album Filtering form (default visible) ---- #}
+    {# ---- Top Albums form (default visible) ---- #}
     <div class="col-md-6" id="album-form-section">
 
       {% if error %}
@@ -154,7 +154,7 @@
         </div>
       </div>
     </div>
-    {# ---- end Album Filtering form ---- #}
+    {# ---- end Top Albums form ---- #}
 
     {# ---- Heatmap form (hidden by default) ---- #}
     <div class="col-md-6 d-none" id="heatmap-form-section">
@@ -242,7 +242,7 @@
           <li><strong>Export &amp; Share:</strong> Download as CSV or save as an image</li>
           <li><strong>Scrobble Heatmap:</strong> Visualize your daily listening activity over the last year</li>
         </ul>
-        <p class="mb-0"><small><strong>Tip:</strong> Use the pill tabs above the form to switch between Album Filtering and Heatmap modes.</small></p>
+        <p class="mb-0"><small><strong>Tip:</strong> Use the pill tabs above the form to switch between Top Albums and Heatmap modes.</small></p>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Get Started</button>

@@ -1,8 +1,8 @@
 # BATCH19: Heatmap Polish -- Frame, KPIs, Mobile Layout
 
-**Status:** Active (WP-0 committed)
+**Status:** Active (WP-3 committed)
 **Branch:** `feat/heatmap`
-**Baseline:** 385 tests passing (verified 2026-05-16)
+**Baseline:** 386 tests passing after WP-3 (verified 2026-05-17)
 
 ---
 
@@ -424,7 +424,7 @@ needed -- the subtitle is gone.
 - No dead `formatDateLong`/`formatDateShort` code if unused
 - `pre-commit run --all-files` passes
 
-**Net tests:** 0
+**Net tests:** +1 route regression test for rendered index pill/modal copy
 **Commit:** `feat(heatmap): rename pill to Top Albums; remove redundant subtitle`
 
 ---
@@ -643,7 +643,7 @@ committed (the frame structure must exist before mobile layout is built on it).
 ## 4. Validation gate (every WP)
 
 ```bash
-pytest -q                                  # must stay at 385 passing
+pytest -q                                  # must stay at 386 passing
 pre-commit run --all-files                 # all 10 hooks green
 python scripts/doc_state_sync.py --check   # exit 0
 ```
@@ -684,6 +684,6 @@ After WP-5 owner sign-off, `feat/heatmap` is ready for the PR to main.
 |----|-------|
 | WP-1 | `PLAYBOOK.md`, `AGENT_NOTES.md`, `.claude/SESSION_CONTEXT.md`, `FINDINGS.md`, `AGENTS.md`, `HANDOFF_PROMPT.md`, `.gitignore`, `BATCH19_DEFINITION.md` |
 | WP-2 | `static/css/heatmap.css`, `static/js/heatmap.js`, `templates/index.html`, `BATCH19_DEFINITION.md` |
-| WP-3 | `templates/index.html`, `static/js/heatmap.js` |
+| WP-3 | `templates/index.html`, `static/js/heatmap.js`, `tests/test_routes.py` |
 | WP-4 | `templates/inline/scrobblescope_pinwheel.svg`, `static/css/heatmap.css` |
 | WP-5 | `static/js/heatmap.js`, `static/css/heatmap.css` |
