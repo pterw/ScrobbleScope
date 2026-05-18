@@ -108,7 +108,8 @@ Conventional Commits, imperative mood, no trailing period:
 1. `pytest -q` -- all tests pass.
 2. `pre-commit run --all-files` -- all hooks pass.
 3. Stage only files changed for this work package.
-4. Commit and push after each WP (do not batch multiple WPs into one commit).
+4. Commit after each WP (do not batch multiple WPs into one commit). Do not
+   push unless the owner explicitly asks for a push.
 
 **Co-author prohibition:** Do NOT add `Co-authored-by` trailers or any co-author
 metadata to commits. This repo uses multi-agent orchestration; attribution is
@@ -208,6 +209,11 @@ These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
 stderr when the STATUS block is stale but does not fail. `--fix` writes the refreshed
 STATUS block to disk; commit the result so the next agent session starts with accurate
 state.
+
+Root `BATCHN_DEFINITION.md` warnings are expected while a batch is active
+and PLAYBOOK Section 3 points to that root definition. Treat them as a
+reminder that the definition must be archived at close-out, not as a blocker
+during active work. After close-out, the root warning should disappear.
 
 **Real issues** (act on these):
 - "Test count mismatch" where SESSION_CONTEXT Section 1 and the most-recent

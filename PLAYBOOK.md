@@ -62,9 +62,9 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 18 complete.** All 5 WPs done. Definition archived:
   `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 is active.** Branch: `feat/heatmap`. Definition: `BATCH19_DEFINITION.md`.
-- **Next action:** WP-0 (definition commit), then WP-1 through WP-5.
+- **Next action:** WP-2 -- heatmap result redesign (frame, headline, KPIs, legend).
 - WP status:
-  - WP-1: Correct stale perf docs + update FINDINGS.md -- **pending**
+  - WP-1: Correct stale perf docs + update FINDINGS.md -- **done**
   - WP-2: Heatmap result redesign (frame, headline, KPIs, legend) -- **pending**
   - WP-3: Pill rename to "Top Albums" + subtitle removal -- **pending**
   - WP-4: Pinwheel SVG clipping fix -- **pending**
@@ -98,6 +98,34 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-05-17 - Batch 19 WP-1: stale perf docs and bootstrap drift controls (Batch 19 WP-1)
+
+- Scope: corrected stale heatmap performance documentation and tightened
+  cross-agent bootstrap rules before UI polish begins.
+- Plan vs implementation: kept the WP doc-only intent, then folded in
+  owner-requested drift-control fixes discovered during audit:
+  - `AGENT_NOTES.md` now points to archived Batch 18 and active Batch 19
+    definitions, removes the obsolete sequential-fetch diagnosis, and records
+    the measured 10.9s rate-limit floor.
+  - `FINDINGS.md` is now current for Batch 19, tracks 385 tests, and reframes
+    F-B18-11 as rate-limit bound rather than sequential.
+  - `.gitignore` no longer ignores `FINDINGS.md`; it is shared cross-agent
+    context because PLAYBOOK and Batch 19 reference it.
+  - `AGENTS.md` and `HANDOFF_PROMPT.md` now align on the no-push rule and
+    document the expected non-blocking root batch-definition warning while a
+    batch is active.
+  - `BATCH19_DEFINITION.md` acceptance criteria now distinguish active docs
+    from historical archives, and WP-2/WP-5 wording was clarified.
+- Deviations: added `AGENTS.md`, `HANDOFF_PROMPT.md`, `.gitignore`, and
+  `BATCH19_DEFINITION.md` to WP-1 because the audit found they directly
+  affected turn-one orientation and cross-agent drift mitigation.
+- Validation: `.venv\Scripts\python.exe -m pytest -q` initially hit sandboxed
+  Windows temp permissions, then passed with approval: **385 passed**.
+  `pre-commit run --all-files` passed with all 10 hooks green after using the
+  per-command Git safe-directory override required by this workspace.
+- Forward guidance: WP-2 can start next. Browser visual verification will be
+  most useful after WP-2, WP-4, and WP-5 if the local app is running.
 
 ### 2026-05-17 - Batch 19 WP-0: definition committed (Batch 19 WP-0)
 

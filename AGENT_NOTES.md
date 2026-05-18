@@ -93,14 +93,14 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ---
 
-## Heatmap Feature (Batch 18 -- iteration 1)
+## Heatmap Feature (Batch 18 iteration 1 + Batch 19 polish)
 
-- **Design doc:** see `BATCH18_DEFINITION.md` (repo root while active, then
-  `docs/history/definitions/` after close-out).
-- **Two-phase structure:** Phase 1 = WP-1 through WP-5 (core feature, E2E).
-  Phase 2 = WP-6+ (UI/UX fine-tuning, scoped dynamically after owner review
-  with annotated Photoshop screenshots). Each Phase 2 WP must fix at least
-  one user-visible issue.
+- **Core feature definition:** `docs/history/definitions/BATCH18_DEFINITION.md`.
+- **Active polish definition:** `BATCH19_DEFINITION.md` while Batch 19 is active
+  on `feat/heatmap`; archive it under `docs/history/definitions/` at close-out.
+- **Batch 19 scope:** frame/headline/KPIs result redesign, "Top Albums" pill
+  rename, pinwheel clipping fix, mobile vertical heatmap layout, and stale
+  documentation cleanup. Full app palette/font rebrand remains deferred.
 - **Key decisions:** username-only input (last 365 days), pill tabs on index.html,
   all states on one page (no navigation), GitHub-style 7x52 SVG grid, rocket_r
   palette, log-adjusted intensity, no heatmap-specific caching (REQUEST_CACHE
@@ -109,21 +109,19 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   search, producing different REQUEST_CACHE keys. No interference.
 - **Windows asyncio:** heatmap_task must use same ProactorEventLoop guard as
   orchestrator.py background_task. See AGENT_NOTES Architectural Constraints.
-- **Feature may span multiple batches.** Iteration 1 = working end-to-end.
-  Follow-up: orchestrator split, export, date range, summary stats.
-- **Critical performance bottleneck:** Last.fm page fetching for heatmap is
-  sequential (~100ms/page). A user with 103 pages takes 11-13 seconds.
-  This is the dominant load time -- not polling, not aggregation, not SVG
-  rendering. Optimization options to explore in Phase 2:
-  1. Parallel page fetches with rate-limit-aware batching (e.g., 5 concurrent
-     within the global 10 req/s throttle).
-  2. Increase Last.fm API `limit` param from default 50 to 200 tracks/page
-     (reduces 103 pages to ~26 pages -- 4x speedup if API supports it).
-  3. Heatmap-specific caching (if same user re-requests within TTL).
-  4. Partial/progressive rendering (show grid as pages arrive).
-- **Known UI issues (flagged by owner, Phase 2 scope):**
-  - Pill tabs mismatched in width ("Album Filtering" wider than "Heatmap")
-  - Additional issues TBD from owner's Photoshop analysis
+- **Feature may span multiple batches.** Follow-up candidates: orchestrator
+  split, export, date range, summary stats.
+- **Heatmap perf (measured 2026-05-16):** `flounder14` took 10.9 seconds for
+  103 Last.fm pages. `lastfm.py` already uses `limit=200`, concurrent
+  `as_completed` fetching, `MAX_CONCURRENT_LASTFM=10`, and the global
+  10 req/s throttle. That makes 10.9s effectively the rate-limit floor
+  (103 pages / 10 req/s = 10.3s minimum). Further speedups require
+  heatmap-specific caching, progressive rendering, or higher rate-limit risk.
+- **Known UI issues in Batch 19 scope:**
+  - Pill label/presentation polish ("Album Filtering" becomes "Top Albums")
+  - Result should read as a shareable artifact, not a Bootstrap card widget
+  - Pinwheel blade expansion currently clips
+  - Horizontal desktop grid is too small to tap/read on narrow mobile viewports
 
 ---
 

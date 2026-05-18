@@ -7,6 +7,17 @@ before doing anything else. Do not skip any step.
 
 ## 1) Bootstrap (required -- read in this order)
 
+Canonical source order:
+- `AGENTS.md` owns stable rules.
+- `HANDOFF_PROMPT.md` owns session-start procedure and commit discipline.
+- `PLAYBOOK.md` owns active work order and execution log.
+- `.claude/SESSION_CONTEXT.md` mirrors current state for fast orientation.
+- `AGENT_NOTES.md` owns owner preferences and local constraints.
+
+If two bootstrap files conflict, follow the stricter safety rule and pause
+only when the conflict affects the next action. In particular, never push
+without explicit owner instruction.
+
 1. `AGENTS.md` -- rules, commit format, docsync policy, anti-patterns.
 2. `PLAYBOOK.md` Section 3 (active batch + next WP) + Section 4 (log).
 3. The batch definition file named in PLAYBOOK Section 3.
@@ -43,6 +54,10 @@ pytest -q
 pre-commit run --all-files
 python scripts/doc_state_sync.py --check
 ```
+
+A `Root BATCH file detected` warning is expected while an active batch
+definition is intentionally at repo root and named in PLAYBOOK Section 3.
+It should disappear during batch close-out after the definition is archived.
 
 After editing PLAYBOOK Section 4:
 

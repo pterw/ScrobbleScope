@@ -1,6 +1,6 @@
 # BATCH19: Heatmap Polish -- Frame, KPIs, Mobile Layout
 
-**Status:** Pending
+**Status:** Active (WP-0 committed)
 **Branch:** `feat/heatmap`
 **Baseline:** 385 tests passing (verified 2026-05-16)
 
@@ -85,11 +85,22 @@ The 10.9s measured time is the rate-limit floor, not a concurrency failure.
 - `FINDINGS.md` -- F-B18-11: correct "sequential" root cause, add measured
   concurrent data (10.9s, 2026-05-16); update header (381 -> 385 tests,
   Batch 18 Phase 1 complete not "in progress")
+- `AGENTS.md` / `HANDOFF_PROMPT.md` -- align no-push commit discipline and
+  clarify expected active root batch-definition warnings
+- `.gitignore` -- allow `FINDINGS.md` to be tracked as shared cross-agent
+  context
 
 **Acceptance criteria:**
-- No remaining "sequential" or "11-13s" perf text in any tracked file
+- No stale current-state "sequential" or "11-13s" perf assertions remain in
+  active/bootstrap docs (`PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`,
+  `AGENT_NOTES.md`, `FINDINGS.md`). Historical archives and this definition
+  may preserve old wording when describing what was stale.
 - FINDINGS.md F-B18-11 accurately describes rate-limit floor as the constraint
 - FINDINGS.md header test count and batch status current
+- Bootstrap files give one canonical push rule: commit after each WP, do not
+  push without explicit owner instruction
+- Expected docsync root batch-definition warning is documented as non-blocking
+  while a batch is active
 - `pre-commit run --all-files` passes
 - `python scripts/doc_state_sync.py --check` exits 0
 
@@ -103,7 +114,7 @@ The 10.9s measured time is the rate-limit floor, not a concurrency failure.
 **Goal:** Redesign the heatmap result card into a self-contained shareable
 artifact. Custom frame surface, headline with accent-colored username, four
 KPI stats above the grid, legend repositioned to top-right of the frame.
-All changes confined to `heatmap.css` and `heatmap.js`.
+All changes confined to `heatmap.css`, `heatmap.js`, and `templates/index.html`.
 
 **Design reference:** Owner-provided mocks (dark + light mode).
 The frame reads as a designed component, not a Bootstrap card widget.
@@ -586,6 +597,10 @@ function renderHeatmapMobile(data) {
 **Mobile CSS:**
 ```css
 @media (max-width: 767.98px) {
+  .heatmap-frame {
+    padding: 1rem 0.75rem;
+  }
+
   #heatmap-grid svg {
     /* Allow vertical scroll if grid is taller than viewport */
     max-height: none;
@@ -649,7 +664,7 @@ python scripts/doc_state_sync.py --check   # exit 0
 
 | WP | Criterion |
 |----|-----------|
-| WP-1 | No stale "sequential/11-13s" text anywhere; FINDINGS.md F-B18-11 and header current |
+| WP-1 | No stale current-state "sequential/11-13s" assertions in active/bootstrap docs; FINDINGS.md F-B18-11 and header current |
 | WP-2 | Frame, headline, KPIs, legend render correctly in dark and light mode |
 | WP-3 | Pill shows "Top Albums"; subtitle element and logic fully removed |
 | WP-4 | Pinwheel blades expand without clipping on desktop and mobile |
@@ -663,7 +678,7 @@ After WP-5 owner sign-off, `feat/heatmap` is ready for the PR to main.
 
 | WP | Files |
 |----|-------|
-| WP-1 | `PLAYBOOK.md`, `AGENT_NOTES.md`, `.claude/SESSION_CONTEXT.md`, `FINDINGS.md` |
+| WP-1 | `PLAYBOOK.md`, `AGENT_NOTES.md`, `.claude/SESSION_CONTEXT.md`, `FINDINGS.md`, `AGENTS.md`, `HANDOFF_PROMPT.md`, `.gitignore`, `BATCH19_DEFINITION.md` |
 | WP-2 | `static/css/heatmap.css`, `static/js/heatmap.js`, `templates/index.html` |
 | WP-3 | `templates/index.html`, `static/js/heatmap.js` |
 | WP-4 | `templates/inline/scrobblescope_pinwheel.svg`, `static/css/heatmap.css` |
