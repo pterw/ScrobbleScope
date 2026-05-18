@@ -99,6 +99,31 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-05-17 - Batch 19 WP-2 follow-up: contain mobile heatmap scrolling (Batch 19 WP-2)
+
+- Scope: owner review of WP-2 found that responsive design mode could drag the
+  heatmap page and that the actual heatmap grid was too small to read on
+  mobile-width viewports.
+- Plan vs implementation: kept the full vertical mobile renderer scoped to
+  WP-5, and added a narrow WP-2 CSS containment fix:
+  - `.heatmap-frame` now clips its own contents.
+  - `#heatmap-grid` remains the horizontal scroll container and contains
+    horizontal overscroll.
+  - Mobile CSS gives the desktop SVG a 720px rendered width so cells remain
+    legible until WP-5 replaces the render path with a vertical grid.
+- Deviations: updated `BATCH19_DEFINITION.md` acceptance to record the
+  interim mobile fallback explicitly, avoiding drift between owner review,
+  CSS behavior, and the later WP-5 scope.
+- Validation: temporary headless Chrome probe reproduced the pre-fix
+  state (`gridIsContainedScroller=false`, SVG height 62px) and passed after
+  the CSS fix (`gridIsContainedScroller=true`, SVG height 106px). The
+  temporary probe file was removed before commit. The pytest gate passed with
+  **385 passed** and 3 existing aiohttp/Python 3.13 warnings. The pre-commit
+  gate passed with all 10 hooks green.
+- Forward guidance: WP-3 remains next. WP-5 should replace or override the
+  interim `#heatmap-grid svg { width: 720px; }` mobile fallback when the
+  vertical mobile renderer lands.
+
 ### 2026-05-17 - Batch 19 WP-2: heatmap frame, headline, KPIs, and legend (Batch 19 WP-2)
 
 - Scope: redesigned the heatmap result surface into a shareable artifact with

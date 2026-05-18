@@ -378,6 +378,9 @@ and `resultSubtitle` (replaced by headline + KPIs).
 - Frame has 14px radius, warm cream light / inky purple-dark surface
 - No Bootstrap `.card` class on the result frame
 - Month labels use monospaced font in SVG
+- Mobile interim fallback keeps the desktop SVG in a contained horizontal
+  `#heatmap-grid` scroller so the page itself does not drag; full vertical
+  mobile rendering remains WP-5
 - `textContent`/`createTextNode` used exclusively for user data (no innerHTML)
 - No changes to `global.css`, `base.html`, or any Python file
 - `pre-commit run --all-files` passes

@@ -43,11 +43,11 @@ Last updated: 2026-05-17
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 19.
-- Current-batch entries in active log block: 3.
+- Current-batch entries in active log block: 4.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2.
 - Next expected work package: WP-3.
 - Latest validated test count: **385 passed**.
-- Newest current-batch entry: 2026-05-17 - Batch 19 WP-2: heatmap frame, headline, KPIs, and legend (Batch 19 WP-2).
+- Newest current-batch entry: 2026-05-17 - Batch 19 WP-2 follow-up: contain mobile heatmap scrolling (Batch 19 WP-2).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
