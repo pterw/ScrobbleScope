@@ -18,7 +18,7 @@ Last updated: 2026-05-17
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
-| Batch 19 status | **Active**. Heatmap polish -- frame, KPIs, mobile layout. WP-3 complete; WP-4 next. Definition: `BATCH19_DEFINITION.md`. |
+| Batch 19 status | **Active**. Heatmap polish -- frame, KPIs, mobile layout. WP-4 complete; WP-5 next. Definition: `BATCH19_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -43,11 +43,11 @@ Last updated: 2026-05-17
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 19.
-- Current-batch entries in active log block: 5.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
-- Next expected work package: WP-4.
+- Current-batch entries in active log block: 6.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
+- Next expected work package: WP-5.
 - Latest validated test count: **386 passed**.
-- Newest current-batch entry: 2026-05-17 - Batch 19 WP-3: Top Albums pill and subtitle cleanup (Batch 19 WP-3).
+- Newest current-batch entry: 2026-05-17 - Batch 19 WP-4: pinwheel SVG clipping fix (Batch 19 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

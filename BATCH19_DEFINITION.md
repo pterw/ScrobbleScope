@@ -1,6 +1,6 @@
 # BATCH19: Heatmap Polish -- Frame, KPIs, Mobile Layout
 
-**Status:** Active (WP-3 committed)
+**Status:** Active (WP-4 committed)
 **Branch:** `feat/heatmap`
 **Baseline:** 386 tests passing after WP-3 (verified 2026-05-17)
 

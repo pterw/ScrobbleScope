@@ -62,12 +62,12 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 18 complete.** All 5 WPs done. Definition archived:
   `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 is active.** Branch: `feat/heatmap`. Definition: `BATCH19_DEFINITION.md`.
-- **Next action:** WP-4 -- pinwheel SVG clipping fix.
+- **Next action:** WP-5 -- mobile vertical heatmap layout.
 - WP status:
   - WP-1: Correct stale perf docs + update FINDINGS.md -- **done**
   - WP-2: Heatmap result redesign (frame, headline, KPIs, legend) -- **done**
   - WP-3: Pill rename to "Top Albums" + subtitle removal -- **done**
-  - WP-4: Pinwheel SVG clipping fix -- **pending**
+  - WP-4: Pinwheel SVG clipping fix -- **done**
   - WP-5: Mobile vertical heatmap layout -- **pending**
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
@@ -98,6 +98,26 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-05-17 - Batch 19 WP-4: pinwheel SVG clipping fix (Batch 19 WP-4)
+
+- Scope: fixed heatmap loading pinwheel clipping during blade expansion on
+  desktop and mobile.
+- Plan vs implementation:
+  - Added `overflow="visible"` to the inline pinwheel SVG root.
+  - Changed `.heatmap-spinner-wrapper` from an inline-block max-width shell to
+    a fixed flex centering box: 120x120 desktop, 96x96 mobile.
+  - Set the spinner SVG itself to 80x80 desktop and 64x64 mobile with visible
+    overflow.
+- Deviations: none.
+- Validation: temporary headless Chrome probes using the actual heatmap CSS
+  confirmed computed desktop dimensions of wrapper 120x120 / SVG 80x80 with
+  visible overflow, and mobile dimensions of wrapper 96x96 / SVG 64x64 with
+  visible overflow. The temporary probe file was removed before commit. The
+  pytest gate passed with **386 passed** and 3 existing aiohttp/Python 3.13
+  warnings. The pre-commit gate passed with all 10 hooks green.
+- Forward guidance: WP-5 is next and should replace the interim mobile
+  horizontal-scroller fallback with the vertical mobile heatmap renderer.
 
 ### 2026-05-17 - Batch 19 WP-3: Top Albums pill and subtitle cleanup (Batch 19 WP-3)
 
