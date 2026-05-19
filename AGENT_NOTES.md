@@ -96,8 +96,10 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 ## Heatmap Feature (Batch 18 iteration 1 + Batch 19 polish)
 
 - **Core feature definition:** `docs/history/definitions/BATCH18_DEFINITION.md`.
-- **Active polish definition:** `BATCH19_DEFINITION.md` while Batch 19 is active
-  on `feat/heatmap`; archive it under `docs/history/definitions/` at close-out.
+- **Batch 19 polish definition (archived):** `docs/history/definitions/BATCH19_DEFINITION.md`.
+  Closed out 2026-05-19; `feat/heatmap` is PR-ready.
+- **Batch 20 placeholder definition:** `BATCH20_DEFINITION.md` at repo root.
+  Scope is TBD (global UI overhaul). No WP work until owner finalizes scope.
 - **Batch 19 scope:** frame/headline/KPIs result redesign, "Top Albums" pill
   rename, pinwheel/loading polish, mobile heatmap layout, and stale
   documentation cleanup. Full app palette/font rebrand remains deferred.
