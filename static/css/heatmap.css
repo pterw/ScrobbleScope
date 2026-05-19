@@ -339,9 +339,20 @@
     height: 8px;
   }
 
-  /* Interim containment until WP-5 replaces this with a vertical mobile grid. */
-  #heatmap-grid svg {
-    width: 720px;
-    max-width: none;
+  #heatmap-grid {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow-x: hidden;
+  }
+
+  #heatmap-grid svg[data-layout="mobile"] {
+    display: block;
+    flex: 0 1 auto;
+    margin: 0;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    max-height: none;
   }
 }

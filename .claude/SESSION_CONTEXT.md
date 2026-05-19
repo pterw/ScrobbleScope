@@ -43,11 +43,11 @@ Last updated: 2026-05-17
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 19.
-- Current-batch entries in active log block: 6.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
-- Next expected work package: WP-5.
+- Current-batch entries in active log block: 7.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
+- Next expected work package: WP-6.
 - Latest validated test count: **386 passed**.
-- Newest current-batch entry: 2026-05-17 - Batch 19 WP-4: pinwheel SVG clipping fix (Batch 19 WP-4).
+- Newest current-batch entry: 2026-05-17 - Batch 19 WP-5: vertical mobile heatmap layout (Batch 19 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

@@ -62,13 +62,13 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 18 complete.** All 5 WPs done. Definition archived:
   `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 is active.** Branch: `feat/heatmap`. Definition: `BATCH19_DEFINITION.md`.
-- **Next action:** WP-5 -- mobile vertical heatmap layout.
+- **Next action:** Owner visual check for Batch 19, then batch close-out if approved.
 - WP status:
   - WP-1: Correct stale perf docs + update FINDINGS.md -- **done**
   - WP-2: Heatmap result redesign (frame, headline, KPIs, legend) -- **done**
   - WP-3: Pill rename to "Top Albums" + subtitle removal -- **done**
   - WP-4: Pinwheel SVG clipping fix -- **done**
-  - WP-5: Mobile vertical heatmap layout -- **pending**
+  - WP-5: Mobile vertical heatmap layout -- **done**
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
@@ -98,6 +98,44 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-05-17 - Batch 19 WP-5: vertical mobile heatmap layout (Batch 19 WP-5)
+
+- Scope: added the narrow-viewport heatmap render path. Desktop remains the
+  existing horizontal month/day-labeled SVG; mobile now renders weeks as rows
+  and Monday-Sunday as seven columns with compact tappable cells.
+- Status: done after owner-feedback pass reduced the mobile grid weight,
+  corrected page-level mobile drag, and verified the current app source serves
+  "Top Albums" rather than "Album Filtering".
+- Plan vs implementation:
+  - Split the old `renderHeatmap` body into `renderHeatmapDesktop`.
+  - Added `renderHeatmapMobile` and a viewport branch at render time.
+  - Mobile render reuses existing date, color, legend, KPI, zero-fill, and
+    tooltip helpers.
+  - Removed the interim 720px mobile horizontal-scroller fallback from WP-2.
+  - Added `data-layout` markers to the generated SVGs for visual/debug probes.
+  - Capped mobile cells at 9px with a 1px gap after owner review found the
+    initial full-width, 30px, and 18px attempts too heavy.
+  - Centered the intrinsic mobile SVG in the frame and avoided height-capping
+    that can visually letterbox the grid.
+  - Added mobile index row-gutter containment and global modal/overflow
+    guards after owner reported page-level horizontal drag on the index page.
+- Deviations: mobile viewBox width is calculated as seven cells plus six gaps
+  rather than seven full steps, so the grid has no trailing gap. The final
+  mobile cell size is capped at 9px instead of filling the frame width.
+  The source served by the running local app contains "Top Albums" and no
+  "Album Filtering" string; seeing the old label indicates a stale browser
+  page/cache or a different running checkout rather than current source.
+- Validation: `node --check static/js/heatmap.js` passed. Temporary headless
+  Chrome checks loaded the actual local app and a heatmap probe page for
+  mobile visual review; the local app response contains "Top Albums" and does
+  not contain "Album Filtering". The pytest gate passed with **386 passed**
+  and 3 existing aiohttp/Python 3.13 warnings. `doc_state_sync.py --check`
+  passed with the expected active-root-definition warning, and
+  `pre-commit run --all-files` passed all hooks.
+- Forward guidance: all Batch 19 WPs are implemented. Owner visual check is
+  the next gate; if approved, perform the Batch Close-Out Procedure in
+  `AGENTS.md`.
 
 ### 2026-05-17 - Batch 19 WP-4: pinwheel SVG clipping fix (Batch 19 WP-4)
 

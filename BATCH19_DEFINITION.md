@@ -497,22 +497,29 @@ overflow. Container `max-width: 80px` / `max-height: 64px` compounds this.
 
 **Goal:** On viewports narrower than 768px, render the heatmap in a vertical
 orientation -- weeks as rows (oldest at top, newest at bottom), 7 columns
-(Mon-Sun). No day-of-week or month labels. Cell size fills available width.
+(Mon-Sun). No day-of-week or month labels. Cell size is compact and fixed so
+the grid reads as a dense activity strip instead of filling the full frame.
 Desktop horizontal layout unchanged.
 
 **Design rationale:**
 Horizontal grid (54 cols x 7 rows) at 360px viewport: 54 * (13+3) = 864px
 mapped into ~300px = cells render at ~5px. Illegible and untappable.
 
-Vertical grid (7 cols x ~54 rows) at 360px: (320px - 6*3px) / 7 = ~43px
-per cell. Tappable, readable. Time flows top-to-bottom, which is a natural
-mobile reading pattern (Apple Calendar month view, Google Calendar week).
-No labels needed -- tooltips on tap provide full date + count.
+Vertical grid (7 cols x ~54 rows) at 360px: initially full-width cells were
+~40px, then 30px/18px follow-ups were still too heavy in owner review. The
+final renderer caps mobile cells at 9px with a 7px lower bound and a 1px gap,
+then centers the intrinsic SVG inside the frame. Time flows top-to-bottom,
+which is a natural mobile reading pattern (Apple Calendar month view, Google
+Calendar week). No labels needed -- tooltips on tap provide full date + count.
 
 **Files:**
 - `static/js/heatmap.js` -- add `renderHeatmapMobile()`, rename current
   render body to `renderHeatmapDesktop()`, branch in `renderHeatmap()`
 - `static/css/heatmap.css` -- mobile grid container adjustments
+- `static/css/index.css` -- mobile Bootstrap row gutter containment after
+  owner reported the index page could horizontally drag
+- `static/css/global.css` -- global horizontal overflow guard and mobile modal
+  wrapping/width containment
 
 **JS implementation:**
 
@@ -537,22 +544,29 @@ function renderHeatmapMobile(data) {
   var maxCount    = data.max_count || 0;
   var totalDays   = Math.round((toDate - fromDate) / 86400000) + 1;
 
-  var MOBILE_GAP  = 3;
+  var MOBILE_CELL_SIZE = 9;
+  var MOBILE_MIN_CELL_SIZE = 7;
+  var MOBILE_GAP  = 1;
   var containerWidth = gridContainer.clientWidth || 300;
-  var mCellSize   = Math.floor((containerWidth - 6 * MOBILE_GAP) / 7);
+  var maxCellSize = Math.floor((containerWidth - 6 * MOBILE_GAP) / 7);
+  var mCellSize   = Math.max(
+    MOBILE_MIN_CELL_SIZE,
+    Math.min(MOBILE_CELL_SIZE, maxCellSize)
+  );
   var mStep       = mCellSize + MOBILE_GAP;
   var startDow    = mondayIndex(fromDate);
 
   // Total grid slots = startDow offset + totalDays, rounded up to full weeks
   var totalSlots  = startDow + totalDays;
   var numWeeks    = Math.ceil(totalSlots / 7);
-  var svgW        = 7 * mStep;
-  var svgH        = numWeeks * mStep;
+  var svgW        = 7 * mCellSize + 6 * MOBILE_GAP;
+  var svgH        = numWeeks * mCellSize + (numWeeks - 1) * MOBILE_GAP;
 
   gridContainer.innerHTML = '';
   var svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + svgH);
-  svg.setAttribute('width', '100%');
+  svg.setAttribute('width', svgW);
+  svg.setAttribute('height', svgH);
   svg.setAttribute('role', 'img');
   svg.setAttribute('aria-label',
     'Scrobble heatmap for ' + data.username);
@@ -605,15 +619,37 @@ function renderHeatmapMobile(data) {
     padding: 1rem 0.75rem;
   }
 
-  #heatmap-grid svg {
-    /* Allow vertical scroll if grid is taller than viewport */
+  #heatmap-grid {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow-x: hidden;
+  }
+
+  #heatmap-grid svg[data-layout="mobile"] {
+    width: auto;
+    max-width: 100%;
+    height: auto;
     max-height: none;
   }
 }
 ```
 
+Mobile index containment added during owner review:
+
+```css
+@media (max-width: 767.98px) {
+  .container.mt-5 > .row {
+    --bs-gutter-x: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
+```
+
 **Acceptance criteria:**
-- At 360px viewport: vertical grid renders, cells are ~40px+, tappable
+- At 360px viewport: vertical grid renders, cells are compact, centered, and tappable
+- Index and heatmap mobile pages do not create page-level horizontal drag
 - No day-of-week or month labels on mobile layout
 - `from_date` aligned to correct Mon-Sun column
 - Tooltips work on tap: show full date + count, dismiss on touchend/scroll

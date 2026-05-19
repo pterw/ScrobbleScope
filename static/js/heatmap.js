@@ -28,6 +28,9 @@
   const LEFT_PAD   = 32;  // space for day-of-week labels
   const TOP_PAD    = 20;  // space for month labels
   const CORNER_R   = 2;   // rect corner radius
+  const MOBILE_CELL_SIZE = 9;
+  const MOBILE_MIN_CELL_SIZE = 7;
+  const MOBILE_GAP = 1;
 
   const MONTH_NAMES = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -486,6 +489,14 @@
   // SVG grid rendering
   // ----------------------------------------------------------------
   function renderHeatmap(data) {
+    if (window.innerWidth < 768) {
+      renderHeatmapMobile(data);
+    } else {
+      renderHeatmapDesktop(data);
+    }
+  }
+
+  function renderHeatmapDesktop(data) {
     var fromDate    = parseLocalDate(data.from_date);
     var toDate      = parseLocalDate(data.to_date);
     var dailyCounts = data.daily_counts;
@@ -506,6 +517,7 @@
     var svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
     svg.setAttribute('width', '100%');
+    svg.setAttribute('data-layout', 'desktop');
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label',
       'Scrobble heatmap for ' + data.username + ': ' +
@@ -603,6 +615,107 @@
     initTooltips(svg, cellData);
   }
 
+  function renderHeatmapMobile(data) {
+    var fromDate    = parseLocalDate(data.from_date);
+    var toDate      = parseLocalDate(data.to_date);
+    var dailyCounts = data.daily_counts;
+    var maxCount    = data.max_count || 0;
+    var totalDays   = Math.round((toDate - fromDate) / 86400000) + 1;
+
+    var containerWidth = gridContainer.clientWidth || 300;
+    var maxCellSize = Math.floor((containerWidth - 6 * MOBILE_GAP) / 7);
+    var mCellSize = Math.max(
+      MOBILE_MIN_CELL_SIZE,
+      Math.min(MOBILE_CELL_SIZE, maxCellSize)
+    );
+    var mStep = mCellSize + MOBILE_GAP;
+    var startDow = mondayIndex(fromDate);
+    var totalSlots = startDow + totalDays;
+    var numWeeks = Math.ceil(totalSlots / 7);
+    var svgWidth = 7 * mCellSize + 6 * MOBILE_GAP;
+    var svgHeight = numWeeks * mCellSize + (numWeeks - 1) * MOBILE_GAP;
+
+    clearChildren(gridContainer);
+    renderHeadline(data.username);
+    renderKpis(data, dailyCounts, toDate);
+
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
+    svg.setAttribute('width', svgWidth);
+    svg.setAttribute('height', svgHeight);
+    svg.setAttribute('data-layout', 'mobile');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label',
+      'Scrobble heatmap for ' + data.username + ': ' +
+      data.total_scrobbles + ' scrobbles from ' +
+      data.from_date + ' to ' + data.to_date);
+
+    var totalGridSlots = numWeeks * 7;
+    for (var slot = 0; slot < totalGridSlots; slot++) {
+      if (slot >= startDow && slot < startDow + totalDays) {
+        continue;
+      }
+
+      var placeholderCol = slot % 7;
+      var placeholderRow = Math.floor(slot / 7);
+      var placeholder = document.createElementNS(SVG_NS, 'rect');
+      placeholder.setAttribute('x', placeholderCol * mStep);
+      placeholder.setAttribute('y', placeholderRow * mStep);
+      placeholder.setAttribute('width', mCellSize);
+      placeholder.setAttribute('height', mCellSize);
+      placeholder.setAttribute('rx', CORNER_R);
+      placeholder.setAttribute('ry', CORNER_R);
+      placeholder.setAttribute('class', 'heatmap-cell-placeholder');
+      placeholder.setAttribute('fill', zeroFill());
+      placeholder.setAttribute('aria-hidden', 'true');
+      svg.appendChild(placeholder);
+    }
+
+    var cellData = [];
+    for (var i = 0; i < totalDays; i++) {
+      var d = addDays(fromDate, i);
+      var key = isoDate(d);
+      var count = dailyCounts[key] || 0;
+      var offset = startDow + i;
+      var col = offset % 7;
+      var row = Math.floor(offset / 7);
+
+      var x = col * mStep;
+      var y = row * mStep;
+
+      var rect = document.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('x', x);
+      rect.setAttribute('y', y);
+      rect.setAttribute('width', mCellSize);
+      rect.setAttribute('height', mCellSize);
+      rect.setAttribute('rx', CORNER_R);
+      rect.setAttribute('ry', CORNER_R);
+      rect.setAttribute('class', 'heatmap-cell');
+
+      var fill = count > 0
+        ? rocketColor(countToNorm(count, maxCount))
+        : zeroFill();
+      rect.setAttribute('fill', fill);
+
+      rect.setAttribute('data-date', key);
+      rect.setAttribute('data-count', count);
+      cellData.push({ el: rect, date: d, count: count, x: x, y: y });
+
+      svg.appendChild(rect);
+    }
+
+    gridContainer.appendChild(svg);
+
+    legendBar.style.background = legendGradient();
+
+    hideElement(heatmapLoading);
+    fadeIn(resultHeadline);
+    fadeIn(resultFrame);
+    fadeIn(heatmapResult);
+
+    initTooltips(svg, cellData);
+  }
+
   // ----------------------------------------------------------------
   // Tooltips
   // ----------------------------------------------------------------
@@ -691,6 +804,10 @@
       if (parseInt(cell.getAttribute('data-count'), 10) === 0) {
         cell.setAttribute('fill', fill);
       }
+    });
+    var placeholders = document.querySelectorAll('.heatmap-cell-placeholder');
+    placeholders.forEach(function (cell) {
+      cell.setAttribute('fill', fill);
     });
   }
 
