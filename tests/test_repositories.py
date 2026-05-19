@@ -17,10 +17,12 @@ from scrobblescope.repositories import (
     cleanup_expired_jobs,
     create_job,
     delete_job,
+    get_job_context,
     get_job_progress,
     jobs_lock,
     set_job_error,
     set_job_progress,
+    set_job_results,
     set_job_stat,
 )
 from tests.helpers import TEST_JOB_PARAMS
@@ -337,6 +339,59 @@ async def test_batch_persist_metadata_empty_rows():
     mock_conn = AsyncMock()
     await _batch_persist_metadata(mock_conn, [])
     mock_conn.execute.assert_not_awaited()
+
+
+def test_get_job_context_dict_results_are_shallow_copied():
+    """get_job_context returns a shallow copy of dict results.
+
+    Adversarial: if the ``elif isinstance(results, dict): results = dict(results)``
+    branch were absent, mutating the returned dict would silently corrupt the
+    live JOBS entry -- a thread-safety hazard for heatmap jobs whose results
+    are stored as dicts rather than lists.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    original = {"username": "testuser", "total_scrobbles": 100, "daily_counts": {}}
+    set_job_results(job_id, original)
+
+    ctx = get_job_context(job_id)
+    assert ctx is not None
+    assert ctx["results"]["total_scrobbles"] == 100
+
+    # Mutate the returned copy -- the JOBS entry must be unchanged.
+    ctx["results"]["total_scrobbles"] = 999
+
+    ctx2 = get_job_context(job_id)
+    assert ctx2["results"]["total_scrobbles"] == 100
+
+
+def test_get_job_context_nested_daily_counts_is_isolated():
+    """get_job_context isolates the nested daily_counts dict from callers.
+
+    Adversarial: a shallow dict copy leaves daily_counts shared by reference;
+    a caller that did ``ctx["results"]["daily_counts"][key] = N`` would
+    silently mutate the live JOBS entry.  Closes F-B18-8.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    original = {
+        "username": "testuser",
+        "total_scrobbles": 5,
+        "daily_counts": {"2026-05-01": 3, "2026-05-02": 2},
+    }
+    set_job_results(job_id, original)
+
+    ctx = get_job_context(job_id)
+    assert ctx is not None
+    assert ctx["results"]["daily_counts"]["2026-05-01"] == 3
+
+    # Mutate the nested dict through the returned reference.
+    ctx["results"]["daily_counts"]["2026-05-01"] = 999
+    ctx["results"]["daily_counts"]["2026-05-03"] = 7  # add a new key too
+
+    # A fresh context must observe the original values, not the mutations.
+    ctx2 = get_job_context(job_id)
+    assert ctx2 is not None
+    assert ctx2["results"]["daily_counts"]["2026-05-01"] == 3
+    assert "2026-05-03" not in ctx2["results"]["daily_counts"]
 
 
 @pytest.mark.asyncio

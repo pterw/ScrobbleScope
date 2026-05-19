@@ -34,6 +34,11 @@ ERROR_CODES = {
         "retryable": False,
         "message": "User '{username}' was not found on Last.fm.",
     },
+    "no_scrobbles_in_range": {
+        "source": "lastfm",
+        "retryable": False,
+        "message": "No scrobbles found in the last 365 days for '{username}'.",
+    },
 }
 
 

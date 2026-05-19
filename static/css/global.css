@@ -37,6 +37,12 @@ body {
     transition: background-color 0.3s ease, color 0.3s ease;
 }
 
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
 /* ------------------------------------------------------------------ */
 /* SVG logo color overrides                                            */
 /* ------------------------------------------------------------------ */
@@ -159,6 +165,29 @@ body {
 
 .dark-mode .btn-close {
     filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+@media (max-width: 767.98px) {
+    .modal-dialog {
+        width: calc(100vw - 1rem);
+        max-width: calc(100vw - 1rem);
+        margin-right: auto;
+        margin-left: auto;
+    }
+
+    .modal-content,
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        min-width: 0;
+    }
+
+    .modal-title,
+    .modal-body,
+    .modal-body li,
+    .modal-body small {
+        overflow-wrap: anywhere;
+    }
 }
 
 /* ------------------------------------------------------------------ */

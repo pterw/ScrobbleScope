@@ -16,6 +16,14 @@ that agents need but that do not belong in either of those files.
 - Pause after each WP commit for owner review.
 - Pause and notify owner if Docker config or external MCP setup is needed.
 - Always explain why in log entries and inline comments -- not just what.
+- Owner tests locally in Firefox (+ Responsive Design Mode for mobile)
+  between WPs before approving the next one.
+- Software principles enforced: DRY, SoC, SRP, KISS, Dependency Inversion,
+  Composition over Inheritance, Clean Architecture, Boy Scout Rule, Least
+  Knowledge Principle, Fail Fast. Not aspirational -- mandatory.
+- Testing pyramid: unit tests (mocked, base), integration tests (routes,
+  middle), E2E (owner-driven, top). Every test must fail if the function
+  under test is deleted.
 
 ---
 
@@ -85,6 +93,75 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ---
 
+## GitHub CLI Authentication
+
+`gh` reads `GH_TOKEN` from the environment automatically. The owner stores a
+fine-grained PAT in `.env` (gitignored) so agents can open PRs and read review
+comments without the owner pasting the token into chat each session.
+
+To use it in a session without exporting it permanently, source it from `.env`
+inside PowerShell:
+
+```powershell
+$line = Get-Content .env | Where-Object { $_ -match '^GH_TOKEN=' } | Select-Object -First 1
+$env:GH_TOKEN = $line.Substring($line.IndexOf('=') + 1).Trim().Trim('"')
+gh auth status
+```
+
+Then `gh pr ...` commands work for the rest of the session. The token is held
+only in the current process environment and is gone when the shell exits.
+
+**Rules:**
+- Never paste the token value into chat, commit it, or screenshot it.
+- Rotate every 90 days. Revoke immediately if exposed.
+- Required permissions for this repo's workflow: Contents r/w, Pull requests
+  r/w, Metadata r (auto). Add Workflows r/w only if reviewer feedback may
+  ask for CI changes; add Issues r/w only if reviewers comment via issues.
+- Fine-grained PAT scoped to `pterw/ScrobbleScope` only is preferred over a
+  classic PAT (smaller blast radius if leaked).
+- If `gh auth status` returns 401, the token is invalid or expired -- generate
+  a fresh one, update `.env`, and re-source. Do not retry the same token.
+
+---
+
+## Heatmap Feature (Batch 18 iteration 1 + Batch 19 polish)
+
+- **Core feature definition:** `docs/history/definitions/BATCH18_DEFINITION.md`.
+- **Batch 19 polish definition (archived):** `docs/history/definitions/BATCH19_DEFINITION.md`.
+  Closed out 2026-05-19; `feat/heatmap` is PR-ready.
+- **Batch 20 placeholder definition:** `BATCH20_DEFINITION.md` at repo root.
+  Scope is TBD (global UI overhaul). No WP work until owner finalizes scope.
+- **Batch 19 scope:** frame/headline/KPIs result redesign, "Top Albums" pill
+  rename, pinwheel/loading polish, mobile heatmap layout, and stale
+  documentation cleanup. Full app palette/font rebrand remains deferred.
+- **Key decisions:** username-only input (last 365 days), pill tabs on index.html,
+  all states on one page (no navigation), GitHub-style 7x52 SVG grid, rocket_r
+  palette, log-adjusted intensity, no heatmap-specific caching (REQUEST_CACHE
+  covers Last.fm pages), no new Python dependencies, no matplotlib/seaborn.
+- **Cache note:** heatmap uses different `from`/`to` timestamps than album
+  search, producing different REQUEST_CACHE keys. No interference.
+- **Windows asyncio:** heatmap_task must use same ProactorEventLoop guard as
+  orchestrator.py background_task. See AGENT_NOTES Architectural Constraints.
+- **Feature may span multiple batches.** Follow-up candidates: orchestrator
+  split, export, date range, summary stats.
+- **Heatmap perf (measured 2026-05-16):** `flounder14` took 10.9 seconds for
+  103 Last.fm pages. `lastfm.py` already uses `limit=200`, concurrent
+  `as_completed` fetching, `MAX_CONCURRENT_LASTFM=10`, and the global
+  10 req/s throttle. That makes 10.9s effectively the rate-limit floor
+  (103 pages / 10 req/s = 10.3s minimum). Further speedups require
+  heatmap-specific caching, progressive rendering, or higher rate-limit risk.
+- **Batch 19 owner-review follow-up (2026-05-19):** the remaining visual work is
+  loading-state polish and heatmap sizing. The pinwheel should be unframed,
+  SVG-scaled, mobile-bounded, and preserve the original breathing blade
+  animation; the heatmap grid should use more desktop width and a sequential
+  mobile activity strip that fills the frame width without calendar
+  constraints. Global
+  font/palette/Bootstrap
+  theming remains a future-batch concern unless a small local change is needed
+  to make the heatmap work.
+
+---
+
 ## Known Open Issues / Future Candidates
 
 - Flask-Talisman (CSP) was attempted in Batch 17 WP-5 and dropped (YAGNI).
@@ -92,3 +169,6 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   bar `style="width: 0%"`, album cover fallback) that would need refactoring
   before a strict CSP is viable. See PLAYBOOK WP-5 entry for details.
 - Scaling path if needed: Celery/Redis RQ -- out of scope until features complete.
+- Orchestrator monolith split: deferred until heatmap exists alongside album
+  pipeline. Natural SoC cleanup candidate for a follow-up batch.
+- Cache + bounded semaphore load testing: per `load-test-findings.md`.

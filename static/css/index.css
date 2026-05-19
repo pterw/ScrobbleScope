@@ -111,6 +111,12 @@
     padding-right: 0.6rem;
   }
 
+  .container.mt-5 > .row {
+    --bs-gutter-x: 0;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
   #logo-wrapper {
     margin-bottom: 0.5rem !important;
   }

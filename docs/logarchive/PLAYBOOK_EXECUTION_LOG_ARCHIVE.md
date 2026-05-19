@@ -9,6 +9,40 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-05-16 - Remove dependabot.yml (side-task)
+
+- Removed `.github/dependabot.yml`: all packages are pinned with `==` so
+  dependabot can only open PRs that break the pinning policy. Pure noise for
+  this project. No functional change.
+- **385 tests passing**, all hooks green.
+
+### 2026-05-16 - README update: heatmap feature + stale data
+
+- Added heatmap feature description to intro paragraph (was album-only).
+- Added Scrobble Heatmap bullet to Features section (grid, palette, tooltips,
+  dark mode, responsive, pinwheel spinner).
+- Updated project structure: heatmap.py, heatmap.css, heatmap.js,
+  scrobblescope_pinwheel.svg, test_heatmap.py all added; stale test counts
+  corrected (test_repositories.py 18->19, test_routes.py 50->65).
+- Updated tech stack table: test count 350/23 -> 385/24; APIs note that
+  heatmap uses Last.fm only (no Spotify).
+- Roadmap: checked off heatmap (Batch 18 Phase 1 complete, Phase 2 in progress);
+  corrected "350 tests / 23 files" to "385 / 24".
+- Test badge: 350 -> 385.
+
+### 2026-03-05 - Post-Batch-17 doc staleness fix
+
+- PLAYBOOK Section 3 still said "Batch 17 is active" and listed all WP
+  statuses after the close-out commit (743f8ae). Updated to "Between batches"
+  with heatmap feature noted as next action on branch `feat/heatmap`.
+- SESSION_CONTEXT Section 1 branch updated from `wip/batch-17` to
+  `feat/heatmap`; date bumped to 2026-03-05.
+- STATUS block refreshed by `doc_state_sync --fix`.
+- Batch 17 log entries remain inside CURRENT-BATCH markers per docsync
+  design -- they will auto-rotate to `BATCH17_LOG.md` when the next batch
+  is declared active in Section 3.
+- **350 tests passing**, all hooks green.
+
 ### 2026-03-05 - side-task: PR review fixes (CI cache, DEVELOPMENT.md, README, doc tidiness, SDLC table)
 
 - **`.github/workflows/test.yml`**: fixed `cache-dependency-path` from
