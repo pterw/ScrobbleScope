@@ -9,7 +9,7 @@ Last updated: 2026-05-19
 | Item | Value |
 |------|-------|
 | Branch | `feat/heatmap` |
-| Tests | **387 passing** across 24 test files |
+| Tests | **389 passing** across 24 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -126,7 +126,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (387 tests)
+## 6. Test structure (389 tests)
 
 | File | Count |
 |------|-------|
@@ -136,8 +136,8 @@ loading.js polls GET /progress?job_id=...
 | test_docsync_parser.py | 35 |
 | test_docsync_renderer.py | 21 |
 | test_domain.py | 13 |
-| test_heatmap.py | 19 |
-| test_repositories.py | 19 |
+| test_heatmap.py | 20 |
+| test_repositories.py | 20 |
 | test_retry_with_semaphore.py | 8 |
 | test_routes.py | 67 |
 | test_utils.py | 34 |

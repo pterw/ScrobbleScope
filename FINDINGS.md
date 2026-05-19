@@ -1,10 +1,9 @@
 # ScrobbleScope Findings & Open Issues
 
 Last updated: 2026-05-19
-Status: Batch 19 active on `feat/heatmap`. Batch 18 heatmap iteration 1 is
-complete and archived. 387 tests, 24 test files.
-Batch 19 polish is in owner-review follow-up: heatmap result frame/KPIs,
-pill rename, pinwheel/loading polish, and mobile/desktop heatmap sizing.
+Status: Batch 19 closed out; `feat/heatmap` PR #152 open against `main` with
+two Gemini-Code-Review-driven fixes applied (UTC timestamps, nested
+daily_counts isolation, streak boundary). 389 tests, 24 test files.
 Includes findings from load testing + cache verification session (2026-03-04)
 and Batch 18 full source-code audit (2026-03-07).
 
@@ -243,6 +242,36 @@ callable browser screenshot tool, and shell-launched headless Chrome did not
 emit screenshots in the sandbox. For future UI-heavy batches, enable a
 Browser/Playwright MCP path if available. No new Python or Node package is
 recommended for Batch 19 solely for visual QA.
+
+### F-B19-6: naive-tz vacuous-test anti-pattern
+
+PR #152 review (Gemini) surfaced that `scrobblescope/heatmap.py` decoded
+Last.fm UTS values with naive `datetime.fromtimestamp` and built the fetch
+window with naive `datetime.now()`. On Fly.io (UTC container) this was
+silently fine; on local Windows dev or any non-UTC host it shifted day
+attribution by hours.
+
+The deeper finding -- worth recording so it does not repeat -- is that the
+**test pyramid did not catch it**. `tests/test_heatmap.py` constructed UTS
+values using the same naive `datetime.combine(...).timestamp()` pattern that
+the SUT decoded. Boundary tests like `test_midnight_boundary_attribution`
+passed only because the SUT and tests shared the same naive-tz interpretation:
+the test was effectively comparing the SUT against itself, not against an
+invariant. This is the **vacuous-test pattern** AGENTS.md forbids ("Every
+test must fail if the function under test is deleted") in a subtler form --
+the test fails if the function is deleted, but does *not* fail if the function
+silently regresses to a naive-tz bug.
+
+**Anti-pattern to register in AGENTS.md (future):** any datetime test that
+builds inputs with the same tz-awareness pattern (naive vs aware) as the SUT
+is at risk of being vacuous against tz bugs. Build inputs with explicit
+`tzinfo=` and assert on a date that would shift under a naive interpretation.
+
+The PR #152 fix added `tests/test_heatmap.py::TestAggregateDailyCounts::
+test_utc_decode_invariant_against_local_tz_drift` as the canonical example.
+
+Status: code fixed in PR #152 (commit `ccb000f`). AGENTS.md addition is
+deferred to the next bootstrap/docs batch -- noted here as a forward TODO.
 
 ---
 
