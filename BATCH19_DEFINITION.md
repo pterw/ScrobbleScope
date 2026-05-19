@@ -1,6 +1,6 @@
 # BATCH19: Heatmap Polish -- Frame, KPIs, Mobile Layout
 
-**Status:** Active (WP-4 committed)
+**Status:** Active (owner-review follow-up after WP-5)
 **Branch:** `feat/heatmap`
 **Baseline:** 386 tests passing after WP-3 (verified 2026-05-17)
 
@@ -13,11 +13,12 @@ UI analysis identified visual and layout gaps that block the feature from
 being demo-ready. This batch resolves those gaps before the `feat/heatmap`
 PR is opened to main.
 
-**Scope constraint:** All changes are confined to `heatmap.css`, `heatmap.js`,
-`templates/index.html`, `templates/inline/scrobblescope_pinwheel.svg`, and
-doc files. No changes to `global.css`, `base.html`, Python modules, or other
-pages. The full app palette/font overhaul is explicitly deferred to a
-follow-up batch.
+**Scope constraint:** Product changes are confined to `heatmap.css`,
+`heatmap.js`, `templates/index.html`,
+`templates/inline/scrobblescope_pinwheel.svg`, and doc files. Focused
+rendered-template regression tests may touch `tests/test_routes.py`. No
+changes to `global.css`, `base.html`, Python modules, or other pages. The full
+app palette/font overhaul is explicitly deferred to a follow-up batch.
 
 **Branch:** `feat/heatmap` continued -- no new branch.
 
@@ -48,7 +49,8 @@ WP-1 and corrected in FINDINGS.md.
   headline with accented username, four KPI stats, repositioned legend
 - Rename "Album Filtering" pill to "Top Albums"; fix subtitle format
 - Fix pinwheel SVG clipping during blade expansion animation
-- Implement mobile-optimized vertical heatmap layout (viewports < 768px)
+- Implement mobile-optimized heatmap layout (viewports < 768px). Initial
+  vertical layout was superseded by the 2026-05-19 owner-review addendum.
 
 **Out of scope:**
 - Global palette/font overhaul (separate batch -- touches every page)
@@ -493,24 +495,27 @@ overflow. Container `max-width: 80px` / `max-height: 64px` compounds this.
 
 ---
 
-### WP-5: Mobile vertical heatmap layout
+### WP-5: Mobile heatmap layout
 
-**Goal:** On viewports narrower than 768px, render the heatmap in a vertical
-orientation -- weeks as rows (oldest at top, newest at bottom), 7 columns
-(Mon-Sun). No day-of-week or month labels. Cell size is compact and fixed so
-the grid reads as a dense activity strip instead of filling the full frame.
-Desktop horizontal layout unchanged.
+**Owner-review addendum (2026-05-19):** calendar-preserving mobile layouts did
+not work visually in Firefox Responsive Design Mode. The 7-column vertical
+year strip left too much side space and read as a long column; the two-band
+calendar made cells too small. The final WP-5 follow-up drops calendar
+constraints on mobile and renders a sequential activity strip: oldest day to
+newest day, left-to-right and top-to-bottom, with the column count derived
+from available viewport width.
+
+**Goal:** On viewports narrower than 768px, render the last 365 days as a
+mobile-first activity strip that fills the heatmap frame width, uses larger
+tap-friendly squares, and avoids page-level horizontal drag. Desktop
+horizontal calendar layout remains unchanged.
 
 **Design rationale:**
-Horizontal grid (54 cols x 7 rows) at 360px viewport: 54 * (13+3) = 864px
-mapped into ~300px = cells render at ~5px. Illegible and untappable.
-
-Vertical grid (7 cols x ~54 rows) at 360px: initially full-width cells were
-~40px, then 30px/18px follow-ups were still too heavy in owner review. The
-final renderer caps mobile cells at 9px with a 7px lower bound and a 1px gap,
-then centers the intrinsic SVG inside the frame. Time flows top-to-bottom,
-which is a natural mobile reading pattern (Apple Calendar month view, Google
-Calendar week). No labels needed -- tooltips on tap provide full date + count.
+The desktop calendar is useful because there is enough width for month/day
+labels. On mobile, preserving calendar semantics forces either tiny cells or a
+very tall 7-column strip. The mobile user already knows the chart covers the
+last 365 days, and tap tooltips provide exact dates, so the mobile layout
+prioritizes legibility and touch target size over calendar columns.
 
 **Files:**
 - `static/js/heatmap.js` -- add `renderHeatmapMobile()`, rename current
@@ -521,91 +526,11 @@ Calendar week). No labels needed -- tooltips on tap provide full date + count.
 - `static/css/global.css` -- global horizontal overflow guard and mobile modal
   wrapping/width containment
 
-**JS implementation:**
-
-```js
-function renderHeatmap(data) {
-  if (window.innerWidth < 768) {
-    renderHeatmapMobile(data);
-  } else {
-    renderHeatmapDesktop(data);
-  }
-}
-```
-
-Rename current `renderHeatmap` body -> `renderHeatmapDesktop` (no behavior
-change). Add `renderHeatmapMobile`:
-
-```js
-function renderHeatmapMobile(data) {
-  var fromDate    = parseLocalDate(data.from_date);
-  var toDate      = parseLocalDate(data.to_date);
-  var dailyCounts = data.daily_counts;
-  var maxCount    = data.max_count || 0;
-  var totalDays   = Math.round((toDate - fromDate) / 86400000) + 1;
-
-  var MOBILE_CELL_SIZE = 9;
-  var MOBILE_MIN_CELL_SIZE = 7;
-  var MOBILE_GAP  = 1;
-  var containerWidth = gridContainer.clientWidth || 300;
-  var maxCellSize = Math.floor((containerWidth - 6 * MOBILE_GAP) / 7);
-  var mCellSize   = Math.max(
-    MOBILE_MIN_CELL_SIZE,
-    Math.min(MOBILE_CELL_SIZE, maxCellSize)
-  );
-  var mStep       = mCellSize + MOBILE_GAP;
-  var startDow    = mondayIndex(fromDate);
-
-  // Total grid slots = startDow offset + totalDays, rounded up to full weeks
-  var totalSlots  = startDow + totalDays;
-  var numWeeks    = Math.ceil(totalSlots / 7);
-  var svgW        = 7 * mCellSize + 6 * MOBILE_GAP;
-  var svgH        = numWeeks * mCellSize + (numWeeks - 1) * MOBILE_GAP;
-
-  gridContainer.innerHTML = '';
-  var svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 ' + svgW + ' ' + svgH);
-  svg.setAttribute('width', svgW);
-  svg.setAttribute('height', svgH);
-  svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label',
-    'Scrobble heatmap for ' + data.username);
-
-  var cellData = [];
-  for (var i = 0; i < totalDays; i++) {
-    var d      = addDays(fromDate, i);
-    var key    = isoDate(d);
-    var count  = dailyCounts[key] || 0;
-    var offset = startDow + i;
-    var col    = offset % 7;        // Mon=0 .. Sun=6 (left to right)
-    var row    = Math.floor(offset / 7);  // week index (top to bottom)
-
-    var x = col * mStep;
-    var y = row * mStep;
-
-    var rect = document.createElementNS(SVG_NS, 'rect');
-    rect.setAttribute('x', x);
-    rect.setAttribute('y', y);
-    rect.setAttribute('width', mCellSize);
-    rect.setAttribute('height', mCellSize);
-    rect.setAttribute('rx', CORNER_R);
-    rect.setAttribute('ry', CORNER_R);
-    rect.setAttribute('class', 'heatmap-cell');
-    rect.setAttribute('fill',
-      count > 0 ? rocketColor(countToNorm(count, maxCount)) : zeroFill());
-    rect.setAttribute('data-date', key);
-    rect.setAttribute('data-count', count);
-    cellData.push({ el: rect, date: d, count: count, x: x, y: y });
-    svg.appendChild(rect);
-  }
-
-  gridContainer.appendChild(svg);
-  legendBar.style.background = legendGradient();
-  hideElement(heatmapLoading);
-  fadeIn(heatmapResult);
-  initTooltips(svg, cellData);
-}
-```
+**JS implementation:** `renderHeatmap()` branches on `< 768px`.
+`renderHeatmapMobile()` calculates `columns` from the available frame width
+and a target cell size, clamps the result to avoid pathological extremes, then
+renders day `i` at `col = i % columns`, `row = Math.floor(i / columns)`.
+Dates are still stored in each rect for exact tooltip text.
 
 **Shared helpers reused (no duplication):**
 `parseLocalDate`, `mondayIndex`, `addDays`, `isoDate`, `rocketColor`,
@@ -621,16 +546,13 @@ function renderHeatmapMobile(data) {
 
   #heatmap-grid {
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex-direction: column;
     overflow-x: hidden;
   }
 
   #heatmap-grid svg[data-layout="mobile"] {
-    width: auto;
-    max-width: 100%;
+    width: 100%;
     height: auto;
-    max-height: none;
   }
 }
 ```
@@ -648,10 +570,11 @@ Mobile index containment added during owner review:
 ```
 
 **Acceptance criteria:**
-- At 360px viewport: vertical grid renders, cells are compact, centered, and tappable
+- At 360px viewport: mobile activity strip fills the heatmap width with larger,
+  tappable cells
 - Index and heatmap mobile pages do not create page-level horizontal drag
-- No day-of-week or month labels on mobile layout
-- `from_date` aligned to correct Mon-Sun column
+- No month/day labels on mobile; exact date is available through tooltip text
+- `from_date` starts the sequence at the first cell
 - Tooltips work on tap: show full date + count, dismiss on touchend/scroll
 - KPI row and legend render correctly above the mobile grid (from WP-2)
 - Desktop layout (>= 768px) unchanged
@@ -708,7 +631,7 @@ python scripts/doc_state_sync.py --check   # exit 0
 | WP-2 | Frame, headline, KPIs, legend render correctly in dark and light mode |
 | WP-3 | Pill shows "Top Albums"; subtitle element and logic fully removed |
 | WP-4 | Pinwheel blades expand without clipping on desktop and mobile |
-| WP-5 | Mobile shows vertical grid with ~40px tappable cells; desktop unchanged |
+| WP-5 | Mobile shows a sequential activity strip with larger cells; desktop unchanged |
 
 After WP-5 owner sign-off, `feat/heatmap` is ready for the PR to main.
 
@@ -722,4 +645,4 @@ After WP-5 owner sign-off, `feat/heatmap` is ready for the PR to main.
 | WP-2 | `static/css/heatmap.css`, `static/js/heatmap.js`, `templates/index.html`, `BATCH19_DEFINITION.md` |
 | WP-3 | `templates/index.html`, `static/js/heatmap.js`, `tests/test_routes.py` |
 | WP-4 | `templates/inline/scrobblescope_pinwheel.svg`, `static/css/heatmap.css` |
-| WP-5 | `static/js/heatmap.js`, `static/css/heatmap.css` |
+| WP-5 | `static/js/heatmap.js`, `static/css/heatmap.css`, `templates/index.html`, `templates/inline/scrobblescope_pinwheel.svg`, `tests/test_routes.py` |

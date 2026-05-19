@@ -59,22 +59,30 @@
 /* ------------------------------------------------------------------ */
 #heatmap-loading {
   text-align: center;
-  padding: 2rem 1rem;
+  padding: clamp(2.5rem, 7vh, 4.5rem) 1rem;
+}
+
+.heatmap-loading-panel {
+  display: flex;
+  min-height: clamp(190px, 28vh, 300px);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .heatmap-spinner-wrapper {
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 120px;
-  height: 120px;
-  margin: 0 auto 1rem;
+  width: clamp(112px, 11vw, 168px);
+  height: clamp(112px, 11vw, 168px);
+  margin: 0 auto 1.25rem;
   overflow: visible;
 }
 
 .heatmap-spinner-wrapper svg {
-  width: 80px;
-  height: 80px;
+  width: 100%;
+  height: 100%;
   overflow: visible;
   display: block;
 }
@@ -195,6 +203,17 @@
   display: block;
 }
 
+@media (min-width: 768px) {
+  #heatmap-result {
+    flex: 0 0 min(100%, 1040px);
+    max-width: min(100%, 1040px);
+  }
+
+  #heatmap-grid {
+    overflow-x: hidden;
+  }
+}
+
 /* Color scale legend */
 .heatmap-legend {
   display: flex;
@@ -284,14 +303,17 @@
     padding: 0.32rem 0.75rem;
   }
 
-  .heatmap-spinner-wrapper {
-    width: 96px;
-    height: 96px;
+  #heatmap-loading {
+    padding: 2.25rem 0.75rem;
   }
 
-  .heatmap-spinner-wrapper svg {
-    width: 64px;
-    height: 64px;
+  .heatmap-loading-panel {
+    min-height: 180px;
+  }
+
+  .heatmap-spinner-wrapper {
+    width: clamp(96px, 30vw, 128px);
+    height: clamp(96px, 30vw, 128px);
   }
 
   #heatmap-progress-text {
@@ -299,8 +321,10 @@
   }
 
   .heatmap-headline {
-    font-size: 1.35rem;
+    font-size: clamp(1rem, 5.4vw, 1.35rem);
     margin-bottom: 0.75rem;
+    overflow-wrap: normal;
+    white-space: nowrap;
   }
 
   .heatmap-frame {
@@ -341,16 +365,18 @@
 
   #heatmap-grid {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    justify-content: flex-start;
     align-items: flex-start;
+    gap: 0.45rem;
     overflow-x: hidden;
   }
 
   #heatmap-grid svg[data-layout="mobile"] {
     display: block;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     margin: 0;
-    width: auto;
+    width: 100%;
     max-width: 100%;
     height: auto;
     max-height: none;

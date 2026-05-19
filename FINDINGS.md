@@ -1,10 +1,10 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 Status: Batch 19 active on `feat/heatmap`. Batch 18 heatmap iteration 1 is
-complete and archived. 386 tests, 24 test files.
-Batch 19 polish is in progress: perf documentation cleanup, result frame/KPIs,
-pill rename, pinwheel clipping fix, and mobile heatmap layout.
+complete and archived. 387 tests, 24 test files.
+Batch 19 polish is in owner-review follow-up: heatmap result frame/KPIs,
+pill rename, pinwheel/loading polish, and mobile/desktop heatmap sizing.
 Includes findings from load testing + cache verification session (2026-03-04)
 and Batch 18 full source-code audit (2026-03-07).
 
@@ -154,6 +154,87 @@ The "Album Filtering" pill is wider than "Heatmap" due to different text
 lengths and no `min-width` constraint. Owner flagged this after testing.
 CSS fix: add `min-width` to `.mode-pill` in `heatmap.css` so both pills
 are the same width. To be fixed in a Phase 2 WP.
+
+---
+
+## Batch 19 owner-review findings (2026-05-19)
+
+### F-B19-1: loading state still read as a card
+
+Owner review showed the pinwheel centered inside a large Bootstrap card-like
+box. That made the loading state feel broken even after the earlier clipping
+fix. The follow-up removes the card wrapper and uses an unframed loading panel
+with a larger SVG-bounded pinwheel.
+
+Status: fixed in Batch 19 owner-review follow-up. The final SVG keeps the
+original breathing/expanding blade animation; the simplified rotating
+replacement was rejected during owner review.
+
+### F-B19-2: heatmap sizing needed separate desktop and mobile treatment
+
+Desktop screenshots at 1440p and 1080p showed the heatmap grid taking too
+little visual space because the result container was still constrained by the
+Bootstrap `col-md-8` width. Mobile review showed the opposite failure after
+the prior reduction pass: cells were no longer heavy, but calendar-constrained
+mobile layouts either left excessive side space or made cells too small.
+
+Follow-up direction: widen only `#heatmap-result` on desktop, keep the rest of
+the page unchanged, and replace calendar-constrained mobile layouts with a
+sequential activity strip that fills the heatmap frame width with larger cells.
+The headline also needs mobile fitting so common usernames avoid a forced line
+break.
+
+Status: fixed in Batch 19 owner-review follow-up; owner visual approval still
+required.
+
+### F-B19-3: last.timer is not a drop-in heatmap speedup
+
+The referenced `last.timer` project fetches Last.fm aggregate endpoints:
+`user.gettopartists` and `user.gettoptracks`, with `limit=1000`, page fan-out,
+and `Promise.all` for remaining pages. That is appropriate for top-track
+period summaries, but it does not provide per-scrobble timestamps needed for an
+exact day-by-day heatmap.
+
+Potential future experiments:
+1. Test whether `user.getrecenttracks` reliably accepts `limit=1000`; current
+   ScrobbleScope uses the documented conservative `limit=200`.
+2. Add heatmap-specific cached daily aggregates for repeat same-user requests.
+3. Add progressive rendering if partial heatmap feedback is worth the extra
+   route and client complexity.
+
+Status: documented for a future performance batch; no Batch 19 API change.
+
+### F-B19-4: broader front-end UI audit should be a separate batch
+
+Low-risk local heatmap changes are fine in Batch 19, but a global UI overhaul
+should not be folded into owner-review fixes. Open audit notes:
+
+- Bootstrap is split across CDNs: `base.html` uses cdnjs for CSS, while
+  `index.html` uses jsdelivr for the Bootstrap JS bundle and other pages use
+  cdnjs. A future batch should standardize the source before considering a
+  Bootstrap upgrade.
+- Bootstrap 5.3 color modes could reduce `.dark-mode .table`,
+  `.dark-mode .modal-content`, and `.dark-mode .form-control` overrides, but
+  upgrading from 5.1.3 risks component regressions and should be tested as its
+  own WP.
+- Global Geist font, Bootstrap variable overrides, warm surfaces, and inky
+  purple palette should be handled in `global.css`/`base.html` as a dedicated
+  UI batch, not piecemeal in heatmap follow-up work.
+- Index popovers/tooltips are visually large relative to form labels and
+  should be reviewed with form density, label sizing, and mobile tap targets in
+  the same UI batch.
+- Dark-mode table/export CSS remains scattered across `results.css`,
+  `unmatched.css`, and `results.js`; Bootstrap 5.3 or shared CSS tokens may
+  reduce that duplication.
+
+### F-B19-5: visual-verification tooling
+
+The Browser plugin/skill is the right Codex-side tool when its browser MCP
+tools are exposed. In this session, deferred tool discovery did not expose a
+callable browser screenshot tool, and shell-launched headless Chrome did not
+emit screenshots in the sandbox. For future UI-heavy batches, enable a
+Browser/Playwright MCP path if available. No new Python or Node package is
+recommended for Batch 19 solely for visual QA.
 
 ---
 

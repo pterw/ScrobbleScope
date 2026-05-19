@@ -22,15 +22,18 @@
   ];
 
   // Grid geometry
-  const CELL_SIZE  = 13;
+  const CELL_SIZE  = 14;
   const CELL_GAP   = 3;
   const STEP       = CELL_SIZE + CELL_GAP;
   const LEFT_PAD   = 32;  // space for day-of-week labels
   const TOP_PAD    = 20;  // space for month labels
   const CORNER_R   = 2;   // rect corner radius
-  const MOBILE_CELL_SIZE = 9;
-  const MOBILE_MIN_CELL_SIZE = 7;
-  const MOBILE_GAP = 1;
+  const MOBILE_TARGET_CELL_SIZE = 22;
+  const MOBILE_MIN_CELL_SIZE = 18;
+  const MOBILE_MAX_CELL_SIZE = 28;
+  const MOBILE_MIN_COLUMNS = 10;
+  const MOBILE_MAX_COLUMNS = 28;
+  const MOBILE_GAP = 2;
 
   const MONTH_NAMES = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -143,6 +146,8 @@
 
   function renderHeadline(username) {
     clearChildren(resultHeadline);
+    resultHeadline.style.fontSize = '';
+    resultHeadline.style.whiteSpace = '';
 
     var nameSpan = document.createElement('span');
     nameSpan.className = 'heatmap-headline-username';
@@ -150,6 +155,37 @@
 
     resultHeadline.appendChild(nameSpan);
     resultHeadline.appendChild(document.createTextNode("'s last 365 days, day by day."));
+  }
+
+  function fitHeadlineToWidth() {
+    if (!resultHeadline || resultHeadline.classList.contains('d-none')) return;
+
+    resultHeadline.style.fontSize = '';
+    resultHeadline.style.whiteSpace = '';
+
+    if (window.innerWidth >= 768) return;
+
+    resultHeadline.style.whiteSpace = 'nowrap';
+
+    var availableWidth = resultHeadline.clientWidth;
+    if (!availableWidth) return;
+
+    var size = 22;
+    var minSize = 15;
+    resultHeadline.style.fontSize = size + 'px';
+
+    while (resultHeadline.scrollWidth > availableWidth && size > minSize) {
+      size -= 0.5;
+      resultHeadline.style.fontSize = size + 'px';
+    }
+  }
+
+  function revealHeatmapResult() {
+    hideElement(heatmapLoading);
+    fadeIn(resultHeadline);
+    fadeIn(resultFrame);
+    fadeIn(heatmapResult);
+    window.requestAnimationFrame(fitHeadlineToWidth);
   }
 
   function appendKpi(label, value, subLabel) {
@@ -215,6 +251,9 @@
   var pollTimer = null;
   var currentJobId = null;
   var lastUsername = '';
+  var lastHeatmapData = null;
+  var lastRenderMobile = null;
+  var resizeTimer = null;
 
   // ----------------------------------------------------------------
   // Pill switching
@@ -489,7 +528,9 @@
   // SVG grid rendering
   // ----------------------------------------------------------------
   function renderHeatmap(data) {
-    if (window.innerWidth < 768) {
+    lastHeatmapData = data;
+    lastRenderMobile = window.innerWidth < 768;
+    if (lastRenderMobile) {
       renderHeatmapMobile(data);
     } else {
       renderHeatmapDesktop(data);
@@ -606,10 +647,7 @@
     legendBar.style.background = legendGradient();
 
     // Transition: loading -> result
-    hideElement(heatmapLoading);
-    fadeIn(resultHeadline);
-    fadeIn(resultFrame);
-    fadeIn(heatmapResult);
+    revealHeatmapResult();
 
     // Attach tooltip handlers
     initTooltips(svg, cellData);
@@ -622,18 +660,20 @@
     var maxCount    = data.max_count || 0;
     var totalDays   = Math.round((toDate - fromDate) / 86400000) + 1;
 
-    var containerWidth = gridContainer.clientWidth || 300;
-    var maxCellSize = Math.floor((containerWidth - 6 * MOBILE_GAP) / 7);
-    var mCellSize = Math.max(
-      MOBILE_MIN_CELL_SIZE,
-      Math.min(MOBILE_CELL_SIZE, maxCellSize)
+    var viewportWidth = window.innerWidth || document.documentElement.clientWidth || 320;
+    var containerWidth = gridContainer.clientWidth || Math.max(220, viewportWidth - 48);
+    var columns = Math.floor(
+      (containerWidth + MOBILE_GAP) / (MOBILE_TARGET_CELL_SIZE + MOBILE_GAP)
     );
+    columns = Math.max(MOBILE_MIN_COLUMNS, Math.min(MOBILE_MAX_COLUMNS, columns));
+
+    var mCellSize = Math.floor((containerWidth - (columns - 1) * MOBILE_GAP) / columns);
+    mCellSize = Math.max(MOBILE_MIN_CELL_SIZE, Math.min(MOBILE_MAX_CELL_SIZE, mCellSize));
+
     var mStep = mCellSize + MOBILE_GAP;
-    var startDow = mondayIndex(fromDate);
-    var totalSlots = startDow + totalDays;
-    var numWeeks = Math.ceil(totalSlots / 7);
-    var svgWidth = 7 * mCellSize + 6 * MOBILE_GAP;
-    var svgHeight = numWeeks * mCellSize + (numWeeks - 1) * MOBILE_GAP;
+    var rows = Math.ceil(totalDays / columns);
+    var svgWidth = columns * mCellSize + (columns - 1) * MOBILE_GAP;
+    var svgHeight = rows * mCellSize + (rows - 1) * MOBILE_GAP;
 
     clearChildren(gridContainer);
     renderHeadline(data.username);
@@ -641,44 +681,21 @@
 
     var svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('viewBox', '0 0 ' + svgWidth + ' ' + svgHeight);
-    svg.setAttribute('width', svgWidth);
-    svg.setAttribute('height', svgHeight);
+    svg.setAttribute('width', '100%');
     svg.setAttribute('data-layout', 'mobile');
     svg.setAttribute('role', 'img');
     svg.setAttribute('aria-label',
-      'Scrobble heatmap for ' + data.username + ': ' +
+      'Scrobble activity strip for ' + data.username + ': ' +
       data.total_scrobbles + ' scrobbles from ' +
       data.from_date + ' to ' + data.to_date);
-
-    var totalGridSlots = numWeeks * 7;
-    for (var slot = 0; slot < totalGridSlots; slot++) {
-      if (slot >= startDow && slot < startDow + totalDays) {
-        continue;
-      }
-
-      var placeholderCol = slot % 7;
-      var placeholderRow = Math.floor(slot / 7);
-      var placeholder = document.createElementNS(SVG_NS, 'rect');
-      placeholder.setAttribute('x', placeholderCol * mStep);
-      placeholder.setAttribute('y', placeholderRow * mStep);
-      placeholder.setAttribute('width', mCellSize);
-      placeholder.setAttribute('height', mCellSize);
-      placeholder.setAttribute('rx', CORNER_R);
-      placeholder.setAttribute('ry', CORNER_R);
-      placeholder.setAttribute('class', 'heatmap-cell-placeholder');
-      placeholder.setAttribute('fill', zeroFill());
-      placeholder.setAttribute('aria-hidden', 'true');
-      svg.appendChild(placeholder);
-    }
 
     var cellData = [];
     for (var i = 0; i < totalDays; i++) {
       var d = addDays(fromDate, i);
       var key = isoDate(d);
       var count = dailyCounts[key] || 0;
-      var offset = startDow + i;
-      var col = offset % 7;
-      var row = Math.floor(offset / 7);
+      var col = i % columns;
+      var row = Math.floor(i / columns);
 
       var x = col * mStep;
       var y = row * mStep;
@@ -705,13 +722,9 @@
     }
 
     gridContainer.appendChild(svg);
-
     legendBar.style.background = legendGradient();
 
-    hideElement(heatmapLoading);
-    fadeIn(resultHeadline);
-    fadeIn(resultFrame);
-    fadeIn(heatmapResult);
+    revealHeatmapResult();
 
     initTooltips(svg, cellData);
   }
@@ -811,6 +824,25 @@
     });
   }
 
+  function handleResize() {
+    if (resizeTimer) {
+      window.clearTimeout(resizeTimer);
+    }
+
+    resizeTimer = window.setTimeout(function () {
+      fitHeadlineToWidth();
+
+      if (!lastHeatmapData || !heatmapResult || heatmapResult.classList.contains('d-none')) {
+        return;
+      }
+
+      var shouldRenderMobile = window.innerWidth < 768;
+      if (shouldRenderMobile !== lastRenderMobile) {
+        renderHeatmap(lastHeatmapData);
+      }
+    }, 100);
+  }
+
   // ----------------------------------------------------------------
   // Init on DOMContentLoaded
   // ----------------------------------------------------------------
@@ -819,6 +851,7 @@
     initUsernameValidation();
     initForm();
     initDarkModeObserver();
+    window.addEventListener('resize', handleResize);
   });
 
 })();

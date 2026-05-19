@@ -46,6 +46,21 @@ def test_home_page_uses_top_albums_mode_label(client):
     assert ">Album Filtering</span>" not in html
 
 
+def test_home_page_heatmap_loading_uses_unframed_panel(client):
+    """The heatmap loading state should not render as a Bootstrap card."""
+    response = client.get("/")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    _, loading_tail = html.split('id="heatmap-loading"', 1)
+    loading_markup, _ = loading_tail.split('id="heatmap-result"', 1)
+    assert "heatmap-loading-panel" in loading_markup
+    assert "animateTransform" in loading_markup
+    assert "pinwheel-blade" in loading_markup
+    assert "card shadow" not in loading_markup
+    assert "card-body" not in loading_markup
+
+
 def test_validate_user_success(client):
     """Validate endpoint should return valid=true with registered_year."""
     mock_result = {"exists": True, "registered_year": 2016}

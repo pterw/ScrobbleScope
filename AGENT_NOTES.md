@@ -99,7 +99,7 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 - **Active polish definition:** `BATCH19_DEFINITION.md` while Batch 19 is active
   on `feat/heatmap`; archive it under `docs/history/definitions/` at close-out.
 - **Batch 19 scope:** frame/headline/KPIs result redesign, "Top Albums" pill
-  rename, pinwheel clipping fix, mobile vertical heatmap layout, and stale
+  rename, pinwheel/loading polish, mobile heatmap layout, and stale
   documentation cleanup. Full app palette/font rebrand remains deferred.
 - **Key decisions:** username-only input (last 365 days), pill tabs on index.html,
   all states on one page (no navigation), GitHub-style 7x52 SVG grid, rocket_r
@@ -117,11 +117,15 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   10 req/s throttle. That makes 10.9s effectively the rate-limit floor
   (103 pages / 10 req/s = 10.3s minimum). Further speedups require
   heatmap-specific caching, progressive rendering, or higher rate-limit risk.
-- **Known UI issues in Batch 19 scope:**
-  - Pill label/presentation polish ("Album Filtering" becomes "Top Albums")
-  - Result should read as a shareable artifact, not a Bootstrap card widget
-  - Pinwheel blade expansion currently clips
-  - Horizontal desktop grid is too small to tap/read on narrow mobile viewports
+- **Batch 19 owner-review follow-up (2026-05-19):** the remaining visual work is
+  loading-state polish and heatmap sizing. The pinwheel should be unframed,
+  SVG-scaled, mobile-bounded, and preserve the original breathing blade
+  animation; the heatmap grid should use more desktop width and a sequential
+  mobile activity strip that fills the frame width without calendar
+  constraints. Global
+  font/palette/Bootstrap
+  theming remains a future-batch concern unless a small local change is needed
+  to make the heatmap work.
 
 ---
 

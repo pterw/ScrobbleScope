@@ -184,18 +184,16 @@
 
     {# ---- Heatmap loading container (hidden) ---- #}
     <div class="col-md-8 d-none" id="heatmap-loading">
-      <div class="card shadow">
-        <div class="card-body">
-          <div class="heatmap-spinner-wrapper" aria-label="Loading animation" role="img">
-            {% include 'inline/scrobblescope_pinwheel.svg' ignore missing %}
-          </div>
-          <p id="heatmap-progress-text">Initializing...</p>
+      <div class="heatmap-loading-panel">
+        <div class="heatmap-spinner-wrapper" aria-label="Loading animation" role="img">
+          {% include 'inline/scrobblescope_pinwheel.svg' ignore missing %}
+        </div>
+        <p id="heatmap-progress-text">Initializing...</p>
 
-          <div id="heatmap-error" class="d-none">
-            <p id="heatmap-error-message"></p>
-            <button type="button" class="btn btn-outline-primary btn-sm" id="heatmap-retry-btn">Retry</button>
-            <a href="/" class="btn btn-outline-secondary btn-sm ms-2">Home</a>
-          </div>
+        <div id="heatmap-error" class="d-none">
+          <p id="heatmap-error-message"></p>
+          <button type="button" class="btn btn-outline-primary btn-sm" id="heatmap-retry-btn">Retry</button>
+          <a href="/" class="btn btn-outline-secondary btn-sm ms-2">Home</a>
         </div>
       </div>
     </div>

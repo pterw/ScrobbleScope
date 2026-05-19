@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-05-17
+Last updated: 2026-05-19
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-05-17
 | Item | Value |
 |------|-------|
 | Branch | `feat/heatmap` |
-| Tests | **386 passing** across 24 test files |
+| Tests | **387 passing** across 24 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -18,7 +18,7 @@ Last updated: 2026-05-17
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
-| Batch 19 status | **Active**. Heatmap polish -- frame, KPIs, mobile layout. WP-4 complete; WP-5 next. Definition: `BATCH19_DEFINITION.md`. |
+| Batch 19 status | **Active**. Heatmap polish -- frame, KPIs, mobile layout, and owner-review sizing/loading follow-up complete. Definition: `BATCH19_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -43,11 +43,11 @@ Last updated: 2026-05-17
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 19.
-- Current-batch entries in active log block: 7.
+- Current-batch entries in active log block: 8.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
 - Next expected work package: WP-6.
-- Latest validated test count: **386 passed**.
-- Newest current-batch entry: 2026-05-17 - Batch 19 WP-5: vertical mobile heatmap layout (Batch 19 WP-5).
+- Latest validated test count: **387 passed**.
+- Newest current-batch entry: 2026-05-19 - Batch 19 WP-5 follow-up: owner visual review fixes (Batch 19 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -125,7 +125,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (386 tests)
+## 6. Test structure (387 tests)
 
 | File | Count |
 |------|-------|
@@ -138,7 +138,7 @@ loading.js polls GET /progress?job_id=...
 | test_heatmap.py | 19 |
 | test_repositories.py | 19 |
 | test_retry_with_semaphore.py | 8 |
-| test_routes.py | 65 |
+| test_routes.py | 67 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
 | scripts/dev/test_dev_start.py | 11 |

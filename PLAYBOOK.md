@@ -62,18 +62,25 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 18 complete.** All 5 WPs done. Definition archived:
   `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 is active.** Branch: `feat/heatmap`. Definition: `BATCH19_DEFINITION.md`.
-- **Next action:** Owner visual check for Batch 19, then batch close-out if approved.
+- **Next action:** Owner visual check of Batch 19 WP-5 follow-up: unframed
+  breathing pinwheel loading state, wider desktop heatmap, sequential mobile
+  activity strip, and headline fitting. If approved, proceed to batch close-out.
 - WP status:
   - WP-1: Correct stale perf docs + update FINDINGS.md -- **done**
   - WP-2: Heatmap result redesign (frame, headline, KPIs, legend) -- **done**
   - WP-3: Pill rename to "Top Albums" + subtitle removal -- **done**
   - WP-4: Pinwheel SVG clipping fix -- **done**
-  - WP-5: Mobile vertical heatmap layout -- **done**
+  - WP-5: Mobile heatmap layout + owner-review sizing/loading
+    follow-up -- **done**
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
   10 req/s = 10.3s minimum). No further optimization without heatmap-specific
   caching or rate-limit risk. Documented in FINDINGS.md F-B18-11.
+- **Last.timer note (checked 2026-05-19):** the referenced project uses
+  aggregate `user.gettopartists`/`user.gettoptracks` calls with page fan-out,
+  not exact per-scrobble recent-track timestamps. Useful for future perf
+  research, but not a drop-in heatmap speedup. See FINDINGS.md F-B19-3.
 - Future feature candidates (confirmed by owner roadmap):
   - **Top songs** (future): rank most-played tracks for a year (Last.fm + possibly
     Spotify enrichment, separate background task + loading/results flow).
@@ -98,6 +105,45 @@ non-current operational logs. Older dated entries live in
 - Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-05-19 - Batch 19 WP-5 follow-up: owner visual review fixes (Batch 19 WP-5)
+
+- Scope: addressed owner review after WP-5 for heatmap loading, pinwheel
+  rendering, desktop heatmap scale, mobile heatmap scale, headline wrapping,
+  and front-end/API findings.
+- Status: done; owner visual check is the next gate before batch close-out.
+- Plan vs implementation:
+  - Removed the Bootstrap card wrapper from the heatmap loading state and
+    replaced it with an unframed `heatmap-loading-panel`.
+  - Restored the original breathing/expanding pinwheel path animation after
+    owner review rejected the simplified rotating replacement. The restored
+    SVG uses the wrapper for scale, keeps extra viewBox room for expansion,
+    and avoids the global `.cls-1` dark-mode stroke override.
+  - Widened only `#heatmap-result` on desktop so the heatmap grid uses more
+    horizontal space without changing the header/forms/footer layout.
+  - Increased desktop cells from 13px to 14px.
+  - Replaced the rejected calendar-based mobile layouts with a sequential
+    activity strip. The mobile renderer now computes column count from
+    viewport/frame width, uses larger squares, and keeps exact dates in
+    tooltips instead of preserving month/week columns.
+  - Added mobile headline fitting and breakpoint-aware heatmap rerendering so
+    responsive design mode can cross between desktop and mobile layouts.
+  - Added a rendered-route regression test that prevents the loading state
+    from regressing back into a Bootstrap card.
+  - Added FINDINGS.md notes for last.timer/API limits, Bootstrap 5.3/theming
+    scope, tooltip/font audit, and visual verification tooling.
+- Deviations: `tests/test_routes.py` was touched for a focused rendered-markup
+  regression; `BATCH19_DEFINITION.md` now explicitly allows this. Browser MCP
+  screenshot tools were not exposed in this session, and shell-launched
+  headless Chrome did not emit screenshots in the sandbox, so automated visual
+  verification was limited to source, syntax, and rendered-template tests.
+- Validation: `node --check static/js/heatmap.js` passed. The focused route
+  test failed before the loading-template change and passed after it. The full
+  pytest gate passed with **387 passed** and 3 existing aiohttp/Python 3.13
+  warnings. `pre-commit run --all-files` passed all hooks.
+- Forward guidance: owner should visually re-check desktop and mobile heatmap
+  sizing plus the loading state. If approved, perform the Batch Close-Out
+  Procedure in `AGENTS.md`.
 
 ### 2026-05-17 - Batch 19 WP-5: vertical mobile heatmap layout (Batch 19 WP-5)
 
