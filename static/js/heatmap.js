@@ -133,11 +133,16 @@
   }
 
   function computeStreak(dailyCounts, toDate) {
-    var streak = 0;
     var d = new Date(toDate);
-    while (true) {
-      var key = isoDate(d);
-      if (!dailyCounts[key] || dailyCounts[key] === 0) break;
+    // If today has no scrobble yet, allow a streak ending yesterday.  Common
+    // case: user opens the page in the morning before scrobbling anything.
+    // Strict "must include today" semantics killed yesterday-active streaks
+    // and was the most-reported confusion in PR #152 review.
+    if (!dailyCounts[isoDate(d)]) {
+      d.setDate(d.getDate() - 1);
+    }
+    var streak = 0;
+    while (dailyCounts[isoDate(d)]) {
       streak++;
       d.setDate(d.getDate() - 1);
     }
