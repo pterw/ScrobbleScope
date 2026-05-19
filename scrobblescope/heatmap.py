@@ -20,7 +20,7 @@ import time
 from collections import Counter
 from datetime import datetime
 from datetime import time as dt_time
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 from scrobblescope.lastfm import fetch_all_recent_tracks_async
 from scrobblescope.repositories import (
@@ -68,7 +68,10 @@ def _aggregate_daily_counts(pages, from_date, to_date):
                 # "Now playing" tracks lack a date field -- skip them.
                 continue
             ts = int(uts)
-            day = datetime.fromtimestamp(ts).date()
+            # Last.fm UTS values are UTC-anchored; decoding as UTC keeps day
+            # attribution consistent across server timezones (lastfm.py:31
+            # already follows this pattern for year extraction).
+            day = datetime.fromtimestamp(ts, tz=timezone.utc).date()
             if from_date <= day <= to_date:
                 counter[day.isoformat()] += 1
 
@@ -107,11 +110,15 @@ async def _fetch_and_process_heatmap(job_id, username):
         reset_stats=True,
     )
 
-    # Compute the 365-day window (today inclusive).
-    now = datetime.now()
+    # Compute the 365-day window (today inclusive). All datetimes are UTC
+    # so the fetch range and bucket boundaries agree regardless of the
+    # server's local timezone (Fly.io is UTC but local Windows dev is not).
+    now = datetime.now(timezone.utc)
     to_date = now.date()
     from_date = to_date - timedelta(days=364)  # 365 calendar days inclusive
-    from_ts = int(datetime.combine(from_date, dt_time.min).timestamp())
+    from_ts = int(
+        datetime.combine(from_date, dt_time.min, tzinfo=timezone.utc).timestamp()
+    )
     to_ts = int(now.timestamp())
 
     # Phase 5-80%: fetch Last.fm pages ----------------------------------------

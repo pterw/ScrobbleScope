@@ -13,7 +13,7 @@ Covers:
 
 from datetime import date, datetime
 from datetime import time as dt_time
-from datetime import timedelta
+from datetime import timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
@@ -41,7 +41,10 @@ def _make_track(day, uts_override=None):
     if uts_override is False:
         # Explicitly no date field -> "now playing" track.
         return {"name": "Song", "artist": {"#text": "Artist"}}
-    uts = uts_override or int(datetime.combine(day, dt_time(12, 0)).timestamp())
+    # Build UTS as UTC to match production decode (heatmap.py: tz=utc).
+    uts = uts_override or int(
+        datetime.combine(day, dt_time(12, 0), tzinfo=timezone.utc).timestamp()
+    )
     return {
         "name": "Song",
         "artist": {"#text": "Artist"},
@@ -120,10 +123,16 @@ class TestAggregateDailyCounts:
         """Tracks at exactly from_date start and to_date end are included."""
         from_date = date(2026, 6, 1)
         to_date = date(2026, 6, 2)
-        # Track at start of from_date (00:00:00).
-        start_uts = int(datetime.combine(from_date, dt_time.min).timestamp())
-        # Track at end of to_date (23:59:59).
-        end_uts = int(datetime.combine(to_date, dt_time(23, 59, 59)).timestamp())
+        # Track at start of from_date (00:00:00 UTC).
+        start_uts = int(
+            datetime.combine(from_date, dt_time.min, tzinfo=timezone.utc).timestamp()
+        )
+        # Track at end of to_date (23:59:59 UTC).
+        end_uts = int(
+            datetime.combine(
+                to_date, dt_time(23, 59, 59), tzinfo=timezone.utc
+            ).timestamp()
+        )
         pages = [
             _wrap_tracks(
                 [
@@ -141,10 +150,14 @@ class TestAggregateDailyCounts:
         from_date = date(2026, 5, 10)
         to_date = date(2026, 5, 12)
         before_uts = int(
-            datetime.combine(date(2026, 5, 9), dt_time(23, 59, 59)).timestamp()
+            datetime.combine(
+                date(2026, 5, 9), dt_time(23, 59, 59), tzinfo=timezone.utc
+            ).timestamp()
         )
         after_uts = int(
-            datetime.combine(date(2026, 5, 13), dt_time(0, 0, 1)).timestamp()
+            datetime.combine(
+                date(2026, 5, 13), dt_time(0, 0, 1), tzinfo=timezone.utc
+            ).timestamp()
         )
         inside = _make_track(date(2026, 5, 11))
         pages = [
@@ -186,15 +199,20 @@ class TestAggregateDailyCounts:
         assert result["2026-02-02"] == 1
 
     def test_midnight_boundary_attribution(self):
-        """Tracks at 23:59:59 on day D and 00:00:01 on day D+1 land on correct days.
+        """Tracks at 23:59:59 UTC on day D and 00:00:01 UTC on day D+1 land
+        on correct days.
 
         Adversarial: catches an off-by-one in the uts->date conversion (e.g.
-        using UTC instead of local time, or rounding to the wrong second).
+        rounding to the wrong second).
         """
         d1 = date(2026, 3, 1)
         d2 = date(2026, 3, 2)
-        late_uts = int(datetime.combine(d1, dt_time(23, 59, 59)).timestamp())
-        early_uts = int(datetime.combine(d2, dt_time(0, 0, 1)).timestamp())
+        late_uts = int(
+            datetime.combine(d1, dt_time(23, 59, 59), tzinfo=timezone.utc).timestamp()
+        )
+        early_uts = int(
+            datetime.combine(d2, dt_time(0, 0, 1), tzinfo=timezone.utc).timestamp()
+        )
         pages = [
             _wrap_tracks(
                 [
@@ -206,6 +224,37 @@ class TestAggregateDailyCounts:
         result = _aggregate_daily_counts(pages, d1, d2)
         assert result["2026-03-01"] == 1
         assert result["2026-03-02"] == 1
+
+    def test_utc_decode_invariant_against_local_tz_drift(self):
+        """A UTS whose UTC-day and local-tz-day differ is attributed by UTC.
+
+        Adversarial: catches a regression to naive ``datetime.fromtimestamp``.
+        We pick a timestamp at 23:30 UTC on day D so that on any timezone west
+        of UTC (Americas) it is still day D, but on any timezone east of UTC
+        with offset >= +01 (Europe, Asia, Africa) it has already rolled to
+        day D+1.  The production decode must agree with the UTS's *UTC*
+        calendar date regardless of where the test runs.
+        """
+        d_utc = date(2026, 4, 10)
+        # 23:30 UTC -- definitively day d_utc under UTC, definitively
+        # d_utc+1 under any local tz with offset >= +01:00.
+        ts_utc = int(
+            datetime.combine(d_utc, dt_time(23, 30), tzinfo=timezone.utc).timestamp()
+        )
+        # Sanity: a naive decode using the running host's local tz must
+        # disagree with the UTC decode for the test to be meaningful on a
+        # UTC host (where local == UTC, the assertion still holds but the
+        # adversarial signal is weaker).  We document the intent in the
+        # docstring rather than skip on UTC hosts so the assertion runs
+        # everywhere.
+        pages = [_wrap_tracks([_make_track(d_utc, uts_override=ts_utc)])]
+        from_date = d_utc - timedelta(days=1)
+        to_date = d_utc + timedelta(days=1)
+        result = _aggregate_daily_counts(pages, from_date, to_date)
+        assert result[d_utc.isoformat()] == 1
+        # The bucket on d_utc+1 must be zero -- this is what fails when
+        # production naive-decodes the timestamp on a +01 or later host.
+        assert result[(d_utc + timedelta(days=1)).isoformat()] == 0
 
 
 # ===========================================================================
@@ -344,7 +393,7 @@ class TestFetchAndProcessHeatmap:
     async def test_happy_path_stores_correct_result_dict(self):
         """Successful fetch stores a result dict with expected keys and values."""
         # Build a page with scrobbles on a known day.
-        today = datetime.now().date()
+        today = datetime.now(timezone.utc).date()
         yesterday = today - timedelta(days=1)
         page = _wrap_tracks(
             [
@@ -392,7 +441,7 @@ class TestFetchAndProcessHeatmap:
     @pytest.mark.asyncio
     async def test_progress_callback_sends_correct_percentages(self):
         """The progress callback maps fetch phases into 5-80% range."""
-        today = datetime.now().date()
+        today = datetime.now(timezone.utc).date()
         page = _wrap_tracks([_make_track(today)])
         meta = {"status": "ok", "pages_expected": 1, "pages_received": 1}
 
