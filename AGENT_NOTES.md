@@ -93,6 +93,37 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ---
 
+## GitHub CLI Authentication
+
+`gh` reads `GH_TOKEN` from the environment automatically. The owner stores a
+fine-grained PAT in `.env` (gitignored) so agents can open PRs and read review
+comments without the owner pasting the token into chat each session.
+
+To use it in a session without exporting it permanently, source it from `.env`
+inside PowerShell:
+
+```powershell
+$line = Get-Content .env | Where-Object { $_ -match '^GH_TOKEN=' } | Select-Object -First 1
+$env:GH_TOKEN = $line.Substring($line.IndexOf('=') + 1).Trim().Trim('"')
+gh auth status
+```
+
+Then `gh pr ...` commands work for the rest of the session. The token is held
+only in the current process environment and is gone when the shell exits.
+
+**Rules:**
+- Never paste the token value into chat, commit it, or screenshot it.
+- Rotate every 90 days. Revoke immediately if exposed.
+- Required permissions for this repo's workflow: Contents r/w, Pull requests
+  r/w, Metadata r (auto). Add Workflows r/w only if reviewer feedback may
+  ask for CI changes; add Issues r/w only if reviewers comment via issues.
+- Fine-grained PAT scoped to `pterw/ScrobbleScope` only is preferred over a
+  classic PAT (smaller blast radius if leaked).
+- If `gh auth status` returns 401, the token is invalid or expired -- generate
+  a fresh one, update `.env`, and re-source. Do not retry the same token.
+
+---
+
 ## Heatmap Feature (Batch 18 iteration 1 + Batch 19 polish)
 
 - **Core feature definition:** `docs/history/definitions/BATCH18_DEFINITION.md`.
