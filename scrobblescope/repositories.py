@@ -202,7 +202,12 @@ def get_job_context(job_id):
         if isinstance(results, list):
             results = list(results)
         elif isinstance(results, dict):
+            # Shallow copy the outer dict, then explicitly copy the known
+            # nested mutable structure (daily_counts) so callers cannot mutate
+            # shared state through the returned reference.  Closes F-B18-8.
             results = dict(results)
+            if "daily_counts" in results:
+                results["daily_counts"] = dict(results["daily_counts"])
 
         progress = dict(job["progress"])
         progress["stats"] = dict(progress.get("stats", {}))

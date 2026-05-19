@@ -39,6 +39,9 @@ Items from prior audits that have been addressed:
   `matchMedia('prefers-color-scheme: dark')`. Commit `463282e`.
 - ~~Log rotation loses data under load~~ -- Increased to 2MB cap, 10 backups.
   Commit `21a3b4c` on `main`.
+- ~~F-B18-8 nested daily_counts shared by reference~~ -- `get_job_context`
+  now explicitly copies `results["daily_counts"]` in addition to the outer
+  dict. Closed during PR #152 review (Gemini Code Review catch).
 
 ---
 
@@ -91,17 +94,22 @@ Both `orchestrator.py background_task()` and new `heatmap_task()` need
 identical `sys.platform == "win32"` guard for `WindowsSelectorEventLoopPolicy`.
 Shared utility candidate for future refactor.
 
-### F-B18-8: get_job_context shallow-copies results but not nested dicts
+### F-B18-8: get_job_context shallow-copies results but not nested dicts -- RESOLVED
 
-`repositories.py` `get_job_context()` copies list results via `list(results)`
-but does not copy dict results at all (returns the original reference).
-The Boy Scout fix in WP-1 adds `elif isinstance(results, dict):
-results = dict(results)` -- but this is still a shallow copy. The heatmap
-result dict contains a nested `daily_counts` dict, which will be shared
-by reference. In practice no caller mutates it, but it violates the
-function's stated contract ("All mutable containers are shallow-copied
-to prevent callers from mutating shared state"). Deep copy would be
-correct but is overkill for iteration 1; note for future hardening.
+**Status:** resolved during PR #152 review (Gemini Code Review catch).
+`get_job_context()` now explicitly does `results["daily_counts"] =
+dict(results["daily_counts"])` after the outer dict copy, restoring the
+function's stated contract for heatmap result shape. Variant chosen over
+`copy.deepcopy` because the polling hot path runs every ~1s per active
+job and the nested structure is well known. New regression test:
+`tests/test_repositories.py::test_get_job_context_nested_daily_counts_is_isolated`.
+
+Historical context: `repositories.py` `get_job_context()` originally
+copied list results via `list(results)` but did not copy dict results at
+all (returned the original reference). A Boy Scout fix added an
+`elif isinstance(results, dict): results = dict(results)` branch, but
+that was still a shallow copy, leaving the nested `daily_counts` shared
+by reference. PR #152 review surfaced this; the fix above closes it.
 
 ### F-B18-9: username not sanitized for JS/SVG injection
 

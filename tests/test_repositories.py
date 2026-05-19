@@ -364,6 +364,36 @@ def test_get_job_context_dict_results_are_shallow_copied():
     assert ctx2["results"]["total_scrobbles"] == 100
 
 
+def test_get_job_context_nested_daily_counts_is_isolated():
+    """get_job_context isolates the nested daily_counts dict from callers.
+
+    Adversarial: a shallow dict copy leaves daily_counts shared by reference;
+    a caller that did ``ctx["results"]["daily_counts"][key] = N`` would
+    silently mutate the live JOBS entry.  Closes F-B18-8.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    original = {
+        "username": "testuser",
+        "total_scrobbles": 5,
+        "daily_counts": {"2026-05-01": 3, "2026-05-02": 2},
+    }
+    set_job_results(job_id, original)
+
+    ctx = get_job_context(job_id)
+    assert ctx is not None
+    assert ctx["results"]["daily_counts"]["2026-05-01"] == 3
+
+    # Mutate the nested dict through the returned reference.
+    ctx["results"]["daily_counts"]["2026-05-01"] = 999
+    ctx["results"]["daily_counts"]["2026-05-03"] = 7  # add a new key too
+
+    # A fresh context must observe the original values, not the mutations.
+    ctx2 = get_job_context(job_id)
+    assert ctx2 is not None
+    assert ctx2["results"]["daily_counts"]["2026-05-01"] == 3
+    assert "2026-05-03" not in ctx2["results"]["daily_counts"]
+
+
 @pytest.mark.asyncio
 async def test_batch_persist_metadata_upsert_call_shape():
     """
