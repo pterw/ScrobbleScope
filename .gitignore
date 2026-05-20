@@ -45,4 +45,6 @@ backup.py
 # HANDOFF_PROMPT.md and AGENT_NOTES.md are committed -- shared cross-agent bootstrap.
 # MEMORY.md (root) stays local-only: Claude Code auto-memory scratch layer.
 MEMORY.md
+# CLAUDE.md is local-only: Claude Code auto-load convenience; not useful without Claude Code.
+CLAUDE.md
 /BATCH*_AUDIT*.md
