@@ -101,7 +101,7 @@ record -- `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 and the relevant `docs/history/logs/BATCHN_LOG.md` -- so it doesn't
 re-describe a decision that was already made and archived, and so its own
 entry's title/date doesn't collide with prior history. Once the WP is done,
-the agent appends a `YYYY-MM-DD - ...` entry inside the
+the agent appends a `### YYYY-MM-DD - ...` entry inside the
 `<!-- DOCSYNC:CURRENT-BATCH-START/END -->` markers if the entry belongs to
 the active batch, or after the end marker (untagged, no `(Batch N WP-X)`
 suffix) if it's a side-task (see `AGENTS.md` "Side-Task Handling"). The
