@@ -89,10 +89,11 @@ was just completed. Structured as:
   Older entries rotate automatically into the archive.
 
 The batch/work-package (WP) structure is a lightweight sprint system.
-Each batch has a definition document (`docs/history/definitions/BATCHN_DEFINITION.md`)
-that specifies acceptance criteria before work begins -- this is the
-"definition of done" that prevents scope creep mid-batch and gives a
-later agent an unambiguous target.
+Each batch starts with a definition document at the repository root
+(`BATCHN_DEFINITION.md`) that specifies acceptance criteria before work begins --
+this is the "definition of done" that prevents scope creep mid-batch and gives
+a later agent an unambiguous target. At close-out, the definition is archived
+under `docs/history/definitions/`.
 
 **How agents actually write to Section 4.** An agent never appends blindly.
 Before writing a new dated entry it is expected to search the existing
