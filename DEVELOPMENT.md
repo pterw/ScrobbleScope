@@ -268,9 +268,10 @@ practice follow from this:
   consistency checks are done by `doc_state_sync.py`, a plain Python script
   with its own test suite (116 tests), not by asking the agent to "keep the
   files tidy." Typical AIDD setups rely on the agent itself to remember and
-  re-apply formatting/bookkeeping conventions every session; here that
-  class of task is removed from the agent's responsibility entirely and
-  enforced by a pre-commit hook (`doc-state-sync-check`) instead.
+  re-apply formatting/bookkeeping conventions every session; here rotation
+  and archive drift are enforced by the `doc-state-sync-check` pre-commit
+  hook, while cross-file consistency problems are reported as warnings for
+  the agent to resolve.
 - **A definition-of-done written before work starts, not inferred after.**
   Each batch's root `BATCHN_DEFINITION.md` is committed before its WPs begin,
   then moved under `docs/history/definitions/` at close-out, so an agent
