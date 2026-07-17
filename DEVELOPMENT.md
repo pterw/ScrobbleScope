@@ -272,10 +272,10 @@ practice follow from this:
   class of task is removed from the agent's responsibility entirely and
   enforced by a pre-commit hook (`doc-state-sync-check`) instead.
 - **A definition-of-done written before work starts, not inferred after.**
-  Each batch's `docs/history/definitions/BATCHN_DEFINITION.md` is committed
-  before its WPs begin, so an agent resuming mid-batch (or a human auditing
-  it later) has an unambiguous target instead of having to reconstruct
-  intent from commit messages or chat transcripts.
+  Each batch's root `BATCHN_DEFINITION.md` is committed before its WPs begin,
+  then moved under `docs/history/definitions/` at close-out, so an agent
+  resuming mid-batch (or a human auditing it later) has an unambiguous target
+  instead of having to reconstruct intent from commit messages or transcripts.
 - **Automated review suggestions are logged and adjudicated, not
   auto-applied.** Section "On Rejecting Code Review Suggestions" below is
   the direct consequence: a review tool (or agent) that only sees the
