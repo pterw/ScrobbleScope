@@ -96,11 +96,10 @@ a later agent an unambiguous target. At close-out, the definition is archived
 under `docs/history/definitions/`.
 
 **How agents actually write to Section 4.** An agent never appends blindly.
-Before writing a new dated entry it is expected to search the existing
-record -- `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
-and the relevant `docs/history/logs/BATCHN_LOG.md` -- so it doesn't
-re-describe a decision that was already made and archived, and so its own
-entry's title/date doesn't collide with prior history. Once the WP is done,
+Before writing a new dated entry it searches the existing archive record
+(see `AGENTS.md` "Before writing to Section 4") so it doesn't re-describe
+a decision that was already made and archived, and so its own entry's
+title/date doesn't collide with prior history. Once the WP is done,
 the agent appends a `### YYYY-MM-DD - ...` entry inside the
 `<!-- DOCSYNC:CURRENT-BATCH-START/END -->` markers if the entry belongs to
 the active batch, or after the end marker (untagged, no `(Batch N WP-X)`
