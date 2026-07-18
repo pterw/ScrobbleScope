@@ -266,7 +266,7 @@ practice follow from this:
 - **Deterministic tooling over prompted discipline for the parts that must
   never fail.** Section rotation, archive deduplication, and cross-file
   consistency checks are done by `doc_state_sync.py`, a plain Python script
-  with its own test suite (116 tests), not by asking the agent to "keep the
+  with its own comprehensive test suite, not by asking the agent to "keep the
   files tidy." Typical AIDD setups rely on the agent itself to remember and
   re-apply formatting/bookkeeping conventions every session; here rotation
   and archive drift are enforced by the `doc-state-sync-check` pre-commit
