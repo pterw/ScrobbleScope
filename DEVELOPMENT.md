@@ -89,10 +89,18 @@ was just completed. Structured as:
   Older entries rotate automatically into the archive.
 
 The batch/work-package (WP) structure is a lightweight sprint system.
-Each batch has a definition document (`docs/history/BATCHN_DEFINITION.md`)
-that specifies acceptance criteria before work begins -- this is the
-"definition of done" that prevents scope creep mid-batch and gives a
-later agent an unambiguous target.
+Each batch starts with a definition document at the repository root
+(`BATCHN_DEFINITION.md`) that specifies acceptance criteria before work begins --
+this is the "definition of done" that prevents scope creep mid-batch and gives
+a later agent an unambiguous target. At close-out, the definition is archived
+under `docs/history/definitions/`.
+
+Agents write the narrative entry; `doc_state_sync.py` performs the
+mechanical rotation, dedup, and status-block refresh. The behavioral rule
+for what an agent must check before appending a new entry lives in
+`AGENTS.md` ("Before writing to Section 4") -- this file only explains
+why the split exists: see "`doc_state_sync.py`: Why a Script, Not a
+Prompt" below.
 
 ### `.claude/SESSION_CONTEXT.md` -- Dashboard
 
@@ -175,10 +183,18 @@ before it reaches CI.
 
 **Package structure (Batch 14 refactor).** The script was originally a
 monolithic 600-line file. Batch 14 decomposed it into a proper Python
-package (`scripts/docsync/`) with separate modules for parsing, rendering,
-logic, CLI, and dataclass models. This made each concern independently
-testable -- 97 docsync tests now cover rotation, dedup, cross-validation,
-and CLI modes.
+package (`scripts/docsync/`) with separate modules for parsing (`parser.py`),
+rendering (`renderer.py`), rotation/dedup logic (`logic.py`), the CLI
+entrypoint (`cli.py`), and typed dataclass models (`models.py`); the root
+`scripts/doc_state_sync.py` is now a thin wrapper that delegates into the
+package. This made each concern independently testable -- 116 docsync tests
+(across `tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
+`tests/test_docsync_renderer.py`, and `tests/test_docsync_cli.py`) now cover
+rotation, dedup, cross-validation, and CLI modes. That count has grown since
+the original Batch 14 refactor as later batches added edge-case coverage;
+run `pytest tests/test_docsync_*.py -q` to confirm the current number rather
+than trusting any figure quoted here, since it will drift as new tests are
+added.
 
 **SESSION_CONTEXT.md is optional in CI.** The file is committed to the
 repo and is normally present in GitHub Actions (with a standard
@@ -197,7 +213,7 @@ Looking back, the batch system maps onto a conventional software process:
 | SDLC concept | ScrobbleScope equivalent |
 |---|---|
 | Sprint / milestone | Batch (e.g., Batch 7: Persistent metadata layer) |
-| Definition of done | `docs/history/BATCHN_DEFINITION.md` acceptance criteria |
+| Definition of done | `docs/history/definitions/BATCHN_DEFINITION.md` acceptance criteria |
 | Stand-up / status | SESSION_CONTEXT Section 1 (current state table) |
 | Retrospective / ADR | `docs/history/AUDIT_*.md`, `BUGFIX_*.md` |
 | CI gate | Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
@@ -209,6 +225,61 @@ amnesia between sessions. This forced an unusually rigorous documentation
 discipline -- not because good documentation is a virtue in the abstract,
 but because the cost of an undocumented decision was a future agent
 re-opening a solved problem.
+
+---
+
+## How This Differs From Typical Agentic Coding / AIDD
+
+Most AI-driven-development (AIDD) workflows treat the agent's context
+window, or at best a single running conversation/log, as the entire
+memory of the project. A prompt like "continue where you left off" or
+"here's the chat history" works fine within one session but does not
+survive a tool switch (Claude Code to Copilot to Gemini CLI), a context
+compaction, or a multi-day gap -- exactly the conditions this project
+runs under with five different agent tools. The typical failure mode in
+that model is that state lives implicitly in conversation history: whoever
+has the longest, most recent transcript "knows" the project, and anyone
+else has to either read that transcript in full (token-expensive and lossy)
+or start over.
+
+ScrobbleScope's orchestration layer inverts that assumption: state is never
+allowed to live only in a conversation. It is externalized into a small,
+strictly-scoped set of files (`AGENTS.md`, `HANDOFF_PROMPT.md`,
+`AGENT_NOTES.md`, `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, plus the
+`docs/history/` archive) with each file assigned exactly one concern, so
+that any agent -- regardless of vendor or context length -- can bootstrap
+full working context from a fixed, small reading list rather than from
+transcript archaeology. A few concrete departures from typical agentic
+practice follow from this:
+
+- **Deterministic tooling over prompted discipline for the parts that must
+  never fail.** Section rotation, archive deduplication, and cross-file
+  consistency checks are done by `doc_state_sync.py`, a plain Python script
+  with its own comprehensive test suite, not by asking the agent to "keep the
+  files tidy." Typical AIDD setups rely on the agent itself to remember and
+  re-apply formatting/bookkeeping conventions every session; here rotation
+  and archive drift are enforced by the `doc-state-sync-check` pre-commit
+  hook, while cross-file consistency problems are reported as warnings for
+  the agent to resolve.
+- **A definition-of-done written before work starts, not inferred after.**
+  Each batch's root `BATCHN_DEFINITION.md` is committed before its WPs begin,
+  then moved under `docs/history/definitions/` at close-out, so an agent
+  resuming mid-batch (or a human auditing it later) has an unambiguous target
+  instead of having to reconstruct intent from commit messages or transcripts.
+- **Automated review suggestions are logged and adjudicated, not
+  auto-applied.** Section "On Rejecting Code Review Suggestions" below is
+  the direct consequence: a review tool (or agent) that only sees the
+  current diff, with no causal history, will sometimes recommend reverting
+  a deliberate fix. Preserving the reasoning in `PLAYBOOK.md`/`docs/history/`
+  means the next agent (or reviewer) doesn't repeat the same wrong
+  suggestion, which a purely conversational workflow has no mechanism to
+  prevent.
+- **Cost is paid up front in documentation discipline, not deferred as
+  cleanup.** A typical single-agent AIDD loop optimizes for shipping the
+  current change quickly and treats documentation as optional follow-up.
+  Because this project is designed for hand-offs between independent agent
+  sessions with no shared memory, skipping the doc update is not a
+  shortcut -- it directly causes the next session to redo or undo work.
 
 ---
 
@@ -274,7 +345,7 @@ A short list of things that failed before the current approach stabilized:
 
 If you have cloned this repository and want to understand any decision:
 
-1. Read the relevant `docs/history/BATCHN_DEFINITION.md` to see what the
+1. Read the relevant `docs/history/definitions/BATCHN_DEFINITION.md` to see what the
    acceptance criteria were before work started.
 2. Search `PLAYBOOK.md` Section 4 and
   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries
