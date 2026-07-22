@@ -8,7 +8,7 @@ Last updated: 2026-05-19
 
 | Item | Value |
 |------|-------|
-| Branch | `feat/heatmap` |
+| Branch | `file-hygeine` |
 | Tests | **389 passing** across 24 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
@@ -18,8 +18,9 @@ Last updated: 2026-05-19
 | Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
-| Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. |
-| Batch 20 status | **Active (placeholder).** Scope TBD: global UI overhaul. Definition stub: `BATCH20_DEFINITION.md`. No WP work begins until owner finalizes scope. |
+| Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
+| Batch 20 status | **Active.** File-hygiene + docs methodology refresh. WP-0 done. Definition: `BATCH20_DEFINITION.md`. |
+| Batch 21 status | **Placeholder (renumbered from Batch 20).** Scope TBD: global UI overhaul. Definition stub: `BATCH21_DEFINITION.md`. No WP work until owner finalizes scope from audit PDF. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -45,10 +46,10 @@ Last updated: 2026-05-19
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 20.
 - Current-batch entries in active log block: 1.
-- Completed work packages in current-batch entries: none.
-- Next expected work package: unknown.
-- Latest validated test count: **387 passed**.
-- Newest current-batch entry: 2026-05-19 - Batch 19 close-out (Batch 19 close-out).
+- Completed work packages in current-batch entries: WP-0.
+- Next expected work package: WP-1.
+- Latest validated test count: **389 passed**.
+- Newest current-batch entry: 2026-05-22 - Batch scaffolding (Batch 20 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

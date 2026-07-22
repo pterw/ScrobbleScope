@@ -48,7 +48,8 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 17 | Agent bootstrap hardening, CI/CD improvements, and dep pinning | `docs/history/definitions/BATCH17_DEFINITION.md` |
 | 18 | Scrobble heatmap -- iteration 1 | `docs/history/definitions/BATCH18_DEFINITION.md` |
 | 19 | Heatmap polish -- frame, KPIs, mobile layout | `docs/history/definitions/BATCH19_DEFINITION.md` |
-| 20 | UI overhaul -- TBD | `BATCH20_DEFINITION.md` |
+| 20 | File-hygiene + docs methodology refresh | `BATCH20_DEFINITION.md` |
+| 21 | UI overhaul -- TBD | `BATCH21_DEFINITION.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -64,15 +65,18 @@ Completed batch definitions are archived individually under `docs/history/`.
   `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 is complete.** All 5 WPs done plus owner-review follow-up.
   Definition archived: `docs/history/definitions/BATCH19_DEFINITION.md`.
-  Branch `feat/heatmap` is PR-ready.
-- **Batch 20 is active (placeholder).** Definition stub: `BATCH20_DEFINITION.md`.
-  Scope is TBD -- global UI overhaul (font stack, palette integration,
-  index card rework, Bootstrap CDN consolidation). Owner will finalize WPs
-  in a later session; no WP work begins until that scope lands.
-- **Next action:** open the `feat/heatmap` PR to `main` for the Batch 19
-  work, review, merge, deploy. After deploy, scope Batch 20 WPs from the
-  ideas captured in `BATCH20_DEFINITION.md`.
-- Batch 20 WP status: scope TBD -- WPs not yet defined.
+  PR #152 (Batches 18 + 19) merged to `main`.
+- **Batch 20 is active.** Definition: `BATCH20_DEFINITION.md` (repo root).
+  Scope: file-hygiene + docs methodology refresh (README, DEVELOPMENT.md,
+  FINDINGS.md rotation, AGENTS.md finding-writing rules, bootstrap skill
+  update). No production-code changes. Branch: `file-hygeine`.
+- **Batch 21 (placeholder, renumbered from Batch 20).** Definition:
+  `BATCH21_DEFINITION.md` (repo root). Scope TBD -- global UI overhaul
+  (font stack, palette integration, index card rework, Bootstrap CDN
+  consolidation) driven by an owner audit PDF. No WP work begins until
+  scope lands.
+- **Next action:** Batch 20 WP-1 (README: counts, structure, mermaid).
+- Batch 20 WP status: WP-0 (scaffolding) done. WP-1 through WP-8 not yet started.
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
@@ -107,6 +111,35 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-05-22 - Batch scaffolding (Batch 20 WP-0)
+
+- Scope: opened Batch 20 (file-hygiene + docs methodology refresh) and
+  renumbered the UI-overhaul placeholder to Batch 21, since that
+  placeholder had no started WPs.
+- Plan vs implementation:
+  - `git mv BATCH20_DEFINITION.md BATCH21_DEFINITION.md`, header updated
+    to `# BATCH21: UI overhaul -- TBD`, status note records the rename
+    reason and date.
+  - Wrote new `BATCH20_DEFINITION.md` -- 8 WPs covering README, DEVELOPMENT.md,
+    FINDINGS.md rotation + archive, AGENTS.md finding-writing rules,
+    HANDOFF_PROMPT.md pointer, and the `scrobblescope-bootstrap` skill
+    update. No production-code changes; baseline is 389 tests throughout.
+  - PLAYBOOK Section 2: added Batch 20 and Batch 21 rows. Section 3:
+    Batch 20 marked active, Batch 21 marked placeholder pending owner's
+    audit PDF, next action set to Batch 20 WP-1.
+- Deviations: none -- this session found the rename staged/edited but
+  uncommitted from a prior session (owner confirmed via `HANDOFF_PROMPT.md`
+  handoff) and completed the WP-0 commit per the definition file's own
+  instructions.
+- Validation: `pytest -q` -- **389 passed**, 3 existing aiohttp/Python 3.13
+  warnings (no code touched). `pre-commit run --all-files` -- all 10 hooks
+  pass. `doc_state_sync.py --check` -- exit 0, two expected root-BATCH-file
+  warnings (Batch 20 active + Batch 21 placeholder, both intentional).
+- Forward guidance: WP-1 starts the README pass (test-file count, project
+  structure, mermaid diagram refresh).
+
+<!-- DOCSYNC:CURRENT-BATCH-END -->
+
 ### 2026-05-19 - Batch 19 close-out (Batch 19 close-out)
 
 - Scope: archived the Batch 19 definition, refreshed README for the PR to
@@ -131,8 +164,6 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: open the PR for `feat/heatmap` -> `main`, address any
   reviewer comments, merge, and deploy. Batch 20 (heavy UI refactor) is
   to be scoped later and is explicitly out of this PR.
-
-<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 ### 2026-05-19 - PR #152 Gemini Code Review fixes (side-task)
 
