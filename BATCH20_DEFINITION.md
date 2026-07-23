@@ -1,6 +1,6 @@
 # BATCH20: File-hygiene + docs methodology refresh
 
-**Status:** Definition awaiting owner audit. Plan reference: `C:\Users\peter\.claude\plans\wondrous-moseying-glacier.md`.
+**Status:** Definition awaiting owner audit.
 **Branch:** `file-hygeine` (off `main` after committing `.gitignore` exclusion of `CLAUDE.md` and pushing).
 **Baseline:** 389 tests passing (post PR #152 merge to main; no code changes in this batch should move the count).
 
