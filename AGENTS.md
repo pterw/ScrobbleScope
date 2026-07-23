@@ -226,6 +226,17 @@ during active work. After close-out, the root warning should disappear.
    `docs/logarchive/` in PLAYBOOK does
   not exist on disk.
 
+### Before writing to Section 4
+
+Before appending a new dated entry to PLAYBOOK Section 4, search the existing
+archive to avoid re-describing an already-recorded decision and to prevent
+title/date collisions:
+
+```bash
+rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md
+rg -n "^### 20" docs/history/logs/*.md
+```
+
 ### What to update after a WP or side-task commit
 
 - PLAYBOOK Section 3 (status) + Section 4 (dated log entry -- inside markers
