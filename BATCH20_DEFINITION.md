@@ -147,7 +147,7 @@ Also update the line-39 paragraph ("Five tracked files and two archive directori
   - P1 items currently bare-numbered (2, 3, 4, 5, 6, 7, 8, 9) get IDs derived from their source audit (`F-LOAD-N`, `F-MAS-N` for MULTI_AGENT_SWEEP, `F-DOCSYNC-N` for DOCSYNC_AUDIT, `F-AUDIT-N` for AUDIT_2026-02-11).
   - P2 items (10-13) same treatment.
   - Info items (14-17) same.
-  - Feature prep notes (18-19) keep prose-style, no F-ID needed.
+  - Feature prep notes (18-19) get `F-FEATURE-1` and `F-FEATURE-2` headings so every remaining item follows the F-ID standard.
 - Header note at the top of FINDINGS.md describing the rotation policy + archive link.
 - Add forward-FINDINGS entries:
   - `F-B20-1: README/SESSION_CONTEXT test-file count drift -- resolved in Batch 20.` (For audit completeness; archive immediately.)
