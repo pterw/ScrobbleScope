@@ -139,7 +139,7 @@ Also update the line-39 paragraph ("Five tracked files and two archive directori
   - "Resolved since last update (2026-03-02)" entire block.
   - F-B18-8 (RESOLVED).
   - F-B19-1, F-B19-2 (both RESOLVED in Batch 19 follow-up).
-  - F-B19-5 (visual-verification tooling, no action).
+  - F-B19-5 (visual-verification tooling, no action); update `BATCH21_DEFINITION.md` to point this item's source reference to `docs/history/findings/FINDINGS_ARCHIVE.md`.
   - F-B19-6 archive portion (the code-fix; keep the AGENTS.md anti-pattern-addition follow-up as an open P1 line in FINDINGS).
 - Consolidate the deferred Batch 18 findings (F-B18-1, F-B18-3, F-B18-4, F-B18-5, F-B18-7, F-B18-10) into a short "Deferred / future-batch candidates" block near the bottom of `FINDINGS.md` -- one-line cross-reference summaries each.
 - Promote `F-B18-1` to a fully scoped P1 item ("orchestrator.py decomposition") -- this is the same item now also in the README roadmap.
