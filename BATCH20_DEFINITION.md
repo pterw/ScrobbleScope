@@ -177,10 +177,12 @@ Target: `wc -l FINDINGS.md` reads 150-180.
 - `.claude/SESSION_CONTEXT.md` Section 1: literal "24 test files" -> "22 test modules" (last literal touch; the STATUS block has been regenerated per-WP throughout).
 - `python scripts/doc_state_sync.py --fix --keep-non-current 0` (purge old non-current rotated entries from PLAYBOOK Section 4).
 - `git mv BATCH20_DEFINITION.md docs/history/definitions/BATCH20_DEFINITION.md`.
-- PLAYBOOK Section 2: add Batch 20 row linking to archived definition.
+- PLAYBOOK Section 2: update the existing Batch 20 row to link to the archived definition.
 - PLAYBOOK Section 3: mark Batch 20 complete; flag Batch 21 (UI overhaul) as next batch awaiting owner scope from the audit PDF.
-- `.claude/SESSION_CONTEXT.md` Section 1: add row "Batch 20 status | **Complete**. All 8 WPs done. Definition: docs/history/definitions/BATCH20_DEFINITION.md."
-- Verify `python scripts/doc_state_sync.py --check` exits 0 with no Root BATCH file warnings.
+- PLAYBOOK Section 4: add a dated close-out entry inside the current-batch markers tagged `(Batch 20 close-out)`.
+- `.claude/SESSION_CONTEXT.md` Section 1: add row "Batch 20 status | **Complete**. All 9 WPs done. Definition: docs/history/definitions/BATCH20_DEFINITION.md."
+- Run `python scripts/doc_state_sync.py --fix` again after all source edits to refresh the STATUS block.
+- Verify `python scripts/doc_state_sync.py --check` exits 0 with only the expected Root BATCH warning for `BATCH21_DEFINITION.md`.
 
 ---
 
