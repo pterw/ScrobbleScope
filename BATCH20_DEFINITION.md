@@ -168,7 +168,6 @@ Target: `wc -l FINDINGS.md` reads 150-180.
   - No bare-numbered items in FINDINGS.md.
   - Resolved items rotate to `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out.
 - `HANDOFF_PROMPT.md` Section 1: add the same one-line read-on-demand pointer for symmetry.
-- `~/.claude/skills/scrobblescope-bootstrap/SKILL.md` (project-scoped skill): update "When to invoke" to include cues like "finding", "F-B18-*", "F-B19-*", "P1 item", "what's pending audit-wise".
 
 ### WP-8 -- Close-out
 
