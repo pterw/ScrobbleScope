@@ -120,7 +120,7 @@ non-current operational logs. Older dated entries live in
   - `git mv BATCH20_DEFINITION.md BATCH21_DEFINITION.md`, header updated
     to `# BATCH21: UI overhaul -- TBD`, status note records the rename
     reason and date.
-  - Wrote new `BATCH20_DEFINITION.md` -- 8 WPs covering README, DEVELOPMENT.md,
+  - Wrote new `BATCH20_DEFINITION.md` -- 9 WPs (WP-0 through WP-8) covering README, DEVELOPMENT.md,
     FINDINGS.md rotation + archive, AGENTS.md finding-writing rules,
     HANDOFF_PROMPT.md pointer, and the `scrobblescope-bootstrap` skill
     update. No production-code changes; baseline is 389 tests throughout.
