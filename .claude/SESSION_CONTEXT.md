@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-05-19
+Last updated: 2026-07-23
 
 ---
 
