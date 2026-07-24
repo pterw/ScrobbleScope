@@ -37,7 +37,7 @@ This project was initially built to identify top albums released in a specific y
 
 ## Features
 
-As mentioned above, ScrobbleScope currnetly offers two workflows on one page:
+As mentioned above, ScrobbleScope currently offers two workflows on one page:
 
 - **Top Albums** -- fetch a user's scrobbles for a chosen year, filter albums by
   release rules and listening thresholds, then rank them by play count or total
