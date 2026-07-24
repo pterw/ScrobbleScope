@@ -46,9 +46,8 @@ The external-memory layer consists of five tracked files and two archive
 directories. Each has a primary concern, and the design goal is that
 canonical facts live in exactly one place.
 
-In practice there is some intentional overlap: `HANDOFF_PROMPT.md` condenses key rules and
-procedures from `AGENTS.md` into a cold-start checklist -- it is a
-convenience summary for session handoffs, not a second source of truth.
+`HANDOFF_PROMPT.md` condenses key rules and procedures from `AGENTS.md` into a cold-start
+checklist -- it is a convenience summary for session handoffs, not a second source of truth.
 
 `AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
 restating them. `README.md` is excluded from the agent memory layer; it
@@ -325,7 +324,7 @@ practice follow from this:
 
 ## On Rejecting Code Review Suggestions
 
-Not every review suggestion improves the codebase. Two patterns emerged:
+Not every review suggestion improves the codebase:
 
 **Pattern 1: Correct in isolation, wrong in context.**
 
@@ -376,8 +375,7 @@ A short list of things that failed before the current approach stabilized:
   pre-commit hook now catches this class of error before it lands.
 - **Nested thread pattern** (Batch 3): the original background task spawned
   a thread that spawned another thread to run the asyncio event loop. This
-  produced unpredictable behavior under load. Removed in Batch 3 after a
-  dedicated batch definition was written with explicit acceptance criteria.
+  produced unpredictable behavior under load. Removed in Batch 3.
 
 ---
 
