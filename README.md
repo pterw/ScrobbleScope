@@ -247,6 +247,7 @@ Heatmap
     SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
     SECRET_KEY="local-development-only-key"
     DEBUG_MODE="1"
+    # DEBUG_MODE=1 disables the secret-key check for local development only.
 
     # For production, replace the local key above with a generated strong value:
     # python -c "import os; print(os.urandom(32).hex())"
