@@ -39,7 +39,8 @@ and next WP, you have enough context to start.
 - Read only Sections 3-4 of `PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
-- When citing repository files in chat or tool inputs, use absolute paths.
+- When citing repository files in chat or tool inputs, use full filesystem
+  paths (for example `/repo/path/file.py`, not `file.py`).
 
 ---
 
@@ -53,10 +54,11 @@ and next WP, you have enough context to start.
   Copilot environment exposes dedicated progress or PR tools instead.
 - For CI, build, test, or workflow failures, inspect GitHub Actions runs
   and job logs before concluding that CI details are unavailable.
-- Do not read `.github/agents/`; those files contain instructions for
-  other agent types and can conflict with this repository ruleset. If a
-  task appears to depend on them, pause and ask the owner for guidance
-  instead of trying to reconcile two rule sources yourself.
+- Treat this `AGENTS.md` file as the authoritative ruleset for repository
+  task sessions. Do not read `.github/agents/`; those files may target
+  other agent types and can conflict with this ruleset. If you suspect
+  drift between the two locations, pause and ask the owner to reconcile
+  them instead of trying to merge rule sources yourself.
 
 ---
 
