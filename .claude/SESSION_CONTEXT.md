@@ -45,9 +45,9 @@ Last updated: 2026-07-23
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 20.
-- Current-batch entries in active log block: 1.
-- Completed work packages in current-batch entries: WP-0.
-- Next expected work package: WP-1.
+- Current-batch entries in active log block: 5.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
+- Next expected work package: WP-5.
 - Latest validated test count: **389 passed**.
 - Newest current-batch entry: 2026-05-22 - Batch scaffolding (Batch 20 WP-0).
 <!-- DOCSYNC:STATUS-END -->

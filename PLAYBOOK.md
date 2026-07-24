@@ -75,8 +75,8 @@ Completed batch definitions are archived individually under `docs/history/`.
   (font stack, palette integration, index card rework, Bootstrap CDN
   consolidation) driven by an owner audit PDF. No WP work begins until
   scope lands.
-- **Next action:** Batch 20 WP-1 (README: counts, structure, mermaid).
-- Batch 20 WP status: WP-0 (scaffolding) done. WP-1 through WP-8 not yet started.
+- **Next action:** Batch 20 WP-5 (DEVELOPMENT.md: skills subsection).
+- Batch 20 WP status: WP-0 through WP-4 done. WP-5 through WP-8 not yet started.
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
@@ -137,6 +137,65 @@ non-current operational logs. Older dated entries live in
   warnings (Batch 20 active + Batch 21 placeholder, both intentional).
 - Forward guidance: WP-1 starts the README pass (test-file count, project
   structure, mermaid diagram refresh).
+
+### 2026-07-24 - README counts/structure/mermaid refresh (Batch 20 WP-1)
+
+- Scope: completed Batch 20 WP-1 in `README.md` (test-count wording, project
+  structure refresh, and Mermaid flow update).
+- Plan vs implementation:
+  - Updated test-count references to 22 test modules.
+  - Refreshed the root project-structure block with the requested
+    orchestration/documentation files.
+  - Replaced the older architecture mermaid with the current two-pipeline
+    diagram and removed the doc-state-sync bullet from key highlights.
+- Deviations: none.
+- Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: continue with WP-2 roadmap trimming.
+
+### 2026-07-24 - README roadmap trim (Batch 20 WP-2)
+
+- Scope: completed Batch 20 WP-2 roadmap cleanup in `README.md`.
+- Plan vs implementation:
+  - Removed completed/scaffolding roadmap items and duplicate heatmap entries.
+  - Preserved required unchecked roadmap items and converted the quality-track
+    checklist into a concise reminder paragraph.
+  - Added concrete forward items for orchestrator decomposition, integration
+    testing, CDN consolidation, and regex hardening.
+- Deviations: none.
+- Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: continue with WP-3 Getting Started compression.
+
+### 2026-07-24 - README getting-started compression (Batch 20 WP-3)
+
+- Scope: completed Batch 20 WP-3 Getting Started tightening in `README.md`.
+- Plan vs implementation:
+  - Compressed the venv/setup instructions while retaining Linux + Windows
+    coverage.
+  - Reduced `.env` optional-tuning examples and pointed readers to
+    `scrobblescope/config.py` for the full option set.
+  - Tightened local DB-cache development prose while preserving prerequisites,
+    one-command startup, and smoke/concurrency checks.
+- Deviations: none.
+- Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: continue with WP-4 DEVELOPMENT.md cleanup.
+
+### 2026-07-24 - DEVELOPMENT.md path/timeline/prose cleanup (Batch 20 WP-4)
+
+- Scope: completed Batch 20 WP-4 in `DEVELOPMENT.md`.
+- Plan vs implementation:
+  - Corrected the archive-definition path references to
+    `docs/history/definitions/...`.
+  - Updated the development-timeline framing to reflect concentrated
+    Feb-March work plus lighter later follow-up.
+  - Trimmed identified AI-prose padding while preserving technical intent.
+- Deviations: none.
+- Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: WP-5 adds the Claude Code skills subsection in
+  `DEVELOPMENT.md`.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
