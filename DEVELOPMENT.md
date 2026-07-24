@@ -220,7 +220,9 @@ still occurs. See commit `05c7b19` on `main` for the original change.
 
 Two project-scoped Claude Code (CC) skills provide structured entry points for
 common tasks. They are CC-specific; the portable, model-agnostic orchestration
-rules live in `AGENTS.md`.
+rules live in `AGENTS.md`. The skill definitions themselves are maintained
+locally and are not tracked in this repository (`.gitignore` excludes `.claude/`
+except `SESSION_CONTEXT.md`); this section documents their purpose for context.
 
 **`scrobblescope-bootstrap`** runs the canonical session bootstrap in a fixed
 read order: `.claude/SESSION_CONTEXT.md` Sections 1-2, then `PLAYBOOK.md`
