@@ -256,7 +256,7 @@ Heatmap
     # Optional local Postgres cache
     # DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
 
-    # Optional tuning (see scrobblescope/config.py for the full list)
+    # Optional tuning (see scrobblescope/config.py and scrobblescope/cache.py for the full list)
     # MAX_CONCURRENT_LASTFM="10"
     # MAX_ACTIVE_JOBS="10"
     ```
