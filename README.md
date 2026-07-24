@@ -317,7 +317,6 @@ What to look for:
 * `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
 * `Run 2` elapsed time should usually be lower than `Run 1`.
 * The script prints `verdict=PASS` when the second run observes DB cache hits.
-* If Fly Postgres uses `FLY_SCALE_TO_ZERO`, the first run after idle can be slower while the DB wakes up.
 
 **Observe concurrent-user behavior** (fires N simultaneous job submissions):
 
