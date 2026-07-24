@@ -206,7 +206,15 @@ non-current operational logs. Older dated entries live in
     `gemini-pr-triage` skills with their single-agent scope.
   - Placed between the doc-sync tooling section and the batch-structure section
     as specified by the definition.
-- Deviations: none.
+- Deviations: small functional docsync fix bundled with this commit (flagged
+  at PR #159 discussion_r3645236188). `scripts/docsync/logic.py` and
+  `scripts/docsync/renderer.py`: corrected entry scan order from forward
+  (oldest-first) to reverse so `_latest_test_count_from_entries` and
+  `_build_status_block` both read the most recent entry's test count instead
+  of the oldest's. Updated existing tests to reflect correct behavior. Under
+  20 lines of production code; treated as an in-WP deviation per AGENTS.md
+  scope-discipline rules. Raises pytest baseline from 389 to 390 (one new
+  renderer regression test added).
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files` --
   all hooks pass.
 - Forward guidance: WP-6 cleans up and archives `FINDINGS.md`.
