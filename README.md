@@ -313,7 +313,7 @@ python scripts/testing/smoke_cache_check.py --base-url http://localhost:5000/ \
 
 What to look for:
 * `db_cache_enabled=True` indicates the app connected to Postgres for this run.
-* `Run 2` should report `cache_hits > 0` once metadata has been persisted.
+* `Run 2` should report `db_cache_lookup_hits > 0` once metadata has been persisted.
 * `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
 * `Run 2` elapsed time should usually be lower than `Run 1`.
 * The script prints `verdict=PASS` when the second run observes DB cache hits.
