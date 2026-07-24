@@ -75,8 +75,8 @@ Completed batch definitions are archived individually under `docs/history/`.
   (font stack, palette integration, index card rework, Bootstrap CDN
   consolidation) driven by an owner audit PDF. No WP work begins until
   scope lands.
-- **Next action:** Batch 20 WP-5 (DEVELOPMENT.md: skills subsection).
-- Batch 20 WP status: WP-0 through WP-4 done. WP-5 through WP-8 not yet started.
+- **Next action:** Batch 20 WP-6 (FINDINGS.md: cleanup and archive).
+- Batch 20 WP status: WP-0 through WP-5 done. WP-6 through WP-8 not yet started.
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
@@ -196,6 +196,20 @@ non-current operational logs. Older dated entries live in
   all hooks pass.
 - Forward guidance: WP-5 adds the Claude Code skills subsection in
   `DEVELOPMENT.md`.
+
+### 2026-07-24 - DEVELOPMENT.md skills subsection (Batch 20 WP-5)
+
+- Scope: completed Batch 20 WP-5 -- added the "Claude Code Skills (tightly
+  scoped tooling)" subsection to `DEVELOPMENT.md`.
+- Plan vs implementation:
+  - Added subsection documenting `scrobblescope-bootstrap` and
+    `gemini-pr-triage` skills with their single-agent scope.
+  - Placed between the doc-sync tooling section and the batch-structure section
+    as specified by the definition.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: WP-6 cleans up and archives `FINDINGS.md`.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
