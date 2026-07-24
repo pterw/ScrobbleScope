@@ -470,6 +470,8 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [ ] Add an integration test that exercises `/results_loading -> /progress -> /results_complete`.
 * [ ] Consolidate Bootstrap CDN usage to a single provider across templates.
 * [ ] Improve the unmatched albums page (`unmatched.html`).
+* [ ] Tighten `ENTRY_BATCH_RE` in `scripts/docsync/parser.py` to prevent misrouting entries whose titles contain "Batch N" substrings.
+* [ ] Replace the top header logo with the updated SVG.
 * [ ] Scope the next UI overhaul; consider Tailwind CSS with daisyUI.
 
 **Ongoing code quality tracking**
