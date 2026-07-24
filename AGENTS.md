@@ -147,9 +147,10 @@ Conventional Commits, imperative mood, no trailing period:
 1. `pytest -q` -- all tests pass.
 2. `pre-commit run --all-files` -- all hooks pass.
 3. Stage only files changed for this work package.
-4. Commit after each WP (do not batch multiple WPs into one commit). In
-   GitHub Copilot sessions, use the platform progress/reporting tool for
-   commit + push handoff; do not push directly with shell `git`/`gh`.
+4. Commit after each WP (do not batch multiple WPs into one commit).
+   Do not push without explicit owner instruction (see HANDOFF_PROMPT.md §3).
+   When authorized to push in a GitHub Copilot session, use the platform
+   progress/reporting tool; do not push directly with shell `git`/`gh`.
 
 **Co-author prohibition:** Do NOT add `Co-authored-by` trailers or any co-author
 metadata to commits. This repo uses multi-agent orchestration; attribution is
