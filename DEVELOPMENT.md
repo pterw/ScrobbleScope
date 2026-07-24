@@ -57,7 +57,7 @@ a new session, how to run pre-commit and doc sync. It does not contain
 current state, nor does it contain history. It is rarely subject to change.
 
 The language is deliberately prescriptive ("Must", "Do not", "Forbidden")
-because LLMs handle ambiguity poorly, and incorrect inference can lead to a broken pipeline or a mis-coped commit.
+because LLMs handle ambiguity poorly, and incorrect inference can lead to a broken pipeline or a mis-scoped commit.
 
 ### `HANDOFF_PROMPT.md` -- Bootstrap Procedure
 
