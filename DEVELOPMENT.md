@@ -11,7 +11,13 @@ the project is structured the way it is beyond what `AGENTS.md` prescribes.
 
 ScrobbleScope was built primarily by one developer working with several LLM coding agents -- some within VSCode and others externally -- across large gaps of time.
 
-The bulk of the prototype-to-deployed-app work happened in a compressed Feb-March sprint, with lighter follow-up work in later months. Initially, the project was abandonned due to a thundering herd issue and a large monolithic app.py, this was remedied via flask blueprints and factories, thanks the introduction of a coding agent within VSCode. Later a second, and third coding agent were implemented in the IDE.
+The bulk of the prototype-to-deployed-app work happened in a compressed
+February-March sprint, with lighter follow-up work later. The project had
+initially been abandoned after encountering a thundering-herd issue and a
+large monolithic `app.py`. Rate-limiter changes addressed the herd behavior,
+while the Batch 8 refactor replaced the monolith with Flask Blueprints and an
+application factory. Additional coding agents were later integrated into the
+IDE.
 
 This led to the central challenge: at the time of development, LLMs have finite context windows and no
 persistent memory. Further, they cannot communicate their work to other agents. Effectively, every session starts from zero. A model that produced
