@@ -9,13 +9,13 @@ the project is structured the way it is beyond what `AGENTS.md` prescribes.
 
 ## The Core Problem: Collaborating With Amnesiac Engineers
 
-ScrobbleScope was built primarily by one developer working with several LLM coding agents -- some within VSCode and others externally -- across large gaps of time. 
+ScrobbleScope was built primarily by one developer working with several LLM coding agents -- some within VSCode and others externally -- across large gaps of time.
 
-The bulk of the prototype-to-deployed-app work happened in a compressed Feb-March sprint, with lighter follow-up work in later months. Initially, the project was abandonned due to a thundering herd issue and a large monolithic app.py, this was remedied via flask blueprints and factories, thanks the introduction of a coding agent within VSCode. Later a second, and third coding agent were implemented in the IDE. 
+The bulk of the prototype-to-deployed-app work happened in a compressed Feb-March sprint, with lighter follow-up work in later months. Initially, the project was abandonned due to a thundering herd issue and a large monolithic app.py, this was remedied via flask blueprints and factories, thanks the introduction of a coding agent within VSCode. Later a second, and third coding agent were implemented in the IDE.
 
 This lead to the central challenge, as of development, LLMs have finite context windows and no
 persistent memory. Further, they cannot cross-communicate on their work to other agents. Effectively, every session starts from zero. A model that produced
-a clean architectural refactor yesterday has no idea it did so today and a different model is oblivious to changes being made by a antoher model. 
+a clean architectural refactor yesterday has no idea it did so today and a different model is oblivious to changes being made by a antoher model.
 
 Left unmanaged, this produces:
 
@@ -38,7 +38,7 @@ these failure modes.
 
 The external-memory layer consists of five tracked files and two archive
 directories. Each has a primary concern, and the design goal is that
-canonical facts live in exactly one place. 
+canonical facts live in exactly one place.
 
 In practice there is some intentional overlap: `HANDOFF_PROMPT.md` condenses key rules and
 procedures from `AGENTS.md` into a cold-start checklist -- it is a
@@ -73,7 +73,7 @@ Tracks facts that belong to no other file: owner workflow preferences,
 local dev setup (Docker, Postgres, Browser MCP), architectural
 constraints discovered during development, and known open issues. Tracked
 in git so every agent -- regardless of tool or machine -- reads the same
-preferences. 
+preferences.
 
 ### `PLAYBOOK.md` -- Work Orders
 
@@ -118,7 +118,7 @@ the format.
 
 **Why committed?** Because every agent used in development needs to start from an identical state. Leaving it uncommitted caused
 drift: agents would start sessions with stale branch, test count, and batch
-status. 
+status.
 
 Crucially, CI does not depend on it. If the file is absent, `doc_state_sync.py`
 skips SESSION_CONTEXT operations gracefully via `_read_lines_optional()`.
@@ -128,7 +128,7 @@ is self-correcting.
 
 ### `docs/history/` -- The Archive
 
-Contains completed batch definitions, per-batch logs, audits, old changelogs, etc. 
+Contains completed batch definitions, per-batch logs, audits, old changelogs, etc.
 Once a batch is done, its definition moves here. Entries in PLAYBOOK Section 4 rotate
 here automatically when the window overflows. Nothing is deleted -- the
 archive exists because LLM agents benefit from being able to grep past
@@ -150,7 +150,7 @@ The doc synchronization tool is the most non-obvious part of the
 infrastructure. In sum, as of development, you cannot ask an LLM
 to reliably rotate 50-line Markdown sections between files without
 eventually introducing content corruption, duplicate entries, or broken
-marker placement. 
+marker placement.
 
 The problem surfaced during early PLAYBOOK maintenance: as Section 4
 grew, agents would trim it differently each session -- sometimes removing
@@ -190,14 +190,14 @@ entrypoint (`cli.py`), and typed dataclass models (`models.py`); the root
 package. This made each concern independently testable -- 116 docsync tests
 (across `tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
 `tests/test_docsync_renderer.py`, and `tests/test_docsync_cli.py`) now cover
-rotation, dedup, cross-validation, and CLI modes. 
+rotation, dedup, cross-validation, and CLI modes.
 
 That count has grown since the original Batch 14 refactor as later batches added edge-case coverage;
 run `pytest tests/test_docsync_*.py -q` to confirm the current number rather
 than trusting any figure quoted here, since it will drift as new tests are
 added.
 
-**SESSION_CONTEXT.md is optional in CI.** 
+**SESSION_CONTEXT.md is optional in CI.**
 
 The file is committed to the repo and is normally present in GitHub Actions (with a standard
 `actions/checkout@v4` workspace). `doc_state_sync.py` still treats it as
@@ -233,7 +233,7 @@ re-opening a solved problem or refactoring a prior agent's functioning code.
 
 As of development, most AI-driven-development (AIDD) workflows treat the agent's context
 window, or at best a single running conversation/log, as the entire
-memory of the project. 
+memory of the project.
 
 A prompt like "continue where you left off" or "here's the chat history" works fine within one session but does not
 survive a tool switch (Claude Code to Copilot to Gemini CLI), a context
@@ -292,12 +292,12 @@ Not every review suggestion improves the codebase. Two patterns emerged:
 **Pattern 1: Correct in isolation, wrong in context.**
 
 An automated code review (Gemini Code Review, Batch 12 post-audit) flagged the
-`getComputedStyle` call in `results.js` as potentially redundant. 
+`getComputedStyle` call in `results.js` as potentially redundant.
 
 In isolation, that is a reasonable observation. In context: the call existed
 specifically to patch a dark-mode rendering issue with the `html2canvas`
 JPEG export -- removing it causes the exported image to render with the
-wrong background color in dark mode. 
+wrong background color in dark mode.
 
 The reviewer had no access to the git history of that bug, the session logs where the fix was developed, or the test case that validated the behavior.
 

@@ -12,7 +12,7 @@ ScrobbleScope is a web application for Last.fm users who want deeper insight int
 * **Top Albums** -- fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists.
 * **Scrobble Heatmap** -- renders a calendar-style grid of your daily listening density for the last 365 days. On desktop it reads as a GitHub-style 7x52 weeks-by-days calendar; on narrow viewports it falls back to a sequential activity strip with larger tap targets. No year picker needed; the grid is always current.
 
-This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app, and is continuously maintained. 
+This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app, and is continuously maintained.
 
 ## Table of Contents
 
@@ -177,7 +177,7 @@ Heatmap
 * **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
 <details>
 <summary><strong>Styling & UX</summary></strong></summary>
-   
+
    * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
    * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. Header logo features an animated SVG waveform, & the heatmap feat. uses a custom breathing SVG pinwheel animation while loading.
    * **Accessibility:** `aria-labels` on SVGs and interactive elements; semantic form markup.
@@ -218,7 +218,7 @@ Heatmap
 
 3.  **Install dependencies:**
     ```bash
-    pip install -r requirements-dev.txt 
+    pip install -r requirements-dev.txt
     ```
     Runtime-only install (no dev tools):
     ```bash
@@ -234,11 +234,11 @@ Heatmap
     SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
     SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
     SECRET_KEY="your_random_secret_key_here"
-    
+
     # Required in production (startup fails without a strong value).
     # Generate: python -c "import os; print(os.urandom(32).hex())"
     # For local dev, set DEBUG_MODE=1 to suppress the check.
-    
+
     # Optional local Postgres cache
     # DATABASE_URL="******localhost:5432/scrobblescope"
 
@@ -318,15 +318,15 @@ python scripts/testing/concurrent_users_test.py \
     --concurrency 3 --base-url http://localhost:5000/ --username YOUR_USERNAME --year 2024
 ```
 
-Reports per-thread outcome and aggregate statistics. 
+Reports per-thread outcome and aggregate statistics.
 Set `--concurrency` above `MAX_ACTIVE_JOBS` (default 10) to observe semaphore-limit and queuing behavior.
 
 ### Running Tests
 
 ```bash
-pytest -q                                   
+pytest -q
 pytest --cov=scrobblescope --cov-report=term
-pre-commit run --all-files                 
+pre-commit run --all-files
 ```
 
 ## Project Structure
