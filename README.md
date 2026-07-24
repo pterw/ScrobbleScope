@@ -314,7 +314,6 @@ python scripts/dev/dev_start.py
 ```
 
 This checks whether `ss-postgres` is running, starts it if needed, then launches Flask.
-`load_dotenv()` in the Flask startup picks up `DATABASE_URL` from `.env` automatically.
 
 **Cache smoke test** (verify Postgres cache on your local instance):
 
