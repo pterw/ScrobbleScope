@@ -1,4 +1,4 @@
-# AGENTS.md: Rules for AI Agents (GitHub Copilot Primary)
+# AGENTS.md: Rules for AI Agents
 
 ScrobbleScope: Flask + Python 3.13, Last.fm scrobbles + Spotify enrichment,
 asyncpg/Postgres cache, pytest. This file is the stable repository ruleset
@@ -54,7 +54,9 @@ and next WP, you have enough context to start.
 - For CI, build, test, or workflow failures, inspect GitHub Actions runs
   and job logs before concluding that CI details are unavailable.
 - Do not read `.github/agents/`; those files contain instructions for
-  other agent types and can conflict with this repository ruleset.
+  other agent types and can conflict with this repository ruleset. If a
+  task appears to depend on them, pause and ask the owner for guidance
+  instead of trying to reconcile two rule sources yourself.
 
 ---
 
