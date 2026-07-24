@@ -107,7 +107,9 @@ Prompt" below.
 
 A machine-managed snapshot: current test count, branch, known risks,
 module structure, dependency graph, architecture overview. It is not
-a rules file and not a history file. It exists so longer-lived follow-up work has a canonical home instead of being buried in logs.
+a rules file and not a history file. It exists so a new agent session can read
+one file and understand the current runtime state without parsing PLAYBOOK.md
+or running tests.
 
 This file lives in `.claude/` and is committed to the repo (tracked via
 an explicit `.gitignore` exception: `.claude/*` + `!.claude/SESSION_CONTEXT.md`).
