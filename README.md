@@ -12,11 +12,12 @@ ScrobbleScope is a web application for Last.fm users who want deeper insight int
 * **Top Albums** -- fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists.
 * **Scrobble Heatmap** -- renders a calendar-style grid of your daily listening density for the last 365 days. On desktop it reads as a GitHub-style 7x52 weeks-by-days calendar; on narrow viewports it falls back to a sequential activity strip with larger tap targets. No year picker needed; the grid is always current.
 
-This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app, and is continuously maintained.
+This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
 
 ## Table of Contents
 
 * [Features](#features)
+* [Screenshots](#screenshots)
 * [Tech Stack](#tech-stack)
 * [Architecture](#architecture)
 * [Key Implementation Highlights](#key-implementation-highlights)
@@ -31,23 +32,10 @@ This project was initially built to identify top albums released in a specific y
 * [Contributing](#contributing)
 * [Development Methodology](#development-methodology)
 * [License](#license)
+* [Acknowledgements](#acknowledgements)
 * [Author & Contact](#author--contact)
 
----
-
 ## Features
-
-As mentioned above, ScrobbleScope currently offers two workflows on one page:
-
-- **Top Albums** -- fetch a user's scrobbles for a chosen year, filter albums by
-  release rules and listening thresholds, then rank them by play count or total
-  listening time with Spotify metadata enrichment.
-- **Scrobble Heatmap** -- render the last 365 days of listening activity as a
-  calendar-style density view with KPIs, tooltips, and a mobile-friendly
-  fallback layout.
-
-A list of detailed features and explanations can be found below:
-<details><summary><h4>Detailed Features </h4></summary>
 
 * **Last.fm Integration:** Fetches your full listening history for a specified year via paginated `user.getrecenttracks` calls with granular per-page progress feedback.
 * **Spotify Enrichment:** Searches each album on Spotify and fetches release dates, cover art, and individual track runtimes for playtime sorting.
@@ -84,7 +72,31 @@ A list of detailed features and explanations can be found below:
     * Dark mode aware; responsive SVG scales to any viewport width and re-renders on breakpoint crossing.
     * Animated breathing/expanding pinwheel spinner + live page-fetch progress during data load.
 
- </details>
+## Screenshots
+
+**1. Main Input Form (Dark Mode)**
+
+*Configure your search with listening year, release date filters, decade selection, and custom thresholds.*
+
+*Screenshot coming soon.*
+
+**2. Results Page (Light Mode)**
+
+*Filtered and sorted albums with cover art, artist, play count, and release date. Export buttons and unmatched-album access visible.*
+
+*Screenshot coming soon.*
+
+**3. Quick Unmatched Modal (Dark Mode)**
+
+*Albums that did not meet filter criteria, accessible directly from the results page.*
+
+*Screenshot coming soon.*
+
+**4. Detailed Unmatched Report (Dark Mode)**
+
+*Comprehensive exclusion report grouped by reason, with filter summary context.*
+
+*Screenshot coming soon.*
 
 ## Tech Stack
 
@@ -504,6 +516,14 @@ ScrobbleScope was built with a shared-document, multi-agent workflow. The short 
 ## License
 
 MIT License -- see [LICENSE](LICENSE) for details.
+
+## Acknowledgements
+
+* [Last.fm](https://www.last.fm/) for tracking all the music we listen to
+* [Spotify](https://developer.spotify.com/) for the metadata API
+* [Bootstrap](https://getbootstrap.com/) for responsive UI components
+* [Flask](https://flask.palletsprojects.com/) and the Flask community
+* The maintainers of the Python libraries used in this project
 
 ---
 
