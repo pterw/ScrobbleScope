@@ -179,7 +179,7 @@ Heatmap
 <summary><strong>Styling &amp; UX</strong></summary>
 
    * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
-   * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. Header logo features an animated SVG waveform, & the heatmap feat. uses a custom breathing SVG pinwheel animation while loading.
+   * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The header logo features an animated SVG waveform, and the heatmap feature uses a custom breathing SVG pinwheel animation while loading.
    * **Accessibility:** `aria-labels` on SVGs and interactive elements; semantic form markup.
    * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
    * **Static Assets:** CSS and JavaScript served from `/static` for cacheability and clean separation.
