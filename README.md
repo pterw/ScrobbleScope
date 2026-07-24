@@ -415,7 +415,7 @@ pre-commit run --all-files
 |   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (35)
 |   |-- test_docsync_renderer.py   # Docsync status block renderer (22)
 |   |-- test_domain.py             # Name normalization (13)
-|   |-- test_heatmap.py             # Heatmap aggregation + task lifecycle (21)
+|   |-- test_heatmap.py             # Heatmap aggregation + task lifecycle (20)
 |   |-- test_repositories.py       # Job state CRUD (20)
 |   |-- test_retry_with_semaphore.py  # Retry + semaphore logic (8)
 |   |-- test_routes.py             # Route handlers + helpers (67)
