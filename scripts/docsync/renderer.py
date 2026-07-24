@@ -80,7 +80,7 @@ def _build_status_block(
             next_wp = f"WP-{candidate}"
         else:
             next_wp = "unknown"
-        newest_heading = current_entries[0].heading.removeprefix("### ").strip()
+        newest_heading = current_entries[-1].heading.removeprefix("### ").strip()
         batch_num = section_3_state.current_batch
         if batch_num is None and section_3_state.last_completed_batch is not None:
             batch_num = section_3_state.last_completed_batch + 1
