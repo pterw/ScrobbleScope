@@ -148,7 +148,7 @@ Conventional Commits, imperative mood, no trailing period:
 2. `pre-commit run --all-files` -- all hooks pass.
 3. Stage only files changed for this work package.
 4. Commit after each WP (do not batch multiple WPs into one commit).
-   Do not push without explicit owner instruction (see HANDOFF_PROMPT.md §3).
+   Do not push without explicit owner instruction (see HANDOFF_PROMPT.md Section 3).
    When authorized to push in a GitHub Copilot session, use the platform
    progress/reporting tool; do not push directly with shell `git`/`gh`.
 
