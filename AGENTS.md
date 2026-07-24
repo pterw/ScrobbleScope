@@ -31,6 +31,9 @@ or review feedback, first fetch comments and determine whether any new
 without running full bootstrap. If a single actionable comment is scoped to a
 known file/section, read only that target file plus any directly related test
 or config file needed to validate the change.
+Actionable means a concrete request, question, or correction addressed to
+`@copilot`; praise, status updates, and threads where the author rejected the
+suggestion are non-actionable.
 
 1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
