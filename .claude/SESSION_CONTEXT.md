@@ -9,7 +9,7 @@ Last updated: 2026-07-24
 | Item | Value |
 |------|-------|
 | Branch | `file-hygeine` |
-| Tests | **390 passing** across 22 test files |
+| Tests | **390 passing** across 22 test modules |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
