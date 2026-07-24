@@ -176,7 +176,7 @@ Heatmap
 * **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
 * **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
 <details>
-<summary><strong>Styling & UX</summary></strong></summary>
+<summary><strong>Styling &amp; UX</strong></summary>
 
    * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
    * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. Header logo features an animated SVG waveform, & the heatmap feat. uses a custom breathing SVG pinwheel animation while loading.
