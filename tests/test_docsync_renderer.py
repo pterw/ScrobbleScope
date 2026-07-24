@@ -214,6 +214,7 @@ class TestBuildStatusBlock:
             "- Newest current-batch entry: 2026-02-21 - Newer work (Batch 11 WP-2)."
             in block
         )
+        assert "- Latest validated test count: **158 passed**." in block
 
 
 # ---------------------------------------------------------------------------
