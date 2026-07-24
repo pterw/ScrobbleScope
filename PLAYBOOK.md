@@ -223,6 +223,25 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-24 - DEVELOPMENT.md file-count follow-up
+
+- Scope: side-task follow-up to close the missed Batch 20 WP-5 documentation
+  requirement in `DEVELOPMENT.md` by acknowledging `FINDINGS.md` as the sixth
+  advisory, read-on-demand file in the external-memory description.
+- Plan vs implementation:
+  - Reworded the file-count paragraph to distinguish the five core tracked
+    files from advisory `FINDINGS.md`, while keeping the archive-directory
+    count unchanged.
+  - Kept the wording explicit so IDE-based agents (for example Claude Code
+    and Codex in VS Code) do not misread `FINDINGS.md` as part of the
+    mandatory bootstrap set.
+- Deviations: none -- this closes a missed WP-5 acceptance item flagged in PR
+  review and leaves Batch 20 WP-6 as the next unstarted work package.
+- Validation: `.venv/bin/pytest -q` -- **390 passed**. `.venv/bin/pre-commit
+  run --all-files` -- all hooks pass. `.venv/bin/python scripts/doc_state_sync.py
+  --check` -- exit 0 with the two expected root-BATCH warnings.
+- Forward guidance: WP-6 still cleans up and archives `FINDINGS.md`.
+
 ### 2026-07-24 - Restore out-of-scope README edits (side-task)
 
 - Scope: revert the Features-section rewrite and the Screenshots/Acknowledgements
@@ -300,28 +319,3 @@ non-current operational logs. Older dated entries live in
   correctly on LinkedIn's actual link-preview (some platforms cache
   previews aggressively per-URL; may need LinkedIn's Post Inspector to
   force a re-scrape after first deploy).
-
-### 2026-05-19 - Batch 19 close-out (Batch 19 close-out)
-
-- Scope: archived the Batch 19 definition, refreshed README for the PR to
-  main, and finalized PLAYBOOK + SESSION_CONTEXT to reflect Batch 19 complete.
-- Plan vs implementation:
-  - `git mv BATCH19_DEFINITION.md docs/history/definitions/BATCH19_DEFINITION.md`.
-  - PLAYBOOK Section 2 table now links to the archived definition.
-  - PLAYBOOK Section 3 marks Batch 19 complete; next action is the
-    `feat/heatmap` PR to `main`.
-  - SESSION_CONTEXT Batch 19 row flipped to **Complete**.
-  - README bumped to 387 tests, "Top Albums" mode rename in the intro,
-    framed heatmap result + KPIs + desktop calendar vs. mobile activity
-    strip described, `.venv/` venv guidance aligned with AGENTS.md, and
-    heatmap roadmap line updated to cover both Batch 18 and Batch 19.
-- Deviations: owner kept screenshots as "coming soon" placeholders since
-  the saved ones in `docs/images/` no longer reflect the current UI.
-  Owner will refresh them out of band.
-- Validation: `pytest -q` passed with **387 passed** and 3 existing
-  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` passed all 10
-  hooks. `python scripts/doc_state_sync.py --check` exited 0 with the
-  expected root warning gone after archiving the definition.
-- Forward guidance: open the PR for `feat/heatmap` -> `main`, address any
-  reviewer comments, merge, and deploy. Batch 20 (heavy UI refactor) is
-  to be scoped later and is explicitly out of this PR.

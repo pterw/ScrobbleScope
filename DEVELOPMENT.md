@@ -42,9 +42,10 @@ these failure modes.
 
 ## The Orchestration Architecture
 
-The external-memory layer consists of five tracked files and two archive
-directories. Each has a primary concern, and the design goal is that
-canonical facts live in exactly one place.
+The external-memory layer consists of five core tracked files, the advisory
+read-on-demand `FINDINGS.md`, and two archive directories. Each has a primary
+concern, and the design goal is that canonical facts live in exactly one
+place.
 
 `HANDOFF_PROMPT.md` condenses key rules and procedures from `AGENTS.md` into a cold-start
 checklist -- it is a convenience summary for session handoffs, not a second source of truth.
