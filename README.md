@@ -350,7 +350,7 @@ pre-commit run --all-files
 |-- pyproject.toml                 # Tool config (isort, pytest, pyright)
 |-- AGENTS.md                      # AI agent bootstrap and contribution rules
 |-- PLAYBOOK.md                    # Active handoff playbook (agent orchestration)
-|-- [Agent orchestration / docs]
+|-- # Agent orchestration / docs
 |   |-- HANDOFF_PROMPT.md          # Session bootstrap procedure for AI agents
 |   |-- AGENT_NOTES.md             # Owner context and local development setup
 |   |-- FINDINGS.md                # Active findings and notes for current work
