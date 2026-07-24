@@ -9,7 +9,6 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
-
 ### 2026-07-22 - Link-preview image + Open Graph meta tags (side-task)
 
 - Scope: LinkedIn (and Slack/Discord/etc.) show no image when the app URL
