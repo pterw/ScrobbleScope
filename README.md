@@ -233,7 +233,7 @@ Heatmap
     LASTFM_API_KEY="your_lastfm_api_key_here"
     SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
     SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
-    SECRET_KEY="your_random_secret_key_here"
+    SECRET_KEY="changeme_in_production"
 
     # Required in production (startup fails without a strong value).
     # Generate: python -c "import os; print(os.urandom(32).hex())"
