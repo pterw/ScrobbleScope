@@ -285,7 +285,7 @@ To run the app locally with the persistent Postgres metadata cache enabled:
   ```env
   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
   ```
-* If you run `init_db.py`, export `DATABASE_URL` in your shell first.
+* Initialize the schema once by exporting `DATABASE_URL` in your shell and running `python init_db.py`; the script does not load `.env`.
 
 **One-command startup:**
 
