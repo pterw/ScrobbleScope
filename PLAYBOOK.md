@@ -177,7 +177,9 @@ non-current operational logs. Older dated entries live in
     `scrobblescope/config.py` for the full option set.
   - Tightened local DB-cache development prose while preserving prerequisites,
     one-command startup, and smoke/concurrency checks.
-- Deviations: none.
+- Deviations: initial commit left the full 8-var optional-tuning list and the
+  `load_dotenv()` trivia line in place; both corrections were applied in
+  follow-up commits after reviewer feedback (`BATCH20_DEFINITION.md:107-108`).
 - Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
   all hooks pass.
 - Forward guidance: continue with WP-4 DEVELOPMENT.md cleanup.
