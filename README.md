@@ -301,11 +301,21 @@ To run the app locally with the persistent Postgres metadata cache enabled:
   ```env
   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
   ```
-* Initialize the schema once with `DATABASE_URL` exported in your shell:
-  ```bash
-  export DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@localhost:5432/scrobblescope"
-  python init_db.py
-  ```
+* Initialize the schema once by setting `DATABASE_URL` in the same shell:
+  * macOS/Linux:
+    ```bash
+    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope" python init_db.py
+    ```
+  * Windows PowerShell:
+    ```powershell
+    $env:DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/scrobblescope"
+    python init_db.py
+    ```
+  * Windows Command Prompt:
+    ```bat
+    set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scrobblescope
+    python init_db.py
+    ```
 
 **One-command startup:**
 
