@@ -35,6 +35,13 @@ Actionable means a concrete request, question, or correction addressed to
 `@copilot`; praise, status updates, and threads where the author rejected the
 suggestion are non-actionable.
 
+**Fast-path for targeted review-comment jobs:** If the prompt links to a
+single review comment or `discussion_r...` URL, fetch that thread first and
+work from the linked file/lines before opening broader bootstrap docs. Read
+only the minimum bootstrap/context files needed to answer that thread. Open
+batch definitions or archive/history docs only when the linked comment
+explicitly depends on batch-acceptance or historical context.
+
 1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
 3. Relevant `docs/history/` doc if the log references one.

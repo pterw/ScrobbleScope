@@ -199,6 +199,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-24 - Copilot comment-job bootstrap trim (side-task)
+
+- Scope: reduce unnecessary bootstrap for Copilot PR comment/review-comment
+  jobs after the `copilot` Actions run failed in request processing with a
+  monthly-quota error before reaching the linked review thread.
+- Plan vs implementation:
+  - `AGENTS.md`: added a targeted review-comment fast-path for prompts that
+    link to a single `discussion_r...` thread, limiting reads to the linked
+    file/lines plus only the bootstrap context that thread actually needs.
+  - `HANDOFF_PROMPT.md`: removed the unconditional "read all bootstrap
+    files" mandate for comment jobs and aligned the startup procedure with
+    the lighter fast-path in `AGENTS.md`.
+- Deviations: none -- this is a side-task CI reliability fix outside Batch 20;
+  Batch 20 WP status and next action are unchanged.
+- Validation: `python scripts/doc_state_sync.py --fix` -- no changes.
+  `python scripts/doc_state_sync.py --check` -- pass, with the two expected
+  active-root-BATCH warnings. `pytest -q` and `pre-commit run --all-files`
+  could not run in this sandbox because the repo-local `.venv` and those
+  executables are not present here.
+- Forward guidance: if future comment jobs still hit quota, inspect whether
+  the prompt is fetching full PR comment lists when a direct review-comment
+  URL is already supplied.
+
 ### 2026-07-22 - Link-preview image + Open Graph meta tags (side-task)
 
 - Scope: LinkedIn (and Slack/Discord/etc.) show no image when the app URL
