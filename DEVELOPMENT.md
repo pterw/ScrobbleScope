@@ -1,6 +1,6 @@
 # ScrobbleScope: Development Methodology
 
-This document explains how ScrobbleScope was built -- the orchestration
+This document explains how ScrobbleScope was built: the orchestration
 strategy, the tooling decisions, and the reasoning behind each one. It is
 written for anyone who clones this repository and wants to understand why
 the project is structured the way it is beyond what `AGENTS.md` prescribes.
@@ -9,15 +9,15 @@ the project is structured the way it is beyond what `AGENTS.md` prescribes.
 
 ## The Core Problem: Collaborating With Amnesiac Engineers
 
-ScrobbleScope was built primarily by a single developer using multiple LLM
-code agents (Claude Code, GitHub Copilot in VS Code, Gemini Code Review via
-GitHub PRs, Gemini CLI, and Jules) as the development team. The project went from a fragile prototype to a deployed, tested, multi-module application in roughly 7--10
-days of active development.
+ScrobbleScope was built primarily by one developer working with several LLM coding agents -- some within VSCode and others externally -- across large gaps of time. 
 
-The central challenge is that LLMs have finite context windows and no
-persistent memory. Every session starts from zero. A model that produced
-a clean architectural refactor yesterday has no idea it did so today. Left
-unmanaged, this produces:
+The bulk of the prototype-to-deployed-app work happened in a compressed Feb-March sprint, with lighter follow-up work in later months. Initially, the project was abandonned due to a thundering herd issue and a large monolithic app.py, this was remedied via flask blueprints and factories, thanks the introduction of a coding agent within VSCode. Later a second, and third coding agent were implemented in the IDE. 
+
+This lead to the central challenge, as of development, LLMs have finite context windows and no
+persistent memory. Further, they cannot cross-communicate on their work to other agents. Effectively, every session starts from zero. A model that produced
+a clean architectural refactor yesterday has no idea it did so today and a different model is oblivious to changes being made by a antoher model. 
+
+Left unmanaged, this produces:
 
 - **Drift**: two agents editing related files with different assumptions
   about current state.
@@ -38,13 +38,15 @@ these failure modes.
 
 The external-memory layer consists of five tracked files and two archive
 directories. Each has a primary concern, and the design goal is that
-canonical facts live in exactly one place. In practice there is some
-intentional overlap: `HANDOFF_PROMPT.md` condenses key rules and
+canonical facts live in exactly one place. 
+
+In practice there is some intentional overlap: `HANDOFF_PROMPT.md` condenses key rules and
 procedures from `AGENTS.md` into a cold-start checklist -- it is a
 convenience summary for session handoffs, not a second source of truth.
+
 `AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
 restating them. `README.md` is excluded from the agent memory layer; it
-exists for human readers and is explicitly not used for orchestration.
+exists for *people* to read and is explicitly not used for orchestration.
 
 ### `AGENTS.md` -- Rules
 
@@ -52,11 +54,10 @@ Written in imperative, rule-form language. Contains invariants that must
 hold across all sessions and all agents: commit format, test quality
 standards, what constitutes a side-task vs. batch work, how to bootstrap
 a new session, how to run pre-commit and doc sync. It does not contain
-current state; it does not contain history. It changes rarely.
+current state nor doese it contain history. Rarely subject to change.
 
 The language is deliberately prescriptive ("Must", "Do not", "Forbidden")
-because LLMs handle ambiguity poorly when the cost of a wrong inference
-is a broken pipeline or a mis-scoped commit.
+because LLMs handle ambiguity poorly, and incorrect inference can lead to a broken pipeline or a mis-coped commit.
 
 ### `HANDOFF_PROMPT.md` -- Bootstrap Procedure
 
@@ -72,8 +73,7 @@ Tracks facts that belong to no other file: owner workflow preferences,
 local dev setup (Docker, Postgres, Browser MCP), architectural
 constraints discovered during development, and known open issues. Tracked
 in git so every agent -- regardless of tool or machine -- reads the same
-preferences. Replaces an earlier local-only MEMORY.md root file that was
-invisible to non-Claude-Code agents.
+preferences. 
 
 ### `PLAYBOOK.md` -- Work Orders
 
@@ -82,13 +82,14 @@ was just completed. Structured as:
 
 - **Section 1**: Why the document exists (agent onboarding, not history).
 - **Section 2**: Ordered batch table with archive links (completed batches
-  only have a row and a `docs/history/` link -- no content).
+  only have a row and a `docs/history/` link).
 - **Section 3**: Active batch state. Enough detail for an agent to
-  continue mid-batch without needing to re-read anything else.
-- **Section 4**: Execution log. Dated entries for the active window only.
+  continue mid-batch without needing to re-read anything else, saving tokens.
+- **Section 4**: Smal current execution log window. Dated entries for the active window only.
   Older entries rotate automatically into the archive.
 
-The batch/work-package (WP) structure is a lightweight sprint system.
+The batch/work-package (WP) structure is designed to mimic a lightweight sprint system.
+
 Each batch starts with a definition document at the repository root
 (`BATCHN_DEFINITION.md`) that specifies acceptance criteria before work begins --
 this is the "definition of done" that prevents scope creep mid-batch and gives
@@ -106,9 +107,7 @@ Prompt" below.
 
 A machine-managed snapshot: current test count, branch, known risks,
 module structure, dependency graph, architecture overview. It is not
-a rules file and not a history file. It exists so a new agent session
-can read one file and understand the current runtime state without
-parsing PLAYBOOK.md or running tests.
+a rules file and not a history file. It exists so longer-lived follow-up work has a canonical home instead of being buried in logs.
 
 This file lives in `.claude/` and is committed to the repo (tracked via
 an explicit `.gitignore` exception: `.claude/*` + `!.claude/SESSION_CONTEXT.md`).
@@ -117,10 +116,11 @@ A reference snapshot (showing what the file looks like) is kept at
 `docs/history/SESSION_CONTEXT_REFERENCE.md` for readers curious about
 the format.
 
-**Why committed?** Because every agent (Copilot, Claude Code, Gemini CLI,
-Codex) needs to start from identical state. Leaving it uncommitted caused
+**Why committed?** Because every agent used in development needs to start from an identical state. Leaving it uncommitted caused
 drift: agents would start sessions with stale branch, test count, and batch
-status. CI does not depend on it -- if the file is absent, `doc_state_sync.py`
+status. 
+
+Crucially, CI does not depend on it. If the file is absent, `doc_state_sync.py`
 skips SESSION_CONTEXT operations gracefully via `_read_lines_optional()`.
 The machine-managed `DOCSYNC:STATUS` block is a derived view (rebuilt from
 PLAYBOOK truth by `--fix`), which means forgetting to update it manually
@@ -128,8 +128,8 @@ is self-correcting.
 
 ### `docs/history/` -- The Archive
 
-Completed batch definitions, audit reports, changelogs, ADRs. Once a batch
-is done, its definition moves here. Entries in PLAYBOOK Section 4 rotate
+Contains completed batch definitions, per-batch logs, audits, old changelogs, etc. 
+Once a batch is done, its definition moves here. Entries in PLAYBOOK Section 4 rotate
 here automatically when the window overflows. Nothing is deleted -- the
 archive exists because LLM agents benefit from being able to grep past
 decisions without loading them into the active context.
@@ -147,10 +147,10 @@ Other notable documents:
 ## `doc_state_sync.py`: Why a Script, Not a Prompt
 
 The doc synchronization tool is the most non-obvious part of the
-infrastructure. The short answer for why it exists: you cannot ask an LLM
+infrastructure. In sum, as of development, you cannot ask an LLM
 to reliably rotate 50-line Markdown sections between files without
 eventually introducing content corruption, duplicate entries, or broken
-marker placement. The long answer follows.
+marker placement. 
 
 The problem surfaced during early PLAYBOOK maintenance: as Section 4
 grew, agents would trim it differently each session -- sometimes removing
@@ -190,14 +190,16 @@ entrypoint (`cli.py`), and typed dataclass models (`models.py`); the root
 package. This made each concern independently testable -- 116 docsync tests
 (across `tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
 `tests/test_docsync_renderer.py`, and `tests/test_docsync_cli.py`) now cover
-rotation, dedup, cross-validation, and CLI modes. That count has grown since
-the original Batch 14 refactor as later batches added edge-case coverage;
+rotation, dedup, cross-validation, and CLI modes. 
+
+That count has grown since the original Batch 14 refactor as later batches added edge-case coverage;
 run `pytest tests/test_docsync_*.py -q` to confirm the current number rather
 than trusting any figure quoted here, since it will drift as new tests are
 added.
 
-**SESSION_CONTEXT.md is optional in CI.** The file is committed to the
-repo and is normally present in GitHub Actions (with a standard
+**SESSION_CONTEXT.md is optional in CI.** 
+
+The file is committed to the repo and is normally present in GitHub Actions (with a standard
 `actions/checkout@v4` workspace). `doc_state_sync.py` still treats it as
 optional via `_read_lines_optional()`: if the file is missing (for
 example, in a sparse checkout or custom workflow), all operations that
@@ -208,35 +210,35 @@ still occurs. See commit `05c7b19` on `main` for the original change.
 
 ## The Batch Structure as a Lightweight SDLC
 
-Looking back, the batch system maps onto a conventional software process:
+The repository uses batches and work packages as a lightweight delivery model. It maps reasonably well to familiar software-process concepts:
 
 | SDLC concept | ScrobbleScope equivalent |
 |---|---|
 | Sprint / milestone | Batch (e.g., Batch 7: Persistent metadata layer) |
 | Definition of done | `docs/history/definitions/BATCHN_DEFINITION.md` acceptance criteria |
 | Stand-up / status | SESSION_CONTEXT Section 1 (current state table) |
-| Retrospective / ADR | `docs/history/AUDIT_*.md`, `BUGFIX_*.md` |
-| CI gate | Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
-| Code review | Gemini (automated, on PR) + manual review of suggestions |
+| CI gate | GitHub Actions Quality Gate |
+| Code review | PR review plus automated review feedback |
 | Release | `flyctl deploy` (manual, after PR merge to `main`) |
 
 The key difference from a human SDLC is that the "team members" have
-amnesia between sessions. This forced an unusually rigorous documentation
+amnesia between sessions and cannot communicate with one another as of development. This forced an unusually rigorous documentation
 discipline -- not because good documentation is a virtue in the abstract,
-but because the cost of an undocumented decision was a future agent
-re-opening a solved problem.
+but because undocumented decisions would lead to a future agent/session
+re-opening a solved problem or refactoring a prior agent's functioning code.
 
 ---
 
 ## How This Differs From Typical Agentic Coding / AIDD
 
-Most AI-driven-development (AIDD) workflows treat the agent's context
+As of development, most AI-driven-development (AIDD) workflows treat the agent's context
 window, or at best a single running conversation/log, as the entire
-memory of the project. A prompt like "continue where you left off" or
-"here's the chat history" works fine within one session but does not
+memory of the project. 
+
+A prompt like "continue where you left off" or "here's the chat history" works fine within one session but does not
 survive a tool switch (Claude Code to Copilot to Gemini CLI), a context
-compaction, or a multi-day gap -- exactly the conditions this project
-runs under with five different agent tools. The typical failure mode in
+compaction, or a multi-day or week gap; exactly the conditions this project
+runs under with five+ different agent tools. The typical failure mode in
 that model is that state lives implicitly in conversation history: whoever
 has the longest, most recent transcript "knows" the project, and anyone
 else has to either read that transcript in full (token-expensive and lossy)
@@ -289,22 +291,22 @@ Not every review suggestion improves the codebase. Two patterns emerged:
 
 **Pattern 1: Correct in isolation, wrong in context.**
 
-An automated code review (Gemini, Batch 12 post-audit) flagged the
-`getComputedStyle` call in `results.js` as potentially redundant. In
-isolation, that is a reasonable observation. In context: the call existed
+An automated code review (Gemini Code Review, Batch 12 post-audit) flagged the
+`getComputedStyle` call in `results.js` as potentially redundant. 
+
+In isolation, that is a reasonable observation. In context: the call existed
 specifically to patch a dark-mode rendering issue with the `html2canvas`
 JPEG export -- removing it causes the exported image to render with the
-wrong background color in dark mode. The reviewer had no access to the
-git history of that bug, the session logs where the fix was developed, or
-the test case that validated the behavior.
+wrong background color in dark mode. 
 
-Resolution: the suggestion was rejected with a documented reason in the
-session log. The code was left unchanged.
+The reviewer had no access to the git history of that bug, the session logs where the fix was developed, or the test case that validated the behavior.
+
+*Resolution:* the suggestion was rejected with a documented reason in the session log. The code was left unchanged.
 
 **Pattern 2: Review tool vs. review context.**
 
 Automated tools review code as a snapshot. They do not know:
-- Which bugs were deliberately fixed with what appears to be a workaround.
+- Which bugs were deliberately fixed with what appears to be a workawwwwwwwwwwwwwwwwwwwwwwround.
 - Which "magic numbers" are environment-specific constants that cannot be
   parameterized without breaking the Fly.io deploy pipeline.
 - Which test patterns look vacuous but exist as regression guards for a
@@ -350,8 +352,7 @@ If you have cloned this repository and want to understand any decision:
 2. Search `PLAYBOOK.md` Section 4 and
   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` for dated entries
    covering the relevant date range.
-3. Check `docs/history/AUDIT_*.md` for any third-party review findings
-   that influenced the current structure.
+3. Search `docs/history/logs/` and `docs/logarchive/` for older dated entries.
 4. `AGENTS.md` explains how future development sessions should be started
    and what rules govern commits, tests, and documentation.
 
@@ -359,3 +360,5 @@ If you have cloned this repository and want to understand any decision:
 development session. It is committed and shared across all agents (tracked
 via `.gitignore` exception). A reference copy of its format and structure
 is at `docs/history/SESSION_CONTEXT_REFERENCE.md`.
+
+In sum, bootstrapping agents with the template prompt and orienting them allows agents to be orienteded on where the project stands and the following task. Writing batch definitons with WPs is imperative for their orientation. While this method may consume tokens, it has provent to be an effective cross-session and cross-stae external memory managment tool. Every decision, deviation, and implementation is logged and detailed, and this allows anyone to understand the "why" behind changes.
