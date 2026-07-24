@@ -245,11 +245,11 @@ Heatmap
     LASTFM_API_KEY="your_lastfm_api_key_here"
     SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
     SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
-    SECRET_KEY="changeme_in_production"
+    SECRET_KEY="local-development-only-key"
+    DEBUG_MODE="1"
 
-    # Required in production (startup fails without a strong value).
-    # Generate: python -c "import os; print(os.urandom(32).hex())"
-    # For local dev, set DEBUG_MODE=1 to suppress the check.
+    # For production, replace the local key above with a generated strong value:
+    # python -c "import os; print(os.urandom(32).hex())"
 
     # Optional local Postgres cache
     # DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
@@ -257,7 +257,6 @@ Heatmap
     # Optional tuning (see scrobblescope/config.py for the full list)
     # MAX_CONCURRENT_LASTFM="10"
     # MAX_ACTIVE_JOBS="10"
-    # DEBUG_MODE="1"
     ```
 
 ### Running the App
