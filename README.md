@@ -486,14 +486,12 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [ ] Replace the top header logo with the updated SVG.
 * [ ] Scope the next UI overhaul; consider Tailwind CSS with daisyUI.
 
-**Ongoing code quality tracking**
-
-* [ ] Separation-of-concerns review: front-end JS and back-end route/service layers.
-* [ ] DRY (Don't Repeat Yourself) violations across templates, JS, and Python modules.
-* [ ] Data integrity checks: edge cases in aggregation, filtering, and normalization.
-* [ ] Logic flaw review: identify silent failure modes and incorrect assumptions.
-* [ ] Performance bottlenecks: profile hot paths under realistic load.
-* [ ] General best-practices fixes surfaced by static analysis or audit tooling.
+*Things to keep in mind: continue reviewing separation of concerns across
+front-end JS and back-end route/service layers, DRY violations across
+templates/JS/Python, data integrity edge cases in aggregation/filtering/
+normalization, silent failure modes and incorrect assumptions, performance
+bottlenecks under realistic load, and best-practices fixes surfaced by
+static analysis or audit tooling.*
 
 ## Contributing
 
