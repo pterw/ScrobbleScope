@@ -127,7 +127,7 @@ graph LR
 Top Albums
   index.html
     -> POST /results_loading
-    -> create job + acquire worker slot
+    -> acquire worker slot + create job
     -> start background_task(...) in a daemon thread
     -> loading.html polls GET /progress
     -> POST /results_complete renders results.html
