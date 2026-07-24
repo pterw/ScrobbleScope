@@ -28,7 +28,9 @@ reference a fact owned by another file, link to it -- do not copy it.
 **Fast-path for Copilot comment jobs:** If the task is to process PR comments
 or review feedback, first fetch comments and determine whether any new
 `@copilot` comments are actionable. If none are actionable, stop immediately
-without running full bootstrap.
+without running full bootstrap. If a single actionable comment is scoped to a
+known file/section, read only that target file plus any directly related test
+or config file needed to validate the change.
 
 1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
