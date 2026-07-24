@@ -25,6 +25,11 @@ reference a fact owned by another file, link to it -- do not copy it.
 
 ## Session Bootstrap (in order)
 
+**Fast-path for Copilot comment jobs:** If the task is to process PR comments
+or review feedback, first fetch comments and determine whether any new
+`@copilot` comments are actionable. If none are actionable, stop immediately
+without running full bootstrap.
+
 1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
 3. Relevant `docs/history/` doc if the log references one.
