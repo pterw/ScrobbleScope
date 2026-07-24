@@ -216,6 +216,34 @@ still occurs. See commit `05c7b19` on `main` for the original change.
 
 ---
 
+## Claude Code Skills (tightly scoped tooling)
+
+Two project-scoped Claude Code (CC) skills provide structured entry points for
+common tasks. They are CC-specific; the portable, model-agnostic orchestration
+rules live in `AGENTS.md`.
+
+**`scrobblescope-bootstrap`** runs the canonical session bootstrap in a fixed
+read order: `.claude/SESSION_CONTEXT.md` Sections 1-2, then `PLAYBOOK.md`
+Sections 3-4, then `AGENT_NOTES.md`, stopping early if those three files
+confirm the current batch and next work package. Invoke it at the start of any
+substantive session -- new feature work, refactors, or multi-WP batch work.
+Skip it when the change is too small to require batch context; the skill
+illustrates this with the anti-example "tweak the heatmap pill padding," a
+change that needs only the relevant template file, not the full bootstrap chain.
+
+**`gemini-pr-triage`** solves the problem of prioritising an incoming batch of
+PR review comments before acting on them. It reads each comment and classifies
+it as Act (address now -- actionable and in scope), Defer (valid but out of
+scope for this session or batch), or Decline (not warranted -- incorrect,
+already addressed, or rejected by the PR author). The classification standard
+lives in the skill definition itself, keeping CC-specific workflow detail out of
+`AGENTS.md`.
+
+Both skills are deliberately scoped to a single agent at a time and are not
+designed for parallel sub-agent invocation.
+
+---
+
 ## The Batch Structure as a Lightweight SDLC
 
 The repository uses batches and work packages as a lightweight delivery model. It maps reasonably well to familiar software-process concepts:
