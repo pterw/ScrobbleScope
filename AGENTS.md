@@ -39,8 +39,8 @@ and next WP, you have enough context to start.
 - Read only Sections 3-4 of `PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
-- When citing repository files in chat or tool inputs, use full filesystem
-  paths (for example `/repo/path/file.py`, not `file.py`).
+- When citing repository files in chat, use full filesystem paths. For tool
+  inputs, follow the tool's required path format (absolute or repository-relative).
 
 ---
 
