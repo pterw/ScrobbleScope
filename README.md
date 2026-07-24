@@ -469,7 +469,7 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [ ] Improve the unmatched albums page (`unmatched.html`).
 * [ ] Tighten `ENTRY_BATCH_RE` in `scripts/docsync/parser.py` to prevent misrouting entries whose titles contain "Batch N" substrings.
 * [ ] Replace the top header logo with the updated SVG.
-* [ ] Scope the next UI overhaul; consider Tailwind CSS with daisyUI.
+* [ ] Scope the Batch 21 UI overhaul from the owner audit PDF; consider Tailwind CSS with daisyUI.
 
 *Things to keep in mind: continue reviewing separation of concerns across
 front-end JS and back-end route/service layers, DRY violations across
