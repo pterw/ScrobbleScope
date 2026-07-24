@@ -279,7 +279,7 @@ python init_db.py
 
 To run the app locally with the persistent Postgres metadata cache enabled:
 
-* Docker must installed and running.
+* Docker must be installed and running.
 * The `ss-postgres` container must exist (created once via `docker run`; see `AGENT_NOTES.md` Local Dev Setup section for the full command).
 * `DATABASE_URL` should point at your local Postgres instance, for example:
   ```env
