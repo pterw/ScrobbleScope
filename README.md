@@ -143,7 +143,7 @@ Top Albums
 Heatmap
   index.html
     -> POST /heatmap_loading
-    -> create job + acquire worker slot
+    -> acquire worker slot + create job
     -> start heatmap_task(...) in a daemon thread
     -> heatmap.js polls GET /heatmap_data
     -> render SVG heatmap from stored daily_counts
