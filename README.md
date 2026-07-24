@@ -254,14 +254,9 @@ Heatmap
     # Optional local Postgres cache
     # DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
 
-    # Optional tuning
-    # DB_CONNECT_MAX_ATTEMPTS="3"
-    # DB_CONNECT_BASE_DELAY_SECONDS="0.25"
+    # Optional tuning (see scrobblescope/config.py for the full list)
     # MAX_CONCURRENT_LASTFM="10"
-    # SPOTIFY_SEARCH_CONCURRENCY="10"
-    # SPOTIFY_REQUESTS_PER_SECOND="10"
     # MAX_ACTIVE_JOBS="10"
-    # METADATA_CACHE_TTL_DAYS="30"
     # DEBUG_MODE="1"
     ```
 
