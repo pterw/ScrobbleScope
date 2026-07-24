@@ -270,7 +270,7 @@ class TestLatestTestCount:
         assert _latest_test_count_from_entries(playbook) is None
 
     def test_multiple_entries_uses_newest(self):
-        """With two entries inside markers, the newest (first) entry's count is used."""
+        """With two entries inside markers, the newest (last appended) entry's count is used."""
         playbook = [
             "# PLAYBOOK",
             "",
@@ -282,24 +282,24 @@ class TestLatestTestCount:
             "",
             "<!-- DOCSYNC:CURRENT-BATCH-START -->",
             "",
-            "### 2026-02-21 - Newer work (Batch 11 WP-2)",
-            "",
-            "**200 tests passing**",
-            "",
             "### 2026-02-20 - Older work (Batch 11 WP-1)",
             "",
             "**190 tests passing**",
+            "",
+            "### 2026-02-21 - Newer work (Batch 11 WP-2)",
+            "",
+            "**200 tests passing**",
             "",
             "<!-- DOCSYNC:CURRENT-BATCH-END -->",
         ]
-        # Parser returns entries in file order (newest heading is first here);
-        # _latest_test_count_from_entries scans in that order.
+        # Parser returns entries in file order (append-ordered, oldest first);
+        # _latest_test_count_from_entries scans in reverse to find newest.
         result = _latest_test_count_from_entries(playbook)
         assert result == 200
 
-    def test_oldest_first_file_order_returns_first_count(self):
-        """Documents file-order dependency: function scans entries in file
-        order and returns the first bold count found, not the newest by date."""
+    def test_newest_first_file_order_still_returns_last(self):
+        """When entries are in reverse chronological file order, the last
+        entry in the file is still treated as newest (append convention)."""
         playbook = [
             "# PLAYBOOK",
             "",
@@ -311,13 +311,13 @@ class TestLatestTestCount:
             "",
             "<!-- DOCSYNC:CURRENT-BATCH-START -->",
             "",
-            "### 2026-02-20 - Older work (Batch 11 WP-1)",
-            "",
-            "**190 tests passing**",
-            "",
             "### 2026-02-21 - Newer work (Batch 11 WP-2)",
             "",
             "**200 tests passing**",
+            "",
+            "### 2026-02-20 - Older work (Batch 11 WP-1)",
+            "",
+            "**190 tests passing**",
             "",
             "<!-- DOCSYNC:CURRENT-BATCH-END -->",
         ]

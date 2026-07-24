@@ -75,8 +75,8 @@ Completed batch definitions are archived individually under `docs/history/`.
   (font stack, palette integration, index card rework, Bootstrap CDN
   consolidation) driven by an owner audit PDF. No WP work begins until
   scope lands.
-- **Next action:** Batch 20 WP-1 (README: counts, structure, mermaid).
-- Batch 20 WP status: WP-0 (scaffolding) done. WP-1 through WP-8 not yet started.
+- **Next action:** Batch 20 WP-6 (FINDINGS.md: cleanup and archive).
+- Batch 20 WP status: WP-0 through WP-5 done. WP-6 through WP-8 not yet started.
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
@@ -138,103 +138,170 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: WP-1 starts the README pass (test-file count, project
   structure, mermaid diagram refresh).
 
+### 2026-07-24 - README counts/structure/mermaid refresh (Batch 20 WP-1)
+
+- Scope: completed Batch 20 WP-1 in `README.md` (test-count wording, project
+  structure refresh, and Mermaid flow update).
+- Plan vs implementation:
+  - Updated test-count references to 22 test modules.
+  - Refreshed the root project-structure block with the requested
+    orchestration/documentation files.
+  - Replaced the older architecture mermaid with the current two-pipeline
+    diagram and removed the doc-state-sync bullet from key highlights.
+- Deviations: none.
+- Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: continue with WP-2 roadmap trimming.
+
+### 2026-07-24 - README roadmap trim (Batch 20 WP-2)
+
+- Scope: completed Batch 20 WP-2 roadmap cleanup in `README.md`.
+- Plan vs implementation:
+  - Removed completed/scaffolding roadmap items and duplicate heatmap entries.
+  - Preserved required unchecked roadmap items and converted the quality-track
+    checklist into a concise reminder paragraph.
+  - Added concrete forward items for orchestrator decomposition, integration
+    testing, CDN consolidation, and regex hardening.
+- Deviations: none.
+- Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: continue with WP-3 Getting Started compression.
+
+### 2026-07-24 - README getting-started compression (Batch 20 WP-3)
+
+- Scope: completed Batch 20 WP-3 Getting Started tightening in `README.md`.
+- Plan vs implementation:
+  - Compressed the venv/setup instructions while retaining Linux + Windows
+    coverage.
+  - Reduced `.env` optional-tuning examples and pointed readers to
+    `scrobblescope/config.py` for the full option set.
+  - Tightened local DB-cache development prose while preserving prerequisites,
+    one-command startup, and smoke/concurrency checks.
+- Deviations: initial commit left the full 8-var optional-tuning list and the
+  `load_dotenv()` trivia line in place; both corrections were applied in
+  follow-up commits after reviewer feedback (`BATCH20_DEFINITION.md:107-108`).
+- Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: continue with WP-4 DEVELOPMENT.md cleanup.
+
+### 2026-07-24 - DEVELOPMENT.md path/timeline/prose cleanup (Batch 20 WP-4)
+
+- Scope: completed Batch 20 WP-4 in `DEVELOPMENT.md`.
+- Plan vs implementation:
+  - Corrected the archive-definition path references to
+    `docs/history/definitions/...`.
+  - Updated the development-timeline framing to reflect concentrated
+    Feb-March work plus lighter later follow-up.
+  - Trimmed identified AI-prose padding while preserving technical intent.
+- Deviations: none.
+- Validation: `pytest -q` -- **389 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: WP-5 adds the Claude Code skills subsection in
+  `DEVELOPMENT.md`.
+
+### 2026-07-24 - DEVELOPMENT.md skills subsection (Batch 20 WP-5)
+
+- Scope: completed Batch 20 WP-5 -- added the "Claude Code Skills (tightly
+  scoped tooling)" subsection to `DEVELOPMENT.md`.
+- Plan vs implementation:
+  - Added subsection documenting `scrobblescope-bootstrap` and
+    `gemini-pr-triage` skills with their single-agent scope.
+  - Placed between the doc-sync tooling section and the batch-structure section
+    as specified by the definition.
+- Deviations: small functional docsync fix bundled with this commit (flagged
+  at PR #159 discussion_r3645236188). `scripts/docsync/logic.py` and
+  `scripts/docsync/renderer.py`: corrected entry scan order from forward
+  (oldest-first) to reverse so `_latest_test_count_from_entries` and
+  `_build_status_block` both read the most recent entry's test count instead
+  of the oldest's. Updated existing tests to reflect correct behavior. Under
+  20 lines of production code; treated as an in-WP deviation per AGENTS.md
+  scope-discipline rules. Raises pytest baseline from 389 to 390 (one new
+  renderer regression test added).
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files` --
+  all hooks pass.
+- Forward guidance: WP-6 cleans up and archives `FINDINGS.md`.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-07-22 - Link-preview image + Open Graph meta tags (side-task)
+### 2026-07-24 - README CSRF and UX cleanup (side-task)
 
-- Scope: LinkedIn (and Slack/Discord/etc.) show no image when the app URL
-  is shared, since no og:image or companion meta tags existed.
+- Scope: PR-review-comment-driven fixes to `README.md` and `AGENTS.md`.
 - Plan vs implementation:
-  - New `static/images/social-card.png` (1200x630, standard OG/Twitter
-    card size): dark gradient background, the real favicon.svg pinwheel
-    mark, wordmark, and tagline. Generated by rendering an HTML page that
-    embeds the actual favicon.svg markup (not a hand-approximated
-    redraw) and screenshotting it at 2x via the Chrome DevTools Protocol
-    browser tool, then downsampled with Pillow (already pinned in
-    requirements.txt; no new dependency).
-  - `templates/base.html`: added `og:type`, `og:site_name`, `og:title`,
-    `og:description`, `og:image` (+width/height), `og:url`, and the
-    `twitter:card`/`title`/`description`/`image` equivalents. Title and
-    description are Jinja blocks (`og_title`, `og_description`) so child
-    templates can override per-page; default to the existing site title
-    and meta-description text. `og:image` uses
-    `url_for(..., _external=True)` so it resolves to an absolute URL
-    against whatever host serves the request (required -- OG scrapers
-    reject relative image URLs).
-- Deviations: none. Out of scope for the active Batch 20 (file-hygiene,
-  no production-code changes per `BATCH20_DEFINITION.md`), so logged as
-  a side-task per `AGENTS.md` Side-Task Handling rather than a Batch 20 WP.
-- Validation: `pytest -q` -- **389 passed**, no change (docs/template/asset
-  only, no Python logic touched). `pre-commit run --files templates/base.html
-  static/images/social-card.png` -- doc-state-sync-check passed (only
-  applicable hook). Verified rendered output via Flask test client: all
-  12 meta tags present, `og:image` resolves to an absolute URL.
-- Forward guidance: none pending. Owner should verify the card renders
-  correctly on LinkedIn's actual link-preview (some platforms cache
-  previews aggressively per-URL; may need LinkedIn's Post Inspector to
-  force a re-scrape after first deploy).
+  - `README.md`: updated CSRF description to document three distinct injection
+    mechanisms -- form-submit body token (`/results_loading`, `/results_complete`,
+    `/unmatched_view`), header-only fetch (`/reset_progress`), and both body and
+    header (`/heatmap_loading`). Added `/unmatched_view` to the form-submit route
+    list after reviewer confirmed the hidden `csrf_token` input at
+    `templates/results.html:177-178`.
+  - `README.md`: removed three duplicate UX entries from the Styling & UX details
+    block (rotating messages, personalized stats, onboarding) that were already
+    covered in the Features section above.
+  - `AGENTS.md`: removed a non-ASCII section symbol (replaced with plain text
+    "Section") to comply with the ASCII-only markdown authoring rule.
+- Deviations: none -- all changes are documentation-only PR review responses
+  outside Batch 20 WPs; Batch 20 WP status and next action are unchanged.
+- Validation: `python scripts/doc_state_sync.py --check` -- exit 0.
+- Forward guidance: Batch 20 WP-6 (FINDINGS.md cleanup) is still the next
+  work package.
 
-### 2026-05-19 - Batch 19 close-out (Batch 19 close-out)
+### 2026-07-24 - DEVELOPMENT.md file-count follow-up
 
-- Scope: archived the Batch 19 definition, refreshed README for the PR to
-  main, and finalized PLAYBOOK + SESSION_CONTEXT to reflect Batch 19 complete.
+- Scope: side-task follow-up to close the missed Batch 20 WP-5 documentation
+  requirement in `DEVELOPMENT.md` by acknowledging `FINDINGS.md` as the sixth
+  advisory, read-on-demand file in the external-memory description.
 - Plan vs implementation:
-  - `git mv BATCH19_DEFINITION.md docs/history/definitions/BATCH19_DEFINITION.md`.
-  - PLAYBOOK Section 2 table now links to the archived definition.
-  - PLAYBOOK Section 3 marks Batch 19 complete; next action is the
-    `feat/heatmap` PR to `main`.
-  - SESSION_CONTEXT Batch 19 row flipped to **Complete**.
-  - README bumped to 387 tests, "Top Albums" mode rename in the intro,
-    framed heatmap result + KPIs + desktop calendar vs. mobile activity
-    strip described, `.venv/` venv guidance aligned with AGENTS.md, and
-    heatmap roadmap line updated to cover both Batch 18 and Batch 19.
-- Deviations: owner kept screenshots as "coming soon" placeholders since
-  the saved ones in `docs/images/` no longer reflect the current UI.
-  Owner will refresh them out of band.
-- Validation: `pytest -q` passed with **387 passed** and 3 existing
-  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` passed all 10
-  hooks. `python scripts/doc_state_sync.py --check` exited 0 with the
-  expected root warning gone after archiving the definition.
-- Forward guidance: open the PR for `feat/heatmap` -> `main`, address any
-  reviewer comments, merge, and deploy. Batch 20 (heavy UI refactor) is
-  to be scoped later and is explicitly out of this PR.
+  - Reworded the file-count paragraph to distinguish the five core tracked
+    files from advisory `FINDINGS.md`, while keeping the archive-directory
+    count unchanged.
+  - Kept the wording explicit so IDE-based agents (for example Claude Code
+    and Codex in VS Code) do not misread `FINDINGS.md` as part of the
+    mandatory bootstrap set.
+- Deviations: none -- this closes a missed WP-5 acceptance item flagged in PR
+  review and leaves Batch 20 WP-6 as the next unstarted work package.
+- Validation: `.venv/bin/pytest -q` -- **390 passed**. `.venv/bin/pre-commit
+  run --all-files` -- all hooks pass. `.venv/bin/python scripts/doc_state_sync.py
+  --check` -- exit 0 with the two expected root-BATCH warnings.
+- Forward guidance: WP-6 still cleans up and archives `FINDINGS.md`.
 
-### 2026-05-19 - PR #152 Gemini Code Review fixes (side-task)
+### 2026-07-24 - Restore out-of-scope README edits (side-task)
 
-- Scope: addressed three substantive Gemini Code Review comments on the
-  open `feat/heatmap` PR.  Deferred three "broad except Exception"
-  comments to the future error-handling batch (already tracked as
-  FINDINGS.md P1 item 9).
+- Scope: revert the Features-section rewrite and the Acknowledgements removal
+  made in PR #159 outside Batch 20 WP-1 through WP-3; keep Screenshots removal
+  as intentional.
 - Plan vs implementation:
-  - **Commit `ccb000f`** -- `fix(heatmap): use UTC for scrobble
-    timestamps and fetch window`. Brought `heatmap.py` in line with
-    `lastfm.py:31`'s established UTC convention. Updated every UTS-
-    building call site in `tests/test_heatmap.py` to `tzinfo=timezone.utc`
-    so the boundary tests are not vacuous against tz bugs. Added a new
-    adversarial test (`test_utc_decode_invariant_against_local_tz_drift`)
-    that pins a UTS at 23:30 UTC and asserts the bucket lands on the UTC
-    day, not the local-tz day.
-  - **Commit `01a7904`** -- `fix(repositories): isolate nested
-    daily_counts in get_job_context`. Explicit
-    `dict(results["daily_counts"])` after the outer shallow copy.
-    Chosen over `copy.deepcopy` for the polling hot path. Closes
-    F-B18-8. New regression test in `test_repositories.py`.
-  - **Commit `53919c2`** -- `fix(heatmap): keep streak alive when today
-    has no scrobble yet`. Stepping back one day when today is zero
-    matches GitHub-contributions/Duolingo convention and was the
-    pattern Gemini suggested.
-  - FINDINGS.md gained F-B19-6 (naive-tz vacuous-test anti-pattern,
-    forward-TODO for AGENTS.md update) and a resolved entry for F-B18-8.
-- Deviations: declined Gemini's three "narrow the bare
-  `except Exception`" comments. Those are all instances of FINDINGS.md
-  P1 item 9 (14 sites total); narrowing 3 of 14 piecemeal without a
-  test matrix per error class is a regression risk that violates
-  AGENTS.md scope discipline. Belongs in the dedicated error-handling
-  batch the FINDINGS entry already calls for.
-- Validation: `pytest -q` passes with **389 passed** and 3 existing
-  aiohttp/Python 3.13 warnings (387 -> 389; +1 UTC adversarial test,
-  +1 nested-copy regression test). `pre-commit run --all-files` passes
-  all 10 hooks. `node --check static/js/heatmap.js` clean.
-- Forward guidance: push the three fix commits + this log entry,
-  reply to Gemini via `gh pr review` declining the broad-Exception
-  comments with a FINDINGS-item-9 pointer, and wait for re-review.
+  - `README.md`: restored the original flat-list Features section (removed the
+    "As mentioned above" intro and the `<details>` wrapper added out-of-scope).
+  - `README.md`: restored the Acknowledgements section before Author & Contact.
+  - `README.md`: updated Table of Contents to re-include only the
+    Acknowledgements link.
+- Deviations: none -- pure restoration of pre-PR content flagged by code review
+  at PR #159 discussion_r3644787390.
+- Validation: `pre-commit run --all-files` -- pass. `pytest -q` -- not
+  applicable (documentation-only change). `python scripts/doc_state_sync.py
+  --check` -- pass.
+- Forward guidance: Features and Acknowledgements now match the intended PR
+  state, with Screenshots intentionally removed; any future changes to those
+  sections require an explicit batch WP or deviation log entry.
+
+### 2026-07-24 - Copilot comment-job bootstrap trim (side-task)
+
+- Scope: reduce unnecessary bootstrap for Copilot PR comment/review-comment
+  jobs after the `copilot` Actions run failed in request processing with a
+  monthly-quota error before reaching the linked review thread.
+- Plan vs implementation:
+  - `AGENTS.md`: added a targeted review-comment fast-path for prompts that
+    link to a single `discussion_r...` thread, limiting reads to the linked
+    file/lines plus only the bootstrap context that thread actually needs.
+  - `HANDOFF_PROMPT.md`: removed the unconditional "read all bootstrap
+    files" mandate for comment jobs and aligned the startup procedure with
+    the lighter fast-path in `AGENTS.md`.
+- Deviations: none -- this is a side-task CI reliability fix outside Batch 20;
+  Batch 20 WP status and next action are unchanged.
+- Validation: `python scripts/doc_state_sync.py --fix` -- no changes.
+  `python scripts/doc_state_sync.py --check` -- pass, with the two expected
+  active-root-BATCH warnings. `pytest -q` and `pre-commit run --all-files`
+  could not run in this sandbox because the repo-local `.venv` and those
+  executables are not present here.
+- Forward guidance: if future comment jobs still hit quota, inspect whether
+  the prompt is fetching full PR comment lists when a direct review-comment
+  URL is already supplied.

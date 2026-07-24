@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-07-23
+Last updated: 2026-07-24
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-07-23
 | Item | Value |
 |------|-------|
 | Branch | `file-hygeine` |
-| Tests | **389 passing** across 22 test files |
+| Tests | **390 passing** across 22 test modules |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -19,7 +19,7 @@ Last updated: 2026-07-23
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
-| Batch 20 status | **Active.** File-hygiene + docs methodology refresh. WP-0 done. Definition: `BATCH20_DEFINITION.md`. |
+| Batch 20 status | **Active.** File-hygiene + docs methodology refresh. WP-0 through WP-5 done. Definition: `BATCH20_DEFINITION.md`. |
 | Batch 21 status | **Placeholder (renumbered from Batch 20).** Scope TBD: global UI overhaul. Definition stub: `BATCH21_DEFINITION.md`. No WP work until owner finalizes scope from audit PDF. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
@@ -45,11 +45,11 @@ Last updated: 2026-07-23
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 20.
-- Current-batch entries in active log block: 1.
-- Completed work packages in current-batch entries: WP-0.
-- Next expected work package: WP-1.
-- Latest validated test count: **389 passed**.
-- Newest current-batch entry: 2026-05-22 - Batch scaffolding (Batch 20 WP-0).
+- Current-batch entries in active log block: 6.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
+- Next expected work package: WP-6.
+- Latest validated test count: **390 passed**.
+- Newest current-batch entry: 2026-07-24 - DEVELOPMENT.md skills subsection (Batch 20 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -127,7 +127,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (389 tests)
+## 6. Test structure (390 tests)
 
 | File | Count |
 |------|-------|
@@ -135,7 +135,7 @@ loading.js polls GET /progress?job_id=...
 | test_docsync_cli.py | 19 |
 | test_docsync_logic.py | 41 |
 | test_docsync_parser.py | 35 |
-| test_docsync_renderer.py | 21 |
+| test_docsync_renderer.py | 22 |
 | test_domain.py | 13 |
 | test_heatmap.py | 20 |
 | test_repositories.py | 20 |

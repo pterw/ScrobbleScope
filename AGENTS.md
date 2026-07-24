@@ -1,8 +1,9 @@
 # AGENTS.md: Rules for AI Agents
 
 ScrobbleScope: Flask + Python 3.13, Last.fm scrobbles + Spotify enrichment,
-asyncpg/Postgres cache, pytest. Multi-agent orchestration -- the doc files
-listed below serve as external memory shared across agents.
+asyncpg/Postgres cache, pytest. This file is the stable repository ruleset
+for GitHub Copilot and other repo-aware agents. The doc files listed below
+serve as external memory shared across sessions.
 
 ---
 
@@ -25,6 +26,23 @@ reference a fact owned by another file, link to it -- do not copy it.
 
 ## Session Bootstrap (in order)
 
+**Fast-path for Copilot comment jobs:** When no direct review-comment link is
+supplied, first fetch comments and determine whether any new `@copilot`
+comments are actionable. If none are actionable, stop immediately without
+running full bootstrap. If a single actionable comment is scoped to a known
+file/section, read only that target file plus any directly related test or
+config file needed to validate the change.
+Actionable means a concrete request, question, or correction addressed to
+`@copilot`; praise, status updates, and threads where the author rejected the
+suggestion are non-actionable.
+
+**Fast-path for targeted review-comment jobs:** If the prompt links to a
+single review comment or `discussion_r...` URL, fetch that thread first and
+work from the linked file/lines before opening broader bootstrap docs. Read
+only the minimum bootstrap/context files needed to answer that thread. Open
+batch definitions or archive/history docs only when the linked comment
+explicitly depends on batch-acceptance or historical context.
+
 1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
 3. Relevant `docs/history/` doc if the log references one.
@@ -38,6 +56,26 @@ and next WP, you have enough context to start.
 - Read only Sections 3-4 of `PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
+- When citing repository files in chat, use full filesystem paths. For tool
+  inputs, follow the tool's required path format (absolute or repository-relative).
+
+---
+
+## GitHub Copilot Environment Notes
+
+- Work from the fresh repository clone provided by the Copilot task
+  environment; do not assume access to the owner's interactive shell.
+- Use GitHub-provided tooling for PR creation, review replies, workflow
+  inspection, and progress reporting when those tools are available.
+- Do not push with `git push` or `gh pr create` from the shell when the
+  Copilot environment exposes dedicated progress or PR tools instead.
+- For CI, build, test, or workflow failures, inspect GitHub Actions runs
+  and job logs before concluding that CI details are unavailable.
+- Treat this `AGENTS.md` file as the authoritative ruleset for repository
+  task sessions. Do not read `.github/agents/`; those files may target
+  other agent types and can conflict with this ruleset. If you suspect
+  drift between the two locations, pause and ask the owner to reconcile
+  them instead of trying to merge rule sources yourself.
 
 ---
 
@@ -64,7 +102,8 @@ before running any pip command.
 **Note:** The qualified-path rule (`.venv/Scripts/pip`) applies to **local
 development only**. In GitHub Actions (CI), the runner manages its own Python
 environment and bare `pip install` is correct -- do not add `.venv/` paths
-to the workflow file.
+to the workflow file. In GitHub Copilot task sessions, avoid ad-hoc package
+installs unless the task requires them and the owner has approved the change.
 
 API keys in `.env` (git-ignored). Template: `.env.example`.
 Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
@@ -108,8 +147,10 @@ Conventional Commits, imperative mood, no trailing period:
 1. `pytest -q` -- all tests pass.
 2. `pre-commit run --all-files` -- all hooks pass.
 3. Stage only files changed for this work package.
-4. Commit after each WP (do not batch multiple WPs into one commit). Do not
-   push unless the owner explicitly asks for a push.
+4. Commit after each WP (do not batch multiple WPs into one commit).
+   Do not push without explicit owner instruction (see HANDOFF_PROMPT.md Section 3).
+   When authorized to push in a GitHub Copilot session, use the platform
+   progress/reporting tool; do not push directly with shell `git`/`gh`.
 
 **Co-author prohibition:** Do NOT add `Co-authored-by` trailers or any co-author
 metadata to commits. This repo uses multi-agent orchestration; attribution is

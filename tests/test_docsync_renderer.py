@@ -189,6 +189,33 @@ class TestBuildStatusBlock:
         text = "\n".join(block)
         assert "unknown" in text.lower()
 
+    def test_newest_heading_uses_last_entry(self):
+        old_entry = Entry(
+            heading="### 2026-02-20 - Older work (Batch 11 WP-1)",
+            date="2026-02-20",
+            title="Older work (Batch 11 WP-1)",
+            lines=("### 2026-02-20 - Older work (Batch 11 WP-1)", "**157 passed**"),
+            start_idx=0,
+            fingerprint="a",
+        )
+        new_entry = Entry(
+            heading="### 2026-02-21 - Newer work (Batch 11 WP-2)",
+            date="2026-02-21",
+            title="Newer work (Batch 11 WP-2)",
+            lines=("### 2026-02-21 - Newer work (Batch 11 WP-2)", "**158 passed**"),
+            start_idx=0,
+            fingerprint="b",
+        )
+        state = ActiveBatchState(
+            current_batch=11, last_completed_batch=10, next_undefined_batch=None
+        )
+        block = _build_status_block(state, [old_entry, new_entry])
+        assert (
+            "- Newest current-batch entry: 2026-02-21 - Newer work (Batch 11 WP-2)."
+            in block
+        )
+        assert "- Latest validated test count: **158 passed**." in block
+
 
 # ---------------------------------------------------------------------------
 # _render_section4 -- edge and empty cases
