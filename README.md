@@ -302,7 +302,7 @@ To run the app locally with the persistent Postgres metadata cache enabled:
   ```
 * Initialize the schema once with `DATABASE_URL` exported in your shell:
   ```bash
-  export DATABASE_URL="******localhost:5432/scrobblescope"
+  export DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@localhost:5432/scrobblescope"
   python init_db.py
   ```
 
