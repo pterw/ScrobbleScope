@@ -85,7 +85,7 @@ was just completed. Structured as:
   only have a row and a `docs/history/` link).
 - **Section 3**: Active batch state. Enough detail for an agent to
   continue mid-batch without needing to re-read anything else, saving tokens.
-- **Section 4**: Smal current execution log window. Dated entries for the active window only.
+- **Section 4**: Small current execution-log window. Dated entries for the active window only.
   Older entries rotate automatically into the archive.
 
 The batch/work-package (WP) structure is designed to mimic a lightweight sprint system.
@@ -239,7 +239,7 @@ memory of the project.
 
 A prompt like "continue where you left off" or "here's the chat history" works fine within one session but does not
 survive a tool switch (Claude Code to Copilot to Gemini CLI), a context
-compaction, or a multi-day or week gap; exactly the conditions this project
+compaction, or a multi-day or multi-week gap -- exactly the conditions this project
 runs under with five+ different agent tools. The typical failure mode in
 that model is that state lives implicitly in conversation history: whoever
 has the longest, most recent transcript "knows" the project, and anyone
@@ -308,7 +308,7 @@ The reviewer had no access to the git history of that bug, the session logs wher
 **Pattern 2: Review tool vs. review context.**
 
 Automated tools review code as a snapshot. They do not know:
-- Which bugs were deliberately fixed with what appears to be a workawwwwwwwwwwwwwwwwwwwwwwround.
+- Which bugs were deliberately fixed with what appears to be a workaround.
 - Which "magic numbers" are environment-specific constants that cannot be
   parameterized without breaking the Fly.io deploy pipeline.
 - Which test patterns look vacuous but exist as regression guards for a

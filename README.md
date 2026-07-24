@@ -466,12 +466,11 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 **Planned Upcoming Work:**
 
 * [ ] **Top songs:** Rank a user's most-played tracks for a given year (Last.fm + optional Spotify enrichment). Separate background task type with its own loading/results flow.
-* [x] **Scrobble heatmap:** GitHub/Last.fm-Labs-style calendar grid showing daily listening density for the last 365 days. Last.fm API only (no Spotify). Vanilla SVG, rocket_r palette, hover/tap tooltips, dark mode, responsive. (Batch 18 end-to-end pipeline complete; Batch 19 added the framed result artifact, four KPI stats, accent-coloured headline, "Top Albums" pill rename, breathing-pinwheel loading polish, and a sequential mobile activity strip.)
 * [ ] Decompose `scrobblescope/orchestrator.py` into smaller pipeline-focused modules.
 * [ ] Add an integration test that exercises `/results_loading -> /progress -> /results_complete`.
 * [ ] Consolidate Bootstrap CDN usage to a single provider across templates.
 * [ ] Improve the unmatched albums page (`unmatched.html`).
-* [ ] Scope the next UI overhaul, consider tailwind + daisyUI
+* [ ] Scope the next UI overhaul; consider Tailwind CSS with daisyUI.
 
 **Ongoing code quality tracking**
 
