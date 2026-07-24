@@ -54,7 +54,7 @@ Written in imperative, rule-form language. Contains invariants that must
 hold across all sessions and all agents: commit format, test quality
 standards, what constitutes a side-task vs. batch work, how to bootstrap
 a new session, how to run pre-commit and doc sync. It does not contain
-current state nor doese it contain history. Rarely subject to change.
+current state, nor does it contain history. It is rarely subject to change.
 
 The language is deliberately prescriptive ("Must", "Do not", "Forbidden")
 because LLMs handle ambiguity poorly, and incorrect inference can lead to a broken pipeline or a mis-coped commit.
