@@ -9,9 +9,9 @@ the bootstrap files below before doing anything else.
 ## 1) Bootstrap (required -- read in this order)
 
 **Comment/review-job fast-path:**
-- If the task is to process PR comments or review feedback, first determine
-  whether there is any actionable new `@copilot` comment. If none are
-  actionable, stop immediately without full bootstrap.
+- When no direct review-comment link is supplied: first determine whether
+  there is any actionable new `@copilot` comment. If none are actionable,
+  stop immediately without full bootstrap.
 - If the prompt links to a single review comment or `discussion_r...` URL,
   fetch that thread first and inspect only the touched file plus the minimum
   nearby bootstrap context needed for that thread.
