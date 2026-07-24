@@ -297,8 +297,8 @@ def _latest_test_count_from_entries(playbook_lines: list[str]) -> int | None:
         entries, _ = _parse_entries(inside)
     except SyncError:
         return None
-    # Entries are newest-first in Section 4; scan each in order.
-    for entry in entries:
+    # Entries are append-ordered (oldest-first); scan in reverse for newest.
+    for entry in reversed(entries):
         for line in entry.lines:
             m = TEST_COUNT_RE.search(line)
             if m:

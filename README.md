@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-389_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-390_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Try it live →](https://scrobblescope.fly.dev)**
@@ -108,7 +108,7 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (389 tests across 24 files), ~72% coverage |
+| Testing | pytest (390 tests across 22 files), ~72% coverage |
 | CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
@@ -117,41 +117,53 @@ This project was initially built to identify top albums released in a specific y
 
 ```mermaid
 graph LR
-    A[Browser] -->|form POST| B[routes.py]
+    A[Browser] -->|POST /results_loading| B[routes.py]
+    A -->|POST /heatmap_loading| B
+    A -.->|GET /progress| B
+    A -.->|GET /heatmap_data| B
     B --> C[repositories.py]
-    B -->|daemon thread| D[worker.py]
+    B --> D[worker.py]
     D --> E[orchestrator.py]
-    E --> F[lastfm.py]
-    E --> G[spotify.py]
-    E --> H[cache.py]
-    H --> I[(PostgreSQL)]
-    A -.->|poll /progress| B
+    D --> F[heatmap.py]
+    E --> G[lastfm.py]
+    E --> H[spotify.py]
+    E --> I[cache.py]
+    F --> G
+    I --> J[(PostgreSQL)]
 ```
 
 <details>
-<summary>Detailed request flow (text)</summary>
+<summary>Detailed request flow</summary>
 
-```
-User submits form (index.html)
-  -> POST /results_loading (routes.py)
-    -> Creates job (UUID in JOBS dict, thread-safe)
-    -> start_job_thread(background_task, ...) [worker.py]
-    -> Renders loading.html with job_id
+```text
+Top Albums
+  index.html
+    -> POST /results_loading
+    -> acquire worker slot + create job
+    -> start background_task(...) in a daemon thread
+    -> loading.html polls GET /progress
+    -> POST /results_complete renders results.html
+    -> optional POST /unmatched_view renders unmatched.html
 
-background_task (orchestrator.py, daemon Thread):
-  -> asyncio event loop -> _fetch_and_process(...)
-    1. Fetch Last.fm scrobbles (paginated, async, per-page progress)
-    2. Group into albums, filter by thresholds
-    3. process_albums (5-phase cache flow):
-       a: DB connect + batch lookup (30-day TTL)
-       b: Partition cache hits / misses
-       c: Spotify search + detail fetch for misses (per-album progress)
-       d: DB batch persist (conn.close() in finally)
-       e: Build results -> set_job_results()
+  orchestrator.background_task
+    -> fetch Last.fm pages
+    -> group + threshold albums
+    -> enrich misses from Spotify
+    -> optionally read/write Postgres cache
+    -> persist results into JOBS
 
-loading.js polls GET /progress?job_id=...
-  -> 100% + no error -> POST /results_complete -> renders results.html
-  -> error + retryable -> show Retry button
+Heatmap
+  index.html
+    -> POST /heatmap_loading
+    -> acquire worker slot + create job
+    -> start heatmap_task(...) in a daemon thread
+    -> heatmap.js polls GET /heatmap_data
+    -> render SVG heatmap from stored daily_counts
+
+  heatmap.heatmap_task
+    -> fetch Last.fm pages for the last 365 days
+    -> aggregate daily counts in UTC
+    -> persist totals, max_count, and daily_counts into JOBS
 ```
 
 </details>
@@ -160,7 +172,6 @@ loading.js polls GET /progress?job_id=...
 
 * **Per-job state isolation:** UUID-keyed `JOBS` dict with `threading.Lock`. Progress, results, and unmatched data are scoped per job. Jobs expire after 2 hours.
 * **Bounded concurrency:** `MAX_ACTIVE_JOBS` (default 10) caps background jobs via `BoundedSemaphore`. Excess requests are rejected before job creation.
-* **Two-tier caching:** In-memory `REQUEST_CACHE` (1-hour TTL, thread-safe via `_cache_lock`) for Last.fm responses; persistent Postgres `spotify_cache` (30-day TTL) for Spotify metadata.
 * **Data normalization:** Artist and album names are cleaned of punctuation and common suffixes ("deluxe edition", "remastered") for robust Last.fm-to-Spotify matching.
 * **Global rate limiting:** `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 * **Acyclic module graph:** Leaf modules (`config`, `domain`, `errors`) have no internal imports. `orchestrator.py` sits at the top; `routes.py` imports only what it needs. See `AGENTS.md` for the full dependency graph.
@@ -168,27 +179,28 @@ loading.js polls GET /progress?job_id=...
 ## Key Implementation Highlights
 
 * **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency, rate-limit defaults, and DB wake-up tolerance can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, `DB_CONNECT_MAX_ATTEMPTS`, `DB_CONNECT_BASE_DELAY_SECONDS`, etc.).
-* **Per-Job State Isolation:** Each search request creates a unique job (UUID-keyed, in-memory `JOBS` dict with thread-safe locking). Progress, results, and unmatched data are scoped per job, preventing cross-user state collisions on concurrent requests. Jobs expire after 2 hours.
-* **Data Normalization:** Artist and album names are cleaned of punctuation and common suffixes (e.g., "deluxe edition", "remastered") for more robust matching between Last.fm data and Spotify search queries.
 * **Caching:**
     * In-memory request cache (`REQUEST_CACHE` in `utils.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
     * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
-* **Bounded Job Concurrency:** `MAX_ACTIVE_JOBS` (default 10, env-tunable) caps simultaneous background jobs via a `BoundedSemaphore` in `scrobblescope/worker.py`. Requests beyond the cap are rejected at the route before any job is created, and the concurrency slot is always released -- even on thread-start failure.
 * **CSRF Protection:** All mutating POST routes (`/results_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Form submissions include a hidden `csrf_token` input; programmatic POSTs from `loading.js` read a `<meta name="csrf-token">` tag and inject the token into both form bodies and the `X-CSRFToken` header.
 * **Doc-State Sync Tooling:** A modular Python package (`scripts/docsync/`) keeps orchestration docs (PLAYBOOK, SESSION_CONTEXT, archive) consistent across agent handoffs. Deterministic rotation, SHA-256 dedup, and cross-validation replace manual copy-paste that drifted in earlier sessions. See [DEVELOPMENT.md](DEVELOPMENT.md) for rationale.
 * **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
 * **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
-* **Styling & UX:**
-    * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
-    * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The main logo is an animated SVG emulating a waveform.
-    * **Accessibility:** `aria-labels` on SVGs and interactive elements; semantic form markup.
-    * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
-    * **Static Assets:** CSS and JavaScript served from `/static` for cacheability and clean separation.
-    * **Rotating loading messages:** Keeps users informed while data is being fetched.
-    * **Personalized Loading Stats:** Live stats (scrobble count, albums found, Spotify matches) shown during processing.
-    * **Onboarding:** First-visit welcome modal with "Info" button for returning users; contextual tooltip icons on form fields.
-    * **Clickable Album Links:** Album names in results link directly to their Spotify page.
+<details>
+<summary><strong>Styling &amp; UX</strong></summary>
+
+   * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
+   * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The header logo features an animated SVG waveform, and the heatmap feature uses a custom breathing SVG pinwheel animation while loading.
+   * **Accessibility:** `aria-labels` on SVGs and interactive elements; semantic form markup.
+   * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
+   * **Static Assets:** CSS and JavaScript served from `/static` for cacheability and clean separation.
+   * **Rotating loading messages:** Keeps users informed while data is being fetched.
+   * **Personalized Loading Stats:** Live stats (scrobble count, albums found, Spotify matches) shown during processing.
+   * **Onboarding:** First-visit welcome modal with "Info" button for returning users; contextual tooltip icons on form fields.
+   * **Clickable Album Links:** Album names in results link directly to their Spotify page.
+
+</details>
 
 ## Getting Started
 
@@ -216,13 +228,11 @@ loading.js polls GET /progress?job_id=...
     * Windows (Command Prompt): `.venv\Scripts\activate`
     * macOS/Linux: `source .venv/bin/activate`
 
-    *(PowerShell may require: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process`)*
-
 3.  **Install dependencies:**
     ```bash
-    pip install -r requirements-dev.txt   # includes runtime + pytest + pre-commit + lint
+    pip install -r requirements-dev.txt
     ```
-    Runtime-only (no dev tools):
+    Runtime-only install (no dev tools):
     ```bash
     pip install -r requirements.txt
     ```
@@ -235,33 +245,31 @@ loading.js polls GET /progress?job_id=...
     LASTFM_API_KEY="your_lastfm_api_key_here"
     SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
     SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
+    SECRET_KEY="local-development-only-key"
+    DEBUG_MODE="1"
+    # DEBUG_MODE=1 downgrades weak-secret validation to a warning; this
+    # development-only key must never be used in production.
 
-    # Required in production (startup fails without a strong value).
-    # Generate: python -c "import os; print(os.urandom(32).hex())"
-    # For local dev, set DEBUG_MODE=1 to suppress the check.
-    SECRET_KEY="your_random_secret_key_here"
+    # For production, replace the local key above with a generated strong value:
+    # python -c "import os; print(os.urandom(32).hex())"
 
-    # Optional: persistent Spotify metadata cache (Postgres)
-    # DATABASE_URL="postgresql://..."
+    # Optional local Postgres cache
+    # DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
 
-    # Optional tuning
-    # DB_CONNECT_MAX_ATTEMPTS="3"
-    # DB_CONNECT_BASE_DELAY_SECONDS="0.25"
+    # Optional tuning (see scrobblescope/config.py for the full list)
     # MAX_CONCURRENT_LASTFM="10"
-    # SPOTIFY_SEARCH_CONCURRENCY="10"
-    # SPOTIFY_REQUESTS_PER_SECOND="10"
     # MAX_ACTIVE_JOBS="10"
-    # METADATA_CACHE_TTL_DAYS="30"
-    # DEBUG_MODE="1"
     ```
 
 ### Running the App
+
+Quick start:
 
 ```bash
 python app.py
 ```
 
-Or use the convenience launcher (also opens your browser):
+Browser-launching wrapper:
 
 ```bash
 python run.py
@@ -279,16 +287,25 @@ python init_db.py
 
 To run the app locally with the persistent Postgres metadata cache enabled:
 
-**Prerequisites:**
-
-* Docker installed and running.
-* The `ss-postgres` container must exist (created once via `docker run`; see
-  `AGENT_NOTES.md` Local Dev Setup section for the full command).
-* `DATABASE_URL` set in `.env`:
+* Docker must be installed and running.
+* The `ss-postgres` container must exist. Create it once with:
+  ```bash
+  docker run -d --name ss-postgres \
+      -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres \
+      -e POSTGRES_DB=scrobblescope \
+      -p 5432:5432 \
+      -v ss-postgres-data:/var/lib/postgresql/data \
+      postgres:17
   ```
+* `DATABASE_URL` should point at your local Postgres instance, for example:
+  ```env
   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
   ```
-* Schema initialized (once): set `DATABASE_URL` in the shell, then run `python init_db.py`.
+* Initialize the schema once with `DATABASE_URL` exported in your shell:
+  ```bash
+  export DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@localhost:5432/scrobblescope"
+  python init_db.py
+  ```
 
 **One-command startup:**
 
@@ -297,16 +314,20 @@ python scripts/dev/dev_start.py
 ```
 
 This checks whether `ss-postgres` is running, starts it if needed, then launches Flask.
-`load_dotenv()` in the Flask startup picks up `DATABASE_URL` from `.env` automatically.
 
-**Verify the cache is working** (run twice; second run should report DB hits):
+**Cache smoke test** (verify Postgres cache on your local instance):
 
 ```bash
-python scripts/testing/smoke_cache_check.py \
-    --base-url http://localhost:5000/ --username YOUR_USERNAME --year 2024 --runs 2
+python scripts/testing/smoke_cache_check.py --base-url http://localhost:5000/ \
+    --username YOUR_USERNAME --year 2025 --runs 2
 ```
 
-Prints `verdict=PASS` when the second run observes `db_cache_lookup_hits > 0`.
+What to look for:
+* `db_cache_enabled=True` indicates the app connected to Postgres for this run.
+* `Run 2` should report `db_cache_lookup_hits > 0` once metadata has been persisted.
+* `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
+* `Run 2` elapsed time should usually be lower than `Run 1`.
+* The script prints `verdict=PASS` when the second run observes DB cache hits.
 
 **Observe concurrent-user behavior** (fires N simultaneous job submissions):
 
@@ -315,15 +336,15 @@ python scripts/testing/concurrent_users_test.py \
     --concurrency 3 --base-url http://localhost:5000/ --username YOUR_USERNAME --year 2024
 ```
 
-Reports per-thread outcome and aggregate statistics. Set `--concurrency` above
-`MAX_ACTIVE_JOBS` (default 10) to observe semaphore-limit and queuing behavior.
+Reports per-thread outcome and aggregate statistics.
+Set `--concurrency` above `MAX_ACTIVE_JOBS` (default 10) to observe semaphore-capacity rejections.
 
 ### Running Tests
 
 ```bash
-pytest -q                                   # quick summary
-pytest --cov=scrobblescope --cov-report=term # with coverage
-pre-commit run --all-files                  # lint + formatting + doc sync
+pytest -q
+pytest --cov=scrobblescope --cov-report=term
+pre-commit run --all-files
 ```
 
 ## Project Structure
@@ -340,6 +361,12 @@ pre-commit run --all-files                  # lint + formatting + doc sync
 |-- pyproject.toml                 # Tool config (isort, pytest, pyright)
 |-- AGENTS.md                      # AI agent bootstrap and contribution rules
 |-- PLAYBOOK.md                    # Active handoff playbook (agent orchestration)
+|-- # Agent orchestration / docs
+|   |-- HANDOFF_PROMPT.md          # Session bootstrap procedure for AI agents
+|   |-- AGENT_NOTES.md             # Owner context and local development setup
+|   |-- FINDINGS.md                # Active findings and notes for current work
+|   |-- DEVELOPMENT.md             # Development methodology and doc-state process
+|   `-- DEPLOY.md                  # Deployment workflow and production checklist
 |-- scrobblescope/
 |   |-- __init__.py
 |   |-- config.py                  # Env var reads, API keys, concurrency constants
@@ -449,98 +476,27 @@ fly deploy
 
 `init_db.py` runs automatically as a `release_command` before each deploy to ensure the schema is up to date (idempotent). See [DEPLOY.md](DEPLOY.md) for details.
 
-**Cache smoke test** (verify Postgres cache on a deployed instance):
-
-```bash
-python scripts/testing/smoke_cache_check.py --base-url https://scrobblescope.fly.dev \
-    --username YOUR_USERNAME --year 2025 --runs 2
-```
-
-What to look for:
-* `db_cache_enabled=True` indicates the app connected to Postgres for this run.
-* `Run 2` should report `cache_hits > 0` once metadata has been persisted.
-* `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
-* `Run 2` elapsed time should usually be lower than `Run 1`.
-* The script prints `verdict=PASS` when the second run observes DB cache hits.
-* If Fly Postgres uses `FLY_SCALE_TO_ZERO`, the first run after idle can be slower while the DB wakes up.
-
 ## Current Status & Roadmap
 
 ScrobbleScope is post-refactor and actively maintained. Core architecture and infra work are complete; the current focus is feature expansion and QA hardening.
 
-**Key areas for improvement and upcoming features:**
-
-* [x] Refine and thoroughly test the playtime sorting calculation.
-* [x] Fully implement and test custom album threshold filtering functionality.
-* [x] Enhance the `loading.html` page with rotating messages during loading.
-* [x] Implement working pre-commit specs and GitHub actions for CI pipeline.
-* [x] Further optimize performance for users with very large listening histories.
-* [x] Improve responsive design, especially for mobile devices (ongoing polish).
-* [x] Write more comprehensive backend function docstrings and comments in `app.py`.
-* [ ] Conduct thorough QA testing across different browsers and use cases.
-* [x] Improve the landing page (`index.html`) copy to be more descriptive for new users.
-* [x] Deploy to Fly.io (ephemeral VM, shared-cpu-2x @ 512MB).
-* ~~[ ] Implement planned log rotation for `app_debug.log` to `oldlogs/`.~~
-* [x] Used RotatingFileHandler and start-up banner to delineate session logs, logsize = 1MB max.
-* [x] Per-job state isolation for concurrent user safety.
-* [x] Username pre-validation endpoint (`/validate_user`).
-* [x] XSS-safe template data injection (`|tojson` bridge, `escapeHtml()`).
-* [x] Loop-scoped rate limiters (fix `AsyncLimiter` reuse-across-loops warning).
-* [x] Implement proper upstream failure classification and retry UX.
-* [x] Personalized minimum listening year from Last.fm registration date.
-* [x] Remove nested thread pattern in background task execution.
-* [x] Persistent metadata layer (Postgres) to reduce repeated Spotify lookups across cold starts.
-* [x] Modularize API calls into service modules (`lastfm.py`, `spotify.py`, `cache.py`, `orchestrator.py`).
-* [x] Use Flask Blueprints to organize routes.
-* [x] Consolidate helper functions into `utils.py`.
-* [x] Move background processing to `orchestrator.py`.
-* [x] Separate configuration into `config.py` for cleaner imports.
-* [x] Optimize network usage via batching or parallel requests.
-* [x] Create master HTML templates to reduce duplication.
-* [x] Expand unit test coverage (async pipelines, error states, job isolation).
-* [x] Add DB wake-up retry/backoff hardening for Fly Postgres scale-to-zero behavior.
-* [x] Bounded background job concurrency with graceful capacity rejection (`MAX_ACTIVE_JOBS`, `scrobblescope/worker.py`).
-* [x] Thread-safe in-memory request cache (`_cache_lock` in `utils.py`).
-* [x] CSRF protection on all mutating POST routes (Flask-WTF `CSRFProtect`).
-* [x] Hardened secret key: startup refuses weak or missing `SECRET_KEY` in production.
-* [x] Server-side registration year validation (defense-in-depth; rejects year before user's Last.fm join date).
-* [x] Removed artificial orchestration delays (2.5 s of fixed `asyncio.sleep` overhead eliminated).
-* [x] Granular per-page and per-album progress feedback across the full pipeline.
-* [x] Responsive table formatting with mobile playtime abbreviations.
-* [x] Full-width JPEG export that captures the complete table on mobile.
-* [x] CSS variable consolidation (semantic `--surface-color`, `--border-color`, etc.).
-* [x] `orchestrator.py` decomposition into named helpers (thin orchestrator pattern).
-* [x] Theme CSS/JS consolidation (dark-mode logic deduplicated into `global.css` + `theme.js`).
-* [x] Backend SoC: `lastfm.py` is now a pure HTTP client; all business logic in `orchestrator.py`.
-* [x] Route helper extraction (`_get_validated_job_context`, `_get_filter_description`).
-* [x] Global rate throttle, playtime album cap, bounded job concurrency.
-* [x] 389 tests across 24 test files, ~72% coverage.
-* [x] Modular docsync package (`scripts/docsync/`) with per-batch log routing, SHA-256 dedup, and cross-validation.
-* [x] Parser hardening: strict heading validation, malformed-entry tolerance, edge-case coverage (35 parser tests).
-* [x] AGENTS.md consolidation: anti-pattern registry, batch close-out procedure, side-task handling, doc sync rules.
-
-**Confirmed upcoming features (planned, not yet started):**
+**Planned Upcoming Work:**
 
 * [ ] **Top songs:** Rank a user's most-played tracks for a given year (Last.fm + optional Spotify enrichment). Separate background task type with its own loading/results flow.
-* [x] **Scrobble heatmap:** GitHub/Last.fm-Labs-style calendar grid showing daily listening density for the last 365 days. Last.fm API only (no Spotify). Vanilla SVG, rocket_r palette, hover/tap tooltips, dark mode, responsive. (Batch 18 end-to-end pipeline complete; Batch 19 added the framed result artifact, four KPI stats, accent-coloured headline, "Top Albums" pill rename, breathing-pinwheel loading polish, and a sequential mobile activity strip.)
+* [ ] Decompose `scrobblescope/orchestrator.py` into smaller pipeline-focused modules.
+* [ ] Add an integration test that exercises `/results_loading -> /progress -> /results_complete`.
+* [ ] Consolidate Bootstrap CDN usage to a single provider across templates.
+* [ ] Improve the unmatched albums page (`unmatched.html`).
+* [ ] Tighten `ENTRY_BATCH_RE` in `scripts/docsync/parser.py` to prevent misrouting entries whose titles contain "Batch N" substrings.
+* [ ] Replace the top header logo with the updated SVG.
+* [ ] Scope the next UI overhaul; consider Tailwind CSS with daisyUI.
 
-**Ongoing code quality track (scope TBD, informed by third-party audit):**
-
-* [ ] Separation-of-concerns review: front-end JS and back-end route/service layers.
-* [ ] DRY (Don't Repeat Yourself) violations across templates, JS, and Python modules.
-* [ ] Data integrity checks: edge cases in aggregation, filtering, and normalization.
-* [ ] Logic flaw review: identify silent failure modes and incorrect assumptions.
-* [ ] Performance bottlenecks: profile hot paths under realistic load.
-* [ ] General best-practices fixes surfaced by static analysis or audit tooling.
-
-**UI enrichments (planned, lower priority):**
-
-* [ ] Replace top header logo with updated SVG.
-* [ ] Animated SVG on loading page during Last.fm fetch phase (before Spotify progress bar appears).
-* [X] More dynamic loading progress bar.
-* [X] Personalized loading stats (e.g. average scrobble count per year alongside live fetch counts).
-* [X] Lock dark mode toggle to bottom of viewport (non-scrolling).
-* [ ] Improved unmatched albums page (`unmatched.html`).
+*Things to keep in mind: continue reviewing separation of concerns across
+front-end JS and back-end route/service layers, DRY violations across
+templates/JS/Python, data integrity edge cases in aggregation/filtering/
+normalization, silent failure modes and incorrect assumptions, performance
+bottlenecks under realistic load, and best-practices fixes surfaced by
+static analysis or audit tooling.*
 
 ## Contributing
 
@@ -550,7 +506,7 @@ For code contributions, see [CONTRIBUTING.md](CONTRIBUTING.md). All participants
 
 ## Development Methodology
 
-ScrobbleScope was built using a multi-agent LLM orchestration strategy -- multiple AI code agents (Claude Sonnet, Gemini Code Review) coordinated via a shared external-memory layer to maintain consistency across sessions and agents.
+ScrobbleScope was built with a shared-document, multi-agent workflow. The short version: repository rules live in `AGENTS.md`, active work lives in `PLAYBOOK.md`, current runtime state lives in `.claude/SESSION_CONTEXT.md`.
 
 [DEVELOPMENT.md](DEVELOPMENT.md) explains the full approach: why external memory files exist, how `doc_state_sync.py` works and why it had to be a deterministic script rather than a prompt, the batch/work-package planning system, how code review suggestions were evaluated and rejected, and what failed before the current system stabilized.
 
@@ -573,6 +529,6 @@ MIT License -- see [LICENSE](LICENSE) for details.
 **Peter Wiercioch** (pterw)
 
 * **GitHub:** [pterw](https://github.com/pterw)
-* **Portfolio:** [peterwiercioch.com](https://peterwiercioch.com/) -- photography, writing, vector illustration, and graphic design
+* **Portfolio:** [peterwiercioch.com](https://peterwiercioch.com/)
 * **LinkedIn:** [pter-w](https://www.linkedin.com/in/pter-w/)
 * **Email:** hello@peterwiercioch.com

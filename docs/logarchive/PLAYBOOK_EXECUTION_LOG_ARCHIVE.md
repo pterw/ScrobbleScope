@@ -9,6 +9,46 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-05-19 - PR #152 Gemini Code Review fixes (side-task)
+
+- Scope: addressed three substantive Gemini Code Review comments on the
+  open `feat/heatmap` PR.  Deferred three "broad except Exception"
+  comments to the future error-handling batch (already tracked as
+  FINDINGS.md P1 item 9).
+- Plan vs implementation:
+  - **Commit `ccb000f`** -- `fix(heatmap): use UTC for scrobble
+    timestamps and fetch window`. Brought `heatmap.py` in line with
+    `lastfm.py:31`'s established UTC convention. Updated every UTS-
+    building call site in `tests/test_heatmap.py` to `tzinfo=timezone.utc`
+    so the boundary tests are not vacuous against tz bugs. Added a new
+    adversarial test (`test_utc_decode_invariant_against_local_tz_drift`)
+    that pins a UTS at 23:30 UTC and asserts the bucket lands on the UTC
+    day, not the local-tz day.
+  - **Commit `01a7904`** -- `fix(repositories): isolate nested
+    daily_counts in get_job_context`. Explicit
+    `dict(results["daily_counts"])` after the outer shallow copy.
+    Chosen over `copy.deepcopy` for the polling hot path. Closes
+    F-B18-8. New regression test in `test_repositories.py`.
+  - **Commit `53919c2`** -- `fix(heatmap): keep streak alive when today
+    has no scrobble yet`. Stepping back one day when today is zero
+    matches GitHub-contributions/Duolingo convention and was the
+    pattern Gemini suggested.
+  - FINDINGS.md gained F-B19-6 (naive-tz vacuous-test anti-pattern,
+    forward-TODO for AGENTS.md update) and a resolved entry for F-B18-8.
+- Deviations: declined Gemini's three "narrow the bare
+  `except Exception`" comments. Those are all instances of FINDINGS.md
+  P1 item 9 (14 sites total); narrowing 3 of 14 piecemeal without a
+  test matrix per error class is a regression risk that violates
+  AGENTS.md scope discipline. Belongs in the dedicated error-handling
+  batch the FINDINGS entry already calls for.
+- Validation: `pytest -q` passes with **389 passed** and 3 existing
+  aiohttp/Python 3.13 warnings (387 -> 389; +1 UTC adversarial test,
+  +1 nested-copy regression test). `pre-commit run --all-files` passes
+  all 10 hooks. `node --check static/js/heatmap.js` clean.
+- Forward guidance: push the three fix commits + this log entry,
+  reply to Gemini via `gh pr review` declining the broad-Exception
+  comments with a FINDINGS-item-9 pointer, and wait for re-review.
+
 ### 2026-05-16 - Remove dependabot.yml (side-task)
 
 - Removed `.github/dependabot.yml`: all packages are pinned with `==` so

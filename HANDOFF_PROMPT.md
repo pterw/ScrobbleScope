@@ -1,11 +1,22 @@
 # Agent Hand-Off Prompt
 
-You are continuing work on ScrobbleScope. Read ALL bootstrap files below
-before doing anything else. Do not skip any step.
+You are continuing work on ScrobbleScope. Follow the comment-job fast-path in
+`AGENTS.md` when the task is a PR comment/review-comment fix. Otherwise, read
+the bootstrap files below before doing anything else.
 
 ---
 
 ## 1) Bootstrap (required -- read in this order)
+
+**Comment/review-job fast-path:**
+- When no direct review-comment link is supplied: first determine whether
+  there is any actionable new `@copilot` comment. If none are actionable,
+  stop immediately without full bootstrap.
+- If the prompt links to a single review comment or `discussion_r...` URL,
+  fetch that thread first and inspect only the touched file plus the minimum
+  nearby bootstrap context needed for that thread.
+- Open the batch definition, archive/history docs, and `AGENT_NOTES.md` only
+  when the linked comment depends on them.
 
 Canonical source order:
 - `AGENTS.md` owns stable rules.
