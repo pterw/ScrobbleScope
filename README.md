@@ -240,7 +240,7 @@ Heatmap
     # For local dev, set DEBUG_MODE=1 to suppress the check.
 
     # Optional local Postgres cache
-    # DATABASE_URL="******localhost:5432/scrobblescope"
+    # DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
 
     # Optional tuning
     # DB_CONNECT_MAX_ATTEMPTS="3"
