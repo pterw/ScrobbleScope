@@ -244,24 +244,23 @@ non-current operational logs. Older dated entries live in
 
 ### 2026-07-24 - Restore out-of-scope README edits (side-task)
 
-- Scope: revert the Features-section rewrite and the Screenshots/Acknowledgements
-  removals that were made in PR #159 outside Batch 20 WP-1 through WP-3.
+- Scope: revert the Features-section rewrite and the Acknowledgements removal
+  made in PR #159 outside Batch 20 WP-1 through WP-3; keep Screenshots removal
+  as intentional.
 - Plan vs implementation:
   - `README.md`: restored the original flat-list Features section (removed the
     "As mentioned above" intro and the `<details>` wrapper added out-of-scope).
-  - `README.md`: restored the Screenshots section (four placeholder entries)
-    after Features and before Tech Stack.
   - `README.md`: restored the Acknowledgements section before Author & Contact.
-  - `README.md`: updated Table of Contents to re-include Screenshots and
-    Acknowledgements links.
+  - `README.md`: updated Table of Contents to re-include only the
+    Acknowledgements link.
 - Deviations: none -- pure restoration of pre-PR content flagged by code review
   at PR #159 discussion_r3644787390.
 - Validation: `pre-commit run --all-files` -- pass. `pytest -q` -- not
   applicable (documentation-only change). `python scripts/doc_state_sync.py
   --check` -- pass.
-- Forward guidance: the Features, Screenshots, and Acknowledgements sections now
-  match the base-branch state; any future changes to those sections require an
-  explicit batch WP or deviation log entry.
+- Forward guidance: Features and Acknowledgements now match the intended PR
+  state, with Screenshots intentionally removed; any future changes to those
+  sections require an explicit batch WP or deviation log entry.
 
 ### 2026-07-24 - Copilot comment-job bootstrap trim (side-task)
 
