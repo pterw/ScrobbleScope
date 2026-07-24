@@ -326,7 +326,7 @@ python scripts/testing/concurrent_users_test.py \
 ```
 
 Reports per-thread outcome and aggregate statistics.
-Set `--concurrency` above `MAX_ACTIVE_JOBS` (default 10) to observe semaphore-limit and queuing behavior.
+Set `--concurrency` above `MAX_ACTIVE_JOBS` (default 10) to observe semaphore-capacity rejections.
 
 ### Running Tests
 
