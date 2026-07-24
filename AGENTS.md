@@ -1,8 +1,9 @@
-# AGENTS.md: Rules for AI Agents
+# AGENTS.md: Rules for GitHub Copilot Agents
 
 ScrobbleScope: Flask + Python 3.13, Last.fm scrobbles + Spotify enrichment,
-asyncpg/Postgres cache, pytest. Multi-agent orchestration -- the doc files
-listed below serve as external memory shared across agents.
+asyncpg/Postgres cache, pytest. This file is the stable repository ruleset
+for GitHub Copilot and other repo-aware agents. The doc files listed below
+serve as external memory shared across sessions.
 
 ---
 
@@ -38,6 +39,21 @@ and next WP, you have enough context to start.
 - Read only Sections 3-4 of `PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
+- When citing repository files in chat or tool inputs, use absolute paths.
+
+---
+
+## GitHub Copilot Environment Notes
+
+- Work from the fresh repository clone provided by the Copilot task
+  environment; do not assume access to the owner's interactive shell.
+- Use GitHub-provided tooling for PR creation, review replies, workflow
+  inspection, and progress reporting when those tools are available.
+- Do not push with `git push` or `gh pr create` from the shell when the
+  Copilot environment exposes dedicated progress or PR tools instead.
+- For CI, build, test, or workflow failures, inspect GitHub Actions runs
+  and job logs before concluding that CI details are unavailable.
+- Do not read `.github/agents/`; those files are for other agents.
 
 ---
 
@@ -64,7 +80,8 @@ before running any pip command.
 **Note:** The qualified-path rule (`.venv/Scripts/pip`) applies to **local
 development only**. In GitHub Actions (CI), the runner manages its own Python
 environment and bare `pip install` is correct -- do not add `.venv/` paths
-to the workflow file.
+to the workflow file. In GitHub Copilot task sessions, avoid ad-hoc package
+installs unless the task requires them and the owner has approved the change.
 
 API keys in `.env` (git-ignored). Template: `.env.example`.
 Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
@@ -108,8 +125,9 @@ Conventional Commits, imperative mood, no trailing period:
 1. `pytest -q` -- all tests pass.
 2. `pre-commit run --all-files` -- all hooks pass.
 3. Stage only files changed for this work package.
-4. Commit after each WP (do not batch multiple WPs into one commit). Do not
-   push unless the owner explicitly asks for a push.
+4. Commit after each WP (do not batch multiple WPs into one commit). In
+   GitHub Copilot sessions, use the platform progress/reporting tool for
+   commit + push handoff; do not push directly with shell `git`/`gh`.
 
 **Co-author prohibition:** Do NOT add `Co-authored-by` trailers or any co-author
 metadata to commits. This repo uses multi-agent orchestration; attribution is
