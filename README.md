@@ -156,7 +156,7 @@ Heatmap
     * In-memory request cache (`REQUEST_CACHE` in `utils.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
     * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
-* **CSRF Protection:** All mutating POST routes (`/results_loading`, `/heatmap_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Form submissions include a hidden `csrf_token` input; programmatic POSTs from `loading.js` read a `<meta name="csrf-token">` tag and inject the token into both form bodies and the `X-CSRFToken` header.
+* **CSRF Protection:** All mutating POST routes (`/results_loading`, `/heatmap_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Two complementary mechanisms are used: form-submit routes (`/results_complete`, `/results_loading`) include a hidden `csrf_token` body input; fetch-based routes read a `<meta name="csrf-token">` tag -- `/reset_progress` sends the token in the `X-CSRFToken` header only, while `/heatmap_loading` sends it in both the body and the header.
 * **Doc-State Sync Tooling:** A modular Python package (`scripts/docsync/`) keeps orchestration docs (PLAYBOOK, SESSION_CONTEXT, archive) consistent across agent handoffs. Deterministic rotation, SHA-256 dedup, and cross-validation replace manual copy-paste that drifted in earlier sessions. See [DEVELOPMENT.md](DEVELOPMENT.md) for rationale.
 * **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
 * **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
@@ -168,9 +168,6 @@ Heatmap
    * **Accessibility:** `aria-labels` on SVGs and interactive elements; semantic form markup.
    * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
    * **Static Assets:** CSS and JavaScript served from `/static` for cacheability and clean separation.
-   * **Rotating loading messages:** Keeps users informed while data is being fetched.
-   * **Personalized Loading Stats:** Live stats (scrobble count, albums found, Spotify matches) shown during processing.
-   * **Onboarding:** First-visit welcome modal with "Info" button for returning users; contextual tooltip icons on form fields.
    * **Clickable Album Links:** Album names in results link directly to their Spotify page.
 
 </details>
