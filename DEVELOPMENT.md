@@ -363,4 +363,4 @@ development session. It is committed and shared across all agents (tracked
 via `.gitignore` exception). A reference copy of its format and structure
 is at `docs/history/SESSION_CONTEXT_REFERENCE.md`.
 
-In sum, bootstrapping agents with the template prompt and orienting them allows agents to be orienteded on where the project stands and the following task. Writing batch definitons with WPs is imperative for their orientation. While this method may consume tokens, it has provent to be an effective cross-session and cross-stae external memory managment tool. Every decision, deviation, and implementation is logged and detailed, and this allows anyone to understand the "why" behind changes.
+In sum, bootstrapping agents with the template prompt and repository documents gives each session the current project state and next task. Batch definitions and WPs provide the necessary orientation. Although this method consumes tokens, it has proven effective as a cross-session and cross-agent external-memory system. Logging decisions, deviations, and implementations preserves the reasons behind changes.
