@@ -296,10 +296,10 @@ python scripts/dev/dev_start.py
 This checks whether `ss-postgres` is running, starts it if needed, then launches Flask.
 `load_dotenv()` in the Flask startup picks up `DATABASE_URL` from `.env` automatically.
 
-**Cache smoke test** (verify Postgres cache on a deployed instance):
+**Cache smoke test** (verify Postgres cache on your local instance):
 
 ```bash
-python scripts/testing/smoke_cache_check.py --base-url https://scrobblescope.fly.dev \
+python scripts/testing/smoke_cache_check.py --base-url http://localhost:5000/ \
     --username YOUR_USERNAME --year 2025 --runs 2
 ```
 
