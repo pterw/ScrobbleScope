@@ -17,7 +17,6 @@ This project was initially built to identify top albums released in a specific y
 ## Table of Contents
 
 * [Features](#features)
-* [Screenshots](#screenshots)
 * [Tech Stack](#tech-stack)
 * [Architecture](#architecture)
 * [Key Implementation Highlights](#key-implementation-highlights)
@@ -71,32 +70,6 @@ This project was initially built to identify top albums released in a specific y
     * Hover/tap tooltip: day label + scrobble count ("Sunday 1 March 2026 -- 34 scrobbles").
     * Dark mode aware; responsive SVG scales to any viewport width and re-renders on breakpoint crossing.
     * Animated breathing/expanding pinwheel spinner + live page-fetch progress during data load.
-
-## Screenshots
-
-**1. Main Input Form (Dark Mode)**
-
-*Configure your search with listening year, release date filters, decade selection, and custom thresholds.*
-
-*Screenshot coming soon.*
-
-**2. Results Page (Light Mode)**
-
-*Filtered and sorted albums with cover art, artist, play count, and release date. Export buttons and unmatched-album access visible.*
-
-*Screenshot coming soon.*
-
-**3. Quick Unmatched Modal (Dark Mode)**
-
-*Albums that did not meet filter criteria, accessible directly from the results page.*
-
-*Screenshot coming soon.*
-
-**4. Detailed Unmatched Report (Dark Mode)**
-
-*Comprehensive exclusion report grouped by reason, with filter summary context.*
-
-*Screenshot coming soon.*
 
 ## Tech Stack
 
