@@ -87,7 +87,7 @@ def _build_status_block(
         batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
         # Extract test count from validation line of most recent entry.
         latest_count: int | None = None
-        for entry in current_entries:
+        for entry in reversed(current_entries):
             for line in entry.lines:
                 m = TEST_COUNT_RE.search(line)
                 if m:
