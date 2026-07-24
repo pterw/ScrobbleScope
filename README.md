@@ -283,7 +283,7 @@ To run the app locally with the persistent Postgres metadata cache enabled:
 * The `ss-postgres` container must exist (created once via `docker run`; see `AGENT_NOTES.md` Local Dev Setup section for the full command).
 * `DATABASE_URL` should point at your local Postgres instance, for example:
   ```env
-  DATABASE_URL="******localhost:5432/scrobblescope"
+  DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
   ```
 * If you run `init_db.py`, export `DATABASE_URL` in your shell first.
 
