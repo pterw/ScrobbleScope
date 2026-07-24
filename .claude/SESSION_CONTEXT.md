@@ -9,7 +9,7 @@ Last updated: 2026-07-23
 | Item | Value |
 |------|-------|
 | Branch | `file-hygeine` |
-| Tests | **389 passing** across 22 test files |
+| Tests | **390 passing** across 22 test files |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -48,7 +48,7 @@ Last updated: 2026-07-23
 - Current-batch entries in active log block: 5.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
 - Next expected work package: WP-5.
-- Latest validated test count: **389 passed**.
+- Latest validated test count: **390 passed**.
 - Newest current-batch entry: 2026-07-24 - DEVELOPMENT.md path/timeline/prose cleanup (Batch 20 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -127,7 +127,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (389 tests)
+## 6. Test structure (390 tests)
 
 | File | Count |
 |------|-------|
@@ -135,7 +135,7 @@ loading.js polls GET /progress?job_id=...
 | test_docsync_cli.py | 19 |
 | test_docsync_logic.py | 41 |
 | test_docsync_parser.py | 35 |
-| test_docsync_renderer.py | 21 |
+| test_docsync_renderer.py | 22 |
 | test_domain.py | 13 |
 | test_heatmap.py | 20 |
 | test_repositories.py | 20 |

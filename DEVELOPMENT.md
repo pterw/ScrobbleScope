@@ -195,7 +195,7 @@ package (`scripts/docsync/`) with separate modules for parsing (`parser.py`),
 rendering (`renderer.py`), rotation/dedup logic (`logic.py`), the CLI
 entrypoint (`cli.py`), and typed dataclass models (`models.py`); the root
 `scripts/doc_state_sync.py` is now a thin wrapper that delegates into the
-package. This made each concern independently testable -- 116 docsync tests
+package. This made each concern independently testable -- 117 docsync tests
 (across `tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
 `tests/test_docsync_renderer.py`, and `tests/test_docsync_cli.py`) now cover
 rotation, dedup, cross-validation, and CLI modes.
