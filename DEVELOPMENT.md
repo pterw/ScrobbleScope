@@ -95,6 +95,7 @@ this is the "definition of done" that prevents scope creep mid-batch and gives
 a later agent an unambiguous target. At close-out, the definition is archived
 under `docs/history/definitions/`.
 
+<<<<<<< HEAD
 **How agents actually write to Section 4.** An agent never appends blindly.
 Before writing a new dated entry it is expected to search the existing
 record -- `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
@@ -112,6 +113,14 @@ archive or the status block directly. This split (agent writes the
 narrative entry; the script performs the mechanical rotation/dedup) is
 deliberate: see "`doc_state_sync.py`: Why a Script, Not a Prompt" below for
 why the rotation itself is not left to agent judgement.
+=======
+Agents write the narrative entry; `doc_state_sync.py` performs the
+mechanical rotation, dedup, and status-block refresh. The behavioral rule
+for what an agent must check before appending a new entry lives in
+`AGENTS.md` ("Before writing to Section 4") -- this file only explains
+why the split exists: see "`doc_state_sync.py`: Why a Script, Not a
+Prompt" below.
+>>>>>>> origin/main
 
 ### `.claude/SESSION_CONTEXT.md` -- Dashboard
 

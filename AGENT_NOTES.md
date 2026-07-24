@@ -128,9 +128,11 @@ only in the current process environment and is gone when the shell exits.
 
 - **Core feature definition:** `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 polish definition (archived):** `docs/history/definitions/BATCH19_DEFINITION.md`.
-  Closed out 2026-05-19; `feat/heatmap` is PR-ready.
-- **Batch 20 placeholder definition:** `BATCH20_DEFINITION.md` at repo root.
-  Scope is TBD (global UI overhaul). No WP work until owner finalizes scope.
+  Closed out 2026-05-19; PR #152 (`feat/heatmap` -> `main`) merged.
+- **Batch 21 placeholder definition:** `BATCH21_DEFINITION.md` at repo root
+  (renumbered from Batch 20). Scope is TBD (global UI overhaul, owner audit
+  PDF). No WP work until owner finalizes scope. Batch 20 is now active for
+  file-hygiene + docs methodology refresh; see `BATCH20_DEFINITION.md`.
 - **Batch 19 scope:** frame/headline/KPIs result redesign, "Top Albums" pill
   rename, pinwheel/loading polish, mobile heatmap layout, and stale
   documentation cleanup. Full app palette/font rebrand remains deferred.
