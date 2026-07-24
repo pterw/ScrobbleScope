@@ -9,27 +9,6 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
-### 2026-07-24 - README CSRF and UX cleanup (side-task)
-
-- Scope: PR-review-comment-driven fixes to `README.md` and `AGENTS.md`.
-- Plan vs implementation:
-  - `README.md`: updated CSRF description to document three distinct injection
-    mechanisms -- form-submit body token (`/results_loading`, `/results_complete`,
-    `/unmatched_view`), header-only fetch (`/reset_progress`), and both body and
-    header (`/heatmap_loading`). Added `/unmatched_view` to the form-submit route
-    list after reviewer confirmed the hidden `csrf_token` input at
-    `templates/results.html:177-178`.
-  - `README.md`: removed three duplicate UX entries from the Styling & UX details
-    block (rotating messages, personalized stats, onboarding) that were already
-    covered in the Features section above.
-  - `AGENTS.md`: removed a non-ASCII section symbol (replaced with plain text
-    "Section") to comply with the ASCII-only markdown authoring rule.
-- Deviations: none -- all changes are documentation-only PR review responses
-  outside Batch 20 WPs; Batch 20 WP status and next action are unchanged.
-- Validation: `python scripts/doc_state_sync.py --check` -- exit 0 (two expected
-  root-BATCH warnings). `pytest -q` not runnable in this sandbox (no `.venv`).
-- Forward guidance: Batch 20 WP-6 (FINDINGS.md cleanup) is still the next
-  work package.
 
 ### 2026-07-22 - Link-preview image + Open Graph meta tags (side-task)
 
