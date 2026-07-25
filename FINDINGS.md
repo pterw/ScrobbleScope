@@ -57,13 +57,6 @@ Global font stack, palette integration, index card rework, and the
 remaining F-B19-4 audit notes; Batch 21 main scope, possible Batch 22
 contingency. Status: open; scope lands via `BATCH21_DEFINITION.md`.
 
-### F-B19-6: register naive-tz vacuous-test anti-pattern in AGENTS.md
-
-Code fix archived; open portion: record in the AGENTS.md anti-pattern
-registry that datetime tests building inputs with the SUT's tz-awareness
-pattern are vacuous against tz bugs -- use explicit `tzinfo=` and assert
-on a date that shifts under naive decoding. Status: open (WP-7 candidate).
-
 ### F-B18-11: heatmap Last.fm page fetch is rate-limit bound
 
 Fetch time is bound by page count and the shared 10 req/s throttle

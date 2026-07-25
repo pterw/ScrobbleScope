@@ -76,9 +76,9 @@ Completed batch definitions are archived individually under `docs/history/`.
   (font stack, palette integration, index card rework, Bootstrap CDN
   consolidation) driven by an owner audit PDF. No WP work begins until
   scope lands.
-- **Next action:** Batch 20 WP-7 (AGENTS.md + HANDOFF_PROMPT.md + skill:
-  FINDINGS on-demand pointer + finding-writing standard).
-- Batch 20 WP status: WP-0 through WP-6 done. WP-7 and WP-8 not yet started.
+- **Next action:** Batch 20 WP-8 (close-out: archive definition, purge
+  log, mark batch complete).
+- Batch 20 WP status: WP-0 through WP-7 done. WP-8 not yet started.
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
@@ -263,6 +263,46 @@ non-current operational logs. Older dated entries live in
   finding-writing rules to AGENTS.md + HANDOFF_PROMPT.md + the bootstrap
   skill; F-B19-6 (naive-tz anti-pattern registration) is a natural WP-7
   companion since it also edits the AGENTS.md anti-pattern registry.
+
+### 2026-07-24 - FINDINGS on-demand rule + finding-writing standard (Batch 20 WP-7)
+
+- Scope: completed Batch 20 WP-7 across `AGENTS.md`, `HANDOFF_PROMPT.md`,
+  and the local `scrobblescope-bootstrap` Claude Code skill.
+- Plan vs implementation:
+  - `AGENTS.md` Session Bootstrap: added `FINDINGS.md` as an explicit
+    read-on-demand step (only when Section 4 or the task references an
+    F-* ID or an open P0/P1 item).
+  - `AGENTS.md`: new "Finding-Writing Rules" section after the
+    Anti-Pattern Registry (F-ID format, required fields, no bare numbers,
+    rotation to `docs/history/findings/FINDINGS_ARCHIVE.md`,
+    cross-reference pointers for promoted/absorbed findings).
+  - `HANDOFF_PROMPT.md` Section 1: symmetric on-demand FINDINGS pointer
+    as new item 6; "read all five files" wording adjusted to "five core
+    files" so the on-demand item is not read as mandatory.
+  - Skill: finding-related cues added to the frontmatter description
+    (which drives invocation) and the "When to invoke" list, plus an
+    on-demand FINDINGS note in the read order. The skill file lives
+    outside the repo (`~/.claude/skills/`), so it is not part of this
+    commit; recorded here for traceability.
+- Deviations:
+  - Folded in F-B19-6 as owner-approved: registered the naive-tz
+    vacuous-datetime-test anti-pattern as Anti-Pattern Registry item 6,
+    citing the canonical regression test from PR #152. Since that closes
+    the finding, F-B19-6 was removed from FINDINGS.md P1 and rotated to
+    the archive in the same commit (avoids the silent-doc-staleness
+    anti-pattern rather than waiting for WP-8).
+  - Aligned the `AGENTS.md` Session Bootstrap numbered list with the
+    canonical HANDOFF_PROMPT.md order (PLAYBOOK -> batch definition ->
+    SESSION_CONTEXT -> AGENT_NOTES). The two files previously disagreed
+    (SESSION_CONTEXT-first vs PLAYBOOK-first, missing definition step),
+    a divergence flagged during this session's bootstrap; HANDOFF_PROMPT
+    owns the session-start procedure per the SoC contract, so AGENTS.md
+    now matches it.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-8 close-out remains -- archive the definition via
+  `git mv`, update PLAYBOOK Sections 2/3, purge non-current log entries
+  with `--keep-non-current 0`, and refresh SESSION_CONTEXT.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

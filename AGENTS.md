@@ -43,10 +43,15 @@ only the minimum bootstrap/context files needed to answer that thread. Open
 batch definitions or archive/history docs only when the linked comment
 explicitly depends on batch-acceptance or historical context.
 
-1. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
-2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
-3. Relevant `docs/history/` doc if the log references one.
+1. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
+2. The batch definition file named in Section 3 (repo root while active;
+   under `docs/history/definitions/` once the batch is closed).
+3. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 4. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
+5. Relevant `docs/history/` doc only if the log references one.
+6. `FINDINGS.md` -- read on demand only: when PLAYBOOK Section 4 or your
+   task explicitly references an F-* finding ID or an open P0/P1 item.
+   Not part of the mandatory bootstrap set.
 
 If SESSION_CONTEXT Section 1 and PLAYBOOK Section 3 agree on the current batch
 and next WP, you have enough context to start.
@@ -370,6 +375,37 @@ Agents must check their work against this list before committing.
    owner's terminal. Never start a server via the Bash tool. The owner runs
    the app in their own terminal. To probe a running server use
    `python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:5000/').status)"`.
+6. **Naive-tz vacuous datetime tests (PR #152, F-B19-6):** A datetime test
+   that builds its inputs with the same tz-awareness pattern (naive vs
+   aware) as the code under test compares the code against itself, not
+   against an invariant -- it passes even if the code silently regresses
+   to a naive-tz day-shift bug. Build test inputs with explicit `tzinfo=`
+   and assert on a date that would shift under a naive interpretation.
+   Canonical example: `tests/test_heatmap.py::TestAggregateDailyCounts::`
+   `test_utc_decode_invariant_against_local_tz_drift`.
+
+---
+
+## Finding-Writing Rules
+
+Findings live in `FINDINGS.md` (active) and rotate to
+`docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during a
+dedicated findings-cleanup WP. Nothing is deleted -- the archive preserves
+grep history.
+
+1. **F-ID format:** every item heading is `F-<context>-<N>: <title>`.
+   Context is a batch tag (`B18`, `B19`, `B20`, ...) or a source tag
+   (`MAS` for MULTI_AGENT_SWEEP, `DOCSYNC`, `AUDIT`, `LOAD` for the
+   load-testing session); `FEATURE` covers feature-prep notes. No
+   bare-numbered items in FINDINGS.md.
+2. **Required fields:** the F-ID heading, a one-sentence problem statement,
+   a `Status:` line, and a `Source:` line when the finding came from a
+   named audit or session.
+3. **Rotation:** resolved and no-action items move to the archive with
+   their original F-ID and a `-- RESOLVED` / `-- NO ACTION` suffix.
+4. **Cross-references:** promoted or absorbed findings keep a one-line
+   pointer in the "Deferred / future-batch candidates" block (for
+   example, `F-B18-1 -- promoted to F-B20-2`) so old IDs stay resolvable.
 
 ---
 
