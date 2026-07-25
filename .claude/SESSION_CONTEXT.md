@@ -19,8 +19,8 @@ Last updated: 2026-07-24
 | Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
-| Batch 20 status | **Active.** File-hygiene + docs methodology refresh. WP-0 through WP-5 done. Definition: `BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Placeholder (renumbered from Batch 20).** Scope TBD: global UI overhaul. Definition stub: `BATCH21_DEFINITION.md`. No WP work until owner finalizes scope from audit PDF. |
+| Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
+| Batch 21 status | **Next batch.** Scope TBD: global UI overhaul. Definition stub: `BATCH21_DEFINITION.md`. Owner is drafting the UI proposal; no WP work until scope lands. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -44,12 +44,12 @@ Last updated: 2026-07-24
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: Batch 20.
-- Current-batch entries in active log block: 8.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5, WP-6, WP-7.
-- Next expected work package: WP-8.
+- Current batch: Batch 21.
+- Current-batch entries in active log block: 1.
+- Completed work packages in current-batch entries: none.
+- Next expected work package: unknown.
 - Latest validated test count: **390 passed**.
-- Newest current-batch entry: 2026-07-24 - FINDINGS on-demand rule + finding-writing standard (Batch 20 WP-7).
+- Newest current-batch entry: 2026-07-24 - Batch 20 complete; definition archived, log purged (Batch 20 close-out).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

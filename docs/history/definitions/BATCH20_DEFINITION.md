@@ -1,6 +1,6 @@
 # BATCH20: File-hygiene + docs methodology refresh
 
-**Status:** Active. WP-0 through WP-5 merged to `main` via PR #159; WP-6 through WP-8 remain.
+**Status:** Complete (2026-07-24). All 9 WPs done; definition archived at close-out.
 **Branch:** `wip/batch-20` (worktree off `main`; earlier WPs landed via `file-hygeine`).
 **Baseline:** 390 tests passing (389 at batch open; +1 regression test from the WP-5 docsync scan-order deviation).
 
