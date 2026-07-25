@@ -7,6 +7,17 @@ F-IDs and text; nothing here is deleted. Newest rotation first.
 
 ---
 
+## Rotated 2026-07-24 (Batch 20 WP-7)
+
+### F-B19-6 (follow-up portion): register naive-tz anti-pattern in AGENTS.md -- RESOLVED
+
+The remaining open portion of F-B19-6 (the code fix was archived in WP-6
+below) was closed in Batch 20 WP-7: the naive-tz vacuous-datetime-test
+anti-pattern is now item 6 in the AGENTS.md Anti-Pattern Registry, citing
+`tests/test_heatmap.py::TestAggregateDailyCounts::
+test_utc_decode_invariant_against_local_tz_drift` as the canonical
+regression example.
+
 ## Rotated 2026-07-24 (Batch 20 WP-6)
 
 ### F-B20-1: README/SESSION_CONTEXT test-file count drift -- RESOLVED
@@ -128,5 +139,6 @@ silently fine; on local Windows dev or any non-UTC host it shifted day
 attribution by hours. Code fixed in PR #152 (commit `ccb000f`) with
 `tests/test_heatmap.py::TestAggregateDailyCounts::
 test_utc_decode_invariant_against_local_tz_drift` as the canonical
-regression test. The open follow-up (register the naive-tz vacuous-test
-anti-pattern in AGENTS.md) remains in `FINDINGS.md` as F-B19-6.
+regression test. The follow-up (register the naive-tz vacuous-test
+anti-pattern in AGENTS.md) was closed in Batch 20 WP-7; see the WP-7
+rotation block above.

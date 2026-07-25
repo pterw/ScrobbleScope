@@ -41,8 +41,11 @@ without explicit owner instruction.
 5. `AGENT_NOTES.md` (repo root) -- owner preferences, local dev setup,
    architectural constraints, and known issues. Tracked in the repo;
    readable by all agents.
+6. `FINDINGS.md` -- on demand only: read when PLAYBOOK Section 4 or your
+   task references an F-* finding ID or an open P0/P1 item. Not part of
+   the mandatory set. Finding-writing rules live in `AGENTS.md`.
 
-After reading all five files, run:
+After reading the five core files, run:
 
 ```bash
 git status
