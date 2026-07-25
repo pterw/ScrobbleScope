@@ -21,7 +21,7 @@ performance follow-ups continue as F-B18-11 in the active file.
 
 ## Rotated 2026-07-24 (Batch 20 WP-7)
 
-### F-B19-6 (follow-up portion): register naive-tz anti-pattern in AGENTS.md -- RESOLVED
+### F-B19-6: register naive-tz anti-pattern in AGENTS.md (follow-up portion) -- RESOLVED
 
 The remaining open portion of F-B19-6 (the code fix was archived in WP-6
 below) was closed in Batch 20 WP-7: the naive-tz vacuous-datetime-test
@@ -142,7 +142,7 @@ across all job threads. Jobs slow linearly: N jobs sharing 10 req/s =
 **Last.fm rate config:** App configures 10 req/s; official limit is 5 req/s
 averaged over 5 minutes. No 429s observed in testing, but aggressive.
 
-### F-B19-6 (code-fix portion): naive-tz day-attribution bug -- RESOLVED
+### F-B19-6: naive-tz day-attribution bug (code-fix portion) -- RESOLVED
 
 PR #152 review (Gemini) surfaced that `scrobblescope/heatmap.py` decoded
 Last.fm UTS values with naive `datetime.fromtimestamp` and built the fetch
