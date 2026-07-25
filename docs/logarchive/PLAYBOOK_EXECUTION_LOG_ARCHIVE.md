@@ -9,6 +9,97 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-24 - Post-merge audit gap fixes (Batch 20 audit follow-up)
+
+- Scope: close gaps found by the owner-requested audit of PR #159 (WP-1
+  through WP-5 were executed via Copilot + PR reviews; audit compared the
+  merged result against `BATCH20_DEFINITION.md` acceptance criteria).
+  Work continues in a `wip/batch-20` worktree off `main` for isolation.
+- Plan vs implementation:
+  - `README.md`: deleted the "Doc-State Sync Tooling" bullet from Key
+    Implementation Highlights (WP-1 acceptance item; the WP-1 log entry
+    claimed removal but no commit ever removed it). Fixed the Project
+    Structure tree so the agent-docs cluster is a comment row instead of
+    a fake directory nesting five root-level files, and moved `AGENTS.md`
+    and `PLAYBOOK.md` into that cluster. Added the missing prose note that
+    `BATCHN_DEFINITION.md` sits at the root only while a batch is active.
+  - `DEVELOPMENT.md`: corrected the `scrobblescope-bootstrap` description
+    to the skill's actual read order (AGENTS.md -> PLAYBOOK 3-4 -> active
+    batch definition -> SESSION_CONTEXT 1-2 -> AGENT_NOTES, then git/test
+    verification) replacing the inaccurate SESSION_CONTEXT-first
+    early-stop description.
+  - `BATCH20_DEFINITION.md` header: refreshed stale status ("awaiting
+    owner audit"), branch, and 389 baseline (390 since the WP-5 deviation).
+  - `PLAYBOOK.md` Section 3 + `.claude/SESSION_CONTEXT.md` Section 1:
+    branch updated from merged `file-hygeine` to `wip/batch-20`.
+- Deviations: Getting Started length (WP-3 target ~95-100 lines, actual
+  155 after review iterations added a full `docker run` block and 3-OS
+  schema-init instructions) left as-is pending owner decision:
+  re-compress vs accept the expanded setup detail.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-6 (FINDINGS.md cleanup and archive) is next.
+
+### 2026-07-24 - README CSRF and UX cleanup (side-task)
+
+- Scope: PR-review-comment-driven fixes to `README.md` and `AGENTS.md`.
+- Plan vs implementation:
+  - `README.md`: updated CSRF description to document three distinct injection
+    mechanisms -- form-submit body token (`/results_loading`, `/results_complete`,
+    `/unmatched_view`), header-only fetch (`/reset_progress`), and both body and
+    header (`/heatmap_loading`). Added `/unmatched_view` to the form-submit route
+    list after reviewer confirmed the hidden `csrf_token` input at
+    `templates/results.html:177-178`.
+  - `README.md`: removed three duplicate UX entries from the Styling & UX details
+    block (rotating messages, personalized stats, onboarding) that were already
+    covered in the Features section above.
+  - `AGENTS.md`: removed a non-ASCII section symbol (replaced with plain text
+    "Section") to comply with the ASCII-only markdown authoring rule.
+- Deviations: none -- all changes are documentation-only PR review responses
+  outside Batch 20 WPs; Batch 20 WP status and next action are unchanged.
+- Validation: `python scripts/doc_state_sync.py --check` -- exit 0.
+- Forward guidance: Batch 20 WP-6 (FINDINGS.md cleanup) is still the next
+  work package.
+
+### 2026-07-24 - DEVELOPMENT.md file-count follow-up
+
+- Scope: side-task follow-up to close the missed Batch 20 WP-5 documentation
+  requirement in `DEVELOPMENT.md` by acknowledging `FINDINGS.md` as the sixth
+  advisory, read-on-demand file in the external-memory description.
+- Plan vs implementation:
+  - Reworded the file-count paragraph to distinguish the five core tracked
+    files from advisory `FINDINGS.md`, while keeping the archive-directory
+    count unchanged.
+  - Kept the wording explicit so IDE-based agents (for example Claude Code
+    and Codex in VS Code) do not misread `FINDINGS.md` as part of the
+    mandatory bootstrap set.
+- Deviations: none -- this closes a missed WP-5 acceptance item flagged in PR
+  review and leaves Batch 20 WP-6 as the next unstarted work package.
+- Validation: `.venv/bin/pytest -q` -- **390 passed**. `.venv/bin/pre-commit
+  run --all-files` -- all hooks pass. `.venv/bin/python scripts/doc_state_sync.py
+  --check` -- exit 0 with the two expected root-BATCH warnings.
+- Forward guidance: WP-6 still cleans up and archives `FINDINGS.md`.
+
+### 2026-07-24 - Restore out-of-scope README edits (side-task)
+
+- Scope: revert the Features-section rewrite and the Acknowledgements removal
+  made in PR #159 outside Batch 20 WP-1 through WP-3; keep Screenshots removal
+  as intentional.
+- Plan vs implementation:
+  - `README.md`: restored the original flat-list Features section (removed the
+    "As mentioned above" intro and the `<details>` wrapper added out-of-scope).
+  - `README.md`: restored the Acknowledgements section before Author & Contact.
+  - `README.md`: updated Table of Contents to re-include only the
+    Acknowledgements link.
+- Deviations: none -- pure restoration of pre-PR content flagged by code review
+  at PR #159 discussion_r3644787390.
+- Validation: `pre-commit run --all-files` -- pass. `pytest -q` -- not
+  applicable (documentation-only change). `python scripts/doc_state_sync.py
+  --check` -- pass.
+- Forward guidance: Features and Acknowledgements now match the intended PR
+  state, with Screenshots intentionally removed; any future changes to those
+  sections require an explicit batch WP or deviation log entry.
+
 ### 2026-07-24 - Copilot comment-job bootstrap trim (side-task)
 
 - Scope: reduce unnecessary bootstrap for Copilot PR comment/review-comment
