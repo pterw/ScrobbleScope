@@ -113,6 +113,16 @@ class. Status: open. Source: MULTI_AGENT_SWEEP.
 
 ## P2 -- Scaling roadmap
 
+### F-DOCSYNC-2: STATUS block misreports current batch between batches
+
+When a close-out entry (untagged `(Batch N close-out)` suffix) still sits
+inside the CURRENT-BATCH markers, `renderer.py:85-86` falls back to
+`last_completed + 1` even though the Section 3 parse correctly returns
+the between-batches state. Transient: rotation self-corrects it when the
+next batch's WP-0 entry lands. Fix candidates: prefer the between-batches
+branch whenever the parse returns none, or make close-out tags parseable.
+Status: open (P2). Source: PR #162 review round 4.
+
 ### F-MAS-5: in-memory JOBS dict limits horizontal scaling
 
 Process-local dict breaks polling under multiple workers/machines;
