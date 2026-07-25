@@ -49,7 +49,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 18 | Scrobble heatmap -- iteration 1 | `docs/history/definitions/BATCH18_DEFINITION.md` |
 | 19 | Heatmap polish -- frame, KPIs, mobile layout | `docs/history/definitions/BATCH19_DEFINITION.md` |
 | 20 | File-hygiene + docs methodology refresh | `docs/history/definitions/BATCH20_DEFINITION.md` |
-| 21 | UI overhaul -- TBD | `BATCH21_DEFINITION.md` |
+| 21 | UI overhaul -- Tailwind + daisyUI migration | `BATCH21_DEFINITION.md` |
 
 ### Open decisions (owner confirmation needed)
 
@@ -70,13 +70,15 @@ Completed batch definitions are archived individually under `docs/history/`.
   on `file-hygeine`; audit gap-fix follow-up, WP-6, WP-7, and WP-8 on
   `wip/batch-20`, submitted as PR #162). Definition archived:
   `docs/history/definitions/BATCH20_DEFINITION.md`.
-- **Batch 21 is not yet defined.** Definition stub: `BATCH21_DEFINITION.md`
-  (repo root). Scope TBD -- global UI overhaul (font stack, palette
-  integration, index card rework, Bootstrap CDN consolidation) driven by
-  the owner's audit PDF; owner is drafting the UI proposal now. No WP
-  work begins until the definition is approved and committed.
-- **Next action:** await Batch 21 scope from the owner's UI proposal,
-  then expand `BATCH21_DEFINITION.md` into WPs.
+- **Batch 21 is active.** Definition: `BATCH21_DEFINITION.md` (repo
+  root). Scope: UI overhaul -- Bootstrap 5.1.3 -> Tailwind v4 (standalone
+  CLI) + daisyUI v5, warm heatmap-derived themes propagated app-wide,
+  page-by-page strangler migration. Expanded from the owner's Claude
+  Design audit (UI Audit v3); four owner decisions locked in the
+  definition. Branch: `wip/batch-21` (worktree off `main`).
+- **Next action:** Batch 21 WP-1 (Tailwind + daisyUI toolchain and theme
+  tokens; no template changes).
+- Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
@@ -111,6 +113,42 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0)
+
+- Scope: opened Batch 21 (UI overhaul -- Tailwind + daisyUI migration)
+  on `wip/batch-21`, a worktree off `main` at the PR #162 merge.
+- Plan vs implementation:
+  - `BATCH21_DEFINITION.md` expanded from the stub into the full 9-WP
+    definition derived from the owner's Claude Design audit (UI Audit
+    v3): toolchain (WP-1), base shell + error-page pilot (WP-2), index
+    (WP-3), unified loading (WP-4), results leaderboard (WP-5), heatmap
+    seam removal (WP-6), unmatched + reason_code backend fix (WP-7),
+    sweep + close-out (WP-8). Strangler migration, page by page.
+  - Four owner decisions locked in the definition: rotating loading
+    messages cut; welcome modal deleted; `limit_results` kept inside the
+    thresholds disclosure; fonts self-hosted under `static/fonts/`.
+  - Agent verification recorded in the definition: the unmatched
+    reason-string grouping bug is live; `--bs-primary` never overridden;
+    `bootstrap.Popover` in `index.js` is a third Bootstrap JS consumer
+    the audit missed; `--bars-color` must be aliased in both themes.
+  - PLAYBOOK Section 2 row title updated; Section 3 marks Batch 21
+    active with next action WP-1; SESSION_CONTEXT rows updated.
+  - Toolchain mechanics locked after an owner-relayed Opus 5 review:
+    CLI binary in gitignored `scripts/bin/` with `.gitkeep`; auto-fetch
+    at a pinned version via a new `scripts/dev/tailwind_build.py` (not
+    `dev_start.py` -- app startup never needs the toolchain); WP-8 adds
+    a rebuild-and-diff pre-commit hook for compiled-CSS drift; WP-8
+    owner E2E explicitly opens the downloaded save-as-image file.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0 (expected
+  root warning for the now-active `BATCH21_DEFINITION.md`).
+- Forward guidance: WP-1 sets up the Tailwind v4 standalone CLI +
+  daisyUI v5 bundled plugin, defines both themes from the audit token
+  sheet, and commits the compiled CSS. No template changes until WP-2.
+
+<!-- DOCSYNC:CURRENT-BATCH-END -->
+
 ### 2026-07-24 - Batch 20 complete; definition archived, log purged (Batch 20 close-out)
 
 - Scope: Batch 20 WP-8 close-out per the AGENTS.md procedure.
@@ -136,8 +174,6 @@ non-current operational logs. Older dated entries live in
   `BATCH21_DEFINITION.md` into WPs once the owner's proposal lands.
   `wip/batch-20` holds four unpushed commits awaiting owner review and
   push/PR instruction.
-
-<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 ### 2026-07-24 - PR #162 review response (side-task)
 
@@ -213,28 +249,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: review rounds are now in pure-style territory;
   recommend merging PR #162.
-
-### 2026-07-24 - PR #162 review response, round 4 (side-task)
-
-- Scope: Copilot round 4 -- one comment on PLAYBOOK Section 3 batch-state
-  wording. Acted on, with a corrected mechanism note.
-- Plan vs implementation:
-  - Section 3 now uses the parser-recognized marker "Batch 21 is not yet
-    defined"; the Section 3 parse verifiably returns the between-batches
-    state with that wording in place.
-  - Verified the comment's mechanism was doubly off: `BATCH_NEXT_RE`
-    does not match "Batch 21 is next" (the attribution came from the
-    `last_completed + 1` fallback at `parser.py:198-199`), and the
-    wording fix alone cannot change the rendered STATUS -- with the
-    close-out entry still inside the CURRENT-BATCH markers,
-    `renderer.py:85-86` applies its own `last_completed + 1` fallback.
-    Batch 19 precedent shows this is transient: its identically-tagged
-    close-out entry rotated out automatically when Batch 20 WP-0 landed,
-    and the same will happen at Batch 21 WP-0.
-  - Logged the renderer gap as F-DOCSYNC-2 (open P2) rather than
-    hand-moving machine-managed marker content or patching docsync code
-    inside a docs-only PR.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: owner is merging PR #162; Batch 21 opens next.
