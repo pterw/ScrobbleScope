@@ -70,11 +70,11 @@ Completed batch definitions are archived individually under `docs/history/`.
   on `file-hygeine`; audit gap-fix follow-up, WP-6, WP-7, and WP-8 on
   `wip/batch-20`, submitted as PR #162). Definition archived:
   `docs/history/definitions/BATCH20_DEFINITION.md`.
-- **Batch 21 is next.** Definition stub: `BATCH21_DEFINITION.md` (repo
-  root). Scope TBD -- global UI overhaul (font stack, palette
+- **Batch 21 is not yet defined.** Definition stub: `BATCH21_DEFINITION.md`
+  (repo root). Scope TBD -- global UI overhaul (font stack, palette
   integration, index card rework, Bootstrap CDN consolidation) driven by
   the owner's audit PDF; owner is drafting the UI proposal now. No WP
-  work begins until scope lands.
+  work begins until the definition is approved and committed.
 - **Next action:** await Batch 21 scope from the owner's UI proposal,
   then expand `BATCH21_DEFINITION.md` into WPs.
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
@@ -213,3 +213,28 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: review rounds are now in pure-style territory;
   recommend merging PR #162.
+
+### 2026-07-24 - PR #162 review response, round 4 (side-task)
+
+- Scope: Copilot round 4 -- one comment on PLAYBOOK Section 3 batch-state
+  wording. Acted on, with a corrected mechanism note.
+- Plan vs implementation:
+  - Section 3 now uses the parser-recognized marker "Batch 21 is not yet
+    defined"; the Section 3 parse verifiably returns the between-batches
+    state with that wording in place.
+  - Verified the comment's mechanism was doubly off: `BATCH_NEXT_RE`
+    does not match "Batch 21 is next" (the attribution came from the
+    `last_completed + 1` fallback at `parser.py:198-199`), and the
+    wording fix alone cannot change the rendered STATUS -- with the
+    close-out entry still inside the CURRENT-BATCH markers,
+    `renderer.py:85-86` applies its own `last_completed + 1` fallback.
+    Batch 19 precedent shows this is transient: its identically-tagged
+    close-out entry rotated out automatically when Batch 20 WP-0 landed,
+    and the same will happen at Batch 21 WP-0.
+  - Logged the renderer gap as F-DOCSYNC-2 (open P2) rather than
+    hand-moving machine-managed marker content or patching docsync code
+    inside a docs-only PR.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: owner is merging PR #162; Batch 21 opens next.
