@@ -76,8 +76,9 @@ Completed batch definitions are archived individually under `docs/history/`.
   (font stack, palette integration, index card rework, Bootstrap CDN
   consolidation) driven by an owner audit PDF. No WP work begins until
   scope lands.
-- **Next action:** Batch 20 WP-6 (FINDINGS.md: cleanup and archive).
-- Batch 20 WP status: WP-0 through WP-5 done. WP-6 through WP-8 not yet started.
+- **Next action:** Batch 20 WP-7 (AGENTS.md + HANDOFF_PROMPT.md + skill:
+  FINDINGS on-demand pointer + finding-writing standard).
+- Batch 20 WP status: WP-0 through WP-6 done. WP-7 and WP-8 not yet started.
 - **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
   (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
   `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
@@ -221,6 +222,47 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files` --
   all hooks pass.
 - Forward guidance: WP-6 cleans up and archives `FINDINGS.md`.
+
+### 2026-07-24 - FINDINGS.md cleanup and archive (Batch 20 WP-6)
+
+- Scope: completed Batch 20 WP-6 -- one-time FINDINGS.md cleanup, created
+  `docs/history/findings/FINDINGS_ARCHIVE.md`, standardized all remaining
+  items to `F-<context>-<N>:` headings, added the rotation-policy header.
+- Plan vs implementation:
+  - Archived: "Resolved since last update (2026-03-02)" block, F-B18-8,
+    F-B19-1, F-B19-2, F-B19-5, the F-B19-6 code-fix portion, and F-B20-1
+    (written directly to the archive per the definition).
+  - `BATCH21_DEFINITION.md`: F-B19-5 source reference now points to the
+    archive.
+  - Consolidated deferred Batch 18/19 findings into a one-line
+    "Deferred / future-batch candidates" block; promoted F-B18-1 to the
+    fully scoped P1 item F-B20-2; added F-B20-3 and F-B20-4.
+  - Bare-number to F-ID mapping: 2 -> F-LOAD-1, 3 -> F-AUDIT-1,
+    4 -> F-LOAD-2, 5 -> F-MAS-1, 6 -> F-MAS-2, 7 -> F-DOCSYNC-1,
+    8 -> F-MAS-3, 9 -> F-MAS-4, 10-13 -> F-MAS-5 through F-MAS-8,
+    14-16 -> F-LOAD-3 through F-LOAD-5, 18/19 -> F-FEATURE-1/2.
+- Deviations (all to meet the under-200-line target while keeping
+  PLAYBOOK cross-references to F-B18-11 and F-B19-3 valid):
+  - Also archived F-B18-6 and F-B18-9 (both resolved; F-B18-9 verified
+    against `heatmap.js`, which renders user strings via `textContent`
+    and cites the finding in its header comment) though neither was on
+    the definition's archive list.
+  - Added F-B18-2, F-B18-12 (verified still open: no `min-width` on
+    `.mode-pill`), F-B19-3, and F-B19-4 to the deferred one-liner block
+    beyond the six listed in the definition.
+  - Moved the 2026-03-04 load-test data table to the archive with a
+    pointer left in FINDINGS.md.
+  - Folded Info item 17 (orchestrator split deferral) into F-B20-2
+    rather than assigning it an ID, since it duplicated F-B18-1.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+  `FINDINGS.md` is 199 physical lines (down from 418) -- meets the
+  under-200 acceptance criterion; the 150-180 stretch target was not
+  reachable without cutting content the definition says to keep.
+- Forward guidance: WP-7 adds the FINDINGS read-on-demand pointer and
+  finding-writing rules to AGENTS.md + HANDOFF_PROMPT.md + the bootstrap
+  skill; F-B19-6 (naive-tz anti-pattern registration) is a natural WP-7
+  companion since it also edits the AGENTS.md anti-pattern registry.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

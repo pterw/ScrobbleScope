@@ -45,11 +45,11 @@ Last updated: 2026-07-24
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 20.
-- Current-batch entries in active log block: 6.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
-- Next expected work package: WP-6.
+- Current-batch entries in active log block: 7.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5, WP-6.
+- Next expected work package: WP-7.
 - Latest validated test count: **390 passed**.
-- Newest current-batch entry: 2026-07-24 - DEVELOPMENT.md skills subsection (Batch 20 WP-5).
+- Newest current-batch entry: 2026-07-24 - FINDINGS.md cleanup and archive (Batch 20 WP-6).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

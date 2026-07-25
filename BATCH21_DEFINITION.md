@@ -42,7 +42,9 @@ cleanly. Owner ideas captured during Batch 19 review:
 - **Dark-mode toggle placement on mobile.** F-B18/F-B19 noted the
   fixed-position toggle may overlap content on small screens.
 
-Documented in FINDINGS.md F-B19-4 and F-B19-5.
+Documented in FINDINGS.md F-B19-4 (deferred block); F-B19-5
+(visual-verification tooling) is archived at
+`docs/history/findings/FINDINGS_ARCHIVE.md`.
 
 ---
 
