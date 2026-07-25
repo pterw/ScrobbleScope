@@ -5,12 +5,11 @@ Status: Batch 20 complete; Batch 21 (UI overhaul) is next, scope pending
 the owner's proposal. 390 tests across 22 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
-`docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out (or during
-dedicated findings-cleanup WPs); nothing is deleted. Every remaining item
-uses an `F-<context>-<N>:` heading (contexts: B18/B19/B20 batches; LOAD,
-MAS, DOCSYNC, AUDIT source audits; FEATURE prep notes). Read this file on
-demand -- when a task or PLAYBOOK entry references an F-* ID or a P0/P1
-item -- not as part of the standard bootstrap order.
+`docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
+findings-cleanup WPs; nothing is deleted. Every item uses an
+`F-<context>-<N>:` heading (format: AGENTS.md "Finding-Writing Rules").
+Read this file on demand -- when a task or PLAYBOOK entry references an
+F-* ID or a P0/P1 item -- not as part of the standard bootstrap order.
 
 ---
 
@@ -40,9 +39,8 @@ batch processing, error mapping, progress tracking, and result assembly.
 Now that `heatmap.py` provides a second pipeline, extract the shared
 patterns (event loop setup including the win32 Proactor guard, progress
 mapping, error guards) into a common module and split the orchestrator
-into pipeline / processing / result-shaping modules. Same item is on the
-README roadmap; absorbs F-B18-7 (duplicated win32 event-loop guard).
-Status: open. Source: Batch 18 audit, promoted in Batch 20.
+into pipeline / processing / result-shaping modules. Also on the README
+roadmap; absorbs F-B18-7. Status: open. Source: Batch 18 audit.
 
 ### F-B20-3: Bootstrap CDN source consolidation
 
@@ -63,9 +61,9 @@ Source: owner audit PDF + F-B19-4 owner review.
 Fetch time is bound by page count and the shared 10 req/s throttle
 (2026-05-16: 103 pages, 10.9s vs a 10.3s floor; fetching is already
 concurrent at `limit=200`). Options: heatmap-specific caching,
-progressive rendering, or a higher rate limit (not recommended).
-Status: open; no further fetch-speed work scheduled.
-Source: Batch 18 audit + perf measurement session 2026-05-16.
+progressive rendering, or a higher rate limit (not recommended). Status:
+open; no fetch-speed work scheduled. Source: Batch 18 audit + perf
+session 2026-05-16.
 
 ### F-LOAD-1: concurrent-user UX when job slots are full
 
@@ -107,8 +105,9 @@ Status: open. Source: MULTI_AGENT_SWEEP.
 
 ### F-MAS-4: broad `except Exception` catches
 
-14 instances across `scrobblescope/*.py`; narrow or add structured
-logging per exception class. Status: open. Source: MULTI_AGENT_SWEEP.
+17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at
+the original sweep); narrow or add structured logging per exception
+class. Status: open. Source: MULTI_AGENT_SWEEP.
 
 ---
 
@@ -158,8 +157,9 @@ Status: standing design decision. Source: load testing 2026-03-04.
 
 ## Deferred / future-batch candidates (Batch 18/19 audits)
 
-One-line cross-references; full text lives in `docs/history/` audits and
-archived definitions; 2026-03-04 load-test data now lives in the archive.
+One-line cross-references; detailed bodies live in pre-Batch-20
+`FINDINGS.md` (git history before `494f2c7`) or the `docs/history/`
+audits; 2026-03-04 load-test data is in the findings archive.
 
 - F-B18-1: orchestrator monolith -- promoted to F-B20-2 above.
 - F-B18-2: JOBS dict lacks TypedDict/dataclass annotations.
@@ -184,8 +184,8 @@ archived definitions; 2026-03-04 load-test data now lives in the archive.
 Rank most-played tracks for a year (separate task type + loading/results
 flow). Status: deferred; on the README roadmap. Source: owner roadmap.
 
-(F-FEATURE-2, the listening heatmap, shipped in Batches 18/19 and is
-archived; perf follow-ups continue as F-B18-11.)
+F-FEATURE-2 (listening heatmap) shipped in Batches 18/19 and is now
+archived; perf follow-ups continue as F-B18-11.
 
 ---
 
