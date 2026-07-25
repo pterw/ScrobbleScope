@@ -157,7 +157,6 @@ Heatmap
     * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
 * **CSRF Protection:** All mutating POST routes (`/results_loading`, `/heatmap_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Two complementary mechanisms are used: form-submit routes (`/results_loading`, `/results_complete`, `/unmatched_view`) include a hidden `csrf_token` body input; fetch-based routes read a `<meta name="csrf-token">` tag -- `/reset_progress` sends the token in the `X-CSRFToken` header only, while `/heatmap_loading` sends it in both the body and the header.
-* **Doc-State Sync Tooling:** A modular Python package (`scripts/docsync/`) keeps orchestration docs (PLAYBOOK, SESSION_CONTEXT, archive) consistent across agent handoffs. Deterministic rotation, SHA-256 dedup, and cross-validation replace manual copy-paste that drifted in earlier sessions. See [DEVELOPMENT.md](DEVELOPMENT.md) for rationale.
 * **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
 * **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
 <details>
@@ -339,14 +338,14 @@ pre-commit run --all-files
 |-- requirements.txt               # Runtime dependencies
 |-- requirements-dev.txt           # Dev/test/tooling (includes requirements.txt)
 |-- pyproject.toml                 # Tool config (isort, pytest, pyright)
+|                                  # -- agent orchestration / docs --
 |-- AGENTS.md                      # AI agent bootstrap and contribution rules
-|-- PLAYBOOK.md                    # Active handoff playbook (agent orchestration)
-|-- # Agent orchestration / docs
-|   |-- HANDOFF_PROMPT.md          # Session bootstrap procedure for AI agents
-|   |-- AGENT_NOTES.md             # Owner context and local development setup
-|   |-- FINDINGS.md                # Active findings and notes for current work
-|   |-- DEVELOPMENT.md             # Development methodology and doc-state process
-|   `-- DEPLOY.md                  # Deployment workflow and production checklist
+|-- PLAYBOOK.md                    # Active handoff playbook (work order + log)
+|-- HANDOFF_PROMPT.md              # Session bootstrap procedure for AI agents
+|-- AGENT_NOTES.md                 # Owner context and local development setup
+|-- FINDINGS.md                    # Active findings and notes for current work
+|-- DEVELOPMENT.md                 # Development methodology and doc-state process
+|-- DEPLOY.md                      # Deployment workflow and production checklist
 |-- scrobblescope/
 |   |-- __init__.py
 |   |-- config.py                  # Env var reads, API keys, concurrency constants
@@ -442,6 +441,8 @@ pre-commit run --all-files
 |-- LICENSE
 `-- README.md
 ```
+
+While a batch of work is active, its definition file (`BATCHN_DEFINITION.md`) sits at the repository root and is moved to `docs/history/definitions/` at close-out, so the tree above intentionally omits it.
 
 ## Deployment
 

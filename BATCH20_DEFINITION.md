@@ -1,8 +1,8 @@
 # BATCH20: File-hygiene + docs methodology refresh
 
-**Status:** Definition awaiting owner audit.
-**Branch:** `file-hygeine` (off `main` after committing `.gitignore` exclusion of `CLAUDE.md` and pushing).
-**Baseline:** 389 tests passing (post PR #152 merge to main; no code changes in this batch should move the count).
+**Status:** Active. WP-0 through WP-5 merged to `main` via PR #159; WP-6 through WP-8 remain.
+**Branch:** `wip/batch-20` (worktree off `main`; earlier WPs landed via `file-hygeine`).
+**Baseline:** 390 tests passing (389 at batch open; +1 regression test from the WP-5 docsync scan-order deviation).
 
 ---
 
