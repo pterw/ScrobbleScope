@@ -68,8 +68,8 @@ Completed batch definitions are archived individually under `docs/history/`.
   PR #152 (Batches 18 + 19) merged to `main`.
 - **Batch 20 is complete.** All 9 WPs done (WP-0 through WP-5 via PR #159
   on `file-hygeine`; audit gap-fix follow-up, WP-6, WP-7, and WP-8 on
-  `wip/batch-20`, unpushed pending owner instruction). Definition
-  archived: `docs/history/definitions/BATCH20_DEFINITION.md`.
+  `wip/batch-20`, submitted as PR #162). Definition archived:
+  `docs/history/definitions/BATCH20_DEFINITION.md`.
 - **Batch 21 is next.** Definition stub: `BATCH21_DEFINITION.md` (repo
   root). Scope TBD -- global UI overhaul (font stack, palette
   integration, index card rework, Bootstrap CDN consolidation) driven by
@@ -138,3 +138,33 @@ non-current operational logs. Older dated entries live in
   push/PR instruction.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-07-24 - PR #162 review response (side-task)
+
+- Scope: address the Copilot review on PR #162 (Batch 20 completion).
+  All six comments (four inline + two suppressed low-confidence) were
+  valid doc-consistency catches; five acted on fully, one partially.
+- Plan vs implementation:
+  - `FINDINGS.md`: header status updated to Batch 20 complete / Batch 21
+    next; `Source:` added to F-B20-4 and F-B18-11; `Status:` lines added
+    to all P2, Info, and feature items; shipped F-FEATURE-2 rotated to
+    the archive with a cross-reference note.
+  - `AGENTS.md` Finding-Writing Rules: rotation rule clarified --
+    standing design-decision Info items (F-LOAD-3..5) keep their F-IDs
+    in the active file and rotate only when superseded. This is the
+    partial decline: archiving them would contradict the Batch 20
+    definition's WP-6 intent.
+  - `docs/history/findings/FINDINGS_ARCHIVE.md`: header claim narrowed
+    to ID/history preservation (bodies may be condensed at rotation).
+  - `PLAYBOOK.md` Section 3: "unpushed pending owner instruction"
+    replaced with "submitted as PR #162" (the Section 4 close-out entry
+    keeps the original wording as a point-in-time record).
+  - `AGENT_NOTES.md`: stale "Batch 20 is now active" block updated to
+    complete/archived status with Batch 21 next.
+  - `BATCH21_DEFINITION.md`: baseline refreshed 389 -> 390.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: batched reply posted on PR #162; awaiting merge.
+  Batch 21 scope expansion remains next once the owner's UI proposal
+  lands.
