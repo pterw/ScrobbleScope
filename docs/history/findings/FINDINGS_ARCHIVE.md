@@ -3,9 +3,21 @@
 Resolved and no-action findings rotate here from `FINDINGS.md` at batch
 close-out (or during dedicated findings-cleanup WPs) so the active file
 stays short while grep history is preserved. Entries keep their original
-F-IDs and text; nothing here is deleted. Newest rotation first.
+F-IDs; bodies may be condensed at rotation (full original text remains in
+git history and the source audit documents). Nothing here is deleted.
+Newest rotation first.
 
 ---
+
+## Rotated 2026-07-24 (PR #162 review follow-up)
+
+### F-FEATURE-2: listening heatmap feature -- SHIPPED
+
+Last.fm-only scrobble density calendar for the last 365 days, no Spotify
+calls. Batch 18 delivered the end-to-end feature; Batch 19 polished the
+result frame, KPIs, pill labels, pinwheel animation, and mobile layout.
+Rotated per the finding-writing rules since the feature shipped;
+performance follow-ups continue as F-B18-11 in the active file.
 
 ## Rotated 2026-07-24 (Batch 20 WP-7)
 

@@ -401,8 +401,11 @@ grep history.
 2. **Required fields:** the F-ID heading, a one-sentence problem statement,
    a `Status:` line, and a `Source:` line when the finding came from a
    named audit or session.
-3. **Rotation:** resolved and no-action items move to the archive with
-   their original F-ID and a `-- RESOLVED` / `-- NO ACTION` suffix.
+3. **Rotation:** resolved and closed no-action items move to the archive
+   with their original F-ID and a `-- RESOLVED` / `-- NO ACTION` suffix.
+   Standing design-decision Info items (documentation of deliberate,
+   still-current choices) keep their F-IDs in the active file and rotate
+   only when superseded.
 4. **Cross-references:** promoted or absorbed findings keep a one-line
    pointer in the "Deferred / future-batch candidates" block (for
    example, `F-B18-1 -- promoted to F-B20-2`) so old IDs stay resolvable.

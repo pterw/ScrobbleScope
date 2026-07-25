@@ -1,8 +1,8 @@
 # ScrobbleScope Findings & Open Issues
 
 Last updated: 2026-07-24
-Status: Batch 20 active (file-hygiene + docs methodology refresh).
-390 tests across 22 test modules.
+Status: Batch 20 complete; Batch 21 (UI overhaul) is next, scope pending
+the owner's proposal. 390 tests across 22 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out (or during
@@ -56,6 +56,7 @@ Status: open. Source: F-B19-4 owner review; README roadmap companion.
 Global font stack, palette integration, index card rework, and the
 remaining F-B19-4 audit notes; Batch 21 main scope, possible Batch 22
 contingency. Status: open; scope lands via `BATCH21_DEFINITION.md`.
+Source: owner audit PDF + F-B19-4 owner review.
 
 ### F-B18-11: heatmap Last.fm page fetch is rate-limit bound
 
@@ -64,6 +65,7 @@ Fetch time is bound by page count and the shared 10 req/s throttle
 concurrent at `limit=200`). Options: heatmap-specific caching,
 progressive rendering, or a higher rate limit (not recommended).
 Status: open; no further fetch-speed work scheduled.
+Source: Batch 18 audit + perf measurement session 2026-05-16.
 
 ### F-LOAD-1: concurrent-user UX when job slots are full
 
@@ -116,18 +118,22 @@ logging per exception class. Status: open. Source: MULTI_AGENT_SWEEP.
 
 Process-local dict breaks polling under multiple workers/machines;
 migration path is Redis or a Postgres-backed job table.
+Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
 ### F-MAS-6: Celery/Redis RQ for task queue
 
 **Owner decision:** out of scope until features complete.
+Status: open (P2, owner-gated). Source: MULTI_AGENT_SWEEP.
 
 ### F-MAS-7: process-local Spotify token cache
 
 Redundant refreshes under multiple workers; acceptable at current scale.
+Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
 ### F-MAS-8: REQUEST_CACHE growth with always-on machines
 
 Cleanup is opportunistic (at job start); TTL mitigates, does not cap.
+Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
 ---
 
@@ -136,22 +142,24 @@ Cleanup is opportunistic (at job start); TTL mitigates, does not cap.
 ### F-LOAD-3: in-memory REQUEST_CACHE is intentional
 
 Avoids re-fetching Last.fm on re-searches; clears on machine sleep.
+Status: standing design decision. Source: load testing 2026-03-04.
 
 ### F-LOAD-4: Spotify cache TTL is ToS-compliant
 
 Hits do NOT refresh `updated_at`; 30-day expiry from last API call.
+Status: standing design decision. Source: cache verification 2026-03-04.
 
 ### F-LOAD-5: pre-slicing reduces Spotify API load
 
 Playcount filter + 500-album playtime cap applied before cache lookup.
+Status: standing design decision. Source: load testing 2026-03-04.
 
 ---
 
 ## Deferred / future-batch candidates (Batch 18/19 audits)
 
 One-line cross-references; full text lives in `docs/history/` audits and
-archived batch definitions. Load-test measurements (2026-03-04) formerly
-here are in the archive and `load-test-findings.md`.
+archived definitions; 2026-03-04 load-test data now lives in the archive.
 
 - F-B18-1: orchestrator monolith -- promoted to F-B20-2 above.
 - F-B18-2: JOBS dict lacks TypedDict/dataclass annotations.
@@ -174,11 +182,10 @@ here are in the archive and `load-test-findings.md`.
 ### F-FEATURE-1: top songs feature
 
 Rank most-played tracks for a year (separate task type + loading/results
-flow). Deferred; on the README roadmap.
+flow). Status: deferred; on the README roadmap. Source: owner roadmap.
 
-### F-FEATURE-2: listening heatmap feature -- SHIPPED
-
-Batches 18/19 delivered and polished it. Perf follow-ups: F-B18-11.
+(F-FEATURE-2, the listening heatmap, shipped in Batches 18/19 and is
+archived; perf follow-ups continue as F-B18-11.)
 
 ---
 

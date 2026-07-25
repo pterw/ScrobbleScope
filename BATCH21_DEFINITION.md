@@ -2,7 +2,7 @@
 
 **Status:** Placeholder. Scope to be defined when owner finalizes the audit-PDF-driven plan. Renumbered from Batch 20 on 2026-05-22 so Batch 20 (file-hygiene + docs methodology refresh) could be slotted ahead of the UI work.
 **Branch:** to be decided when scope is finalized.
-**Baseline:** 389 tests passing (Batch 19 close-out + PR #152 fixes; same number as Batch 20 baseline).
+**Baseline:** 390 tests passing (Batch 20 close-out; 389 at Batch 20 open, +1 regression test from the WP-5 docsync deviation).
 
 ---
 
