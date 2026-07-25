@@ -8,7 +8,7 @@ Last updated: 2026-07-24
 
 | Item | Value |
 |------|-------|
-| Branch | `file-hygeine` |
+| Branch | `wip/batch-20` |
 | Tests | **390 passing** across 22 test modules |
 | Coverage | ~72% (2026-02-20 audit run) |
 | Pre-commit | All hooks pass |

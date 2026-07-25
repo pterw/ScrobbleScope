@@ -69,7 +69,8 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Batch 20 is active.** Definition: `BATCH20_DEFINITION.md` (repo root).
   Scope: file-hygiene + docs methodology refresh (README, DEVELOPMENT.md,
   FINDINGS.md rotation, AGENTS.md finding-writing rules, bootstrap skill
-  update). No production-code changes. Branch: `file-hygeine`.
+  update). No production-code changes. Branch: `wip/batch-20`
+  (WP-0 through WP-5 landed via `file-hygeine`, merged in PR #159).
 - **Batch 21 (placeholder, renumbered from Batch 20).** Definition:
   `BATCH21_DEFINITION.md` (repo root). Scope TBD -- global UI overhaul
   (font stack, palette integration, index card rework, Bootstrap CDN
@@ -223,6 +224,37 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-24 - Post-merge audit gap fixes (Batch 20 audit follow-up)
+
+- Scope: close gaps found by the owner-requested audit of PR #159 (WP-1
+  through WP-5 were executed via Copilot + PR reviews; audit compared the
+  merged result against `BATCH20_DEFINITION.md` acceptance criteria).
+  Work continues in a `wip/batch-20` worktree off `main` for isolation.
+- Plan vs implementation:
+  - `README.md`: deleted the "Doc-State Sync Tooling" bullet from Key
+    Implementation Highlights (WP-1 acceptance item; the WP-1 log entry
+    claimed removal but no commit ever removed it). Fixed the Project
+    Structure tree so the agent-docs cluster is a comment row instead of
+    a fake directory nesting five root-level files, and moved `AGENTS.md`
+    and `PLAYBOOK.md` into that cluster. Added the missing prose note that
+    `BATCHN_DEFINITION.md` sits at the root only while a batch is active.
+  - `DEVELOPMENT.md`: corrected the `scrobblescope-bootstrap` description
+    to the skill's actual read order (AGENTS.md -> PLAYBOOK 3-4 -> active
+    batch definition -> SESSION_CONTEXT 1-2 -> AGENT_NOTES, then git/test
+    verification) replacing the inaccurate SESSION_CONTEXT-first
+    early-stop description.
+  - `BATCH20_DEFINITION.md` header: refreshed stale status ("awaiting
+    owner audit"), branch, and 389 baseline (390 since the WP-5 deviation).
+  - `PLAYBOOK.md` Section 3 + `.claude/SESSION_CONTEXT.md` Section 1:
+    branch updated from merged `file-hygeine` to `wip/batch-20`.
+- Deviations: Getting Started length (WP-3 target ~95-100 lines, actual
+  155 after review iterations added a full `docker run` block and 3-OS
+  schema-init instructions) left as-is pending owner decision:
+  re-compress vs accept the expanded setup detail.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-6 (FINDINGS.md cleanup and archive) is next.
+
 ### 2026-07-24 - README CSRF and UX cleanup (side-task)
 
 - Scope: PR-review-comment-driven fixes to `README.md` and `AGENTS.md`.
@@ -282,26 +314,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: Features and Acknowledgements now match the intended PR
   state, with Screenshots intentionally removed; any future changes to those
   sections require an explicit batch WP or deviation log entry.
-
-### 2026-07-24 - Copilot comment-job bootstrap trim (side-task)
-
-- Scope: reduce unnecessary bootstrap for Copilot PR comment/review-comment
-  jobs after the `copilot` Actions run failed in request processing with a
-  monthly-quota error before reaching the linked review thread.
-- Plan vs implementation:
-  - `AGENTS.md`: added a targeted review-comment fast-path for prompts that
-    link to a single `discussion_r...` thread, limiting reads to the linked
-    file/lines plus only the bootstrap context that thread actually needs.
-  - `HANDOFF_PROMPT.md`: removed the unconditional "read all bootstrap
-    files" mandate for comment jobs and aligned the startup procedure with
-    the lighter fast-path in `AGENTS.md`.
-- Deviations: none -- this is a side-task CI reliability fix outside Batch 20;
-  Batch 20 WP status and next action are unchanged.
-- Validation: `python scripts/doc_state_sync.py --fix` -- no changes.
-  `python scripts/doc_state_sync.py --check` -- pass, with the two expected
-  active-root-BATCH warnings. `pytest -q` and `pre-commit run --all-files`
-  could not run in this sandbox because the repo-local `.venv` and those
-  executables are not present here.
-- Forward guidance: if future comment jobs still hit quota, inspect whether
-  the prompt is fetching full PR comment lists when a direct review-comment
-  URL is already supplied.
