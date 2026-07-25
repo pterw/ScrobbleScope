@@ -2,7 +2,7 @@
 
 **Status:** Complete (2026-07-24). All 9 WPs done; definition archived at close-out.
 **Branch:** `wip/batch-20` (worktree off `main`; earlier WPs landed via `file-hygeine`).
-**Baseline:** 390 tests passing (389 at batch open; +1 regression test from the WP-5 docsync scan-order deviation).
+**Final count:** 390 tests passing (the 389 baseline below held until the WP-5 docsync scan-order deviation added one regression test; see the Batch 20 log).
 
 ---
 

@@ -11,7 +11,7 @@ Newest rotation first.
 
 ## Rotated 2026-07-24 (PR #162 review follow-up)
 
-### F-FEATURE-2: listening heatmap feature -- SHIPPED
+### F-FEATURE-2: listening heatmap feature -- RESOLVED (shipped in Batches 18/19)
 
 Last.fm-only scrobble density calendar for the last 365 days, no Spotify
 calls. Batch 18 delivered the end-to-end feature; Batch 19 polished the
