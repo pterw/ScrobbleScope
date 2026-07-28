@@ -129,9 +129,10 @@ only in the current process environment and is gone when the shell exits.
 - **Core feature definition:** `docs/history/definitions/BATCH18_DEFINITION.md`.
 - **Batch 19 polish definition (archived):** `docs/history/definitions/BATCH19_DEFINITION.md`.
   Closed out 2026-05-19; PR #152 (`feat/heatmap` -> `main`) merged.
-- **Batch 21 definition stub (next batch):** `BATCH21_DEFINITION.md` at repo
-  root (renumbered from Batch 20). Scope is TBD (global UI overhaul, owner
-  audit PDF; owner drafting the proposal). No WP work until scope lands.
+- **Batch 21 definition (ACTIVE batch):** `BATCH21_DEFINITION.md` at repo
+  root. UI overhaul -- Tailwind v4 + daisyUI v5 migration, expanded from
+  the owner's Claude Design audit (UI Audit v3), approved 2026-07-24.
+  WP-0 done; WP-1 (toolchain + themes) is next on `wip/batch-21` (PR #163).
   Batch 20 (file-hygiene + docs methodology refresh) is complete; its
   definition is archived at `docs/history/definitions/BATCH20_DEFINITION.md`.
 - **Batch 19 scope:** frame/headline/KPIs result redesign, "Top Albums" pill
