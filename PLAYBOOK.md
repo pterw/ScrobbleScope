@@ -181,6 +181,8 @@ non-current operational logs. Older dated entries live in
   scope (`--cov=scrobblescope`).
 - Deviations: none. The owner's `main` checkout keeps the old figure
   until this branch merges; no fix applied there by design.
+- Addendum (same day, owner-requested): the README tech-stack Testing
+  row also said ~72%; updated to 89% in a follow-up commit.
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: next work remains Batch 21 WP-1 (Tailwind + daisyUI
