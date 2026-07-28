@@ -9,6 +9,36 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-24 - PR #162 review response (side-task)
+
+- Scope: address the Copilot review on PR #162 (Batch 20 completion).
+  All six comments (four inline + two suppressed low-confidence) were
+  valid doc-consistency catches; five acted on fully, one partially.
+- Plan vs implementation:
+  - `FINDINGS.md`: header status updated to Batch 20 complete / Batch 21
+    next; `Source:` added to F-B20-4 and F-B18-11; `Status:` lines added
+    to all P2, Info, and feature items; shipped F-FEATURE-2 rotated to
+    the archive with a cross-reference note.
+  - `AGENTS.md` Finding-Writing Rules: rotation rule clarified --
+    standing design-decision Info items (F-LOAD-3..5) keep their F-IDs
+    in the active file and rotate only when superseded. This is the
+    partial decline: archiving them would contradict the Batch 20
+    definition's WP-6 intent.
+  - `docs/history/findings/FINDINGS_ARCHIVE.md`: header claim narrowed
+    to ID/history preservation (bodies may be condensed at rotation).
+  - `PLAYBOOK.md` Section 3: "unpushed pending owner instruction"
+    replaced with "submitted as PR #162" (the Section 4 close-out entry
+    keeps the original wording as a point-in-time record).
+  - `AGENT_NOTES.md`: stale "Batch 20 is now active" block updated to
+    complete/archived status with Batch 21 next.
+  - `BATCH21_DEFINITION.md`: baseline refreshed 389 -> 390.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: batched reply posted on PR #162; awaiting merge.
+  Batch 21 scope expansion remains next once the owner's UI proposal
+  lands.
+
 ### 2026-07-24 - PR #162 review response, round 2 (side-task)
 
 - Scope: address Copilot's second review round on PR #162 (four inline
