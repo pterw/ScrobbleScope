@@ -149,6 +149,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-28 - Side-task entry placement rule in AGENTS.md (side-task)
+
+- Scope: document the doc_state_sync rotation gotcha discovered during
+  the coverage-figure refresh so any agent places side-task entries
+  correctly on the first try.
+- Plan vs implementation: AGENTS.md Side-Task Handling step 2 now
+  states that new entries must be inserted directly after the
+  CURRENT-BATCH-END marker (top of the non-current list). The list is
+  ordered newest-first; rotation keeps the first `--keep-non-current`
+  entries positionally and rotates the rest, so a bottom-appended entry
+  is treated as oldest and archived by the next `--fix` run instead of
+  staying in the active window.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: next work remains Batch 21 WP-1 (Tailwind + daisyUI
+  toolchain).
+
 ### 2026-07-28 - Coverage figure refresh in SESSION_CONTEXT (side-task)
 
 - Scope: replace the stale coverage figure in SESSION_CONTEXT Section 1.
@@ -224,28 +242,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: batched reply posted on PR #162; awaiting merge.
   Batch 21 scope expansion remains next once the owner's UI proposal
   lands.
-
-### 2026-07-24 - PR #162 review response, round 2 (side-task)
-
-- Scope: address Copilot's second review round on PR #162 (four inline
-  comments + one suppressed). All five verified valid; all acted on.
-- Plan vs implementation:
-  - `FINDINGS.md` F-MAS-4: `except Exception` count updated 14 -> 17
-    (verified by grep; Copilot's per-file breakdown was exact) with the
-    recount date noted.
-  - `FINDINGS.md` deferred-block pointer corrected: detailed bodies live
-    in pre-Batch-20 FINDINGS.md via git history (before `494f2c7`), not
-    under `docs/history/` as previously claimed.
-  - `FINDINGS.md` F-FEATURE-2 cross-reference recast as a direct
-    sentence (grammar).
-  - `docs/history/findings/FINDINGS_ARCHIVE.md`: F-FEATURE-2 heading
-    suffix normalized to `-- RESOLVED (shipped in Batches 18/19)` per
-    the AGENTS.md suffix rule.
-  - Archived `BATCH20_DEFINITION.md` header relabeled `Baseline:` ->
-    `Final count:` so it no longer conflicts with the definition's
-    unchanged 389-baseline plan text.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: PR #162 ready for merge; Batch 21 definition draft
-  sits uncommitted in the worktree awaiting owner approval.
