@@ -155,6 +155,13 @@ kickoff log entry.
   alternative: a daisyUI component prefix -- it permits dual-loading but
   forces prefix-removal churn across every migrated template at WP-8,
   and the one-sheet rule already prevents the collision.
+- `global.css` moves out of `base.html` into the same legacy per-page
+  stack: it carries Bootstrap-coupled `.card`/`.card-body`/`.modal-*`
+  rules (`global.css:141-199`) that would restyle daisyUI components on
+  migrated pages if it stayed global. Unmigrated pages keep reading
+  their theme tokens from it; migrated pages get tokens from the
+  daisyUI themes, and the wordmark recolor plus shared-shell styling
+  move to `shell.css`.
 `feat(ui): tailwind base shell, header bar, error page pilot`
 
 ### WP-3 -- Index page
@@ -235,11 +242,14 @@ kickoff log entry.
 - Remove every remaining Bootstrap reference (closes F-B20-3 by
   elimination); radius/spacing ladder sweep; kill dead CSS.
 - Add a `tailwind-css-drift` pre-commit hook: rebuild via
-  `tailwind_build.py`, then fail if `git diff --exit-code` reports the
-  committed compiled CSS dirty. Catches source/output drift without
-  anyone remembering to rebuild. Caveat: the hook also runs in CI, so
-  the fetch step must work headless on Linux (pinned version; consider
-  caching the binary between runs).
+  `tailwind_build.py`, then fail if
+  `git diff --exit-code -- static/css/tailwind.css` reports the
+  committed compiled CSS dirty. The pathspec scopes the check to the
+  generated file so unrelated dirty tracked files (or rewrites left by
+  earlier hooks in the same run) cannot produce false drift failures.
+  Catches source/output drift without anyone remembering to rebuild.
+  Caveat: the hook also runs in CI, so the fetch step must work headless
+  on Linux (pinned version; consider caching the binary between runs).
 - Docs: README (tech stack, structure, screenshots note), DEVELOPMENT.md
   (build step), SESSION_CONTEXT Sections 1/3.
 - Owner E2E pass in Firefox + Responsive Design Mode -- explicitly

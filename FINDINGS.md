@@ -123,6 +123,20 @@ next batch's WP-0 entry lands. Fix candidates: prefer the between-batches
 branch whenever the parse returns none, or make close-out tags parseable.
 Status: open (P2). Source: PR #162 review round 4.
 
+### F-DOCSYNC-3: close-out entries route to the monolith, not the batch log
+
+Close-out headings use a `(Batch N close-out)` suffix that `ENTRY_BATCH_RE`
+does not recognize as batch-tagged, so rotation routes them into the
+untagged monolith archive instead of `docs/history/logs/BATCHN_LOG.md`.
+Consistent across batches: neither BATCH19_LOG.md nor BATCH20_LOG.md
+contains its close-out entry; both sit in the monolith. Per-batch history
+is therefore incomplete without a monolith grep. Fix belongs in a docsync
+WP together with F-DOCSYNC-1/F-DOCSYNC-2 (make close-out tags parseable,
+then one-time re-route of the existing close-out entries); hand-retagging
+machine-rotated archive content was declined in PR #162 round 3 and again
+in PR #163 round 3 on the same point-in-time principle.
+Status: open (P2). Source: PR #163 review round 3.
+
 ### F-MAS-5: in-memory JOBS dict limits horizontal scaling
 
 Process-local dict breaks polling under multiple workers/machines;
