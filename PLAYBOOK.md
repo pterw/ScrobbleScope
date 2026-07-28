@@ -149,6 +149,38 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-28 - PR #163 review response (side-task)
+
+- Scope: address the Copilot auto-review on PR #163 (Batch 21 open +
+  doc refreshes). Five inline comments, all on `BATCH21_DEFINITION.md`;
+  all five verified valid against the code and acted on.
+- Plan vs implementation:
+  - WP-1: per-platform SHA-256 digests committed alongside pinned
+    versions; `tailwind_build.py` must verify every downloaded artifact
+    before executing it (pin-only trusts the release asset at fetch
+    time, and the WP-8 CI hook executes that binary headless).
+  - WP-1: daisyUI standalone needs both `daisyui.mjs` and
+    `daisyui-theme.mjs`; the component bundle alone cannot register the
+    two custom `@plugin` themes.
+  - WP-2: explicit coexistence isolation -- one framework stylesheet
+    per template via the per-page block, shared shell styled by a
+    framework-neutral `shell.css` absorbed at WP-8. Rejected daisyUI
+    prefix alternative (WP-8 removal churn) with reasoning recorded.
+  - WP-5: dropped "CSV walker untouched" -- `results.js` exports
+    rendered cell text, so `MMM YY` display dates would truncate CSV
+    release dates; date cells keep ISO in `data-export`, walker
+    prefers it.
+  - WP-7 + acceptance criterion 6: `below_min_plays`/`below_min_tracks`
+    removed from the reason-code set -- `fetch_top_albums_async` drops
+    threshold failures before the pipeline (`orchestrator.py:112-116`),
+    and near-miss retention is explicitly Batch 22+. Two reason cards,
+    not three; out-of-scope entry cross-references the deferred codes.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-1 implementation must honor the amended digest
+  and dual-plugin-file requirements; batched reply posted on PR #163.
+
 ### 2026-07-28 - Side-task entry placement rule in AGENTS.md (side-task)
 
 - Scope: document the doc_state_sync rotation gotcha discovered during
@@ -214,33 +246,3 @@ non-current operational logs. Older dated entries live in
   `BATCH21_DEFINITION.md` into WPs once the owner's proposal lands.
   `wip/batch-20` holds four unpushed commits awaiting owner review and
   push/PR instruction.
-
-### 2026-07-24 - PR #162 review response (side-task)
-
-- Scope: address the Copilot review on PR #162 (Batch 20 completion).
-  All six comments (four inline + two suppressed low-confidence) were
-  valid doc-consistency catches; five acted on fully, one partially.
-- Plan vs implementation:
-  - `FINDINGS.md`: header status updated to Batch 20 complete / Batch 21
-    next; `Source:` added to F-B20-4 and F-B18-11; `Status:` lines added
-    to all P2, Info, and feature items; shipped F-FEATURE-2 rotated to
-    the archive with a cross-reference note.
-  - `AGENTS.md` Finding-Writing Rules: rotation rule clarified --
-    standing design-decision Info items (F-LOAD-3..5) keep their F-IDs
-    in the active file and rotate only when superseded. This is the
-    partial decline: archiving them would contradict the Batch 20
-    definition's WP-6 intent.
-  - `docs/history/findings/FINDINGS_ARCHIVE.md`: header claim narrowed
-    to ID/history preservation (bodies may be condensed at rotation).
-  - `PLAYBOOK.md` Section 3: "unpushed pending owner instruction"
-    replaced with "submitted as PR #162" (the Section 4 close-out entry
-    keeps the original wording as a point-in-time record).
-  - `AGENT_NOTES.md`: stale "Batch 20 is now active" block updated to
-    complete/archived status with Batch 21 next.
-  - `BATCH21_DEFINITION.md`: baseline refreshed 389 -> 390.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: batched reply posted on PR #162; awaiting merge.
-  Batch 21 scope expansion remains next once the owner's UI proposal
-  lands.
