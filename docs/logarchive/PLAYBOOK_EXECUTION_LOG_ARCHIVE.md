@@ -9,6 +9,26 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-24 - PR #162 review response, round 3 (side-task)
+
+- Scope: Copilot round 3 (two comments + one suppressed duplicate).
+  One acted on, one declined.
+- Plan vs implementation:
+  - Acted: both F-B19-6 archive headings moved their portion qualifier
+    after the colon to match the `F-<context>-<N>: <title>` format the
+    batch itself established (AGENTS.md Finding-Writing Rules).
+  - Declined: updating the `BATCH20_DEFINITION.md:107-108` citation
+    inside the archived `docs/history/logs/BATCH20_LOG.md` WP-3 entry.
+    Rotated log entries are point-in-time records (same principle as
+    the round-1 "unpushed" decline, which the reviewer accepted), they
+    are machine-rotated content the docsync tooling owns, and the
+    filename remains uniquely greppable at its archived location.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: review rounds are now in pure-style territory;
+  recommend merging PR #162.
+
 ### 2026-07-24 - PR #162 review response, round 4 (side-task)
 
 - Scope: Copilot round 4 -- one comment on PLAYBOOK Section 3 batch-state

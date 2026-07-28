@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-07-24
+Last updated: 2026-07-28
 
 ---
 
@@ -10,7 +10,7 @@ Last updated: 2026-07-24
 |------|-------|
 | Branch | `wip/batch-21` |
 | Tests | **390 passing** across 22 test modules |
-| Coverage | ~72% (2026-02-20 audit run) |
+| Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |

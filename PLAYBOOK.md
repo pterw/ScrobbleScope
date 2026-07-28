@@ -149,6 +149,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-28 - Coverage figure refresh in SESSION_CONTEXT (side-task)
+
+- Scope: replace the stale coverage figure in SESSION_CONTEXT Section 1.
+  The row still carried ~72% from the 2026-02-20 audit run; coverage has
+  not been re-measured in a canonical doc since.
+- Plan vs implementation: ran the CLAUDE.md canonical command
+  (`pytest --cov=scrobblescope --cov-report=term`) on `wip/batch-21`
+  (equal to `main` + WP-0, which touched no Python). Result: 89% total
+  (1260 stmts, 134 miss). Lowest modules: `lastfm.py` 77%, `utils.py`
+  81%, `orchestrator.py` 85%; four modules at 100%. Updated the
+  Section 1 Coverage row with the new figure, measurement date, and
+  scope (`--cov=scrobblescope`).
+- Deviations: none. The owner's `main` checkout keeps the old figure
+  until this branch merges; no fix applied there by design.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: next work remains Batch 21 WP-1 (Tailwind + daisyUI
+  toolchain). Re-measure coverage at future batch close-outs so the
+  Section 1 row does not go stale again.
+
 ### 2026-07-24 - Batch 20 complete; definition archived, log purged (Batch 20 close-out)
 
 - Scope: Batch 20 WP-8 close-out per the AGENTS.md procedure.
@@ -229,23 +249,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: PR #162 ready for merge; Batch 21 definition draft
   sits uncommitted in the worktree awaiting owner approval.
-
-### 2026-07-24 - PR #162 review response, round 3 (side-task)
-
-- Scope: Copilot round 3 (two comments + one suppressed duplicate).
-  One acted on, one declined.
-- Plan vs implementation:
-  - Acted: both F-B19-6 archive headings moved their portion qualifier
-    after the colon to match the `F-<context>-<N>: <title>` format the
-    batch itself established (AGENTS.md Finding-Writing Rules).
-  - Declined: updating the `BATCH20_DEFINITION.md:107-108` citation
-    inside the archived `docs/history/logs/BATCH20_LOG.md` WP-3 entry.
-    Rotated log entries are point-in-time records (same principle as
-    the round-1 "unpushed" decline, which the reviewer accepted), they
-    are machine-rotated content the docsync tooling owns, and the
-    filename remains uniquely greppable at its archived location.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: review rounds are now in pure-style territory;
-  recommend merging PR #162.
