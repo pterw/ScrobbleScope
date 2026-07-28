@@ -1,8 +1,8 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-07-24
-Status: Batch 20 complete; Batch 21 (UI overhaul) is next, scope pending
-the owner's proposal. 390 tests across 22 test modules.
+Last updated: 2026-07-28
+Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
+WP-0 done, WP-1 next. 390 tests across 22 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during

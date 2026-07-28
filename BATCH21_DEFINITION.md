@@ -13,9 +13,10 @@ inky-purple surfaces, 14px frame, mono small-caps KPIs) is correct and the
 job is to propagate it to every other screen. Stack verdict, endorsed by
 agent review: keep Flask + Jinja2, no React; migrate Bootstrap 5.1.3 ->
 Tailwind CSS (standalone CLI, no Node project) + daisyUI restricted to
-`card`, `modal`, `btn`, `toggle`, `input`, `select`, `tabs`, and the
-`data-theme` system. Custom surfaces (heatmap, leaderboard, editorial
-headers) stay raw Tailwind utilities.
+`card`, `modal`, `btn`, `toggle`, `input`, `select`, `tabs`, `toast` +
+`alert` (added for the WP-5 toast rewrite), and the `data-theme` system.
+Custom surfaces (heatmap, leaderboard, editorial headers) stay raw
+Tailwind utilities.
 
 Agent verification against `main` (2026-07-24) confirmed the audit's key
 bug claims:
@@ -29,9 +30,14 @@ bug claims:
   modal, AND `bootstrap.Popover` for the "?" form tooltips
   (`index.js:268-271`) -- one more than the audit counted. All three must
   be replaced or deleted before `bootstrap.bundle.min.js` can go.
-- `--bars-color` is read across all seven page CSS files plus the inline
-  wordmark and pinwheel SVGs; it must be aliased inside both daisyUI
-  themes, never deleted.
+- `--bars-color` is read via `var()` in six of the seven page CSS files
+  (all but `unmatched.css`, which hardcodes its own
+  `--header-bg: #6a4baf`) plus the inline pinwheel SVG. The inline
+  wordmark hardcodes `stroke: #6a4baf`; only the dark-mode override at
+  `global.css:49-50` routes it through the variable, so light-mode
+  wordmark recoloring must be handled explicitly during migration --
+  aliasing alone does not cover it. The variable must be aliased inside
+  both daisyUI themes, never deleted.
 - Bootstrap CSS comes from cdnjs while `index.html` pulls the JS bundle
   from jsdelivr (F-B20-3); this batch resolves the split by elimination.
 
@@ -253,6 +259,15 @@ python scripts/doc_state_sync.py --check
 ```
 
 Plus per-WP: owner visual review in both themes before the next WP.
+
+Any WP that changes templates or `tailwind.src.css` (WP-2 through WP-7)
+must run `tailwind_build.py` and commit the refreshed `tailwind.css` in
+the same commit: production serves the committed file with no runtime
+build, and the drift hook only arrives at WP-8, so an intermediate page
+could otherwise ship without its generated utilities while every listed
+command still passes. (The hook stays in WP-8 rather than moving to
+WP-1: that would front-load the headless-CI fetch problem before any
+template exists to protect.)
 
 ---
 
