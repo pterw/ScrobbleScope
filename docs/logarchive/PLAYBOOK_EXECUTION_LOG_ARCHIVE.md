@@ -9,12 +9,31 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-28 - Side-task entry placement rule in AGENTS.md (side-task)
+
+- Scope: document the doc_state_sync rotation gotcha discovered during
+  the coverage-figure refresh so any agent places side-task entries
+  correctly on the first try.
+- Plan vs implementation: AGENTS.md Side-Task Handling step 2 now
+  states that new entries must be inserted directly after the
+  CURRENT-BATCH-END marker (top of the non-current list). The list is
+  ordered newest-first; rotation keeps the first `--keep-non-current`
+  entries positionally and rotates the rest, so a bottom-appended entry
+  is treated as oldest and archived by the next `--fix` run instead of
+  staying in the active window.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: next work remains Batch 21 WP-1 (Tailwind + daisyUI
+  toolchain).
+
 ### 2026-07-28 - Coverage figure refresh in SESSION_CONTEXT (side-task)
 
 - Scope: replace the stale coverage figure in SESSION_CONTEXT Section 1.
   The row still carried ~72% from the 2026-02-20 audit run; coverage has
   not been re-measured in a canonical doc since.
-- Plan vs implementation: ran the CLAUDE.md canonical command
+- Plan vs implementation: ran the canonical coverage command documented
+  in README.md "Running Tests"
   (`pytest --cov=scrobblescope --cov-report=term`) on `wip/batch-21`
   (equal to `main` + WP-0, which touched no Python). Result: 89% total
   (1260 stmts, 134 miss). Lowest modules: `lastfm.py` 77%, `utils.py`

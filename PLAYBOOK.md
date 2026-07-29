@@ -149,6 +149,25 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-29 - PR #163 review response, round 4 (side-task)
+
+- Scope: Copilot round 4 -- one suppressed comment. Verified valid and
+  acted on.
+- Plan vs implementation: the archived coverage-refresh entry cited
+  "the CLAUDE.md canonical command", but CLAUDE.md is gitignored
+  (`.gitignore:49`) and repo-invisible; the command is documented at
+  README.md "Running Tests". Reference corrected in the monolith
+  archive entry.
+- Deviations: none. Distinction from the PR #162 round-3 decline on
+  editing rotated entries: that citation was accurate at write time and
+  went stale (point-in-time record, left alone); this one was
+  repo-invisible at write time -- a sourcing error that defeats the
+  record's verifiability, so it is corrected rather than preserved.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: review rounds have reached citation polish;
+  recommend merging or pausing auto-review re-requests. WP-1 next.
+
 ### 2026-07-28 - PR #163 review response, round 3 (side-task)
 
 - Scope: Copilot round 3 -- three suppressed low-confidence comments.
@@ -234,21 +253,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: WP-1 implementation must honor the amended digest
   and dual-plugin-file requirements; batched reply posted on PR #163.
-
-### 2026-07-28 - Side-task entry placement rule in AGENTS.md (side-task)
-
-- Scope: document the doc_state_sync rotation gotcha discovered during
-  the coverage-figure refresh so any agent places side-task entries
-  correctly on the first try.
-- Plan vs implementation: AGENTS.md Side-Task Handling step 2 now
-  states that new entries must be inserted directly after the
-  CURRENT-BATCH-END marker (top of the non-current list). The list is
-  ordered newest-first; rotation keeps the first `--keep-non-current`
-  entries positionally and rotates the rest, so a bottom-appended entry
-  is treated as oldest and archived by the next `--fix` run instead of
-  staying in the active window.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: next work remains Batch 21 WP-1 (Tailwind + daisyUI
-  toolchain).
