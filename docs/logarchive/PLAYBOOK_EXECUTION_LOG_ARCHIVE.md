@@ -9,6 +9,38 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-28 - PR #163 review response (side-task)
+
+- Scope: address the Copilot auto-review on PR #163 (Batch 21 open +
+  doc refreshes). Five inline comments, all on `BATCH21_DEFINITION.md`;
+  all five verified valid against the code and acted on.
+- Plan vs implementation:
+  - WP-1: per-platform SHA-256 digests committed alongside pinned
+    versions; `tailwind_build.py` must verify every downloaded artifact
+    before executing it (pin-only trusts the release asset at fetch
+    time, and the WP-8 CI hook executes that binary headless).
+  - WP-1: daisyUI standalone needs both `daisyui.mjs` and
+    `daisyui-theme.mjs`; the component bundle alone cannot register the
+    two custom `@plugin` themes.
+  - WP-2: explicit coexistence isolation -- one framework stylesheet
+    per template via the per-page block, shared shell styled by a
+    framework-neutral `shell.css` absorbed at WP-8. Rejected daisyUI
+    prefix alternative (WP-8 removal churn) with reasoning recorded.
+  - WP-5: dropped "CSV walker untouched" -- `results.js` exports
+    rendered cell text, so `MMM YY` display dates would truncate CSV
+    release dates; date cells keep ISO in `data-export`, walker
+    prefers it.
+  - WP-7 + acceptance criterion 6: `below_min_plays`/`below_min_tracks`
+    removed from the reason-code set -- `fetch_top_albums_async` drops
+    threshold failures before the pipeline (`orchestrator.py:112-116`),
+    and near-miss retention is explicitly Batch 22+. Two reason cards,
+    not three; out-of-scope entry cross-references the deferred codes.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-1 implementation must honor the amended digest
+  and dual-plugin-file requirements; batched reply posted on PR #163.
+
 ### 2026-07-28 - Side-task entry placement rule in AGENTS.md (side-task)
 
 - Scope: document the doc_state_sync rotation gotcha discovered during

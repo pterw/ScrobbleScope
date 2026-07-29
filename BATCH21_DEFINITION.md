@@ -121,11 +121,14 @@ kickoff log entry.
 - Pin exact Tailwind + daisyUI versions in the fetch script: the WP-8
   drift hook requires byte-identical output across machines and CI.
 - Commit per-platform SHA-256 digests alongside the pinned versions;
-  `tailwind_build.py` verifies every downloaded artifact (CLI binary
-  and daisyUI plugin files) against its digest before executing or
-  loading it, failing closed on mismatch. A pinned version alone still
-  trusts whatever asset the release serves at fetch time; without
-  digests the WP-8 CI hook would execute a silently replaced binary.
+  `tailwind_build.py` verifies every artifact (CLI binary and daisyUI
+  plugin files) against its digest on every use, not only at download
+  time -- gitignored `scripts/bin/` persists between runs, so a stale,
+  corrupt, or modified cached artifact must be caught too. On mismatch:
+  refetch once, re-verify, fail closed if the replacement also
+  mismatches. A pinned version alone still trusts whatever asset the
+  release serves at fetch time; without digests the WP-8 CI hook would
+  execute a silently replaced binary.
 - daisyUI v5 bundled plugin files for standalone-CLI use: `daisyui.mjs`
   (components) plus `daisyui-theme.mjs`, which the two custom `@plugin`
   theme definitions below require -- the component bundle alone cannot
@@ -186,10 +189,13 @@ kickoff log entry.
   component shape as heatmap KPIs), parameter chip row replacing the
   table.
 - Decision 1 lands here (rotating messages).
-- "Cancel" affordance = quiet link back home (+ existing
-  `/reset_progress`); note: the background job itself keeps running --
-  true server-side cancellation is a Batch 22+ candidate, not claimed
-  in the UI copy.
+- Leaving the page: a quiet "Back home" link only -- no
+  `/reset_progress` call and no "Cancel" label. The endpoint cannot
+  cancel anything: it clears stored job state only
+  (`routes.py:227-238`) while the daemon worker keeps its concurrency
+  slot and keeps writing into the same job id afterward, so invoking it
+  is misleading and racy. True server-side cancellation stays a
+  Batch 22+ candidate.
 `feat(ui): unified pinwheel loading screen for both pipelines`
 
 ### WP-5 -- Results leaderboard
