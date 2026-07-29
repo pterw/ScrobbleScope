@@ -149,6 +149,33 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-29 - PR #164 phantom cleanup + review response (side-task)
+
+- Scope: PR #163 was rebase-merged, leaving `wip/batch-21` "8 ahead /
+  8 behind" (identical content, different SHAs -- normal rebase-merge
+  artifact). The owner opened PR #164 from the stale branch; Copilot
+  re-reviewed the phantom diff and left three NEW valid comments that
+  four prior rounds missed. PR #164 closed with explanation; branch
+  force-pushed to match `main`; all three fixes applied here.
+- Plan vs implementation:
+  - WP-4: leaving the loading page is now a plain "Back home" link with
+    no `/reset_progress` call -- the endpoint clears stored job state
+    only (`routes.py:227-238`); the daemon worker keeps its slot and
+    rewrites the job afterward, so a "Cancel" label would be misleading
+    and the reset racy.
+  - WP-1: digest verification extended to cached artifacts (verify on
+    every use, refetch once on mismatch, fail closed) -- gitignored
+    `scripts/bin/` persists between runs, so download-time-only checks
+    leave a bypass.
+  - AGENTS.md: rotation note qualified -- bottom-appended entries are
+    archived on the next `--fix` only once the non-current window is at
+    capacity; placement rule unchanged.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-1 next on the realigned branch; open a fresh PR
+  for the next review cycle when WP work lands.
+
 ### 2026-07-29 - PR #163 review response, round 4 (side-task)
 
 - Scope: Copilot round 4 -- one suppressed comment. Verified valid and
@@ -221,35 +248,3 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: WP-1 remains next; batched reply posted on PR #163.
-
-### 2026-07-28 - PR #163 review response (side-task)
-
-- Scope: address the Copilot auto-review on PR #163 (Batch 21 open +
-  doc refreshes). Five inline comments, all on `BATCH21_DEFINITION.md`;
-  all five verified valid against the code and acted on.
-- Plan vs implementation:
-  - WP-1: per-platform SHA-256 digests committed alongside pinned
-    versions; `tailwind_build.py` must verify every downloaded artifact
-    before executing it (pin-only trusts the release asset at fetch
-    time, and the WP-8 CI hook executes that binary headless).
-  - WP-1: daisyUI standalone needs both `daisyui.mjs` and
-    `daisyui-theme.mjs`; the component bundle alone cannot register the
-    two custom `@plugin` themes.
-  - WP-2: explicit coexistence isolation -- one framework stylesheet
-    per template via the per-page block, shared shell styled by a
-    framework-neutral `shell.css` absorbed at WP-8. Rejected daisyUI
-    prefix alternative (WP-8 removal churn) with reasoning recorded.
-  - WP-5: dropped "CSV walker untouched" -- `results.js` exports
-    rendered cell text, so `MMM YY` display dates would truncate CSV
-    release dates; date cells keep ISO in `data-export`, walker
-    prefers it.
-  - WP-7 + acceptance criterion 6: `below_min_plays`/`below_min_tracks`
-    removed from the reason-code set -- `fetch_top_albums_async` drops
-    threshold failures before the pipeline (`orchestrator.py:112-116`),
-    and near-miss retention is explicitly Batch 22+. Two reason cards,
-    not three; out-of-scope entry cross-references the deferred codes.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: WP-1 implementation must honor the amended digest
-  and dual-plugin-file requirements; batched reply posted on PR #163.

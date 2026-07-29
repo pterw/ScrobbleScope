@@ -179,9 +179,10 @@ For non-batch changes:
    **Insert the new entry directly after the end marker** (top of the
    non-current list), not at the bottom. The list is ordered newest-first
    and rotation keeps the first `--keep-non-current` entries positionally,
-   rotating the rest -- a bottom-appended entry is treated as oldest and
-   archived by the very next `--fix` run instead of staying in the
-   active window.
+   rotating the rest -- once the window is at capacity, a bottom-appended
+   entry is treated as oldest and archived by the very next `--fix` run
+   instead of staying in the active window (below capacity it is
+   retained, but top placement is still correct).
 3. Run `doc_state_sync.py --fix`.
 4. Update SESSION_CONTEXT Section 1 if the change affects test count or project state.
 
