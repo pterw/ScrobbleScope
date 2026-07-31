@@ -47,8 +47,10 @@ read-on-demand `FINDINGS.md`, and two archive directories. Each has a primary
 concern, and the design goal is that canonical facts live in exactly one
 place.
 
-`HANDOFF_PROMPT.md` condenses key rules and procedures from `AGENTS.md` into a cold-start
-checklist -- it is a convenience summary for session handoffs, not a second source of truth.
+`HANDOFF_PROMPT.md` carries only what is unique to starting and ending a
+session. It links to `AGENTS.md` for rules rather than summarising them:
+earlier versions did condense the rules into a cold-start checklist, and
+every summary eventually drifted from the text it summarised.
 
 `AGENT_NOTES.md` cross-references `AGENTS.md` for venv rules rather than
 restating them. `README.md` is excluded from the agent memory layer; it
@@ -65,13 +67,18 @@ current state, nor does it contain history. It is rarely subject to change.
 The language is deliberately prescriptive ("Must", "Do not", "Forbidden")
 because LLMs handle ambiguity poorly, and incorrect inference can lead to a broken pipeline or a mis-scoped commit.
 
-### `HANDOFF_PROMPT.md` -- Bootstrap Procedure
+### `HANDOFF_PROMPT.md` -- Session Start and Handoff
 
-The step-by-step session-start checklist given to any agent beginning
-work. Lists which files to read in what order, the validation gates to
-run before every commit, commit discipline rules, and the handoff
-procedure when leaving work for the next agent. Intended to be passed
-verbatim as context when delegating to a new agent session.
+Given to any agent beginning work, and intended to be passed verbatim as
+context when delegating to a new session. It holds the two things that
+belong to no other file: verifying that repository reality matches what
+the bootstrap documents claim (branch, recent commits, test count), and
+the checklist for handing work to the next session.
+
+The read order, validation gates, and commit discipline it once restated
+now live only in `AGENTS.md`. Each restatement had drifted from the
+canonical text -- in one case a copy silently outlived the rule it
+described -- so the copies were replaced with pointers.
 
 ### `AGENT_NOTES.md` -- Owner Context
 
