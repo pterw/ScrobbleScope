@@ -10,9 +10,9 @@ conditions, and server load.  The primary signal is whether threads that exceed
 ``MAX_ACTIVE_JOBS`` block, queue, or fail -- and whether concurrent Postgres
 cache access produces races or corrupted results.
 
-``MAX_ACTIVE_JOBS`` is configured in ``scrobblescope/config.py`` (default 10)
+``MAX_ACTIVE_JOBS`` is configured in ``scrobblescope/config.py`` (default 5)
 and enforced via a semaphore in ``scrobblescope/worker.py``.  Set
-``--concurrency`` above 10 to observe queuing and semaphore-limit behavior.
+``--concurrency`` above 5 to observe queuing and semaphore-limit behavior.
 
 Usage example::
 
@@ -243,7 +243,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     Defaults are tuned for local development (``http://localhost:5000``).
     Override ``--base-url`` for deployed instances.  Set ``--concurrency``
-    above ``MAX_ACTIVE_JOBS`` (default 10) to observe semaphore limiting.
+    above ``MAX_ACTIVE_JOBS`` (default 5) to observe semaphore limiting.
 
     Returns
     -------
