@@ -9,6 +9,26 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - PLAYBOOK Section 2 log column; tombstone disposition (side-task)
+
+- Scope: the 18 per-batch logs under `docs/history/logs/` were referenced
+  from no working doc (Section 2 had no Log column), making batch history
+  discoverable only via a directory glob.
+- Plan vs implementation: Section 2 table gained a Log column linking
+  `BATCH3_LOG.md` through `BATCH20_LOG.md` (batches 0-2 predate per-batch
+  logging); a note under the table points close-out-entry seekers at the
+  monolith archive per F-DOCSYNC-3. AGENTS.md Batch Close-Out step 3 now
+  requires filling the Log column at close-out so the column cannot go
+  stale. Investigated the two 300-byte `PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+  files under `docs/history/` and `docs/history/logs/`: they are
+  deliberate "Moved:" tombstones from the Batch 14 restructure kept for
+  backward references -- retained, disposition recorded in F-DOCSYNC-4.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: hygiene commits 3-5 follow (FINDINGS refresh,
+  MAX_ACTIVE_JOBS 5, SWE audit charter).
+
 ### 2026-07-31 - Bootstrap-doc SSOT pass: single-source rules and state (side-task)
 
 - Scope: owner-requested hygiene sweep before Batch 21 WP-1. Exploration
