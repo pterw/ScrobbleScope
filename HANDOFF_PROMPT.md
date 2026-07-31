@@ -53,13 +53,15 @@ list before every commit.
 
 ## 5) Handoff when you are done or interrupted
 
-After your changes are committed (following AGENTS.md commit rules and
-side-task handling), document completion:
+Documentation lands *in* the commit, not after it: AGENTS.md Commit Rules
+step 4 and Anti-Pattern Registry #9 require the dated Section 4 entry to
+be part of the same commit as the work it describes. So before you commit:
 
 1. Update PLAYBOOK Section 3 (mark WP done or note interruption point).
 2. Add a dated entry to PLAYBOOK Section 4 (inside current-batch markers
    for batch work; directly after the end marker for side-tasks).
 3. Run `python scripts/doc_state_sync.py --fix`.
 4. Verify `python scripts/doc_state_sync.py --check` exits 0.
-5. Stage and commit PLAYBOOK.md + `.claude/SESSION_CONTEXT.md` together.
+5. Stage PLAYBOOK.md and `.claude/SESSION_CONTEXT.md` alongside the files
+   you changed, and commit them together.
 6. State clearly what remains for the next agent.
