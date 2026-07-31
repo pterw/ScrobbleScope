@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - Owner-preferences commit-rule dedup (side-task)
+
+- Scope: final SSOT sweep found AGENT_NOTES.md Owner Preferences still
+  restating three commit-mechanics rules AGENTS.md now owns
+  (incremental staging, no co-author trailers, push/pause discipline).
+- Plan vs implementation: the four bullets collapsed into one pointer at
+  AGENTS.md Commit Rules; preference-only items (concise responses,
+  Docker/MCP pause, explain-why, Firefox testing, principles, testing
+  pyramid) stay -- they are owner context, not rules.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: hygiene plan complete (6 commits); Batch 21 WP-1 is
+  next. SSOT sweep contract now holds: commit-rule keywords, venv rules,
+  the heatmap perf figure, and batch state each have exactly one owner.
+
 ### 2026-07-31 - SWE-principles audit charter (side-task)
 
 - Scope: charter the owner-requested audit of the ten mandated software

@@ -149,6 +149,45 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - PR #165 Copilot review round 3 (side-task)
+
+- Scope: round 3 again returned zero visible comments and three
+  suppressed ones. Two acted on in full, one acted on in part.
+  Suppressed-block tally now 16/16 across #163, #164, and #165.
+- Plan vs implementation:
+  - `docs/SWE_AUDIT_CHARTER.md` Section 3 copied the ten principle names
+    from AGENT_NOTES.md and **had already drifted**: the copy dropped the
+    definitions for Dependency Inversion, Least Knowledge, and Fail Fast,
+    and truncated SRP from "single responsibility per module/function".
+    This is the rare case where the drift was demonstrable rather than
+    hypothetical, so the copy is gone. The section now points at
+    AGENT_NOTES.md and keeps only the two audit-specific methods (Clean
+    Architecture via the SESSION_CONTEXT Section 4 acyclic graph, Boy
+    Scout via git history).
+  - `docs/SWE_AUDIT_CHARTER.md` Section 6 restated side-task entry
+    placement that AGENTS.md Side-Task Handling owns -- and round 2 had
+    just renumbered that section, so the charter was already a rewrite
+    away from being wrong. Delegated.
+  - `HANDOFF_PROMPT.md` Section 1 restated the bootstrap-conflict rule
+    verbatim from AGENTS.md:64-65 inside a paragraph that claims rules
+    "are not restated here". Removed.
+- Deviations: **partially declined** the reviewer's request to also strip
+  "Do not push without owner instruction" from the charter's commit step.
+  Verified AGENTS.md:171 owns it, so the SSOT argument is technically
+  right, but that line sits at the point of action for a cold-start
+  executor (the charter is written so Codex can run it without prior
+  context) and a push is not reversible. Deliberate safety redundancy is
+  worth one line. Removed the same sentence from HANDOFF_PROMPT Section 1
+  by contrast, because there the reader is being sent to AGENTS.md in the
+  very same paragraph, so the copy buys nothing.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: watch for diminishing returns. Rounds 1-3 were all
+  genuine, but the remaining duplication is increasingly load-bearing
+  context for cold-start executors; judge each on whether the copy can
+  drift *and* whether losing it costs a reader who cannot see the source.
+  Batch 21 WP-1 remains the next action.
+
 ### 2026-07-31 - PR #165 Copilot review round 2 (side-task)
 
 - Scope: round 2 returned **zero visible comments and five suppressed
@@ -247,19 +286,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: WP-1 can now be executed by any agent from the
   definition alone; compiled CSS remains the WP-1 deliverable.
-
-### 2026-07-31 - Owner-preferences commit-rule dedup (side-task)
-
-- Scope: final SSOT sweep found AGENT_NOTES.md Owner Preferences still
-  restating three commit-mechanics rules AGENTS.md now owns
-  (incremental staging, no co-author trailers, push/pause discipline).
-- Plan vs implementation: the four bullets collapsed into one pointer at
-  AGENTS.md Commit Rules; preference-only items (concise responses,
-  Docker/MCP pause, explain-why, Firefox testing, principles, testing
-  pyramid) stay -- they are owner context, not rules.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: hygiene plan complete (6 commits); Batch 21 WP-1 is
-  next. SSOT sweep contract now holds: commit-rule keywords, venv rules,
-  the heatmap perf figure, and batch state each have exactly one owner.
