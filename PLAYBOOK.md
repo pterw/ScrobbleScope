@@ -149,6 +149,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - FINDINGS refresh: batch-closure pointers, F-DOCSYNC-4, F-SWE-1 (side-task)
+
+- Scope: owner-flagged staleness in FINDINGS.md -- open P1 items that
+  Batch 21's definition already promises to close carried no pointer,
+  and F-B20-4 paraphrased the whole definition.
+- Plan vs implementation:
+  - F-B20-3: remedy rewritten -- the 5.1->5.3 CDN-consolidation path is
+    dead; Batch 21 resolves the split by eliminating Bootstrap (closes
+    at WP-8). F-AUDIT-1: closes at Batch 21 WP-2 via acceptance
+    criterion 8. F-B18-12 deferred-block line marked as in-batch scope
+    (WP-6). F-B20-4 compressed to a pointer at `BATCH21_DEFINITION.md`.
+    F-FEATURE-2 line reformatted as a greppable cross-ref bullet.
+  - New F-DOCSYNC-4 (resolved): per-batch logs were undiscoverable until
+    the Section 2 Log column landed; records the tombstone disposition.
+  - New F-SWE-1 (open P1): SWE-principles audit chartered via
+    `docs/SWE_AUDIT_CHARTER.md` (next commit), executable cold by a
+    dedicated Claude or Codex session; closes by pointing at the report.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: F-LOAD-1's "N/10" phrasing updates with the
+  MAX_ACTIVE_JOBS default change (next commit); charter follows.
+
 ### 2026-07-31 - PLAYBOOK Section 2 log column; tombstone disposition (side-task)
 
 - Scope: the 18 per-batch logs under `docs/history/logs/` were referenced
@@ -236,22 +259,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: WP-1 next on the realigned branch; open a fresh PR
   for the next review cycle when WP work lands.
-
-### 2026-07-29 - PR #163 review response, round 4 (side-task)
-
-- Scope: Copilot round 4 -- one suppressed comment. Verified valid and
-  acted on.
-- Plan vs implementation: the archived coverage-refresh entry cited
-  "the CLAUDE.md canonical command", but CLAUDE.md is gitignored
-  (`.gitignore:49`) and repo-invisible; the command is documented at
-  README.md "Running Tests". Reference corrected in the monolith
-  archive entry.
-- Deviations: none. Distinction from the PR #162 round-3 decline on
-  editing rotated entries: that citation was accurate at write time and
-  went stale (point-in-time record, left alone); this one was
-  repo-invisible at write time -- a sourcing error that defeats the
-  record's verifiability, so it is corrected rather than preserved.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: review rounds have reached citation polish;
-  recommend merging or pausing auto-review re-requests. WP-1 next.

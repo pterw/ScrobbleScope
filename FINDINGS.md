@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-07-28
+Last updated: 2026-07-31
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0 done, WP-1 next. 390 tests across 22 test modules.
 
@@ -45,16 +45,18 @@ roadmap; absorbs F-B18-7. Status: open. Source: Batch 18 audit.
 ### F-B20-3: Bootstrap CDN source consolidation
 
 `base.html` loads Bootstrap CSS from cdnjs while `index.html` loads the
-JS bundle from jsdelivr; other pages use cdnjs. Consolidate to a single
-provider before any Bootstrap 5.1 -> 5.3 upgrade.
-Status: open. Source: F-B19-4 owner review; README roadmap companion.
+JS bundle from jsdelivr; other pages use cdnjs. The original remedy
+(consolidate to one provider before a Bootstrap 5.1 -> 5.3 upgrade) is
+dead: Batch 21 removes Bootstrap entirely and resolves the split by
+elimination (`BATCH21_DEFINITION.md` WP-8 "closes F-B20-3").
+Status: open; closes at Batch 21 WP-8. Source: F-B19-4 owner review.
 
-### F-B20-4: UI overhaul (driven by owner audit PDF)
+### F-B20-4: UI overhaul (driven by owner audit)
 
-Global font stack, palette integration, index card rework, and the
-remaining F-B19-4 audit notes; Batch 21 main scope, possible Batch 22
-contingency. Status: open; scope lands via `BATCH21_DEFINITION.md`.
-Source: owner audit PDF + F-B19-4 owner review.
+Scope, locked decisions, and acceptance criteria live entirely in
+`BATCH21_DEFINITION.md` (active batch) -- this entry is a pointer, not a
+second copy. Status: in progress (Batch 21 active, WP-0 done).
+Source: owner audit (UI Audit v3) + F-B19-4 owner review.
 
 ### F-B18-11: heatmap Last.fm page fetch is rate-limit bound
 
@@ -73,8 +75,10 @@ Status: open. Source: load testing 2026-03-04.
 
 ### F-AUDIT-1: dark-mode toggle placement on mobile
 
-Fixed-position footer toggle may overlap content on small screens; minor
-CSS polish, also a Batch 21 note. Status: open. Source: AUDIT_2026-02-11.
+Fixed-position footer toggle may overlap content on small screens.
+Batch 21 moves the toggle into the standing header bar; acceptance
+criterion 8 states "toggle meets tap-target size (closes F-AUDIT-1)".
+Status: open; closes at Batch 21 WP-2. Source: AUDIT_2026-02-11.
 
 ### F-LOAD-2: no integration tests in CI
 
@@ -102,6 +106,18 @@ README roadmap. Status: open. Source: DOCSYNC_AUDIT Finding 6.
 
 Suggested split: integration / cross-validate / archive-routing.
 Status: open. Source: MULTI_AGENT_SWEEP.
+
+### F-SWE-1: SWE-principles audit chartered, pending execution
+
+No differential check of the ten mandated software principles
+(AGENT_NOTES.md Owner Preferences) has run since the 2026-02 audits.
+`docs/SWE_AUDIT_CHARTER.md` defines scope (Python only until Batch 21
+ships), the do-not-re-report baseline, method, and output contract; any
+dedicated single-purpose agent session (Claude or Codex) can execute it
+cold. Report lands as `docs/history/SWE_PRINCIPLES_AUDIT_<date>.md` with
+net-new findings as F-SWE-2 onward; this entry closes by pointing at the
+report. Status: open (chartered 2026-07-31, execution pending).
+Source: owner request 2026-07-31.
 
 ### F-MAS-4: broad `except Exception` catches
 
@@ -136,6 +152,19 @@ then one-time re-route of the existing close-out entries); hand-retagging
 machine-rotated archive content was declined in PR #162 round 3 and again
 in PR #163 round 3 on the same point-in-time principle.
 Status: open (P2). Source: PR #163 review round 3.
+
+### F-DOCSYNC-4: per-batch logs were undiscoverable; tombstones retained
+
+Until 2026-07-31 the 18 `docs/history/logs/BATCHN_LOG.md` files were
+referenced by no working doc (PLAYBOOK Section 2 had no Log column), so
+batch history was reachable only via a directory glob. Fixed: Section 2
+gained a Log column and the AGENTS.md close-out procedure fills it per
+batch. Related disposition: the two ~300-byte
+`PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` files under `docs/history/` and
+`docs/history/logs/` are deliberate Batch 14 "Moved:" tombstones kept
+for backward references -- not cruft, do not delete.
+Status: resolved 2026-07-31; rotates to the archive at Batch 21
+close-out. Source: PR #163 doc-hygiene pass.
 
 ### F-MAS-5: in-memory JOBS dict limits horizontal scaling
 
@@ -194,7 +223,8 @@ audits; 2026-03-04 load-test data is in the findings archive.
 - F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2.
 - F-B18-10: heatmap + album jobs share the 10 req/s throttle (by design).
 - F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`);
-  Batch 21 UI candidate.
+  in Batch 21 scope (WP-6, acceptance criterion 8) -- no longer a
+  future-batch candidate.
 - F-B19-3: last.timer aggregate endpoints are not a drop-in heatmap
   speedup; future perf experiments listed in the archive.
 - F-B19-4: front-end UI audit notes -- basis of `BATCH21_DEFINITION.md`.
@@ -208,8 +238,8 @@ audits; 2026-03-04 load-test data is in the findings archive.
 Rank most-played tracks for a year (separate task type + loading/results
 flow). Status: deferred; on the README roadmap. Source: owner roadmap.
 
-F-FEATURE-2 (listening heatmap) shipped in Batches 18/19 and is now
-archived; perf follow-ups continue as F-B18-11.
+- F-FEATURE-2: listening heatmap -- shipped in Batches 18/19, archived;
+  perf follow-ups continue as F-B18-11.
 
 ---
 

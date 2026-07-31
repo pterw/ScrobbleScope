@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-29 - PR #163 review response, round 4 (side-task)
+
+- Scope: Copilot round 4 -- one suppressed comment. Verified valid and
+  acted on.
+- Plan vs implementation: the archived coverage-refresh entry cited
+  "the CLAUDE.md canonical command", but CLAUDE.md is gitignored
+  (`.gitignore:49`) and repo-invisible; the command is documented at
+  README.md "Running Tests". Reference corrected in the monolith
+  archive entry.
+- Deviations: none. Distinction from the PR #162 round-3 decline on
+  editing rotated entries: that citation was accurate at write time and
+  went stale (point-in-time record, left alone); this one was
+  repo-invisible at write time -- a sourcing error that defeats the
+  record's verifiability, so it is corrected rather than preserved.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: review rounds have reached citation polish;
+  recommend merging or pausing auto-review re-requests. WP-1 next.
+
 ### 2026-07-28 - PR #163 review response, round 3 (side-task)
 
 - Scope: Copilot round 3 -- three suppressed low-confidence comments.
