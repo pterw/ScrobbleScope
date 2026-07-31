@@ -31,18 +31,9 @@ discrepancy before doing any work.
 
 ## 2) Validation gates (run before every commit)
 
-The three-command gate (`pytest -q`, `pre-commit run --all-files`,
-`python scripts/doc_state_sync.py --check`) is defined in `AGENTS.md`
-Commit Rules ("Procedure before every commit"). A `Root BATCH file
-detected` warning from `--check` is expected while an active batch
-definition is intentionally at repo root and named in PLAYBOOK Section 3;
-it disappears at batch close-out.
-
-After editing PLAYBOOK Section 4:
-
-```bash
-python scripts/doc_state_sync.py --fix
-```
+Owned by `AGENTS.md` (Commit Rules "Procedure before every commit", and
+Doc Sync Rules for the `--fix` step). Do not restate or re-derive them
+here -- read them there.
 
 ---
 
