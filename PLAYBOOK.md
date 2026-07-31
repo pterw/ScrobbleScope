@@ -149,6 +149,27 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - SWE-principles audit charter (side-task)
+
+- Scope: charter the owner-requested audit of the ten mandated software
+  principles so a dedicated single-purpose session (Claude or Codex) can
+  execute it cold, without this session's context.
+- Plan vs implementation: new `docs/SWE_AUDIT_CHARTER.md` front-loads
+  all judgment -- Python-only scope (JS/templates excluded until
+  Batch 21 ships them), a do-not-re-report differential baseline
+  (F-MAS-*, F-B20-2, prior 2026-02 audits, standing design decisions),
+  pre-identified hotspots (the three ~110-150 line functions and the 17
+  `except Exception` sites), a 10-principle x module grading matrix
+  with per-cell evidence, and a strict output contract (a dated
+  SWE_PRINCIPLES_AUDIT report under the history archive plus net-new
+  F-SWE-N findings only; read-only, no code changes). Tracked as
+  F-SWE-1.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: execution is decoupled -- run whenever convenient
+  (Codex costs no Claude tokens). Batch 21 WP-1 is unblocked and next.
+
 ### 2026-07-31 - MAX_ACTIVE_JOBS default 10 -> 5 (side-task)
 
 - Scope: owner decision. The 2026-03-04 load test ran 2/3/5 concurrent
@@ -217,44 +238,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: hygiene commits 3-5 follow (FINDINGS refresh,
   MAX_ACTIVE_JOBS 5, SWE audit charter).
-
-### 2026-07-31 - Bootstrap-doc SSOT pass: single-source rules and state (side-task)
-
-- Scope: owner-requested hygiene sweep before Batch 21 WP-1. Exploration
-  confirmed AGENTS.md and HANDOFF_PROMPT.md contradicted each other
-  (bootstrap order, sufficiency gate, pre-commit gate, ownership map),
-  commit discipline existed in 3-4 copies, the heatmap perf measurement
-  in 4 copies, and AGENT_NOTES.md carried live batch state under a
-  shipped-feature heading plus Batch 19 residue and a pointer to a
-  non-repo file.
-- Plan vs implementation:
-  - AGENTS.md is now the single owner of rules: canonical 7-step
-    bootstrap order (AGENTS.md itself is step 1), the stricter 3-way
-    sufficiency gate, a 6-step pre-commit procedure including the
-    doc_state_sync --check gate, the conflict-resolution rule, and four
-    new anti-patterns (never --no-verify; stale Section 3; missing log
-    entries; stale dashboard figures -- the ~72% coverage figure
-    survived five months while reality was 89%). Docstring mandate moved
-    into Proposal and Design Rules.
-  - HANDOFF_PROMPT.md reduced to what it uniquely owns: post-read
-    verification (git status/log + pytest count reconciliation) and the
-    end-of-session handoff checklist; all rule sections now link to
-    AGENTS.md instead of restating.
-  - AGENT_NOTES.md: batch state moved out (PLAYBOOK Section 3 declared
-    the single source); Heatmap section retitled shipped and trimmed of
-    Batch 19 residue; venv rules and runtime constants replaced with
-    links to their owners; load-test pointer now inlines the conclusion
-    (2/3/5 clean, 10 never completed) and flags the raw data as
-    agent-side; Talisman note repointed to the archived Batch 17 log;
-    orchestrator-split note repointed to F-B20-2; the ten software
-    principles expanded from bare acronyms.
-  - SESSION_CONTEXT: Section 3 now lists all 7 CSS / 7 JS files and the
-    template set (Batch 21 touches exactly these); heatmap perf trimmed
-    to an F-B18-11 pointer here and in PLAYBOOK Section 3 -- F-B18-11 is
-    the only full copy of the measurement.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: commits 2-5 of the approved hygiene plan follow
-  (PLAYBOOK log column, FINDINGS refresh, MAX_ACTIVE_JOBS 5, SWE audit
-  charter); then Batch 21 WP-1.
