@@ -1,77 +1,42 @@
 # Agent Hand-Off Prompt
 
-You are continuing work on ScrobbleScope. Follow the comment-job fast-path in
-`AGENTS.md` when the task is a PR comment/review-comment fix. Otherwise, read
-the bootstrap files below before doing anything else.
+You are continuing work on ScrobbleScope. Follow the comment-job fast-paths
+in `AGENTS.md` (Session Bootstrap) when the task is a PR comment or
+review-comment fix. Otherwise bootstrap first.
 
 ---
 
-## 1) Bootstrap (required -- read in this order)
+## 1) Bootstrap
 
-**Comment/review-job fast-path:**
-- When no direct review-comment link is supplied: first determine whether
-  there is any actionable new `@copilot` comment. If none are actionable,
-  stop immediately without full bootstrap.
-- If the prompt links to a single review comment or `discussion_r...` URL,
-  fetch that thread first and inspect only the touched file plus the minimum
-  nearby bootstrap context needed for that thread.
-- Open the batch definition, archive/history docs, and `AGENT_NOTES.md` only
-  when the linked comment depends on them.
-
-Canonical source order:
-- `AGENTS.md` owns stable rules.
-- `HANDOFF_PROMPT.md` owns session-start procedure and commit discipline.
-- `PLAYBOOK.md` owns active work order and execution log.
-- `.claude/SESSION_CONTEXT.md` mirrors current state for fast orientation.
-- `AGENT_NOTES.md` owns owner preferences and local constraints.
-
-If two bootstrap files conflict, follow the stricter safety rule and pause
-only when the conflict affects the next action. In particular, never push
+The canonical read order, document roles, token discipline, and sufficiency
+gate are defined once in `AGENTS.md` ("Document Roles" and "Session
+Bootstrap") -- follow them exactly; they are not restated here. If two
+bootstrap files conflict, follow the stricter safety rule and pause only
+when the conflict affects the next action. In particular, never push
 without explicit owner instruction.
 
-1. `AGENTS.md` -- rules, commit format, docsync policy, anti-patterns.
-2. `PLAYBOOK.md` Section 3 (active batch + next WP) + Section 4 (log).
-3. The batch definition file named in PLAYBOOK Section 3.
-   Active batch: definition file is at repo root (`BATCHN_DEFINITION.md`).
-   Between batches: no definition file exists yet -- skip this step.
-   Completed batches: file is under `docs/history/definitions/`.
-4. `.claude/SESSION_CONTEXT.md` -- **required**, not optional.
-   Read Section 1 (current state + test count) and Section 2 (status block)
-   at minimum. Sections 3-5 if you need structure, dependency, or architecture detail.
-5. `AGENT_NOTES.md` (repo root) -- owner preferences, local dev setup,
-   architectural constraints, and known issues. Tracked in the repo;
-   readable by all agents.
-6. `FINDINGS.md` -- on demand only: read when PLAYBOOK Section 4 or your
-   task references an F-* finding ID or an open P0/P1 item. Not part of
-   the mandatory set. Finding-writing rules live in `AGENTS.md`.
-
-After reading the five core files, run:
+After reading the bootstrap files, verify reality matches the docs:
 
 ```bash
 git status
 git log --oneline -5
 ```
 
-Verify the branch, last commits, and any staged/modified files match what
-PLAYBOOK Section 3 describes. If they do not match, resolve the discrepancy
-before doing any work.
-
-If PLAYBOOK Section 3, the definition file, and SESSION_CONTEXT Section 1
-all agree on what is done and what is next, you have enough context to start.
+Confirm the branch, last commits, and any staged/modified files match what
+PLAYBOOK Section 3 describes, and that `pytest -q` matches the test count
+in SESSION_CONTEXT Section 1. If anything does not match, resolve the
+discrepancy before doing any work.
 
 ---
 
 ## 2) Validation gates (run before every commit)
 
-```bash
-pytest -q
-pre-commit run --all-files
-python scripts/doc_state_sync.py --check
-```
-
-A `Root BATCH file detected` warning is expected while an active batch
-definition is intentionally at repo root and named in PLAYBOOK Section 3.
-It should disappear during batch close-out after the definition is archived.
+The three-command gate (`pytest -q`, `pre-commit run --all-files`,
+`python scripts/doc_state_sync.py --check`) is defined in `AGENTS.md`
+Commit Rules ("Procedure before every commit"). A `Root BATCH file
+detected` warning from `--check` is expected while an active batch
+definition is intentionally at repo root and named in PLAYBOOK Section 3;
+it disappears at batch close-out.
 
 After editing PLAYBOOK Section 4:
 
@@ -83,39 +48,26 @@ python scripts/doc_state_sync.py --fix
 
 ## 3) Commit discipline
 
-- Conventional Commits, imperative mood, max 72 chars. No co-author trailers.
-- Stage files by name only. Never `git add -A` or `git add .`.
-- One commit per WP.
-- **Do NOT push without explicit owner instruction.** Pause after each commit.
-- Update PLAYBOOK Section 3 + Section 4 BEFORE committing.
-- Batch log entries use `(Batch N WP-X)` tag in the heading.
-- `.claude/SESSION_CONTEXT.md` is committed and shared across all agents.
-  Stage and commit it whenever it changes -- do not leave it modified and unstaged.
+Owned by `AGENTS.md` (Commit Rules and Side-Task Handling). Do not restate
+or re-derive it here -- read it there.
 
 ---
 
-## 4) Anti-patterns (do not do these)
+## 4) Anti-patterns
 
-1. **SoC/DRY violations:** Each module has one responsibility. Extract shared
-   logic rather than duplicating it. File size is not the constraint -- SoC/DRY
-   is. All functions require comprehensive docstrings and inline comments on
-   non-obvious logic.
-2. **Vacuous tests:** Every test must fail if the function under test is deleted.
-3. **Bulk staging:** Never `git add -A` or `git add .`. Stage specific files only.
-4. **Skipping hooks:** Never `--no-verify`. Fix the hook failure instead.
-5. **Stale Section 3:** PLAYBOOK Section 3 must reflect true WP state at all times.
-6. **Missing log entries:** Every WP commit needs a dated Section 4 entry inside
-   the `DOCSYNC:CURRENT-BATCH-START/END` markers.
+Owned by `AGENTS.md` (Anti-Pattern Registry). Check your work against that
+list before every commit.
 
 ---
 
 ## 5) Handoff when you are done or interrupted
 
-After your code changes are committed (following AGENTS.md commit rules
-and side-task handling), document completion:
+After your changes are committed (following AGENTS.md commit rules and
+side-task handling), document completion:
 
 1. Update PLAYBOOK Section 3 (mark WP done or note interruption point).
-2. Add dated entry to PLAYBOOK Section 4 (inside current-batch markers).
+2. Add a dated entry to PLAYBOOK Section 4 (inside current-batch markers
+   for batch work; directly after the end marker for side-tasks).
 3. Run `python scripts/doc_state_sync.py --fix`.
 4. Verify `python scripts/doc_state_sync.py --check` exits 0.
 5. Stage and commit PLAYBOOK.md + `.claude/SESSION_CONTEXT.md` together.

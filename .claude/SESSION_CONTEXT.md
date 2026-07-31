@@ -31,10 +31,8 @@ Last updated: 2026-07-28
 - Cold-start validated 2026-02-19 (both app + DB auto-wake on demand).
 - DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
   elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
-- **Heatmap perf (measured 2026-05-16):** 10.9s for 103 pages (`flounder14`).
-  `lastfm.py` already uses `limit=200` and concurrent `as_completed` fetching.
-  10.9s is the rate-limit floor (103 pages / 10 req/s). No further optimization
-  without heatmap-specific caching or rate-limit risk. See FINDINGS.md F-B18-11.
+- Heatmap fetch speed is rate-limit bound; measurement and rationale live in
+  FINDINGS.md F-B18-11 (single source).
 
 ---
 
@@ -57,7 +55,7 @@ Last updated: 2026-07-28
 ## 3. Project structure
 
 ```
-app.py                      # create_app() factory (~152 lines)
+app.py                      # create_app() factory (~150 lines)
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # SpotifyUnavailableError, ERROR_CODES
@@ -71,11 +69,11 @@ scrobblescope/
   orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
   routes.py                 # Flask Blueprint, all route + error handlers
-templates/
-  inline/scrobblescope_pinwheel.svg  # animated pinwheel loading spinner
+templates/                  # base, index, loading, results, unmatched, error
+  inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark)
 static/
-  css/heatmap.css            # heatmap pill tabs, form, loading, result styles
-  js/heatmap.js              # pill switching, AJAX, polling, SVG grid, tooltips
+  css/                      # global, index, loading, results, unmatched, error, heatmap (7 files)
+  js/                       # theme, index, loading, results, unmatched, error, heatmap (7 files)
 ```
 
 ---
