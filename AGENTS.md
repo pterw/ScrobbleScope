@@ -337,7 +337,8 @@ When all WPs in the active batch are committed and validated:
 2. **Archive the definition file:** rename `BATCHN_PROPOSAL.md` (or equivalent)
    to `docs/history/definitions/BATCHN_DEFINITION.md` using `git mv`.
 3. **Update PLAYBOOK Section 2** table: add a row for the batch linking to
-   `docs/history/definitions/BATCHN_DEFINITION.md`.
+   `docs/history/definitions/BATCHN_DEFINITION.md`, and fill the Log column
+   with `docs/history/logs/BATCHN_LOG.md`.
 4. **Update SESSION_CONTEXT** Section 1 batch status row: `**Complete**. All N WPs done.
    Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
 5. **Run `--fix` again** to refresh the STATUS block.

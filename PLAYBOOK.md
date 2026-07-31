@@ -26,30 +26,33 @@ Completed batch definitions are archived individually under `docs/history/`.
 
 ### Completed batches (definitions archived)
 
-| Batch | Title | Definition |
-|-------|-------|------------|
-| 0 | Baseline freeze + approval parity suite | `docs/history/definitions/BATCH0_DEFINITION.md` |
-| 1 | Proper upstream failure state + retry UX | `docs/history/definitions/BATCH1_DEFINITION.md` |
-| 2 | Personalized minimum listening year | `docs/history/definitions/BATCH2_DEFINITION.md` |
-| 3 | Remove nested thread pattern | `docs/history/definitions/BATCH3_DEFINITION.md` |
-| 4 | Expand test coverage significantly | `docs/history/definitions/BATCH4_DEFINITION.md` |
-| 5 | Docstring + comment normalization | `docs/history/definitions/BATCH5_DEFINITION.md` |
-| 6 | Frontend refinement/tweaks | `docs/history/definitions/BATCH6_DEFINITION.md` |
-| 7 | Persistent metadata layer (Postgres) | `docs/history/definitions/BATCH7_DEFINITION.md` |
-| 8 | Modular refactor (app factory + blueprints) | `docs/history/definitions/BATCH8_DEFINITION.md` |
-| 9 | Audit remediation (WP-1 through WP-8) | `docs/history/definitions/BATCH9_DEFINITION.md` |
-| 10 | Gemini audit remediation (WP-1 through WP-9) | `docs/history/definitions/BATCH10_DEFINITION_2026-02-21.md` |
-| 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | `docs/history/definitions/BATCH11_DEFINITION.md` |
-| 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/definitions/BATCH12_DEFINITION.md` |
-| 13 | Internal decomposition and coverage hardening | `docs/history/definitions/BATCH13_DEFINITION.md` |
-| 14 | Doc hygiene (archive restructure, docsync package, per-batch routing) | `docs/history/definitions/BATCH14_DEFINITION.md` |
-| 15 | Alignment, hardening, and handoff | `docs/history/definitions/BATCH15_DEFINITION.md` |
-| 16 | Script hygiene, local dev hardening, and integration testing | `docs/history/definitions/BATCH16_DEFINITION.md` |
-| 17 | Agent bootstrap hardening, CI/CD improvements, and dep pinning | `docs/history/definitions/BATCH17_DEFINITION.md` |
-| 18 | Scrobble heatmap -- iteration 1 | `docs/history/definitions/BATCH18_DEFINITION.md` |
-| 19 | Heatmap polish -- frame, KPIs, mobile layout | `docs/history/definitions/BATCH19_DEFINITION.md` |
-| 20 | File-hygiene + docs methodology refresh | `docs/history/definitions/BATCH20_DEFINITION.md` |
-| 21 | UI overhaul -- Tailwind + daisyUI migration | `BATCH21_DEFINITION.md` |
+| Batch | Title | Definition | Log |
+|-------|-------|------------|-----|
+| 0 | Baseline freeze + approval parity suite | `docs/history/definitions/BATCH0_DEFINITION.md` | -- |
+| 1 | Proper upstream failure state + retry UX | `docs/history/definitions/BATCH1_DEFINITION.md` | -- |
+| 2 | Personalized minimum listening year | `docs/history/definitions/BATCH2_DEFINITION.md` | -- |
+| 3 | Remove nested thread pattern | `docs/history/definitions/BATCH3_DEFINITION.md` | `docs/history/logs/BATCH3_LOG.md` |
+| 4 | Expand test coverage significantly | `docs/history/definitions/BATCH4_DEFINITION.md` | `docs/history/logs/BATCH4_LOG.md` |
+| 5 | Docstring + comment normalization | `docs/history/definitions/BATCH5_DEFINITION.md` | `docs/history/logs/BATCH5_LOG.md` |
+| 6 | Frontend refinement/tweaks | `docs/history/definitions/BATCH6_DEFINITION.md` | `docs/history/logs/BATCH6_LOG.md` |
+| 7 | Persistent metadata layer (Postgres) | `docs/history/definitions/BATCH7_DEFINITION.md` | `docs/history/logs/BATCH7_LOG.md` |
+| 8 | Modular refactor (app factory + blueprints) | `docs/history/definitions/BATCH8_DEFINITION.md` | `docs/history/logs/BATCH8_LOG.md` |
+| 9 | Audit remediation (WP-1 through WP-8) | `docs/history/definitions/BATCH9_DEFINITION.md` | `docs/history/logs/BATCH9_LOG.md` |
+| 10 | Gemini audit remediation (WP-1 through WP-9) | `docs/history/definitions/BATCH10_DEFINITION_2026-02-21.md` | `docs/history/logs/BATCH10_LOG.md` |
+| 11 | Gemini Priority 2 audit remediation (SoC, DRY, architecture) | `docs/history/definitions/BATCH11_DEFINITION.md` | `docs/history/logs/BATCH11_LOG.md` |
+| 12 | Polish and observability (CSS, formatting, SoC, progress) | `docs/history/definitions/BATCH12_DEFINITION.md` | `docs/history/logs/BATCH12_LOG.md` |
+| 13 | Internal decomposition and coverage hardening | `docs/history/definitions/BATCH13_DEFINITION.md` | `docs/history/logs/BATCH13_LOG.md` |
+| 14 | Doc hygiene (archive restructure, docsync package, per-batch routing) | `docs/history/definitions/BATCH14_DEFINITION.md` | `docs/history/logs/BATCH14_LOG.md` |
+| 15 | Alignment, hardening, and handoff | `docs/history/definitions/BATCH15_DEFINITION.md` | `docs/history/logs/BATCH15_LOG.md` |
+| 16 | Script hygiene, local dev hardening, and integration testing | `docs/history/definitions/BATCH16_DEFINITION.md` | `docs/history/logs/BATCH16_LOG.md` |
+| 17 | Agent bootstrap hardening, CI/CD improvements, and dep pinning | `docs/history/definitions/BATCH17_DEFINITION.md` | `docs/history/logs/BATCH17_LOG.md` |
+| 18 | Scrobble heatmap -- iteration 1 | `docs/history/definitions/BATCH18_DEFINITION.md` | `docs/history/logs/BATCH18_LOG.md` |
+| 19 | Heatmap polish -- frame, KPIs, mobile layout | `docs/history/definitions/BATCH19_DEFINITION.md` | `docs/history/logs/BATCH19_LOG.md` |
+| 20 | File-hygiene + docs methodology refresh | `docs/history/definitions/BATCH20_DEFINITION.md` | `docs/history/logs/BATCH20_LOG.md` |
+| 21 | UI overhaul -- Tailwind + daisyUI migration | `BATCH21_DEFINITION.md` | active -- Section 4 |
+
+Close-out entries for each batch currently live in the monolith archive,
+not the per-batch log (see FINDINGS F-DOCSYNC-3).
 
 ### Open decisions (owner confirmation needed)
 
@@ -146,6 +149,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - PLAYBOOK Section 2 log column; tombstone disposition (side-task)
+
+- Scope: the 18 per-batch logs under `docs/history/logs/` were referenced
+  from no working doc (Section 2 had no Log column), making batch history
+  discoverable only via a directory glob.
+- Plan vs implementation: Section 2 table gained a Log column linking
+  `BATCH3_LOG.md` through `BATCH20_LOG.md` (batches 0-2 predate per-batch
+  logging); a note under the table points close-out-entry seekers at the
+  monolith archive per F-DOCSYNC-3. AGENTS.md Batch Close-Out step 3 now
+  requires filling the Log column at close-out so the column cannot go
+  stale. Investigated the two 300-byte `PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+  files under `docs/history/` and `docs/history/logs/`: they are
+  deliberate "Moved:" tombstones from the Batch 14 restructure kept for
+  backward references -- retained, disposition recorded in F-DOCSYNC-4.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: hygiene commits 3-5 follow (FINDINGS refresh,
+  MAX_ACTIVE_JOBS 5, SWE audit charter).
+
 ### 2026-07-31 - Bootstrap-doc SSOT pass: single-source rules and state (side-task)
 
 - Scope: owner-requested hygiene sweep before Batch 21 WP-1. Exploration
@@ -232,29 +255,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: review rounds have reached citation polish;
   recommend merging or pausing auto-review re-requests. WP-1 next.
-
-### 2026-07-28 - PR #163 review response, round 3 (side-task)
-
-- Scope: Copilot round 3 -- three suppressed low-confidence comments.
-  Two acted on, one deferred to FINDINGS with a decline on the PR.
-- Plan vs implementation:
-  - Acted: `global.css` joins the WP-2 legacy per-page stack -- verified
-    it carries Bootstrap-coupled `.card`/`.card-body`/`.modal-*` rules
-    (`global.css:141-199`) that would restyle daisyUI components if it
-    stayed in `base.html`; token/wordmark/shell concerns redistributed
-    (daisyUI themes + `shell.css`).
-  - Acted: WP-8 drift hook diff scoped with a pathspec
-    (`git diff --exit-code -- static/css/tailwind.css`) so unrelated
-    dirty files or rewrites from earlier hooks in the same run cannot
-    produce false drift failures.
-  - Deferred: retagging the Batch 20 close-out entry in the monolith
-    archive. The routing claim is correct, but it is consistent tool
-    behavior (`(Batch N close-out)` is not parser-recognized;
-    BATCH19_LOG.md lacks its close-out too), and hand-editing
-    machine-rotated archive content in a docs PR was declined and
-    accepted in PR #162 round 3. Logged as F-DOCSYNC-3 (open P2) for a
-    docsync WP alongside F-DOCSYNC-1/2.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: WP-1 remains next; batched reply posted on PR #163.
