@@ -24,7 +24,8 @@ Last updated: 2026-07-28
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
-- `MAX_ACTIVE_JOBS` (default 10) caps concurrent background jobs via `worker.py`.
+- `MAX_ACTIVE_JOBS` (default 5 since 2026-07-31; was 10) caps concurrent
+  background jobs via `worker.py`.
 - `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 - `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
 - `_PLAYTIME_ALBUM_CAP = 500` in `orchestrator.py` limits Spotify fetch for playtime sort.

@@ -69,8 +69,9 @@ session 2026-05-16.
 
 ### F-LOAD-1: concurrent-user UX when job slots are full
 
-With all 10 `MAX_ACTIVE_JOBS` slots busy, users get "Too many requests in
-progress" with no occupancy hint; "N/10 slots in use" would help.
+With all `MAX_ACTIVE_JOBS` slots busy (default 5 since 2026-07-31; was
+10), users get "Too many requests in progress" with no occupancy hint;
+"N/5 slots in use" would help.
 Status: open. Source: load testing 2026-03-04.
 
 ### F-AUDIT-1: dark-mode toggle placement on mobile

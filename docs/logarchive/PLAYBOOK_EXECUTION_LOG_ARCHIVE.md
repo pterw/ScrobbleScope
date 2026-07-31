@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-29 - PR #164 phantom cleanup + review response (side-task)
+
+- Scope: PR #163 was rebase-merged, leaving `wip/batch-21` "8 ahead /
+  8 behind" (identical content, different SHAs -- normal rebase-merge
+  artifact). The owner opened PR #164 from the stale branch; Copilot
+  re-reviewed the phantom diff and left three NEW valid comments that
+  four prior rounds missed. PR #164 closed with explanation; branch
+  force-pushed to match `main`; all three fixes applied here.
+- Plan vs implementation:
+  - WP-4: leaving the loading page is now a plain "Back home" link with
+    no `/reset_progress` call -- the endpoint clears stored job state
+    only (`routes.py:227-238`); the daemon worker keeps its slot and
+    rewrites the job afterward, so a "Cancel" label would be misleading
+    and the reset racy.
+  - WP-1: digest verification extended to cached artifacts (verify on
+    every use, refetch once on mismatch, fail closed) -- gitignored
+    `scripts/bin/` persists between runs, so download-time-only checks
+    leave a bypass.
+  - AGENTS.md: rotation note qualified -- bottom-appended entries are
+    archived on the next `--fix` only once the non-current window is at
+    capacity; placement rule unchanged.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-1 next on the realigned branch; open a fresh PR
+  for the next review cycle when WP work lands.
+
 ### 2026-07-29 - PR #163 review response, round 4 (side-task)
 
 - Scope: Copilot round 4 -- one suppressed comment. Verified valid and

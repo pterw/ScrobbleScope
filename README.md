@@ -144,7 +144,7 @@ Heatmap
 **Key design decisions:**
 
 * **Per-job state isolation:** UUID-keyed `JOBS` dict with `threading.Lock`. Progress, results, and unmatched data are scoped per job. Jobs expire after 2 hours.
-* **Bounded concurrency:** `MAX_ACTIVE_JOBS` (default 10) caps background jobs via `BoundedSemaphore`. Excess requests are rejected before job creation.
+* **Bounded concurrency:** `MAX_ACTIVE_JOBS` (default 5) caps background jobs via `BoundedSemaphore`. Excess requests are rejected before job creation.
 * **Data normalization:** Artist and album names are cleaned of punctuation and common suffixes ("deluxe edition", "remastered") for robust Last.fm-to-Spotify matching.
 * **Global rate limiting:** `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 * **Acyclic module graph:** Leaf modules (`config`, `domain`, `errors`) have no internal imports. `orchestrator.py` sits at the top; `routes.py` imports only what it needs. See `AGENTS.md` for the full dependency graph.
@@ -227,7 +227,7 @@ Heatmap
 
     # Optional tuning (see scrobblescope/config.py and scrobblescope/cache.py for the full list)
     # MAX_CONCURRENT_LASTFM="10"
-    # MAX_ACTIVE_JOBS="10"
+    # MAX_ACTIVE_JOBS="5"
     ```
 
 ### Running the App
@@ -316,7 +316,7 @@ python scripts/testing/concurrent_users_test.py \
 ```
 
 Reports per-thread outcome and aggregate statistics.
-Set `--concurrency` above `MAX_ACTIVE_JOBS` (default 10) to observe semaphore-capacity rejections.
+Set `--concurrency` above `MAX_ACTIVE_JOBS` (default 5) to observe semaphore-capacity rejections.
 
 ### Running Tests
 

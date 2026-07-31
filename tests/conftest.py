@@ -1,5 +1,6 @@
 import os
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,27 @@ from app import create_app  # noqa: E402
 # ---------------------------------------------------------------------------
 # Flask fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def fresh_job_slots():
+    """Give every test a fresh job-slot semaphore.
+
+    Route tests that mock start_job_thread acquire a real slot that is
+    never released (the release lives in the background task's finally
+    block), so leaked slots accumulate across the test session. With the
+    old MAX_ACTIVE_JOBS default of 10 the leaks never crossed the
+    threshold; the drop to 5 exposed the hidden ordering coupling (a late
+    /heatmap_loading test drew a real 429). Resetting per test removes
+    the inter-test coupling instead of relying on the cap exceeding the
+    session's leak count.
+    """
+    from scrobblescope import config, worker
+
+    original = worker._active_jobs_semaphore
+    worker._active_jobs_semaphore = threading.BoundedSemaphore(config.MAX_ACTIVE_JOBS)
+    yield
+    worker._active_jobs_semaphore = original
 
 
 @pytest.fixture
