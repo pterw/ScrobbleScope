@@ -149,6 +149,40 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - PR #165 Copilot review round 1 (side-task)
+
+- Scope: triaged the five comments on PR #165 (four inline, one inside
+  the suppressed low-confidence block). All five were valid; none were
+  declined. Two themes: an overstated concurrency claim and three
+  leftover copies of rules AGENTS.md now owns.
+- Plan vs implementation:
+  - `config.py`: the MAX_ACTIVE_JOBS rationale claimed a cap of 5 "keeps
+    >=2 req/s per job". `_GlobalThrottle.next_wait()` (utils.py) advances
+    a single next-allowed timestamp under one lock, serializing callers
+    in arrival order with no per-job accounting, so a busy job can take
+    more slots than an idle one. Reworded as an average, matching the
+    "~10/N req/s" framing already used in AGENT_NOTES.md.
+  - `scripts/testing/concurrent_users_test.py`: module docstring and
+    `build_parser()` still said the default was 10 and told operators to
+    set `--concurrency` above 10. Both now say 5. A repo-wide sweep found
+    no other live stale reference; remaining "default 10" hits are all
+    under `docs/history/` and stay as written (point-in-time records).
+  - `AGENT_NOTES.md`: the Owner Preferences commit-mechanics bullet and
+    the Venv "In short:" line each pointed at AGENTS.md and then restated
+    its content anyway. Both reduced to pointers after verifying AGENTS.md
+    genuinely carries every rule involved.
+  - `HANDOFF_PROMPT.md`: Section 2 restated the full three-command gate
+    and the root-BATCH warning, contradicting the Document Roles contract
+    added by this same PR, which assigns gates to AGENTS.md. Collapsed to
+    a pointer matching the wording Sections 3 and 4 already use.
+- Deviations: none. No test changes -- all five edits are comment or
+  documentation text with no behavior change.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: the suppressed-comment block again held a real
+  finding (8/8 across PRs #163/#164/#165), so keep expanding it. Batch 21
+  WP-1 remains the next action.
+
 ### 2026-07-31 - WP-1 token values pinned in the definition (side-task)
 
 - Scope: make WP-1 executor-agnostic. The definition referenced "the
@@ -204,29 +238,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: execution is decoupled -- run whenever convenient
   (Codex costs no Claude tokens). Batch 21 WP-1 is unblocked and next.
-
-### 2026-07-31 - MAX_ACTIVE_JOBS default 10 -> 5 (side-task)
-
-- Scope: owner decision. The 2026-03-04 load test ran 2/3/5 concurrent
-  users clean while the 10-user run never completed; all jobs share the
-  global 10 req/s API throttle, so 10 slots starve each job below
-  1 req/s on the single small Fly.io machine.
-- Plan vs implementation: `scrobblescope/config.py` default changed to
-  `"5"` with a rationale comment (still env-overridable); README (three
-  mentions), SESSION_CONTEXT key-runtime-facts line, and FINDINGS
-  F-LOAD-1 phrasing updated to match. `fly.toml` sets no
-  `MAX_ACTIVE_JOBS` override, so the new default takes effect on next
-  deploy.
-- Deviations: pre-change scouting claimed no test depends on the
-  default (capacity tests inject their own semaphores) -- true for
-  assertions but not for shared state. Route tests that mock
-  start_job_thread acquire a real slot that is never released, and the
-  session's accumulated leaks crossed the new cap of 5, failing
-  `test_heatmap_loading_json_body` with a real 429. Fixed properly: a
-  new autouse `fresh_job_slots` fixture in `tests/conftest.py` resets
-  the semaphore per test, removing the hidden inter-test ordering
-  coupling the lower cap exposed.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: owner can observe the 5-slot cap locally; the
-  "N/5 slots in use" occupancy hint remains open as F-LOAD-1.

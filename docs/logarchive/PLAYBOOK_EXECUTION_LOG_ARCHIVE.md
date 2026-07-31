@@ -9,6 +9,32 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - MAX_ACTIVE_JOBS default 10 -> 5 (side-task)
+
+- Scope: owner decision. The 2026-03-04 load test ran 2/3/5 concurrent
+  users clean while the 10-user run never completed; all jobs share the
+  global 10 req/s API throttle, so 10 slots starve each job below
+  1 req/s on the single small Fly.io machine.
+- Plan vs implementation: `scrobblescope/config.py` default changed to
+  `"5"` with a rationale comment (still env-overridable); README (three
+  mentions), SESSION_CONTEXT key-runtime-facts line, and FINDINGS
+  F-LOAD-1 phrasing updated to match. `fly.toml` sets no
+  `MAX_ACTIVE_JOBS` override, so the new default takes effect on next
+  deploy.
+- Deviations: pre-change scouting claimed no test depends on the
+  default (capacity tests inject their own semaphores) -- true for
+  assertions but not for shared state. Route tests that mock
+  start_job_thread acquire a real slot that is never released, and the
+  session's accumulated leaks crossed the new cap of 5, failing
+  `test_heatmap_loading_json_body` with a real 429. Fixed properly: a
+  new autouse `fresh_job_slots` fixture in `tests/conftest.py` resets
+  the semaphore per test, removing the hidden inter-test ordering
+  coupling the lower cap exposed.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: owner can observe the 5-slot cap locally; the
+  "N/5 slots in use" occupancy hint remains open as F-LOAD-1.
+
 ### 2026-07-31 - FINDINGS refresh: batch-closure pointers, F-DOCSYNC-4, F-SWE-1 (side-task)
 
 - Scope: owner-flagged staleness in FINDINGS.md -- open P1 items that

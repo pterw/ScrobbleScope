@@ -13,9 +13,7 @@ file does not track batch status.
 
 ## Owner Preferences
 
-- Commit mechanics (incremental staging by name, no co-author trailers,
-  push only on explicit owner instruction, pause after each commit for
-  owner review): owned by AGENTS.md Commit Rules -- stated once there.
+- Commit mechanics: owned by `AGENTS.md` Commit Rules -- read them there.
 - Concise responses; no emojis unless asked.
 - Pause and notify owner if Docker config or external MCP setup is needed.
 - Always explain why in log entries and inline comments -- not just what.
@@ -91,8 +89,7 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 ## Venv and Pip Rules
 
 Owned by `AGENTS.md` (Environment Setup + Anti-Pattern Registry entries 4
-and 5). In short: `.venv/` only with qualified pip paths, `==` pins, no
-unapproved installs, never start a Flask server via the Bash tool.
+and 5) -- read them there.
 
 ---
 
