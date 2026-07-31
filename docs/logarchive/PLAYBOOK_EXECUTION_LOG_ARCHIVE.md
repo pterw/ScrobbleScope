@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - SWE-principles audit charter (side-task)
+
+- Scope: charter the owner-requested audit of the ten mandated software
+  principles so a dedicated single-purpose session (Claude or Codex) can
+  execute it cold, without this session's context.
+- Plan vs implementation: new `docs/SWE_AUDIT_CHARTER.md` front-loads
+  all judgment -- Python-only scope (JS/templates excluded until
+  Batch 21 ships them), a do-not-re-report differential baseline
+  (F-MAS-*, F-B20-2, prior 2026-02 audits, standing design decisions),
+  pre-identified hotspots (the three ~110-150 line functions and the 17
+  `except Exception` sites), a 10-principle x module grading matrix
+  with per-cell evidence, and a strict output contract (a dated
+  SWE_PRINCIPLES_AUDIT report under the history archive plus net-new
+  F-SWE-N findings only; read-only, no code changes). Tracked as
+  F-SWE-1.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: execution is decoupled -- run whenever convenient
+  (Codex costs no Claude tokens). Batch 21 WP-1 is unblocked and next.
+
 ### 2026-07-31 - MAX_ACTIVE_JOBS default 10 -> 5 (side-task)
 
 - Scope: owner decision. The 2026-03-04 load test ran 2/3/5 concurrent

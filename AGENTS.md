@@ -182,10 +182,12 @@ managed by the owner, not by individual agents.
 ## Side-Task Handling
 
 Not all work is batch work (e.g., a leap-year bugfix, a dark-mode polish commit).
-For non-batch changes:
+Non-batch changes follow the commit rules above unchanged -- including step
+4, which puts the dated Section 4 entry in the *same* commit as the change
+(Anti-Pattern Registry #9). Side-tasks differ only in where that entry goes
+and how it is tagged:
 
-1. Commit normally following the commit rules above.
-2. Add a dated entry in PLAYBOOK Section 4 **after** the
+1. Add the dated entry in PLAYBOOK Section 4 **after** the
    `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker, using the same log format
    but **without** a `(Batch N WP-X)` suffix in the heading.
    Placing it outside the current-batch markers avoids the batch-aware
@@ -199,8 +201,8 @@ For non-batch changes:
    entry is treated as oldest and archived by the very next `--fix` run
    instead of staying in the active window (below capacity it is
    retained, but top placement is still correct).
-3. Run `doc_state_sync.py --fix`.
-4. Update SESSION_CONTEXT Section 1 if the change affects test count or project state.
+2. Run `doc_state_sync.py --fix`.
+3. Update SESSION_CONTEXT Section 1 if the change affects test count or project state.
 
 ---
 

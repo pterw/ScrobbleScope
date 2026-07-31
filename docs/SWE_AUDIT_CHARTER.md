@@ -107,5 +107,6 @@ not volume.
 
 Target a single focused session. If module coverage must be cut to fit,
 cut `scripts/docsync/` first (it has the freshest dedicated audit) and
-say so in the report -- silent scope reduction is itself an anti-pattern
-(AGENTS.md registry #10 spirit: never imply coverage you did not do).
+name every skipped module in the report's scope section. A report that
+does not list what it skipped implies coverage it does not have, which
+defeats the purpose of the audit.

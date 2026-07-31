@@ -149,6 +149,52 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - PR #165 Copilot review round 2 (side-task)
+
+- Scope: round 2 returned **zero visible comments and five suppressed
+  ones**. All five were valid. The suppressed-block hit rate is now 13/13
+  across PRs #163, #164, and #165 while the visible stream has gone dry
+  twice; treat that block as the primary signal, not an appendix.
+- Plan vs implementation:
+  - `AGENTS.md` Side-Task Handling read as an ordered procedure whose
+    step 1 was "commit" and step 2 "add the log entry", contradicting
+    Commit Rules step 4 and Anti-Pattern Registry #9, which require the
+    entry to be in the same commit. Since AGENTS.md is now the rules
+    SSOT, an internal contradiction there is load-bearing. Reworded so
+    side-tasks inherit the commit rules unchanged and differ only in
+    entry placement and tagging; the remaining steps renumbered.
+  - `HANDOFF_PROMPT.md` Section 5 told agents to document completion
+    *after* committing and to commit the docs separately -- the same
+    conflict, one level down. Now states that docs land in the commit.
+  - Resolution was evidence-based, not a judgement call: registry #9
+    forbids a commit without its entry, and all four recent side-task
+    commits (`2559f39`, `2b9b095`, `98cc50c`, `900d0e6`) bundle
+    PLAYBOOK + archive with the change. Docs were wrong; practice was
+    right.
+  - `FINDINGS.md` F-LOAD-1 proposed an "N/5 slots in use" hint, which
+    hard-codes a value that is env-configurable. This PR had changed it
+    from "N/10" -- swapping one literal for another. Now specifies
+    reading the cap from `MAX_ACTIVE_JOBS` at render time.
+  - `.claude/SESSION_CONTEXT.md` header said 2026-07-28 while the body
+    recorded a 2026-07-31 runtime change. Header updated.
+  - `docs/SWE_AUDIT_CHARTER.md` cited "AGENTS.md registry #10" for
+    silent scope reduction; #10 is about re-measuring canonical figures
+    and says nothing about audit coverage. The charter was added in this
+    PR, so this was a sourcing error at write time, not staleness --
+    corrected rather than left as a point-in-time record. Now states the
+    requirement directly.
+- Deviations: round 1 split its fixes across two commits, and `07c4f5b`
+  therefore landed without its own Section 4 entry -- a violation of
+  Anti-Pattern Registry #9, the rule this round clarifies. Not rewritten:
+  both commits were already pushed and history rewrites need owner
+  instruction. Round 2 is a single commit. Standing lesson: this repo's
+  #9 outranks the generic "prefer small atomic commits" heuristic, and
+  the one-commit-per-review-round precedent from PR #163 was correct.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: Batch 21 WP-1 remains the next action. `gh` writes
+  are still unavailable this session, so the round-2 reply is unposted.
+
 ### 2026-07-31 - PR #165 Copilot review round 1 (side-task)
 
 - Scope: triaged the five comments on PR #165 (four inline, one inside
@@ -217,24 +263,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: hygiene plan complete (6 commits); Batch 21 WP-1 is
   next. SSOT sweep contract now holds: commit-rule keywords, venv rules,
   the heatmap perf figure, and batch state each have exactly one owner.
-
-### 2026-07-31 - SWE-principles audit charter (side-task)
-
-- Scope: charter the owner-requested audit of the ten mandated software
-  principles so a dedicated single-purpose session (Claude or Codex) can
-  execute it cold, without this session's context.
-- Plan vs implementation: new `docs/SWE_AUDIT_CHARTER.md` front-loads
-  all judgment -- Python-only scope (JS/templates excluded until
-  Batch 21 ships them), a do-not-re-report differential baseline
-  (F-MAS-*, F-B20-2, prior 2026-02 audits, standing design decisions),
-  pre-identified hotspots (the three ~110-150 line functions and the 17
-  `except Exception` sites), a 10-principle x module grading matrix
-  with per-cell evidence, and a strict output contract (a dated
-  SWE_PRINCIPLES_AUDIT report under the history archive plus net-new
-  F-SWE-N findings only; read-only, no code changes). Tracked as
-  F-SWE-1.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: execution is decoupled -- run whenever convenient
-  (Codex costs no Claude tokens). Batch 21 WP-1 is unblocked and next.
