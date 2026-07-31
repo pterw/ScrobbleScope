@@ -9,6 +9,32 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-28 - PR #163 review response, round 3 (side-task)
+
+- Scope: Copilot round 3 -- three suppressed low-confidence comments.
+  Two acted on, one deferred to FINDINGS with a decline on the PR.
+- Plan vs implementation:
+  - Acted: `global.css` joins the WP-2 legacy per-page stack -- verified
+    it carries Bootstrap-coupled `.card`/`.card-body`/`.modal-*` rules
+    (`global.css:141-199`) that would restyle daisyUI components if it
+    stayed in `base.html`; token/wordmark/shell concerns redistributed
+    (daisyUI themes + `shell.css`).
+  - Acted: WP-8 drift hook diff scoped with a pathspec
+    (`git diff --exit-code -- static/css/tailwind.css`) so unrelated
+    dirty files or rewrites from earlier hooks in the same run cannot
+    produce false drift failures.
+  - Deferred: retagging the Batch 20 close-out entry in the monolith
+    archive. The routing claim is correct, but it is consistent tool
+    behavior (`(Batch N close-out)` is not parser-recognized;
+    BATCH19_LOG.md lacks its close-out too), and hand-editing
+    machine-rotated archive content in a docs PR was declined and
+    accepted in PR #162 round 3. Logged as F-DOCSYNC-3 (open P2) for a
+    docsync WP alongside F-DOCSYNC-1/2.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-1 remains next; batched reply posted on PR #163.
+
 ### 2026-07-28 - PR #163 review response, round 2 (side-task)
 
 - Scope: Copilot round 2 -- no new top-level comments, four suppressed
