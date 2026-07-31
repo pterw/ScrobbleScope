@@ -149,6 +149,25 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - WP-1 token values pinned in the definition (side-task)
+
+- Scope: make WP-1 executor-agnostic. The definition referenced "the
+  audit token sheet" but only carried headline values; the full sheet
+  lived in the Claude Design project and one agent's session notes,
+  blocking a cold-start executor (e.g. a Codex session) from
+  implementing WP-1 faithfully.
+- Plan vs implementation: the WP-1 theme bullet now pins the complete
+  sheet -- all eight colors (light bg/bg-2/ink/primary, dark
+  bg/surface/text/primary), the three-family type system with sizes,
+  the 4px spacing ladder, and the radius set. Values transcribed from
+  "ScrobbleScope UI Audit v3" section "A starter palette and type
+  system you can ship today" (2026-07-28 fetch).
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-1 can now be executed by any agent from the
+  definition alone; compiled CSS remains the WP-1 deliverable.
+
 ### 2026-07-31 - Owner-preferences commit-rule dedup (side-task)
 
 - Scope: final SSOT sweep found AGENT_NOTES.md Owner Preferences still
@@ -211,26 +230,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: owner can observe the 5-slot cap locally; the
   "N/5 slots in use" occupancy hint remains open as F-LOAD-1.
-
-### 2026-07-31 - FINDINGS refresh: batch-closure pointers, F-DOCSYNC-4, F-SWE-1 (side-task)
-
-- Scope: owner-flagged staleness in FINDINGS.md -- open P1 items that
-  Batch 21's definition already promises to close carried no pointer,
-  and F-B20-4 paraphrased the whole definition.
-- Plan vs implementation:
-  - F-B20-3: remedy rewritten -- the 5.1->5.3 CDN-consolidation path is
-    dead; Batch 21 resolves the split by eliminating Bootstrap (closes
-    at WP-8). F-AUDIT-1: closes at Batch 21 WP-2 via acceptance
-    criterion 8. F-B18-12 deferred-block line marked as in-batch scope
-    (WP-6). F-B20-4 compressed to a pointer at `BATCH21_DEFINITION.md`.
-    F-FEATURE-2 line reformatted as a greppable cross-ref bullet.
-  - New F-DOCSYNC-4 (resolved): per-batch logs were undiscoverable until
-    the Section 2 Log column landed; records the tombstone disposition.
-  - New F-SWE-1 (open P1): SWE-principles audit chartered via
-    `docs/SWE_AUDIT_CHARTER.md` (next commit), executable cold by a
-    dedicated Claude or Codex session; closes by pointing at the report.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: F-LOAD-1's "N/10" phrasing updates with the
-  MAX_ACTIVE_JOBS default change (next commit); charter follows.
