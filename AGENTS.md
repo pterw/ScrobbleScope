@@ -173,6 +173,15 @@ Conventional Commits, imperative mood, no trailing period:
 6. Commit after each WP (do not batch multiple WPs into one commit).
    Do not push without explicit owner instruction. Pause after each commit
    for owner review.
+   **Standing exception -- Claude Code and Codex sessions only (granted
+   2026-07-31):** commits that respond to review feedback on an
+   already-open PR may be pushed without asking each time, followed by one
+   batched reply per review round. This covers review-fix commits only.
+   Batch and WP commits still pause for owner review, and force-pushes,
+   history rewrites, and anything targeting `main` always require explicit
+   instruction. The exception does **not** extend to GitHub Copilot task
+   sessions or their subagents, Jules, or any other agent -- those follow
+   the unmodified rule above.
    When authorized to push in a GitHub Copilot session, use the platform
    progress/reporting tool; do not push directly with shell `git`/`gh`.
 
