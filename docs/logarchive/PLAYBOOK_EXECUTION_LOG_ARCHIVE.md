@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - FINDINGS refresh: batch-closure pointers, F-DOCSYNC-4, F-SWE-1 (side-task)
+
+- Scope: owner-flagged staleness in FINDINGS.md -- open P1 items that
+  Batch 21's definition already promises to close carried no pointer,
+  and F-B20-4 paraphrased the whole definition.
+- Plan vs implementation:
+  - F-B20-3: remedy rewritten -- the 5.1->5.3 CDN-consolidation path is
+    dead; Batch 21 resolves the split by eliminating Bootstrap (closes
+    at WP-8). F-AUDIT-1: closes at Batch 21 WP-2 via acceptance
+    criterion 8. F-B18-12 deferred-block line marked as in-batch scope
+    (WP-6). F-B20-4 compressed to a pointer at `BATCH21_DEFINITION.md`.
+    F-FEATURE-2 line reformatted as a greppable cross-ref bullet.
+  - New F-DOCSYNC-4 (resolved): per-batch logs were undiscoverable until
+    the Section 2 Log column landed; records the tombstone disposition.
+  - New F-SWE-1 (open P1): SWE-principles audit chartered via
+    `docs/SWE_AUDIT_CHARTER.md` (next commit), executable cold by a
+    dedicated Claude or Codex session; closes by pointing at the report.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: F-LOAD-1's "N/10" phrasing updates with the
+  MAX_ACTIVE_JOBS default change (next commit); charter follows.
+
 ### 2026-07-31 - PLAYBOOK Section 2 log column; tombstone disposition (side-task)
 
 - Scope: the 18 per-batch logs under `docs/history/logs/` were referenced

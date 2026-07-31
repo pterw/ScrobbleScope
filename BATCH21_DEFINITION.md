@@ -134,8 +134,15 @@ kickoff log entry.
   theme definitions below require -- the component bundle alone cannot
   register custom themes.
 - `static/css/tailwind.src.css` defining the two themes from the audit
-  token sheet; 4px spacing ladder; radius 8/14/999; `--bars-color`
-  aliased in both themes.
+  token sheet, pinned here so any executor can implement without
+  re-fetching the audit: light bg `#faf8f3` / bg-2 `#f0ebe0` / ink
+  `#1a1820` / primary `#6a4baf`; dark bg `#0e0c12` / surface `#181520` /
+  text `#f1ede4` (warm cream) / primary `#b39dde`. Type (self-hosted per
+  decision 4): Geist 300-700 (body 14-16px, labels 11.5-13px),
+  Instrument Serif 400 + italic (>= 24px only), JetBrains Mono 400-600
+  (numerals, eyebrow labels, pills). 4px spacing ladder
+  (4/8/12/16/24/32/48 only); radius 8 (inputs/small cards), 14 (large
+  cards), 999 (pills); `--bars-color` aliased in both themes.
 - Compiled `static/css/tailwind.css` committed; build/watch commands
   documented in DEVELOPMENT.md; CI unaffected (no Node).
 `feat(ui): add tailwind + daisyui toolchain and theme tokens`
