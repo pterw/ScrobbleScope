@@ -164,9 +164,12 @@ Conventional Commits, imperative mood, no trailing period:
 4. Update PLAYBOOK Section 3 + Section 4 BEFORE committing. Batch log
    entries carry a `(Batch N WP-X)` tag in the heading; side-task entries
    are untagged (see Side-Task Handling).
-5. Stage only files changed for this work package. Stage
-   `.claude/SESSION_CONTEXT.md` together with PLAYBOOK whenever it changed
-   -- do not leave it modified and unstaged.
+5. Stage specific paths by name. **Never `git add -A` or `git add .`**,
+   not even when every changed file belongs to this work package -- the
+   prohibition is on the command, because it silently picks up whatever
+   else is in the tree. Stage only files changed for this work package,
+   and stage `.claude/SESSION_CONTEXT.md` together with PLAYBOOK whenever
+   it changed -- do not leave it modified and unstaged.
 6. Commit after each WP (do not batch multiple WPs into one commit).
    Do not push without explicit owner instruction. Pause after each commit
    for owner review.

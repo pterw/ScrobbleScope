@@ -6,13 +6,16 @@ per-thread outcomes (job_id, elapsed time, completion status) plus aggregate
 results (submitted, completed, failed, elapsed range).
 
 **Observability tool, not a pass/fail test.**  Results vary by machine, network
-conditions, and server load.  The primary signal is whether threads that exceed
-``MAX_ACTIVE_JOBS`` block, queue, or fail -- and whether concurrent Postgres
-cache access produces races or corrupted results.
+conditions, and server load.  The primary signal is how submissions past the
+cap are turned away, and whether concurrent Postgres cache access produces
+races or corrupted results.
 
 ``MAX_ACTIVE_JOBS`` is configured in ``scrobblescope/config.py`` (default 5)
-and enforced via a semaphore in ``scrobblescope/worker.py``.  Set
-``--concurrency`` above 5 to observe queuing and semaphore-limit behavior.
+and enforced by a *non-blocking* semaphore in ``scrobblescope/worker.py``:
+``acquire_job_slot()`` calls ``acquire(blocking=False)``, so a submission
+past the cap is rejected immediately with "Too many requests in progress"
+-- it is never queued and never waits for a slot.  Set ``--concurrency``
+above 5 to observe those rejections.
 
 Usage example::
 
@@ -103,7 +106,7 @@ def run_thread(
     Waits at the shared ``barrier`` before submitting so that all threads
     fire their POST at the same instant (maximises the chance of exceeding
     the ``MAX_ACTIVE_JOBS`` semaphore limit in ``worker.py`` and observing
-    queuing or rejection behavior).
+    the resulting rejections).
 
     All exceptions are caught and stored in ``ConcurrentResult.error`` so
     a single failing thread (e.g. CSRF race, network timeout, server error)

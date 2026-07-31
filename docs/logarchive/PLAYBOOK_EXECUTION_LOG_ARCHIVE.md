@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - WP-1 token values pinned in the definition (side-task)
+
+- Scope: make WP-1 executor-agnostic. The definition referenced "the
+  audit token sheet" but only carried headline values; the full sheet
+  lived in the Claude Design project and one agent's session notes,
+  blocking a cold-start executor (e.g. a Codex session) from
+  implementing WP-1 faithfully.
+- Plan vs implementation: the WP-1 theme bullet now pins the complete
+  sheet -- all eight colors (light bg/bg-2/ink/primary, dark
+  bg/surface/text/primary), the three-family type system with sizes,
+  the 4px spacing ladder, and the radius set. Values transcribed from
+  "ScrobbleScope UI Audit v3" section "A starter palette and type
+  system you can ship today" (2026-07-28 fetch).
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-1 can now be executed by any agent from the
+  definition alone; compiled CSS remains the WP-1 deliverable.
+
 ### 2026-07-31 - Owner-preferences commit-rule dedup (side-task)
 
 - Scope: final SSOT sweep found AGENT_NOTES.md Owner Preferences still
