@@ -149,6 +149,39 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - DEVELOPMENT.md: correct HANDOFF_PROMPT description (side-task)
+
+- Scope: DEVELOPMENT.md described `HANDOFF_PROMPT.md` as a condensed
+  checklist of rules, gates, read order, and commit discipline. That was
+  accurate until this branch, which reduced the file to post-read
+  verification plus the handoff checklist and replaced everything else
+  with pointers. The description was left describing the architecture
+  this PR removed.
+- Plan vs implementation: two passages corrected -- the architecture
+  overview and the per-file section, which was also retitled from
+  "Bootstrap Procedure" to "Session Start and Handoff" to match what the
+  file now contains. Both now state why the summaries were removed
+  (each restatement drifted from its source), which is the reasoning the
+  rest of the document uses.
+- Deviations: scope-limited on purpose. Only the passages this branch
+  made wrong were touched. DEVELOPMENT.md has other known staleness --
+  the `gemini-pr-triage` skill is now `pr-bot-triage`, the
+  review-suggestions section predates repo-aware review tooling, and the
+  closing paragraph needs a rewrite -- all deferred to a post-merge
+  documentation pass, per the same in-scope test applied to
+  `concurrent_users_test.py` in review round 1.
+- Note: this class of staleness is invisible to diff-scoped review.
+  Copilot reported "13/13 changed files" across four rounds and
+  DEVELOPMENT.md was never among them, so a file made wrong by the diff
+  but not part of it cannot be flagged. Worth remembering when relying on
+  automated review for consistency.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: the post-merge pass should reframe the review section
+  around how the tooling changed rather than around rejection, and
+  `README.md:492` must move with it -- it currently promises a section on
+  suggestions "evaluated and rejected".
+
 ### 2026-07-31 - Push rule: standing exception for review-fix commits (side-task)
 
 - Scope: owner-directed policy change, not a review finding. During PR
@@ -249,49 +282,3 @@ non-current operational logs. Older dated entries live in
   context for cold-start executors; judge each on whether the copy can
   drift *and* whether losing it costs a reader who cannot see the source.
   Batch 21 WP-1 remains the next action.
-
-### 2026-07-31 - PR #165 Copilot review round 2 (side-task)
-
-- Scope: round 2 returned **zero visible comments and five suppressed
-  ones**. All five were valid. The suppressed-block hit rate is now 13/13
-  across PRs #163, #164, and #165 while the visible stream has gone dry
-  twice; treat that block as the primary signal, not an appendix.
-- Plan vs implementation:
-  - `AGENTS.md` Side-Task Handling read as an ordered procedure whose
-    step 1 was "commit" and step 2 "add the log entry", contradicting
-    Commit Rules step 4 and Anti-Pattern Registry #9, which require the
-    entry to be in the same commit. Since AGENTS.md is now the rules
-    SSOT, an internal contradiction there is load-bearing. Reworded so
-    side-tasks inherit the commit rules unchanged and differ only in
-    entry placement and tagging; the remaining steps renumbered.
-  - `HANDOFF_PROMPT.md` Section 5 told agents to document completion
-    *after* committing and to commit the docs separately -- the same
-    conflict, one level down. Now states that docs land in the commit.
-  - Resolution was evidence-based, not a judgement call: registry #9
-    forbids a commit without its entry, and all four recent side-task
-    commits (`2559f39`, `2b9b095`, `98cc50c`, `900d0e6`) bundle
-    PLAYBOOK + archive with the change. Docs were wrong; practice was
-    right.
-  - `FINDINGS.md` F-LOAD-1 proposed an "N/5 slots in use" hint, which
-    hard-codes a value that is env-configurable. This PR had changed it
-    from "N/10" -- swapping one literal for another. Now specifies
-    reading the cap from `MAX_ACTIVE_JOBS` at render time.
-  - `.claude/SESSION_CONTEXT.md` header said 2026-07-28 while the body
-    recorded a 2026-07-31 runtime change. Header updated.
-  - `docs/SWE_AUDIT_CHARTER.md` cited "AGENTS.md registry #10" for
-    silent scope reduction; #10 is about re-measuring canonical figures
-    and says nothing about audit coverage. The charter was added in this
-    PR, so this was a sourcing error at write time, not staleness --
-    corrected rather than left as a point-in-time record. Now states the
-    requirement directly.
-- Deviations: round 1 split its fixes across two commits, and `07c4f5b`
-  therefore landed without its own Section 4 entry -- a violation of
-  Anti-Pattern Registry #9, the rule this round clarifies. Not rewritten:
-  both commits were already pushed and history rewrites need owner
-  instruction. Round 2 is a single commit. Standing lesson: this repo's
-  #9 outranks the generic "prefer small atomic commits" heuristic, and
-  the one-commit-per-review-round precedent from PR #163 was correct.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: Batch 21 WP-1 remains the next action. `gh` writes
-  are still unavailable this session, so the round-2 reply is unposted.
