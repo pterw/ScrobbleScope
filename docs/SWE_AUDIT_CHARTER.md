@@ -35,12 +35,14 @@ change while the audit runs (it is a read-only side-task).
 
 ## 3. The ten principles (grade each)
 
-DRY (don't repeat yourself), SoC (separation of concerns), SRP (single
-responsibility), KISS (keep it simple), Dependency Inversion, Composition
-over Inheritance, Clean Architecture (dependencies point inward -- check
-against the acyclic graph in SESSION_CONTEXT Section 4), Boy Scout Rule
-(assessed via git history of touched files), Least Knowledge / Law of
-Demeter, Fail Fast.
+The canonical list and its definitions live in `AGENT_NOTES.md` Owner
+Preferences. Grade every principle named there, using that wording --
+do not keep a second copy in this file. Two need audit-specific method:
+
+- **Clean Architecture:** check dependencies against the acyclic graph
+  in SESSION_CONTEXT Section 4.
+- **Boy Scout Rule:** assess via git history of the files each change
+  touched.
 
 ## 4. Differential baseline (do NOT re-report)
 
@@ -95,13 +97,12 @@ not volume.
 - FINDINGS.md: append net-new F-SWE-N entries (start at F-SWE-2;
   F-SWE-1 is this charter's tracking entry). Update F-SWE-1 to
   `Status: resolved -- report at <path>`.
-- PLAYBOOK Section 4: one dated side-task entry (insert directly after
-  the `CURRENT-BATCH-END` marker -- top position; see AGENTS.md
-  Side-Task Handling for why).
-- Validation gates per AGENTS.md (docs-only change; all three commands
-  must still pass).
-- Commit: `docs(audit): SWE principles audit report + F-SWE findings`.
-  Do not push without owner instruction.
+- PLAYBOOK Section 4: one dated side-task entry, placed and tagged per
+  AGENTS.md Side-Task Handling.
+- Validation gates per AGENTS.md Commit Rules (docs-only change; all
+  three commands must still pass).
+- Commit subject: `docs(audit): SWE principles audit report + F-SWE
+  findings`. Do not push without owner instruction.
 
 ## 7. Budget guidance
 

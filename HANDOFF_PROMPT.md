@@ -8,12 +8,10 @@ review-comment fix. Otherwise bootstrap first.
 
 ## 1) Bootstrap
 
-The canonical read order, document roles, token discipline, and sufficiency
-gate are defined once in `AGENTS.md` ("Document Roles" and "Session
-Bootstrap") -- follow them exactly; they are not restated here. If two
-bootstrap files conflict, follow the stricter safety rule and pause only
-when the conflict affects the next action. In particular, never push
-without explicit owner instruction.
+The canonical read order, document roles, token discipline, sufficiency
+gate, and bootstrap-conflict handling are defined once in `AGENTS.md`
+("Document Roles" and "Session Bootstrap") -- follow them exactly; they
+are not restated here.
 
 After reading the bootstrap files, verify reality matches the docs:
 
