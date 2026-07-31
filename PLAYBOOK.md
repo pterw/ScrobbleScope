@@ -149,6 +149,42 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - FINDINGS: record reissue cache-key collapse (side-task)
+
+- Scope: capture a data-quality mechanism found while discussing the
+  DEVELOPMENT.md rewrite, before the reasoning was lost to chat. No code
+  change -- this is a finding, not a fix.
+- Plan vs implementation: added `F-DATA-1` under P2.
+  `normalize_name()` strips `deluxe`/`edition`/`remastered` and eight
+  more words, so a reissue and its original normalize identically; since
+  the `spotify_cache` PK is `artist_norm + album_norm`, they share one
+  row and whichever populated it first serves its `release_date` for 30
+  days. Owner observed this with Viagra Boys "viagr aboys" (2025)
+  surfacing under 2026 via the JP deluxe released 2026-01-09, on an
+  account that never played it.
+- The finding records why the collapse is nonetheless correct (Last.fm
+  scrobbles the same record under inconsistent album strings; keying
+  editions apart would split one album into several leaderboard rows
+  with divided playcounts), the candidate fix (decouple counting from
+  dating -- keep the collapse for aggregation, take the *earliest*
+  candidate release date when resolving the year, no schema change), the
+  rejected boolean discriminator and why, three questions answerable by
+  querying the cache, and the note that Spotify exposes no
+  original-release-date field at all.
+- Deviations: earlier in the session an agent claim that release-date
+  drift was a systemic risk was walked back. The owner has ~14 years of
+  scrobbles and one recalled instance; the claim had been reasoned from
+  a plausible mechanism rather than measured. Filed P2 with low user
+  impact stated explicitly, and `release_scope: all` already bypasses
+  date filtering. Recording the correction so the finding is not read as
+  more urgent than the evidence supports.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: question 2 (which other albums) is a cache query, not
+  an investigation -- run it before designing any fix. Sequenced behind
+  Batch 21, the F-B20-2 orchestrator split, and the test/docstring pass
+  per owner priority.
+
 ### 2026-07-31 - DEVELOPMENT.md: correct HANDOFF_PROMPT description (side-task)
 
 - Scope: DEVELOPMENT.md described `HANDOFF_PROMPT.md` as a condensed
@@ -243,42 +279,3 @@ non-current operational logs. Older dated entries live in
   findings. Rounds 2 and 3 returned zero visible comments and were still
   productive; round 4 found a deleted rule. Stop when a round returns
   nothing, not when the findings look minor.
-
-### 2026-07-31 - PR #165 Copilot review round 3 (side-task)
-
-- Scope: round 3 again returned zero visible comments and three
-  suppressed ones. Two acted on in full, one acted on in part.
-  Suppressed-block tally now 16/16 across #163, #164, and #165.
-- Plan vs implementation:
-  - `docs/SWE_AUDIT_CHARTER.md` Section 3 copied the ten principle names
-    from AGENT_NOTES.md and **had already drifted**: the copy dropped the
-    definitions for Dependency Inversion, Least Knowledge, and Fail Fast,
-    and truncated SRP from "single responsibility per module/function".
-    This is the rare case where the drift was demonstrable rather than
-    hypothetical, so the copy is gone. The section now points at
-    AGENT_NOTES.md and keeps only the two audit-specific methods (Clean
-    Architecture via the SESSION_CONTEXT Section 4 acyclic graph, Boy
-    Scout via git history).
-  - `docs/SWE_AUDIT_CHARTER.md` Section 6 restated side-task entry
-    placement that AGENTS.md Side-Task Handling owns -- and round 2 had
-    just renumbered that section, so the charter was already a rewrite
-    away from being wrong. Delegated.
-  - `HANDOFF_PROMPT.md` Section 1 restated the bootstrap-conflict rule
-    verbatim from AGENTS.md:64-65 inside a paragraph that claims rules
-    "are not restated here". Removed.
-- Deviations: **partially declined** the reviewer's request to also strip
-  "Do not push without owner instruction" from the charter's commit step.
-  Verified AGENTS.md:171 owns it, so the SSOT argument is technically
-  right, but that line sits at the point of action for a cold-start
-  executor (the charter is written so Codex can run it without prior
-  context) and a push is not reversible. Deliberate safety redundancy is
-  worth one line. Removed the same sentence from HANDOFF_PROMPT Section 1
-  by contrast, because there the reader is being sent to AGENTS.md in the
-  very same paragraph, so the copy buys nothing.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: watch for diminishing returns. Rounds 1-3 were all
-  genuine, but the remaining duplication is increasingly load-bearing
-  context for cold-start executors; judge each on whether the copy can
-  drift *and* whether losing it costs a reader who cannot see the source.
-  Batch 21 WP-1 remains the next action.

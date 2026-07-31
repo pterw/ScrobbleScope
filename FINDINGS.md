@@ -130,6 +130,66 @@ Source: owner request 2026-07-31.
 the original sweep); narrow or add structured logging per exception
 class. Status: open. Source: MULTI_AGENT_SWEEP.
 
+### F-DATA-1: reissue editions collapse onto the original's cache row
+
+`normalize_name()` strips `deluxe`/`edition`/`remastered`/`anniversary`
+and seven more words from the album string, so
+`"viagr aboys (Deluxe Edition)"` and `"viagr aboys"` both normalize to
+`viagr aboys`. The `spotify_cache` primary key is
+`artist_norm + album_norm`, so **both editions share one row** holding
+whichever release populated it first, for the 30-day TTL. When the
+reissue wins that race its `release_date` is served for the original.
+
+Observed 2026-07-31: Viagra Boys "viagr aboys" (2025) appears under
+`release_scope: same` for 2026, matching the JP deluxe released
+2026-01-09, on an account that never played the deluxe.
+
+The collapse is not a bug on its own -- it is what makes matching work
+across Last.fm's inconsistent album strings, where the same record is
+scrobbled as `Album`, `Album (Deluxe Edition)`, and `Album - Deluxe`
+depending on the reporting client. Keying editions apart would fragment
+one album into several leaderboard rows with split playcounts, which is
+a worse defect than an occasional wrong year. Collapsing is correct for
+*counting* and wrong for *dating*; the two need decoupling, not one
+shared key.
+
+Candidate fix (untested): keep the collapse for aggregation, but when
+resolving `release_date`, select the **earliest** date among candidate
+Spotify matches instead of whichever cached first. The original predates
+its reissues by construction, and this approximates the "Original
+Release Date" that Deezer's API team confirmed is a separate field from
+the digital release date labels supply. No schema change required.
+
+Rejected: a boolean `is_deluxe` discriminator. The stopword list has 11
+entries that combine freely (deluxe, expanded, anniversary, JP deluxe),
+so a boolean still collides variant-against-variant. Retaining the
+stripped tokens as a variant tag would work but reintroduces the
+fragmentation above.
+
+Open questions, answerable from the cache rather than by speculation:
+1. Do the scrobbles themselves carry the deluxe title? Last.fm stores
+   whatever album metadata the player reported, which is a second
+   independent path to the same result.
+2. Which other albums are affected? Group `spotify_cache` by
+   `artist_norm + album_norm` and flag rows whose `release_date` is
+   later than the earliest known release for that album.
+3. Can both a Latin-script deluxe and a JP deluxe surface at once? Only
+   if the JP title carries Japanese characters -- NFKC preserves those,
+   so it would not collapse; a Latin-script `(Deluxe Edition)` always
+   merges to one row.
+
+Note: Spotify exposes no original-release-date field. `release_date`
+belongs to the matched release object, and `release_date_precision`
+(`year`/`month`/`day`) only reports granularity. Disambiguation must
+come from the search result set, the discarded `(Deluxe Edition)`
+suffix, or `total_tracks`. MusicBrainz does carry original release
+dates -- a lookup narrowed to that single field, cached, is far smaller
+than the full-enrichment attempt abandoned in 2025.
+
+Status: open (P2). Low user impact -- one recalled instance across ~14
+years of scrobbles, and `release_scope: all` bypasses date filtering
+entirely. Source: session 2026-07-31.
+
 ---
 
 ## P2 -- Scaling roadmap
