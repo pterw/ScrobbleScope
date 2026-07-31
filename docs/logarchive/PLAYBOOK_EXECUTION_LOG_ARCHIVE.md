@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-28 - PR #163 review response, round 2 (side-task)
+
+- Scope: Copilot round 2 -- no new top-level comments, four suppressed
+  low-confidence comments. All four verified valid (same pattern as
+  PR #162: the suppression filter is too conservative); all acted on.
+- Plan vs implementation:
+  - Stale bootstrap docs: AGENT_NOTES.md still called Batch 21 a TBD
+    stub with "no WP work until scope lands"; FINDINGS.md header said
+    scope pending; README roadmap listed scoping as open. All three now
+    reflect the active batch (the definition's own Status line already
+    carried Active from WP-0).
+  - Compiled-CSS drift window: validation gate now requires any WP
+    touching templates or `tailwind.src.css` (WP-2..WP-7) to rebuild
+    and commit `tailwind.css` in the same commit; the drift hook
+    deliberately stays in WP-8 (moving it to WP-1 would front-load the
+    headless-CI fetch problem before any template exists to protect).
+  - Stack-restriction conflict: `toast` + `alert` added to the
+    permitted daisyUI set for the WP-5 toast rewrite.
+  - `--bars-color` inventory corrected: six of seven page CSS files
+    (`unmatched.css` hardcodes its own `--header-bg`), pinwheel via
+    `var()`; the wordmark hardcodes `#6a4baf` and only the dark-mode
+    override (`global.css:49-50`) uses the variable, so light-mode
+    wordmark recoloring is explicit migration work.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: WP-1 remains next; batched reply posted on PR #163.
+
 ### 2026-07-28 - PR #163 review response (side-task)
 
 - Scope: address the Copilot auto-review on PR #163 (Batch 21 open +

@@ -5,6 +5,10 @@ Rules live in `AGENTS.md`. Work orders live in `PLAYBOOK.md`.
 This file contains preferences, local dev setup, and discovered constraints
 that agents need but that do not belong in either of those files.
 
+**Active batch:** `PLAYBOOK.md` Section 3 is the single source of truth for
+batch state; it names the active `BATCHN_DEFINITION.md` at repo root. This
+file does not track batch status.
+
 ---
 
 ## Owner Preferences
@@ -18,9 +22,14 @@ that agents need but that do not belong in either of those files.
 - Always explain why in log entries and inline comments -- not just what.
 - Owner tests locally in Firefox (+ Responsive Design Mode for mobile)
   between WPs before approving the next one.
-- Software principles enforced: DRY, SoC, SRP, KISS, Dependency Inversion,
-  Composition over Inheritance, Clean Architecture, Boy Scout Rule, Least
-  Knowledge Principle, Fail Fast. Not aspirational -- mandatory.
+- Software principles enforced -- not aspirational, mandatory: DRY (don't
+  repeat yourself), SoC (separation of concerns), SRP (single
+  responsibility per module/function), KISS (keep it simple), Dependency
+  Inversion (depend on abstractions, not concretions), Composition over
+  Inheritance, Clean Architecture (dependencies point inward, see
+  SESSION_CONTEXT Section 4), Boy Scout Rule (leave touched code cleaner
+  than found), Least Knowledge / Law of Demeter (talk only to immediate
+  collaborators), Fail Fast (validate early, raise loudly).
 - Testing pyramid: unit tests (mocked, base), integration tests (routes,
   middle), E2E (owner-driven, top). Every test must fail if the function
   under test is deleted.
@@ -61,10 +70,9 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ## Architectural Constraints
 
-- `MAX_ACTIVE_JOBS` (default 10) caps concurrent background jobs via `worker.py`.
-- `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
-- `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
-- `_PLAYTIME_ALBUM_CAP = 500` in `orchestrator.py` limits Spotify fetch for playtime sort.
+- Runtime concurrency constants (`MAX_ACTIVE_JOBS`, `_GlobalThrottle`,
+  `_cache_lock`, `_PLAYTIME_ALBUM_CAP`): see SESSION_CONTEXT Section 1
+  "Key runtime facts" (single source; do not restate values here).
 - **Single worker, multiple threads:** Gunicorn runs `--workers 1 --threads 4`.
   Multiple workers would break the in-process `JOBS` dict. This is intentional.
 - **Windows asyncio:** `background_task()` in `orchestrator.py` explicitly uses
@@ -83,13 +91,9 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ## Venv and Pip Rules
 
-- The ONLY virtualenv is `.venv/` in the repo root.
-- Local dev (Windows): always use `.venv/Scripts/pip`, never bare `pip`.
-- Local dev (Linux): always use `.venv/bin/pip`.
-- CI (GitHub Actions): bare `pip` is correct -- the runner manages its own environment.
-- All packages pinned with `==` in both `requirements.txt` and `requirements-dev.txt`.
-- Never install packages not in requirements files without explicit owner approval.
-- Never start a Flask server process via the Bash tool -- the owner runs the app.
+Owned by `AGENTS.md` (Environment Setup + Anti-Pattern Registry entries 4
+and 5). In short: `.venv/` only with qualified pip paths, `==` pins, no
+unapproved installs, never start a Flask server via the Bash tool.
 
 ---
 
@@ -124,55 +128,37 @@ only in the current process environment and is gone when the shell exits.
 
 ---
 
-## Heatmap Feature (Batch 18 iteration 1 + Batch 19 polish)
+## Heatmap Feature Notes (shipped -- Batches 18/19)
 
-- **Core feature definition:** `docs/history/definitions/BATCH18_DEFINITION.md`.
-- **Batch 19 polish definition (archived):** `docs/history/definitions/BATCH19_DEFINITION.md`.
-  Closed out 2026-05-19; PR #152 (`feat/heatmap` -> `main`) merged.
-- **Batch 21 definition (ACTIVE batch):** `BATCH21_DEFINITION.md` at repo
-  root. UI overhaul -- Tailwind v4 + daisyUI v5 migration, expanded from
-  the owner's Claude Design audit (UI Audit v3), approved 2026-07-24.
-  WP-0 done; WP-1 (toolchain + themes) is next on `wip/batch-21` (PR #163).
-  Batch 20 (file-hygiene + docs methodology refresh) is complete; its
-  definition is archived at `docs/history/definitions/BATCH20_DEFINITION.md`.
-- **Batch 19 scope:** frame/headline/KPIs result redesign, "Top Albums" pill
-  rename, pinwheel/loading polish, mobile heatmap layout, and stale
-  documentation cleanup. Full app palette/font rebrand remains deferred.
+- **Definitions (archived):** `docs/history/definitions/BATCH18_DEFINITION.md`
+  (core feature) and `docs/history/definitions/BATCH19_DEFINITION.md`
+  (polish; closed out 2026-05-19, PR #152 merged).
 - **Key decisions:** username-only input (last 365 days), pill tabs on index.html,
   all states on one page (no navigation), GitHub-style 7x52 SVG grid, rocket_r
   palette, log-adjusted intensity, no heatmap-specific caching (REQUEST_CACHE
   covers Last.fm pages), no new Python dependencies, no matplotlib/seaborn.
 - **Cache note:** heatmap uses different `from`/`to` timestamps than album
   search, producing different REQUEST_CACHE keys. No interference.
-- **Windows asyncio:** heatmap_task must use same ProactorEventLoop guard as
-  orchestrator.py background_task. See AGENT_NOTES Architectural Constraints.
-- **Feature may span multiple batches.** Follow-up candidates: orchestrator
-  split, export, date range, summary stats.
-- **Heatmap perf (measured 2026-05-16):** `flounder14` took 10.9 seconds for
-  103 Last.fm pages. `lastfm.py` already uses `limit=200`, concurrent
-  `as_completed` fetching, `MAX_CONCURRENT_LASTFM=10`, and the global
-  10 req/s throttle. That makes 10.9s effectively the rate-limit floor
-  (103 pages / 10 req/s = 10.3s minimum). Further speedups require
-  heatmap-specific caching, progressive rendering, or higher rate-limit risk.
-- **Batch 19 owner-review follow-up (2026-05-19):** the remaining visual work is
-  loading-state polish and heatmap sizing. The pinwheel should be unframed,
-  SVG-scaled, mobile-bounded, and preserve the original breathing blade
-  animation; the heatmap grid should use more desktop width and a sequential
-  mobile activity strip that fills the frame width without calendar
-  constraints. Global
-  font/palette/Bootstrap
-  theming remains a future-batch concern unless a small local change is needed
-  to make the heatmap work.
+- **Windows asyncio:** heatmap_task must use the same ProactorEventLoop guard
+  as orchestrator.py background_task. See Architectural Constraints above.
+- **Perf:** fetch speed is rate-limit bound; the measurement and rationale
+  live in FINDINGS.md F-B18-11 (single source).
+- **Follow-up candidates:** export, date range, summary stats (future
+  batches; the orchestrator split is tracked as FINDINGS F-B20-2).
 
 ---
 
 ## Known Open Issues / Future Candidates
 
 - Flask-Talisman (CSP) was attempted in Batch 17 WP-5 and dropped (YAGNI).
-  The templates use inline styles (SVG logo `<defs><style>`, Bootstrap progress
-  bar `style="width: 0%"`, album cover fallback) that would need refactoring
-  before a strict CSP is viable. See PLAYBOOK WP-5 entry for details.
-- Scaling path if needed: Celery/Redis RQ -- out of scope until features complete.
-- Orchestrator monolith split: deferred until heatmap exists alongside album
-  pipeline. Natural SoC cleanup candidate for a follow-up batch.
-- Cache + bounded semaphore load testing: per `load-test-findings.md`.
+  Templates use inline styles that would need refactoring before a strict
+  CSP is viable. Details: `docs/history/logs/BATCH17_LOG.md` and
+  `docs/history/definitions/BATCH17_DEFINITION.md`.
+- Scaling path if needed: Celery/Redis RQ -- out of scope until features
+  complete (FINDINGS F-MAS-6).
+- Orchestrator monolith split: precondition met (heatmap shipped as the
+  second pipeline); tracked as FINDINGS F-B20-2 (open P1).
+- Load testing (2026-03-04): 2/3/5 concurrent users ran clean; the 10-user
+  run never completed (N jobs share the global 10 req/s throttle, so each
+  gets ~10/N req/s). Conclusions live here and in FINDINGS F-LOAD-1..5;
+  the raw run data is agent-side memory, not in the repo.

@@ -79,11 +79,8 @@ Completed batch definitions are archived individually under `docs/history/`.
 - **Next action:** Batch 21 WP-1 (Tailwind + daisyUI toolchain and theme
   tokens; no template changes).
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
-- **Perf note (measured 2026-05-16):** Heatmap fetch for `flounder14`
-  (103 pages) took 10.9s. `lastfm.py` already uses `limit=200` and concurrent
-  `as_completed` fetching. 10.9s is the rate-limit floor (103 pages /
-  10 req/s = 10.3s minimum). No further optimization without heatmap-specific
-  caching or rate-limit risk. Documented in FINDINGS.md F-B18-11.
+- **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
+  rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
   aggregate `user.gettopartists`/`user.gettoptracks` calls with page fan-out,
   not exact per-scrobble recent-track timestamps. Useful for future perf
@@ -148,6 +145,47 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-07-31 - Bootstrap-doc SSOT pass: single-source rules and state (side-task)
+
+- Scope: owner-requested hygiene sweep before Batch 21 WP-1. Exploration
+  confirmed AGENTS.md and HANDOFF_PROMPT.md contradicted each other
+  (bootstrap order, sufficiency gate, pre-commit gate, ownership map),
+  commit discipline existed in 3-4 copies, the heatmap perf measurement
+  in 4 copies, and AGENT_NOTES.md carried live batch state under a
+  shipped-feature heading plus Batch 19 residue and a pointer to a
+  non-repo file.
+- Plan vs implementation:
+  - AGENTS.md is now the single owner of rules: canonical 7-step
+    bootstrap order (AGENTS.md itself is step 1), the stricter 3-way
+    sufficiency gate, a 6-step pre-commit procedure including the
+    doc_state_sync --check gate, the conflict-resolution rule, and four
+    new anti-patterns (never --no-verify; stale Section 3; missing log
+    entries; stale dashboard figures -- the ~72% coverage figure
+    survived five months while reality was 89%). Docstring mandate moved
+    into Proposal and Design Rules.
+  - HANDOFF_PROMPT.md reduced to what it uniquely owns: post-read
+    verification (git status/log + pytest count reconciliation) and the
+    end-of-session handoff checklist; all rule sections now link to
+    AGENTS.md instead of restating.
+  - AGENT_NOTES.md: batch state moved out (PLAYBOOK Section 3 declared
+    the single source); Heatmap section retitled shipped and trimmed of
+    Batch 19 residue; venv rules and runtime constants replaced with
+    links to their owners; load-test pointer now inlines the conclusion
+    (2/3/5 clean, 10 never completed) and flags the raw data as
+    agent-side; Talisman note repointed to the archived Batch 17 log;
+    orchestrator-split note repointed to F-B20-2; the ten software
+    principles expanded from bare acronyms.
+  - SESSION_CONTEXT: Section 3 now lists all 7 CSS / 7 JS files and the
+    template set (Batch 21 touches exactly these); heatmap perf trimmed
+    to an F-B18-11 pointer here and in PLAYBOOK Section 3 -- F-B18-11 is
+    the only full copy of the measurement.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: commits 2-5 of the approved hygiene plan follow
+  (PLAYBOOK log column, FINDINGS refresh, MAX_ACTIVE_JOBS 5, SWE audit
+  charter); then Batch 21 WP-1.
 
 ### 2026-07-29 - PR #164 phantom cleanup + review response (side-task)
 
@@ -216,34 +254,6 @@ non-current operational logs. Older dated entries live in
     machine-rotated archive content in a docs PR was declined and
     accepted in PR #162 round 3. Logged as F-DOCSYNC-3 (open P2) for a
     docsync WP alongside F-DOCSYNC-1/2.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: WP-1 remains next; batched reply posted on PR #163.
-
-### 2026-07-28 - PR #163 review response, round 2 (side-task)
-
-- Scope: Copilot round 2 -- no new top-level comments, four suppressed
-  low-confidence comments. All four verified valid (same pattern as
-  PR #162: the suppression filter is too conservative); all acted on.
-- Plan vs implementation:
-  - Stale bootstrap docs: AGENT_NOTES.md still called Batch 21 a TBD
-    stub with "no WP work until scope lands"; FINDINGS.md header said
-    scope pending; README roadmap listed scoping as open. All three now
-    reflect the active batch (the definition's own Status line already
-    carried Active from WP-0).
-  - Compiled-CSS drift window: validation gate now requires any WP
-    touching templates or `tailwind.src.css` (WP-2..WP-7) to rebuild
-    and commit `tailwind.css` in the same commit; the drift hook
-    deliberately stays in WP-8 (moving it to WP-1 would front-load the
-    headless-CI fetch problem before any template exists to protect).
-  - Stack-restriction conflict: `toast` + `alert` added to the
-    permitted daisyUI set for the WP-5 toast rewrite.
-  - `--bars-color` inventory corrected: six of seven page CSS files
-    (`unmatched.css` hardcodes its own `--header-bg`), pinwheel via
-    `var()`; the wordmark hardcodes `#6a4baf` and only the dark-mode
-    override (`global.css:49-50`) uses the variable, so light-mode
-    wordmark recoloring is explicit migration work.
 - Deviations: none.
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.

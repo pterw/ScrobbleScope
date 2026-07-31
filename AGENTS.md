@@ -12,7 +12,7 @@ serve as external memory shared across sessions.
 | File | Role | Contains |
 |------|------|----------|
 | `AGENTS.md` (this file) | **Rules** | How agents must behave. Stable; rarely changes. |
-| `HANDOFF_PROMPT.md` | **Bootstrap procedure** | Step-by-step session start, validation gates, commit discipline, handoff checklist. |
+| `HANDOFF_PROMPT.md` | **Session-start procedure** | Post-read verification steps and the end-of-session handoff checklist. Rules (bootstrap order, gates, commit discipline) live in `AGENTS.md`. |
 | `AGENT_NOTES.md` | **Owner context** | Owner preferences, local dev setup, architectural constraints, known issues. |
 | `.claude/SESSION_CONTEXT.md` | **Dashboard** | Current project state snapshot. No rules, no history. |
 | `PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
@@ -43,18 +43,26 @@ only the minimum bootstrap/context files needed to answer that thread. Open
 batch definitions or archive/history docs only when the linked comment
 explicitly depends on batch-acceptance or historical context.
 
-1. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
-2. The batch definition file named in Section 3 (repo root while active;
-   under `docs/history/definitions/` once the batch is closed).
-3. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
-4. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
-5. Relevant `docs/history/` doc only if the log references one.
-6. `FINDINGS.md` -- read on demand only: when PLAYBOOK Section 4 or your
+1. `AGENTS.md` (this file) -- rules, commit format, doc sync policy,
+   anti-patterns.
+2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
+3. The batch definition file named in Section 3 (repo root while active;
+   under `docs/history/definitions/` once the batch is closed; between
+   batches no file exists -- skip this step).
+4. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
+5. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
+6. Relevant `docs/history/` doc only if the log references one.
+7. `FINDINGS.md` -- read on demand only: when PLAYBOOK Section 4 or your
    task explicitly references an F-* finding ID or an open P0/P1 item.
    Not part of the mandatory bootstrap set.
 
-If SESSION_CONTEXT Section 1 and PLAYBOOK Section 3 agree on the current batch
-and next WP, you have enough context to start.
+This list is the single canonical bootstrap order; `HANDOFF_PROMPT.md` links
+here and adds only the post-read verification steps.
+
+If PLAYBOOK Section 3, the batch definition, and SESSION_CONTEXT Section 1
+all agree on the current batch and next WP, you have enough context to start.
+If two bootstrap files conflict, follow the stricter safety rule and pause
+only when the conflict affects the next action.
 
 **Token discipline for bootstrap:**
 - Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; Sections 3-5 only if structure, dependency, or architecture detail is needed.
@@ -151,9 +159,17 @@ Conventional Commits, imperative mood, no trailing period:
 **Procedure before every commit:**
 1. `pytest -q` -- all tests pass.
 2. `pre-commit run --all-files` -- all hooks pass.
-3. Stage only files changed for this work package.
-4. Commit after each WP (do not batch multiple WPs into one commit).
-   Do not push without explicit owner instruction (see HANDOFF_PROMPT.md Section 3).
+3. `python scripts/doc_state_sync.py --check` -- exits 0 (the root
+   `BATCHN_DEFINITION.md` warning is expected while a batch is active).
+4. Update PLAYBOOK Section 3 + Section 4 BEFORE committing. Batch log
+   entries carry a `(Batch N WP-X)` tag in the heading; side-task entries
+   are untagged (see Side-Task Handling).
+5. Stage only files changed for this work package. Stage
+   `.claude/SESSION_CONTEXT.md` together with PLAYBOOK whenever it changed
+   -- do not leave it modified and unstaged.
+6. Commit after each WP (do not batch multiple WPs into one commit).
+   Do not push without explicit owner instruction. Pause after each commit
+   for owner review.
    When authorized to push in a GitHub Copilot session, use the platform
    progress/reporting tool; do not push directly with shell `git`/`gh`.
 
@@ -350,6 +366,9 @@ When all WPs in the active batch are committed and validated:
    (rename, move, split, merge modules) without first verifying that
    existing tests cover the affected paths. If coverage is insufficient,
    add tests in a preceding WP.
+5. **Docstrings and comments:** every function has a comprehensive
+   docstring; inline comments explain non-obvious logic (the why, not the
+   what). SoC/DRY is the constraint on file content, not line count.
 
 ---
 
@@ -390,6 +409,18 @@ Agents must check their work against this list before committing.
    and assert on a date that would shift under a naive interpretation.
    Canonical example: `tests/test_heatmap.py::TestAggregateDailyCounts::`
    `test_utc_decode_invariant_against_local_tz_drift`.
+7. **Skipping hooks:** Never commit with `--no-verify`. Fix the failing
+   hook instead.
+8. **Stale PLAYBOOK Section 3:** Section 3 not reflecting the true state
+   of every WP at all times (see Doc Sync Rules, mid-batch handoff
+   discipline).
+9. **Missing log entries:** a WP or side-task commit without its dated
+   PLAYBOOK Section 4 entry.
+10. **Stale dashboard figures (coverage incident 2026-07-28):** quoting a
+    canonical number (coverage, test count, module count) from docs
+    without re-measuring. The "~72%" coverage figure survived five months
+    of doc passes while the real figure was 89%. Re-run the measuring
+    command before repeating a number in any doc.
 
 ---
 
