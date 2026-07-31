@@ -13,11 +13,10 @@ file does not track batch status.
 
 ## Owner Preferences
 
-- Commits staged incrementally -- specific files by name, never `git add -A`.
-- Each WP commit is reviewed individually before push. Wait for explicit push instruction.
-- No co-author trailers in commit messages.
+- Commit mechanics (incremental staging by name, no co-author trailers,
+  push only on explicit owner instruction, pause after each commit for
+  owner review): owned by AGENTS.md Commit Rules -- stated once there.
 - Concise responses; no emojis unless asked.
-- Pause after each WP commit for owner review.
 - Pause and notify owner if Docker config or external MCP setup is needed.
 - Always explain why in log entries and inline comments -- not just what.
 - Owner tests locally in Firefox (+ Responsive Design Mode for mobile)
