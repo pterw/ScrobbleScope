@@ -149,6 +149,32 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-07-31 - Push rule: standing exception for review-fix commits (side-task)
+
+- Scope: owner-directed policy change, not a review finding. During PR
+  #165 triage the owner granted a standing authorization to push
+  review-driven commits without asking per round, on the reasoning that
+  the agent reaches the diminishing-returns point on its own and a
+  per-round approval round-trip only stalls the loop.
+- Plan vs implementation: encoded in AGENTS.md Commit Rules step 6 rather
+  than left as an agent-side preference, because AGENTS.md is the rules
+  SSOT and a spoken rule that contradicts the written one is exactly the
+  defect this PR spent four rounds removing. Scoped per owner: **Claude
+  Code and Codex sessions only.** GitHub Copilot task sessions and their
+  subagents, Jules, and any other agent follow the unmodified rule --
+  the owner does not extend equal trust to agents of varying quality
+  that it cannot inspect per-invocation. Step 6 already carried a
+  Copilot-specific clause, so per-agent scoping had precedent.
+- Deviations: the exception is deliberately narrow. Review-fix commits on
+  an open PR only; batch and WP commits still pause, and force-pushes,
+  history rewrites, and anything touching `main` still require explicit
+  instruction.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: if the agent roster changes, this clause names
+  specific agents and will need revisiting -- it is an allowlist, not a
+  capability test.
+
 ### 2026-07-31 - PR #165 Copilot review round 4 (side-task)
 
 - Scope: zero visible comments, two suppressed, both valid and both real
@@ -269,37 +295,3 @@ non-current operational logs. Older dated entries live in
   -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: Batch 21 WP-1 remains the next action. `gh` writes
   are still unavailable this session, so the round-2 reply is unposted.
-
-### 2026-07-31 - PR #165 Copilot review round 1 (side-task)
-
-- Scope: triaged the five comments on PR #165 (four inline, one inside
-  the suppressed low-confidence block). All five were valid; none were
-  declined. Two themes: an overstated concurrency claim and three
-  leftover copies of rules AGENTS.md now owns.
-- Plan vs implementation:
-  - `config.py`: the MAX_ACTIVE_JOBS rationale claimed a cap of 5 "keeps
-    >=2 req/s per job". `_GlobalThrottle.next_wait()` (utils.py) advances
-    a single next-allowed timestamp under one lock, serializing callers
-    in arrival order with no per-job accounting, so a busy job can take
-    more slots than an idle one. Reworded as an average, matching the
-    "~10/N req/s" framing already used in AGENT_NOTES.md.
-  - `scripts/testing/concurrent_users_test.py`: module docstring and
-    `build_parser()` still said the default was 10 and told operators to
-    set `--concurrency` above 10. Both now say 5. A repo-wide sweep found
-    no other live stale reference; remaining "default 10" hits are all
-    under `docs/history/` and stay as written (point-in-time records).
-  - `AGENT_NOTES.md`: the Owner Preferences commit-mechanics bullet and
-    the Venv "In short:" line each pointed at AGENTS.md and then restated
-    its content anyway. Both reduced to pointers after verifying AGENTS.md
-    genuinely carries every rule involved.
-  - `HANDOFF_PROMPT.md`: Section 2 restated the full three-command gate
-    and the root-BATCH warning, contradicting the Document Roles contract
-    added by this same PR, which assigns gates to AGENTS.md. Collapsed to
-    a pointer matching the wording Sections 3 and 4 already use.
-- Deviations: none. No test changes -- all five edits are comment or
-  documentation text with no behavior change.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: the suppressed-comment block again held a real
-  finding (8/8 across PRs #163/#164/#165), so keep expanding it. Batch 21
-  WP-1 remains the next action.
