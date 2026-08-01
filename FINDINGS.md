@@ -215,9 +215,11 @@ Status: open (P2). Source: PR #162 review round 4.
 Close-out headings use a `(Batch N close-out)` suffix that `ENTRY_BATCH_RE`
 does not recognize as batch-tagged, so rotation routes them into the
 untagged monolith archive instead of `docs/history/logs/BATCHN_LOG.md`.
-Consistent across batches: neither BATCH19_LOG.md nor BATCH20_LOG.md
-contains its close-out entry; both sit in the monolith. Per-batch history
-is therefore incomplete without a monolith grep. Fix belongs in a docsync
+Affects only close-outs written with that suffix: BATCH19_LOG.md and
+BATCH20_LOG.md lack their close-out entries (both sit in the monolith),
+while Batch 18's close-out was tagged `(Batch 18 WP-5)` and routed
+correctly. Per-batch history is therefore incomplete for the affected
+batches without a monolith grep. Fix belongs in a docsync
 WP together with F-DOCSYNC-1/F-DOCSYNC-2 (make close-out tags parseable,
 then one-time re-route of the existing close-out entries); hand-retagging
 machine-rotated archive content was declined in PR #162 round 3 and again

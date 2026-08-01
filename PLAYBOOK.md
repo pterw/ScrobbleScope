@@ -24,7 +24,7 @@ Rules for agent behaviour live in `AGENTS.md`; current-state snapshot in
 
 Completed batch definitions are archived individually under `docs/history/`.
 
-### Completed batches (definitions archived)
+### Batch index (completed batches archived; the active batch, if any, is listed last)
 
 | Batch | Title | Definition | Log |
 |-------|-------|------------|-----|
@@ -51,8 +51,11 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 20 | File-hygiene + docs methodology refresh | `docs/history/definitions/BATCH20_DEFINITION.md` | `docs/history/logs/BATCH20_LOG.md` |
 | 21 | UI overhaul -- Tailwind + daisyUI migration | `BATCH21_DEFINITION.md` | active -- Section 4 |
 
-Close-out entries for each batch currently live in the monolith archive,
-not the per-batch log (see FINDINGS F-DOCSYNC-3).
+A batch's close-out entry sits in its per-batch log only when the heading
+carried a `(Batch N WP-X)` tag (as Batch 18's did). Close-outs tagged
+`(Batch N close-out)` are not parser-recognized and were routed to the
+monolith archive instead -- Batches 19 and 20 are the current examples.
+See FINDINGS F-DOCSYNC-3.
 
 ### Open decisions (owner confirmation needed)
 
@@ -148,6 +151,40 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-01 - PR #165 round 8; over-broad claims narrowed (side-task)
+
+- Scope: three suppressed comments, all valid, all fixed.
+- Plan vs implementation:
+  - The Section 2 note claimed close-out entries for *each* batch live
+    in the monolith archive. False: `BATCH18_LOG.md` holds its own
+    close-out because that heading carried a `(Batch 18 WP-5)` tag;
+    only the `(Batch N close-out)` spelling misroutes. Narrowed here
+    and in F-DOCSYNC-3, which carried the same over-broad framing.
+  - The Section 2 subsection heading still read "Completed batches
+    (definitions archived)" while the table lists the active batch with
+    a root definition. Retitled to cover both.
+  - `AGENT_NOTES.md` asserted a batch was active and where its
+    definition sits in the same breath as declaring that the file does
+    not track batch state -- self-contradictory, and false between
+    batches. Reduced to the pointer alone.
+  - Anti-Pattern Registry, assertions entry: broadened from the one
+    phrasing that had failed before (`all N`, ranges) to the full
+    quantifier vocabulary, since the narrow sweep is what let "each
+    batch" through.
+- Assessment of the review loop: none of these three were caused by the
+  previous round's fixes -- the fix-causes-finding chain that drove
+  rounds 5 through 7 did not repeat. What remains is pre-existing
+  over-broad wording in text the sweep touched. On that basis the
+  pre-push checklist is working and mechanical enforcement is not yet
+  warranted; a consistency-lint hook stays a docsync-WP candidate rather
+  than scope creep into this PR.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: findings have narrowed to wording precision rather
+  than correctness; this is the diminishing-returns point. Recommend
+  merging rather than requesting another round.
 
 ### 2026-08-01 - PR #165 round 7 + review-loop pattern sweep (side-task)
 
@@ -269,39 +306,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: pushed under the standing review-fix exception with
   a batched reply. PR #165 remains merge-ready pending the next
   auto-review.
-
-### 2026-07-31 - FINDINGS: record reissue cache-key collapse (side-task)
-
-- Scope: capture a data-quality mechanism found while discussing the
-  DEVELOPMENT.md rewrite, before the reasoning was lost to chat. No code
-  change -- this is a finding, not a fix.
-- Plan vs implementation: added `F-DATA-1` under P2.
-  `normalize_name()` strips `deluxe`/`edition`/`remastered` and eight
-  more words, so a reissue and its original normalize identically; since
-  the `spotify_cache` PK is `artist_norm + album_norm`, they share one
-  row and whichever populated it first serves its `release_date` for 30
-  days. Owner observed this with Viagra Boys "viagr aboys" (2025)
-  surfacing under 2026 via the JP deluxe released 2026-01-09, on an
-  account that never played it.
-- The finding records why the collapse is nonetheless correct (Last.fm
-  scrobbles the same record under inconsistent album strings; keying
-  editions apart would split one album into several leaderboard rows
-  with divided playcounts), the candidate fix (decouple counting from
-  dating -- keep the collapse for aggregation, take the *earliest*
-  candidate release date when resolving the year, no schema change), the
-  rejected boolean discriminator and why, three questions answerable by
-  querying the cache, and the note that Spotify exposes no
-  original-release-date field at all.
-- Deviations: earlier in the session an agent claim that release-date
-  drift was a systemic risk was walked back. The owner has ~14 years of
-  scrobbles and one recalled instance; the claim had been reasoned from
-  a plausible mechanism rather than measured. Filed P2 with low user
-  impact stated explicitly, and `release_scope: all` already bypasses
-  date filtering. Recording the correction so the finding is not read as
-  more urgent than the evidence supports.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: question 2 (which other albums) is a cache query, not
-  an investigation -- run it before designing any fix. Sequenced behind
-  Batch 21, the F-B20-2 orchestrator split, and the test/docstring pass
-  per owner priority.

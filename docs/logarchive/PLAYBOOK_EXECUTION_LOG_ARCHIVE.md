@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - FINDINGS: record reissue cache-key collapse (side-task)
+
+- Scope: capture a data-quality mechanism found while discussing the
+  DEVELOPMENT.md rewrite, before the reasoning was lost to chat. No code
+  change -- this is a finding, not a fix.
+- Plan vs implementation: added `F-DATA-1` under P2.
+  `normalize_name()` strips `deluxe`/`edition`/`remastered` and eight
+  more words, so a reissue and its original normalize identically; since
+  the `spotify_cache` PK is `artist_norm + album_norm`, they share one
+  row and whichever populated it first serves its `release_date` for 30
+  days. Owner observed this with Viagra Boys "viagr aboys" (2025)
+  surfacing under 2026 via the JP deluxe released 2026-01-09, on an
+  account that never played it.
+- The finding records why the collapse is nonetheless correct (Last.fm
+  scrobbles the same record under inconsistent album strings; keying
+  editions apart would split one album into several leaderboard rows
+  with divided playcounts), the candidate fix (decouple counting from
+  dating -- keep the collapse for aggregation, take the *earliest*
+  candidate release date when resolving the year, no schema change), the
+  rejected boolean discriminator and why, three questions answerable by
+  querying the cache, and the note that Spotify exposes no
+  original-release-date field at all.
+- Deviations: earlier in the session an agent claim that release-date
+  drift was a systemic risk was walked back. The owner has ~14 years of
+  scrobbles and one recalled instance; the claim had been reasoned from
+  a plausible mechanism rather than measured. Filed P2 with low user
+  impact stated explicitly, and `release_scope: all` already bypasses
+  date filtering. Recording the correction so the finding is not read as
+  more urgent than the evidence supports.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: question 2 (which other albums) is a cache query, not
+  an investigation -- run it before designing any fix. Sequenced behind
+  Batch 21, the F-B20-2 orchestrator split, and the test/docstring pass
+  per owner priority.
+
 ### 2026-07-31 - DEVELOPMENT.md: correct HANDOFF_PROMPT description (side-task)
 
 - Scope: DEVELOPMENT.md described `HANDOFF_PROMPT.md` as a condensed

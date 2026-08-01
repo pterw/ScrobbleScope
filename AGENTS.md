@@ -506,10 +506,16 @@ Agents must check their work against this list before committing.
     headed "Open findings" that listed an ID already marked resolved; a
     cross-reference to an anti-pattern that does not cover the case
     being argued; and a citation naming a gitignored file no
-    contributor can open. Ranges (`X through Y`) and "all N" phrasings
-    are the highest-risk constructions here: expand them and verify
-    member by member, or rewrite the claim so it does not depend on the
-    membership.
+    contributor can open. Ranges and universal quantifiers are the
+    highest-risk constructions here: expand them and verify member by
+    member, or rewrite the claim so it does not depend on the
+    membership. Grep the whole quantifier vocabulary rather than the one
+    phrasing that failed last time -- `all`, `each`, `every`, `both`,
+    `none`, `always`, `never`, `X through Y` -- because a check narrowed
+    to the previous wording misses the next variant. A statement that
+    "close-out entries for each batch live in the monolith" survived one
+    such narrow sweep and was false for the batch that tagged its
+    close-out differently.
 14. **Happy-path-only procedures:** a numbered procedure that only
     works in one state. Examples that reached the canonical docs: a
     close-out step saying "add a row" for a table row that already
