@@ -9,6 +9,32 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - Push rule: standing exception for review-fix commits (side-task)
+
+- Scope: owner-directed policy change, not a review finding. During PR
+  #165 triage the owner granted a standing authorization to push
+  review-driven commits without asking per round, on the reasoning that
+  the agent reaches the diminishing-returns point on its own and a
+  per-round approval round-trip only stalls the loop.
+- Plan vs implementation: encoded in AGENTS.md Commit Rules step 6 rather
+  than left as an agent-side preference, because AGENTS.md is the rules
+  SSOT and a spoken rule that contradicts the written one is exactly the
+  defect this PR spent four rounds removing. Scoped per owner: **Claude
+  Code and Codex sessions only.** GitHub Copilot task sessions and their
+  subagents, Jules, and any other agent follow the unmodified rule --
+  the owner does not extend equal trust to agents of varying quality
+  that it cannot inspect per-invocation. Step 6 already carried a
+  Copilot-specific clause, so per-agent scoping had precedent.
+- Deviations: the exception is deliberately narrow. Review-fix commits on
+  an open PR only; batch and WP commits still pause, and force-pushes,
+  history rewrites, and anything touching `main` still require explicit
+  instruction.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: if the agent roster changes, this clause names
+  specific agents and will need revisiting -- it is an allowlist, not a
+  capability test.
+
 ### 2026-07-31 - PR #165 Copilot review round 4 (side-task)
 
 - Scope: zero visible comments, two suppressed, both valid and both real

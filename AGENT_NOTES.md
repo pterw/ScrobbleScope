@@ -155,6 +155,9 @@ only in the current process environment and is gone when the shell exits.
 - Orchestrator monolith split: precondition met (heatmap shipped as the
   second pipeline); tracked as FINDINGS F-B20-2 (open P1).
 - Load testing (2026-03-04): 2/3/5 concurrent users ran clean; the 10-user
-  run never completed (N jobs share the global 10 req/s throttle, so each
-  gets ~10/N req/s). Conclusions live here and in FINDINGS F-LOAD-1..5;
-  the raw run data is agent-side memory, not in the repo.
+  run never completed. Each API has its own global throttle and neither
+  does per-job accounting, so N jobs sharing the Last.fm phase average
+  ~10/N req/s rather than each being guaranteed it -- see the
+  `MAX_ACTIVE_JOBS` comment in `scrobblescope/config.py` for the full
+  rationale. Conclusions also in FINDINGS F-LOAD-1..5; the raw run data
+  is agent-side memory, not in the repo.

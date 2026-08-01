@@ -11,9 +11,9 @@ and honest grading -- not scope invention.
 
 ## 1. Bootstrap
 
-Follow `AGENTS.md` "Session Bootstrap" first (it is step 1 of its own
-order). This charter is the work order; PLAYBOOK Section 3 status does not
-change while the audit runs (it is a read-only side-task).
+Follow `AGENTS.md` "Session Bootstrap" first -- that list names itself as
+the first file to read. This charter is the work order; PLAYBOOK Section 3
+status does not change while the audit runs (it is a read-only side-task).
 
 ## 2. Scope
 

@@ -149,6 +149,42 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-01 - PR #165 review round 6; self-inflicted-drift anti-pattern (side-task)
+
+- Scope: round 6 returned three suppressed comments, zero visible. All
+  three verified valid -- and all three were created by round 5's own
+  fixes, which is the finding that matters more than the fixes.
+- Plan vs implementation:
+  - Acted: `AGENTS.md` Side-Task Handling and `HANDOFF_PROMPT.md` both
+    cited "Commit Rules step 4" for the documentation requirement; the
+    round-5 reorder moved it to step 1. Repointed **by name** ("the
+    documentation step", "Missing log entries") rather than by number,
+    so a future reorder cannot re-stale them.
+  - Acted: `AGENT_NOTES.md` load-testing bullet still asserted the
+    per-job guarantee and single-throttle model that round 5 corrected
+    in `config.py`. Rewritten to match and to point at `config.py` as
+    the single owner of the rationale.
+  - Declined (precedent): PLAYBOOK Section 4 entries at :163 and :262
+    also contain "step 3/4/6" references that no longer match the
+    current numbering. They are dated point-in-time records of what was
+    true when written; retro-editing rotated log content was declined
+    and accepted in PR #162 round 3 and PR #163 round 3.
+  - Root-cause fix: new Anti-Pattern Registry entry 11, "Fixing the
+    instance instead of the class" -- requires a blast-radius grep
+    before the gates (references to anything renumbered/renamed, and
+    sibling copies of any corrected claim), and prefers name-based
+    cross-references over numeric ones.
+  - Swept beyond the three findings: verified the remaining numeric
+    references (`AGENTS.md` close-out step 2, charter bootstrap step 1)
+    still resolve correctly, and that the `req/s` claims in F-B18-11 and
+    F-B18-10 are accurate because the heatmap and album pipelines are
+    both Last.fm-only.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: pushed under the standing review-fix exception with
+  a batched reply.
+
 ### 2026-08-01 - PR #165 Copilot review round 5 (side-task)
 
 - Scope: round 5 returned "not ready to approve" with four suppressed
@@ -251,29 +287,3 @@ non-current operational logs. Older dated entries live in
   around how the tooling changed rather than around rejection, and
   `README.md:492` must move with it -- it currently promises a section on
   suggestions "evaluated and rejected".
-
-### 2026-07-31 - Push rule: standing exception for review-fix commits (side-task)
-
-- Scope: owner-directed policy change, not a review finding. During PR
-  #165 triage the owner granted a standing authorization to push
-  review-driven commits without asking per round, on the reasoning that
-  the agent reaches the diminishing-returns point on its own and a
-  per-round approval round-trip only stalls the loop.
-- Plan vs implementation: encoded in AGENTS.md Commit Rules step 6 rather
-  than left as an agent-side preference, because AGENTS.md is the rules
-  SSOT and a spoken rule that contradicts the written one is exactly the
-  defect this PR spent four rounds removing. Scoped per owner: **Claude
-  Code and Codex sessions only.** GitHub Copilot task sessions and their
-  subagents, Jules, and any other agent follow the unmodified rule --
-  the owner does not extend equal trust to agents of varying quality
-  that it cannot inspect per-invocation. Step 6 already carried a
-  Copilot-specific clause, so per-agent scoping had precedent.
-- Deviations: the exception is deliberately narrow. Review-fix commits on
-  an open PR only; batch and WP commits still pause, and force-pushes,
-  history rewrites, and anything touching `main` still require explicit
-  instruction.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: if the agent roster changes, this clause names
-  specific agents and will need revisiting -- it is an allowlist, not a
-  capability test.

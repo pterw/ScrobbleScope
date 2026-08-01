@@ -201,10 +201,10 @@ managed by the owner, not by individual agents.
 ## Side-Task Handling
 
 Not all work is batch work (e.g., a leap-year bugfix, a dark-mode polish commit).
-Non-batch changes follow the commit rules above unchanged -- including step
-4, which puts the dated Section 4 entry in the *same* commit as the change
-(Anti-Pattern Registry #9). Side-tasks differ only in where that entry goes
-and how it is tagged:
+Non-batch changes follow the commit rules above unchanged -- including the
+documentation step, which puts the dated Section 4 entry in the *same*
+commit as the change ("Missing log entries" in the Anti-Pattern Registry).
+Side-tasks differ only in where that entry goes and how it is tagged:
 
 1. Add the dated entry in PLAYBOOK Section 4 **after** the
    `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker, using the same log format
@@ -365,7 +365,7 @@ When all WPs in the active batch are committed and validated:
 5. **Run `--fix` again** to refresh the STATUS block.
 6. **Verify clean:** `python scripts/doc_state_sync.py --check` must exit 0 with no
    "Broken archive link" warnings (the two expected root BATCH file warnings disappear
-   once the proposal is archived in step 2).
+   once the definition file has been archived by the step above).
 7. **Commit:** `chore(close-out): Batch N complete; archive definition and purge log`.
 
 ---
@@ -443,6 +443,21 @@ Agents must check their work against this list before committing.
     without re-measuring. The "~72%" coverage figure survived five months
     of doc passes while the real figure was 89%. Re-run the measuring
     command before repeating a number in any doc.
+11. **Fixing the instance instead of the class (PR #165 rounds 5-6):**
+    every finding in round 6 was created by round 5's own fixes --
+    a procedure was renumbered without updating the prose that cited
+    "step 4", and a claim was corrected in `config.py` while the
+    identical claim survived in `AGENT_NOTES.md`. Every edit requires a
+    blast-radius grep before the validation gates:
+    - after renumbering or renaming, run
+      `rg -n "step \d|Registry #\d|rule \d|criterion \d"` across the
+      docs and repoint each hit by **name**, not number -- a name
+      cannot go stale when the list reorders;
+    - after correcting a factual claim, grep its distinctive phrase
+      repo-wide and fix every copy in the same commit, or delete the
+      copies and link to the single owner (Anti-duplication rule).
+    A fix that leaves siblings behind is half a fix and costs another
+    review round.
 
 ---
 
