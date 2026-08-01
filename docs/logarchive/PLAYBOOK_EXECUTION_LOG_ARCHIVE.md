@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - PR #165 Copilot review round 4 (side-task)
+
+- Scope: zero visible comments, two suppressed, both valid and both real
+  defects rather than the judgement-call trade-offs round 3 predicted.
+  The convergence call made after round 3 was wrong; recorded here
+  because the wrong prediction is the useful part. Tally 18/18.
+- Plan vs implementation:
+  - **A rule was silently deleted by this PR, and round 1 removed the
+    last copy.** The prohibition on `git add -A` / `git add .` lived in
+    two places before this branch: AGENT_NOTES.md Owner Preferences and
+    the old HANDOFF_PROMPT anti-pattern list. The PR's HANDOFF_PROMPT
+    rewrite dropped its copy, and the round-1 dedup replaced the
+    AGENT_NOTES copy with a pointer to AGENTS.md Commit Rules -- which
+    never contained the prohibition. Step 5 only said "stage only files
+    changed for this work package", which `git add -A` can satisfy when
+    every changed file happens to belong to the WP. Restored explicitly
+    in Commit Rules step 5, the canonical location the pointer targets.
+  - Lesson: verifying that a pointer's target "covers it in substance"
+    is not enough. Round 1 checked AGENTS.md:167 and accepted a
+    paraphrase as equivalent when it dropped a prohibition. Before
+    deleting a rule copy, diff the *specific obligations*, not the topic.
+  - `scripts/testing/concurrent_users_test.py` promised queuing in three
+    places. `acquire_job_slot()` uses `acquire(blocking=False)` and both
+    call sites (`routes.py:460`, `routes.py:570`) return an error
+    immediately, so excess submissions are rejected and never queued.
+    Round 1 edited one of those lines for the cap change without
+    questioning the surrounding claim. Now describes rejection, matching
+    README's "capacity rejections" wording.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: do not call convergence from the *shape* of a round's
+  findings. Rounds 2 and 3 returned zero visible comments and were still
+  productive; round 4 found a deleted rule. Stop when a round returns
+  nothing, not when the findings look minor.
+
 ### 2026-07-31 - PR #165 Copilot review round 3 (side-task)
 
 - Scope: round 3 again returned zero visible comments and three

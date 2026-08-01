@@ -101,8 +101,9 @@ not volume.
   AGENTS.md Side-Task Handling.
 - Validation gates per AGENTS.md Commit Rules (docs-only change; all
   three commands must still pass).
-- Commit subject: `docs(audit): SWE principles audit report + F-SWE
-  findings`. Do not push without owner instruction.
+- Commit subject: `docs(audit): add SWE principles audit report and
+  F-SWE findings` (imperative mood per AGENTS.md Commit Rules).
+  Do not push without owner instruction.
 
 ## 7. Budget guidance
 

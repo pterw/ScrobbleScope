@@ -166,13 +166,19 @@ so a boolean still collides variant-against-variant. Retaining the
 stripped tokens as a variant tag would work but reintroduces the
 fragmentation above.
 
-Open questions, answerable from the cache rather than by speculation:
+Open questions, answerable by investigation rather than speculation:
 1. Do the scrobbles themselves carry the deluxe title? Last.fm stores
    whatever album metadata the player reported, which is a second
    independent path to the same result.
-2. Which other albums are affected? Group `spotify_cache` by
-   `artist_norm + album_norm` and flag rows whose `release_date` is
-   later than the earliest known release for that album.
+2. Which other albums are affected? **Not answerable from the cache
+   alone:** `(artist_norm, album_norm)` is the primary key
+   (`init_db.py:42`) and the upsert overwrites the single stored
+   `release_date`, so there are no sibling rows and no losing candidate
+   dates to compare against. Detection requires re-running the Spotify
+   search for each cached album and flagging rows whose stored date is
+   later than the earliest candidate in the fresh result set, or
+   cross-checking against an external original-release source
+   (MusicBrainz, per the note below).
 3. Can both a Latin-script deluxe and a JP deluxe surface at once? Only
    if the JP title carries Japanese characters -- NFKC preserves those,
    so it would not collapse; a Latin-script `(Deluxe Edition)` always

@@ -149,6 +149,40 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-01 - PR #165 Copilot review round 5 (side-task)
+
+- Scope: round 5 returned "not ready to approve" with four suppressed
+  comments and zero visible ones. All four verified valid against the
+  code; all four acted on.
+- Plan vs implementation:
+  - `config.py`: the MAX_ACTIVE_JOBS rationale claimed "one global
+    10 req/s API throttle". Wrong -- `utils.py:81-82` builds separate
+    `_LASTFM_THROTTLE` and `_SPOTIFY_THROTTLE`. Comment now names the
+    Last.fm scrobble-fetch phase as the binding constraint.
+  - `AGENTS.md` commit procedure: the docsync `--check` gate sat at
+    step 3 while the PLAYBOOK update was step 4, so the gate ran before
+    the documentation it validates (and `pre-commit` carries the
+    `doc-state-sync-check` hook). Reordered: write docs, `--fix`, then
+    the three gates on the final state. This matches what sessions
+    already do in practice; only the written rule was wrong. Fixed a
+    duplicate step number introduced by the renumber.
+  - `FINDINGS.md` F-DATA-1 open question 2 proposed grouping
+    `spotify_cache` by `artist_norm + album_norm` -- which is the
+    primary key (`init_db.py:42`), so every group holds exactly one row
+    and the upsert has already overwritten any rival date. Replaced
+    with the two methods that can actually work (re-run the Spotify
+    search and compare against the earliest fresh candidate, or
+    cross-check MusicBrainz).
+  - `docs/SWE_AUDIT_CHARTER.md`: prescribed commit subject was a noun
+    phrase, violating the imperative-subject rule the charter tells
+    executors to follow. Now imperative.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: pushed under the standing review-fix exception with
+  a batched reply. PR #165 remains merge-ready pending the next
+  auto-review.
+
 ### 2026-07-31 - FINDINGS: record reissue cache-key collapse (side-task)
 
 - Scope: capture a data-quality mechanism found while discussing the
@@ -243,39 +277,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: if the agent roster changes, this clause names
   specific agents and will need revisiting -- it is an allowlist, not a
   capability test.
-
-### 2026-07-31 - PR #165 Copilot review round 4 (side-task)
-
-- Scope: zero visible comments, two suppressed, both valid and both real
-  defects rather than the judgement-call trade-offs round 3 predicted.
-  The convergence call made after round 3 was wrong; recorded here
-  because the wrong prediction is the useful part. Tally 18/18.
-- Plan vs implementation:
-  - **A rule was silently deleted by this PR, and round 1 removed the
-    last copy.** The prohibition on `git add -A` / `git add .` lived in
-    two places before this branch: AGENT_NOTES.md Owner Preferences and
-    the old HANDOFF_PROMPT anti-pattern list. The PR's HANDOFF_PROMPT
-    rewrite dropped its copy, and the round-1 dedup replaced the
-    AGENT_NOTES copy with a pointer to AGENTS.md Commit Rules -- which
-    never contained the prohibition. Step 5 only said "stage only files
-    changed for this work package", which `git add -A` can satisfy when
-    every changed file happens to belong to the WP. Restored explicitly
-    in Commit Rules step 5, the canonical location the pointer targets.
-  - Lesson: verifying that a pointer's target "covers it in substance"
-    is not enough. Round 1 checked AGENTS.md:167 and accepted a
-    paraphrase as equivalent when it dropped a prohibition. Before
-    deleting a rule copy, diff the *specific obligations*, not the topic.
-  - `scripts/testing/concurrent_users_test.py` promised queuing in three
-    places. `acquire_job_slot()` uses `acquire(blocking=False)` and both
-    call sites (`routes.py:460`, `routes.py:570`) return an error
-    immediately, so excess submissions are rejected and never queued.
-    Round 1 edited one of those lines for the cap change without
-    questioning the surrounding claim. Now describes rejection, matching
-    README's "capacity rejections" wording.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: do not call convergence from the *shape* of a round's
-  findings. Rounds 2 and 3 returned zero visible comments and were still
-  productive; round 4 found a deleted rule. Stop when a round returns
-  nothing, not when the findings look minor.
