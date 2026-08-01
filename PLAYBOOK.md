@@ -152,6 +152,36 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-01 - PR #165 round 9; new rules are not retroactive (side-task)
+
+- Scope: three suppressed comments, all valid -- numeric citations into
+  ordered lists (`Anti-Pattern Registry entries 4 and 5`, two
+  `acceptance criterion 8` references) that the registry's own
+  name-based citation rule prohibits.
+- Cause, established from history rather than assumed: the citations
+  were written in the SSOT pass and the FINDINGS refresh; the rule
+  banning them was written two commits later. Nothing swept the
+  existing corpus against the new rule, so the rule shipped with a
+  backlog of its own violations. The pre-push checklist greps the blast
+  radius of *the change*; when the change is a rule, the blast radius is
+  the whole repository, and that leap was never made.
+- Plan vs implementation: all three citations repointed by name. A
+  repo-wide sweep for `entries N`, `Registry #N`, `criterion N`,
+  `step N`, `rule N`, `item N` across every canonical doc now returns
+  nothing. The lesson was folded into the existing blast-radius
+  anti-pattern as one sentence rather than becoming a fifteenth
+  registry entry -- see the verbosity note below.
+- Deliberate non-action: AGENTS.md is now 475 lines and the registry
+  holds fourteen entries. Documentation across the agent-orchestration
+  set (1,685 lines) stands at roughly 60 percent of the production
+  Python it governs (2,787 lines), and several recent findings were
+  caused by rule text rather than caught by it. Adding rules is no
+  longer cheap. A consolidation pass is a batch-scoped candidate, not
+  something to attempt mid-PR.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: merge rather than iterate further.
+
 ### 2026-08-01 - PR #165 round 8; over-broad claims narrowed (side-task)
 
 - Scope: three suppressed comments, all valid, all fixed.
@@ -272,37 +302,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: pushed under the standing review-fix exception with
   a batched reply.
-
-### 2026-08-01 - PR #165 Copilot review round 5 (side-task)
-
-- Scope: round 5 returned "not ready to approve" with four suppressed
-  comments and zero visible ones. All four verified valid against the
-  code; all four acted on.
-- Plan vs implementation:
-  - `config.py`: the MAX_ACTIVE_JOBS rationale claimed "one global
-    10 req/s API throttle". Wrong -- `utils.py:81-82` builds separate
-    `_LASTFM_THROTTLE` and `_SPOTIFY_THROTTLE`. Comment now names the
-    Last.fm scrobble-fetch phase as the binding constraint.
-  - `AGENTS.md` commit procedure: the docsync `--check` gate sat at
-    step 3 while the PLAYBOOK update was step 4, so the gate ran before
-    the documentation it validates (and `pre-commit` carries the
-    `doc-state-sync-check` hook). Reordered: write docs, `--fix`, then
-    the three gates on the final state. This matches what sessions
-    already do in practice; only the written rule was wrong. Fixed a
-    duplicate step number introduced by the renumber.
-  - `FINDINGS.md` F-DATA-1 open question 2 proposed grouping
-    `spotify_cache` by `artist_norm + album_norm` -- which is the
-    primary key (`init_db.py:42`), so every group holds exactly one row
-    and the upsert has already overwritten any rival date. Replaced
-    with the two methods that can actually work (re-run the Spotify
-    search and compare against the earliest fresh candidate, or
-    cross-check MusicBrainz).
-  - `docs/SWE_AUDIT_CHARTER.md`: prescribed commit subject was a noun
-    phrase, violating the imperative-subject rule the charter tells
-    executors to follow. Now imperative.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: pushed under the standing review-fix exception with
-  a batched reply. PR #165 remains merge-ready pending the next
-  auto-review.

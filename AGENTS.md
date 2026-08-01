@@ -486,7 +486,13 @@ Agents must check their work against this list before committing.
       repo-wide and fix every copy in the same commit, or delete the
       copies and link to the single owner (Anti-duplication rule).
     A fix that leaves siblings behind is half a fix and costs another
-    review round.
+    review round. The same applies when the change *is* a rule: adding
+    or tightening one instantly makes every pre-existing violation
+    non-conformant, so sweep the whole corpus against the new rule in
+    the same commit, or record the remaining backlog explicitly. A rule
+    is not retroactive on its own -- this registry's own name-based
+    citation requirement shipped while three numeric citations sat
+    elsewhere in the repository, written before it existed.
 12. **Lossy or contradictory consolidation:** collapsing a duplicated
     rule to a single owner, but (a) leaving the copies in place while
     the new text claims they were removed, (b) dropping a specific
