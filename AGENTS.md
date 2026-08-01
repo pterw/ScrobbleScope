@@ -157,20 +157,27 @@ Conventional Commits, imperative mood, no trailing period:
 **Subject:** imperative ("Add", "Fix", "Extract") -- NOT "Added", "Fixes".
 
 **Procedure before every commit:**
-1. `pytest -q` -- all tests pass.
-2. `pre-commit run --all-files` -- all hooks pass.
-3. `python scripts/doc_state_sync.py --check` -- exits 0 (the root
-   `BATCHN_DEFINITION.md` warning is expected while a batch is active).
-4. Update PLAYBOOK Section 3 + Section 4 BEFORE committing. Batch log
-   entries carry a `(Batch N WP-X)` tag in the heading; side-task entries
-   are untagged (see Side-Task Handling).
-5. Stage specific paths by name. **Never `git add -A` or `git add .`**,
+Documentation is written first, then validated -- a gate that runs before
+the doc update cannot check it, and `pre-commit` includes the
+`doc-state-sync-check` hook.
+
+1. Update PLAYBOOK Section 3 + Section 4. Batch log entries carry a
+   `(Batch N WP-X)` tag in the heading; side-task entries are untagged
+   (see Side-Task Handling).
+2. `python scripts/doc_state_sync.py --fix` -- rotates and refreshes the
+   managed blocks from the text you just wrote.
+3. `pytest -q` -- all tests pass.
+4. `pre-commit run --all-files` -- all hooks pass.
+5. `python scripts/doc_state_sync.py --check` -- exits 0 on the final
+   state (the root `BATCHN_DEFINITION.md` warning is expected while a
+   batch is active).
+6. Stage specific paths by name. **Never `git add -A` or `git add .`**,
    not even when every changed file belongs to this work package -- the
    prohibition is on the command, because it silently picks up whatever
    else is in the tree. Stage only files changed for this work package,
    and stage `.claude/SESSION_CONTEXT.md` together with PLAYBOOK whenever
    it changed -- do not leave it modified and unstaged.
-6. Commit after each WP (do not batch multiple WPs into one commit).
+7. Commit after each WP (do not batch multiple WPs into one commit).
    Do not push without explicit owner instruction. Pause after each commit
    for owner review.
    **Standing exception -- Claude Code and Codex sessions only (granted
