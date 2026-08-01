@@ -9,6 +9,39 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-07-31 - DEVELOPMENT.md: correct HANDOFF_PROMPT description (side-task)
+
+- Scope: DEVELOPMENT.md described `HANDOFF_PROMPT.md` as a condensed
+  checklist of rules, gates, read order, and commit discipline. That was
+  accurate until this branch, which reduced the file to post-read
+  verification plus the handoff checklist and replaced everything else
+  with pointers. The description was left describing the architecture
+  this PR removed.
+- Plan vs implementation: two passages corrected -- the architecture
+  overview and the per-file section, which was also retitled from
+  "Bootstrap Procedure" to "Session Start and Handoff" to match what the
+  file now contains. Both now state why the summaries were removed
+  (each restatement drifted from its source), which is the reasoning the
+  rest of the document uses.
+- Deviations: scope-limited on purpose. Only the passages this branch
+  made wrong were touched. DEVELOPMENT.md has other known staleness --
+  the `gemini-pr-triage` skill is now `pr-bot-triage`, the
+  review-suggestions section predates repo-aware review tooling, and the
+  closing paragraph needs a rewrite -- all deferred to a post-merge
+  documentation pass, per the same in-scope test applied to
+  `concurrent_users_test.py` in review round 1.
+- Note: this class of staleness is invisible to diff-scoped review.
+  Copilot reported "13/13 changed files" across four rounds and
+  DEVELOPMENT.md was never among them, so a file made wrong by the diff
+  but not part of it cannot be flagged. Worth remembering when relying on
+  automated review for consistency.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: the post-merge pass should reframe the review section
+  around how the tooling changed rather than around rejection, and
+  `README.md:492` must move with it -- it currently promises a section on
+  suggestions "evaluated and rejected".
+
 ### 2026-07-31 - Push rule: standing exception for review-fix commits (side-task)
 
 - Scope: owner-directed policy change, not a review finding. During PR
