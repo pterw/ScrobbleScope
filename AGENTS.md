@@ -59,8 +59,11 @@ explicitly depends on batch-acceptance or historical context.
 This list is the single canonical bootstrap order; `HANDOFF_PROMPT.md` links
 here and adds only the post-read verification steps.
 
-If PLAYBOOK Section 3, the batch definition, and SESSION_CONTEXT Section 1
-all agree on the current batch and next WP, you have enough context to start.
+Bootstrap is complete when the sources agree. During an active batch that
+means PLAYBOOK Section 3, the batch definition, and SESSION_CONTEXT
+Section 1 all agree on the current batch and next WP. Between batches no
+definition exists, so the gate is PLAYBOOK Section 3 and SESSION_CONTEXT
+Section 1 agreeing that the last batch is closed and none is open.
 If two bootstrap files conflict, follow the stricter safety rule and pause
 only when the conflict affects the next action.
 
@@ -191,6 +194,26 @@ the doc update cannot check it, and `pre-commit` includes the
    the unmodified rule above.
    When authorized to push in a GitHub Copilot session, use the platform
    progress/reporting tool; do not push directly with shell `git`/`gh`.
+
+**Pre-push self-review.** The validation gates check mechanics (tests,
+formatting, docsync markers); nothing in the toolchain checks whether one
+document now contradicts another. That gap is what turns a single review
+comment into a chain of rounds, each fixing damage from the last. Before
+pushing, spend the two minutes these four checks cost:
+
+1. Read each changed file **whole**, not as a diff -- contradictions hide
+   in the unchanged text next to the edit.
+2. Run the blast-radius greps described in the Anti-Pattern Registry
+   under "Fixing the instance instead of the class", "Lossy or
+   contradictory consolidation", and "Assertions over sets, ranges, and
+   citations": citations of anything renumbered or renamed, sibling
+   copies of any corrected claim, and every set or range the change
+   asserts.
+3. Walk any procedure touched through its edge states, per
+   "Happy-path-only procedures".
+4. Prefer deletion to addition. Every added sentence is new surface area
+   that a later change can contradict; collapsing a duplicate to a
+   pointer removes surface area permanently.
 
 **Co-author prohibition:** Do NOT add `Co-authored-by` trailers or any co-author
 metadata to commits. This repo uses multi-agent orchestration; attribution is
@@ -357,9 +380,12 @@ When all WPs in the active batch are committed and validated:
    (purges old non-current entries from PLAYBOOK Section 4 to keep it lean).
 2. **Archive the definition file:** rename `BATCHN_PROPOSAL.md` (or equivalent)
    to `docs/history/definitions/BATCHN_DEFINITION.md` using `git mv`.
-3. **Update PLAYBOOK Section 2** table: add a row for the batch linking to
-   `docs/history/definitions/BATCHN_DEFINITION.md`, and fill the Log column
-   with `docs/history/logs/BATCHN_LOG.md`.
+3. **Update PLAYBOOK Section 2** table: the active batch already has a row
+   (its Definition cell points at the root file and its Log cell reads
+   `active -- Section 4`). Repoint that existing row at
+   `docs/history/definitions/BATCHN_DEFINITION.md` and fill the Log cell
+   with `docs/history/logs/BATCHN_LOG.md`. Add a new row only if the batch
+   has none.
 4. **Update SESSION_CONTEXT** Section 1 batch status row: `**Complete**. All N WPs done.
    Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
 5. **Run `--fix` again** to refresh the STATUS block.
@@ -458,6 +484,33 @@ Agents must check their work against this list before committing.
       copies and link to the single owner (Anti-duplication rule).
     A fix that leaves siblings behind is half a fix and costs another
     review round.
+12. **Lossy or contradictory consolidation (PR #165 rounds 1-4, 7):**
+    collapsing a duplicated rule to a single owner, but (a) leaving the
+    copies in place while claiming they were removed, (b) dropping a
+    specific prohibition during the collapse -- the `git add -A` ban was
+    nearly lost this way -- or (c) writing canonical text that
+    contradicts another section of the same file, as when a "document
+    before committing" rule landed while Side-Task Handling still said
+    to commit first. When consolidating: re-read the **whole**
+    destination file, not the diff, and diff the old text against the
+    new pointer to confirm no requirement was silently dropped.
+13. **Assertions over sets, ranges, and citations (PR #163 rounds 2, 4;
+    PR #165 rounds 2, 5, 7):** stating a property of a group without
+    checking each member -- "read across all seven CSS files" when one
+    does not, "Open findings: F-DOCSYNC-1 through F-DOCSYNC-4" when the
+    fourth is resolved, citing anti-pattern #10 for a rule it does not
+    cover, or citing a gitignored file as a source. Ranges and "all X"
+    phrasings are the highest-risk constructions in this repo: expand
+    them and verify member by member, or write the claim so it does not
+    depend on the membership.
+14. **Happy-path-only procedures (PR #165 rounds 5, 7):** writing a
+    numbered procedure that only works in one state -- a close-out step
+    that says "add a row" when the row already exists, a sufficiency
+    gate that requires a definition file that does not exist between
+    batches, a validation gate ordered before the work it validates.
+    Walk every procedure through its edge states (active vs between
+    batches, first run vs re-run, item present vs absent) before
+    committing it.
 
 ---
 

@@ -149,6 +149,57 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-01 - PR #165 round 7 + review-loop pattern sweep (side-task)
+
+- Scope: owner asked for the round-7 findings to be verified but not
+  fixed until a sweep across every review round on PRs #163/#164/#165
+  identified why fixes keep producing new findings. Corpus: ~40
+  findings over 12 rounds.
+- Round 7 findings (all three valid):
+  - `AGENTS.md` close-out step 3 said "add a row" to PLAYBOOK Section 2,
+    but the active batch already has one -- following it literally
+    duplicates the row. Now says repoint the existing row, add only if
+    absent.
+  - The sufficiency gate required agreement with "the batch definition"
+    while bootstrap step 3 states no definition exists between batches,
+    so the gate was unsatisfiable in that state. Both states now
+    stated.
+  - `docs/SWE_AUDIT_CHARTER.md` labelled its differential baseline
+    "Open findings" while including F-DOCSYNC-4, resolved earlier in
+    this same PR. Relabelled as already-tracked regardless of status,
+    with an instruction to check each `Status:` line.
+- Sweep results -- four recurring classes, now in the Anti-Pattern
+  Registry. Two were already logged; two are new:
+  - *Fixing the instance instead of the class* (logged previously): the
+    dominant cause. Rounds 6 and 7 findings were created almost
+    entirely by rounds 5 and 6 fixes.
+  - *Lossy or contradictory consolidation* (new): collapsing duplicated
+    rules to one owner while leaving copies, dropping a specific
+    prohibition (the `git add -A` ban nearly vanished this way), or
+    contradicting another section of the same file.
+  - *Assertions over sets, ranges, and citations* (new): "all seven CSS
+    files", "F-DOCSYNC-1 through F-DOCSYNC-4", citing a gitignored
+    file, citing an anti-pattern that does not cover the case.
+  - *Happy-path-only procedures* (new): steps that break in an edge
+    state -- row already present, no definition between batches, gate
+    ordered before the work it validates.
+- Why the loop exists, and the structural fix: the validation gates
+  check mechanics only -- nothing verifies that one document still
+  agrees with another, so each fix's damage is discoverable only by the
+  next review round. Added a "Pre-push self-review" block to Commit
+  Rules: read changed files whole rather than as diffs, run the
+  blast-radius greps, walk procedures through edge states, and prefer
+  deletion to addition because every added sentence is new surface area.
+- Deviations: none. The new checklist caught its own first violation --
+  the draft cited registry entries by number, which the same registry
+  forbids; now cited by name.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: the honest test is round 8. If it finds fresh
+  self-inflicted drift, the checklist is not enough and the next step is
+  mechanical enforcement (a consistency-lint hook) rather than more
+  prose.
+
 ### 2026-08-01 - PR #165 review round 6; self-inflicted-drift anti-pattern (side-task)
 
 - Scope: round 6 returned three suppressed comments, zero visible. All
@@ -254,36 +305,3 @@ non-current operational logs. Older dated entries live in
   an investigation -- run it before designing any fix. Sequenced behind
   Batch 21, the F-B20-2 orchestrator split, and the test/docstring pass
   per owner priority.
-
-### 2026-07-31 - DEVELOPMENT.md: correct HANDOFF_PROMPT description (side-task)
-
-- Scope: DEVELOPMENT.md described `HANDOFF_PROMPT.md` as a condensed
-  checklist of rules, gates, read order, and commit discipline. That was
-  accurate until this branch, which reduced the file to post-read
-  verification plus the handoff checklist and replaced everything else
-  with pointers. The description was left describing the architecture
-  this PR removed.
-- Plan vs implementation: two passages corrected -- the architecture
-  overview and the per-file section, which was also retitled from
-  "Bootstrap Procedure" to "Session Start and Handoff" to match what the
-  file now contains. Both now state why the summaries were removed
-  (each restatement drifted from its source), which is the reasoning the
-  rest of the document uses.
-- Deviations: scope-limited on purpose. Only the passages this branch
-  made wrong were touched. DEVELOPMENT.md has other known staleness --
-  the `gemini-pr-triage` skill is now `pr-bot-triage`, the
-  review-suggestions section predates repo-aware review tooling, and the
-  closing paragraph needs a rewrite -- all deferred to a post-merge
-  documentation pass, per the same in-scope test applied to
-  `concurrent_users_test.py` in review round 1.
-- Note: this class of staleness is invisible to diff-scoped review.
-  Copilot reported "13/13 changed files" across four rounds and
-  DEVELOPMENT.md was never among them, so a file made wrong by the diff
-  but not part of it cannot be flagged. Worth remembering when relying on
-  automated review for consistency.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: the post-merge pass should reframe the review section
-  around how the tooling changed rather than around rejection, and
-  `README.md:492` must move with it -- it currently promises a section on
-  suggestions "evaluated and rejected".

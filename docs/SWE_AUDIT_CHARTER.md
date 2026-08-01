@@ -49,9 +49,12 @@ do not keep a second copy in this file. Two need audit-specific method:
 These are already found, tracked, or deliberately declined. Re-reporting
 any of them is audit failure, not thoroughness:
 
-- Open findings: F-MAS-1 through F-MAS-8, F-B20-2 (orchestrator
-  decomposition -- the single biggest known SoC/SRP item), F-DOCSYNC-1
-  through F-DOCSYNC-4, F-B18-2/3/4/5/10 (deferred block), F-LOAD-1/2.
+- Already-tracked findings, whatever their current status: F-MAS-1
+  through F-MAS-8, F-B20-2 (orchestrator decomposition -- the single
+  biggest known SoC/SRP item), F-DOCSYNC-1 through F-DOCSYNC-4
+  (F-DOCSYNC-4 is already resolved; listed so it is not re-raised),
+  F-B18-2/3/4/5/10 (deferred block), F-LOAD-1/2. Check each ID's
+  `Status:` line in FINDINGS.md rather than assuming from this list.
 - `docs/history/AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md` (lines 113-136
   list the prior runtime SoC/DRY/code-smell findings).
 - `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md` -- Section 4 "What was
