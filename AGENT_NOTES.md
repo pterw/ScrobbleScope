@@ -87,8 +87,8 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ## Venv and Pip Rules
 
-Owned by `AGENTS.md` (Environment Setup + Anti-Pattern Registry entries 4
-and 5) -- read them there.
+Owned by `AGENTS.md`: Environment Setup, plus the Anti-Pattern Registry
+entries "Wrong venv or bare pip" and "Background server processes".
 
 ---
 

@@ -9,6 +9,40 @@ Read helpers:
 - `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-01 - PR #165 Copilot review round 5 (side-task)
+
+- Scope: round 5 returned "not ready to approve" with four suppressed
+  comments and zero visible ones. All four verified valid against the
+  code; all four acted on.
+- Plan vs implementation:
+  - `config.py`: the MAX_ACTIVE_JOBS rationale claimed "one global
+    10 req/s API throttle". Wrong -- `utils.py:81-82` builds separate
+    `_LASTFM_THROTTLE` and `_SPOTIFY_THROTTLE`. Comment now names the
+    Last.fm scrobble-fetch phase as the binding constraint.
+  - `AGENTS.md` commit procedure: the docsync `--check` gate sat at
+    step 3 while the PLAYBOOK update was step 4, so the gate ran before
+    the documentation it validates (and `pre-commit` carries the
+    `doc-state-sync-check` hook). Reordered: write docs, `--fix`, then
+    the three gates on the final state. This matches what sessions
+    already do in practice; only the written rule was wrong. Fixed a
+    duplicate step number introduced by the renumber.
+  - `FINDINGS.md` F-DATA-1 open question 2 proposed grouping
+    `spotify_cache` by `artist_norm + album_norm` -- which is the
+    primary key (`init_db.py:42`), so every group holds exactly one row
+    and the upsert has already overwritten any rival date. Replaced
+    with the two methods that can actually work (re-run the Spotify
+    search and compare against the earliest fresh candidate, or
+    cross-check MusicBrainz).
+  - `docs/SWE_AUDIT_CHARTER.md`: prescribed commit subject was a noun
+    phrase, violating the imperative-subject rule the charter tells
+    executors to follow. Now imperative.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: pushed under the standing review-fix exception with
+  a batched reply. PR #165 remains merge-ready pending the next
+  auto-review.
+
 ### 2026-07-31 - FINDINGS: record reissue cache-key collapse (side-task)
 
 - Scope: capture a data-quality mechanism found while discussing the

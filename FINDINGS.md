@@ -81,8 +81,8 @@ Status: open. Source: load testing 2026-03-04.
 ### F-AUDIT-1: dark-mode toggle placement on mobile
 
 Fixed-position footer toggle may overlap content on small screens.
-Batch 21 moves the toggle into the standing header bar; acceptance
-criterion 8 states "toggle meets tap-target size (closes F-AUDIT-1)".
+Batch 21 moves the toggle into the standing header bar; its acceptance
+criterion on tap-target size names this finding as closed by that work.
 Status: open; closes at Batch 21 WP-2. Source: AUDIT_2026-02-11.
 
 ### F-LOAD-2: no integration tests in CI
@@ -296,8 +296,8 @@ audits; 2026-03-04 load-test data is in the findings archive.
 - F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2.
 - F-B18-10: heatmap + album jobs share the 10 req/s throttle (by design).
 - F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`);
-  in Batch 21 scope (WP-6, acceptance criterion 8) -- no longer a
-  future-batch candidate.
+  in Batch 21 scope (WP-6, and the acceptance criterion requiring equal
+  mode-pill width) -- no longer a future-batch candidate.
 - F-B19-3: last.timer aggregate endpoints are not a drop-in heatmap
   speedup; future perf experiments listed in the archive.
 - F-B19-4: front-end UI audit notes -- basis of `BATCH21_DEFINITION.md`.
