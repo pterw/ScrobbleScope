@@ -469,12 +469,15 @@ Agents must check their work against this list before committing.
     without re-measuring. The "~72%" coverage figure survived five months
     of doc passes while the real figure was 89%. Re-run the measuring
     command before repeating a number in any doc.
-11. **Fixing the instance instead of the class (PR #165 rounds 5-6):**
-    every finding in round 6 was created by round 5's own fixes --
-    a procedure was renumbered without updating the prose that cited
-    "step 4", and a claim was corrected in `config.py` while the
-    identical claim survived in `AGENT_NOTES.md`. Every edit requires a
-    blast-radius grep before the validation gates:
+11. **Fixing the instance instead of the class:** repairing the reported
+    symptom while its siblings survive untouched. Two forms recur:
+    renumbering or renaming something without updating the prose that
+    cites the old number or name, and correcting a factual claim in one
+    file while identical copies remain elsewhere. This is the single
+    largest source of repeat review rounds in this repository -- a
+    documentation PR needed several extra rounds because each round's
+    findings were produced by the previous round's own fixes. Every edit
+    requires a blast-radius grep before the validation gates:
     - after renumbering or renaming, run
       `rg -n "step \d|Registry #\d|rule \d|criterion \d"` across the
       docs and repoint each hit by **name**, not number -- a name
@@ -484,32 +487,37 @@ Agents must check their work against this list before committing.
       copies and link to the single owner (Anti-duplication rule).
     A fix that leaves siblings behind is half a fix and costs another
     review round.
-12. **Lossy or contradictory consolidation (PR #165 rounds 1-4, 7):**
-    collapsing a duplicated rule to a single owner, but (a) leaving the
-    copies in place while claiming they were removed, (b) dropping a
-    specific prohibition during the collapse -- the `git add -A` ban was
-    nearly lost this way -- or (c) writing canonical text that
-    contradicts another section of the same file, as when a "document
-    before committing" rule landed while Side-Task Handling still said
-    to commit first. When consolidating: re-read the **whole**
-    destination file, not the diff, and diff the old text against the
-    new pointer to confirm no requirement was silently dropped.
-13. **Assertions over sets, ranges, and citations (PR #163 rounds 2, 4;
-    PR #165 rounds 2, 5, 7):** stating a property of a group without
-    checking each member -- "read across all seven CSS files" when one
-    does not, "Open findings: F-DOCSYNC-1 through F-DOCSYNC-4" when the
-    fourth is resolved, citing anti-pattern #10 for a rule it does not
-    cover, or citing a gitignored file as a source. Ranges and "all X"
-    phrasings are the highest-risk constructions in this repo: expand
-    them and verify member by member, or write the claim so it does not
-    depend on the membership.
-14. **Happy-path-only procedures (PR #165 rounds 5, 7):** writing a
-    numbered procedure that only works in one state -- a close-out step
-    that says "add a row" when the row already exists, a sufficiency
-    gate that requires a definition file that does not exist between
-    batches, a validation gate ordered before the work it validates.
-    Walk every procedure through its edge states (active vs between
-    batches, first run vs re-run, item present vs absent) before
+12. **Lossy or contradictory consolidation:** collapsing a duplicated
+    rule to a single owner, but (a) leaving the copies in place while
+    the new text claims they were removed, (b) dropping a specific
+    prohibition during the collapse -- a bulk-staging ban was nearly
+    lost this way, because the canonical text said which files to stage
+    but not which command never to use -- or (c) writing canonical text
+    that contradicts another section of the same file, as when a
+    "document before committing" rule was added while Side-Task
+    Handling still instructed agents to commit first. When
+    consolidating: re-read the **whole** destination file rather than
+    the diff, and compare the removed text against the new pointer to
+    confirm no requirement was silently dropped.
+13. **Assertions over sets, ranges, and citations:** stating a property
+    of a group without checking each member. Real examples from this
+    repository: a claim that a variable is read across all seven page
+    CSS files when one of them does not use it; a differential baseline
+    headed "Open findings" that listed an ID already marked resolved; a
+    cross-reference to an anti-pattern that does not cover the case
+    being argued; and a citation naming a gitignored file no
+    contributor can open. Ranges (`X through Y`) and "all N" phrasings
+    are the highest-risk constructions here: expand them and verify
+    member by member, or rewrite the claim so it does not depend on the
+    membership.
+14. **Happy-path-only procedures:** a numbered procedure that only
+    works in one state. Examples that reached the canonical docs: a
+    close-out step saying "add a row" for a table row that already
+    exists, a bootstrap sufficiency gate requiring a batch definition
+    file that by design does not exist between batches, and a
+    validation gate ordered before the work it validates. Walk every
+    procedure through its edge states -- active batch vs between
+    batches, first run vs re-run, item present vs absent -- before
     committing it.
 
 ---
