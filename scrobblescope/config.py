@@ -22,8 +22,9 @@ JOB_TTL_SECONDS = 2 * 60 * 60
 # Default 5 (was 10 until 2026-07-31): the 2026-03-04 load test ran 2/3/5
 # concurrent users clean while the 10-user run never completed. Each API
 # has its own global throttle (`_LASTFM_THROTTLE` and `_SPOTIFY_THROTTLE`,
-# utils.py:81-82), and both serialize callers in arrival order with no
-# per-job fairness. The binding constraint is the Last.fm scrobble-fetch
+# utils.py:81-82), and each serializes throttle reservations with its shared
+# lock. There is no per-job fairness. The binding constraint is the Last.fm
+# scrobble-fetch
 # phase: at 10 req/s shared across jobs, a cap of 5 averages ~2 req/s per
 # job through that phase rather than guaranteeing it -- enough headroom on
 # this single small Fly.io machine.
