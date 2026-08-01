@@ -51,8 +51,9 @@ list before every commit.
 
 ## 5) Handoff when you are done or interrupted
 
-Documentation lands *in* the commit, not after it: AGENTS.md Commit Rules
-step 4 and Anti-Pattern Registry #9 require the dated Section 4 entry to
+Documentation lands *in* the commit, not after it: the documentation step
+of AGENTS.md Commit Rules, plus "Missing log entries" in the Anti-Pattern
+Registry, require the dated Section 4 entry to
 be part of the same commit as the work it describes. So before you commit:
 
 1. Update PLAYBOOK Section 3 (mark WP done or note interruption point).
