@@ -5,9 +5,8 @@ Rules live in `AGENTS.md`. Work orders live in `PLAYBOOK.md`.
 This file contains preferences, local dev setup, and discovered constraints
 that agents need but that do not belong in either of those files.
 
-**Active batch:** `PLAYBOOK.md` Section 3 is the single source of truth for
-batch state; it names the active `BATCHN_DEFINITION.md` at repo root. This
-file does not track batch status.
+**Batch state:** owned by `PLAYBOOK.md` Section 3 -- this file does not
+track it.
 
 ---
 
