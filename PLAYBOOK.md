@@ -171,13 +171,10 @@ non-current operational logs. Older dated entries live in
   nothing. The lesson was folded into the existing blast-radius
   anti-pattern as one sentence rather than becoming a fifteenth
   registry entry -- see the verbosity note below.
-- Deliberate non-action: AGENTS.md is now 475 lines and the registry
-  holds fourteen entries. Documentation across the agent-orchestration
-  set (1,685 lines) stands at roughly 60 percent of the production
-  Python it governs (2,787 lines), and several recent findings were
-  caused by rule text rather than caught by it. Adding rules is no
-  longer cheap. A consolidation pass is a batch-scoped candidate, not
-  something to attempt mid-PR.
+- Deliberate non-action: folded into an existing entry rather than added
+  as a fifteenth, because rule text has begun causing findings as well
+  as preventing them -- the registry grew long enough to need numbers,
+  and the numbers became the defect.
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: merge rather than iterate further.
