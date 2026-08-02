@@ -152,6 +152,39 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-02 - Post-merge branch realign; PR #166 review fixes (side-task)
+
+- Scope: PR #165 was rebase-merged (main tip `458f9ad`). The rebase
+  produced the usual 23/23 ahead-behind artifact with an identical tree,
+  and PR #166 was opened from it in the reverse direction
+  (`main` -> `wip/batch-21`); #167 was opened from a separate Copilot
+  branch to fix review comments. The owner closed both.
+- Plan vs implementation:
+  - `wip/batch-21` reset to `origin/main` and force-pushed with lease;
+    ahead-behind is 0/0. Commit history on `main` is intact -- all 23
+    commits landed individually. The apparent bunching is rebase
+    rewriting committer dates while author dates stay distinct.
+  - Reapplied the three valid PR #166 findings here so they arrive
+    validated and on one lineage: the `MAX_ACTIVE_JOBS` comment no
+    longer claims arrival-order serialization (`threading.Lock` gives no
+    FIFO guarantee -- it now says each throttle serializes reservations
+    behind a shared lock with no ordering guarantee); the canonical
+    numeric-citation sweep covers plural and alternate forms, since a
+    pattern written as `Registry #\d` cannot match
+    `Registry entries 4 and 5`; and the round-9 entry's "returns
+    nothing" claim is qualified to exclude dated point-in-time records,
+    which legitimately contain such citations.
+  - Third occurrence of a countermeasure scoped to the instance that
+    prompted it rather than the class. The rule now says explicitly to
+    match plural and alternate forms.
+- Deviations: none. PR #167 additionally proposed merging #166; that was
+  wrong -- #166 pointed `main` at `wip/batch-21`, so merging it would
+  have produced the merge commit the rebase-merge workflow exists to
+  avoid.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: branch is level with `main` and ready for WP-1.
+
 ### 2026-08-01 - PR #165 round 9; new rules are not retroactive (side-task)
 
 - Scope: three suppressed comments, all valid -- numeric citations into
@@ -167,8 +200,9 @@ non-current operational logs. Older dated entries live in
   the whole repository, and that leap was never made.
 - Plan vs implementation: all three citations repointed by name. A
   repo-wide sweep for `entries N`, `Registry #N`, `criterion N`,
-  `step N`, `rule N`, `item N` across every canonical doc now returns
-  nothing. The lesson was folded into the existing blast-radius
+  `step N`, `rule N`, `item N` across every canonical doc returns no
+  matches outside dated point-in-time log records, which stay as
+  written. The lesson was folded into the existing blast-radius
   anti-pattern as one sentence rather than becoming a fifteenth
   registry entry -- see the verbosity note below.
 - Deliberate non-action: folded into an existing entry rather than added
@@ -263,39 +297,3 @@ non-current operational logs. Older dated entries live in
   self-inflicted drift, the checklist is not enough and the next step is
   mechanical enforcement (a consistency-lint hook) rather than more
   prose.
-
-### 2026-08-01 - PR #165 review round 6; self-inflicted-drift anti-pattern (side-task)
-
-- Scope: round 6 returned three suppressed comments, zero visible. All
-  three verified valid -- and all three were created by round 5's own
-  fixes, which is the finding that matters more than the fixes.
-- Plan vs implementation:
-  - Acted: `AGENTS.md` Side-Task Handling and `HANDOFF_PROMPT.md` both
-    cited "Commit Rules step 4" for the documentation requirement; the
-    round-5 reorder moved it to step 1. Repointed **by name** ("the
-    documentation step", "Missing log entries") rather than by number,
-    so a future reorder cannot re-stale them.
-  - Acted: `AGENT_NOTES.md` load-testing bullet still asserted the
-    per-job guarantee and single-throttle model that round 5 corrected
-    in `config.py`. Rewritten to match and to point at `config.py` as
-    the single owner of the rationale.
-  - Declined (precedent): PLAYBOOK Section 4 entries at :163 and :262
-    also contain "step 3/4/6" references that no longer match the
-    current numbering. They are dated point-in-time records of what was
-    true when written; retro-editing rotated log content was declined
-    and accepted in PR #162 round 3 and PR #163 round 3.
-  - Root-cause fix: new Anti-Pattern Registry entry 11, "Fixing the
-    instance instead of the class" -- requires a blast-radius grep
-    before the gates (references to anything renumbered/renamed, and
-    sibling copies of any corrected claim), and prefers name-based
-    cross-references over numeric ones.
-  - Swept beyond the three findings: verified the remaining numeric
-    references (`AGENTS.md` close-out step 2, charter bootstrap step 1)
-    still resolve correctly, and that the `req/s` claims in F-B18-11 and
-    F-B18-10 are accurate because the heatmap and album pipelines are
-    both Last.fm-only.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: pushed under the standing review-fix exception with
-  a batched reply.

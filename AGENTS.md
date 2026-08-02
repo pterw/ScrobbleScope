@@ -479,9 +479,13 @@ Agents must check their work against this list before committing.
     findings were produced by the previous round's own fixes. Every edit
     requires a blast-radius grep before the validation gates:
     - after renumbering or renaming, run
-      `rg -n "step \d|Registry #\d|rule \d|criterion \d"` across the
-      docs and repoint each hit by **name**, not number -- a name
-      cannot go stale when the list reorders;
+      `rg -n "(steps?|entr(y|ies)|items?|rules?|criteri(on|a)) \d|Registry #\d"`
+      across the canonical docs and repoint each hit by **name**, not
+      number -- a name cannot go stale when the list reorders. Match the
+      plural and alternate forms, not just the one that failed last time:
+      a sweep written as `Registry #\d` cannot see
+      `Registry entries 4 and 5`. Hits inside dated Section 4 log entries
+      are point-in-time records and stay as written;
     - after correcting a factual claim, grep its distinctive phrase
       repo-wide and fix every copy in the same commit, or delete the
       copies and link to the single owner (Anti-duplication rule).
