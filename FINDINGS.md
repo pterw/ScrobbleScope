@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-07-31
+Last updated: 2026-08-03
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0 done, WP-1 next. 390 tests across 22 test modules.
 
@@ -106,6 +106,17 @@ coverage. Status: open. Source: MULTI_AGENT_SWEEP.
 `parser.py` batch-tag regex can misroute entries whose titles contain
 "Batch N" substrings; tightening needs backward-compat testing. On the
 README roadmap. Status: open. Source: DOCSYNC_AUDIT Finding 6.
+
+### F-DOCSYNC-5: Operational doc metadata drifted across path and branch changes
+
+The live side-task archive header still named obsolete PLAYBOOK Section 10
+and pointed at the `docs/history/` tombstone, while the active Batch 21
+definition pinned the superseded pre-realignment SHA; either could misdirect
+a new agent despite a green docsync check.
+Status: resolved 2026-08-03; the archive header now names Section 4 and
+`docs/logarchive/`, and the definition delegates volatile lineage state to
+PLAYBOOK Section 4.
+Source: PR #168 pre-merge audit.
 
 ### F-MAS-3: test_docsync_logic.py is 852 lines
 

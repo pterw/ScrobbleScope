@@ -1,13 +1,47 @@
 ﻿# PLAYBOOK Execution Log Archive
 
 Purpose:
-- Store dated execution-log entries rotated out of `PLAYBOOK.md` section 10.
+- Store dated execution-log entries rotated out of `PLAYBOOK.md` Section 4.
 - Keep entries in reverse-chronological order (newest first).
 
 Read helpers:
-- `Get-Content docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
-- `rg -n "^### 20" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
-- `rg -n "<keyword>" docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- `Get-Content docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+- `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+
+### 2026-08-01 - PR #165 round 8; over-broad claims narrowed (side-task)
+
+- Scope: three suppressed comments, all valid, all fixed.
+- Plan vs implementation:
+  - The Section 2 note claimed close-out entries for *each* batch live
+    in the monolith archive. False: `BATCH18_LOG.md` holds its own
+    close-out because that heading carried a `(Batch 18 WP-5)` tag;
+    only the `(Batch N close-out)` spelling misroutes. Narrowed here
+    and in F-DOCSYNC-3, which carried the same over-broad framing.
+  - The Section 2 subsection heading still read "Completed batches
+    (definitions archived)" while the table lists the active batch with
+    a root definition. Retitled to cover both.
+  - `AGENT_NOTES.md` asserted a batch was active and where its
+    definition sits in the same breath as declaring that the file does
+    not track batch state -- self-contradictory, and false between
+    batches. Reduced to the pointer alone.
+  - Anti-Pattern Registry, assertions entry: broadened from the one
+    phrasing that had failed before (`all N`, ranges) to the full
+    quantifier vocabulary, since the narrow sweep is what let "each
+    batch" through.
+- Assessment of the review loop: none of these three were caused by the
+  previous round's fixes -- the fix-causes-finding chain that drove
+  rounds 5 through 7 did not repeat. What remains is pre-existing
+  over-broad wording in text the sweep touched. On that basis the
+  pre-push checklist is working and mechanical enforcement is not yet
+  warranted; a consistency-lint hook stays a docsync-WP candidate rather
+  than scope creep into this PR.
+- Deviations: none.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: findings have narrowed to wording precision rather
+  than correctness; this is the diminishing-returns point. Recommend
+  merging rather than requesting another round.
 
 ### 2026-08-01 - PR #165 round 7 + review-loop pattern sweep (side-task)
 

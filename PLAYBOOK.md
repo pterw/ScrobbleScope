@@ -152,6 +152,36 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-03 - PR #168 pre-merge canonical-doc audit (side-task)
+
+- Scope: audited the PR head against the canonical documentation and
+  handoff rules before rebase merge; found and fixed two P1 operational
+  documentation defects that could misdirect the next agent.
+- Plan vs implementation:
+  - Removed the superseded `fa61716` fork point from the active Batch 21
+    definition. Branch lineage is volatile during review-remediation
+    rebases, so the definition now delegates that state to PLAYBOOK
+    Section 4 instead of pinning another copy.
+  - Corrected the live side-task archive header from obsolete PLAYBOOK
+    Section 10 to Section 4 and repointed all three read helpers from the
+    `docs/history/` tombstone to `docs/logarchive/`.
+  - Recorded the resolved P1 issue as FINDINGS.md F-DOCSYNC-5 under the
+    repository's source-tag nomenclature and refreshed the file's
+    last-updated date.
+  - Replaced the SWE audit charter's fixed F-DOCSYNC numeric range with
+    a FINDINGS-owned category pointer so new or resolved F-DOCSYNC items
+    remain in the do-not-re-report baseline.
+- Deviations: none. PR #168 contains no runtime behavior change, and no
+  GitHub thread or PR state was changed.
+- Validation: targeted documentation regression check -- pass.
+  `pytest -q` -- **390 passed** with 3 existing aiohttp/Python 3.13
+  warnings. `pre-commit run --all-files` -- all 10 hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected active-root
+  `BATCH21_DEFINITION.md` warning.
+- Forward guidance: after PR #168 merges, realign `wip/batch-21` with
+  `main`, then continue Batch 21 WP-1. F-SWE-1 remains a separate,
+  chartered audit whose execution is still pending.
+
 ### 2026-08-03 - PR #168 Copilot review round 1 (side-task)
 
 - Scope: assessed both Copilot review comments on PR #168; both were
@@ -232,37 +262,3 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: merge rather than iterate further.
-
-### 2026-08-01 - PR #165 round 8; over-broad claims narrowed (side-task)
-
-- Scope: three suppressed comments, all valid, all fixed.
-- Plan vs implementation:
-  - The Section 2 note claimed close-out entries for *each* batch live
-    in the monolith archive. False: `BATCH18_LOG.md` holds its own
-    close-out because that heading carried a `(Batch 18 WP-5)` tag;
-    only the `(Batch N close-out)` spelling misroutes. Narrowed here
-    and in F-DOCSYNC-3, which carried the same over-broad framing.
-  - The Section 2 subsection heading still read "Completed batches
-    (definitions archived)" while the table lists the active batch with
-    a root definition. Retitled to cover both.
-  - `AGENT_NOTES.md` asserted a batch was active and where its
-    definition sits in the same breath as declaring that the file does
-    not track batch state -- self-contradictory, and false between
-    batches. Reduced to the pointer alone.
-  - Anti-Pattern Registry, assertions entry: broadened from the one
-    phrasing that had failed before (`all N`, ranges) to the full
-    quantifier vocabulary, since the narrow sweep is what let "each
-    batch" through.
-- Assessment of the review loop: none of these three were caused by the
-  previous round's fixes -- the fix-causes-finding chain that drove
-  rounds 5 through 7 did not repeat. What remains is pre-existing
-  over-broad wording in text the sweep touched. On that basis the
-  pre-push checklist is working and mechanical enforcement is not yet
-  warranted; a consistency-lint hook stays a docsync-WP candidate rather
-  than scope creep into this PR.
-- Deviations: none.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: findings have narrowed to wording precision rather
-  than correctness; this is the diminishing-returns point. Recommend
-  merging rather than requesting another round.
