@@ -152,6 +152,25 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-03 - PR #168 Copilot review round 1 (side-task)
+
+- Scope: assessed both Copilot review comments on PR #168; both were
+  technically valid and addressed.
+- Plan vs implementation:
+  - Replaced the canonical `Registry entries 4 and 5` example in
+    `AGENTS.md` with symbolic placeholders. The numeric example matched
+    the expanded sweep it was explaining, so the rule created its own
+    violation and made the related no-current-hits claim false.
+  - Corrected the prior side-task's forward guidance. The branch was
+    level with `main` immediately after realignment, but applying the
+    review-fix commit left it directly based on `main` and one commit
+    ahead, not equal to it.
+- Deviations: none. Dated point-in-time log references remain unchanged
+  under the canonical rule's explicit historical-record exception.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: wait for the next PR #168 review round before WP-1.
+
 ### 2026-08-02 - Post-merge branch realign; PR #166 review fixes (side-task)
 
 - Scope: PR #165 was rebase-merged (main tip `458f9ad`). The rebase
@@ -183,7 +202,8 @@ non-current operational logs. Older dated entries live in
   avoid.
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: branch is level with `main` and ready for WP-1.
+- Forward guidance: branch is directly based on `main`, with this one
+  review-fix commit ahead, and is ready for WP-1 after PR review.
 
 ### 2026-08-01 - PR #165 round 9; new rules are not retroactive (side-task)
 
@@ -246,54 +266,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: findings have narrowed to wording precision rather
   than correctness; this is the diminishing-returns point. Recommend
   merging rather than requesting another round.
-
-### 2026-08-01 - PR #165 round 7 + review-loop pattern sweep (side-task)
-
-- Scope: owner asked for the round-7 findings to be verified but not
-  fixed until a sweep across every review round on PRs #163/#164/#165
-  identified why fixes keep producing new findings. Corpus: ~40
-  findings over 12 rounds.
-- Round 7 findings (all three valid):
-  - `AGENTS.md` close-out step 3 said "add a row" to PLAYBOOK Section 2,
-    but the active batch already has one -- following it literally
-    duplicates the row. Now says repoint the existing row, add only if
-    absent.
-  - The sufficiency gate required agreement with "the batch definition"
-    while bootstrap step 3 states no definition exists between batches,
-    so the gate was unsatisfiable in that state. Both states now
-    stated.
-  - `docs/SWE_AUDIT_CHARTER.md` labelled its differential baseline
-    "Open findings" while including F-DOCSYNC-4, resolved earlier in
-    this same PR. Relabelled as already-tracked regardless of status,
-    with an instruction to check each `Status:` line.
-- Sweep results -- four recurring classes, now in the Anti-Pattern
-  Registry. Two were already logged; two are new:
-  - *Fixing the instance instead of the class* (logged previously): the
-    dominant cause. Rounds 6 and 7 findings were created almost
-    entirely by rounds 5 and 6 fixes.
-  - *Lossy or contradictory consolidation* (new): collapsing duplicated
-    rules to one owner while leaving copies, dropping a specific
-    prohibition (the `git add -A` ban nearly vanished this way), or
-    contradicting another section of the same file.
-  - *Assertions over sets, ranges, and citations* (new): "all seven CSS
-    files", "F-DOCSYNC-1 through F-DOCSYNC-4", citing a gitignored
-    file, citing an anti-pattern that does not cover the case.
-  - *Happy-path-only procedures* (new): steps that break in an edge
-    state -- row already present, no definition between batches, gate
-    ordered before the work it validates.
-- Why the loop exists, and the structural fix: the validation gates
-  check mechanics only -- nothing verifies that one document still
-  agrees with another, so each fix's damage is discoverable only by the
-  next review round. Added a "Pre-push self-review" block to Commit
-  Rules: read changed files whole rather than as diffs, run the
-  blast-radius greps, walk procedures through edge states, and prefer
-  deletion to addition because every added sentence is new surface area.
-- Deviations: none. The new checklist caught its own first violation --
-  the draft cited registry entries by number, which the same registry
-  forbids; now cited by name.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: the honest test is round 8. If it finds fresh
-  self-inflicted drift, the checklist is not enough and the next step is
-  mechanical enforcement (a consistency-lint hook) rather than more
-  prose.

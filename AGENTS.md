@@ -484,7 +484,7 @@ Agents must check their work against this list before committing.
       number -- a name cannot go stale when the list reorders. Match the
       plural and alternate forms, not just the one that failed last time:
       a sweep written as `Registry #\d` cannot see
-      `Registry entries 4 and 5`. Hits inside dated Section 4 log entries
+      `Registry entries N and M`. Hits inside dated Section 4 log entries
       are point-in-time records and stay as written;
     - after correcting a factual claim, grep its distinctive phrase
       repo-wide and fix every copy in the same commit, or delete the
