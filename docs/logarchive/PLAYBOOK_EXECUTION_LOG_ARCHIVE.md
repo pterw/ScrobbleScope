@@ -9,6 +9,40 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-02 - Post-merge branch realign; PR #166 review fixes (side-task)
+
+- Scope: PR #165 was rebase-merged (main tip `458f9ad`). The rebase
+  produced the usual 23/23 ahead-behind artifact with an identical tree,
+  and PR #166 was opened from it in the reverse direction
+  (`main` -> `wip/batch-21`); #167 was opened from a separate Copilot
+  branch to fix review comments. The owner closed both.
+- Plan vs implementation:
+  - `wip/batch-21` reset to `origin/main` and force-pushed with lease;
+    ahead-behind is 0/0. Commit history on `main` is intact -- all 23
+    commits landed individually. The apparent bunching is rebase
+    rewriting committer dates while author dates stay distinct.
+  - Reapplied the three valid PR #166 findings here so they arrive
+    validated and on one lineage: the `MAX_ACTIVE_JOBS` comment no
+    longer claims arrival-order serialization (`threading.Lock` gives no
+    FIFO guarantee -- it now says each throttle serializes reservations
+    behind a shared lock with no ordering guarantee); the canonical
+    numeric-citation sweep covers plural and alternate forms, since a
+    pattern written as `Registry #\d` cannot match
+    `Registry entries 4 and 5`; and the round-9 entry's "returns
+    nothing" claim is qualified to exclude dated point-in-time records,
+    which legitimately contain such citations.
+  - Third occurrence of a countermeasure scoped to the instance that
+    prompted it rather than the class. The rule now says explicitly to
+    match plural and alternate forms.
+- Deviations: none. PR #167 additionally proposed merging #166; that was
+  wrong -- #166 pointed `main` at `wip/batch-21`, so merging it would
+  have produced the merge commit the rebase-merge workflow exists to
+  avoid.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: branch is directly based on `main`, with this one
+  review-fix commit ahead, and is ready for WP-1 after PR review.
+
 ### 2026-08-01 - PR #165 round 9; new rules are not retroactive (side-task)
 
 - Scope: three suppressed comments, all valid -- numeric citations into

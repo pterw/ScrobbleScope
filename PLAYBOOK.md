@@ -82,9 +82,9 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** owner review of the repository-integrity/worktree-alignment
-  design, then implement the F-DOCSYNC-5, F-WORKTREE-1, and F-WORKTREE-2 P0
-  safeguards before Batch 21 WP-1.
+- **Next action:** owner selects the execution mode, then run the ordered
+  docsync-integrity and worktree-safety implementation plans before the full
+  F-SWE-1 sweep and Batch 21 WP-1.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -152,6 +152,32 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-05 - P0 integrity/worktree implementation plans (side-task)
+
+- Scope: translated the owner-approved repository-integrity/worktree-safety
+  specification into executable, test-first implementation plans.
+- Plan vs implementation:
+  - Split the two independent safeguards into ordered plans so each produces
+    a reviewable, independently testable result: CI-blocking docsync content
+    integrity first, then local worktree lineage and shared-virtualenv safety.
+  - Mapped exact files, interfaces, diagnostic codes, adversarial tests,
+    canonical documentation ownership, fault-injection evidence, validation
+    gates, and commit boundaries. Each code step includes concrete signatures
+    or snippets rather than delegating design decisions to the executor.
+  - Self-reviewed both plans against every approved-spec section, checked type
+    and diagnostic-name consistency, removed placeholders, balanced Markdown
+    code fences, and kept the second plan smaller than its peer per the new-file
+    size rule.
+- Deviations: the single specification becomes two sequential plans because
+  repository-content integrity and local Git topology are independent failure
+  domains. Scope and execution order are unchanged.
+- Validation: plan self-review -- pass. `pytest -q` -- **390 passed** with 3
+  existing aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all
+  10 hooks pass. Final `doc_state_sync.py --check` -- exit 0 with the expected
+  active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: choose Subagent-Driven execution (recommended) or Inline
+  Execution. Complete both plans before F-SWE-1; Batch 21 WP-1 remains gated.
 
 ### 2026-08-05 - Repository-integrity and worktree-guard design (side-task)
 
@@ -234,37 +260,3 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: wait for the next PR #168 review round before WP-1.
-
-### 2026-08-02 - Post-merge branch realign; PR #166 review fixes (side-task)
-
-- Scope: PR #165 was rebase-merged (main tip `458f9ad`). The rebase
-  produced the usual 23/23 ahead-behind artifact with an identical tree,
-  and PR #166 was opened from it in the reverse direction
-  (`main` -> `wip/batch-21`); #167 was opened from a separate Copilot
-  branch to fix review comments. The owner closed both.
-- Plan vs implementation:
-  - `wip/batch-21` reset to `origin/main` and force-pushed with lease;
-    ahead-behind is 0/0. Commit history on `main` is intact -- all 23
-    commits landed individually. The apparent bunching is rebase
-    rewriting committer dates while author dates stay distinct.
-  - Reapplied the three valid PR #166 findings here so they arrive
-    validated and on one lineage: the `MAX_ACTIVE_JOBS` comment no
-    longer claims arrival-order serialization (`threading.Lock` gives no
-    FIFO guarantee -- it now says each throttle serializes reservations
-    behind a shared lock with no ordering guarantee); the canonical
-    numeric-citation sweep covers plural and alternate forms, since a
-    pattern written as `Registry #\d` cannot match
-    `Registry entries 4 and 5`; and the round-9 entry's "returns
-    nothing" claim is qualified to exclude dated point-in-time records,
-    which legitimately contain such citations.
-  - Third occurrence of a countermeasure scoped to the instance that
-    prompted it rather than the class. The rule now says explicitly to
-    match plural and alternate forms.
-- Deviations: none. PR #167 additionally proposed merging #166; that was
-  wrong -- #166 pointed `main` at `wip/batch-21`, so merging it would
-  have produced the merge commit the rebase-merge workflow exists to
-  avoid.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: branch is directly based on `main`, with this one
-  review-fix commit ahead, and is ready for WP-1 after PR review.
