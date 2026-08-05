@@ -9,7 +9,7 @@ Last updated: 2026-08-05
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **459 passing** across 25 test modules |
+| Tests | **478 passing** across 29 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -20,7 +20,7 @@ Last updated: 2026-08-05
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the pure worktree classifier is tested, while its CLI/bootstrap wiring and F-WORKTREE-1/F-WORKTREE-2 closure remain P0 gates for WP-1. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the worktree bootstrap guard is shipped, F-WORKTREE-1/F-WORKTREE-2 are resolved, and the F-SWE-1 audit is next before WP-1. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -47,7 +47,7 @@ Last updated: 2026-08-05
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **459 passed**.
+- Latest validated test count: **478 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -79,7 +79,8 @@ scripts/
   doc_state_sync.py         # thin entry point for deterministic documentation sync
   dev/
     _worktree_guard_types.py # immutable public diagnostic value types
-    worktree_guard.py       # pure worktree lineage and virtualenv diagnostics
+    worktree_guard.py       # Git collection, lineage, and virtualenv diagnostics
+    check_worktree_alignment.py # thin read-only bootstrap CLI
   docsync/
     __init__.py             # package inventory and entry-point map
     models.py               # typed sync results, entries, issues, and SyncError
@@ -119,6 +120,7 @@ docsync/cli.py       <- docsync/integrity, docsync/logic, docsync/models
 doc_state_sync.py    <- docsync/cli
 dev/_worktree_guard_types.py <- (leaf; standard library only)
 dev/worktree_guard.py        <- dev/_worktree_guard_types
+dev/check_worktree_alignment.py <- dev/worktree_guard.py
 ```
 
 ---
@@ -150,7 +152,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (459 tests)
+## 6. Test structure (478 tests)
 
 | File | Count |
 |------|-------|
@@ -169,6 +171,10 @@ loading.js polls GET /progress?job_id=...
 | test_worker.py | 6 |
 | scripts/dev/test_dev_start.py | 11 |
 | scripts/dev/test_worktree_guard.py | 23 |
+| scripts/dev/test_worktree_guard_cli.py | 3 |
+| scripts/dev/test_worktree_guard_inspection.py | 8 |
+| scripts/dev/test_worktree_guard_runner.py | 3 |
+| scripts/dev/test_worktree_guard_topology.py | 5 |
 | scripts/dev/test_worktree_guard_venv.py | 7 |
 | scripts/testing/test_smoke_cache_check.py | 13 |
 | scripts/testing/test_concurrent_users_test.py | 6 |
