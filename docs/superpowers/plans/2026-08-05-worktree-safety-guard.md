@@ -214,7 +214,7 @@ must raise `GuardError` rather than silently choosing one.
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $primaryCheckout = Split-Path -Parent $commonGitDir
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
 ```
 
 Expected: import fails because `scripts.dev.worktree_guard` does not exist.
@@ -243,7 +243,7 @@ branches, or a missing Section 3.
 ```powershell
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $pytestExe = Join-Path (Split-Path -Parent $commonGitDir) '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
 ```
 
 Expected: parser cases pass and ignore dated Section 4 branch text.
@@ -318,7 +318,7 @@ order and that dirty state does not erase the lineage error.
 ```powershell
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $pytestExe = Join-Path (Split-Path -Parent $commonGitDir) '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
 ```
 
 Expected: parser tests stay green; classifier cases fail because

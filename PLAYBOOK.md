@@ -154,6 +154,33 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-05 - Worktree classifier review remediation (side-task)
+
+- Scope: resolved the first review round for Task 1 without expanding the
+  pure classifier into Task 2's Git discovery or bootstrap integration.
+- Plan vs implementation:
+  - Restored Steps 2, 4, and 6 of the authoritative plan to run only the
+    parser/lineage test file that exists at those stages; Step 10 onward keeps
+    both focused paths after the venv test file is created.
+  - Added parameterized both-sided-divergence coverage for a missing head tree,
+    missing base tree, and both trees missing. Every unavailable-tree state now
+    asserts WT005, while only two present matching IDs assert WT004.
+  - Replaced remediation-fragment checks with the full mandated WT004 and WT005
+    strings, protecting dirty reconciliation, refreshed-base/tree verification,
+    owner authorization, force-push-with-lease boundaries, and the explicit
+    prohibition on reset, rebase, or force-push for true divergence.
+  - Mutation verification weakened both remediation constants and treated two
+    missing IDs as equal; the strengthened suite produced five expected
+    failures before the original correct behavior was restored.
+- Deviations: none; production behavior was already correct, so this round
+  strengthens regression protection and repairs plan execution order only.
+- Validation: parser/lineage suite -- **23 passed**; complete focused guard
+  suite -- **30 passed**. `pytest -q` -- **459 passed** with 3 existing
+  aiohttp/Python 3.13 warnings. Final hooks and docsync gates pass.
+- Forward guidance: proceed to Task 2's read-only CLI and bootstrap wiring;
+  F-WORKTREE-1 and F-WORKTREE-2 remain open until its live linked-worktree
+  acceptance passes.
+
 ### 2026-08-05 - Pure worktree safety classification (side-task)
 
 - Scope: implemented the pure, read-only classification layer for the
@@ -231,22 +258,3 @@ non-current operational logs. Older dated entries live in
   docsync gates pass.
 - Forward guidance: implement the read-only worktree-safety guard; only
   F-WORKTREE-1 and F-WORKTREE-2 remain open P0 gates before Batch 21 WP-1.
-
-### 2026-08-05 - Docsync content-integrity enforcement (side-task)
-
-- Scope: wired the reviewed pure live-document integrity analyzer into the
-  local and CI docsync gate, closing F-DOCSYNC-5 before Batch 21 WP-1.
-- Plan vs implementation:
-  - Made the side-task archive prologue renderer-owned, so `--check` detects
-    a stale prefix and `--fix` restores it without changing dated entries.
-  - Added stable blocking `ERROR DOC...` CLI diagnostics for live integrity
-    defects. `--fix` writes deterministic output first and revalidates the
-    final on-disk state; unresolved semantic defects still exit 1.
-  - Retained missing optional SESSION_CONTEXT support and the existing root
-    BATCH-file warnings, while removing legacy warning-only CLI validation.
-- Deviations: none.
-- Validation: targeted docsync suite -- **111 passed**. `pytest -q` --
-  **419 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
-  docsync gates pass.
-- Forward guidance: implement the separate read-only worktree-safety guard;
-  F-WORKTREE-1 and F-WORKTREE-2 remain the P0 gate before Batch 21 WP-1.
