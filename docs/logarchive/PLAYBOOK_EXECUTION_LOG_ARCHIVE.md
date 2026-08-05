@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Docsync integrity analyzer review remediation (side-task)
+
+- Scope: corrected two review findings in the pure analyzer before its
+  deferred CLI/CI wiring task.
+- Plan vs implementation:
+  - Active definitions now require both supplied live-document content and a
+    tracked path; an untracked declaration reports DOC002 at its Section 3
+    declaration line rather than being masked by the DOC001 exemption.
+  - Replaced ignored dated Section 4 entry lines with blank placeholders, so
+    later PLAYBOOK diagnostics retain their original file line numbers.
+  - Added separate regression tests that first reproduced both defects.
+- Deviations: none; integration remains intentionally out of scope.
+- Validation: `pytest -q` -- **415 passed** with 3 existing aiohttp/Python
+  3.13 warnings. Final hook and docsync gates pass.
+- Forward guidance: Task 2 can consume the corrected pure analyzer without
+  reimplementing its active-definition or PLAYBOOK source-location rules.
+
 ### 2026-08-05 - Docsync live-document integrity analyzer (side-task)
 
 - Scope: added the pure live-document integrity analyzer for the P0
