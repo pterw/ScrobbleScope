@@ -3,7 +3,12 @@
 import pytest
 
 from scripts.dev.worktree_guard import CommandResult, inspect_worktree
-from tests.scripts.dev.worktree_guard_fakes import FakeGit, codes, repository
+from tests.scripts.dev.worktree_guard_fakes import (
+    FakeGit,
+    codes,
+    repository,
+    venv_tools,
+)
 
 
 @pytest.mark.parametrize(
@@ -42,6 +47,24 @@ def test_summary_reports_checkout_kind_and_primary_tools(tmp_path, linked):
     assert ("linked worktree" if linked else "primary checkout") in summary
     assert "local-ref-only" not in summary
     assert "local-ref-only" in diagnostics[1].message
-    tool_root = tmp_path / "primary" / ".venv" / "Scripts"
-    for tool in ("python.exe", "pytest.exe", "pre-commit.exe"):
-        assert str(tool_root / tool) in summary
+    tools = venv_tools(tmp_path / "primary" / ".venv")
+    for tool in tools.values():
+        assert str(tool) in summary
+
+
+def test_inspection_accepts_simulated_posix_tool_layout(tmp_path):
+    """The public inspection boundary honors a deterministic POSIX topology."""
+    repo, responses = repository(tmp_path, linked=True, os_name="posix")
+
+    diagnostics = inspect_worktree(
+        repo,
+        offline=True,
+        runner=FakeGit(responses),
+        os_name="posix",
+    )
+
+    assert codes(diagnostics) == ["WT000", "WT013"]
+    summary = diagnostics[0].message
+    for tool in venv_tools(tmp_path / "primary" / ".venv", os_name="posix").values():
+        assert str(tool) in summary
+    assert "Scripts" not in summary

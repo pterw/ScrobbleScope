@@ -84,7 +84,7 @@ See FINDINGS F-DOCSYNC-3.
   definition. Branch: `wip/batch-21` (worktree off `main`).
 - **Next action:** execute the full F-SWE-1 principles audit, then proceed to
   Batch 21 WP-1. The peer-sized read-only worktree guard and canonical
-  bootstrap gate passed final review remediation, and
+  bootstrap gate passed final review plus POSIX CI remediation, and
   F-WORKTREE-1/F-WORKTREE-2 are resolved.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
@@ -153,6 +153,30 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-05 - Worktree guard POSIX fixture remediation (side-task)
+
+- Scope: corrected the final-review test fixture so host-neutral guard tests
+  exercise the virtualenv layout selected on Windows and POSIX runners.
+- Plan vs implementation:
+  - Made the shared repository fixture derive its default tool layout from the
+    host OS and removed sibling `Scripts/*.exe` assumptions from inspection and
+    topology tests. Direct resolver tests retain explicit Windows, POSIX,
+    primary-only, missing-tool, and symlink cases.
+  - Added an optional `os_name` inspection boundary whose default remains
+    host-derived, then drove the public inspection-to-virtualenv path with a
+    deterministic simulated POSIX linked-worktree acceptance test.
+  - Updated the authoritative plan interface and fixture/topology expectations;
+    the stable `scripts.dev.worktree_guard` facade exports are unchanged.
+- Deviations: none. No new file, dependency, Git mutation, environment creation,
+  package installation, amend, or push was required.
+- Validation: simulated-POSIX RED -- 1 expected failure; focused GREEN -- **1
+  passed**; all shared-fixture consumers -- **46 passed**; complete guard suite
+  -- **84 passed**; full `pytest -q` -- **513 passed** with 3 existing
+  aiohttp/Python 3.13 warnings. All hooks and final docsync checks pass. File
+  caps, facade smoke, and live online/offline guard acceptance remain green.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
 
 ### 2026-08-05 - Worktree guard final-review remediation (side-task)
 
@@ -232,34 +256,6 @@ non-current operational logs. Older dated entries live in
   explicit offline mode can add the independent qualifier. Custom-base tests
   live in a new peer-sized file rather than overgrowing an existing peer.
 - Validation: focused guard suite -- **54 passed**. `pytest -q` -- **483
-  passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
-  docsync checks pass.
-- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
-  WP-1 remains queued immediately after that sweep.
-
-### 2026-08-05 - Read-only worktree bootstrap guard (side-task)
-
-- Scope: completed the repository-integrity worktree safeguard before the
-  F-SWE-1 audit and Batch 21 WP-1.
-- Plan vs implementation:
-  - Added sanitized, injectable Git collection for repository topology,
-    PLAYBOOK branch metadata, base ancestry, dirty state, and tree identity.
-    Missing repositories/refs, wrong or detached local branches, behind-only
-    branches, and both forms of divergence fail without changing Git.
-  - Added a thin CLI with stable diagnostic rendering, explicit offline
-    labeling, recognized detached-CI skip behavior, and qualified primary
-    checkout Python, pytest, and pre-commit paths for linked worktrees.
-  - Made the read-only command a canonical post-document bootstrap gate;
-    HANDOFF points to that owner, while DEVELOPMENT records only the human
-    rationale and the deliberate separation from CI topology enforcement.
-  - Exercised the live linked worktree offline: WT010 identified the
-    intentional dirty candidate, WT000 reported 0 behind/9 ahead, and all
-    three tools resolved under the primary checkout's existing `.venv`.
-- Deviations: split collector acceptance across peer-sized inspection,
-  topology, runner, and CLI files instead of expanding the existing classifier
-  file past its directory peers; no dependencies, environment creation,
-  package installs, or Git mutation.
-- Validation: focused guard suite -- **49 passed**. `pytest -q` -- **478
   passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
   docsync checks pass.
 - Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21

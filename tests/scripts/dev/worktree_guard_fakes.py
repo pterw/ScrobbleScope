@@ -1,5 +1,6 @@
 """Reusable filesystem and Git doubles for worktree-guard behavior tests."""
 
+import os
 from pathlib import Path
 
 from scripts.dev.worktree_guard import CommandResult
@@ -30,9 +31,13 @@ def fail(stderr="fatal"):
 
 
 def repository(
-    tmp_path: Path, *, linked: bool = False, base_ref: str = "origin/main"
+    tmp_path: Path,
+    *,
+    linked: bool = False,
+    base_ref: str = "origin/main",
+    os_name: str | None = None,
 ) -> tuple[Path, dict]:
-    """Create a controlled repository layout and its discovery response map."""
+    """Create a host-appropriate repository and its discovery response map."""
     repo = tmp_path / "linked" if linked else tmp_path / "primary"
     repo.mkdir()
     repo.joinpath("PLAYBOOK.md").write_text(
@@ -46,12 +51,12 @@ def repository(
         common = primary / ".git"
         git_dir = common / "worktrees" / "linked"
         git_dir.mkdir(parents=True)
-        _tools(primary / ".venv")
+        _tools(primary / ".venv", os_name=os_name)
         git_dir_text = "../primary/.git/worktrees/linked\n"
         common_text = "../primary/.git\n"
     else:
         repo.joinpath(".git").mkdir()
-        _tools(repo / ".venv")
+        _tools(repo / ".venv", os_name=os_name)
         git_dir_text = common_text = ".git\n"
     responses = {
         ("rev-parse", "--show-toplevel"): ok(f"{repo}\n"),
@@ -70,9 +75,27 @@ def codes(diagnostics):
     return [diagnostic.code for diagnostic in diagnostics]
 
 
-def _tools(venv_root: Path) -> None:
-    """Create the three Windows executables required by environment resolution."""
-    scripts = venv_root / "Scripts"
-    scripts.mkdir(parents=True)
-    for name in ("python.exe", "pytest.exe", "pre-commit.exe"):
-        (scripts / name).touch()
+def venv_tools(venv_root: Path, *, os_name: str | None = None) -> dict[str, Path]:
+    """Return the required virtualenv tools for a host or simulated OS."""
+    selected_os = os.name if os_name is None else os_name
+    relative = (
+        {
+            "python": Path("Scripts/python.exe"),
+            "pytest": Path("Scripts/pytest.exe"),
+            "pre_commit": Path("Scripts/pre-commit.exe"),
+        }
+        if selected_os == "nt"
+        else {
+            "python": Path("bin/python"),
+            "pytest": Path("bin/pytest"),
+            "pre_commit": Path("bin/pre-commit"),
+        }
+    )
+    return {name: venv_root / path for name, path in relative.items()}
+
+
+def _tools(venv_root: Path, *, os_name: str | None) -> None:
+    """Create the three executables required by environment resolution."""
+    for tool in venv_tools(venv_root, os_name=os_name).values():
+        tool.parent.mkdir(parents=True, exist_ok=True)
+        tool.touch()

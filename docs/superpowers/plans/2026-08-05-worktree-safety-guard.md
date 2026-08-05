@@ -78,7 +78,7 @@ $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
 - Create `scripts/dev/worktree_guard.py`: stable public re-export facade.
 - Create `scripts/dev/check_worktree_alignment.py`: thin CLI and exit status.
 - Create `tests/scripts/dev/worktree_guard_fakes.py`: shared exact Git and
-  filesystem doubles.
+  host-appropriate filesystem doubles with deterministic OS overrides.
 - Create `tests/scripts/dev/test_worktree_guard.py`: parser and lineage cases.
 - Create `tests/scripts/dev/test_worktree_guard_base_ref.py`: default, custom,
   and local comparison-ref guidance.
@@ -92,8 +92,8 @@ $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
   sanitization, and suppressed-chain cases.
 - Create `tests/scripts/dev/test_worktree_guard_severity.py`: exact code and
   severity decision table through WT014.
-- Create `tests/scripts/dev/test_worktree_guard_topology.py`: detached and
-  linked-checkout outcomes.
+- Create `tests/scripts/dev/test_worktree_guard_topology.py`: detached,
+  linked-checkout, and simulated POSIX inspection outcomes.
 - Create `tests/scripts/dev/test_worktree_guard_venv.py`: virtualenv topology
   cases split to satisfy the repository's peer-size gate.
 - Modify `AGENTS.md:27-147` and `HANDOFF_PROMPT.md:9-27`: canonical bootstrap
@@ -558,8 +558,9 @@ def inspect_worktree(
     offline: bool = False,
     environ: Mapping[str, str] = os.environ,
     runner: Callable[[Path, tuple[str, ...]], CommandResult] = run_git,
+    os_name: str | None = None,
 ) -> list[Diagnostic]:
-    """Collect and classify local worktree state without mutation."""
+    """Collect local state using the host OS unless a test boundary overrides it."""
 
 
 def inspection_failure_diagnostics(
@@ -615,6 +616,10 @@ failures in `test_worktree_guard_runner.py`, collector sequencing in
 `test_worktree_guard_inspection.py`, detached/linked cases in
 `test_worktree_guard_topology.py`, and selected-ref guidance in
 `test_worktree_guard_base_ref.py`.
+The shared repository fixture creates tools for the host platform by default.
+Add an explicit simulated POSIX case that calls `inspect_worktree()` with its
+OS boundary and reaches production `resolve_venv()`; helper-only coverage is
+insufficient because Ubuntu CI must receive WT000 instead of WT009.
 
 - [ ] **Step 2: Run the inspection tests and verify red state**
 

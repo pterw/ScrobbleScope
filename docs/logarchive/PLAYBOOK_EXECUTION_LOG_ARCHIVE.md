@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Read-only worktree bootstrap guard (side-task)
+
+- Scope: completed the repository-integrity worktree safeguard before the
+  F-SWE-1 audit and Batch 21 WP-1.
+- Plan vs implementation:
+  - Added sanitized, injectable Git collection for repository topology,
+    PLAYBOOK branch metadata, base ancestry, dirty state, and tree identity.
+    Missing repositories/refs, wrong or detached local branches, behind-only
+    branches, and both forms of divergence fail without changing Git.
+  - Added a thin CLI with stable diagnostic rendering, explicit offline
+    labeling, recognized detached-CI skip behavior, and qualified primary
+    checkout Python, pytest, and pre-commit paths for linked worktrees.
+  - Made the read-only command a canonical post-document bootstrap gate;
+    HANDOFF points to that owner, while DEVELOPMENT records only the human
+    rationale and the deliberate separation from CI topology enforcement.
+  - Exercised the live linked worktree offline: WT010 identified the
+    intentional dirty candidate, WT000 reported 0 behind/9 ahead, and all
+    three tools resolved under the primary checkout's existing `.venv`.
+- Deviations: split collector acceptance across peer-sized inspection,
+  topology, runner, and CLI files instead of expanding the existing classifier
+  file past its directory peers; no dependencies, environment creation,
+  package installs, or Git mutation.
+- Validation: focused guard suite -- **49 passed**. `pytest -q` -- **478
+  passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
+  docsync checks pass.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
+
 ### 2026-08-05 - Worktree classifier review remediation (side-task)
 
 - Scope: resolved the first review round for Task 1 without expanding the

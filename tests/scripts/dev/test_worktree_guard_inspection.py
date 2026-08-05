@@ -9,6 +9,7 @@ from tests.scripts.dev.worktree_guard_fakes import (
     fail,
     ok,
     repository,
+    venv_tools,
 )
 
 
@@ -47,7 +48,7 @@ def test_offline_wrong_branch_includes_local_ref_context(tmp_path):
 def test_offline_venv_error_includes_local_ref_context(tmp_path):
     """An environment error does not suppress the independent offline qualifier."""
     repo, responses = repository(tmp_path)
-    (repo / ".venv/Scripts/pre-commit.exe").unlink()
+    venv_tools(repo / ".venv")["pre_commit"].unlink()
     diagnostics = inspect_worktree(repo, offline=True, runner=FakeGit(responses))
     assert codes(diagnostics) == ["WT009", "WT013"]
 
