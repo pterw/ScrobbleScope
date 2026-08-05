@@ -140,9 +140,21 @@ def test_two_broken_references_on_one_line_are_both_reported(tmp_path: Path):
 
     issues = collect_integrity_issues(**inputs)
 
-    assert [(issue.path, issue.line, issue.code) for issue in issues] == [
-        ("AGENTS.md", 1, "DOC001"),
-        ("AGENTS.md", 1, "DOC001"),
+    assert [
+        (issue.path, issue.line, issue.code, issue.invariant) for issue in issues
+    ] == [
+        (
+            "AGENTS.md",
+            1,
+            "DOC001",
+            "Concrete Markdown reference `docs/one.md` names a tracked file.",
+        ),
+        (
+            "AGENTS.md",
+            1,
+            "DOC001",
+            "Concrete Markdown reference `docs/two.md` names a tracked file.",
+        ),
     ]
 
 
@@ -185,6 +197,19 @@ def test_collect_tracked_paths_raises_sanitized_git_error(tmp_path: Path):
         collect_tracked_paths(tmp_path, runner)
 
 
+def test_collect_tracked_paths_sanitizes_git_invocation_oserror(tmp_path: Path):
+    """A missing Git executable becomes a stable SyncError without host paths."""
+
+    def runner(*args, **kwargs):
+        raise FileNotFoundError(2, "missing", r"C:\private\bin\git.exe")
+
+    with pytest.raises(SyncError) as exc_info:
+        collect_tracked_paths(tmp_path, runner)
+
+    assert str(exc_info.value) == "git ls-files could not be executed"
+    assert "private" not in str(exc_info.value)
+
+
 def test_active_definition_sha_is_blocking(tmp_path: Path):
     """Volatile commit ancestry must not be pinned in active Branch metadata."""
     inputs = _valid_inputs(tmp_path)
@@ -212,6 +237,27 @@ def test_active_definition_reference_must_match_batch(tmp_path: Path):
     assert [issue.code for issue in issues] == ["DOC002"]
 
 
+def test_active_definition_reference_requires_complete_batch_token(tmp_path: Path):
+    """Batch 21 must not accept a Batch 210 definition via prefix matching."""
+    inputs = _valid_inputs(tmp_path)
+    wrong_path = "BATCH210_DEFINITION.md"
+    inputs["playbook_lines"][
+        4
+    ] = f"- **Batch 21 is active.** Definition: `{wrong_path}`."
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"][wrong_path] = [
+        "# BATCH210",
+        "**Branch:** `wip/batch-210`.",
+    ]
+    inputs["tracked_paths"] = inputs["tracked_paths"] | {wrong_path}
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC002", "PLAYBOOK.md", 5)
+    ]
+
+
 def test_untracked_active_definition_is_blocking(tmp_path: Path):
     """Supplied content cannot make an untracked active definition valid."""
     inputs = _valid_inputs(tmp_path)
@@ -231,6 +277,21 @@ def test_non_definition_batch_reference_is_still_checked(tmp_path: Path):
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
 
     assert [issue.code for issue in collect_integrity_issues(**inputs)] == ["DOC001"]
+
+
+def test_definition_label_outside_section_3_is_not_exempt(tmp_path: Path):
+    """Only the resolved Section 3 declaration escapes generic DOC001 checks."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        ["", "## 5. Notes", "", "Definition: `docs/missing.md`."]
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC001", "PLAYBOOK.md", 20)
+    ]
 
 
 def test_playbook_reference_after_dated_entry_keeps_original_line_number(
@@ -265,7 +326,10 @@ def test_duplicate_active_definition_references_are_blocking(tmp_path: Path):
     inputs["playbook_lines"].insert(5, "- Definition: `BATCH21_PROPOSAL.md`.")
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
 
-    assert [issue.code for issue in collect_integrity_issues(**inputs)] == ["DOC002"]
+    assert [issue.code for issue in collect_integrity_issues(**inputs)] == [
+        "DOC002",
+        "DOC001",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -297,6 +361,16 @@ def test_noncanonical_archive_prefix_is_blocking(tmp_path: Path):
     assert [issue.code for issue in collect_integrity_issues(**inputs)] == ["DOC004"]
 
 
+def test_archive_analysis_does_not_mutate_input_without_entries(tmp_path: Path):
+    """Trimming a no-entry archive prefix must operate on a defensive copy."""
+    inputs = _valid_inputs(tmp_path)
+    archive_lines = [*SIDE_ARCHIVE_PREFIX, ""]
+    inputs["archive_lines"] = archive_lines
+
+    assert collect_integrity_issues(**inputs) == []
+    assert archive_lines == [*SIDE_ARCHIVE_PREFIX, ""]
+
+
 def test_present_stale_session_block_is_blocking(tmp_path: Path):
     """A provided managed session rendering must match expected output exactly."""
     inputs = _valid_inputs(tmp_path)
@@ -318,8 +392,10 @@ def test_absent_session_skips_session_integrity(tmp_path: Path):
 def test_matching_current_test_counts_do_not_report_contradiction(tmp_path: Path):
     """The same live test count is consistent across both documents."""
     inputs = _valid_inputs(tmp_path)
-    inputs["session_lines"] = ["Tests: **390 passed**."]
-    inputs["expected_session_lines"] = ["Tests: **390 passed**."]
+    inputs["session_lines"] = ["| Tests | **390 passing** across 23 test modules |"]
+    inputs["expected_session_lines"] = [
+        "| Tests | **390 passing** across 23 test modules |"
+    ]
 
     assert collect_integrity_issues(**inputs) == []
 
@@ -327,10 +403,40 @@ def test_matching_current_test_counts_do_not_report_contradiction(tmp_path: Path
 def test_mismatching_current_test_counts_are_blocking(tmp_path: Path):
     """Conflicting live test counts are an actionable session contradiction."""
     inputs = _valid_inputs(tmp_path)
-    inputs["session_lines"] = ["Tests: **389 passed**."]
-    inputs["expected_session_lines"] = ["Tests: **389 passed**."]
+    inputs["session_lines"] = ["| Tests | **389 passing** across 23 test modules |"]
+    inputs["expected_session_lines"] = [
+        "| Tests | **389 passing** across 23 test modules |"
+    ]
 
     assert [issue.code for issue in collect_integrity_issues(**inputs)] == ["DOC006"]
+
+
+def test_conflicting_named_session_counts_are_blocking_with_side_task_authority(
+    tmp_path: Path,
+):
+    """A stale 390 mirror cannot hide beside the authoritative side-task 420."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        [
+            "",
+            "### 2026-08-05 - Review remediation (side-task)",
+            "",
+            "Validation: focused -- **112 passed**. `pytest -q` --",
+            "**420 passed**.",
+        ]
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    session_lines = [
+        "| Tests | **420 passing** across 23 test modules |",
+        "- Latest validated test count: **390 passed**.",
+        "## 6. Test structure (420 tests)",
+    ]
+    inputs["session_lines"] = session_lines
+    inputs["expected_session_lines"] = list(session_lines)
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC006"]
 
 
 def test_test_count_in_only_one_source_is_not_a_contradiction(tmp_path: Path):

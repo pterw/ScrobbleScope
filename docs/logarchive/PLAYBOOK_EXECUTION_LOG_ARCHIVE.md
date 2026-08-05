@@ -9,6 +9,26 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Docsync live-document integrity analyzer (side-task)
+
+- Scope: added the pure live-document integrity analyzer for the P0
+  repository-content safeguard; enforcement is intentionally deferred to the
+  next ordered task.
+- Plan vs implementation:
+  - Added deterministic `IntegrityIssue` diagnostics DOC001 through DOC006
+    for dead concrete references, active-definition drift, volatile Branch
+    metadata, archive-prologue drift, stale managed session content, and
+    contradictory current test counts.
+  - Added adversarial pure-unit coverage for literal-reference extraction,
+    tracked-path normalization, active-definition metadata, archive/session
+    comparison, and deterministic ordering. The analyzer is not yet wired
+    into the docsync hook or CI gate, so F-DOCSYNC-5 remains open.
+- Deviations: none; CLI integration and severity changes remain the next task.
+- Validation: `pytest -q` -- **413 passed** with 3 existing aiohttp/Python
+  3.13 warnings. Final hook and docsync gates pass.
+- Forward guidance: integrate the pure analyzer without duplicating its
+  parsing or changing the established sync behavior before enforcement.
+
 ### 2026-08-05 - P0 integrity/worktree implementation plans (side-task)
 
 - Scope: translated the owner-approved repository-integrity/worktree-safety

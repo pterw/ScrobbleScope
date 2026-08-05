@@ -250,6 +250,7 @@ def _sync(
         status_block = _build_status_block(
             section_3_state=section_3_state,
             current_entries=current_entries,
+            latest_test_count=_latest_test_count_from_entries(new_playbook_lines),
         )
         new_session_lines = (
             session_lines[: status_start + 1]
@@ -269,11 +270,13 @@ def _sync(
 
 
 def _latest_test_count_from_entries(playbook_lines: list[str]) -> int | None:
-    """Return the most recent bold passing-test count from Section 4 log entries.
+    """Return the newest full-suite count from live Section 4 log entries.
 
-    Agents record test counts as ``**N passed**`` (or similar) in Validation
-    fields of Section 4 log entries.  Section 3 rarely contains such counts.
-    Scanning entries newest-first ensures we get the live state, not history.
+    Current-batch entries are append-ordered, while side-task entries after the
+    end marker are newest-first. A same-date side task is newer than the batch
+    entry it follows. Explicit ``pytest -q`` results win over focused counts
+    across all live entries; a sole bold count remains supported only when no
+    explicit full-suite result exists.
     """
     try:
         s4_start, s4_end = _find_section(
@@ -286,16 +289,53 @@ def _latest_test_count_from_entries(playbook_lines: list[str]) -> int | None:
             CURRENT_BATCH_END_MARKER,
             "PLAYBOOK section 4",
         )
-        inside = section_4_lines[marker_start + 1 : marker_end]
-        entries, _ = _parse_entries(inside)
+        entries, _ = _parse_entries(section_4_lines)
     except SyncError:
         return None
-    # Entries are append-ordered (oldest-first); scan in reverse for newest.
-    for entry in reversed(entries):
-        for line in entry.lines:
-            m = TEST_COUNT_RE.search(line)
-            if m:
-                return int(m.group(1))
+
+    current_entries = [
+        entry for entry in entries if marker_start < entry.start_idx < marker_end
+    ]
+    side_entries = [entry for entry in entries if entry.start_idx > marker_end]
+
+    def newest_count(
+        candidates: list[Entry], *, allow_legacy_fallback: bool
+    ) -> tuple[str, int] | None:
+        for entry in candidates:
+            entry_text = "\n".join(entry.lines)
+            explicit_matches = re.findall(
+                r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*"
+                r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*",
+                entry_text,
+                flags=re.IGNORECASE,
+            )
+            if explicit_matches:
+                return entry.date, int(explicit_matches[-1])
+            if not allow_legacy_fallback:
+                continue
+            fallback_matches = [
+                int(match.group(1)) for match in TEST_COUNT_RE.finditer(entry_text)
+            ]
+            if len(fallback_matches) == 1:
+                return entry.date, fallback_matches[0]
+        return None
+
+    current_candidates = list(reversed(current_entries))
+
+    side_count = newest_count(side_entries, allow_legacy_fallback=False)
+    current_count = newest_count(current_candidates, allow_legacy_fallback=False)
+    if side_count is None and current_count is None:
+        side_count = newest_count(side_entries, allow_legacy_fallback=True)
+        current_count = newest_count(
+            current_candidates,
+            allow_legacy_fallback=True,
+        )
+    if side_count is not None and (
+        current_count is None or side_count[0] >= current_count[0]
+    ):
+        return side_count[1]
+    if current_count is not None:
+        return current_count[1]
     return None
 
 

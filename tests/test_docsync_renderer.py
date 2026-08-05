@@ -156,8 +156,8 @@ class TestBuildStatusBlock:
         # Should infer Batch 11 from last_completed_batch + 1.
         assert "Batch 11" in text
 
-    def test_entry_with_count_shows_count(self):
-        """Bold test count in entry body appears as a STATUS block line."""
+    def test_authoritative_count_shows_count(self):
+        """The authoritative count supplied by sync appears in STATUS."""
         entry = Entry(
             heading="### 2026-02-20 - Work (Batch 11 WP-1)",
             date="2026-02-20",
@@ -169,7 +169,7 @@ class TestBuildStatusBlock:
         state = ActiveBatchState(
             current_batch=11, last_completed_batch=10, next_undefined_batch=None
         )
-        block = _build_status_block(state, [entry])
+        block = _build_status_block(state, [entry], latest_test_count=157)
         text = "\n".join(block)
         assert "157" in text
         assert "unknown" not in text.lower()
@@ -211,7 +211,9 @@ class TestBuildStatusBlock:
         state = ActiveBatchState(
             current_batch=11, last_completed_batch=10, next_undefined_batch=None
         )
-        block = _build_status_block(state, [old_entry, new_entry])
+        block = _build_status_block(
+            state, [old_entry, new_entry], latest_test_count=158
+        )
         assert (
             "- Newest current-batch entry: 2026-02-21 - Newer work (Batch 11 WP-2)."
             in block
@@ -358,7 +360,7 @@ class TestBuildStatusBlockBoundary:
             start_idx=0,
             fingerprint="b",
         )
-        block = _build_status_block(state, [entry])
+        block = _build_status_block(state, [entry], latest_test_count=10)
         text = "\n".join(block)
         assert "Batch 0" in text
         # Batch 0 should NOT be treated as falsy/None.
