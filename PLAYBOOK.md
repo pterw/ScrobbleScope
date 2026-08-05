@@ -153,6 +153,25 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-05 - Docsync integrity review remediation (side-task)
+
+- Scope: addressed the first Task 2 review round without changing the
+  approved enforcement design.
+- Plan vs implementation:
+  - Added CLI regression coverage proving `--fix` returns 1 with DOC001 for
+    an unresolved dead live reference and emits no stale DOC005 after it
+    repairs the session block.
+  - Moved resolved F-DOCSYNC-5 out of the active P0 section, leaving only the
+    two worktree safeguards as open P0 gates.
+  - Corrected the Task 2 focused-suite record to the measured post-remediation
+    count.
+- Deviations: none.
+- Validation: specified docsync suite -- **112 passed**. `pytest -q` --
+  **420 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
+  docsync gates pass.
+- Forward guidance: implement the read-only worktree-safety guard; only
+  F-WORKTREE-1 and F-WORKTREE-2 remain open P0 gates before Batch 21 WP-1.
+
 ### 2026-08-05 - Docsync content-integrity enforcement (side-task)
 
 - Scope: wired the reviewed pure live-document integrity analyzer into the
@@ -166,7 +185,7 @@ non-current operational logs. Older dated entries live in
   - Retained missing optional SESSION_CONTEXT support and the existing root
     BATCH-file warnings, while removing legacy warning-only CLI validation.
 - Deviations: none.
-- Validation: targeted docsync suite -- **110 passed**. `pytest -q` --
+- Validation: targeted docsync suite -- **111 passed**. `pytest -q` --
   **419 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
   docsync gates pass.
 - Forward guidance: implement the separate read-only worktree-safety guard;
@@ -208,29 +227,3 @@ non-current operational logs. Older dated entries live in
   3.13 warnings. Final hook and docsync gates pass.
 - Forward guidance: integrate the pure analyzer without duplicating its
   parsing or changing the established sync behavior before enforcement.
-
-### 2026-08-05 - P0 integrity/worktree implementation plans (side-task)
-
-- Scope: translated the owner-approved repository-integrity/worktree-safety
-  specification into executable, test-first implementation plans.
-- Plan vs implementation:
-  - Split the two independent safeguards into ordered plans so each produces
-    a reviewable, independently testable result: CI-blocking docsync content
-    integrity first, then local worktree lineage and shared-virtualenv safety.
-  - Mapped exact files, interfaces, diagnostic codes, adversarial tests,
-    canonical documentation ownership, fault-injection evidence, validation
-    gates, and commit boundaries. Each code step includes concrete signatures
-    or snippets rather than delegating design decisions to the executor.
-  - Self-reviewed both plans against every approved-spec section, checked type
-    and diagnostic-name consistency, removed placeholders, balanced Markdown
-    code fences, and kept the second plan smaller than its peer per the new-file
-    size rule.
-- Deviations: the single specification becomes two sequential plans because
-  repository-content integrity and local Git topology are independent failure
-  domains. Scope and execution order are unchanged.
-- Validation: plan self-review -- pass. `pytest -q` -- **390 passed** with 3
-  existing aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all
-  10 hooks pass. Final `doc_state_sync.py --check` -- exit 0 with the expected
-  active-root `BATCH21_DEFINITION.md` warning.
-- Forward guidance: choose Subagent-Driven execution (recommended) or Inline
-  Execution. Complete both plans before F-SWE-1; Batch 21 WP-1 remains gated.

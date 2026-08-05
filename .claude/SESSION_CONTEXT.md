@@ -9,7 +9,7 @@ Last updated: 2026-08-05
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **419 passing** across 23 test modules |
+| Tests | **420 passing** across 23 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |

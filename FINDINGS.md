@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-05
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, worktree remediation next, then WP-1. 419 tests across 23 test
+WP-0 done, worktree remediation next, then WP-1. 420 tests across 23 test
 modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
@@ -47,14 +47,18 @@ Status: open P0; validation reused the qualified primary-checkout pytest
 executable, but canonical path resolution and guard diagnostics are pending.
 Source: repository-integrity design validation on 2026-08-05.
 
+---
+
+## Resolved this batch
+
 ### F-DOCSYNC-5: Operational doc metadata drifted across path and branch changes
 
 The live archive prologue and active-definition branch metadata drifted while
 `doc_state_sync.py --check` and CI remained green because prefixes were opaque,
 live-document references were only narrowly checked, and integrity warnings
 did not affect the exit code.
-Status: resolved 2026-08-05. Evidence: Task 2 added final-state CLI
-enforcement; `pytest -q` measured **419 passed** with 3 existing warnings.
+Status: resolved 2026-08-05. Evidence: Task 2 final-state CLI enforcement and
+review remediation; `pytest -q` measured **420 passed** with 3 existing warnings.
 Approved design:
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
 Source: PR #168 pre-merge audit and follow-up root-cause investigation.
