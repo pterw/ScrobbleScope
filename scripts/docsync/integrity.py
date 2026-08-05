@@ -1,0 +1,310 @@
+"""Pure live-document integrity checks used by the docsync command layer."""
+
+from __future__ import annotations
+
+import re
+import subprocess
+from collections.abc import Callable, Mapping
+from pathlib import Path
+
+from docsync.logic import _latest_test_count_from_entries
+from docsync.models import IntegrityIssue, SyncError
+from docsync.parser import (
+    SECTION_3_RE,
+    SECTION_4_RE,
+    TEST_COUNT_RE,
+    _find_section,
+    _parse_active_batch_state,
+    _parse_entries,
+)
+from docsync.renderer import SIDE_ARCHIVE_PREFIX
+
+BACKTICK_MD_RE = re.compile(r"`([^`\n]+\.md)`")
+MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)\s#]+\.md)(?:#[^)]+)?\)")
+SCHEMATIC_RE = re.compile(r"[<*?\[\]]|\bBATCHN_", re.IGNORECASE)
+DEFINITION_REFERENCE_RE = re.compile(r"Definition:\s*`([^`\n]+\.md)`")
+BRANCH_FIELD_RE = re.compile(r"^\*\*Branch:\*\*")
+COMMIT_SHA_RE = re.compile(r"\b[0-9a-fA-F]{7,40}\b")
+
+_LIVE_DOCUMENT_PATHS = frozenset(
+    {
+        "AGENTS.md",
+        "HANDOFF_PROMPT.md",
+        "AGENT_NOTES.md",
+        "PLAYBOOK.md",
+        "FINDINGS.md",
+    }
+)
+
+
+def _normalize_reference(raw: str) -> str:
+    """Normalize a Markdown path to the repository-relative form git reports."""
+    return raw.strip().replace("\\", "/").removeprefix("./")
+
+
+def _concrete_references(lines: list[str]) -> list[tuple[int, str]]:
+    """Extract literal Markdown document references with source line numbers."""
+    references: list[tuple[int, str]] = []
+    for line_number, line in enumerate(lines, start=1):
+        for pattern in (BACKTICK_MD_RE, MARKDOWN_LINK_RE):
+            for match in pattern.finditer(line):
+                reference = _normalize_reference(match.group(1))
+                if not SCHEMATIC_RE.search(reference):
+                    references.append((line_number, reference))
+    return references
+
+
+def collect_tracked_paths(
+    repo_root: Path,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> frozenset[str]:
+    """Return normalized repository-relative paths from git ls-files."""
+    command = ["git", "ls-files", "-z"]
+    result = runner(
+        command,
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        stderr = " ".join(result.stderr.split())
+        detail = f": {stderr}" if stderr else ""
+        raise SyncError(f"git ls-files{detail}")
+    return frozenset(
+        _normalize_reference(path) for path in result.stdout.split("\0") if path
+    )
+
+
+def _playbook_lines_without_entry_blocks(playbook_lines: list[str]) -> list[str]:
+    """Return PLAYBOOK text with dated Section 4 history removed from scanning."""
+    section_start, section_end = _find_section(
+        playbook_lines, SECTION_4_RE, "PLAYBOOK section 4"
+    )
+    section_lines = playbook_lines[section_start:section_end]
+    entries, _ = _parse_entries(section_lines)
+    entry_ranges = [
+        (
+            entry.start_idx,
+            (
+                entries[index + 1].start_idx
+                if index + 1 < len(entries)
+                else len(section_lines)
+            ),
+        )
+        for index, entry in enumerate(entries)
+    ]
+    retained_section_lines = [
+        line
+        for index, line in enumerate(section_lines)
+        if not any(start <= index < end for start, end in entry_ranges)
+    ]
+    return (
+        playbook_lines[:section_start]
+        + retained_section_lines
+        + playbook_lines[section_end:]
+    )
+
+
+def _active_definition_reference(
+    playbook_lines: list[str],
+) -> tuple[int | None, str | None, IntegrityIssue | None]:
+    """Resolve the sole active definition declaration or return its diagnostic."""
+    section_start, section_end = _find_section(
+        playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
+    )
+    section_lines = playbook_lines[section_start:section_end]
+    current_batch = _parse_active_batch_state(section_lines).current_batch
+    if current_batch is None:
+        return None, None, None
+
+    references: list[tuple[int, str]] = []
+    for offset, line in enumerate(section_lines):
+        for match in DEFINITION_REFERENCE_RE.finditer(line):
+            reference = _normalize_reference(match.group(1))
+            if "/" not in reference and not SCHEMATIC_RE.search(reference):
+                references.append((section_start + offset + 1, reference))
+
+    if len(references) != 1:
+        return (
+            current_batch,
+            None,
+            IntegrityIssue(
+                code="DOC002",
+                severity="error",
+                path="PLAYBOOK.md",
+                line=references[0][0] if references else section_start + 1,
+                invariant="An active batch has exactly one concrete root definition reference.",
+                remediation="Declare one Definition: `BATCH<current>_...md` path in PLAYBOOK Section 3.",
+            ),
+        )
+
+    line, reference = references[0]
+    if not reference.upper().startswith(f"BATCH{current_batch}"):
+        return (
+            current_batch,
+            None,
+            IntegrityIssue(
+                code="DOC002",
+                severity="error",
+                path="PLAYBOOK.md",
+                line=line,
+                invariant="The active definition filename begins with the current batch number.",
+                remediation="Point PLAYBOOK Section 3 at the current batch definition.",
+            ),
+        )
+    return current_batch, reference, None
+
+
+def _issue(
+    code: str,
+    path: str,
+    line: int | None,
+    invariant: str,
+    remediation: str,
+) -> IntegrityIssue:
+    """Build an error-severity integrity diagnostic consistently."""
+    return IntegrityIssue(code, "error", path, line, invariant, remediation)
+
+
+def collect_integrity_issues(
+    *,
+    repo_root: Path,
+    live_documents: Mapping[str, list[str]],
+    playbook_lines: list[str],
+    archive_lines: list[str],
+    session_lines: list[str] | None,
+    expected_session_lines: list[str] | None,
+    tracked_paths: frozenset[str],
+) -> list[IntegrityIssue]:
+    """Return deterministic live-document integrity issues."""
+    del repo_root
+    issues: list[IntegrityIssue] = []
+    current_batch, definition_path, definition_issue = _active_definition_reference(
+        playbook_lines
+    )
+    if definition_issue is not None:
+        issues.append(definition_issue)
+    elif definition_path is not None and definition_path not in live_documents:
+        issues.append(
+            _issue(
+                "DOC002",
+                "PLAYBOOK.md",
+                None,
+                "The active definition reference resolves to a supplied live document.",
+                "Provide the active definition content to the docsync integrity pass.",
+            )
+        )
+
+    documents_to_scan = set(_LIVE_DOCUMENT_PATHS)
+    if definition_path is not None:
+        documents_to_scan.add(definition_path)
+    for path in sorted(documents_to_scan):
+        lines = live_documents.get(path)
+        if lines is None:
+            continue
+        scan_lines = (
+            _playbook_lines_without_entry_blocks(playbook_lines)
+            if path == "PLAYBOOK.md"
+            else lines
+        )
+        for line, reference in _concrete_references(scan_lines):
+            definition_match = DEFINITION_REFERENCE_RE.search(scan_lines[line - 1])
+            if (
+                path == "PLAYBOOK.md"
+                and definition_match is not None
+                and _normalize_reference(definition_match.group(1)) == reference
+            ):
+                # DOC002 owns root Batch definition declarations in Section 3.
+                continue
+            if reference not in tracked_paths:
+                issues.append(
+                    _issue(
+                        "DOC001",
+                        path,
+                        line,
+                        f"Concrete Markdown reference `{reference}` names a tracked file.",
+                        "Update the reference to a tracked file or replace it with a documented pattern.",
+                    )
+                )
+
+    if current_batch is not None and definition_path is not None:
+        definition_lines = live_documents.get(definition_path)
+        branch_lines = (
+            [
+                (index + 1, line)
+                for index, line in enumerate(definition_lines)
+                if BRANCH_FIELD_RE.match(line)
+            ]
+            if definition_lines is not None
+            else []
+        )
+        if len(branch_lines) != 1 or (
+            branch_lines and COMMIT_SHA_RE.search(branch_lines[0][1])
+        ):
+            issues.append(
+                _issue(
+                    "DOC003",
+                    definition_path,
+                    branch_lines[0][0] if branch_lines else None,
+                    "The active definition has one Branch field without volatile commit metadata.",
+                    "Keep branch lineage in PLAYBOOK Section 4; remove commit hashes from the Branch field.",
+                )
+            )
+
+    archive_entries, first_entry_index = _parse_entries(archive_lines)
+    del archive_entries
+    archive_prefix = (
+        archive_lines[:first_entry_index]
+        if first_entry_index is not None
+        else archive_lines
+    )
+    while archive_prefix and not archive_prefix[-1].strip():
+        archive_prefix.pop()
+    if tuple(archive_prefix) != SIDE_ARCHIVE_PREFIX:
+        issues.append(
+            _issue(
+                "DOC004",
+                "docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md",
+                1,
+                "The side-task archive prologue matches the canonical renderer prefix.",
+                "Regenerate the archive prologue from docsync.renderer.SIDE_ARCHIVE_PREFIX.",
+            )
+        )
+
+    if session_lines is not None:
+        if (
+            expected_session_lines is not None
+            and session_lines != expected_session_lines
+        ):
+            issues.append(
+                _issue(
+                    "DOC005",
+                    ".claude/SESSION_CONTEXT.md",
+                    None,
+                    "The managed session document matches docsync's expected rendering.",
+                    "Run doc_state_sync.py --fix to refresh the managed session block.",
+                )
+            )
+        playbook_count = _latest_test_count_from_entries(playbook_lines)
+        session_counts = {
+            int(match.group(1))
+            for line in session_lines
+            for match in TEST_COUNT_RE.finditer(line)
+        }
+        if (
+            playbook_count is not None
+            and session_counts
+            and playbook_count not in session_counts
+        ):
+            issues.append(
+                _issue(
+                    "DOC006",
+                    ".claude/SESSION_CONTEXT.md",
+                    None,
+                    "Current PLAYBOOK and session test counts agree when both are present.",
+                    "Refresh the session document or correct the current PLAYBOOK validation count.",
+                )
+            )
+
+    return sorted(issues, key=lambda issue: (issue.path, issue.line or 0, issue.code))

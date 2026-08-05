@@ -12,6 +12,19 @@ from docsync.parser import (
     _collect_wp_numbers,
 )
 
+SIDE_ARCHIVE_PREFIX = (
+    "# PLAYBOOK Execution Log Archive",
+    "",
+    "Purpose:",
+    "- Store dated execution-log entries rotated out of `PLAYBOOK.md` Section 4.",
+    "- Keep entries in reverse-chronological order (newest first).",
+    "",
+    "Read helpers:",
+    "- `Get-Content docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`",
+    '- `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`',
+    '- `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`',
+)
+
 
 def _trim_trailing_blank(lines: list[str]) -> list[str]:
     out = list(lines)
