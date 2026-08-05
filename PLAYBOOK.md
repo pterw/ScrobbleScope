@@ -82,8 +82,8 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** owner selects the execution mode, then run the ordered
-  docsync-integrity and worktree-safety implementation plans before the full
+- **Next action:** wire the completed pure docsync-integrity analyzer into the
+  CLI and CI gate, then implement the worktree-safety plan before the full
   F-SWE-1 sweep and Batch 21 WP-1.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
@@ -152,6 +152,26 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-05 - Docsync live-document integrity analyzer (side-task)
+
+- Scope: added the pure live-document integrity analyzer for the P0
+  repository-content safeguard; enforcement is intentionally deferred to the
+  next ordered task.
+- Plan vs implementation:
+  - Added deterministic `IntegrityIssue` diagnostics DOC001 through DOC006
+    for dead concrete references, active-definition drift, volatile Branch
+    metadata, archive-prologue drift, stale managed session content, and
+    contradictory current test counts.
+  - Added adversarial pure-unit coverage for literal-reference extraction,
+    tracked-path normalization, active-definition metadata, archive/session
+    comparison, and deterministic ordering. The analyzer is not yet wired
+    into the docsync hook or CI gate, so F-DOCSYNC-5 remains open.
+- Deviations: none; CLI integration and severity changes remain the next task.
+- Validation: `pytest -q` -- **413 passed** with 3 existing aiohttp/Python
+  3.13 warnings. Final hook and docsync gates pass.
+- Forward guidance: integrate the pure analyzer without duplicating its
+  parsing or changing the established sync behavior before enforcement.
 
 ### 2026-08-05 - P0 integrity/worktree implementation plans (side-task)
 
@@ -241,22 +261,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: after PR #168 merges, realign `wip/batch-21` with
   `main`, then continue Batch 21 WP-1. F-SWE-1 remains a separate,
   chartered audit whose execution is still pending.
-
-### 2026-08-03 - PR #168 Copilot review round 1 (side-task)
-
-- Scope: assessed both Copilot review comments on PR #168; both were
-  technically valid and addressed.
-- Plan vs implementation:
-  - Replaced the canonical `Registry entries 4 and 5` example in
-    `AGENTS.md` with symbolic placeholders. The numeric example matched
-    the expanded sweep it was explaining, so the rule created its own
-    violation and made the related no-current-hits claim false.
-  - Corrected the prior side-task's forward guidance. The branch was
-    level with `main` immediately after realignment, but applying the
-    review-fix commit left it directly based on `main` and one commit
-    ahead, not equal to it.
-- Deviations: none. Dated point-in-time log references remain unchanged
-  under the canonical rule's explicit historical-record exception.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: wait for the next PR #168 review round before WP-1.

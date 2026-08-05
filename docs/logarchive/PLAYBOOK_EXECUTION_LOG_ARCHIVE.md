@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-03 - PR #168 Copilot review round 1 (side-task)
+
+- Scope: assessed both Copilot review comments on PR #168; both were
+  technically valid and addressed.
+- Plan vs implementation:
+  - Replaced the canonical `Registry entries 4 and 5` example in
+    `AGENTS.md` with symbolic placeholders. The numeric example matched
+    the expanded sweep it was explaining, so the rule created its own
+    violation and made the related no-current-hits claim false.
+  - Corrected the prior side-task's forward guidance. The branch was
+    level with `main` immediately after realignment, but applying the
+    review-fix commit left it directly based on `main` and one commit
+    ahead, not equal to it.
+- Deviations: none. Dated point-in-time log references remain unchanged
+  under the canonical rule's explicit historical-record exception.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: wait for the next PR #168 review round before WP-1.
+
 ### 2026-08-02 - Post-merge branch realign; PR #166 review fixes (side-task)
 
 - Scope: PR #165 was rebase-merged (main tip `458f9ad`). The rebase

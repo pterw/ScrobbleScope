@@ -3,10 +3,23 @@
 from __future__ import annotations
 
 import dataclasses
+from typing import Literal
 
 
 class SyncError(RuntimeError):
     """Raised when deterministic sync cannot proceed safely."""
+
+
+@dataclasses.dataclass(frozen=True)
+class IntegrityIssue:
+    """One deterministic repository-integrity diagnostic."""
+
+    code: str
+    severity: Literal["error", "warning"]
+    path: str
+    line: int | None
+    invariant: str
+    remediation: str
 
 
 @dataclasses.dataclass(frozen=True)
