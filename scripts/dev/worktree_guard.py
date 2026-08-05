@@ -29,6 +29,7 @@ _ACTIVE_MARKER_RE = re.compile(
     r"\bBatch\b[^\n]*\bis\s+(?:active|current|in[\s-]?progress)\b",
     re.IGNORECASE,
 )
+_SAFE_BASE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 WINDOWS_TOOLS = {
     "python": Path("Scripts/python.exe"),
     "pytest": Path("Scripts/pytest.exe"),
@@ -39,12 +40,6 @@ POSIX_TOOLS = {
     "pytest": Path("bin/pytest"),
     "pre_commit": Path("bin/pre-commit"),
 }
-_WT004_REMEDIATION = (
-    "Stop. Reconcile any dirty files, refresh origin/main, verify the trees again, "
-    "obtain the explicit owner approval required by AGENTS.md, then realign the "
-    "named branch and use force-push with lease. This guard performs none of those "
-    "actions."
-)
 _WT005_REMEDIATION = (
     "Stop and inspect the commit graph and tree diff. This is not the "
     "content-identical rebase-merge case; do not reset, rebase, or force-push from "
@@ -90,29 +85,37 @@ def inspect_worktree(
     """Collect and classify local worktree state without mutation."""
     top_level_result = runner(repo_root, ("rev-parse", "--show-toplevel"))
     if top_level_result.returncode != 0:
-        return [
-            _issue(
-                "ERROR",
-                "WT001",
-                str(repo_root),
-                "path is not inside a Git repository.",
-                "Stop and enter the intended ScrobbleScope checkout before continuing.",
-            )
-        ]
+        return _finish_diagnostics(
+            [
+                _issue(
+                    "ERROR",
+                    "WT001",
+                    str(repo_root),
+                    "path is not inside a Git repository.",
+                    "Stop and enter the intended ScrobbleScope checkout before continuing.",
+                )
+            ],
+            offline=offline,
+            base_ref=base_ref,
+        )
     resolved_root = _resolve_path(repo_root, top_level_result.stdout)
 
     git_dir_result = runner(resolved_root, ("rev-parse", "--git-dir"))
     common_dir_result = runner(resolved_root, ("rev-parse", "--git-common-dir"))
     if git_dir_result.returncode != 0 or common_dir_result.returncode != 0:
-        return [
-            _issue(
-                "ERROR",
-                "WT001",
-                str(resolved_root),
-                "Git repository metadata could not be resolved.",
-                "Stop and inspect this checkout; the guard does not repair Git metadata.",
-            )
-        ]
+        return _finish_diagnostics(
+            [
+                _issue(
+                    "ERROR",
+                    "WT001",
+                    str(resolved_root),
+                    "Git repository metadata could not be resolved.",
+                    "Stop and inspect this checkout; the guard does not repair Git metadata.",
+                )
+            ],
+            offline=offline,
+            base_ref=base_ref,
+        )
     git_dir = _resolve_path(resolved_root, git_dir_result.stdout)
     common_dir = _resolve_path(resolved_root, common_dir_result.stdout)
 
@@ -120,35 +123,43 @@ def inspect_worktree(
     try:
         batch = parse_batch_branch(playbook_path.read_text(encoding="utf-8"))
     except (OSError, GuardError) as error:
-        return [
-            _issue(
-                "ERROR",
-                "WT002",
-                str(playbook_path),
-                f"active batch metadata is unavailable: {error}",
-                "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
-            )
-        ]
+        return _finish_diagnostics(
+            [
+                _issue(
+                    "ERROR",
+                    "WT002",
+                    str(playbook_path),
+                    f"active batch metadata is unavailable: {error}",
+                    "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
+                )
+            ],
+            offline=offline,
+            base_ref=base_ref,
+        )
 
     recognized_ci = _recognized_ci(environ)
     branch_result = runner(
         resolved_root, ("symbolic-ref", "--quiet", "--short", "HEAD")
     )
     if branch_result.returncode == 1:
-        return classify_lineage(
-            LineageSnapshot(
-                batch.active_batch,
-                batch.expected_branch,
-                None,
-                base_ref,
-                0,
-                0,
-                None,
-                None,
-                False,
-                True,
-                recognized_ci,
-            )
+        return _finish_diagnostics(
+            classify_lineage(
+                LineageSnapshot(
+                    batch.active_batch,
+                    batch.expected_branch,
+                    None,
+                    base_ref,
+                    0,
+                    0,
+                    None,
+                    None,
+                    False,
+                    True,
+                    recognized_ci,
+                )
+            ),
+            offline=offline,
+            base_ref=base_ref,
         )
     if branch_result.returncode != 0:
         raise GuardError("Git could not determine whether HEAD names a branch.")
@@ -158,17 +169,20 @@ def inspect_worktree(
         resolved_root, ("rev-parse", "--verify", f"{base_ref}^{{commit}}")
     )
     if base_result.returncode != 0:
-        return [
-            _issue(
-                "ERROR",
-                "WT007",
-                base_ref,
-                "comparison base ref is missing from the local repository.",
-                "When network access is available, run git fetch --prune origin, "
-                "then rerun the guard. Offline, ensure the required local ref exists; "
-                "this guard does not fetch.",
-            )
-        ]
+        label = _base_ref_label(base_ref)
+        return _finish_diagnostics(
+            [
+                _issue(
+                    "ERROR",
+                    "WT007",
+                    label,
+                    "comparison base ref is missing from the local repository.",
+                    _missing_base_remediation(label),
+                )
+            ],
+            offline=offline,
+            base_ref=base_ref,
+        )
 
     counts_result = runner(
         resolved_root,
@@ -221,10 +235,8 @@ def inspect_worktree(
             f"checkout kind: {kind}; Python: {venv.python}; pytest: {venv.pytest}; "
             f"pre-commit: {venv.pre_commit}."
         )
-        if offline:
-            message += " Base result is local-ref-only because --offline was used."
         diagnostics.append(_issue("INFO", "WT000", actual_branch, message))
-    return diagnostics
+    return _finish_diagnostics(diagnostics, offline=offline, base_ref=base_ref)
 
 
 def _resolve_path(parent: Path, output: str) -> Path:
@@ -258,6 +270,63 @@ def _optional_output(result: CommandResult) -> str | None:
     if result.returncode != 0:
         return None
     return result.stdout.strip() or None
+
+
+def _finish_diagnostics(
+    diagnostics: list[Diagnostic], *, offline: bool, base_ref: str
+) -> list[Diagnostic]:
+    """Append the independent offline qualifier after all state diagnostics."""
+    if offline:
+        diagnostics.append(
+            _issue(
+                "INFO",
+                "WT013",
+                _base_ref_label(base_ref),
+                "offline mode; any base comparison is local-ref-only and freshness "
+                "was not verified.",
+            )
+        )
+    return diagnostics
+
+
+def _base_ref_label(base_ref: str) -> str:
+    """Return a display-safe ref label without changing the Git argument value."""
+    invalid = (
+        not _SAFE_BASE_REF_RE.fullmatch(base_ref)
+        or ".." in base_ref
+        or "//" in base_ref
+        or base_ref.endswith(("/", ".", ".lock"))
+    )
+    return "configured base ref" if invalid else base_ref
+
+
+def _missing_base_remediation(base_ref: str) -> str:
+    """Describe recovery for a selected base without inventing a remote command."""
+    if "/" not in base_ref or base_ref.startswith("refs/"):
+        return (
+            f"Verify the local base ref {base_ref} exists and is current, then rerun "
+            "the guard. This guard does not fetch."
+        )
+    return (
+        f"Refresh or otherwise verify the selected base ref {base_ref} exists locally "
+        "and is current, then rerun the guard. This guard does not fetch."
+    )
+
+
+def _identical_tree_remediation(base_ref: str) -> str:
+    """Build WT004 guidance around the selected, display-safe comparison ref."""
+    label = _base_ref_label(base_ref)
+    refresh = (
+        f"refresh {label}"
+        if "/" in label and not label.startswith("refs/")
+        else f"verify the local base ref {label} is current"
+    )
+    return (
+        f"Stop. Reconcile any dirty files, {refresh}, verify the trees again, "
+        "obtain the explicit owner approval required by AGENTS.md, then realign the "
+        "named branch and use force-push with lease. This guard performs none of "
+        "those actions."
+    )
 
 
 def parse_batch_branch(playbook_text: str) -> BatchBranch:
@@ -340,13 +409,14 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
         return issues
 
     subject = snapshot.expected_branch
+    base_ref = _base_ref_label(snapshot.base_ref)
     if snapshot.behind > 0 and snapshot.ahead == 0:
         issues.append(
             _issue(
                 "ERROR",
                 "WT006",
                 subject,
-                f"branch is {snapshot.behind} commit(s) behind {snapshot.base_ref}.",
+                f"branch is {snapshot.behind} commit(s) behind {base_ref}.",
                 "Stop and inspect the branch state before beginning work; this guard "
                 "does not merge, rebase, reset, or switch branches.",
             )
@@ -356,7 +426,7 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
             snapshot.head_tree and snapshot.head_tree == snapshot.base_tree
         )
         code, state, remediation = (
-            ("WT004", "tree-identical", _WT004_REMEDIATION)
+            ("WT004", "tree-identical", _identical_tree_remediation(base_ref))
             if identical
             else (
                 "WT005",
@@ -369,7 +439,7 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
                 "ERROR",
                 code,
                 subject,
-                f"branch and {snapshot.base_ref} are {snapshot.behind}/{snapshot.ahead} diverged but {state}.",
+                f"branch and {base_ref} are {snapshot.behind}/{snapshot.ahead} diverged but {state}.",
                 remediation,
             )
         )

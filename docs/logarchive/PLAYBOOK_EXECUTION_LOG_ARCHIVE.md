@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Docsync content-integrity plan final remediation (side-task)
+
+- Scope: closed the plan-wide final review findings without changing the
+  approved deterministic-only enforcement architecture.
+- Plan vs implementation:
+  - Made the newest live full-suite `pytest -q` validation in PLAYBOOK the
+    authoritative test count, including side-task entries outside the
+    current-batch markers; the renderer and DOC006 now share that result and
+    reject conflicting named SESSION_CONTEXT count fields.
+  - Tightened active-definition matching to a complete numeric batch token
+    and limited DOC001's exemption to the exact Section 3 declaration.
+  - Converted Git invocation `OSError` failures to sanitized `SyncError`
+    diagnostics so the CLI returns 2 without a traceback, preserved analyzer
+    input immutability, and strengthened the two-reference regression.
+  - Refreshed the docsync package/dependency inventory and all measured test
+    counts; DEVELOPMENT remains explanatory human documentation only.
+- Deviations: none; no dependencies, semantic auto-fixes, or Git history
+  changes.
+- Validation: focused docsync suite -- **156 passed**. `pytest -q` --
+  **429 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
+  docsync gates pass.
+- Forward guidance: implement the read-only worktree-safety guard; only
+  F-WORKTREE-1 and F-WORKTREE-2 remain open P0 gates before Batch 21 WP-1.
+
 ### 2026-08-05 - Docsync integrity review remediation (side-task)
 
 - Scope: addressed the first Task 2 review round without changing the

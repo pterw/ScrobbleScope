@@ -19,7 +19,14 @@ def test_cli_renders_error_and_remediation_on_separate_lines(monkeypatch, capsys
                 "wip/batch-21",
                 "branch and origin/main are 3/3 diverged but tree-identical.",
                 remediation,
-            )
+            ),
+            Diagnostic(
+                "INFO",
+                "WT013",
+                "origin/main",
+                "offline mode; any base comparison is local-ref-only and freshness "
+                "was not verified.",
+            ),
         ]
 
     monkeypatch.setattr(cli, "inspect_worktree", fake_inspect)
@@ -28,6 +35,8 @@ def test_cli_renders_error_and_remediation_on_separate_lines(monkeypatch, capsys
         "ERROR WT004 wip/batch-21 -- branch and origin/main are 3/3 "
         "diverged but tree-identical.\n"
         f"Remediation: {remediation}\n"
+        "INFO WT013 origin/main -- offline mode; any base comparison is "
+        "local-ref-only and freshness was not verified.\n"
     )
 
 

@@ -29,7 +29,9 @@ def fail(stderr="fatal"):
     return CommandResult(128, "", stderr)
 
 
-def repository(tmp_path: Path, *, linked: bool = False) -> tuple[Path, dict]:
+def repository(
+    tmp_path: Path, *, linked: bool = False, base_ref: str = "origin/main"
+) -> tuple[Path, dict]:
     """Create a controlled repository layout and its discovery response map."""
     repo = tmp_path / "linked" if linked else tmp_path / "primary"
     repo.mkdir()
@@ -56,8 +58,8 @@ def repository(tmp_path: Path, *, linked: bool = False) -> tuple[Path, dict]:
         ("rev-parse", "--git-dir"): ok(git_dir_text),
         ("rev-parse", "--git-common-dir"): ok(common_text),
         ("symbolic-ref", "--quiet", "--short", "HEAD"): ok("wip/batch-21\n"),
-        ("rev-parse", "--verify", "origin/main^{commit}"): ok("base\n"),
-        ("rev-list", "--left-right", "--count", "origin/main...HEAD"): ok("0\t0\n"),
+        ("rev-parse", "--verify", f"{base_ref}^{{commit}}"): ok("base\n"),
+        ("rev-list", "--left-right", "--count", f"{base_ref}...HEAD"): ok("0\t0\n"),
         ("status", "--porcelain"): ok(),
     }
     return repo, responses

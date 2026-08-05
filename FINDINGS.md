@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-05
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, F-SWE-1 audit next, then WP-1. 478 tests across 29 test modules.
+WP-0 done, F-SWE-1 audit next, then WP-1. 483 tests across 30 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -35,7 +35,9 @@ created a risk of phantom PRs, duplicate work, or an incorrect merge.
 Status: resolved 2026-08-05. Evidence: the read-only CLI distinguishes
 behind-only, identical-tree rebase artifacts, and true divergence; the
 canonical bootstrap stops on its errors; and live linked-worktree inspection
-reported the expected branch and ancestry without modifying Git.
+reported the expected branch and ancestry without modifying Git. Review
+remediation adds final WT013 context to every offline result and keeps
+custom-base guidance aligned with the caller-selected ref.
 Source: post-merge lineage investigations for PRs #163, #165, and #168.
 
 ### F-WORKTREE-2: Linked worktrees cannot use the relative virtualenv path
