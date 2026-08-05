@@ -91,6 +91,16 @@ def test_schematic_and_historical_references_are_ignored(tmp_path: Path):
     assert collect_integrity_issues(**inputs) == []
 
 
+def test_inline_shell_command_is_not_a_document_reference(tmp_path: Path):
+    """A command that searches a path is not itself a Markdown path reference."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["AGENTS.md"] = [
+        '`rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`',
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
 def test_markdown_link_syntax_is_checked(tmp_path: Path):
     """A Markdown link target is checked as well as a backtick path."""
     inputs = _valid_inputs(tmp_path)

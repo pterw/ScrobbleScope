@@ -313,31 +313,22 @@ Modes: `--check` (read-only, exit 1 on drift), `--fix` (write updates), or
 per-batch log files; run once after upgrading to per-batch routing).
 The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
 
-### Cross-validation warnings
+### Integrity diagnostics
 
-The script prints `WARNING:` lines to stderr for cross-file inconsistencies.
-These are **non-blocking** -- they never cause `--check` or `--fix` to fail.
+Proven live-document integrity defects print stable `ERROR DOC...` diagnostics and
+make both `--check` and `--fix` exit 1. `--fix` writes deterministic renderer output
+first, then revalidates the final disk state; it does not guess how to repair semantic
+references or metadata. Use the command output for the actionable invariant and
+remediation.
 
-`SESSION_CONTEXT.md` is committed and shared across all agents. `--check` warns on
-stderr when the STATUS block is stale but does not fail. `--fix` writes the refreshed
-STATUS block to disk; commit the result so the next agent session starts with accurate
-state.
+`.claude/SESSION_CONTEXT.md` is committed and shared across all agents. When it is present,
+its managed block is deterministic sync output and stale content is blocking; when it
+is absent, dependent checks are skipped without creating the file.
 
 Root `BATCHN_DEFINITION.md` warnings are expected while a batch is active
 and PLAYBOOK Section 3 points to that root definition. Treat them as a
 reminder that the definition must be archived at close-out, not as a blocker
 during active work. After close-out, the root warning should disappear.
-
-**Real issues** (act on these):
-- "Test count mismatch" where SESSION_CONTEXT Section 1 and the most-recent
-  current-batch log entry in PLAYBOOK Section 4 disagree on the **current**
-  test count. Fix whichever file is stale. The scan reads `**N passed**`
-  or `**N tests passing**` (bold-wrapped only) from the newest Section 4
-  entry inside the `DOCSYNC:CURRENT-BATCH-START/END` markers. Historical
-  entries outside those markers are not scanned.
-- "Broken archive link" when a markdown file path under `docs/history/` or
-   `docs/logarchive/` in PLAYBOOK does
-  not exist on disk.
 
 ### Before writing to Section 4
 
