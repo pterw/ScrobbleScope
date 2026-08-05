@@ -301,7 +301,13 @@ def _base_ref_label(base_ref: str) -> str:
 
 
 def _missing_base_remediation(base_ref: str) -> str:
-    """Describe recovery for a selected base without inventing a remote command."""
+    """Preserve default recovery while keeping custom-base guidance neutral."""
+    if base_ref == "origin/main":
+        return (
+            "When network access is available, run git fetch --prune origin, "
+            "then rerun the guard. Offline, ensure the required local ref exists; "
+            "this guard does not fetch."
+        )
     if "/" not in base_ref or base_ref.startswith("refs/"):
         return (
             f"Verify the local base ref {base_ref} exists and is current, then rerun "
