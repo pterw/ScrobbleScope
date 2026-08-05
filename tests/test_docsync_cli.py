@@ -70,6 +70,7 @@ class TestMainArgs:
         assert exit_code == 0
         captured = capsys.readouterr()
         assert "SESSION_CONTEXT" in captured.out or "wrote updates" in captured.out
+        assert "ERROR DOC005" not in captured.err
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         exit_code = cli_mod.main()
         assert exit_code == 0
@@ -81,6 +82,18 @@ class TestMainArgs:
         agents = sync_env / "AGENTS.md"
         agents.write_text("See `docs/missing.md`.\n", encoding="utf-8")
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+
+        assert cli_mod.main() == 1
+
+        assert "ERROR DOC001 AGENTS.md:1" in capsys.readouterr().err
+
+    def test_fix_fails_on_dead_live_reference(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """Final-state validation keeps an unresolved DOC001 blocking after --fix."""
+        agents = sync_env / "AGENTS.md"
+        agents.write_text("See `docs/missing.md`.\n", encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
 
         assert cli_mod.main() == 1
 

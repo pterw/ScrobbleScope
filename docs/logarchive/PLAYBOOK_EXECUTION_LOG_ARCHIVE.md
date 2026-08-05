@@ -9,6 +9,32 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - P0 integrity/worktree implementation plans (side-task)
+
+- Scope: translated the owner-approved repository-integrity/worktree-safety
+  specification into executable, test-first implementation plans.
+- Plan vs implementation:
+  - Split the two independent safeguards into ordered plans so each produces
+    a reviewable, independently testable result: CI-blocking docsync content
+    integrity first, then local worktree lineage and shared-virtualenv safety.
+  - Mapped exact files, interfaces, diagnostic codes, adversarial tests,
+    canonical documentation ownership, fault-injection evidence, validation
+    gates, and commit boundaries. Each code step includes concrete signatures
+    or snippets rather than delegating design decisions to the executor.
+  - Self-reviewed both plans against every approved-spec section, checked type
+    and diagnostic-name consistency, removed placeholders, balanced Markdown
+    code fences, and kept the second plan smaller than its peer per the new-file
+    size rule.
+- Deviations: the single specification becomes two sequential plans because
+  repository-content integrity and local Git topology are independent failure
+  domains. Scope and execution order are unchanged.
+- Validation: plan self-review -- pass. `pytest -q` -- **390 passed** with 3
+  existing aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all
+  10 hooks pass. Final `doc_state_sync.py --check` -- exit 0 with the expected
+  active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: choose Subagent-Driven execution (recommended) or Inline
+  Execution. Complete both plans before F-SWE-1; Batch 21 WP-1 remains gated.
+
 ### 2026-08-05 - Repository-integrity and worktree-guard design (side-task)
 
 - Scope: investigated why canonical documentation drift and repeated
