@@ -603,6 +603,16 @@ do not resolve them against the process's original working directory.
 11. Append informational WT013 with a local-ref-only sentence to every result
     when `offline=True`; do not overload success-only WT000.
 
+For missing-base WT007, preserve the canonical default remediation exactly:
+
+```text
+When network access is available, run git fetch --prune origin, then rerun the
+guard. Offline, ensure the required local ref exists; this guard does not fetch.
+```
+
+Custom remote-tracking and local refs keep selected-ref-specific neutral
+guidance and must not reuse that origin command.
+
 - [ ] **Step 4: Add the thin CLI and output tests**
 
 Create `scripts/dev/check_worktree_alignment.py` with a comprehensive module

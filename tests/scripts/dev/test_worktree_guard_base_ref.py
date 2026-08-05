@@ -12,6 +12,19 @@ from tests.scripts.dev.worktree_guard_fakes import (
 )
 
 
+def test_default_missing_base_preserves_fetch_and_offline_remediation(tmp_path):
+    """WT007 keeps the established actionable default-base guidance."""
+    repo, responses = repository(tmp_path)
+    responses[("rev-parse", "--verify", "origin/main^{commit}")] = fail()
+    diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
+    assert codes(diagnostics) == ["WT007"]
+    assert diagnostics[0].remediation == (
+        "When network access is available, run git fetch --prune origin, then rerun "
+        "the guard. Offline, ensure the required local ref exists; this guard does "
+        "not fetch."
+    )
+
+
 @pytest.mark.parametrize(
     ("base_ref", "remediation"),
     [

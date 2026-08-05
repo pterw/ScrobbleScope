@@ -9,6 +9,41 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Pure worktree safety classification (side-task)
+
+- Scope: implemented the pure, read-only classification layer for the
+  worktree-safety guard without wiring it into bootstrap or running Git.
+- Plan vs implementation:
+  - Added strict PLAYBOOK Section 3 parsing that ignores historical log text,
+    preserves missing active-branch metadata, and rejects missing, duplicate,
+    or malformed active state rather than guessing.
+  - Added deterministic lineage diagnostics for detached CI/local states,
+    missing or wrong active branches, dirty trees, behind-only state, and both
+    content-identical rebase artifacts and true divergence. Remediation is
+    diagnostic only and performs no repository mutation.
+  - Added platform-aware environment resolution for ordinary and linked
+    checkouts. Linked worktrees reuse the primary checkout `.venv`; distinct
+    secondary environments and missing required tools fail with actionable
+    diagnostics, while a symlink/junction alias to the primary environment is
+    accepted.
+  - Corrected two plan-interface contradictions while preserving its safety
+    policy: lineage snapshots now carry the parsed active-batch discriminator,
+    and the WT005 test verifies that remediation explicitly prohibits reset
+    without contradicting the mandated `do not reset` wording.
+  - Split immutable value types and virtualenv tests into focused peer-sized
+    files to satisfy the repository's new-file size gate; the public imports
+    and focused test command remain explicit in the corrected plan.
+- Deviations: specification-preserving interface/test corrections only; no
+  dependencies, package installs, Git commands, automatic repairs, or
+  bootstrap enforcement were added.
+- Validation: focused worktree-guard suite -- **27 passed**. `pytest -q` --
+  **456 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
+  docsync gates pass.
+- Forward guidance: Task 2 must add the thin read-only CLI, canonical bootstrap
+  rule, and real linked-worktree acceptance before F-WORKTREE-1 and
+  F-WORKTREE-2 can close. The pure classifier is testable but is not yet a
+  mandatory bootstrap command.
+
 ### 2026-08-05 - Docsync content-integrity plan final remediation (side-task)
 
 - Scope: closed the plan-wide final review findings without changing the

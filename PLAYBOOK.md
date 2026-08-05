@@ -153,6 +153,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-05 - Worktree guard default remediation compatibility (side-task)
+
+- Scope: restored the established WT007 operator guidance for the canonical
+  `origin/main` base without changing the review-approved behavior for custom
+  or local refs.
+- Plan vs implementation:
+  - Added an exact regression that failed against the neutralized default
+    wording and protects both the explicit `git fetch --prune origin` action
+    and the offline local-ref fallback.
+  - Added one exact-default branch to missing-base remediation. Custom
+    `upstream/trunk` and local `main` retain their selected-ref-specific,
+    command-neutral guidance; WT013 ordering and exit behavior are unchanged.
+- Deviations: none; this is a compatibility correction only, with no Git
+  command, collector sequence, diagnostic code, or dependency change.
+- Validation: focused guard suite -- **55 passed**. `pytest -q` -- **484
+  passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
+  docsync checks pass.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
+
 ### 2026-08-05 - Worktree guard review remediation (side-task)
 
 - Scope: corrected the two Task 2 review findings without changing the
@@ -230,38 +250,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: proceed to Task 2's read-only CLI and bootstrap wiring;
   F-WORKTREE-1 and F-WORKTREE-2 remain open until its live linked-worktree
   acceptance passes.
-
-### 2026-08-05 - Pure worktree safety classification (side-task)
-
-- Scope: implemented the pure, read-only classification layer for the
-  worktree-safety guard without wiring it into bootstrap or running Git.
-- Plan vs implementation:
-  - Added strict PLAYBOOK Section 3 parsing that ignores historical log text,
-    preserves missing active-branch metadata, and rejects missing, duplicate,
-    or malformed active state rather than guessing.
-  - Added deterministic lineage diagnostics for detached CI/local states,
-    missing or wrong active branches, dirty trees, behind-only state, and both
-    content-identical rebase artifacts and true divergence. Remediation is
-    diagnostic only and performs no repository mutation.
-  - Added platform-aware environment resolution for ordinary and linked
-    checkouts. Linked worktrees reuse the primary checkout `.venv`; distinct
-    secondary environments and missing required tools fail with actionable
-    diagnostics, while a symlink/junction alias to the primary environment is
-    accepted.
-  - Corrected two plan-interface contradictions while preserving its safety
-    policy: lineage snapshots now carry the parsed active-batch discriminator,
-    and the WT005 test verifies that remediation explicitly prohibits reset
-    without contradicting the mandated `do not reset` wording.
-  - Split immutable value types and virtualenv tests into focused peer-sized
-    files to satisfy the repository's new-file size gate; the public imports
-    and focused test command remain explicit in the corrected plan.
-- Deviations: specification-preserving interface/test corrections only; no
-  dependencies, package installs, Git commands, automatic repairs, or
-  bootstrap enforcement were added.
-- Validation: focused worktree-guard suite -- **27 passed**. `pytest -q` --
-  **456 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
-  docsync gates pass.
-- Forward guidance: Task 2 must add the thin read-only CLI, canonical bootstrap
-  rule, and real linked-worktree acceptance before F-WORKTREE-1 and
-  F-WORKTREE-2 can close. The pure classifier is testable but is not yet a
-  mandatory bootstrap command.
