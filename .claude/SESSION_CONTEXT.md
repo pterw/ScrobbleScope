@@ -9,7 +9,7 @@ Last updated: 2026-08-05
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **413 passing** across 23 test modules |
+| Tests | **415 passing** across 23 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -20,7 +20,7 @@ Last updated: 2026-08-05
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the pure F-DOCSYNC-5 analyzer is complete but not yet enforced, and F-WORKTREE-1/F-WORKTREE-2 remain P0 gates for WP-1. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the review-hardened pure F-DOCSYNC-5 analyzer is complete but not yet enforced, and F-WORKTREE-1/F-WORKTREE-2 remain P0 gates for WP-1. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**

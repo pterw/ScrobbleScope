@@ -77,7 +77,7 @@ def collect_tracked_paths(
 
 
 def _playbook_lines_without_entry_blocks(playbook_lines: list[str]) -> list[str]:
-    """Return PLAYBOOK text with dated Section 4 history removed from scanning."""
+    """Blank dated Section 4 history while preserving source-line offsets."""
     section_start, section_end = _find_section(
         playbook_lines, SECTION_4_RE, "PLAYBOOK section 4"
     )
@@ -95,9 +95,8 @@ def _playbook_lines_without_entry_blocks(playbook_lines: list[str]) -> list[str]
         for index, entry in enumerate(entries)
     ]
     retained_section_lines = [
-        line
+        "" if any(start <= index < end for start, end in entry_ranges) else line
         for index, line in enumerate(section_lines)
-        if not any(start <= index < end for start, end in entry_ranges)
     ]
     return (
         playbook_lines[:section_start]
@@ -108,7 +107,7 @@ def _playbook_lines_without_entry_blocks(playbook_lines: list[str]) -> list[str]
 
 def _active_definition_reference(
     playbook_lines: list[str],
-) -> tuple[int | None, str | None, IntegrityIssue | None]:
+) -> tuple[int | None, str | None, int | None, IntegrityIssue | None]:
     """Resolve the sole active definition declaration or return its diagnostic."""
     section_start, section_end = _find_section(
         playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
@@ -116,7 +115,7 @@ def _active_definition_reference(
     section_lines = playbook_lines[section_start:section_end]
     current_batch = _parse_active_batch_state(section_lines).current_batch
     if current_batch is None:
-        return None, None, None
+        return None, None, None, None
 
     references: list[tuple[int, str]] = []
     for offset, line in enumerate(section_lines):
@@ -128,6 +127,7 @@ def _active_definition_reference(
     if len(references) != 1:
         return (
             current_batch,
+            None,
             None,
             IntegrityIssue(
                 code="DOC002",
@@ -144,6 +144,7 @@ def _active_definition_reference(
         return (
             current_batch,
             None,
+            line,
             IntegrityIssue(
                 code="DOC002",
                 severity="error",
@@ -153,7 +154,7 @@ def _active_definition_reference(
                 remediation="Point PLAYBOOK Section 3 at the current batch definition.",
             ),
         )
-    return current_batch, reference, None
+    return current_batch, reference, line, None
 
 
 def _issue(
@@ -180,19 +181,24 @@ def collect_integrity_issues(
     """Return deterministic live-document integrity issues."""
     del repo_root
     issues: list[IntegrityIssue] = []
-    current_batch, definition_path, definition_issue = _active_definition_reference(
-        playbook_lines
-    )
+    (
+        current_batch,
+        definition_path,
+        definition_line,
+        definition_issue,
+    ) = _active_definition_reference(playbook_lines)
     if definition_issue is not None:
         issues.append(definition_issue)
-    elif definition_path is not None and definition_path not in live_documents:
+    elif definition_path is not None and (
+        definition_path not in live_documents or definition_path not in tracked_paths
+    ):
         issues.append(
             _issue(
                 "DOC002",
                 "PLAYBOOK.md",
-                None,
-                "The active definition reference resolves to a supplied live document.",
-                "Provide the active definition content to the docsync integrity pass.",
+                definition_line,
+                "The active definition reference resolves to a tracked live document.",
+                "Track the active definition and provide its content to the docsync integrity pass.",
             )
         )
 

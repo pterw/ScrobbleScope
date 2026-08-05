@@ -202,6 +202,18 @@ def test_active_definition_reference_must_match_batch(tmp_path: Path):
     assert [issue.code for issue in issues] == ["DOC002"]
 
 
+def test_untracked_active_definition_is_blocking(tmp_path: Path):
+    """Supplied content cannot make an untracked active definition valid."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["tracked_paths"] = inputs["tracked_paths"] - {"BATCH21_DEFINITION.md"}
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC002", "PLAYBOOK.md", 5)
+    ]
+
+
 def test_non_definition_batch_reference_is_still_checked(tmp_path: Path):
     """Only the declared Definition path is exempt from generic reference checks."""
     inputs = _valid_inputs(tmp_path)
@@ -209,6 +221,23 @@ def test_non_definition_batch_reference_is_still_checked(tmp_path: Path):
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
 
     assert [issue.code for issue in collect_integrity_issues(**inputs)] == ["DOC001"]
+
+
+def test_playbook_reference_after_dated_entry_keeps_original_line_number(
+    tmp_path: Path,
+):
+    """Skipping Section 4 history preserves diagnostics for later sections."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        ["", "## 5. Follow-up", "", "See `docs/missing.md`."]
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC001", "PLAYBOOK.md", 20)
+    ]
 
 
 def test_missing_active_definition_reference_is_blocking(tmp_path: Path):
