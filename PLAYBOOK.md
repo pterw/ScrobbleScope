@@ -153,6 +153,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-05 - Docsync integrity analyzer review remediation (side-task)
+
+- Scope: corrected two review findings in the pure analyzer before its
+  deferred CLI/CI wiring task.
+- Plan vs implementation:
+  - Active definitions now require both supplied live-document content and a
+    tracked path; an untracked declaration reports DOC002 at its Section 3
+    declaration line rather than being masked by the DOC001 exemption.
+  - Replaced ignored dated Section 4 entry lines with blank placeholders, so
+    later PLAYBOOK diagnostics retain their original file line numbers.
+  - Added separate regression tests that first reproduced both defects.
+- Deviations: none; integration remains intentionally out of scope.
+- Validation: `pytest -q` -- **415 passed** with 3 existing aiohttp/Python
+  3.13 warnings. Final hook and docsync gates pass.
+- Forward guidance: Task 2 can consume the corrected pure analyzer without
+  reimplementing its active-definition or PLAYBOOK source-location rules.
+
 ### 2026-08-05 - Docsync live-document integrity analyzer (side-task)
 
 - Scope: added the pure live-document integrity analyzer for the P0
@@ -231,33 +248,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: review the written specification. After approval, create
   the implementation plan, land both P0 safeguards, then execute the full
   F-SWE-1 sweep; Batch 21 WP-1 remains gated behind the remediation.
-
-### 2026-08-03 - PR #168 pre-merge canonical-doc audit (side-task)
-
-- Scope: audited the PR head against the canonical documentation and
-  handoff rules before rebase merge; found and fixed two P1 operational
-  documentation defects that could misdirect the next agent.
-- Plan vs implementation:
-  - Removed the superseded `fa61716` fork point from the active Batch 21
-    definition. Branch lineage is volatile during review-remediation
-    rebases, so the definition now delegates that state to PLAYBOOK
-    Section 4 instead of pinning another copy.
-  - Corrected the live side-task archive header from obsolete PLAYBOOK
-    Section 10 to Section 4 and repointed all three read helpers from the
-    `docs/history/` tombstone to `docs/logarchive/`.
-  - Recorded the resolved P1 issue as FINDINGS.md F-DOCSYNC-5 under the
-    repository's source-tag nomenclature and refreshed the file's
-    last-updated date.
-  - Replaced the SWE audit charter's fixed F-DOCSYNC numeric range with
-    a FINDINGS-owned category pointer so new or resolved F-DOCSYNC items
-    remain in the do-not-re-report baseline.
-- Deviations: none. PR #168 contains no runtime behavior change, and no
-  GitHub thread or PR state was changed.
-- Validation: targeted documentation regression check -- pass.
-  `pytest -q` -- **390 passed** with 3 existing aiohttp/Python 3.13
-  warnings. `pre-commit run --all-files` -- all 10 hooks pass.
-  `doc_state_sync.py --check` -- exit 0 with the expected active-root
-  `BATCH21_DEFINITION.md` warning.
-- Forward guidance: after PR #168 merges, realign `wip/batch-21` with
-  `main`, then continue Batch 21 WP-1. F-SWE-1 remains a separate,
-  chartered audit whose execution is still pending.
