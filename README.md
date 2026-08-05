@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-512_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-513_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
@@ -81,7 +81,7 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (512 tests across 32 files), 89% coverage |
+| Testing | pytest (513 tests across 32 files), 89% coverage |
 | CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
@@ -436,7 +436,7 @@ pre-commit run --all-files
 |   |   |-- test_worktree_guard_inspection.py  # Git collection order (10)
 |   |   |-- test_worktree_guard_runner.py  # Runner sanitization (4)
 |   |   |-- test_worktree_guard_severity.py  # WT000-WT014 severity table (15)
-|   |   |-- test_worktree_guard_topology.py  # Detached/linked states (5)
+|   |   |-- test_worktree_guard_topology.py  # Detached/linked/POSIX states (6)
 |   |   `-- test_worktree_guard_venv.py    # Virtualenv topology (7)
 |   |-- scripts/testing/
 |   |   |-- test_smoke_cache_check.py       # HTTP client + smoke test unit tests (13)

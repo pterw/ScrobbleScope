@@ -37,8 +37,9 @@ def inspect_worktree(
     offline: bool = False,
     environ: Mapping[str, str] = os.environ,
     runner: Callable[[Path, tuple[str, ...]], CommandResult] = run_git,
+    os_name: str | None = None,
 ) -> list[Diagnostic]:
-    """Collect and classify local worktree state without mutation."""
+    """Collect local state using the host OS unless a test boundary overrides it."""
     try:
         return _inspect_worktree(
             repo_root,
@@ -46,6 +47,7 @@ def inspect_worktree(
             offline=offline,
             environ=environ,
             runner=runner,
+            os_name=os.name if os_name is None else os_name,
         )
     except Exception:
         return inspection_failure_diagnostics(base_ref=base_ref, offline=offline)
@@ -58,6 +60,7 @@ def _inspect_worktree(
     offline: bool,
     environ: Mapping[str, str],
     runner: Callable[[Path, tuple[str, ...]], CommandResult],
+    os_name: str,
 ) -> list[Diagnostic]:
     """Collect worktree state after the public fail-closed boundary is active."""
     top_level_result = runner(repo_root, ("rev-parse", "--show-toplevel"))
@@ -198,7 +201,7 @@ def _inspect_worktree(
         repo_root=resolved_root,
         git_dir=git_dir,
         common_dir=common_dir,
-        os_name=os.name,
+        os_name=os_name,
     )
     diagnostics.extend(venv_diagnostics)
     if venv is not None and not any(
