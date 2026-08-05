@@ -12,7 +12,6 @@ from docsync.models import IntegrityIssue, SyncError
 from docsync.parser import (
     SECTION_3_RE,
     SECTION_4_RE,
-    TEST_COUNT_RE,
     _find_section,
     _parse_active_batch_state,
     _parse_entries,
@@ -25,6 +24,14 @@ SCHEMATIC_RE = re.compile(r"[<*?\[\]]|\bBATCHN_", re.IGNORECASE)
 DEFINITION_REFERENCE_RE = re.compile(r"Definition:\s*`([^`\n]+\.md)`")
 BRANCH_FIELD_RE = re.compile(r"^\*\*Branch:\*\*")
 COMMIT_SHA_RE = re.compile(r"\b[0-9a-fA-F]{7,40}\b")
+SESSION_CURRENT_COUNT_RES = (
+    re.compile(r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"),
+    re.compile(
+        r"^- Latest validated test count:\s*\*\*(\d+)\s+"
+        r"(?:tests?\s+)?pass(?:ing|ed)\*\*\.\s*$"
+    ),
+    re.compile(r"^##\s+\d+\.\s+Test structure\s+\((\d+)\s+tests\)\s*$"),
+)
 
 _LIVE_DOCUMENT_PATHS = frozenset(
     {
@@ -62,13 +69,16 @@ def collect_tracked_paths(
 ) -> frozenset[str]:
     """Return normalized repository-relative paths from git ls-files."""
     command = ["git", "ls-files", "-z"]
-    result = runner(
-        command,
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = runner(
+            command,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        raise SyncError("git ls-files could not be executed") from exc
     if result.returncode != 0:
         stderr = " ".join(result.stderr.split())
         detail = f": {stderr}" if stderr else ""
@@ -142,10 +152,14 @@ def _active_definition_reference(
         )
 
     line, reference = references[0]
-    if not reference.upper().startswith(f"BATCH{current_batch}"):
+    batch_token_re = re.compile(
+        rf"^BATCH{current_batch}(?:_|$)",
+        re.IGNORECASE,
+    )
+    if batch_token_re.match(reference) is None:
         return (
             current_batch,
-            None,
+            reference,
             line,
             IntegrityIssue(
                 code="DOC002",
@@ -217,11 +231,10 @@ def collect_integrity_issues(
             else lines
         )
         for line, reference in _concrete_references(scan_lines):
-            definition_match = DEFINITION_REFERENCE_RE.search(scan_lines[line - 1])
             if (
                 path == "PLAYBOOK.md"
-                and definition_match is not None
-                and _normalize_reference(definition_match.group(1)) == reference
+                and line == definition_line
+                and reference == definition_path
             ):
                 # DOC002 owns root Batch definition declarations in Section 3.
                 continue
@@ -236,7 +249,11 @@ def collect_integrity_issues(
                     )
                 )
 
-    if current_batch is not None and definition_path is not None:
+    if (
+        current_batch is not None
+        and definition_path is not None
+        and definition_issue is None
+    ):
         definition_lines = live_documents.get(definition_path)
         branch_lines = (
             [
@@ -263,9 +280,9 @@ def collect_integrity_issues(
     archive_entries, first_entry_index = _parse_entries(archive_lines)
     del archive_entries
     archive_prefix = (
-        archive_lines[:first_entry_index]
+        list(archive_lines[:first_entry_index])
         if first_entry_index is not None
-        else archive_lines
+        else list(archive_lines)
     )
     while archive_prefix and not archive_prefix[-1].strip():
         archive_prefix.pop()
@@ -295,23 +312,33 @@ def collect_integrity_issues(
                 )
             )
         playbook_count = _latest_test_count_from_entries(playbook_lines)
-        session_counts = {
-            int(match.group(1))
-            for line in session_lines
-            for match in TEST_COUNT_RE.finditer(line)
-        }
-        if (
-            playbook_count is not None
-            and session_counts
-            and playbook_count not in session_counts
-        ):
+        session_count_fields = [
+            (line_number, int(match.group(1)))
+            for line_number, line in enumerate(session_lines, start=1)
+            for pattern in SESSION_CURRENT_COUNT_RES
+            if (match := pattern.match(line)) is not None
+        ]
+        session_counts = {count for _, count in session_count_fields}
+        mismatched_fields = [
+            (line_number, count)
+            for line_number, count in session_count_fields
+            if playbook_count is not None and count != playbook_count
+        ]
+        if len(session_counts) > 1 or mismatched_fields:
+            issue_line = (
+                mismatched_fields[0][0]
+                if mismatched_fields
+                else session_count_fields[0][0]
+            )
             issues.append(
                 _issue(
                     "DOC006",
                     ".claude/SESSION_CONTEXT.md",
-                    None,
-                    "Current PLAYBOOK and session test counts agree when both are present.",
-                    "Refresh the session document or correct the current PLAYBOOK validation count.",
+                    issue_line,
+                    "Every named session current-test field agrees with the "
+                    "latest PLAYBOOK full-suite validation.",
+                    "Correct the current PLAYBOOK `pytest -q` result, then "
+                    "refresh every named SESSION_CONTEXT test-count field.",
                 )
             )
 

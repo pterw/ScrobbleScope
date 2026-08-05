@@ -11,6 +11,7 @@ from docsync.cli import (
     _get_batch_log_path,
     _read_lines,
 )
+from docsync.integrity import collect_tracked_paths as collect_real_tracked_paths
 from docsync.models import SyncError
 
 # ---------------------------------------------------------------------------
@@ -145,6 +146,32 @@ class TestMainArgs:
         ).unlink()
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         assert cli_mod.main() == 2
+
+    def test_git_invocation_oserror_exits_2_without_traceback(
+        self,
+        sync_env: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys,
+    ):
+        """The CLI preserves its malformed-environment exit contract for Git OSErrors."""
+
+        def failing_runner(*args, **kwargs):
+            raise FileNotFoundError(2, "missing", r"C:\private\bin\git.exe")
+
+        def collect_with_missing_git(repo_root: Path):
+            return collect_real_tracked_paths(repo_root, runner=failing_runner)
+
+        monkeypatch.setattr(cli_mod, "collect_tracked_paths", collect_with_missing_git)
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+
+        assert cli_mod.main() == 2
+
+        captured = capsys.readouterr()
+        assert (
+            "doc_state_sync failed: git ls-files could not be executed" in captured.err
+        )
+        assert "Traceback" not in captured.err
+        assert "private" not in captured.err
 
 
 # ---------------------------------------------------------------------------

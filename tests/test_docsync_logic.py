@@ -118,9 +118,8 @@ class TestCrossValidate:
         )
         assert warnings == []
 
-    def test_section4_historical_count_ignored(self):
-        """Count from a non-current entry BELOW the DOCSYNC markers is not
-        scanned -- only entries inside CURRENT-BATCH-START/END are compared."""
+    def test_older_side_task_count_does_not_override_current_count(self):
+        """An older side-task validation does not supersede newer batch work."""
         playbook = [
             "# PLAYBOOK",
             "",
@@ -322,6 +321,39 @@ class TestLatestTestCount:
             "<!-- DOCSYNC:CURRENT-BATCH-END -->",
         ]
         assert _latest_test_count_from_entries(playbook) == 190
+
+    def test_newest_side_task_full_suite_count_is_authoritative(self):
+        """The top side-task full-suite result supersedes the Batch WP baseline."""
+        playbook = self._minimal_playbook(["`pytest -q` -- **390 passed**."])
+        playbook.extend(
+            [
+                "",
+                "### 2026-08-05 - Review remediation (side-task)",
+                "",
+                "Focused docsync suite -- **112 passed**. `pytest -q` --",
+                "**420 passed**.",
+            ]
+        )
+
+        assert _latest_test_count_from_entries(playbook) == 420
+
+    def test_focused_side_task_does_not_override_full_suite_count(self):
+        """A focused-only result cannot become the repository test authority."""
+        playbook = self._minimal_playbook(["`pytest -q` -- **390 passed**."])
+        playbook.extend(
+            [
+                "",
+                "### 2026-08-06 - Focused follow-up (side-task)",
+                "",
+                "Validation: focused docsync suite -- **112 passed**.",
+                "",
+                "### 2026-08-05 - Full validation (side-task)",
+                "",
+                "Validation: `pytest -q` -- **420 passed**.",
+            ]
+        )
+
+        assert _latest_test_count_from_entries(playbook) == 420
 
 
 # ---------------------------------------------------------------------------
@@ -530,6 +562,26 @@ class TestSyncIntegration:
         session_text = "\n".join(result.session_lines)
         assert "Batch 11" in session_text
         assert "Section 3 and Section 4" in session_text
+
+    def test_session_status_uses_newest_side_task_full_suite_count(
+        self, sync_env: Path
+    ):
+        """The renderer mirrors the same full-suite authority used by DOC006."""
+        playbook_path = sync_env / "PLAYBOOK.md"
+        playbook_text = playbook_path.read_text(encoding="utf-8")
+        playbook_text = playbook_text.replace(
+            "Did some work.", "`pytest -q` -- **390 passed**."
+        )
+        playbook_text += (
+            "\n### 2026-08-05 - Review remediation (side-task)\n\n"
+            "Focused -- **112 passed**. `pytest -q` -- **420 passed**.\n"
+        )
+        playbook_path.write_text(playbook_text, encoding="utf-8")
+        playbook, archive, session = self._files(sync_env)
+
+        result = _sync(playbook, archive, session, keep_non_current=4)
+
+        assert "- Latest validated test count: **420 passed**." in result.session_lines
 
     def test_session_context_missing_status_markers_raises(self, sync_env: Path):
         session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"

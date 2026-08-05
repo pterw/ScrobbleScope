@@ -8,7 +8,6 @@ from docsync.models import ActiveBatchState, Entry
 from docsync.parser import (
     CURRENT_BATCH_END_MARKER,
     CURRENT_BATCH_START_MARKER,
-    TEST_COUNT_RE,
     _collect_wp_numbers,
 )
 
@@ -84,6 +83,7 @@ def _render_side_archive(entries: list[Entry]) -> list[str]:
 def _build_status_block(
     section_3_state: ActiveBatchState,
     current_entries: list[Entry],
+    latest_test_count: int | None = None,
 ) -> list[str]:
     if current_entries:
         wp_numbers = _collect_wp_numbers(current_entries)
@@ -103,19 +103,9 @@ def _build_status_block(
         if batch_num is None and section_3_state.last_completed_batch is not None:
             batch_num = section_3_state.last_completed_batch + 1
         batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
-        # Extract test count from validation line of most recent entry.
-        latest_count: int | None = None
-        for entry in reversed(current_entries):
-            for line in entry.lines:
-                m = TEST_COUNT_RE.search(line)
-                if m:
-                    latest_count = int(m.group(1))
-                    break
-            if latest_count is not None:
-                break
         count_line = (
-            f"- Latest validated test count: **{latest_count} passed**."
-            if latest_count is not None
+            f"- Latest validated test count: **{latest_test_count} passed**."
+            if latest_test_count is not None
             else "- Latest validated test count: unknown (no bold count in log entries)."
         )
         return [

@@ -4,6 +4,8 @@ This document explains how ScrobbleScope was built: the orchestration
 strategy, the tooling decisions, and the reasoning behind each one. It is
 written for anyone who clones this repository and wants to understand why
 the project is structured the way it is beyond what `AGENTS.md` prescribes.
+It is explanatory human documentation only: it grants no agent authority,
+and operational rules remain owned by `AGENTS.md`.
 
 ---
 
@@ -187,7 +189,10 @@ edit them out or misplace them.
    can never appear twice, even if an agent manually copied an entry.
 5. **Rebuilds** the managed `<!-- DOCSYNC:STATUS-START/END -->` block in
    `SESSION_CONTEXT.md` from PLAYBOOK truth, so the two files are always
-   consistent without manual editing.
+   consistent without manual editing. The newest live full-suite `pytest -q`
+   result is authoritative even when it belongs to a side-task entry outside
+   the current-batch markers; conflicting named dashboard, status, or test
+   inventory counts are blocking integrity errors.
 6. **Enforces** live-document integrity: dead concrete references, active
    definition metadata, archive prologue drift, and session contradictions
    produce stable blocking diagnostics. `--fix` first writes only
@@ -206,15 +211,13 @@ rendering (`renderer.py`), rotation/dedup logic (`logic.py`), live-document
 integrity (`integrity.py`), the CLI entrypoint (`cli.py`), and typed dataclass
 models (`models.py`); the root
 `scripts/doc_state_sync.py` is now a thin wrapper that delegates into the
-package. This made each concern independently testable -- 117 docsync tests
-(across `tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
-`tests/test_docsync_renderer.py`, and `tests/test_docsync_cli.py`) now cover
-rotation, dedup, cross-validation, and CLI modes.
-
-That count has grown since the original Batch 14 refactor as later batches added edge-case coverage;
-run `pytest tests/test_docsync_*.py -q` to confirm the current number rather
-than trusting any figure quoted here, since it will drift as new tests are
-added.
+package. This made each concern independently testable. Five focused modules --
+`tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
+`tests/test_docsync_renderer.py`, `tests/test_docsync_integrity.py`, and
+`tests/test_docsync_cli.py` -- cover parsing, rotation, deduplication,
+rendering, live integrity, and CLI modes. Run
+`pytest tests/test_docsync_*.py -q` for the current measured count rather than
+preserving a number here that will drift as edge-case coverage grows.
 
 **SESSION_CONTEXT.md is optional in CI.**
 
@@ -353,8 +356,8 @@ practice follow from this:
   files tidy." Typical AIDD setups rely on the agent itself to remember and
   re-apply formatting/bookkeeping conventions every session; here rotation
   and archive drift are enforced by the `doc-state-sync-check` pre-commit
-  hook, while cross-file consistency problems are reported as warnings for
-  the agent to resolve.
+  hook. Proven live-document integrity defects are blocking errors; expected
+  active-root notices remain warnings.
 - **A definition-of-done written before work starts, not inferred after.**
   Each batch's root `BATCHN_DEFINITION.md` is committed before its WPs begin,
   then moved under `docs/history/definitions/` at close-out, so an agent

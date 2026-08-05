@@ -9,7 +9,7 @@ Last updated: 2026-08-05
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **420 passing** across 23 test modules |
+| Tests | **429 passing** across 23 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -47,7 +47,7 @@ Last updated: 2026-08-05
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **390 passed**.
+- Latest validated test count: **429 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -75,6 +75,16 @@ templates/                  # base, index, loading, results, unmatched, error
 static/
   css/                      # global, index, loading, results, unmatched, error, heatmap (7 files)
   js/                       # theme, index, loading, results, unmatched, error, heatmap (7 files)
+scripts/
+  doc_state_sync.py         # thin entry point for deterministic documentation sync
+  docsync/
+    __init__.py             # package inventory and entry-point map
+    models.py               # typed sync results, entries, issues, and SyncError
+    parser.py               # Markdown sections, markers, entries, and batch state
+    renderer.py             # managed status, PLAYBOOK, and archive rendering
+    logic.py                # rotation, deduplication, and authoritative test count
+    integrity.py            # live-document semantic integrity diagnostics
+    cli.py                  # file I/O, final-state enforcement, and exit codes
 ```
 
 ---
@@ -95,6 +105,15 @@ orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify
 heatmap.py       <- config, lastfm, repositories, utils, worker
 routes.py        <- heatmap, lastfm, orchestrator, repositories, utils, worker
 app.py           <- routes (Blueprint)
+
+docsync/__init__.py  <- (leaf)
+docsync/models.py    <- (leaf)
+docsync/parser.py    <- docsync/models
+docsync/renderer.py  <- docsync/models, docsync/parser
+docsync/logic.py     <- docsync/models, docsync/parser, docsync/renderer
+docsync/integrity.py <- docsync/logic, docsync/models, docsync/parser, docsync/renderer
+docsync/cli.py       <- docsync/integrity, docsync/logic, docsync/models
+doc_state_sync.py    <- docsync/cli
 ```
 
 ---
@@ -126,15 +145,16 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (390 tests)
+## 6. Test structure (429 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
-| test_docsync_cli.py | 19 |
-| test_docsync_logic.py | 41 |
+| test_docsync_cli.py | 22 |
+| test_docsync_integrity.py | 31 |
+| test_docsync_logic.py | 44 |
 | test_docsync_parser.py | 35 |
-| test_docsync_renderer.py | 22 |
+| test_docsync_renderer.py | 24 |
 | test_domain.py | 13 |
 | test_heatmap.py | 20 |
 | test_repositories.py | 20 |

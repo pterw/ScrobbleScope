@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-05
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, worktree remediation next, then WP-1. 420 tests across 23 test
+WP-0 done, worktree remediation next, then WP-1. 429 tests across 23 test
 modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
@@ -58,7 +58,9 @@ The live archive prologue and active-definition branch metadata drifted while
 live-document references were only narrowly checked, and integrity warnings
 did not affect the exit code.
 Status: resolved 2026-08-05. Evidence: Task 2 final-state CLI enforcement and
-review remediation; `pytest -q` measured **420 passed** with 3 existing warnings.
+plan-wide final remediation now reject conflicting named current-test fields,
+over-broad definition matches, and Git invocation failures; `pytest -q`
+measured **429 passed** with 3 existing warnings.
 Approved design:
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
 Source: PR #168 pre-merge audit and follow-up root-cause investigation.
@@ -142,7 +144,7 @@ coverage. Status: open. Source: MULTI_AGENT_SWEEP.
 "Batch N" substrings; tightening needs backward-compat testing. On the
 README roadmap. Status: open. Source: DOCSYNC_AUDIT Finding 6.
 
-### F-MAS-3: test_docsync_logic.py is 852 lines
+### F-MAS-3: test_docsync_logic.py is 904 lines
 
 Suggested split: integration / cross-validate / archive-routing.
 Status: open. Source: MULTI_AGENT_SWEEP.

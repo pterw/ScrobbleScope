@@ -153,6 +153,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-05 - Docsync content-integrity plan final remediation (side-task)
+
+- Scope: closed the plan-wide final review findings without changing the
+  approved deterministic-only enforcement architecture.
+- Plan vs implementation:
+  - Made the newest live full-suite `pytest -q` validation in PLAYBOOK the
+    authoritative test count, including side-task entries outside the
+    current-batch markers; the renderer and DOC006 now share that result and
+    reject conflicting named SESSION_CONTEXT count fields.
+  - Tightened active-definition matching to a complete numeric batch token
+    and limited DOC001's exemption to the exact Section 3 declaration.
+  - Converted Git invocation `OSError` failures to sanitized `SyncError`
+    diagnostics so the CLI returns 2 without a traceback, preserved analyzer
+    input immutability, and strengthened the two-reference regression.
+  - Refreshed the docsync package/dependency inventory and all measured test
+    counts; DEVELOPMENT remains explanatory human documentation only.
+- Deviations: none; no dependencies, semantic auto-fixes, or Git history
+  changes.
+- Validation: focused docsync suite -- **156 passed**. `pytest -q` --
+  **429 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
+  docsync gates pass.
+- Forward guidance: implement the read-only worktree-safety guard; only
+  F-WORKTREE-1 and F-WORKTREE-2 remain open P0 gates before Batch 21 WP-1.
+
 ### 2026-08-05 - Docsync integrity review remediation (side-task)
 
 - Scope: addressed the first Task 2 review round without changing the
@@ -207,23 +231,3 @@ non-current operational logs. Older dated entries live in
   3.13 warnings. Final hook and docsync gates pass.
 - Forward guidance: Task 2 can consume the corrected pure analyzer without
   reimplementing its active-definition or PLAYBOOK source-location rules.
-
-### 2026-08-05 - Docsync live-document integrity analyzer (side-task)
-
-- Scope: added the pure live-document integrity analyzer for the P0
-  repository-content safeguard; enforcement is intentionally deferred to the
-  next ordered task.
-- Plan vs implementation:
-  - Added deterministic `IntegrityIssue` diagnostics DOC001 through DOC006
-    for dead concrete references, active-definition drift, volatile Branch
-    metadata, archive-prologue drift, stale managed session content, and
-    contradictory current test counts.
-  - Added adversarial pure-unit coverage for literal-reference extraction,
-    tracked-path normalization, active-definition metadata, archive/session
-    comparison, and deterministic ordering. The analyzer is not yet wired
-    into the docsync hook or CI gate, so F-DOCSYNC-5 remains open.
-- Deviations: none; CLI integration and severity changes remain the next task.
-- Validation: `pytest -q` -- **413 passed** with 3 existing aiohttp/Python
-  3.13 warnings. Final hook and docsync gates pass.
-- Forward guidance: integrate the pure analyzer without duplicating its
-  parsing or changing the established sync behavior before enforcement.
