@@ -83,9 +83,9 @@ See FINDINGS F-DOCSYNC-3.
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
 - **Next action:** execute the full F-SWE-1 principles audit, then proceed to
-  Batch 21 WP-1. The peer-sized read-only worktree guard and canonical
-  bootstrap gate passed final review plus POSIX CI remediation, and
-  F-WORKTREE-1/F-WORKTREE-2 are resolved.
+  Batch 21 WP-1. The canonical repository-integrity gate and peer-sized
+  read-only worktree guard passed final combined-branch remediation, and
+  F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -153,6 +153,36 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-05 - Combined integrity and guard final-review fixes (side-task)
+
+- Scope: resolved the four final combined-branch review blockers in the
+  docsync integrity gate and read-only worktree guard tests.
+- Plan vs implementation:
+  - Replaced Windows-separator literals with host-rendered `Path` expectations
+    while retaining explicit Windows/POSIX selection, symlink reuse, and the
+    simulated POSIX inspection boundary.
+  - Added optional SESSION_CONTEXT DOC001 scanning with original line numbers;
+    absent-session behavior, schematic exclusions, and deterministic ordering
+    remain unchanged.
+  - Made the Section 3 declaration the sole normalized tracked root candidate
+    for the exact current batch token, covering duplicates, `BATCH210`, root
+    `BATCH21.md`, subdirectories, generic templates, untracked supplied content,
+    and between-batches state.
+  - Sanitized every tracked-file Git failure to one stable invocation error;
+    CLI exit 2 contains no stderr, traceback, credential, path, or command text.
+  - Marked the approved design implemented and aligned both implementation
+    plans with the verified final contracts.
+- Deviations: none. No dependency, installation, destructive Git action,
+  environment creation, history rewrite, push, or DEVELOPMENT workflow change
+  was required.
+- Validation: platform-path RED -- 1 expected failure; behavioral RED -- 5
+  expected failures; focused GREEN -- **68 passed**; complete docsync suite --
+  **164 passed**; complete guard suite -- **84 passed**; full `pytest -q` --
+  **521 passed** with 3 existing aiohttp/Python 3.13 warnings. Production and
+  guard-test files remain within their measured peer caps.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
 
 ### 2026-08-05 - Worktree guard POSIX fixture remediation (side-task)
 
@@ -233,29 +263,6 @@ non-current operational logs. Older dated entries live in
 - Deviations: none; this is a compatibility correction only, with no Git
   command, collector sequence, diagnostic code, or dependency change.
 - Validation: focused guard suite -- **55 passed**. `pytest -q` -- **484
-  passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
-  docsync checks pass.
-- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
-  WP-1 remains queued immediately after that sweep.
-
-### 2026-08-05 - Worktree guard review remediation (side-task)
-
-- Scope: corrected the two Task 2 review findings without changing the
-  guard's read-only architecture or Git command sequence.
-- Plan vs implementation:
-  - Added final informational WT013 to every offline result, after state and
-    environment diagnostics. WT000 remains success-only; offline lineage and
-    virtualenv errors now retain explicit local-ref-only context.
-  - Replaced hard-coded origin recovery prose with selected-base guidance.
-    WT004 names the display-safe comparison ref, while WT007 uses neutral
-    selected-ref or local-ref wording and never constructs a shell command.
-  - Added exact inspection and CLI regressions for error-path WT013 ordering,
-    custom `upstream/trunk` guidance, and the local-only `main` edge.
-- Deviations: added stable code WT013 and corrected the approved plan's
-  detached-CI wording so WT011 remains its only topology diagnostic while
-  explicit offline mode can add the independent qualifier. Custom-base tests
-  live in a new peer-sized file rather than overgrowing an existing peer.
-- Validation: focused guard suite -- **54 passed**. `pytest -q` -- **483
   passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
   docsync checks pass.
 - Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21

@@ -442,6 +442,8 @@ def test_distinct_linked_root_venv_is_rejected(tmp_path):
 Add ordinary-checkout Windows, linked POSIX, missing primary environment,
 missing one required executable, and a linked-root symlink/junction resolving
 to the primary environment.
+Render missing-tool expectations through host `Path` expressions or inspect
+path parts; never hard-code separators while selecting layouts with `os_name`.
 
 - [ ] **Step 9: Implement platform-aware virtualenv resolution**
 

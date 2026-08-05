@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-05
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, F-SWE-1 audit next, then WP-1. 513 tests across 32 test modules.
+WP-0 done, F-SWE-1 audit next, then WP-1. 521 tests across 32 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -41,8 +41,8 @@ custom-base guidance aligned with the caller-selected ref. Final review
 remediation preserves the public facade while keeping each guard production
 file below the measured peer caps; WT014 fails closed without traceback or
 sensitive runner text, and exact severity plus real CLI tests protect every WT
-code. Shared repository fixtures now create host-appropriate tools, with a
-simulated POSIX inspection regression protecting the Ubuntu CI boundary.
+code. Shared fixtures create host-appropriate tools; host-rendered missing-tool
+assertions and simulated POSIX inspection protect the Ubuntu CI boundary.
 Source: post-merge lineage investigations for PRs #163, #165, and #168.
 
 ### F-WORKTREE-2: Linked worktrees cannot use the relative virtualenv path
@@ -62,11 +62,10 @@ The live archive prologue and active-definition branch metadata drifted while
 `doc_state_sync.py --check` and CI remained green because prefixes were opaque,
 live-document references were only narrowly checked, and integrity warnings
 did not affect the exit code.
-Status: resolved 2026-08-05. Evidence: Task 2 final-state CLI enforcement and
-plan-wide final remediation now reject conflicting named current-test fields,
-over-broad definition matches, and Git invocation failures; `pytest -q`
-measured **513 passed** with 3 existing warnings, and the final docsync check
-and complete pre-commit gate pass on the synchronized live documents.
+Status: resolved 2026-08-05. Evidence: final-state CLI enforcement rejects
+conflicting test fields, dead optional-session references, non-unique tracked
+root definitions, and sanitized Git discovery failures; `pytest -q` measured
+**521 passed** with 3 existing warnings on the final combined remediation.
 Approved design:
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
 Source: PR #168 pre-merge audit and follow-up root-cause investigation.

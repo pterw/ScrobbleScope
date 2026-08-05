@@ -94,11 +94,11 @@ def test_missing_primary_environment_lists_every_required_tool(tmp_path):
     assert paths is None
     assert [issue.code for issue in issues] == ["WT009"]
     for path in (
-        ".venv\\Scripts\\python.exe",
-        ".venv\\Scripts\\pytest.exe",
-        ".venv\\Scripts\\pre-commit.exe",
+        Path(".venv") / "Scripts" / "python.exe",
+        Path(".venv") / "Scripts" / "pytest.exe",
+        Path(".venv") / "Scripts" / "pre-commit.exe",
     ):
-        assert path in issues[0].message
+        assert str(path) in issues[0].message
     assert "AGENTS.md Environment Setup" in issues[0].remediation
 
 
@@ -112,9 +112,9 @@ def test_missing_one_required_executable_names_only_that_tool(tmp_path):
         repo_root=primary, git_dir=common, common_dir=common, os_name="nt"
     )
     assert paths is None
-    assert ".venv\\Scripts\\pre-commit.exe" in issues[0].message
-    assert ".venv\\Scripts\\python.exe" not in issues[0].message
-    assert ".venv\\Scripts\\pytest.exe" not in issues[0].message
+    assert str(Path(".venv") / "Scripts" / "pre-commit.exe") in issues[0].message
+    assert str(Path(".venv") / "Scripts" / "python.exe") not in issues[0].message
+    assert str(Path(".venv") / "Scripts" / "pytest.exe") not in issues[0].message
 
 
 def test_linked_root_symlink_to_primary_venv_is_allowed(tmp_path):

@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-513_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-521_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
@@ -81,7 +81,7 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (513 tests across 32 files), 89% coverage |
+| Testing | pytest (521 tests across 32 files), 89% coverage |
 | CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
@@ -415,8 +415,8 @@ pre-commit run --all-files
 |   |-- conftest.py                # Shared fixtures
 |   |-- helpers.py                 # Test utilities
 |   |-- test_app_factory.py        # App creation, secret validation (6)
-|   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (22)
-|   |-- test_docsync_integrity.py  # Live-document semantic checks (31)
+|   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (23)
+|   |-- test_docsync_integrity.py  # Live-document semantic checks (38)
 |   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (44)
 |   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (35)
 |   |-- test_docsync_renderer.py   # Docsync status block renderer (24)
