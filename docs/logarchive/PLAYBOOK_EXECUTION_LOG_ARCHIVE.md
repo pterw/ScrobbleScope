@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Docsync integrity review remediation (side-task)
+
+- Scope: addressed the first Task 2 review round without changing the
+  approved enforcement design.
+- Plan vs implementation:
+  - Added CLI regression coverage proving `--fix` returns 1 with DOC001 for
+    an unresolved dead live reference and emits no stale DOC005 after it
+    repairs the session block.
+  - Moved resolved F-DOCSYNC-5 out of the active P0 section, leaving only the
+    two worktree safeguards as open P0 gates.
+  - Corrected the Task 2 focused-suite record to the measured post-remediation
+    count.
+- Deviations: none.
+- Validation: specified docsync suite -- **112 passed**. `pytest -q` --
+  **420 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
+  docsync gates pass.
+- Forward guidance: implement the read-only worktree-safety guard; only
+  F-WORKTREE-1 and F-WORKTREE-2 remain open P0 gates before Batch 21 WP-1.
+
 ### 2026-08-05 - Docsync content-integrity enforcement (side-task)
 
 - Scope: wired the reviewed pure live-document integrity analyzer into the

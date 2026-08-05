@@ -67,6 +67,13 @@ Section 1 agreeing that the last batch is closed and none is open.
 If two bootstrap files conflict, follow the stricter safety rule and pause
 only when the conflict affects the next action.
 
+When network access is available, refresh the comparison ref with
+`git fetch --prune origin`, then run
+`python scripts/dev/check_worktree_alignment.py`. Offline sessions run the
+same command with `--offline` and must treat its base result as local-ref-only.
+Stop on a nonzero exit. The guard is read-only; follow its remediation and the
+existing owner-authorization rule before any history rewrite.
+
 **Token discipline for bootstrap:**
 - Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; Sections 3-5 only if structure, dependency, or architecture detail is needed.
 - Read only Sections 3-4 of `PLAYBOOK.md` by default.
@@ -98,7 +105,7 @@ only when the conflict affects the next action.
 ## Environment Setup
 
 ```bash
-# The ONLY virtualenv is .venv/ in the repo root.
+# The ONLY virtualenv is .venv/ in the primary checkout.
 # Never use venv/, bare pip, or python -m pip without the qualified path.
 #
 # Activate (for interactive use):
@@ -109,6 +116,10 @@ only when the conflict affects the next action.
 # Windows:  .venv\Scripts\pip install -r requirements-dev.txt
 # Linux:    .venv/bin/pip install -r requirements-dev.txt
 ```
+
+A linked worktree reuses the primary checkout `.venv`; never create a second
+environment. Use the qualified Python, pytest, and pre-commit paths printed by
+the worktree guard for all commands from a linked worktree.
 
 All packages in `requirements.txt` and `requirements-dev.txt` are pinned
 with `==`. Do not add `>=` or unversioned entries. If a new package is
@@ -139,9 +150,10 @@ Docker container if needed, then launches Flask in one command.
 
 ## Pre-Work Checklist
 
-1. `pytest -q` passes (baseline count is in SESSION_CONTEXT Section 1).
-2. `pre-commit run --all-files` passes.
-3. The work you are implementing matches PLAYBOOK Section 3.
+1. The worktree guard in Session Bootstrap exits 0.
+2. `pytest -q` passes (baseline count is in SESSION_CONTEXT Section 1).
+3. `pre-commit run --all-files` passes.
+4. The work you are implementing matches PLAYBOOK Section 3.
 
 ---
 

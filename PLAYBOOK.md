@@ -82,10 +82,9 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** finish the read-only worktree-safety guard CLI and canonical
-  bootstrap gate before the full F-SWE-1 sweep and Batch 21 WP-1. The pure
-  classifier is implemented and tested; F-WORKTREE-1 and F-WORKTREE-2 remain
-  open until the executable gate validates the live linked worktree.
+- **Next action:** execute the full F-SWE-1 principles audit, then proceed to
+  Batch 21 WP-1. The read-only worktree guard and canonical bootstrap gate are
+  shipped, and F-WORKTREE-1/F-WORKTREE-2 are resolved.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -153,6 +152,34 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-05 - Read-only worktree bootstrap guard (side-task)
+
+- Scope: completed the repository-integrity worktree safeguard before the
+  F-SWE-1 audit and Batch 21 WP-1.
+- Plan vs implementation:
+  - Added sanitized, injectable Git collection for repository topology,
+    PLAYBOOK branch metadata, base ancestry, dirty state, and tree identity.
+    Missing repositories/refs, wrong or detached local branches, behind-only
+    branches, and both forms of divergence fail without changing Git.
+  - Added a thin CLI with stable diagnostic rendering, explicit offline
+    labeling, recognized detached-CI skip behavior, and qualified primary
+    checkout Python, pytest, and pre-commit paths for linked worktrees.
+  - Made the read-only command a canonical post-document bootstrap gate;
+    HANDOFF points to that owner, while DEVELOPMENT records only the human
+    rationale and the deliberate separation from CI topology enforcement.
+  - Exercised the live linked worktree offline: WT010 identified the
+    intentional dirty candidate, WT000 reported 0 behind/9 ahead, and all
+    three tools resolved under the primary checkout's existing `.venv`.
+- Deviations: split collector acceptance across peer-sized inspection,
+  topology, runner, and CLI files instead of expanding the existing classifier
+  file past its directory peers; no dependencies, environment creation,
+  package installs, or Git mutation.
+- Validation: focused guard suite -- **49 passed**. `pytest -q` -- **478
+  passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
+  docsync checks pass.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
 
 ### 2026-08-05 - Worktree classifier review remediation (side-task)
 
@@ -236,25 +263,6 @@ non-current operational logs. Older dated entries live in
   changes.
 - Validation: focused docsync suite -- **156 passed**. `pytest -q` --
   **429 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
-  docsync gates pass.
-- Forward guidance: implement the read-only worktree-safety guard; only
-  F-WORKTREE-1 and F-WORKTREE-2 remain open P0 gates before Batch 21 WP-1.
-
-### 2026-08-05 - Docsync integrity review remediation (side-task)
-
-- Scope: addressed the first Task 2 review round without changing the
-  approved enforcement design.
-- Plan vs implementation:
-  - Added CLI regression coverage proving `--fix` returns 1 with DOC001 for
-    an unresolved dead live reference and emits no stale DOC005 after it
-    repairs the session block.
-  - Moved resolved F-DOCSYNC-5 out of the active P0 section, leaving only the
-    two worktree safeguards as open P0 gates.
-  - Corrected the Task 2 focused-suite record to the measured post-remediation
-    count.
-- Deviations: none.
-- Validation: specified docsync suite -- **112 passed**. `pytest -q` --
-  **420 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
   docsync gates pass.
 - Forward guidance: implement the read-only worktree-safety guard; only
   F-WORKTREE-1 and F-WORKTREE-2 remain open P0 gates before Batch 21 WP-1.

@@ -2,8 +2,7 @@
 
 Last updated: 2026-08-05
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, worktree remediation next, then WP-1. 429 tests across 23 test
-modules.
+WP-0 done, F-SWE-1 audit next, then WP-1. 478 tests across 29 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -25,7 +24,7 @@ F-* ID or a P0/P1 item -- not as part of the standard bootstrap order.
 
 ---
 
-## P0 -- Fix before next deploy
+## Resolved this batch
 
 ### F-WORKTREE-1: Rebase merges leave linked branches history-diverged
 
@@ -33,8 +32,10 @@ GitHub rebase merges rewrite commit identities on `main` without moving the
 linked worktree branch, producing a branch that is both ahead and behind even
 when its tree is identical; after PRs #163, #165, and #168 this repeatedly
 created a risk of phantom PRs, duplicate work, or an incorrect merge.
-Status: open P0; each observed branch was manually realigned, but the
-read-only detection guard and canonical bootstrap gate are not implemented.
+Status: resolved 2026-08-05. Evidence: the read-only CLI distinguishes
+behind-only, identical-tree rebase artifacts, and true divergence; the
+canonical bootstrap stops on its errors; and live linked-worktree inspection
+reported the expected branch and ancestry without modifying Git.
 Source: post-merge lineage investigations for PRs #163, #165, and #168.
 
 ### F-WORKTREE-2: Linked worktrees cannot use the relative virtualenv path
@@ -43,13 +44,10 @@ The sole `.venv` is gitignored under the primary checkout, so a fresh shell in
 a linked worktree cannot run the documented relative activation or test
 commands; an uninformed agent may create a forbidden second environment or
 fall back to bare pip and reproduce dependency drift.
-Status: open P0; validation reused the qualified primary-checkout pytest
-executable, but canonical path resolution and guard diagnostics are pending.
+Status: resolved 2026-08-05. Evidence: the live linked-worktree guard reported
+Python, pytest, and pre-commit under the primary checkout's existing `.venv`,
+and AGENTS now forbids a second environment and requires those qualified paths.
 Source: repository-integrity design validation on 2026-08-05.
-
----
-
-## Resolved this batch
 
 ### F-DOCSYNC-5: Operational doc metadata drifted across path and branch changes
 

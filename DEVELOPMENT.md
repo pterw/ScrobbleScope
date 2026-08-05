@@ -257,16 +257,17 @@ Realignment is intentionally never automatic because resetting and
 force-pushing rewrite branch history and require explicit owner approval.
 
 The shipped remediation keeps two safeguards separate. Deterministic drift
-inside live operational documents is now a blocking extension of
-`doc_state_sync.py`, which runs locally and in CI. A separate, read-only
-worktree alignment guard remains the next planned safeguard for local
-bootstrap and post-rebase checks; detached CI cannot represent that local
-topology. The detailed guard also reports the allowed shared virtualenv path
-without creating or modifying an environment. The detailed design and current
-implementation status live in
+inside live operational documents is a blocking extension of
+`doc_state_sync.py`, which runs locally and in CI. The read-only worktree
+alignment guard handles local bootstrap and post-rebase checks, and reports
+the allowed shared virtualenv path without creating or modifying an
+environment. It is not a CI topology gate: detached recognized CI reports an
+explicit skip, while the existing test workflow exercises the guard's state
+decisions. The detailed design lives in
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
-Operational rules remain canonical in `AGENTS.md`; this section is human
-methodology documentation only.
+Operational behavior is owned by `AGENTS.md` and
+`scripts/dev/check_worktree_alignment.py`; this section is human methodology
+documentation only.
 
 ---
 

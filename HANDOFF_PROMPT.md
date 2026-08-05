@@ -15,15 +15,18 @@ are not restated here.
 
 After reading the bootstrap files, verify reality matches the docs:
 
+First complete the canonical worktree gate in `AGENTS.md` ("Session
+Bootstrap"). Then retain this human-readable evidence:
+
 ```bash
 git status
 git log --oneline -5
 ```
 
-Confirm the branch, last commits, and any staged/modified files match what
-PLAYBOOK Section 3 describes, and that `pytest -q` matches the test count
-in SESSION_CONTEXT Section 1. If anything does not match, resolve the
-discrepancy before doing any work.
+Confirm the last commits and any staged/modified files match what PLAYBOOK
+Section 3 describes, and that `pytest -q` matches the test count in
+SESSION_CONTEXT Section 1. If anything does not match, resolve the discrepancy
+before doing any work.
 
 ---
 
