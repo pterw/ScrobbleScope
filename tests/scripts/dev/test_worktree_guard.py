@@ -10,6 +10,18 @@ from scripts.dev.worktree_guard import (
     parse_batch_branch,
 )
 
+WT004_REMEDIATION = (
+    "Stop. Reconcile any dirty files, refresh origin/main, verify the trees again, "
+    "obtain the explicit owner approval required by AGENTS.md, then realign the "
+    "named branch and use force-push with lease. This guard performs none of those "
+    "actions."
+)
+WT005_REMEDIATION = (
+    "Stop and inspect the commit graph and tree diff. This is not the "
+    "content-identical rebase-merge case; do not reset, rebase, or force-push from "
+    "this diagnostic."
+)
+
 
 def _playbook(section_three: str, section_four: str = "") -> str:
     """Wrap controlled Section 3 and Section 4 content in a PLAYBOOK."""
@@ -131,16 +143,21 @@ def test_identical_tree_divergence_is_rebase_artifact():
     """Matching trees require approval and lease-protected realignment."""
     issues = classify_lineage(_snapshot(behind=3, ahead=3))
     assert [issue.code for issue in issues] == ["WT004"]
-    assert "owner approval" in issues[0].remediation
-    assert "force-push with lease" in issues[0].remediation
+    assert issues[0].remediation == WT004_REMEDIATION
 
 
-def test_true_divergence_explicitly_prohibits_reset():
-    """Different trees direct inspection and contain no reset command."""
-    issue = classify_lineage(_snapshot(behind=2, ahead=1, base_tree="tree-b"))[0]
+@pytest.mark.parametrize(
+    ("head_tree", "base_tree"),
+    [("tree-a", "tree-b"), (None, "tree-a"), ("tree-a", None), (None, None)],
+    ids=("different", "missing-head", "missing-base", "missing-both"),
+)
+def test_true_divergence_uses_deterministic_safe_remediation(head_tree, base_tree):
+    """Different or unavailable trees use the exact safe WT005 outcome."""
+    issue = classify_lineage(
+        _snapshot(behind=2, ahead=1, head_tree=head_tree, base_tree=base_tree)
+    )[0]
     assert issue.code == "WT005"
-    assert "do not reset" in issue.remediation.lower()
-    assert "git reset" not in issue.remediation.lower()
+    assert issue.remediation == WT005_REMEDIATION
 
 
 def test_detached_ci_skips_and_detached_local_fails():

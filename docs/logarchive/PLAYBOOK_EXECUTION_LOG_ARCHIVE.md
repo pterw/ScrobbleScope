@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Docsync content-integrity enforcement (side-task)
+
+- Scope: wired the reviewed pure live-document integrity analyzer into the
+  local and CI docsync gate, closing F-DOCSYNC-5 before Batch 21 WP-1.
+- Plan vs implementation:
+  - Made the side-task archive prologue renderer-owned, so `--check` detects
+    a stale prefix and `--fix` restores it without changing dated entries.
+  - Added stable blocking `ERROR DOC...` CLI diagnostics for live integrity
+    defects. `--fix` writes deterministic output first and revalidates the
+    final on-disk state; unresolved semantic defects still exit 1.
+  - Retained missing optional SESSION_CONTEXT support and the existing root
+    BATCH-file warnings, while removing legacy warning-only CLI validation.
+- Deviations: none.
+- Validation: targeted docsync suite -- **111 passed**. `pytest -q` --
+  **419 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
+  docsync gates pass.
+- Forward guidance: implement the separate read-only worktree-safety guard;
+  F-WORKTREE-1 and F-WORKTREE-2 remain the P0 gate before Batch 21 WP-1.
+
 ### 2026-08-05 - Docsync integrity analyzer review remediation (side-task)
 
 - Scope: corrected two review findings in the pure analyzer before its
