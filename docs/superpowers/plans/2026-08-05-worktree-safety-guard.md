@@ -56,10 +56,13 @@ $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
 
 ## File Map
 
+- Create `scripts/dev/_worktree_guard_types.py`: immutable public guard values.
 - Create `scripts/dev/worktree_guard.py`: parsing, classification, Git
   discovery, CI detection, and virtualenv resolution.
 - Create `scripts/dev/check_worktree_alignment.py`: thin CLI and exit status.
-- Create `tests/scripts/dev/test_worktree_guard.py`: pure and mocked-Git cases.
+- Create `tests/scripts/dev/test_worktree_guard.py`: parser, lineage, and mocked-Git cases.
+- Create `tests/scripts/dev/test_worktree_guard_venv.py`: virtualenv cases split
+  to satisfy the repository's peer-size gate.
 - Modify `AGENTS.md:27-147` and `HANDOFF_PROMPT.md:9-27`: canonical bootstrap
   gate and pointer without a copied decision table.
 - Modify `DEVELOPMENT.md:224-260` and `FINDINGS.md:27-80`: shipped human
@@ -74,7 +77,9 @@ $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
 **Files:**
 
 - Create: `scripts/dev/worktree_guard.py`
+- Create: `scripts/dev/_worktree_guard_types.py`
 - Create: `tests/scripts/dev/test_worktree_guard.py`
+- Create: `tests/scripts/dev/test_worktree_guard_venv.py`
 - Modify: `PLAYBOOK.md:68-230`
 - Modify: `.claude/SESSION_CONTEXT.md:7-40`
 
@@ -105,6 +110,7 @@ class BatchBranch:
 
 @dataclasses.dataclass(frozen=True)
 class LineageSnapshot:
+    active_batch: int | None
     expected_branch: str | None
     actual_branch: str | None
     base_ref: str
@@ -208,7 +214,7 @@ must raise `GuardError` rather than silently choosing one.
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $primaryCheckout = Split-Path -Parent $commonGitDir
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
 
 Expected: import fails because `scripts.dev.worktree_guard` does not exist.
@@ -237,7 +243,7 @@ branches, or a missing Section 3.
 ```powershell
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $pytestExe = Join-Path (Split-Path -Parent $commonGitDir) '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
 
 Expected: parser cases pass and ignore dated Section 4 branch text.
@@ -250,6 +256,7 @@ decision table member by member:
 ```python
 def _snapshot(**overrides):
     values = {
+        "active_batch": 21,
         "expected_branch": "wip/batch-21",
         "actual_branch": "wip/batch-21",
         "base_ref": "origin/main",
@@ -279,12 +286,14 @@ def test_identical_tree_divergence_is_rebase_artifact():
     assert "force-push with lease" in issues[0].remediation
 
 
-def test_different_tree_divergence_never_recommends_reset():
+def test_different_tree_divergence_explicitly_prohibits_reset():
     issues = classify_lineage(
         _snapshot(behind=2, ahead=1, base_tree="tree-b")
     )
     error = next(issue for issue in issues if issue.code == "WT005")
-    assert "reset" not in (error.remediation or "").lower()
+    remediation = error.remediation or ""
+    assert "do not reset" in remediation.lower()
+    assert "git reset" not in remediation.lower()
 
 
 def test_detached_ci_skips_and_detached_local_fails():
@@ -309,7 +318,7 @@ order and that dirty state does not erase the lineage error.
 ```powershell
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $pytestExe = Join-Path (Split-Path -Parent $commonGitDir) '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
 
 Expected: parser tests stay green; classifier cases fail because
@@ -429,7 +438,7 @@ section. Never call pip or create directories.
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $primaryCheckout = Split-Path -Parent $commonGitDir
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
 
 Expected: every parser, lineage, and virtualenv case passes.
@@ -549,7 +558,7 @@ local, dirty, normal checkout, and linked checkout response maps.
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $primaryCheckout = Split-Path -Parent $commonGitDir
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
 
 Expected: Task 1 tests pass; inspection tests fail because `CommandResult`,
@@ -624,7 +633,7 @@ that exact ref into inspection without changing the default.
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $primaryCheckout = Split-Path -Parent $commonGitDir
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
 
 Expected: all pure, mocked-Git, CLI output, no-mutation, and virtualenv tests

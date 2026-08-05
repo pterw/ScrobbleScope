@@ -82,9 +82,10 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** implement the read-only worktree-safety guard before the
-  full F-SWE-1 sweep and Batch 21 WP-1. The docsync integrity gate is shipped;
-  F-WORKTREE-1 and F-WORKTREE-2 remain the P0 gate.
+- **Next action:** finish the read-only worktree-safety guard CLI and canonical
+  bootstrap gate before the full F-SWE-1 sweep and Batch 21 WP-1. The pure
+  classifier is implemented and tested; F-WORKTREE-1 and F-WORKTREE-2 remain
+  open until the executable gate validates the live linked worktree.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -153,6 +154,41 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-05 - Pure worktree safety classification (side-task)
+
+- Scope: implemented the pure, read-only classification layer for the
+  worktree-safety guard without wiring it into bootstrap or running Git.
+- Plan vs implementation:
+  - Added strict PLAYBOOK Section 3 parsing that ignores historical log text,
+    preserves missing active-branch metadata, and rejects missing, duplicate,
+    or malformed active state rather than guessing.
+  - Added deterministic lineage diagnostics for detached CI/local states,
+    missing or wrong active branches, dirty trees, behind-only state, and both
+    content-identical rebase artifacts and true divergence. Remediation is
+    diagnostic only and performs no repository mutation.
+  - Added platform-aware environment resolution for ordinary and linked
+    checkouts. Linked worktrees reuse the primary checkout `.venv`; distinct
+    secondary environments and missing required tools fail with actionable
+    diagnostics, while a symlink/junction alias to the primary environment is
+    accepted.
+  - Corrected two plan-interface contradictions while preserving its safety
+    policy: lineage snapshots now carry the parsed active-batch discriminator,
+    and the WT005 test verifies that remediation explicitly prohibits reset
+    without contradicting the mandated `do not reset` wording.
+  - Split immutable value types and virtualenv tests into focused peer-sized
+    files to satisfy the repository's new-file size gate; the public imports
+    and focused test command remain explicit in the corrected plan.
+- Deviations: specification-preserving interface/test corrections only; no
+  dependencies, package installs, Git commands, automatic repairs, or
+  bootstrap enforcement were added.
+- Validation: focused worktree-guard suite -- **27 passed**. `pytest -q` --
+  **456 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
+  docsync gates pass.
+- Forward guidance: Task 2 must add the thin read-only CLI, canonical bootstrap
+  rule, and real linked-worktree acceptance before F-WORKTREE-1 and
+  F-WORKTREE-2 can close. The pure classifier is testable but is not yet a
+  mandatory bootstrap command.
+
 ### 2026-08-05 - Docsync content-integrity plan final remediation (side-task)
 
 - Scope: closed the plan-wide final review findings without changing the
@@ -214,20 +250,3 @@ non-current operational logs. Older dated entries live in
   docsync gates pass.
 - Forward guidance: implement the separate read-only worktree-safety guard;
   F-WORKTREE-1 and F-WORKTREE-2 remain the P0 gate before Batch 21 WP-1.
-
-### 2026-08-05 - Docsync integrity analyzer review remediation (side-task)
-
-- Scope: corrected two review findings in the pure analyzer before its
-  deferred CLI/CI wiring task.
-- Plan vs implementation:
-  - Active definitions now require both supplied live-document content and a
-    tracked path; an untracked declaration reports DOC002 at its Section 3
-    declaration line rather than being masked by the DOC001 exemption.
-  - Replaced ignored dated Section 4 entry lines with blank placeholders, so
-    later PLAYBOOK diagnostics retain their original file line numbers.
-  - Added separate regression tests that first reproduced both defects.
-- Deviations: none; integration remains intentionally out of scope.
-- Validation: `pytest -q` -- **415 passed** with 3 existing aiohttp/Python
-  3.13 warnings. Final hook and docsync gates pass.
-- Forward guidance: Task 2 can consume the corrected pure analyzer without
-  reimplementing its active-definition or PLAYBOOK source-location rules.
