@@ -250,6 +250,13 @@ relative `.venv` path; it must use the qualified executable from the primary
 checkout. Creating another environment inside the worktree would violate the
 single-environment policy and reintroduce package-version drift.
 
+That creates a deliberate bootstrap asymmetry. The guard must run before the
+primary checkout paths are known, so the canonical AGENTS procedure permits
+system Python only for that first, standard-library-only launch. The paths it
+reports then identify the existing environment used for later Python, pytest,
+and pre-commit commands. This paragraph explains the design; operational
+authority remains exclusively in `AGENTS.md`.
+
 The safe diagnosis compares both commit ancestry and tree identity. A clean,
 content-identical divergence is normally a rebase-merge artifact; a divergence
 with different trees is real work and must not receive the same reset remedy.

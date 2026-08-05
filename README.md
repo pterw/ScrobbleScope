@@ -2,10 +2,10 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-390_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-512_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**[Try it live →](https://scrobblescope.fly.dev)**
+**[Try it live ->](https://scrobblescope.fly.dev)**
 
 ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It offers two features on a single page, switchable via pill tabs:
 
@@ -65,7 +65,7 @@ This project was initially built to identify top albums released in a specific y
 * **Scrobble Heatmap:**
     * GitHub/Last.fm-Labs-style 7x52 calendar grid on desktop (one cell per day, last 365 days); sequential activity strip on narrow viewports (cells scale to viewport width with tap-friendly targets).
     * Result rendered as a self-contained artifact: warm cream / inky purple-dark frame, accent-coloured headline, four KPI stats (Total Scrobbles, Best Day, Active Days, Current Streak), top-right legend.
-    * rocket_r colour palette (near-black → deep purple → red → orange → cream); log-adjusted intensity so sparse and heavy listeners both get readable gradients.
+    * rocket_r colour palette (near-black -> deep purple -> red -> orange -> cream); log-adjusted intensity so sparse and heavy listeners both get readable gradients.
     * Zero-scrobble days rendered as muted cells so grid structure stays visible.
     * Hover/tap tooltip: day label + scrobble count ("Sunday 1 March 2026 -- 34 scrobbles").
     * Dark mode aware; responsive SVG scales to any viewport width and re-renders on breakpoint crossing.
@@ -81,7 +81,7 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (390 tests across 22 files), 89% coverage |
+| Testing | pytest (512 tests across 32 files), 89% coverage |
 | CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
@@ -395,9 +395,18 @@ pre-commit run --all-files
 |   |   |-- parser.py              # Section 4 entry parser + heading validation
 |   |   |-- renderer.py            # STATUS block + archive rendering
 |   |   |-- logic.py               # Rotation, dedup, cross-validation
+|   |   |-- integrity.py           # Blocking live-document semantic checks
 |   |   `-- models.py              # Entry + BatchState dataclasses
 |   |-- dev/
-|   |   `-- dev_start.py           # One-command local dev startup (Postgres + Flask)
+|   |   |-- dev_start.py           # One-command local dev startup (Postgres + Flask)
+|   |   |-- worktree_guard.py      # Stable worktree-diagnostic facade
+|   |   |-- _worktree_guard_diagnostics.py  # Codes, remediation, offline/WT014
+|   |   |-- _worktree_guard_inspection.py   # Read-only Git state collection
+|   |   |-- _worktree_guard_lineage.py      # PLAYBOOK parse + classification
+|   |   |-- _worktree_guard_runner.py       # Sanitized list-argument Git runner
+|   |   |-- _worktree_guard_types.py        # Immutable public value types
+|   |   |-- _worktree_guard_venv.py         # Primary virtualenv topology
+|   |   `-- check_worktree_alignment.py     # Thin bootstrap CLI
 |   `-- testing/
 |       |-- _http_client.py        # Shared HTTP transport (CSRF, submit, poll)
 |       |-- smoke_cache_check.py   # Cache correctness smoke test (2-run DB hit check)
@@ -406,10 +415,11 @@ pre-commit run --all-files
 |   |-- conftest.py                # Shared fixtures
 |   |-- helpers.py                 # Test utilities
 |   |-- test_app_factory.py        # App creation, secret validation (6)
-|   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (19)
-|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (41)
+|   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (22)
+|   |-- test_docsync_integrity.py  # Live-document semantic checks (31)
+|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (44)
 |   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (35)
-|   |-- test_docsync_renderer.py   # Docsync status block renderer (22)
+|   |-- test_docsync_renderer.py   # Docsync status block renderer (24)
 |   |-- test_domain.py             # Name normalization (13)
 |   |-- test_heatmap.py             # Heatmap aggregation + task lifecycle (20)
 |   |-- test_repositories.py       # Job state CRUD (20)
@@ -418,7 +428,16 @@ pre-commit run --all-files
 |   |-- test_utils.py              # Rate limiters, caching, formatting (34)
 |   |-- test_worker.py             # Job slot + thread management (6)
 |   |-- scripts/dev/
-|   |   `-- test_dev_start.py              # Docker startup helper unit tests (11)
+|   |   |-- test_dev_start.py              # Docker startup helper unit tests (11)
+|   |   |-- test_worktree_guard.py         # PLAYBOOK + lineage decisions (23)
+|   |   |-- test_worktree_guard_base_ref.py  # Selected-ref guidance (4)
+|   |   |-- test_worktree_guard_cli.py     # CLI rendering + boundary (4)
+|   |   |-- test_worktree_guard_cli_e2e.py  # Real inspection through CLI (11)
+|   |   |-- test_worktree_guard_inspection.py  # Git collection order (10)
+|   |   |-- test_worktree_guard_runner.py  # Runner sanitization (4)
+|   |   |-- test_worktree_guard_severity.py  # WT000-WT014 severity table (15)
+|   |   |-- test_worktree_guard_topology.py  # Detached/linked states (5)
+|   |   `-- test_worktree_guard_venv.py    # Virtualenv topology (7)
 |   |-- scripts/testing/
 |   |   |-- test_smoke_cache_check.py       # HTTP client + smoke test unit tests (13)
 |   |   `-- test_concurrent_users_test.py   # Concurrency script unit tests (6)

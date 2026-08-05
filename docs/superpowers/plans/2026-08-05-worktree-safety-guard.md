@@ -6,11 +6,13 @@
 wrong worktree lineage and resolves the repository's sole allowed virtualenv
 without mutating Git or installing packages.
 
-**Architecture:** Keep classification and Git/environment discovery in
-`scripts/dev/worktree_guard.py` and use
-`scripts/dev/check_worktree_alignment.py` as a thin CLI. It compares the
-PLAYBOOK branch with refreshed `origin/main`, distinguishes rebase artifacts
-from true divergence, and reports the linked worktree's allowed environment.
+**Architecture:** Keep `scripts/dev/worktree_guard.py` as the stable public
+facade over peer-sized internal modules for diagnostics, lineage, Git
+runner/discovery, inspection orchestration, immutable types, and virtualenv
+topology. `scripts/dev/check_worktree_alignment.py` remains a thin CLI. The
+guard compares the PLAYBOOK branch with refreshed `origin/main`, distinguishes
+rebase artifacts from true divergence, and reports the linked worktree's
+allowed environment.
 
 **Tech Stack:** Python 3.13 standard library, dataclasses, pathlib, argparse,
 subprocess Git commands, pytest, pre-commit, GitHub Actions unit tests.
@@ -40,6 +42,9 @@ subprocess Git commands, pytest, pre-commit, GitHub Actions unit tests.
 - A linked worktree may reuse only the primary checkout's `.venv`. A different
   linked-root `.venv` is an error; no fallback creates or installs anything.
 - Diagnostics use stable codes and deterministic ordering.
+- Unexpected runner, collector, metadata-parse, or CLI failures render stable
+  ERROR WT014 without a traceback or sensitive command text. Explicit offline
+  results still end with informational WT013.
 - Before each commit, follow `AGENTS.md` Commit Rules and Side-Task Handling,
   including docsync fix, full pytest, all hooks, final docsync check, and
   explicit path staging.
@@ -60,12 +65,37 @@ $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
 ## File Map
 
 - Create `scripts/dev/_worktree_guard_types.py`: immutable public guard values.
-- Create `scripts/dev/worktree_guard.py`: parsing, classification, Git
-  discovery, CI detection, and virtualenv resolution.
+- Create `scripts/dev/_worktree_guard_diagnostics.py`: diagnostic construction,
+  safe base-ref display, offline completion, and WT014 fail-closed output.
+- Create `scripts/dev/_worktree_guard_lineage.py`: PLAYBOOK parsing and pure
+  lineage classification.
+- Create `scripts/dev/_worktree_guard_runner.py`: sanitized list-argument Git
+  execution plus path, CI, ancestry-count, and optional-output discovery.
+- Create `scripts/dev/_worktree_guard_inspection.py`: read-only collector and
+  diagnostic orchestration.
+- Create `scripts/dev/_worktree_guard_venv.py`: sole-environment topology and
+  qualified-tool resolution.
+- Create `scripts/dev/worktree_guard.py`: stable public re-export facade.
 - Create `scripts/dev/check_worktree_alignment.py`: thin CLI and exit status.
-- Create `tests/scripts/dev/test_worktree_guard.py`: parser, lineage, and mocked-Git cases.
-- Create `tests/scripts/dev/test_worktree_guard_venv.py`: virtualenv cases split
-  to satisfy the repository's peer-size gate.
+- Create `tests/scripts/dev/worktree_guard_fakes.py`: shared exact Git and
+  filesystem doubles.
+- Create `tests/scripts/dev/test_worktree_guard.py`: parser and lineage cases.
+- Create `tests/scripts/dev/test_worktree_guard_base_ref.py`: default, custom,
+  and local comparison-ref guidance.
+- Create `tests/scripts/dev/test_worktree_guard_cli.py`: CLI rendering and
+  boundary-failure cases.
+- Create `tests/scripts/dev/test_worktree_guard_cli_e2e.py`: real
+  inspection-through-CLI state and runtime-failure regressions.
+- Create `tests/scripts/dev/test_worktree_guard_inspection.py`: repository
+  collector sequencing and no-mutation cases.
+- Create `tests/scripts/dev/test_worktree_guard_runner.py`: subprocess option,
+  sanitization, and suppressed-chain cases.
+- Create `tests/scripts/dev/test_worktree_guard_severity.py`: exact code and
+  severity decision table through WT014.
+- Create `tests/scripts/dev/test_worktree_guard_topology.py`: detached and
+  linked-checkout outcomes.
+- Create `tests/scripts/dev/test_worktree_guard_venv.py`: virtualenv topology
+  cases split to satisfy the repository's peer-size gate.
 - Modify `AGENTS.md:27-147` and `HANDOFF_PROMPT.md:9-27`: canonical bootstrap
   gate and pointer without a copied decision table.
 - Modify `DEVELOPMENT.md:224-260` and `FINDINGS.md:27-80`: shipped human
@@ -155,8 +185,9 @@ def resolve_venv(
   `WT005` true divergence, `WT006` behind base, `WT007` missing base,
   `WT008` forbidden secondary virtualenv, `WT009` missing required virtualenv,
   `WT010` dirty-tree warning, `WT011` detached-CI skip, and `WT012` detached
-  local checkout. `WT013` is the final informational offline qualifier.
-  `WT000` is an informational successful summary, not an error.
+  local checkout. `WT013` is the final informational offline qualifier and
+  `WT014` is an inspection/runtime failure. `WT000` is an informational
+  successful summary, not an error.
 
 - [ ] **Step 1: Write failing PLAYBOOK parser tests**
 
@@ -467,9 +498,24 @@ git commit -m "feat(dev): add worktree safety classification" -m "Classify activ
 
 **Files:**
 
-- Modify: `scripts/dev/worktree_guard.py`
+- Create: `scripts/dev/_worktree_guard_diagnostics.py`
+- Create: `scripts/dev/_worktree_guard_inspection.py`
+- Create: `scripts/dev/_worktree_guard_lineage.py`
+- Create: `scripts/dev/_worktree_guard_runner.py`
+- Create: `scripts/dev/_worktree_guard_venv.py`
+- Modify: `scripts/dev/_worktree_guard_types.py`
+- Modify: `scripts/dev/worktree_guard.py` (stable public facade)
 - Create: `scripts/dev/check_worktree_alignment.py`
+- Create: `tests/scripts/dev/worktree_guard_fakes.py`
+- Create: `tests/scripts/dev/test_worktree_guard_base_ref.py`
+- Create: `tests/scripts/dev/test_worktree_guard_cli.py`
+- Create: `tests/scripts/dev/test_worktree_guard_cli_e2e.py`
+- Create: `tests/scripts/dev/test_worktree_guard_inspection.py`
+- Create: `tests/scripts/dev/test_worktree_guard_runner.py`
+- Create: `tests/scripts/dev/test_worktree_guard_severity.py`
+- Create: `tests/scripts/dev/test_worktree_guard_topology.py`
 - Modify: `tests/scripts/dev/test_worktree_guard.py`
+- Modify: `tests/scripts/dev/test_worktree_guard_venv.py`
 - Modify: `AGENTS.md:27-147`
 - Modify: `HANDOFF_PROMPT.md:9-27`
 - Modify: `DEVELOPMENT.md:224-260`
@@ -516,6 +562,12 @@ def inspect_worktree(
     """Collect and classify local worktree state without mutation."""
 
 
+def inspection_failure_diagnostics(
+    *, base_ref: str, offline: bool
+) -> list[Diagnostic]:
+    """Return stable WT014 and optional final WT013 diagnostics."""
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Print worktree diagnostics and return nonzero when errors exist."""
 ```
@@ -558,6 +610,11 @@ command contains `fetch`, `reset`, `rebase`, `switch`, `checkout`, `push`,
 `clean`, or `worktree remove`. Add missing-repository, missing-base,
 ahead-only, identical divergence, different divergence, detached CI, detached
 local, dirty, normal checkout, and linked checkout response maps.
+Keep the reusable exact-command fake in `worktree_guard_fakes.py`; put runner
+failures in `test_worktree_guard_runner.py`, collector sequencing in
+`test_worktree_guard_inspection.py`, detached/linked cases in
+`test_worktree_guard_topology.py`, and selected-ref guidance in
+`test_worktree_guard_base_ref.py`.
 
 - [ ] **Step 2: Run the inspection tests and verify red state**
 
@@ -565,18 +622,29 @@ local, dirty, normal checkout, and linked checkout response maps.
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $primaryCheckout = Split-Path -Parent $commonGitDir
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py `
+  tests/scripts/dev/test_worktree_guard_base_ref.py `
+  tests/scripts/dev/test_worktree_guard_inspection.py `
+  tests/scripts/dev/test_worktree_guard_runner.py `
+  tests/scripts/dev/test_worktree_guard_topology.py `
+  tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
 
 Expected: Task 1 tests pass; inspection tests fail because `CommandResult`,
-`run_git()`, and `inspect_worktree()` do not exist.
+`run_git()`, and `inspect_worktree()` do not exist. Every listed file exists at
+this step; CLI files are added later and therefore are not claimed here.
 
 - [ ] **Step 3: Implement sanitized local Git discovery**
 
 Implement `run_git()` with `subprocess.run(["git", *args], cwd=repo_root,
 capture_output=True, text=True, timeout=10, check=False)`. Catch
-`FileNotFoundError` and `TimeoutExpired` and convert them to `GuardError`
-without including environment variables or remote URLs.
+`FileNotFoundError`, `TimeoutExpired`, and other `OSError` launch failures;
+convert them to `GuardError` with the sensitive exception chain suppressed and
+without including environment variables, command arguments, or remote URLs.
+
+Split implementation behind the stable `worktree_guard.py` facade according
+to the File Map. Every production module must remain within the measured
+pre-existing `scripts/dev/dev_start.py` peer cap (236 lines, 8,754 bytes).
 
 Resolve relative `--git-dir` and `--git-common-dir` output against the
 top-level path returned by Git before comparing paths or locating `.venv`;
@@ -602,6 +670,9 @@ do not resolve them against the process's original working directory.
     Python/pytest/pre-commit paths when no error prevents a summary.
 11. Append informational WT013 with a local-ref-only sentence to every result
     when `offline=True`; do not overload success-only WT000.
+12. Convert unexpected runner, metadata-parse, collector, or CLI failures to
+    ERROR WT014 with no traceback or sensitive exception text. Explicit
+    offline failures still append WT013 last.
 
 For missing-base WT007, preserve the canonical default remediation exactly:
 
@@ -613,11 +684,34 @@ guard. Offline, ensure the required local ref exists; this guard does not fetch.
 Custom remote-tracking and local refs keep selected-ref-specific neutral
 guidance and must not reuse that origin command.
 
-- [ ] **Step 4: Add the thin CLI and output tests**
+- [ ] **Step 4: Test CLI behavior, verify red, then add the thin CLI**
 
-Create `scripts/dev/check_worktree_alignment.py` with a comprehensive module
-docstring, insert the repository root into `sys.path`, parse `--offline` and
-`--base-ref` (default `origin/main`), call `inspect_worktree()`, and render:
+First add CLI rendering tests. Test `main(["--offline"])` with a patched
+`inspect_worktree()` and `capsys`. Require exact
+`ERROR WT004 wip/batch-21 -- branch and origin/main are 3/3 diverged but tree-identical.`
+plus a separate `Remediation:` line and exit 1. Require WT000/WT011 paths to
+exit 0. Verify `--base-ref upstream/trunk` passes that exact ref into inspection
+without changing the default. Offline output includes WT013 after any state
+diagnostics and preserves the exit status derived from errors.
+
+Add real `inspect_worktree()`-through-CLI cases for a blocking lineage error,
+warning-only dirty state, success, detached CI, and an offline failure. Add
+timeout, generic `OSError`, and malformed ancestry regressions online and
+offline, plus an exact `(code, severity)` table covering WT000 through WT014.
+Run these new CLI/runtime files and observe failures before implementation:
+
+```powershell
+$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
+$pytestExe = Join-Path (Split-Path -Parent $commonGitDir) '.venv\Scripts\pytest.exe'
+& $pytestExe tests/scripts/dev/test_worktree_guard_cli.py `
+  tests/scripts/dev/test_worktree_guard_cli_e2e.py `
+  tests/scripts/dev/test_worktree_guard_runner.py `
+  tests/scripts/dev/test_worktree_guard_severity.py -q
+```
+
+Then create `scripts/dev/check_worktree_alignment.py` with a comprehensive
+module docstring, insert the repository root into `sys.path`, parse `--offline`
+and `--base-ref` (default `origin/main`), call `inspect_worktree()`, and render:
 
 ```python
 def _render(diagnostic: Diagnostic) -> str:
@@ -632,22 +726,18 @@ def _render(diagnostic: Diagnostic) -> str:
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
-    diagnostics = inspect_worktree(
-        Path.cwd(), base_ref=args.base_ref, offline=args.offline
-    )
+    try:
+        diagnostics = inspect_worktree(
+            Path.cwd(), base_ref=args.base_ref, offline=args.offline
+        )
+    except Exception:
+        diagnostics = inspection_failure_diagnostics(
+            base_ref=args.base_ref, offline=args.offline
+        )
     for diagnostic in diagnostics:
         print(_render(diagnostic))
     return 1 if any(d.severity == "ERROR" for d in diagnostics) else 0
 ```
-
-Test `main(["--offline"])` with a patched `inspect_worktree()` and `capsys`.
-Require exact
-`ERROR WT004 wip/batch-21 -- branch and origin/main are 3/3 diverged but tree-identical.`
-plus a separate `Remediation:` line and exit 1.
-Require WT000/WT011 paths to exit 0. Verify `--base-ref upstream/trunk` passes
-that exact ref into inspection without changing the default. Offline output
-includes WT013 after any state diagnostics and preserves the exit status
-derived from errors.
 
 - [ ] **Step 5: Run all guard tests and verify green state**
 
@@ -655,7 +745,15 @@ derived from errors.
 $commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
 $primaryCheckout = Split-Path -Parent $commonGitDir
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
-& $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
+& $pytestExe tests/scripts/dev/test_worktree_guard.py `
+  tests/scripts/dev/test_worktree_guard_base_ref.py `
+  tests/scripts/dev/test_worktree_guard_cli.py `
+  tests/scripts/dev/test_worktree_guard_cli_e2e.py `
+  tests/scripts/dev/test_worktree_guard_inspection.py `
+  tests/scripts/dev/test_worktree_guard_runner.py `
+  tests/scripts/dev/test_worktree_guard_severity.py `
+  tests/scripts/dev/test_worktree_guard_topology.py `
+  tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
 
 Expected: all pure, mocked-Git, CLI output, no-mutation, and virtualenv tests
@@ -674,6 +772,11 @@ same command with `--offline` and must treat its base result as local-ref-only.
 Stop on a nonzero exit. The guard is read-only; follow its remediation and the
 existing owner-authorization rule before any history rewrite.
 ```
+
+This initial guard launch is the sole stdlib-only bootstrap exception because
+the primary checkout tool paths are not known until it succeeds. After the
+guard prints those paths, every later Python, pytest, and pre-commit command in
+the linked worktree uses the corresponding qualified path.
 
 In AGENTS Environment Setup, state that a linked worktree reuses the primary
 checkout `.venv`; never create a second environment. Tell agents to use the

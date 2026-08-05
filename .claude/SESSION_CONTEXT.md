@@ -9,7 +9,7 @@ Last updated: 2026-08-05
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **484 passing** across 30 test modules |
+| Tests | **512 passing** across 32 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -20,7 +20,7 @@ Last updated: 2026-08-05
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the worktree bootstrap guard is shipped, F-WORKTREE-1/F-WORKTREE-2 are resolved, and the F-SWE-1 audit is next before WP-1. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the split worktree bootstrap guard passed final review remediation, F-WORKTREE-1/F-WORKTREE-2 are resolved, and the F-SWE-1 audit is next before WP-1. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -47,7 +47,7 @@ Last updated: 2026-08-05
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **484 passed**.
+- Latest validated test count: **512 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -79,7 +79,12 @@ scripts/
   doc_state_sync.py         # thin entry point for deterministic documentation sync
   dev/
     _worktree_guard_types.py # immutable public diagnostic value types
-    worktree_guard.py       # Git collection, lineage, and virtualenv diagnostics
+    _worktree_guard_diagnostics.py # stable construction, offline, WT014
+    _worktree_guard_lineage.py # PLAYBOOK parsing and pure classification
+    _worktree_guard_runner.py # sanitized Git runner and discovery parsing
+    _worktree_guard_inspection.py # read-only collection orchestration
+    _worktree_guard_venv.py # primary environment topology and tool paths
+    worktree_guard.py       # stable public re-export facade
     check_worktree_alignment.py # thin read-only bootstrap CLI
   docsync/
     __init__.py             # package inventory and entry-point map
@@ -119,7 +124,12 @@ docsync/integrity.py <- docsync/logic, docsync/models, docsync/parser, docsync/r
 docsync/cli.py       <- docsync/integrity, docsync/logic, docsync/models
 doc_state_sync.py    <- docsync/cli
 dev/_worktree_guard_types.py <- (leaf; standard library only)
-dev/worktree_guard.py        <- dev/_worktree_guard_types
+dev/_worktree_guard_diagnostics.py <- dev/_worktree_guard_types
+dev/_worktree_guard_lineage.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types
+dev/_worktree_guard_runner.py <- dev/_worktree_guard_types
+dev/_worktree_guard_venv.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types
+dev/_worktree_guard_inspection.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
+dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_inspection, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
 dev/check_worktree_alignment.py <- dev/worktree_guard.py
 ```
 
@@ -152,7 +162,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (484 tests)
+## 6. Test structure (512 tests)
 
 | File | Count |
 |------|-------|
@@ -172,9 +182,11 @@ loading.js polls GET /progress?job_id=...
 | scripts/dev/test_dev_start.py | 11 |
 | scripts/dev/test_worktree_guard.py | 23 |
 | scripts/dev/test_worktree_guard_base_ref.py | 4 |
-| scripts/dev/test_worktree_guard_cli.py | 3 |
+| scripts/dev/test_worktree_guard_cli.py | 4 |
+| scripts/dev/test_worktree_guard_cli_e2e.py | 11 |
 | scripts/dev/test_worktree_guard_inspection.py | 10 |
-| scripts/dev/test_worktree_guard_runner.py | 3 |
+| scripts/dev/test_worktree_guard_runner.py | 4 |
+| scripts/dev/test_worktree_guard_severity.py | 15 |
 | scripts/dev/test_worktree_guard_topology.py | 5 |
 | scripts/dev/test_worktree_guard_venv.py | 7 |
 | scripts/testing/test_smoke_cache_check.py | 13 |

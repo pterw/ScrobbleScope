@@ -12,6 +12,15 @@ class GuardError(ValueError):
 
 
 @dataclasses.dataclass(frozen=True)
+class CommandResult:
+    """Contain sanitized process output returned by the injectable Git runner."""
+
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+@dataclasses.dataclass(frozen=True)
 class BatchBranch:
     """Describe the active batch and its required worktree branch."""
 
