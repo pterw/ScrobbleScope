@@ -153,6 +153,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-05 - Worktree guard review remediation (side-task)
+
+- Scope: corrected the two Task 2 review findings without changing the
+  guard's read-only architecture or Git command sequence.
+- Plan vs implementation:
+  - Added final informational WT013 to every offline result, after state and
+    environment diagnostics. WT000 remains success-only; offline lineage and
+    virtualenv errors now retain explicit local-ref-only context.
+  - Replaced hard-coded origin recovery prose with selected-base guidance.
+    WT004 names the display-safe comparison ref, while WT007 uses neutral
+    selected-ref or local-ref wording and never constructs a shell command.
+  - Added exact inspection and CLI regressions for error-path WT013 ordering,
+    custom `upstream/trunk` guidance, and the local-only `main` edge.
+- Deviations: added stable code WT013 and corrected the approved plan's
+  detached-CI wording so WT011 remains its only topology diagnostic while
+  explicit offline mode can add the independent qualifier. Custom-base tests
+  live in a new peer-sized file rather than overgrowing an existing peer.
+- Validation: focused guard suite -- **54 passed**. `pytest -q` -- **483
+  passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
+  docsync checks pass.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
+
 ### 2026-08-05 - Read-only worktree bootstrap guard (side-task)
 
 - Scope: completed the repository-integrity worktree safeguard before the
@@ -242,27 +265,3 @@ non-current operational logs. Older dated entries live in
   rule, and real linked-worktree acceptance before F-WORKTREE-1 and
   F-WORKTREE-2 can close. The pure classifier is testable but is not yet a
   mandatory bootstrap command.
-
-### 2026-08-05 - Docsync content-integrity plan final remediation (side-task)
-
-- Scope: closed the plan-wide final review findings without changing the
-  approved deterministic-only enforcement architecture.
-- Plan vs implementation:
-  - Made the newest live full-suite `pytest -q` validation in PLAYBOOK the
-    authoritative test count, including side-task entries outside the
-    current-batch markers; the renderer and DOC006 now share that result and
-    reject conflicting named SESSION_CONTEXT count fields.
-  - Tightened active-definition matching to a complete numeric batch token
-    and limited DOC001's exemption to the exact Section 3 declaration.
-  - Converted Git invocation `OSError` failures to sanitized `SyncError`
-    diagnostics so the CLI returns 2 without a traceback, preserved analyzer
-    input immutability, and strengthened the two-reference regression.
-  - Refreshed the docsync package/dependency inventory and all measured test
-    counts; DEVELOPMENT remains explanatory human documentation only.
-- Deviations: none; no dependencies, semantic auto-fixes, or Git history
-  changes.
-- Validation: focused docsync suite -- **156 passed**. `pytest -q` --
-  **429 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
-  docsync gates pass.
-- Forward guidance: implement the read-only worktree-safety guard; only
-  F-WORKTREE-1 and F-WORKTREE-2 remain open P0 gates before Batch 21 WP-1.

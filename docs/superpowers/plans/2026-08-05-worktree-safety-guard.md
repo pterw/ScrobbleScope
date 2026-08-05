@@ -25,9 +25,12 @@ subprocess Git commands, pytest, pre-commit, GitHub Actions unit tests.
   worktree, activate a virtualenv, or install a package.
 - Any reset, rebase, or force-push remains owner-authorized under AGENTS.md.
 - Default base ref is exactly `origin/main`.
-- A refreshed base requires the caller to run `git fetch --prune origin`;
-  offline callers use `--offline` and receive an explicit local-ref-only
-  diagnostic.
+- Callers using the default base refresh it with `git fetch --prune origin`.
+  Callers selecting another base must refresh or otherwise verify that exact
+  local ref; diagnostic guidance names the display-safe selected ref without
+  constructing a shell command. Offline callers use `--offline` and receive
+  final informational WT013 local-ref-only context on every result, including
+  error results.
 - Ahead-only active branches pass. Behind-only, wrong-branch, detached-local,
   missing-base, identical-tree divergence, and true divergence states fail.
 - Detached recognized CI exits 0 with an explicit skip. Live worktree topology
@@ -152,8 +155,8 @@ def resolve_venv(
   `WT005` true divergence, `WT006` behind base, `WT007` missing base,
   `WT008` forbidden secondary virtualenv, `WT009` missing required virtualenv,
   `WT010` dirty-tree warning, `WT011` detached-CI skip, and `WT012` detached
-  local checkout. `WT000` is an informational successful summary, not an
-  error.
+  local checkout. `WT013` is the final informational offline qualifier.
+  `WT000` is an informational successful summary, not an error.
 
 - [ ] **Step 1: Write failing PLAYBOOK parser tests**
 
@@ -333,7 +336,7 @@ tree IDs exist and match; otherwise emit `WT005`. Ahead-only and 0/0 return
 no error. Between batches skip expected-branch and ancestry enforcement after
 basic diagnostics.
 
-The `WT004` remediation must say:
+For the default base, the `WT004` remediation must say:
 
 ```text
 Stop. Reconcile any dirty files, refresh origin/main, verify the trees again,
@@ -341,6 +344,10 @@ obtain the explicit owner approval required by AGENTS.md, then realign the
 named branch and use force-push with lease. This guard performs none of those
 actions.
 ```
+
+For any caller-selected base, keep the same safety requirements but replace
+`origin/main` with the display-safe selected ref. Never prescribe the origin
+remote for a different base or construct a fetch command from caller input.
 
 The `WT005` remediation must say:
 
@@ -581,17 +588,20 @@ do not resolve them against the process's original working directory.
 2. Parse PLAYBOOK from the resolved repository root.
 3. Detect recognized CI when `CI` or `GITHUB_ACTIONS` is one of
    `1`, `true`, or `yes` case-insensitively.
-4. Detect detached HEAD from `symbolic-ref` return code 1; return only WT011
-   in recognized CI.
-5. Verify `origin/main^{commit}` before ancestry.
-6. Parse `rev-list` as `behind, ahead` because the left side is
-   `origin/main`.
+4. Detect detached HEAD from `symbolic-ref` return code 1; return WT011 as the
+   only topology diagnostic in recognized CI (plus WT013 when explicitly
+   offline).
+5. Verify the selected `{base_ref}^{commit}` before ancestry (default:
+   `origin/main`).
+6. Parse `rev-list` as `behind, ahead` because the selected base is the left
+   side of the comparison.
 7. Read dirty state.
 8. Read tree IDs only when both counts are nonzero.
 9. Call `classify_lineage()` and `resolve_venv()`.
 10. Add WT000 with branch, base ref, counts, checkout kind, and qualified
     Python/pytest/pre-commit paths when no error prevents a summary.
-11. Add an informational local-ref-only sentence when `offline=True`.
+11. Append informational WT013 with a local-ref-only sentence to every result
+    when `offline=True`; do not overload success-only WT000.
 
 - [ ] **Step 4: Add the thin CLI and output tests**
 
@@ -625,7 +635,9 @@ Require exact
 `ERROR WT004 wip/batch-21 -- branch and origin/main are 3/3 diverged but tree-identical.`
 plus a separate `Remediation:` line and exit 1.
 Require WT000/WT011 paths to exit 0. Verify `--base-ref upstream/trunk` passes
-that exact ref into inspection without changing the default.
+that exact ref into inspection without changing the default. Offline output
+includes WT013 after any state diagnostics and preserves the exit status
+derived from errors.
 
 - [ ] **Step 5: Run all guard tests and verify green state**
 

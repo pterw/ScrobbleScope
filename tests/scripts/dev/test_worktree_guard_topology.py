@@ -37,10 +37,11 @@ def test_summary_reports_checkout_kind_and_primary_tools(tmp_path, linked):
     """Successful summaries expose topology and the sole qualified tool paths."""
     repo, responses = repository(tmp_path, linked=linked)
     diagnostics = inspect_worktree(repo, offline=True, runner=FakeGit(responses))
-    assert codes(diagnostics) == ["WT000"]
+    assert codes(diagnostics) == ["WT000", "WT013"]
     summary = diagnostics[0].message
     assert ("linked worktree" if linked else "primary checkout") in summary
-    assert "local-ref-only" in summary
+    assert "local-ref-only" not in summary
+    assert "local-ref-only" in diagnostics[1].message
     tool_root = tmp_path / "primary" / ".venv" / "Scripts"
     for tool in ("python.exe", "pytest.exe", "pre-commit.exe"):
         assert str(tool_root / tool) in summary
