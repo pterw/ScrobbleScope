@@ -191,10 +191,23 @@ def test_collect_tracked_paths_raises_sanitized_git_error(tmp_path: Path):
     """Git command failures surface safely rather than trusting incomplete paths."""
 
     def runner(*args, **kwargs):
-        return subprocess.CompletedProcess(args[0], 1, stdout="", stderr="bad git")
+        return subprocess.CompletedProcess(
+            args[0],
+            1,
+            stdout="",
+            stderr=(
+                "fatal: https://user:secret-token@example.invalid/private.git "
+                r"C:\private\checkout"
+            ),
+        )
 
-    with pytest.raises(SyncError, match=r"git ls-files: bad git"):
+    with pytest.raises(SyncError) as exc_info:
         collect_tracked_paths(tmp_path, runner)
+
+    message = str(exc_info.value)
+    assert message == "Repository tracked-file discovery failed"
+    for secret in ("secret-token", "example.invalid", "private", "git ls-files"):
+        assert secret not in message
 
 
 def test_collect_tracked_paths_sanitizes_git_invocation_oserror(tmp_path: Path):
@@ -206,8 +219,9 @@ def test_collect_tracked_paths_sanitizes_git_invocation_oserror(tmp_path: Path):
     with pytest.raises(SyncError) as exc_info:
         collect_tracked_paths(tmp_path, runner)
 
-    assert str(exc_info.value) == "git ls-files could not be executed"
+    assert str(exc_info.value) == "Repository tracked-file discovery failed"
     assert "private" not in str(exc_info.value)
+    assert "git ls-files" not in str(exc_info.value)
 
 
 def test_active_definition_sha_is_blocking(tmp_path: Path):
@@ -256,6 +270,85 @@ def test_active_definition_reference_requires_complete_batch_token(tmp_path: Pat
     assert [(issue.code, issue.path, issue.line) for issue in issues] == [
         ("DOC002", "PLAYBOOK.md", 5)
     ]
+
+
+def test_other_batch_prefix_is_not_an_active_definition_candidate(tmp_path: Path):
+    """A root Batch 210 file cannot make Batch 21's candidate set ambiguous."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["tracked_paths"] = inputs["tracked_paths"] | {"BATCH210_DEFINITION.md"}
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_root_batch_token_file_is_an_active_definition_candidate(tmp_path: Path):
+    """The exact root Batch 21 token participates in uniqueness checking."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["tracked_paths"] = inputs["tracked_paths"] | {"BATCH21.md"}
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC002", "PLAYBOOK.md", 5)
+    ]
+    assert "BATCH21.md, BATCH21_DEFINITION.md" in issues[0].remediation
+
+
+def test_subdirectory_and_generic_batch_templates_are_not_candidates(tmp_path: Path):
+    """Only concrete matching root files participate in DOC002 uniqueness."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["tracked_paths"] = inputs["tracked_paths"] | {
+        "docs/BATCH21_EXTRA.md",
+        "BATCHN_DEFINITION.md",
+    }
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_duplicate_tracked_active_definition_candidate_is_blocking(tmp_path: Path):
+    """Every active batch has exactly one tracked matching root definition."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["tracked_paths"] = inputs["tracked_paths"] | {"BATCH21_EXTRA.md"}
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC002", "PLAYBOOK.md", 5)
+    ]
+    assert "BATCH21_DEFINITION.md, BATCH21_EXTRA.md" in issues[0].remediation
+
+
+def test_supplied_untracked_definition_cannot_replace_sole_tracked_candidate(
+    tmp_path: Path,
+):
+    """In-memory content cannot override the repository's sole Batch 21 owner."""
+    inputs = _valid_inputs(tmp_path)
+    declared = "BATCH21_PROPOSAL.md"
+    inputs["playbook_lines"][4] = f"- **Batch 21 is active.** Definition: `{declared}`."
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"][declared] = [
+        "# BATCH21",
+        "**Branch:** `wip/batch-21`.",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC002", "PLAYBOOK.md", 5)
+    ]
+    assert "BATCH21_DEFINITION.md" in issues[0].remediation
+
+
+def test_between_batches_skips_root_definition_candidate_uniqueness(tmp_path: Path):
+    """Tracked root candidates are irrelevant when no batch is active."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"][4:6] = [
+        "- **Batch 21 is complete.**",
+        "- **Batch 22 is not yet defined.**",
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["tracked_paths"] = inputs["tracked_paths"] | {"BATCH21_EXTRA.md"}
+
+    assert collect_integrity_issues(**inputs) == []
 
 
 def test_untracked_active_definition_is_blocking(tmp_path: Path):
@@ -378,6 +471,20 @@ def test_present_stale_session_block_is_blocking(tmp_path: Path):
     inputs["expected_session_lines"] = ["fresh"]
 
     assert [issue.code for issue in collect_integrity_issues(**inputs)] == ["DOC005"]
+
+
+def test_dead_session_reference_is_reported_at_its_source_line(tmp_path: Path):
+    """The optional live session document participates in DOC001 scanning."""
+    inputs = _valid_inputs(tmp_path)
+    session_lines = ["# Session", "", "See `docs/missing.md`."]
+    inputs["session_lines"] = session_lines
+    inputs["expected_session_lines"] = list(session_lines)
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC001", ".claude/SESSION_CONTEXT.md", 3)
+    ]
 
 
 def test_absent_session_skips_session_integrity(tmp_path: Path):

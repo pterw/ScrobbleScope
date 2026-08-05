@@ -1,7 +1,7 @@
 # Repository Integrity and Worktree Alignment Guard Design
 
-**Status:** Direction approved by the owner on 2026-08-05; written-spec
-review and implementation are pending.
+**Status:** Implemented and verified 2026-08-05. Canonical current state is
+owned by `PLAYBOOK.md` Section 3 and `.claude/SESSION_CONTEXT.md` Section 1.
 
 ## Problem
 
@@ -116,8 +116,9 @@ class:
    corpus must resolve to tracked files. Clearly schematic paths containing
    glob syntax, `<placeholder>` tokens, or the canonical `BATCHN_*` template
    form are excluded rather than misreported as dead links.
-2. PLAYBOOK's active-definition reference must resolve to exactly one root
-   definition with the matching batch number.
+2. PLAYBOOK's active-definition reference must be the sole tracked matching
+   root candidate: `BATCH<batch>.md` or `BATCH<batch>_*.md`. Other batch
+   tokens, generic templates, and subdirectory files are not candidates.
 3. The active definition's `**Branch:**` field may name the stable working
    branch but may not pin a 7-40 character hexadecimal commit identity.
    Volatile lineage belongs only in dated PLAYBOOK records.
@@ -242,6 +243,8 @@ clones, Windows, Linux, and CI. Unexpected runner, collector, metadata-parse,
 and CLI failures render ERROR WT014 without the original command, stderr,
 traceback, credentials, or environment values. Explicit offline results append
 informational WT013 last even on that failure path.
+Tracked-file discovery failures in docsync likewise use one fixed invocation
+message and expose no subprocess stderr, command, path, or credential text.
 
 ## Testing
 
@@ -252,9 +255,10 @@ oversized `tests/test_docsync_logic.py` tracked by F-MAS-3.
 
 - stale and canonical archive prologues;
 - a dead live-document path and an intentionally historical dead path;
-- a missing or mismatched active definition;
+- absent, duplicate, untracked, and mismatched active definitions, including
+  exact-token and between-batches boundaries;
 - a volatile SHA and a stable branch-only definition;
-- present/stale and absent SESSION_CONTEXT states;
+- dead references plus present/stale and absent SESSION_CONTEXT states;
 - `--check` failure and post-`--fix` revalidation; and
 - deterministic issue ordering and remediation text.
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 import docsync.cli as cli_mod
@@ -168,10 +169,53 @@ class TestMainArgs:
 
         captured = capsys.readouterr()
         assert (
-            "doc_state_sync failed: git ls-files could not be executed" in captured.err
+            "doc_state_sync failed: Repository tracked-file discovery failed"
+            in captured.err
         )
         assert "Traceback" not in captured.err
         assert "private" not in captured.err
+        assert "git ls-files" not in captured.err
+
+    def test_git_nonzero_exits_2_without_stderr_or_traceback(
+        self,
+        sync_env: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys,
+    ):
+        """A failed tracked-file query cannot render credential-like stderr."""
+
+        def failing_runner(*args, **kwargs):
+            return subprocess.CompletedProcess(
+                args[0],
+                128,
+                stdout="",
+                stderr=(
+                    "fatal: https://user:secret-token@example.invalid/private.git "
+                    r"C:\private\checkout"
+                ),
+            )
+
+        def collect_with_failed_git(repo_root: Path):
+            return collect_real_tracked_paths(repo_root, runner=failing_runner)
+
+        monkeypatch.setattr(cli_mod, "collect_tracked_paths", collect_with_failed_git)
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+
+        assert cli_mod.main() == 2
+
+        captured = capsys.readouterr()
+        assert (
+            "doc_state_sync failed: Repository tracked-file discovery failed"
+            in captured.err
+        )
+        for secret in (
+            "Traceback",
+            "secret-token",
+            "example.invalid",
+            "private",
+            "git ls-files",
+        ):
+            assert secret not in captured.err
 
 
 # ---------------------------------------------------------------------------

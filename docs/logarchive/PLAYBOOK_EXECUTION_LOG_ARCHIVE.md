@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Worktree guard review remediation (side-task)
+
+- Scope: corrected the two Task 2 review findings without changing the
+  guard's read-only architecture or Git command sequence.
+- Plan vs implementation:
+  - Added final informational WT013 to every offline result, after state and
+    environment diagnostics. WT000 remains success-only; offline lineage and
+    virtualenv errors now retain explicit local-ref-only context.
+  - Replaced hard-coded origin recovery prose with selected-base guidance.
+    WT004 names the display-safe comparison ref, while WT007 uses neutral
+    selected-ref or local-ref wording and never constructs a shell command.
+  - Added exact inspection and CLI regressions for error-path WT013 ordering,
+    custom `upstream/trunk` guidance, and the local-only `main` edge.
+- Deviations: added stable code WT013 and corrected the approved plan's
+  detached-CI wording so WT011 remains its only topology diagnostic while
+  explicit offline mode can add the independent qualifier. Custom-base tests
+  live in a new peer-sized file rather than overgrowing an existing peer.
+- Validation: focused guard suite -- **54 passed**. `pytest -q` -- **483
+  passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
+  docsync checks pass.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
+
 ### 2026-08-05 - Read-only worktree bootstrap guard (side-task)
 
 - Scope: completed the repository-integrity worktree safeguard before the

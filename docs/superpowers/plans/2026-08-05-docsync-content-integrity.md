@@ -18,7 +18,7 @@ subprocess Git queries, pytest, pre-commit, GitHub Actions.
 
 - Use no new dependency and run no package-install command.
 - Preserve `.claude/SESSION_CONTEXT.md` optionality: skip checks that require
-  it when it is absent.
+  it when it is absent; when present, include it in live DOC001 scanning.
 - Exclude dated PLAYBOOK entries and archived history from live-state checks.
 - Exempt schematic Markdown paths containing glob syntax,
   `<placeholder>` tokens, or canonical `BATCHN_*` forms.
@@ -314,8 +314,8 @@ Implement `collect_tracked_paths()` with
 `git ls-files -z --cached --others --exclude-standard` rejected: only
 `git ls-files -z` is valid because an untracked file must not satisfy the
 gate. Normalize its NUL-separated output to forward slashes. Raise
-`SyncError` on Git failure and include only the command name and sanitized
-stderr.
+`SyncError` on Git failure with one stable invocation message; do not expose
+stderr, command, path, token, credential, or traceback content.
 
 - [ ] **Step 4: Run reference tests and verify green state**
 
@@ -384,9 +384,11 @@ def test_absent_session_skips_session_integrity(tmp_path):
     assert collect_integrity_issues(**inputs) == []
 ```
 
-Also cover a missing Branch field, duplicate Branch fields, missing active
-definition, duplicate active-definition references, matching and mismatching
-current test counts, and a count appearing only in one source.
+Also cover a missing Branch field, duplicate Branch fields, absent or duplicate
+tracked root candidates, exact `BATCH21` versus `BATCH210` tokens, subdirectory
+and generic-template exclusions, an untracked supplied definition,
+between-batches behavior, a dead optional-session reference, absent session,
+matching and mismatching current test counts, and a count in only one source.
 
 - [ ] **Step 6: Run the new tests and verify the failures are specific**
 
@@ -406,16 +408,19 @@ the already-green reference cases remain green.
 
 Use the existing Section 3 parser to determine `current_batch`. Within the
 Section 3 slice, require exactly one concrete root Markdown path immediately
-after `Definition:`. Its filename must begin with `BATCH<current>` so
-`BATCH21_DEFINITION.md`, `BATCH21_PROPOSAL.md`, and an owner-approved
-equivalent suffix remain valid while a Batch 20 path does not. Between
-batches, require no root active-definition check.
+after `Definition:`. Enumerate normalized tracked root candidates with exact
+`^BATCH<current>(?:_[^/]+)?\.md$` matching; the declared path must be that sole
+candidate. This accepts `BATCH21.md`, `BATCH21_DEFINITION.md`, and an
+owner-approved suffix while excluding `BATCH210*`, subdirectories, generic
+`BATCHN_*` templates, and untracked supplied content. Between batches, skip
+the root-candidate check.
 
 Read the resolved definition from `live_documents`, require exactly one line
 matching `^\*\*Branch:\*\*`, and reject
 `\b[0-9a-fA-F]{7,40}\b` on that line. Compare the archive prefix before its
 first dated entry with `SIDE_ARCHIVE_PREFIX` from `docsync.renderer`. When
-session lines exist, compare them to the expected rendered session and use
+session lines exist, scan them for DOC001 with original source lines, compare
+them to the expected rendered session, and use
 `_latest_test_count_from_entries()` to produce `DOC006` only when both sources
 contain a current count and disagree.
 
