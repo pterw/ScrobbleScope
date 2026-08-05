@@ -33,15 +33,16 @@ def test_run_git_returns_captured_process_data(monkeypatch, tmp_path):
     ("error", "message"),
     [
         (FileNotFoundError("secret-url"), "Git executable was not found"),
+        (OSError("secret-url"), "Git command could not be started"),
         (
             subprocess.TimeoutExpired(["git", "secret-url"], 10),
             "Git command timed out",
         ),
     ],
-    ids=("missing-git", "timeout"),
+    ids=("missing-git", "os-error", "timeout"),
 )
 def test_run_git_sanitizes_process_failures(monkeypatch, tmp_path, error, message):
-    """Executable and timeout failures omit command arguments from GuardError."""
+    """Process-launch failures omit secrets and suppress their exception chain."""
 
     def fail_run(*args, **kwargs):
         """Raise the controlled process failure without invoking a subprocess."""
@@ -52,3 +53,5 @@ def test_run_git_sanitizes_process_failures(monkeypatch, tmp_path, error, messag
         run_git(tmp_path, ("fetch", "https://token@example.invalid/repo.git"))
     assert "secret-url" not in str(exc_info.value)
     assert "token" not in str(exc_info.value)
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__suppress_context__ is True

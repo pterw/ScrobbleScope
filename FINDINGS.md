@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-05
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, F-SWE-1 audit next, then WP-1. 484 tests across 30 test modules.
+WP-0 done, F-SWE-1 audit next, then WP-1. 512 tests across 32 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -37,7 +37,10 @@ behind-only, identical-tree rebase artifacts, and true divergence; the
 canonical bootstrap stops on its errors; and live linked-worktree inspection
 reported the expected branch and ancestry without modifying Git. Review
 remediation adds final WT013 context to every offline result and keeps
-custom-base guidance aligned with the caller-selected ref.
+custom-base guidance aligned with the caller-selected ref. Final review
+remediation preserves the public facade while keeping each guard production
+file below the measured peer caps; WT014 fails closed without traceback or sensitive
+runner text, and exact severity plus real CLI tests protect every WT code.
 Source: post-merge lineage investigations for PRs #163, #165, and #168.
 
 ### F-WORKTREE-2: Linked worktrees cannot use the relative virtualenv path
@@ -60,7 +63,8 @@ did not affect the exit code.
 Status: resolved 2026-08-05. Evidence: Task 2 final-state CLI enforcement and
 plan-wide final remediation now reject conflicting named current-test fields,
 over-broad definition matches, and Git invocation failures; `pytest -q`
-measured **429 passed** with 3 existing warnings.
+measured **512 passed** with 3 existing warnings, and the final docsync check
+and complete pre-commit gate pass on the synchronized live documents.
 Approved design:
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
 Source: PR #168 pre-merge audit and follow-up root-cause investigation.

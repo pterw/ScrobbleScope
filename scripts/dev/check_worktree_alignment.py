@@ -17,7 +17,11 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from scripts.dev.worktree_guard import Diagnostic, inspect_worktree  # noqa: E402
+from scripts.dev.worktree_guard import (  # noqa: E402
+    Diagnostic,
+    inspect_worktree,
+    inspection_failure_diagnostics,
+)
 
 
 def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
@@ -52,9 +56,14 @@ def _render(diagnostic: Diagnostic) -> str:
 def main(argv: Sequence[str] | None = None) -> int:
     """Print worktree diagnostics and return nonzero when errors exist."""
     args = _parse_args(argv)
-    diagnostics = inspect_worktree(
-        Path.cwd(), base_ref=args.base_ref, offline=args.offline
-    )
+    try:
+        diagnostics = inspect_worktree(
+            Path.cwd(), base_ref=args.base_ref, offline=args.offline
+        )
+    except Exception:
+        diagnostics = inspection_failure_diagnostics(
+            base_ref=args.base_ref, offline=args.offline
+        )
     for diagnostic in diagnostics:
         print(_render(diagnostic))
     return 1 if any(d.severity == "ERROR" for d in diagnostics) else 0

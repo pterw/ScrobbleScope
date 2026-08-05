@@ -73,6 +73,11 @@ When network access is available, refresh the comparison ref with
 same command with `--offline` and must treat its base result as local-ref-only.
 Stop on a nonzero exit. The guard is read-only; follow its remediation and the
 existing owner-authorization rule before any history rewrite.
+The initial guard launch is the sole stdlib-only bootstrap exception to the
+qualified-tool rule: the primary checkout paths are not known until the guard
+prints them, so bare `python` is permitted only for that launch. After it
+succeeds, every subsequent Python, pytest, and pre-commit command from a linked
+worktree uses the qualified primary-checkout path it printed.
 
 **Token discipline for bootstrap:**
 - Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; Sections 3-5 only if structure, dependency, or architecture detail is needed.
@@ -118,8 +123,8 @@ existing owner-authorization rule before any history rewrite.
 ```
 
 A linked worktree reuses the primary checkout `.venv`; never create a second
-environment. Use the qualified Python, pytest, and pre-commit paths printed by
-the worktree guard for all commands from a linked worktree.
+environment. After the bootstrap guard succeeds, use its qualified Python,
+pytest, and pre-commit paths for all later commands from that linked worktree.
 
 All packages in `requirements.txt` and `requirements-dev.txt` are pinned
 with `==`. Do not add `>=` or unversioned entries. If a new package is

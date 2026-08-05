@@ -237,9 +237,11 @@ ERROR WT004 wip/batch-21 -- branch and origin/main are 3/3 diverged but tree-ide
 Remediation: stop; after owner approval, realign the clean branch to refreshed origin/main and force-push with lease.
 ```
 
-Paths are repository-relative so output is stable across linked worktrees,
-ordinary clones, Windows, Linux, and CI. Unexpected Git failures include the
-failed command name and stderr but never credentials or environment values.
+Repository diagnostics remain stable across linked worktrees, ordinary
+clones, Windows, Linux, and CI. Unexpected runner, collector, metadata-parse,
+and CLI failures render ERROR WT014 without the original command, stderr,
+traceback, credentials, or environment values. Explicit offline results append
+informational WT013 last even on that failure path.
 
 ## Testing
 
@@ -256,15 +258,17 @@ oversized `tests/test_docsync_logic.py` tracked by F-MAS-3.
 - `--check` failure and post-`--fix` revalidation; and
 - deterministic issue ordering and remediation text.
 
-`tests/test_worktree_alignment.py` isolates Git command results behind a
-small runner boundary. Cases cover between-batch operation; aligned,
-ahead-only, and behind-only active branches; identical-tree and
-different-tree divergence; wrong branches; linked worktrees and ordinary
-clones; detached CI and detached local checkouts; missing repositories and
-base refs; and dirty state. Every test asserts a behavior or state
-classification that would fail if the relevant checker were deleted. The
-same file verifies local and primary-checkout `.venv` resolution, missing
-executables, and the prohibition on any install fallback.
+The peer-sized `tests/scripts/dev/test_worktree_guard*.py` modules isolate Git
+command results behind the shared `worktree_guard_fakes.py` runner boundary.
+They cover parsing and lineage, selected refs, CLI rendering and real
+inspection-through-CLI exits, collector order, sanitized runner failures,
+exact WT000-WT014 severities, detached/linked topology, and virtualenv
+resolution. Cases include between-batch operation; aligned, ahead-only, and
+behind-only active branches; both divergence forms; wrong branches; ordinary
+and linked checkouts; detached CI and local checkouts; missing repositories,
+base refs, and tools; dirty state; and the prohibition on install fallback.
+Every test asserts behavior or state that fails when the relevant path is
+deleted or mutated.
 
 Repository validation remains:
 

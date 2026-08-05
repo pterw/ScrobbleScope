@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Worktree classifier review remediation (side-task)
+
+- Scope: resolved the first review round for Task 1 without expanding the
+  pure classifier into Task 2's Git discovery or bootstrap integration.
+- Plan vs implementation:
+  - Restored Steps 2, 4, and 6 of the authoritative plan to run only the
+    parser/lineage test file that exists at those stages; Step 10 onward keeps
+    both focused paths after the venv test file is created.
+  - Added parameterized both-sided-divergence coverage for a missing head tree,
+    missing base tree, and both trees missing. Every unavailable-tree state now
+    asserts WT005, while only two present matching IDs assert WT004.
+  - Replaced remediation-fragment checks with the full mandated WT004 and WT005
+    strings, protecting dirty reconciliation, refreshed-base/tree verification,
+    owner authorization, force-push-with-lease boundaries, and the explicit
+    prohibition on reset, rebase, or force-push for true divergence.
+  - Mutation verification weakened both remediation constants and treated two
+    missing IDs as equal; the strengthened suite produced five expected
+    failures before the original correct behavior was restored.
+- Deviations: none; production behavior was already correct, so this round
+  strengthens regression protection and repairs plan execution order only.
+- Validation: parser/lineage suite -- **23 passed**; complete focused guard
+  suite -- **30 passed**. `pytest -q` -- **459 passed** with 3 existing
+  aiohttp/Python 3.13 warnings. Final hooks and docsync gates pass.
+- Forward guidance: proceed to Task 2's read-only CLI and bootstrap wiring;
+  F-WORKTREE-1 and F-WORKTREE-2 remain open until its live linked-worktree
+  acceptance passes.
+
 ### 2026-08-05 - Pure worktree safety classification (side-task)
 
 - Scope: implemented the pure, read-only classification layer for the

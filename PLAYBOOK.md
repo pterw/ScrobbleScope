@@ -83,8 +83,9 @@ See FINDINGS F-DOCSYNC-3.
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
 - **Next action:** execute the full F-SWE-1 principles audit, then proceed to
-  Batch 21 WP-1. The read-only worktree guard and canonical bootstrap gate are
-  shipped, and F-WORKTREE-1/F-WORKTREE-2 are resolved.
+  Batch 21 WP-1. The peer-sized read-only worktree guard and canonical
+  bootstrap gate passed final review remediation, and
+  F-WORKTREE-1/F-WORKTREE-2 are resolved.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -152,6 +153,46 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-05 - Worktree guard final-review remediation (side-task)
+
+- Scope: resolved all five final plan-review findings without changing the
+  guard's read-only Git contract, selected-base behavior, or public facade.
+- Plan vs implementation:
+  - Split the 522-line `worktree_guard.py` into a 50-line stable facade plus
+    diagnostics, inspection, lineage, runner/discovery, types, and virtualenv
+    modules. Every guard production file is at or below the measured 236-line and
+    8,754-byte pre-existing peer caps; every new test file is below the
+    measured 184-line and 6,615-byte test peer caps.
+  - Added ERROR WT014 for unexpected inspection/runtime failures, suppressed
+    subprocess exception chains, caught generic `OSError`, kept explicit
+    offline WT013 final, and added a second fail-closed CLI boundary. Output
+    contains neither traceback nor sensitive command/URL text.
+  - Added exact `(code, severity)` coverage for WT000 through WT014 and real
+    inspection-through-CLI blocking, warning-only, success, detached-CI, and
+    offline-failure paths. A temporary WT006 severity downgrade produced three
+    expected failures and changed both blocking CLI exits from 1 to 0.
+  - Clarified the sole initial stdlib-only guard-launch exception, retained
+    DEVELOPMENT as human-only rationale, and refreshed the authoritative plan
+    file map and reproducible split-suite RED/GREEN commands. Aligned the design
+    spec's failure contract and split test map, then refreshed README and
+    SESSION_CONTEXT structure, dependency, and test inventories from the
+    measured final state.
+- Deviations: the final review required a plan-wide SRP split after Task 2 had
+  shipped; the facade preserves every accepted import and behavior. No
+  destructive Git action, environment creation, dependency install, or push
+  was performed.
+- Validation: pre-split facade parity -- **55 passed**; new RED suite -- 11
+  expected failures and 23 passes; minimal GREEN -- **34 passed**; post-split
+  original parity -- **55 passed** with 2 new cases deselected; complete focused
+  suite -- **83 passed**; severity mutation restore -- **26 passed**. Full
+  `pytest -q` -- **512 passed** with 3 existing aiohttp/Python
+  3.13 warnings. Pre-commit and final docsync gates pass. Dirty offline live
+  acceptance reports WT010, WT000 (0 behind/12 ahead, linked primary tools),
+  then final WT013.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep. Use the stable
+  `scripts.dev.worktree_guard` facade for all imports.
 
 ### 2026-08-05 - Worktree guard default remediation compatibility (side-task)
 
@@ -223,30 +264,3 @@ non-current operational logs. Older dated entries live in
   docsync checks pass.
 - Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
   WP-1 remains queued immediately after that sweep.
-
-### 2026-08-05 - Worktree classifier review remediation (side-task)
-
-- Scope: resolved the first review round for Task 1 without expanding the
-  pure classifier into Task 2's Git discovery or bootstrap integration.
-- Plan vs implementation:
-  - Restored Steps 2, 4, and 6 of the authoritative plan to run only the
-    parser/lineage test file that exists at those stages; Step 10 onward keeps
-    both focused paths after the venv test file is created.
-  - Added parameterized both-sided-divergence coverage for a missing head tree,
-    missing base tree, and both trees missing. Every unavailable-tree state now
-    asserts WT005, while only two present matching IDs assert WT004.
-  - Replaced remediation-fragment checks with the full mandated WT004 and WT005
-    strings, protecting dirty reconciliation, refreshed-base/tree verification,
-    owner authorization, force-push-with-lease boundaries, and the explicit
-    prohibition on reset, rebase, or force-push for true divergence.
-  - Mutation verification weakened both remediation constants and treated two
-    missing IDs as equal; the strengthened suite produced five expected
-    failures before the original correct behavior was restored.
-- Deviations: none; production behavior was already correct, so this round
-  strengthens regression protection and repairs plan execution order only.
-- Validation: parser/lineage suite -- **23 passed**; complete focused guard
-  suite -- **30 passed**. `pytest -q` -- **459 passed** with 3 existing
-  aiohttp/Python 3.13 warnings. Final hooks and docsync gates pass.
-- Forward guidance: proceed to Task 2's read-only CLI and bootstrap wiring;
-  F-WORKTREE-1 and F-WORKTREE-2 remain open until its live linked-worktree
-  acceptance passes.

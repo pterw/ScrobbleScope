@@ -62,8 +62,10 @@ be part of the same commit as the work it describes. So before you commit:
 1. Update PLAYBOOK Section 3 (mark WP done or note interruption point).
 2. Add a dated entry to PLAYBOOK Section 4 (inside current-batch markers
    for batch work; directly after the end marker for side-tasks).
-3. Run `python scripts/doc_state_sync.py --fix`.
-4. Verify `python scripts/doc_state_sync.py --check` exits 0.
+3. Run `scripts/doc_state_sync.py --fix` with the qualified Python printed by
+   the canonical worktree gate.
+4. Run the same script with `--check` using that qualified Python and verify
+   it exits 0.
 5. Stage PLAYBOOK.md and `.claude/SESSION_CONTEXT.md` alongside the files
    you changed, and commit them together.
 6. State clearly what remains for the next agent.
