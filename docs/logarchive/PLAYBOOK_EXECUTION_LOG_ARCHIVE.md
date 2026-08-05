@@ -1,4 +1,4 @@
-﻿# PLAYBOOK Execution Log Archive
+# PLAYBOOK Execution Log Archive
 
 Purpose:
 - Store dated execution-log entries rotated out of `PLAYBOOK.md` Section 4.
@@ -8,6 +8,39 @@ Read helpers:
 - `Get-Content docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+
+### 2026-08-05 - Repository-integrity and worktree-guard design (side-task)
+
+- Scope: investigated why canonical documentation drift and repeated
+  post-rebase worktree divergence survived green local and CI gates, then
+  captured the owner-approved remediation as a written design.
+- Plan vs implementation:
+  - Realigned the clean, tree-identical `wip/batch-21` branch from the
+    post-PR-#168 3/3 divergence to `origin/main` and force-pushed with lease
+    after explicit owner authorization.
+  - Split the remediation into a blocking repository-content integrity layer
+    inside docsync and a separate read-only local worktree alignment guard;
+    detached CI runs the former and unit-tests the latter, but does not
+    pretend to validate local worktree topology.
+  - Logged F-WORKTREE-1 and F-WORKTREE-2, and reopened F-DOCSYNC-5 as P0
+    items until mechanical prevention lands. The second worktree finding was
+    reproduced during validation: a linked root has no gitignored `.venv`, so
+    the test gate must reuse the qualified environment under the primary
+    checkout. Updated DEVELOPMENT.md with the human-readable incidents and
+    design rationale while preserving AGENTS.md as the future owner of
+    agent-facing rules.
+  - Wrote the approved design at
+    `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
+- Deviations: implementation is deliberately deferred until the owner reviews
+  the written specification, as required by the selected design workflow.
+- Validation: written-spec self-review -- pass. Qualified shared-venv
+  `pytest -q` -- **390 passed** with 3 existing aiohttp/Python 3.13 warnings.
+  `pre-commit run --all-files` -- all 10 hooks pass. Final
+  `doc_state_sync.py --check` -- exit 0 with the expected active-root
+  `BATCH21_DEFINITION.md` warning.
+- Forward guidance: review the written specification. After approval, create
+  the implementation plan, land both P0 safeguards, then execute the full
+  F-SWE-1 sweep; Batch 21 WP-1 remains gated behind the remediation.
 
 ### 2026-08-03 - PR #168 pre-merge canonical-doc audit (side-task)
 

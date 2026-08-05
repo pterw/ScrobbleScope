@@ -188,19 +188,23 @@ edit them out or misplace them.
 5. **Rebuilds** the managed `<!-- DOCSYNC:STATUS-START/END -->` block in
    `SESSION_CONTEXT.md` from PLAYBOOK truth, so the two files are always
    consistent without manual editing.
-6. **Cross-validates** test counts and stale header phrases across both
-   files and prints warnings (non-blocking) for human review.
+6. **Enforces** live-document integrity: dead concrete references, active
+   definition metadata, archive prologue drift, and session contradictions
+   produce stable blocking diagnostics. `--fix` first writes only
+   deterministic output, then revalidates the final disk state; it does not
+   guess at semantic repairs.
 
 The script runs as a pre-commit hook (`doc-state-sync-check` in
 `.pre-commit-config.yaml`) in `--check` mode. This means any commit that
-leaves PLAYBOOK and SESSION_CONTEXT out of sync is rejected at the gate,
-before it reaches CI.
+leaves deterministic drift or a proven live-document contradiction is rejected
+at the gate, before it reaches CI.
 
 **Package structure (Batch 14 refactor).** The script was originally a
 monolithic 600-line file. Batch 14 decomposed it into a proper Python
 package (`scripts/docsync/`) with separate modules for parsing (`parser.py`),
-rendering (`renderer.py`), rotation/dedup logic (`logic.py`), the CLI
-entrypoint (`cli.py`), and typed dataclass models (`models.py`); the root
+rendering (`renderer.py`), rotation/dedup logic (`logic.py`), live-document
+integrity (`integrity.py`), the CLI entrypoint (`cli.py`), and typed dataclass
+models (`models.py`); the root
 `scripts/doc_state_sync.py` is now a thin wrapper that delegates into the
 package. This made each concern independently testable -- 117 docsync tests
 (across `tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
@@ -249,14 +253,14 @@ with different trees is real work and must not receive the same reset remedy.
 Realignment is intentionally never automatic because resetting and
 force-pushing rewrite branch history and require explicit owner approval.
 
-The approved remediation keeps two safeguards separate. Deterministic drift
-inside live operational documents will become a blocking extension of
-`doc_state_sync.py`, which already runs locally and in CI. A separate,
-read-only worktree alignment guard will run during local bootstrap and after
-rebase merges; detached CI cannot represent that local topology. The detailed
-guard also reports the allowed shared virtualenv path without creating or
-modifying an environment. The detailed design and current implementation
-status live in
+The shipped remediation keeps two safeguards separate. Deterministic drift
+inside live operational documents is now a blocking extension of
+`doc_state_sync.py`, which runs locally and in CI. A separate, read-only
+worktree alignment guard remains the next planned safeguard for local
+bootstrap and post-rebase checks; detached CI cannot represent that local
+topology. The detailed guard also reports the allowed shared virtualenv path
+without creating or modifying an environment. The detailed design and current
+implementation status live in
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
 Operational rules remain canonical in `AGENTS.md`; this section is human
 methodology documentation only.

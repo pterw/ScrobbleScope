@@ -13,6 +13,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 # does not raise. Must be set before app.py is imported.
 os.environ.setdefault("SECRET_KEY", "test-only-secret-key-min-16chars!!")
 
+from docsync.renderer import SIDE_ARCHIVE_PREFIX  # noqa: E402
+
 from app import create_app  # noqa: E402
 
 # ---------------------------------------------------------------------------
@@ -75,7 +77,7 @@ MINIMAL_PLAYBOOK = """\
 ## 3. Active batch
 
 Batch 10 is complete.
-Batch 11 is active.
+Batch 11 is active. Definition: `BATCH11_DEFINITION.md`.
 
 ## 4. Execution log
 
@@ -90,11 +92,7 @@ Did some work.
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 """
 
-MINIMAL_ARCHIVE = """\
-# Execution Log Archive
-
-Archived entries below.
-"""
+MINIMAL_ARCHIVE = "\n".join(SIDE_ARCHIVE_PREFIX) + "\n"
 
 MINIMAL_SESSION_CONTEXT = """\
 # SESSION_CONTEXT
@@ -143,4 +141,20 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     archive_path.write_text(MINIMAL_ARCHIVE, encoding="utf-8")
     session_path = tmp_path / ".claude" / "SESSION_CONTEXT.md"
     session_path.write_text(MINIMAL_SESSION_CONTEXT, encoding="utf-8")
+
+    (tmp_path / "BATCH11_DEFINITION.md").write_text(
+        "# BATCH11\n\n**Branch:** `wip/batch-11`.\n", encoding="utf-8"
+    )
+    (tmp_path / "AGENTS.md").write_text("See `FINDINGS.md`.\n", encoding="utf-8")
+    (tmp_path / "HANDOFF_PROMPT.md").write_text("Read `AGENTS.md`.\n", encoding="utf-8")
+    (tmp_path / "AGENT_NOTES.md").write_text(
+        "Rules live in `AGENTS.md`.\n", encoding="utf-8"
+    )
+    (tmp_path / "FINDINGS.md").write_text("# Findings\n", encoding="utf-8")
+    tracked_paths = frozenset(
+        path.relative_to(tmp_path).as_posix()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
+    )
+    monkeypatch.setattr(cli_module, "collect_tracked_paths", lambda _: tracked_paths)
     return tmp_path

@@ -33,6 +33,7 @@ from docsync.renderer import (
     _remove_marker_lines,
     _render_archive,
     _render_section4,
+    _render_side_archive,
     _trim_trailing_blank,
 )
 
@@ -90,10 +91,7 @@ def _split_archive(
             carry that batch tag.  Callers pass these to
             _merge_entries_into_log to produce per-batch log content.
     """
-    all_entries, first_idx = _parse_entries(monolith_lines)
-    prefix: list[str] = (
-        monolith_lines[:first_idx] if first_idx is not None else monolith_lines
-    )
+    all_entries, _ = _parse_entries(monolith_lines)
 
     untagged: list[Entry] = []
     batch_groups: dict[int, list[Entry]] = {}
@@ -104,7 +102,7 @@ def _split_archive(
         else:
             batch_groups.setdefault(batch_num, []).append(entry)
 
-    remaining_lines = _render_archive(prefix, untagged)
+    remaining_lines = _render_side_archive(untagged)
     return remaining_lines, batch_groups
 
 
@@ -215,12 +213,7 @@ def _sync(
         + playbook_lines[section_4_end:]
     )
 
-    archive_entries, archive_first_entry_idx = _parse_entries(archive_lines)
-    archive_prefix = (
-        archive_lines[:archive_first_entry_idx]
-        if archive_first_entry_idx is not None
-        else archive_lines
-    )
+    archive_entries, _ = _parse_entries(archive_lines)
 
     # Route rotated entries: tagged → per-batch log; untagged → monolith.
     tagged_rotated: dict[int, list[Entry]] = {}
@@ -235,7 +228,7 @@ def _sync(
     # Monolith archive receives only untagged rotated entries.
     deduped_entries = _dedup_sorted(list(untagged_rotated) + list(archive_entries))
 
-    new_archive_lines = _render_archive(archive_prefix, deduped_entries)
+    new_archive_lines = _render_side_archive(deduped_entries)
 
     # Merge tagged rotated entries into per-batch log files.
     effective_batch_log_lines: dict[int, list[str]] = batch_log_lines or {}

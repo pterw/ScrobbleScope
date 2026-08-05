@@ -5,10 +5,12 @@ from __future__ import annotations
 from docsync.models import ActiveBatchState, Entry
 from docsync.parser import CURRENT_BATCH_END_MARKER, CURRENT_BATCH_START_MARKER
 from docsync.renderer import (
+    SIDE_ARCHIVE_PREFIX,
     _build_status_block,
     _remove_marker_lines,
     _render_archive,
     _render_section4,
+    _render_side_archive,
     _trim_trailing_blank,
 )
 
@@ -288,6 +290,28 @@ class TestRenderArchive:
         result = _render_archive([], [entry])
         assert any("### 2026-01-01 - Entry" in line for line in result)
         assert any("Content" in line for line in result)
+
+    def test_side_archive_uses_canonical_prefix(self):
+        """A stale side-task archive preamble cannot survive a renderer pass."""
+        entry = Entry(
+            heading="### 2026-01-01 - Entry",
+            date="2026-01-01",
+            title="Entry",
+            lines=("### 2026-01-01 - Entry", "Content"),
+            start_idx=0,
+            fingerprint="a",
+        )
+
+        result = _render_side_archive([entry])
+
+        assert tuple(result[: len(SIDE_ARCHIVE_PREFIX)]) == SIDE_ARCHIVE_PREFIX
+        assert result[-2:] == ["### 2026-01-01 - Entry", "Content"]
+
+    def test_custom_archive_prefix_remains_unchanged(self):
+        """Per-batch logs keep their caller-supplied prefix."""
+        prefix = ["# Batch 11 Execution Log", "", "Batch-specific history."]
+
+        assert _render_archive(prefix, []) == prefix
 
 
 # ---------------------------------------------------------------------------

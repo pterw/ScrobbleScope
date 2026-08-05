@@ -76,6 +76,11 @@ def _render_archive(prefix_lines: list[str], entries: list[Entry]) -> list[str]:
     return _trim_trailing_blank(out)
 
 
+def _render_side_archive(entries: list[Entry]) -> list[str]:
+    """Render the side-task archive from its canonical, renderer-owned prefix."""
+    return _render_archive(list(SIDE_ARCHIVE_PREFIX), entries)
+
+
 def _build_status_block(
     section_3_state: ActiveBatchState,
     current_entries: list[Entry],

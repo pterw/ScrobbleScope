@@ -7,19 +7,27 @@ import re
 import sys
 from pathlib import Path
 
+from docsync.integrity import collect_integrity_issues, collect_tracked_paths
 from docsync.logic import (
-    _cross_validate,
     _merge_entries_into_log,
     _split_archive,
     _sync,
 )
-from docsync.models import SyncError
+from docsync.models import IntegrityIssue, SyncError
 
+REPO_ROOT = Path(".")
 PLAYBOOK_PATH = Path("PLAYBOOK.md")
 ARCHIVE_PATH = Path("docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 SESSION_CONTEXT_PATH = Path(".claude/SESSION_CONTEXT.md")
 LOGS_DIR = Path("docs/history/logs")
 DEFINITIONS_DIR = Path("docs/history/definitions")
+LIVE_DOCUMENT_PATHS = (
+    Path("AGENTS.md"),
+    Path("HANDOFF_PROMPT.md"),
+    Path("AGENT_NOTES.md"),
+    PLAYBOOK_PATH,
+    Path("FINDINGS.md"),
+)
 
 _BATCH_LOG_RE = re.compile(r"^BATCH(\d+)_LOG\.md$", re.IGNORECASE)
 
@@ -67,6 +75,66 @@ def _read_batch_log_lines() -> dict[int, list[str]]:
         if m:
             result[int(m.group(1))] = _read_lines(batch_log_path)
     return result
+
+
+def _repository_relative(path: Path) -> str:
+    """Return a normalized repository-relative key for integrity diagnostics."""
+    return path.resolve().relative_to(REPO_ROOT.resolve()).as_posix()
+
+
+def _read_live_documents() -> dict[str, list[str]]:
+    """Load canonical documents and root batch definitions for integrity checks."""
+    documents = {
+        _repository_relative(path): _read_lines(path) for path in LIVE_DOCUMENT_PATHS
+    }
+    for definition_path in REPO_ROOT.glob("BATCH*.md"):
+        documents[_repository_relative(definition_path)] = _read_lines(definition_path)
+    return documents
+
+
+def _format_issue(issue: IntegrityIssue) -> str:
+    """Render one stable, repository-relative integrity diagnostic."""
+    location = issue.path
+    if issue.line is not None:
+        location = f"{location}:{issue.line}"
+    return (
+        f"{issue.severity.upper()} {issue.code} {location} -- "
+        f"{issue.invariant}\nRemediation: {issue.remediation}"
+    )
+
+
+def _changed_paths(result, current_session: list[str] | None) -> list[Path]:
+    """Return deterministic outputs whose on-disk state differs from a sync result."""
+    changed: list[Path] = []
+    if _read_lines(PLAYBOOK_PATH) != result.playbook_lines:
+        changed.append(PLAYBOOK_PATH)
+    if _read_lines(ARCHIVE_PATH) != result.archive_lines:
+        changed.append(ARCHIVE_PATH)
+    for batch_num, new_batch_lines in result.batch_log_updates.items():
+        batch_log_path = _get_batch_log_path(batch_num)
+        if _read_lines_optional(batch_log_path) != new_batch_lines:
+            changed.append(batch_log_path)
+    if result.session_lines is not None and current_session != result.session_lines:
+        changed.append(SESSION_CONTEXT_PATH)
+    return changed
+
+
+def _collect_current_integrity_issues(
+    expected_session_lines: list[str] | None,
+) -> list[IntegrityIssue]:
+    """Collect final-state integrity issues from the repository's live documents."""
+    current_playbook = _read_lines(PLAYBOOK_PATH)
+    current_archive = _read_lines(ARCHIVE_PATH)
+    current_session = _read_lines_optional(SESSION_CONTEXT_PATH)
+    return collect_integrity_issues(
+        repo_root=REPO_ROOT,
+        live_documents=_read_live_documents(),
+        playbook_lines=current_playbook,
+        archive_lines=current_archive,
+        session_lines=current_session,
+        expected_session_lines=expected_session_lines,
+        tracked_paths=collect_tracked_paths(REPO_ROOT),
+    )
 
 
 def main() -> int:
@@ -170,43 +238,25 @@ def main() -> int:
         print(f"doc_state_sync failed: {exc}", file=sys.stderr)
         return 2
 
-    current_playbook = _read_lines(PLAYBOOK_PATH)
-    current_archive = _read_lines(ARCHIVE_PATH)
     current_session = _read_lines_optional(SESSION_CONTEXT_PATH)
-
-    xv_warnings = _cross_validate(playbook_lines, session_lines)
-    xv_warnings += _check_root_batch_files(Path("."))
-    if xv_warnings:
-        for w in xv_warnings:
-            print(f"WARNING: {w}", file=sys.stderr)
-
-    session_drift = (
-        result.session_lines is not None and current_session != result.session_lines
-    )
-
-    changed: list[Path] = []
-    if current_playbook != result.playbook_lines:
-        changed.append(PLAYBOOK_PATH)
-    if current_archive != result.archive_lines:
-        changed.append(ARCHIVE_PATH)
-    for batch_num, new_batch_lines in result.batch_log_updates.items():
-        batch_log_path = _get_batch_log_path(batch_num)
-        current_batch = _read_lines_optional(batch_log_path)
-        if current_batch != new_batch_lines:
-            changed.append(batch_log_path)
-
-    if session_drift:
-        print(
-            "WARNING: SESSION_CONTEXT STATUS block is stale relative to PLAYBOOK.",
-            file=sys.stderr,
-        )
+    changed = _changed_paths(result, current_session)
 
     if args.check:
+        try:
+            issues = _collect_current_integrity_issues(result.session_lines)
+        except SyncError as exc:
+            print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+            return 2
+        for issue in issues:
+            print(_format_issue(issue), file=sys.stderr)
+        for warning in _check_root_batch_files(REPO_ROOT):
+            print(f"WARNING: {warning}", file=sys.stderr)
         if changed:
             print("doc_state_sync drift detected:")
             for path in changed:
                 print(f"- {path}")
             print("Run: python scripts/doc_state_sync.py --fix")
+        if changed or any(issue.severity == "error" for issue in issues):
             return 1
         print(
             "doc_state_sync check passed "
@@ -216,14 +266,8 @@ def main() -> int:
         )
         return 0
 
-    # args.fix
-    # Write SESSION_CONTEXT STATUS block when stale (local-only, not in
-    # the changed list because it is gitignored and should not block
-    # --check / pre-commit).
-    if session_drift and result.session_lines is not None:
-        _write_lines(SESSION_CONTEXT_PATH, result.session_lines)
-        changed.append(SESSION_CONTEXT_PATH)
-
+    # args.fix: write only deterministic renderer output, then validate the
+    # resulting disk state. Semantic integrity issues remain for a human fix.
     if changed:
         if PLAYBOOK_PATH in changed:
             _write_lines(PLAYBOOK_PATH, result.playbook_lines)
@@ -233,11 +277,36 @@ def main() -> int:
             batch_log_path = _get_batch_log_path(batch_num)
             if batch_log_path in changed:
                 _write_lines(batch_log_path, new_batch_lines)
+        if SESSION_CONTEXT_PATH in changed and result.session_lines is not None:
+            _write_lines(SESSION_CONTEXT_PATH, result.session_lines)
         print("doc_state_sync wrote updates:")
         for path in changed:
             print(f"- {path}")
     else:
         print("doc_state_sync --fix found no changes.")
+
+    try:
+        final_playbook = _read_lines(PLAYBOOK_PATH)
+        final_archive = _read_lines(ARCHIVE_PATH)
+        final_session = _read_lines_optional(SESSION_CONTEXT_PATH)
+        final_result = _sync(
+            playbook_lines=final_playbook,
+            archive_lines=final_archive,
+            session_lines=final_session,
+            keep_non_current=args.keep_non_current,
+            batch_log_lines=_read_batch_log_lines(),
+        )
+        final_changed = _changed_paths(final_result, final_session)
+        issues = _collect_current_integrity_issues(final_result.session_lines)
+    except SyncError as exc:
+        print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+        return 2
+    for issue in issues:
+        print(_format_issue(issue), file=sys.stderr)
+    for warning in _check_root_batch_files(REPO_ROOT):
+        print(f"WARNING: {warning}", file=sys.stderr)
+    if final_changed or any(issue.severity == "error" for issue in issues):
+        return 1
 
     print(
         "doc_state_sync summary "

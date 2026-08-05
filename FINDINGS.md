@@ -2,8 +2,8 @@
 
 Last updated: 2026-08-05
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, P0 integrity/worktree remediation next, then WP-1. 390 tests
-across 22 test modules.
+WP-0 done, worktree remediation next, then WP-1. 419 tests across 23 test
+modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -50,11 +50,12 @@ Source: repository-integrity design validation on 2026-08-05.
 ### F-DOCSYNC-5: Operational doc metadata drifted across path and branch changes
 
 The live archive prologue and active-definition branch metadata drifted while
-`doc_state_sync.py --check` and CI remained green because prefixes are opaque,
-live-document references are only narrowly checked, and integrity warnings do
-not affect the exit code.
-Status: open P0 (reopened 2026-08-05); the observed stale text was corrected
-on 2026-08-03, but recurrence prevention remains pending. Approved design:
+`doc_state_sync.py --check` and CI remained green because prefixes were opaque,
+live-document references were only narrowly checked, and integrity warnings
+did not affect the exit code.
+Status: resolved 2026-08-05. Evidence: Task 2 added final-state CLI
+enforcement; `pytest -q` measured **419 passed** with 3 existing warnings.
+Approved design:
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
 Source: PR #168 pre-merge audit and follow-up root-cause investigation.
 
@@ -263,8 +264,9 @@ referenced by no working doc (PLAYBOOK Section 2 had no Log column), so
 batch history was reachable only via a directory glob. Fixed: Section 2
 gained a Log column and the AGENTS.md close-out procedure fills it per
 batch. Related disposition: the two ~300-byte
-`PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` files under `docs/history/` and
-`docs/history/logs/` are deliberate Batch 14 "Moved:" tombstones kept
+`docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
+`docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` are deliberate Batch 14
+"Moved:" tombstones kept
 for backward references -- not cruft, do not delete.
 Status: resolved 2026-07-31; rotates to the archive at Batch 21
 close-out. Source: PR #163 doc-hygiene pass.
@@ -353,4 +355,5 @@ flow). Status: deferred; on the README roadmap. Source: owner roadmap.
 - `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` -- Earlier audit
 - `docs/history/AUDIT_2026-01-10.md` -- Rate limit regression audit
 - `docs/history/findings/FINDINGS_ARCHIVE.md` -- Rotated resolved/no-action items
-- Agent memory: `load-test-findings.md` -- Raw load test data and analysis
+- Agent memory: load-test-findings.md (not a repository file) -- raw load
+  test data and analysis

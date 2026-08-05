@@ -49,7 +49,9 @@ def _concrete_references(lines: list[str]) -> list[tuple[int, str]]:
         for pattern in (BACKTICK_MD_RE, MARKDOWN_LINK_RE):
             for match in pattern.finditer(line):
                 reference = _normalize_reference(match.group(1))
-                if not SCHEMATIC_RE.search(reference):
+                if not any(
+                    char.isspace() for char in reference
+                ) and not SCHEMATIC_RE.search(reference):
                     references.append((line_number, reference))
     return references
 

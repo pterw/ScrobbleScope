@@ -82,9 +82,9 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** wire the completed pure docsync-integrity analyzer into the
-  CLI and CI gate, then implement the worktree-safety plan before the full
-  F-SWE-1 sweep and Batch 21 WP-1.
+- **Next action:** implement the read-only worktree-safety guard before the
+  full F-SWE-1 sweep and Batch 21 WP-1. The docsync integrity gate is shipped;
+  F-WORKTREE-1 and F-WORKTREE-2 remain the P0 gate.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -153,6 +153,25 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-05 - Docsync content-integrity enforcement (side-task)
+
+- Scope: wired the reviewed pure live-document integrity analyzer into the
+  local and CI docsync gate, closing F-DOCSYNC-5 before Batch 21 WP-1.
+- Plan vs implementation:
+  - Made the side-task archive prologue renderer-owned, so `--check` detects
+    a stale prefix and `--fix` restores it without changing dated entries.
+  - Added stable blocking `ERROR DOC...` CLI diagnostics for live integrity
+    defects. `--fix` writes deterministic output first and revalidates the
+    final on-disk state; unresolved semantic defects still exit 1.
+  - Retained missing optional SESSION_CONTEXT support and the existing root
+    BATCH-file warnings, while removing legacy warning-only CLI validation.
+- Deviations: none.
+- Validation: targeted docsync suite -- **110 passed**. `pytest -q` --
+  **419 passed** with 3 existing aiohttp/Python 3.13 warnings. Final hooks and
+  docsync gates pass.
+- Forward guidance: implement the separate read-only worktree-safety guard;
+  F-WORKTREE-1 and F-WORKTREE-2 remain the P0 gate before Batch 21 WP-1.
+
 ### 2026-08-05 - Docsync integrity analyzer review remediation (side-task)
 
 - Scope: corrected two review findings in the pure analyzer before its
@@ -215,36 +234,3 @@ non-current operational logs. Older dated entries live in
   active-root `BATCH21_DEFINITION.md` warning.
 - Forward guidance: choose Subagent-Driven execution (recommended) or Inline
   Execution. Complete both plans before F-SWE-1; Batch 21 WP-1 remains gated.
-
-### 2026-08-05 - Repository-integrity and worktree-guard design (side-task)
-
-- Scope: investigated why canonical documentation drift and repeated
-  post-rebase worktree divergence survived green local and CI gates, then
-  captured the owner-approved remediation as a written design.
-- Plan vs implementation:
-  - Realigned the clean, tree-identical `wip/batch-21` branch from the
-    post-PR-#168 3/3 divergence to `origin/main` and force-pushed with lease
-    after explicit owner authorization.
-  - Split the remediation into a blocking repository-content integrity layer
-    inside docsync and a separate read-only local worktree alignment guard;
-    detached CI runs the former and unit-tests the latter, but does not
-    pretend to validate local worktree topology.
-  - Logged F-WORKTREE-1 and F-WORKTREE-2, and reopened F-DOCSYNC-5 as P0
-    items until mechanical prevention lands. The second worktree finding was
-    reproduced during validation: a linked root has no gitignored `.venv`, so
-    the test gate must reuse the qualified environment under the primary
-    checkout. Updated DEVELOPMENT.md with the human-readable incidents and
-    design rationale while preserving AGENTS.md as the future owner of
-    agent-facing rules.
-  - Wrote the approved design at
-    `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
-- Deviations: implementation is deliberately deferred until the owner reviews
-  the written specification, as required by the selected design workflow.
-- Validation: written-spec self-review -- pass. Qualified shared-venv
-  `pytest -q` -- **390 passed** with 3 existing aiohttp/Python 3.13 warnings.
-  `pre-commit run --all-files` -- all 10 hooks pass. Final
-  `doc_state_sync.py --check` -- exit 0 with the expected active-root
-  `BATCH21_DEFINITION.md` warning.
-- Forward guidance: review the written specification. After approval, create
-  the implementation plan, land both P0 safeguards, then execute the full
-  F-SWE-1 sweep; Batch 21 WP-1 remains gated behind the remediation.

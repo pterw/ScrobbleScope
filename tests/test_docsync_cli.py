@@ -49,38 +49,55 @@ class TestMainArgs:
         exit_code = cli_mod.main()
         captured = capsys.readouterr()
         assert "defaulting to --check" in captured.err
-        # Fresh fixture has a stale placeholder in SESSION_CONTEXT, but stale
-        # SESSION_CONTEXT is warning-only and should not fail --check.
-        assert exit_code == 0
+        assert exit_code == 1
 
-    def test_check_warns_on_stale_session_context(
+    def test_check_fails_on_stale_session_context(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
     ):
-        """Dirty SESSION_CONTEXT (status block is stale placeholder) should
-        emit warning text but not fail --check."""
+        """A stale managed session rendering is a blocking integrity error."""
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         exit_code = cli_mod.main()
-        assert exit_code == 0
+        assert exit_code == 1
         captured = capsys.readouterr()
-        assert "SESSION_CONTEXT STATUS block is stale" in captured.err
+        assert "ERROR DOC005" in captured.err
 
-    def test_fix_refreshes_session_context_status_block(
+    def test_fix_revalidates_and_clears_fixable_session_error(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
     ):
-        """--fix should write the refreshed STATUS block to SESSION_CONTEXT
-        when it is stale, matching PLAYBOOK truth."""
+        """--fix clears deterministic session drift before final validation."""
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
         exit_code = cli_mod.main()
         assert exit_code == 0
         captured = capsys.readouterr()
         assert "SESSION_CONTEXT" in captured.out or "wrote updates" in captured.out
-        # After --fix, SESSION_CONTEXT STATUS block should match PLAYBOOK.
-        # Running --check should no longer warn about staleness.
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         exit_code = cli_mod.main()
         assert exit_code == 0
-        captured = capsys.readouterr()
-        assert "SESSION_CONTEXT STATUS block is stale" not in captured.err
+
+    def test_check_fails_on_dead_live_reference(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
+    ):
+        """A dead reference in a canonical live document exits one with DOC001."""
+        agents = sync_env / "AGENTS.md"
+        agents.write_text("See `docs/missing.md`.\n", encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+
+        assert cli_mod.main() == 1
+
+        assert "ERROR DOC001 AGENTS.md:1" in capsys.readouterr().err
+
+    def test_fix_normalizes_archive_then_passes(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """--fix repairs renderer-owned archive formatting without moving entries."""
+        archive = sync_env / "docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"
+        archive.write_text("# stale prefix\n", encoding="utf-8")
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        assert cli_mod.main() == 0
+
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        assert cli_mod.main() == 0
 
     def test_fix_writes_files(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
@@ -99,30 +116,6 @@ class TestMainArgs:
         cli_mod.main()
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         assert cli_mod.main() == 0
-
-    def test_cross_validate_warnings_printed(
-        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch, capsys
-    ):
-        """Cross-validation warnings should appear on stderr."""
-        playbook_path = sync_env / "PLAYBOOK.md"
-        content = playbook_path.read_text(encoding="utf-8")
-        # Add the count inside the Section 4 log entry body so that
-        # _latest_test_count_from_entries (which scans current-batch entries,
-        # not Section 3) can find it.
-        content = content.replace(
-            "Did some work.",
-            "Did some work.\n\nValidated: **121 tests passing**",
-        )
-        playbook_path.write_text(content, encoding="utf-8")
-        session_path = sync_env / ".claude" / "SESSION_CONTEXT.md"
-        s_content = session_path.read_text(encoding="utf-8")
-        s_content += "\n**99 passing**\n"
-        session_path.write_text(s_content, encoding="utf-8")
-        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
-        cli_mod.main()
-        captured = capsys.readouterr()
-        assert "WARNING" in captured.err
-        assert "mismatch" in captured.err.lower()
 
     def test_missing_playbook_raises_exits_2(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
@@ -210,7 +203,7 @@ class TestBatchLogHelpers:
             ## 3. Active batch
 
             Batch 10 is complete.
-            Batch 11 is active.
+            Batch 11 is active. Definition: `BATCH11_DEFINITION.md`.
 
             ## 4. Execution log
 
