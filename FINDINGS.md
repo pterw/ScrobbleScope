@@ -1,8 +1,9 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-03
+Last updated: 2026-08-05
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, WP-1 next. 390 tests across 22 test modules.
+WP-0 done, P0 integrity/worktree remediation next, then WP-1. 390 tests
+across 22 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -26,7 +27,36 @@ F-* ID or a P0/P1 item -- not as part of the standard bootstrap order.
 
 ## P0 -- Fix before next deploy
 
-_No open P0 items._
+### F-WORKTREE-1: Rebase merges leave linked branches history-diverged
+
+GitHub rebase merges rewrite commit identities on `main` without moving the
+linked worktree branch, producing a branch that is both ahead and behind even
+when its tree is identical; after PRs #163, #165, and #168 this repeatedly
+created a risk of phantom PRs, duplicate work, or an incorrect merge.
+Status: open P0; each observed branch was manually realigned, but the
+read-only detection guard and canonical bootstrap gate are not implemented.
+Source: post-merge lineage investigations for PRs #163, #165, and #168.
+
+### F-WORKTREE-2: Linked worktrees cannot use the relative virtualenv path
+
+The sole `.venv` is gitignored under the primary checkout, so a fresh shell in
+a linked worktree cannot run the documented relative activation or test
+commands; an uninformed agent may create a forbidden second environment or
+fall back to bare pip and reproduce dependency drift.
+Status: open P0; validation reused the qualified primary-checkout pytest
+executable, but canonical path resolution and guard diagnostics are pending.
+Source: repository-integrity design validation on 2026-08-05.
+
+### F-DOCSYNC-5: Operational doc metadata drifted across path and branch changes
+
+The live archive prologue and active-definition branch metadata drifted while
+`doc_state_sync.py --check` and CI remained green because prefixes are opaque,
+live-document references are only narrowly checked, and integrity warnings do
+not affect the exit code.
+Status: open P0 (reopened 2026-08-05); the observed stale text was corrected
+on 2026-08-03, but recurrence prevention remains pending. Approved design:
+`docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
+Source: PR #168 pre-merge audit and follow-up root-cause investigation.
 
 ---
 
@@ -106,17 +136,6 @@ coverage. Status: open. Source: MULTI_AGENT_SWEEP.
 `parser.py` batch-tag regex can misroute entries whose titles contain
 "Batch N" substrings; tightening needs backward-compat testing. On the
 README roadmap. Status: open. Source: DOCSYNC_AUDIT Finding 6.
-
-### F-DOCSYNC-5: Operational doc metadata drifted across path and branch changes
-
-The live side-task archive header still named obsolete PLAYBOOK Section 10
-and pointed at the `docs/history/` tombstone, while the active Batch 21
-definition pinned the superseded pre-realignment SHA; either could misdirect
-a new agent despite a green docsync check.
-Status: resolved 2026-08-03; the archive header now names Section 4 and
-`docs/logarchive/`, and the definition delegates volatile lineage state to
-PLAYBOOK Section 4.
-Source: PR #168 pre-merge audit.
 
 ### F-MAS-3: test_docsync_logic.py is 852 lines
 

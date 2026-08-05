@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-01 - PR #165 round 9; new rules are not retroactive (side-task)
+
+- Scope: three suppressed comments, all valid -- numeric citations into
+  ordered lists (`Anti-Pattern Registry entries 4 and 5`, two
+  `acceptance criterion 8` references) that the registry's own
+  name-based citation rule prohibits.
+- Cause, established from history rather than assumed: the citations
+  were written in the SSOT pass and the FINDINGS refresh; the rule
+  banning them was written two commits later. Nothing swept the
+  existing corpus against the new rule, so the rule shipped with a
+  backlog of its own violations. The pre-push checklist greps the blast
+  radius of *the change*; when the change is a rule, the blast radius is
+  the whole repository, and that leap was never made.
+- Plan vs implementation: all three citations repointed by name. A
+  repo-wide sweep for `entries N`, `Registry #N`, `criterion N`,
+  `step N`, `rule N`, `item N` across every canonical doc returns no
+  matches outside dated point-in-time log records, which stay as
+  written. The lesson was folded into the existing blast-radius
+  anti-pattern as one sentence rather than becoming a fifteenth
+  registry entry -- see the verbosity note below.
+- Deliberate non-action: folded into an existing entry rather than added
+  as a fifteenth, because rule text has begun causing findings as well
+  as preventing them -- the registry grew long enough to need numbers,
+  and the numbers became the defect.
+- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
+  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
+- Forward guidance: merge rather than iterate further.
+
 ### 2026-08-01 - PR #165 round 8; over-broad claims narrowed (side-task)
 
 - Scope: three suppressed comments, all valid, all fixed.

@@ -221,6 +221,46 @@ example, in a sparse checkout or custom workflow), all operations that
 depend on it are silently skipped. Tests still pass; the PLAYBOOK rotation
 still occurs. See commit `05c7b19` on `main` for the original change.
 
+### Worktrees, rebase merges, and branch lineage
+
+ScrobbleScope uses linked Git worktrees so a long-running batch can remain
+isolated from the owner's main checkout. A linked worktree has its own checked
+out branch and working directory, but it shares the repository's object store
+and other common Git data. Updating `main` therefore does not move the batch
+branch automatically.
+
+That distinction matters after a GitHub rebase merge. GitHub recreates the
+source commits on `main` with new commit identities, while the source branch
+continues to point at the pre-merge commits. Git can then report the branch as
+both ahead and behind even when its tree is byte-identical to `main`. This
+happened after PRs #163, #165, and #168. On two of those cycles, the stale
+branch contributed to a phantom or reverse-direction follow-up PR.
+
+Ignored local state is separate too. The repository's sole `.venv` normally
+lives in the primary checkout and is not copied into linked worktrees. A
+fresh shell in a linked worktree therefore cannot rely on bare `pytest` or a
+relative `.venv` path; it must use the qualified executable from the primary
+checkout. Creating another environment inside the worktree would violate the
+single-environment policy and reintroduce package-version drift.
+
+The safe diagnosis compares both commit ancestry and tree identity. A clean,
+content-identical divergence is normally a rebase-merge artifact; a divergence
+with different trees is real work and must not receive the same reset remedy.
+Realignment is intentionally never automatic because resetting and
+force-pushing rewrite branch history and require explicit owner approval.
+
+The approved remediation keeps two safeguards separate. Deterministic drift
+inside live operational documents will become a blocking extension of
+`doc_state_sync.py`, which already runs locally and in CI. A separate,
+read-only worktree alignment guard will run during local bootstrap and after
+rebase merges; detached CI cannot represent that local topology. The detailed
+guard also reports the allowed shared virtualenv path without creating or
+modifying an environment. The detailed design and current implementation
+status live in
+`docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
+Operational rules remain canonical in `AGENTS.md`; this section is human
+methodology documentation only.
+
 ---
 
 ## Claude Code Skills (tightly scoped tooling)

@@ -82,8 +82,9 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** Batch 21 WP-1 (Tailwind + daisyUI toolchain and theme
-  tokens; no template changes).
+- **Next action:** owner review of the repository-integrity/worktree-alignment
+  design, then implement the F-DOCSYNC-5, F-WORKTREE-1, and F-WORKTREE-2 P0
+  safeguards before Batch 21 WP-1.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -151,6 +152,39 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-05 - Repository-integrity and worktree-guard design (side-task)
+
+- Scope: investigated why canonical documentation drift and repeated
+  post-rebase worktree divergence survived green local and CI gates, then
+  captured the owner-approved remediation as a written design.
+- Plan vs implementation:
+  - Realigned the clean, tree-identical `wip/batch-21` branch from the
+    post-PR-#168 3/3 divergence to `origin/main` and force-pushed with lease
+    after explicit owner authorization.
+  - Split the remediation into a blocking repository-content integrity layer
+    inside docsync and a separate read-only local worktree alignment guard;
+    detached CI runs the former and unit-tests the latter, but does not
+    pretend to validate local worktree topology.
+  - Logged F-WORKTREE-1 and F-WORKTREE-2, and reopened F-DOCSYNC-5 as P0
+    items until mechanical prevention lands. The second worktree finding was
+    reproduced during validation: a linked root has no gitignored `.venv`, so
+    the test gate must reuse the qualified environment under the primary
+    checkout. Updated DEVELOPMENT.md with the human-readable incidents and
+    design rationale while preserving AGENTS.md as the future owner of
+    agent-facing rules.
+  - Wrote the approved design at
+    `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
+- Deviations: implementation is deliberately deferred until the owner reviews
+  the written specification, as required by the selected design workflow.
+- Validation: written-spec self-review -- pass. Qualified shared-venv
+  `pytest -q` -- **390 passed** with 3 existing aiohttp/Python 3.13 warnings.
+  `pre-commit run --all-files` -- all 10 hooks pass. Final
+  `doc_state_sync.py --check` -- exit 0 with the expected active-root
+  `BATCH21_DEFINITION.md` warning.
+- Forward guidance: review the written specification. After approval, create
+  the implementation plan, land both P0 safeguards, then execute the full
+  F-SWE-1 sweep; Batch 21 WP-1 remains gated behind the remediation.
 
 ### 2026-08-03 - PR #168 pre-merge canonical-doc audit (side-task)
 
@@ -234,31 +268,3 @@ non-current operational logs. Older dated entries live in
   -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
 - Forward guidance: branch is directly based on `main`, with this one
   review-fix commit ahead, and is ready for WP-1 after PR review.
-
-### 2026-08-01 - PR #165 round 9; new rules are not retroactive (side-task)
-
-- Scope: three suppressed comments, all valid -- numeric citations into
-  ordered lists (`Anti-Pattern Registry entries 4 and 5`, two
-  `acceptance criterion 8` references) that the registry's own
-  name-based citation rule prohibits.
-- Cause, established from history rather than assumed: the citations
-  were written in the SSOT pass and the FINDINGS refresh; the rule
-  banning them was written two commits later. Nothing swept the
-  existing corpus against the new rule, so the rule shipped with a
-  backlog of its own violations. The pre-push checklist greps the blast
-  radius of *the change*; when the change is a rule, the blast radius is
-  the whole repository, and that leap was never made.
-- Plan vs implementation: all three citations repointed by name. A
-  repo-wide sweep for `entries N`, `Registry #N`, `criterion N`,
-  `step N`, `rule N`, `item N` across every canonical doc returns no
-  matches outside dated point-in-time log records, which stay as
-  written. The lesson was folded into the existing blast-radius
-  anti-pattern as one sentence rather than becoming a fifteenth
-  registry entry -- see the verbosity note below.
-- Deliberate non-action: folded into an existing entry rather than added
-  as a fifteenth, because rule text has begun causing findings as well
-  as preventing them -- the registry grew long enough to need numbers,
-  and the numbers became the defect.
-- Validation: `pytest -q` -- **390 passed**. `pre-commit run --all-files`
-  -- all hooks pass. `doc_state_sync.py --check` -- exit 0.
-- Forward guidance: merge rather than iterate further.
