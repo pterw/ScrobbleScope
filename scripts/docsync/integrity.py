@@ -29,6 +29,10 @@ SCHEMATIC_RE = re.compile(
 # absolute path, a Windows drive letter, or a parent-relative path all name
 # something outside the repository, which `git ls-files` can never list.
 NON_REPOSITORY_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|/|\.\./)")
+# docsync creates the per-batch logs itself during rotation, so a reference to
+# one is a forward declaration rather than a dead link. Without this, running
+# `--check` before `--fix` failed on the tool's own pending output.
+GENERATED_LOG_RE = re.compile(r"^docs/history/logs/BATCH\d+_LOG\.md$", re.IGNORECASE)
 DEFINITION_REFERENCE_RE = re.compile(r"Definition:\s*`([^`\n]+\.md)`")
 BRANCH_FIELD_RE = re.compile(r"^\s*(?:[-*+]\s+)?\*\*Branch:\*\*")
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
@@ -175,6 +179,23 @@ def _active_definition_reference(
                 references.append((section_start + offset + 1, reference))
 
     if len(references) != 1:
+        # Name what was found. Restating the invariant left the two states a
+        # handover actually produces -- a closing and an opening batch declared
+        # together, or a completed batch with nothing declared -- without an
+        # actionable instruction.
+        if references:
+            found = ", ".join(reference for _, reference in references)
+            remediation = (
+                f"Section 3 declares {len(references)} root definitions ({found}). "
+                "Keep only the current batch's; reference any archived definition "
+                "by its `docs/history/definitions/` path."
+            )
+        else:
+            remediation = (
+                f"Declare `Definition: \\`BATCH{current_batch}_DEFINITION.md\\`` in "
+                "PLAYBOOK Section 3, or state that no batch is open if the last "
+                "one closed."
+            )
         return (
             current_batch,
             None,
@@ -185,7 +206,7 @@ def _active_definition_reference(
                 path="PLAYBOOK.md",
                 line=references[0][0] if references else section_start + 1,
                 invariant="An active batch has one root definition declaration.",
-                remediation="Declare one root `BATCH<current>*.md` in PLAYBOOK Section 3.",
+                remediation=remediation,
             ),
         )
 
@@ -304,7 +325,7 @@ def collect_integrity_issues(
             ):
                 # DOC002 owns root Batch definition declarations in Section 3.
                 continue
-            if reference not in tracked_paths:
+            if reference not in tracked_paths and not GENERATED_LOG_RE.match(reference):
                 issues.append(
                     _issue(
                         "DOC001",
