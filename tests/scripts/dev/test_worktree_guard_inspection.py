@@ -106,9 +106,9 @@ def test_divergence_reads_trees_and_never_runs_mutating_git(
         ("rev-parse", "--git-dir"),
         ("rev-parse", "--git-common-dir"),
         ("symbolic-ref", "--quiet", "--short", "HEAD"),
+        ("status", "--porcelain"),
         ("rev-parse", "--verify", "origin/main^{commit}"),
         ("rev-list", "--left-right", "--count", "origin/main...HEAD"),
-        ("status", "--porcelain"),
         ("rev-parse", "HEAD^{tree}"),
         ("rev-parse", "origin/main^{tree}"),
     ]
