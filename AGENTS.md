@@ -79,6 +79,13 @@ prints them, so bare `python` is permitted only for that launch. After it
 succeeds, every subsequent Python, pytest, and pre-commit command from a linked
 worktree uses the qualified primary-checkout path it printed.
 
+**How the commands in this repository's documents are written.** Every literal
+command shown in these documents -- `pytest -q`, `pre-commit run --all-files`,
+`python scripts/doc_state_sync.py`, `python app.py`, and the rest -- is written
+in its primary-checkout form for readability. From a linked worktree, run each
+one through the qualified path the guard printed. The commands are not repeated
+in qualified form at every site; this paragraph is the single conversion rule.
+
 **Token discipline for bootstrap:**
 - Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; Sections 3-5 only if structure, dependency, or architecture detail is needed.
 - Read only Sections 3-4 of `PLAYBOOK.md` by default.
