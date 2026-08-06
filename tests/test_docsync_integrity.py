@@ -297,6 +297,67 @@ def test_active_definition_sha_is_blocking(tmp_path: Path):
     assert "PLAYBOOK Section 4" in issues[0].remediation
 
 
+@pytest.mark.parametrize(
+    "branch_line",
+    [
+        "**Branch:** `wip/batch-21-20260805`.",
+        "**Branch:** `wip/batch-21` -- see PR #12345678.",
+        "**Branch:** `feature/effaced-legacy-ui`.",
+    ],
+    ids=("dated-branch", "pr-number", "hex-alphabet-word"),
+)
+def test_branch_metadata_without_a_commit_identity_is_accepted(
+    tmp_path: Path, branch_line: str
+):
+    """A long number or hex-alphabet word is not a pinned commit identity."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = ["# BATCH21", branch_line]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_indented_branch_field_is_still_recognized(tmp_path: Path):
+    """Reformatting the field as a list item must not change what is reported."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
+        "# BATCH21",
+        "- **Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+@pytest.mark.parametrize(
+    ("definition", "expected"),
+    [
+        (["# BATCH21", "No branch metadata here."], "Keep one"),
+        (
+            [
+                "# BATCH21",
+                "**Branch:** `wip/batch-21`.",
+                "**Branch:** `wip/other`.",
+            ],
+            "Keep one",
+        ),
+        (["# BATCH21", "**Branch:** `wip/batch-21` off `fa61716`."], "commit hash"),
+    ],
+    ids=("missing", "duplicate", "pinned-sha"),
+)
+def test_branch_metadata_remediation_matches_the_actual_violation(
+    tmp_path: Path, definition: list[str], expected: str
+):
+    """Telling an author to remove a hash they never wrote is not actionable."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = definition
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC003"]
+    assert expected in issues[0].remediation
+    if expected == "Keep one":
+        assert "Remove its commit hash" not in issues[0].remediation
+
+
 def test_active_definition_reference_must_match_batch(tmp_path: Path):
     """The current batch cannot point at a previous batch definition."""
     inputs = _valid_inputs(tmp_path)

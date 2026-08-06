@@ -19,6 +19,7 @@ from docsync.parser import (
 from docsync.renderer import SIDE_ARCHIVE_PREFIX
 
 BACKTICK_MD_RE = re.compile(r"`([^`\n]+\.md)`")
+BACKTICK_MD_TOKEN_RE = re.compile(r"`([^`\n]+)`")
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)\s#]+\.md)(?:#[^)]+)?\)")
 SCHEMATIC_RE = re.compile(
     r"[<>*?\[\]{}%]|\bBATCHN(?![0-9A-Za-z])|\bpath/to/",
@@ -29,8 +30,8 @@ SCHEMATIC_RE = re.compile(
 # something outside the repository, which `git ls-files` can never list.
 NON_REPOSITORY_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|/|\.\./)")
 DEFINITION_REFERENCE_RE = re.compile(r"Definition:\s*`([^`\n]+\.md)`")
-BRANCH_FIELD_RE = re.compile(r"^\*\*Branch:\*\*")
-COMMIT_SHA_RE = re.compile(r"\b[0-9a-fA-F]{7,40}\b")
+BRANCH_FIELD_RE = re.compile(r"^\s*(?:[-*+]\s+)?\*\*Branch:\*\*")
+_HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 SESSION_CURRENT_COUNT_RES = (
     re.compile(r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"),
     re.compile(
@@ -51,6 +52,26 @@ _LIVE_DOCUMENT_PATHS = frozenset(
 )
 _SESSION_CONTEXT_PATH = ".claude/SESSION_CONTEXT.md"
 _TRACKED_PATH_DISCOVERY_ERROR = "Repository tracked-file discovery failed"
+
+
+def _pinned_commit_identity(line: str) -> bool:
+    """Return whether the line quotes a literal commit hash.
+
+    Only a backticked token that is entirely hexadecimal counts. A bare
+    hex-range scan over prose matched a dated branch suffix, a pull-request
+    number, and ordinary words spelled from the hex alphabet, each of which
+    blocked the gate with no way to repair it. An all-decimal token is
+    excluded for the same reason: dates and issue numbers are not lineage.
+    """
+    for token in BACKTICK_MD_TOKEN_RE.findall(line):
+        candidate = token.strip()
+        if (
+            7 <= len(candidate) <= 40
+            and set(candidate) <= _HEX_DIGITS
+            and not candidate.isdigit()
+        ):
+            return True
+    return False
 
 
 def _normalize_reference(raw: str) -> str:
@@ -309,15 +330,27 @@ def collect_integrity_issues(
             if definition_lines is not None
             else []
         )
-        if len(branch_lines) != 1 or (
-            branch_lines and COMMIT_SHA_RE.search(branch_lines[0][1])
-        ):
+        # Report the violation that actually occurred. Telling an author to
+        # remove a commit hash from a field that has none, or that is missing
+        # entirely, is not actionable.
+        if len(branch_lines) != 1:
             issues.append(
                 _issue(
                     "DOC003",
                     definition_path,
                     branch_lines[0][0] if branch_lines else None,
-                    "The definition has one Branch field without a commit hash.",
+                    "The active definition declares exactly one Branch field.",
+                    "Keep one `**Branch:**` field naming the stable branch; "
+                    "record lineage in PLAYBOOK Section 4.",
+                )
+            )
+        elif _pinned_commit_identity(branch_lines[0][1]):
+            issues.append(
+                _issue(
+                    "DOC003",
+                    definition_path,
+                    branch_lines[0][0],
+                    "The Branch field names a stable branch without a commit hash.",
                     "Remove its commit hash; keep lineage in PLAYBOOK Section 4.",
                 )
             )
