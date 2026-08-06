@@ -358,6 +358,45 @@ def test_branch_metadata_remediation_matches_the_actual_violation(
         assert "Remove its commit hash" not in issues[0].remediation
 
 
+def test_batch_handover_remediation_names_the_competing_declarations(tmp_path: Path):
+    """Restating a satisfied invariant does not tell the author what to change."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].insert(
+        5, "- **Batch 22 is opening.** Definition: `BATCH22_DEFINITION.md`."
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    issues = collect_integrity_issues(**inputs)
+
+    handover = next(issue for issue in issues if issue.code == "DOC002")
+    assert "BATCH21_DEFINITION.md" in handover.remediation
+    assert "BATCH22_DEFINITION.md" in handover.remediation
+
+
+def test_missing_declaration_remediation_offers_the_between_batches_state(
+    tmp_path: Path,
+):
+    """Between batches no definition exists, so that must be an offered option."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"][4] = "- **Batch 21 is active.**"
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC002"]
+    assert "no batch is open" in issues[0].remediation
+
+
+def test_pending_batch_log_path_is_not_a_dead_link(tmp_path: Path):
+    """--check must not fail on a per-batch log --fix is about to generate."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["AGENTS.md"] = [
+        "Tagged batch history: `docs/history/logs/BATCH21_LOG.md`.",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
 def test_active_definition_reference_must_match_batch(tmp_path: Path):
     """The current batch cannot point at a previous batch definition."""
     inputs = _valid_inputs(tmp_path)
