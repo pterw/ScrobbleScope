@@ -307,7 +307,8 @@ agent starts from identical state. It:
    is never stored twice).
 3. **Refreshes** the machine-managed `DOCSYNC:STATUS` block in
    SESSION_CONTEXT from PLAYBOOK truth (Section 3 + Section 4).
-4. **Cross-validates** content across files (test counts, stale headers).
+4. **Validates** the live document corpus through `docsync.integrity`,
+   which returns typed DOC001-DOC006 issues that block rather than warn.
 
 **Lookup map (avoid path confusion):**
 - Untagged side-task archive: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
@@ -332,10 +333,13 @@ At batch close-out (all WPs done):
 python scripts/doc_state_sync.py --fix --keep-non-current 0
 ```
 
-Modes: `--check` (read-only, exit 1 on drift), `--fix` (write updates), or
+Modes: `--check` (read-only), `--fix` (write updates), or
 `--split-archive` (one-time migration: partition the monolith archive into
 per-batch log files; run once after upgrading to per-batch routing).
 The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
+
+Exit codes: 0 clean; 1 deterministic drift or an integrity error; 2 malformed
+input or an invocation error.
 
 ### Integrity diagnostics
 
@@ -348,6 +352,17 @@ remediation.
 `.claude/SESSION_CONTEXT.md` is committed and shared across all agents. When it is present,
 its managed block is deterministic sync output and stale content is blocking; when it
 is absent, dependent checks are skipped without creating the file.
+
+**Which test count is authoritative.** The newest full-suite `pytest -q` result
+wins, even when it belongs to a side-task entry outside the current-batch
+markers. It stays authoritative after rotation moves that entry into the
+archive, so the count never changes because of a retention setting. An entry
+quoting several bold counts without a `pytest -q` result is ambiguous and is not
+used at all.
+
+The DOC001-DOC006 and WT000-WT014 codes are defined with their invariants in
+`scripts/docsync/integrity.py` and `scripts/dev/_worktree_guard_diagnostics.py`;
+the implementation plans under `docs/superpowers/plans/` tabulate them.
 
 Root `BATCHN_DEFINITION.md` warnings are expected while a batch is active
 and PLAYBOOK Section 3 points to that root definition. Treat them as a
@@ -405,7 +420,7 @@ When all WPs in the active batch are committed and validated:
    Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
 5. **Run `--fix` again** to refresh the STATUS block.
 6. **Verify clean:** `python scripts/doc_state_sync.py --check` must exit 0 with no
-   "Broken archive link" warnings (the two expected root BATCH file warnings disappear
+   integrity errors (the expected root BATCH file warning disappears
    once the definition file has been archived by the step above).
 7. **Commit:** `chore(close-out): Batch N complete; archive definition and purge log`.
 
