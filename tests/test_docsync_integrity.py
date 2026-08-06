@@ -91,6 +91,65 @@ def test_schematic_and_historical_references_are_ignored(tmp_path: Path):
     assert collect_integrity_issues(**inputs) == []
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Upstream: [contributing](https://example.com/CONTRIBUTING.md).",
+        "Upstream: [spec](http://example.org/a/b.md).",
+        "Mirror: `https://example.com/guide.md`.",
+        "Local copy: `/home/peter/repo/PLAYBOOK.md`.",
+        "Windows copy: `C:/Users/peter/repo/PLAYBOOK.md`.",
+        "Sibling: `../other-repo/AGENTS.md`.",
+    ],
+    ids=("md-link", "http-link", "backtick-url", "posix-abs", "windows-abs", "parent"),
+)
+def test_non_repository_targets_are_not_tracked_path_candidates(
+    tmp_path: Path, line: str
+):
+    """DOC001 governs repository-relative references, so nothing else may block."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["AGENTS.md"] = [line]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_fenced_examples_are_not_references(tmp_path: Path):
+    """Illustrative blocks describe history, not the current document set.
+
+    Only fenced blocks are excluded. Indentation is ambiguous in this corpus,
+    where the canonical documents use four-space continuations inside lists,
+    so treating it as a code block would silently disable the check there.
+    """
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["AGENTS.md"] = [
+        "Recovering a deleted charter:",
+        "",
+        "```bash",
+        "git show HEAD~50:`docs/OLD_CHARTER.md`",
+        "```",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_placeholder_shapes_are_not_reported_as_dead_links(tmp_path: Path):
+    """Documented templates must not be mistaken for concrete repository files."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["AGENTS.md"] = [
+        "Templates: `BATCHN.md`, `BATCH{n}_DEFINITION.md`, `path/to/FILE.md`.",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_a_real_dead_repository_reference_still_blocks(tmp_path: Path):
+    """Narrowing the extractor must not weaken the invariant it enforces."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["AGENTS.md"] = ["See `docs/history/NO_SUCH_FILE.md`."]
+
+    assert [i.code for i in collect_integrity_issues(**inputs)] == ["DOC001"]
+
+
 def test_inline_shell_command_is_not_a_document_reference(tmp_path: Path):
     """A command that searches a path is not itself a Markdown path reference."""
     inputs = _valid_inputs(tmp_path)
