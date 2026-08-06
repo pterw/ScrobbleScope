@@ -245,9 +245,10 @@ branch contributed to a phantom or reverse-direction follow-up PR.
 Ignored local state is separate too. The repository's sole `.venv` normally
 lives in the primary checkout and is not copied into linked worktrees. A
 fresh shell in a linked worktree therefore cannot rely on bare `pytest` or a
-relative `.venv` path; it must use the qualified executable from the primary
-checkout. Creating another environment inside the worktree would violate the
-single-environment policy and reintroduce package-version drift.
+relative `.venv` path, which is why `AGENTS.md` directs those commands at the
+qualified executable from the primary checkout. A second environment inside
+the worktree would reintroduce the package-version drift that policy exists
+to prevent.
 
 That creates a deliberate bootstrap asymmetry. The guard must run before the
 primary checkout paths are known, so the canonical AGENTS procedure permits

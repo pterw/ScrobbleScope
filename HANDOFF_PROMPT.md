@@ -13,10 +13,9 @@ gate, and bootstrap-conflict handling are defined once in `AGENTS.md`
 ("Document Roles" and "Session Bootstrap") -- follow them exactly; they
 are not restated here.
 
-After reading the bootstrap files, verify reality matches the docs:
-
-First complete the canonical worktree gate in `AGENTS.md` ("Session
-Bootstrap"). Then retain this human-readable evidence:
+After reading the bootstrap files, complete the canonical worktree gate in
+`AGENTS.md` ("Session Bootstrap"), then retain this human-readable evidence
+that reality matches the docs:
 
 ```bash
 git status
@@ -62,10 +61,6 @@ be part of the same commit as the work it describes. So before you commit:
 1. Update PLAYBOOK Section 3 (mark WP done or note interruption point).
 2. Add a dated entry to PLAYBOOK Section 4 (inside current-batch markers
    for batch work; directly after the end marker for side-tasks).
-3. Run `scripts/doc_state_sync.py --fix` with the qualified Python printed by
-   the canonical worktree gate.
-4. Run the same script with `--check` using that qualified Python and verify
-   it exits 0.
-5. Stage PLAYBOOK.md and `.claude/SESSION_CONTEXT.md` alongside the files
-   you changed, and commit them together.
-6. State clearly what remains for the next agent.
+3. Run the validation gates in `AGENTS.md` Commit Rules ("Procedure before
+   every commit"), which own the doc-sync steps and their ordering.
+4. State clearly what remains for the next agent.

@@ -72,7 +72,21 @@ When network access is available, refresh the comparison ref with
 `python scripts/dev/check_worktree_alignment.py`. Offline sessions run the
 same command with `--offline` and must treat its base result as local-ref-only.
 Stop on a nonzero exit. The guard is read-only; follow its remediation and the
-existing owner-authorization rule before any history rewrite.
+existing owner-authorization rule before any history rewrite. Add `--debug` only
+when diagnosing the guard itself: it re-raises instead of rendering WT014.
+
+Three states are expected rather than faults, so the guard does not block on
+them:
+
+- **Between batches**, there is no expected work branch and therefore no
+  ancestry contract. The guard reports the checkout and skips the base
+  comparison, including when `origin/main` is absent.
+- **A fresh clone with no `.venv`** reports WT009 as a warning, because
+  creating that environment is the next documented step (Environment Setup).
+  Inside a linked worktree the same state is an error, since a second
+  environment there is forbidden and only the owner can resolve it.
+- **Offline**, the base result is local-ref-only and WT013 says so; the guard
+  never fetches.
 The initial guard launch is the sole stdlib-only bootstrap exception to the
 qualified-tool rule: the primary checkout paths are not known until the guard
 prints them, so bare `python` is permitted only for that launch. After it
