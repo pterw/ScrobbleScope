@@ -107,7 +107,10 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
     if snapshot.expected_branch is None:
         return issues
 
-    subject = snapshot.expected_branch
+    # Ancestry and tree identities are measured from HEAD, so the verdict must
+    # name the checked-out branch. Naming PLAYBOOK's branch here would point
+    # WT004's lease-protected force-push at history the guard never inspected.
+    subject = snapshot.actual_branch or "unnamed branch"
     base_ref = base_ref_label(snapshot.base_ref)
     if snapshot.behind > 0 and snapshot.ahead == 0:
         issues.append(
