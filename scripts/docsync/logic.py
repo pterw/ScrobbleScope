@@ -1,9 +1,8 @@
-"""Core sync logic and cross-validation for docsync.
+"""Core sync logic for docsync.
 
-All functions in this module are pure (no file I/O) with one exception:
-_cross_validate checks Path.exists() to verify archive links in PLAYBOOK
-resolve to real files on disk. All other file reading/writing is handled
-exclusively by docsync.cli.
+Every function in this module is pure: no file is read or written here.
+All file I/O is handled exclusively by docsync.cli, and semantic
+validation by docsync.integrity.
 """
 
 from __future__ import annotations
@@ -374,39 +373,3 @@ def _latest_test_count_from_entries(
     if not ranked:
         return None
     return max(ranked)[2]
-
-
-def _cross_validate(
-    playbook_lines: list[str], session_lines: list[str] | None
-) -> list[str]:
-    """Cross-check content across files; return list of warning strings."""
-    warnings: list[str] = []
-
-    # Extract test count from the most recent Section 4 log entry so that the
-    # check fires on real agent output (Section 3 rarely contains these counts).
-    playbook_count = _latest_test_count_from_entries(playbook_lines)
-    session_counts: set[int] = set()
-    if session_lines is not None:
-        for line in session_lines:
-            for m in TEST_COUNT_RE.finditer(line):
-                session_counts.add(int(m.group(1)))
-    if (
-        playbook_count is not None
-        and session_counts
-        and playbook_count not in session_counts
-    ):
-        warnings.append(
-            f"Test count mismatch: SESSION_CONTEXT has {session_counts}, "
-            f"most recent PLAYBOOK log entry has {playbook_count}."
-        )
-
-    archive_link_re = re.compile(r"`((?:docs/history|docs/logarchive)/[^`]+\.md)`")
-    for line in playbook_lines:
-        for m in archive_link_re.finditer(line):
-            linked_path = Path(m.group(1))
-            if not linked_path.exists():
-                warnings.append(
-                    f"Broken archive link in PLAYBOOK: {linked_path} does not exist."
-                )
-
-    return warnings
