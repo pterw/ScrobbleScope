@@ -263,10 +263,11 @@ def test_collect_tracked_paths_raises_sanitized_git_error(tmp_path: Path):
     with pytest.raises(SyncError) as exc_info:
         collect_tracked_paths(tmp_path, runner)
 
-    message = str(exc_info.value)
-    assert message == "Repository tracked-file discovery failed"
-    for secret in ("secret-token", "example.invalid", "private", "git ls-files"):
-        assert secret not in message
+    assert str(exc_info.value) == "Repository tracked-file discovery failed"
+    # Exact equality already proves the message itself carries nothing. The
+    # chained original is the remaining leak path, so assert it is absent.
+    assert exc_info.value.__cause__ is None
+    assert exc_info.value.__context__ is None
 
 
 def test_collect_tracked_paths_sanitizes_git_invocation_oserror(tmp_path: Path):
@@ -279,8 +280,10 @@ def test_collect_tracked_paths_sanitizes_git_invocation_oserror(tmp_path: Path):
         collect_tracked_paths(tmp_path, runner)
 
     assert str(exc_info.value) == "Repository tracked-file discovery failed"
-    assert "private" not in str(exc_info.value)
-    assert "git ls-files" not in str(exc_info.value)
+    assert exc_info.value.__cause__ is None
+    assert (
+        exc_info.value.__suppress_context__
+    ), "the original OSError carries the host path and must not be chained"
 
 
 def test_active_definition_sha_is_blocking(tmp_path: Path):
@@ -712,3 +715,16 @@ def test_test_count_in_only_one_source_is_not_a_contradiction(tmp_path: Path):
     inputs["expected_session_lines"] = ["No count here."]
 
     assert collect_integrity_issues(**inputs) == []
+
+
+def test_collect_tracked_paths_reads_real_git_output(tmp_path: Path):
+    """The default runner is never exercised through the CLI fixtures."""
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    tmp_path.joinpath("tracked.md").write_text("tracked\n", encoding="utf-8")
+    tmp_path.joinpath("untracked.md").write_text("untracked\n", encoding="utf-8")
+    subprocess.run(["git", "add", "tracked.md"], cwd=tmp_path, check=True)
+
+    tracked = collect_tracked_paths(tmp_path)
+
+    assert "tracked.md" in tracked
+    assert "untracked.md" not in tracked
