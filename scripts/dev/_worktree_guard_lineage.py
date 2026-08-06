@@ -21,9 +21,16 @@ ACTIVE_BATCH_RE = re.compile(
     r"\bBatch\s+(\d+)\s+is\s+(?:active|current|in[\s-]?progress)\b",
     re.IGNORECASE,
 )
-BRANCH_RE = re.compile(r"\bBranch:\s*`([^`]+)`", re.IGNORECASE)
+# Section 3 labels are conventionally bold, so accept `**Branch:**` and
+# `**Branch**:` alongside the plain form.
+BRANCH_RE = re.compile(r"\bBranch\*{0,2}:\*{0,2}\s*`([^`]+)`", re.IGNORECASE)
+# The cross-check exists to catch a batch declared active under an identifier
+# the strict pattern cannot read. It therefore matches the same declaration
+# shape -- one identifier token between "Batch" and the state -- so that
+# ordinary prose about a work package or "the current batch" is not mistaken
+# for malformed metadata.
 _ACTIVE_MARKER_RE = re.compile(
-    r"\bBatch\b[^\n]*\bis\s+(?:active|current|in[\s-]?progress)\b",
+    r"\bBatch\s+(\S+)\s+is\s+(?:active|current|in[\s-]?progress)\b",
     re.IGNORECASE,
 )
 
@@ -45,12 +52,16 @@ def parse_batch_branch(playbook_text: str) -> BatchBranch:
         raise GuardError("PLAYBOOK Section 3 has malformed active batch metadata.")
     if len(active) > 1:
         raise GuardError("PLAYBOOK Section 3 has duplicate active batch metadata.")
-    branches = list(BRANCH_RE.finditer(section))
+    # Repeating the same branch name in supporting prose is unambiguous;
+    # only conflicting values are metadata the guard must refuse to resolve.
+    branches = list(
+        dict.fromkeys(match.group(1) for match in BRANCH_RE.finditer(section))
+    )
     if len(branches) > 1:
-        raise GuardError("PLAYBOOK Section 3 has duplicate branch metadata.")
+        raise GuardError("PLAYBOOK Section 3 has conflicting branch metadata.")
     if not active:
         return BatchBranch(None, None)
-    branch = branches[0].group(1) if branches else None
+    branch = branches[0] if branches else None
     return BatchBranch(int(active[0].group(1)), branch)
 
 
