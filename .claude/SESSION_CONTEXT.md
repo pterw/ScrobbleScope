@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-08-05
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **521 passing** across 32 test modules |
+| Tests | **561 passing** across 35 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -47,7 +47,7 @@ Last updated: 2026-08-05
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **521 passed**.
+- Latest validated test count: **561 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -78,6 +78,7 @@ static/
 scripts/
   doc_state_sync.py         # thin entry point for deterministic documentation sync
   dev/
+    dev_start.py            # Postgres container check plus Flask launch
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
     _worktree_guard_lineage.py # PLAYBOOK parsing and pure classification
@@ -94,6 +95,10 @@ scripts/
     logic.py                # rotation, deduplication, and authoritative test count
     integrity.py            # live-document semantic integrity diagnostics
     cli.py                  # file I/O, final-state enforcement, and exit codes
+  testing/
+    _http_client.py         # shared HTTP helper for the manual test scripts
+    smoke_cache_check.py    # DB cache smoke verification
+    concurrent_users_test.py # manual concurrency probe
 ```
 
 ---
@@ -130,7 +135,7 @@ dev/_worktree_guard_runner.py <- dev/_worktree_guard_types
 dev/_worktree_guard_venv.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_types
 dev/_worktree_guard_inspection.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
 dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_inspection, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
-dev/check_worktree_alignment.py <- dev/worktree_guard.py
+dev/check_worktree_alignment.py <- dev/worktree_guard
 ```
 
 ---
@@ -162,16 +167,17 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (521 tests)
+## 6. Test structure (561 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
 | test_docsync_cli.py | 23 |
-| test_docsync_integrity.py | 38 |
-| test_docsync_logic.py | 44 |
+| test_docsync_integrity.py | 58 |
+| test_docsync_logic.py | 32 |
 | test_docsync_parser.py | 35 |
 | test_docsync_renderer.py | 24 |
+| test_docsync_test_count.py | 6 |
 | test_domain.py | 13 |
 | test_heatmap.py | 20 |
 | test_repositories.py | 20 |
@@ -179,18 +185,6 @@ loading.js polls GET /progress?job_id=...
 | test_routes.py | 67 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
-| scripts/dev/test_dev_start.py | 11 |
-| scripts/dev/test_worktree_guard.py | 23 |
-| scripts/dev/test_worktree_guard_base_ref.py | 4 |
-| scripts/dev/test_worktree_guard_cli.py | 4 |
-| scripts/dev/test_worktree_guard_cli_e2e.py | 11 |
-| scripts/dev/test_worktree_guard_inspection.py | 10 |
-| scripts/dev/test_worktree_guard_runner.py | 4 |
-| scripts/dev/test_worktree_guard_severity.py | 15 |
-| scripts/dev/test_worktree_guard_topology.py | 6 |
-| scripts/dev/test_worktree_guard_venv.py | 7 |
-| scripts/testing/test_smoke_cache_check.py | 13 |
-| scripts/testing/test_concurrent_users_test.py | 6 |
 | services/test_lastfm_logic.py | 7 |
 | services/test_lastfm_service.py | 9 |
 | services/test_orchestrator_fetch_and_process.py | 10 |
@@ -198,6 +192,20 @@ loading.js polls GET /progress?job_id=...
 | services/test_orchestrator_helpers.py | 18 |
 | services/test_orchestrator_process_albums.py | 7 |
 | services/test_spotify_service.py | 10 |
+| scripts/dev/test_dev_start.py | 11 |
+| scripts/dev/test_worktree_guard.py | 23 |
+| scripts/dev/test_worktree_guard_base_ref.py | 6 |
+| scripts/dev/test_worktree_guard_cli.py | 5 |
+| scripts/dev/test_worktree_guard_cli_e2e.py | 11 |
+| scripts/dev/test_worktree_guard_inspection.py | 12 |
+| scripts/dev/test_worktree_guard_playbook.py | 10 |
+| scripts/dev/test_worktree_guard_runner.py | 4 |
+| scripts/dev/test_worktree_guard_severity.py | 15 |
+| scripts/dev/test_worktree_guard_subject.py | 7 |
+| scripts/dev/test_worktree_guard_topology.py | 7 |
+| scripts/dev/test_worktree_guard_venv.py | 10 |
+| scripts/testing/test_concurrent_users_test.py | 6 |
+| scripts/testing/test_smoke_cache_check.py | 13 |
 
 ---
 

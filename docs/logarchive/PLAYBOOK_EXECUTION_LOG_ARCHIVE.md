@@ -9,6 +9,26 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Worktree guard default remediation compatibility (side-task)
+
+- Scope: restored the established WT007 operator guidance for the canonical
+  `origin/main` base without changing the review-approved behavior for custom
+  or local refs.
+- Plan vs implementation:
+  - Added an exact regression that failed against the neutralized default
+    wording and protects both the explicit `git fetch --prune origin` action
+    and the offline local-ref fallback.
+  - Added one exact-default branch to missing-base remediation. Custom
+    `upstream/trunk` and local `main` retain their selected-ref-specific,
+    command-neutral guidance; WT013 ordering and exit behavior are unchanged.
+- Deviations: none; this is a compatibility correction only, with no Git
+  command, collector sequence, diagnostic code, or dependency change.
+- Validation: focused guard suite -- **55 passed**. `pytest -q` -- **484
+  passed** with 3 existing aiohttp/Python 3.13 warnings. All hooks and final
+  docsync checks pass.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
+
 ### 2026-08-05 - Worktree guard review remediation (side-task)
 
 - Scope: corrected the two Task 2 review findings without changing the

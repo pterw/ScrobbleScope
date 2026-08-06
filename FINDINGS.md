@@ -1,8 +1,8 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-05
+Last updated: 2026-08-06
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, F-SWE-1 audit next, then WP-1. 521 tests across 32 test modules.
+WP-0 done, F-SWE-1 audit next, then WP-1. 561 tests across 35 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -21,6 +21,12 @@ F-* ID or a P0/P1 item -- not as part of the standard bootstrap order.
 | **P1** | Next batch |
 | **P2** | Scaling roadmap / future consideration |
 | **Info** | Documented design choice, no action needed now |
+
+---
+
+## P0 -- Fix before next deploy
+
+_No open P0 items._
 
 ---
 
@@ -72,7 +78,49 @@ Source: PR #168 pre-merge audit and follow-up root-cause investigation.
 
 ---
 
+### F-DOCSYNC-4: per-batch logs were undiscoverable; tombstones retained
+
+Until 2026-07-31 the 18 `docs/history/logs/BATCHN_LOG.md` files were
+referenced by no working doc (PLAYBOOK Section 2 had no Log column), so
+batch history was reachable only via a directory glob. Fixed: Section 2
+gained a Log column and the AGENTS.md close-out procedure fills it per
+batch. Related disposition: the two ~300-byte
+`docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
+`docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` are deliberate Batch 14
+"Moved:" tombstones kept
+for backward references -- not cruft, do not delete.
+Status: resolved 2026-07-31; rotates to the archive at Batch 21
+close-out. Source: PR #163 doc-hygiene pass.
+
+---
+
 ## P1 -- Next batch candidates
+
+### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
+
+Cases the PR #169 review round confirmed and deliberately left unfixed
+because each needs a design decision rather than a patch:
+four-space indented blocks are still scanned for references, because the
+canonical documents use that indentation for list continuations and
+excluding it would silently disable DOC001 across much of AGENTS.md;
+prose added after the last Section 4 entry is never reference-checked;
+`cli.py` glob discovery is case-insensitive on Windows and case-sensitive
+on Linux while candidate matching uses `re.IGNORECASE`; a live document
+resolving outside the working directory raises `ValueError` rather than
+the documented exit 2; and a file deleted on disk with the deletion
+unstaged still counts as tracked.
+Status: open. Source: PR #169 independent review.
+
+### F-WORKTREE-3: guard boundaries outside the design decision table
+
+Confirmed but unaddressed: between batches the guard skips every ancestry
+check by design, which is exactly when the rebase-merge artifact appears,
+so a genuinely diverged branch passes silently; `resolve_venv` derives the
+primary checkout as the common Git directory's parent, which is wrong under
+`git clone --separate-git-dir`; WT010 never fires for a detached dirty
+worktree; and `missing_base_remediation` receives an already-labelled ref,
+so an unsafe ref name renders as "the local base ref configured base ref".
+Status: open. Source: PR #169 independent review.
 
 ### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1)
 
@@ -267,20 +315,6 @@ then one-time re-route of the existing close-out entries); hand-retagging
 machine-rotated archive content was declined in PR #162 round 3 and again
 in PR #163 round 3 on the same point-in-time principle.
 Status: open (P2). Source: PR #163 review round 3.
-
-### F-DOCSYNC-4: per-batch logs were undiscoverable; tombstones retained
-
-Until 2026-07-31 the 18 `docs/history/logs/BATCHN_LOG.md` files were
-referenced by no working doc (PLAYBOOK Section 2 had no Log column), so
-batch history was reachable only via a directory glob. Fixed: Section 2
-gained a Log column and the AGENTS.md close-out procedure fills it per
-batch. Related disposition: the two ~300-byte
-`docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
-`docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` are deliberate Batch 14
-"Moved:" tombstones kept
-for backward references -- not cruft, do not delete.
-Status: resolved 2026-07-31; rotates to the archive at Batch 21
-close-out. Source: PR #163 doc-hygiene pass.
 
 ### F-MAS-5: in-memory JOBS dict limits horizontal scaling
 

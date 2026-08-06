@@ -87,6 +87,7 @@ them:
   environment there is forbidden and only the owner can resolve it.
 - **Offline**, the base result is local-ref-only and WT013 says so; the guard
   never fetches.
+
 The initial guard launch is the sole stdlib-only bootstrap exception to the
 qualified-tool rule: the primary checkout paths are not known until the guard
 prints them, so bare `python` is permitted only for that launch. After it
@@ -101,7 +102,7 @@ one through the qualified path the guard printed. The commands are not repeated
 in qualified form at every site; this paragraph is the single conversion rule.
 
 **Token discipline for bootstrap:**
-- Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; Sections 3-5 only if structure, dependency, or architecture detail is needed.
+- Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; later sections only if structure, dependency, architecture, test-inventory, or environment detail is needed.
 - Read only Sections 3-4 of `PLAYBOOK.md` by default.
 - Open archive files only when Section 4 links to one for the task at hand.
 - Do not paste long historical logs into prompts; link files instead.
