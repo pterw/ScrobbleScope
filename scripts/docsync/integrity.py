@@ -20,7 +20,14 @@ from docsync.renderer import SIDE_ARCHIVE_PREFIX
 
 BACKTICK_MD_RE = re.compile(r"`([^`\n]+\.md)`")
 MARKDOWN_LINK_RE = re.compile(r"\[[^\]]+\]\(([^)\s#]+\.md)(?:#[^)]+)?\)")
-SCHEMATIC_RE = re.compile(r"[<*?\[\]]|\bBATCHN_", re.IGNORECASE)
+SCHEMATIC_RE = re.compile(
+    r"[<>*?\[\]{}%]|\bBATCHN(?![0-9A-Za-z])|\bpath/to/",
+    re.IGNORECASE,
+)
+# DOC001 governs repository-relative references only. A URI scheme, a POSIX
+# absolute path, a Windows drive letter, or a parent-relative path all name
+# something outside the repository, which `git ls-files` can never list.
+NON_REPOSITORY_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|/|\.\./)")
 DEFINITION_REFERENCE_RE = re.compile(r"Definition:\s*`([^`\n]+\.md)`")
 BRANCH_FIELD_RE = re.compile(r"^\*\*Branch:\*\*")
 COMMIT_SHA_RE = re.compile(r"\b[0-9a-fA-F]{7,40}\b")
@@ -52,15 +59,25 @@ def _normalize_reference(raw: str) -> str:
 
 
 def _concrete_references(lines: list[str]) -> list[tuple[int, str]]:
-    """Extract literal Markdown references and source lines."""
+    """Extract literal repository-relative Markdown references and their lines."""
     references: list[tuple[int, str]] = []
+    in_code_block = False
     for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        # A fenced block illustrates a command or a historical state rather
+        # than asserting that a file exists now.
+        if in_code_block:
+            continue
         for pattern in (BACKTICK_MD_RE, MARKDOWN_LINK_RE):
             for match in pattern.finditer(line):
                 reference = _normalize_reference(match.group(1))
-                if not any(
-                    char.isspace() for char in reference
-                ) and not SCHEMATIC_RE.search(reference):
+                if (
+                    not any(char.isspace() for char in reference)
+                    and not SCHEMATIC_RE.search(reference)
+                    and not NON_REPOSITORY_RE.match(reference)
+                ):
                     references.append((line_number, reference))
     return references
 
