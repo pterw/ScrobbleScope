@@ -99,24 +99,8 @@ def _inspect_worktree(
     git_dir = resolve_path(resolved_root, git_dir_result.stdout)
     common_dir = resolve_path(resolved_root, common_dir_result.stdout)
 
-    playbook_path = resolved_root / "PLAYBOOK.md"
-    try:
-        batch = parse_batch_branch(playbook_path.read_text(encoding="utf-8"))
-    except (OSError, GuardError) as error:
-        return finish_diagnostics(
-            [
-                issue(
-                    "ERROR",
-                    "WT002",
-                    str(playbook_path),
-                    f"active batch metadata is unavailable: {error}",
-                    "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
-                )
-            ],
-            offline=offline,
-            base_ref=base_ref,
-        )
-
+    # HEAD topology is resolved before PLAYBOOK is required so that a detached
+    # CI checkout still skips cleanly when the document cannot be parsed.
     is_recognized_ci = recognized_ci(environ)
     branch_result = runner(
         resolved_root, ("symbolic-ref", "--quiet", "--short", "HEAD")
@@ -125,8 +109,8 @@ def _inspect_worktree(
         return finish_diagnostics(
             classify_lineage(
                 LineageSnapshot(
-                    batch.active_batch,
-                    batch.expected_branch,
+                    None,
+                    None,
                     None,
                     base_ref,
                     0,
@@ -145,43 +129,54 @@ def _inspect_worktree(
         raise GuardError("Git could not determine whether HEAD names a branch.")
     actual_branch = branch_result.stdout.strip()
 
-    base_result = runner(
-        resolved_root, ("rev-parse", "--verify", f"{base_ref}^{{commit}}")
-    )
-    if base_result.returncode != 0:
-        label = base_ref_label(base_ref)
+    playbook_path = resolved_root / "PLAYBOOK.md"
+    try:
+        batch = parse_batch_branch(playbook_path.read_text(encoding="utf-8"))
+    except (OSError, GuardError) as error:
         return finish_diagnostics(
             [
                 issue(
                     "ERROR",
-                    "WT007",
-                    label,
-                    "comparison base ref is missing from the local repository.",
-                    missing_base_remediation(label),
+                    "WT002",
+                    str(playbook_path),
+                    f"active batch metadata is unavailable: {error}",
+                    "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
                 )
             ],
             offline=offline,
             base_ref=base_ref,
         )
 
-    counts_result = runner(
-        resolved_root,
-        ("rev-list", "--left-right", "--count", f"{base_ref}...HEAD"),
-    )
-    if counts_result.returncode != 0:
-        raise GuardError("Git could not compare HEAD with the configured base ref.")
-    behind, ahead = parse_counts(counts_result.stdout)
-
     status_result = runner(resolved_root, ("status", "--porcelain"))
     if status_result.returncode != 0:
         raise GuardError("Git could not inspect the worktree status.")
 
+    # Between batches there is no ancestry contract to enforce, so a missing
+    # base is not a defect. With an active batch the base is required, but its
+    # absence must not suppress the branch-state findings collected below.
+    base_available = (
+        runner(
+            resolved_root, ("rev-parse", "--verify", f"{base_ref}^{{commit}}")
+        ).returncode
+        == 0
+    )
+    behind = ahead = 0
     head_tree = base_tree = None
-    if behind > 0 and ahead > 0:
-        head_tree = optional_output(runner(resolved_root, ("rev-parse", "HEAD^{tree}")))
-        base_tree = optional_output(
-            runner(resolved_root, ("rev-parse", f"{base_ref}^{{tree}}"))
+    if base_available:
+        counts_result = runner(
+            resolved_root,
+            ("rev-list", "--left-right", "--count", f"{base_ref}...HEAD"),
         )
+        if counts_result.returncode != 0:
+            raise GuardError("Git could not compare HEAD with the configured base ref.")
+        behind, ahead = parse_counts(counts_result.stdout)
+        if behind > 0 and ahead > 0:
+            head_tree = optional_output(
+                runner(resolved_root, ("rev-parse", "HEAD^{tree}"))
+            )
+            base_tree = optional_output(
+                runner(resolved_root, ("rev-parse", f"{base_ref}^{{tree}}"))
+            )
 
     snapshot = LineageSnapshot(
         batch.active_batch,
@@ -197,6 +192,17 @@ def _inspect_worktree(
         is_recognized_ci,
     )
     diagnostics = classify_lineage(snapshot)
+    if not base_available and batch.active_batch is not None:
+        label = base_ref_label(base_ref)
+        diagnostics.append(
+            issue(
+                "ERROR",
+                "WT007",
+                label,
+                "comparison base ref is missing from the local repository.",
+                missing_base_remediation(label),
+            )
+        )
     venv, venv_diagnostics = resolve_venv(
         repo_root=resolved_root,
         git_dir=git_dir,
@@ -208,10 +214,14 @@ def _inspect_worktree(
         diagnostic.severity == "ERROR" for diagnostic in diagnostics
     ):
         kind = "linked worktree" if git_dir != common_dir else "primary checkout"
+        ancestry = (
+            f"branch is {behind} behind and {ahead} ahead of {base_ref_label(base_ref)}"
+            if base_available
+            else "branch ancestry was not compared"
+        )
         message = (
-            f"branch is {behind} behind and {ahead} ahead of {base_ref}; "
-            f"checkout kind: {kind}; Python: {venv.python}; pytest: {venv.pytest}; "
-            f"pre-commit: {venv.pre_commit}."
+            f"{ancestry}; checkout kind: {kind}; Python: {venv.python}; "
+            f"pytest: {venv.pytest}; pre-commit: {venv.pre_commit}."
         )
         diagnostics.append(issue("INFO", "WT000", actual_branch, message))
     return finish_diagnostics(diagnostics, offline=offline, base_ref=base_ref)

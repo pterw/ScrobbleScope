@@ -37,6 +37,19 @@ def test_detached_checkout_stops_before_local_topology_checks(
     )
 
 
+def test_detached_ci_skips_before_playbook_metadata_is_required(tmp_path):
+    """A CI checkout skips topology even when PLAYBOOK cannot be parsed."""
+    repo, responses = repository(tmp_path)
+    repo.joinpath("PLAYBOOK.md").write_text("# PLAYBOOK\n\nno sections\n", "utf-8")
+    responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = CommandResult(1, "", "")
+
+    diagnostics = inspect_worktree(
+        repo, environ={"CI": "true"}, runner=FakeGit(responses)
+    )
+
+    assert codes(diagnostics) == ["WT011"]
+
+
 @pytest.mark.parametrize("linked", [False, True], ids=("normal", "linked"))
 def test_summary_reports_checkout_kind_and_primary_tools(tmp_path, linked):
     """Successful summaries expose topology and the sole qualified tool paths."""

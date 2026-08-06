@@ -50,6 +50,39 @@ def test_missing_base_remediation_matches_selected_ref(tmp_path, base_ref, remed
     assert diagnostics[0].remediation == remediation
 
 
+def _write_section_three(repo, section_three):
+    """Replace the fixture PLAYBOOK with controlled Section 3 content."""
+    repo.joinpath("PLAYBOOK.md").write_text(
+        "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
+        f"{section_three}\n\n## 4. Execution log\n",
+        encoding="utf-8",
+    )
+
+
+def test_between_batches_does_not_require_the_base_ref(tmp_path):
+    """No active batch means no ancestry contract, so a missing base is not an error."""
+    repo, responses = repository(tmp_path)
+    _write_section_three(repo, "- **Batch 20 is complete.** No batch is open.")
+    responses[("rev-parse", "--verify", "origin/main^{commit}")] = fail()
+
+    diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
+
+    assert codes(diagnostics) == ["WT000"]
+    assert "behind" not in diagnostics[0].message
+
+
+def test_missing_base_ref_still_reports_the_wrong_checkout(tmp_path):
+    """WT007 must not mask the higher-value wrong-branch finding."""
+    repo, responses = repository(tmp_path)
+    responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = ok("review/other\n")
+    responses[("rev-parse", "--verify", "origin/main^{commit}")] = fail()
+
+    diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
+
+    assert codes(diagnostics) == ["WT003", "WT007"]
+    assert diagnostics[0].subject == "review/other"
+
+
 def test_custom_base_divergence_remediation_names_selected_ref(tmp_path):
     """WT004 refresh guidance follows the configured remote-tracking base."""
     base_ref = "upstream/trunk"
