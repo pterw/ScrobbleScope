@@ -30,13 +30,23 @@ def resolve_venv(
         and local_candidate.exists()
         and local_candidate.resolve() != candidate.resolve()
     ):
+        # Redirecting to the primary environment is only actionable when it
+        # exists; otherwise the reader is sent to an empty path with no hint
+        # that the real remedy is the documented setup procedure.
+        remediation = (
+            f"Use only the primary checkout environment at {candidate}; do not "
+            "install packages or create another environment here."
+            if candidate.exists()
+            else f"The primary checkout has no environment at {candidate}. Follow "
+            "the AGENTS.md Environment Setup section there; do not install "
+            "packages or keep another environment in this worktree."
+        )
         diagnostic = issue(
             "ERROR",
             "WT008",
             str(local_candidate),
             "linked worktree has a distinct forbidden secondary virtualenv.",
-            f"Use only the primary checkout environment at {candidate}; do not "
-            "install packages or create another environment here.",
+            remediation,
         )
         return None, [diagnostic]
 
@@ -48,8 +58,13 @@ def resolve_venv(
         if not qualified[name].is_file()
     ]
     if missing:
+        # In an ordinary checkout, creating this environment is the documented
+        # next step, so blocking here would stop every fresh clone before it
+        # could run Environment Setup. In a linked worktree the same state is
+        # unrecoverable without the owner, because a second environment there
+        # is forbidden.
         diagnostic = issue(
-            "ERROR",
+            "ERROR" if linked else "WARNING",
             "WT009",
             str(candidate),
             "required virtualenv tools are missing: " + ", ".join(missing) + ".",
