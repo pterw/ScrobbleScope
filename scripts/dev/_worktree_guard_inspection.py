@@ -132,14 +132,23 @@ def _inspect_worktree(
     playbook_path = resolved_root / "PLAYBOOK.md"
     try:
         batch = parse_batch_branch(playbook_path.read_text(encoding="utf-8"))
-    except (OSError, GuardError) as error:
+    except GuardError as parse_failure:
+        # GuardError text is authored here and describes Section 3 only.
+        detail = str(parse_failure)
+    except OSError:
+        # An arbitrary OS failure carries absolute paths and errno text, which
+        # the shared diagnostic stream must not republish.
+        detail = "PLAYBOOK.md could not be read."
+    else:
+        detail = None
+    if detail is not None:
         return finish_diagnostics(
             [
                 issue(
                     "ERROR",
                     "WT002",
-                    str(playbook_path),
-                    f"active batch metadata is unavailable: {error}",
+                    "PLAYBOOK.md",
+                    f"active batch metadata is unavailable: {detail}",
                     "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
                 )
             ],
