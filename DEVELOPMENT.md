@@ -189,10 +189,9 @@ edit them out or misplace them.
    can never appear twice, even if an agent manually copied an entry.
 5. **Rebuilds** the managed `<!-- DOCSYNC:STATUS-START/END -->` block in
    `SESSION_CONTEXT.md` from PLAYBOOK truth, so the two files are always
-   consistent without manual editing. The newest live full-suite `pytest -q`
-   result is authoritative even when it belongs to a side-task entry outside
-   the current-batch markers; conflicting named dashboard, status, or test
-   inventory counts are blocking integrity errors.
+   consistent without manual editing. Which count wins is a rule, so it is
+   owned by `AGENTS.md` ("Integrity diagnostics"); conflicting named
+   dashboard, status, or test inventory counts are blocking integrity errors.
 6. **Enforces** live-document integrity: dead concrete references, active
    definition metadata, archive prologue drift, and session contradictions
    produce stable blocking diagnostics. `--fix` first writes only

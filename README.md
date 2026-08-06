@@ -394,7 +394,7 @@ pre-commit run --all-files
 |   |   |-- cli.py                 # --check / --fix / --split-archive modes
 |   |   |-- parser.py              # Section 4 entry parser + heading validation
 |   |   |-- renderer.py            # STATUS block + archive rendering
-|   |   |-- logic.py               # Rotation, dedup, cross-validation
+|   |   |-- logic.py               # Rotation, dedup, status derivation
 |   |   |-- integrity.py           # Blocking live-document semantic checks
 |   |   `-- models.py              # Entry + BatchState dataclasses
 |   |-- dev/
