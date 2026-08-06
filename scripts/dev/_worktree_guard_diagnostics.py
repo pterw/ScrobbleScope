@@ -69,6 +69,29 @@ def identical_tree_remediation(base_ref: str) -> str:
     )
 
 
+def metadata_unavailable_diagnostic(detail: str) -> Diagnostic:
+    """Report unusable Section 3 metadata without leaking filesystem detail."""
+    return issue(
+        "ERROR",
+        "WT002",
+        "PLAYBOOK.md",
+        f"active batch metadata is unavailable: {detail}",
+        "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
+    )
+
+
+def missing_base_diagnostic(base_ref: str) -> Diagnostic:
+    """Report an absent comparison base against the display-safe ref label."""
+    label = base_ref_label(base_ref)
+    return issue(
+        "ERROR",
+        "WT007",
+        label,
+        "comparison base ref is missing from the local repository.",
+        missing_base_remediation(label),
+    )
+
+
 def finish_diagnostics(
     diagnostics: list[Diagnostic], *, offline: bool, base_ref: str
 ) -> list[Diagnostic]:

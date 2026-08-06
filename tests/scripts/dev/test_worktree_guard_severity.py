@@ -1,44 +1,23 @@
 """Decision-table contracts for every stable worktree diagnostic severity."""
 
+import os
 from pathlib import Path
 
 import pytest
 
 from scripts.dev.worktree_guard import (
     GuardError,
-    LineageSnapshot,
     classify_lineage,
     inspect_worktree,
     resolve_venv,
 )
-from tests.scripts.dev.worktree_guard_fakes import FakeGit, fail, repository
-
-
-def _snapshot(**overrides):
-    """Build a safe active-batch snapshot for one decision-table mutation."""
-    values = {
-        "active_batch": 21,
-        "expected_branch": "wip/batch-21",
-        "actual_branch": "wip/batch-21",
-        "base_ref": "origin/main",
-        "behind": 0,
-        "ahead": 0,
-        "head_tree": "tree-a",
-        "base_tree": "tree-a",
-        "dirty": False,
-        "detached": False,
-        "recognized_ci": False,
-    }
-    values.update(overrides)
-    return LineageSnapshot(**values)
-
-
-def _tools(root: Path) -> None:
-    """Create the real Windows tool files required by environment resolution."""
-    scripts = root / "Scripts"
-    scripts.mkdir(parents=True)
-    for name in ("python.exe", "pytest.exe", "pre-commit.exe"):
-        (scripts / name).touch()
+from tests.scripts.dev.worktree_guard_fakes import (
+    FakeGit,
+    fail,
+    make_tools,
+    repository,
+)
+from tests.scripts.dev.worktree_guard_fakes import snapshot as _snapshot
 
 
 def _venv_diagnostics(tmp_path: Path, *, secondary: bool):
@@ -49,10 +28,10 @@ def _venv_diagnostics(tmp_path: Path, *, secondary: bool):
     linked.mkdir()
     git_dir.mkdir(parents=True)
     if secondary:
-        _tools(primary / ".venv")
-        _tools(linked / ".venv")
+        make_tools(primary / ".venv")
+        make_tools(linked / ".venv")
     return resolve_venv(
-        repo_root=linked, git_dir=git_dir, common_dir=common, os_name="nt"
+        repo_root=linked, git_dir=git_dir, common_dir=common, os_name=os.name
     )[1]
 
 

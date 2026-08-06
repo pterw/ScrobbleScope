@@ -5,10 +5,10 @@ import pytest
 from scripts.dev.worktree_guard import (
     BatchBranch,
     GuardError,
-    LineageSnapshot,
     classify_lineage,
     parse_batch_branch,
 )
+from tests.scripts.dev.worktree_guard_fakes import snapshot as _snapshot
 
 WT004_REMEDIATION = (
     "Stop. Reconcile any dirty files, refresh origin/main, verify the trees again, "
@@ -89,25 +89,6 @@ def test_malformed_playbook_state_fails_closed(playbook, message):
     """Ambiguous or malformed active state raises instead of choosing a value."""
     with pytest.raises(GuardError, match=message):
         parse_batch_branch(playbook)
-
-
-def _snapshot(**overrides):
-    """Build a lineage snapshot with an explicitly safe active-batch state."""
-    values = {
-        "active_batch": 21,
-        "expected_branch": "wip/batch-21",
-        "actual_branch": "wip/batch-21",
-        "base_ref": "origin/main",
-        "behind": 0,
-        "ahead": 0,
-        "head_tree": "tree-a",
-        "base_tree": "tree-a",
-        "dirty": False,
-        "detached": False,
-        "recognized_ci": False,
-    }
-    values.update(overrides)
-    return LineageSnapshot(**values)
 
 
 @pytest.mark.parametrize(

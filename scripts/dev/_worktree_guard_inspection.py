@@ -11,7 +11,8 @@ from scripts.dev._worktree_guard_diagnostics import (
     finish_diagnostics,
     inspection_failure_diagnostics,
     issue,
-    missing_base_remediation,
+    metadata_unavailable_diagnostic,
+    missing_base_diagnostic,
 )
 from scripts.dev._worktree_guard_lineage import classify_lineage, parse_batch_branch
 from scripts.dev._worktree_guard_runner import (
@@ -38,6 +39,7 @@ def inspect_worktree(
     environ: Mapping[str, str] = os.environ,
     runner: Callable[[Path, tuple[str, ...]], CommandResult] = run_git,
     os_name: str | None = None,
+    debug: bool = False,
 ) -> list[Diagnostic]:
     """Collect local state using the host OS unless a test boundary overrides it."""
     try:
@@ -50,6 +52,12 @@ def inspect_worktree(
             os_name=os.name if os_name is None else os_name,
         )
     except Exception:
+        # Fail closed by default: WT014 is deliberately identical for every
+        # cause so no path, command, or credential can leak. That also hides a
+        # defect in the guard itself, so `debug` re-raises for an operator who
+        # is diagnosing the guard rather than the repository.
+        if debug:
+            raise
         return inspection_failure_diagnostics(base_ref=base_ref, offline=offline)
 
 
@@ -143,15 +151,7 @@ def _inspect_worktree(
         detail = None
     if detail is not None:
         return finish_diagnostics(
-            [
-                issue(
-                    "ERROR",
-                    "WT002",
-                    "PLAYBOOK.md",
-                    f"active batch metadata is unavailable: {detail}",
-                    "Correct PLAYBOOK Section 3 before continuing; this guard does not edit it.",
-                )
-            ],
+            [metadata_unavailable_diagnostic(detail)],
             offline=offline,
             base_ref=base_ref,
         )
@@ -202,16 +202,7 @@ def _inspect_worktree(
     )
     diagnostics = classify_lineage(snapshot)
     if not base_available and batch.active_batch is not None:
-        label = base_ref_label(base_ref)
-        diagnostics.append(
-            issue(
-                "ERROR",
-                "WT007",
-                label,
-                "comparison base ref is missing from the local repository.",
-                missing_base_remediation(label),
-            )
-        )
+        diagnostics.append(missing_base_diagnostic(base_ref))
     venv, venv_diagnostics = resolve_venv(
         repo_root=resolved_root,
         git_dir=git_dir,

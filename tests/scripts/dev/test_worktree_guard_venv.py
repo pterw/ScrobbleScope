@@ -5,20 +5,12 @@ from pathlib import Path
 import pytest
 
 from scripts.dev.worktree_guard import VenvPaths, resolve_venv
+from tests.scripts.dev.worktree_guard_fakes import make_tools
 
 
 def _tools(venv_root: Path, os_name: str = "nt", omit: str | None = None) -> None:
-    """Create a real temporary tool layout with an optional missing member."""
-    directory, names = (
-        ("Scripts", ("python.exe", "pytest.exe", "pre-commit.exe"))
-        if os_name == "nt"
-        else ("bin", ("python", "pytest", "pre-commit"))
-    )
-    tools = venv_root / directory
-    tools.mkdir(parents=True)
-    for name in names:
-        if name != omit:
-            (tools / name).touch()
+    """Create an explicit tool layout with an optional missing member."""
+    make_tools(venv_root, os_name=os_name, omit=omit)
 
 
 def _checkout(tmp_path: Path) -> tuple[Path, Path, Path, Path]:

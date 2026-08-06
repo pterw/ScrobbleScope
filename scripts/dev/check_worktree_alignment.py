@@ -39,6 +39,11 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         action="store_true",
         help="label the base result as local-ref-only",
     )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="re-raise inspection failures instead of rendering WT014",
+    )
     return parser.parse_args(argv)
 
 
@@ -58,9 +63,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
         diagnostics = inspect_worktree(
-            Path.cwd(), base_ref=args.base_ref, offline=args.offline
+            Path.cwd(),
+            base_ref=args.base_ref,
+            offline=args.offline,
+            debug=args.debug,
         )
     except Exception:
+        # Defence in depth for a failure raised outside the collector's own
+        # boundary. Under --debug the operator wants the traceback instead.
+        if args.debug:
+            raise
         diagnostics = inspection_failure_diagnostics(
             base_ref=args.base_ref, offline=args.offline
         )

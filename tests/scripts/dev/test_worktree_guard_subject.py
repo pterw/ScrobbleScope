@@ -2,12 +2,8 @@
 
 import pytest
 
-from scripts.dev.worktree_guard import (
-    LineageSnapshot,
-    classify_lineage,
-    inspect_worktree,
-)
-from tests.scripts.dev.worktree_guard_fakes import FakeGit, ok, repository
+from scripts.dev.worktree_guard import classify_lineage, inspect_worktree
+from tests.scripts.dev.worktree_guard_fakes import FakeGit, ok, repository, snapshot
 
 EXPECTED = "wip/batch-21"
 ACTUAL = "review/other"
@@ -15,21 +11,9 @@ ACTUAL = "review/other"
 
 def _snapshot(**overrides):
     """Build a wrong-branch snapshot whose counts describe the checkout."""
-    values = {
-        "active_batch": 21,
-        "expected_branch": EXPECTED,
-        "actual_branch": ACTUAL,
-        "base_ref": "origin/main",
-        "behind": 0,
-        "ahead": 0,
-        "head_tree": "tree-a",
-        "base_tree": "tree-a",
-        "dirty": False,
-        "detached": False,
-        "recognized_ci": False,
-    }
+    values = {"expected_branch": EXPECTED, "actual_branch": ACTUAL}
     values.update(overrides)
-    return LineageSnapshot(**values)
+    return snapshot(**values)
 
 
 @pytest.mark.parametrize(

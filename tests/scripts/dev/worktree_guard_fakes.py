@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-from scripts.dev.worktree_guard import CommandResult
+from scripts.dev.worktree_guard import CommandResult, LineageSnapshot
 
 
 class FakeGit:
@@ -73,6 +73,36 @@ def repository(
 def codes(diagnostics):
     """Return stable diagnostic codes without coupling tests to prose."""
     return [diagnostic.code for diagnostic in diagnostics]
+
+
+def snapshot(**overrides):
+    """Build an aligned active-batch lineage snapshot for classifier tests."""
+    values = {
+        "active_batch": 21,
+        "expected_branch": "wip/batch-21",
+        "actual_branch": "wip/batch-21",
+        "base_ref": "origin/main",
+        "behind": 0,
+        "ahead": 0,
+        "head_tree": "tree-a",
+        "base_tree": "tree-a",
+        "dirty": False,
+        "detached": False,
+        "recognized_ci": False,
+    }
+    values.update(overrides)
+    return LineageSnapshot(**values)
+
+
+def make_tools(
+    venv_root: Path, *, os_name: str | None = None, omit: str | None = None
+) -> None:
+    """Create the host-appropriate tool layout, optionally omitting one file."""
+    for tool in venv_tools(venv_root, os_name=os_name).values():
+        if tool.name == omit:
+            continue
+        tool.parent.mkdir(parents=True, exist_ok=True)
+        tool.touch()
 
 
 def venv_tools(venv_root: Path, *, os_name: str | None = None) -> dict[str, Path]:
