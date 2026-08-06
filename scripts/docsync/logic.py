@@ -250,7 +250,14 @@ def _sync(
         status_block = _build_status_block(
             section_3_state=section_3_state,
             current_entries=current_entries,
-            latest_test_count=_latest_test_count_from_entries(new_playbook_lines),
+            # Read the pre-rotation document. The authoritative count is a fact
+            # about the repository, so it must not change with how many entries
+            # the retention window happens to keep: the documented close-out
+            # command purges the window entirely, which would otherwise revive
+            # a superseded count and then fail its own consistency check.
+            latest_test_count=_latest_test_count_from_entries(
+                playbook_lines, new_archive_lines
+            ),
         )
         new_session_lines = (
             session_lines[: status_start + 1]
@@ -269,14 +276,21 @@ def _sync(
     )
 
 
-def _latest_test_count_from_entries(playbook_lines: list[str]) -> int | None:
-    """Return the newest full-suite count from live Section 4 log entries.
+def _latest_test_count_from_entries(
+    playbook_lines: list[str], archive_lines: list[str] | None = None
+) -> int | None:
+    """Return the newest full-suite count recorded anywhere in the log.
 
     Current-batch entries are append-ordered, while side-task entries after the
     end marker are newest-first. A same-date side task is newer than the batch
     entry it follows. Explicit ``pytest -q`` results win over focused counts
     across all live entries; a sole bold count remains supported only when no
     explicit full-suite result exists.
+
+    Rotated entries in ``archive_lines`` are considered too. The test count is a
+    fact about the repository, so it must not change when the retention window
+    moves an entry out of PLAYBOOK: the documented close-out command purges that
+    window entirely, which would otherwise revive a superseded count.
     """
     try:
         s4_start, s4_end = _find_section(
@@ -311,32 +325,55 @@ def _latest_test_count_from_entries(playbook_lines: list[str]) -> int | None:
             )
             if explicit_matches:
                 return entry.date, int(explicit_matches[-1])
-            if not allow_legacy_fallback:
-                continue
             fallback_matches = [
                 int(match.group(1)) for match in TEST_COUNT_RE.finditer(entry_text)
             ]
+            if not allow_legacy_fallback:
+                # An entry quoting several counts without a `pytest -q` result
+                # is ambiguous. Skipping to an older entry would silently
+                # republish a superseded number as current, so stop here and
+                # let the count read as unknown instead.
+                if len(fallback_matches) > 1:
+                    return None
+                continue
             if len(fallback_matches) == 1:
                 return entry.date, fallback_matches[0]
         return None
 
     current_candidates = list(reversed(current_entries))
+    rotated_candidates: list[Entry] = []
+    if archive_lines is not None:
+        try:
+            archive_entries, _ = _parse_entries(archive_lines)
+        except SyncError:
+            archive_entries = []
+        rotated_candidates = sorted(
+            archive_entries, key=lambda entry: entry.date, reverse=True
+        )
 
     side_count = newest_count(side_entries, allow_legacy_fallback=False)
     current_count = newest_count(current_candidates, allow_legacy_fallback=False)
-    if side_count is None and current_count is None:
+    rotated_count = newest_count(rotated_candidates, allow_legacy_fallback=False)
+    if side_count is None and current_count is None and rotated_count is None:
         side_count = newest_count(side_entries, allow_legacy_fallback=True)
         current_count = newest_count(
             current_candidates,
             allow_legacy_fallback=True,
         )
-    if side_count is not None and (
-        current_count is None or side_count[0] >= current_count[0]
-    ):
-        return side_count[1]
-    if current_count is not None:
-        return current_count[1]
-    return None
+    # A same-date non-current entry outranks the batch entry it follows, so
+    # rank by date first and let the current-batch entry lose ties.
+    ranked = [
+        (found[0], rank, found[1])
+        for found, rank in (
+            (side_count, 1),
+            (rotated_count, 1),
+            (current_count, 0),
+        )
+        if found is not None
+    ]
+    if not ranked:
+        return None
+    return max(ranked)[2]
 
 
 def _cross_validate(
