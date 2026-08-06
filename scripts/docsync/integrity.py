@@ -339,7 +339,7 @@ def collect_integrity_issues(
                     "Run doc_state_sync.py --fix to refresh the managed session block.",
                 )
             )
-        playbook_count = _latest_test_count_from_entries(playbook_lines)
+        playbook_count = _latest_test_count_from_entries(playbook_lines, archive_lines)
         session_count_fields = [
             (line_number, int(match.group(1)))
             for line_number, line in enumerate(session_lines, start=1)
