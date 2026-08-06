@@ -90,6 +90,10 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 Owned by `AGENTS.md`: Environment Setup, plus the Anti-Pattern Registry
 entries "Wrong venv or bare pip" and "Background server processes".
 
+The commands in this file are written in their primary-checkout form. From a
+linked worktree, convert each one per the rule in `AGENTS.md` Session
+Bootstrap.
+
 ---
 
 ## GitHub CLI Authentication
