@@ -152,10 +152,12 @@ detects both an ordinary checkout and a linked worktree through Git's own
 `--git-dir` and `--git-common-dir` results; no filesystem path convention is
 assumed.
 
-For a linked worktree, the resolved common Git directory also identifies the
-primary checkout. The guard reports the platform-appropriate pytest and
-pre-commit executables under that checkout's `.venv` when the linked root has
-no local `.venv`. It does not activate, create, install into, or repair the
+For a linked worktree, the primary checkout is the main working tree reported
+by `git worktree list --porcelain`. It is not derived from the common Git
+directory: that names shared metadata, which `git clone --separate-git-dir`
+places outside every working tree. The guard reports the platform-appropriate
+Python, pytest, and pre-commit executables under that checkout's `.venv` when
+the linked root has no local `.venv`. It does not activate, create, install into, or repair the
 environment. If neither location contains the required executables, it fails
 with the existing `AGENTS.md` setup guidance rather than falling back to bare
 pip. An ordinary checkout continues to use its root `.venv`.
