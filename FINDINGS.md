@@ -115,11 +115,16 @@ Status: open. Source: PR #169 independent review.
 
 Confirmed but unaddressed: between batches the guard skips every ancestry
 check by design, which is exactly when the rebase-merge artifact appears,
-so a genuinely diverged branch passes silently; `resolve_venv` derives the
-primary checkout as the common Git directory's parent, which is wrong under
-`git clone --separate-git-dir`; WT010 never fires for a detached dirty
-worktree; and `missing_base_remediation` receives an already-labelled ref,
-so an unsafe ref name renders as "the local base ref configured base ref".
+so a genuinely diverged branch passes silently; WT010 never fires for a
+detached dirty worktree, which returns WT012 alone; and
+`missing_base_remediation` receives an already-labelled ref, so an unsafe
+ref name renders as "the local base ref configured base ref".
+
+The fourth item originally listed here -- `resolve_venv` deriving the primary
+checkout from the common Git directory's parent -- was fixed in this PR's
+round-2 remediation, which discovers the main working tree with
+`git worktree list --porcelain` and passes it in. The remaining three are
+unchanged.
 Status: open. Source: PR #169 independent review.
 
 ### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1)
