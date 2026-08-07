@@ -372,8 +372,10 @@ is absent, dependent checks are skipped without creating the file.
 wins, even when it belongs to a side-task entry outside the current-batch
 markers. It stays authoritative after rotation moves that entry into the
 archive, so the count never changes because of a retention setting. An entry
-quoting several bold counts without a `pytest -q` result is ambiguous and is not
-used at all.
+quoting several bold counts without a `pytest -q` result is ambiguous, and
+ambiguity suppresses every older entry rather than deferring to one: the count
+reads as unknown. Skipping to an older entry would republish a superseded
+number as if it were current, which is worse than reporting no count.
 
 The DOC codes are defined with their invariants in
 `scripts/docsync/integrity.py`. Each WT code is defined by the guard module
@@ -536,7 +538,17 @@ Agents must check their work against this list before committing.
       are point-in-time records and stay as written;
     - after correcting a factual claim, grep its distinctive phrase
       repo-wide and fix every copy in the same commit, or delete the
-      copies and link to the single owner (Anti-duplication rule).
+      copies and link to the single owner (Anti-duplication rule);
+    - after changing a signature, a derivation, or an ordering, grep the
+      **concept** rather than only the literal string. The same fact
+      recurs in four shapes -- code, prose, worked example, and a second
+      tabulation elsewhere in the same file -- and a grep written against
+      the code shape clears it while the other three survive. A sweep
+      that replaced nineteen copies of one derivation in shell snippets
+      left the identical derivation standing as an English sentence in a
+      design document, as a normative step in the plan that snippet came
+      from, and inside two callable examples whose argument list no
+      longer matched the function.
     A fix that leaves siblings behind is half a fix and costs another
     review round. The same applies when the change *is* a rule: adding
     or tightening one instantly makes every pre-existing violation
