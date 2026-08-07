@@ -49,16 +49,14 @@ subprocess Git commands, pytest, pre-commit, GitHub Actions unit tests.
   including docsync fix, full pytest, all hooks, final docsync check, and
   explicit path staging.
 
-Until Task 2 ships the guard's executable-path report, resolve the existing
-Windows virtualenv in every fresh PowerShell process with:
+Task 2 has shipped, so the guard itself reports the qualified executable paths:
+run `python scripts/dev/check_worktree_alignment.py` and read them from WT000.
 
-```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
-$pythonExe = Join-Path $primaryCheckout '.venv\Scripts\python.exe'
-$pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
-$preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
-```
+The interim snippet this section used to carry derived the primary checkout as
+the parent of `git rev-parse --git-common-dir`. That is wrong under
+`git clone --separate-git-dir`, where the metadata directory sits outside every
+working tree; the guard now asks `git worktree list --porcelain` instead. Do not
+reintroduce the parent-of-common-dir derivation anywhere.
 
 ---
 
@@ -175,7 +173,13 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
 
 
 def resolve_venv(
-    *, repo_root: Path, git_dir: Path, common_dir: Path, os_name: str
+    *,
+    repo_root: Path,
+    git_dir: Path,
+    common_dir: Path,
+    main_worktree: Path,
+    os_name: str,
+    access: Callable[..., bool] = os.access,
 ) -> tuple[VenvPaths | None, list[Diagnostic]]:
     """Resolve the sole allowed environment for a normal or linked checkout."""
 ```
@@ -183,7 +187,8 @@ def resolve_venv(
 - Stable codes: `WT001` not a repository, `WT002` active branch metadata
   missing, `WT003` wrong branch, `WT004` identical-tree rebase artifact,
   `WT005` true divergence, `WT006` behind base, `WT007` missing base,
-  `WT008` forbidden secondary virtualenv, `WT009` missing required virtualenv,
+  `WT008` forbidden secondary virtualenv, `WT009` required virtualenv tool
+  missing or not executable,
   `WT010` dirty-tree warning, `WT011` detached-CI skip, and `WT012` detached
   local checkout. `WT013` is the final informational offline qualifier and
   `WT014` is an inspection/runtime failure. `WT000` is an informational
@@ -245,8 +250,8 @@ must raise `GuardError` rather than silently choosing one.
 - [ ] **Step 2: Run parser tests and verify red state**
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/scripts/dev/test_worktree_guard.py -q
 ```
@@ -275,8 +280,9 @@ branches, or a missing Section 3.
 - [ ] **Step 4: Run parser tests and verify green state**
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$pytestExe = Join-Path (Split-Path -Parent $commonGitDir) '.venv\Scripts\pytest.exe'
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
+$pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/scripts/dev/test_worktree_guard.py -q
 ```
 
@@ -350,8 +356,9 @@ order and that dirty state does not erase the lineage error.
 - [ ] **Step 6: Run classifier tests and verify red state**
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$pytestExe = Join-Path (Split-Path -Parent $commonGitDir) '.venv\Scripts\pytest.exe'
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
+$pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/scripts/dev/test_worktree_guard.py -q
 ```
 
@@ -468,15 +475,19 @@ POSIX_TOOLS = {
 ```
 
 If a linked-root `.venv` exists and does not resolve to the primary candidate,
-emit `WT008`. If any required candidate executable is absent, emit `WT009`
-listing each missing repository-relative tool path and the AGENTS.md setup
-section. Never call pip or create directories.
+emit `WT008`. If any required candidate tool is absent -- or, on POSIX, present
+without an execute bit, since a non-executable file is not a usable tool --
+emit `WT009` listing each unusable repository-relative tool path and the
+AGENTS.md setup section. Severity is an error in a linked worktree, where a
+second environment is forbidden, and a warning in an ordinary checkout, where
+creating the environment is the documented next step. Never call pip or create
+directories.
 
 - [ ] **Step 10: Run all pure guard tests**
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/scripts/dev/test_worktree_guard.py tests/scripts/dev/test_worktree_guard_venv.py -q
 ```
@@ -538,7 +549,13 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
 
 
 def resolve_venv(
-    *, repo_root: Path, git_dir: Path, common_dir: Path, os_name: str
+    *,
+    repo_root: Path,
+    git_dir: Path,
+    common_dir: Path,
+    main_worktree: Path,
+    os_name: str,
+    access: Callable[..., bool] = os.access,
 ) -> tuple[VenvPaths | None, list[Diagnostic]]:
     """Return the Task 1 environment resolution and diagnostics."""
 ```
@@ -634,8 +651,8 @@ insufficient because Ubuntu CI must receive WT000 instead of WT009.
 - [ ] **Step 2: Run the inspection tests and verify red state**
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/scripts/dev/test_worktree_guard.py `
   tests/scripts/dev/test_worktree_guard_base_ref.py `
@@ -716,8 +733,9 @@ offline, plus an exact `(code, severity)` table covering WT000 through WT014.
 Run these new CLI/runtime files and observe failures before implementation:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$pytestExe = Join-Path (Split-Path -Parent $commonGitDir) '.venv\Scripts\pytest.exe'
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
+$pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/scripts/dev/test_worktree_guard_cli.py `
   tests/scripts/dev/test_worktree_guard_cli_e2e.py `
   tests/scripts/dev/test_worktree_guard_runner.py `
@@ -757,8 +775,8 @@ def main(argv=None) -> int:
 - [ ] **Step 5: Run all guard tests and verify green state**
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/scripts/dev/test_worktree_guard.py `
   tests/scripts/dev/test_worktree_guard_base_ref.py `
@@ -828,8 +846,8 @@ post-commit invocation as the acceptance result. Before committing, run the
 offline diagnostic to validate discovery without mutating refs:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pythonExe = Join-Path $primaryCheckout '.venv\Scripts\python.exe'
 & $pythonExe scripts/dev/check_worktree_alignment.py --offline
 ```
@@ -842,8 +860,8 @@ After the commit and a successful `git fetch --prune origin`, rerun without
 `--offline`:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pythonExe = Join-Path $primaryCheckout '.venv\Scripts\python.exe'
 git fetch --prune origin
 & $pythonExe scripts/dev/check_worktree_alignment.py
@@ -858,8 +876,8 @@ fails, do not change Git history; fix the guard or escalate the actual state.
 Before commit, run:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pythonExe = Join-Path $primaryCheckout '.venv\Scripts\python.exe'
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'

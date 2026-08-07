@@ -375,9 +375,12 @@ archive, so the count never changes because of a retention setting. An entry
 quoting several bold counts without a `pytest -q` result is ambiguous and is not
 used at all.
 
-The DOC001-DOC006 and WT000-WT014 codes are defined with their invariants in
-`scripts/docsync/integrity.py` and `scripts/dev/_worktree_guard_diagnostics.py`;
-the implementation plans under `docs/superpowers/plans/` tabulate them.
+The DOC codes are defined with their invariants in
+`scripts/docsync/integrity.py`. Each WT code is defined by the guard module
+that owns its check, so they are spread across `scripts/dev/_worktree_guard_*.py`
+rather than collected in one file -- grep for the code itself instead of
+assuming a module. The implementation plans under `docs/superpowers/plans/`
+tabulate both sets.
 
 Root `BATCHN_DEFINITION.md` warnings are expected while a batch is active
 and PLAYBOOK Section 3 points to that root definition. Treat them as a

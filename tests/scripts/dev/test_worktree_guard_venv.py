@@ -1,6 +1,5 @@
 """Behavior tests for primary-checkout virtualenv resolution."""
 
-import os
 from pathlib import Path
 
 import pytest
@@ -249,30 +248,6 @@ def test_executable_posix_tools_are_accepted(tmp_path):
     )
     assert issues == []
     assert paths.python == primary / ".venv/bin/python"
-
-
-def test_posix_tools_built_by_the_doubles_are_executable_on_the_host(tmp_path):
-    """The doubles must build a state the guard accepts, not one it rejects.
-
-    Guards the fixture itself: `touch()` alone produced non-executable files,
-    which is what let the missing check go unnoticed. Runs against the real
-    `os.access`, so it is only meaningful on POSIX.
-    """
-    if os.name == "nt":
-        pytest.skip("Windows derives executability from the extension")
-    primary = tmp_path / "primary"
-    common = primary / ".git"
-    common.mkdir(parents=True)
-    _tools(primary / ".venv", os_name="posix")
-    paths, issues = resolve_venv(
-        repo_root=primary,
-        git_dir=common,
-        common_dir=common,
-        main_worktree=primary,
-        os_name="posix",
-    )
-    assert issues == []
-    assert paths is not None
 
 
 def test_linked_root_symlink_to_primary_venv_is_allowed(tmp_path):

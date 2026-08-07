@@ -6,6 +6,11 @@ on:
       - main
       - 'wip/**'
   pull_request:
+  # Manual escape hatch. GitHub silently created no run for the push of
+  # 8463ca4 on wip/batch-21 even though the event was delivered and Actions
+  # was healthy, leaving a PR with no gate result and no way to re-run it.
+  # Note this trigger only becomes usable once it is on the default branch.
+  workflow_dispatch:
 
 jobs:
   quality-gate:

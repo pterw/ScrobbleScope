@@ -38,8 +38,8 @@ subprocess Git queries, pytest, pre-commit, GitHub Actions.
   each fresh PowerShell process with:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pythonExe = Join-Path $primaryCheckout '.venv\Scripts\python.exe'
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
@@ -230,8 +230,8 @@ Add separate tests for Markdown link syntax, Windows backslash normalization,
 Run:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/test_docsync_integrity.py -q
 ```
@@ -322,8 +322,8 @@ stderr, command, path, token, credential, or traceback content.
 Run:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/test_docsync_integrity.py -q
 ```
@@ -395,8 +395,8 @@ matching and mismatching current test counts, and a count in only one source.
 Run:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/test_docsync_integrity.py -q
 ```
@@ -431,8 +431,8 @@ Return `sorted(issues, key=lambda i: (i.path, i.line or 0, i.code))`.
 Run:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/test_docsync_integrity.py tests/test_docsync_logic.py -q
 ```
@@ -581,8 +581,8 @@ creating the file.
 Run:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/test_docsync_renderer.py tests/test_docsync_cli.py -q
 ```
@@ -649,8 +649,8 @@ direct unit tests; removing it is outside this P0 remediation.
 Run:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/test_docsync_integrity.py tests/test_docsync_renderer.py tests/test_docsync_cli.py tests/test_docsync_logic.py -q
 ```
@@ -684,8 +684,8 @@ Section 1 with the measured test count and remaining P0 gate. Run
 Run the deliberately stale fixture through the real CLI entry path:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 & $pytestExe tests/test_docsync_cli.py::TestMainArgs::test_check_fails_on_dead_live_reference -q
 ```
@@ -700,8 +700,8 @@ Run the canonical procedure in order with the shared primary-checkout
 executables:
 
 ```powershell
-$commonGitDir = (Resolve-Path (git rev-parse --git-common-dir)).Path
-$primaryCheckout = Split-Path -Parent $commonGitDir
+$primaryCheckout = (git worktree list --porcelain |
+  Select-String '^worktree ' | Select-Object -First 1).Line.Substring(9)
 $pythonExe = Join-Path $primaryCheckout '.venv\Scripts\python.exe'
 $pytestExe = Join-Path $primaryCheckout '.venv\Scripts\pytest.exe'
 $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
