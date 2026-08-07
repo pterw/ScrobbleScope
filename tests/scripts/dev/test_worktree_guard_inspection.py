@@ -46,6 +46,46 @@ def test_summary_never_echoes_a_hostile_base_ref(tmp_path):
     assert "FAKE INSTRUCTION" not in diagnostics[0].message
 
 
+def _between_batches(repo):
+    """Rewrite the fixture PLAYBOOK so Section 3 declares no active batch."""
+    repo.joinpath("PLAYBOOK.md").write_text(
+        "# PLAYBOOK\n\n## 3. Active batch + next action\n\n"
+        "- Batch 20 is complete. No batch is open.\n\n"
+        "## 4. Execution log\n",
+        encoding="utf-8",
+    )
+
+
+def test_between_batches_never_consults_the_base_ref(tmp_path):
+    """No active batch means no ancestry contract, so the base is not read.
+
+    Verifying the base anyway let a malformed or unreachable ref surface a
+    diagnostic in the one state the contract says ignores the base entirely.
+    """
+    repo, responses = repository(tmp_path)
+    _between_batches(repo)
+    responses[("rev-parse", "--verify", "origin/main^{commit}")] = fail()
+    runner = FakeGit(responses)
+
+    diagnostics = inspect_worktree(repo, runner=runner)
+
+    assert "WT007" not in codes(diagnostics)
+    issued = [args for _, args in runner.calls]
+    assert ("rev-parse", "--verify", "origin/main^{commit}") not in issued
+    assert ("rev-list", "--left-right", "--count", "origin/main...HEAD") not in issued
+
+
+def test_between_batches_summary_states_ancestry_was_not_compared(tmp_path):
+    """The WT000 summary must not imply a comparison that never happened."""
+    repo, responses = repository(tmp_path)
+    _between_batches(repo)
+
+    diagnostics = inspect_worktree(repo, runner=FakeGit(responses))
+
+    assert codes(diagnostics) == ["WT000"]
+    assert "branch ancestry was not compared" in diagnostics[0].message
+
+
 def test_missing_base_fails_before_ancestry_or_status(tmp_path):
     """An unavailable comparison ref yields WT007 before lineage collection."""
     repo, responses = repository(tmp_path)
@@ -130,6 +170,7 @@ def test_divergence_reads_trees_and_never_runs_mutating_git(
         ("rev-parse", "--show-toplevel"),
         ("rev-parse", "--git-dir"),
         ("rev-parse", "--git-common-dir"),
+        ("worktree", "list", "--porcelain"),
         ("symbolic-ref", "--quiet", "--short", "HEAD"),
         ("status", "--porcelain"),
         ("rev-parse", "--verify", "origin/main^{commit}"),

@@ -178,10 +178,14 @@ The state decisions are deterministic:
 | Actual branch differs from PLAYBOOK | Error: wrong checkout/worktree |
 | Detached HEAD in recognized CI | Explicit skip with exit 0 |
 | Detached HEAD outside CI | Error |
-| Missing repository or base ref | Error |
+| Missing repository | Error |
+| Missing base ref while a batch is active | Error |
+| Missing base ref between batches | Not consulted; ancestry is not enforced |
 | Dirty worktree | Warning normally; remediation is forbidden until reconciled |
 | Linked root lacks `.venv`, primary checkout has it | Pass with shared executable paths |
-| No allowed `.venv` has the required executables | Error; never install automatically |
+| Ordinary checkout lacks `.venv` | Warning; Environment Setup is the documented next step |
+| Linked worktree lacks the primary `.venv` | Error; a second environment here is forbidden |
+| A required tool is absent, or present without POSIX execute permission | Error; never install automatically |
 
 For the identical-tree case, the diagnostic states the safe sequence without
 executing it: verify the exact branch and clean tree, obtain the owner approval

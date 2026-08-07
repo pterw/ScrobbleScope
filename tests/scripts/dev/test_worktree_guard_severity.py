@@ -31,7 +31,11 @@ def _venv_diagnostics(tmp_path: Path, *, secondary: bool):
         make_tools(primary / ".venv")
         make_tools(linked / ".venv")
     return resolve_venv(
-        repo_root=linked, git_dir=git_dir, common_dir=common, os_name=os.name
+        repo_root=linked,
+        git_dir=git_dir,
+        common_dir=common,
+        main_worktree=primary,
+        os_name=os.name,
     )[1]
 
 
