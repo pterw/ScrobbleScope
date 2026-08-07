@@ -53,6 +53,21 @@ def parse_counts(output: str) -> tuple[int, int]:
         raise GuardError("Git returned malformed ancestry counts.") from None
 
 
+def parse_main_worktree(parent: Path, output: str) -> Path | None:
+    """Return the main working tree from `git worktree list --porcelain` output.
+
+    Git documents the main working tree as the first record, so the first
+    ``worktree`` attribute is taken and the rest of the listing ignored. Returns
+    ``None`` when no record is present, which the caller treats as unresolvable
+    metadata rather than guessing a root.
+    """
+    for line in output.splitlines():
+        attribute, separator, value = line.partition(" ")
+        if attribute == "worktree" and separator and value.strip():
+            return resolve_path(parent, value)
+    return None
+
+
 def optional_output(result: CommandResult) -> str | None:
     """Return stripped Git output when available for conservative classification."""
     if result.returncode != 0:

@@ -54,20 +54,36 @@ def repository(
         _tools(primary / ".venv", os_name=os_name)
         git_dir_text = "../primary/.git/worktrees/linked\n"
         common_text = "../primary/.git\n"
+        worktree_list_text = worktree_listing(primary, repo)
     else:
         repo.joinpath(".git").mkdir()
         _tools(repo / ".venv", os_name=os_name)
         git_dir_text = common_text = ".git\n"
+        worktree_list_text = worktree_listing(repo)
     responses = {
         ("rev-parse", "--show-toplevel"): ok(f"{repo}\n"),
         ("rev-parse", "--git-dir"): ok(git_dir_text),
         ("rev-parse", "--git-common-dir"): ok(common_text),
+        ("worktree", "list", "--porcelain"): ok(worktree_list_text),
         ("symbolic-ref", "--quiet", "--short", "HEAD"): ok("wip/batch-21\n"),
         ("rev-parse", "--verify", f"{base_ref}^{{commit}}"): ok("base\n"),
         ("rev-list", "--left-right", "--count", f"{base_ref}...HEAD"): ok("0\t0\n"),
         ("status", "--porcelain"): ok(),
     }
     return repo, responses
+
+
+def worktree_listing(*roots: Path) -> str:
+    """Render `git worktree list --porcelain` output, main working tree first.
+
+    Git emits one blank-line-separated record per working tree and documents the
+    first as the main one, so callers pass the primary checkout first.
+    """
+    records = [
+        f"worktree {root}\nHEAD {'a' * 40}\nbranch refs/heads/branch-{index}\n"
+        for index, root in enumerate(roots)
+    ]
+    return "\n".join(records)
 
 
 def codes(diagnostics):
@@ -95,14 +111,17 @@ def snapshot(**overrides):
 
 
 def make_tools(
-    venv_root: Path, *, os_name: str | None = None, omit: str | None = None
+    venv_root: Path,
+    *,
+    os_name: str | None = None,
+    omit: str | None = None,
+    executable: bool = True,
 ) -> None:
     """Create the host-appropriate tool layout, optionally omitting one file."""
     for tool in venv_tools(venv_root, os_name=os_name).values():
         if tool.name == omit:
             continue
-        tool.parent.mkdir(parents=True, exist_ok=True)
-        tool.touch()
+        _write_tool(tool, executable=executable)
 
 
 def venv_tools(venv_root: Path, *, os_name: str | None = None) -> dict[str, Path]:
@@ -127,5 +146,18 @@ def venv_tools(venv_root: Path, *, os_name: str | None = None) -> dict[str, Path
 def _tools(venv_root: Path, *, os_name: str | None) -> None:
     """Create the three executables required by environment resolution."""
     for tool in venv_tools(venv_root, os_name=os_name).values():
-        tool.parent.mkdir(parents=True, exist_ok=True)
-        tool.touch()
+        _write_tool(tool, executable=True)
+
+
+def _write_tool(tool: Path, *, executable: bool) -> None:
+    """Create one tool file, granting the execute bit unless told otherwise.
+
+    `touch()` alone produces a non-executable file, which on POSIX is not a
+    usable tool. Every double that stands in for a working environment must
+    therefore set the execute bit, or it asserts against a state the guard is
+    supposed to reject.
+    """
+    tool.parent.mkdir(parents=True, exist_ok=True)
+    tool.touch()
+    mode = tool.stat().st_mode
+    tool.chmod(mode | 0o111 if executable else mode & ~0o111)

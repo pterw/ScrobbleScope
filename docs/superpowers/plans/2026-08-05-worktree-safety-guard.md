@@ -600,13 +600,21 @@ Add integration cases for this exact local command sequence:
 rev-parse --show-toplevel
 rev-parse --git-dir
 rev-parse --git-common-dir
+worktree list --porcelain
 symbolic-ref --quiet --short HEAD
+status --porcelain
 rev-parse --verify origin/main^{commit}
 rev-list --left-right --count origin/main...HEAD
-status --porcelain
 rev-parse HEAD^{tree}
 rev-parse origin/main^{tree}
 ```
+
+`worktree list --porcelain` names the main working tree directly; it cannot be
+derived from `--git-common-dir`, which points at shared metadata that
+`git clone --separate-git-dir` places outside every checkout. Branch state is
+collected before the base ref so that base findings never suppress it, and the
+last four commands run only while a batch is active -- between batches there is
+no ancestry contract, so the base is not consulted at all.
 
 Assert the tree commands are called only for both-sided divergence. Assert no
 command contains `fetch`, `reset`, `rebase`, `switch`, `checkout`, `push`,

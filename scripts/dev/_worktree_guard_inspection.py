@@ -18,6 +18,7 @@ from scripts.dev._worktree_guard_lineage import classify_lineage, parse_batch_br
 from scripts.dev._worktree_guard_runner import (
     optional_output,
     parse_counts,
+    parse_main_worktree,
     recognized_ci,
     resolve_path,
     run_git,
@@ -90,7 +91,15 @@ def _inspect_worktree(
 
     git_dir_result = runner(resolved_root, ("rev-parse", "--git-dir"))
     common_dir_result = runner(resolved_root, ("rev-parse", "--git-common-dir"))
-    if git_dir_result.returncode != 0 or common_dir_result.returncode != 0:
+    # The main working tree is asked for directly rather than inferred from the
+    # metadata directory: `--git-common-dir` names shared Git metadata, which
+    # under `git clone --separate-git-dir` does not sit inside any checkout.
+    worktree_list_result = runner(resolved_root, ("worktree", "list", "--porcelain"))
+    if (
+        git_dir_result.returncode != 0
+        or common_dir_result.returncode != 0
+        or worktree_list_result.returncode != 0
+    ):
         return finish_diagnostics(
             [
                 issue(
@@ -106,6 +115,21 @@ def _inspect_worktree(
         )
     git_dir = resolve_path(resolved_root, git_dir_result.stdout)
     common_dir = resolve_path(resolved_root, common_dir_result.stdout)
+    main_worktree = parse_main_worktree(resolved_root, worktree_list_result.stdout)
+    if main_worktree is None:
+        return finish_diagnostics(
+            [
+                issue(
+                    "ERROR",
+                    "WT001",
+                    str(resolved_root),
+                    "Git repository metadata could not be resolved.",
+                    "Stop and inspect this checkout; the guard does not repair Git metadata.",
+                )
+            ],
+            offline=offline,
+            base_ref=base_ref,
+        )
 
     # HEAD topology is resolved before PLAYBOOK is required so that a detached
     # CI checkout still skips cleanly when the document cannot be parsed.
@@ -160,10 +184,14 @@ def _inspect_worktree(
     if status_result.returncode != 0:
         raise GuardError("Git could not inspect the worktree status.")
 
-    # Between batches there is no ancestry contract to enforce, so a missing
-    # base is not a defect. With an active batch the base is required, but its
-    # absence must not suppress the branch-state findings collected below.
-    base_available = (
+    # Between batches there is no ancestry contract to enforce, so the base is
+    # not consulted at all -- not merely tolerated when missing. Verifying it
+    # anyway let a malformed or unreachable base raise WT014 from the runner in
+    # a state the contract says ignores the base entirely. With an active batch
+    # the base is required, but its absence must not suppress the branch-state
+    # findings collected below.
+    base_required = batch.active_batch is not None
+    base_available = base_required and (
         runner(
             resolved_root, ("rev-parse", "--verify", f"{base_ref}^{{commit}}")
         ).returncode
@@ -201,12 +229,13 @@ def _inspect_worktree(
         is_recognized_ci,
     )
     diagnostics = classify_lineage(snapshot)
-    if not base_available and batch.active_batch is not None:
+    if base_required and not base_available:
         diagnostics.append(missing_base_diagnostic(base_ref))
     venv, venv_diagnostics = resolve_venv(
         repo_root=resolved_root,
         git_dir=git_dir,
         common_dir=common_dir,
+        main_worktree=main_worktree,
         os_name=os_name,
     )
     diagnostics.extend(venv_diagnostics)
