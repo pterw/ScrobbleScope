@@ -275,21 +275,110 @@ def _sync(
     )
 
 
+class _AmbiguousCount:
+    """Sentinel type: the newest entry recording counts quotes several of them.
+
+    Kept distinct from ``None`` (no entry anywhere records a count) because the
+    two demand opposite handling. Ambiguity must suppress every older candidate
+    -- republishing a superseded number as the current one is worse than
+    reporting the count as unknown -- whereas absence may fall through to the
+    legacy sole-bold-count pass.
+    """
+
+    __slots__ = ()
+
+
+_AMBIGUOUS_COUNT = _AmbiguousCount()
+
+# Source precedence, applied only to break a same-date tie in the ordering
+# below. A side-task entry is written after the batch entry it follows, and a
+# side-task entry still live in PLAYBOOK is newer than one that retention has
+# already moved into the archive.
+_PRECEDENCE_LIVE_SIDE = 2
+_PRECEDENCE_ROTATED = 1
+_PRECEDENCE_CURRENT_BATCH = 0
+
+
+def _monotonic_dates(source: list[Entry]) -> list[int]:
+    """Clamp a source's heading dates so they cannot contradict its file order.
+
+    Each source list reaches the ordering already newest-first by its own
+    documented convention -- current-batch entries are appended and then
+    reversed, side-task entries are written directly below the end marker -- so
+    position, not the heading date, is the authority on recency *within* a
+    source. Dates are still needed to interleave the sources against one
+    another, so each is clamped to the running minimum. A back-dated or
+    out-of-order heading can then never lift an entry above one that precedes it
+    in its own source.
+    """
+    clamped: list[int] = []
+    running: int | None = None
+    for entry in source:
+        key = _date_key(entry.date)
+        running = key if running is None else min(running, key)
+        clamped.append(running)
+    return clamped
+
+
+def _newest_count(
+    candidates: list[tuple[Entry, int, int]], *, allow_legacy_fallback: bool
+) -> int | _AmbiguousCount | None:
+    """Return the first definitive full-suite count in a newest-first ordering.
+
+    ``candidates`` is the single total ordering built by
+    ``_latest_test_count_from_entries``; this function only walks it, so
+    precedence is decided in exactly one place.
+
+    Returns the count, ``None`` when no entry records one, or
+    ``_AMBIGUOUS_COUNT`` when the newest entry quoting counts quotes several
+    without an explicit ``pytest -q`` result. The third state exists because
+    treating ambiguity as absence lets an older entry supply the answer.
+    """
+    for entry, _precedence, _date_ordering_key in candidates:
+        entry_text = "\n".join(entry.lines)
+        explicit_matches = re.findall(
+            r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*"
+            r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*",
+            entry_text,
+            flags=re.IGNORECASE,
+        )
+        if explicit_matches:
+            return int(explicit_matches[-1])
+        fallback_matches = [
+            int(match.group(1)) for match in TEST_COUNT_RE.finditer(entry_text)
+        ]
+        if not allow_legacy_fallback:
+            if len(fallback_matches) > 1:
+                return _AMBIGUOUS_COUNT
+            continue
+        if len(fallback_matches) == 1:
+            return fallback_matches[0]
+    return None
+
+
 def _latest_test_count_from_entries(
     playbook_lines: list[str], archive_lines: list[str] | None = None
 ) -> int | None:
     """Return the newest full-suite count recorded anywhere in the log.
 
-    Current-batch entries are append-ordered, while side-task entries after the
-    end marker are newest-first. A same-date side task is newer than the batch
-    entry it follows. Explicit ``pytest -q`` results win over focused counts
-    across all live entries; a sole bold count remains supported only when no
-    explicit full-suite result exists.
+    Authority is decided by one total ordering over every candidate entry --
+    date descending, then source precedence descending -- which is walked once.
+    The three sources are the live side-task entries after the end marker
+    (newest-first as written), the rotated entries in ``archive_lines``, and the
+    current-batch entries between the markers (append-ordered, so reversed
+    here). Precedence breaks same-date ties only, in this order: live side task,
+    then rotated, then current batch.
 
-    Rotated entries in ``archive_lines`` are considered too. The test count is a
-    fact about the repository, so it must not change when the retention window
-    moves an entry out of PLAYBOOK: the documented close-out command purges that
-    window entirely, which would otherwise revive a superseded count.
+    Within that ordering, an explicit ``pytest -q`` result wins; an entry
+    quoting several bold counts without one is ambiguous and makes the count
+    unknown rather than deferring to an older entry; a sole bold count is
+    accepted only on a second pass, when no entry anywhere carries an explicit
+    result.
+
+    The test count is a fact about the repository, so it must not change when
+    the retention window moves an entry out of PLAYBOOK: the documented
+    close-out command purges that window entirely, which would otherwise revive
+    a superseded count.
     """
     try:
         s4_start, s4_end = _find_section(
@@ -311,34 +400,6 @@ def _latest_test_count_from_entries(
     ]
     side_entries = [entry for entry in entries if entry.start_idx > marker_end]
 
-    def newest_count(
-        candidates: list[Entry], *, allow_legacy_fallback: bool
-    ) -> tuple[str, int] | None:
-        for entry in candidates:
-            entry_text = "\n".join(entry.lines)
-            explicit_matches = re.findall(
-                r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*"
-                r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*",
-                entry_text,
-                flags=re.IGNORECASE,
-            )
-            if explicit_matches:
-                return entry.date, int(explicit_matches[-1])
-            fallback_matches = [
-                int(match.group(1)) for match in TEST_COUNT_RE.finditer(entry_text)
-            ]
-            if not allow_legacy_fallback:
-                # An entry quoting several counts without a `pytest -q` result
-                # is ambiguous. Skipping to an older entry would silently
-                # republish a superseded number as current, so stop here and
-                # let the count read as unknown instead.
-                if len(fallback_matches) > 1:
-                    return None
-                continue
-            if len(fallback_matches) == 1:
-                return entry.date, fallback_matches[0]
-        return None
-
     current_candidates = list(reversed(current_entries))
     rotated_candidates: list[Entry] = []
     if archive_lines is not None:
@@ -347,29 +408,36 @@ def _latest_test_count_from_entries(
         except SyncError:
             archive_entries = []
         rotated_candidates = sorted(
-            archive_entries, key=lambda entry: entry.date, reverse=True
+            archive_entries, key=lambda entry: _date_key(entry.date), reverse=True
         )
 
-    side_count = newest_count(side_entries, allow_legacy_fallback=False)
-    current_count = newest_count(current_candidates, allow_legacy_fallback=False)
-    rotated_count = newest_count(rotated_candidates, allow_legacy_fallback=False)
-    if side_count is None and current_count is None and rotated_count is None:
-        side_count = newest_count(side_entries, allow_legacy_fallback=True)
-        current_count = newest_count(
-            current_candidates,
-            allow_legacy_fallback=True,
+    # Build one total ordering over every candidate from every source, newest
+    # first: clamped date descending, then source precedence descending.
+    # Scanning three sources separately and reconciling their winners afterwards
+    # is what produced the tie-break and fallback defects this replaces --
+    # precedence now lives in the sort key alone.
+    #
+    # `sort` is stable and `reverse=True` does not reorder equal keys, so
+    # entries sharing a clamped date and a source keep the newest-first order
+    # their source list already has.
+    ordered_candidates = [
+        (entry, precedence, date_key)
+        for source, precedence in (
+            (side_entries, _PRECEDENCE_LIVE_SIDE),
+            (rotated_candidates, _PRECEDENCE_ROTATED),
+            (current_candidates, _PRECEDENCE_CURRENT_BATCH),
         )
-    # A same-date non-current entry outranks the batch entry it follows, so
-    # rank by date first and let the current-batch entry lose ties.
-    ranked = [
-        (found[0], rank, found[1])
-        for found, rank in (
-            (side_count, 1),
-            (rotated_count, 1),
-            (current_count, 0),
-        )
-        if found is not None
+        for entry, date_key in zip(source, _monotonic_dates(source))
     ]
-    if not ranked:
+    ordered_candidates.sort(key=lambda item: (item[2], item[1]), reverse=True)
+
+    count = _newest_count(ordered_candidates, allow_legacy_fallback=False)
+    if isinstance(count, _AmbiguousCount):
         return None
-    return max(ranked)[2]
+    if count is None:
+        # The legacy pass accepts a sole bold count from an entry that predates
+        # the `pytest -q` convention. It walks the same ordering, so a legacy
+        # entry still resolves after retention moves it into the archive.
+        legacy = _newest_count(ordered_candidates, allow_legacy_fallback=True)
+        return legacy if isinstance(legacy, int) else None
+    return count
