@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-06
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, F-SWE-1 audit next, then WP-1. 561 tests across 35 test modules.
+WP-0 done, F-SWE-1 audit next, then WP-1. 568 tests across 35 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -197,9 +197,19 @@ coverage. Status: open. Source: MULTI_AGENT_SWEEP.
 "Batch N" substrings; tightening needs backward-compat testing. On the
 README roadmap. Status: open. Source: DOCSYNC_AUDIT Finding 6.
 
-### F-MAS-3: test_docsync_logic.py is 904 lines
+### F-MAS-3: test_docsync_logic.py covers several unrelated seams
 
-Suggested split: integration / cross-validate / archive-routing.
+One module holds WP collection, test-count authority, whole-sync
+integration, log merging, archive splitting, dedup, and Section 3 parsing.
+Splitting along those class boundaries stays worthwhile. The originally
+suggested `cross-validate` seam no longer exists -- that helper and its
+tests were removed on this branch -- and the count-authority cases have
+already moved out to `tests/test_docsync_test_count.py`.
+
+No line count is quoted here deliberately: the figure in the original
+finding went stale as soon as the file changed, and size was never the
+defect. Compare against the largest peer in the directory when deciding
+whether the split is due.
 Status: open. Source: MULTI_AGENT_SWEEP.
 
 ### F-SWE-1: SWE-principles audit chartered, pending execution

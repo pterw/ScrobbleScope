@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-561_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-568_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
@@ -81,7 +81,7 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (561 tests across 35 files), 89% coverage |
+| Testing | pytest (568 tests across 35 files), 89% coverage |
 | CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
@@ -400,7 +400,7 @@ pre-commit run --all-files
 |   |-- dev/
 |   |   |-- dev_start.py           # One-command local dev startup (Postgres + Flask)
 |   |   |-- worktree_guard.py      # Stable worktree-diagnostic facade
-|   |   |-- _worktree_guard_diagnostics.py  # Codes, remediation, offline/WT014
+|   |   |-- _worktree_guard_diagnostics.py  # Diagnostic construction, offline/WT014
 |   |   |-- _worktree_guard_inspection.py   # Read-only Git state collection
 |   |   |-- _worktree_guard_lineage.py      # PLAYBOOK parse + classification
 |   |   |-- _worktree_guard_runner.py       # Sanitized list-argument Git runner
@@ -416,10 +416,11 @@ pre-commit run --all-files
 |   |-- helpers.py                 # Test utilities
 |   |-- test_app_factory.py        # App creation, secret validation (6)
 |   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (23)
-|   |-- test_docsync_integrity.py  # Live-document semantic checks (38)
-|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (44)
+|   |-- test_docsync_integrity.py  # Live-document semantic checks (58)
+|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (32)
 |   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (35)
 |   |-- test_docsync_renderer.py   # Docsync status block renderer (24)
+|   |-- test_docsync_test_count.py  # Count authority across retention (8)
 |   |-- test_domain.py             # Name normalization (13)
 |   |-- test_heatmap.py             # Heatmap aggregation + task lifecycle (20)
 |   |-- test_repositories.py       # Job state CRUD (20)
@@ -430,14 +431,17 @@ pre-commit run --all-files
 |   |-- scripts/dev/
 |   |   |-- test_dev_start.py              # Docker startup helper unit tests (11)
 |   |   |-- test_worktree_guard.py         # PLAYBOOK + lineage decisions (23)
-|   |   |-- test_worktree_guard_base_ref.py  # Selected-ref guidance (4)
-|   |   |-- test_worktree_guard_cli.py     # CLI rendering + boundary (4)
+|   |   |-- test_worktree_guard_base_ref.py  # Selected-ref guidance (6)
+|   |   |-- test_worktree_guard_cli.py     # CLI rendering + boundary (5)
 |   |   |-- test_worktree_guard_cli_e2e.py  # Real inspection through CLI (11)
-|   |   |-- test_worktree_guard_inspection.py  # Git collection order (10)
+|   |   |-- test_worktree_guard_inspection.py  # Git collection order (14)
+|   |   |-- test_worktree_guard_playbook.py  # Section 3 batch/branch parsing (10)
 |   |   |-- test_worktree_guard_runner.py  # Runner sanitization (4)
 |   |   |-- test_worktree_guard_severity.py  # WT000-WT014 severity table (15)
-|   |   |-- test_worktree_guard_topology.py  # Detached/linked/POSIX states (6)
-|   |   `-- test_worktree_guard_venv.py    # Virtualenv topology (7)
+|   |   |-- test_worktree_guard_subject.py  # Diagnostic subject attribution (7)
+|   |   |-- test_worktree_guard_topology.py  # Detached/linked/POSIX states (7)
+|   |   |-- test_worktree_guard_venv.py    # Virtualenv topology (13)
+|   |   `-- worktree_guard_fakes.py        # Shared Git + filesystem doubles
 |   |-- scripts/testing/
 |   |   |-- test_smoke_cache_check.py       # HTTP client + smoke test unit tests (13)
 |   |   `-- test_concurrent_users_test.py   # Concurrency script unit tests (6)

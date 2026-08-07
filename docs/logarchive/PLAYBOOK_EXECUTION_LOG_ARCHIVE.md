@@ -9,6 +9,46 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Worktree guard final-review remediation (side-task)
+
+- Scope: resolved all five final plan-review findings without changing the
+  guard's read-only Git contract, selected-base behavior, or public facade.
+- Plan vs implementation:
+  - Split the 522-line `worktree_guard.py` into a 50-line stable facade plus
+    diagnostics, inspection, lineage, runner/discovery, types, and virtualenv
+    modules. Every guard production file is at or below the measured 236-line and
+    8,754-byte pre-existing peer caps; every new test file is at or below the
+    measured 184-line and 6,615-byte test peer caps.
+  - Added ERROR WT014 for unexpected inspection/runtime failures, suppressed
+    subprocess exception chains, caught generic `OSError`, kept explicit
+    offline WT013 final, and added a second fail-closed CLI boundary. Output
+    contains neither traceback nor sensitive command/URL text.
+  - Added exact `(code, severity)` coverage for WT000 through WT014 and real
+    inspection-through-CLI blocking, warning-only, success, detached-CI, and
+    offline-failure paths. A temporary WT006 severity downgrade produced three
+    expected failures and changed both blocking CLI exits from 1 to 0.
+  - Clarified the sole initial stdlib-only guard-launch exception, retained
+    DEVELOPMENT as human-only rationale, and refreshed the authoritative plan
+    file map and reproducible split-suite RED/GREEN commands. Aligned the design
+    spec's failure contract and split test map, then refreshed README and
+    SESSION_CONTEXT structure, dependency, and test inventories from the
+    measured final state.
+- Deviations: the final review required a plan-wide SRP split after Task 2 had
+  shipped; the facade preserves every accepted import and behavior. No
+  destructive Git action, environment creation, dependency install, or push
+  was performed.
+- Validation: pre-split facade parity -- **55 passed**; new RED suite -- 11
+  expected failures and 23 passes; minimal GREEN -- **34 passed**; post-split
+  original parity -- **55 passed** with 2 new cases deselected; complete focused
+  suite -- **83 passed**; severity mutation restore -- **26 passed**. Full
+  `pytest -q` -- **512 passed** with 3 existing aiohttp/Python
+  3.13 warnings. Pre-commit and final docsync gates pass. Dirty offline live
+  acceptance reports WT010, WT000 (0 behind/12 ahead, linked primary tools),
+  then final WT013.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep. Use the stable
+  `scripts.dev.worktree_guard` facade for all imports.
+
 ### 2026-08-05 - Worktree guard default remediation compatibility (side-task)
 
 - Scope: restored the established WT007 operator guidance for the canonical

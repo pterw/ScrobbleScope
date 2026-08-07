@@ -9,7 +9,7 @@ Last updated: 2026-08-06
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **561 passing** across 35 test modules |
+| Tests | **568 passing** across 35 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -47,7 +47,7 @@ Last updated: 2026-08-06
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **561 passed**.
+- Latest validated test count: **568 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -167,7 +167,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (561 tests)
+## 6. Test structure (568 tests)
 
 | File | Count |
 |------|-------|
@@ -177,7 +177,7 @@ loading.js polls GET /progress?job_id=...
 | test_docsync_logic.py | 32 |
 | test_docsync_parser.py | 35 |
 | test_docsync_renderer.py | 24 |
-| test_docsync_test_count.py | 6 |
+| test_docsync_test_count.py | 8 |
 | test_domain.py | 13 |
 | test_heatmap.py | 20 |
 | test_repositories.py | 20 |
@@ -197,13 +197,13 @@ loading.js polls GET /progress?job_id=...
 | scripts/dev/test_worktree_guard_base_ref.py | 6 |
 | scripts/dev/test_worktree_guard_cli.py | 5 |
 | scripts/dev/test_worktree_guard_cli_e2e.py | 11 |
-| scripts/dev/test_worktree_guard_inspection.py | 12 |
+| scripts/dev/test_worktree_guard_inspection.py | 14 |
 | scripts/dev/test_worktree_guard_playbook.py | 10 |
 | scripts/dev/test_worktree_guard_runner.py | 4 |
 | scripts/dev/test_worktree_guard_severity.py | 15 |
 | scripts/dev/test_worktree_guard_subject.py | 7 |
 | scripts/dev/test_worktree_guard_topology.py | 7 |
-| scripts/dev/test_worktree_guard_venv.py | 10 |
+| scripts/dev/test_worktree_guard_venv.py | 13 |
 | scripts/testing/test_concurrent_users_test.py | 6 |
 | scripts/testing/test_smoke_cache_check.py | 13 |
 

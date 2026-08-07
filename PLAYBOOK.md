@@ -82,12 +82,16 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** execute the full F-SWE-1 principles audit, then proceed to
-  Batch 21 WP-1. The canonical repository-integrity gate and peer-sized
-  read-only worktree guard passed final combined-branch remediation, and
-  F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #169 review
-  remediation is complete: the guard no longer misattributes lineage, and the
-  documented batch close-out command no longer blocks the gate.
+- **Next action:** merge PR #169, then execute the full F-SWE-1 principles
+  audit, then proceed to Batch 21 WP-1. The canonical repository-integrity gate
+  and peer-sized read-only worktree guard passed final combined-branch
+  remediation, and F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. Review
+  remediation is complete through round 2: the test count now derives from one
+  total ordering, the guard discovers the main working tree from Git rather
+  than inferring it, and the base ref is untouched between batches. Before
+  merging, confirm a Quality Gate run exists for the current head -- none was
+  created for `8463ca4` despite a delivered push event, and that gap is what
+  `workflow_dispatch` now exists to cover on future heads.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -155,6 +159,71 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-07 - PR #169 round 2; ordering, discovery, and a diff-derived sweep (side-task)
+
+- Scope: thirteen findings from Copilot review 4877974867 -- one visible,
+  twelve suppressed, all verified valid. Eleven were caused by the previous
+  round's own fixes, so the round was treated as a remediation of that
+  remediation rather than as new review traffic.
+- Cause, established before fixing: the round-1 checklist was generated from
+  the reviewers' findings, which by construction described the pre-change
+  tree. Nothing was ever swept against the branch's own diff, so every
+  citation that round 1 invalidated survived. Three local patches to one
+  ordering question produced three interacting defects for the same reason.
+- Plan vs implementation:
+  - Test-count authority. Three findings were one defect: authority was
+    decided by scanning three sources independently and reconciling the
+    winners, so each rule was restated per source and their interactions were
+    never modelled. Replaced by one total ordering -- clamped date, then
+    source precedence -- walked once. Ambiguity became an explicit state
+    rather than `None`, so it suppresses older candidates instead of falling
+    through to them; a live side-task entry now outranks a same-date archived
+    one; and the legacy sole-bold-count pass walks the same ordering, so such
+    a count survives rotation. Heading dates are clamped to a running minimum
+    within each source because position, not the date, is the authority on
+    recency there -- which is what the existing append-convention tests
+    already pinned.
+  - Guard discovery. `--git-common-dir` names shared Git metadata, not a
+    checkout, so deriving the primary root from its parent is wrong under
+    `git clone --separate-git-dir`; the collector now asks Git directly with
+    `worktree list --porcelain`. On POSIX a file without an execute bit is
+    not a runnable tool, but existence was the whole test, so WT000 could
+    advertise unusable paths; the doubles hid it by building tools with
+    `touch()`. The base ref is no longer consulted at all between batches,
+    where the contract says ancestry is not enforced.
+  - Citation sweep, derived from `git diff origin/main...HEAD` rather than
+    from the findings list. That derivation is what found the class the
+    findings only sampled: nineteen further copies of the broken
+    primary-checkout derivation sat in per-step snippets across both
+    implementation plans, and the documented `resolve_venv` signature had
+    drifted from production. Also repointed the WT-code location claim, both
+    test inventories, and F-MAS-3.
+- Deviations: added `workflow_dispatch` to `.github/workflows/test.yml` (two
+  lines, urgent, logged here rather than deferred). GitHub created no Quality
+  Gate run for the push of `8463ca4` although the push event was delivered
+  and recorded, Actions was enabled, the workflow was active, its triggers
+  matched, no path filter or skip-ci marker applied, and Copilot's own
+  workflow ran on that same SHA eight seconds later. Evidence points to a
+  one-off dispatch drop rather than a configuration fault, so the trigger is
+  a durable escape hatch, not the fix. It cannot help this PR -- GitHub
+  resolves dispatchable workflows from the default branch -- so the unblock
+  is this push itself, which re-arms both `push` and `synchronize`.
+- Numbers were re-measured from a live collection run, not transcribed: the
+  README tree and the SESSION_CONTEXT table were regenerated mechanically
+  from `pytest --collect-only`. A host-dependent skip introduced during this
+  round was removed rather than kept, because it made the canonical test
+  count differ between Windows and Ubuntu CI and would have desynchronized
+  the documents permanently.
+- Validation: `pytest -q` -- **568 passed** with 3 existing aiohttp/Python
+  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
+  exit 0 with the expected root-BATCH warning. Coverage 89% via
+  `pytest --cov=scrobblescope`.
+- Forward guidance: the review-fix loop on this PR is at the point where
+  findings come from the fixes rather than from the original work, so merge
+  rather than iterate. Confirm a Quality Gate run exists for the new head
+  before merging; if none appears, close and reopen the PR to fire
+  `pull_request` again.
 
 ### 2026-08-06 - PR #169 review remediation: guard and integrity defects (side-task)
 
@@ -263,43 +332,3 @@ non-current operational logs. Older dated entries live in
   caps, facade smoke, and live online/offline guard acceptance remain green.
 - Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
   WP-1 remains queued immediately after that sweep.
-
-### 2026-08-05 - Worktree guard final-review remediation (side-task)
-
-- Scope: resolved all five final plan-review findings without changing the
-  guard's read-only Git contract, selected-base behavior, or public facade.
-- Plan vs implementation:
-  - Split the 522-line `worktree_guard.py` into a 50-line stable facade plus
-    diagnostics, inspection, lineage, runner/discovery, types, and virtualenv
-    modules. Every guard production file is at or below the measured 236-line and
-    8,754-byte pre-existing peer caps; every new test file is at or below the
-    measured 184-line and 6,615-byte test peer caps.
-  - Added ERROR WT014 for unexpected inspection/runtime failures, suppressed
-    subprocess exception chains, caught generic `OSError`, kept explicit
-    offline WT013 final, and added a second fail-closed CLI boundary. Output
-    contains neither traceback nor sensitive command/URL text.
-  - Added exact `(code, severity)` coverage for WT000 through WT014 and real
-    inspection-through-CLI blocking, warning-only, success, detached-CI, and
-    offline-failure paths. A temporary WT006 severity downgrade produced three
-    expected failures and changed both blocking CLI exits from 1 to 0.
-  - Clarified the sole initial stdlib-only guard-launch exception, retained
-    DEVELOPMENT as human-only rationale, and refreshed the authoritative plan
-    file map and reproducible split-suite RED/GREEN commands. Aligned the design
-    spec's failure contract and split test map, then refreshed README and
-    SESSION_CONTEXT structure, dependency, and test inventories from the
-    measured final state.
-- Deviations: the final review required a plan-wide SRP split after Task 2 had
-  shipped; the facade preserves every accepted import and behavior. No
-  destructive Git action, environment creation, dependency install, or push
-  was performed.
-- Validation: pre-split facade parity -- **55 passed**; new RED suite -- 11
-  expected failures and 23 passes; minimal GREEN -- **34 passed**; post-split
-  original parity -- **55 passed** with 2 new cases deselected; complete focused
-  suite -- **83 passed**; severity mutation restore -- **26 passed**. Full
-  `pytest -q` -- **512 passed** with 3 existing aiohttp/Python
-  3.13 warnings. Pre-commit and final docsync gates pass. Dirty offline live
-  acceptance reports WT010, WT000 (0 behind/12 ahead, linked primary tools),
-  then final WT013.
-- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
-  WP-1 remains queued immediately after that sweep. Use the stable
-  `scripts.dev.worktree_guard` facade for all imports.
