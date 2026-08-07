@@ -7,8 +7,8 @@ import subprocess
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
-from docsync.logic import _latest_test_count_from_entries
-from docsync.models import IntegrityIssue, SyncError
+from docsync.logic import latest_test_count_authority
+from docsync.models import IntegrityIssue, SyncError, TestCountAuthority
 from docsync.parser import (
     SECTION_3_RE,
     SECTION_4_RE,
@@ -256,6 +256,29 @@ def _issue(
     return IntegrityIssue(code, "error", path, line, invariant, remediation)
 
 
+def _count_remediation(authority: TestCountAuthority) -> str:
+    """Point the reader at the document that actually decides the count.
+
+    The authority can be a rotated archive entry rather than the live
+    PLAYBOOK, so naming PLAYBOOK unconditionally sends the reader to edit a
+    file that may not hold the number at all. When the newest entry is
+    ambiguous there is no number to agree with, and the fix is to record an
+    unambiguous result rather than to restate a stale one.
+    """
+    if authority.ambiguous:
+        return (
+            "The newest count-bearing log entry quotes several counts without "
+            "a `pytest -q` result, so no count is authoritative. Record an "
+            "explicit `pytest -q` result in a new log entry, then refresh "
+            "every named SESSION_CONTEXT test-count field."
+        )
+    return (
+        "Correct the authoritative `pytest -q` result -- the newest full-suite "
+        "entry, which may be in PLAYBOOK or in the rotated archive -- then "
+        "refresh every named SESSION_CONTEXT test-count field."
+    )
+
+
 def collect_integrity_issues(
     *,
     repo_root: Path,
@@ -410,7 +433,7 @@ def collect_integrity_issues(
                     "Run doc_state_sync.py --fix to refresh the managed session block.",
                 )
             )
-        playbook_count = _latest_test_count_from_entries(playbook_lines, archive_lines)
+        authority = latest_test_count_authority(playbook_lines, archive_lines)
         session_count_fields = [
             (line_number, int(match.group(1)))
             for line_number, line in enumerate(session_lines, start=1)
@@ -421,9 +444,17 @@ def collect_integrity_issues(
         mismatched_fields = [
             (line_number, count)
             for line_number, count in session_count_fields
-            if playbook_count is not None and count != playbook_count
+            if authority.count is not None and count != authority.count
         ]
-        if len(session_counts) > 1 or mismatched_fields:
+        # An ambiguous authority is not "nothing to compare against". Treating
+        # it that way let a stale dashboard survive the gate: `--fix` renders
+        # the managed block as unknown while the named numeric fields keep
+        # their old value, and the final check exits 0.
+        if (
+            len(session_counts) > 1
+            or mismatched_fields
+            or (authority.ambiguous and session_count_fields)
+        ):
             issue_line = (
                 mismatched_fields[0][0]
                 if mismatched_fields
@@ -435,9 +466,8 @@ def collect_integrity_issues(
                     ".claude/SESSION_CONTEXT.md",
                     issue_line,
                     "Every named session current-test field agrees with the "
-                    "latest PLAYBOOK full-suite validation.",
-                    "Correct the current PLAYBOOK `pytest -q` result, then "
-                    "refresh every named SESSION_CONTEXT test-count field.",
+                    "authoritative full-suite validation in the log.",
+                    _count_remediation(authority),
                 )
             )
 
