@@ -419,6 +419,7 @@ def test_linked_worktree_reuses_primary_checkout_venv(tmp_path):
         repo_root=linked,
         git_dir=git_dir,
         common_dir=common_dir,
+        main_worktree=primary,
         os_name="nt",
     )
     assert paths is not None
@@ -438,6 +439,7 @@ def test_distinct_linked_root_venv_is_rejected(tmp_path):
         repo_root=linked,
         git_dir=git_dir,
         common_dir=common_dir,
+        main_worktree=primary,
         os_name="nt",
     )
     assert paths is None
@@ -456,8 +458,13 @@ path parts; never hard-code separators while selecting layouts with `os_name`.
 
 Treat a checkout as linked when `git_dir.resolve() != common_dir.resolve()`.
 For an ordinary checkout, candidate root is `repo_root / ".venv"`. For a
-linked checkout, primary root is `common_dir.resolve().parent` and candidate
-is `primary_root / ".venv"`.
+linked checkout, the primary root is the `main_worktree` the collector
+discovered with `git worktree list --porcelain`, and the candidate is
+`main_worktree / ".venv"`.
+
+Do not derive the primary root from `common_dir.parent`. That names shared Git
+metadata, which `git clone --separate-git-dir` places outside every working
+tree; see the prohibition at the top of this plan.
 
 Use these exact relative executables:
 
@@ -684,18 +691,22 @@ do not resolve them against the process's original working directory.
 
 `inspect_worktree()` must:
 
-1. Resolve repository root, Git dir, and common dir.
-2. Parse PLAYBOOK from the resolved repository root.
-3. Detect recognized CI when `CI` or `GITHUB_ACTIONS` is one of
+1. Resolve repository root, Git dir, common dir, and the main working tree
+   from `git worktree list --porcelain`.
+2. Detect recognized CI when `CI` or `GITHUB_ACTIONS` is one of
    `1`, `true`, or `yes` case-insensitively.
-4. Detect detached HEAD from `symbolic-ref` return code 1; return WT011 as the
+3. Detect detached HEAD from `symbolic-ref` return code 1; return WT011 as the
    only topology diagnostic in recognized CI (plus WT013 when explicitly
-   offline).
-5. Verify the selected `{base_ref}^{commit}` before ancestry (default:
-   `origin/main`).
-6. Parse `rev-list` as `behind, ahead` because the selected base is the left
+   offline). This precedes the PLAYBOOK read so a detached CI checkout still
+   skips cleanly when the document cannot be parsed.
+4. Parse PLAYBOOK from the resolved repository root.
+5. Read dirty state. Branch-state findings are collected before the base so
+   that a missing or malformed base cannot suppress them.
+6. Verify the selected `{base_ref}^{commit}` before ancestry (default:
+   `origin/main`) -- but only while a batch is active. Between batches there
+   is no ancestry contract, so the base is not consulted at all.
+7. Parse `rev-list` as `behind, ahead` because the selected base is the left
    side of the comparison.
-7. Read dirty state.
 8. Read tree IDs only when both counts are nonzero.
 9. Call `classify_lineage()` and `resolve_venv()`.
 10. Add WT000 with branch, base ref, counts, checkout kind, and qualified
