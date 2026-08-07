@@ -203,8 +203,10 @@ One module holds WP collection, test-count authority, whole-sync
 integration, log merging, archive splitting, dedup, and Section 3 parsing.
 Splitting along those class boundaries stays worthwhile. The originally
 suggested `cross-validate` seam no longer exists -- that helper and its
-tests were removed on this branch -- and the count-authority cases have
-already moved out to `tests/test_docsync_test_count.py`.
+tests were removed on this branch. Count authority is now split across two
+files rather than extracted from this one: `TestLatestTestCount` still holds
+the unit cases here, while `tests/test_docsync_test_count.py` covers the
+behaviour through `_sync`. Consolidating them is part of the same split.
 
 No line count is quoted here deliberately: the figure in the original
 finding went stale as soon as the file changed, and size was never the

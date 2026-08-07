@@ -420,12 +420,17 @@ def _latest_test_count_from_entries(
     # `sort` is stable and `reverse=True` does not reorder equal keys, so
     # entries sharing a clamped date and a source keep the newest-first order
     # their source list already has.
+    # Sources are concatenated in ascending precedence -- the reverse of the
+    # order they must come out in -- so that a correct result can only come
+    # from the sort key. Were they concatenated newest-source-first, sort
+    # stability alone would produce the right answer and the precedence
+    # constants would be unobservable dead weight.
     ordered_candidates = [
         (entry, precedence, date_key)
         for source, precedence in (
-            (side_entries, _PRECEDENCE_LIVE_SIDE),
-            (rotated_candidates, _PRECEDENCE_ROTATED),
             (current_candidates, _PRECEDENCE_CURRENT_BATCH),
+            (rotated_candidates, _PRECEDENCE_ROTATED),
+            (side_entries, _PRECEDENCE_LIVE_SIDE),
         )
         for entry, date_key in zip(source, _monotonic_dates(source))
     ]
