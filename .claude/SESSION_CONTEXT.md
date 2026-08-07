@@ -9,7 +9,7 @@ Last updated: 2026-08-06
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **568 passing** across 35 test modules |
+| Tests | **572 passing** across 35 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -47,7 +47,7 @@ Last updated: 2026-08-06
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **568 passed**.
+- Latest validated test count: **572 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -167,16 +167,16 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (568 tests)
+## 6. Test structure (572 tests)
 
 | File | Count |
 |------|-------|
 | test_app_factory.py | 6 |
 | test_docsync_cli.py | 23 |
-| test_docsync_integrity.py | 58 |
+| test_docsync_integrity.py | 61 |
 | test_docsync_logic.py | 32 |
 | test_docsync_parser.py | 35 |
-| test_docsync_renderer.py | 24 |
+| test_docsync_renderer.py | 25 |
 | test_docsync_test_count.py | 8 |
 | test_domain.py | 13 |
 | test_heatmap.py | 20 |

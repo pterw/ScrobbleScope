@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-05 - Worktree guard POSIX fixture remediation (side-task)
+
+- Scope: corrected the final-review test fixture so host-neutral guard tests
+  exercise the virtualenv layout selected on Windows and POSIX runners.
+- Plan vs implementation:
+  - Made the shared repository fixture derive its default tool layout from the
+    host OS and removed sibling `Scripts/*.exe` assumptions from inspection and
+    topology tests. Direct resolver tests retain explicit Windows, POSIX,
+    primary-only, missing-tool, and symlink cases.
+  - Added an optional `os_name` inspection boundary whose default remains
+    host-derived, then drove the public inspection-to-virtualenv path with a
+    deterministic simulated POSIX linked-worktree acceptance test.
+  - Updated the authoritative plan interface and fixture/topology expectations;
+    the stable `scripts.dev.worktree_guard` facade exports are unchanged.
+- Deviations: none. No new file, dependency, Git mutation, environment creation,
+  package installation, amend, or push was required.
+- Validation: simulated-POSIX RED -- 1 expected failure; focused GREEN -- **1
+  passed**; all shared-fixture consumers -- **46 passed**; complete guard suite
+  -- **84 passed**; full `pytest -q` -- **513 passed** with 3 existing
+  aiohttp/Python 3.13 warnings. All hooks and final docsync checks pass. File
+  caps, facade smoke, and live online/offline guard acceptance remain green.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep.
+
 ### 2026-08-05 - Worktree guard final-review remediation (side-task)
 
 - Scope: resolved all five final plan-review findings without changing the
