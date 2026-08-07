@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-06
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done, F-SWE-1 audit next, then WP-1. 568 tests across 35 test modules.
+WP-0 done, F-SWE-1 audit next, then WP-1. 572 tests across 35 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -126,6 +126,29 @@ round-2 remediation, which discovers the main working tree with
 `git worktree list --porcelain` and passes it in. The remaining three are
 unchanged.
 Status: open. Source: PR #169 independent review.
+
+### F-WORKTREE-4: three guard files exceed their directory peer caps
+
+Review remediation grew three files past the peer-size rule in the Proposal
+and Design Rules. Measured, with the pre-existing peer that sets each cap:
+
+| File | Lines | Peer cap |
+|------|-------|----------|
+| `scripts/dev/_worktree_guard_inspection.py` | 256 | 236 (`scripts/dev/dev_start.py`) |
+| `tests/scripts/dev/test_worktree_guard_venv.py` | 270 | 184 (`tests/scripts/dev/test_dev_start.py`) |
+| `tests/scripts/dev/test_worktree_guard_inspection.py` | 192 | 184 (same) |
+
+All three were within their caps before the review rounds -- inspection was
+217, then 227 -- and crossed while fixing confirmed defects. Splitting them
+was considered and declined by the owner: the rule exists to prevent
+unmaintainable monoliths, none of these approaches that, and restructuring
+files mid-review invites another round of inventory drift for no
+maintainability gain. Recorded rather than fixed so no document claims a
+compliance that does not hold.
+
+Revisit when any of these files next changes substantially; the natural seam
+in the collector is Git/topology collection versus diagnostic orchestration.
+Status: open (accepted deviation). Source: PR #169 review round 4.
 
 ### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1)
 

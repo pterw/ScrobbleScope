@@ -210,11 +210,12 @@ rendering (`renderer.py`), rotation/dedup logic (`logic.py`), live-document
 integrity (`integrity.py`), the CLI entrypoint (`cli.py`), and typed dataclass
 models (`models.py`); the root
 `scripts/doc_state_sync.py` is now a thin wrapper that delegates into the
-package. This made each concern independently testable. Five focused modules --
+package. This made each concern independently testable. Six focused modules --
 `tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
-`tests/test_docsync_renderer.py`, `tests/test_docsync_integrity.py`, and
-`tests/test_docsync_cli.py` -- cover parsing, rotation, deduplication,
-rendering, live integrity, and CLI modes. Run
+`tests/test_docsync_renderer.py`, `tests/test_docsync_integrity.py`,
+`tests/test_docsync_cli.py`, and `tests/test_docsync_test_count.py` -- cover
+parsing, rotation, deduplication, rendering, live integrity, CLI modes, and
+the test-count authority that must survive log retention. Run
 `pytest tests/test_docsync_*.py -q` for the current measured count rather than
 preserving a number here that will drift as edge-case coverage grows.
 
