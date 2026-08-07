@@ -84,6 +84,7 @@ def _build_status_block(
     section_3_state: ActiveBatchState,
     current_entries: list[Entry],
     latest_test_count: int | None = None,
+    count_is_ambiguous: bool = False,
 ) -> list[str]:
     if current_entries:
         wp_numbers = _collect_wp_numbers(current_entries)
@@ -103,11 +104,22 @@ def _build_status_block(
         if batch_num is None and section_3_state.last_completed_batch is not None:
             batch_num = section_3_state.last_completed_batch + 1
         batch_label = f"Batch {batch_num}" if batch_num is not None else "unknown"
-        count_line = (
-            f"- Latest validated test count: **{latest_test_count} passed**."
-            if latest_test_count is not None
-            else "- Latest validated test count: unknown (no bold count in log entries)."
-        )
+        # Two different absences render differently. Reporting "no bold count"
+        # when the newest entry in fact quotes several sends the reader looking
+        # for a missing number instead of the ambiguous entry that caused it.
+        if latest_test_count is not None:
+            count_line = (
+                f"- Latest validated test count: **{latest_test_count} passed**."
+            )
+        elif count_is_ambiguous:
+            count_line = (
+                "- Latest validated test count: unknown (newest entry quotes "
+                "several counts without a `pytest -q` result)."
+            )
+        else:
+            count_line = (
+                "- Latest validated test count: unknown (no bold count in log entries)."
+            )
         return [
             "- Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).",
             f"- Current batch: {batch_label}.",

@@ -708,6 +708,65 @@ def test_conflicting_named_session_counts_are_blocking_with_side_task_authority(
     assert [issue.code for issue in issues] == ["DOC006"]
 
 
+def test_ambiguous_authority_still_blocks_a_named_stale_count(tmp_path: Path):
+    """An unresolvable authority must not disable the check it feeds.
+
+    Ambiguity and absence both reach the gate as "no count", so the comparison
+    used to be skipped for both: `--fix` rendered the managed block as unknown
+    while a named numeric field kept its stale value, and the final pass exited
+    0. That is the precise state DOC006 exists to catch.
+    """
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        [
+            "",
+            "### 2026-08-06 - Ambiguous side task",
+            "",
+            "Validation: focused suite **12 passed**; full suite **530 passed**.",
+        ]
+    )
+    session_lines = ["| Tests | **390 passing** across 35 test modules |"]
+    inputs["session_lines"] = session_lines
+    inputs["expected_session_lines"] = list(session_lines)
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC006"]
+    # The remediation must not send the reader to restate a number that no
+    # entry establishes; the fix is to record an unambiguous result.
+    assert "quotes several counts" in issues[0].remediation
+
+
+def test_ambiguous_authority_without_named_counts_stays_silent(tmp_path: Path):
+    """Ambiguity alone is not a contradiction when nothing claims a number."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        [
+            "",
+            "### 2026-08-06 - Ambiguous side task",
+            "",
+            "Validation: focused suite **12 passed**; full suite **530 passed**.",
+        ]
+    )
+    inputs["session_lines"] = ["No count here."]
+    inputs["expected_session_lines"] = ["No count here."]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_count_remediation_admits_a_rotated_authority(tmp_path: Path):
+    """The authority can live in the archive, so the fix must not name PLAYBOOK."""
+    inputs = _valid_inputs(tmp_path)
+    session_lines = ["| Tests | **999 passing** across 35 test modules |"]
+    inputs["session_lines"] = session_lines
+    inputs["expected_session_lines"] = list(session_lines)
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC006"]
+    assert "rotated archive" in issues[0].remediation
+
+
 def test_test_count_in_only_one_source_is_not_a_contradiction(tmp_path: Path):
     """DOC006 needs two current counts before it can compare them."""
     inputs = _valid_inputs(tmp_path)

@@ -190,6 +190,34 @@ class TestBuildStatusBlock:
         block = _build_status_block(state, [entry])
         text = "\n".join(block)
         assert "unknown" in text.lower()
+        assert "no bold count" in text
+
+    def test_ambiguous_count_states_the_real_reason(self):
+        """'No bold count' is wrong when the entry in fact quotes several.
+
+        Both absences render as unknown, but they send the reader to different
+        places: one to add a missing number, the other to the ambiguous entry
+        that suppressed it.
+        """
+        entry = Entry(
+            heading="### 2026-02-20 - Work (Batch 11 WP-1)",
+            date="2026-02-20",
+            title="Work (Batch 11 WP-1)",
+            lines=(
+                "### 2026-02-20 - Work (Batch 11 WP-1)",
+                "Focused **12 passed**; full **530 passed**.",
+            ),
+            start_idx=0,
+            fingerprint="a",
+        )
+        state = ActiveBatchState(
+            current_batch=11, last_completed_batch=10, next_undefined_batch=None
+        )
+        block = _build_status_block(state, [entry], count_is_ambiguous=True)
+        text = "\n".join(block)
+        assert "unknown" in text.lower()
+        assert "quotes several counts" in text
+        assert "no bold count" not in text
 
     def test_newest_heading_uses_last_entry(self):
         old_entry = Entry(

@@ -420,9 +420,14 @@ matching `^\*\*Branch:\*\*`, and reject
 `\b[0-9a-fA-F]{7,40}\b` on that line. Compare the archive prefix before its
 first dated entry with `SIDE_ARCHIVE_PREFIX` from `docsync.renderer`. When
 session lines exist, scan them for DOC001 with original source lines, compare
-them to the expected rendered session, and use
-`_latest_test_count_from_entries()` to produce `DOC006` only when both sources
-contain a current count and disagree.
+them to the expected rendered session, and use `latest_test_count_authority()`
+to produce `DOC006`. Resolve the authority through that function rather than
+the bare-count wrapper: it reports whether the newest count-bearing entry was
+ambiguous, and an ambiguous authority beside any named numeric session field
+is itself blocking. Treating ambiguity as "no count to compare against" lets a
+stale dashboard pass the gate while the managed block renders as unknown.
+Otherwise `DOC006` fires only when both sources contain a current count and
+disagree.
 
 Return `sorted(issues, key=lambda i: (i.path, i.line or 0, i.code))`.
 

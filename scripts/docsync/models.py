@@ -44,6 +44,22 @@ class ActiveBatchState:
 
 
 @dataclasses.dataclass(frozen=True)
+class TestCountAuthority:
+    """The resolved full-suite count, and why it is absent when it is.
+
+    ``count`` is ``None`` in two situations that consumers must not conflate.
+    No entry anywhere records a full-suite result, or the newest entry that
+    records counts quotes several without a ``pytest -q`` result. Collapsing
+    both to ``None`` let the integrity gate treat an ambiguous authority as
+    "nothing to compare against" and pass a stale dashboard, so the reason
+    travels with the value instead of being recomputed by each caller.
+    """
+
+    count: int | None
+    ambiguous: bool
+
+
+@dataclasses.dataclass(frozen=True)
 class SyncResult:
     """Outputs of a sync pass before write/check decisions."""
 

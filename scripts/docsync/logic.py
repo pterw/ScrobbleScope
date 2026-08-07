@@ -10,7 +10,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from docsync.models import ActiveBatchState, Entry, SyncError, SyncResult
+from docsync.models import (
+    ActiveBatchState,
+    Entry,
+    SyncError,
+    SyncResult,
+    TestCountAuthority,
+)
 from docsync.parser import (
     CURRENT_BATCH_END_MARKER,
     CURRENT_BATCH_START_MARKER,
@@ -246,6 +252,7 @@ def _sync(
             SESSION_STATUS_END_MARKER,
             "SESSION_CONTEXT",
         )
+        count_authority = latest_test_count_authority(playbook_lines, new_archive_lines)
         status_block = _build_status_block(
             section_3_state=section_3_state,
             current_entries=current_entries,
@@ -254,9 +261,8 @@ def _sync(
             # the retention window happens to keep: the documented close-out
             # command purges the window entirely, which would otherwise revive
             # a superseded count and then fail its own consistency check.
-            latest_test_count=_latest_test_count_from_entries(
-                playbook_lines, new_archive_lines
-            ),
+            latest_test_count=count_authority.count,
+            count_is_ambiguous=count_authority.ambiguous,
         )
         new_session_lines = (
             session_lines[: status_start + 1]
@@ -359,6 +365,18 @@ def _newest_count(
 def _latest_test_count_from_entries(
     playbook_lines: list[str], archive_lines: list[str] | None = None
 ) -> int | None:
+    """Return the newest full-suite count, discarding why it may be absent.
+
+    Convenience wrapper for callers that only render a number. Anything that
+    must act on the difference between "no count recorded" and "the newest
+    entry is ambiguous" needs ``latest_test_count_authority`` instead.
+    """
+    return latest_test_count_authority(playbook_lines, archive_lines).count
+
+
+def latest_test_count_authority(
+    playbook_lines: list[str], archive_lines: list[str] | None = None
+) -> TestCountAuthority:
     """Return the newest full-suite count recorded anywhere in the log.
 
     Authority is decided by one total ordering over every candidate entry --
@@ -393,7 +411,7 @@ def _latest_test_count_from_entries(
         )
         entries, _ = _parse_entries(section_4_lines)
     except SyncError:
-        return None
+        return TestCountAuthority(count=None, ambiguous=False)
 
     current_entries = [
         entry for entry in entries if marker_start < entry.start_idx < marker_end
@@ -438,11 +456,12 @@ def _latest_test_count_from_entries(
 
     count = _newest_count(ordered_candidates, allow_legacy_fallback=False)
     if isinstance(count, _AmbiguousCount):
-        return None
+        return TestCountAuthority(count=None, ambiguous=True)
     if count is None:
         # The legacy pass accepts a sole bold count from an entry that predates
         # the `pytest -q` convention. It walks the same ordering, so a legacy
         # entry still resolves after retention moves it into the archive.
         legacy = _newest_count(ordered_candidates, allow_legacy_fallback=True)
-        return legacy if isinstance(legacy, int) else None
-    return count
+        legacy = legacy if isinstance(legacy, int) else None
+        return TestCountAuthority(count=legacy, ambiguous=False)
+    return TestCountAuthority(count=count, ambiguous=False)
