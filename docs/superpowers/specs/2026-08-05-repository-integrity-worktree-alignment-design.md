@@ -268,7 +268,7 @@ oversized `tests/test_docsync_logic.py` tracked by F-MAS-3.
 - `--check` failure and post-`--fix` revalidation; and
 - deterministic issue ordering and remediation text.
 
-The peer-sized `tests/scripts/dev/test_worktree_guard*.py` modules isolate Git
+The focused `tests/scripts/dev/test_worktree_guard*.py` modules isolate Git
 command results behind the shared `worktree_guard_fakes.py` runner boundary.
 They cover parsing and lineage, selected refs, CLI rendering and real
 inspection-through-CLI exits, collector order, sanitized runner failures,

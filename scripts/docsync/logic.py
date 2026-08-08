@@ -331,8 +331,8 @@ def _newest_count(
 ) -> int | _AmbiguousCount | None:
     """Return the first definitive full-suite count in a newest-first ordering.
 
-    ``candidates`` is the single total ordering built by
-    ``_latest_test_count_from_entries``; this function only walks it, so
+    ``candidates`` is the single ordering built by
+    ``latest_test_count_authority``; this function only walks it, so
     precedence is decided in exactly one place.
 
     Returns the count, ``None`` when no entry records one, or
@@ -367,9 +367,10 @@ def _latest_test_count_from_entries(
 ) -> int | None:
     """Return the newest full-suite count, discarding why it may be absent.
 
-    Convenience wrapper for callers that only render a number. Anything that
-    must act on the difference between "no count recorded" and "the newest
-    entry is ambiguous" needs ``latest_test_count_authority`` instead.
+    Callers that must distinguish "no count recorded" from "the newest
+    entry is ambiguous" need ``latest_test_count_authority`` instead. No
+    production caller remains; this wrapper is exercised only by its own
+    unit tests, and its removal is tracked in FINDINGS as F-DOCSYNC-7.
     """
     return latest_test_count_authority(playbook_lines, archive_lines).count
 

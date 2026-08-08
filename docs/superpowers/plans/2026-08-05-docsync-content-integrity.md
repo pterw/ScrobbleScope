@@ -91,8 +91,9 @@ $preCommitExe = Join-Path $primaryCheckout '.venv\Scripts\pre-commit.exe'
 **Interfaces:**
 
 - Consumes: `_find_section`, `_parse_active_batch_state`, `SECTION_3_RE`,
-  `SECTION_4_RE`, and `_latest_test_count_from_entries` from existing docsync
-  modules.
+  `SECTION_4_RE`, and `latest_test_count_authority` from existing docsync
+  modules. The authority form is required, not the bare-count wrapper:
+  DOC006 must treat an ambiguous newest entry as blocking, not as no count.
 - Produces:
 
 ```python
@@ -416,8 +417,11 @@ owner-approved suffix while excluding `BATCH210*`, subdirectories, generic
 the root-candidate check.
 
 Read the resolved definition from `live_documents`, require exactly one line
-matching `^\*\*Branch:\*\*`, and reject
-`\b[0-9a-fA-F]{7,40}\b` on that line. Compare the archive prefix before its
+matching `^\*\*Branch:\*\*`, and reject a pinned commit identity on that
+line. Match a backticked all-hexadecimal token of 7-40 characters carrying
+at least one non-numeric hex digit; a bare `\b[0-9a-fA-F]{7,40}\b` would
+also reject dates and issue numbers, so the shipped `_pinned_commit_identity`
+deliberately does not use it. Compare the archive prefix before its
 first dated entry with `SIDE_ARCHIVE_PREFIX` from `docsync.renderer`. When
 session lines exist, scan them for DOC001 with original source lines, compare
 them to the expected rendered session, and use `latest_test_count_authority()`
@@ -645,9 +649,10 @@ documents/tracked paths, and collect issues on that final state. Return 1 if
 any error remains; return 0 only when the final disk state is clean. Do not
 print a stale pre-fix error after it was successfully repaired.
 
-Stop calling `_cross_validate()` from CLI because Task 1 now owns those live
-checks and their blocking codes. Keep the helper callable for its existing
-direct unit tests; removing it is outside this P0 remediation.
+Stop calling `_cross_validate()` from the CLI: Task 1 owns those live checks
+and their blocking codes. The helper itself was later removed once it had no
+production caller, its checks being enforced more strictly by DOC001 and
+DOC006.
 
 - [ ] **Step 5: Run targeted tests and verify green state**
 

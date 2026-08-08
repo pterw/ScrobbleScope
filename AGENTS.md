@@ -238,7 +238,7 @@ the doc update cannot check it, and `pre-commit` includes the
 formatting, docsync markers); nothing in the toolchain checks whether one
 document now contradicts another. That gap is what turns a single review
 comment into a chain of rounds, each fixing damage from the last. Before
-pushing, spend the two minutes these four checks cost:
+pushing, spend the two minutes these checks cost:
 
 1. Read each changed file **whole**, not as a diff -- contradictions hide
    in the unchanged text next to the edit.
@@ -248,9 +248,20 @@ pushing, spend the two minutes these four checks cost:
    citations": citations of anything renumbered or renamed, sibling
    copies of any corrected claim, and every set or range the change
    asserts.
-3. Walk any procedure touched through its edge states, per
+3. Derive that sweep from `git diff origin/main...HEAD` -- the branch's
+   cumulative state, never one review round's commits. Each round
+   inherits every earlier round's blast radius, so a sweep scoped to
+   today's edits narrows a little further each time until it finds
+   nothing and the next reviewer does.
+4. Recording a deviation does not discharge the sweep. After writing a
+   finding that says some property no longer holds, grep the vocabulary
+   of the property being deviated **from** -- not the words of the new
+   finding, which appear nowhere else -- and repoint or delete every
+   affirmative claim of it. Hits inside dated Section 4 entries are
+   point-in-time records and stay as written.
+5. Walk any procedure touched through its edge states, per
    "Happy-path-only procedures".
-4. Prefer deletion to addition. Every added sentence is new surface area
+6. Prefer deletion to addition. Every added sentence is new surface area
    that a later change can contradict; collapsing a duplicate to a
    pointer removes surface area permanently.
 
@@ -528,14 +539,16 @@ Agents must check their work against this list before committing.
     documentation PR needed several extra rounds because each round's
     findings were produced by the previous round's own fixes. Every edit
     requires a blast-radius grep before the validation gates:
-    - after renumbering or renaming, run
-      `rg -n "(steps?|entr(y|ies)|items?|rules?|criteri(on|a)) \d|Registry #\d"`
-      across the canonical docs and repoint each hit by **name**, not
-      number -- a name cannot go stale when the list reorders. Match the
-      plural and alternate forms, not just the one that failed last time:
-      a sweep written as `Registry #\d` cannot see
-      `Registry entries N and M`. Hits inside dated Section 4 log entries
-      are point-in-time records and stay as written;
+    - after renumbering or renaming, repoint every citation by **name**,
+      not number -- a name cannot go stale when the list reorders. What
+      matters is whether the target can move, not the wording: an item in
+      a list that reorders needs a name, while a plan citing its own
+      "Step 8" is stable inside that document and is fine. No fixed
+      regex is prescribed here; one written against a single phrasing
+      returned 39 label headings for 2 real citations, which teaches
+      readers to skim past its own output. Choose the search from what
+      moved. Hits inside dated Section 4 log entries are point-in-time
+      records and stay as written;
     - after correcting a factual claim, grep its distinctive phrase
       repo-wide and fix every copy in the same commit, or delete the
       copies and link to the single owner (Anti-duplication rule);

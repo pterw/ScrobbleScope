@@ -44,8 +44,7 @@ canonical bootstrap stops on its errors; and live linked-worktree inspection
 reported the expected branch and ancestry without modifying Git. Review
 remediation adds final WT013 context to every offline result and keeps
 custom-base guidance aligned with the caller-selected ref. Final review
-remediation preserves the public facade while keeping each guard production
-file below the measured peer caps; WT014 fails closed without traceback or
+remediation preserves the public facade; WT014 fails closed without traceback or
 sensitive runner text, and exact severity plus real CLI tests protect every WT
 code. Shared fixtures create host-appropriate tools; host-rendered missing-tool
 assertions and simulated POSIX inspection protect the Ubuntu CI boundary.
@@ -126,6 +125,19 @@ round-2 remediation, which discovers the main working tree with
 `git worktree list --porcelain` and passes it in. The remaining three are
 unchanged.
 Status: open. Source: PR #169 independent review.
+
+### F-DOCSYNC-7: `_latest_test_count_from_entries` has no production caller
+
+The bare-count wrapper lost its last production caller when the integrity gate
+moved to `latest_test_count_authority`. It is now exercised only by its own
+unit tests in `tests/test_docsync_logic.py`, which is the same condition that
+led to `_cross_validate` being removed rather than kept.
+
+Deliberately not removed in the review round that created the condition:
+deleting it also rewrites eight test call sites, which is a refactor rather
+than a review fix. Remove it and repoint those tests at
+`latest_test_count_authority` in a hygiene pass.
+Status: open. Source: PR #169 review round 5.
 
 ### F-WORKTREE-4: three guard files exceed their directory peer caps
 

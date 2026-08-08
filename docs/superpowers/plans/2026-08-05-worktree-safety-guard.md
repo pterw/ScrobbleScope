@@ -7,10 +7,11 @@ wrong worktree lineage and resolves the repository's sole allowed virtualenv
 without mutating Git or installing packages.
 
 **Architecture:** Keep `scripts/dev/worktree_guard.py` as the stable public
-facade over peer-sized internal modules for diagnostics, lineage, Git
+facade over focused internal modules for diagnostics, lineage, Git
 runner/discovery, inspection orchestration, immutable types, and virtualenv
-topology. `scripts/dev/check_worktree_alignment.py` remains a thin CLI. The
-guard compares the PLAYBOOK branch with refreshed `origin/main`, distinguishes
+topology. Directory peer caps apply; accepted deviations are recorded in
+FINDINGS as F-WORKTREE-4. `scripts/dev/check_worktree_alignment.py` remains a
+thin CLI. The guard compares the PLAYBOOK branch with refreshed `origin/main`, distinguishes
 rebase artifacts from true divergence, and reports the linked worktree's
 allowed environment.
 
@@ -93,7 +94,7 @@ reintroduce the parent-of-common-dir derivation anywhere.
 - Create `tests/scripts/dev/test_worktree_guard_topology.py`: detached,
   linked-checkout, and simulated POSIX inspection outcomes.
 - Create `tests/scripts/dev/test_worktree_guard_venv.py`: virtualenv topology
-  cases split to satisfy the repository's peer-size gate.
+  cases, split by concern rather than by size.
 - Modify `AGENTS.md:27-147` and `HANDOFF_PROMPT.md:9-27`: canonical bootstrap
   gate and pointer without a copied decision table.
 - Modify `DEVELOPMENT.md:224-260` and `FINDINGS.md:27-80`: shipped human
@@ -682,8 +683,9 @@ convert them to `GuardError` with the sensitive exception chain suppressed and
 without including environment variables, command arguments, or remote URLs.
 
 Split implementation behind the stable `worktree_guard.py` facade according
-to the File Map. Every production module must remain within the measured
-pre-existing `scripts/dev/dev_start.py` peer cap (236 lines, 8,754 bytes).
+to the File Map. Implementation files should remain within their directory's
+measured peer caps; this constraint is recorded in FINDINGS.md (see F-WORKTREE-4
+for current status and accepted deviations).
 
 Resolve relative `--git-dir` and `--git-common-dir` output against the
 top-level path returned by Git before comparing paths or locating `.venv`;
