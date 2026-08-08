@@ -87,11 +87,12 @@ See FINDINGS F-DOCSYNC-3.
   and read-only worktree guard passed final combined-branch
   remediation, and F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. Three
   guard files now exceed their directory peer caps after review remediation --
-  accepted as a deviation and tracked as F-WORKTREE-4, not silently. Review
-  remediation is complete through round 4: the test count derives from one
-  total ordering, the guard discovers the main working tree from Git rather
-  than inferring it, the base ref is untouched between batches, and an
-  ambiguous count authority no longer switches DOC006 off. Before
+  accepted as a deviation and tracked as F-WORKTREE-4 in FINDINGS.md, not
+  silently. Review remediation is complete through round 5: the test count
+  derives from one total ordering, the guard discovers the main working tree
+  from Git rather than inferring it, the base ref is untouched between
+  batches, an ambiguous count authority no longer switches DOC006 off, and
+  the design documents describe the checks that shipped. Before
   merging, confirm a Quality Gate run exists for the current head -- none was
   created for `8463ca4` despite a delivered push event, and that gap is what
   `workflow_dispatch` now exists to cover on future heads.
@@ -162,6 +163,47 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-07 - PR #169 round 5; contradicting a claim is itself a change (side-task)
+
+- Scope: five suppressed findings, all valid, all self-inflicted. Four were
+  caused by round 4 recording F-WORKTREE-4 without sweeping for the claims
+  that finding contradicts; the fifth by round 4 repointing a resolver name at
+  one site while an identical literal sat 300 lines earlier in the same file.
+- Root cause, and the reason it recurs: the pre-push sweep had no pinned base,
+  so each round swept only its own commits and inherited nothing. Round 2
+  diagnosed this and fixed it by sweeping `git diff origin/main...HEAD`, but
+  recorded the fix only in a dated log entry, which this repository treats as
+  non-normative. Rounds 3 and 4 duly regressed. Both rules are now in the
+  pre-push checklist rather than in a log entry: pin the sweep base to the
+  branch, and treat recording a deviation as a change whose blast radius must
+  be swept -- grepping the vocabulary of the property being deviated from, not
+  the words of the new finding, which appear nowhere else.
+- Plan vs implementation: five affirmative peer-cap claims repointed across
+  the plan, the spec, and FINDINGS; the DOC003 description corrected to
+  describe the check that shipped rather than a bare regex the implementation
+  deliberately avoids; the interface inventory repointed to the authority API.
+- Deviations, logged rather than silently taken:
+  - **Round 3 shipped without a Section 4 entry.** Commits `14b3eac` and
+    `1c783a9` carried no dated log entry, breaching the missing-log-entries
+    anti-pattern in the very PR that ships a documentation-integrity gate.
+    Recorded here retroactively rather than back-dated: round 3 fixed seven
+    findings across the plan, the spec, AGENTS, and FINDINGS, and narrowed
+    F-WORKTREE-3 after re-verifying its remaining clauses.
+  - `_latest_test_count_from_entries` is left in place though no production
+    caller remains, because deleting it rewrites eight test call sites --
+    a refactor, not a review fix. Tracked as F-DOCSYNC-7.
+- Peer-agent correction: a concurrent session had staged a partial fix that
+  introduced two new false statements -- a docstring naming `_build_candidates`,
+  which exists nowhere in the repository, and an attribution of the
+  `_cross_validate` removal to round 2 when `a3c923f` did it in round 1. Both
+  corrected here. Worth recording because it is the same defect class the
+  round was fixing, produced independently by a different writer.
+- Validation: `pytest -q` -- **572 passed** with 3 existing aiohttp/Python
+  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
+  exit 0 with the expected root-BATCH warning.
+- Forward guidance: merge. Round 5 was entirely documentation currency, and
+  the remaining backlog is scoped as a hygiene batch rather than another round.
 
 ### 2026-08-07 - PR #169 round 4; the integrity gate could be switched off (side-task)
 
@@ -321,33 +363,3 @@ non-current operational logs. Older dated entries live in
   WP-1 remains queued immediately after that sweep. After the rebase merge,
   expect the tree-identical ahead/behind artifact on `wip/batch-21` and use
   the guard's WT004 output as the first live confirmation of that path.
-
-### 2026-08-05 - Combined integrity and guard final-review fixes (side-task)
-
-- Scope: resolved the four final combined-branch review blockers in the
-  docsync integrity gate and read-only worktree guard tests.
-- Plan vs implementation:
-  - Replaced Windows-separator literals with host-rendered `Path` expectations
-    while retaining explicit Windows/POSIX selection, symlink reuse, and the
-    simulated POSIX inspection boundary.
-  - Added optional SESSION_CONTEXT DOC001 scanning with original line numbers;
-    absent-session behavior, schematic exclusions, and deterministic ordering
-    remain unchanged.
-  - Made the Section 3 declaration the sole normalized tracked root candidate
-    for the exact current batch token, covering duplicates, `BATCH210`, root
-    `BATCH21.md`, subdirectories, generic templates, untracked supplied content,
-    and between-batches state.
-  - Sanitized every tracked-file Git failure to one stable invocation error;
-    CLI exit 2 contains no stderr, traceback, credential, path, or command text.
-  - Marked the approved design implemented and aligned both implementation
-    plans with the verified final contracts.
-- Deviations: none. No dependency, installation, destructive Git action,
-  environment creation, history rewrite, push, or DEVELOPMENT workflow change
-  was required.
-- Validation: platform-path RED -- 1 expected failure; behavioral RED -- 5
-  expected failures; focused GREEN -- **68 passed**; complete docsync suite --
-  **164 passed**; complete guard suite -- **84 passed**; full `pytest -q` --
-  **521 passed** with 3 existing aiohttp/Python 3.13 warnings. Production and
-  guard-test files remain within their measured peer caps.
-- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
-  WP-1 remains queued immediately after that sweep.
