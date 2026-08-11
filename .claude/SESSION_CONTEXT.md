@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-08-06
+Last updated: 2026-08-11
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-08-06
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **572 passing** across 35 test modules |
+| Tests | **575 passing** across 35 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -20,7 +20,7 @@ Last updated: 2026-08-06
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the repository-integrity gate and split worktree guard passed final combined-branch remediation, F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved, and the F-SWE-1 audit is next before WP-1. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved, and the F-SWE-1 audit is next before WP-1. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -47,7 +47,7 @@ Last updated: 2026-08-06
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **572 passed**.
+- Latest validated test count: **575 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -167,7 +167,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (572 tests)
+## 6. Test structure (575 tests)
 
 | File | Count |
 |------|-------|
@@ -198,7 +198,7 @@ loading.js polls GET /progress?job_id=...
 | scripts/dev/test_worktree_guard_cli.py | 5 |
 | scripts/dev/test_worktree_guard_cli_e2e.py | 11 |
 | scripts/dev/test_worktree_guard_inspection.py | 14 |
-| scripts/dev/test_worktree_guard_playbook.py | 10 |
+| scripts/dev/test_worktree_guard_playbook.py | 13 |
 | scripts/dev/test_worktree_guard_runner.py | 4 |
 | scripts/dev/test_worktree_guard_severity.py | 15 |
 | scripts/dev/test_worktree_guard_subject.py | 7 |

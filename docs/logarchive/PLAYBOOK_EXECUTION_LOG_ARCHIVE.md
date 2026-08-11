@@ -9,6 +9,60 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-06 - PR #169 review remediation: guard and integrity defects (side-task)
+
+- Scope: fixed every defect confirmed by the PR #169 review round -- three
+  GitHub Copilot comments plus an independent audit of the guard subsystem,
+  the docsync integrity subsystem, and the canonical document corpus.
+- Plan vs implementation:
+  - Worktree guard. Lineage verdicts named PLAYBOOK's expected branch while
+    the ancestry counts and tree identities were measured from HEAD, so
+    WT004's lease-protected force-push guidance could point at a branch the
+    guard never inspected; they now name the checked-out branch. Branch state
+    is classified before base-ref collection, so a missing `origin/main` no
+    longer masks the wrong-checkout finding and no longer errors between
+    batches. Section 3 parsing accepts ordinary prose and the bold
+    `**Branch:**` style instead of failing closed on them. WT008 stops naming
+    a primary environment that does not exist, WT009 warns rather than blocks
+    in an ordinary checkout so a fresh clone can reach Environment Setup, and
+    WT002 no longer republishes raw `OSError` text or absolute paths. A
+    `--debug` flag separates a guard defect from an environment failure.
+  - Docsync. The documented close-out command `--fix --keep-non-current 0`
+    left the repository unrepairable: the authoritative count was read after
+    rotation had emptied the live window, so a superseded value was written
+    and then failed DOC006, with `--fix` reporting no changes and still
+    exiting 1. The count is now derived from the pre-rotation document and
+    from rotated archive entries, so retention settings cannot change it.
+    DOC001 was narrowed to repository-relative references and now skips fenced
+    blocks; DOC003 requires a backticked all-hexadecimal token and reports the
+    violation that actually occurred; DOC002 names the competing declarations;
+    generated per-batch logs are no longer reported as dead links.
+  - Documents. The new qualified-tool rule shipped with eighteen pre-existing
+    violations in its own corpus, now covered by one conversion rule rather
+    than eighteen rewrites. Corrected references to the removed
+    cross-validation, restored AGENTS ownership of the test-count rule,
+    documented exit code 2 and the guard's non-blocking edge states, and
+    removed a restatement and a normative claim that crossed document roles.
+- Deviations: `_cross_validate` and its thirteen tests were removed rather
+  than repaired -- the function lost its only production caller when the CLI
+  moved to the integrity layer, and both checks it performed are now enforced
+  more strictly by DOC006 and DOC001. This also reduces
+  `tests/test_docsync_logic.py` from 904 to 725 lines against F-MAS-3. No
+  dependency, installation, destructive Git action, history rewrite, or push
+  beyond the standing review-fix authorization was required.
+- Validation: `pytest -q` -- **561 passed** with 3 existing aiohttp/Python
+  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
+  exit 0 with the expected root-BATCH warning. Mutation-checked: the guard
+  suite now fails when the diagnostic subject is wrong, where previously both
+  the defect and its fix left it fully green. The close-out command was
+  rehearsed end to end on a throwaway clone -- exit 1 with a corrupted count
+  before, exit 0 with the correct count after. Every guard production file is
+  at or below the measured 236-line peer cap.
+- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
+  WP-1 remains queued immediately after that sweep. After the rebase merge,
+  expect the tree-identical ahead/behind artifact on `wip/batch-21` and use
+  the guard's WT004 output as the first live confirmation of that path.
+
 ### 2026-08-05 - Combined integrity and guard final-review fixes (side-task)
 
 - Scope: resolved the four final combined-branch review blockers in the

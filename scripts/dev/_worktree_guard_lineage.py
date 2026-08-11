@@ -22,8 +22,13 @@ ACTIVE_BATCH_RE = re.compile(
     re.IGNORECASE,
 )
 # Section 3 labels are conventionally bold, so accept `**Branch:**` and
-# `**Branch**:` alongside the plain form.
-BRANCH_RE = re.compile(r"\bBranch\*{0,2}:\*{0,2}\s*`([^`]+)`", re.IGNORECASE)
+# `**Branch**:` alongside the plain form. The label and its value must sit on
+# one line: the section is matched as a newline-joined block, and WT003 prints
+# the captured value verbatim, so a value spanning lines would let ordinary
+# PLAYBOOK prose forge a second diagnostic line in the guard's own output.
+# Rejecting the line break leaves no branch to resolve, which fails closed as
+# WT002 rather than silently skipping the branch comparison.
+BRANCH_RE = re.compile(r"\bBranch\*{0,2}:\*{0,2}[ \t]*`([^`\r\n]+)`", re.IGNORECASE)
 # The cross-check exists to catch a batch declared active under an identifier
 # the strict pattern cannot read. It therefore matches the same declaration
 # shape -- one identifier token between "Batch" and the state -- so that
