@@ -23,15 +23,31 @@ def issue(
     return Diagnostic(severity, code, subject, message, remediation)
 
 
+def is_display_safe_ref(ref: str) -> bool:
+    """Report whether a ref name is safe to interpolate into a diagnostic.
+
+    Every WT diagnostic prints ref names verbatim, so this is an allowlist
+    rather than a list of known-bad characters. A denylist has to anticipate
+    each vector -- a line break forges a second diagnostic line, an escape
+    sequence repaints the current one, and non-ASCII spaces such as U+00A0
+    pad a fake verdict across it without using any ASCII character at all.
+    Restricting the value to a conservative ref alphabet refuses all of them,
+    including the ones nobody enumerated. The alphabet is deliberately
+    narrower than Git's own ref rule -- Git accepts names this rejects, such
+    as those holding non-ASCII characters -- because the property being
+    enforced is display safety, not Git validity.
+    """
+    return not (
+        not _SAFE_BASE_REF_RE.fullmatch(ref)
+        or ".." in ref
+        or "//" in ref
+        or ref.endswith(("/", ".", ".lock"))
+    )
+
+
 def base_ref_label(base_ref: str) -> str:
     """Return a display-safe ref label without changing the Git argument value."""
-    invalid = (
-        not _SAFE_BASE_REF_RE.fullmatch(base_ref)
-        or ".." in base_ref
-        or "//" in base_ref
-        or base_ref.endswith(("/", ".", ".lock"))
-    )
-    return "configured base ref" if invalid else base_ref
+    return base_ref if is_display_safe_ref(base_ref) else "configured base ref"
 
 
 def missing_base_remediation(base_ref: str) -> str:

@@ -270,9 +270,7 @@ ACTIVE_BATCH_RE = re.compile(
     r"\bBatch\s+(\d+)\s+is\s+(?:active|current|in[\s-]?progress)\b",
     re.IGNORECASE,
 )
-BRANCH_RE = re.compile(
-    r"\bBranch\*{0,2}:\*{0,2}[ \t]*`([^\x00-\x20\x7f-\x9f`]+)`", re.IGNORECASE
-)
+BRANCH_RE = re.compile(r"\bBranch\*{0,2}:\*{0,2}[ \t]*`([^`\r\n]+)`", re.IGNORECASE)
 ```
 
 Slice only Section 3. Return `(None, None)` when no batch is active. When one
@@ -280,13 +278,24 @@ batch is active, preserve `None` for a missing branch so the classifier can
 emit `WT002`. Raise `GuardError` for duplicate active batches, duplicate
 branches, or a missing Section 3.
 
-The branch value is restricted to what Git permits in a ref name rather than
-to "anything but a backtick". WT003 interpolates this capture and the CLI
-prints it verbatim, so a permissive class lets PLAYBOOK prose paint the
-guard's own output: a line break forges a second diagnostic line, an escape
-sequence repaints the line without one, and padding spaces overwrite the
-visible verdict. Relaxing the class back to `[^`]+` restores every one of
-those; a rejected value yields no branch and fails closed as `WT002`.
+The pattern only delimits a candidate. Discard any candidate that fails
+`is_display_safe_ref` before the duplicate check, so an unusable value never
+becomes a branch and never reaches a rendered diagnostic.
+
+That split exists because WT003 interpolates this capture and the CLI prints
+it verbatim, so a permissive value lets PLAYBOOK prose paint the guard's own
+output: a line break forges a second diagnostic line, an escape sequence
+repaints the current one, padding spaces push a fake verdict across it, and
+U+00A0 reproduces that padding without one ASCII character. An earlier
+revision of this step tried to enumerate the bad characters instead, which
+is what admitted the non-ASCII spaces. The allowlist in
+`_worktree_guard_diagnostics.py` already governs the other ref rendered into
+these diagnostics; both values answer to it rather than to two checks that
+drift apart.
+
+Note that this alphabet is narrower than Git's own ref rule, not equal to
+it: Git accepts ref names this rejects, such as those containing non-ASCII
+characters. Display safety, not Git validity, is the property being enforced.
 
 - [ ] **Step 4: Run parser tests and verify green state**
 
