@@ -285,8 +285,8 @@ to "anything but a backtick". WT003 interpolates this capture and the CLI
 prints it verbatim, so a permissive class lets PLAYBOOK prose paint the
 guard's own output: a line break forges a second diagnostic line, an escape
 sequence repaints the line without one, and padding spaces overwrite the
-visible verdict. Do not relax this class back to `[^`]+`; a rejected value
-correctly yields no branch and fails closed as `WT002`.
+visible verdict. Relaxing the class back to `[^`]+` restores every one of
+those; a rejected value yields no branch and fails closed as `WT002`.
 
 - [ ] **Step 4: Run parser tests and verify green state**
 
