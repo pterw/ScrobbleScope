@@ -162,6 +162,67 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-11 - PR #170 round 2; a denylist next door to an allowlist (side-task)
+
+- Scope: six findings from a dispatched adversarial review of the round-1
+  commit -- one blocking, four should-fix, one nit. All six were reproduced
+  independently before any code changed. All six were valid.
+- The blocking finding: the round-1 class `[^\x00-\x20\x7f-\x9f`]+` is an
+  ASCII denylist, so everything from U+00A0 upward passed. Reproduced through
+  the real parser: U+00A0, U+3000, U+2000, U+202E and U+200B all resolved to
+  an `expected_branch`. A value padded with U+00A0 renders in WT003 exactly
+  as one padded with the ASCII space that class excluded -- the same attack
+  round 1 claimed to have closed, in a different codepoint. U+200B is worse
+  than cosmetic: it renders as nothing, so WT003 demands a move to the branch
+  already checked out, with no exit from that state.
+- Root cause, and the part worth keeping: the guard already had the right
+  control. `_SAFE_BASE_REF_RE` in `_worktree_guard_diagnostics.py` is an
+  allowlist, and `base_ref_label` applies it to the other ref these same
+  diagnostics interpolate. Round 1 wrote a second, weaker, differently shaped
+  check in another module instead of reusing it. Two values reaching one
+  rendered line answered to two rules, and only one of them had been thought
+  through. This is a DRY failure that produced a security defect, not a
+  style complaint.
+- Plan vs implementation: the shared rule is now `is_display_safe_ref`,
+  extracted from the body of `base_ref_label` so both call sites share one
+  definition rather than one copying the other. `BRANCH_RE` returns to
+  delimiting a candidate; `parse_batch_branch` discards candidates that fail
+  the predicate before the duplicate check, so an unusable value never
+  becomes a branch. No dependency-graph change: lineage already imported from
+  diagnostics.
+- Corrections to the round-1 entry below, which stands as written because
+  dated entries are point-in-time records. Two claims in it are false. The
+  class was never "what Git actually permits in a ref name": Git rejects
+  `..`, `^`, `:`, `?`, `*`, `[`, `\`, `@{`, a `.lock` suffix and a trailing
+  `/`, all of which that class accepted, and Git accepts non-ASCII names the
+  new alphabet rejects. The current alphabet is deliberately narrower than
+  Git's rule because the property enforced is display safety, not ref
+  validity. Separately, "all four documented Section 3 branch styles" names a
+  set that does not exist; the suite pins three, and the fourth shape the
+  pattern admits is documented nowhere.
+- Deviations: replacing the denylist with one shared allowlist collapsed the
+  test distinctions round 1 had established. Under a single control, DEL is
+  indistinguishable from the escape sequence, and U+3000, U+202E and U+200B
+  from U+00A0 -- every mutation that leaks one leaks its whole group. Adding
+  a case per vector would have reinstated the near-duplicate rule breach the
+  review had just cleared, so the parametrization keeps one representative
+  per boundary the allowlist draws and names the rest in the docstring. The
+  line-break case now carries no other rejected character, which is the fix
+  the review asked for and which round 1 documented as a knowing breach
+  rather than repairing.
+- Validation: `pytest -q` -- **576 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings; the count is unchanged because four cases
+  were added and three trimmed. All 10 pre-commit hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
+  Every previously bypassing codepoint was re-run against the shipped parser
+  and now resolves to no branch, while `wip/batch-21` still resolves and the
+  live PLAYBOOK still parses.
+- Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1. The
+  narrative of this remediation, including why each round produced the next,
+  is written up in `docs/history/GUARD_HARDENING_2026-08-11.md` rather than
+  as new rules, since three rounds of evidence is a thin basis for amending
+  a ruleset every agent follows.
+
 ### 2026-08-11 - PR #170 round 1; the forgery class was wider than the line break (side-task)
 
 - Scope: three findings from two independent reviewers on the open PR -- two
@@ -320,43 +381,3 @@ non-current operational logs. Older dated entries live in
   exit 0 with the expected root-BATCH warning.
 - Forward guidance: merge. Round 5 was entirely documentation currency, and
   the remaining backlog is scoped as a hygiene batch rather than another round.
-
-### 2026-08-07 - PR #169 round 4; the integrity gate could be switched off (side-task)
-
-- Scope: eight findings from review round 4 -- one visible, seven suppressed.
-  Six valid and fixed, one declined as an accepted deviation, one refuted.
-- The material defect was self-inflicted by round 2. Making ambiguity an
-  explicit state fixed the renderer but left `None` meaning two things at the
-  integrity boundary, and DOC006 skips its comparison on `None`. Reproduced
-  before fixing: with an unambiguous authority a stale dashboard value raises
-  DOC006; with an ambiguous newest entry the same stale value passes and the
-  gate exits 0. Writing one ambiguous log entry therefore disabled the check
-  that exists to catch exactly that state.
-- Plan vs implementation: the resolver now returns `TestCountAuthority`
-  (count plus whether the newest entry was ambiguous) so the reason travels
-  with the value instead of each consumer re-deriving it. DOC006 treats an
-  ambiguous authority beside a named numeric field as blocking. Its
-  remediation no longer names PLAYBOOK unconditionally, because the authority
-  may be a rotated archive entry, and says to record an unambiguous result
-  when there is no number to agree with. The status block distinguishes "no
-  bold count" from "several counts without a `pytest -q` result", which sends
-  the reader to the entry that caused it rather than to a missing number.
-- Deliberate non-action: three guard files now exceed their directory peer
-  caps (256/236 for the collector, 270/184 and 192/184 for two guard test
-  modules). All were compliant before the review rounds and crossed while
-  fixing confirmed defects. Splitting them was declined -- the rule prevents
-  unmaintainable monoliths and none of these approaches that -- and recorded
-  as F-WORKTREE-4 rather than left implicit, since Section 3 had described
-  the guard as peer-sized and that had stopped being true.
-- Refuted: the review claimed the SESSION_CONTEXT per-file table sums to 573
-  against a stated 568. It sums to 568 across 35 rows, verified two ways and
-  reconciled row-by-row against `pytest --collect-only` with no drift. First
-  incorrect finding in four rounds; the others were all valid.
-- Validation: `pytest -q` -- **572 passed** with 3 existing aiohttp/Python
-  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
-  exit 0 with the expected root-BATCH warning. Both new behaviours were
-  mutation-checked: neutralizing the ambiguity branch in the gate and in the
-  renderer each fails its own regression.
-- Forward guidance: merge. Four rounds in, the findings are now generated by
-  the previous round's fixes rather than by the original work, and this round
-  produced the first refuted item -- both are diminishing-returns signals.

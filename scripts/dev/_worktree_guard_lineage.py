@@ -6,6 +6,7 @@ from scripts.dev._worktree_guard_diagnostics import (
     WT005_REMEDIATION,
     base_ref_label,
     identical_tree_remediation,
+    is_display_safe_ref,
     issue,
 )
 from scripts.dev._worktree_guard_types import (
@@ -22,18 +23,14 @@ ACTIVE_BATCH_RE = re.compile(
     re.IGNORECASE,
 )
 # Section 3 labels are conventionally bold, so accept `**Branch:**` and
-# `**Branch**:` alongside the plain form. WT003 prints the captured value
-# verbatim, so anything the value can carry, PLAYBOOK prose can paint into the
-# guard's own output -- the output the design says a less capable agent may
-# stop on knowing only the exit status. Excluding a line break alone is not
-# enough: an escape sequence forges a clean verdict without one, and padding
-# spaces rewrite the visible line. Git forbids control characters and spaces in
-# a ref name anyway, so the value is restricted to what a branch may actually
-# contain. A rejected value leaves no branch to resolve, which fails closed as
-# WT002 rather than silently skipping the branch comparison.
-BRANCH_RE = re.compile(
-    r"\bBranch\*{0,2}:\*{0,2}[ \t]*`([^\x00-\x20\x7f-\x9f`]+)`", re.IGNORECASE
-)
+# `**Branch**:` alongside the plain form. The pattern only delimits a
+# candidate; whether that candidate is safe to carry into a diagnostic is
+# decided by `is_display_safe_ref`, the same allowlist that already guards the
+# base ref. Both values land in the same rendered output, so they answer to one
+# rule rather than to two checks that drift apart -- an earlier denylist here
+# admitted every non-ASCII space, and a value that pads WT003 with U+00A0 reads
+# on a terminal exactly like one padded with the ASCII space it excluded.
+BRANCH_RE = re.compile(r"\bBranch\*{0,2}:\*{0,2}[ \t]*`([^`\r\n]+)`", re.IGNORECASE)
 # The cross-check exists to catch a batch declared active under an identifier
 # the strict pattern cannot read. It therefore matches the same declaration
 # shape -- one identifier token between "Batch" and the state -- so that
@@ -64,9 +61,16 @@ def parse_batch_branch(playbook_text: str) -> BatchBranch:
         raise GuardError("PLAYBOOK Section 3 has duplicate active batch metadata.")
     # Repeating the same branch name in supporting prose is unambiguous;
     # only conflicting values are metadata the guard must refuse to resolve.
-    branches = list(
-        dict.fromkeys(match.group(1) for match in BRANCH_RE.finditer(section))
-    )
+    # A candidate that could not be a Git ref is dropped rather than compared:
+    # it can name no real branch, and carrying it forward would only hand
+    # WT003 a string to print.
+    branches = [
+        candidate
+        for candidate in dict.fromkeys(
+            match.group(1) for match in BRANCH_RE.finditer(section)
+        )
+        if is_display_safe_ref(candidate)
+    ]
     if len(branches) > 1:
         raise GuardError("PLAYBOOK Section 3 has conflicting branch metadata.")
     if not active:
