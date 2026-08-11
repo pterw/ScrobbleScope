@@ -9,6 +9,71 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-07 - PR #169 round 2; ordering, discovery, and a diff-derived sweep (side-task)
+
+- Scope: thirteen findings from Copilot review 4877974867 -- one visible,
+  twelve suppressed, all verified valid. Eleven were caused by the previous
+  round's own fixes, so the round was treated as a remediation of that
+  remediation rather than as new review traffic.
+- Cause, established before fixing: the round-1 checklist was generated from
+  the reviewers' findings, which by construction described the pre-change
+  tree. Nothing was ever swept against the branch's own diff, so every
+  citation that round 1 invalidated survived. Three local patches to one
+  ordering question produced three interacting defects for the same reason.
+- Plan vs implementation:
+  - Test-count authority. Three findings were one defect: authority was
+    decided by scanning three sources independently and reconciling the
+    winners, so each rule was restated per source and their interactions were
+    never modelled. Replaced by one total ordering -- clamped date, then
+    source precedence -- walked once. Ambiguity became an explicit state
+    rather than `None`, so it suppresses older candidates instead of falling
+    through to them; a live side-task entry now outranks a same-date archived
+    one; and the legacy sole-bold-count pass walks the same ordering, so such
+    a count survives rotation. Heading dates are clamped to a running minimum
+    within each source because position, not the date, is the authority on
+    recency there -- which is what the existing append-convention tests
+    already pinned.
+  - Guard discovery. `--git-common-dir` names shared Git metadata, not a
+    checkout, so deriving the primary root from its parent is wrong under
+    `git clone --separate-git-dir`; the collector now asks Git directly with
+    `worktree list --porcelain`. On POSIX a file without an execute bit is
+    not a runnable tool, but existence was the whole test, so WT000 could
+    advertise unusable paths; the doubles hid it by building tools with
+    `touch()`. The base ref is no longer consulted at all between batches,
+    where the contract says ancestry is not enforced.
+  - Citation sweep, derived from `git diff origin/main...HEAD` rather than
+    from the findings list. That derivation is what found the class the
+    findings only sampled: nineteen further copies of the broken
+    primary-checkout derivation sat in per-step snippets across both
+    implementation plans, and the documented `resolve_venv` signature had
+    drifted from production. Also repointed the WT-code location claim, both
+    test inventories, and F-MAS-3.
+- Deviations: added `workflow_dispatch` to `.github/workflows/test.yml` (two
+  lines, urgent, logged here rather than deferred). GitHub created no Quality
+  Gate run for the push of `8463ca4` although the push event was delivered
+  and recorded, Actions was enabled, the workflow was active, its triggers
+  matched, no path filter or skip-ci marker applied, and Copilot's own
+  workflow ran on that same SHA eight seconds later. Evidence points to a
+  one-off dispatch drop rather than a configuration fault, so the trigger is
+  a durable escape hatch, not the fix. It cannot help this PR -- GitHub
+  resolves dispatchable workflows from the default branch -- so the unblock
+  is this push itself, which re-arms both `push` and `synchronize`.
+- Numbers were re-measured from a live collection run, not transcribed: the
+  README tree and the SESSION_CONTEXT table were regenerated mechanically
+  from `pytest --collect-only`. A host-dependent skip introduced during this
+  round was removed rather than kept, because it made the canonical test
+  count differ between Windows and Ubuntu CI and would have desynchronized
+  the documents permanently.
+- Validation: `pytest -q` -- **568 passed** with 3 existing aiohttp/Python
+  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
+  exit 0 with the expected root-BATCH warning. Coverage 89% via
+  `pytest --cov=scrobblescope`.
+- Forward guidance: the review-fix loop on this PR is at the point where
+  findings come from the fixes rather than from the original work, so merge
+  rather than iterate. Confirm a Quality Gate run exists for the new head
+  before merging; if none appears, close and reopen the PR to fire
+  `pull_request` again.
+
 ### 2026-08-06 - PR #169 review remediation: guard and integrity defects (side-task)
 
 - Scope: fixed every defect confirmed by the PR #169 review round -- three

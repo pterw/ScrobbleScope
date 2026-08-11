@@ -270,13 +270,23 @@ ACTIVE_BATCH_RE = re.compile(
     r"\bBatch\s+(\d+)\s+is\s+(?:active|current|in[\s-]?progress)\b",
     re.IGNORECASE,
 )
-BRANCH_RE = re.compile(r"\bBranch:\s*`([^`]+)`", re.IGNORECASE)
+BRANCH_RE = re.compile(
+    r"\bBranch\*{0,2}:\*{0,2}[ \t]*`([^\x00-\x20\x7f-\x9f`]+)`", re.IGNORECASE
+)
 ```
 
 Slice only Section 3. Return `(None, None)` when no batch is active. When one
 batch is active, preserve `None` for a missing branch so the classifier can
 emit `WT002`. Raise `GuardError` for duplicate active batches, duplicate
 branches, or a missing Section 3.
+
+The branch value is restricted to what Git permits in a ref name rather than
+to "anything but a backtick". WT003 interpolates this capture and the CLI
+prints it verbatim, so a permissive class lets PLAYBOOK prose paint the
+guard's own output: a line break forges a second diagnostic line, an escape
+sequence repaints the line without one, and padding spaces overwrite the
+visible verdict. Do not relax this class back to `[^`]+`; a rejected value
+correctly yields no branch and fails closed as `WT002`.
 
 - [ ] **Step 4: Run parser tests and verify green state**
 
