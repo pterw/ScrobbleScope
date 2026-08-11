@@ -90,8 +90,10 @@ See FINDINGS F-DOCSYNC-3.
   exceed their directory peer caps after review remediation -- accepted as a
   deviation and tracked as F-WORKTREE-4 in FINDINGS.md, not silently. Review
   remediation ran to round 6: rounds 2 through 5 landed before the merge, and
-  round 6 was reviewed after the final push and remediated separately once
-  the findings were confirmed still live on `main`.
+  round 6 was reviewed after the final push, so its four findings reached
+  `main` unaddressed. They are remediated in **PR #170** (open, on
+  `wip/batch-21`), which must land before the F-SWE-1 audit begins -- the
+  audit reads the guard and docsync sources that PR still changes.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -209,7 +211,11 @@ non-current operational logs. Older dated entries live in
   Mutation-checked: the new test was watched failing on all three variants
   before the pattern was narrowed, and the existing bold-label and
   prose-tolerance cases still pass, so the pattern was not over-narrowed.
-- Forward guidance: F-SWE-1 is the next work item before Batch 21 WP-1. The
+- Submitted as PR #170 against `main` after owner instruction to push and
+  open one. Both Quality Gate triggers fired on the new head, `push` and
+  `pull_request` -- the dropped-dispatch gap recorded against `8463ca4` did
+  not recur.
+- Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1. The
   process lesson is narrower than round 5's: a review that arrives between
   the final push and the merge button has no round of its own, so nothing
   swept it. Check for a review newer than the last commit before merging.
