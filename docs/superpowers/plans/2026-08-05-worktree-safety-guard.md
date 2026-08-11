@@ -586,6 +586,7 @@ def inspect_worktree(
     environ: Mapping[str, str] = os.environ,
     runner: Callable[[Path, tuple[str, ...]], CommandResult] = run_git,
     os_name: str | None = None,
+    debug: bool = False,
 ) -> list[Diagnostic]:
     """Collect local state using the host OS unless a test boundary overrides it."""
 

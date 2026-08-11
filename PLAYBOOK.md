@@ -82,20 +82,16 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** merge PR #169, then execute the full F-SWE-1 principles
-  audit, then proceed to Batch 21 WP-1. The canonical repository-integrity gate
-  and read-only worktree guard passed final combined-branch
-  remediation, and F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. Three
-  guard files now exceed their directory peer caps after review remediation --
-  accepted as a deviation and tracked as F-WORKTREE-4 in FINDINGS.md, not
-  silently. Review remediation is complete through round 5: the test count
-  derives from one total ordering, the guard discovers the main working tree
-  from Git rather than inferring it, the base ref is untouched between
-  batches, an ambiguous count authority no longer switches DOC006 off, and
-  the design documents describe the checks that shipped. Before
-  merging, confirm a Quality Gate run exists for the current head -- none was
-  created for `8463ca4` despite a delivered push event, and that gap is what
-  `workflow_dispatch` now exists to cover on future heads.
+- **Next action:** execute the full F-SWE-1 principles audit, then proceed to
+  Batch 21 WP-1. PR #169 merged to `main` on 2026-08-08 and the Quality Gate
+  is green for `5bc6294`, so the canonical repository-integrity gate and
+  read-only worktree guard are shipped and
+  F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. Three guard files
+  exceed their directory peer caps after review remediation -- accepted as a
+  deviation and tracked as F-WORKTREE-4 in FINDINGS.md, not silently. Review
+  remediation ran to round 6: rounds 2 through 5 landed before the merge, and
+  round 6 was reviewed after the final push and remediated separately once
+  the findings were confirmed still live on `main`.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -163,6 +159,60 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-11 - PR #169 round 6 landed after the merge; the guard could be made to lie (side-task)
+
+- Scope: four findings from Copilot review `4877974867`'s successor,
+  `4888134055`. The review was submitted 2026-08-08 04:38 UTC against head
+  `6ed9d7c`; the PR merged at 07:57 UTC with no commit in between. All four
+  were re-verified as still live on `main` before any work started -- the
+  merged head is tree-identical to `main`, so nothing had superseded them.
+- Why one of them mattered more than its "suppressed" label suggested:
+  `BRANCH_RE` captured `[^`]+`, a negated class that matches newlines, while
+  Section 3 is parsed as one newline-joined block. A backticked Branch value
+  spanning lines was therefore captured whole, and WT003 prints that value
+  verbatim. Ordinary PLAYBOOK prose could forge a second diagnostic line in
+  the guard's own output -- the output the design document says a less
+  capable agent can stop safely on, knowing only the exit status and the
+  remediation text. Reproduced before fixing, for all three line endings.
+- Plan vs implementation: the label and value are now pinned to one line
+  (`[ \t]*` for the separator, `[^`\r\n]+` for the value). A rejected value
+  leaves no branch to resolve, which `classify_lineage` already reports as
+  WT002 -- so the fix fails closed rather than silently skipping the branch
+  comparison. That mattered to the choice: making malformed metadata mean
+  "no branch declared" would have repeated round 4's defect, where an
+  ambiguous state switched a check off instead of blocking on it.
+- The other three were documentation currency: the `inspect_worktree`
+  interface in the guard plan omitted the shipped keyword-only `debug`
+  parameter, and SESSION_CONTEXT and FINDINGS both carried a
+  `Last updated: 2026-08-06` that predated their own 2026-08-07 content.
+  PLAYBOOK Section 3 was additionally stale on its own terms: it still
+  directed the reader to merge PR #169, three days after the merge, and
+  carried a pre-merge caveat about a missing Quality Gate run that now
+  exists and is green for `5bc6294`.
+- Deviations, recorded rather than taken silently:
+  - **`wip/batch-21` was realigned with an owner-authorized force-push.**
+    It sat 39 ahead / 39 behind `origin/main` with an identical tree -- the
+    WT004 rebase-merge artifact this guard was built to catch, and the first
+    live instance of it. `git cherry` confirmed zero commits without an
+    equivalent patch on `main`, so the reset was lossless. Done before any
+    work so the Pre-Work Checklist could pass honestly rather than be waived.
+  - The session ran in a linked worktree under `.claude/worktrees/`, already
+    covered by the `.claude/*` ignore rule, reusing the primary checkout's
+    sole `.venv` through the qualified paths the guard printed. This is the
+    first live exercise of the F-WORKTREE-2 path: the guard reported WT000
+    and resolved all three tools from the primary checkout.
+- Validation: `pytest -q` -- **575 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings (572 before; the three new cases are the
+  line-ending variants). All 10 pre-commit hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
+  Mutation-checked: the new test was watched failing on all three variants
+  before the pattern was narrowed, and the existing bold-label and
+  prose-tolerance cases still pass, so the pattern was not over-narrowed.
+- Forward guidance: F-SWE-1 is the next work item before Batch 21 WP-1. The
+  process lesson is narrower than round 5's: a review that arrives between
+  the final push and the merge button has no round of its own, so nothing
+  swept it. Check for a review newer than the last commit before merging.
 
 ### 2026-08-07 - PR #169 round 5; contradicting a claim is itself a change (side-task)
 
@@ -309,57 +359,3 @@ non-current operational logs. Older dated entries live in
   rather than iterate. Confirm a Quality Gate run exists for the new head
   before merging; if none appears, close and reopen the PR to fire
   `pull_request` again.
-
-### 2026-08-06 - PR #169 review remediation: guard and integrity defects (side-task)
-
-- Scope: fixed every defect confirmed by the PR #169 review round -- three
-  GitHub Copilot comments plus an independent audit of the guard subsystem,
-  the docsync integrity subsystem, and the canonical document corpus.
-- Plan vs implementation:
-  - Worktree guard. Lineage verdicts named PLAYBOOK's expected branch while
-    the ancestry counts and tree identities were measured from HEAD, so
-    WT004's lease-protected force-push guidance could point at a branch the
-    guard never inspected; they now name the checked-out branch. Branch state
-    is classified before base-ref collection, so a missing `origin/main` no
-    longer masks the wrong-checkout finding and no longer errors between
-    batches. Section 3 parsing accepts ordinary prose and the bold
-    `**Branch:**` style instead of failing closed on them. WT008 stops naming
-    a primary environment that does not exist, WT009 warns rather than blocks
-    in an ordinary checkout so a fresh clone can reach Environment Setup, and
-    WT002 no longer republishes raw `OSError` text or absolute paths. A
-    `--debug` flag separates a guard defect from an environment failure.
-  - Docsync. The documented close-out command `--fix --keep-non-current 0`
-    left the repository unrepairable: the authoritative count was read after
-    rotation had emptied the live window, so a superseded value was written
-    and then failed DOC006, with `--fix` reporting no changes and still
-    exiting 1. The count is now derived from the pre-rotation document and
-    from rotated archive entries, so retention settings cannot change it.
-    DOC001 was narrowed to repository-relative references and now skips fenced
-    blocks; DOC003 requires a backticked all-hexadecimal token and reports the
-    violation that actually occurred; DOC002 names the competing declarations;
-    generated per-batch logs are no longer reported as dead links.
-  - Documents. The new qualified-tool rule shipped with eighteen pre-existing
-    violations in its own corpus, now covered by one conversion rule rather
-    than eighteen rewrites. Corrected references to the removed
-    cross-validation, restored AGENTS ownership of the test-count rule,
-    documented exit code 2 and the guard's non-blocking edge states, and
-    removed a restatement and a normative claim that crossed document roles.
-- Deviations: `_cross_validate` and its thirteen tests were removed rather
-  than repaired -- the function lost its only production caller when the CLI
-  moved to the integrity layer, and both checks it performed are now enforced
-  more strictly by DOC006 and DOC001. This also reduces
-  `tests/test_docsync_logic.py` from 904 to 725 lines against F-MAS-3. No
-  dependency, installation, destructive Git action, history rewrite, or push
-  beyond the standing review-fix authorization was required.
-- Validation: `pytest -q` -- **561 passed** with 3 existing aiohttp/Python
-  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
-  exit 0 with the expected root-BATCH warning. Mutation-checked: the guard
-  suite now fails when the diagnostic subject is wrong, where previously both
-  the defect and its fix left it fully green. The close-out command was
-  rehearsed end to end on a throwaway clone -- exit 1 with a corrupted count
-  before, exit 0 with the correct count after. Every guard production file is
-  at or below the measured 236-line peer cap.
-- Forward guidance: execute the chartered full F-SWE-1 audit next; Batch 21
-  WP-1 remains queued immediately after that sweep. After the rebase merge,
-  expect the tree-identical ahead/behind artifact on `wip/batch-21` and use
-  the guard's WT004 output as the first live confirmation of that path.
