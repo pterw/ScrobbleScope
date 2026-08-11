@@ -273,9 +273,12 @@ non-current operational logs. Older dated entries live in
   `pull_request` -- the dropped-dispatch gap recorded against `8463ca4` did
   not recur.
 - Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1. The
-  process lesson is narrower than round 5's: a review that arrives between
-  the final push and the merge button has no round of its own, so nothing
-  swept it. Check for a review newer than the last commit before merging.
+  process lesson is narrower than round 5's: every remediation round here is
+  triggered by a push, so a review submitted after the final push falls
+  outside all of them and reaches the merge unswept. This entry records the
+  gap; it does not create a rule, because round 5 established that a rule
+  living in a dated entry has no force. Whether the pre-merge check belongs
+  in the canonical ruleset is an owner decision, still open.
 
 ### 2026-08-07 - PR #169 round 5; contradicting a claim is itself a change (side-task)
 
