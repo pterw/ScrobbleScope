@@ -9,6 +9,67 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-11 - PR #169 round 6 landed after the merge; the guard could be made to lie (side-task)
+
+- Scope: four findings from Copilot review `4877974867`'s successor,
+  `4888134055`. The review was submitted 2026-08-08 04:38 UTC against head
+  `6ed9d7c`; the PR merged at 07:57 UTC with no commit in between. All four
+  were re-verified as still live on `main` before any work started -- the
+  merged head is tree-identical to `main`, so nothing had superseded them.
+- Why one of them mattered more than its "suppressed" label suggested:
+  `BRANCH_RE` captured `[^`]+`, a negated class that matches newlines, while
+  Section 3 is parsed as one newline-joined block. A backticked Branch value
+  spanning lines was therefore captured whole, and WT003 prints that value
+  verbatim. Ordinary PLAYBOOK prose could forge a second diagnostic line in
+  the guard's own output -- the output the design document says a less
+  capable agent can stop safely on, knowing only the exit status and the
+  remediation text. Reproduced before fixing, for all three line endings.
+- Plan vs implementation: the label and value are now pinned to one line
+  (`[ \t]*` for the separator, `[^`\r\n]+` for the value). A rejected value
+  leaves no branch to resolve, which `classify_lineage` already reports as
+  WT002 -- so the fix fails closed rather than silently skipping the branch
+  comparison. That mattered to the choice: making malformed metadata mean
+  "no branch declared" would have repeated round 4's defect, where an
+  ambiguous state switched a check off instead of blocking on it.
+- The other three were documentation currency: the `inspect_worktree`
+  interface in the guard plan omitted the shipped keyword-only `debug`
+  parameter, and SESSION_CONTEXT and FINDINGS both carried a
+  `Last updated: 2026-08-06` that predated their own 2026-08-07 content.
+  PLAYBOOK Section 3 was additionally stale on its own terms: it still
+  directed the reader to merge PR #169, three days after the merge, and
+  carried a pre-merge caveat about a missing Quality Gate run that now
+  exists and is green for `5bc6294`.
+- Deviations, recorded rather than taken silently:
+  - **`wip/batch-21` was realigned with an owner-authorized force-push.**
+    It sat 39 ahead / 39 behind `origin/main` with an identical tree -- the
+    WT004 rebase-merge artifact this guard was built to catch, and the first
+    live instance of it. `git cherry` confirmed zero commits without an
+    equivalent patch on `main`, so the reset was lossless. Done before any
+    work so the Pre-Work Checklist could pass honestly rather than be waived.
+  - The session ran in a linked worktree under `.claude/worktrees/`, already
+    covered by the `.claude/*` ignore rule, reusing the primary checkout's
+    sole `.venv` through the qualified paths the guard printed. This is the
+    first live exercise of the F-WORKTREE-2 path: the guard reported WT000
+    and resolved all three tools from the primary checkout.
+- Validation: `pytest -q` -- **575 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings (572 before; the three new cases are the
+  line-ending variants). All 10 pre-commit hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
+  Mutation-checked: the new test was watched failing on all three variants
+  before the pattern was narrowed, and the existing bold-label and
+  prose-tolerance cases still pass, so the pattern was not over-narrowed.
+- Submitted as PR #170 against `main` after owner instruction to push and
+  open one. Both Quality Gate triggers fired on the new head, `push` and
+  `pull_request` -- the dropped-dispatch gap recorded against `8463ca4` did
+  not recur.
+- Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1. The
+  process lesson is narrower than round 5's: every remediation round here is
+  triggered by a push, so a review submitted after the final push falls
+  outside all of them and reaches the merge unswept. This entry records the
+  gap; it does not create a rule, because round 5 established that a rule
+  living in a dated entry has no force. Whether the pre-merge check belongs
+  in the canonical ruleset is an owner decision, still open.
+
 ### 2026-08-07 - PR #169 round 5; contradicting a claim is itself a change (side-task)
 
 - Scope: five suppressed findings, all valid, all self-inflicted. Four were

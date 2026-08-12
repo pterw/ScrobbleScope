@@ -162,6 +162,59 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-12 - PR #170 round 4; the third rendered ref answered to no rule (side-task)
+
+- Scope: one finding, reported independently by both reviewers against the
+  current head, and confirmed from the code before either review was read.
+  `actual_branch` was the last of the three refs these diagnostics render that
+  no rule governed.
+- Why it outranks its predecessors. The previous two rounds closed this class
+  for the ref that comes from PLAYBOOK prose; this one comes from
+  `git symbolic-ref --quiet --short HEAD`, so the attacker surface is a branch
+  name rather than a document. Enumerating every `issue()` call in
+  `scripts/dev/` by walking the syntax tree -- rather than trusting either
+  review's list -- gives six codes that print it: WT000, WT003, WT004, WT005,
+  WT006 and WT010. The dangerous one is WT000, which is only reached when the
+  run is otherwise clean: between batches with no dirty files the guard exits
+  zero and prints a subject the branch name controls, on the line the design
+  document says a less capable agent may stop on.
+- What Git actually permits, established with `git check-ref-format` and real
+  branches in a disposable repository rather than assumed: ESC, DEL, CR, LF
+  and the ASCII space are all rejected, so a fixture built from them describes
+  a checkout that cannot exist. U+00A0, U+2028, U+202E, U+200B, U+3000 and
+  U+0085 are accepted, and `symbolic-ref` returns them verbatim.
+- A second, narrower fact decided the fixture. `run_git` calls
+  `subprocess.run(..., text=True)` with no encoding, so Git output is decoded
+  with the locale codec. Under cp1252 U+00A0 survives and pads the line while
+  U+2028 arrives mangled; under a UTF-8 locale U+2028 survives and splits the
+  diagnostic into two. Only U+00A0 asserts the same thing on both, so it is
+  the payload the tests use.
+- Plan vs implementation: `branch_label` joins `base_ref_label` in the
+  diagnostics module, so all three rendered refs now answer to
+  `is_display_safe_ref`. The four render sites call it; the wrong-branch
+  comparison keeps the raw Git value, because labelling there would compare a
+  display string against a branch name. Labelling happens at render time, not
+  collection time -- the snapshot goes on naming whatever Git reported.
+- Deviations: the predicate had no direct test, and a mutation matrix showed
+  three of its four clauses were vacuous -- deleting the `..` rule, the `//`
+  rule, or the trailing `/`, `.` and `.lock` rule each left the whole suite
+  green. That is why this change adds predicate tests it did not strictly
+  need: without them the new docstring's claim that those boundaries are
+  covered would have been false. Every clause now fails at least one test,
+  and each member of the suffix tuple fails exactly one.
+- `_worktree_guard_inspection.py` remains over its directory peer cap
+  (F-WORKTREE-4, accepted); this change is net zero lines there and adds no
+  new deviation.
+- Validation: `pytest -q` -- **588 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings, up 12 in one existing file, so the module
+  count stays 35. All 10 pre-commit hooks pass. `doc_state_sync.py --check`
+  -- exit 0 with the expected root-BATCH warning. Verified end to end
+  afterwards: a real branch carrying U+00A0 was created in a scratch
+  repository and the shipped CLI rendered `unnamed branch` and `worktree`,
+  with no payload byte anywhere in its output.
+- Forward guidance: this clears the last open PR #170 item. Land the PR, then
+  F-SWE-1, then Batch 21 WP-1.
+
 ### 2026-08-12 - PR #170 round 3; the gate was ordered behind what it gates (side-task)
 
 - Scope: two document defects found by an independent clean-room audit of the
@@ -311,64 +364,3 @@ non-current operational logs. Older dated entries live in
   instance rather than the class leaves the class open, and here the reported
   instance was a line break while the class was anything a terminal
   interprets.
-
-### 2026-08-11 - PR #169 round 6 landed after the merge; the guard could be made to lie (side-task)
-
-- Scope: four findings from Copilot review `4877974867`'s successor,
-  `4888134055`. The review was submitted 2026-08-08 04:38 UTC against head
-  `6ed9d7c`; the PR merged at 07:57 UTC with no commit in between. All four
-  were re-verified as still live on `main` before any work started -- the
-  merged head is tree-identical to `main`, so nothing had superseded them.
-- Why one of them mattered more than its "suppressed" label suggested:
-  `BRANCH_RE` captured `[^`]+`, a negated class that matches newlines, while
-  Section 3 is parsed as one newline-joined block. A backticked Branch value
-  spanning lines was therefore captured whole, and WT003 prints that value
-  verbatim. Ordinary PLAYBOOK prose could forge a second diagnostic line in
-  the guard's own output -- the output the design document says a less
-  capable agent can stop safely on, knowing only the exit status and the
-  remediation text. Reproduced before fixing, for all three line endings.
-- Plan vs implementation: the label and value are now pinned to one line
-  (`[ \t]*` for the separator, `[^`\r\n]+` for the value). A rejected value
-  leaves no branch to resolve, which `classify_lineage` already reports as
-  WT002 -- so the fix fails closed rather than silently skipping the branch
-  comparison. That mattered to the choice: making malformed metadata mean
-  "no branch declared" would have repeated round 4's defect, where an
-  ambiguous state switched a check off instead of blocking on it.
-- The other three were documentation currency: the `inspect_worktree`
-  interface in the guard plan omitted the shipped keyword-only `debug`
-  parameter, and SESSION_CONTEXT and FINDINGS both carried a
-  `Last updated: 2026-08-06` that predated their own 2026-08-07 content.
-  PLAYBOOK Section 3 was additionally stale on its own terms: it still
-  directed the reader to merge PR #169, three days after the merge, and
-  carried a pre-merge caveat about a missing Quality Gate run that now
-  exists and is green for `5bc6294`.
-- Deviations, recorded rather than taken silently:
-  - **`wip/batch-21` was realigned with an owner-authorized force-push.**
-    It sat 39 ahead / 39 behind `origin/main` with an identical tree -- the
-    WT004 rebase-merge artifact this guard was built to catch, and the first
-    live instance of it. `git cherry` confirmed zero commits without an
-    equivalent patch on `main`, so the reset was lossless. Done before any
-    work so the Pre-Work Checklist could pass honestly rather than be waived.
-  - The session ran in a linked worktree under `.claude/worktrees/`, already
-    covered by the `.claude/*` ignore rule, reusing the primary checkout's
-    sole `.venv` through the qualified paths the guard printed. This is the
-    first live exercise of the F-WORKTREE-2 path: the guard reported WT000
-    and resolved all three tools from the primary checkout.
-- Validation: `pytest -q` -- **575 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings (572 before; the three new cases are the
-  line-ending variants). All 10 pre-commit hooks pass.
-  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
-  Mutation-checked: the new test was watched failing on all three variants
-  before the pattern was narrowed, and the existing bold-label and
-  prose-tolerance cases still pass, so the pattern was not over-narrowed.
-- Submitted as PR #170 against `main` after owner instruction to push and
-  open one. Both Quality Gate triggers fired on the new head, `push` and
-  `pull_request` -- the dropped-dispatch gap recorded against `8463ca4` did
-  not recur.
-- Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1. The
-  process lesson is narrower than round 5's: every remediation round here is
-  triggered by a push, so a review submitted after the final push falls
-  outside all of them and reaches the merge unswept. This entry records the
-  gap; it does not create a rule, because round 5 established that a rule
-  living in a dated entry has no force. Whether the pre-merge check belongs
-  in the canonical ruleset is an owner decision, still open.

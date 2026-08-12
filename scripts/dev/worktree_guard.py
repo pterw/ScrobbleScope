@@ -5,7 +5,10 @@ lineage classification, and virtualenv topology. Importers should continue to
 use this facade so that those implementation boundaries may evolve safely.
 """
 
-from scripts.dev._worktree_guard_diagnostics import inspection_failure_diagnostics
+from scripts.dev._worktree_guard_diagnostics import (
+    inspection_failure_diagnostics,
+    is_display_safe_ref,
+)
 from scripts.dev._worktree_guard_inspection import inspect_worktree
 from scripts.dev._worktree_guard_lineage import (
     ACTIVE_BATCH_RE,
@@ -44,6 +47,7 @@ __all__ = [
     "classify_lineage",
     "inspect_worktree",
     "inspection_failure_diagnostics",
+    "is_display_safe_ref",
     "parse_batch_branch",
     "resolve_venv",
     "run_git",
