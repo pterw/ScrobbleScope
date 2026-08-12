@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-08-11
+Last updated: 2026-08-12
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-08-11
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **576 passing** across 35 test modules |
+| Tests | **588 passing** across 35 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -47,7 +47,7 @@ Last updated: 2026-08-11
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **576 passed**.
+- Latest validated test count: **588 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -167,7 +167,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (576 tests)
+## 6. Test structure (588 tests)
 
 | File | Count |
 |------|-------|
@@ -201,7 +201,7 @@ loading.js polls GET /progress?job_id=...
 | scripts/dev/test_worktree_guard_playbook.py | 14 |
 | scripts/dev/test_worktree_guard_runner.py | 4 |
 | scripts/dev/test_worktree_guard_severity.py | 15 |
-| scripts/dev/test_worktree_guard_subject.py | 7 |
+| scripts/dev/test_worktree_guard_subject.py | 19 |
 | scripts/dev/test_worktree_guard_topology.py | 7 |
 | scripts/dev/test_worktree_guard_venv.py | 13 |
 | scripts/testing/test_concurrent_users_test.py | 6 |

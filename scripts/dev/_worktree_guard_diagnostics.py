@@ -50,6 +50,29 @@ def base_ref_label(base_ref: str) -> str:
     return base_ref if is_display_safe_ref(base_ref) else "configured base ref"
 
 
+def branch_label(branch: str | None, fallback: str) -> str:
+    """Return a display-safe subject for the branch that is checked out.
+
+    WT000, WT003, WT004, WT005, WT006 and WT010 all render this value. The
+    expected branch is filtered when Section 3 is parsed and the base ref is
+    labelled here, so this was the one rendered ref answering to no rule --
+    the same DRY failure that produced the previous round's defect, one value
+    further along. Git accepts ref names this guard must never print: it
+    rejects control characters and the ASCII space, but permits U+00A0,
+    U+2028 and U+202E, which pad, split and reorder a rendered line.
+
+    The value is labelled at render time rather than discarded at collection
+    time, because the property enforced is display safety, not Git validity;
+    the snapshot goes on naming whatever Git reported. Absent and unprintable
+    both mean the guard cannot name the branch, so both degrade to the
+    caller's neutral noun while the message and remediation keep carrying the
+    actionable text.
+    """
+    if not branch:
+        return fallback
+    return branch if is_display_safe_ref(branch) else fallback
+
+
 def missing_base_remediation(base_ref: str) -> str:
     """Preserve default recovery while keeping custom-base guidance neutral."""
     if base_ref == "origin/main":

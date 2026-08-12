@@ -5,6 +5,7 @@ import re
 from scripts.dev._worktree_guard_diagnostics import (
     WT005_REMEDIATION,
     base_ref_label,
+    branch_label,
     identical_tree_remediation,
     is_display_safe_ref,
     issue,
@@ -121,7 +122,7 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
             issue(
                 "ERROR",
                 "WT003",
-                snapshot.actual_branch or "unnamed branch",
+                branch_label(snapshot.actual_branch, "unnamed branch"),
                 f"active Batch {snapshot.active_batch} requires branch {snapshot.expected_branch}.",
                 "Stop and move the work to the named branch only with the owner's "
                 "direction; this guard does not switch branches.",
@@ -135,7 +136,7 @@ def classify_lineage(snapshot: LineageSnapshot) -> list[Diagnostic]:
     # Ancestry and tree identities are measured from HEAD, so the verdict must
     # name the checked-out branch. Naming PLAYBOOK's branch here would point
     # WT004's lease-protected force-push at history the guard never inspected.
-    subject = snapshot.actual_branch or "unnamed branch"
+    subject = branch_label(snapshot.actual_branch, "unnamed branch")
     base_ref = base_ref_label(snapshot.base_ref)
     if snapshot.behind > 0 and snapshot.ahead == 0:
         issues.append(
@@ -178,7 +179,7 @@ def _dirty(snapshot: LineageSnapshot) -> Diagnostic:
     return issue(
         "WARNING",
         "WT010",
-        snapshot.actual_branch or "worktree",
+        branch_label(snapshot.actual_branch, "worktree"),
         "tracked or untracked files are present in the worktree.",
         "Reconcile the dirty files before any history repair; this guard does not modify them.",
     )

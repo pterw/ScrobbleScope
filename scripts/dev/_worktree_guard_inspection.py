@@ -8,6 +8,7 @@ from pathlib import Path
 
 from scripts.dev._worktree_guard_diagnostics import (
     base_ref_label,
+    branch_label,
     finish_diagnostics,
     inspection_failure_diagnostics,
     issue,
@@ -252,5 +253,7 @@ def _inspect_worktree(
             f"{ancestry}; checkout kind: {kind}; Python: {venv.python}; "
             f"pytest: {venv.pytest}; pre-commit: {venv.pre_commit}."
         )
-        diagnostics.append(issue("INFO", "WT000", actual_branch, message))
+        diagnostics.append(
+            issue("INFO", "WT000", branch_label(actual_branch, "worktree"), message)
+        )
     return finish_diagnostics(diagnostics, offline=offline, base_ref=base_ref)
