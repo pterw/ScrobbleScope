@@ -162,6 +162,48 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-12 - PR #170 round 5; a normalizer undid the check above it (side-task)
+
+- Scope: three findings on the round-4 head, two acted on and one recorded.
+- The one that mattered. `actual_branch` was normalized with a bare
+  `strip()`, which removes Unicode whitespace, and Python counts U+00A0 as
+  whitespace while Git accepts it in a ref name. So `wip/batch-21` plus a
+  trailing U+00A0 -- a genuinely different ref -- folded onto the expected
+  branch, matched the comparison, and produced no wrong-branch verdict at
+  all. On a clean checkout that is an exit-zero run reporting alignment while
+  HEAD sits on another branch. Round 4 had just closed the display half of
+  this class; the normalizer one line above quietly reopened the identity
+  half.
+- Worth recording because the first reproduction attempt said the bug was not
+  there. On this host the locale codec is cp1252, so the UTF-8 bytes arrive
+  mojibaked as a non-whitespace character that survives `strip()` and trips
+  the comparison by accident. Under a UTF-8 locale -- Linux, and therefore CI
+  -- the decode is clean and the fold happens. A Windows-only check would
+  have cleared it.
+- Plan vs implementation: only Git's record terminator is trimmed now. Git
+  rejects CR and LF inside a ref name, so trimming exactly those cannot
+  damage a legitimate value, while every other codepoint reaches the
+  comparison and the render check intact.
+- The second finding was a stale count in a place the round-4 sweep did not
+  know existed: the README project-structure tree carries its own per-file
+  test inventory, separate from the SESSION_CONTEXT table. That sweep was
+  scoped to the literal total and missed it. All 35 rows were checked this
+  time, not just the row reported; one was wrong.
+- Deviations: the third finding is real and not fixed. Section 3 candidates
+  are filtered for display safety before the conflict check, so a document
+  naming one safe and one unsafe branch resolves instead of failing closed.
+  Reversing that needs its own reasoning rather than a review-round patch,
+  and the round-2 justification for it is itself wrong, so it is recorded as
+  F-WORKTREE-5 rather than patched here.
+- Validation: `pytest -q` -- **589 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. All 10 pre-commit hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
+  Re-verified end to end under a UTF-8 locale against a real trailing-U+00A0
+  branch: WT003 now fires where the run previously reported the wrong branch
+  as aligned.
+- Forward guidance: unchanged -- land PR #170, then F-SWE-1, then Batch 21
+  WP-1.
+
 ### 2026-08-12 - PR #170 round 4; the third rendered ref answered to no rule (side-task)
 
 - Scope: one finding, reported independently by both reviewers against the
@@ -307,60 +349,3 @@ non-current operational logs. Older dated entries live in
   is written up in `docs/history/GUARD_HARDENING_2026-08-11.md` rather than
   as new rules, since three rounds of evidence is a thin basis for amending
   a ruleset every agent follows.
-
-### 2026-08-11 - PR #170 round 1; the forgery class was wider than the line break (side-task)
-
-- Scope: three findings from two independent reviewers on the open PR -- two
-  from Copilot review `4902230481`, raised against the current head rather
-  than an earlier one, and one from Codex (`r3754609766`). All three were
-  reproduced before any code changed, and all three were valid.
-- The fix shipped earlier the same day was incomplete. Excluding CR and LF
-  stopped a forged *second line*, but WT003 renders the captured value into a
-  terminal, and an escape sequence repaints the existing line without ever
-  needing one: `ESC[2J ESC[H` clears the screen and redraws a clean verdict.
-  DEL erases what was already written, and padding spaces push a fake result
-  across the visible line. Reproduced directly: the previous pattern returned
-  an `expected_branch` still carrying a raw `\x1b`. The commit message claimed
-  PLAYBOOK prose could no longer forge guard output, and that claim was
-  broader than the fix behind it.
-- Plan vs implementation: rather than enumerate control characters, the value
-  is now restricted to what Git actually permits in a ref name -- no control
-  characters, no DEL or C1 range, no spaces. That subsumes the line-break case
-  instead of sitting beside it, and every rejection still fails closed to
-  WT002. Verified against all four documented Section 3 branch styles and the
-  live PLAYBOOK, so the narrowing costs no legitimate form.
-- The second finding was a test-quality defect in the same commit. The three
-  parametrized line endings were near-duplicates: `parse_batch_branch` splits
-  and rejoins the section, so LF, CRLF, and CR arrive at the pattern already
-  normalized to LF, and deleting `\r` from the pattern left all three green.
-  That is the prohibited near-duplicate pattern, shipped in the very change
-  that added an adversarial test. Replaced with one parser-level line-break
-  case plus three cases that survive normalization.
-- The third finding was a blast-radius miss in the previous commit, and the
-  more instructive one. Step 3 of the guard implementation plan still
-  prescribed the original `[^`]+` value class as a normative instruction, so
-  the plan remained a working recipe for rebuilding the vulnerability the
-  production fix had just closed. The earlier commit had edited that same
-  plan file -- for the `debug` parameter -- without sweeping it for the
-  pattern actually being changed. The snippet now carries the shipped class
-  plus a note saying why it must not be relaxed, so the reason travels with
-  the instruction rather than living only in production code.
-- Deviations: the first attempt at the DEL case did not isolate what it
-  claimed. Its payload also contained spaces, so the space rule blocked it and
-  a mutant permitting DEL still passed. Found by running a mutation matrix
-  over the exclusion ranges rather than by rereading the test, and corrected
-  by removing the spaces from that payload. Recorded because it is the same
-  defect class the finding reported, reintroduced while fixing it.
-- Validation: `pytest -q` -- **576 passed** with the 3 existing aiohttp/Python
-  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
-  exit 0 with the expected root-BATCH warning. Each new case was
-  mutation-checked: permitting the space boundary leaks only the padding case,
-  permitting the DEL/C1 range leaks only the DEL case, and the previously
-  shipped pattern leaks all three non-newline cases. The retained line-break
-  case adds no unique range coverage and is kept only as the single
-  parser-level case the review asked for.
-- Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1. The
-  lesson generalizes the one recorded below: a fix aimed at the reported
-  instance rather than the class leaves the class open, and here the reported
-  instance was a line break while the class was anything a terminal
-  interprets.

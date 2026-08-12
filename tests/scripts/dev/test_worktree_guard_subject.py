@@ -138,6 +138,27 @@ def test_a_forgeable_branch_name_is_labelled_on_the_clean_exit_path(tmp_path):
     assert FORGED not in verdict.subject
 
 
+def test_a_trailing_unicode_space_still_names_a_different_branch(tmp_path):
+    """Collection must strip Git's record terminator, not the ref itself.
+
+    `wip/batch-21\\xa0` is a distinct Git ref, but Python counts U+00A0 as
+    whitespace, so a bare `strip()` folded it onto the expected branch: the
+    comparison matched, no wrong-branch verdict was raised, and a clean run
+    reported the checkout as aligned while HEAD sat elsewhere. The stdout here
+    is what a UTF-8 locale delivers, which is why this fails independently of
+    the host codec -- on cp1252 the same ref arrives mojibaked and misses the
+    bug by accident.
+    """
+    repo, responses = repository(tmp_path)
+    responses[("symbolic-ref", "--quiet", "--short", "HEAD")] = ok(f"{EXPECTED}\xa0\n")
+
+    diagnostics = inspect_worktree(repo, runner=FakeGit(responses), environ={})
+
+    verdict = next(issue for issue in diagnostics if issue.code == "WT003")
+    assert verdict.severity == "ERROR"
+    assert verdict.subject == "unnamed branch"
+
+
 @pytest.mark.parametrize(
     "rejected",
     [
