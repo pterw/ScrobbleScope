@@ -160,7 +160,14 @@ def _inspect_worktree(
         )
     if branch_result.returncode != 0:
         raise GuardError("Git could not determine whether HEAD names a branch.")
-    actual_branch = branch_result.stdout.strip()
+    # Only Git's record terminator is removed. A bare `strip()` also removes
+    # Unicode whitespace, and Python counts U+00A0 as whitespace while Git
+    # accepts it in a ref name -- so `wip/batch-21\xa0`, a distinct branch,
+    # folded onto the expected one, matched the comparison below, and let a
+    # clean run report the checkout as aligned while HEAD was elsewhere. Git
+    # rejects CR and LF inside a ref name, so trimming only those cannot
+    # damage a legitimate value.
+    actual_branch = branch_result.stdout.strip("\r\n")
 
     playbook_path = resolved_root / "PLAYBOOK.md"
     try:

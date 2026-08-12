@@ -3,7 +3,7 @@
 Last updated: 2026-08-12
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0 done; PR #170 lands first, then the F-SWE-1 audit, then WP-1.
-588 tests across 35 test modules.
+589 tests across 35 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -162,6 +162,28 @@ compliance that does not hold.
 Revisit when any of these files next changes substantially; the natural seam
 in the collector is Git/topology collection versus diagnostic orchestration.
 Status: open (accepted deviation). Source: PR #169 review round 4.
+
+### F-WORKTREE-5: display-unsafe branch candidates are dropped before the conflict check
+
+`parse_batch_branch` filters candidates through `is_display_safe_ref` and only
+then counts them, so a Section 3 naming both `wip/batch-21` and a second,
+Git-valid branch holding a non-ASCII letter resolves to the ASCII one instead
+of failing closed on conflicting metadata. The guard then reports an aligned
+checkout even though the document declared two different branches.
+
+The ordering was deliberate in the PR #170 round-2 remediation, on the
+reasoning that a candidate failing the predicate "can name no real branch".
+That reasoning does not hold: `is_display_safe_ref` is deliberately narrower
+than Git's ref rule, so a rejected candidate can still name a real branch --
+which is the whole basis of F-WORKTREE-5. What the predicate decides is
+whether a value may be *rendered*, not whether it may *exist*.
+
+Not changed in the round that found it, because reversing a deliberate
+decision needs its own reasoning rather than a review-round patch, and
+reachability is low: it requires two `Branch:` values in Section 3, one of
+them non-ASCII. The fix is to count candidates before filtering and let a
+conflicting pair raise the existing GuardError.
+Status: open. Source: PR #170 review round 5 (Codex).
 
 ### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1)
 

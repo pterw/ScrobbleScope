@@ -9,6 +9,63 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-11 - PR #170 round 1; the forgery class was wider than the line break (side-task)
+
+- Scope: three findings from two independent reviewers on the open PR -- two
+  from Copilot review `4902230481`, raised against the current head rather
+  than an earlier one, and one from Codex (`r3754609766`). All three were
+  reproduced before any code changed, and all three were valid.
+- The fix shipped earlier the same day was incomplete. Excluding CR and LF
+  stopped a forged *second line*, but WT003 renders the captured value into a
+  terminal, and an escape sequence repaints the existing line without ever
+  needing one: `ESC[2J ESC[H` clears the screen and redraws a clean verdict.
+  DEL erases what was already written, and padding spaces push a fake result
+  across the visible line. Reproduced directly: the previous pattern returned
+  an `expected_branch` still carrying a raw `\x1b`. The commit message claimed
+  PLAYBOOK prose could no longer forge guard output, and that claim was
+  broader than the fix behind it.
+- Plan vs implementation: rather than enumerate control characters, the value
+  is now restricted to what Git actually permits in a ref name -- no control
+  characters, no DEL or C1 range, no spaces. That subsumes the line-break case
+  instead of sitting beside it, and every rejection still fails closed to
+  WT002. Verified against all four documented Section 3 branch styles and the
+  live PLAYBOOK, so the narrowing costs no legitimate form.
+- The second finding was a test-quality defect in the same commit. The three
+  parametrized line endings were near-duplicates: `parse_batch_branch` splits
+  and rejoins the section, so LF, CRLF, and CR arrive at the pattern already
+  normalized to LF, and deleting `\r` from the pattern left all three green.
+  That is the prohibited near-duplicate pattern, shipped in the very change
+  that added an adversarial test. Replaced with one parser-level line-break
+  case plus three cases that survive normalization.
+- The third finding was a blast-radius miss in the previous commit, and the
+  more instructive one. Step 3 of the guard implementation plan still
+  prescribed the original `[^`]+` value class as a normative instruction, so
+  the plan remained a working recipe for rebuilding the vulnerability the
+  production fix had just closed. The earlier commit had edited that same
+  plan file -- for the `debug` parameter -- without sweeping it for the
+  pattern actually being changed. The snippet now carries the shipped class
+  plus a note saying why it must not be relaxed, so the reason travels with
+  the instruction rather than living only in production code.
+- Deviations: the first attempt at the DEL case did not isolate what it
+  claimed. Its payload also contained spaces, so the space rule blocked it and
+  a mutant permitting DEL still passed. Found by running a mutation matrix
+  over the exclusion ranges rather than by rereading the test, and corrected
+  by removing the spaces from that payload. Recorded because it is the same
+  defect class the finding reported, reintroduced while fixing it.
+- Validation: `pytest -q` -- **576 passed** with the 3 existing aiohttp/Python
+  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
+  exit 0 with the expected root-BATCH warning. Each new case was
+  mutation-checked: permitting the space boundary leaks only the padding case,
+  permitting the DEL/C1 range leaks only the DEL case, and the previously
+  shipped pattern leaks all three non-newline cases. The retained line-break
+  case adds no unique range coverage and is kept only as the single
+  parser-level case the review asked for.
+- Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1. The
+  lesson generalizes the one recorded below: a fix aimed at the reported
+  instance rather than the class leaves the class open, and here the reported
+  instance was a line break while the class was anything a terminal
+  interprets.
+
 ### 2026-08-11 - PR #169 round 6 landed after the merge; the guard could be made to lie (side-task)
 
 - Scope: four findings from Copilot review `4877974867`'s successor,
