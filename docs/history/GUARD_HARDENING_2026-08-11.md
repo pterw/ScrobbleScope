@@ -207,9 +207,15 @@ here inverted that order.
 
 ## 5. Cross-references
 
-- Dated entries: `PLAYBOOK.md` Section 4, `2026-08-11` (three entries, newest
-  first).
+- Dated entries: the three `2026-08-11` side-task entries. All three
+  (round-2, round-1, and PR #169 round-6) live in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`; the non-current window
+  in `PLAYBOOK.md` Section 4 keeps the four newest untagged entries
+  positionally, and the round-6 entry below pushed the last of them out.
+  The round-6 entry is dated 2026-08-12 and live in Section 4.
 - Design: `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`
 - Plan: `docs/superpowers/plans/2026-08-05-worktree-safety-guard.md`
-- Open guard gaps: `FINDINGS.md`, `F-WORKTREE-3` and `F-WORKTREE-4`.
+- Open guard gaps: `FINDINGS.md`, `F-WORKTREE-3`, `F-WORKTREE-4` and
+  `F-WORKTREE-5` (the display-safety filter ordering, recorded open in
+  `d8d3e0d` after this document was written).
 - Rules: `AGENTS.md` -- unchanged by this work, and by this document.
