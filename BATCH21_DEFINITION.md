@@ -1,6 +1,6 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; WP-1 (toolchain) is next.
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 lands first, then the F-SWE-1 audit, then WP-1 (toolchain).
 **Branch:** `wip/batch-21` (linked worktree; lineage changes are recorded
 in PLAYBOOK Section 4 rather than pinned here).
 **Baseline:** 390 tests passing. This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count.

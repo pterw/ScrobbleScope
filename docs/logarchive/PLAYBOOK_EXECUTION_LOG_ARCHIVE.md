@@ -9,6 +9,47 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-07 - PR #169 round 5; contradicting a claim is itself a change (side-task)
+
+- Scope: five suppressed findings, all valid, all self-inflicted. Four were
+  caused by round 4 recording F-WORKTREE-4 without sweeping for the claims
+  that finding contradicts; the fifth by round 4 repointing a resolver name at
+  one site while an identical literal sat 300 lines earlier in the same file.
+- Root cause, and the reason it recurs: the pre-push sweep had no pinned base,
+  so each round swept only its own commits and inherited nothing. Round 2
+  diagnosed this and fixed it by sweeping `git diff origin/main...HEAD`, but
+  recorded the fix only in a dated log entry, which this repository treats as
+  non-normative. Rounds 3 and 4 duly regressed. Both rules are now in the
+  pre-push checklist rather than in a log entry: pin the sweep base to the
+  branch, and treat recording a deviation as a change whose blast radius must
+  be swept -- grepping the vocabulary of the property being deviated from, not
+  the words of the new finding, which appear nowhere else.
+- Plan vs implementation: five affirmative peer-cap claims repointed across
+  the plan, the spec, and FINDINGS; the DOC003 description corrected to
+  describe the check that shipped rather than a bare regex the implementation
+  deliberately avoids; the interface inventory repointed to the authority API.
+- Deviations, logged rather than silently taken:
+  - **Round 3 shipped without a Section 4 entry.** Commits `14b3eac` and
+    `1c783a9` carried no dated log entry, breaching the missing-log-entries
+    anti-pattern in the very PR that ships a documentation-integrity gate.
+    Recorded here retroactively rather than back-dated: round 3 fixed seven
+    findings across the plan, the spec, AGENTS, and FINDINGS, and narrowed
+    F-WORKTREE-3 after re-verifying its remaining clauses.
+  - `_latest_test_count_from_entries` is left in place though no production
+    caller remains, because deleting it rewrites eight test call sites --
+    a refactor, not a review fix. Tracked as F-DOCSYNC-7.
+- Peer-agent correction: a concurrent session had staged a partial fix that
+  introduced two new false statements -- a docstring naming `_build_candidates`,
+  which exists nowhere in the repository, and an attribution of the
+  `_cross_validate` removal to round 2 when `a3c923f` did it in round 1. Both
+  corrected here. Worth recording because it is the same defect class the
+  round was fixing, produced independently by a different writer.
+- Validation: `pytest -q` -- **572 passed** with 3 existing aiohttp/Python
+  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
+  exit 0 with the expected root-BATCH warning.
+- Forward guidance: merge. Round 5 was entirely documentation currency, and
+  the remaining backlog is scoped as a hygiene batch rather than another round.
+
 ### 2026-08-07 - PR #169 round 4; the integrity gate could be switched off (side-task)
 
 - Scope: eight findings from review round 4 -- one visible, seven suppressed.

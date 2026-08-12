@@ -82,10 +82,10 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** execute the full F-SWE-1 principles audit, then proceed to
-  Batch 21 WP-1. PR #169 merged to `main` on 2026-08-08 and the Quality Gate
-  is green for `5bc6294`, so the canonical repository-integrity gate and
-  read-only worktree guard are shipped and
+- **Next action:** land PR #170, then execute the full F-SWE-1 principles
+  audit, then proceed to Batch 21 WP-1. PR #169 merged to `main` on
+  2026-08-08 and the Quality Gate is green for `5bc6294`, so the canonical
+  repository-integrity gate and read-only worktree guard are shipped and
   F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. Three guard files
   exceed their directory peer caps after review remediation -- accepted as a
   deviation and tracked as F-WORKTREE-4 in FINDINGS.md, not silently. Review
@@ -162,6 +162,36 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-12 - PR #170 round 3; the gate was ordered behind what it gates (side-task)
+
+- Scope: two document defects found by an independent clean-room audit of the
+  live repository, both still live on the current head. Neither changes code
+  and neither moves the test count.
+- The first is the wider one. PLAYBOOK Section 3 opened with the F-SWE-1 audit
+  as the next action while its own closing sentence said PR #170 must land
+  before that audit begins. Section 3 is the canonical bootstrap instruction,
+  so an agent reading it top-down would start the audit against the guard and
+  docsync sources this PR still changes. SESSION_CONTEXT Section 1 and
+  FINDINGS already carried the correct order; `BATCH21_DEFINITION.md` carried
+  a third one, naming WP-1 as next with no mention of either gate. All three
+  now agree.
+- The second is a false statement in the round-2 entry below. "Four cases were
+  added and three trimmed" is a net increase of one, which cannot explain an
+  unchanged count, and it does not describe what happened: the change swapped
+  a single parametrized case for another -- the DEL payload for the U+00A0
+  one -- leaving six test functions and fourteen cases on either side.
+  Corrected in place rather than annotated. A dated entry is a point-in-time
+  record, but that protects a claim which was accurate when written and later
+  went stale; it does not preserve one that was wrong at the time. That
+  distinction is the same one already applied to archived citations.
+- Deviations: none.
+- Validation: `pytest -q` -- **576 passed** with the 3 existing aiohttp/Python
+  3.13 warnings; no test changed. All 10 pre-commit hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
+- Forward guidance: the remaining PR #170 item is the `actual_branch` display
+  gap both reviewers reported against this head. It lands next, then the PR,
+  then F-SWE-1, then Batch 21 WP-1.
+
 ### 2026-08-11 - PR #170 round 2; a denylist next door to an allowlist (side-task)
 
 - Scope: six findings from a dispatched adversarial review of the round-1
@@ -211,8 +241,10 @@ non-current operational logs. Older dated entries live in
   the review asked for and which round 1 documented as a knowing breach
   rather than repairing.
 - Validation: `pytest -q` -- **576 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings; the count is unchanged because four cases
-  were added and three trimmed. All 10 pre-commit hooks pass.
+  aiohttp/Python 3.13 warnings; the count is unchanged because the
+  parametrization swapped one case for another -- the DEL payload was
+  replaced by the U+00A0 one -- and no test function was added or removed.
+  All 10 pre-commit hooks pass.
   `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
   Every previously bypassing codepoint was re-run against the shipped parser
   and now resolves to no branch, while `wip/batch-21` still resolves and the
@@ -340,44 +372,3 @@ non-current operational logs. Older dated entries live in
   gap; it does not create a rule, because round 5 established that a rule
   living in a dated entry has no force. Whether the pre-merge check belongs
   in the canonical ruleset is an owner decision, still open.
-
-### 2026-08-07 - PR #169 round 5; contradicting a claim is itself a change (side-task)
-
-- Scope: five suppressed findings, all valid, all self-inflicted. Four were
-  caused by round 4 recording F-WORKTREE-4 without sweeping for the claims
-  that finding contradicts; the fifth by round 4 repointing a resolver name at
-  one site while an identical literal sat 300 lines earlier in the same file.
-- Root cause, and the reason it recurs: the pre-push sweep had no pinned base,
-  so each round swept only its own commits and inherited nothing. Round 2
-  diagnosed this and fixed it by sweeping `git diff origin/main...HEAD`, but
-  recorded the fix only in a dated log entry, which this repository treats as
-  non-normative. Rounds 3 and 4 duly regressed. Both rules are now in the
-  pre-push checklist rather than in a log entry: pin the sweep base to the
-  branch, and treat recording a deviation as a change whose blast radius must
-  be swept -- grepping the vocabulary of the property being deviated from, not
-  the words of the new finding, which appear nowhere else.
-- Plan vs implementation: five affirmative peer-cap claims repointed across
-  the plan, the spec, and FINDINGS; the DOC003 description corrected to
-  describe the check that shipped rather than a bare regex the implementation
-  deliberately avoids; the interface inventory repointed to the authority API.
-- Deviations, logged rather than silently taken:
-  - **Round 3 shipped without a Section 4 entry.** Commits `14b3eac` and
-    `1c783a9` carried no dated log entry, breaching the missing-log-entries
-    anti-pattern in the very PR that ships a documentation-integrity gate.
-    Recorded here retroactively rather than back-dated: round 3 fixed seven
-    findings across the plan, the spec, AGENTS, and FINDINGS, and narrowed
-    F-WORKTREE-3 after re-verifying its remaining clauses.
-  - `_latest_test_count_from_entries` is left in place though no production
-    caller remains, because deleting it rewrites eight test call sites --
-    a refactor, not a review fix. Tracked as F-DOCSYNC-7.
-- Peer-agent correction: a concurrent session had staged a partial fix that
-  introduced two new false statements -- a docstring naming `_build_candidates`,
-  which exists nowhere in the repository, and an attribution of the
-  `_cross_validate` removal to round 2 when `a3c923f` did it in round 1. Both
-  corrected here. Worth recording because it is the same defect class the
-  round was fixing, produced independently by a different writer.
-- Validation: `pytest -q` -- **572 passed** with 3 existing aiohttp/Python
-  3.13 warnings. All 10 pre-commit hooks pass. `doc_state_sync.py --check` --
-  exit 0 with the expected root-BATCH warning.
-- Forward guidance: merge. Round 5 was entirely documentation currency, and
-  the remaining backlog is scoped as a hygiene batch rather than another round.
