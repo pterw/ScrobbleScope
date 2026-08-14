@@ -163,6 +163,49 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-14 - Batch 21 tooling mapped to its work packages (side-task)
+
+- Scope: `AGENT_NOTES.md` gains a map from the installed skills and MCP
+  servers to WP-1 through WP-8, written before WP-1 rather than discovered
+  during it. Every entry was verified against the live machine and repository
+  on the day rather than carried forward from the plan's older table.
+- Structural fact recorded so nobody hunts for what is not there:
+  `BATCH21_DEFINITION.md` has **no per-WP acceptance criteria**. It carries
+  one batch-level list of 9 plus a per-WP validation gate that every WP runs
+  identically, so the map keys on the WP and names the criteria each serves.
+- Four separate skill sources are installed and their names collide -- `tdd`
+  and `test-driven-development` are different files from different upstreams,
+  as are `diagnosing-bugs` and `systematic-debugging`. The map says which
+  source each comes from, because naming the wrong one loads the wrong file.
+- Seven gaps recorded, all verified. Three of them converge on WP-8 and one
+  of those has to be decided at WP-1: the pre-commit top-level exclude covers
+  13 directories including `static/` and `templates/`, so the planned
+  `tailwind-css-drift` hook could never fire as a file-scoped hook and must
+  use the `always_run` pattern; CI has no Node and no Tailwind binary, so the
+  headless-Linux fetch is unsolved; and no CSS, JS or HTML hook exists at all,
+  leaving the files eight WPs rewrite unreachable by two mechanisms at once.
+- Two plan claims were corrected against the live state. The exclude covers
+  **13** directories, not the 12 the plan's Phase 6 still said -- an earlier
+  phase had already found 13 and the later section was never updated. And the
+  `skills-lock.json` drift (22 locked, 20 present) is bookkeeping only: both
+  absent skills are supplied by the superpowers plugin, so it is not the
+  capability gap it looks like.
+- One claim was verified rather than assumed after a false negative:
+  `workflow_dispatch` is on `origin/main` and usable. An initial check
+  reported it missing, which turned out to be Git Bash rewriting the
+  `rev:path` argument on Windows rather than anything about the repository.
+- Plan vs implementation: as planned, with the MCP inventory re-enumerated
+  live as the plan instructed rather than copied.
+- Deviations: none.
+- Validation: `pytest -q` -- **590 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
+  pass. `doc_state_sync.py --check` -- exit 0 (expected root warning for the
+  active `BATCH21_DEFINITION.md`). `check_worktree_alignment.py` -- exit 0.
+- Forward guidance: this closes the post-merge remediation. Next is the
+  F-SWE-1 principles audit per `docs/SWE_AUDIT_CHARTER.md`, whose report
+  belongs under `docs/history/reports/`, then Batch 21 WP-1. The three open
+  PR #170 review threads and the four ruleset settings remain owner-side.
+
 ### 2026-08-14 - docs/history one-off documents collected under reports/ (side-task)
 
 - Scope: the 26 loose files at the top of `docs/history/`, which had grown
@@ -305,45 +348,3 @@ non-current operational logs. Older dated entries live in
   passed with the expected root-BATCH warning.
 - Forward guidance: `docs/history/` still needs an index and its dead
   references repointed, and `AGENT_NOTES.md` still needs the tooling map.
-
-### 2026-08-14 - dependency-graph and pytest-config claims corrected (side-task)
-
-- Scope: four documentation claims that contradict the code, plus the
-  ordering statements left stale by the PR #170 merge.
-- Dependency graph, SESSION_CONTEXT Section 4. `heatmap.py <- config` was
-  false -- `heatmap.py` imports lastfm, repositories, utils and worker, and
-  reaches config only transitively through those. The same wrong chain was
-  repeated in the `heatmap.py` module docstring, so fixing one source alone
-  would have left the other. `app.py <- routes` omitted the `config` edge at
-  `app.py:143` (`ensure_api_keys`), which exists only under the `__main__`
-  guard; recorded with that scope rather than as an unconditional import.
-  Added `dev/dev_start.py`, documented in Section 3 but absent from the
-  graph. Every other edge was re-derived from the imports and is correct.
-- Pytest config, SESSION_CONTEXT Section 7. The claimed
-  `asyncio_mode = "strict"` is not configured anywhere: `pyproject.toml`
-  contains only `pythonpath = "."`, and no `pytest.ini`, `setup.cfg` or
-  `tox.ini` exists. `git log -S` shows the key was never in the file, so
-  this was wrong when written rather than drift. The same sentence appears
-  in `docs/history/SESSION_CONTEXT_REFERENCE.md`, which is left as written:
-  that file is a labelled 2026-02-23 snapshot of SESSION_CONTEXT.md, and a
-  snapshot that silently corrects its original stops being a snapshot.
-- Ordering. PR #170 merged, so PLAYBOOK Section 3, BATCH21_DEFINITION,
-  SESSION_CONTEXT Section 1 and FINDINGS all still said it must land first.
-  All four now name the merge and give the F-SWE-1 audit as the next action.
-  The batch-open baseline in BATCH21_DEFINITION gained its date so the 390
-  is not misread as current.
-- README cross-reference. "See `AGENTS.md` for the full dependency graph"
-  pointed at a file that has no graph; repointed to SESSION_CONTEXT
-  Section 4, which is where it lives.
-- AGENTS.md gained a note that WT004 after a merge is expected and routine,
-  with the tree-equality precondition that separates it from a real
-  divergence. Without it the guard's stop-and-escalate remediation reads as
-  alarming for what is now a per-merge occurrence.
-- Plan vs implementation: as planned.
-- Deviations: none.
-- Validation: `pytest -q` -- **589 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings. `check_worktree_alignment.py` -- exit 0.
-  `doc_state_sync.py --check` -- passed with the expected root-BATCH warning.
-- Forward guidance: the architecture diagrams still contradict the code they
-  describe, most seriously by drawing `create_job` with no preceding
-  `acquire_job_slot`. That is the next side-task, followed by F-WORKTREE-5.
