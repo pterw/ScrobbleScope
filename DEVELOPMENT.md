@@ -310,7 +310,7 @@ Skip it when the change is too small to require batch context; the skill
 illustrates this with the anti-example "tweak the heatmap pill padding," a
 change that needs only the relevant template file, not the full bootstrap chain.
 
-**`gemini-pr-triage`** solves the problem of prioritising an incoming batch of
+**`pr-bot-triage`** solves the problem of prioritising an incoming batch of
 PR review comments before acting on them. It reads each comment and classifies
 it as Act (address now -- actionable and in scope), Defer (valid but out of
 scope for this session or batch), or Decline (not warranted -- incorrect,

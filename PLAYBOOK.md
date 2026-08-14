@@ -163,6 +163,37 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-14 - F-DATA-1 filed under P2; stale skill name corrected (side-task)
+
+- Closes the two items the previous entry left as forward guidance.
+- `F-DATA-1` self-labelled `Status: open (P2)` while sitting as the last
+  entry under the P1 heading. Fixed by moving the `## P2` heading above it
+  rather than relocating a 65-line block -- same result, far less churn, and
+  the finding's own text is untouched.
+- `DEVELOPMENT.md` still named the PR triage skill `gemini-pr-triage`; it was
+  renamed `pr-bot-triage`. Real drift, not a snapshot, so it is corrected
+  rather than preserved.
+- **Scoping correction from the owner, recorded because an agent got it
+  wrong today:** `DEVELOPMENT.md` is not an agent document. It is absent from
+  docsync's live-document set and from the AGENTS.md bootstrap reading list,
+  and belongs with `README.md` as human-facing methodology writing. A line
+  added to `AGENT_NOTES.md` earlier the same day pointed agents at it for the
+  skills-are-local decision; that line now states the decision directly
+  instead. Batch definitions may still direct an agent to *write* a build
+  step into it -- writing to it is in scope, treating it as a source of
+  operating rules is not.
+- Plan vs implementation: these two were dropped from the Phase 5 scope
+  reduction and then reinstated by the owner, since both sit in working
+  documents rather than in the archive the reduction was about.
+- Deviations: none.
+- Validation: `pytest -q` -- **590 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
+  pass. `doc_state_sync.py --check` -- exit 0. `check_worktree_alignment.py`
+  -- exit 0. Verified exactly one `## P2` heading remains and that `F-MAS-4`
+  is still the last P1 entry.
+- Forward guidance: nothing outstanding from the remediation. Next is the
+  F-SWE-1 audit, then Batch 21 WP-1.
+
 ### 2026-08-14 - Batch 21 tooling mapped to its work packages (side-task)
 
 - Scope: `AGENT_NOTES.md` gains a map from the installed skills and MCP
@@ -289,62 +320,3 @@ non-current operational logs. Older dated entries live in
   pass. `check_worktree_alignment.py` -- exit 0.
 - Forward guidance: F-WORKTREE-5's two PR #170 threads can now be answered and
   resolved. F-WORKTREE-3 and F-WORKTREE-4 remain open by decision.
-
-### 2026-08-14 - architecture diagrams corrected and given one owner (side-task)
-
-- Scope: newly integrated Mermaid material that contradicted the code, plus
-  the three older diagram copies that disagreed with it and each other.
-- The central defect, in both sequence diagrams: `create_job` was drawn with
-  no preceding `acquire_job_slot`. The real order is the reverse
-  (`routes.py:460` then `:478`, and `:570` then `:582`) and is a fail-fast:
-  the slot is taken first and the request rejected outright if none is free.
-  An agent reconciling code to the diagram would allocate a `JOBS` entry and
-  then reject, leaking an orphan job on every throttled call until TTL expiry.
-  README already stated the correct order, so the repository contradicted
-  itself. The same inversion was present in the synthesis document.
-- Nine further defects, each verified against source: `worker.py` drawn as
-  importing `orchestrator` and `heatmap` when both import *it* (the dispatch
-  is real but runtime-only, through a callable `routes.py` injects); a
-  `cache.py -> utils.py` edge that does not exist in any form; the cache
-  hit/miss partition attributed to `cache.py` when it happens in
-  `orchestrator.py:561-578`, and cannot happen in `cache.py`, which never sees
-  the full candidate set; expiry cleanup drawn as cache-internal when the
-  orchestrator calls it; `start_job_thread` given the wrong signature; the
-  heatmap response typed as a rendered page rather than JSON 202; and missing
-  `routes -> orchestrator`, `routes -> heatmap`, `routes -> utils` and
-  `repositories -> errors` edges.
-- Ownership after this change: `README.md` keeps one high-level diagram and
-  now declares its arrow semantics, which was the root defect the wrong
-  diagrams shared -- a dependency edge and a control-flow edge were drawn
-  identically and read as the same claim. `docs/ARCHITECTURE.md` owns every
-  detailed diagram. SESSION_CONTEXT Section 5 keeps a corrected compact
-  summary and points there for detail. The synthesis Section 5 diagrams were
-  removed with a note recording why, and its Section 6 tooling diagram
-  migrated with one edge corrected: `doc_state_sync.py` imports only
-  `docsync.cli`, so the fan-out had been attributed one level too high.
-- Renamed the incoming doc from a dated filename to `docs/ARCHITECTURE.md`.
-  It is a living reference, and `docs/` root holds durable documents while
-  `docs/history/` holds dated ones; a date in the name would have become
-  false at the first correction.
-- Every diagram was validated before being written, per
-  `.github/instructions/mermaid.instructions.md` Rule 1. This caught a real
-  parse failure: a `;` inside a sequence-diagram message terminates the
-  statement. The incoming document had escaped it as `&#59;&#59;`, which
-  parsed but rendered as visible garbage and dropped a `%`. Removed the
-  semicolon rather than escaping it.
-- Now tracked, with the disposition rule recorded in the previous entry:
-  `docs/ARCHITECTURE.md`, the two `.github` instruction files (converted to
-  ASCII, with a ScrobbleScope scoping section reconciling their `.mmd` rule
-  against this repository's tracked-Markdown layout), the corrected synthesis,
-  and the PR #170 remediation plan under a superseded header naming the four
-  ways it must not be executed.
-- Plan vs implementation: the plan called for deleting `sequenceDiagram.mmd`
-  as a duplicate. Kept instead and moved to `diagrams/`, with `*.mmd`
-  gitignored -- deleting the only `.mmd` would contradict Rule 5 of the
-  instruction file being tracked in the same change.
-- Deviations: none.
-- Validation: `pytest -q` -- **590 passed**. All six diagrams return
-  `valid: true` from the Mermaid validator. `doc_state_sync.py --check` --
-  passed with the expected root-BATCH warning.
-- Forward guidance: `docs/history/` still needs an index and its dead
-  references repointed, and `AGENT_NOTES.md` still needs the tooling map.

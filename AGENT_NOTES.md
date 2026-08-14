@@ -182,8 +182,11 @@ one serves. Do not go looking for per-WP criteria; there are none by design.
 
 The collision matters: `tdd` (source 2) and `test-driven-development`
 (source 1) are different files from different upstreams. Name the one you
-mean. `DEVELOPMENT.md` records the decision to keep skill definitions local
-rather than committing them here.
+mean.
+
+Skill definitions are deliberately not tracked in this repository -- they
+are per-machine harness state, and `.gitignore` records the reason for each
+ignored path. Do not add them, and do not create a `docs/skills/` tree.
 
 ### MCP servers
 
