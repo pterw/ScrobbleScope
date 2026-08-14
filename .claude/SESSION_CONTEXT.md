@@ -227,7 +227,7 @@ loading.js polls GET /progress?job_id=...
   configured anywhere, so pytest-asyncio's own default applies.
 - API keys in `.env` (git-ignored); template: `.env.example`.
 - Gunicorn compat: `app = create_app()` at module level in `app.py`.
-- worker.py ADR archived at `docs/history/WORKER_ADR_2026-02-20.md`.
+- worker.py ADR archived at `docs/history/reports/WORKER_ADR_2026-02-20.md`.
 - Browser MCP runs in Docker: use `http://host.docker.internal:5000/` for local app access (not `localhost`).
 - Local Postgres cache: Docker container `ss-postgres`, volume `ss-postgres-data`.
   Connection: `postgresql://postgres:postgres@localhost:5432/scrobblescope`.

@@ -130,7 +130,7 @@ This file lives in `.claude/` and is committed to the repo (tracked via
 an explicit `.gitignore` exception: `.claude/*` + `!.claude/SESSION_CONTEXT.md`).
 It is the shared cross-agent dashboard -- all agents bootstrap from it.
 A reference snapshot (showing what the file looks like) is kept at
-`docs/history/SESSION_CONTEXT_REFERENCE.md` for readers curious about
+`docs/history/reports/SESSION_CONTEXT_REFERENCE.md` for readers curious about
 the format.
 
 **Why committed?** Because every agent used in development needs to start from an identical state. Leaving it uncommitted caused
@@ -154,10 +154,21 @@ decisions without loading them into the active context.
 The archive is organized into subdirectories:
 - `docs/history/definitions/`: archived batch definition files (`BATCHN_DEFINITION.md`)
 - `docs/history/logs/`: per-batch execution logs rotated from PLAYBOOK Section 4
+- `docs/history/findings/`: resolved findings rotated out of `FINDINGS.md`
+- `docs/history/reports/`: the dated one-off documents -- audits, changelogs,
+  refactor plans, the worker ADR, and the SESSION_CONTEXT format snapshot
 - `docs/logarchive/`: auto-managed monolith archive for non-batch (side-task) entries
 
+The other subdirectories hold structured series that a tool or a documented
+procedure writes into; `reports/` holds everything written once about one
+topic. Its documents are point-in-time records and are
+not revised to match later reorganisations, so paths cited *inside* them may
+name a pre-2026-08-14 layout. `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
+stays at the top level on purpose: it is a tombstone whose job is to resolve
+references to that legacy path.
+
 Other notable documents:
-- `AUDIT_*.md` / `BUGFIX_*.md`: external review findings and responses
+- `reports/AUDIT_*.md` / `reports/BUGFIX_*.md`: external review findings and responses
 
 ---
 
@@ -462,6 +473,6 @@ If you have cloned this repository and want to understand any decision:
 `.claude/SESSION_CONTEXT.md` is the current-state snapshot for an active
 development session. It is committed and shared across all agents (tracked
 via `.gitignore` exception). A reference copy of its format and structure
-is at `docs/history/SESSION_CONTEXT_REFERENCE.md`.
+is at `docs/history/reports/SESSION_CONTEXT_REFERENCE.md`.
 
 In sum, bootstrapping agents with the template prompt and repository documents gives each session the current project state and next task. Batch definitions and WPs provide the necessary orientation. Although this method consumes tokens, it has proven effective as a cross-session and cross-agent external-memory system. Logging decisions, deviations, and implementations preserves the reasons behind changes.

@@ -289,7 +289,7 @@ No differential check of the ten mandated software principles
 `docs/SWE_AUDIT_CHARTER.md` defines scope (Python only until Batch 21
 ships), the do-not-re-report baseline, method, and output contract; any
 dedicated single-purpose agent session (Claude or Codex) can execute it
-cold. Report lands as `docs/history/SWE_PRINCIPLES_AUDIT_<date>.md` with
+cold. Report lands as `docs/history/reports/SWE_PRINCIPLES_AUDIT_<date>.md` with
 net-new findings as F-SWE-2 onward; this entry closes by pointing at the
 report. Status: open (chartered 2026-07-31, execution pending).
 Source: owner request 2026-07-31.
@@ -475,10 +475,10 @@ flow). Status: deferred; on the README roadmap. Source: owner roadmap.
 
 ## Source documents
 
-- `docs/history/DOCSYNC_AUDIT_2026-02-25.md` -- 11 findings, detailed code refs
-- `docs/history/AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md` -- Full architecture sweep
-- `docs/history/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` -- Earlier audit
-- `docs/history/AUDIT_2026-01-10.md` -- Rate limit regression audit
+- `docs/history/reports/DOCSYNC_AUDIT_2026-02-25.md` -- 11 findings, detailed code refs
+- `docs/history/reports/AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md` -- Full architecture sweep
+- `docs/history/reports/AUDIT_2026-02-11_IMPLEMENTATION_REPORT.md` -- Earlier audit
+- `docs/history/reports/AUDIT_2026-01-10.md` -- Rate limit regression audit
 - `docs/history/findings/FINDINGS_ARCHIVE.md` -- Rotated resolved/no-action items
 - Agent memory: load-test-findings.md (not a repository file) -- raw load
   test data and analysis

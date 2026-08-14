@@ -55,11 +55,11 @@ any of them is audit failure, not thoroughness:
   F-B18-2/3/4/5/10 (deferred block), and F-LOAD-1/2. Check each ID's
   `Status:` line in FINDINGS.md rather than assuming from this list;
   resolved items remain part of the baseline and must not be re-raised.
-- `docs/history/AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md` (lines 113-136
+- `docs/history/reports/AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md` (lines 113-136
   list the prior runtime SoC/DRY/code-smell findings).
-- `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md` -- Section 4 "What was
+- `docs/history/reports/ROUTES_SOC_AUDIT_2026-02-21.md` -- Section 4 "What was
   NOT changed" documents deliberate declines; respect them.
-- `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`.
+- `docs/history/reports/TEST_QUALITY_AUDIT_2026-02-21.md`.
 - Standing design decisions (F-LOAD-3/4/5, AGENT_NOTES.md Architectural
   Constraints): in-memory REQUEST_CACHE, single-worker JOBS dict,
   TTL-on-write cache, ProactorEventLoop guard. These are choices, not
@@ -94,7 +94,7 @@ not volume.
 
 ## 6. Output contract
 
-- Report: `docs/history/SWE_PRINCIPLES_AUDIT_<YYYY-MM-DD>.md` -- the
+- Report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_<YYYY-MM-DD>.md` -- the
   matrix, per-cell evidence, the two prose answers, and a net-new
   findings list.
 - FINDINGS.md: append net-new F-SWE-N entries (start at F-SWE-2;
