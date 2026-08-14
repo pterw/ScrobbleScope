@@ -9,6 +9,36 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-12 - PR #170 round 3; the gate was ordered behind what it gates (side-task)
+
+- Scope: two document defects found by an independent clean-room audit of the
+  live repository, both still live on the current head. Neither changes code
+  and neither moves the test count.
+- The first is the wider one. PLAYBOOK Section 3 opened with the F-SWE-1 audit
+  as the next action while its own closing sentence said PR #170 must land
+  before that audit begins. Section 3 is the canonical bootstrap instruction,
+  so an agent reading it top-down would start the audit against the guard and
+  docsync sources this PR still changes. SESSION_CONTEXT Section 1 and
+  FINDINGS already carried the correct order; `BATCH21_DEFINITION.md` carried
+  a third one, naming WP-1 as next with no mention of either gate. All three
+  now agree.
+- The second is a false statement in the round-2 entry below. "Four cases were
+  added and three trimmed" is a net increase of one, which cannot explain an
+  unchanged count, and it does not describe what happened: the change swapped
+  a single parametrized case for another -- the DEL payload for the U+00A0
+  one -- leaving six test functions and fourteen cases on either side.
+  Corrected in place rather than annotated. A dated entry is a point-in-time
+  record, but that protects a claim which was accurate when written and later
+  went stale; it does not preserve one that was wrong at the time. That
+  distinction is the same one already applied to archived citations.
+- Deviations: none.
+- Validation: `pytest -q` -- **576 passed** with the 3 existing aiohttp/Python
+  3.13 warnings; no test changed. All 10 pre-commit hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
+- Forward guidance: the remaining PR #170 item is the `actual_branch` display
+  gap both reviewers reported against this head. It lands next, then the PR,
+  then F-SWE-1, then Batch 21 WP-1.
+
 ### 2026-08-11 - PR #170 round 2; a denylist next door to an allowlist (side-task)
 
 - Scope: six findings from a dispatched adversarial review of the round-1

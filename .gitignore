@@ -48,3 +48,20 @@ MEMORY.md
 # CLAUDE.md is local-only: Claude Code auto-load convenience; not useful without Claude Code.
 CLAUDE.md
 /BATCH*_AUDIT*.md
+
+# Vendored agent skills and their lockfile. Sourced from obra/superpowers and
+# mattpocock/skills; harness state for a local agent setup, not project state.
+# Tracked project guidance lives in AGENTS.md and .github/instructions/.
+.agents/
+skills-lock.json
+
+# Unedited vendor templates emitted by the setup-matt-pocock-skills skill.
+# Kept locally for reference. They describe a CONTEXT.md / docs/adr/ layout
+# this repo does not use and cite skills it does not have installed, so they
+# are not repo guidance. Adopting any of it belongs in its own commit.
+docs/agents/
+
+# Mermaid authoring and preview scratch. Canonical diagrams live in tracked
+# Markdown, which is what GitHub renders; a tracked .mmd would be a second
+# copy free to drift. See .github/instructions/mermaid.instructions.md.
+*.mmd
