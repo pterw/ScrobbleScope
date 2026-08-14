@@ -82,18 +82,19 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** land PR #170, then execute the full F-SWE-1 principles
-  audit, then proceed to Batch 21 WP-1. PR #169 merged to `main` on
-  2026-08-08 and the Quality Gate is green for `5bc6294`, so the canonical
-  repository-integrity gate and read-only worktree guard are shipped and
+- **Next action:** execute the full F-SWE-1 principles audit, then proceed to
+  Batch 21 WP-1. PR #169 merged to `main` on 2026-08-08 and the Quality Gate
+  is green for `5bc6294`, so the canonical repository-integrity gate and
+  read-only worktree guard are shipped and
   F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. Three guard files
   exceed their directory peer caps after review remediation -- accepted as a
   deviation and tracked as F-WORKTREE-4 in FINDINGS.md, not silently. Review
   remediation ran to round 6: rounds 2 through 5 landed before the merge, and
   round 6 was reviewed after the final push, so its four findings reached
-  `main` unaddressed. They are remediated in **PR #170** (open, on
-  `wip/batch-21`), which must land before the F-SWE-1 audit begins -- the
-  audit reads the guard and docsync sources that PR still changes.
+  `main` unaddressed. **PR #170 remediated them and merged 2026-08-12**
+  (`5b060a2`), so the guard and docsync sources the audit reads are settled.
+  Three of its review threads remain open, two of them independent reports of
+  F-WORKTREE-5.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -161,6 +162,48 @@ non-current operational logs. Older dated entries live in
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-14 - dependency-graph and pytest-config claims corrected (side-task)
+
+- Scope: four documentation claims that contradict the code, plus the
+  ordering statements left stale by the PR #170 merge.
+- Dependency graph, SESSION_CONTEXT Section 4. `heatmap.py <- config` was
+  false -- `heatmap.py` imports lastfm, repositories, utils and worker, and
+  reaches config only transitively through those. The same wrong chain was
+  repeated in the `heatmap.py` module docstring, so fixing one source alone
+  would have left the other. `app.py <- routes` omitted the `config` edge at
+  `app.py:143` (`ensure_api_keys`), which exists only under the `__main__`
+  guard; recorded with that scope rather than as an unconditional import.
+  Added `dev/dev_start.py`, documented in Section 3 but absent from the
+  graph. Every other edge was re-derived from the imports and is correct.
+- Pytest config, SESSION_CONTEXT Section 7. The claimed
+  `asyncio_mode = "strict"` is not configured anywhere: `pyproject.toml`
+  contains only `pythonpath = "."`, and no `pytest.ini`, `setup.cfg` or
+  `tox.ini` exists. `git log -S` shows the key was never in the file, so
+  this was wrong when written rather than drift. The same sentence appears
+  in `docs/history/SESSION_CONTEXT_REFERENCE.md`, which is left as written:
+  that file is a labelled 2026-02-23 snapshot of SESSION_CONTEXT.md, and a
+  snapshot that silently corrects its original stops being a snapshot.
+- Ordering. PR #170 merged, so PLAYBOOK Section 3, BATCH21_DEFINITION,
+  SESSION_CONTEXT Section 1 and FINDINGS all still said it must land first.
+  All four now name the merge and give the F-SWE-1 audit as the next action.
+  The batch-open baseline in BATCH21_DEFINITION gained its date so the 390
+  is not misread as current.
+- README cross-reference. "See `AGENTS.md` for the full dependency graph"
+  pointed at a file that has no graph; repointed to SESSION_CONTEXT
+  Section 4, which is where it lives.
+- AGENTS.md gained a note that WT004 after a merge is expected and routine,
+  with the tree-equality precondition that separates it from a real
+  divergence. Without it the guard's stop-and-escalate remediation reads as
+  alarming for what is now a per-merge occurrence.
+- Plan vs implementation: as planned.
+- Deviations: none.
+- Validation: `pytest -q` -- **589 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `check_worktree_alignment.py` -- exit 0.
+  `doc_state_sync.py --check` -- passed with the expected root-BATCH warning.
+- Forward guidance: the architecture diagrams still contradict the code they
+  describe, most seriously by drawing `create_job` with no preceding
+  `acquire_job_slot`. That is the next side-task, followed by F-WORKTREE-5.
 
 ### 2026-08-14 - post-merge realignment and untracked-artifact disposition (side-task)
 
@@ -286,56 +329,3 @@ non-current operational logs. Older dated entries live in
   as aligned.
 - Forward guidance: unchanged -- land PR #170, then F-SWE-1, then Batch 21
   WP-1.
-
-### 2026-08-12 - PR #170 round 4; the third rendered ref answered to no rule (side-task)
-
-- Scope: one finding, reported independently by both reviewers against the
-  current head, and confirmed from the code before either review was read.
-  `actual_branch` was the last of the three refs these diagnostics render that
-  no rule governed.
-- Why it outranks its predecessors. The previous two rounds closed this class
-  for the ref that comes from PLAYBOOK prose; this one comes from
-  `git symbolic-ref --quiet --short HEAD`, so the attacker surface is a branch
-  name rather than a document. Enumerating every `issue()` call in
-  `scripts/dev/` by walking the syntax tree -- rather than trusting either
-  review's list -- gives six codes that print it: WT000, WT003, WT004, WT005,
-  WT006 and WT010. The dangerous one is WT000, which is only reached when the
-  run is otherwise clean: between batches with no dirty files the guard exits
-  zero and prints a subject the branch name controls, on the line the design
-  document says a less capable agent may stop on.
-- What Git actually permits, established with `git check-ref-format` and real
-  branches in a disposable repository rather than assumed: ESC, DEL, CR, LF
-  and the ASCII space are all rejected, so a fixture built from them describes
-  a checkout that cannot exist. U+00A0, U+2028, U+202E, U+200B, U+3000 and
-  U+0085 are accepted, and `symbolic-ref` returns them verbatim.
-- A second, narrower fact decided the fixture. `run_git` calls
-  `subprocess.run(..., text=True)` with no encoding, so Git output is decoded
-  with the locale codec. Under cp1252 U+00A0 survives and pads the line while
-  U+2028 arrives mangled; under a UTF-8 locale U+2028 survives and splits the
-  diagnostic into two. Only U+00A0 asserts the same thing on both, so it is
-  the payload the tests use.
-- Plan vs implementation: `branch_label` joins `base_ref_label` in the
-  diagnostics module, so all three rendered refs now answer to
-  `is_display_safe_ref`. The four render sites call it; the wrong-branch
-  comparison keeps the raw Git value, because labelling there would compare a
-  display string against a branch name. Labelling happens at render time, not
-  collection time -- the snapshot goes on naming whatever Git reported.
-- Deviations: the predicate had no direct test, and a mutation matrix showed
-  three of its four clauses were vacuous -- deleting the `..` rule, the `//`
-  rule, or the trailing `/`, `.` and `.lock` rule each left the whole suite
-  green. That is why this change adds predicate tests it did not strictly
-  need: without them the new docstring's claim that those boundaries are
-  covered would have been false. Every clause now fails at least one test,
-  and each member of the suffix tuple fails exactly one.
-- `_worktree_guard_inspection.py` remains over its directory peer cap
-  (F-WORKTREE-4, accepted); this change is net zero lines there and adds no
-  new deviation.
-- Validation: `pytest -q` -- **588 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings, up 12 in one existing file, so the module
-  count stays 35. All 10 pre-commit hooks pass. `doc_state_sync.py --check`
-  -- exit 0 with the expected root-BATCH warning. Verified end to end
-  afterwards: a real branch carrying U+00A0 was created in a scratch
-  repository and the shipped CLI rendered `unnamed branch` and `worktree`,
-  with no payload byte anywhere in its output.
-- Forward guidance: this clears the last open PR #170 item. Land the PR, then
-  F-SWE-1, then Batch 21 WP-1.

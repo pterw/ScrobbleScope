@@ -20,7 +20,7 @@ Last updated: 2026-08-12
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 is open on `wip/batch-21`, remediating the four round-6 findings that merged unaddressed; it lands first, then the F-SWE-1 audit, then WP-1. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. Next: the F-SWE-1 audit, then WP-1. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -116,9 +116,9 @@ repositories.py  <- config, errors
 lastfm.py        <- config, utils
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
-heatmap.py       <- config, lastfm, repositories, utils, worker
+heatmap.py       <- lastfm, repositories, utils, worker
 routes.py        <- heatmap, lastfm, orchestrator, repositories, utils, worker
-app.py           <- routes (Blueprint)
+app.py           <- routes (Blueprint); config (ensure_api_keys, __main__ only)
 
 docsync/__init__.py  <- (leaf)
 docsync/models.py    <- (leaf)
@@ -136,6 +136,7 @@ dev/_worktree_guard_venv.py <- dev/_worktree_guard_diagnostics, dev/_worktree_gu
 dev/_worktree_guard_inspection.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
 dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_inspection, dev/_worktree_guard_lineage, dev/_worktree_guard_runner, dev/_worktree_guard_types, dev/_worktree_guard_venv
 dev/check_worktree_alignment.py <- dev/worktree_guard
+dev/dev_start.py <- (leaf; standard library only)
 ```
 
 ---
@@ -213,7 +214,8 @@ loading.js polls GET /progress?job_id=...
 
 - Python 3.13.3, Windows 11, venv.
 - Pre-commit: black, isort, autoflake, flake8, trailing whitespace, end-of-file, check yaml, check-merge-conflict, detect-private-key, doc-state-sync-check.
-- pytest in `pyproject.toml` with `asyncio_mode = "strict"`.
+- pytest in `pyproject.toml` sets only `pythonpath = "."`; no `asyncio_mode` key is
+  configured anywhere, so pytest-asyncio's own default applies.
 - API keys in `.env` (git-ignored); template: `.env.example`.
 - Gunicorn compat: `app = create_app()` at module level in `app.py`.
 - worker.py ADR archived at `docs/history/WORKER_ADR_2026-02-20.md`.

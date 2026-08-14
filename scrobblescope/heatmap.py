@@ -7,7 +7,7 @@ fetch infrastructure (``lastfm.fetch_all_recent_tracks_async``), the job state
 machine (``repositories.*``), and the concurrency slot system (``worker.*``).
 
 Dependency chain (leaf-ward):
-    heatmap <- config, lastfm, repositories, utils, worker
+    heatmap <- lastfm, repositories, utils, worker
 
 No Spotify enrichment, no DB cache, no domain normalization -- iteration 1
 deals only with raw scrobble counts per day.
