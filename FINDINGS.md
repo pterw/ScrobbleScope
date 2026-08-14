@@ -300,6 +300,10 @@ Source: owner request 2026-07-31.
 the original sweep); narrow or add structured logging per exception
 class. Status: open. Source: MULTI_AGENT_SWEEP.
 
+---
+
+## P2 -- Scaling roadmap
+
 ### F-DATA-1: reissue editions collapse onto the original's cache row
 
 `normalize_name()` strips `deluxe`/`edition`/`remastered`/`anniversary`
@@ -365,10 +369,6 @@ than the full-enrichment attempt abandoned in 2025.
 Status: open (P2). Low user impact -- one recalled instance across ~14
 years of scrobbles, and `release_scope: all` bypasses date filtering
 entirely. Source: session 2026-07-31.
-
----
-
-## P2 -- Scaling roadmap
 
 ### F-DOCSYNC-2: STATUS block misreports current batch between batches
 
