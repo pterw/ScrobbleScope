@@ -9,6 +9,54 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-14 - post-merge realignment and untracked-artifact disposition (side-task)
+
+- Scope: restore a green bootstrap after PR #170 merged, and give every
+  untracked path an explicit disposition. Two gates were failing at once.
+- Gate 1, the worktree guard. `main` requires linear history and its ruleset
+  permits only squash and rebase merges, so the merge rebased the branch and
+  left `wip/batch-21` 9/9 diverged from `origin/main` with byte-identical
+  trees (`dedd776` both) -- `ERROR WT004`, exit 1. Verified the two tree
+  hashes matched and `git diff HEAD origin/main` was empty, then reset the
+  branch onto `origin/main` and force-pushed with lease under the owner
+  approval the guard's remediation requires. No file changed; only the
+  commit objects the branch points at. This state will recur after every
+  merge, since it follows from the ruleset rather than from any mistake.
+- Gate 2, the integrity gate. The `setup-matt-pocock-skills` skill had
+  appended an `## Agent skills` section to `AGENTS.md` pointing at a new
+  untracked `docs/agents/`, which produced three `DOC001` errors and would
+  have failed `pre-commit` and CI. Reverted. The skill followed its own
+  file-selection rule (no `CLAUDE.md` exists, so `AGENTS.md` was its
+  fallback); the mismatch is that it treats `AGENTS.md` as an appendable
+  conventions file while this repository treats it as a governed ruleset.
+- Disposition: untracked files went from 73 to 5, all five of which are
+  slated for tracking in later side-tasks. Ignored with recorded reasons:
+  `.agents/` and `skills-lock.json` (vendored from two upstream skill
+  repositories, already drifting -- the lock names 22 skills, the tree holds
+  20); `docs/agents/` (unedited vendor templates describing a layout this
+  repository does not use); and `*.mmd` (Mermaid authoring scratch, kept
+  separate so no diagram has a second copy free to drift).
+- Note for future audits: `git status` collapses directories, so the set
+  read as 8 paths and was actually 73 files. Use `-uall`. Separately,
+  `git check-ignore -v <path>/` reports a spurious match against a blank
+  `.gitignore` line for any path given a trailing slash -- a nonexistent
+  directory and a fully tracked one both "match" it.
+- Plan vs implementation: as planned. `sequenceDiagram.mmd` was slated for
+  deletion as a duplicate; kept instead and moved to
+  `diagrams/top-albums-sequence.mmd`, because
+  `.github/instructions/mermaid.instructions.md` requires diagrams be
+  written to `.mmd` files. Ignoring the pattern satisfies both that rule and
+  single-source-of-truth.
+- Deviations: none.
+- Validation: `pytest -q` -- **589 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `check_worktree_alignment.py` -- exit 0
+  (WT010 only). `doc_state_sync.py --check` -- passed with the expected
+  root-BATCH warning.
+- Forward guidance: the four documents still describe PR #170 as pending;
+  correcting them is the next side-task. Then the architecture diagrams,
+  which contradict the code they describe, and F-WORKTREE-5, which two
+  reviewers filed independently and which still has two open threads.
+
 ### 2026-08-12 - PR #170 round 6; reviewed, cross-references repointed (side-task)
 
 - Scope: two visible review comments and four suppressed Copilot comments

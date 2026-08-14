@@ -17,7 +17,7 @@ serve as external memory shared across sessions.
 | `.claude/SESSION_CONTEXT.md` | **Dashboard** | Current project state snapshot. No rules, no history. |
 | `PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
-| `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audit reports. |
+| `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audits and other dated one-off documents (`reports/`). |
 
 **Anti-duplication rule:** Each fact lives in exactly one file. If you need to
 reference a fact owned by another file, link to it -- do not copy it.
@@ -431,7 +431,7 @@ rg -n "^### 20" docs/history/logs/*.md
   **Exception:** If the active batch definition includes a dedicated README
   WP (e.g., WP-5), README updates may be deferred to that WP to avoid
   churn from intermediate WPs that change paths or structure.
-- `docs/history/<TOPIC>_<DATE>.md` for significant findings or audits.
+- `docs/history/reports/<TOPIC>_<DATE>.md` for significant findings or audits.
 
 **Mid-batch handoff discipline:** PLAYBOOK Section 3 must reflect the true
 state of every WP at all times -- not just after commits. If a deviation fix
