@@ -147,6 +147,104 @@ only in the current process environment and is gone when the shell exits.
 
 ---
 
+## Batch 21 Tooling Map (WP-1 through WP-8)
+
+Written 2026-08-14, before WP-1 started. Everything below was verified
+against the live machine and repository on that date rather than carried
+forward from an earlier note; re-verify before relying on it, because the
+skill and MCP inventory is per-machine and moves independently of this repo.
+
+**How this keys against the definition.** `BATCH21_DEFINITION.md` has no
+per-WP acceptance criteria. It carries one batch-level list of 9 criteria
+and a per-WP validation gate that every WP runs identically (`pytest -q`,
+`pre-commit run --all-files`, `doc_state_sync.py --check`, plus owner visual
+review). So the map keys on the WP and names the batch-level criteria each
+one serves. Do not go looking for per-WP criteria; there are none by design.
+
+### Skills: four separate sources, and the names collide
+
+1. **superpowers plugin v4.3.1** -- 14 skills, including
+   `systematic-debugging`, `test-driven-development`,
+   `verification-before-completion`, `writing-plans`, `executing-plans`,
+   `subagent-driven-development`, `using-git-worktrees`.
+2. **`.agents/skills/`** -- 20 vendored from `obra/superpowers` and
+   `mattpocock/skills`, gitignored (see the reason in `.gitignore`).
+   Overlapping but *differently named* equivalents: `tdd`,
+   `diagnosing-bugs`, `code-review`, `domain-modeling`, `handoff`,
+   `improve-codebase-architecture`, `resolving-merge-conflicts`.
+3. **User-level `~/.claude/skills/`** -- `pr-bot-triage`, `review-claudemd`,
+   `scrobblescope-bootstrap`. `scrobblescope-bootstrap` is the session-start
+   one for this repo; `pr-bot-triage` is the PR review-comment triage skill.
+4. **Other installed plugins** -- `frontend-design`, `code-review`,
+   `code-simplifier`, `github`, `playwright`, `figma`, `mattpocock-skills`,
+   `claude-md-management`, `atomic-agents`, `episodic-memory`,
+   `superpowers-chrome`, `adobe-for-creativity`.
+
+The collision matters: `tdd` (source 2) and `test-driven-development`
+(source 1) are different files from different upstreams. Name the one you
+mean. `DEVELOPMENT.md` records the decision to keep skill definitions local
+rather than committing them here.
+
+### MCP servers
+
+Usable now: GitKraken (git, PR and issue operations), two independent
+Playwright providers (the Docker gateway and the `playwright` plugin),
+`superpowers-chrome` (CDP), Mermaid Chart
+(`validate_and_render_mermaid_diagram` -- the tool
+`.github/instructions/mermaid.instructions.md` Rules 1-2 map onto outside
+VS Code), Figma, Notion, Adobe, Canva, Google Workspace, monday.com,
+episodic-memory.
+
+Needing interactive OAuth and therefore unusable in a headless or cron run:
+Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
+
+### Per-WP map
+
+| WP | Tooling that serves it | Batch criteria |
+|---|---|---|
+| WP-1 toolchain + themes | Bespoke Python only. No installed skill covers pinned-binary fetch with per-platform SHA-256 verification, and `frontend-design` authors UI rather than build plumbing. Treat WP-1 as unassisted work | 2, 3, 9 |
+| WP-2 base shell + `error.html` pilot | `frontend-design`; a Playwright provider to confirm the one-stylesheet-per-page rule actually holds during coexistence | 1, 3, 4 |
+| WP-3 index page | `frontend-design`; Playwright for decade pills, the thresholds disclosure, and the CSS-only hints that replace `bootstrap.Popover` | 1, 4, 8 |
+| WP-4 unified loading | Playwright for progress polling against a live job; the shared Jinja2 partial is exercised from both `loading.html` and the heatmap panel | 5 |
+| WP-5 results leaderboard | Playwright, driven directly -- see gap 1. The JPEG export must be checked in both themes at mobile and desktop, and the `data-export` CSV precision fix needs a real DOM walk | 5, 7 |
+| WP-6 heatmap seam removal | Playwright plus visual review; `--bars-color` aliasing is the thing to assert in both themes | 2, 3, 8 |
+| WP-7 `reason_code` (only backend WP) | `test-driven-development` or `tdd`, and `systematic-debugging` or `diagnosing-bugs`. This is where the test count moves, so update the inventory sites listed in `AGENTS.md` in the same commit | 6, 9 |
+| WP-8 sweep + close-out | `verification-before-completion` before any done claim; `pr-bot-triage` for review rounds. Gaps 2, 3 and 4 all land here | 1, 9 |
+
+### Verified gaps
+
+1. **No `webapp-testing` skill exists on this machine** -- not in any of the
+   four sources above. WP-5's JPEG export E2E and WP-8's owner E2E have no
+   skill support and run through Playwright MCP tools directly.
+2. **The pre-commit top-level exclude covers 13 directories**, among them
+   `docs/`, `static/` and `templates/`. WP-8's planned `tailwind-css-drift`
+   hook on `static/css/tailwind.css` would therefore never run as an
+   ordinary file-scoped hook. It must follow the `doc-state-sync-check`
+   pattern (`always_run: true`, `pass_filenames: false`) -- the only hook
+   that currently sees excluded paths -- or the exclude must be narrowed.
+3. **CI has no Node and no Tailwind binary.** `.github/workflows/test.yml`
+   is Python-only. WP-8 requires the fetch to work headless on Linux, so
+   either CI fetches and caches the pinned binary or the drift hook is
+   local-only. Decide this at WP-1, because that is where the pinned
+   versions and digests are chosen.
+4. **No CSS, JS or HTML hooks at all.** `trailing-whitespace` and
+   `end-of-file-fixer` are scoped to `py|md|yaml|yml|txt`, and `static/`
+   and `templates/` are excluded by the top-level rule regardless -- so the
+   files eight work packages spend their time rewriting are unreachable by
+   two independent mechanisms. Nothing formats or lints them.
+5. **`workflow_dispatch` is now usable.** The comment in `test.yml` notes
+   it only becomes usable once on the default branch; the PR #170 merge put
+   it there, confirmed present on `origin/main`.
+6. **pip-audit is `continue-on-error: true`** -- advisory, and will not fail
+   the Quality Gate.
+7. **`skills-lock.json` names 22 skills; `.agents/skills/` holds 20.** The
+   two absent are `systematic-debugging` and `test-driven-development` --
+   both supplied by the superpowers plugin instead, so this is lockfile
+   bookkeeping drift rather than a lost capability. Worth knowing before
+   anyone "fixes" it by reinstalling.
+
+---
+
 ## Known Open Issues / Future Candidates
 
 - Flask-Talisman (CSP) was attempted in Batch 17 WP-5 and dropped (YAGNI).

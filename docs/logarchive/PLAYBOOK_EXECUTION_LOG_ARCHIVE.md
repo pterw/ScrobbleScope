@@ -9,6 +9,48 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-14 - dependency-graph and pytest-config claims corrected (side-task)
+
+- Scope: four documentation claims that contradict the code, plus the
+  ordering statements left stale by the PR #170 merge.
+- Dependency graph, SESSION_CONTEXT Section 4. `heatmap.py <- config` was
+  false -- `heatmap.py` imports lastfm, repositories, utils and worker, and
+  reaches config only transitively through those. The same wrong chain was
+  repeated in the `heatmap.py` module docstring, so fixing one source alone
+  would have left the other. `app.py <- routes` omitted the `config` edge at
+  `app.py:143` (`ensure_api_keys`), which exists only under the `__main__`
+  guard; recorded with that scope rather than as an unconditional import.
+  Added `dev/dev_start.py`, documented in Section 3 but absent from the
+  graph. Every other edge was re-derived from the imports and is correct.
+- Pytest config, SESSION_CONTEXT Section 7. The claimed
+  `asyncio_mode = "strict"` is not configured anywhere: `pyproject.toml`
+  contains only `pythonpath = "."`, and no `pytest.ini`, `setup.cfg` or
+  `tox.ini` exists. `git log -S` shows the key was never in the file, so
+  this was wrong when written rather than drift. The same sentence appears
+  in `docs/history/SESSION_CONTEXT_REFERENCE.md`, which is left as written:
+  that file is a labelled 2026-02-23 snapshot of SESSION_CONTEXT.md, and a
+  snapshot that silently corrects its original stops being a snapshot.
+- Ordering. PR #170 merged, so PLAYBOOK Section 3, BATCH21_DEFINITION,
+  SESSION_CONTEXT Section 1 and FINDINGS all still said it must land first.
+  All four now name the merge and give the F-SWE-1 audit as the next action.
+  The batch-open baseline in BATCH21_DEFINITION gained its date so the 390
+  is not misread as current.
+- README cross-reference. "See `AGENTS.md` for the full dependency graph"
+  pointed at a file that has no graph; repointed to SESSION_CONTEXT
+  Section 4, which is where it lives.
+- AGENTS.md gained a note that WT004 after a merge is expected and routine,
+  with the tree-equality precondition that separates it from a real
+  divergence. Without it the guard's stop-and-escalate remediation reads as
+  alarming for what is now a per-merge occurrence.
+- Plan vs implementation: as planned.
+- Deviations: none.
+- Validation: `pytest -q` -- **589 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `check_worktree_alignment.py` -- exit 0.
+  `doc_state_sync.py --check` -- passed with the expected root-BATCH warning.
+- Forward guidance: the architecture diagrams still contradict the code they
+  describe, most seriously by drawing `create_job` with no preceding
+  `acquire_job_slot`. That is the next side-task, followed by F-WORKTREE-5.
+
 ### 2026-08-14 - post-merge realignment and untracked-artifact disposition (side-task)
 
 - Scope: restore a green bootstrap after PR #170 merged, and give every
