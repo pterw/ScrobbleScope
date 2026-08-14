@@ -163,6 +163,96 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-14 - F-WORKTREE-5 closed: count branch candidates before filtering (side-task)
+
+- Scope: the last open guard defect, reported independently by Codex in PR
+  #170 round 5 and by Copilot in round 6, and left open across both.
+- Defect: `parse_batch_branch` filtered candidates through
+  `is_display_safe_ref` and only then counted them. Because that allowlist is
+  deliberately narrower than Git's ref rule, a rejected candidate can still
+  name a real branch, so a Section 3 declaring two branches -- one of them
+  non-ASCII -- had one side discarded and reported the survivor as expected.
+  The predicate decides whether a value may be rendered, not whether it exists.
+- TDD: the regression test failed first with `DID NOT RAISE`, using
+  `wip/b\xe4tch-21` as the second value -- Git accepts non-ASCII letters in a
+  ref name, and the escape keeps the test source ASCII. Then counted distinct
+  candidates before any filtering and moved the display-safety filter after
+  the conflict check, where it only decides what may be rendered.
+- Anti-vacuity: both orderings are load-bearing. Deleting the
+  count-before-filter fails the new test; deleting the display-safety filter
+  fails three cases of
+  `test_a_branch_value_cannot_repaint_the_diagnostic_line`.
+- Also corrected the stale justifying comment in the source, and added a
+  correction note to `docs/superpowers/plans/2026-08-05-worktree-safety-guard.md`,
+  whose Step 3 still prescribed the defective ordering in prose. Leaving that
+  in place would have let the plan teach the defect back into the code.
+- Plan vs implementation: as planned.
+- Deviations: none.
+- Validation: `pytest -q` -- **590 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
+  pass. `check_worktree_alignment.py` -- exit 0.
+- Forward guidance: F-WORKTREE-5's two PR #170 threads can now be answered and
+  resolved. F-WORKTREE-3 and F-WORKTREE-4 remain open by decision.
+
+### 2026-08-14 - architecture diagrams corrected and given one owner (side-task)
+
+- Scope: newly integrated Mermaid material that contradicted the code, plus
+  the three older diagram copies that disagreed with it and each other.
+- The central defect, in both sequence diagrams: `create_job` was drawn with
+  no preceding `acquire_job_slot`. The real order is the reverse
+  (`routes.py:460` then `:478`, and `:570` then `:582`) and is a fail-fast:
+  the slot is taken first and the request rejected outright if none is free.
+  An agent reconciling code to the diagram would allocate a `JOBS` entry and
+  then reject, leaking an orphan job on every throttled call until TTL expiry.
+  README already stated the correct order, so the repository contradicted
+  itself. The same inversion was present in the synthesis document.
+- Nine further defects, each verified against source: `worker.py` drawn as
+  importing `orchestrator` and `heatmap` when both import *it* (the dispatch
+  is real but runtime-only, through a callable `routes.py` injects); a
+  `cache.py -> utils.py` edge that does not exist in any form; the cache
+  hit/miss partition attributed to `cache.py` when it happens in
+  `orchestrator.py:561-578`, and cannot happen in `cache.py`, which never sees
+  the full candidate set; expiry cleanup drawn as cache-internal when the
+  orchestrator calls it; `start_job_thread` given the wrong signature; the
+  heatmap response typed as a rendered page rather than JSON 202; and missing
+  `routes -> orchestrator`, `routes -> heatmap`, `routes -> utils` and
+  `repositories -> errors` edges.
+- Ownership after this change: `README.md` keeps one high-level diagram and
+  now declares its arrow semantics, which was the root defect the wrong
+  diagrams shared -- a dependency edge and a control-flow edge were drawn
+  identically and read as the same claim. `docs/ARCHITECTURE.md` owns every
+  detailed diagram. SESSION_CONTEXT Section 5 keeps a corrected compact
+  summary and points there for detail. The synthesis Section 5 diagrams were
+  removed with a note recording why, and its Section 6 tooling diagram
+  migrated with one edge corrected: `doc_state_sync.py` imports only
+  `docsync.cli`, so the fan-out had been attributed one level too high.
+- Renamed the incoming doc from a dated filename to `docs/ARCHITECTURE.md`.
+  It is a living reference, and `docs/` root holds durable documents while
+  `docs/history/` holds dated ones; a date in the name would have become
+  false at the first correction.
+- Every diagram was validated before being written, per
+  `.github/instructions/mermaid.instructions.md` Rule 1. This caught a real
+  parse failure: a `;` inside a sequence-diagram message terminates the
+  statement. The incoming document had escaped it as `&#59;&#59;`, which
+  parsed but rendered as visible garbage and dropped a `%`. Removed the
+  semicolon rather than escaping it.
+- Now tracked, with the disposition rule recorded in the previous entry:
+  `docs/ARCHITECTURE.md`, the two `.github` instruction files (converted to
+  ASCII, with a ScrobbleScope scoping section reconciling their `.mmd` rule
+  against this repository's tracked-Markdown layout), the corrected synthesis,
+  and the PR #170 remediation plan under a superseded header naming the four
+  ways it must not be executed.
+- Plan vs implementation: the plan called for deleting `sequenceDiagram.mmd`
+  as a duplicate. Kept instead and moved to `diagrams/`, with `*.mmd`
+  gitignored -- deleting the only `.mmd` would contradict Rule 5 of the
+  instruction file being tracked in the same change.
+- Deviations: none.
+- Validation: `pytest -q` -- **590 passed**. All six diagrams return
+  `valid: true` from the Mermaid validator. `doc_state_sync.py --check` --
+  passed with the expected root-BATCH warning.
+- Forward guidance: `docs/history/` still needs an index and its dead
+  references repointed, and `AGENT_NOTES.md` still needs the tooling map.
+
 ### 2026-08-14 - dependency-graph and pytest-config claims corrected (side-task)
 
 - Scope: four documentation claims that contradict the code, plus the
@@ -252,80 +342,3 @@ non-current operational logs. Older dated entries live in
   correcting them is the next side-task. Then the architecture diagrams,
   which contradict the code they describe, and F-WORKTREE-5, which two
   reviewers filed independently and which still has two open threads.
-
-### 2026-08-12 - PR #170 round 6; reviewed, cross-references repointed (side-task)
-
-- Scope: two visible review comments and four suppressed Copilot comments
-  against the round-5 head `d8d3e0d`; one visible finding was already
-  recorded, the other was a doc-currency correction.
-- The F-WORKTREE-5 restatement (Copilot `r3766306027`). Valid mechanism:
-  `parse_batch_branch` filters candidates through `is_display_safe_ref`
-  before counting them, so a Section 3 naming one display-safe and one
-  display-unsafe branch resolves to the safe one instead of raising the
-  conflict error. Already recorded in the exact head being reviewed --
-  `d8d3e0d` created F-WORKTREE-5 with the fix prescribed (count candidates
-  before filtering). Reversing a deliberate round-2 ordering decision in a
-  review round was declined then and still is; the finding stays the owner
-  of that decision. Acknowledged on the thread rather than patched.
-- The hardening-doc cross-references (Codex `r3766308198`). Verified valid
-  against the live tree: the dated-entries pointer claimed all three
-  `2026-08-11` entries lived in PLAYBOOK Section 4, but the round-1 and
-  PR #169 round-6 entries had rotated to the monolith archive, and the
-  open-gap list omitted F-WORKTREE-5, which `d8d3e0d` had just added.
-  Repointed the pointer at the live plus archive locations and added
-  F-WORKTREE-5 to the gap list, with the recorded-in commit named.
-- Suppressed comments: the plan-doc observation (the Step 3 snippet
-  prescribes filter-before-count) is a true statement about a historical
-  implementation plan and is left as written -- the plan documents the
-  as-shipped ordering and F-WORKTREE-5 carries the forward fix; the README
-  badge claim (588 vs 589) was already resolved on the reviewed head, which
-  shows 589.
-- Plan vs implementation: doc-only change; no code and no test changed.
-- Deviations: none.
-- Validation: `pytest -q` -- **589 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings. `doc_state_sync.py --check` -- passed with
-  the expected root-BATCH warning.
-- Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1.
-  F-WORKTREE-5 remains the owner's call to reverse or leave.
-
-### 2026-08-12 - PR #170 round 5; a normalizer undid the check above it (side-task)
-
-- Scope: three findings on the round-4 head, two acted on and one recorded.
-- The one that mattered. `actual_branch` was normalized with a bare
-  `strip()`, which removes Unicode whitespace, and Python counts U+00A0 as
-  whitespace while Git accepts it in a ref name. So `wip/batch-21` plus a
-  trailing U+00A0 -- a genuinely different ref -- folded onto the expected
-  branch, matched the comparison, and produced no wrong-branch verdict at
-  all. On a clean checkout that is an exit-zero run reporting alignment while
-  HEAD sits on another branch. Round 4 had just closed the display half of
-  this class; the normalizer one line above quietly reopened the identity
-  half.
-- Worth recording because the first reproduction attempt said the bug was not
-  there. On this host the locale codec is cp1252, so the UTF-8 bytes arrive
-  mojibaked as a non-whitespace character that survives `strip()` and trips
-  the comparison by accident. Under a UTF-8 locale -- Linux, and therefore CI
-  -- the decode is clean and the fold happens. A Windows-only check would
-  have cleared it.
-- Plan vs implementation: only Git's record terminator is trimmed now. Git
-  rejects CR and LF inside a ref name, so trimming exactly those cannot
-  damage a legitimate value, while every other codepoint reaches the
-  comparison and the render check intact.
-- The second finding was a stale count in a place the round-4 sweep did not
-  know existed: the README project-structure tree carries its own per-file
-  test inventory, separate from the SESSION_CONTEXT table. That sweep was
-  scoped to the literal total and missed it. All 35 rows were checked this
-  time, not just the row reported; one was wrong.
-- Deviations: the third finding is real and not fixed. Section 3 candidates
-  are filtered for display safety before the conflict check, so a document
-  naming one safe and one unsafe branch resolves instead of failing closed.
-  Reversing that needs its own reasoning rather than a review-round patch,
-  and the round-2 justification for it is itself wrong, so it is recorded as
-  F-WORKTREE-5 rather than patched here.
-- Validation: `pytest -q` -- **589 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings. All 10 pre-commit hooks pass.
-  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
-  Re-verified end to end under a UTF-8 locale against a real trailing-U+00A0
-  branch: WT003 now fires where the run previously reported the wrong branch
-  as aligned.
-- Forward guidance: unchanged -- land PR #170, then F-SWE-1, then Batch 21
-  WP-1.

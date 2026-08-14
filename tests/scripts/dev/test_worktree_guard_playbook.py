@@ -68,6 +68,31 @@ def test_genuinely_ambiguous_metadata_still_fails_closed(section_three, message)
         parse_batch_branch(_playbook(section_three))
 
 
+def test_a_display_unsafe_branch_still_counts_as_conflicting_metadata():
+    """Two declared branches conflict even when only one is renderable.
+
+    `is_display_safe_ref` decides whether a value may be *rendered*, not
+    whether it may *exist*: the allowlist is deliberately narrower than Git's
+    ref rule, so a rejected candidate can still name a real branch. Filtering
+    before counting therefore resolved a genuine conflict by discarding one
+    side of it, and the guard reported the survivor as the expected branch
+    while the document declared two.
+
+    The second value here is Git-valid -- `git check-ref-format` accepts
+    non-ASCII letters in a ref name -- and written as an escape so this source
+    file stays ASCII.
+    """
+    unrenderable = "wip/b\xe4tch-21"
+    section_three = (
+        "- **Batch 21 is active.**\n"
+        "  Branch: `wip/batch-21`.\n"
+        f"  Branch: `{unrenderable}`."
+    )
+
+    with pytest.raises(GuardError, match="branch"):
+        parse_batch_branch(_playbook(section_three))
+
+
 def test_a_branch_value_cannot_span_lines():
     """A line break in the value would forge a second diagnostic line.
 

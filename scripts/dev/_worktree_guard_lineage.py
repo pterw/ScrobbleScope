@@ -62,21 +62,22 @@ def parse_batch_branch(playbook_text: str) -> BatchBranch:
         raise GuardError("PLAYBOOK Section 3 has duplicate active batch metadata.")
     # Repeating the same branch name in supporting prose is unambiguous;
     # only conflicting values are metadata the guard must refuse to resolve.
-    # A candidate that could not be a Git ref is dropped rather than compared:
-    # it can name no real branch, and carrying it forward would only hand
-    # WT003 a string to print.
-    branches = [
-        candidate
-        for candidate in dict.fromkeys(
-            match.group(1) for match in BRANCH_RE.finditer(section)
-        )
-        if is_display_safe_ref(candidate)
-    ]
-    if len(branches) > 1:
+    # Count every distinct candidate before any of them is filtered.
+    # `is_display_safe_ref` decides whether a value may be rendered, not
+    # whether it may exist -- the allowlist is deliberately narrower than
+    # Git's ref rule, so a rejected candidate can still name a real branch.
+    # Filtering first would resolve a conflict by discarding one side of it
+    # and report the survivor while the document declared two (F-WORKTREE-5).
+    candidates = list(
+        dict.fromkeys(match.group(1) for match in BRANCH_RE.finditer(section))
+    )
+    if len(candidates) > 1:
         raise GuardError("PLAYBOOK Section 3 has conflicting branch metadata.")
     if not active:
         return BatchBranch(None, None)
-    branch = branches[0] if branches else None
+    # Only now drop an unrenderable value: it is unambiguous, but carrying it
+    # forward would hand WT003 a string to print.
+    branch = next((c for c in candidates if is_display_safe_ref(c)), None)
     return BatchBranch(int(active[0].group(1)), branch)
 
 
