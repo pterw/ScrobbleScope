@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-12
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done; PR #170 lands first, then the F-SWE-1 audit, then WP-1.
+WP-0 done; PR #170 merged 2026-08-12, then the F-SWE-1 audit, then WP-1.
 589 tests across 35 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to

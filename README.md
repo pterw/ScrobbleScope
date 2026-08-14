@@ -147,7 +147,7 @@ Heatmap
 * **Bounded concurrency:** `MAX_ACTIVE_JOBS` (default 5) caps background jobs via `BoundedSemaphore`. Excess requests are rejected before job creation.
 * **Data normalization:** Artist and album names are cleaned of punctuation and common suffixes ("deluxe edition", "remastered") for robust Last.fm-to-Spotify matching.
 * **Global rate limiting:** `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
-* **Acyclic module graph:** Leaf modules (`config`, `domain`, `errors`) have no internal imports. `orchestrator.py` sits at the top; `routes.py` imports only what it needs. See `AGENTS.md` for the full dependency graph.
+* **Acyclic module graph:** Leaf modules (`config`, `domain`, `errors`) have no internal imports. `orchestrator.py` sits at the top; `routes.py` imports only what it needs. See `.claude/SESSION_CONTEXT.md` Section 4 for the full dependency graph.
 
 ## Key Implementation Highlights
 

@@ -75,6 +75,15 @@ Stop on a nonzero exit. The guard is read-only; follow its remediation and the
 existing owner-authorization rule before any history rewrite. Add `--debug` only
 when diagnosing the guard itself: it re-raises instead of rendering WT014.
 
+**WT004 after a merge is expected.** `main` requires linear history and accepts
+only squash and rebase merges, so merging a PR rewrites its commits and leaves
+the source branch diverged from `origin/main` with an identical tree. The guard
+is right to stop -- a diverged branch is normally serious -- but here the
+remediation is routine: confirm `git rev-parse HEAD^{tree}` matches
+`origin/main^{tree}` and that `git diff HEAD origin/main` is empty, then reset
+the branch onto `origin/main` and force-push with lease. If the trees differ,
+stop; that is a real divergence and not this case.
+
 Three states are expected rather than faults, so the guard does not block on
 them:
 

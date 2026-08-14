@@ -9,6 +9,59 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-12 - PR #170 round 4; the third rendered ref answered to no rule (side-task)
+
+- Scope: one finding, reported independently by both reviewers against the
+  current head, and confirmed from the code before either review was read.
+  `actual_branch` was the last of the three refs these diagnostics render that
+  no rule governed.
+- Why it outranks its predecessors. The previous two rounds closed this class
+  for the ref that comes from PLAYBOOK prose; this one comes from
+  `git symbolic-ref --quiet --short HEAD`, so the attacker surface is a branch
+  name rather than a document. Enumerating every `issue()` call in
+  `scripts/dev/` by walking the syntax tree -- rather than trusting either
+  review's list -- gives six codes that print it: WT000, WT003, WT004, WT005,
+  WT006 and WT010. The dangerous one is WT000, which is only reached when the
+  run is otherwise clean: between batches with no dirty files the guard exits
+  zero and prints a subject the branch name controls, on the line the design
+  document says a less capable agent may stop on.
+- What Git actually permits, established with `git check-ref-format` and real
+  branches in a disposable repository rather than assumed: ESC, DEL, CR, LF
+  and the ASCII space are all rejected, so a fixture built from them describes
+  a checkout that cannot exist. U+00A0, U+2028, U+202E, U+200B, U+3000 and
+  U+0085 are accepted, and `symbolic-ref` returns them verbatim.
+- A second, narrower fact decided the fixture. `run_git` calls
+  `subprocess.run(..., text=True)` with no encoding, so Git output is decoded
+  with the locale codec. Under cp1252 U+00A0 survives and pads the line while
+  U+2028 arrives mangled; under a UTF-8 locale U+2028 survives and splits the
+  diagnostic into two. Only U+00A0 asserts the same thing on both, so it is
+  the payload the tests use.
+- Plan vs implementation: `branch_label` joins `base_ref_label` in the
+  diagnostics module, so all three rendered refs now answer to
+  `is_display_safe_ref`. The four render sites call it; the wrong-branch
+  comparison keeps the raw Git value, because labelling there would compare a
+  display string against a branch name. Labelling happens at render time, not
+  collection time -- the snapshot goes on naming whatever Git reported.
+- Deviations: the predicate had no direct test, and a mutation matrix showed
+  three of its four clauses were vacuous -- deleting the `..` rule, the `//`
+  rule, or the trailing `/`, `.` and `.lock` rule each left the whole suite
+  green. That is why this change adds predicate tests it did not strictly
+  need: without them the new docstring's claim that those boundaries are
+  covered would have been false. Every clause now fails at least one test,
+  and each member of the suffix tuple fails exactly one.
+- `_worktree_guard_inspection.py` remains over its directory peer cap
+  (F-WORKTREE-4, accepted); this change is net zero lines there and adds no
+  new deviation.
+- Validation: `pytest -q` -- **588 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings, up 12 in one existing file, so the module
+  count stays 35. All 10 pre-commit hooks pass. `doc_state_sync.py --check`
+  -- exit 0 with the expected root-BATCH warning. Verified end to end
+  afterwards: a real branch carrying U+00A0 was created in a scratch
+  repository and the shipped CLI rendered `unnamed branch` and `worktree`,
+  with no payload byte anywhere in its output.
+- Forward guidance: this clears the last open PR #170 item. Land the PR, then
+  F-SWE-1, then Batch 21 WP-1.
+
 ### 2026-08-12 - PR #170 round 3; the gate was ordered behind what it gates (side-task)
 
 - Scope: two document defects found by an independent clean-room audit of the
