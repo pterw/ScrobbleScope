@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-589_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-590_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
@@ -81,12 +81,19 @@ This project was initially built to identify top albums released in a specific y
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (589 tests across 35 files), 89% coverage |
+| Testing | pytest (590 tests across 35 files), 89% coverage |
 | CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
 
 ## Architecture
+
+High-level request flow. **Solid arrows are requests and calls, dotted arrows
+are polls, and `worker.py -> orchestrator.py / heatmap.py` is a runtime
+dispatch, not an import** -- `worker.py` runs a callable that `routes.py`
+injects, and imports neither module. For the full picture, including the
+import-direction dependency graph and both pipeline sequences, see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ```mermaid
 graph LR
@@ -96,8 +103,8 @@ graph LR
     A -.->|GET /heatmap_data| B
     B --> C[repositories.py]
     B --> D[worker.py]
-    D --> E[orchestrator.py]
-    D --> F[heatmap.py]
+    D -.->|dispatch| E[orchestrator.py]
+    D -.->|dispatch| F[heatmap.py]
     E --> G[lastfm.py]
     E --> H[spotify.py]
     E --> I[cache.py]
@@ -435,7 +442,7 @@ pre-commit run --all-files
 |   |   |-- test_worktree_guard_cli.py     # CLI rendering + boundary (5)
 |   |   |-- test_worktree_guard_cli_e2e.py  # Real inspection through CLI (11)
 |   |   |-- test_worktree_guard_inspection.py  # Git collection order (14)
-|   |   |-- test_worktree_guard_playbook.py  # Section 3 batch/branch parsing (14)
+|   |   |-- test_worktree_guard_playbook.py  # Section 3 batch/branch parsing (15)
 |   |   |-- test_worktree_guard_runner.py  # Runner sanitization (4)
 |   |   |-- test_worktree_guard_severity.py  # WT000-WT014 severity table (15)
 |   |   |-- test_worktree_guard_subject.py  # Diagnostic subject attribution (20)
@@ -454,9 +461,15 @@ pre-commit run --all-files
 |       |-- test_orchestrator_process_albums.py     # Album processing (7)
 |       `-- test_spotify_service.py    # Spotify client + token mgmt (10)
 |-- docs/
+|   |-- ARCHITECTURE.md            # Mermaid reference: dev cycle + runtime
+|   |-- SWE_AUDIT_CHARTER.md       # Standing audit scope and method
 |   |-- images/                    # Screenshots for README
-|   `-- history/                   # Archived batch defs, audits, changelogs
+|   |-- history/                   # Archived batch defs, audits, changelogs
+|   |-- logarchive/                # Rotated PLAYBOOK Section 4 entries
+|   `-- superpowers/               # Design specs and implementation plans
 |-- .github/
+|   |-- copilot-instructions.md    # Pointer to the instructions/ pack
+|   |-- instructions/              # Agent-facing authoring instructions
 |   `-- workflows/
 |       `-- test.yml               # CI: pre-commit + flake8 + pytest/coverage
 |-- CONTRIBUTING.md

@@ -9,6 +9,83 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-12 - PR #170 round 6; reviewed, cross-references repointed (side-task)
+
+- Scope: two visible review comments and four suppressed Copilot comments
+  against the round-5 head `d8d3e0d`; one visible finding was already
+  recorded, the other was a doc-currency correction.
+- The F-WORKTREE-5 restatement (Copilot `r3766306027`). Valid mechanism:
+  `parse_batch_branch` filters candidates through `is_display_safe_ref`
+  before counting them, so a Section 3 naming one display-safe and one
+  display-unsafe branch resolves to the safe one instead of raising the
+  conflict error. Already recorded in the exact head being reviewed --
+  `d8d3e0d` created F-WORKTREE-5 with the fix prescribed (count candidates
+  before filtering). Reversing a deliberate round-2 ordering decision in a
+  review round was declined then and still is; the finding stays the owner
+  of that decision. Acknowledged on the thread rather than patched.
+- The hardening-doc cross-references (Codex `r3766308198`). Verified valid
+  against the live tree: the dated-entries pointer claimed all three
+  `2026-08-11` entries lived in PLAYBOOK Section 4, but the round-1 and
+  PR #169 round-6 entries had rotated to the monolith archive, and the
+  open-gap list omitted F-WORKTREE-5, which `d8d3e0d` had just added.
+  Repointed the pointer at the live plus archive locations and added
+  F-WORKTREE-5 to the gap list, with the recorded-in commit named.
+- Suppressed comments: the plan-doc observation (the Step 3 snippet
+  prescribes filter-before-count) is a true statement about a historical
+  implementation plan and is left as written -- the plan documents the
+  as-shipped ordering and F-WORKTREE-5 carries the forward fix; the README
+  badge claim (588 vs 589) was already resolved on the reviewed head, which
+  shows 589.
+- Plan vs implementation: doc-only change; no code and no test changed.
+- Deviations: none.
+- Validation: `pytest -q` -- **589 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `doc_state_sync.py --check` -- passed with
+  the expected root-BATCH warning.
+- Forward guidance: land PR #170, then F-SWE-1, then Batch 21 WP-1.
+  F-WORKTREE-5 remains the owner's call to reverse or leave.
+
+### 2026-08-12 - PR #170 round 5; a normalizer undid the check above it (side-task)
+
+- Scope: three findings on the round-4 head, two acted on and one recorded.
+- The one that mattered. `actual_branch` was normalized with a bare
+  `strip()`, which removes Unicode whitespace, and Python counts U+00A0 as
+  whitespace while Git accepts it in a ref name. So `wip/batch-21` plus a
+  trailing U+00A0 -- a genuinely different ref -- folded onto the expected
+  branch, matched the comparison, and produced no wrong-branch verdict at
+  all. On a clean checkout that is an exit-zero run reporting alignment while
+  HEAD sits on another branch. Round 4 had just closed the display half of
+  this class; the normalizer one line above quietly reopened the identity
+  half.
+- Worth recording because the first reproduction attempt said the bug was not
+  there. On this host the locale codec is cp1252, so the UTF-8 bytes arrive
+  mojibaked as a non-whitespace character that survives `strip()` and trips
+  the comparison by accident. Under a UTF-8 locale -- Linux, and therefore CI
+  -- the decode is clean and the fold happens. A Windows-only check would
+  have cleared it.
+- Plan vs implementation: only Git's record terminator is trimmed now. Git
+  rejects CR and LF inside a ref name, so trimming exactly those cannot
+  damage a legitimate value, while every other codepoint reaches the
+  comparison and the render check intact.
+- The second finding was a stale count in a place the round-4 sweep did not
+  know existed: the README project-structure tree carries its own per-file
+  test inventory, separate from the SESSION_CONTEXT table. That sweep was
+  scoped to the literal total and missed it. All 35 rows were checked this
+  time, not just the row reported; one was wrong.
+- Deviations: the third finding is real and not fixed. Section 3 candidates
+  are filtered for display safety before the conflict check, so a document
+  naming one safe and one unsafe branch resolves instead of failing closed.
+  Reversing that needs its own reasoning rather than a review-round patch,
+  and the round-2 justification for it is itself wrong, so it is recorded as
+  F-WORKTREE-5 rather than patched here.
+- Validation: `pytest -q` -- **589 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. All 10 pre-commit hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected root-BATCH warning.
+  Re-verified end to end under a UTF-8 locale against a real trailing-U+00A0
+  branch: WT003 now fires where the run previously reported the wrong branch
+  as aligned.
+- Forward guidance: unchanged -- land PR #170, then F-SWE-1, then Batch 21
+  WP-1.
+
 ### 2026-08-12 - PR #170 round 4; the third rendered ref answered to no rule (side-task)
 
 - Scope: one finding, reported independently by both reviewers against the

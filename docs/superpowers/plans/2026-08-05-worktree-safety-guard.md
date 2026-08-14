@@ -282,6 +282,18 @@ The pattern only delimits a candidate. Discard any candidate that fails
 `is_display_safe_ref` before the duplicate check, so an unusable value never
 becomes a branch and never reaches a rendered diagnostic.
 
+> **Corrected 2026-08-14 -- do not implement the ordering above.** Filtering
+> before the duplicate check was the shipped behaviour and became
+> **F-WORKTREE-5**: because the allowlist is narrower than Git's ref rule (as
+> the note at the end of this step says), a rejected candidate can still name a
+> real branch. Dropping it first resolved a genuine conflict by discarding one
+> side of it, so a Section 3 declaring two branches -- one of them non-ASCII --
+> reported the survivor as expected instead of failing closed. **Count distinct
+> candidates first and raise on a conflict; filter for display safety only
+> afterwards, to decide what may be rendered.** Shipped in
+> `_worktree_guard_lineage.py`; regression test
+> `test_a_display_unsafe_branch_still_counts_as_conflicting_metadata`.
+
 That split exists because WT003 interpolates this capture and the CLI prints
 it verbatim, so a permissive value lets PLAYBOOK prose paint the guard's own
 output: a line break forges a second diagnostic line, an escape sequence

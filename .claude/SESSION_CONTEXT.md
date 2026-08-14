@@ -9,7 +9,7 @@ Last updated: 2026-08-12
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **589 passing** across 35 test modules |
+| Tests | **590 passing** across 35 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -47,7 +47,7 @@ Last updated: 2026-08-12
 - Current-batch entries in active log block: 1.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **589 passed**.
+- Latest validated test count: **590 passed**.
 - Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -143,11 +143,20 @@ dev/dev_start.py <- (leaf; standard library only)
 
 ## 5. Architecture overview
 
+Compact bootstrap summary. Full diagrams, with both pipelines and every edge
+verified against source, are in `docs/ARCHITECTURE.md` -- keep detail there
+rather than growing a second copy here.
+
 ```
 User submits form (index.html)
   -> POST /results_loading (routes.py)
-    -> Creates job (UUID in JOBS dict)
-    -> start_job_thread(background_task, ...) [worker.py]
+    -> cleanup_expired_jobs()
+    -> acquire_job_slot() [worker.py] -- BEFORE create_job; on failure the
+       request is rejected and no job is created
+    -> create_job(params) -> UUID in JOBS dict
+    -> start_job_thread(background_task, args=(...)) [worker.py]
+       -- worker runs an injected callable; it does not import orchestrator
+       -- on thread-start failure, delete_job(job_id) compensates
     -> Renders loading.html with job_id
 
 background_task (orchestrator.py, daemon Thread):
@@ -168,7 +177,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (589 tests)
+## 6. Test structure (590 tests)
 
 | File | Count |
 |------|-------|
@@ -199,7 +208,7 @@ loading.js polls GET /progress?job_id=...
 | scripts/dev/test_worktree_guard_cli.py | 5 |
 | scripts/dev/test_worktree_guard_cli_e2e.py | 11 |
 | scripts/dev/test_worktree_guard_inspection.py | 14 |
-| scripts/dev/test_worktree_guard_playbook.py | 14 |
+| scripts/dev/test_worktree_guard_playbook.py | 15 |
 | scripts/dev/test_worktree_guard_runner.py | 4 |
 | scripts/dev/test_worktree_guard_severity.py | 15 |
 | scripts/dev/test_worktree_guard_subject.py | 20 |
