@@ -144,8 +144,8 @@ dev/dev_start.py <- (leaf; standard library only)
 ## 5. Architecture overview
 
 Compact bootstrap summary. Full diagrams, with both pipelines and every edge
-verified against source, are in `docs/ARCHITECTURE.md` -- keep detail there
-rather than growing a second copy here.
+verified against source, are indexed by `docs/ARCHITECTURE.md` -- keep detail
+in its focused owner files rather than growing a second copy here.
 
 ```
 User submits form (index.html)
@@ -156,7 +156,8 @@ User submits form (index.html)
     -> create_job(params) -> UUID in JOBS dict
     -> start_job_thread(background_task, args=(...)) [worker.py]
        -- worker runs an injected callable; it does not import orchestrator
-       -- on thread-start failure, delete_job(job_id) compensates
+       -- on failure, start_job_thread releases the slot before re-raising,
+         then the route deletes the newly created job
     -> Renders loading.html with job_id
 
 background_task (orchestrator.py, daemon Thread):

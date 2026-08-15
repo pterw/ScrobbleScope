@@ -9,6 +9,37 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-14 - F-WORKTREE-5 closed: count branch candidates before filtering (side-task)
+
+- Scope: the last open guard defect, reported independently by Codex in PR
+  #170 round 5 and by Copilot in round 6, and left open across both.
+- Defect: `parse_batch_branch` filtered candidates through
+  `is_display_safe_ref` and only then counted them. Because that allowlist is
+  deliberately narrower than Git's ref rule, a rejected candidate can still
+  name a real branch, so a Section 3 declaring two branches -- one of them
+  non-ASCII -- had one side discarded and reported the survivor as expected.
+  The predicate decides whether a value may be rendered, not whether it exists.
+- TDD: the regression test failed first with `DID NOT RAISE`, using
+  `wip/b\xe4tch-21` as the second value -- Git accepts non-ASCII letters in a
+  ref name, and the escape keeps the test source ASCII. Then counted distinct
+  candidates before any filtering and moved the display-safety filter after
+  the conflict check, where it only decides what may be rendered.
+- Anti-vacuity: both orderings are load-bearing. Deleting the
+  count-before-filter fails the new test; deleting the display-safety filter
+  fails three cases of
+  `test_a_branch_value_cannot_repaint_the_diagnostic_line`.
+- Also corrected the stale justifying comment in the source, and added a
+  correction note to `docs/superpowers/plans/2026-08-05-worktree-safety-guard.md`,
+  whose Step 3 still prescribed the defective ordering in prose. Leaving that
+  in place would have let the plan teach the defect back into the code.
+- Plan vs implementation: as planned.
+- Deviations: none.
+- Validation: `pytest -q` -- **590 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
+  pass. `check_worktree_alignment.py` -- exit 0.
+- Forward guidance: F-WORKTREE-5's two PR #170 threads can now be answered and
+  resolved. F-WORKTREE-3 and F-WORKTREE-4 remain open by decision.
+
 ### 2026-08-14 - architecture diagrams corrected and given one owner (side-task)
 
 - Scope: newly integrated Mermaid material that contradicted the code, plus

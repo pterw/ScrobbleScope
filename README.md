@@ -88,11 +88,12 @@ This project was initially built to identify top albums released in a specific y
 
 ## Architecture
 
-High-level request flow. **Solid arrows are requests and calls, dotted arrows
-are polls, and `worker.py -> orchestrator.py / heatmap.py` is a runtime
-dispatch, not an import** -- `worker.py` runs a callable that `routes.py`
-injects, and imports neither module. For the full picture, including the
-import-direction dependency graph and both pipeline sequences, see
+High-level request flow. **Solid arrows are requests and calls. Dotted arrows
+are non-import runtime edges, including polls and injected dispatch.** The
+`worker.py -> orchestrator.py / heatmap.py` edges are dispatches: `worker.py`
+runs a callable that `routes.py` injects and imports neither module. For the
+full picture, including the import-direction dependency graph and both
+pipeline sequences, see
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ```mermaid
@@ -154,7 +155,7 @@ Heatmap
 * **Bounded concurrency:** `MAX_ACTIVE_JOBS` (default 5) caps background jobs via `BoundedSemaphore`. Excess requests are rejected before job creation.
 * **Data normalization:** Artist and album names are cleaned of punctuation and common suffixes ("deluxe edition", "remastered") for robust Last.fm-to-Spotify matching.
 * **Global rate limiting:** `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
-* **Acyclic module graph:** Leaf modules (`config`, `domain`, `errors`) have no internal imports. `orchestrator.py` sits at the top; `routes.py` imports only what it needs. See `.claude/SESSION_CONTEXT.md` Section 4 for the full dependency graph.
+* **Acyclic module graph:** Leaf modules (`config`, `domain`, `errors`) have no internal imports. `routes.py` is the highest-level `scrobblescope` module, and `app.py` imports its Blueprint. See `.claude/SESSION_CONTEXT.md` Section 4 for the full dependency graph.
 
 ## Key Implementation Highlights
 
@@ -461,7 +462,8 @@ pre-commit run --all-files
 |       |-- test_orchestrator_process_albums.py     # Album processing (7)
 |       `-- test_spotify_service.py    # Spotify client + token mgmt (10)
 |-- docs/
-|   |-- ARCHITECTURE.md            # Mermaid reference: dev cycle + runtime
+|   |-- ARCHITECTURE.md            # Canonical architecture index
+|   |-- architecture/              # One canonical detailed diagram per file
 |   |-- SWE_AUDIT_CHARTER.md       # Standing audit scope and method
 |   |-- images/                    # Screenshots for README
 |   |-- history/                   # Archived batch defs, audits, changelogs
