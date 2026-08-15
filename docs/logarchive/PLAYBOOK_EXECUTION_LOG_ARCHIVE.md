@@ -9,6 +9,35 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-15 - PR #171 review findings verified and remediated (side-task)
+
+- Scope: all eight unresolved Codex and Copilot threads on PR #171, checked
+  against the current code, tests, repository rules, and sibling documentation
+  before any edit. A separate two-axis review found no additional verified
+  spec or standards defect in the cumulative `origin/main...HEAD` diff.
+- Plan vs implementation:
+  - Seven factual comments were confirmed: partial heatmap data is successful
+    with a warning; cache hits still write JOBS state; both task entry points
+    release their slot unconditionally; `start_job_thread` releases the slot
+    before re-raising while the route deletes the new job; README's dotted-edge
+    legend omitted dispatch; and `orchestrator.py` was not the import-graph top.
+  - The eighth comment was also confirmed against the complete new-file rule:
+    the 499-line `docs/ARCHITECTURE.md` exceeded its existing `docs/` peer cap.
+    It is now a 49-line index preserving all five section anchors. Five focused
+    files under `docs/architecture/` own one diagram each and are 47-101 lines.
+  - README, SESSION_CONTEXT, and the Mermaid instruction now point to the
+    focused owners without duplicating diagrams. Gitignored `.mmd` sources were
+    used for validation and preview only.
+- Deviations: no production behavior changed and no tests were added; existing
+  regression tests already cover partial-data continuation, startup slot
+  release, and unconditional task cleanup.
+- Validation: all six published diagrams passed Mermaid validation and opened
+  in preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit
+  run --all-files` -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0
+  with the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit the review remediation, push only with owner
+  authorization, then post one batched reply and resolve the eight threads.
+
 ### 2026-08-14 - F-DATA-1 filed under P2; stale skill name corrected (side-task)
 
 - Closes the two items the previous entry left as forward guidance.

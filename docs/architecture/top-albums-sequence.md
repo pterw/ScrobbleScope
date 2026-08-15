@@ -61,6 +61,10 @@ sequenceDiagram
                     Orch->>Repo: set_job_stat(partial_data_warning)
                     Note over Orch,Repo: Continue with the available pages
                 end
+                alt No albums pass filters
+                    Orch->>Repo: Store empty results and progress 100%
+                    Note over Orch,Repo: Terminal -- no grouping, cache, or Spotify
+                else Albums pass filters
                 Orch->>Orch: Group, normalize, threshold, and pre-slice albums
                 Orch->>Repo: Progress 20%
                 Orch->>Cache: Open connection (None when DB disabled)
@@ -68,9 +72,14 @@ sequenceDiagram
                     Note over Orch,Cache: Lookup, cleanup, and persistence skipped (all albums become misses)
                 else DB connected
                     Orch->>Cache: Batch lookup all album keys
-                    Cache-->>Orch: Matching in-TTL rows only
-                    Orch->>Cache: Clean stale rows
-                    Orch->>Orch: Partition cache hits and misses
+                    alt Lookup fails
+                        Orch->>Repo: Record db_cache_warning and treat all albums as misses
+                        Note over Orch,Cache: Fail-open -- continue to Spotify, may still persist
+                    else Lookup succeeds
+                        Cache-->>Orch: Matching in-TTL rows only
+                        Orch->>Cache: Clean stale rows
+                        Orch->>Orch: Partition cache hits and misses
+                    end
                 end
 
                 alt Cache misses exist
@@ -101,6 +110,7 @@ sequenceDiagram
                     Orch->>Repo: Store results, unmatched entries, stats, and progress
                 else Terminal failure
                     Note over Orch,Repo: No merge or store -- job already errored
+                end
                 end
             end
             Orch->>Worker: release_job_slot()

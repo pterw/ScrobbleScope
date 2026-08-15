@@ -6,7 +6,13 @@ validation feeds the next iteration.
 
 ```mermaid
 flowchart TD
-    Request([Owner request, issue, or review finding]) --> Context[Read canonical context<br/>AGENTS.md, PLAYBOOK.md, batch definition,<br/>SESSION_CONTEXT.md, AGENT_NOTES.md]
+    Request([Owner request, issue, or review finding]) --> Triage{Review finding<br/>or comment job?}
+    Triage -->|No| Context[Read canonical context<br/>AGENTS.md, PLAYBOOK.md, batch definition,<br/>SESSION_CONTEXT.md, AGENT_NOTES.md]
+    Triage -->|Yes| Fetch[Fetch the thread or comments first]
+    Fetch --> Actionable{Actionable?}
+    Actionable -->|No| Stop([Stop without full bootstrap])
+    Actionable -->|Yes| Scoped[Read only the scoped file<br/>and related tests or config]
+    Scoped --> Implement
     Context --> Align[Refresh origin and run<br/>check_worktree_alignment.py]
     Align --> Baseline[Confirm baseline gates<br/>pytest, pre-commit, docsync]
     Baseline --> Scope[Select the active batch and bounded WP<br/>with acceptance criteria and exclusions]
