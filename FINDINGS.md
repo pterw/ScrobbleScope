@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-12
+Last updated: 2026-08-15
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0 done; PR #170 merged 2026-08-12, then the F-SWE-1 audit, then WP-1.
 590 tests across 35 test modules.

@@ -138,7 +138,8 @@ Heatmap
     -> POST /heatmap_loading
     -> acquire worker slot + create job
     -> start heatmap_task(...) in a daemon thread
-    -> heatmap.js polls GET /heatmap_data
+    -> heatmap.js polls GET /progress while the task runs
+    -> completion triggers GET /heatmap_data
     -> render SVG heatmap from stored daily_counts
 
   heatmap.heatmap_task
