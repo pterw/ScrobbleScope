@@ -13,10 +13,11 @@ applies here:
 
 - **Where diagrams live.** `.mmd` files are the authoring and preview surface
   and are gitignored. The published, canonical diagrams live in tracked
-  Markdown -- `docs/ARCHITECTURE.md` for detail, `README.md` for the
-  high-level view -- because that is what GitHub renders. Rule 5 below is
-  satisfied by writing to a `.mmd` file while you work; do not commit one, or
-  a diagram gains a second copy free to drift.
+  Markdown -- `docs/ARCHITECTURE.md` indexes focused owners under
+  `docs/architecture/`, and `README.md` owns the high-level view -- because
+  that is what GitHub renders. Rule 5 below is satisfied by writing to a
+  `.mmd` file while you work; do not commit one, or a diagram gains a second
+  copy free to drift.
 - **Tool names.** The `mermaid-diagram-*` LM tools below exist only for GitHub
   Copilot in VS Code. From Claude Code the equivalent is the single MCP call
   `validate_and_render_mermaid_diagram`, which validates and renders together

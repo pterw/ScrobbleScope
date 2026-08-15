@@ -163,6 +163,35 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-15 - PR #171 review findings verified and remediated (side-task)
+
+- Scope: all eight unresolved Codex and Copilot threads on PR #171, checked
+  against the current code, tests, repository rules, and sibling documentation
+  before any edit. A separate two-axis review found no additional verified
+  spec or standards defect in the cumulative `origin/main...HEAD` diff.
+- Plan vs implementation:
+  - Seven factual comments were confirmed: partial heatmap data is successful
+    with a warning; cache hits still write JOBS state; both task entry points
+    release their slot unconditionally; `start_job_thread` releases the slot
+    before re-raising while the route deletes the new job; README's dotted-edge
+    legend omitted dispatch; and `orchestrator.py` was not the import-graph top.
+  - The eighth comment was also confirmed against the complete new-file rule:
+    the 499-line `docs/ARCHITECTURE.md` exceeded its existing `docs/` peer cap.
+    It is now a 49-line index preserving all five section anchors. Five focused
+    files under `docs/architecture/` own one diagram each and are 47-101 lines.
+  - README, SESSION_CONTEXT, and the Mermaid instruction now point to the
+    focused owners without duplicating diagrams. Gitignored `.mmd` sources were
+    used for validation and preview only.
+- Deviations: no production behavior changed and no tests were added; existing
+  regression tests already cover partial-data continuation, startup slot
+  release, and unconditional task cleanup.
+- Validation: all six published diagrams passed Mermaid validation and opened
+  in preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit
+  run --all-files` -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0
+  with the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit the review remediation, push only with owner
+  authorization, then post one batched reply and resolve the eight threads.
+
 ### 2026-08-14 - F-DATA-1 filed under P2; stale skill name corrected (side-task)
 
 - Closes the two items the previous entry left as forward guidance.
@@ -289,34 +318,3 @@ non-current operational logs. Older dated entries live in
   while labelling itself P2, and `DEVELOPMENT.md` still calls the
   `pr-bot-triage` skill by its old `gemini-pr-triage` name. Both were part of
   the dropped remediation and remain open.
-
-### 2026-08-14 - F-WORKTREE-5 closed: count branch candidates before filtering (side-task)
-
-- Scope: the last open guard defect, reported independently by Codex in PR
-  #170 round 5 and by Copilot in round 6, and left open across both.
-- Defect: `parse_batch_branch` filtered candidates through
-  `is_display_safe_ref` and only then counted them. Because that allowlist is
-  deliberately narrower than Git's ref rule, a rejected candidate can still
-  name a real branch, so a Section 3 declaring two branches -- one of them
-  non-ASCII -- had one side discarded and reported the survivor as expected.
-  The predicate decides whether a value may be rendered, not whether it exists.
-- TDD: the regression test failed first with `DID NOT RAISE`, using
-  `wip/b\xe4tch-21` as the second value -- Git accepts non-ASCII letters in a
-  ref name, and the escape keeps the test source ASCII. Then counted distinct
-  candidates before any filtering and moved the display-safety filter after
-  the conflict check, where it only decides what may be rendered.
-- Anti-vacuity: both orderings are load-bearing. Deleting the
-  count-before-filter fails the new test; deleting the display-safety filter
-  fails three cases of
-  `test_a_branch_value_cannot_repaint_the_diagnostic_line`.
-- Also corrected the stale justifying comment in the source, and added a
-  correction note to `docs/superpowers/plans/2026-08-05-worktree-safety-guard.md`,
-  whose Step 3 still prescribed the defective ordering in prose. Leaving that
-  in place would have let the plan teach the defect back into the code.
-- Plan vs implementation: as planned.
-- Deviations: none.
-- Validation: `pytest -q` -- **590 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
-  pass. `check_worktree_alignment.py` -- exit 0.
-- Forward guidance: F-WORKTREE-5's two PR #170 threads can now be answered and
-  resolved. F-WORKTREE-3 and F-WORKTREE-4 remain open by decision.
