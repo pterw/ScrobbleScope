@@ -9,6 +9,37 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-14 - F-DATA-1 filed under P2; stale skill name corrected (side-task)
+
+- Closes the two items the previous entry left as forward guidance.
+- `F-DATA-1` self-labelled `Status: open (P2)` while sitting as the last
+  entry under the P1 heading. Fixed by moving the `## P2` heading above it
+  rather than relocating a 65-line block -- same result, far less churn, and
+  the finding's own text is untouched.
+- `DEVELOPMENT.md` still named the PR triage skill `gemini-pr-triage`; it was
+  renamed `pr-bot-triage`. Real drift, not a snapshot, so it is corrected
+  rather than preserved.
+- **Scoping correction from the owner, recorded because an agent got it
+  wrong today:** `DEVELOPMENT.md` is not an agent document. It is absent from
+  docsync's live-document set and from the AGENTS.md bootstrap reading list,
+  and belongs with `README.md` as human-facing methodology writing. A line
+  added to `AGENT_NOTES.md` earlier the same day pointed agents at it for the
+  skills-are-local decision; that line now states the decision directly
+  instead. Batch definitions may still direct an agent to *write* a build
+  step into it -- writing to it is in scope, treating it as a source of
+  operating rules is not.
+- Plan vs implementation: these two were dropped from the Phase 5 scope
+  reduction and then reinstated by the owner, since both sit in working
+  documents rather than in the archive the reduction was about.
+- Deviations: none.
+- Validation: `pytest -q` -- **590 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
+  pass. `doc_state_sync.py --check` -- exit 0. `check_worktree_alignment.py`
+  -- exit 0. Verified exactly one `## P2` heading remains and that `F-MAS-4`
+  is still the last P1 entry.
+- Forward guidance: nothing outstanding from the remediation. Next is the
+  F-SWE-1 audit, then Batch 21 WP-1.
+
 ### 2026-08-14 - Batch 21 tooling mapped to its work packages (side-task)
 
 - Scope: `AGENT_NOTES.md` gains a map from the installed skills and MCP

@@ -163,6 +163,49 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-15 - PR #171 final four review threads remediated (side-task)
+
+- Scope: the four remaining unresolved review threads on `e73540d` -- two
+  Codex path-repointing reports and two Codex Top Albums sequence reports.
+  All four were verified against the code and the moved files before any
+  edit and all four were valid.
+- Verification:
+  - `docs/superpowers/plans/2026-08-11-pr-170-remediation.md` still cited
+    `docs/history/GUARD_HARDENING_2026-08-11.md` and
+    `docs/history/REPOSITORY_SYNTHESIS_2026-08-11.md`, both moved to
+    `docs/history/reports/` by commit `5865c55`. The links resolved to
+    nonexistent files.
+  - `docs/history/definitions/BATCH9_DEFINITION.md` pointed twice to
+    `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`, and
+    `BATCH10_DEFINITION_2026-02-21.md` pointed to the old
+    `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md` and
+    `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md` paths. All three reports
+    now live under `docs/history/reports/`. These are definition-to-report
+    references, not exempt point-in-time citations, so they must be repointed.
+  - `_fetch_and_process()` returns immediately after `set_job_error` when
+    `fetch_metadata["status"] == "error"`, while a `partial` status records
+    `partial_data_warning` and continues. The diagram drew an unconditional
+    transition from page fetching into grouping.
+  - `_fetch_spotify_misses()` raises `SpotifyUnavailableError` when token
+    acquisition fails with no cache hits, caught in `_fetch_and_process` as
+    `set_job_error("spotify_unavailable"); return []` -- no merge or store.
+    The diagram's no-cache-hits branch rejoined the unconditional merge/store
+    steps.
+- Plan vs implementation: repointed the four report paths in the remediation
+  plan and the two batch definitions; the Top Albums sequence now branches on
+  Last.fm status (terminal error vs partial-success-with-warning) and
+  terminates after the no-cache-hits token failure while retaining the
+  cached-success continuation.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the Last.fm error/partial paths and the
+  no-cache-hits token failure.
+- Validation: the updated diagram passes Mermaid validation and opens in
+  preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run
+  --all-files` -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this final remediation, then resolve the
+  four threads. PR #171 remains unmerged pending separate owner instruction.
+
 ### 2026-08-15 - PR #171 final two Codex threads remediated (side-task)
 
 - Scope: the two remaining unresolved Codex threads on `3508c48`, both on the
@@ -281,34 +324,3 @@ non-current operational logs. Older dated entries live in
   with the expected active-root `BATCH21_DEFINITION.md` warning.
 - Forward guidance: commit the review remediation, push only with owner
   authorization, then post one batched reply and resolve the eight threads.
-
-### 2026-08-14 - F-DATA-1 filed under P2; stale skill name corrected (side-task)
-
-- Closes the two items the previous entry left as forward guidance.
-- `F-DATA-1` self-labelled `Status: open (P2)` while sitting as the last
-  entry under the P1 heading. Fixed by moving the `## P2` heading above it
-  rather than relocating a 65-line block -- same result, far less churn, and
-  the finding's own text is untouched.
-- `DEVELOPMENT.md` still named the PR triage skill `gemini-pr-triage`; it was
-  renamed `pr-bot-triage`. Real drift, not a snapshot, so it is corrected
-  rather than preserved.
-- **Scoping correction from the owner, recorded because an agent got it
-  wrong today:** `DEVELOPMENT.md` is not an agent document. It is absent from
-  docsync's live-document set and from the AGENTS.md bootstrap reading list,
-  and belongs with `README.md` as human-facing methodology writing. A line
-  added to `AGENT_NOTES.md` earlier the same day pointed agents at it for the
-  skills-are-local decision; that line now states the decision directly
-  instead. Batch definitions may still direct an agent to *write* a build
-  step into it -- writing to it is in scope, treating it as a source of
-  operating rules is not.
-- Plan vs implementation: these two were dropped from the Phase 5 scope
-  reduction and then reinstated by the owner, since both sit in working
-  documents rather than in the archive the reduction was about.
-- Deviations: none.
-- Validation: `pytest -q` -- **590 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
-  pass. `doc_state_sync.py --check` -- exit 0. `check_worktree_alignment.py`
-  -- exit 0. Verified exactly one `## P2` heading remains and that `F-MAS-4`
-  is still the last P1 entry.
-- Forward guidance: nothing outstanding from the remediation. Next is the
-  F-SWE-1 audit, then Batch 21 WP-1.
