@@ -9,6 +9,59 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-14 - docs/history one-off documents collected under reports/ (side-task)
+
+- Scope: the 26 loose files at the top of `docs/history/`, which had grown
+  into a flat pile beside the three organised subdirectories. Organisation
+  only -- the owner scoped this to moving files, not revising them.
+- 25 moved into `docs/history/reports/` with `git mv`. Not one of their
+  bodies was edited.
+- `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` deliberately stayed at the
+  top level. It is the Batch 14 "Moved:" tombstone whose only purpose is to
+  resolve references to that legacy path, so relocating it would defeat it.
+  `FINDINGS.md:115` records the same disposition.
+- One folder rather than a split by kind. Three Markdown links exist between
+  these files, and they connect an audit, a changelog, a performance summary
+  and a refactor plan -- four different kinds. Any by-kind split breaks all
+  three and forces edits to files that were explicitly out of scope. A single
+  folder keeps every relative link resolving untouched.
+- References repointed in the live documents only: `AGENTS.md`,
+  `DEVELOPMENT.md`, `FINDINGS.md`, `.claude/SESSION_CONTEXT.md` and
+  `docs/SWE_AUDIT_CHARTER.md`. Two of those are forward-looking and mattered
+  most: `FINDINGS.md` F-SWE-1 and the charter's output contract both name
+  where the pending SWE principles audit must write its report, and both now
+  name `reports/`. `AGENTS.md` documentation-touch rule likewise.
+- Dated records were left as written, including the ones that now cite a
+  path that moved: the archived batch definitions and logs,
+  `docs/logarchive/`, the superseded plan under `docs/superpowers/plans/`,
+  and PLAYBOOK Section 4's own earlier entries. A point-in-time record
+  rewritten to match a later reorganisation stops being a record. This is
+  the same reasoning already applied to `SESSION_CONTEXT_REFERENCE.md`.
+- Consequence, stated so it is not later mistaken for rot: paths cited inside
+  `docs/history/reports/*` and inside the dated archives may name the
+  pre-2026-08-14 flat layout. `DEVELOPMENT.md` now says so where it describes
+  the archive.
+- `DOC001` scans only the live documents, so the archive's internal citations
+  never entered the gate; the repointing above was still required because
+  five of the moved paths were cited from documents it does scan.
+- Plan vs implementation: reduced on owner direction. The planned content
+  remediation -- linking the two orphans, repointing three dangling
+  `EXECUTION_PLAYBOOK_2026-02-11.md` cites, annotating seven dead `app.py`
+  line references in `PERFORMANCE_TIMING.md`, a completion note on
+  `BATCH8_REFACTOR_PLAN.md`, collapsing the overlapping 2026-01-04
+  performance documents, and a `docs/history/README.md` index -- was dropped
+  as out of scope for an organisation pass.
+- Deviations: none beyond that reduction.
+- Validation: `pytest -q` -- **590 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
+  pass. `doc_state_sync.py --check` -- exit 0 (expected root warning for the
+  active `BATCH21_DEFINITION.md`). `check_worktree_alignment.py` -- exit 0.
+  Every repointed path was confirmed to resolve on disk.
+- Forward guidance: `FINDINGS.md` F-DATA-1 still sits under the P1 heading
+  while labelling itself P2, and `DEVELOPMENT.md` still calls the
+  `pr-bot-triage` skill by its old `gemini-pr-triage` name. Both were part of
+  the dropped remediation and remain open.
+
 ### 2026-08-14 - F-WORKTREE-5 closed: count branch candidates before filtering (side-task)
 
 - Scope: the last open guard defect, reported independently by Codex in PR

@@ -163,6 +163,64 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-15 - PR #171 post-push review round remediated (side-task)
+
+- Scope: two new visible Codex threads and all five suppressed Copilot
+  comments on commit `11c9885`. The seven reports described six distinct
+  defects because both reviewers found the omitted heatmap admission check.
+  An independent review found one adjacent README polling claim during the
+  required sibling sweep.
+- Verification and loop check:
+  - `routes.py` confirms that heatmap requests reject a missing username,
+    unavailable validation service, and unknown user before cleanup or slot
+    acquisition. `loading.js` and `heatmap.js` confirm that both browsers poll
+    while their background tasks run. `docsync.logic` confirms tagged entries
+    rotate to per-batch logs while untagged entries rotate to the side archive.
+  - Git blame assigns all three affected diagram owners to the preceding
+    review-fix commit. The omitted validation and rotation branch plus both
+    serialized pollers are therefore self-inflicted extraction defects, not
+    newly reached backlog. The older date headers became stale when this PR
+    later changed the live dashboard and findings state without refreshing
+    them. README's claim that `heatmap.js` polls `/heatmap_data` predated this
+    review round; the script and Batch 18 records show that it polls
+    `/progress` and fetches `/heatmap_data` only after completion.
+- Plan vs implementation:
+  - The tooling graph now distinguishes tagged rotation into
+    `docs/history/logs/` from untagged rotation into `docs/logarchive/`.
+  - The heatmap sequence now shows required-input and Last.fm user-existence
+    validation, including terminal 400, 404, and 503 responses before job
+    admission.
+  - Both request sequences now use Mermaid parallel blocks for background
+    processing and progress polling. SESSION_CONTEXT and FINDINGS carry the
+    current 2026-08-15 update date.
+  - README now distinguishes heatmap progress polling from the completed-data
+    fetch.
+- Deviations: no production behavior changed and no tests were added. Existing
+  tests already cover heatmap validation responses and task lifecycle behavior.
+- Validation: all three edited diagrams passed Mermaid validation and opened
+  in preview; each tracked block exactly matches its ignored `.mmd` source.
+  `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run --all-files`
+  -- all 10 hooks pass.
+- Closure boundary: the pushed remediation commit and its passing Quality Gate
+  define done for PR #171. Do not start another patch-review-patch cycle from
+  later automated comments; a future agent may scrutinize them during a
+  separately scoped deep sweep, but they are not automatic blockers for this
+  documentation PR. Do not merge PR #171 without separate owner instruction.
+- Forward guidance:
+  - Execute the already-chartered Python-only F-SWE-1 audit, then start Batch
+    21 WP-1. Keep architecture streamlining found by that audit separate from
+    the frontend strangler unless it directly blocks a named WP acceptance
+    criterion.
+  - At WP-1, decide how CI obtains and caches the pinned, digest-verified
+    standalone Tailwind and daisyUI artifacts. At WP-8, make the CSS drift hook
+    `always_run` with no filenames or narrow the top-level pre-commit exclude;
+    otherwise it cannot see `static/`. Add focused CSS, JS, and HTML checks
+    before close-out because those paths currently have no lint coverage.
+  - Treat `ruff` as an optional, separately measured Python-tooling migration,
+    not a frontend prerequisite. It overlaps Black, isort, autoflake, and
+    flake8, would require owner-approved dependency changes, and should land
+    only with explicit parity criteria after the F-SWE-1 findings are known.
+
 ### 2026-08-15 - PR #171 review findings verified and remediated (side-task)
 
 - Scope: all eight unresolved Codex and Copilot threads on PR #171, checked
@@ -265,56 +323,3 @@ non-current operational logs. Older dated entries live in
   F-SWE-1 principles audit per `docs/SWE_AUDIT_CHARTER.md`, whose report
   belongs under `docs/history/reports/`, then Batch 21 WP-1. The three open
   PR #170 review threads and the four ruleset settings remain owner-side.
-
-### 2026-08-14 - docs/history one-off documents collected under reports/ (side-task)
-
-- Scope: the 26 loose files at the top of `docs/history/`, which had grown
-  into a flat pile beside the three organised subdirectories. Organisation
-  only -- the owner scoped this to moving files, not revising them.
-- 25 moved into `docs/history/reports/` with `git mv`. Not one of their
-  bodies was edited.
-- `docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` deliberately stayed at the
-  top level. It is the Batch 14 "Moved:" tombstone whose only purpose is to
-  resolve references to that legacy path, so relocating it would defeat it.
-  `FINDINGS.md:115` records the same disposition.
-- One folder rather than a split by kind. Three Markdown links exist between
-  these files, and they connect an audit, a changelog, a performance summary
-  and a refactor plan -- four different kinds. Any by-kind split breaks all
-  three and forces edits to files that were explicitly out of scope. A single
-  folder keeps every relative link resolving untouched.
-- References repointed in the live documents only: `AGENTS.md`,
-  `DEVELOPMENT.md`, `FINDINGS.md`, `.claude/SESSION_CONTEXT.md` and
-  `docs/SWE_AUDIT_CHARTER.md`. Two of those are forward-looking and mattered
-  most: `FINDINGS.md` F-SWE-1 and the charter's output contract both name
-  where the pending SWE principles audit must write its report, and both now
-  name `reports/`. `AGENTS.md` documentation-touch rule likewise.
-- Dated records were left as written, including the ones that now cite a
-  path that moved: the archived batch definitions and logs,
-  `docs/logarchive/`, the superseded plan under `docs/superpowers/plans/`,
-  and PLAYBOOK Section 4's own earlier entries. A point-in-time record
-  rewritten to match a later reorganisation stops being a record. This is
-  the same reasoning already applied to `SESSION_CONTEXT_REFERENCE.md`.
-- Consequence, stated so it is not later mistaken for rot: paths cited inside
-  `docs/history/reports/*` and inside the dated archives may name the
-  pre-2026-08-14 flat layout. `DEVELOPMENT.md` now says so where it describes
-  the archive.
-- `DOC001` scans only the live documents, so the archive's internal citations
-  never entered the gate; the repointing above was still required because
-  five of the moved paths were cited from documents it does scan.
-- Plan vs implementation: reduced on owner direction. The planned content
-  remediation -- linking the two orphans, repointing three dangling
-  `EXECUTION_PLAYBOOK_2026-02-11.md` cites, annotating seven dead `app.py`
-  line references in `PERFORMANCE_TIMING.md`, a completion note on
-  `BATCH8_REFACTOR_PLAN.md`, collapsing the overlapping 2026-01-04
-  performance documents, and a `docs/history/README.md` index -- was dropped
-  as out of scope for an organisation pass.
-- Deviations: none beyond that reduction.
-- Validation: `pytest -q` -- **590 passed** with the 3 existing
-  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
-  pass. `doc_state_sync.py --check` -- exit 0 (expected root warning for the
-  active `BATCH21_DEFINITION.md`). `check_worktree_alignment.py` -- exit 0.
-  Every repointed path was confirmed to resolve on disk.
-- Forward guidance: `FINDINGS.md` F-DATA-1 still sits under the P1 heading
-  while labelling itself P2, and `DEVELOPMENT.md` still calls the
-  `pr-bot-triage` skill by its old `gemini-pr-triage` name. Both were part of
-  the dropped remediation and remain open.
