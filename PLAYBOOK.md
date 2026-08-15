@@ -163,6 +163,40 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-15 - PR #171 round-5 review threads remediated (side-task)
+
+- Scope: three new Codex threads on `37ca4a9` -- one on the development-cycle
+  diagram and two on the Top Albums sequence. All three were verified against
+  the code before any edit and all three were valid.
+- Verification:
+  - `AGENTS.md` L29-44 defines the review-comment fast path (fetch the thread
+    first, stop if not actionable, else read only the scoped files), but the
+    development-cycle diagram routed every review finding through the full
+    bootstrap gates. The diagram and the rules it documents were written in
+    the same PR and disagreed.
+  - `_fetch_and_process()` stores an empty result, marks progress 100%, and
+    returns before pre-slicing, cache access, or Spotify enrichment when
+    `filtered_albums` is empty. The Top Albums sequence sent every successful
+    page fetch into those stages.
+  - `process_albums()` catches `_batch_lookup_metadata()` exceptions, records
+    `db_cache_warning`, treats every album as a miss, and continues to Spotify
+    (possibly persisting via the open connection). The diagram's connected
+    path presented lookup as unconditional and its unavailable path said
+    persistence was skipped.
+- Plan vs implementation: the development-cycle diagram now branches on
+  review-finding/comment-job before full bootstrap (fetch thread, stop if not
+  actionable, else read scoped files); the Top Albums sequence now stops after
+  an empty filtered set and adds a fail-open cache-lookup-error continuation.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the empty-filtered-set and fail-open lookup
+  paths.
+- Validation: both updated diagrams pass Mermaid validation and open in
+  preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run
+  --all-files` -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this remediation, then resolve the three
+  threads. PR #171 remains unmerged pending separate owner instruction.
+
 ### 2026-08-15 - PR #171 final four review threads remediated (side-task)
 
 - Scope: the four remaining unresolved review threads on `e73540d` -- two
@@ -295,32 +329,3 @@ non-current operational logs. Older dated entries live in
     not a frontend prerequisite. It overlaps Black, isort, autoflake, and
     flake8, would require owner-approved dependency changes, and should land
     only with explicit parity criteria after the F-SWE-1 findings are known.
-
-### 2026-08-15 - PR #171 review findings verified and remediated (side-task)
-
-- Scope: all eight unresolved Codex and Copilot threads on PR #171, checked
-  against the current code, tests, repository rules, and sibling documentation
-  before any edit. A separate two-axis review found no additional verified
-  spec or standards defect in the cumulative `origin/main...HEAD` diff.
-- Plan vs implementation:
-  - Seven factual comments were confirmed: partial heatmap data is successful
-    with a warning; cache hits still write JOBS state; both task entry points
-    release their slot unconditionally; `start_job_thread` releases the slot
-    before re-raising while the route deletes the new job; README's dotted-edge
-    legend omitted dispatch; and `orchestrator.py` was not the import-graph top.
-  - The eighth comment was also confirmed against the complete new-file rule:
-    the 499-line `docs/ARCHITECTURE.md` exceeded its existing `docs/` peer cap.
-    It is now a 49-line index preserving all five section anchors. Five focused
-    files under `docs/architecture/` own one diagram each and are 47-101 lines.
-  - README, SESSION_CONTEXT, and the Mermaid instruction now point to the
-    focused owners without duplicating diagrams. Gitignored `.mmd` sources were
-    used for validation and preview only.
-- Deviations: no production behavior changed and no tests were added; existing
-  regression tests already cover partial-data continuation, startup slot
-  release, and unconditional task cleanup.
-- Validation: all six published diagrams passed Mermaid validation and opened
-  in preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit
-  run --all-files` -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0
-  with the expected active-root `BATCH21_DEFINITION.md` warning.
-- Forward guidance: commit the review remediation, push only with owner
-  authorization, then post one batched reply and resolve the eight threads.
