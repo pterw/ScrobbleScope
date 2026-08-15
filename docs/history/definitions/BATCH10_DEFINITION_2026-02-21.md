@@ -17,10 +17,10 @@ Extended with Gemini 3.1 Pro P0/P1 audit remediation.
 - WP-4 (Low): Extract `ERROR_CODES` + `SpotifyUnavailableError` to `errors.py`. Done.
 - WP-5: Sycophantic test coverage audit. Done. (5 findings: 4 strengthened, 1
   removed. 113 tests passing. See
-  `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md`.)
+  `docs/history/reports/TEST_QUALITY_AUDIT_2026-02-21.md`.)
 - WP-6: SoC and duplication audit of `routes.py`. Done. (4 helpers extracted,
   3 adversarial tests added. 116 tests passing. See
-  `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md`.)
+  `docs/history/reports/ROUTES_SOC_AUDIT_2026-02-21.md`.)
 - WP-7: Fix cross-job rate limiting. Done. (`_GlobalThrottle` + `_ThrottledLimiter`
   added to `utils.py`; 2 adversarial tests. 118 tests passing.)
 - WP-8: Fix destructive pre-slice with `release_scope != "all"`. Done. (Gate

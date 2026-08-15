@@ -2,12 +2,12 @@
 
 Status: **Complete**
 Archived from `PLAYBOOK.md` Section 4 on 2026-02-22.
-Detailed remediation plan: `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`
+Detailed remediation plan: `docs/history/reports/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`
 
 ---
 
 Purpose:
-- Execute the remediation track from `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` in strict work-package order.
+- Execute the remediation track from `docs/history/reports/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md` in strict work-package order.
 
 Execution order:
 1. WP-1 (P0): Bound background job concurrency.

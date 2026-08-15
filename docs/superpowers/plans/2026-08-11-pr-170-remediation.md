@@ -19,7 +19,7 @@
 >
 > What actually shipped is recorded in the dated Section 4 entries for PR #170
 > rounds 1 through 6 (`PLAYBOOK.md` and `docs/logarchive/`), and the narrative
-> is in `docs/history/GUARD_HARDENING_2026-08-11.md`. Its *fix design* -- one
+> is in `docs/history/reports/GUARD_HARDENING_2026-08-11.md`. Its *fix design* -- one
 > shared display-safety helper at every render site -- was correct and is what
 > the shipped code does.
 
@@ -33,7 +33,7 @@ answer to a single rule. The remaining three items are document corrections.
 
 **Tech stack:** Python 3.13, pytest, pre-commit. No new dependencies.
 
-**Source:** `docs/history/REPOSITORY_SYNTHESIS_2026-08-11.md` Section 8. All
+**Source:** `docs/history/reports/REPOSITORY_SYNTHESIS_2026-08-11.md` Section 8. All
 six of its discrepancies were independently verified on 2026-08-11.
 
 ---
