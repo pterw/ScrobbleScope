@@ -56,19 +56,34 @@ sequenceDiagram
             end
             Orch->>Orch: Group, normalize, threshold, and pre-slice albums
             Orch->>Repo: Progress 20%
-            Orch->>Cache: Open connection and batch lookup all album keys
-            Cache-->>Orch: Matching in-TTL rows only
-            Orch->>Cache: Clean stale rows
-            Orch->>Orch: Partition cache hits and misses
+            Orch->>Cache: Open connection (None when DB disabled)
+            alt DB unavailable
+                Note over Orch,Cache: Lookup, cleanup, and persistence skipped (all albums become misses)
+            else DB connected
+                Orch->>Cache: Batch lookup all album keys
+                Cache-->>Orch: Matching in-TTL rows only
+                Orch->>Cache: Clean stale rows
+                Orch->>Orch: Partition cache hits and misses
+            end
 
-            alt Spotify cache misses exist
-                Orch->>Spotify: Fetch token and search albums
-                Spotify-->>Orch: Spotify IDs or unmatched results
-                Orch->>Repo: Progress 20%-40% + unmatched reasons
-                Orch->>Spotify: Batch-fetch matched album details
-                Spotify-->>Orch: Dates, art, and track durations
-                Orch->>Repo: Progress 40%-60%
-                Orch->>Cache: Persist fresh metadata
+            alt Cache misses exist
+                Orch->>Spotify: Fetch token
+                alt Token fetch fails
+                    alt Cache hits exist
+                        Orch->>Repo: Record partial_data_warning and proceed with cached albums only
+                        Note over Orch,Spotify: Success with cached albums only
+                    else No cache hits
+                        Orch->>Repo: set_job_error(spotify_unavailable)
+                    end
+                else Token acquired
+                    Orch->>Spotify: Search albums
+                    Spotify-->>Orch: Spotify IDs or unmatched results
+                    Orch->>Repo: Progress 20%-40% + unmatched reasons
+                    Orch->>Spotify: Batch-fetch matched album details
+                    Spotify-->>Orch: Dates, art, and track durations
+                    Orch->>Repo: Progress 40%-60%
+                    Orch->>Cache: Persist fresh metadata
+                end
             else All metadata is cached
                 Note over Orch,Spotify: No Spotify call or cache persistence, while JOBS stats still update
             end

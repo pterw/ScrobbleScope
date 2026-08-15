@@ -9,6 +9,49 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-14 - Batch 21 tooling mapped to its work packages (side-task)
+
+- Scope: `AGENT_NOTES.md` gains a map from the installed skills and MCP
+  servers to WP-1 through WP-8, written before WP-1 rather than discovered
+  during it. Every entry was verified against the live machine and repository
+  on the day rather than carried forward from the plan's older table.
+- Structural fact recorded so nobody hunts for what is not there:
+  `BATCH21_DEFINITION.md` has **no per-WP acceptance criteria**. It carries
+  one batch-level list of 9 plus a per-WP validation gate that every WP runs
+  identically, so the map keys on the WP and names the criteria each serves.
+- Four separate skill sources are installed and their names collide -- `tdd`
+  and `test-driven-development` are different files from different upstreams,
+  as are `diagnosing-bugs` and `systematic-debugging`. The map says which
+  source each comes from, because naming the wrong one loads the wrong file.
+- Seven gaps recorded, all verified. Three of them converge on WP-8 and one
+  of those has to be decided at WP-1: the pre-commit top-level exclude covers
+  13 directories including `static/` and `templates/`, so the planned
+  `tailwind-css-drift` hook could never fire as a file-scoped hook and must
+  use the `always_run` pattern; CI has no Node and no Tailwind binary, so the
+  headless-Linux fetch is unsolved; and no CSS, JS or HTML hook exists at all,
+  leaving the files eight WPs rewrite unreachable by two mechanisms at once.
+- Two plan claims were corrected against the live state. The exclude covers
+  **13** directories, not the 12 the plan's Phase 6 still said -- an earlier
+  phase had already found 13 and the later section was never updated. And the
+  `skills-lock.json` drift (22 locked, 20 present) is bookkeeping only: both
+  absent skills are supplied by the superpowers plugin, so it is not the
+  capability gap it looks like.
+- One claim was verified rather than assumed after a false negative:
+  `workflow_dispatch` is on `origin/main` and usable. An initial check
+  reported it missing, which turned out to be Git Bash rewriting the
+  `rev:path` argument on Windows rather than anything about the repository.
+- Plan vs implementation: as planned, with the MCP inventory re-enumerated
+  live as the plan instructed rather than copied.
+- Deviations: none.
+- Validation: `pytest -q` -- **590 passed** with the 3 existing
+  aiohttp/Python 3.13 warnings. `pre-commit run --all-files` -- all 10 hooks
+  pass. `doc_state_sync.py --check` -- exit 0 (expected root warning for the
+  active `BATCH21_DEFINITION.md`). `check_worktree_alignment.py` -- exit 0.
+- Forward guidance: this closes the post-merge remediation. Next is the
+  F-SWE-1 principles audit per `docs/SWE_AUDIT_CHARTER.md`, whose report
+  belongs under `docs/history/reports/`, then Batch 21 WP-1. The three open
+  PR #170 review threads and the four ruleset settings remain owner-side.
+
 ### 2026-08-14 - docs/history one-off documents collected under reports/ (side-task)
 
 - Scope: the 26 loose files at the top of `docs/history/`, which had grown
