@@ -123,6 +123,26 @@ close-out. Source: PR #163 doc-hygiene pass.
 
 ## P1 -- Next batch candidates
 
+### F-B21-1: a failed event-loop setup leaks a job slot
+
+`background_task` (`scrobblescope/orchestrator.py`) and `heatmap_task`
+(`scrobblescope/heatmap.py`) build the event loop before the `try` block that
+holds the `release_job_slot()` call in its `finally`. If `ProactorEventLoop()`,
+`new_event_loop()`, or `set_event_loop()` raises, the function exits without
+reaching the `finally`, and the acquired slot is never returned. The semaphore
+is a `BoundedSemaphore` in module state, so a leaked slot stays lost until the
+process restarts. `MAX_ACTIVE_JOBS` is 5, so five such failures would stop the
+site from accepting any job.
+
+The trigger is rare, which is why this is a candidate and not a P0. The fix is
+small: move the loop construction inside the `try`, or acquire the slot after
+the loop exists.
+
+Found while checking the Top Albums and heatmap sequence diagrams against the
+code. The diagrams now state the limit instead of claiming the release is
+unconditional.
+Status: open. Source: PR #171 diagram verification, 2026-08-15.
+
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed

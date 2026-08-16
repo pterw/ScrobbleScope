@@ -163,6 +163,59 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-15 - PR #171 round-6 threads fixed and all five diagrams audited (side-task)
+
+- Scope: the two unresolved Codex threads on `00c0adb`, both on the Top Albums
+  sequence. A prior GLM-5.2 session had left uncommitted diagram edits and a
+  list of findings, then stopped before it finished. I checked the two threads
+  and every edit that session made against the code, then audited all five
+  diagrams with three independent verification agents.
+- Verification of the two threads: both are correct. `fetch_top_albums_async`
+  groups, normalizes, and thresholds the albums before it returns
+  (`orchestrator.py:112-116`), so all of that runs before the empty-result
+  check at `orchestrator.py:784`. `process_albums` writes to the cache only
+  under `if conn and new_metadata_rows` (`orchestrator.py:591`).
+- Verification of the prior session: three of its six edits were wrong. It put
+  the hit/miss partition inside the DB-connected branch, but the code
+  partitions with or without a connection (`orchestrator.py:567`). It drew
+  `cleanup_expired_cache()` as a call to `repositories.py`, but that helper
+  comes from `utils.py` (`orchestrator.py:40`). It put the total Spotify match
+  failure after the store step, but the check runs first
+  (`orchestrator.py:824` before `orchestrator.py:842`).
+- Plan vs implementation:
+  - Top Albums sequence: rewrote the background-task block and the browser
+    block. Grouping now sits before every downstream branch. Persistence is
+    conditional and records `db_cache_persisted`. The partition sits outside
+    the DB branch. New: the connection close and its `finally` ordering
+    against `SpotifyUnavailableError`, the `get_job_context` read behind the
+    total-match-failure check, the six `results_complete` outcomes, the
+    `/progress` 404, and the two unhandled-exception states.
+  - Heatmap sequence: added the housekeeping calls, the page-count stats, the
+    5% and 80% progress writes, and the unhandled-exception path. Rebuilt the
+    render block: the client requests `/heatmap_data` only at 100%, so the 202
+    is a narrow race that restarts polling, not a peer alternative.
+  - Development cycle: split the merged fast path so the actionability stop
+    applies to comment jobs only, added the push-authorization gate that
+    `AGENTS.md` requires between commit and PR, and dropped the E2E claim that
+    no rule file makes.
+  - Runtime diagram and `docs/ARCHITECTURE.md`: named the eight nodes that
+    import `config.py`, corrected the arrow-semantics paragraph, and repointed
+    the module-graph reference to SESSION_CONTEXT Section 4 alone.
+  - Both structural diagrams passed their audit with no change to the graphs.
+- Deviations: the prior session said the fix needed a full rewrite of the
+  parallel block. It did not. The corrections are local, but they reach more
+  branches than that session touched. The audit also found a real code gap and
+  it is recorded as F-B21-1 rather than fixed here: `background_task` and
+  `heatmap_task` build the event loop outside the `try`, so a failure there
+  leaks a job slot. No production code changed in this commit.
+- Validation: all four changed diagrams pass Mermaid validation, checked
+  against the exact text now in the files. `pytest -q` -- **590 passed**, 3
+  known warnings. `pre-commit run --all-files` -- all hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected active-root
+  `BATCH21_DEFINITION.md` warning.
+- Forward guidance: push, then reply to the two threads and resolve them.
+  PR #171 stays open until the owner says otherwise.
+
 ### 2026-08-15 - PR #171 round-5 review threads remediated (side-task)
 
 - Scope: three new Codex threads on `37ca4a9` -- one on the development-cycle
@@ -271,61 +324,3 @@ non-current operational logs. Older dated entries live in
   active-root `BATCH21_DEFINITION.md` warning.
 - Forward guidance: commit and push this final remediation, then resolve both
   threads. PR #171 remains unmerged pending separate owner instruction.
-
-### 2026-08-15 - PR #171 post-push review round remediated (side-task)
-
-- Scope: two new visible Codex threads and all five suppressed Copilot
-  comments on commit `11c9885`. The seven reports described six distinct
-  defects because both reviewers found the omitted heatmap admission check.
-  An independent review found one adjacent README polling claim during the
-  required sibling sweep.
-- Verification and loop check:
-  - `routes.py` confirms that heatmap requests reject a missing username,
-    unavailable validation service, and unknown user before cleanup or slot
-    acquisition. `loading.js` and `heatmap.js` confirm that both browsers poll
-    while their background tasks run. `docsync.logic` confirms tagged entries
-    rotate to per-batch logs while untagged entries rotate to the side archive.
-  - Git blame assigns all three affected diagram owners to the preceding
-    review-fix commit. The omitted validation and rotation branch plus both
-    serialized pollers are therefore self-inflicted extraction defects, not
-    newly reached backlog. The older date headers became stale when this PR
-    later changed the live dashboard and findings state without refreshing
-    them. README's claim that `heatmap.js` polls `/heatmap_data` predated this
-    review round; the script and Batch 18 records show that it polls
-    `/progress` and fetches `/heatmap_data` only after completion.
-- Plan vs implementation:
-  - The tooling graph now distinguishes tagged rotation into
-    `docs/history/logs/` from untagged rotation into `docs/logarchive/`.
-  - The heatmap sequence now shows required-input and Last.fm user-existence
-    validation, including terminal 400, 404, and 503 responses before job
-    admission.
-  - Both request sequences now use Mermaid parallel blocks for background
-    processing and progress polling. SESSION_CONTEXT and FINDINGS carry the
-    current 2026-08-15 update date.
-  - README now distinguishes heatmap progress polling from the completed-data
-    fetch.
-- Deviations: no production behavior changed and no tests were added. Existing
-  tests already cover heatmap validation responses and task lifecycle behavior.
-- Validation: all three edited diagrams passed Mermaid validation and opened
-  in preview; each tracked block exactly matches its ignored `.mmd` source.
-  `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run --all-files`
-  -- all 10 hooks pass.
-- Closure boundary: the pushed remediation commit and its passing Quality Gate
-  define done for PR #171. Do not start another patch-review-patch cycle from
-  later automated comments; a future agent may scrutinize them during a
-  separately scoped deep sweep, but they are not automatic blockers for this
-  documentation PR. Do not merge PR #171 without separate owner instruction.
-- Forward guidance:
-  - Execute the already-chartered Python-only F-SWE-1 audit, then start Batch
-    21 WP-1. Keep architecture streamlining found by that audit separate from
-    the frontend strangler unless it directly blocks a named WP acceptance
-    criterion.
-  - At WP-1, decide how CI obtains and caches the pinned, digest-verified
-    standalone Tailwind and daisyUI artifacts. At WP-8, make the CSS drift hook
-    `always_run` with no filenames or narrow the top-level pre-commit exclude;
-    otherwise it cannot see `static/`. Add focused CSS, JS, and HTML checks
-    before close-out because those paths currently have no lint coverage.
-  - Treat `ruff` as an optional, separately measured Python-tooling migration,
-    not a frontend prerequisite. It overlaps Black, isort, autoflake, and
-    flake8, would require owner-approved dependency changes, and should land
-    only with explicit parity criteria after the F-SWE-1 findings are known.
