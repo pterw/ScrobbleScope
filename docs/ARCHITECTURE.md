@@ -8,10 +8,11 @@ disagree.
 Last verified against the tree on 2026-08-15.
 
 **Arrow semantics.** Solid arrows between Python modules are imports. Between
-other participants they are requests, calls, or containment. Dotted arrows are
-runtime edges that are not imports, including responses, polls, deployment,
-and dispatch through an injected callable. Sequence arrows are calls and
-returns. Each detail document calls out omitted import edges.
+documents they show which file owns or feeds another. Elsewhere they are
+requests, calls, or containment. Dotted arrows are edges that are not imports:
+responses, polls, deployment, dispatch through an injected callable, and one
+annotation pointer that marks the current work order. Sequence arrows are calls
+and returns. Each detail document calls out omitted import edges.
 
 ## 1. AI-driven development cycle
 
@@ -43,7 +44,7 @@ Canonical documents, docsync, the worktree guard, pre-commit, and CI:
 - Rules and bootstrap order: `AGENTS.md`
 - Active work and handoff state: `PLAYBOOK.md`, Sections 3 and 4
 - Batch scope: `BATCH21_DEFINITION.md`
-- Complete module graph: `.claude/SESSION_CONTEXT.md`, Sections 3 and 4
+- Complete module graph: `.claude/SESSION_CONTEXT.md`, Section 4
 - Product overview: `README.md`, Architecture
 - CI gate: `.github/workflows/test.yml`
 - Diagram workflow: `.github/instructions/mermaid.instructions.md`

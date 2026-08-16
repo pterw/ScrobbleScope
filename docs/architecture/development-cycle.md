@@ -9,12 +9,12 @@ flowchart TD
     Request([Owner request, issue, or review finding]) --> Triage{Review finding<br/>or comment job?}
     Triage -->|No| Context[Read canonical context<br/>AGENTS.md, PLAYBOOK.md, batch definition,<br/>SESSION_CONTEXT.md, AGENT_NOTES.md]
     Triage -->|Yes| Fetch[Fetch the thread or comments first]
-    Fetch --> Actionable{Actionable?}
-    Actionable -->|No| Stop([Stop without full bootstrap])
-    Actionable -->|Yes| Scoped[Read only the scoped file<br/>and related tests or config]
+    Fetch --> Actionable{Comment job with<br/>nothing actionable?}
+    Actionable -->|Yes| Stop([Stop without full bootstrap])
+    Actionable -->|No| Scoped[Read only the scoped file<br/>and related tests or config<br/>Open batch or history docs only when<br/>the comment depends on them]
     Scoped --> Implement
     Context --> Align[Refresh origin and run<br/>check_worktree_alignment.py]
-    Align --> Baseline[Confirm baseline gates<br/>pytest, pre-commit, docsync]
+    Align --> Baseline[Confirm baseline gates<br/>pytest and pre-commit]
     Baseline --> Scope[Select the active batch and bounded WP<br/>with acceptance criteria and exclusions]
     Scope --> Explore[Trace code, tests, docs,<br/>dependencies, and linked findings]
     Explore --> Design[Design the smallest coherent change<br/>with acyclic dependencies and real tests]
@@ -25,12 +25,15 @@ flowchart TD
     Sync --> Gates[Run full validation gates]
     Gates --> SelfReview[Read changed files whole<br/>and sweep sibling claims]
     SelfReview --> Commit[Create one conventional commit<br/>with specific staged paths]
-    Commit --> PR[Open or update the pull request]
+    Commit --> Authorize{Push authorized?}
+    Authorize -->|WP commit, wait for the owner| Pause([Pause after the commit])
+    Authorize -->|Review-fix commit on an open PR| PR
+    Pause -->|Owner says push| PR[Open or update the pull request]
     PR --> CI[GitHub Actions Quality Gate]
     CI --> Decision{CI or review outcome}
     Decision -->|Failure or actionable feedback| Diagnose[Reproduce, find root cause,<br/>and repair the issue class]
     Diagnose --> Implement
-    Decision -->|Green| OwnerReview[Owner review and required E2E]
+    Decision -->|Green| OwnerReview[Owner review in the browser]
     OwnerReview -->|Issue found| Diagnose
     OwnerReview -->|Approved| Close[Merge or close the WP<br/>and update handoff state]
     Close --> Realign[Realign the source branch after merge]
@@ -43,7 +46,7 @@ flowchart TD
     classDef feedback fill:#f9e5dd,stroke:#a64b39,color:#1a1820
     classDef current fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class Context,Scope,Docs,Sync source
-    class Align,Baseline,Targeted,Gates,SelfReview,CI gate
+    class Align,Baseline,Targeted,Gates,SelfReview,CI,Authorize gate
     class Decision,Diagnose feedback
     class Current current
 ```

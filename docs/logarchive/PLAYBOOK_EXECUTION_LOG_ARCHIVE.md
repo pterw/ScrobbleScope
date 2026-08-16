@@ -9,6 +9,64 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-15 - PR #171 post-push review round remediated (side-task)
+
+- Scope: two new visible Codex threads and all five suppressed Copilot
+  comments on commit `11c9885`. The seven reports described six distinct
+  defects because both reviewers found the omitted heatmap admission check.
+  An independent review found one adjacent README polling claim during the
+  required sibling sweep.
+- Verification and loop check:
+  - `routes.py` confirms that heatmap requests reject a missing username,
+    unavailable validation service, and unknown user before cleanup or slot
+    acquisition. `loading.js` and `heatmap.js` confirm that both browsers poll
+    while their background tasks run. `docsync.logic` confirms tagged entries
+    rotate to per-batch logs while untagged entries rotate to the side archive.
+  - Git blame assigns all three affected diagram owners to the preceding
+    review-fix commit. The omitted validation and rotation branch plus both
+    serialized pollers are therefore self-inflicted extraction defects, not
+    newly reached backlog. The older date headers became stale when this PR
+    later changed the live dashboard and findings state without refreshing
+    them. README's claim that `heatmap.js` polls `/heatmap_data` predated this
+    review round; the script and Batch 18 records show that it polls
+    `/progress` and fetches `/heatmap_data` only after completion.
+- Plan vs implementation:
+  - The tooling graph now distinguishes tagged rotation into
+    `docs/history/logs/` from untagged rotation into `docs/logarchive/`.
+  - The heatmap sequence now shows required-input and Last.fm user-existence
+    validation, including terminal 400, 404, and 503 responses before job
+    admission.
+  - Both request sequences now use Mermaid parallel blocks for background
+    processing and progress polling. SESSION_CONTEXT and FINDINGS carry the
+    current 2026-08-15 update date.
+  - README now distinguishes heatmap progress polling from the completed-data
+    fetch.
+- Deviations: no production behavior changed and no tests were added. Existing
+  tests already cover heatmap validation responses and task lifecycle behavior.
+- Validation: all three edited diagrams passed Mermaid validation and opened
+  in preview; each tracked block exactly matches its ignored `.mmd` source.
+  `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run --all-files`
+  -- all 10 hooks pass.
+- Closure boundary: the pushed remediation commit and its passing Quality Gate
+  define done for PR #171. Do not start another patch-review-patch cycle from
+  later automated comments; a future agent may scrutinize them during a
+  separately scoped deep sweep, but they are not automatic blockers for this
+  documentation PR. Do not merge PR #171 without separate owner instruction.
+- Forward guidance:
+  - Execute the already-chartered Python-only F-SWE-1 audit, then start Batch
+    21 WP-1. Keep architecture streamlining found by that audit separate from
+    the frontend strangler unless it directly blocks a named WP acceptance
+    criterion.
+  - At WP-1, decide how CI obtains and caches the pinned, digest-verified
+    standalone Tailwind and daisyUI artifacts. At WP-8, make the CSS drift hook
+    `always_run` with no filenames or narrow the top-level pre-commit exclude;
+    otherwise it cannot see `static/`. Add focused CSS, JS, and HTML checks
+    before close-out because those paths currently have no lint coverage.
+  - Treat `ruff` as an optional, separately measured Python-tooling migration,
+    not a frontend prerequisite. It overlaps Black, isort, autoflake, and
+    flake8, would require owner-approved dependency changes, and should land
+    only with explicit parity criteria after the F-SWE-1 findings are known.
+
 ### 2026-08-15 - PR #171 review findings verified and remediated (side-task)
 
 - Scope: all eight unresolved Codex and Copilot threads on PR #171, checked
