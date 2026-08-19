@@ -121,8 +121,10 @@ sequenceDiagram
                     else All metadata is cached
                         Note over Orch,Spotify: No Spotify call or cache persistence, while JOBS stats still update
                     end
-                    Orch->>Cache: Close connection
-                    Note over Orch,Cache: Closed in a finally, so it also closes while SpotifyUnavailableError unwinds
+                    opt DB connected
+                        Orch->>Cache: Close connection
+                        Note over Orch,Cache: Closed in a finally, so it also closes while SpotifyUnavailableError unwinds
+                    end
 
                     alt SpotifyUnavailableError reached background_task
                         Orch->>Repo: set_job_error(spotify_unavailable)
@@ -164,8 +166,16 @@ sequenceDiagram
         end
 
         alt Payload carries an error
-            Browser->>Browser: Stop polling, show the error, and offer Retry when retryable
-            Note over Browser,Routes: The browser does not post results_complete on this path
+            Browser->>Browser: Stop polling and show the error
+            alt Error is retryable
+                Browser->>Browser: Offer Retry and stay on the loading page
+                Note over Browser,Routes: The browser does not post results_complete on this path
+            else Error is not retryable
+                Browser->>Browser: Wait three seconds
+                Browser->>Routes: POST /results_complete + job_id
+                Routes-->>Browser: error.html -- Processing Error
+                Note over Browser,Routes: Same handler as the 100% path, taking its Job errored branch
+            end
         else Progress reaches 100%
             Browser->>Routes: POST /results_complete + job_id
             alt job_id missing

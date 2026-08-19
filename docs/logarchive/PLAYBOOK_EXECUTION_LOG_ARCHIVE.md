@@ -9,6 +9,38 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-15 - PR #171 final two Codex threads remediated (side-task)
+
+- Scope: the two remaining unresolved Codex threads on `3508c48`, both on the
+  Top Albums sequence diagram. Both were verified against the code before any
+  edit and both were valid.
+- Verification:
+  - `_get_db_connection()` returns `None` when `DATABASE_URL` is unset,
+    asyncpg is unavailable, or connection attempts fail; `process_albums`
+    then sets a `db_cache_warning` stat and skips lookup, cleanup, and
+    persistence, so every album becomes a miss. The diagram presented those
+    three cache operations as unconditional.
+  - `_fetch_spotify_misses()` sets `partial_data_warning` and returns without
+    searching when Spotify token acquisition fails and cache hits exist, so
+    the pipeline completes successfully with cached albums only; it raises
+    `SpotifyUnavailableError` only when no cache hits exist. The diagram sent
+    every miss through search and grouped the token failure with the terminal
+    path.
+- Plan vs implementation: the Top Albums sequence now branches on DB
+  availability before the cache lookup and branches the Spotify token-fetch
+  failure into a success-with-warning path (cached albums only) versus the
+  terminal `spotify_unavailable` path.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the DB-disabled fallback and the partial-cache
+  continuation.
+- Validation: the updated diagram passes Mermaid validation and opens in
+  preview; the tracked block exactly matches its ignored `.mmd` source.
+  `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0 with the expected
+  active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this final remediation, then resolve both
+  threads. PR #171 remains unmerged pending separate owner instruction.
+
 ### 2026-08-15 - PR #171 post-push review round remediated (side-task)
 
 - Scope: two new visible Codex threads and all five suppressed Copilot
