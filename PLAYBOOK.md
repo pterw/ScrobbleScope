@@ -163,6 +163,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-19 - PR #171 round-8 thread fixed: push authorization in the cycle diagram (side-task)
+
+- Scope: one unresolved Codex thread on `docs/architecture/development-cycle.md`,
+  raised again by an owner-side human peer on the grounds that this diagram
+  purports to govern agents. Checked against the ruleset before editing. Valid.
+- Verification: the diagram had a single unconditional edge,
+  `Authorize -->|Review-fix commit on an open PR| PR`. `AGENTS.md:234-242`
+  grants that standing exception to Claude Code and Codex sessions only and
+  says in terms that it does not extend to GitHub Copilot task sessions or
+  their subagents, Jules, or any other agent. An agent reading the canonical
+  diagram would therefore push a review-fix commit that the ruleset requires
+  it to pause on.
+- Plan vs implementation: the decision node now carries three edges instead of
+  two. WP and batch commits pause in any session; the direct path is labelled
+  Claude Code or Codex only; every other agent routes to the same pause. Added
+  prose naming `AGENTS.md` as the owner of the rule, and recording the three
+  actions that always need explicit instruction whatever the session --
+  force-pushes, history rewrites, and anything targeting `main` -- plus the
+  Copilot platform-tool requirement at `AGENTS.md:243-244`, neither of which
+  the diagram had carried.
+- Deviations: none. No code changed.
+- Validation: the edited diagram was validated before it was written --
+  `valid = true`, type `flowchart`. `pytest -q` -- **590 passed**.
+  `doc_state_sync.py --check` -- exit 0 with the expected root BATCH warning.
+- Forward guidance: next action unchanged -- the F-SWE-1 audit, then WP-1. A
+  preflight amendment to the charter and the Batch 21 WP gates is agreed and
+  pending; see the owner decisions recorded with it.
+
 ### 2026-08-19 - PR #171 round-7 threads fixed (side-task)
 
 - Scope: the three unresolved Codex threads left on `3d15849` after the
@@ -277,46 +305,3 @@ non-current operational logs. Older dated entries live in
   the expected active-root `BATCH21_DEFINITION.md` warning.
 - Forward guidance: commit and push this remediation, then resolve the three
   threads. PR #171 remains unmerged pending separate owner instruction.
-
-### 2026-08-15 - PR #171 final four review threads remediated (side-task)
-
-- Scope: the four remaining unresolved review threads on `e73540d` -- two
-  Codex path-repointing reports and two Codex Top Albums sequence reports.
-  All four were verified against the code and the moved files before any
-  edit and all four were valid.
-- Verification:
-  - `docs/superpowers/plans/2026-08-11-pr-170-remediation.md` still cited
-    `docs/history/GUARD_HARDENING_2026-08-11.md` and
-    `docs/history/REPOSITORY_SYNTHESIS_2026-08-11.md`, both moved to
-    `docs/history/reports/` by commit `5865c55`. The links resolved to
-    nonexistent files.
-  - `docs/history/definitions/BATCH9_DEFINITION.md` pointed twice to
-    `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`, and
-    `BATCH10_DEFINITION_2026-02-21.md` pointed to the old
-    `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md` and
-    `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md` paths. All three reports
-    now live under `docs/history/reports/`. These are definition-to-report
-    references, not exempt point-in-time citations, so they must be repointed.
-  - `_fetch_and_process()` returns immediately after `set_job_error` when
-    `fetch_metadata["status"] == "error"`, while a `partial` status records
-    `partial_data_warning` and continues. The diagram drew an unconditional
-    transition from page fetching into grouping.
-  - `_fetch_spotify_misses()` raises `SpotifyUnavailableError` when token
-    acquisition fails with no cache hits, caught in `_fetch_and_process` as
-    `set_job_error("spotify_unavailable"); return []` -- no merge or store.
-    The diagram's no-cache-hits branch rejoined the unconditional merge/store
-    steps.
-- Plan vs implementation: repointed the four report paths in the remediation
-  plan and the two batch definitions; the Top Albums sequence now branches on
-  Last.fm status (terminal error vs partial-success-with-warning) and
-  terminates after the no-cache-hits token failure while retaining the
-  cached-success continuation.
-- Deviations: none. No production behavior changed and no tests were added;
-  existing tests already cover the Last.fm error/partial paths and the
-  no-cache-hits token failure.
-- Validation: the updated diagram passes Mermaid validation and opens in
-  preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run
-  --all-files` -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
-  the expected active-root `BATCH21_DEFINITION.md` warning.
-- Forward guidance: commit and push this final remediation, then resolve the
-  four threads. PR #171 remains unmerged pending separate owner instruction.
