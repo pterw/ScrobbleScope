@@ -131,8 +131,10 @@ holds the `release_job_slot()` call in its `finally`. If `ProactorEventLoop()`,
 `new_event_loop()`, or `set_event_loop()` raises, the function exits without
 reaching the `finally`, and the acquired slot is never returned. The semaphore
 is a `BoundedSemaphore` in module state, so a leaked slot stays lost until the
-process restarts. `MAX_ACTIVE_JOBS` is 5, so five such failures would stop the
-site from accepting any job.
+process restarts. `MAX_ACTIVE_JOBS` defaults to 5, so the site stops accepting
+jobs once that many failures have leaked a slot each. A deployment that
+overrides the environment variable exhausts at its own configured capacity, so
+read the count from the configured value rather than from the default.
 
 The trigger is rare, which is why this is a candidate and not a P0. The fix is
 small: move the loop construction inside the `try`, or acquire the slot after
