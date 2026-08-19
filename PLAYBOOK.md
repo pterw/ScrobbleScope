@@ -232,6 +232,39 @@ non-current operational logs. Older dated entries live in
 - Deviations: the drift hook landed at WP-2 rather than the WP-1 the owner
   proposed. WP-1 changes no template, so nothing consumes the compiled CSS
   until WP-2; WP-2 is the first point where drift can ship.
+- Independent review of the amended charter, same day, and the fixes it drove:
+  - The migration gate did not say whether it covered existing findings. Read
+    the wide way, F-B21-1 blocks WP-1 today -- a resource-release defect in
+    `orchestrator.py`, which WP-7 modifies. The gate is now scoped to net-new
+    findings in terms, F-B21-1 is named as the case that forces the
+    distinction, and an audit that thinks an existing finding should block
+    must recommend rather than act.
+  - The A/B/C/D rubric graded by frequency ("one place is B, several is C")
+    while its own table graded by cost. One leak can be C; five contained
+    exceptions can stay B. Rewritten to grade cost, not count. The
+    "when torn, over-raise" instruction is deleted -- it contradicted
+    Section 4's rule that the audit's value is not volume.
+  - Resolved and no-action findings shared one rule. Split: a recurred
+    resolved defect earns a new finding; an unchanged no-action rationale
+    does not; materially changed assumptions do, explaining the delta.
+  - Provenance permitted grading a dirty tree, which no SHA can reproduce.
+    A clean worktree is now required before grading starts.
+  - The hotspot command was `awk '...{...}'` -- a placeholder that could not
+    run, and a poor Python parser besides. Replaced with a tested `ast`
+    script in a new Section 5c, deliberately at the left margin: a heredoc
+    terminator indented inside the numbered list fails with
+    `IndentationError`, which was verified rather than assumed.
+  - Boy Scout used `git log`, which lists commits without showing what they
+    left behind. Now `git log -p`, with an instruction to read the patches.
+  - "Weakest principle repo-wide" overclaimed: the audit excludes the
+    frontend, both script directories, and tests as graded subjects. Scoped
+    to the audited runtime modules.
+  - Cell arithmetic hardcoded 130 in three places while Section 3 allowed the
+    principle count to change. All three now derive from the live count.
+  - One review point was stale, not wrong: the claim that WP-8 defines no
+    frontend principles audit. It does, in this commit's parent -- the
+    reviewer was reading `origin/main`, because the amendment is committed
+    locally and deliberately unpushed.
 - Validation: `pytest -q` -- **590 passed**. `pre-commit run --all-files` --
   all hooks pass. `doc_state_sync.py --check` -- exit 0 with the expected
   root BATCH warning.

@@ -335,7 +335,7 @@ kickoff log entry.
   rewritten frontend then gets an equivalent pass, otherwise the code with
   the most churn in Batch 21 is the only code never audited. Charter a
   follow-up audit over the migrated `static/js/`, templates and
-  `tailwind.src.css`: the same ten principles where they apply, plus an
+  `tailwind.src.css`: the same mandated principles where they apply, plus an
   accessibility sweep (keyboard traversal of every page, focus visibility,
   label associations, contrast in both themes, tap-target size). File
   results as F-SWE-N or F-AUDIT-N. **Batch 21 does not close until this

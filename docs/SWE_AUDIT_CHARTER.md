@@ -17,8 +17,9 @@ status does not change while the audit runs (it is a read-only side-task).
 
 ## 2. Scope
 
-**In scope.** Exactly these 13 modules. The list is closed. Do not add to it,
-and do not drop from it.
+**In scope.** The 13 graded modules below. The list is closed -- do not add to
+it and do not drop from it. A fourteenth file, `scrobblescope/__init__.py`, is
+listed for completeness and is not graded.
 
 | Module | Graded |
 |---|---|
@@ -59,10 +60,13 @@ gained content, grade it and say so in the report.
 - **No code changes of any kind.** This is a read-only audit. Findings become
   F-SWE-N entries; fixes are future batch work.
 
-**Matrix size:** 13 modules x 10 principles = **130 cells**. There is no
-permission to cut coverage. If the audit cannot fit a single session, split it
-across sessions and say so in the report -- do not drop modules. A report that
-silently covers less than 130 cells implies coverage it does not have.
+**Matrix size:** 13 graded modules x the principle count in `AGENT_NOTES.md`.
+That count is ten at this writing, giving 130 cells -- confirm it at audit time
+per Section 3 and use the live product, not the number written here. There is
+no permission to cut coverage. If the audit cannot fit a single session, split
+it across sessions and say so in the report -- do not drop modules. A report
+covering fewer cells than that product, without saying so, implies coverage it
+does not have.
 
 ## 2a. Provenance (record before grading, publish in the report)
 
@@ -72,18 +76,21 @@ from this charter:
 ```bash
 git rev-parse --abbrev-ref HEAD          # audited branch
 git rev-parse HEAD                       # exact SHA graded
-git status --porcelain                   # must be empty, or list what is dirty
+git status --porcelain                   # must be empty before grading starts
 git ls-files 'scrobblescope/*.py' app.py # confirm the module list above
 ```
 
-A grade is a claim about one tree. Without the SHA the matrix cannot be
-rechecked, and every cell becomes unfalsifiable.
+A grade is a claim about one tree. **Grade a clean worktree only.** If
+`git status --porcelain` is not empty, stop and reconcile before grading: a SHA
+cannot reproduce uncommitted content, so a matrix built over a dirty tree is
+unfalsifiable however carefully its cells cite lines. Recording the dirt is not
+a substitute for removing it.
 
 **Staleness warning:** Batch 21 WP-7 modifies `routes.py` and `orchestrator.py`.
 Grades for those two modules expire when WP-7 lands. Say so in the report next
 to their rows rather than leaving a reader to discover it.
 
-## 3. The ten principles (grade each)
+## 3. The mandated principles (grade each)
 
 The canonical list and its definitions live in `AGENT_NOTES.md` Owner
 Preferences. Grade every principle named there, using that wording --
@@ -99,10 +106,12 @@ Two need audit-specific method:
 - **Clean Architecture:** check dependencies against the acyclic graph
   in SESSION_CONTEXT Section 4.
 - **Boy Scout Rule:** assess over a fixed window -- commits to each module
-  since the 2026-02 audits, that is `git log --since=2026-03-01 -- <module>`.
-  Judge whether touched code was left cleaner, not whether the module is
-  clean in absolute terms. Without a window this principle grades the whole
-  history of the file, which is not what it means.
+  since the 2026-02 audits, that is
+  `git log -p --since=2026-03-01 -- <module>`. Read the patches, not the
+  subject lines: this principle is about what each change left behind, which a
+  list of commits cannot show. Judge whether touched code was left cleaner,
+  not whether the module is clean in absolute terms. Without a window this
+  principle grades the whole history of the file, which is not what it means.
 
 ## 4. Differential baseline (do NOT re-report)
 
@@ -142,33 +151,73 @@ not volume.
    had already drifted; `AGENTS.md` anti-pattern 10 forbids repeating a number
    without re-measuring it. Use symbol-based discovery:
 
-   ```bash
-   # longest functions, by definition, across the in-scope set
-   git ls-files 'scrobblescope/*.py' app.py | xargs awk '/^(async )?def |^class /{...}'
-   # broad catches, with their real locations
-   git grep -n "except Exception" -- 'scrobblescope/*.py' app.py
-   ```
-
-   Record the command and its output in the report. The known-largest
-   functions are `_fetch_and_process` in `orchestrator.py`, `results_loading`
-   in `routes.py`, and `_fetch_and_process_heatmap` in `heatmap.py` -- locate
-   them by name, not by line number. F-MAS-4 tracks the broad-catch count; the
-   audit grades whether each catch is justified, which F-MAS-4 never did.
-4. Fill the 13-module x 10-principle matrix. Grade A/B/C/D per cell with a
+   Run both commands in Section 5c and record each command with its output in
+   the report. The known-largest functions are `_fetch_and_process` in
+   `orchestrator.py`, `results_loading` in `routes.py`, and
+   `_fetch_and_process_heatmap` in `heatmap.py` -- locate them by name, never
+   by line number. F-MAS-4 tracks the broad-catch count; the audit grades
+   whether each catch is justified, which F-MAS-4 never did.
+4. Fill the matrix -- 13 graded modules by the live principle count from
+   Section 3. Grade A/B/C/D per cell with a
    one-line evidence citation (`file:line`). "Not applicable" is a valid cell
    value (for example, Composition over Inheritance in a module with no
    classes) -- grade what exists, and say why it does not apply.
 5. Apply the rubric in Section 5a. Every C or D cell either maps to an
    existing finding or becomes a net-new one, per Section 5b.
 6. Answer two summary questions in prose: (a) which principle is weakest
-   repo-wide and what single change would most improve it; (b) has code
-   quality drifted since the 2026-02 audits, held, or improved -- with
-   evidence, and reckoning with `REPOSITORY_SYNTHESIS_2026-08-11.md` rather
-   than treating February as the last word.
+   **across the audited runtime modules** -- not repo-wide, because this audit
+   deliberately excludes the frontend, both script directories, and tests as
+   graded subjects, and cannot support a conclusion about code it never read;
+   name the single change that would most improve it. (b) Has code quality
+   drifted since the 2026-02 audits, held, or improved -- with evidence, and
+   reckoning with `REPOSITORY_SYNTHESIS_2026-08-11.md` rather than treating
+   February as the last word. Scope this answer the same way.
 7. Collect test-vacuity evidence while reading. Tests are not graded cells,
    but `AGENT_NOTES.md` mandates that every test must fail if the function
    under test is deleted. Any test that would survive deletion of its subject
    is a net-new finding in its own right, filed against the module it covers.
+
+## 5c. Discovery commands
+
+These sit at the left margin deliberately. A shell heredoc ends only when its
+terminator starts at column 0, so if these were indented inside the numbered
+list above, copying them would fail with `IndentationError`. Run them as they
+appear, from the repository root, and paste the real output into the report.
+
+Longest function definitions, parsed with `ast` rather than a regex -- a
+line-matching pattern miscounts decorators, nested definitions and multi-line
+signatures, and the count is the entire point:
+
+```bash
+python - <<'EOF'
+import ast, subprocess
+files = subprocess.run(["git", "ls-files", "scrobblescope/*.py", "app.py"],
+                       capture_output=True, text=True).stdout.split()
+rows = []
+for path in files:
+    tree = ast.parse(open(path, encoding="utf-8").read())
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            rows.append((node.end_lineno - node.lineno + 1, path, node.lineno, node.name))
+print(f"{len(files)} files, {len(rows)} function definitions")
+for length, path, line, name in sorted(rows, reverse=True)[:15]:
+    print(f"{length:4d}  {path}:{line}  {name}")
+EOF
+```
+
+Broad exception catches, with their real locations:
+
+```bash
+git grep -n "except Exception" -- 'scrobblescope/*.py' app.py
+```
+
+Both were run on 2026-08-19 against `bb187ae` and worked as written. The first
+reported 14 files and 99 function definitions, with the three known hotspots at
+151, 112 and 109 lines. The superseded version of this charter called them
+"~153", "~115" and "~111" -- a live demonstration of why anti-pattern 10
+forbids repeating a measured number without re-measuring it. Do not trust the
+figures in this paragraph either; they are here to show the drift, not to save
+you the run.
 
 ## 5a. Grading rubric
 
@@ -183,23 +232,37 @@ and the C boundary matters most because it is the finding threshold.
 | **D** | Violated structurally; the module is organised against the principle. | The violation is the module's shape, not an instance in it. **Becomes a finding.** |
 | **N/A** | The principle has no purchase on this module. | Say why in one line (for example: no classes, so Composition over Inheritance cannot apply). |
 
-The B/C line is the judgment call this rubric exists to constrain: **B is an
-exception, C is a pattern.** If you can point at one place, it is B. If you
-would have to point at several, or at the way the module is laid out, it is C.
-When genuinely torn, grade C and let the finding be closed as no-action --
-an over-raised finding is cheap to decline, an under-raised one is invisible.
+The B/C line is the judgment call this rubric exists to constrain, and it turns
+on **cost, not count**. One occurrence can be C: a single leaked resource or a
+single silently wrong result earns C on its own. Five occurrences can stay B if
+each is contained and none costs a maintainer anything today. Ask what the
+violation costs right now -- if the answer is "nothing, and it is written
+down", that is B; if a maintainer has to work around it, that is C.
+
+When genuinely torn, say so in the cell and grade the lower severity. Do not
+raise a finding to be safe. Section 4 states that this audit's value is net-new
+findings and not volume, and a speculative finding costs a reviewer as much
+attention as a real one while teaching the next reader to skim the list.
 
 ## 5b. What happens to a C or D cell
 
-Each C or D cell resolves exactly one of three ways:
+Each C or D cell resolves exactly one of these four ways:
 
 1. **Maps to an open finding.** Cite the F-ID. No new entry.
-2. **Maps to a finding that is resolved or no-action.** Do **not** cite it as
-   live evidence, and do **not** re-raise it. Instead write a net-new finding
-   that says the earlier fix did not hold, and cite the old F-ID as history.
-   A `Status: resolved` finding cannot be the standing explanation for a
-   present-tense defect.
-3. **Nothing covers it.** Write a net-new F-SWE-N finding per `AGENTS.md`
+2. **Maps to a finding marked resolved.** The defect has recurred, so the
+   earlier fix did not hold. Write a net-new finding saying exactly that and
+   cite the old F-ID as history. A `Status: resolved` finding can never be the
+   live explanation for a present-tense defect.
+3. **Maps to a finding marked no-action.** Resolved and no-action are not the
+   same case and do not share a rule. Check whether the recorded rationale
+   still holds:
+   - **Still applies** -- do not re-raise. Note the F-ID in the cell and move
+     on. An unchanged condition that was deliberately accepted is not a
+     finding just because an audit walked past it again.
+   - **Assumptions have materially changed** -- write a net-new finding that
+     explains the delta (what the rationale assumed, what is now true) and
+     cite the old F-ID.
+4. **Nothing covers it.** Write a net-new F-SWE-N finding per `AGENTS.md`
    Finding-Writing Rules (heading, one-sentence problem, `Status:`, and
    `Source: SWE_PRINCIPLES_AUDIT`).
 
@@ -208,12 +271,22 @@ Each C or D cell resolves exactly one of three ways:
 This audit is read-only, but it is not consequence-free. It runs immediately
 before Batch 21 WP-1, and finishing it is not the same as passing it.
 
+**This gate applies only to net-new findings produced by this audit.** Existing
+findings retain their recorded severity and disposition unless the owner
+reclassifies them. That boundary is deliberate, and F-B21-1 is the case that
+proves it needs stating: a leaked job slot is a resource-release defect in
+`orchestrator.py` and `heatmap.py`, and WP-7 modifies `orchestrator.py`, so
+reading this gate as covering existing findings would block WP-1 today. The
+owner triaged that item as a P1 next-batch candidate with more context than
+this audit has. An audit does not silently re-triage decisions already made.
+
 Classify every net-new finding, then apply this policy:
 
-| Finding | Effect on WP-1 |
+| Net-new finding | Effect on WP-1 |
 |---|---|
 | **P0** by the FINDINGS.md severity key | **Stop.** Fix before WP-1 begins. |
-| Correctness defect in a module any Batch 21 WP modifies -- currently `routes.py` and `orchestrator.py` via WP-7 | **Stop.** Fix or get an explicit owner waiver before WP-1 begins. |
+| Correctness defect in a module any Batch 21 WP modifies -- currently `routes.py` and `orchestrator.py` via WP-7 | **Stop.** Fix, or obtain an explicit owner waiver, before WP-1 begins. |
+| P1 maintainability, not correctness, in a module Batch 21 modifies | **Record and continue**, and name it in the verdict line. WP-7 touches that code anyway, so it is cheapest to fix there -- reference it from the WP-7 commit. |
 | P1 in a module Batch 21 does not touch | Record and continue. |
 | P2 and below | Backlog. |
 
@@ -225,6 +298,11 @@ file list. Neither half requires interpretation.
 The report must state the verdict in one line near the top: **migration may
 proceed**, or **migration is blocked by `<F-IDs>`**. A report that finds blocking
 defects and does not say so has failed its main job.
+
+If the audit concludes that an *existing* finding should block WP-1 -- F-B21-1
+or any other -- it does not act on that conclusion. It records the
+recommendation in the verdict section, with its reasoning, and leaves the
+decision to the owner.
 
 ## 7. Output contract
 
@@ -248,8 +326,9 @@ defects and does not say so has failed its main job.
 ## 8. Budget guidance
 
 Target a single focused session. If the work does not fit, **split it across
-sessions and complete all 130 cells** -- record in the report which session
-covered which modules. Coverage is not negotiable; session count is.
+sessions and complete every cell** -- 13 graded modules by the live principle
+count -- and record in the report which session covered which modules.
+Coverage is not negotiable; session count is.
 
 The earlier version of this charter permitted cutting modules to fit. That
 permission is withdrawn: it let a "comprehensive" audit ship incomplete while
