@@ -9,6 +9,49 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-15 - PR #171 final four review threads remediated (side-task)
+
+- Scope: the four remaining unresolved review threads on `e73540d` -- two
+  Codex path-repointing reports and two Codex Top Albums sequence reports.
+  All four were verified against the code and the moved files before any
+  edit and all four were valid.
+- Verification:
+  - `docs/superpowers/plans/2026-08-11-pr-170-remediation.md` still cited
+    `docs/history/GUARD_HARDENING_2026-08-11.md` and
+    `docs/history/REPOSITORY_SYNTHESIS_2026-08-11.md`, both moved to
+    `docs/history/reports/` by commit `5865c55`. The links resolved to
+    nonexistent files.
+  - `docs/history/definitions/BATCH9_DEFINITION.md` pointed twice to
+    `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`, and
+    `BATCH10_DEFINITION_2026-02-21.md` pointed to the old
+    `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md` and
+    `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md` paths. All three reports
+    now live under `docs/history/reports/`. These are definition-to-report
+    references, not exempt point-in-time citations, so they must be repointed.
+  - `_fetch_and_process()` returns immediately after `set_job_error` when
+    `fetch_metadata["status"] == "error"`, while a `partial` status records
+    `partial_data_warning` and continues. The diagram drew an unconditional
+    transition from page fetching into grouping.
+  - `_fetch_spotify_misses()` raises `SpotifyUnavailableError` when token
+    acquisition fails with no cache hits, caught in `_fetch_and_process` as
+    `set_job_error("spotify_unavailable"); return []` -- no merge or store.
+    The diagram's no-cache-hits branch rejoined the unconditional merge/store
+    steps.
+- Plan vs implementation: repointed the four report paths in the remediation
+  plan and the two batch definitions; the Top Albums sequence now branches on
+  Last.fm status (terminal error vs partial-success-with-warning) and
+  terminates after the no-cache-hits token failure while retaining the
+  cached-success continuation.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the Last.fm error/partial paths and the
+  no-cache-hits token failure.
+- Validation: the updated diagram passes Mermaid validation and opens in
+  preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run
+  --all-files` -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this final remediation, then resolve the
+  four threads. PR #171 remains unmerged pending separate owner instruction.
+
 ### 2026-08-15 - PR #171 final two Codex threads remediated (side-task)
 
 - Scope: the two remaining unresolved Codex threads on `3508c48`, both on the

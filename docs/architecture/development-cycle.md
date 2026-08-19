@@ -26,8 +26,9 @@ flowchart TD
     Gates --> SelfReview[Read changed files whole<br/>and sweep sibling claims]
     SelfReview --> Commit[Create one conventional commit<br/>with specific staged paths]
     Commit --> Authorize{Push authorized?}
-    Authorize -->|WP commit, wait for the owner| Pause([Pause after the commit])
-    Authorize -->|Review-fix commit on an open PR| PR
+    Authorize -->|WP or batch commit, any session| Pause([Pause after the commit])
+    Authorize -->|Review-fix commit on an open PR<br/>Claude Code or Codex session only| PR
+    Authorize -->|Review-fix commit, any other agent<br/>Copilot, Jules, and the rest| Pause
     Pause -->|Owner says push| PR[Open or update the pull request]
     PR --> CI[GitHub Actions Quality Gate]
     CI --> Decision{CI or review outcome}
@@ -54,3 +55,12 @@ flowchart TD
 Because `main` accepts linear-history merges, a merge can leave the source
 branch SHA-diverged from `origin/main` with an identical tree. The guard
 reports `WT004`; `AGENTS.md` owns the tree-equality precondition for realignment.
+
+`AGENTS.md` owns the push rule; this diagram only routes it. The direct
+review-fix path is a standing exception granted to Claude Code and Codex
+sessions alone. Every other agent, including GitHub Copilot task sessions and
+their subagents, pauses for owner instruction on a review-fix commit like any
+other commit. Three actions always need explicit instruction whatever the
+session: force-pushes, history rewrites, and anything targeting `main`. A
+Copilot session that has been authorized to push uses the platform progress
+tool rather than shell `git` or `gh`.
