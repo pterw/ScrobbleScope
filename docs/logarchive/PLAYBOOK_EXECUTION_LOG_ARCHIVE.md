@@ -9,6 +9,40 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-15 - PR #171 round-5 review threads remediated (side-task)
+
+- Scope: three new Codex threads on `37ca4a9` -- one on the development-cycle
+  diagram and two on the Top Albums sequence. All three were verified against
+  the code before any edit and all three were valid.
+- Verification:
+  - `AGENTS.md` L29-44 defines the review-comment fast path (fetch the thread
+    first, stop if not actionable, else read only the scoped files), but the
+    development-cycle diagram routed every review finding through the full
+    bootstrap gates. The diagram and the rules it documents were written in
+    the same PR and disagreed.
+  - `_fetch_and_process()` stores an empty result, marks progress 100%, and
+    returns before pre-slicing, cache access, or Spotify enrichment when
+    `filtered_albums` is empty. The Top Albums sequence sent every successful
+    page fetch into those stages.
+  - `process_albums()` catches `_batch_lookup_metadata()` exceptions, records
+    `db_cache_warning`, treats every album as a miss, and continues to Spotify
+    (possibly persisting via the open connection). The diagram's connected
+    path presented lookup as unconditional and its unavailable path said
+    persistence was skipped.
+- Plan vs implementation: the development-cycle diagram now branches on
+  review-finding/comment-job before full bootstrap (fetch thread, stop if not
+  actionable, else read scoped files); the Top Albums sequence now stops after
+  an empty filtered set and adds a fail-open cache-lookup-error continuation.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the empty-filtered-set and fail-open lookup
+  paths.
+- Validation: both updated diagrams pass Mermaid validation and open in
+  preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run
+  --all-files` -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this remediation, then resolve the three
+  threads. PR #171 remains unmerged pending separate owner instruction.
+
 ### 2026-08-15 - PR #171 final four review threads remediated (side-task)
 
 - Scope: the four remaining unresolved review threads on `e73540d` -- two

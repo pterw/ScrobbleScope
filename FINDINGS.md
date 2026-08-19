@@ -308,12 +308,23 @@ Status: open. Source: MULTI_AGENT_SWEEP.
 
 No differential check of the ten mandated software principles
 (AGENT_NOTES.md Owner Preferences) has run since the 2026-02 audits.
-`docs/SWE_AUDIT_CHARTER.md` defines scope (Python only until Batch 21
-ships), the do-not-re-report baseline, method, and output contract; any
-dedicated single-purpose agent session (Claude or Codex) can execute it
-cold. Report lands as `docs/history/reports/SWE_PRINCIPLES_AUDIT_<date>.md` with
+`docs/SWE_AUDIT_CHARTER.md` defines the scope, the do-not-re-report
+baseline, the method, and the output contract; any dedicated
+single-purpose agent session (Claude or Codex) can execute it cold.
+
+The charter was amended 2026-08-19, after a preflight review found it could
+not work as the gate its position implies. It now names the 13 graded
+modules explicitly (130 cells), excludes `scripts/docsync/` and
+`scripts/dev/` with stated reasons rather than leaving them ambiguous,
+defines the A/B/C/D rubric and the Boy Scout history window, reads the whole
+finding corpus including the archive instead of a closed ID list, requires a
+provenance block naming the audited SHA, and states which findings block
+Batch 21 WP-1. The permission to cut modules to fit the budget is withdrawn.
+
+Report lands as `docs/history/reports/SWE_PRINCIPLES_AUDIT_<date>.md` with
 net-new findings as F-SWE-2 onward; this entry closes by pointing at the
-report. Status: open (chartered 2026-07-31, execution pending).
+report, and the charter is retired in the same commit.
+Status: open (chartered 2026-07-31, amended 2026-08-19, execution pending).
 Source: owner request 2026-07-31.
 
 ### F-MAS-4: broad `except Exception` catches
@@ -321,6 +332,57 @@ Source: owner request 2026-07-31.
 17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at
 the original sweep); narrow or add structured logging per exception
 class. Status: open. Source: MULTI_AGENT_SWEEP.
+
+### F-STYLE-1: repository prose is denser than it needs to be
+
+The goal is writing that is easier to read, not conformance to a standard.
+ASD-STE100 Simplified Technical English names the target well: short
+sentences, active voice, one idea per sentence, lean docstrings that say what
+a function does and why, and no coined compound terms where a plain phrase
+exists. It is an example of the goal, not a standard this repository adopts.
+
+**This is not a gate and cannot become one.** The ASD-STE100 dictionary is
+licensed and unavailable here, so no agent can check anything against it, and
+no automated check scores prose quality. Declaring it a rule would also
+trigger anti-pattern 11 in `AGENTS.md`, which requires a claim to be applied
+across the corpus in the commit that states it -- a sweep far larger than the
+benefit. Treat this as standing guidance for text you are already editing.
+
+Concrete instance: `AGENTS.md` uses the coined term "blast-radius" in three
+places (currently around lines 254, 262 and 550 -- locate by the term, not
+the number). Later agent sessions copy it from there. Replace it with the
+plain phrase, such as "search the repo for other copies of the same claim",
+when those lines are next edited for another reason.
+Status: open (guidance, never a gate). Source: owner style direction,
+2026-08-19.
+
+### F-STYLE-2: Python style settings disagree, and Ruff is planned but unwritten
+
+Three separate problems that one decision settles.
+
+**Docstring convention.** Measured 2026-08-19 across tracked Python outside
+`tests/` (38 files, via `git ls-files "*.py"` plus an `ast` walk of every
+function, async function and class): 204 definitions, 171 carrying a
+docstring (84%), and 4 using Google sections such as `Args:` or `Returns:`
+(2%). Adopting Google sections everywhere is a 167-definition sweep across
+the documented ones, plus 33 that carry no docstring at all. That size is why
+this is a finding and not a rule. Re-measure before quoting these numbers.
+
+**Line length.** `black` has no `[tool.black]` section in `pyproject.toml`,
+so it wraps at its default 88. `.flake8` sets `max-line-length = 120`.
+Nothing reconciles the two.
+
+**A stale note.** `.flake8` still describes its five ignored codes as
+temporary, for an incremental cleanup that has since finished.
+
+Ruff is the planned replacement for black, isort, autoflake and flake8, as
+part of a CI modernization, and it also settles the line-length
+disagreement -- so do not open that as a separate question. The plan is not
+written down anywhere it would be found: the only tracked traces are
+`.ruff_cache/` in `.dockerignore` and one line in
+`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Defer the sweep; record
+the decision.
+Status: open. Source: root-hygiene side task, 2026-08-19.
 
 ---
 

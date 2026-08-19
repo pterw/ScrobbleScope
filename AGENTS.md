@@ -628,9 +628,13 @@ dedicated findings-cleanup WP. Nothing is deleted -- the archive preserves
 grep history.
 
 1. **F-ID format:** every item heading is `F-<context>-<N>: <title>`.
-   Context is a batch tag (`B18`, `B19`, `B20`, ...) or a source tag
-   (`MAS` for MULTI_AGENT_SWEEP, `DOCSYNC`, `AUDIT`, `LOAD` for the
-   load-testing session); `FEATURE` covers feature-prep notes. No
+   Context is a batch tag (`B18`, `B19`, `B20`, ...) or one of these
+   source tags -- the list is complete, so extend it here when you coin a
+   new tag rather than leaving it undocumented:
+   `MAS` (MULTI_AGENT_SWEEP), `DOCSYNC`, `AUDIT`, `LOAD` (the
+   load-testing session), `SWE` (the SWE-principles audit), `WORKTREE`
+   (the worktree-guard work), `DATA` (data-model items), `STYLE`
+   (writing and Python style), and `FEATURE` (feature-prep notes). No
    bare-numbered items in FINDINGS.md.
 2. **Required fields:** the F-ID heading, a one-sentence problem statement,
    a `Status:` line, and a `Source:` line when the finding came from a
