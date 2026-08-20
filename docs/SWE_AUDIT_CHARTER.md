@@ -43,6 +43,22 @@ no matrix row. It is listed above so its absence from the matrix is a recorded
 decision, not an oversight. Confirm it is still empty at audit time; if it has
 gained content, grade it and say so in the report.
 
+**Reading depth.** All 13 modules are graded and no cell is optional, but they
+do not cost the same, and this charter says where the time goes rather than
+leaving an executor to find out. Measured 2026-08-19: the four smallest modules
+hold 197 lines between them and consume 40 cells, while the two largest hold
+1,558 lines and consume 20. Effort tracks the matrix, not the code, so correct
+for it deliberately:
+
+| Depth | Modules | What it means |
+|---|---|---|
+| **Deep** | `orchestrator.py`, `routes.py`, `utils.py` | Read whole, more than once where the flow is hard to hold. Two of the three are what WP-7 modifies, so the migration verdict rests on them. This is where the session's time belongs. |
+| **Standard** | `lastfm.py`, `heatmap.py`, `repositories.py`, `cache.py`, `app.py`, `spotify.py` | Read whole once. Grade, cite what you find. |
+| **Light** | `domain.py`, `errors.py`, `worker.py`, `config.py` | 40 to 70 lines each. Read whole -- it takes a minute -- grade, move on. Do not hunt for findings in 40 lines of constants. |
+
+Depth directs attention; it is not permission to skip. Every cell is still
+filled.
+
 **Explicitly OUT of scope, each for a stated reason:**
 
 - `static/js/` and all templates and CSS -- Batch 21 rewrites them. Auditing
@@ -121,14 +137,23 @@ not a list to memorise -- it is a corpus to read:
 1. **All of `FINDINGS.md`.** Every open item, whatever its severity.
 2. **All of `docs/history/findings/FINDINGS_ARCHIVE.md`.** Resolved and
    no-action items stay part of the baseline and must not be re-raised.
-3. **Every report under `docs/history/reports/`** dated 2026-02 or later.
-   As of this amendment that includes `AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md`
-   (lines 113-136 list prior runtime SoC/DRY/code-smell findings),
-   `ROUTES_SOC_AUDIT_2026-02-21.md` (Section 4 "What was NOT changed"
-   documents deliberate declines -- respect them),
-   `TEST_QUALITY_AUDIT_2026-02-21.md`, `GUARD_HARDENING_2026-08-11.md`, and
-   `REPOSITORY_SYNTHESIS_2026-08-11.md`. List the directory rather than
-   trusting this sentence to stay current.
+3. **These five reports, and only these five.** `docs/history/reports/` holds
+   25 files and roughly 5,600 lines, but most are changelogs, refactor plans
+   and implementation summaries that carry no findings; reading them is
+   bookkeeping, not baseline. The five that carry findings:
+   - `AUDIT_2026-02-27_MULTI_AGENT_SWEEP.md` -- lines 113-136 list the prior
+     runtime SoC/DRY/code-smell findings.
+   - `ROUTES_SOC_AUDIT_2026-02-21.md` -- Section 4 "What was NOT changed"
+     documents deliberate declines. Respect them.
+   - `TEST_QUALITY_AUDIT_2026-02-21.md`
+   - `GUARD_HARDENING_2026-08-11.md`
+   - `REPOSITORY_SYNTHESIS_2026-08-11.md`
+
+   A previous version of this section said "every report dated 2026-02 or
+   later". That was expensive and, worse, ambiguous: six files in the
+   directory carry no date in their name, so the rule quietly handed a scope
+   decision back to the executor -- the exact fault this charter was amended
+   to remove. If a sixth report starts carrying findings, add it here by name.
 
 Read the corpus by listing those locations, not by matching the ID list an
 earlier version of this charter carried. That list was closed and had already
@@ -158,10 +183,15 @@ not volume.
    by line number. F-MAS-4 tracks the broad-catch count; the audit grades
    whether each catch is justified, which F-MAS-4 never did.
 4. Fill the matrix -- 13 graded modules by the live principle count from
-   Section 3. Grade A/B/C/D per cell with a
-   one-line evidence citation (`file:line`). "Not applicable" is a valid cell
-   value (for example, Composition over Inheritance in a module with no
-   classes) -- grade what exists, and say why it does not apply.
+   Section 3. **Cite evidence only where evidence exists.** A B, C or D cell
+   carries a one-line `file:line` citation. An A cell carries the letter and
+   nothing else: an A means no counter-example was found after reading the
+   module whole, and an absence has no line number to cite. An N/A cell
+   carries a short reason in place of a citation (for example: no classes, so
+   Composition over Inheritance cannot apply). An earlier version demanded a
+   citation for every cell, which demanded evidence that most cells cannot
+   have, and made the cheap majority of the matrix as expensive as the
+   valuable minority.
 5. Apply the rubric in Section 5a. Every C or D cell either maps to an
    existing finding or becomes a net-new one, per Section 5b.
 6. Answer two summary questions in prose: (a) which principle is weakest
