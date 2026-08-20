@@ -2,7 +2,7 @@
 
 [![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
 [![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-591_passing-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-633_passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
@@ -76,13 +76,13 @@ This project was initially built to identify top albums released in a specific y
 | Layer | Technology |
 |-------|-----------|
 | Backend | Python 3.13, Flask 3.1, Gunicorn |
-| Frontend | HTML5, CSS3, JavaScript (ES6+), Bootstrap 5 |
+| Frontend | HTML5, CSS3, JavaScript (ES6+), Bootstrap 5 (served UI), Tailwind CSS 4 + daisyUI 5 migration toolchain |
 | APIs | Last.fm (`user.getrecenttracks`, `user.getinfo`), Spotify (search, album details) -- heatmap uses Last.fm only |
 | Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
 | Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
 | Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (591 tests across 35 files), 89% coverage |
-| CI/CD | GitHub Actions Quality Gate (pre-commit, pytest + coverage gate, pip-audit) |
+| Testing | pytest (633 tests across 37 files), 89% coverage |
+| CI/CD | GitHub Actions Quality Gate (pinned Tailwind rebuild, pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
 | Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
 
@@ -335,6 +335,9 @@ pytest --cov=scrobblescope --cov-report=term
 pre-commit run --all-files
 ```
 
+Generated Tailwind CSS is committed; [DEVELOPMENT.md](DEVELOPMENT.md#frontend-asset-build)
+owns the sole build and watch procedure.
+
 ## Project Structure
 
 ```
@@ -387,7 +390,9 @@ pre-commit run --all-files
 |   |   |-- results.css
 |   |   |-- error.css
 |   |   |-- unmatched.css
-|   |   `-- heatmap.css            # Pill tabs, heatmap form, loading, result, tooltips
+|   |   |-- heatmap.css            # Pill tabs, heatmap form, loading, result, tooltips
+|   |   |-- tailwind.src.css       # Tailwind + daisyUI source and Batch 21 theme tokens
+|   |   `-- tailwind.css           # Committed generated Tailwind CSS
 |   |-- js/
 |   |   |-- theme.js               # Dark-mode init + toggle logic
 |   |   |-- index.js               # Form validation, dynamic options
@@ -398,6 +403,8 @@ pre-commit run --all-files
 |   |   `-- heatmap.js             # Pill switching, AJAX, polling, SVG grid, tooltips
 |   `-- images/                    # Favicons (SVG, PNG, ICO)
 |-- scripts/
+|   |-- bin/
+|   |   `-- .gitkeep               # Track the otherwise gitignored Tailwind cache directory
 |   |-- doc_state_sync.py          # PLAYBOOK/SESSION_CONTEXT sync (entry point)
 |   |-- docsync/                   # Docsync package (parser, renderer, logic, CLI)
 |   |   |-- cli.py                 # --check / --fix / --split-archive modes
@@ -408,6 +415,7 @@ pre-commit run --all-files
 |   |   `-- models.py              # Entry + BatchState dataclasses
 |   |-- dev/
 |   |   |-- dev_start.py           # One-command local dev startup (Postgres + Flask)
+|   |   |-- tailwind_build.py      # Verified standalone Tailwind + daisyUI builder
 |   |   |-- worktree_guard.py      # Stable worktree-diagnostic facade
 |   |   |-- _worktree_guard_diagnostics.py  # Diagnostic construction, offline/WT014
 |   |   |-- _worktree_guard_inspection.py   # Read-only Git state collection
@@ -439,6 +447,8 @@ pre-commit run --all-files
 |   |-- test_worker.py             # Job slot + thread management (6)
 |   |-- scripts/dev/
 |   |   |-- test_dev_start.py              # Docker startup helper unit tests (11)
+|   |   |-- test_tailwind_build.py         # Pinned asset and cache contracts (28)
+|   |   |-- test_tailwind_build_cli.py     # Build CLI and source contracts (7)
 |   |   |-- test_worktree_guard.py         # PLAYBOOK + lineage decisions (23)
 |   |   |-- test_worktree_guard_base_ref.py  # Selected-ref guidance (6)
 |   |   |-- test_worktree_guard_cli.py     # CLI rendering + boundary (5)

@@ -71,3 +71,7 @@ docs/agents/
 # dump did not, so this directory kept showing as untracked. Batch 21 makes
 # Playwright a per-WP gate, so it would otherwise resurface on every run.
 .playwright-mcp/
+
+# Downloaded Tailwind standalone and daisyUI bundles; verified on every use.
+/scripts/bin/*
+!/scripts/bin/.gitkeep

@@ -240,6 +240,12 @@ Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
    WP-2's Python Playwright plan does not add a Node project: CI installs
    the pinned Python dependency and its matching Chromium build through
    `python -m playwright`, then runs the repository gate.
+   **Disposition (2026-08-20):** WP-1 decided it -- CI fetches. The gate
+   caches `scripts/bin/` by runner OS, architecture, and build-script hash,
+   then rebuilds the CSS and fails on drift (`.github/workflows/test.yml`,
+   steps "Cache pinned Tailwind assets" and "Verify committed Tailwind
+   CSS"). There is still no Node; the standalone CLI needs none. The hook
+   is not local-only, and `test.yml` is no longer Python-only.
 4. **No CSS, JS or HTML hooks at all.** `trailing-whitespace` and
    `end-of-file-fixer` are scoped to `py|md|yaml|yml|txt`, and `static/`
    and `templates/` are excluded by the top-level rule regardless -- so the

@@ -34,10 +34,22 @@ jobs:
           cache: 'pip'
           cache-dependency-path: requirements*.txt
 
+      - name: Cache pinned Tailwind assets
+        uses: actions/cache@v4
+        with:
+          path: scripts/bin
+          key: tailwind-assets-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/dev/tailwind_build.py') }}
+
       - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements-dev.txt
+
+      - name: Verify committed Tailwind CSS
+        run: |
+          python scripts/dev/tailwind_build.py
+          sha256sum static/css/tailwind.css
+          git diff --exit-code -- static/css/tailwind.css
 
       - name: Run pre-commit checks
         run: |

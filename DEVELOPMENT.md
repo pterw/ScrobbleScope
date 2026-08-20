@@ -290,6 +290,39 @@ documentation only.
 
 ---
 
+## Frontend Asset Build
+
+Batch 21 uses the Tailwind CSS standalone CLI and daisyUI bundles without a
+Node project. The source of truth is `static/css/tailwind.src.css`; production
+serves the committed `static/css/tailwind.css`, so app startup never downloads
+or compiles frontend tooling.
+
+One-shot build, required before committing a source or template change:
+
+```bash
+python scripts/dev/tailwind_build.py
+```
+
+Watch during local UI work:
+
+```bash
+python scripts/dev/tailwind_build.py --watch
+```
+
+The script selects the pinned executable for the host and stores it with
+`daisyui.mjs` and `daisyui-theme.mjs` under gitignored `scripts/bin/`. It
+verifies all three files against their pinned SHA-256 values on every run. A
+missing or invalid file is fetched once and verified before atomic replacement;
+an invalid replacement stops the build.
+
+These commands are written in primary-checkout form. In a linked worktree, run
+them with the qualified Python path printed by
+`scripts/dev/check_worktree_alignment.py`, as required by `AGENTS.md`. Run the
+one-shot command after stopping watch mode and commit both source and generated
+CSS. CI runs the same one-shot path on Linux and rejects generated-file drift.
+
+---
+
 ## Claude Code Skills (tightly scoped tooling)
 
 Two project-scoped Claude Code (CC) skills provide structured entry points for
