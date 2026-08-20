@@ -149,7 +149,7 @@ not volume.
 3. Discover hotspots live rather than trusting written counts. The previous
    version of this charter hardcoded line numbers and an exception count that
    had already drifted; `AGENTS.md` anti-pattern 10 forbids repeating a number
-   without re-measuring it. Use symbol-based discovery:
+   without re-measuring it.
 
    Run both commands in Section 5c and record each command with its output in
    the report. The known-largest functions are `_fetch_and_process` in
@@ -176,48 +176,6 @@ not volume.
    but `AGENT_NOTES.md` mandates that every test must fail if the function
    under test is deleted. Any test that would survive deletion of its subject
    is a net-new finding in its own right, filed against the module it covers.
-
-## 5c. Discovery commands
-
-These sit at the left margin deliberately. A shell heredoc ends only when its
-terminator starts at column 0, so if these were indented inside the numbered
-list above, copying them would fail with `IndentationError`. Run them as they
-appear, from the repository root, and paste the real output into the report.
-
-Longest function definitions, parsed with `ast` rather than a regex -- a
-line-matching pattern miscounts decorators, nested definitions and multi-line
-signatures, and the count is the entire point:
-
-```bash
-python - <<'EOF'
-import ast, subprocess
-files = subprocess.run(["git", "ls-files", "scrobblescope/*.py", "app.py"],
-                       capture_output=True, text=True).stdout.split()
-rows = []
-for path in files:
-    tree = ast.parse(open(path, encoding="utf-8").read())
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            rows.append((node.end_lineno - node.lineno + 1, path, node.lineno, node.name))
-print(f"{len(files)} files, {len(rows)} function definitions")
-for length, path, line, name in sorted(rows, reverse=True)[:15]:
-    print(f"{length:4d}  {path}:{line}  {name}")
-EOF
-```
-
-Broad exception catches, with their real locations:
-
-```bash
-git grep -n "except Exception" -- 'scrobblescope/*.py' app.py
-```
-
-Both were run on 2026-08-19 against `bb187ae` and worked as written. The first
-reported 14 files and 99 function definitions, with the three known hotspots at
-151, 112 and 109 lines. The superseded version of this charter called them
-"~153", "~115" and "~111" -- a live demonstration of why anti-pattern 10
-forbids repeating a measured number without re-measuring it. Do not trust the
-figures in this paragraph either; they are here to show the drift, not to save
-you the run.
 
 ## 5a. Grading rubric
 
@@ -265,6 +223,48 @@ Each C or D cell resolves exactly one of these four ways:
 4. **Nothing covers it.** Write a net-new F-SWE-N finding per `AGENTS.md`
    Finding-Writing Rules (heading, one-sentence problem, `Status:`, and
    `Source: SWE_PRINCIPLES_AUDIT`).
+
+## 5c. Discovery commands
+
+These sit at the left margin deliberately. A shell heredoc ends only when its
+terminator starts at column 0, so if these were indented inside the numbered
+list above, copying them would fail with `IndentationError`. Run them as they
+appear, from the repository root, and paste the real output into the report.
+
+Longest function definitions, parsed with `ast` rather than a regex -- a
+line-matching pattern miscounts decorators, nested definitions and multi-line
+signatures, and the count is the entire point:
+
+```bash
+python - <<'EOF'
+import ast, subprocess
+files = subprocess.run(["git", "ls-files", "scrobblescope/*.py", "app.py"],
+                       capture_output=True, text=True).stdout.split()
+rows = []
+for path in files:
+    tree = ast.parse(open(path, encoding="utf-8").read())
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            rows.append((node.end_lineno - node.lineno + 1, path, node.lineno, node.name))
+print(f"{len(files)} files, {len(rows)} function definitions")
+for length, path, line, name in sorted(rows, reverse=True)[:15]:
+    print(f"{length:4d}  {path}:{line}  {name}")
+EOF
+```
+
+Broad exception catches, with their real locations:
+
+```bash
+git grep -n "except Exception" -- 'scrobblescope/*.py' app.py
+```
+
+Both were run on 2026-08-19 against `bb187ae` and worked as written. The first
+reported 14 files and 99 function definitions, with the three known hotspots at
+151, 112 and 109 lines. The superseded version of this charter called them
+"~153", "~115" and "~111" -- a live demonstration of why anti-pattern 10
+forbids repeating a measured number without re-measuring it. Do not trust the
+figures in this paragraph either; they are here to show the drift, not to save
+you the run.
 
 ## 6. What blocks the migration
 
