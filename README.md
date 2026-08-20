@@ -463,9 +463,10 @@ pre-commit run --all-files
 |       |-- test_orchestrator_process_albums.py     # Album processing (7)
 |       `-- test_spotify_service.py    # Spotify client + token mgmt (10)
 |-- docs/
+|   |-- AGENT_DOC_MAP.md           # Which document owns what, for AI agents
 |   |-- ARCHITECTURE.md            # Canonical architecture index
 |   |-- architecture/              # One canonical detailed diagram per file
-|   |-- SWE_AUDIT_CHARTER.md       # Standing audit scope and method
+|   |-- SWE_AUDIT_CHARTER.md       # Retired 2026-08-20; record of audit scope
 |   |-- images/                    # Screenshots for README
 |   |-- history/                   # Archived batch defs, audits, changelogs
 |   |-- logarchive/                # Rotated PLAYBOOK Section 4 entries

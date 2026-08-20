@@ -4,14 +4,16 @@ You are continuing work on ScrobbleScope. Follow the comment-job fast-paths
 in `AGENTS.md` (Session Bootstrap) when the task is a PR comment or
 review-comment fix. Otherwise bootstrap first.
 
+Every rule lives in `AGENTS.md`: the canonical read order, document roles,
+token discipline, the sufficiency gate, bootstrap-conflict handling, the
+validation gates, commit discipline, side-task handling, and the
+Anti-Pattern Registry. Follow them there; this file restates none of them.
+It carries only the two things that belong to no other file -- the check
+that repository reality matches the documents, and the handoff checklist.
+
 ---
 
-## 1) Bootstrap
-
-The canonical read order, document roles, token discipline, sufficiency
-gate, and bootstrap-conflict handling are defined once in `AGENTS.md`
-("Document Roles" and "Session Bootstrap") -- follow them exactly; they
-are not restated here.
+## Bootstrap verification
 
 After reading the bootstrap files, complete the canonical worktree gate in
 `AGENTS.md` ("Session Bootstrap"), then retain this human-readable evidence
@@ -29,29 +31,7 @@ before doing any work.
 
 ---
 
-## 2) Validation gates (run before every commit)
-
-Owned by `AGENTS.md` (Commit Rules "Procedure before every commit", and
-Doc Sync Rules for the `--fix` step). Do not restate or re-derive them
-here -- read them there.
-
----
-
-## 3) Commit discipline
-
-Owned by `AGENTS.md` (Commit Rules and Side-Task Handling). Do not restate
-or re-derive it here -- read it there.
-
----
-
-## 4) Anti-patterns
-
-Owned by `AGENTS.md` (Anti-Pattern Registry). Check your work against that
-list before every commit.
-
----
-
-## 5) Handoff when you are done or interrupted
+## Handoff when you are done or interrupted
 
 Documentation lands *in* the commit, not after it: the documentation step
 of AGENTS.md Commit Rules, plus "Missing log entries" in the Anti-Pattern

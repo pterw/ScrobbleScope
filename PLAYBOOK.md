@@ -173,6 +173,66 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-20 - Agent document map added; HANDOFF_PROMPT trimmed (side-task)
+
+- Scope: the owner asked for an instructional that lets an agent other than
+  Claude navigate the documentation set -- including the audit and SWE
+  documents -- and understand why each document exists. Added
+  `docs/AGENT_DOC_MAP.md` and registered it in the `AGENTS.md` Document Roles
+  table. Documentation only; no runtime code changed.
+- Plan vs implementation: as planned. The map routes rather than summarises.
+  It names the owner of each fact and links to it, so it adds no copy that a
+  later edit can contradict (`AGENTS.md` Anti-duplication rule). Sections:
+  the one-owner rule and why it exists, where to start, the document groups,
+  the human-facing documents, how to read an audit, how to read a finding,
+  seven navigation traps, the pre-change gates, and the tie-break order when
+  two documents disagree. It sits under `docs/` rather than the repository
+  root, because a twelfth root Markdown file would worsen the problem the map
+  exists to solve, and it is marked optional and outside the bootstrap set so
+  it does not inflate the cold-start read. 264 lines, under the 370-line
+  largest peer in `docs/`.
+- Audit guidance is the part with no prior owner: the charter to report to
+  findings to log-entry lifecycle, why a retired charter is kept, why a dated
+  report is never edited in place, and that a report is a measurement of one
+  day rather than current truth. The SWE report's own "Owner review" section
+  is cited as the worked example of an appended correction.
+- Owner request mid-task, and the reason it changed shape: delete
+  `HANDOFF_PROMPT.md`. That is not a documentation-only delete. The file is
+  pinned into the commit gate at `scripts/docsync/cli.py:26` and
+  `scripts/docsync/integrity.py:51`. `cli.py:88` loads every
+  `LIVE_DOCUMENT_PATHS` entry through `_read_lines`, which raises `SyncError`
+  on a missing file and maps to exit 2, and the `doc-state-sync-check` hook
+  runs `--check` with `always_run: true`. Deleting the file alone would fail
+  every commit in the repository until `cli.py`, `integrity.py`,
+  `tests/conftest.py:149` and four assertions in
+  `tests/test_docsync_integrity.py` changed with it. The owner chose to trim
+  the file instead of deleting it.
+- Trim: `HANDOFF_PROMPT.md` went from 66 to 46 lines. Removed three sections
+  that carried no requirement of their own and only named an `AGENTS.md`
+  section: validation gates, commit discipline, and anti-patterns. Every
+  subject those sections named survives in the new opening paragraph, checked
+  against the removed text one item at a time per Anti-Pattern 12. The two
+  unique parts are untouched: the post-read verification and the handoff
+  checklist. Section numbers were replaced with names, so no later edit can
+  leave a stale "Section 4)" citation behind. `DEVELOPMENT.md:74-78` already
+  claimed the file held only those two things, so the trim closes an existing
+  drift rather than creating one.
+- Deviations: two stale claims corrected in the same commit, both left behind
+  by the 2026-08-20 audit commits. `BATCH21_DEFINITION.md:3` still read that
+  the F-SWE-1 audit "comes next" after PR #170; the audit ran on 2026-08-20.
+  The `README.md` documentation tree still described
+  `docs/SWE_AUDIT_CHARTER.md` as "Standing audit scope and method"; the
+  charter is retired. The same tree gained a row for the new map, because it
+  enumerates the contents of `docs/`.
+- Validation: `pytest -q` **590 passed** (unchanged; no code touched);
+  `pre-commit run --all-files` all hooks passed;
+  `python scripts/doc_state_sync.py --check` exit 0 with the expected
+  active-root `BATCH21_DEFINITION.md` warning. Every tracked Markdown file
+  was checksummed before and after the pre-commit run and compared, because
+  that hook has twice reverted files nobody edited, once into a commit.
+- Forward guidance: unchanged. The F-SWE-2 fix is still the next action. It
+  is a code commit and it moves the test count off 590.
+
 ### 2026-08-20 - F-SWE-1 SWE principles audit executed (side-task)
 
 - Scope: executed `docs/SWE_AUDIT_CHARTER.md` against `1994673`, whose
@@ -375,31 +435,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: next action unchanged -- the F-SWE-1 audit, then WP-1. A
   preflight amendment to the charter and the Batch 21 WP gates is agreed and
   pending; see the owner decisions recorded with it.
-
-### 2026-08-19 - PR #171 round-7 threads fixed (side-task)
-
-- Scope: the three unresolved Codex threads left on `3d15849` after the
-  diagram audit. All three are P2 and all three were checked against the
-  source before any edit. All three are correct.
-- Verification and fixes:
-  - `top-albums-sequence.md` drew `Close connection` unconditionally, but
-    `process_albums` closes inside `if conn` (`orchestrator.py:603-604`), so
-    the no-connection branch never closes anything. Wrapped in an `opt DB
-    connected` block.
-  - The same diagram claimed the browser never posts `results_complete` on an
-    error payload. `loading.js:209-229` shows only the retryable branch stays
-    on the page; a non-retryable error waits three seconds and calls
-    `redirectToResults()`, which does post. Split the branch by `retryable`
-    and routed the non-retryable case to the processing-error page.
-  - `FINDINGS.md` F-B21-1 stated `MAX_ACTIVE_JOBS` is 5 as an absolute.
-    `config.py:31` reads it from the environment with 5 as the default, and
-    the literal contradicted F-LOAD-1 in the same file. Reworded to name 5 as
-    the default and tie the failure count to configured capacity.
-- Deviations: none. No code changed; F-B21-1 stays open and unfixed, because
-  it is a code change for a code batch.
-- Validation: `pytest -q` -- **590 passed**. `pre-commit run --files` on both
-  edited files -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
-  the expected root BATCH warning. The edited Mermaid diagram was validated
-  through the Mermaid Chart validator: `valid = true`, type `sequence`.
-- Forward guidance: the next action is unchanged -- the F-SWE-1 audit, then
-  Batch 21 WP-1.

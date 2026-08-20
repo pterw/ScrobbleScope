@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-19 - PR #171 round-7 threads fixed (side-task)
+
+- Scope: the three unresolved Codex threads left on `3d15849` after the
+  diagram audit. All three are P2 and all three were checked against the
+  source before any edit. All three are correct.
+- Verification and fixes:
+  - `top-albums-sequence.md` drew `Close connection` unconditionally, but
+    `process_albums` closes inside `if conn` (`orchestrator.py:603-604`), so
+    the no-connection branch never closes anything. Wrapped in an `opt DB
+    connected` block.
+  - The same diagram claimed the browser never posts `results_complete` on an
+    error payload. `loading.js:209-229` shows only the retryable branch stays
+    on the page; a non-retryable error waits three seconds and calls
+    `redirectToResults()`, which does post. Split the branch by `retryable`
+    and routed the non-retryable case to the processing-error page.
+  - `FINDINGS.md` F-B21-1 stated `MAX_ACTIVE_JOBS` is 5 as an absolute.
+    `config.py:31` reads it from the environment with 5 as the default, and
+    the literal contradicted F-LOAD-1 in the same file. Reworded to name 5 as
+    the default and tie the failure count to configured capacity.
+- Deviations: none. No code changed; F-B21-1 stays open and unfixed, because
+  it is a code change for a code batch.
+- Validation: `pytest -q` -- **590 passed**. `pre-commit run --files` on both
+  edited files -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected root BATCH warning. The edited Mermaid diagram was validated
+  through the Mermaid Chart validator: `valid = true`, type `sequence`.
+- Forward guidance: the next action is unchanged -- the F-SWE-1 audit, then
+  Batch 21 WP-1.
+
 ### 2026-08-15 - PR #171 round-6 threads fixed and all five diagrams audited (side-task)
 
 - Scope: the two unresolved Codex threads on `00c0adb`, both on the Top Albums
