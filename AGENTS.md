@@ -18,6 +18,7 @@ serve as external memory shared across sessions.
 | `PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
 | `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audits and other dated one-off documents (`reports/`). |
+| `docs/AGENT_DOC_MAP.md` | **Orientation** | Which document owns what, how to read an audit or a finding, and the known navigation traps. Optional, and not part of the bootstrap set; written for agents new to this repository. |
 
 **Anti-duplication rule:** Each fact lives in exactly one file. If you need to
 reference a fact owned by another file, link to it -- do not copy it.
@@ -628,9 +629,13 @@ dedicated findings-cleanup WP. Nothing is deleted -- the archive preserves
 grep history.
 
 1. **F-ID format:** every item heading is `F-<context>-<N>: <title>`.
-   Context is a batch tag (`B18`, `B19`, `B20`, ...) or a source tag
-   (`MAS` for MULTI_AGENT_SWEEP, `DOCSYNC`, `AUDIT`, `LOAD` for the
-   load-testing session); `FEATURE` covers feature-prep notes. No
+   Context is a batch tag (`B18`, `B19`, `B20`, ...) or one of these
+   source tags -- the list is complete, so extend it here when you coin a
+   new tag rather than leaving it undocumented:
+   `MAS` (MULTI_AGENT_SWEEP), `DOCSYNC`, `AUDIT`, `LOAD` (the
+   load-testing session), `SWE` (the SWE-principles audit), `WORKTREE`
+   (the worktree-guard work), `DATA` (data-model items), `STYLE`
+   (writing and Python style), and `FEATURE` (feature-prep notes). No
    bare-numbered items in FINDINGS.md.
 2. **Required fields:** the F-ID heading, a one-sentence problem statement,
    a `Status:` line, and a `Source:` line when the finding came from a

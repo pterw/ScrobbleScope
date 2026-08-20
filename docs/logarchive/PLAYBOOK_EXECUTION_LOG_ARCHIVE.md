@@ -9,6 +9,121 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-19 - PR #171 round-7 threads fixed (side-task)
+
+- Scope: the three unresolved Codex threads left on `3d15849` after the
+  diagram audit. All three are P2 and all three were checked against the
+  source before any edit. All three are correct.
+- Verification and fixes:
+  - `top-albums-sequence.md` drew `Close connection` unconditionally, but
+    `process_albums` closes inside `if conn` (`orchestrator.py:603-604`), so
+    the no-connection branch never closes anything. Wrapped in an `opt DB
+    connected` block.
+  - The same diagram claimed the browser never posts `results_complete` on an
+    error payload. `loading.js:209-229` shows only the retryable branch stays
+    on the page; a non-retryable error waits three seconds and calls
+    `redirectToResults()`, which does post. Split the branch by `retryable`
+    and routed the non-retryable case to the processing-error page.
+  - `FINDINGS.md` F-B21-1 stated `MAX_ACTIVE_JOBS` is 5 as an absolute.
+    `config.py:31` reads it from the environment with 5 as the default, and
+    the literal contradicted F-LOAD-1 in the same file. Reworded to name 5 as
+    the default and tie the failure count to configured capacity.
+- Deviations: none. No code changed; F-B21-1 stays open and unfixed, because
+  it is a code change for a code batch.
+- Validation: `pytest -q` -- **590 passed**. `pre-commit run --files` on both
+  edited files -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected root BATCH warning. The edited Mermaid diagram was validated
+  through the Mermaid Chart validator: `valid = true`, type `sequence`.
+- Forward guidance: the next action is unchanged -- the F-SWE-1 audit, then
+  Batch 21 WP-1.
+
+### 2026-08-15 - PR #171 round-6 threads fixed and all five diagrams audited (side-task)
+
+- Scope: the two unresolved Codex threads on `00c0adb`, both on the Top Albums
+  sequence. A prior GLM-5.2 session had left uncommitted diagram edits and a
+  list of findings, then stopped before it finished. I checked the two threads
+  and every edit that session made against the code, then audited all five
+  diagrams with three independent verification agents.
+- Verification of the two threads: both are correct. `fetch_top_albums_async`
+  groups, normalizes, and thresholds the albums before it returns
+  (`orchestrator.py:112-116`), so all of that runs before the empty-result
+  check at `orchestrator.py:784`. `process_albums` writes to the cache only
+  under `if conn and new_metadata_rows` (`orchestrator.py:591`).
+- Verification of the prior session: three of its six edits were wrong. It put
+  the hit/miss partition inside the DB-connected branch, but the code
+  partitions with or without a connection (`orchestrator.py:567`). It drew
+  `cleanup_expired_cache()` as a call to `repositories.py`, but that helper
+  comes from `utils.py` (`orchestrator.py:40`). It put the total Spotify match
+  failure after the store step, but the check runs first
+  (`orchestrator.py:824` before `orchestrator.py:842`).
+- Plan vs implementation:
+  - Top Albums sequence: rewrote the background-task block and the browser
+    block. Grouping now sits before every downstream branch. Persistence is
+    conditional and records `db_cache_persisted`. The partition sits outside
+    the DB branch. New: the connection close and its `finally` ordering
+    against `SpotifyUnavailableError`, the `get_job_context` read behind the
+    total-match-failure check, the six `results_complete` outcomes, the
+    `/progress` 404, and the two unhandled-exception states.
+  - Heatmap sequence: added the housekeeping calls, the page-count stats, the
+    5% and 80% progress writes, and the unhandled-exception path. Rebuilt the
+    render block: the client requests `/heatmap_data` only at 100%, so the 202
+    is a narrow race that restarts polling, not a peer alternative.
+  - Development cycle: split the merged fast path so the actionability stop
+    applies to comment jobs only, added the push-authorization gate that
+    `AGENTS.md` requires between commit and PR, and dropped the E2E claim that
+    no rule file makes.
+  - Runtime diagram and `docs/ARCHITECTURE.md`: named the eight nodes that
+    import `config.py`, corrected the arrow-semantics paragraph, and repointed
+    the module-graph reference to SESSION_CONTEXT Section 4 alone.
+  - Both structural diagrams passed their audit with no change to the graphs.
+- Deviations: the prior session said the fix needed a full rewrite of the
+  parallel block. It did not. The corrections are local, but they reach more
+  branches than that session touched. The audit also found a real code gap and
+  it is recorded as F-B21-1 rather than fixed here: `background_task` and
+  `heatmap_task` build the event loop outside the `try`, so a failure there
+  leaks a job slot. No production code changed in this commit.
+- Validation: all four changed diagrams pass Mermaid validation, checked
+  against the exact text now in the files. `pytest -q` -- **590 passed**, 3
+  known warnings. `pre-commit run --all-files` -- all hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected active-root
+  `BATCH21_DEFINITION.md` warning.
+- Forward guidance: push, then reply to the two threads and resolve them.
+  PR #171 stays open until the owner says otherwise.
+
+### 2026-08-15 - PR #171 round-5 review threads remediated (side-task)
+
+- Scope: three new Codex threads on `37ca4a9` -- one on the development-cycle
+  diagram and two on the Top Albums sequence. All three were verified against
+  the code before any edit and all three were valid.
+- Verification:
+  - `AGENTS.md` L29-44 defines the review-comment fast path (fetch the thread
+    first, stop if not actionable, else read only the scoped files), but the
+    development-cycle diagram routed every review finding through the full
+    bootstrap gates. The diagram and the rules it documents were written in
+    the same PR and disagreed.
+  - `_fetch_and_process()` stores an empty result, marks progress 100%, and
+    returns before pre-slicing, cache access, or Spotify enrichment when
+    `filtered_albums` is empty. The Top Albums sequence sent every successful
+    page fetch into those stages.
+  - `process_albums()` catches `_batch_lookup_metadata()` exceptions, records
+    `db_cache_warning`, treats every album as a miss, and continues to Spotify
+    (possibly persisting via the open connection). The diagram's connected
+    path presented lookup as unconditional and its unavailable path said
+    persistence was skipped.
+- Plan vs implementation: the development-cycle diagram now branches on
+  review-finding/comment-job before full bootstrap (fetch thread, stop if not
+  actionable, else read scoped files); the Top Albums sequence now stops after
+  an empty filtered set and adds a fail-open cache-lookup-error continuation.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the empty-filtered-set and fail-open lookup
+  paths.
+- Validation: both updated diagrams pass Mermaid validation and open in
+  preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run
+  --all-files` -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this remediation, then resolve the three
+  threads. PR #171 remains unmerged pending separate owner instruction.
+
 ### 2026-08-15 - PR #171 final four review threads remediated (side-task)
 
 - Scope: the four remaining unresolved review threads on `e73540d` -- two

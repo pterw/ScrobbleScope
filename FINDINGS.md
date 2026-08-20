@@ -1,9 +1,10 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-15
+Last updated: 2026-08-20
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done; PR #170 merged 2026-08-12, then the F-SWE-1 audit, then WP-1.
-590 tests across 35 test modules.
+WP-0 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was resolved
+2026-08-20, clearing the F-SWE-1 migration block; WP-1 is next. 591 tests
+across 35 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -118,6 +119,49 @@ batch. Related disposition: the two ~300-byte
 for backward references -- not cruft, do not delete.
 Status: resolved 2026-07-31; rotates to the archive at Batch 21
 close-out. Source: PR #163 doc-hygiene pass.
+
+### F-SWE-1: SWE-principles audit -- executed 2026-08-20
+
+No differential check of the ten mandated software principles
+(AGENT_NOTES.md Owner Preferences) had run since the 2026-02 audits.
+`docs/SWE_AUDIT_CHARTER.md` chartered one on 2026-07-31 and was amended
+2026-08-19, after a preflight review found it could not work as the gate its
+position implies. The amendment named the 13 graded modules explicitly (130
+cells), excluded `scripts/docsync/` and `scripts/dev/` with stated reasons,
+defined the A/B/C/D rubric and the Boy Scout history window, read the whole
+finding corpus including the archive instead of a closed ID list, required a
+provenance block naming the audited SHA, and stated which findings block
+Batch 21 WP-1. The permission to cut modules to fit the budget was withdrawn.
+
+Executed 2026-08-20 against `1994673`, whose runtime code is identical to
+`bb187ae`. All 130 cells filled in one session: 74 A, 28 B, 8 C, 2 D,
+18 N/A. Six net-new findings, F-SWE-2 to F-SWE-7. The weakest principle is
+Fail Fast, holding five of the eight C grades. Mutation testing deleted all
+81 top-level functions in the graded modules one at a time and the suite
+caught every one, so there is no net-new test-vacuity finding. The audit
+returned **migration blocked by F-SWE-2** under charter Section 6, which is
+an owner decision: fix the two lines, or waive.
+
+The charter was retired in the same commit, per its own output contract.
+Status: resolved 2026-08-20; rotates to the archive at Batch 21 close-out.
+Report at `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`.
+Source: owner request 2026-07-31.
+
+### F-SWE-2: the album year window is built from naive datetimes
+
+`orchestrator.py:70-71` built the Last.fm fetch window with naive datetimes,
+so `.timestamp()` applied the host's local zone. The same shifted timestamps
+were reused to filter individual scrobbles. On a UTC-5 host, each boundary
+moved five hours into the requested year.
+
+This was the twin of F-B19-6 in `heatmap.py`. The standalone pre-WP-1 fix
+adds explicit UTC to both constructors. A deterministic regression drives
+`fetch_top_albums_async` through a simulated UTC-5 time boundary and asserts
+the literal UTC epochs passed to Last.fm; it failed against the naive window
+before passing against the corrected one.
+
+Status: resolved 2026-08-20; rotates to the archive at Batch 21 close-out.
+Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 
@@ -304,23 +348,108 @@ defect. Compare against the largest peer in the directory when deciding
 whether the split is due.
 Status: open. Source: MULTI_AGENT_SWEEP.
 
-### F-SWE-1: SWE-principles audit chartered, pending execution
-
-No differential check of the ten mandated software principles
-(AGENT_NOTES.md Owner Preferences) has run since the 2026-02 audits.
-`docs/SWE_AUDIT_CHARTER.md` defines scope (Python only until Batch 21
-ships), the do-not-re-report baseline, method, and output contract; any
-dedicated single-purpose agent session (Claude or Codex) can execute it
-cold. Report lands as `docs/history/reports/SWE_PRINCIPLES_AUDIT_<date>.md` with
-net-new findings as F-SWE-2 onward; this entry closes by pointing at the
-report. Status: open (chartered 2026-07-31, execution pending).
-Source: owner request 2026-07-31.
-
 ### F-MAS-4: broad `except Exception` catches
 
 17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at
 the original sweep); narrow or add structured logging per exception
 class. Status: open. Source: MULTI_AGENT_SWEEP.
+
+### F-STYLE-1: repository prose is denser than it needs to be
+
+The goal is writing that is easier to read, not conformance to a standard.
+ASD-STE100 Simplified Technical English names the target well: short
+sentences, active voice, one idea per sentence, lean docstrings that say what
+a function does and why, and no coined compound terms where a plain phrase
+exists. It is an example of the goal, not a standard this repository adopts.
+
+**This is not a gate and cannot become one.** The ASD-STE100 dictionary is
+licensed and unavailable here, so no agent can check anything against it, and
+no automated check scores prose quality. Declaring it a rule would also
+trigger anti-pattern 11 in `AGENTS.md`, which requires a claim to be applied
+across the corpus in the commit that states it -- a sweep far larger than the
+benefit. Treat this as standing guidance for text you are already editing.
+
+Concrete instance: `AGENTS.md` uses the coined term "blast-radius" in three
+places (currently around lines 254, 262 and 550 -- locate by the term, not
+the number). Later agent sessions copy it from there. Replace it with the
+plain phrase, such as "search the repo for other copies of the same claim",
+when those lines are next edited for another reason.
+Status: open (guidance, never a gate). Source: owner style direction,
+2026-08-19.
+
+### F-STYLE-2: Python style settings disagree, and Ruff is planned but unwritten
+
+Three separate problems that one decision settles.
+
+**Docstring convention.** Measured 2026-08-19 across tracked Python outside
+`tests/` (38 files, via `git ls-files "*.py"` plus an `ast` walk of every
+function, async function and class): 204 definitions, 171 carrying a
+docstring (84%), and 4 using Google sections such as `Args:` or `Returns:`
+(2%). Adopting Google sections everywhere is a 167-definition sweep across
+the documented ones, plus 33 that carry no docstring at all. That size is why
+this is a finding and not a rule. Re-measure before quoting these numbers.
+
+**Line length.** `black` has no `[tool.black]` section in `pyproject.toml`,
+so it wraps at its default 88. `.flake8` sets `max-line-length = 120`.
+Nothing reconciles the two.
+
+**A stale note.** `.flake8` still describes its five ignored codes as
+temporary, for an incremental cleanup that has since finished.
+
+Ruff is the planned replacement for black, isort, autoflake and flake8, as
+part of a CI modernization, and it also settles the line-length
+disagreement -- so do not open that as a separate question. The plan is not
+written down anywhere it would be found: the only tracked traces are
+`.ruff_cache/` in `.dockerignore` and one line in
+`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Defer the sweep; record
+the decision.
+Status: open. Source: root-hygiene side task, 2026-08-19.
+
+### F-SWE-4: the production entrypoint never validates API keys
+
+`config.ensure_api_keys()` (`config.py:37-40`) raises when any of the three
+API keys is missing, and it is called only inside the `__main__` guard at
+`app.py:140-145`. Production starts with `gunicorn app:app`
+(`Dockerfile:15`), which imports the module rather than running it, so the
+check never fires. Verified: with all three keys unset, `import app`
+succeeds and serves, while `ensure_api_keys()` would have raised.
+
+The same file gets the neighbouring case right. `_validate_secret_key` is
+called from `create_app()` (`app.py:111`) and refuses to start in
+production. One secret is checked at startup and three are not.
+
+`spotify.py:26-27` is the only remaining guard for two of them, and it uses
+`assert`, which `python -O` strips. Without the startup check a missing key
+surfaces as a per-request failure, classified as an upstream outage.
+
+Fix: call `ensure_api_keys()` from `create_app()`. One line, and it closes
+two C cells in the audit matrix.
+Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
+
+### F-SWE-5: the two background entry points disagree about terminal job state
+
+`heatmap_task` and `background_task` answer the same question two different
+ways, and both answers are wrong.
+
+`heatmap.py:218-221` catches every exception and reports
+`lastfm_unavailable`. `_fetch_and_process_heatmap` has no inner handler, so
+this is the only handler on the path and it fires for any failure at all.
+Verified: a `ZeroDivisionError` raised inside the aggregation step reaches
+the user as a Last.fm outage message, with `error_source: lastfm` and
+`retryable: True`. The app blames a third party for its own bug and invites
+a retry that will fail the same way.
+
+`orchestrator.py:912-913` has the mirror-image gap: it logs and sets no job
+state, so the job never reaches progress 100 and the loading page polls
+forever. This half needs the inner handler at `orchestrator.py:851` to fail
+first, which nothing observed can cause, so the finding is recorded rather
+than treated as blocking. F-SWE-6 compounds it -- a polled job never
+expires.
+
+Fix: give each entry point a terminal state that names what actually
+failed, using an `ERROR_CODES` entry for an unclassified internal error
+rather than borrowing an upstream one.
+Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 
@@ -438,6 +567,73 @@ Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
 Cleanup is opportunistic (at job start); TTL mitigates, does not cap.
 Status: open (P2). Source: MULTI_AGENT_SWEEP.
+
+### F-SWE-3: a Spotify server error bypasses the configured retries
+
+`spotify.py:67-68` returns `(None, None, True)` for every non-200, non-429
+response, and `is_done=lambda t: t[2]` treats that `True` as terminal. A 500
+or 503 therefore ends the attempt loop after one try, while
+`SPOTIFY_SEARCH_RETRIES` is set to 3 -- verified by running it. The retries
+only ever fire for 429. `fetch_spotify_album_details_batch` has the same
+shape at `spotify.py:129-132`.
+
+The consequence is narrow: an album that _is_ on Spotify can be recorded as
+unmatched when a second attempt would have found it.
+
+**Rescoped by the owner, 2026-08-20, and the correction is worth keeping.**
+The audit first filed this as a user-facing mislabelling -- `spotify.py:75`
+returns the same value for a genuine empty result, so
+`orchestrator.py:250-262` records the album with the reason
+`No Spotify match`, and the report treated that label as wrong. It is not.
+Thousands of Last.fm-scrobbled albums genuinely have no Spotify release, so
+the label is accurate for the ordinary case and what the user sees is
+correct. What survives is the defect above -- configured retries that never
+run -- which is a smaller thing than the audit claimed. Severity drops from
+P1 to P2 and the finding moved from the P1 section to this one.
+
+The related UI need -- the unmatched modal and page should say plainly that
+an album had no Spotify match -- is already Batch 21 WP-7 scope
+(`BATCH21_DEFINITION.md:297-308`: the `no_spotify_match` reason code and two
+reason cards with human copy). It is not extra work and is not tracked here.
+Status: open (P2). Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
+
+### F-SWE-6: reading a job renews its TTL, so a polled job never expires
+
+`get_job_progress`, `get_job_unmatched` and `get_job_context` each write
+`updated_at` (`repositories.py:163`, `:175`, `:199`) while their docstrings
+promise only to return a copy. `cleanup_expired_jobs` reaps on that same
+field, so every `/progress` poll renews the lease.
+
+Verified: a job backdated to three hours old, against a two-hour
+`JOB_TTL_SECONDS`, survives `cleanup_expired_jobs` after a single read,
+while an identical job that was never read is reaped. A browser sitting on
+the loading page therefore keeps its `JOBS` entry alive indefinitely, which
+matters most for a job whose thread died without setting a terminal state
+(F-SWE-5).
+
+Touch-on-access may well be intended -- results should not vanish while a
+user is reading them. Nothing says so. Either document the side effect in
+the three docstrings and in the `JOB_TTL_SECONDS` comment, or stop writing
+from a getter and refresh the lease explicitly where it is wanted.
+Status: open (P2). Source: SWE_PRINCIPLES_AUDIT.
+
+### F-SWE-7: utils.py holds five unrelated concerns
+
+One 346-line module carries API rate limiting (`utils.py:29-121`), aiohttp
+session construction (`:155-188`), an in-memory response cache
+(`:192-242`), duration formatting for display (`:245-283`) and a generic
+async retry loop (`:286-346`). Nothing binds them together except the file
+name, and `utils` is the name that accretes.
+
+Each function is individually clean, which is why SRP grades B while SoC
+grades C. The cost is discoverability: the response cache that F-MAS-8
+tracks lives in the same file as `format_seconds`, and a reader looking for
+either has no reason to look here.
+
+A split into rate limiting, HTTP and caching, and formatting is a sibling
+of the F-B20-2 orchestrator decomposition and belongs in the same batch as
+it, not before Batch 21.
+Status: open (P2). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 

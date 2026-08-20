@@ -1,6 +1,6 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12, so the F-SWE-1 audit comes next, then WP-1 (toolchain).
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) is next.
 **Branch:** `wip/batch-21` (linked worktree; lineage changes are recorded
 in PLAYBOOK Section 4 rather than pinned here).
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
@@ -52,7 +52,17 @@ WP-2 moves the Bootstrap CSS `<link>` out of `base.html` into a per-page
 block so migrated pages load only Tailwind while unmigrated pages keep
 Bootstrap. Theme state dual-writes `data-theme` (html) and `.dark-mode`
 (body) until every consumer (`theme.js`, `heatmap.js`, `results.js`
-html2canvas clone) is migrated, then `.dark-mode` retires.
+html2canvas clone) is migrated, then `.dark-mode` retires. **WP-8 owns
+that retirement:** dropping the `.dark-mode` write from `theme.js` and
+removing the selector from every stylesheet is a named WP-8 deliverable,
+not a side effect of the "kill dead CSS" sweep.
+
+**Browser floor:** Tailwind v4 targets Chrome 111+, Safari 16.4+ and
+Firefox 128+. It depends on native cascade layers, `@property`, and
+`color-mix()`, none of which degrade gracefully -- below those versions the
+compiled stylesheet does not look different, it fails to work. WP-8 records
+the floor in the README tech-stack section. No polyfill and no fallback
+stylesheet is in scope for this batch.
 
 ---
 
@@ -94,9 +104,13 @@ html2canvas clone) is migrated, then `.dark-mode` retires.
    heatmap headlines (`white-space: nowrap` dropped on mobile headline).
 8. Mode pills have equal width (closes F-B18-12); toggle meets tap-target
    size (closes F-AUDIT-1).
-9. `pytest -q` green and all pre-commit hooks pass at every WP; docs
-   (README tech stack + structure, SESSION_CONTEXT, DEVELOPMENT.md build
-   step) updated by close-out.
+9. `pytest -q`, all pre-commit hooks, and `doc_state_sync.py --check` pass
+   at every WP. The frontend gate joins them from WP-2 onward, when the
+   gate and its first migrated page exist. Documents governed by docsync
+   (PLAYBOOK Section 4, SESSION_CONTEXT) must be correct at every WP -- not
+   at close-out. Only the narrative docs it does not govern (README tech
+   stack and structure, the DEVELOPMENT.md build step) may land by
+   close-out.
 
 ---
 
@@ -145,7 +159,20 @@ kickoff log entry.
   (4/8/12/16/24/32/48 only); radius 8 (inputs/small cards), 14 (large
   cards), 999 (pills); `--bars-color` aliased in both themes.
 - Compiled `static/css/tailwind.css` committed; build/watch commands
-  documented in DEVELOPMENT.md; CI unaffected (no Node).
+  documented in DEVELOPMENT.md. The Tailwind toolchain introduces no Node
+  project; WP-2 provisions its separate Python browser-test dependency.
+- **Record the CI fetch decision in this file, in the WP-1 commit.**
+  `AGENT_NOTES.md` assigns the choice to WP-1 because WP-1 is where
+  versions and digests are pinned: either CI fetches and caches the pinned
+  binary, or the drift hook is local-only. Nothing currently requires that
+  decision to be written down, which is how the drift hook came to be
+  specified against an unresolved dependency.
+- **Measure reproducibility before anything depends on it.** Build once on
+  the owner machine and once on headless Linux (the CI image) and confirm
+  the two `tailwind.css` outputs are byte-identical. This WP asserts
+  byte-identical output as a requirement; until it is measured it is an
+  assumption, and the drift hook converts that assumption into a gate that
+  fails for everyone at once.
 `feat(ui): add tailwind + daisyui toolchain and theme tokens`
 
 ### WP-2 -- base.html shell + strangler enabler
@@ -173,6 +200,23 @@ kickoff log entry.
   their theme tokens from it; migrated pages get tokens from the
   daisyUI themes, and the wordmark recolor plus shared-shell styling
   move to `shell.css`.
+- **Add the `tailwind-css-drift` pre-commit hook here, not at WP-8.** This
+  is the first WP where a template consumes the compiled CSS, so it is the
+  first WP where drift can ship; deferring to WP-8 leaves WP-2 through
+  WP-7 -- six work packages -- unprotected. The hook must set
+  `always_run: true` and `pass_filenames: false`: `.pre-commit-config.yaml`
+  excludes `static/`, so a filename-driven hook would silently never run on
+  the one file it exists to check. Rebuild via `tailwind_build.py`, then
+  fail if `git diff --exit-code -- static/css/tailwind.css` reports the
+  committed output dirty. The pathspec scopes the check to the generated
+  file so unrelated dirty files, or rewrites left by earlier hooks in the
+  same run, cannot produce false drift failures.
+- **Add the repository-owned frontend gate and its runtime** (see the
+  validation-gate section). This same commit pins `playwright==1.62.0` in
+  `requirements-dev.txt`, provisions Chromium locally and in CI, adds
+  `scripts/dev/frontend_gate.py`, and runs it in the Quality Gate. It starts
+  with the migrated `error.html` pilot and grows one page per WP. README and
+  DEVELOPMENT document setup when the runtime actually lands, not before.
 `feat(ui): tailwind base shell, header bar, error page pilot`
 
 ### WP-3 -- Index page
@@ -187,6 +231,17 @@ kickoff log entry.
 - Thresholds disclosure with +/- steppers over real number inputs,
   "reset to 10 - 3" affordance, expands in place pushing the CTA down.
 - Decisions 2 and 3 land here (welcome modal, limit_results placement).
+- **The CSS-only hints must open on keyboard focus and on tap, not on
+  hover alone.** A hover-only disclosure is unreachable by keyboard and on
+  touch, which is how "removes the `bootstrap.Popover` dependency" quietly
+  becomes "removes the explanation for some users". Verify on a touch
+  viewport and by tab traversal.
+- Every input keeps a programmatic label association, and focus stays
+  visible on every interactive element in both themes.
+- **Validation parity:** the rebuilt form rejects exactly what the current
+  form rejects and accepts exactly what it accepts. The server contract
+  does not change in this WP, so any behavioural difference is a
+  regression, not a redesign.
 `feat(ui): rebuild index page on tailwind`
 
 ### WP-4 -- Unified loading experience
@@ -204,6 +259,14 @@ kickoff log entry.
   slot and keeps writing into the same job id afterward, so invoking it
   is misleading and racy. True server-side cancellation stays a
   Batch 22+ candidate.
+- **Exercise both pipelines, not just the shared markup.** Top Albums and
+  the heatmap run independent state machines against different endpoints;
+  a shared partial proves shared appearance and nothing about shared
+  behaviour. Cover for each: normal progress to 100%; a retryable failure
+  (Retry offered, page holds, no `results_complete` post); and a
+  non-retryable failure (three-second wait, posts `results_complete`,
+  lands on the processing-error page). The two failure paths differ and
+  are drawn in `docs/architecture/top-albums-sequence.md`.
 `feat(ui): unified pinwheel loading screen for both pipelines`
 
 ### WP-5 -- Results leaderboard
@@ -240,8 +303,8 @@ kickoff log entry.
 - `orchestrator.py`: stable `reason_code` (release_scope /
   no_spotify_match) stored alongside the prose reason; `routes.py`
   groups on the code, keeps the sentence as per-row detail. Fixes the
-  verified grouping bug; unit tests updated in lockstep (this is where
-  the test count moves). `below_min_plays` / `below_min_tracks` are
+  verified grouping bug; unit tests updated in lockstep (the test count
+  moves again here). `below_min_plays` / `below_min_tracks` are
   deliberately not introduced here: `fetch_top_albums_async` drops
   threshold failures before the pipeline sees them
   (`orchestrator.py:112-116`), so those codes only become producible
@@ -249,21 +312,47 @@ kickoff log entry.
 - Two reason cards with human copy, top offenders + expander; same row
   component as the leaderboard; welcome + unmatched modals now gone so
   `bootstrap.bundle.min.js` is removed from all templates.
-`feat(unmatched): stable reason codes + card layout`
+- **Ship as two commits, backend first.** A single commit mixing a
+  route/orchestrator contract change with a full page rebuild is hard to
+  review and impossible to roll back independently, and "tests updated in
+  lockstep" does not order the tests ahead of the code they cover:
+  1. `feat(unmatched): add stable reason_code to the unmatched contract`
+     -- orchestrator, routes, and tests only. No template change. The
+     contract is verifiable and revertible on its own.
+  2. `feat(ui): rebuild unmatched page on tailwind`
+     -- cards, expander, modal removal, Bootstrap JS drop.
 
 ### WP-8 -- Sweep + close-out
 
 - Remove every remaining Bootstrap reference (closes F-B20-3 by
-  elimination); radius/spacing ladder sweep; kill dead CSS.
-- Add a `tailwind-css-drift` pre-commit hook: rebuild via
-  `tailwind_build.py`, then fail if
-  `git diff --exit-code -- static/css/tailwind.css` reports the
-  committed compiled CSS dirty. The pathspec scopes the check to the
-  generated file so unrelated dirty tracked files (or rewrites left by
-  earlier hooks in the same run) cannot produce false drift failures.
-  Catches source/output drift without anyone remembering to rebuild.
-  Caveat: the hook also runs in CI, so the fetch step must work headless
-  on Linux (pinned version; consider caching the binary between runs).
+  elimination); radius/spacing ladder sweep; kill dead CSS. Retire
+  `.dark-mode`: drop the dual-write from `theme.js` and remove the
+  selector from every stylesheet.
+- The `tailwind-css-drift` hook is added at WP-2, not here. WP-8 only
+  confirms it still passes on the final tree.
+- **Deterministic Bootstrap-removal check, not a manual sweep.** This
+  command must return nothing:
+  `git grep -nE "bootstrap|data-bs-|bs-(toggle|target|dismiss)" -- templates static`
+  Criterion 1 claims no Bootstrap loads anywhere; until a command proves
+  it, it is an assertion by the person who did the removing.
+- **Frontend quality and accessibility audit -- required, not optional.**
+  `docs/SWE_AUDIT_CHARTER.md` excludes `static/js/`, templates and CSS
+  because this batch rewrites them. That exclusion is only honest if the
+  rewritten frontend then gets an equivalent pass, otherwise the code with
+  the most churn in Batch 21 is the only code never audited. Charter a
+  follow-up audit over the migrated `static/js/`, templates and
+  `tailwind.src.css`: the same mandated principles where they apply, plus an
+  accessibility sweep (keyboard traversal of every page, focus visibility,
+  label associations, contrast in both themes, tap-target size). File
+  results as F-SWE-N or F-AUDIT-N. **Batch 21 does not close until this
+  has run.**
+- **Record an explicit disposition for HTML/CSS/JS linting.**
+  `AGENT_NOTES.md` assigns that tooling gap to this WP. The decision is:
+  add only the generated-CSS drift enforcement (now WP-2), keep the
+  per-WP frontend gate and owner Firefox review, and do not add general
+  CSS/JS CI unless a real regression demonstrates the need. Write that
+  decision and its reason here and amend the AGENT_NOTES gap entry to
+  point at it. A gap closed by silence reads as a gap forgotten.
 - Docs: README (tech stack, structure, screenshots note), DEVELOPMENT.md
   (build step), SESSION_CONTEXT Sections 1/3.
 - Owner E2E pass in Firefox + Responsive Design Mode -- explicitly
@@ -274,7 +363,9 @@ kickoff log entry.
 
 ---
 
-## Validation gate (every WP)
+## Validation gates
+
+Every WP:
 
 ```
 pytest -q
@@ -282,16 +373,73 @@ pre-commit run --all-files
 python scripts/doc_state_sync.py --check
 ```
 
+From WP-2 onward:
+
+```
+python scripts/dev/frontend_gate.py
+```
+
 Plus per-WP: owner visual review in both themes before the next WP.
 
-Any WP that changes templates or `tailwind.src.css` (WP-2 through WP-7)
-must run `tailwind_build.py` and commit the refreshed `tailwind.css` in
-the same commit: production serves the committed file with no runtime
-build, and the drift hook only arrives at WP-8, so an intermediate page
-could otherwise ship without its generated utilities while every listed
-command still passes. (The hook stays in WP-8 rather than moving to
-WP-1: that would front-load the headless-CI fetch problem before any
-template exists to protect.)
+**Why the fourth command exists.** The first three cannot fail on frontend
+work. `pre-commit` excludes `static/` and `templates/`, and its whitespace
+hooks are scoped to `py|md|yaml|yml|txt`; `pytest` covers no template and no
+stylesheet. A work package in this batch can therefore rewrite every
+template and every stylesheet with all three green. For a batch that is
+nothing but template and stylesheet rewriting, that is the gate failing at
+its only job.
+
+**Executable runtime, owner-approved 2026-08-20.** WP-2 adds
+`playwright==1.62.0` to `requirements-dev.txt` and uses the Python library
+directly; it adds no `package.json`, Node project, pytest plugin, or MCP
+dependency. The Playwright pin selects its matching browser build. Local
+setup uses the qualified-worktree form of:
+
+```
+python -m playwright install chromium
+```
+
+The Quality Gate installs the Linux dependencies and the same browser after
+the Python dependency step, then runs the frontend gate:
+
+```
+python -m playwright install --with-deps chromium
+python scripts/dev/frontend_gate.py
+```
+
+The script never downloads tooling implicitly. A missing package or browser
+fails immediately with the exact setup command. It starts the Flask app on an
+ephemeral loopback port, owns that server's lifecycle, and shuts it down in a
+`finally` block, so the gate needs neither a separately running app nor an
+external MCP service. Unit tests cover missing-runtime diagnostics, assertion
+failure, and server cleanup; the real headless Chromium run is the integration
+gate. Owner Firefox review remains the cross-browser visual check.
+
+`scripts/dev/frontend_gate.py` grows one migrated page at a time as the
+strangler migration proceeds, and it must be able to fail. Checks:
+
+1. **Stylesheet isolation** -- each page loads exactly one framework
+   stylesheet. WP-2 states this as a deliverable with nothing enforcing it.
+2. **Theme tokens** -- computed `--bars-color` equals the theme primary in
+   both themes on every migrated page, and no cool-grey surface (`#f8f9fa`,
+   `#121212`) is computed anywhere. Criteria 2 and 3 are otherwise eye-only.
+3. **Theme persistence** -- toggling then reloading keeps the theme.
+4. **Fonts** -- the self-hosted faces load and no request leaves for a font
+   CDN (decision 4 is otherwise unverified).
+5. **Exports** (from WP-5) -- the exported CSV date cell equals its
+   `data-export` ISO value, and the JPEG export is non-blank and correctly
+   sized in both themes at mobile and desktop widths. These are the two
+   silent regression surfaces this batch already identified; owner review
+   stays, on top of the assertion rather than instead of it.
+6. **Headline wrapping** (from WP-6) -- a 15-character username does not
+   clip at mobile widths.
+
+Each check lands in the WP that creates what it checks. None is deferred to
+WP-8.
+
+Any WP that changes templates or `tailwind.src.css` (WP-2 through WP-7) must
+run `tailwind_build.py` and commit the refreshed `tailwind.css` in the same
+commit: production serves the committed file with no runtime build.
 
 ---
 
