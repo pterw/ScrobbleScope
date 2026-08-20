@@ -65,3 +65,9 @@ docs/agents/
 # Markdown, which is what GitHub renders; a tracked .mmd would be a second
 # copy free to drift. See .github/instructions/mermaid.instructions.md.
 *.mmd
+
+# Playwright MCP scratch: console logs and page snapshots from the browser
+# tooling. The console file already matched *.log above, but the .yml page
+# dump did not, so this directory kept showing as untracked. Batch 21 makes
+# Playwright a per-WP gate, so it would otherwise resurface on every run.
+.playwright-mcp/
