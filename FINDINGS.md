@@ -119,6 +119,33 @@ for backward references -- not cruft, do not delete.
 Status: resolved 2026-07-31; rotates to the archive at Batch 21
 close-out. Source: PR #163 doc-hygiene pass.
 
+### F-SWE-1: SWE-principles audit -- executed 2026-08-20
+
+No differential check of the ten mandated software principles
+(AGENT_NOTES.md Owner Preferences) had run since the 2026-02 audits.
+`docs/SWE_AUDIT_CHARTER.md` chartered one on 2026-07-31 and was amended
+2026-08-19, after a preflight review found it could not work as the gate its
+position implies. The amendment named the 13 graded modules explicitly (130
+cells), excluded `scripts/docsync/` and `scripts/dev/` with stated reasons,
+defined the A/B/C/D rubric and the Boy Scout history window, read the whole
+finding corpus including the archive instead of a closed ID list, required a
+provenance block naming the audited SHA, and stated which findings block
+Batch 21 WP-1. The permission to cut modules to fit the budget was withdrawn.
+
+Executed 2026-08-20 against `1994673`, whose runtime code is identical to
+`bb187ae`. All 130 cells filled in one session: 74 A, 28 B, 8 C, 2 D,
+18 N/A. Six net-new findings, F-SWE-2 to F-SWE-7. The weakest principle is
+Fail Fast, holding five of the eight C grades. Mutation testing deleted all
+81 top-level functions in the graded modules one at a time and the suite
+caught every one, so there is no net-new test-vacuity finding. The audit
+returned **migration blocked by F-SWE-2** under charter Section 6, which is
+an owner decision: fix the two lines, or waive.
+
+The charter was retired in the same commit, per its own output contract.
+Status: resolved 2026-08-20; rotates to the archive at Batch 21 close-out.
+Report at `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`.
+Source: owner request 2026-07-31.
+
 ---
 
 ## P1 -- Next batch candidates
@@ -304,29 +331,6 @@ defect. Compare against the largest peer in the directory when deciding
 whether the split is due.
 Status: open. Source: MULTI_AGENT_SWEEP.
 
-### F-SWE-1: SWE-principles audit chartered, pending execution
-
-No differential check of the ten mandated software principles
-(AGENT_NOTES.md Owner Preferences) has run since the 2026-02 audits.
-`docs/SWE_AUDIT_CHARTER.md` defines the scope, the do-not-re-report
-baseline, the method, and the output contract; any dedicated
-single-purpose agent session (Claude or Codex) can execute it cold.
-
-The charter was amended 2026-08-19, after a preflight review found it could
-not work as the gate its position implies. It now names the 13 graded
-modules explicitly (130 cells), excludes `scripts/docsync/` and
-`scripts/dev/` with stated reasons rather than leaving them ambiguous,
-defines the A/B/C/D rubric and the Boy Scout history window, reads the whole
-finding corpus including the archive instead of a closed ID list, requires a
-provenance block naming the audited SHA, and states which findings block
-Batch 21 WP-1. The permission to cut modules to fit the budget is withdrawn.
-
-Report lands as `docs/history/reports/SWE_PRINCIPLES_AUDIT_<date>.md` with
-net-new findings as F-SWE-2 onward; this entry closes by pointing at the
-report, and the charter is retired in the same commit.
-Status: open (chartered 2026-07-31, amended 2026-08-19, execution pending).
-Source: owner request 2026-07-31.
-
 ### F-MAS-4: broad `except Exception` catches
 
 17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at
@@ -383,6 +387,100 @@ written down anywhere it would be found: the only tracked traces are
 `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Defer the sweep; record
 the decision.
 Status: open. Source: root-hygiene side task, 2026-08-19.
+
+### F-SWE-2: the album year window is built from naive datetimes
+
+`orchestrator.py:70-71` builds the Last.fm fetch window with naive
+`datetime(year, 1, 1)` and `datetime(year, 12, 31, 23, 59, 59)`, so
+`.timestamp()` applies the local zone of the host and the window shifts by
+that offset. `orchestrator.py:100` reuses those timestamps to filter
+individual scrobbles, applying the shift a second time. Measured on the
+UTC-5 development host, the window starts at 05:00 UTC on 1 January instead
+of 00:00, so five hours of scrobbles land in the wrong year at each
+boundary.
+
+This is the defect F-B19-6 fixed in `heatmap.py`. `git show --stat ccb000f`
+confirms that fix touched `scrobblescope/heatmap.py` and
+`tests/test_heatmap.py` only; `orchestrator.py` was never revisited, and
+`heatmap.py:116-122` has used explicit UTC ever since. `AGENTS.md`
+anti-pattern 6 now registers the naive-timezone pattern repository-wide.
+
+Production is unaffected because the Fly.io container runs UTC. Every
+non-UTC host is affected, including the Windows development machine, so
+local verification of album results runs against a shifted window. Fix: add
+`tzinfo=timezone.utc` to both constructors and pin it with a test modelled
+on `test_utc_decode_invariant_against_local_tz_drift`.
+
+**Blocks Batch 21 WP-1** under SWE_AUDIT_CHARTER Section 6: a correctness
+defect in `orchestrator.py`, which WP-7 modifies. Fix or waive.
+Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
+
+### F-SWE-3: a Spotify HTTP error is reported as a missing album
+
+`spotify.py:67-68` returns `(None, None, True)` for every non-200,
+non-429 response. The `True` marks the attempt terminal, so
+`retry_with_semaphore` stops immediately -- verified: a simulated HTTP 500
+returns `None` after 1 of 3 permitted attempts. A genuine empty result
+(`spotify.py:75`) returns the identical value, so the caller cannot tell a
+Spotify outage from an album Spotify does not have.
+
+`orchestrator.py:250-262` then records the album with the reason
+`No Spotify match`, which the unmatched page shows the user as fact.
+`_detect_spotify_total_failure` (`orchestrator.py:671-686`) raises
+`spotify_unavailable` only when *every* album failed, so a partial Spotify
+outage silently drops albums from the results with a wrong explanation.
+
+Filed against `spotify.py` because that is where the distinction is
+discarded; `orchestrator.py` cannot recover information it never receives.
+Read the other way this would block WP-1, so the choice is stated in the
+report rather than left implicit.
+Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
+
+### F-SWE-4: the production entrypoint never validates API keys
+
+`config.ensure_api_keys()` (`config.py:37-40`) raises when any of the three
+API keys is missing, and it is called only inside the `__main__` guard at
+`app.py:140-145`. Production starts with `gunicorn app:app`
+(`Dockerfile:15`), which imports the module rather than running it, so the
+check never fires. Verified: with all three keys unset, `import app`
+succeeds and serves, while `ensure_api_keys()` would have raised.
+
+The same file gets the neighbouring case right. `_validate_secret_key` is
+called from `create_app()` (`app.py:111`) and refuses to start in
+production. One secret is checked at startup and three are not.
+
+`spotify.py:26-27` is the only remaining guard for two of them, and it uses
+`assert`, which `python -O` strips. Without the startup check a missing key
+surfaces as a per-request failure, classified as an upstream outage.
+
+Fix: call `ensure_api_keys()` from `create_app()`. One line, and it closes
+two C cells in the audit matrix.
+Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
+
+### F-SWE-5: the two background entry points disagree about terminal job state
+
+`heatmap_task` and `background_task` answer the same question two different
+ways, and both answers are wrong.
+
+`heatmap.py:218-221` catches every exception and reports
+`lastfm_unavailable`. `_fetch_and_process_heatmap` has no inner handler, so
+this is the only handler on the path and it fires for any failure at all.
+Verified: a `ZeroDivisionError` raised inside the aggregation step reaches
+the user as a Last.fm outage message, with `error_source: lastfm` and
+`retryable: True`. The app blames a third party for its own bug and invites
+a retry that will fail the same way.
+
+`orchestrator.py:912-913` has the mirror-image gap: it logs and sets no job
+state, so the job never reaches progress 100 and the loading page polls
+forever. This half needs the inner handler at `orchestrator.py:851` to fail
+first, which nothing observed can cause, so the finding is recorded rather
+than treated as blocking. F-SWE-6 compounds it -- a polled job never
+expires.
+
+Fix: give each entry point a terminal state that names what actually
+failed, using an `ERROR_CODES` entry for an unclassified internal error
+rather than borrowing an upstream one.
+Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 
@@ -500,6 +598,44 @@ Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
 Cleanup is opportunistic (at job start); TTL mitigates, does not cap.
 Status: open (P2). Source: MULTI_AGENT_SWEEP.
+
+### F-SWE-6: reading a job renews its TTL, so a polled job never expires
+
+`get_job_progress`, `get_job_unmatched` and `get_job_context` each write
+`updated_at` (`repositories.py:163`, `:175`, `:199`) while their docstrings
+promise only to return a copy. `cleanup_expired_jobs` reaps on that same
+field, so every `/progress` poll renews the lease.
+
+Verified: a job backdated to three hours old, against a two-hour
+`JOB_TTL_SECONDS`, survives `cleanup_expired_jobs` after a single read,
+while an identical job that was never read is reaped. A browser sitting on
+the loading page therefore keeps its `JOBS` entry alive indefinitely, which
+matters most for a job whose thread died without setting a terminal state
+(F-SWE-5).
+
+Touch-on-access may well be intended -- results should not vanish while a
+user is reading them. Nothing says so. Either document the side effect in
+the three docstrings and in the `JOB_TTL_SECONDS` comment, or stop writing
+from a getter and refresh the lease explicitly where it is wanted.
+Status: open (P2). Source: SWE_PRINCIPLES_AUDIT.
+
+### F-SWE-7: utils.py holds five unrelated concerns
+
+One 346-line module carries API rate limiting (`utils.py:29-121`), aiohttp
+session construction (`:155-188`), an in-memory response cache
+(`:192-242`), duration formatting for display (`:245-283`) and a generic
+async retry loop (`:286-346`). Nothing binds them together except the file
+name, and `utils` is the name that accretes.
+
+Each function is individually clean, which is why SRP grades B while SoC
+grades C. The cost is discoverability: the response cache that F-MAS-8
+tracks lives in the same file as `format_seconds`, and a reader looking for
+either has no reason to look here.
+
+A split into rate limiting, HTTP and caching, and formatting is a sibling
+of the F-B20-2 orchestrator decomposition and belongs in the same batch as
+it, not before Batch 21.
+Status: open (P2). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 

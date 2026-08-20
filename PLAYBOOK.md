@@ -82,22 +82,19 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** execute the amended F-SWE-1 principles audit against the
-  current `main`, then proceed to Batch 21 WP-1. **PR #171 merged to `main`
-  on 2026-08-19** (`bb187ae`, rebase merge) with zero unresolved review
-  threads after eight rounds; `wip/batch-21` was realigned to it.
-  `docs/SWE_AUDIT_CHARTER.md` and `BATCH21_DEFINITION.md` were both amended
-  the same day by a preflight review -- the charter could not work as the
-  gate its position implies, and the batch gate could not fail on frontend
-  work. Read the charter before executing: the audit now blocks WP-1 on P0
-  findings and on correctness defects in modules Batch 21 modifies, and the
-  report must state that verdict explicitly.
-  Earlier context, still true: PR #169 merged 2026-08-08 shipping the
-  repository-integrity gate and read-only worktree guard, resolving
-  F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2; three guard files exceed their
-  directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
-  not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
-  docsync sources the audit reads.
+- **Next action:** execute the full F-SWE-1 principles audit, then proceed to
+  Batch 21 WP-1. PR #169 merged to `main` on 2026-08-08 and the Quality Gate
+  is green for `5bc6294`, so the canonical repository-integrity gate and
+  read-only worktree guard are shipped and
+  F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. Three guard files
+  exceed their directory peer caps after review remediation -- accepted as a
+  deviation and tracked as F-WORKTREE-4 in FINDINGS.md, not silently. Review
+  remediation ran to round 6: rounds 2 through 5 landed before the merge, and
+  round 6 was reviewed after the final push, so its four findings reached
+  `main` unaddressed. **PR #170 remediated them and merged 2026-08-12**
+  (`5b060a2`), so the guard and docsync sources the audit reads are settled.
+  Three of its review threads remain open, two of them independent reports of
+  F-WORKTREE-5.
 - Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -166,169 +163,6 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-19 - Batch 21 preflight: F-SWE-1 charter and WP gates amended (side-task)
-
-- Scope: owner preflight review before WP-1, raised as six criticisms of
-  `docs/SWE_AUDIT_CHARTER.md` and an eight-row table of weak WP gates. Two
-  verification agents checked every claim against the files before any edit.
-  All six charter criticisms held. Two of the batch claims did not.
-- Verification of the owner report:
-  - Confirmed: the charter named five docsync modules when the directory has
-    seven (`integrity.py`, 474 lines, unnamed) and its LOC figure was stale
-    for the five it did name; the differential baseline was a closed ID list
-    omitting F-B21-1, F-DATA-1, F-WORKTREE-3/4/5, F-DOCSYNC-6/7 and never
-    referenced `FINDINGS_ARCHIVE.md`; A/B/C/D was defined nowhere in the
-    repository; the matrix was 190-210 cells with explicit permission to cut
-    modules; no severity or stop condition existed anywhere, so finishing the
-    audit was the same as passing it; and the post-Batch-21 frontend audit
-    was permissive ("can"), not required.
-  - Corrected: the excluded set is a proper subset of what Batch 21 rewrites,
-    not equal to it -- WP-7 modifies `routes.py` and `orchestrator.py`, which
-    are in scope, so those grades also expire at WP-7. The charter never
-    addressed that; it now does.
-  - Refuted: the claimed AGENT_NOTES-versus-definition contradiction over the
-    drift hook. `AGENT_NOTES.md` requires the CI-fetch *decision* at WP-1;
-    the definition deferred the *hook* to WP-8. Both could hold. The real
-    defect was quieter -- no WP-1 criterion required the decision to be
-    recorded, so nothing enforced it.
-- Root cause neither side had named: the batch validation gate is three
-  Python commands, and pre-commit excludes `static/` and `templates/`. A work
-  package could rewrite every template and stylesheet with a fully green
-  gate, in a batch that is nothing but template and stylesheet rewriting.
-- Plan vs implementation:
-  - Charter: 13 graded modules enumerated by name (130 cells, `__init__.py`
-    excluded by a stated empty-module rule); docsync and `scripts/dev/`
-    excluded with reasons rather than left ambiguous; provenance block
-    naming branch, SHA and clean state; symbol-based hotspot discovery
-    replacing hardcoded line numbers and counts; baseline widened to the
-    whole finding corpus plus the archive and every report from 2026-02 on;
-    A/B/C/D rubric with the B/C line defined as exception-versus-pattern;
-    Boy Scout window fixed at commits since the February audits; a
-    resolved-finding branch for C/D cells; a migration-blocking severity
-    policy with a one-line verdict required in the report; an instruction to
-    retire the charter at close. The budget escape hatch is withdrawn.
-  - Batch 21: new `scripts/dev/frontend_gate.py` added as a fourth gate
-    command at WP-2 and grown one page per WP, covering stylesheet
-    isolation, computed theme tokens in both themes, theme persistence,
-    self-hosted font loading, CSV/JPEG export assertions, and headline
-    wrapping. The `tailwind-css-drift` hook moved from WP-8 to WP-2, with
-    the `always_run` / `pass_filenames` requirement that AGENT_NOTES gap 2
-    had already identified and the definition had not carried. Targeted
-    criteria added to WP-3 (keyboard and touch reachability for the CSS-only
-    hints, label associations, validation parity), WP-4 (both state machines
-    including retryable and non-retryable failures), WP-7 (split into a
-    backend contract commit and a UI commit), and WP-8 (required frontend
-    and accessibility audit, deterministic Bootstrap-removal grep, recorded
-    lint disposition). Browser floor documented; `.dark-mode` retirement
-    given an owner; criterion 9 reconciled with the per-WP docsync check.
-  - FINDINGS.md: F-STYLE-1 (prose legibility, explicitly never a gate) and
-    F-STYLE-2 (docstring convention, the black/flake8 line-length
-    disagreement, and the unwritten Ruff plan) added. F-SWE-1 corrected --
-    it claimed the charter scoped "Python only until Batch 21 ships", a
-    commitment the charter never made.
-  - AGENTS.md: the F-ID source-tag list named five tags while nine are in
-    use. `SWE`, `WORKTREE`, `DATA` and `STYLE` added, and the list is now
-    declared complete so the next coined tag gets documented.
-- Deviations: the drift hook landed at WP-2 rather than the WP-1 the owner
-  proposed. WP-1 changes no template, so nothing consumes the compiled CSS
-  until WP-2; WP-2 is the first point where drift can ship.
-- Independent review of the amended charter, same day, and the fixes it drove:
-  - The migration gate did not say whether it covered existing findings. Read
-    the wide way, F-B21-1 blocks WP-1 today -- a resource-release defect in
-    `orchestrator.py`, which WP-7 modifies. The gate is now scoped to net-new
-    findings in terms, F-B21-1 is named as the case that forces the
-    distinction, and an audit that thinks an existing finding should block
-    must recommend rather than act.
-  - The A/B/C/D rubric graded by frequency ("one place is B, several is C")
-    while its own table graded by cost. One leak can be C; five contained
-    exceptions can stay B. Rewritten to grade cost, not count. The
-    "when torn, over-raise" instruction is deleted -- it contradicted
-    Section 4's rule that the audit's value is not volume.
-  - Resolved and no-action findings shared one rule. Split: a recurred
-    resolved defect earns a new finding; an unchanged no-action rationale
-    does not; materially changed assumptions do, explaining the delta.
-  - Provenance permitted grading a dirty tree, which no SHA can reproduce.
-    A clean worktree is now required before grading starts.
-  - The hotspot command was `awk '...{...}'` -- a placeholder that could not
-    run, and a poor Python parser besides. Replaced with a tested `ast`
-    script in a new Section 5c, deliberately at the left margin: a heredoc
-    terminator indented inside the numbered list fails with
-    `IndentationError`, which was verified rather than assumed.
-  - Boy Scout used `git log`, which lists commits without showing what they
-    left behind. Now `git log -p`, with an instruction to read the patches.
-  - "Weakest principle repo-wide" overclaimed: the audit excludes the
-    frontend, both script directories, and tests as graded subjects. Scoped
-    to the audited runtime modules.
-  - Cell arithmetic hardcoded 130 in three places while Section 3 allowed the
-    principle count to change. All three now derive from the live count.
-  - One review point was stale, not wrong: the claim that WP-8 defines no
-    frontend principles audit. It does, in this commit's parent -- the
-    reviewer was reading `origin/main`, because the amendment is committed
-    locally and deliberately unpushed.
-- Validation: `pytest -q` -- **590 passed**. `pre-commit run --all-files` --
-  all hooks pass. `doc_state_sync.py --check` -- exit 0 with the expected
-  root BATCH warning.
-- Forward guidance: execute the amended charter against current `main` and
-  publish the migration verdict before WP-1 starts. The verified root-hygiene
-  plan (audience banners, README tree, DEPLOY.md) is deferred until after
-  WP-1 by owner decision; its line numbers will need re-checking.
-
-### 2026-08-19 - PR #171 round-8 thread fixed: push authorization in the cycle diagram (side-task)
-
-- Scope: one unresolved Codex thread on `docs/architecture/development-cycle.md`,
-  raised again by an owner-side human peer on the grounds that this diagram
-  purports to govern agents. Checked against the ruleset before editing. Valid.
-- Verification: the diagram had a single unconditional edge,
-  `Authorize -->|Review-fix commit on an open PR| PR`. `AGENTS.md:234-242`
-  grants that standing exception to Claude Code and Codex sessions only and
-  says in terms that it does not extend to GitHub Copilot task sessions or
-  their subagents, Jules, or any other agent. An agent reading the canonical
-  diagram would therefore push a review-fix commit that the ruleset requires
-  it to pause on.
-- Plan vs implementation: the decision node now carries three edges instead of
-  two. WP and batch commits pause in any session; the direct path is labelled
-  Claude Code or Codex only; every other agent routes to the same pause. Added
-  prose naming `AGENTS.md` as the owner of the rule, and recording the three
-  actions that always need explicit instruction whatever the session --
-  force-pushes, history rewrites, and anything targeting `main` -- plus the
-  Copilot platform-tool requirement at `AGENTS.md:243-244`, neither of which
-  the diagram had carried.
-- Deviations: none. No code changed.
-- Validation: the edited diagram was validated before it was written --
-  `valid = true`, type `flowchart`. `pytest -q` -- **590 passed**.
-  `doc_state_sync.py --check` -- exit 0 with the expected root BATCH warning.
-- Forward guidance: next action unchanged -- the F-SWE-1 audit, then WP-1. A
-  preflight amendment to the charter and the Batch 21 WP gates is agreed and
-  pending; see the owner decisions recorded with it.
-
-### 2026-08-19 - PR #171 round-7 threads fixed (side-task)
-
-- Scope: the three unresolved Codex threads left on `3d15849` after the
-  diagram audit. All three are P2 and all three were checked against the
-  source before any edit. All three are correct.
-- Verification and fixes:
-  - `top-albums-sequence.md` drew `Close connection` unconditionally, but
-    `process_albums` closes inside `if conn` (`orchestrator.py:603-604`), so
-    the no-connection branch never closes anything. Wrapped in an `opt DB
-    connected` block.
-  - The same diagram claimed the browser never posts `results_complete` on an
-    error payload. `loading.js:209-229` shows only the retryable branch stays
-    on the page; a non-retryable error waits three seconds and calls
-    `redirectToResults()`, which does post. Split the branch by `retryable`
-    and routed the non-retryable case to the processing-error page.
-  - `FINDINGS.md` F-B21-1 stated `MAX_ACTIVE_JOBS` is 5 as an absolute.
-    `config.py:31` reads it from the environment with 5 as the default, and
-    the literal contradicted F-LOAD-1 in the same file. Reworded to name 5 as
-    the default and tie the failure count to configured capacity.
-- Deviations: none. No code changed; F-B21-1 stays open and unfixed, because
-  it is a code change for a code batch.
-- Validation: `pytest -q` -- **590 passed**. `pre-commit run --files` on both
-  edited files -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
-  the expected root BATCH warning. The edited Mermaid diagram was validated
-  through the Mermaid Chart validator: `valid = true`, type `sequence`.
-- Forward guidance: the next action is unchanged -- the F-SWE-1 audit, then
-  Batch 21 WP-1.
-
 ### 2026-08-15 - PR #171 round-6 threads fixed and all five diagrams audited (side-task)
 
 - Scope: the two unresolved Codex threads on `00c0adb`, both on the Top Albums
@@ -381,3 +215,112 @@ non-current operational logs. Older dated entries live in
   `BATCH21_DEFINITION.md` warning.
 - Forward guidance: push, then reply to the two threads and resolve them.
   PR #171 stays open until the owner says otherwise.
+
+### 2026-08-15 - PR #171 round-5 review threads remediated (side-task)
+
+- Scope: three new Codex threads on `37ca4a9` -- one on the development-cycle
+  diagram and two on the Top Albums sequence. All three were verified against
+  the code before any edit and all three were valid.
+- Verification:
+  - `AGENTS.md` L29-44 defines the review-comment fast path (fetch the thread
+    first, stop if not actionable, else read only the scoped files), but the
+    development-cycle diagram routed every review finding through the full
+    bootstrap gates. The diagram and the rules it documents were written in
+    the same PR and disagreed.
+  - `_fetch_and_process()` stores an empty result, marks progress 100%, and
+    returns before pre-slicing, cache access, or Spotify enrichment when
+    `filtered_albums` is empty. The Top Albums sequence sent every successful
+    page fetch into those stages.
+  - `process_albums()` catches `_batch_lookup_metadata()` exceptions, records
+    `db_cache_warning`, treats every album as a miss, and continues to Spotify
+    (possibly persisting via the open connection). The diagram's connected
+    path presented lookup as unconditional and its unavailable path said
+    persistence was skipped.
+- Plan vs implementation: the development-cycle diagram now branches on
+  review-finding/comment-job before full bootstrap (fetch thread, stop if not
+  actionable, else read scoped files); the Top Albums sequence now stops after
+  an empty filtered set and adds a fail-open cache-lookup-error continuation.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the empty-filtered-set and fail-open lookup
+  paths.
+- Validation: both updated diagrams pass Mermaid validation and open in
+  preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run
+  --all-files` -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this remediation, then resolve the three
+  threads. PR #171 remains unmerged pending separate owner instruction.
+
+### 2026-08-15 - PR #171 final four review threads remediated (side-task)
+
+- Scope: the four remaining unresolved review threads on `e73540d` -- two
+  Codex path-repointing reports and two Codex Top Albums sequence reports.
+  All four were verified against the code and the moved files before any
+  edit and all four were valid.
+- Verification:
+  - `docs/superpowers/plans/2026-08-11-pr-170-remediation.md` still cited
+    `docs/history/GUARD_HARDENING_2026-08-11.md` and
+    `docs/history/REPOSITORY_SYNTHESIS_2026-08-11.md`, both moved to
+    `docs/history/reports/` by commit `5865c55`. The links resolved to
+    nonexistent files.
+  - `docs/history/definitions/BATCH9_DEFINITION.md` pointed twice to
+    `docs/history/BATCH9_AUDIT_REMEDIATION_PLAN_2026-02-20.md`, and
+    `BATCH10_DEFINITION_2026-02-21.md` pointed to the old
+    `docs/history/ROUTES_SOC_AUDIT_2026-02-21.md` and
+    `docs/history/TEST_QUALITY_AUDIT_2026-02-21.md` paths. All three reports
+    now live under `docs/history/reports/`. These are definition-to-report
+    references, not exempt point-in-time citations, so they must be repointed.
+  - `_fetch_and_process()` returns immediately after `set_job_error` when
+    `fetch_metadata["status"] == "error"`, while a `partial` status records
+    `partial_data_warning` and continues. The diagram drew an unconditional
+    transition from page fetching into grouping.
+  - `_fetch_spotify_misses()` raises `SpotifyUnavailableError` when token
+    acquisition fails with no cache hits, caught in `_fetch_and_process` as
+    `set_job_error("spotify_unavailable"); return []` -- no merge or store.
+    The diagram's no-cache-hits branch rejoined the unconditional merge/store
+    steps.
+- Plan vs implementation: repointed the four report paths in the remediation
+  plan and the two batch definitions; the Top Albums sequence now branches on
+  Last.fm status (terminal error vs partial-success-with-warning) and
+  terminates after the no-cache-hits token failure while retaining the
+  cached-success continuation.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the Last.fm error/partial paths and the
+  no-cache-hits token failure.
+- Validation: the updated diagram passes Mermaid validation and opens in
+  preview. `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run
+  --all-files` -- all hooks pass. `doc_state_sync.py --check` -- exit 0 with
+  the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this final remediation, then resolve the
+  four threads. PR #171 remains unmerged pending separate owner instruction.
+
+### 2026-08-15 - PR #171 final two Codex threads remediated (side-task)
+
+- Scope: the two remaining unresolved Codex threads on `3508c48`, both on the
+  Top Albums sequence diagram. Both were verified against the code before any
+  edit and both were valid.
+- Verification:
+  - `_get_db_connection()` returns `None` when `DATABASE_URL` is unset,
+    asyncpg is unavailable, or connection attempts fail; `process_albums`
+    then sets a `db_cache_warning` stat and skips lookup, cleanup, and
+    persistence, so every album becomes a miss. The diagram presented those
+    three cache operations as unconditional.
+  - `_fetch_spotify_misses()` sets `partial_data_warning` and returns without
+    searching when Spotify token acquisition fails and cache hits exist, so
+    the pipeline completes successfully with cached albums only; it raises
+    `SpotifyUnavailableError` only when no cache hits exist. The diagram sent
+    every miss through search and grouped the token failure with the terminal
+    path.
+- Plan vs implementation: the Top Albums sequence now branches on DB
+  availability before the cache lookup and branches the Spotify token-fetch
+  failure into a success-with-warning path (cached albums only) versus the
+  terminal `spotify_unavailable` path.
+- Deviations: none. No production behavior changed and no tests were added;
+  existing tests already cover the DB-disabled fallback and the partial-cache
+  continuation.
+- Validation: the updated diagram passes Mermaid validation and opens in
+  preview; the tracked block exactly matches its ignored `.mmd` source.
+  `pytest -q` -- **590 passed**, 3 known warnings. `pre-commit run --all-files`
+  -- all 10 hooks pass. `doc_state_sync.py --check` -- exit 0 with the expected
+  active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: commit and push this final remediation, then resolve both
+  threads. PR #171 remains unmerged pending separate owner instruction.

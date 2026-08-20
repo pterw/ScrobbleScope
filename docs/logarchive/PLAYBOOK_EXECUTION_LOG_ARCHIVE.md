@@ -9,6 +9,59 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-15 - PR #171 round-6 threads fixed and all five diagrams audited (side-task)
+
+- Scope: the two unresolved Codex threads on `00c0adb`, both on the Top Albums
+  sequence. A prior GLM-5.2 session had left uncommitted diagram edits and a
+  list of findings, then stopped before it finished. I checked the two threads
+  and every edit that session made against the code, then audited all five
+  diagrams with three independent verification agents.
+- Verification of the two threads: both are correct. `fetch_top_albums_async`
+  groups, normalizes, and thresholds the albums before it returns
+  (`orchestrator.py:112-116`), so all of that runs before the empty-result
+  check at `orchestrator.py:784`. `process_albums` writes to the cache only
+  under `if conn and new_metadata_rows` (`orchestrator.py:591`).
+- Verification of the prior session: three of its six edits were wrong. It put
+  the hit/miss partition inside the DB-connected branch, but the code
+  partitions with or without a connection (`orchestrator.py:567`). It drew
+  `cleanup_expired_cache()` as a call to `repositories.py`, but that helper
+  comes from `utils.py` (`orchestrator.py:40`). It put the total Spotify match
+  failure after the store step, but the check runs first
+  (`orchestrator.py:824` before `orchestrator.py:842`).
+- Plan vs implementation:
+  - Top Albums sequence: rewrote the background-task block and the browser
+    block. Grouping now sits before every downstream branch. Persistence is
+    conditional and records `db_cache_persisted`. The partition sits outside
+    the DB branch. New: the connection close and its `finally` ordering
+    against `SpotifyUnavailableError`, the `get_job_context` read behind the
+    total-match-failure check, the six `results_complete` outcomes, the
+    `/progress` 404, and the two unhandled-exception states.
+  - Heatmap sequence: added the housekeeping calls, the page-count stats, the
+    5% and 80% progress writes, and the unhandled-exception path. Rebuilt the
+    render block: the client requests `/heatmap_data` only at 100%, so the 202
+    is a narrow race that restarts polling, not a peer alternative.
+  - Development cycle: split the merged fast path so the actionability stop
+    applies to comment jobs only, added the push-authorization gate that
+    `AGENTS.md` requires between commit and PR, and dropped the E2E claim that
+    no rule file makes.
+  - Runtime diagram and `docs/ARCHITECTURE.md`: named the eight nodes that
+    import `config.py`, corrected the arrow-semantics paragraph, and repointed
+    the module-graph reference to SESSION_CONTEXT Section 4 alone.
+  - Both structural diagrams passed their audit with no change to the graphs.
+- Deviations: the prior session said the fix needed a full rewrite of the
+  parallel block. It did not. The corrections are local, but they reach more
+  branches than that session touched. The audit also found a real code gap and
+  it is recorded as F-B21-1 rather than fixed here: `background_task` and
+  `heatmap_task` build the event loop outside the `try`, so a failure there
+  leaks a job slot. No production code changed in this commit.
+- Validation: all four changed diagrams pass Mermaid validation, checked
+  against the exact text now in the files. `pytest -q` -- **590 passed**, 3
+  known warnings. `pre-commit run --all-files` -- all hooks pass.
+  `doc_state_sync.py --check` -- exit 0 with the expected active-root
+  `BATCH21_DEFINITION.md` warning.
+- Forward guidance: push, then reply to the two threads and resolve them.
+  PR #171 stays open until the owner says otherwise.
+
 ### 2026-08-15 - PR #171 round-5 review threads remediated (side-task)
 
 - Scope: three new Codex threads on `37ca4a9` -- one on the development-cycle

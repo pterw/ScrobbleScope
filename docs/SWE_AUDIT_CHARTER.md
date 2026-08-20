@@ -1,7 +1,11 @@
 # SWE Principles Audit Charter
 
-**Status:** Chartered 2026-07-31. Amended 2026-08-19 (preflight review before
-Batch 21 WP-1). Execution pending. Tracked as FINDINGS.md F-SWE-1.
+**Status:** Executed 2026-08-20, report at
+`docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`. **This charter is
+retired.** It is kept as the record of what the audit was asked to do, not as
+live work. Chartered 2026-07-31, amended 2026-08-19 after a preflight review.
+FINDINGS.md F-SWE-1 is resolved. The audit returned *migration blocked by
+F-SWE-2*; that decision is the owner's and is stated in the report.
 **Executor contract:** any dedicated, single-purpose agent session (Claude,
 Codex, or equivalent) can run this cold. The judgment is front-loaded into
 this charter; the executor's job is careful reading, evidence gathering,
