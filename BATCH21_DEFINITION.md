@@ -104,12 +104,13 @@ stylesheet is in scope for this batch.
    heatmap headlines (`white-space: nowrap` dropped on mobile headline).
 8. Mode pills have equal width (closes F-B18-12); toggle meets tap-target
    size (closes F-AUDIT-1).
-9. `pytest -q` green, all pre-commit hooks pass, and the frontend gate
-   passes at every WP. `doc_state_sync.py --check` also runs at every WP,
-   so the documents it governs (PLAYBOOK Section 4, SESSION_CONTEXT) must
-   be correct at every WP -- not at close-out. Only the narrative docs it
-   does not govern (README tech stack and structure, the DEVELOPMENT.md
-   build step) may land by close-out.
+9. `pytest -q`, all pre-commit hooks, and `doc_state_sync.py --check` pass
+   at every WP. The frontend gate joins them from WP-2 onward, when the
+   gate and its first migrated page exist. Documents governed by docsync
+   (PLAYBOOK Section 4, SESSION_CONTEXT) must be correct at every WP -- not
+   at close-out. Only the narrative docs it does not govern (README tech
+   stack and structure, the DEVELOPMENT.md build step) may land by
+   close-out.
 
 ---
 
@@ -158,7 +159,8 @@ kickoff log entry.
   (4/8/12/16/24/32/48 only); radius 8 (inputs/small cards), 14 (large
   cards), 999 (pills); `--bars-color` aliased in both themes.
 - Compiled `static/css/tailwind.css` committed; build/watch commands
-  documented in DEVELOPMENT.md; CI unaffected (no Node).
+  documented in DEVELOPMENT.md. The Tailwind toolchain introduces no Node
+  project; WP-2 provisions its separate Python browser-test dependency.
 - **Record the CI fetch decision in this file, in the WP-1 commit.**
   `AGENT_NOTES.md` assigns the choice to WP-1 because WP-1 is where
   versions and digests are pinned: either CI fetches and caches the pinned
@@ -209,8 +211,12 @@ kickoff log entry.
   committed output dirty. The pathspec scopes the check to the generated
   file so unrelated dirty files, or rewrites left by earlier hooks in the
   same run, cannot produce false drift failures.
-- **Add `scripts/dev/frontend_gate.py`** (see the validation gate section).
-  It starts with the migrated `error.html` pilot and grows one page per WP.
+- **Add the repository-owned frontend gate and its runtime** (see the
+  validation-gate section). This same commit pins `playwright==1.62.0` in
+  `requirements-dev.txt`, provisions Chromium locally and in CI, adds
+  `scripts/dev/frontend_gate.py`, and runs it in the Quality Gate. It starts
+  with the migrated `error.html` pilot and grows one page per WP. README and
+  DEVELOPMENT document setup when the runtime actually lands, not before.
 `feat(ui): tailwind base shell, header bar, error page pilot`
 
 ### WP-3 -- Index page
@@ -357,13 +363,20 @@ kickoff log entry.
 
 ---
 
-## Validation gate (every WP)
+## Validation gates
+
+Every WP:
 
 ```
 pytest -q
 pre-commit run --all-files
 python scripts/doc_state_sync.py --check
-python scripts/dev/frontend_gate.py        # added at WP-2
+```
+
+From WP-2 onward:
+
+```
+python scripts/dev/frontend_gate.py
 ```
 
 Plus per-WP: owner visual review in both themes before the next WP.
@@ -376,9 +389,34 @@ template and every stylesheet with all three green. For a batch that is
 nothing but template and stylesheet rewriting, that is the gate failing at
 its only job.
 
-WP-2 adds `scripts/dev/frontend_gate.py`, a headless Playwright run over the
-migrated pages. It grows one page at a time as the strangler migration
-proceeds, and it must be able to fail. Checks:
+**Executable runtime, owner-approved 2026-08-20.** WP-2 adds
+`playwright==1.62.0` to `requirements-dev.txt` and uses the Python library
+directly; it adds no `package.json`, Node project, pytest plugin, or MCP
+dependency. The Playwright pin selects its matching browser build. Local
+setup uses the qualified-worktree form of:
+
+```
+python -m playwright install chromium
+```
+
+The Quality Gate installs the Linux dependencies and the same browser after
+the Python dependency step, then runs the frontend gate:
+
+```
+python -m playwright install --with-deps chromium
+python scripts/dev/frontend_gate.py
+```
+
+The script never downloads tooling implicitly. A missing package or browser
+fails immediately with the exact setup command. It starts the Flask app on an
+ephemeral loopback port, owns that server's lifecycle, and shuts it down in a
+`finally` block, so the gate needs neither a separately running app nor an
+external MCP service. Unit tests cover missing-runtime diagnostics, assertion
+failure, and server cleanup; the real headless Chromium run is the integration
+gate. Owner Firefox review remains the cross-browser visual check.
+
+`scripts/dev/frontend_gate.py` grows one migrated page at a time as the
+strangler migration proceeds, and it must be able to fail. Checks:
 
 1. **Stylesheet isolation** -- each page loads exactly one framework
    stylesheet. WP-2 states this as a deliverable with nothing enforcing it.

@@ -44,11 +44,11 @@ Last updated: 2026-08-20
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 21.
-- Current-batch entries in active log block: 2.
+- Current-batch entries in active log block: 3.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
 - Latest validated test count: **591 passed**.
-- Newest current-batch entry: 2026-08-20 - F-SWE-2 UTC album-year window fixed (Batch 21 WP-0).
+- Newest current-batch entry: 2026-08-20 - PR #172 frontend-gate contract made executable (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

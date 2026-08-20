@@ -155,11 +155,11 @@ forward from an earlier note; re-verify before relying on it, because the
 skill and MCP inventory is per-machine and moves independently of this repo.
 
 **How this keys against the definition.** `BATCH21_DEFINITION.md` has no
-per-WP acceptance criteria. It carries one batch-level list of 9 criteria
-and a per-WP validation gate that every WP runs identically (`pytest -q`,
-`pre-commit run --all-files`, `doc_state_sync.py --check`, plus owner visual
-review). So the map keys on the WP and names the batch-level criteria each
-one serves. Do not go looking for per-WP criteria; there are none by design.
+per-WP acceptance criteria. It carries one batch-level list of 9 criteria;
+the three repository gates and owner visual review run at every WP, while
+the repository-owned frontend gate joins them from WP-2 onward. So the map
+keys on the WP and names the batch-level criteria each one serves. Do not go
+looking for per-WP criteria; there are none by design.
 
 ### Skills: four separate sources, and the names collide
 
@@ -206,7 +206,7 @@ Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
 | WP | Tooling that serves it | Batch criteria |
 |---|---|---|
 | WP-1 toolchain + themes | Bespoke Python only. No installed skill covers pinned-binary fetch with per-platform SHA-256 verification, and `frontend-design` authors UI rather than build plumbing. Treat WP-1 as unassisted work | 2, 3, 9 |
-| WP-2 base shell + `error.html` pilot | `frontend-design`; Playwright, which WP-2 now makes permanent as `scripts/dev/frontend_gate.py` -- the one-stylesheet-per-page rule becomes an enforced check rather than a stated deliverable. Gaps 2 and 3 land here, not at WP-8 | 1, 3, 4 |
+| WP-2 base shell + `error.html` pilot | `frontend-design`; repository-owned `playwright==1.62.0` + Chromium power `scripts/dev/frontend_gate.py`, independent of MCP. The one-stylesheet-per-page rule becomes an enforced check rather than a stated deliverable. The drift hook also lands here after WP-1 records its CI-fetch decision | 1, 3, 4 |
 | WP-3 index page | `frontend-design`; Playwright for decade pills, the thresholds disclosure, and the CSS-only hints that replace `bootstrap.Popover` | 1, 4, 8 |
 | WP-4 unified loading | Playwright for progress polling against a live job; the shared Jinja2 partial is exercised from both `loading.html` and the heatmap panel | 5 |
 | WP-5 results leaderboard | Playwright, driven directly -- see gap 1. The JPEG export must be checked in both themes at mobile and desktop, and the `data-export` CSV precision fix needs a real DOM walk | 5, 7 |
@@ -217,8 +217,10 @@ Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
 ### Verified gaps
 
 1. **No `webapp-testing` skill exists on this machine** -- not in any of the
-   four sources above. WP-5's JPEG export E2E and WP-8's owner E2E have no
-   skill support and run through Playwright MCP tools directly.
+   four sources above. That does not block the permanent automated gate:
+   WP-2 adds pinned Python Playwright + Chromium as a repository dependency.
+   WP-5's exploratory JPEG-export E2E and WP-8's owner E2E remain direct
+   Playwright MCP runs on top of that deterministic gate.
 2. **The pre-commit top-level exclude covers 13 directories**, among them
    `docs/`, `static/` and `templates/`. The `tailwind-css-drift` hook on
    `static/css/tailwind.css` would therefore never run as an ordinary
@@ -235,6 +237,9 @@ Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
    pinned versions and digests are chosen. WP-1 now carries an explicit
    criterion to write that decision down; before 2026-08-19 nothing did,
    which is how the hook came to be specified against an open question.
+   WP-2's Python Playwright plan does not add a Node project: CI installs
+   the pinned Python dependency and its matching Chromium build through
+   `python -m playwright`, then runs the repository gate.
 4. **No CSS, JS or HTML hooks at all.** `trailing-whitespace` and
    `end-of-file-fixer` are scoped to `py|md|yaml|yml|txt`, and `static/`
    and `templates/` are excluded by the top-level rule regardless -- so the

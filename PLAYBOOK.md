@@ -82,13 +82,17 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** Batch 21 WP-1. **F-SWE-2 was resolved 2026-08-20** in its
+- **Next action:** land PR #172 after its review-fix validation, then begin
+  Batch 21 WP-1. **F-SWE-2 was resolved 2026-08-20** in its
   owner-approved standalone prerequisite commit: both album-year boundary
   constructors now use explicit UTC, and a deterministic UTC-5 regression
   pins the Last.fm request window. This clears the F-SWE-1 migration block;
   see `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md` and the
   Section 4 entry of the same date. Nothing else in the audit blocks; the
-  other five net-new findings are record-and-continue.
+  other five net-new findings are record-and-continue. PR review also
+  corrected the frontend-gate contract: the three repository gates run at
+  every WP; pinned Python Playwright + Chromium and the frontend gate begin
+  together at WP-2. No WP-1 work has started.
   `docs/SWE_AUDIT_CHARTER.md` is retired and kept only as the record of what
   the audit was asked to do.
   Earlier context, still true: **PR #171 merged to `main` on 2026-08-19**
@@ -204,6 +208,39 @@ non-current operational logs. Older dated entries live in
   the expected active-root `BATCH21_DEFINITION.md` warning.
 - Forward guidance: F-SWE-2 is resolved. WP-1 is next; pause for owner review
   of this commit before starting it.
+
+### 2026-08-20 - PR #172 frontend-gate contract made executable (Batch 21 WP-0)
+
+- Scope: addressed the two actionable P1 review threads on the active Batch 21
+  definition before WP-1. This is design and state documentation only; no
+  frontend runtime or WP-1 work started.
+- Verification of the review findings: criterion 9 required the frontend gate
+  at every WP while the validation section created it at WP-2, making WP-1
+  impossible to complete. The planned Python script also had no declared
+  Playwright package, browser provisioning, CI setup, or callable bridge to
+  the machine-local MCP providers.
+- Plan vs implementation: owner-approved as designed. The three existing
+  repository gates remain mandatory at every WP and the frontend gate starts
+  at WP-2. That WP pins `playwright==1.62.0` in `requirements-dev.txt`, installs
+  its matching Chromium build explicitly on the developer machine and Linux
+  CI, runs the repository gate in the Quality Gate, and documents setup in
+  README and DEVELOPMENT when the runtime lands. The script owns an ephemeral
+  loopback Flask server and always tears it down; missing tooling fails with an
+  actionable command rather than downloading silently. No Node project,
+  pytest plugin, or MCP dependency is introduced.
+- Review disposition outside this commit: the nuanced F-SWE-3 thread received
+  the owner-approved ROI explanation and was resolved without expanding WP-7.
+  F-SWE-3 remains open at P2; operational Spotify failures do not become an
+  unmatched-page `reason_code`.
+- Deviations: none. The active definition is the canonical design document, so
+  no duplicate `docs/superpowers/specs/` file was created.
+- Validation: qualified `pytest -q` -- **591 passed**, 3 warnings; all
+  pre-commit hooks passed; tracked-Markdown MD5 manifests were identical
+  before and after the hook run; `doc_state_sync.py --check` passed with only
+  the expected active-batch root-definition warning.
+- Forward guidance: land PR #172, then start WP-1. The Playwright dependency,
+  browser download, workflow change, gate implementation, tests, README, and
+  DEVELOPMENT updates all land together at WP-2.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
