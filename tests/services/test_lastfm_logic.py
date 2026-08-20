@@ -5,7 +5,7 @@ enforcement, the now-playing sentinel, non-Latin track deduplication,
 and fetch-metadata stat reporting.  Network calls are fully mocked.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -19,8 +19,8 @@ from scrobblescope.orchestrator import fetch_top_albums_async
 
 
 def _track(artist, album, name, year=2023, month=6, day=15):
-    """Build a minimal Last.fm track dict with a timestamp in the given year."""
-    ts = int(datetime(year, month, day).timestamp())
+    """Build a minimal Last.fm track dict with a UTC timestamp."""
+    ts = int(datetime(year, month, day, tzinfo=timezone.utc).timestamp())
     return {
         "artist": {"#text": artist},
         "album": {"#text": album},
@@ -150,6 +150,35 @@ async def test_fetch_top_albums_skips_out_of_bounds_timestamps():
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist X" not in artist_keys
+
+
+@pytest.mark.asyncio
+async def test_fetch_top_albums_uses_utc_year_window_on_non_utc_host():
+    """The Last.fm year window stays on UTC boundaries on a UTC-5 host.
+
+    Adversarial: the injected constructor gives naive datetimes fixed UTC-5
+    semantics while preserving any explicit ``tzinfo``. The expected epoch
+    values are UTC literals, independent of the production construction.
+    """
+
+    def utc_minus_five_datetime(*args, **kwargs):
+        """Simulate UTC-5 only when production omits an explicit timezone."""
+        kwargs.setdefault("tzinfo", timezone(-timedelta(hours=5)))
+        return datetime(*args, **kwargs)
+
+    fetch_tracks = AsyncMock(return_value=([], {"status": "ok"}))
+    with (
+        patch("scrobblescope.orchestrator.datetime", new=utc_minus_five_datetime),
+        patch(
+            "scrobblescope.orchestrator.fetch_all_recent_tracks_async",
+            new=fetch_tracks,
+        ),
+    ):
+        await fetch_top_albums_async("testuser", 2024)
+
+    fetch_tracks.assert_awaited_once_with(
+        "testuser", 1704067200, 1735689599, progress_cb=None
+    )
 
 
 @pytest.mark.asyncio

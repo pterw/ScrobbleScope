@@ -82,17 +82,13 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** apply the F-SWE-2 fix, then Batch 21 WP-1. The F-SWE-1
-  audit ran 2026-08-20 and returned **migration blocked by F-SWE-2** -- see
-  `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md` and the Section 4
-  entry of the same date. Charter Section 6 offered a fix or an owner waiver;
-  **the owner elected the fix on 2026-08-20.** It is a code change, not a
-  docs change, so it ships as its own commit before WP-1 and moves the test
-  count: add `tzinfo=timezone.utc` to both constructors at
-  `orchestrator.py:70-71`, plus a regression test modelled on
-  `test_utc_decode_invariant_against_local_tz_drift` that must fail against
-  the naive window before it passes against the fixed one. Nothing else in
-  the audit blocks; the other five net-new findings are record-and-continue.
+- **Next action:** Batch 21 WP-1. **F-SWE-2 was resolved 2026-08-20** in its
+  owner-approved standalone prerequisite commit: both album-year boundary
+  constructors now use explicit UTC, and a deterministic UTC-5 regression
+  pins the Last.fm request window. This clears the F-SWE-1 migration block;
+  see `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md` and the
+  Section 4 entry of the same date. Nothing else in the audit blocks; the
+  other five net-new findings are record-and-continue.
   `docs/SWE_AUDIT_CHARTER.md` is retired and kept only as the record of what
   the audit was asked to do.
   Earlier context, still true: **PR #171 merged to `main` on 2026-08-19**
@@ -171,6 +167,44 @@ non-current operational logs. Older dated entries live in
   daisyUI v5 bundled plugin, defines both themes from the audit token
   sheet, and commits the compiled CSS. No template changes until WP-2.
 
+### 2026-08-20 - F-SWE-2 UTC album-year window fixed (Batch 21 WP-0)
+
+- Scope: cleared the only F-SWE-1 migration blocker in the standalone
+  prerequisite after WP-0 and before WP-1. No Tailwind or WP-1 work started.
+- Plan vs implementation: as planned. `orchestrator.py` now imports
+  `timezone` and passes `tzinfo=timezone.utc` to both listening-year boundary
+  constructors. The regression drives the public `fetch_top_albums_async`
+  workflow, simulates UTC-5 semantics only for naive constructors, and checks
+  the literal UTC epoch values sent to the mocked Last.fm boundary. Existing
+  mock track fixtures now construct their UTS values in explicit UTC too.
+- TDD red evidence: before the production fix,
+  `pytest -q tests/services/test_lastfm_logic.py::test_fetch_top_albums_uses_utc_year_window_on_non_utc_host`
+  failed twice with the same boundary shift:
+
+  ```text
+  AssertionError: expected await not found.
+  Expected: mock('testuser', 1704067200, 1735689599, progress_cb=None)
+    Actual: mock('testuser', 1704085200, 1735707599, progress_cb=None)
+  ```
+
+  After the fix, the targeted test passed, and the complete test module passed
+  with 8 tests.
+- Deviations: no implementation deviation. Pre-push whole-file review corrected
+  the README test badge and module inventory plus two forward-looking WP-7
+  claims that still described WP-7 as the first test-count change. The same-day
+  docsync source order gives live side-task entries precedence over
+  current-batch entries, so the document-map entry below carries a later-count
+  addendum that points back to this entry. Its original 590-test completion
+  result stays unchanged.
+  F-SWE-3 remains P2, F-B21-1 remains P1 without blocking WP-1, and root
+  hygiene remains deferred until after WP-1.
+- Validation: `pytest -q` -- **591 passed**, 3 warnings.
+  `pre-commit run --all-files` -- all hooks pass; all tracked Markdown hashes
+  match before and after the hook. `doc_state_sync.py --check` -- exit 0 with
+  the expected active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: F-SWE-2 is resolved. WP-1 is next; pause for owner review
+  of this commit before starting it.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
 ### 2026-08-20 - Agent document map added; HANDOFF_PROMPT trimmed (side-task)
@@ -232,6 +266,11 @@ non-current operational logs. Older dated entries live in
   that hook has twice reverted files nobody edited, once into a commit.
 - Forward guidance: unchanged. The F-SWE-2 fix is still the next action. It
   is a code commit and it moves the test count off 590.
+- **Later same-day test-count addendum:** the F-SWE-2 current-batch entry above
+  records the subsequent code change and owns its implementation details. Its
+  full-suite result was `pytest -q` -- **591 passed**. The earlier 590 result
+  in this entry remains point-in-time evidence; this pointer supplies the
+  later same-date count to docsync's live-side-first authority order.
 
 ### 2026-08-20 - F-SWE-1 SWE principles audit executed (side-task)
 

@@ -1,6 +1,6 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit ran 2026-08-20 and blocked WP-1 on F-SWE-2; the owner elected the fix, so that fix comes next, then WP-1 (toolchain).
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) is next.
 **Branch:** `wip/batch-21` (linked worktree; lineage changes are recorded
 in PLAYBOOK Section 4 rather than pinned here).
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
@@ -297,8 +297,8 @@ kickoff log entry.
 - `orchestrator.py`: stable `reason_code` (release_scope /
   no_spotify_match) stored alongside the prose reason; `routes.py`
   groups on the code, keeps the sentence as per-row detail. Fixes the
-  verified grouping bug; unit tests updated in lockstep (this is where
-  the test count moves). `below_min_plays` / `below_min_tracks` are
+  verified grouping bug; unit tests updated in lockstep (the test count
+  moves again here). `below_min_plays` / `below_min_tracks` are
   deliberately not introduced here: `fetch_top_albums_async` drops
   threshold failures before the pipeline sees them
   (`orchestrator.py:112-116`), so those codes only become producible

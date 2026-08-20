@@ -9,7 +9,7 @@ Last updated: 2026-08-20
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **590 passing** across 35 test modules |
+| Tests | **591 passing** across 35 test modules |
 | Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -20,7 +20,7 @@ Last updated: 2026-08-20
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. The F-SWE-1 audit ran 2026-08-20 and returned **migration blocked by F-SWE-2** (report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`); the charter is retired. Owner elected the fix 2026-08-20, so next: apply the F-SWE-2 fix as its own commit (two lines at `orchestrator.py:70-71` plus a regression test; it moves the test count), then WP-1. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. The F-SWE-1 audit ran 2026-08-20 and blocked migration on F-SWE-2 (report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`); the charter is retired. F-SWE-2 was resolved 2026-08-20 in its standalone prerequisite commit. WP-1 is next. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -44,11 +44,11 @@ Last updated: 2026-08-20
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 21.
-- Current-batch entries in active log block: 1.
+- Current-batch entries in active log block: 2.
 - Completed work packages in current-batch entries: WP-0.
 - Next expected work package: WP-1.
-- Latest validated test count: **590 passed**.
-- Newest current-batch entry: 2026-07-24 - Batch 21 opened: UI overhaul definition committed (Batch 21 WP-0).
+- Latest validated test count: **591 passed**.
+- Newest current-batch entry: 2026-08-20 - F-SWE-2 UTC album-year window fixed (Batch 21 WP-0).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -178,7 +178,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (590 tests)
+## 6. Test structure (591 tests)
 
 | File | Count |
 |------|-------|
@@ -196,7 +196,7 @@ loading.js polls GET /progress?job_id=...
 | test_routes.py | 67 |
 | test_utils.py | 34 |
 | test_worker.py | 6 |
-| services/test_lastfm_logic.py | 7 |
+| services/test_lastfm_logic.py | 8 |
 | services/test_lastfm_service.py | 9 |
 | services/test_orchestrator_fetch_and_process.py | 10 |
 | services/test_orchestrator_fetch_spotify.py | 8 |

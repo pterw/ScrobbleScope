@@ -2,9 +2,9 @@
 
 Last updated: 2026-08-20
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done. PR #171 merged 2026-08-19 (`bb187ae`). The F-SWE-1 audit ran
-2026-08-20 and blocked WP-1 on F-SWE-2; the owner elected the fix, which
-lands as its own commit before WP-1. 590 tests across 35 test modules.
+WP-0 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was resolved
+2026-08-20, clearing the F-SWE-1 migration block; WP-1 is next. 591 tests
+across 35 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -146,6 +146,22 @@ The charter was retired in the same commit, per its own output contract.
 Status: resolved 2026-08-20; rotates to the archive at Batch 21 close-out.
 Report at `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`.
 Source: owner request 2026-07-31.
+
+### F-SWE-2: the album year window is built from naive datetimes
+
+`orchestrator.py:70-71` built the Last.fm fetch window with naive datetimes,
+so `.timestamp()` applied the host's local zone. The same shifted timestamps
+were reused to filter individual scrobbles. On a UTC-5 host, each boundary
+moved five hours into the requested year.
+
+This was the twin of F-B19-6 in `heatmap.py`. The standalone pre-WP-1 fix
+adds explicit UTC to both constructors. A deterministic regression drives
+`fetch_top_albums_async` through a simulated UTC-5 time boundary and asserts
+the literal UTC epochs passed to Last.fm; it failed against the naive window
+before passing against the corrected one.
+
+Status: resolved 2026-08-20; rotates to the archive at Batch 21 close-out.
+Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 
@@ -388,41 +404,6 @@ written down anywhere it would be found: the only tracked traces are
 `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Defer the sweep; record
 the decision.
 Status: open. Source: root-hygiene side task, 2026-08-19.
-
-### F-SWE-2: the album year window is built from naive datetimes
-
-`orchestrator.py:70-71` builds the Last.fm fetch window with naive
-`datetime(year, 1, 1)` and `datetime(year, 12, 31, 23, 59, 59)`, so
-`.timestamp()` applies the local zone of the host and the window shifts by
-that offset. `orchestrator.py:100` reuses those timestamps to filter
-individual scrobbles, applying the shift a second time. Measured on the
-UTC-5 development host, the window starts at 05:00 UTC on 1 January instead
-of 00:00, so five hours of scrobbles land in the wrong year at each
-boundary.
-
-This is the defect F-B19-6 fixed in `heatmap.py`. `git show --stat ccb000f`
-confirms that fix touched `scrobblescope/heatmap.py` and
-`tests/test_heatmap.py` only; `orchestrator.py` was never revisited, and
-`heatmap.py:116-122` has used explicit UTC ever since. `AGENTS.md`
-anti-pattern 6 now registers the naive-timezone pattern repository-wide.
-
-Production is unaffected because the Fly.io container runs UTC. Every
-non-UTC host is affected, including the Windows development machine, so
-local verification of album results runs against a shifted window. Fix: add
-`tzinfo=timezone.utc` to both constructors and pin it with a test modelled
-on `test_utc_decode_invariant_against_local_tz_drift`.
-
-**Blocks Batch 21 WP-1** under SWE_AUDIT_CHARTER Section 6: a correctness
-defect in `orchestrator.py`, which WP-7 modifies. The charter offered a fix
-or an owner waiver. **Owner decided 2026-08-20: fix, do not waive.**
-
-The fix is its own commit and lands before WP-1 starts. It is a code change,
-not a docs change, so it moves the test count: two lines in
-`orchestrator.py` plus a regression test modelled on
-`test_utc_decode_invariant_against_local_tz_drift`, which must fail against
-the current naive window before it passes against the fixed one.
-Status: open (P1), owner elected the fix 2026-08-20.
-Source: SWE_PRINCIPLES_AUDIT.
 
 ### F-SWE-4: the production entrypoint never validates API keys
 

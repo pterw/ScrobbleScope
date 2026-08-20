@@ -211,7 +211,7 @@ Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
 | WP-4 unified loading | Playwright for progress polling against a live job; the shared Jinja2 partial is exercised from both `loading.html` and the heatmap panel | 5 |
 | WP-5 results leaderboard | Playwright, driven directly -- see gap 1. The JPEG export must be checked in both themes at mobile and desktop, and the `data-export` CSV precision fix needs a real DOM walk | 5, 7 |
 | WP-6 heatmap seam removal | Playwright plus visual review; `--bars-color` aliasing is the thing to assert in both themes | 2, 3, 8 |
-| WP-7 `reason_code` (only backend WP) | `test-driven-development` or `tdd`, and `systematic-debugging` or `diagnosing-bugs`. This is where the test count moves, so update the inventory sites listed in `AGENTS.md` in the same commit | 6, 9 |
+| WP-7 `reason_code` (only backend WP) | `test-driven-development` or `tdd`, and `systematic-debugging` or `diagnosing-bugs`. The test count moves again here, so update the inventory sites listed in `AGENTS.md` in the same commit | 6, 9 |
 | WP-8 sweep + close-out | `verification-before-completion` before any done claim; `pr-bot-triage` for review rounds. Gap 4 lands here as a recorded decision, not as tooling; gaps 2 and 3 moved to WP-2 | 1, 9 |
 
 ### Verified gaps
