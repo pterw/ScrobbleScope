@@ -19,6 +19,43 @@ plainly as the case for the fix; the decision is the owner's.
 Five further net-new findings (F-SWE-3 to F-SWE-7) are record-and-continue.
 None of them blocks WP-1.
 
+## Owner review, 2026-08-20
+
+Added after the audit was filed. The body below is left as written, because a
+dated report that quietly corrects itself stops being a record of what the
+audit concluded. Two dispositions:
+
+**F-SWE-2 -- fix, do not waive.** The owner took the fix. It lands as its own
+commit before WP-1 starts, and it moves the test count: two lines in
+`orchestrator.py` plus a regression test that must fail against the naive
+window before it passes against the fixed one. The verdict above stands as
+written; this is how it clears.
+
+**F-SWE-3 -- rescoped, P1 to P2, and the audit was partly wrong.** This report
+filed it as a user-facing mislabelling and treated the `No Spotify match`
+reason as an inaccurate thing to show a user. That framing does not hold.
+Thousands of Last.fm-scrobbled albums genuinely have no Spotify release, so
+the label is accurate for the ordinary case and what the user sees is
+correct. The audit took a rare failure and wrote it up as if it were the
+common one.
+
+What survives is narrower and independent of labelling: `spotify.py:67-68`
+marks every non-200, non-429 response terminal, so a 500 ends the attempt
+loop after one try while `SPOTIFY_SEARCH_RETRIES` is 3. The configured
+retries only ever fire for 429. That is a gap between configuration and
+behaviour, not between label and truth, and it is P2.
+
+The UI need the owner raised -- the unmatched modal and page should say
+plainly that an album had no Spotify match -- is already Batch 21 WP-7 scope
+(`BATCH21_DEFINITION.md:297-308`), which introduces the `no_spotify_match`
+reason code and two reason cards with human copy. No new work is tracked
+for it.
+
+The rest of the matrix and the two summary answers are unaffected: F-SWE-3
+contributed one C cell (`spotify.py` Fail Fast), and that cell stands on the
+`assert`-based credential check and the bypassed retries regardless of how
+the reason string reads.
+
 ## Provenance
 
 Recorded from live commands, per charter Section 2a.
@@ -431,6 +468,10 @@ siblings when one instance gets fixed.
 
 Six, written into `FINDINGS.md` as `F-SWE-N` entries with
 `Source: SWE_PRINCIPLES_AUDIT`.
+
+The table below is as filed. Owner review the same day took the fix on
+F-SWE-2 and moved F-SWE-3 to P2 -- see "Owner review, 2026-08-20" near the
+top of this report, and `FINDINGS.md` for the current severities.
 
 | ID | Module | Severity | Effect on WP-1 |
 |---|---|---|---|

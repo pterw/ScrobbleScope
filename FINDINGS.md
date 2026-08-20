@@ -1,9 +1,10 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-15
+Last updated: 2026-08-20
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done; PR #170 merged 2026-08-12, then the F-SWE-1 audit, then WP-1.
-590 tests across 35 test modules.
+WP-0 done. PR #171 merged 2026-08-19 (`bb187ae`). The F-SWE-1 audit ran
+2026-08-20 and blocked WP-1 on F-SWE-2; the owner elected the fix, which
+lands as its own commit before WP-1. 590 tests across 35 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -412,29 +413,16 @@ local verification of album results runs against a shifted window. Fix: add
 on `test_utc_decode_invariant_against_local_tz_drift`.
 
 **Blocks Batch 21 WP-1** under SWE_AUDIT_CHARTER Section 6: a correctness
-defect in `orchestrator.py`, which WP-7 modifies. Fix or waive.
-Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
+defect in `orchestrator.py`, which WP-7 modifies. The charter offered a fix
+or an owner waiver. **Owner decided 2026-08-20: fix, do not waive.**
 
-### F-SWE-3: a Spotify HTTP error is reported as a missing album
-
-`spotify.py:67-68` returns `(None, None, True)` for every non-200,
-non-429 response. The `True` marks the attempt terminal, so
-`retry_with_semaphore` stops immediately -- verified: a simulated HTTP 500
-returns `None` after 1 of 3 permitted attempts. A genuine empty result
-(`spotify.py:75`) returns the identical value, so the caller cannot tell a
-Spotify outage from an album Spotify does not have.
-
-`orchestrator.py:250-262` then records the album with the reason
-`No Spotify match`, which the unmatched page shows the user as fact.
-`_detect_spotify_total_failure` (`orchestrator.py:671-686`) raises
-`spotify_unavailable` only when *every* album failed, so a partial Spotify
-outage silently drops albums from the results with a wrong explanation.
-
-Filed against `spotify.py` because that is where the distinction is
-discarded; `orchestrator.py` cannot recover information it never receives.
-Read the other way this would block WP-1, so the choice is stated in the
-report rather than left implicit.
-Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
+The fix is its own commit and lands before WP-1 starts. It is a code change,
+not a docs change, so it moves the test count: two lines in
+`orchestrator.py` plus a regression test modelled on
+`test_utc_decode_invariant_against_local_tz_drift`, which must fail against
+the current naive window before it passes against the fixed one.
+Status: open (P1), owner elected the fix 2026-08-20.
+Source: SWE_PRINCIPLES_AUDIT.
 
 ### F-SWE-4: the production entrypoint never validates API keys
 
@@ -598,6 +586,35 @@ Status: open (P2). Source: MULTI_AGENT_SWEEP.
 
 Cleanup is opportunistic (at job start); TTL mitigates, does not cap.
 Status: open (P2). Source: MULTI_AGENT_SWEEP.
+
+### F-SWE-3: a Spotify server error bypasses the configured retries
+
+`spotify.py:67-68` returns `(None, None, True)` for every non-200, non-429
+response, and `is_done=lambda t: t[2]` treats that `True` as terminal. A 500
+or 503 therefore ends the attempt loop after one try, while
+`SPOTIFY_SEARCH_RETRIES` is set to 3 -- verified by running it. The retries
+only ever fire for 429. `fetch_spotify_album_details_batch` has the same
+shape at `spotify.py:129-132`.
+
+The consequence is narrow: an album that _is_ on Spotify can be recorded as
+unmatched when a second attempt would have found it.
+
+**Rescoped by the owner, 2026-08-20, and the correction is worth keeping.**
+The audit first filed this as a user-facing mislabelling -- `spotify.py:75`
+returns the same value for a genuine empty result, so
+`orchestrator.py:250-262` records the album with the reason
+`No Spotify match`, and the report treated that label as wrong. It is not.
+Thousands of Last.fm-scrobbled albums genuinely have no Spotify release, so
+the label is accurate for the ordinary case and what the user sees is
+correct. What survives is the defect above -- configured retries that never
+run -- which is a smaller thing than the audit claimed. Severity drops from
+P1 to P2 and the finding moved from the P1 section to this one.
+
+The related UI need -- the unmatched modal and page should say plainly that
+an album had no Spotify match -- is already Batch 21 WP-7 scope
+(`BATCH21_DEFINITION.md:297-308`: the `no_spotify_match` reason code and two
+reason cards with human copy). It is not extra work and is not tracked here.
+Status: open (P2). Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
 
 ### F-SWE-6: reading a job renews its TTL, so a polled job never expires
 
