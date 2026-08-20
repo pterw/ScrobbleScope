@@ -82,19 +82,12 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** land PR #172 after its review-fix validation, then begin
-  Batch 21 WP-1. **F-SWE-2 was resolved 2026-08-20** in its
-  owner-approved standalone prerequisite commit: both album-year boundary
-  constructors now use explicit UTC, and a deterministic UTC-5 regression
-  pins the Last.fm request window. This clears the F-SWE-1 migration block;
-  see `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md` and the
-  Section 4 entry of the same date. Nothing else in the audit blocks; the
-  other five net-new findings are record-and-continue. PR review also
-  corrected the frontend-gate contract: the three repository gates run at
-  every WP; pinned Python Playwright + Chromium and the frontend gate begin
-  together at WP-2. No WP-1 work has started.
-  `docs/SWE_AUDIT_CHARTER.md` is retired and kept only as the record of what
-  the audit was asked to do.
+- **Next action:** PR #172 is merged and no longer a gate. WP-1 is complete
+  and awaiting owner review of its single commit. After acceptance, the
+  already-queued root-hygiene side task (audience banners, README tree,
+  DEPLOY.md) is next by the owner's 2026-08-19 decision. WP-2 follows that
+  side task and owns the base shell, error-page pilot, Playwright runtime,
+  frontend gate, and compiled-CSS pre-commit hook.
   Earlier context, still true: **PR #171 merged to `main` on 2026-08-19**
   (`bb187ae`, rebase merge) with zero unresolved review threads after eight
   rounds; `wip/batch-21` was realigned to it. `BATCH21_DEFINITION.md` was
@@ -105,7 +98,7 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0 done. WP-1 through WP-8 not yet started.
+- Batch 21 WP status: WP-0 and WP-1 done. WP-2 through WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -242,7 +235,75 @@ non-current operational logs. Older dated entries live in
   browser download, workflow change, gate implementation, tests, README, and
   DEVELOPMENT updates all land together at WP-2.
 
+### 2026-08-20 - Tailwind and daisyUI toolchain completed (Batch 21 WP-1)
+
+- Scope: added the Node-free pinned Tailwind/daisyUI toolchain, themes,
+  committed compiled CSS, and Linux CI rebuild. No templates changed and
+  `scripts/dev/dev_start.py` remains unchanged.
+- Plan vs implementation: Tailwind v4.3.3 and daisyUI v5.7.19 pin seven
+  platform assets -- Windows x64, macOS x64 and arm64, Linux x64 and arm64
+  for glibc and musl -- plus `daisyui.mjs` and `daisyui-theme.mjs`. Every
+  artifact is SHA-256-verified on every use; one verified atomic replacement
+  follows an invalid cache entry. The source restricts daisyUI to button,
+  card, modal, toggle, input, select, tab, toast, and alert; it locks the
+  reviewed light/dark palette, type scale, 4px spacing ladder, 8/14/999px
+  radii, and both `--bars-color` aliases. CI caches `scripts/bin/` by runner
+  OS, architecture, and build-script hash.
+- TDD evidence: initial collection failed for the missing
+  `scripts.dev.tailwind_build` module; cache tests first failed on the absent
+  cache interface; source-contract tests first failed on absent
+  `static/css/tailwind.src.css`. Focused green commands were
+  `pytest tests/scripts/dev/test_tailwind_build.py -q`,
+  `pytest tests/scripts/dev/test_tailwind_build_cli.py -q`, and
+  `pytest tests/scripts/dev/test_tailwind_build.py tests/scripts/dev/test_tailwind_build_cli.py -q`
+  (35 passed).
+- Reproducibility: Windows and the `python:3.13-slim` headless glibc-Linux
+  probe both produced SHA-256
+  `481230ebf858f2fe3b0497c7247be3532917e1c6432cd2bde0940721e81d1b09`.
+  The Quality Gate is configured to rebuild with the same Linux x64 asset.
+  It has not run yet, because the branch is unpushed.
+- Documentation: DEVELOPMENT owns commands; README links rather than copying;
+  BATCH21_DEFINITION owns the CI decision; exact pins and digests live in code.
+- Deviations: owner-approved fail-closed hardening distinguishes only `None`
+  as omitted, so explicit empty platform values cannot probe the live host,
+  with deterministic `required_artifacts()` matrix coverage. Same-date
+  live-side precedence also required this minimal pointer addendum and the
+  deterministic rotation of one older non-current entry; point-in-time history
+  was not rewritten. For the four final-review peer-size findings, the owner
+  ruled that the cap is flexible when it prevents only files that are
+  tremendously out of place or becoming god-files. The plan remains one
+  reviewed execution contract, generated `tailwind.css` is indivisible, the
+  builder owns one cohesive standard-library toolchain responsibility, and its
+  tests stay beside that public seam. None is a god-file or out of place, so
+  no split was made and `AGENTS.md` remains unchanged. Final review also
+  found both musl pins unreachable: `platform.libc_ver()` reports nothing on
+  musl and `libc` on some glibc hosts, so the plan's direct
+  `platform.libc_ver()[0]` check gave way to `_normalize_libc()` and
+  `_detect_libc()`, which probes for the musl loader. Verified in Docker on
+  `python:3.13-alpine` and `python:3.13-slim`. The plan keeps its original
+  code listing as the reviewed design.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings. All pre-commit hooks
+  passed; tracked-Markdown manifests were identical before and after the hook;
+  `doc_state_sync.py --fix` exited 0 with the expected active root-definition
+  warning for `BATCH21_DEFINITION.md`.
+- Forward guidance: owner review first; the root-hygiene side task is next;
+  WP-2 follows it. WP-2 keeps the cache, removes the direct CI build step only
+  when its drift hook lands, and adds the first Tailwind-consuming template.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-08-20 - Batch 21 WP-1 test-count authority addendum (side-task)
+
+- Scope: records the post-WP-1 measured suite inventory for docsync's
+  same-day source ordering. No runtime implementation changed.
+- Plan vs implementation: the new current-batch WP-1 entry remains the owner
+  of toolchain evidence. This live addendum supplies its later full-suite
+  result because same-date side-task entries take precedence over
+  current-batch entries in docsync's authority ordering.
+- Deviations: none.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+- Forward guidance: owner review of the WP-1 commit remains first; the
+  root-hygiene side task follows, then WP-2.
 
 ### 2026-08-20 - Agent document map added; HANDOFF_PROMPT trimmed (side-task)
 
@@ -483,31 +544,3 @@ non-current operational logs. Older dated entries live in
   publish the migration verdict before WP-1 starts. The verified root-hygiene
   plan (audience banners, README tree, DEPLOY.md) is deferred until after
   WP-1 by owner decision; its line numbers will need re-checking.
-
-### 2026-08-19 - PR #171 round-8 thread fixed: push authorization in the cycle diagram (side-task)
-
-- Scope: one unresolved Codex thread on `docs/architecture/development-cycle.md`,
-  raised again by an owner-side human peer on the grounds that this diagram
-  purports to govern agents. Checked against the ruleset before editing. Valid.
-- Verification: the diagram had a single unconditional edge,
-  `Authorize -->|Review-fix commit on an open PR| PR`. `AGENTS.md:234-242`
-  grants that standing exception to Claude Code and Codex sessions only and
-  says in terms that it does not extend to GitHub Copilot task sessions or
-  their subagents, Jules, or any other agent. An agent reading the canonical
-  diagram would therefore push a review-fix commit that the ruleset requires
-  it to pause on.
-- Plan vs implementation: the decision node now carries three edges instead of
-  two. WP and batch commits pause in any session; the direct path is labelled
-  Claude Code or Codex only; every other agent routes to the same pause. Added
-  prose naming `AGENTS.md` as the owner of the rule, and recording the three
-  actions that always need explicit instruction whatever the session --
-  force-pushes, history rewrites, and anything targeting `main` -- plus the
-  Copilot platform-tool requirement at `AGENTS.md:243-244`, neither of which
-  the diagram had carried.
-- Deviations: none. No code changed.
-- Validation: the edited diagram was validated before it was written --
-  `valid = true`, type `flowchart`. `pytest -q` -- **590 passed**.
-  `doc_state_sync.py --check` -- exit 0 with the expected root BATCH warning.
-- Forward guidance: next action unchanged -- the F-SWE-1 audit, then WP-1. A
-  preflight amendment to the charter and the Batch 21 WP gates is agreed and
-  pending; see the owner decisions recorded with it.

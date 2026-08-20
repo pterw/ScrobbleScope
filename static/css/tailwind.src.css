@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+@source "../../templates";
+@source "../../static/js";
+@source not "./tailwind.css";
+@source not "../../scripts/bin/*";
+
+@theme {
+  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  --text-label-sm: 0.71875rem;
+  --text-label-sm--line-height: 1rem;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1rem;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.25rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-display: 1.5rem;
+  --text-display--line-height: 1.75rem;
+  --text-display-lg: 2rem;
+  --text-display-lg--line-height: 2.25rem;
+  --text-display-xl: 3rem;
+  --text-display-xl--line-height: 1;
+
+  --spacing: initial;
+  --spacing-*: initial;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-12: 3rem;
+
+  --radius-*: initial;
+  --radius-sm: 8px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+}
+
+@theme inline {
+  --color-canvas: var(--color-base-100);
+  --color-surface: var(--color-base-200);
+  --color-ink: var(--color-base-content);
+  --color-brand: var(--color-primary);
+}
+
+@plugin "../../scripts/bin/daisyui.mjs" {
+  themes: false;
+  include: button, card, modal, toggle, input, select, tab, toast, alert;
+  logs: false;
+}
+
+@plugin "../../scripts/bin/daisyui-theme.mjs" {
+  name: "light";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: #faf8f3;
+  --color-base-200: #f0ebe0;
+  --color-base-300: color-mix(in srgb, #f0ebe0 86%, #1a1820);
+  --color-base-content: #1a1820;
+  --color-primary: #6a4baf;
+  --color-primary-content: #faf8f3;
+  --color-secondary: var(--color-primary);
+  --color-secondary-content: var(--color-primary-content);
+  --color-accent: var(--color-primary);
+  --color-accent-content: var(--color-primary-content);
+  --color-neutral: #1a1820;
+  --color-neutral-content: #faf8f3;
+  --color-info: var(--color-primary);
+  --color-info-content: var(--color-primary-content);
+  --color-success: #198754;
+  --color-success-content: #faf8f3;
+  --color-warning: #ffc107;
+  --color-warning-content: #1a1820;
+  --color-error: #dc3545;
+  --color-error-content: #faf8f3;
+
+  --radius-selector: 999px;
+  --radius-field: 8px;
+  --radius-box: 14px;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+  --bars-color: var(--color-primary);
+}
+
+@plugin "../../scripts/bin/daisyui-theme.mjs" {
+  name: "dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: dark;
+
+  --color-base-100: #0e0c12;
+  --color-base-200: #181520;
+  --color-base-300: color-mix(in srgb, #181520 88%, #f1ede4);
+  --color-base-content: #f1ede4;
+  --color-primary: #b39dde;
+  --color-primary-content: #0e0c12;
+  --color-secondary: var(--color-primary);
+  --color-secondary-content: var(--color-primary-content);
+  --color-accent: var(--color-primary);
+  --color-accent-content: var(--color-primary-content);
+  --color-neutral: #f1ede4;
+  --color-neutral-content: #0e0c12;
+  --color-info: var(--color-primary);
+  --color-info-content: var(--color-primary-content);
+  --color-success: #198754;
+  --color-success-content: #f1ede4;
+  --color-warning: #ffc107;
+  --color-warning-content: #0e0c12;
+  --color-error: #dc3545;
+  --color-error-content: #f1ede4;
+
+  --radius-selector: 999px;
+  --radius-field: 8px;
+  --radius-box: 14px;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+  --bars-color: var(--color-primary);
+}
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));

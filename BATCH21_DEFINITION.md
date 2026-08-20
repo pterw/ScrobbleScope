@@ -1,6 +1,6 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) is next.
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) is complete; WP-2 is the next batch work package after the owner-approved root-hygiene side task.
 **Branch:** `wip/batch-21` (linked worktree; lineage changes are recorded
 in PLAYBOOK Section 4 rather than pinned here).
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
@@ -167,6 +167,14 @@ kickoff log entry.
   binary, or the drift hook is local-only. Nothing currently requires that
   decision to be written down, which is how the drift hook came to be
   specified against an unresolved dependency.
+- **CI fetch decision (owner-approved 2026-08-20; implemented in WP-1):** the
+  Quality Gate fetches the current runner's pinned Tailwind executable and both
+  daisyUI bundles through `scripts/dev/tailwind_build.py`, then caches
+  `scripts/bin/` by runner OS, architecture, and build-script hash. Every cache
+  restore is digest-verified by the script before execution. The exact versions
+  and SHA-256 values are enforced by that script as the runtime source of truth.
+  WP-1 uses a direct Linux build-and-diff step; WP-2 keeps the cache and
+  replaces the direct step with its compiled-CSS pre-commit drift hook.
 - **Measure reproducibility before anything depends on it.** Build once on
   the owner machine and once on headless Linux (the CI image) and confirm
   the two `tailwind.css` outputs are byte-identical. This WP asserts

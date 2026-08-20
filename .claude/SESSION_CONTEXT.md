@@ -9,8 +9,8 @@ Last updated: 2026-08-20
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **591 passing** across 35 test modules |
-| Coverage | 89% (2026-07-28 run, `pytest --cov=scrobblescope`) |
+| Tests | **633 passing** across 37 test modules |
+| Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
 | Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
@@ -20,7 +20,7 @@ Last updated: 2026-08-20
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 done; the repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. The F-SWE-1 audit ran 2026-08-20 and blocked migration on F-SWE-2 (report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`); the charter is retired. F-SWE-2 was resolved 2026-08-20 in its standalone prerequisite commit. WP-1 is next. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 and WP-1 are done; the owner-approved root-hygiene side task is next, then WP-2. The repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. The F-SWE-1 audit ran 2026-08-20 and blocked migration on F-SWE-2 (report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`); the charter is retired. F-SWE-2 was resolved 2026-08-20 in its standalone prerequisite commit. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -44,11 +44,11 @@ Last updated: 2026-08-20
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 21.
-- Current-batch entries in active log block: 3.
-- Completed work packages in current-batch entries: WP-0.
-- Next expected work package: WP-1.
-- Latest validated test count: **591 passed**.
-- Newest current-batch entry: 2026-08-20 - PR #172 frontend-gate contract made executable (Batch 21 WP-0).
+- Current-batch entries in active log block: 4.
+- Completed work packages in current-batch entries: WP-0, WP-1.
+- Next expected work package: WP-2.
+- Latest validated test count: **633 passed**.
+- Newest current-batch entry: 2026-08-20 - Tailwind and daisyUI toolchain completed (Batch 21 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -73,12 +73,14 @@ scrobblescope/
 templates/                  # base, index, loading, results, unmatched, error
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark)
 static/
-  css/                      # global, index, loading, results, unmatched, error, heatmap (7 files)
+  css/                      # global, index, loading, results, unmatched, error, heatmap, tailwind.src.css, tailwind.css (9 files)
   js/                       # theme, index, loading, results, unmatched, error, heatmap (7 files)
 scripts/
+  bin/                       # gitignored verified Tailwind/daisyUI artifact cache
   doc_state_sync.py         # thin entry point for deterministic documentation sync
   dev/
     dev_start.py            # Postgres container check plus Flask launch
+    tailwind_build.py       # verified standalone Tailwind + daisyUI frontend builder
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
     _worktree_guard_lineage.py # PLAYBOOK parsing and pure classification
@@ -178,7 +180,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (591 tests)
+## 6. Test structure (633 tests)
 
 | File | Count |
 |------|-------|
@@ -204,6 +206,8 @@ loading.js polls GET /progress?job_id=...
 | services/test_orchestrator_process_albums.py | 7 |
 | services/test_spotify_service.py | 10 |
 | scripts/dev/test_dev_start.py | 11 |
+| scripts/dev/test_tailwind_build.py | 28 |
+| scripts/dev/test_tailwind_build_cli.py | 7 |
 | scripts/dev/test_worktree_guard.py | 23 |
 | scripts/dev/test_worktree_guard_base_ref.py | 6 |
 | scripts/dev/test_worktree_guard_cli.py | 5 |

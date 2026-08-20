@@ -2,9 +2,9 @@
 
 Last updated: 2026-08-20
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was resolved
-2026-08-20, clearing the F-SWE-1 migration block; WP-1 is next. 591 tests
-across 35 test modules.
+WP-0 and WP-1 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
+resolved 2026-08-20, clearing the F-SWE-1 migration block; the root-hygiene
+side task is next before WP-2. 633 tests across 37 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -189,6 +189,43 @@ code. The diagrams now state the limit instead of claiming the release is
 unconditional.
 Status: open. Source: PR #171 diagram verification, 2026-08-15.
 
+### F-B21-2: three dormant Tailwind seams that WP-2 meets at once
+
+WP-1 shipped the compiled Tailwind and daisyUI CSS, but no template consumes
+it, so three defects sit dormant and the first migrated template hits all
+three together.
+
+**Nothing sets `data-theme`.** daisyUI keys both themes on that attribute.
+The live control is `body.classList.toggle('dark-mode')`
+(`static/js/theme.js:17`), which no daisyUI rule reads. A migrated template
+therefore renders the light theme in both modes.
+
+**`prefersdark: true` compiles to an always-on rule.**
+`static/css/tailwind.src.css:104` produces `:root:not([data-theme])` inside a
+dark media query (`static/css/tailwind.css:2042`). While nothing carries
+`data-theme`, that selector matches every page, so an OS-dark visitor gets
+dark daisyUI colours whatever the in-page toggle says. Setting `data-theme`
+settles this seam too, which is why the two are one finding.
+
+**Bootstrap loads unlayered and therefore wins.** `templates/base.html:26`
+loads Bootstrap 5.1.3 from cdnjs with no `@layer`, while
+`static/css/tailwind.css:3` declares `@layer theme, base, components,
+utilities`. Unlayered styles beat layered ones at any specificity, so
+Bootstrap wins every shared class name. The compiled CSS emits ten daisyUI
+component classes -- `.alert`, `.btn`, `.card`, `.input`, `.modal`,
+`.select`, `.tab`, `.tabs`, `.toast`, `.toggle` -- and Bootstrap defines
+several of the same, `.btn`, `.card`, `.modal`, `.alert` and `.toast` among
+them; measure the exact overlap against the pinned Bootstrap build at WP-2.
+`static/css/global.css` (`base.html:29`) is unlayered as well. **Layer
+Bootstrap; do not raise specificity** -- raising it fights the cascade in
+every rule written afterwards. This is a cascade-ordering defect, distinct
+from the CDN-provider split in F-B20-3, which Batch 21 closes by removing
+Bootstrap at WP-8.
+
+Nothing is broken in production today, which is why WP-1's gates passed over
+all three.
+Status: open; closes at Batch 21 WP-2. Source: WP-1 final review, 2026-08-20.
+
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed
@@ -369,9 +406,10 @@ trigger anti-pattern 11 in `AGENTS.md`, which requires a claim to be applied
 across the corpus in the commit that states it -- a sweep far larger than the
 benefit. Treat this as standing guidance for text you are already editing.
 
-Concrete instance: `AGENTS.md` uses the coined term "blast-radius" in three
-places (currently around lines 254, 262 and 550 -- locate by the term, not
-the number). Later agent sessions copy it from there. Replace it with the
+Concrete instance: `AGENTS.md` carries the coined term "blast-radius"
+hyphenated in two places, and the spaced phrase "blast radius" in one more.
+Locate them by the term; the line numbers drift with every insertion above
+them. Later agent sessions copy it from there. Replace it with the
 plain phrase, such as "search the repo for other copies of the same claim",
 when those lines are next edited for another reason.
 Status: open (guidance, never a gate). Source: owner style direction,
