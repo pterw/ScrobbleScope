@@ -198,7 +198,9 @@ three together.
 **Nothing sets `data-theme`.** daisyUI keys both themes on that attribute.
 The live control is `body.classList.toggle('dark-mode')`
 (`static/js/theme.js:17`), which no daisyUI rule reads. A migrated template
-therefore renders the light theme in both modes.
+therefore renders the light theme in both modes. `BATCH21_DEFINITION.md` WP-2
+already prescribes the remedy: `theme.js` dual-writes `data-theme` and
+`.dark-mode`.
 
 **`prefersdark: true` compiles to an always-on rule.**
 `static/css/tailwind.src.css:104` produces `:root:not([data-theme])` inside a
@@ -215,12 +217,14 @@ Bootstrap wins every shared class name. The compiled CSS emits ten daisyUI
 component classes -- `.alert`, `.btn`, `.card`, `.input`, `.modal`,
 `.select`, `.tab`, `.tabs`, `.toast`, `.toggle` -- and Bootstrap defines
 several of the same, `.btn`, `.card`, `.modal`, `.alert` and `.toast` among
-them; measure the exact overlap against the pinned Bootstrap build at WP-2.
-`static/css/global.css` (`base.html:29`) is unlayered as well. **Layer
-Bootstrap; do not raise specificity** -- raising it fights the cascade in
-every rule written afterwards. This is a cascade-ordering defect, distinct
-from the CDN-provider split in F-B20-3, which Batch 21 closes by removing
-Bootstrap at WP-8.
+them. `static/css/global.css` (`base.html:29`) is unlayered as well.
+The remedy is already locked and this finding defers to it:
+`BATCH21_DEFINITION.md` WP-2 moves the Bootstrap link into a per-page block
+so each template loads exactly one framework stylesheet. That removes the
+collision rather than re-ordering it, and it supersedes the cascade-layering
+approach this finding first proposed. This is a cascade-ordering defect,
+distinct from the CDN-provider split in F-B20-3, which Batch 21 closes by
+removing Bootstrap at WP-8.
 
 Nothing is broken in production today, which is why WP-1's gates passed over
 all three.
