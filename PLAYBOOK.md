@@ -292,6 +292,25 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-20 - F-B21-2 deferred to the locked WP-2 remedy (side-task)
+
+- Scope: corrected one finding that prescribed a fix competing with an
+  owner-locked decision. No runtime code changed.
+- Plan vs implementation: `F-B21-2` was filed from the WP-1 review without
+  reading `BATCH21_DEFINITION.md:186-204`, which already prescribes WP-2's
+  remedies. It told a reader to layer Bootstrap; the locked decision instead
+  moves the Bootstrap link into a per-page block so each template loads
+  exactly one framework stylesheet, removing the collision rather than
+  re-ordering it. The finding now defers to the definition and says so. Its
+  `data-theme` seam likewise points at the locked `theme.js` dual-write. The
+  defect descriptions are kept, because they record why those decisions
+  matter; only the competing prescription is gone.
+- Deviations: none. The batch definition was not edited. A finding must not
+  outrank the batch contract, so the finding moved.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+- Forward guidance: WP-2 is next and closes `F-B21-2`. Check a finding against
+  the active batch definition before filing a remedy in it.
+
 ### 2026-08-20 - README roadmap reconciled with FINDINGS (side-task)
 
 - Scope: removed one stale roadmap item that contradicted an open finding, and
@@ -350,68 +369,3 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **633 passed**, 3 warnings.
 - Forward guidance: owner review of the WP-1 commit remains first; the
   root-hygiene side task follows, then WP-2.
-
-### 2026-08-20 - Agent document map added; HANDOFF_PROMPT trimmed (side-task)
-
-- Scope: the owner asked for an instructional that lets an agent other than
-  Claude navigate the documentation set -- including the audit and SWE
-  documents -- and understand why each document exists. Added
-  `docs/AGENT_DOC_MAP.md` and registered it in the `AGENTS.md` Document Roles
-  table. Documentation only; no runtime code changed.
-- Plan vs implementation: as planned. The map routes rather than summarises.
-  It names the owner of each fact and links to it, so it adds no copy that a
-  later edit can contradict (`AGENTS.md` Anti-duplication rule). Sections:
-  the one-owner rule and why it exists, where to start, the document groups,
-  the human-facing documents, how to read an audit, how to read a finding,
-  seven navigation traps, the pre-change gates, and the tie-break order when
-  two documents disagree. It sits under `docs/` rather than the repository
-  root, because a twelfth root Markdown file would worsen the problem the map
-  exists to solve, and it is marked optional and outside the bootstrap set so
-  it does not inflate the cold-start read. 264 lines, under the 370-line
-  largest peer in `docs/`.
-- Audit guidance is the part with no prior owner: the charter to report to
-  findings to log-entry lifecycle, why a retired charter is kept, why a dated
-  report is never edited in place, and that a report is a measurement of one
-  day rather than current truth. The SWE report's own "Owner review" section
-  is cited as the worked example of an appended correction.
-- Owner request mid-task, and the reason it changed shape: delete
-  `HANDOFF_PROMPT.md`. That is not a documentation-only delete. The file is
-  pinned into the commit gate at `scripts/docsync/cli.py:26` and
-  `scripts/docsync/integrity.py:51`. `cli.py:88` loads every
-  `LIVE_DOCUMENT_PATHS` entry through `_read_lines`, which raises `SyncError`
-  on a missing file and maps to exit 2, and the `doc-state-sync-check` hook
-  runs `--check` with `always_run: true`. Deleting the file alone would fail
-  every commit in the repository until `cli.py`, `integrity.py`,
-  `tests/conftest.py:149` and four assertions in
-  `tests/test_docsync_integrity.py` changed with it. The owner chose to trim
-  the file instead of deleting it.
-- Trim: `HANDOFF_PROMPT.md` went from 66 to 46 lines. Removed three sections
-  that carried no requirement of their own and only named an `AGENTS.md`
-  section: validation gates, commit discipline, and anti-patterns. Every
-  subject those sections named survives in the new opening paragraph, checked
-  against the removed text one item at a time per Anti-Pattern 12. The two
-  unique parts are untouched: the post-read verification and the handoff
-  checklist. Section numbers were replaced with names, so no later edit can
-  leave a stale "Section 4)" citation behind. `DEVELOPMENT.md:74-78` already
-  claimed the file held only those two things, so the trim closes an existing
-  drift rather than creating one.
-- Deviations: two stale claims corrected in the same commit, both left behind
-  by the 2026-08-20 audit commits. `BATCH21_DEFINITION.md:3` still read that
-  the F-SWE-1 audit "comes next" after PR #170; the audit ran on 2026-08-20.
-  The `README.md` documentation tree still described
-  `docs/SWE_AUDIT_CHARTER.md` as "Standing audit scope and method"; the
-  charter is retired. The same tree gained a row for the new map, because it
-  enumerates the contents of `docs/`.
-- Validation: `pytest -q` **590 passed** (unchanged; no code touched);
-  `pre-commit run --all-files` all hooks passed;
-  `python scripts/doc_state_sync.py --check` exit 0 with the expected
-  active-root `BATCH21_DEFINITION.md` warning. Every tracked Markdown file
-  was checksummed before and after the pre-commit run and compared, because
-  that hook has twice reverted files nobody edited, once into a commit.
-- Forward guidance: unchanged. The F-SWE-2 fix is still the next action. It
-  is a code commit and it moves the test count off 590.
-- **Later same-day test-count addendum:** the F-SWE-2 current-batch entry above
-  records the subsequent code change and owns its implementation details. Its
-  full-suite result was `pytest -q` -- **591 passed**. The earlier 590 result
-  in this entry remains point-in-time evidence; this pointer supplies the
-  later same-date count to docsync's live-side-first authority order.
