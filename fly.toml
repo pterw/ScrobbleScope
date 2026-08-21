@@ -6,6 +6,8 @@
 app = "scrobblescope"
 primary_region = "yyz"
 
+# [build] is intentionally empty; the Dockerfile is paired by co-location at
+# the repository root. See DEPLOY.md ("Where the config lives") before moving.
 [build]
 
 [deploy]

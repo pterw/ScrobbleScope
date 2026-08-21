@@ -345,8 +345,8 @@ owns the sole build and watch procedure.
 |-- app.py                         # Flask app factory, logging, secret validation
 |-- run.py                         # Convenience launcher (opens browser)
 |-- init_db.py                     # Postgres schema init (Fly.io release_command)
-|-- fly.toml                       # Fly.io deployment config
-|-- Dockerfile
+|-- fly.toml                       # Fly.io deploy config (paired with Dockerfile)
+|-- Dockerfile                     # Fly resolves this by co-location; see DEPLOY.md
 |-- requirements.txt               # Runtime dependencies
 |-- requirements-dev.txt           # Dev/test/tooling (includes requirements.txt)
 |-- pyproject.toml                 # Tool config (isort, pytest, pyright)

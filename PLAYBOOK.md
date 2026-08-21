@@ -82,12 +82,12 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** PR #172 is merged and no longer a gate. WP-1 is complete
-  and awaiting owner review of its single commit. After acceptance, the
-  already-queued root-hygiene side task (audience banners, README tree,
-  DEPLOY.md) is next by the owner's 2026-08-19 decision. WP-2 follows that
-  side task and owns the base shell, error-page pilot, Playwright runtime,
-  frontend gate, and compiled-CSS pre-commit hook.
+- **Next action:** WP-1 is complete and awaiting owner review of its single
+  commit. The root-hygiene side task is **closed**: the owner rejected the
+  audience-banner scheme on 2026-08-20, and the config-file verdict landed in
+  `DEPLOY.md`. **WP-2 is next.** It owns the base shell, error-page pilot,
+  Playwright runtime, frontend gate, and compiled-CSS pre-commit hook, and it
+  closes the three seams filed as F-B21-2.
   Earlier context, still true: **PR #171 merged to `main` on 2026-08-19**
   (`bb187ae`, rebase merge) with zero unresolved review threads after eight
   rounds; `wip/batch-21` was realigned to it. `BATCH21_DEFINITION.md` was
@@ -292,6 +292,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-20 - Root hygiene: config verdict recorded, banners withdrawn (side-task)
+
+- Scope: recorded the root config-file verdict in the document that owns
+  deploys, and corrected one false self-description. No runtime code changed.
+- Plan vs implementation: the owner rejected the audience-banner scheme in the
+  local root-hygiene plan. Its two-label vocabulary restated what the
+  `AGENTS.md` Document Roles table and `docs/AGENT_DOC_MAP.md` already own,
+  and its rule that no file claims both audiences is false for files that are
+  both. `DEVELOPMENT.md` was the worked example: it called itself explanatory
+  documentation only while owning the Frontend Asset Build commands that other
+  documents cite. That sentence is narrowed rather than banner-stamped.
+  `DEPLOY.md` gains "Where the config lives"; `fly.toml` gains a pointer
+  comment above its empty `[build]`; the README tree names the co-location
+  instead of leaving `Dockerfile` uncommented.
+- Deviations: the banner steps, the `AGENTS.md` audience rule, and the README
+  audience split are **withdrawn, not deferred**. Verification also corrected
+  an earlier claim that the banner would strand agents:
+  `BATCH21_DEFINITION.md:448-450` already binds WP-2 through WP-7 to run
+  `tailwind_build.py`, so no agent depended on `DEVELOPMENT.md` for the
+  obligation. Only the fuller procedure, including watch mode and the worktree
+  caveat, lives there.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+- Forward guidance: WP-2 is next. Nothing from this side task blocks it.
+
 ### 2026-08-20 - Batch 21 WP-1 test-count authority addendum (side-task)
 
 - Scope: records the post-WP-1 measured suite inventory for docsync's
@@ -437,110 +461,3 @@ non-current operational logs. Older dated entries live in
   active-root `BATCH21_DEFINITION.md` warning.
 - Forward guidance: apply the F-SWE-2 fix as its own commit, then WP-1. Root
   hygiene stays deferred until after WP-1.
-
-### 2026-08-19 - Batch 21 preflight: F-SWE-1 charter and WP gates amended (side-task)
-
-- Scope: owner preflight review before WP-1, raised as six criticisms of
-  `docs/SWE_AUDIT_CHARTER.md` and an eight-row table of weak WP gates. Two
-  verification agents checked every claim against the files before any edit.
-  All six charter criticisms held. Two of the batch claims did not.
-- Verification of the owner report:
-  - Confirmed: the charter named five docsync modules when the directory has
-    seven (`integrity.py`, 474 lines, unnamed) and its LOC figure was stale
-    for the five it did name; the differential baseline was a closed ID list
-    omitting F-B21-1, F-DATA-1, F-WORKTREE-3/4/5, F-DOCSYNC-6/7 and never
-    referenced `FINDINGS_ARCHIVE.md`; A/B/C/D was defined nowhere in the
-    repository; the matrix was 190-210 cells with explicit permission to cut
-    modules; no severity or stop condition existed anywhere, so finishing the
-    audit was the same as passing it; and the post-Batch-21 frontend audit
-    was permissive ("can"), not required.
-  - Corrected: the excluded set is a proper subset of what Batch 21 rewrites,
-    not equal to it -- WP-7 modifies `routes.py` and `orchestrator.py`, which
-    are in scope, so those grades also expire at WP-7. The charter never
-    addressed that; it now does.
-  - Refuted: the claimed AGENT_NOTES-versus-definition contradiction over the
-    drift hook. `AGENT_NOTES.md` requires the CI-fetch *decision* at WP-1;
-    the definition deferred the *hook* to WP-8. Both could hold. The real
-    defect was quieter -- no WP-1 criterion required the decision to be
-    recorded, so nothing enforced it.
-- Root cause neither side had named: the batch validation gate is three
-  Python commands, and pre-commit excludes `static/` and `templates/`. A work
-  package could rewrite every template and stylesheet with a fully green
-  gate, in a batch that is nothing but template and stylesheet rewriting.
-- Plan vs implementation:
-  - Charter: 13 graded modules enumerated by name (130 cells, `__init__.py`
-    excluded by a stated empty-module rule); docsync and `scripts/dev/`
-    excluded with reasons rather than left ambiguous; provenance block
-    naming branch, SHA and clean state; symbol-based hotspot discovery
-    replacing hardcoded line numbers and counts; baseline widened to the
-    whole finding corpus plus the archive and every report from 2026-02 on;
-    A/B/C/D rubric with the B/C line defined as exception-versus-pattern;
-    Boy Scout window fixed at commits since the February audits; a
-    resolved-finding branch for C/D cells; a migration-blocking severity
-    policy with a one-line verdict required in the report; an instruction to
-    retire the charter at close. The budget escape hatch is withdrawn.
-  - Batch 21: new `scripts/dev/frontend_gate.py` added as a fourth gate
-    command at WP-2 and grown one page per WP, covering stylesheet
-    isolation, computed theme tokens in both themes, theme persistence,
-    self-hosted font loading, CSV/JPEG export assertions, and headline
-    wrapping. The `tailwind-css-drift` hook moved from WP-8 to WP-2, with
-    the `always_run` / `pass_filenames` requirement that AGENT_NOTES gap 2
-    had already identified and the definition had not carried. Targeted
-    criteria added to WP-3 (keyboard and touch reachability for the CSS-only
-    hints, label associations, validation parity), WP-4 (both state machines
-    including retryable and non-retryable failures), WP-7 (split into a
-    backend contract commit and a UI commit), and WP-8 (required frontend
-    and accessibility audit, deterministic Bootstrap-removal grep, recorded
-    lint disposition). Browser floor documented; `.dark-mode` retirement
-    given an owner; criterion 9 reconciled with the per-WP docsync check.
-  - FINDINGS.md: F-STYLE-1 (prose legibility, explicitly never a gate) and
-    F-STYLE-2 (docstring convention, the black/flake8 line-length
-    disagreement, and the unwritten Ruff plan) added. F-SWE-1 corrected --
-    it claimed the charter scoped "Python only until Batch 21 ships", a
-    commitment the charter never made.
-  - AGENTS.md: the F-ID source-tag list named five tags while nine are in
-    use. `SWE`, `WORKTREE`, `DATA` and `STYLE` added, and the list is now
-    declared complete so the next coined tag gets documented.
-- Deviations: the drift hook landed at WP-2 rather than the WP-1 the owner
-  proposed. WP-1 changes no template, so nothing consumes the compiled CSS
-  until WP-2; WP-2 is the first point where drift can ship.
-- Independent review of the amended charter, same day, and the fixes it drove:
-  - The migration gate did not say whether it covered existing findings. Read
-    the wide way, F-B21-1 blocks WP-1 today -- a resource-release defect in
-    `orchestrator.py`, which WP-7 modifies. The gate is now scoped to net-new
-    findings in terms, F-B21-1 is named as the case that forces the
-    distinction, and an audit that thinks an existing finding should block
-    must recommend rather than act.
-  - The A/B/C/D rubric graded by frequency ("one place is B, several is C")
-    while its own table graded by cost. One leak can be C; five contained
-    exceptions can stay B. Rewritten to grade cost, not count. The
-    "when torn, over-raise" instruction is deleted -- it contradicted
-    Section 4's rule that the audit's value is not volume.
-  - Resolved and no-action findings shared one rule. Split: a recurred
-    resolved defect earns a new finding; an unchanged no-action rationale
-    does not; materially changed assumptions do, explaining the delta.
-  - Provenance permitted grading a dirty tree, which no SHA can reproduce.
-    A clean worktree is now required before grading starts.
-  - The hotspot command was `awk '...{...}'` -- a placeholder that could not
-    run, and a poor Python parser besides. Replaced with a tested `ast`
-    script in a new Section 5c, deliberately at the left margin: a heredoc
-    terminator indented inside the numbered list fails with
-    `IndentationError`, which was verified rather than assumed.
-  - Boy Scout used `git log`, which lists commits without showing what they
-    left behind. Now `git log -p`, with an instruction to read the patches.
-  - "Weakest principle repo-wide" overclaimed: the audit excludes the
-    frontend, both script directories, and tests as graded subjects. Scoped
-    to the audited runtime modules.
-  - Cell arithmetic hardcoded 130 in three places while Section 3 allowed the
-    principle count to change. All three now derive from the live count.
-  - One review point was stale, not wrong: the claim that WP-8 defines no
-    frontend principles audit. It does, in this commit's parent -- the
-    reviewer was reading `origin/main`, because the amendment is committed
-    locally and deliberately unpushed.
-- Validation: `pytest -q` -- **590 passed**. `pre-commit run --all-files` --
-  all hooks pass. `doc_state_sync.py --check` -- exit 0 with the expected
-  root BATCH warning.
-- Forward guidance: execute the amended charter against current `main` and
-  publish the migration verdict before WP-1 starts. The verified root-hygiene
-  plan (audience banners, README tree, DEPLOY.md) is deferred until after
-  WP-1 by owner decision; its line numbers will need re-checking.

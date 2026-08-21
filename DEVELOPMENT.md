@@ -4,8 +4,10 @@ This document explains how ScrobbleScope was built: the orchestration
 strategy, the tooling decisions, and the reasoning behind each one. It is
 written for anyone who clones this repository and wants to understand why
 the project is structured the way it is beyond what `AGENTS.md` prescribes.
-It is explanatory human documentation only: it grants no agent authority,
-and operational rules remain owned by `AGENTS.md`.
+It is explanatory documentation. Operational rules remain owned by
+`AGENTS.md`, and nothing here overrides them. One section is an exception:
+Frontend Asset Build owns the build and watch commands, and other documents
+point to it for them.
 
 ---
 
