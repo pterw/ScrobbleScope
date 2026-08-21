@@ -303,7 +303,7 @@ mapping, error guards) into a common module and split the orchestrator
 into pipeline / processing / result-shaping modules. Also on the README
 roadmap; absorbs F-B18-7. Status: open. Source: Batch 18 audit.
 
-### F-B20-3: Bootstrap CDN source consolidation
+### F-B20-3: Bootstrap loads from two CDN providers
 
 `base.html` loads Bootstrap CSS from cdnjs while `index.html` loads the
 JS bundle from jsdelivr; other pages use cdnjs. The original remedy

@@ -9,6 +9,74 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-20 - F-SWE-1 SWE principles audit executed (side-task)
+
+- Scope: executed `docs/SWE_AUDIT_CHARTER.md` against `1994673`, whose
+  runtime code is byte-identical to `main` at `bb187ae` -- the five commits
+  between them are documentation only. Read-only audit; all 130 cells
+  (13 graded modules x 10 principles) filled in one session. Report:
+  `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`.
+- **Verdict: migration blocked by F-SWE-2**, per charter Section 6 -- a
+  net-new correctness defect in `orchestrator.py`, which WP-7 modifies.
+  `orchestrator.py:70-71` builds the listening-year window from naive
+  datetimes, so the window shifts by the local offset of the host: measured
+  at five hours on this machine. It is the same defect F-B19-6 fixed in
+  `heatmap.py`; `git show --stat ccb000f` confirms that fix touched heatmap
+  and its tests only, and the twin was never revisited. Production is
+  unaffected because the Fly.io container runs UTC. Every non-UTC host is
+  affected, including local dev, so local checks of album results have been
+  running against a shifted window.
+- **Owner decisions, same day.** F-SWE-2: fix, do not waive -- it lands as
+  its own commit before WP-1 and moves the test count. F-SWE-3: rescoped
+  from P1 to P2, and the audit was partly wrong. It filed the
+  `No Spotify match` reason as a user-facing mislabelling; that framing does
+  not hold, because thousands of Last.fm-scrobbled albums genuinely have no
+  Spotify release, so the label is accurate for the ordinary case. What
+  survives is narrower and independent of labelling: `spotify.py:67-68`
+  marks every non-200, non-429 response terminal, so a 500 ends the attempt
+  loop after one try while `SPOTIFY_SEARCH_RETRIES` is 3. The related UI
+  need -- the unmatched modal and page should say plainly that an album had
+  no Spotify match -- is already WP-7 scope
+  (`BATCH21_DEFINITION.md:297-308`), not new work.
+- Grades: 74 A, 28 B, 8 C, 2 D, 18 N/A. The weakest principle is Fail Fast,
+  holding five of the eight C grades and only two A grades across 13
+  modules. The failures share one shape: the code catches a problem and
+  discards what the problem was.
+- Six net-new findings, F-SWE-2 to F-SWE-7. Every one of the ten C and D
+  cells carries a disposition; two map to open F-B20-2 rather than becoming
+  new entries. Each finding was verified by running the code, not by reading
+  it -- the TTL renewal, the Spotify retry bypass, the unreachable API-key
+  check and the heatmap misattribution were each reproduced.
+- Test vacuity: measured, not judged. Each of the 81 top-level functions in
+  the graded modules was replaced in turn with a raise, in a copy of the
+  tree outside the repository, and the 237 runtime tests were run against
+  each mutation. Every deletion was caught, so there is no vacuity finding.
+- Broad catches: all 17 were read in context and judged, which F-MAS-4 never
+  did. Fifteen are justified. The two that are not are both in F-SWE-5, and
+  both are catches that report a cause they never established.
+- F-B21-1 keeps its recorded P1 disposition. The gate covers net-new
+  findings only, so the audit did not re-triage it and it does not block
+  WP-1.
+- Deviations: F-SWE-1 moved from the P1 section to Resolved this batch, and
+  F-SWE-3 from P1 to P2 -- the charter asked for neither move, but leaving
+  either where it was would have made the section heading false.
+- **Tooling hazard hit twice, worth recording.** `pre-commit run --all-files`
+  stashes unstaged changes and restores them afterwards. That cycle reverted
+  files nobody had edited: first `docs/architecture/development-cycle.md`
+  and `top-albums-sequence.md` back to a pre-PR-#171 state, then `PLAYBOOK.md`
+  itself back to a pre-PR-#170 state, dropping this very entry. Every hook
+  reported `Passed`. The first was caught at staging because AGENTS.md
+  requires staging by name; the second reached commit `a34c57f` and was
+  repaired in the follow-up commit. Check `git status` before and against
+  after every `--all-files` run, and compare file mtimes against the files
+  you actually edited.
+- Validation: `pytest -q` -- 590 passed, unchanged, as expected for a
+  docs-only change. `pre-commit run --all-files` and
+  `doc_state_sync.py --check` both pass, the latter with the expected
+  active-root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: apply the F-SWE-2 fix as its own commit, then WP-1. Root
+  hygiene stays deferred until after WP-1.
+
 ### 2026-08-19 - Batch 21 preflight: F-SWE-1 charter and WP gates amended (side-task)
 
 - Scope: owner preflight review before WP-1, raised as six criticisms of
