@@ -11,3 +11,11 @@ fly status
 fly logs
 fly apps open
 ```
+
+## Where the config lives
+
+`fly.toml` and the `Dockerfile` stay at the repository root. Fly resolves the
+Dockerfile by co-location with `fly.toml`, which is why `[build]` is empty.
+Moving either file breaks that pairing and needs an explicit `[build]` entry
+to restore it. `.dockerignore` also resolves from the root. Do not move them
+to tidy the root.
