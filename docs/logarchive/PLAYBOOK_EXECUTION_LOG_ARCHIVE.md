@@ -9,6 +9,19 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-20 - Batch 21 WP-1 test-count authority addendum (side-task)
+
+- Scope: records the post-WP-1 measured suite inventory for docsync's
+  same-day source ordering. No runtime implementation changed.
+- Plan vs implementation: the new current-batch WP-1 entry remains the owner
+  of toolchain evidence. This live addendum supplies its later full-suite
+  result because same-date side-task entries take precedence over
+  current-batch entries in docsync's authority ordering.
+- Deviations: none.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+- Forward guidance: owner review of the WP-1 commit remains first; the
+  root-hygiene side task follows, then WP-2.
+
 ### 2026-08-20 - Agent document map added; HANDOFF_PROMPT trimmed (side-task)
 
 - Scope: the owner asked for an instructional that lets an agent other than
