@@ -230,6 +230,46 @@ Nothing is broken in production today, which is why WP-1's gates passed over
 all three.
 Status: open; closes at Batch 21 WP-2. Source: WP-1 final review, 2026-08-20.
 
+### F-B21-3: 115 dependency advisories, and unused packages ship to production
+
+The Quality Gate's `pip-audit` step reported `Found 115 known vulnerabilities
+in 12 packages` (run 32444711411, 2026-08-21). The step is
+`continue-on-error: true` in `.github/workflows/test.yml`, so the gate stays
+green and the count reaches nobody. That disposition is deliberate and is
+recorded in `AGENT_NOTES.md`; the disposition is not the problem, the number
+is. Nobody reads a green check.
+
+**Unused packages ship to production.** The Dockerfile installs
+`requirements.txt`, and that file reads like a `pip freeze` dump: it pins
+developer tooling (`virtualenv`, `distlib`, `filelock`, `platformdirs`)
+beside real runtime dependencies. Six packages are imported nowhere in
+tracked Python: `pypdf`, `pdf2image`, `pillow`, `virtualenv`, `ipinfo`,
+`cachetools`. `pypdf` alone carries seven of the advisories. All six
+entered in the initial `0ea2313` "Fresh start" commit rather than alongside
+any feature, which fits a `pip freeze` taken from a wider environment.
+
+The PDF packages are not the JPEG export, which is entirely client-side --
+`static/js/results.js:178-266` uses `html2canvas` and
+`canvas.toDataURL('image/jpeg', 0.95)`, and no server-side image or PDF code
+exists. Poppler *is* installed on the owner's development machine, so
+`pdf2image` could run there; it cannot run in production, because the
+`Dockerfile` is a bare `python:3.13-slim` that installs no system packages at
+all. Confirm the local workflow before removing them.
+
+**The advisories that matter here sit on the outbound path** to Last.fm and
+Spotify. `requests` 2.32.3 can leak `.netrc` credentials on crafted URLs
+(PYSEC-2026-1872, fixed in 2.32.4). `urllib3` 2.2.3 forwards headers across
+origin on redirect and decompresses without bound (PYSEC-2026-141, -1994,
+-1996, -1998). By contrast the `werkzeug` `safe_join` advisories are
+Windows-only and `send_from_directory` is never called, so they are noise for
+this deployment -- count them out before anyone reacts to the raw 115.
+
+A shape, not a decision: split runtime from developer requirements, drop what
+nothing imports, then upgrade the outbound HTTP libraries. Resolve the
+dependency graph before removing anything -- `pillow` is plausibly present as
+`pdf2image`'s dependency rather than on its own.
+Status: open. Source: Quality Gate run 32444711411, 2026-08-21.
+
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed
