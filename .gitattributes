@@ -1,2 +1,3 @@
 static/css/tailwind.src.css text eol=lf
 static/css/tailwind.css text eol=lf
+docs/design/** text eol=lf

@@ -1,0 +1,70 @@
+/* Colors — warm light / inky-purple dark.
+   Source of truth: the heatmap frame that already shipped (#faf8f3 / #181520),
+   promoted to the whole app. Purple #6a4baf is the fixed brand accent that the
+   header logo bars and pinwheel blades read through --bars-color. */
+:root {
+  /* base scale — light */
+  --ss-bg: #faf8f3;
+  --ss-bg-2: #f0ebe0;
+  --ss-card: #ffffff;
+  --ss-ink: #1a1820;
+  --ss-ink-2: #4a4456;
+  --ss-muted: #6f6a7a;
+  --ss-line: #e5dfd1;
+  --ss-purple: #6a4baf;
+  --ss-purple-soft: #efe9fa;
+
+  /* semantic status */
+  --ss-good: #2f7a4a;
+  --ss-warn: #b35a1f;
+  --ss-bad: #b03434;
+  --ss-good-soft: rgba(47, 122, 74, 0.1);
+  --ss-warn-soft: rgba(179, 90, 31, 0.1);
+  --ss-bad-soft: rgba(176, 52, 52, 0.09);
+
+  /* semantic aliases — use these in components */
+  --surface-page: var(--ss-bg);
+  --surface-sunken: var(--ss-bg-2);
+  --surface-card: var(--ss-card);
+  --text-strong: var(--ss-ink);
+  --text-body: var(--ss-ink-2);
+  --text-muted: var(--ss-muted);
+  --text-accent: var(--ss-purple);
+  --border-default: var(--ss-line);
+  --border-strong: color-mix(in srgb, var(--ss-line) 60%, var(--ss-ink) 40%);
+  --accent: var(--ss-purple);
+  --accent-soft: var(--ss-purple-soft);
+  --accent-contrast: #ffffff;
+  --focus-ring: color-mix(in srgb, var(--ss-purple) 42%, transparent);
+
+  /* the one custom property the logo + pinwheel must always find */
+  --bars-color: var(--ss-purple);
+  --logo-bar: var(--ss-purple);
+
+  /* solid-button ink pair: dark button on light, purple button on dark */
+  --button-solid-bg: var(--ss-purple);
+  --button-solid-fg: #ffffff;
+}
+
+.dark {
+  --ss-bg: #0e0c12;
+  --ss-bg-2: #1a1622;
+  --ss-card: #181520;
+  --ss-ink: #f1ede4;
+  --ss-ink-2: #c5bfb1;
+  --ss-muted: #908a9a;
+  --ss-line: #2a2434;
+  --ss-purple: #b39dde;
+  --ss-purple-soft: #2a1f44;
+
+  --ss-good: #6fcf97;
+  --ss-warn: #e0a458;
+  --ss-bad: #e07070;
+  --ss-good-soft: rgba(111, 207, 151, 0.12);
+  --ss-warn-soft: rgba(224, 164, 88, 0.12);
+  --ss-bad-soft: rgba(224, 112, 112, 0.12);
+
+  --accent-contrast: #0e0c12;
+  --button-solid-bg: var(--ss-purple);
+  --button-solid-fg: #0e0c12;
+}

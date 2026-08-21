@@ -1,0 +1,23 @@
+/* Motion — quiet and short, with one deliberate exception: the pinwheel.
+   Everything else is a fade or a color transition. No bounces, no springs, no slide-ins over 20px.
+   --duration-hover: border/color changes on controls. --duration-theme: light/dark swap.
+   --duration-enter: content fade-in with 20px rise. --duration-logo: header wordmark fade.
+   --pinwheel-cycle is fixed: 1080deg rotation + 5.4-unit blade expansion. */
+:root {
+  --ease-standard: ease; /* @kind other */
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1); /* @kind other */
+  --duration-hover: 200ms; /* @kind other */
+  --duration-theme: 300ms; /* @kind other */
+  --duration-enter: 500ms; /* @kind other */
+  --duration-logo: 2000ms; /* @kind other */
+  --pinwheel-cycle: 2.5s; /* @kind other */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-hover: 0ms; /* @kind other */
+    --duration-theme: 0ms; /* @kind other */
+    --duration-enter: 0ms; /* @kind other */
+    --duration-logo: 0ms; /* @kind other */
+  }
+}

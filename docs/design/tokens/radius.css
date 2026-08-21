@@ -1,0 +1,8 @@
+/* Radius — four values. Anything else is a mistake. */
+:root {
+  --radius-xs: 4px;   /* album cover thumbnails, tiny tags */
+  --radius-sm: 8px;   /* inputs, selects, small buttons */
+  --radius-md: 10px;  /* stat strips, submit buttons, export buttons */
+  --radius-lg: 14px;  /* cards, the heatmap frame */
+  --radius-pill: 999px;
+}

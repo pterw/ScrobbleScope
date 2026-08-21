@@ -1,0 +1,27 @@
+/* Heatmap — the rocket_r scale from seaborn, transcribed from static/js/heatmap.js.
+   Seven stops, dark-to-light. Never re-order, never re-tint: the grid, the legend bar
+   and the exported JPEG all read from these. */
+:root {
+  --rocket-0: #03051a;  /* 0.00 near-black */
+  --rocket-1: #2a0f4e;  /* 0.17 deep purple */
+  --rocket-2: #6a176e;  /* 0.33 purple-red */
+  --rocket-3: #a62c5c;  /* 0.50 red */
+  --rocket-4: #d44e41;  /* 0.67 orange-red */
+  --rocket-5: #f0903a;  /* 0.83 orange */
+  --rocket-6: #f9d576;  /* 1.00 cream-gold */
+
+  --rocket-ramp: linear-gradient(90deg, var(--rocket-0), var(--rocket-1), var(--rocket-2), var(--rocket-3), var(--rocket-4), var(--rocket-5), var(--rocket-6));
+
+  --heatmap-empty: #e8e2d6;      /* zero-scrobble cell, light — warmed from the shipped #e0e0e0 so it sits on cream */
+  --heatmap-surface: #faf8f3;    /* the frame, light */
+  --heatmap-cell-radius: 2px;
+  --heatmap-cell-gap: 2px;       /* desktop */
+  --heatmap-cell-gap-mobile: 1px; /* phone — tighter, so the grid reads as one surface */
+}
+
+.dark {
+  /* Neutral grey read warm against the purple-black frame and picked up the orange
+     end of the ramp as a cast. Tinted to the surface hue so empty stays inert. */
+  --heatmap-empty: #262230;
+  --heatmap-surface: #181520;
+}

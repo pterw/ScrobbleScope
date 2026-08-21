@@ -292,6 +292,56 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-21 - Front-end design handoff imported to docs/design (side-task)
+
+- Scope: imported the owner's Claude Design project
+  (`7d95e96a-613b-4017-9dd7-8b74d2db9535`) into `docs/design/`, recorded where
+  it diverges from the batch contract, and filed two findings. No runtime code
+  changed. WP-2 keeps its own reserved commit.
+- Plan vs implementation: the source project holds 207 files; 61 are imported
+  verbatim through the design MCP -- the canonical `README.md`, 10 token files,
+  24 components as `.prompt.md` plus `.d.ts`, and two subordinate references.
+  The import is a curated subset and says so; everything else stays reachable
+  through the MCP, and `RECONCILIATION.md` section 2 tables what was left
+  behind and why. Claude added a 62nd file,
+  `RECONCILIATION.md`, because a verbatim snapshot states the Adobe Typekit
+  stack and the `.dark` marker as fact and the owner has overridden both;
+  without an override list a later agent reading only the specification would
+  implement the wrong thing. `docs/AGENT_DOC_MAP.md` gains a row so the tree is
+  discoverable.
+- Owner decisions, all made this session: (1) the type stack stays self-hosted,
+  so `BATCH21_DEFINITION.md:155-158` decision 4 stands and kit `rwy8ghw` is not
+  adopted; (2) `docs/design/README.md` is canonical and is the default over
+  both files in `reference/`, but it does not automatically retire an audit
+  finding; (3) curated text-only import; (4) import only, one commit.
+- Deviations: none against the approved plan, but two of its assumptions were
+  corrected by evidence found while importing. The plan treated the mobile
+  input size as a live conflict; it is not -- the canonical bundle's own
+  `components/forms/Input.prompt.md` mandates 16px or larger on mobile, which
+  matches the shipped override at `static/css/index.css:158`. `F-B21-5` records
+  it as settled rather than open. The plan also assumed the component layer
+  followed the Adobe stack; it does not -- `Button.d.ts` and `Input.d.ts` name
+  JetBrains Mono, so the self-hosted mapping agrees with most of the bundle.
+- Verified against code, not accepted from the documents: the seven `rocket_r`
+  stops in `static/js/heatmap.js:14-22` match the specification exactly; every
+  hex value in both colour tables matches `static/css/tailwind.src.css:69-137`;
+  the three accessibility defects in `F-B21-5` were each confirmed at the line
+  cited. The unmatched-grouping bug the design review names was already in the
+  batch contract at `BATCH21_DEFINITION.md:25-27` and is not filed again.
+- `docs/` is excluded from every pre-commit hook by `.pre-commit-config.yaml:2`
+  and sits outside Tailwind's `@source` scope, so the import cannot rewrite the
+  specification's Unicode or move `static/css/tailwind.css`. Both were checked.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings. Unchanged; this commit
+  touches no Python.
+- Forward guidance: WP-2 is still next and its scope is unchanged. Before
+  starting it, read `docs/design/RECONCILIATION.md` section 5 -- the theme
+  marker resolves to `data-theme="dark"` on `<html>` at `templates/base.html:2`,
+  which satisfies daisyUI, the WP-2 contract and the specification at once.
+  WP-3 must measure label and hint widths at 9-11px: there is no narrow
+  JetBrains Mono, so the clipping regression the specification warns about is
+  live here rather than avoided. `F-B21-4` must not be closed by ruling on all
+  four screens at once; each is decided at the WP that builds it.
+
 ### 2026-08-21 - Dependency advisories filed as F-B21-3 (side-task)
 
 - Scope: filed one finding from the first Quality Gate run that exercised the
@@ -358,27 +408,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: WP-2 is next. Note `F-DOCSYNC-1` may overstate the problem
   -- the current regex already requires the parenthesised `(Batch N WP-N)`
   form, so a failing test should justify the change before anyone makes it.
-
-### 2026-08-20 - Root hygiene: config verdict recorded, banners withdrawn (side-task)
-
-- Scope: recorded the root config-file verdict in the document that owns
-  deploys, and corrected one false self-description. No runtime code changed.
-- Plan vs implementation: the owner rejected the audience-banner scheme in the
-  local root-hygiene plan. Its two-label vocabulary restated what the
-  `AGENTS.md` Document Roles table and `docs/AGENT_DOC_MAP.md` already own,
-  and its rule that no file claims both audiences is false for files that are
-  both. `DEVELOPMENT.md` was the worked example: it called itself explanatory
-  documentation only while owning the Frontend Asset Build commands that other
-  documents cite. That sentence is narrowed rather than banner-stamped.
-  `DEPLOY.md` gains "Where the config lives"; `fly.toml` gains a pointer
-  comment above its empty `[build]`; the README tree names the co-location
-  instead of leaving `Dockerfile` uncommented.
-- Deviations: the banner steps, the `AGENTS.md` audience rule, and the README
-  audience split are **withdrawn, not deferred**. Verification also corrected
-  an earlier claim that the banner would strand agents:
-  `BATCH21_DEFINITION.md:448-450` already binds WP-2 through WP-7 to run
-  `tailwind_build.py`, so no agent depended on `DEVELOPMENT.md` for the
-  obligation. Only the fuller procedure, including watch mode and the worktree
-  caveat, lives there.
-- Validation: `pytest -q` -- **633 passed**, 3 warnings.
-- Forward guidance: WP-2 is next. Nothing from this side task blocks it.

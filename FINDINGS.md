@@ -270,6 +270,76 @@ dependency graph before removing anything -- `pillow` is plausibly present as
 `pdf2image`'s dependency rather than on its own.
 Status: open. Source: Quality Gate run 32444711411, 2026-08-21.
 
+### F-B21-4: four screens where the design bundle contradicts itself
+
+The design handoff imported to `docs/design/` carries two documents that
+disagree. `docs/design/README.md` is canonical. `docs/design/reference/
+audit-review.md` is a later second-pass critique, and it dissents on four
+screens:
+
+1. **Index hero.** The README specifies a two-column `1.1fr 1fr` editorial
+   split. The review calls it a generic SaaS landing layout applied to a tool
+   whose users arrive to type a username and press go, and asks for a single
+   centred column. It names this "the thing to challenge first".
+2. **Loading signals.** The README specifies pinwheel, phase line, progress
+   bar, three stats and a parameter tag row. The review counts that as five
+   simultaneous progress signals and wants the pinwheel and phase line always,
+   the bar only when the value is real.
+3. **Results KPIs.** The README specifies three sidebar stat blocks. The
+   review says two of them restate row 1 of the list, and only albums matched
+   versus albums seen earns a card.
+4. **Unmatched fix line.** The README sets it at 9px mono uppercase. The
+   review says the most actionable text in the product is at the smallest,
+   hardest-to-read size, and asks for 11px sentence case.
+
+`BATCH21_DEFINITION.md` encodes the README's side on the first two: WP-3 says
+"Editorial hero", WP-4 specifies the pinwheel, bar, phase label, four-KPI
+strip and chip row together.
+
+Item 2 has support inside the canonical bundle itself:
+`docs/design/components/feedback/ProgressBar.d.ts` documents `value` as "Only
+show it when the value is real; otherwise show the pinwheel alone." WP-4
+should read that before deciding.
+
+Status: open. The README is canonical and is the default, but it does not
+automatically retire an audit finding. Each item is decided at the WP that
+builds the screen -- WP-3 hero, WP-4 loading, WP-5 results KPIs, WP-7 fix line
+-- and the decision is recorded on that WP's PLAYBOOK entry. Do not close this
+finding by ruling on all four at once. Cross-references F-B21-2.
+Source: design handoff import, 2026-08-21. Owner ruling on precedence the
+same day. See `docs/design/RECONCILIATION.md`.
+
+### F-B21-5: accessibility defects the design handoff does not resolve
+
+Three defects verified against the code while importing the handoff. They are
+behaviour, not taste, which is why they are filed apart from F-B21-4. The
+design bundle names all three but ships no remedy for any of them.
+
+- **Opacity used as a text colour.** `static/css/heatmap.css:174` and `:188`
+  set `opacity: 0.5` on KPI label text. That lands under 4.5:1 in both themes.
+  A real muted token fixes it; transparency cannot, because the effective
+  contrast depends on whatever sits behind.
+- **Mode pills are not buttons.** `templates/index.html:21-22` renders them as
+  `span[role="button"][tabindex="0"]`. The bundle's `ModeTabs` uses real
+  `<button>` elements. WP-3 rebuilds this element anyway.
+- **`prefers-reduced-motion` does not reach SMIL.** The pinwheel and the logo
+  bars animate through `<animate>`, which ignores the CSS media query. It
+  needs an explicit `svg.pauseAnimations()` when the query matches. The
+  handoff calls reduced motion non-negotiable and specifies the CSS keyframe
+  route for the wordmark, but `templates/inline/scrobblescope_pinwheel.svg`
+  still carries SMIL.
+
+**Settled, recorded here so it is not re-opened as a conflict.** The mobile
+input size looked like a fifth item: `static/css/index.css:158` forces
+`font-size: 16px` on `.form-control` to stop iOS auto-zoom, while the README
+specifies mono inputs down to 9.5px. It is not a conflict. The canonical
+bundle's own `docs/design/components/forms/Input.prompt.md` opens with "On
+mobile keep the rendered font-size at 16px or larger to stop iOS auto-zoom."
+The README's sizes are desktop values. **Keep the override.**
+
+Status: open. WP-3 and WP-6 candidates.
+Source: design handoff import, 2026-08-21.
+
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed

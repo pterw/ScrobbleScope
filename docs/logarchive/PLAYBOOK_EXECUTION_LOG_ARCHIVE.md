@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-20 - Root hygiene: config verdict recorded, banners withdrawn (side-task)
+
+- Scope: recorded the root config-file verdict in the document that owns
+  deploys, and corrected one false self-description. No runtime code changed.
+- Plan vs implementation: the owner rejected the audience-banner scheme in the
+  local root-hygiene plan. Its two-label vocabulary restated what the
+  `AGENTS.md` Document Roles table and `docs/AGENT_DOC_MAP.md` already own,
+  and its rule that no file claims both audiences is false for files that are
+  both. `DEVELOPMENT.md` was the worked example: it called itself explanatory
+  documentation only while owning the Frontend Asset Build commands that other
+  documents cite. That sentence is narrowed rather than banner-stamped.
+  `DEPLOY.md` gains "Where the config lives"; `fly.toml` gains a pointer
+  comment above its empty `[build]`; the README tree names the co-location
+  instead of leaving `Dockerfile` uncommented.
+- Deviations: the banner steps, the `AGENTS.md` audience rule, and the README
+  audience split are **withdrawn, not deferred**. Verification also corrected
+  an earlier claim that the banner would strand agents:
+  `BATCH21_DEFINITION.md:448-450` already binds WP-2 through WP-7 to run
+  `tailwind_build.py`, so no agent depended on `DEVELOPMENT.md` for the
+  obligation. Only the fuller procedure, including watch mode and the worktree
+  caveat, lives there.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+- Forward guidance: WP-2 is next. Nothing from this side task blocks it.
+
 ### 2026-08-20 - Batch 21 WP-1 test-count authority addendum (side-task)
 
 - Scope: records the post-WP-1 measured suite inventory for docsync's

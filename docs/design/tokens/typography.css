@@ -1,0 +1,46 @@
+/* Type — four roles, all from Adobe Fonts kit rwy8ghw.
+   Akzidenz-Grotesk Next Pro: every piece of UI chrome and body copy. A real grotesque —
+     tight apertures, squarish g, the distinctive R leg. Holds at 11px where Gotham mushes.
+   Instrument Serif: display only, 22px and up (it loses character below that).
+   Input Mono: form inputs and tabular numbers. Huge x-height, unambiguous 0/O — it was
+     drawn for exactly this and it is the most distinctive thing in the kit.
+   Input Mono Narrow: eyebrows, pills, keys. Full-width Input is too wide for 9.5px
+     letterspaced caps — it blows out tag pills and the mark row.
+   Gotham: figures only, 18px and up. Its geometric lining numerals are the closest kin
+     to the bespoke wordmark, and above 18px none of its small-size problems apply.
+     Book (400), never Bold — geometric numerals go blobby at 700.
+     Clean split: the serif gets the words, Gotham gets the numbers. */
+:root {
+  --font-sans: "akzidenz-grotesk-next-pro", "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "instrument-serif", "Iowan Old Style", Georgia, serif;
+  --font-mono: "input-mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono-narrow: "input-mono-narrow", "input-mono", ui-monospace, Menlo, monospace;
+  --font-figure: "gotham", "akzidenz-grotesk-next-pro", "Helvetica Neue", Arial, sans-serif;
+
+  /* display — serif, weight 400 only, tight leading */
+  --text-display-lg: 42px;
+  --text-display-md: 30px;
+  --text-display-sm: 22px;
+  --leading-display: 1.05;
+  --tracking-display: -0.01em;
+
+  /* body / UI — sans */
+  --text-body-lg: 16px;
+  --text-body-md: 14px;
+  --text-body-sm: 12px;
+  --text-label: 11.5px;
+  --leading-body: 1.5;
+
+  /* data / eyebrow — mono, uppercase, letter-spaced */
+  --text-data-lg: 13px;
+  --text-data-md: 11px;
+  --text-data-sm: 10px;
+  --text-data-xs: 9.5px;
+  --tracking-eyebrow: 0.12em;
+  --tracking-eyebrow-wide: 0.14em;
+
+  /* The kit has no 500 and no 600. Three real weights, no synthesis. */
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-bold: 700;
+}

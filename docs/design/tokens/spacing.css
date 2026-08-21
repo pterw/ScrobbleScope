@@ -1,0 +1,18 @@
+/* Spacing — 4px base, seven steps, nothing in between.
+   The current Bootstrap build mixes 0.25/0.35/0.45/0.6rem values; this ladder replaces all of them. */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --card-padding: 16px;
+  --card-padding-desktop: 24px;
+  --page-gutter: 18px;
+  --page-gutter-desktop: 34px;
+  --content-max: 1040px;
+  --form-max: 460px;
+}
