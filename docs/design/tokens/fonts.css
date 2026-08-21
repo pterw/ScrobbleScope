@@ -1,0 +1,19 @@
+/* Adobe Fonts, kit rwy8ghw. Nothing self-hosted — no binaries ship with this system.
+   Verified kit contents, with the weights each family actually serves:
+     gotham                        400/700 + italics
+     gotham-narrow / -condensed / -xnarrow   400/700 (+300 on xnarrow) + italics
+     akzidenz-grotesk-next         200 roman+italic, 800 italic  — UNUSABLE for UI, no 400
+     akzidenz-grotesk-next-pro     300/400/700 + italics         — the usable Akzidenz
+     akzidenz-grotesk-next-conden  200/300/400/700 + italics
+                                   KEPT DELIBERATELY, UNUSED: a licensing hedge in case
+                                   Adobe rotates the family out of the library. Do not
+                                   prune it, and do not reach for it either.
+     neue-haas-grotesk-text        400/700 + italics
+     neue-haas-grotesk-display     400/700/900 + italics
+     input-mono                    400/700 + italics
+     input-mono-narrow / -condensed / -compressed  400/700 + italics
+     instrument-serif              400 + italic
+
+   NOTHING in this kit ships a 500 or 600. The weight scale below is 300/400/700 only;
+   any 500/600 in a component is a browser-synthesized fake and has been removed. */
+@import url("https://use.typekit.net/rwy8ghw.css");

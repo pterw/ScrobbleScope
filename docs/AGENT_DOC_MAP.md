@@ -67,9 +67,16 @@ stop work. It holds no rules, and it points to `AGENTS.md` for all of them.
 | Owner context | `AGENT_NOTES.md` | You need a preference, the local setup, or a known constraint. |
 | Findings | `FINDINGS.md` | Your task names an `F-` identifier, or a P0 or P1 item. |
 | Architecture | `docs/ARCHITECTURE.md` | You need a diagram of the system or the pipelines. |
+| Design | `docs/design/README.md` | You build or restyle any part of the front end. |
 | History | `docs/history/` | A log entry or a task sends you to a dated document. |
 
-Two notes on this table.
+Three notes on this table.
+
+`docs/design/` holds the front-end design handoff. `README.md` there is the
+canonical specification and is a verbatim snapshot, so it states a few things
+this repository has overridden. `docs/design/RECONCILIATION.md` is the
+override list and names the owner of every value the snapshot copies. Read
+the specification, then the reconciliation. Neither owns a live value.
 
 `FINDINGS.md` is not part of the bootstrap set. Open it on demand. The file
 is long, and most tasks do not need it.

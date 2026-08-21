@@ -1,0 +1,18 @@
+/* Elevation — borders do the work, shadows are almost absent.
+   Cards are defined by a 1px --border-default line on a warm surface, not by a drop shadow.
+   The only real shadows: the selected chip in a segmented control, and floating layers (toast, modal, tooltip). */
+:root {
+  --shadow-none: none;
+  --shadow-chip: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-modal: 0 24px 60px -24px rgba(20, 18, 30, 0.4);
+  --overlay-scrim: rgba(14, 12, 18, 0.5);
+  --blur-sticky: blur(8px); /* @kind other */
+}
+
+.dark {
+  --shadow-chip: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-modal: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+  --overlay-scrim: rgba(0, 0, 0, 0.62);
+}
