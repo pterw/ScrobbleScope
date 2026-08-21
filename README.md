@@ -516,7 +516,7 @@ ScrobbleScope is post-refactor and actively maintained. Core architecture and in
 * [ ] **Top songs:** Rank a user's most-played tracks for a given year (Last.fm + optional Spotify enrichment). Separate background task type with its own loading/results flow.
 * [ ] Decompose `scrobblescope/orchestrator.py` into smaller pipeline-focused modules.
 * [ ] Add an integration test that exercises `/results_loading -> /progress -> /results_complete`.
-* [ ] Consolidate Bootstrap CDN usage to a single provider across templates.
+* [ ] Retire Bootstrap entirely in the Batch 21 migration, which resolves the CDN provider split by elimination (F-B20-3).
 * [ ] Improve the unmatched albums page (`unmatched.html`).
 * [ ] Tighten `ENTRY_BATCH_RE` in `scripts/docsync/parser.py` to prevent misrouting entries whose titles contain "Batch N" substrings.
 * [ ] Replace the top header logo with the updated SVG.
