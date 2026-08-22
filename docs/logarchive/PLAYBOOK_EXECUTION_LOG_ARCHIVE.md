@@ -9,6 +9,28 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-20 - README roadmap reconciled with FINDINGS (side-task)
+
+- Scope: removed one stale roadmap item that contradicted an open finding, and
+  retitled the finding it pointed at. No runtime code changed.
+- Plan vs implementation: the README roadmap still asked a reader to
+  consolidate Bootstrap onto one CDN provider. `F-B20-3` already records that
+  remedy as dead, because Batch 21 removes Bootstrap at WP-8 and resolves the
+  split by elimination. Two live documents disagreed, and the README is the one
+  a newcomer reads first. The roadmap line now names the real disposition.
+  `F-B20-3`'s heading described the dead remedy rather than the defect; it now
+  reads "Bootstrap loads from two CDN providers". Every citation of it is by
+  F-ID, so no reference breaks.
+- Deviations: none. Three other roadmap items were checked and left alone.
+  The integration test (`F-LOAD-2`) and the `ENTRY_BATCH_RE` tightening
+  (`F-DOCSYNC-1`) have not been done, so their unchecked boxes are correct.
+  `tests/test_routes.py` reaches the three endpoints only under mocks, and no
+  test covers the whole chain. `parser.py:37` is unchanged.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+- Forward guidance: WP-2 is next. Note `F-DOCSYNC-1` may overstate the problem
+  -- the current regex already requires the parenthesised `(Batch N WP-N)`
+  form, so a failing test should justify the change before anyone makes it.
+
 ### 2026-08-20 - Root hygiene: config verdict recorded, banners withdrawn (side-task)
 
 - Scope: recorded the root config-file verdict in the document that owns

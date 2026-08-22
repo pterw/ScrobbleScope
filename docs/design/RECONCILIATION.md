@@ -206,7 +206,8 @@ knowing before `F-B21-4` is judged:
 
 ## 8. Character set
 
-The files in this tree are exempt from the ASCII-only rule at `AGENTS.md:656`.
+The files in this tree are exempt from the ASCII-only rule in `AGENTS.md`
+("Markdown Authoring Rules").
 
 The design mandates specific glyphs -- the README's content rules require the
 `>=` glyph over the words "at least", and the iconography section makes Unicode
