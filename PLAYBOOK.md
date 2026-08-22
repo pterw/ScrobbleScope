@@ -292,6 +292,27 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-22 - Open findings mirrored to GitHub issues (side-task)
+
+- Scope: created issues #174-#215. Rephrased two rules in `AGENTS.md`. Filed
+  `F-B21-9`. No code changed.
+- Why: Codex raised `F-B21-7` on PR #173 although the PR body listed it.
+  Reviewers do not read `FINDINGS.md`. Issues are cheaper to search.
+- 42 open findings are now mirrored: 28 P1, 10 P2, 3 Info, 1 Feature. Seven
+  resolved findings were skipped. Labels are `finding` plus the severity.
+- Each issue body says `FINDINGS.md` is the source of truth and that the
+  issue is a read-only mirror. Nothing writes back to the file.
+- `AGENTS.md` changes are rephrases, not additions. Bootstrap item 7 already
+  said "read on demand"; it now names the three reasons to open the file and
+  says a recorded defect is known and owned. The Markdown log-entry bullet
+  now also asks for plain English. No new rule was added.
+- `F-B21-9` records the gap. The mirror is manual and will drift. The owner
+  accepted that on 2026-08-22 and asked for it to be written down rather
+  than built now. A sync script is code and needs its own work package.
+- Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
+  exits 0. `pre-commit run --all-files` passes.
+- Next: **WP-2**.
+
 ### 2026-08-22 - PR #173 review answered, two import defects fixed (side-task)
 
 - Scope: moved `docs/design/styles.css`. Fixed one claim in
@@ -388,27 +409,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: **WP-2 is next.** It should absorb `F-B21-7`, because the
   `tailwind-css-drift` hook it adds runs the same code path. `F-B21-6` is
   independent of the UI batch and needs no WP of its own.
-
-### 2026-08-21 - SESSION_CONTEXT batch status row resynced (side-task)
-
-- Scope: `.claude/SESSION_CONTEXT.md` Section 1 only -- the Batch 21 status
-  row and the "Last updated" date. No code, no gate, no Section 3 change.
-- Why: the row still read "the owner-approved root-hygiene side task is next,
-  then WP-2". That side task closed on 2026-08-20, and two further side tasks
-  landed on 2026-08-21. PLAYBOOK Section 3 was correct throughout; only the
-  snapshot was stale.
-- Three earlier commits caused the drift. Each updated PLAYBOOK and left this
-  row alone. `AGENTS.md` "What to update after a WP or side-task commit"
-  requires SESSION_CONTEXT Section 1 to move when the batch status changes.
-- Not a gate failure, and nothing would have caught it. `doc_state_sync.py`
-  manages the STATUS block in Section 2, which was correct the whole time.
-  Section 1 prose is hand-maintained and unchecked.
-- The row now also names `docs/design/README.md` as the canonical design spec
-  and `docs/design/RECONCILIATION.md` as the override list, so a bootstrapping
-  agent finds the design tree from the state snapshot.
-- Validation: `pytest -q` -- **633 passed**, 3 warnings. Unchanged; no Python
-  touched. `doc_state_sync.py --check` exits 0. `pre-commit run --all-files`
-  passes.
-- Forward guidance: **WP-2 is next**, unchanged. Section 1's batch row is the
-  first thing a bootstrapping agent reads for state. Update it in the same
-  commit as the PLAYBOOK entry, never afterwards.

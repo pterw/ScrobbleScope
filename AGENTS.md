@@ -53,9 +53,12 @@ explicitly depends on batch-acceptance or historical context.
 4. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 5. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
 6. Relevant `docs/history/` doc only if the log references one.
-7. `FINDINGS.md` -- read on demand only: when PLAYBOOK Section 4 or your
-   task explicitly references an F-* finding ID or an open P0/P1 item.
-   Not part of the mandatory bootstrap set.
+7. `FINDINGS.md` -- read on demand only, and it is long. Three reasons to
+   open it: your task names an F-* ID, you are about to raise a defect, or
+   you are reviewing a diff. A defect recorded there is known and owned, so
+   raise it again only with new evidence. Open findings are mirrored to
+   GitHub issues, which are cheaper to search; this file wins if they
+   disagree. Not part of the bootstrap set.
 
 This list is the single canonical bootstrap order; `HANDOFF_PROMPT.md` links
 here and adds only the post-read verification steps.
@@ -660,6 +663,8 @@ grep history.
 
 - ASCII-only characters (no smart quotes, no em-dash -- use `--`).
 - ISO dates: `YYYY-MM-DD`.
-- Log entries must include: scope, plan vs implementation, deviations,
-  validation results (test count), and forward guidance.
+- Write plain English: short sentences, active voice, one idea each. A later
+  agent pays to read every word. Log entries must cover scope, plan vs
+  implementation, deviations, validation results (test count), and forward
+  guidance -- that is what to cover, not how much to write.
 - Do not manually move entries across DOCSYNC markers; use `doc_state_sync.py`.
