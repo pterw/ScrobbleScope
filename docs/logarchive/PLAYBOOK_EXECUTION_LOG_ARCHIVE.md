@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-20 - F-B21-2 deferred to the locked WP-2 remedy (side-task)
+
+- Scope: corrected one finding that prescribed a fix competing with an
+  owner-locked decision. No runtime code changed.
+- Plan vs implementation: `F-B21-2` was filed from the WP-1 review without
+  reading `BATCH21_DEFINITION.md:186-204`, which already prescribes WP-2's
+  remedies. It told a reader to layer Bootstrap; the locked decision instead
+  moves the Bootstrap link into a per-page block so each template loads
+  exactly one framework stylesheet, removing the collision rather than
+  re-ordering it. The finding now defers to the definition and says so. Its
+  `data-theme` seam likewise points at the locked `theme.js` dual-write. The
+  defect descriptions are kept, because they record why those decisions
+  matter; only the competing prescription is gone.
+- Deviations: none. The batch definition was not edited. A finding must not
+  outrank the batch contract, so the finding moved.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+- Forward guidance: WP-2 is next and closes `F-B21-2`. Check a finding against
+  the active batch definition before filing a remedy in it.
+
 ### 2026-08-20 - README roadmap reconciled with FINDINGS (side-task)
 
 - Scope: removed one stale roadmap item that contradicted an open finding, and

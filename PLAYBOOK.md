@@ -292,6 +292,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-21 - SESSION_CONTEXT batch status row resynced (side-task)
+
+- Scope: `.claude/SESSION_CONTEXT.md` Section 1 only -- the Batch 21 status
+  row and the "Last updated" date. No code, no gate, no Section 3 change.
+- Why: the row still read "the owner-approved root-hygiene side task is next,
+  then WP-2". That side task closed on 2026-08-20, and two further side tasks
+  landed on 2026-08-21. PLAYBOOK Section 3 was correct throughout; only the
+  snapshot was stale.
+- Three earlier commits caused the drift. Each updated PLAYBOOK and left this
+  row alone. `AGENTS.md` "What to update after a WP or side-task commit"
+  requires SESSION_CONTEXT Section 1 to move when the batch status changes.
+- Not a gate failure, and nothing would have caught it. `doc_state_sync.py`
+  manages the STATUS block in Section 2, which was correct the whole time.
+  Section 1 prose is hand-maintained and unchecked.
+- The row now also names `docs/design/README.md` as the canonical design spec
+  and `docs/design/RECONCILIATION.md` as the override list, so a bootstrapping
+  agent finds the design tree from the state snapshot.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings. Unchanged; no Python
+  touched. `doc_state_sync.py --check` exits 0. `pre-commit run --all-files`
+  passes.
+- Forward guidance: **WP-2 is next**, unchanged. Section 1's batch row is the
+  first thing a bootstrapping agent reads for state. Update it in the same
+  commit as the PLAYBOOK entry, never afterwards.
+
 ### 2026-08-21 - Size rule restated as intent in AGENTS.md (side-task)
 
 - Scope: rewrote Proposal and Design Rules item 3 in `AGENTS.md`. One rule, no
@@ -399,22 +423,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: WP-2 is next. `F-B21-3` records a suggested shape --
   split runtime from developer requirements, drop unimported packages, then
   upgrade the outbound HTTP libraries -- but the owner has not ruled on it.
-
-### 2026-08-20 - F-B21-2 deferred to the locked WP-2 remedy (side-task)
-
-- Scope: corrected one finding that prescribed a fix competing with an
-  owner-locked decision. No runtime code changed.
-- Plan vs implementation: `F-B21-2` was filed from the WP-1 review without
-  reading `BATCH21_DEFINITION.md:186-204`, which already prescribes WP-2's
-  remedies. It told a reader to layer Bootstrap; the locked decision instead
-  moves the Bootstrap link into a per-page block so each template loads
-  exactly one framework stylesheet, removing the collision rather than
-  re-ordering it. The finding now defers to the definition and says so. Its
-  `data-theme` seam likewise points at the locked `theme.js` dual-write. The
-  defect descriptions are kept, because they record why those decisions
-  matter; only the competing prescription is gone.
-- Deviations: none. The batch definition was not edited. A finding must not
-  outrank the batch contract, so the finding moved.
-- Validation: `pytest -q` -- **633 passed**, 3 warnings.
-- Forward guidance: WP-2 is next and closes `F-B21-2`. Check a finding against
-  the active batch definition before filing a remedy in it.

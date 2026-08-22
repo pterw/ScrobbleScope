@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-08-20
+Last updated: 2026-08-21
 
 ---
 
@@ -20,7 +20,7 @@ Last updated: 2026-08-20
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 and WP-1 are done; the owner-approved root-hygiene side task is next, then WP-2. The repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. The F-SWE-1 audit ran 2026-08-20 and blocked migration on F-SWE-2 (report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`); the charter is retired. F-SWE-2 was resolved 2026-08-20 in its standalone prerequisite commit. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0 and WP-1 are done. The root-hygiene side task closed 2026-08-20 (the owner rejected the audience-banner scheme). The front-end design handoff was imported to `docs/design/` on 2026-08-21; `docs/design/README.md` is the canonical design spec and `docs/design/RECONCILIATION.md` is the repo's override list. **WP-2 is next.** The repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. The F-SWE-1 audit ran 2026-08-20 and blocked migration on F-SWE-2 (report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`); the charter is retired. F-SWE-2 was resolved 2026-08-20 in its standalone prerequisite commit. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
