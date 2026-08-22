@@ -99,9 +99,11 @@ def test_theme_source_locks_the_batch_21_design_tokens() -> None:
     """The source owns exact palette, type, spacing, radius, and bar aliases."""
     source = SOURCE_CSS.read_text(encoding="utf-8")
     required_lines = {
-        '--font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;',
-        '--font-serif: "Instrument Serif", Georgia, serif;',
-        '--font-mono: "JetBrains Mono", ui-monospace, monospace;',
+        '--font-sans: "akzidenz-grotesk-next-pro", ui-sans-serif, system-ui, sans-serif;',
+        '--font-serif: "instrument-serif", Georgia, serif;',
+        '--font-figure: "gotham", ui-sans-serif, sans-serif;',
+        '--font-mono: "input-mono", ui-monospace, monospace;',
+        '--font-mono-narrow: "input-mono-narrow", "input-mono", ui-monospace, monospace;',
         "--text-label-sm: 0.71875rem;",
         "--text-label: 0.8125rem;",
         "--text-body-sm: 0.875rem;",
@@ -135,6 +137,10 @@ def test_theme_source_locks_the_batch_21_design_tokens() -> None:
     assert source.count("--bars-color: var(--color-primary);") == 2
     assert "#f8f9fa" not in source
     assert "#121212" not in source
+    # Adobe Fonts kit rwy8ghw serves 300/400/700 only. A 500 or 600 token
+    # cannot resolve to a real face, so the browser synthesizes a fake one.
+    assert "--font-weight-medium" not in source
+    assert "--font-weight-semibold" not in source
 
 
 def test_theme_source_includes_only_the_locked_daisyui_components() -> None:

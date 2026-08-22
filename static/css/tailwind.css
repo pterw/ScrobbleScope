@@ -3,8 +3,8 @@
 @layer theme, base, components, utilities;
 @layer theme {
   :root, :host {
-    --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
-    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+    --font-sans: "akzidenz-grotesk-next-pro", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "input-mono", ui-monospace, monospace;
     --color-white: #fff;
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
