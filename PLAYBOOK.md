@@ -292,6 +292,39 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-22 - Two WP-1 review items filed as F-B21-6 and F-B21-7 (side-task)
+
+- Scope: `FINDINGS.md` only -- two new findings plus the stale status header.
+  No code changed. Filed before opening the Batch 21 PR so the branch is
+  self-describing rather than leaving a reviewer to rediscover them.
+- Both items came out of the five-agent WP-1 review on 2026-08-20 and were
+  carried in local notes, unfiled, ever since. Each was re-verified against
+  the code before filing; neither was taken on the review's word.
+- `F-B21-6`: `routes.py:135,302,436` use naive `datetime.now()`. Line 436
+  gates the requested year against host-local time while
+  `orchestrator.py:70-71` builds the fetch window in UTC, so gate and window
+  disagree by the host offset near New Year. They agreed before F-SWE-2,
+  which fixed the window and left the gate. Production runs UTC, so this is
+  a developer-host defect.
+- `F-B21-7`: two defects in the WP-1 toolchain. The one test naming the
+  integrity property patches both `required_artifacts` and `ensure_artifact`,
+  so no integrity code runs. **Verified by mutation:** deleting
+  `bin_dir=bin_dir` from `tailwind_build.py:293` leaves the full suite at
+  633 passed. The review had claimed only the 35 toolchain tests stay green;
+  the real blast is the whole suite. Separately,
+  `http.client.IncompleteRead` subclasses `HTTPException`, not `OSError`, so
+  it escapes both handlers as a raw traceback -- confirmed from the MRO --
+  and a cleanly truncated download surfaces as `SHA-256 mismatch`, which
+  reads as tampering rather than a network fault.
+- Deviations: none. The mutation was reverted with `git checkout --` and the
+  working tree confirmed clean before anything was staged.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings. Unchanged; the only
+  Python touched was the mutation, which was reverted.
+  `doc_state_sync.py --check` exits 0. `pre-commit run --all-files` passes.
+- Forward guidance: **WP-2 is next.** It should absorb `F-B21-7`, because the
+  `tailwind-css-drift` hook it adds runs the same code path. `F-B21-6` is
+  independent of the UI batch and needs no WP of its own.
+
 ### 2026-08-21 - SESSION_CONTEXT batch status row resynced (side-task)
 
 - Scope: `.claude/SESSION_CONTEXT.md` Section 1 only -- the Batch 21 status
@@ -397,29 +430,3 @@ non-current operational logs. Older dated entries live in
   JetBrains Mono, so the clipping regression the specification warns about is
   live here rather than avoided. `F-B21-4` must not be closed by ruling on all
   four screens at once; each is decided at the WP that builds it.
-
-### 2026-08-21 - Dependency advisories filed as F-B21-3 (side-task)
-
-- Scope: filed one finding from the first Quality Gate run that exercised the
-  Tailwind steps. No runtime code and no dependency changed.
-- Plan vs implementation: pushing `bc9ba80` ran the gate for the first time
-  since WP-1 landed. It passed, and "Verify committed Tailwind CSS" succeeded
-  on Linux, so the committed digest reproduces in CI and the WP-1 platform
-  detection works there. The same run's `pip-audit` step reported 115
-  advisories across 12 packages and exited 1 without failing the gate, which
-  is its documented `continue-on-error` disposition. Investigation found six
-  packages in `requirements.txt` that nothing imports, including a
-  `pypdf`/`pdf2image`/`pillow` cluster. The owner asked whether those served
-  the JPEG export; they do not. That export is client-side `html2canvas` in
-  `static/js/results.js:178-266`. All six unimported packages entered in the
-  initial `0ea2313` commit rather than with a feature. The owner has poppler
-  installed locally, so `pdf2image` can run on the development machine, but
-  not in production: the `Dockerfile` is a bare `python:3.13-slim` with no
-  system-package installs.
-- Deviations: none. No dependency was upgraded or removed. Dependency changes
-  are code and belong in a code batch, not a docs commit.
-- Validation: `pytest -q` -- **633 passed**, 3 warnings. Quality Gate run
-  32444711411 passed in 1m12s.
-- Forward guidance: WP-2 is next. `F-B21-3` records a suggested shape --
-  split runtime from developer requirements, drop unimported packages, then
-  upgrade the outbound HTTP libraries -- but the owner has not ruled on it.

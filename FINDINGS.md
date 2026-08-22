@@ -1,10 +1,12 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-20
+Last updated: 2026-08-22
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0 and WP-1 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
-resolved 2026-08-20, clearing the F-SWE-1 migration block; the root-hygiene
-side task is next before WP-2. 633 tests across 37 test modules.
+resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
+side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
+WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22.
+**WP-2 is next.** 633 tests across 37 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -340,6 +342,71 @@ The README's sizes are desktop values. **Keep the override.**
 Status: open. WP-3 and WP-6 candidates.
 Source: design handoff import, 2026-08-21.
 
+### F-B21-6: the year gate reads host-local time, the fetch window reads UTC
+
+`scrobblescope/routes.py` calls naive `datetime.now()` in three places:
+`:135` (the `current_year` template global), `:302` (the results-page year
+fallback), and `:436` (the submit-path validation gate). F-SWE-2 corrected
+the same pattern in `orchestrator.py` and did not touch `routes.py`.
+
+`:436` is the one with a consequence. It derives `current_year` from
+host-local time and refuses any request where `year > current_year`. The data
+window for an accepted year is then built in UTC at
+`scrobblescope/orchestrator.py:70-71`. Gate and window now disagree by the
+host's UTC offset, and the disagreement is observable only in the hours
+around New Year:
+
+- Host behind UTC: UTC has rolled over, the gate has not. A request for the
+  new year is refused as out of range.
+- Host ahead of UTC: the gate has rolled over, UTC has not. The request is
+  accepted and the orchestrator builds a window entirely in the future, so
+  the fetch returns nothing.
+
+The two agreed before F-SWE-2, because both were naive. Fixing the window was
+correct; it left the gate behind. **Do not fix this by reverting
+`orchestrator.py`** -- move the three call sites to
+`datetime.now(timezone.utc)`.
+
+Production runs UTC, so this is a developer-host defect rather than a
+production one. That is the reason it is not P0, not a reason to leave it.
+
+Status: open. Found in the WP-1 review on 2026-08-20 and left unfiled; filed
+and re-verified against the code 2026-08-22.
+Source: WP-1 parallel review.
+
+### F-B21-7: the toolchain integrity test patches away the code it names
+
+Two independent defects in `scripts/dev/tailwind_build.py` and its tests. Both
+were verified by running them, not by reading.
+
+**The `bin_dir` plumbing is untested.**
+`tests/scripts/dev/test_tailwind_build.py:301-302` patches
+`required_artifacts` *and* `ensure_artifact` in the same `with` block, so no
+integrity code executes inside the one test that names the property. Its
+assertion reads `call.args[0]` only, which is the spec -- the `bin_dir`
+keyword is never inspected. Deleting `bin_dir=bin_dir` from
+`tailwind_build.py:293` leaves **the whole 633-test suite green**, not merely
+the 35 toolchain tests. A mutant that redirects every cached artifact to the
+default directory is invisible. The test needs to assert the keyword, or to
+stop patching `ensure_artifact` and let a `tmp_path` prove the routing.
+
+**A truncated download is reported as tampering.**
+`_download_verified` catches `(OSError, URLError)` at
+`tailwind_build.py:242`, and `main` catches
+`(TailwindBuildError, subprocess.CalledProcessError, OSError)` at `:334`.
+`http.client.IncompleteRead` subclasses `HTTPException`, not `OSError`, so it
+passes through both handlers and reaches the user as a raw traceback. Worse
+is the quiet case: when a connection closes cleanly mid-body, `response.read`
+simply returns empty, the loop ends, and the short file fails the digest
+check -- so a network truncation surfaces as `SHA-256 mismatch`, which reads
+as a supply-chain compromise. An operator seeing that message will
+investigate the wrong thing. Distinguish short reads from digest mismatches
+before the message is trusted.
+
+Status: open. WP-2 candidate -- it adds the `tailwind-css-drift` hook that
+depends on this same code path. Found in the WP-1 review on 2026-08-20 and
+left unfiled; filed 2026-08-22 after the mutation was run.
+Source: WP-1 parallel review.
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed
