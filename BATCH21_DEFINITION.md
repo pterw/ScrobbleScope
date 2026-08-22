@@ -75,9 +75,17 @@ stylesheet is in scope for this batch.
 3. **`limit_results` control (WP-3): KEEP**, relocated into the
    thresholds disclosure -- `_apply_pre_slice()` is a real Spotify-load
    and cache saving on large libraries. Not dropped, not half-wired.
-4. **Fonts (WP-2): SELF-HOSTED** woff2 files under `static/fonts/`
-   (Geist, Instrument Serif, JetBrains Mono -- all OFL-licensed). No
-   Google Fonts CDN.
+4. **Fonts (WP-2): ADOBE FONTS.** Kit `rwy8ghw`, linked from
+   `use.typekit.net` in `base.html`. Five families:
+   `akzidenz-grotesk-next-pro` for UI chrome, labels and body;
+   `instrument-serif` for display words; `gotham` for display numbers;
+   `input-mono` for form inputs and tabular numbers;
+   `input-mono-narrow` for letterspaced caps.
+   The kit serves 300, 400 and 700 only -- it ships no 500 and no
+   600, so those two weight tokens are removed rather than faked.
+   **The self-hosted woff2 ruling is withdrawn (owner, 2026-08-22).**
+   No `static/fonts/` directory is created. `docs/design/README.md` is
+   the canonical design source and it names this kit.
 
 ---
 
@@ -152,9 +160,10 @@ kickoff log entry.
   token sheet, pinned here so any executor can implement without
   re-fetching the audit: light bg `#faf8f3` / bg-2 `#f0ebe0` / ink
   `#1a1820` / primary `#6a4baf`; dark bg `#0e0c12` / surface `#181520` /
-  text `#f1ede4` (warm cream) / primary `#b39dde`. Type (self-hosted per
-  decision 4): Geist 300-700 (body 14-16px, labels 11.5-13px),
-  Instrument Serif 400 + italic (>= 24px only), JetBrains Mono 400-600
+  text `#f1ede4` (warm cream) / primary `#b39dde`. Type (Adobe Fonts kit
+  per decision 4): `akzidenz-grotesk-next-pro` 300-700 (body 14-16px,
+  labels 11.5-13px), `instrument-serif` 400 + italic (>= 24px only),
+  `gotham` 400 (display numbers), `input-mono` 400-700
   (numerals, eyebrow labels, pills). 4px spacing ladder
   (4/8/12/16/24/32/48 only); radius 8 (inputs/small cards), 14 (large
   cards), 999 (pills); `--bars-color` aliased in both themes.
@@ -432,8 +441,10 @@ strangler migration proceeds, and it must be able to fail. Checks:
    both themes on every migrated page, and no cool-grey surface (`#f8f9fa`,
    `#121212`) is computed anywhere. Criteria 2 and 3 are otherwise eye-only.
 3. **Theme persistence** -- toggling then reloading keeps the theme.
-4. **Fonts** -- the self-hosted faces load and no request leaves for a font
-   CDN (decision 4 is otherwise unverified).
+4. **Fonts** -- all five kit families resolve as loaded faces (decision 4
+   is otherwise unverified). Assert the loaded faces, not the request: a
+   domain-locked kit returns a stylesheet that loads nothing, and the page
+   falls back silently with no error.
 5. **Exports** (from WP-5) -- the exported CSV date cell equals its
    `data-export` ISO value, and the JPEG export is non-blank and correctly
    sized in both themes at mobile and desktop widths. These are the two

@@ -22,7 +22,6 @@ Where this repository overrides `README.md`, the list is short and complete:
 
 | Point | README says | This repo does | Why |
 | --- | --- | --- | --- |
-| Type families | Adobe Typekit kit `rwy8ghw`, 5 families | Self-hosted Geist / Instrument Serif / JetBrains Mono | Owner decision 1, below |
 | Theme marker | `.dark` class on `<html>` | `data-theme="dark"` on `<html>` | Section 5, below |
 | Radius steps | 5 values | 3 shipped, 2 still to add | Section 6, below |
 
@@ -97,8 +96,8 @@ here disagrees with the owner, the owner wins.
 | `rocket_r` seven stops | `static/js/heatmap.js:14-22` | Yes, exactly |
 | Spacing ladder | the `--spacing-*` steps in the `@theme` block | Yes |
 | Radius scale | the `--radius-*` steps in the `@theme` block | Partly -- see section 6 |
-| Type families | `BATCH21_DEFINITION.md:155-158` | No -- see section 4 |
-| Theme marker | `BATCH21_DEFINITION.md:190` | No -- see section 5 |
+| Type families | the `--font-*` steps in the `@theme` block of `static/css/tailwind.src.css`, and the kit link in `templates/base.html` | Yes -- adopted 2026-08-22, landed by WP-2 |
+| Theme marker | the WP-2 deliverables list in `BATCH21_DEFINITION.md` | No -- see section 5 |
 | Heatmap cell geometry | `static/js/heatmap.js:25-26` | No -- see section 7 |
 
 **The colour agreement covers the anchors only.** An earlier version of this
@@ -130,10 +129,13 @@ before asserting parity for any token.**
 
 ## 4. Owner decisions, 2026-08-21
 
-1. **Type stack: self-hosted.** Decision 4 in `BATCH21_DEFINITION.md:155-158`
-   stands. Kit `rwy8ghw` is not adopted. No `use.typekit.net` link goes into
-   `base.html`. This is the one place the owner ruled against the canonical
-   README, deliberately.
+1. ~~**Type stack: self-hosted.**~~ **Reversed on 2026-08-22. Adobe Fonts
+   wins.** The owner re-read the design contract and ruled that kit
+   `rwy8ghw` is adopted, calling it critical. `base.html` gets the
+   `use.typekit.net` link and decision 4 in `BATCH21_DEFINITION.md` was
+   rewritten to match. The repo no longer overrides the canonical README
+   on type, so the override table above lost its `Type families` row.
+   Nothing is self-hosted and no `static/fonts/` directory is created.
 2. **Design authority:** `README.md` is the default over both files in
    `reference/`. It does not always outrank an audit finding.
    `BATCH21_DEFINITION.md` is not amended.
@@ -142,34 +144,44 @@ before asserting parity for any token.**
 
 ### The type mapping
 
-| README role | README family | This repo | Note |
+The repo takes the README families unchanged. The table below is now a
+role map, not a list of substitutions. Weights come from the verified kit
+list in the `tokens/fonts.css` header.
+
+| Token | Family | Role | Weights the kit serves |
 | --- | --- | --- | --- |
-| `--font-sans` chrome, body | akzidenz-grotesk-next-pro | Geist | `--font-sans` in `@theme` |
-| `--font-serif` words, 22px+ | instrument-serif | Instrument Serif | identical |
-| `--font-figure` numbers, 18px+ | gotham Book | JetBrains Mono | no self-hosted figure face |
-| `--font-mono` inputs, tabular | input-mono | JetBrains Mono | `--font-mono` in `@theme` |
-| `--font-mono-narrow` 9-11px caps | input-mono-narrow | JetBrains Mono | no narrow variant exists |
+| `--font-sans` | akzidenz-grotesk-next-pro | UI chrome, labels, body | 300 / 400 / 700 |
+| `--font-serif` | instrument-serif | display words, 22px+ | 400 + italic |
+| `--font-figure` | gotham | display numbers, 18px+ | 400 / 700; Book only |
+| `--font-mono` | input-mono | form inputs, tabular numbers | 400 / 700 |
+| `--font-mono-narrow` | input-mono-narrow | letterspaced caps, 9-11px | 400 / 700 |
 
-Two consequences, both easy to miss:
+Use `akzidenz-grotesk-next-pro`, not `akzidenz-grotesk-next`. The plain
+family ships 200 roman and 800 italic and no 400, so it cannot set UI text.
 
-- **The clipping risk gets worse, not better.** The README calls Input Mono
-  Narrow "the single most likely regression": the full-width face at 9-11px
-  letterspaced pushes a `nowrap` field hint into its label and clips it. There
-  is no narrow JetBrains Mono, so this repository permanently uses the
-  full-width face the README warns against. **WP-3 must measure label and hint
-  widths at 9-11px.** Do not assume the README's fix carried over. It did not.
-- **The no-500/600 rule is a design rule here, not a technical one.** The
-  README bans weights 500 and 600 because no Adobe family in the kit ships
-  them, so `font-medium` synthesizes a fake. Geist does ship 300-700, so
-  `--font-weight-medium: 500` and `--font-weight-semibold: 600` at
-  `--font-weight-medium` and `--font-weight-semibold` in the `@theme` block are
-real weights. Keep the tokens. Still follow the
-  design intent: hierarchy comes from size, colour and letterspacing.
+Two consequences of the reversal, both easy to miss:
 
-**The component layer already used the self-hosted names.** `Button.prompt.md`,
-`Button.d.ts` and `Input.d.ts` all say "JetBrains Mono", not Input Mono. Only
-`tokens/` and the two README files carry the Adobe stack. The mapping above
-therefore agrees with most of the bundle rather than fighting it.
+- **The clipping risk is resolved.** The README calls Input Mono Narrow "the
+  single most likely regression": a full-width face at 9-11px letterspaced
+  pushes a `nowrap` field hint into its label and clips it. The kit ships
+  `input-mono-narrow`, so the repo now has the face the README asks for and
+  WP-3 does not have to design around its absence. The earlier version of
+  this file said the opposite, because the self-hosted plan had no narrow
+  mono to offer.
+- **The no-500/600 rule is technical here, not only a design rule.** Nothing
+  in the kit ships a 500 or a 600, so `font-medium` and `font-semibold` can
+  only synthesize fakes. `--font-weight-medium` and `--font-weight-semibold`
+  are therefore deleted from the `@theme` block rather than kept. The earlier
+  version kept them because Geist ships real ones; that reasoning died with
+  the reversal. The design intent is unchanged: hierarchy comes from size,
+  colour and letterspacing.
+
+**The bundle contradicts itself on type, and the kit wins.** `Button.prompt.md`,
+`Button.d.ts` and `Input.d.ts` all say "JetBrains Mono", not Input Mono, while
+`tokens/` and the two README files carry the Adobe stack. Read those three
+component files as stale on type only; the rest of what they specify stands.
+The `tokens/fonts.css` header is the strongest evidence in the bundle -- it
+lists every family in the kit with the weights each actually serves.
 
 ---
 
@@ -178,8 +190,8 @@ therefore agrees with most of the bundle rather than fighting it.
 Three mechanisms disagreed:
 
 - Live code sets `body.dark-mode` (`static/js/theme.js:12,17`).
-- The WP-2 contract says `theme.js` dual-writes `data-theme`
-  (`BATCH21_DEFINITION.md:190`).
+- The WP-2 contract says `theme.js` dual-writes `data-theme` (the WP-2
+  deliverables list in `BATCH21_DEFINITION.md`).
 - `README.md` says `.dark` on `<html>` (known constraint 4).
 
 **`data-theme="dark"` on `<html>` satisfies all three.** daisyUI keys on
@@ -216,7 +228,7 @@ every case `README.md` wins, per precedence.
 | Dark `--heatmap-empty` | `#262230` | `#2a2a2a` in `components/heatmap/HeatmapFrame.prompt.md` | `#262230`. `tokens/heatmap.css` agrees with the README. |
 | Results max width | 1180px | `--content-max: 1040px` in `tokens/spacing.css` | 1180px results, 1040px heatmap. The token is the heatmap value. |
 | Form column cap | 380px | `--form-max: 460px` in `tokens/spacing.css` | 380px, per the index screen spec. |
-| Figures | Gotham; "the serif gets the words, Gotham gets the numbers" | "serif number" in `StatBlock.prompt.md` and `.d.ts` | Figure face, not serif. Under the self-hosted mapping that is JetBrains Mono. |
+| Figures | Gotham; "the serif gets the words, Gotham gets the numbers" | "serif number" in `StatBlock.prompt.md` and `.d.ts` | Figure face, not serif. That is `--font-figure`, which is `gotham`. |
 | Heatmap cell geometry | cell radius 2px, gap 2px desktop | 11px cell in `HeatmapFrame.d.ts` | Neither matches the shipped `heatmap.js:25-26` (14px cell, 3px gap). WP-6 decides and records it. |
 | `--heatmap-empty` again | `#e8e2d6` / `#262230` | `#e0e0e0` / `#2a2a2a` in `guidelines/colors-rocket.prompt.md`, **not imported** | The README values. `#e0e0e0` is the old shipped grey the design deliberately warmed away from, so that file predates the revision. It is the third variant of this one token; `tokens/heatmap.css` and the README agree and win. |
 
