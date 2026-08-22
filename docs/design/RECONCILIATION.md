@@ -93,7 +93,7 @@ here disagrees with the owner, the owner wins.
 
 | Fact | Owner | Snapshot agrees? |
 | --- | --- | --- |
-| Theme colours, light and dark | `static/css/tailwind.src.css:69-137` | Yes, exactly |
+| Theme colours, light and dark | `static/css/tailwind.src.css:69-137` | Partly -- see below |
 | `rocket_r` seven stops | `static/js/heatmap.js:14-22` | Yes, exactly |
 | Spacing ladder | `static/css/tailwind.src.css:36-42` | Yes |
 | Radius scale | `static/css/tailwind.src.css:45-47` | Partly -- see section 6 |
@@ -101,8 +101,30 @@ here disagrees with the owner, the owner wins.
 | Theme marker | `BATCH21_DEFINITION.md:190` | No -- see section 5 |
 | Heatmap cell geometry | `static/js/heatmap.js:25-26` | No -- see section 7 |
 
-The colour agreement is exact, not approximate. Every hex value in the
-README's two colour tables matches the shipped theme blocks.
+**The colour agreement covers the anchors only.** An earlier version of this
+file claimed every hex in the README's two colour tables matches the shipped
+theme. That is false, and the PR #173 review caught it. What actually holds:
+
+| README token | Light | Dark | In the theme? |
+| --- | --- | --- | --- |
+| `--surface-page` | `#faf8f3` | `#0e0c12` | Yes -- `--color-base-100` |
+| `--text-strong` | `#1a1820` | `#f1ede4` | Yes -- `--color-base-content` |
+| `--accent` | `#6a4baf` | `#b39dde` | Yes -- `--color-primary` |
+| `--surface-sunken` | `#f0ebe0` | `#1a1622` | Light only. Dark `--color-base-200` is `#181520` |
+| `--surface-card` | `#ffffff` | `#181520` | No slot. Dark value is used, but for the sunken role |
+| `--accent-contrast` | `#ffffff` | `#0e0c12` | Dark only. Light `--color-primary-content` is `#faf8f3` |
+| `--text-body`, `--text-muted`, `--border-default`, `--accent-soft` | -- | -- | **Absent entirely** |
+
+The status colours are not migrated at all. The README specifies `--ss-good`
+`#2f7a4a`/`#6fcf97`, `--ss-warn` `#b35a1f`/`#e0a458` and `--ss-bad`
+`#b03434`/`#e07070`. The theme still carries Bootstrap's `#198754`, `#ffc107`
+and `#dc3545`.
+
+None of this is a contradiction to resolve. daisyUI's semantic slots have no
+home for a body-text, muted-text, border or accent-tint colour, so those
+tokens land when the WP that needs them adds them. It is recorded here so no
+later agent reads "exact" and skips the comparison. **Check the theme block
+before asserting parity for any token.**
 
 ---
 
