@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-import io
+import http.client
 import platform
 import stat
 from pathlib import Path
@@ -18,6 +18,7 @@ from scripts.dev.tailwind_build import (
     ArtifactSpec,
     TailwindBuildError,
     _detect_libc,
+    _download_verified,
     _mark_executable,
     ensure_artifact,
     ensure_toolchain,
@@ -210,13 +211,44 @@ def test_a_valid_cached_artifact_is_rehashed_without_network(tmp_path: Path) -> 
     assert digest.call_count == 2
 
 
+class _StubResponse:
+    """Minimal urlopen stand-in: a context manager exposing headers and read.
+
+    A real HTTPResponse always carries headers. io.BytesIO does not, so a
+    stub without them cannot exercise the Content-Length short-read check.
+    """
+
+    def __init__(self, headers: dict[str, str], reader) -> None:
+        self.headers = headers
+        self._reader = reader
+
+    def read(self, size: int) -> bytes:
+        return self._reader(size)
+
+    def __enter__(self) -> "_StubResponse":
+        return self
+
+    def __exit__(self, *_exc_info: object) -> bool:
+        return False
+
+
+def _response(payload: bytes, *, declared: int | None = None) -> _StubResponse:
+    """Serve payload in one read, then end-of-body, with a Content-Length."""
+    remaining = [payload]
+    length = len(payload) if declared is None else declared
+    return _StubResponse(
+        {"Content-Length": str(length)},
+        lambda _size: remaining.pop(0) if remaining else b"",
+    )
+
+
 def test_a_missing_artifact_is_downloaded_and_verified(tmp_path: Path) -> None:
     """A cache miss publishes exactly the bytes covered by the pinned digest."""
     spec = _artifact()
 
     with patch(
         "scripts.dev.tailwind_build.urlopen",
-        return_value=io.BytesIO(b"trusted"),
+        return_value=_response(b"trusted"),
     ) as opener:
         destination = ensure_artifact(spec, bin_dir=tmp_path)
 
@@ -233,7 +265,7 @@ def test_a_corrupt_cache_entry_is_replaced_once(tmp_path: Path) -> None:
 
     with patch(
         "scripts.dev.tailwind_build.urlopen",
-        return_value=io.BytesIO(b"trusted"),
+        return_value=_response(b"trusted"),
     ) as opener:
         assert ensure_artifact(spec, bin_dir=tmp_path) == destination
 
@@ -252,7 +284,7 @@ def test_a_corrupt_replacement_fails_closed_and_cleans_temp_file(
     with (
         patch(
             "scripts.dev.tailwind_build.urlopen",
-            return_value=io.BytesIO(b"also-wrong"),
+            return_value=_response(b"also-wrong"),
         ) as opener,
         pytest.raises(TailwindBuildError, match="SHA-256 mismatch"),
     ):
@@ -277,6 +309,47 @@ def test_a_download_error_cleans_the_temporary_file(tmp_path: Path) -> None:
         ensure_artifact(spec, bin_dir=tmp_path)
 
     assert list(tmp_path.iterdir()) == []
+
+
+def test_a_truncated_download_is_reported_as_a_short_read(tmp_path: Path) -> None:
+    """A connection that closes mid-body must not be blamed on the digest.
+
+    A short file fails the digest check for a network reason. Reporting that
+    as "SHA-256 mismatch" reads as a supply-chain compromise and sends the
+    operator to investigate the wrong thing.
+    """
+    payload = b"the full body"
+    spec = _artifact(payload)
+    response = _StubResponse({"Content-Length": str(len(payload))}, lambda _size: b"")
+
+    with (
+        patch("scripts.dev.tailwind_build.urlopen", return_value=response),
+        pytest.raises(TailwindBuildError) as error,
+    ):
+        _download_verified(spec, tmp_path / spec.filename)
+
+    message = str(error.value)
+    assert "truncated" in message.lower()
+    assert "SHA-256 mismatch" not in message
+    assert str(len(payload)) in message
+
+
+def test_an_incomplete_read_is_translated_not_raised_raw(tmp_path: Path) -> None:
+    """IncompleteRead subclasses HTTPException, so it escapes an OSError catch."""
+
+    def _raise(_size: int) -> bytes:
+        raise http.client.IncompleteRead(b"partial", 6)
+
+    spec = _artifact(b"the full body")
+    response = _StubResponse({}, _raise)
+
+    with (
+        patch("scripts.dev.tailwind_build.urlopen", return_value=response),
+        pytest.raises(TailwindBuildError, match="Could not fetch"),
+    ):
+        _download_verified(spec, tmp_path / spec.filename)
+
+    assert [path for path in tmp_path.iterdir() if path.suffix == ".tmp"] == []
 
 
 def test_ensure_toolchain_checks_the_executable_and_both_bundles(
@@ -306,6 +379,9 @@ def test_ensure_toolchain_checks_the_executable_and_both_bundles(
 
     assert executable == tmp_path / "asset.bin"
     assert [call.args[0] for call in ensure.call_args_list] == list(specs)
+    # Reading args alone leaves bin_dir unchecked, so dropping the keyword in
+    # ensure_toolchain kept the whole suite green. Assert the routing too.
+    assert [call.kwargs["bin_dir"] for call in ensure.call_args_list] == [tmp_path] * 3
 
 
 def test_executable_mode_is_added_only_on_posix(tmp_path: Path) -> None:
