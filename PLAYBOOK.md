@@ -292,6 +292,28 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-22 - Tailwind citations renamed after the rescope (side-task)
+
+- Scope: 13 line citations in `FINDINGS.md` and
+  `docs/design/RECONCILIATION.md`. No code changed.
+- Codex caught this on PR #173. It is correct.
+- The `source(none)` comment moved `tailwind.src.css` down five lines. The
+  rescope cut `tailwind.css` from 2,289 lines to 1,576. Every citation into
+  either file broke at once. `:root:not([data-theme])` moved from 2042
+  to 1335.
+- The citations now name the block or the declaration: the two
+  `@plugin "daisyui-theme.mjs"` blocks, `--spacing-*`, `--radius-*`,
+  `--font-sans`, `--font-mono`, `--font-weight-medium`,
+  `@custom-variant dark`, `prefersdark: true`. Named anchors do not drift.
+- Checked the citations Codex did not flag. `heatmap.js:14-22`,
+  `heatmap.js:25-26`, `theme.js:17`, `base.html:26` and `index.css:158` all
+  still resolve. Those files did not change.
+- This is `F-STYLE-1` happening again. The rule already exists for
+  `AGENTS.md`. It applies to every file. Cite a name, not a number.
+- Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
+  exits 0. `pre-commit run --all-files` passes.
+- Next: **WP-2**.
+
 ### 2026-08-22 - Open findings mirrored to GitHub issues (side-task)
 
 - Scope: created issues #174-#215. Rephrased two rules in `AGENTS.md`. Filed
@@ -376,36 +398,3 @@ non-current operational logs. Older dated entries live in
   Quality Gate re-run on PR #173.
 - Forward guidance: **WP-2 is next** and should treat `F-B21-7` and `F-B21-8`
   as its own, since the drift hook it adds runs both code paths.
-
-### 2026-08-22 - Two WP-1 review items filed as F-B21-6 and F-B21-7 (side-task)
-
-- Scope: `FINDINGS.md` only -- two new findings plus the stale status header.
-  No code changed. Filed before opening the Batch 21 PR so the branch is
-  self-describing rather than leaving a reviewer to rediscover them.
-- Both items came out of the five-agent WP-1 review on 2026-08-20 and were
-  carried in local notes, unfiled, ever since. Each was re-verified against
-  the code before filing; neither was taken on the review's word.
-- `F-B21-6`: `routes.py:135,302,436` use naive `datetime.now()`. Line 436
-  gates the requested year against host-local time while
-  `orchestrator.py:70-71` builds the fetch window in UTC, so gate and window
-  disagree by the host offset near New Year. They agreed before F-SWE-2,
-  which fixed the window and left the gate. Production runs UTC, so this is
-  a developer-host defect.
-- `F-B21-7`: two defects in the WP-1 toolchain. The one test naming the
-  integrity property patches both `required_artifacts` and `ensure_artifact`,
-  so no integrity code runs. **Verified by mutation:** deleting
-  `bin_dir=bin_dir` from `tailwind_build.py:293` leaves the full suite at
-  633 passed. The review had claimed only the 35 toolchain tests stay green;
-  the real blast is the whole suite. Separately,
-  `http.client.IncompleteRead` subclasses `HTTPException`, not `OSError`, so
-  it escapes both handlers as a raw traceback -- confirmed from the MRO --
-  and a cleanly truncated download surfaces as `SHA-256 mismatch`, which
-  reads as tampering rather than a network fault.
-- Deviations: none. The mutation was reverted with `git checkout --` and the
-  working tree confirmed clean before anything was staged.
-- Validation: `pytest -q` -- **633 passed**, 3 warnings. Unchanged; the only
-  Python touched was the mutation, which was reverted.
-  `doc_state_sync.py --check` exits 0. `pre-commit run --all-files` passes.
-- Forward guidance: **WP-2 is next.** It should absorb `F-B21-7`, because the
-  `tailwind-css-drift` hook it adds runs the same code path. `F-B21-6` is
-  independent of the UI batch and needs no WP of its own.
