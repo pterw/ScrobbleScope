@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-21 - SESSION_CONTEXT batch status row resynced (side-task)
+
+- Scope: `.claude/SESSION_CONTEXT.md` Section 1 only -- the Batch 21 status
+  row and the "Last updated" date. No code, no gate, no Section 3 change.
+- Why: the row still read "the owner-approved root-hygiene side task is next,
+  then WP-2". That side task closed on 2026-08-20, and two further side tasks
+  landed on 2026-08-21. PLAYBOOK Section 3 was correct throughout; only the
+  snapshot was stale.
+- Three earlier commits caused the drift. Each updated PLAYBOOK and left this
+  row alone. `AGENTS.md` "What to update after a WP or side-task commit"
+  requires SESSION_CONTEXT Section 1 to move when the batch status changes.
+- Not a gate failure, and nothing would have caught it. `doc_state_sync.py`
+  manages the STATUS block in Section 2, which was correct the whole time.
+  Section 1 prose is hand-maintained and unchecked.
+- The row now also names `docs/design/README.md` as the canonical design spec
+  and `docs/design/RECONCILIATION.md` as the override list, so a bootstrapping
+  agent finds the design tree from the state snapshot.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings. Unchanged; no Python
+  touched. `doc_state_sync.py --check` exits 0. `pre-commit run --all-files`
+  passes.
+- Forward guidance: **WP-2 is next**, unchanged. Section 1's batch row is the
+  first thing a bootstrapping agent reads for state. Update it in the same
+  commit as the PLAYBOOK entry, never afterwards.
+
 ### 2026-08-21 - Size rule restated as intent in AGENTS.md (side-task)
 
 - Scope: rewrote Proposal and Design Rules item 3 in `AGENTS.md`. One rule, no

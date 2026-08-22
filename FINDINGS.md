@@ -444,6 +444,25 @@ removed. Delete them only together with that line.
 Status: open for the missing local check; the `@source` scope itself is fixed
 on `wip/batch-21`. WP-2 closes the remainder with the drift hook.
 Source: PR #173 Quality Gate failure, 2026-08-22.
+### F-B21-9: the findings-to-issues mirror is manual
+
+Open findings were mirrored to GitHub issues #174-#215 on 2026-08-22. The
+mirror ran once, from a script that was not committed.
+
+Nothing keeps it current. A new finding does not open an issue. A resolved
+finding does not close one. The two lists will drift.
+
+This was deliberate, not an oversight. A sync script is code. It needs tests
+and a work package. It did not belong in the documentation PR that created
+the mirror.
+
+What a sync needs: open an issue for each finding that has none, close the
+issue when its finding resolves, and never write back to `FINDINGS.md`. The
+file stays the source of truth. Issues are a read-only mirror.
+
+Status: open, deferred on purpose. The owner accepted the drift on
+2026-08-22 and asked that the work be recorded rather than done now.
+Source: findings mirror, 2026-08-22.
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed
