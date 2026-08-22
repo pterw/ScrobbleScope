@@ -206,16 +206,17 @@ already prescribes the remedy: `theme.js` dual-writes `data-theme` and
 `.dark-mode`.
 
 **`prefersdark: true` compiles to an always-on rule.**
-`static/css/tailwind.src.css:104` produces `:root:not([data-theme])` inside a
-dark media query (`static/css/tailwind.css:2042`). While nothing carries
+`prefersdark: true` in the dark `@plugin "daisyui-theme.mjs"` block of
+`static/css/tailwind.src.css` compiles to a `:root:not([data-theme])` rule
+inside a dark media query in the generated `static/css/tailwind.css`. While nothing carries
 `data-theme`, that selector matches every page, so an OS-dark visitor gets
 dark daisyUI colours whatever the in-page toggle says. Setting `data-theme`
 settles this seam too, which is why the two are one finding.
 
 **Bootstrap loads unlayered and therefore wins.** `templates/base.html:26`
 loads Bootstrap 5.1.3 from cdnjs with no `@layer`, while
-`static/css/tailwind.css:3` declares `@layer theme, base, components,
-utilities`. Unlayered styles beat layered ones at any specificity, so
+the generated `static/css/tailwind.css` opens with
+`@layer theme, base, components, utilities`. Unlayered styles beat layered ones at any specificity, so
 Bootstrap wins every shared class name. The compiled CSS emits ten daisyUI
 component classes -- `.alert`, `.btn`, `.card`, `.input`, `.modal`,
 `.select`, `.tab`, `.tabs`, `.toast`, `.toggle` -- and Bootstrap defines

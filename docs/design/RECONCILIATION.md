@@ -93,10 +93,10 @@ here disagrees with the owner, the owner wins.
 
 | Fact | Owner | Snapshot agrees? |
 | --- | --- | --- |
-| Theme colours, light and dark | `static/css/tailwind.src.css:69-137` | Partly -- see below |
+| Theme colours, light and dark | the two `@plugin "daisyui-theme.mjs"` blocks in `static/css/tailwind.src.css` | Partly -- see below |
 | `rocket_r` seven stops | `static/js/heatmap.js:14-22` | Yes, exactly |
-| Spacing ladder | `static/css/tailwind.src.css:36-42` | Yes |
-| Radius scale | `static/css/tailwind.src.css:45-47` | Partly -- see section 6 |
+| Spacing ladder | the `--spacing-*` steps in the `@theme` block | Yes |
+| Radius scale | the `--radius-*` steps in the `@theme` block | Partly -- see section 6 |
 | Type families | `BATCH21_DEFINITION.md:155-158` | No -- see section 4 |
 | Theme marker | `BATCH21_DEFINITION.md:190` | No -- see section 5 |
 | Heatmap cell geometry | `static/js/heatmap.js:25-26` | No -- see section 7 |
@@ -144,10 +144,10 @@ before asserting parity for any token.**
 
 | README role | README family | This repo | Note |
 | --- | --- | --- | --- |
-| `--font-sans` chrome, body | akzidenz-grotesk-next-pro | Geist | `tailwind.src.css:9` |
+| `--font-sans` chrome, body | akzidenz-grotesk-next-pro | Geist | `--font-sans` in `@theme` |
 | `--font-serif` words, 22px+ | instrument-serif | Instrument Serif | identical |
 | `--font-figure` numbers, 18px+ | gotham Book | JetBrains Mono | no self-hosted figure face |
-| `--font-mono` inputs, tabular | input-mono | JetBrains Mono | `tailwind.src.css:11` |
+| `--font-mono` inputs, tabular | input-mono | JetBrains Mono | `--font-mono` in `@theme` |
 | `--font-mono-narrow` 9-11px caps | input-mono-narrow | JetBrains Mono | no narrow variant exists |
 
 Two consequences, both easy to miss:
@@ -162,7 +162,8 @@ Two consequences, both easy to miss:
   README bans weights 500 and 600 because no Adobe family in the kit ships
   them, so `font-medium` synthesizes a fake. Geist does ship 300-700, so
   `--font-weight-medium: 500` and `--font-weight-semibold: 600` at
-  `tailwind.src.css:15-16` are real weights. Keep the tokens. Still follow the
+  `--font-weight-medium` and `--font-weight-semibold` in the `@theme` block are
+real weights. Keep the tokens. Still follow the
   design intent: hierarchy comes from size, colour and letterspacing.
 
 **The component layer already used the self-hosted names.** `Button.prompt.md`,
@@ -182,7 +183,7 @@ Three mechanisms disagreed:
 - `README.md` says `.dark` on `<html>` (known constraint 4).
 
 **`data-theme="dark"` on `<html>` satisfies all three.** daisyUI keys on
-`data-theme`. `tailwind.src.css:139` already redefines Tailwind's `dark:`
+`data-theme`. the `@custom-variant dark` line already redefines Tailwind's `dark:`
 variant against `[data-theme="dark"]`, so `dark:` utilities keep working. And
 the README's real requirement is only that the marker sit on `<html>`, so the
 page shell flips with the content. `templates/base.html:2` is the line.
@@ -197,7 +198,8 @@ selector to `[data-theme="dark"]` when the values move into the theme.
 
 `README.md` uses five steps: 4px cover art and tiny tags, 8px inputs and small
 buttons, 10px stat strips and submit buttons, 14px cards and the heatmap frame,
-999px pills. `tailwind.src.css:45-47` ships three: 8, 14, 999.
+999px pills. The `--radius-*` steps in the `@theme` block ship three: 8, 14,
+999.
 
 **4px and 10px are still missing.** Whichever WP first needs album cover art
 (WP-5) or a stat strip (WP-4) adds them.
