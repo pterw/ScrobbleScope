@@ -869,7 +869,8 @@ P1 to P2 and the finding moved from the P1 section to this one.
 
 The related UI need -- the unmatched modal and page should say plainly that
 an album had no Spotify match -- is already Batch 21 WP-7 scope
-(`BATCH21_DEFINITION.md:297-308`: the `no_spotify_match` reason code and two
+(the `WP-7 -- Unmatched page + reason_code` section of
+`BATCH21_DEFINITION.md`: the `no_spotify_match` reason code and two
 reason cards with human copy). It is not extra work and is not tracked here.
 Status: open (P2). Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
 
