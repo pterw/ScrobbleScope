@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import os
 import platform
 import stat
@@ -235,14 +236,39 @@ def _download_verified(spec: ArtifactSpec, destination: Path) -> None:
             delete=False,
         ) as temporary:
             temporary_path = Path(temporary.name)
+            received = 0
+            declared: str | None = None
             try:
                 with urlopen(request, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response:
+                    declared = response.headers.get("Content-Length")
                     while chunk := response.read(DOWNLOAD_CHUNK_SIZE):
                         temporary.write(chunk)
-            except (OSError, URLError) as exc:
+                        received += len(chunk)
+            except (OSError, URLError, http.client.HTTPException) as exc:
+                # IncompleteRead subclasses HTTPException, not OSError, so it
+                # would otherwise escape every handler here and in main, and
+                # reach the operator as a raw traceback.
                 raise TailwindBuildError(
                     f"Could not fetch pinned artifact {spec.filename}: {exc}"
                 ) from exc
+
+        # A connection that closes cleanly mid-body leaves a short file, which
+        # then fails the digest check. Report the transport fault first, before
+        # hashing, so a network fault never reads as a tampered artifact.
+        #
+        # A chunked response carries no Content-Length, so declared is None and
+        # there is nothing to compare against. Skip the check rather than treat
+        # a missing header as zero, which would reject every chunked download.
+        if declared is not None:
+            try:
+                expected_bytes = int(declared)
+            except ValueError:
+                expected_bytes = -1
+            if expected_bytes >= 0 and received != expected_bytes:
+                raise TailwindBuildError(
+                    f"Download of {spec.filename} was truncated: expected "
+                    f"{expected_bytes} bytes, received {received}"
+                )
 
         actual = sha256_file(temporary_path)
         if actual != spec.sha256:
