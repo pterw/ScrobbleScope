@@ -5,7 +5,8 @@ Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0 and WP-1 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
 resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
 side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
-WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22.
+WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
+F-B21-8 records the Tailwind source-scope defect PR #173 exposed.
 **WP-2 is next.** 633 tests across 37 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
@@ -407,6 +408,42 @@ Status: open. WP-2 candidate -- it adds the `tailwind-css-drift` hook that
 depends on this same code path. Found in the WP-1 review on 2026-08-20 and
 left unfiled; filed 2026-08-22 after the mutation was run.
 Source: WP-1 parallel review.
+### F-B21-8: Tailwind scanned the whole repository, and no test would say so
+
+`@source` **adds** to Tailwind v4's automatic source detection; it does not
+replace it. `static/css/tailwind.src.css` named `templates/` and
+`static/js/`, and everyone -- this repository's own documentation included --
+read that as the scan boundary. It was not. `@import "tailwindcss"` walks the
+project from the root, so `docs/`, `tests/`, `scripts/` and the root Markdown
+files were all feeding the extractor.
+
+The extractor treats bare words as class candidates, so ordinary English
+prose in Markdown compiled into real utilities. `.contents`, `.isolate`,
+`.flex`, `.border`, `.relative`, `.sticky`, `.truncate` and `.italic` were all
+in the shipped stylesheet on that basis. Scoping the scan to what the config
+already claimed removed **713 of 2,289 lines -- 31% of the file**.
+
+Fixed by `@import "tailwindcss" source(none)`, which turns automatic detection
+off and makes the two `@source` directives the whole scan.
+
+**The reason this reached CI.** Nothing local runs the build and compares. The
+WP-1 suite tests `tailwind_build.py`'s fetch, verify and platform logic, and
+never asserts that the committed CSS is what the pinned toolchain emits. The
+only check that can fail is the "Verify committed Tailwind CSS" step in the
+Quality Gate, which runs after push. `git diff --exit-code -- static/css/tailwind.css`
+was used locally as if it were that check; it only proves the file has not
+been edited by hand. This is the same shape as `F-B21-7` -- a gate whose local
+tests cannot fail -- and it is the strongest argument for WP-2's
+`tailwind-css-drift` pre-commit hook, which closes it.
+
+Two `@source not` directives are now unreachable: `./tailwind.css` and
+`../../scripts/bin/*` both sit outside the two scanned directories. They are
+harmless, and are left in place as protection in case `source(none)` is ever
+removed. Delete them only together with that line.
+
+Status: open for the missing local check; the `@source` scope itself is fixed
+on `wip/batch-21`. WP-2 closes the remainder with the drift hook.
+Source: PR #173 Quality Gate failure, 2026-08-22.
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed
