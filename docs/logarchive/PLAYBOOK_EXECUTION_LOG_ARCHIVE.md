@@ -9,6 +9,32 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-21 - Dependency advisories filed as F-B21-3 (side-task)
+
+- Scope: filed one finding from the first Quality Gate run that exercised the
+  Tailwind steps. No runtime code and no dependency changed.
+- Plan vs implementation: pushing `bc9ba80` ran the gate for the first time
+  since WP-1 landed. It passed, and "Verify committed Tailwind CSS" succeeded
+  on Linux, so the committed digest reproduces in CI and the WP-1 platform
+  detection works there. The same run's `pip-audit` step reported 115
+  advisories across 12 packages and exited 1 without failing the gate, which
+  is its documented `continue-on-error` disposition. Investigation found six
+  packages in `requirements.txt` that nothing imports, including a
+  `pypdf`/`pdf2image`/`pillow` cluster. The owner asked whether those served
+  the JPEG export; they do not. That export is client-side `html2canvas` in
+  `static/js/results.js:178-266`. All six unimported packages entered in the
+  initial `0ea2313` commit rather than with a feature. The owner has poppler
+  installed locally, so `pdf2image` can run on the development machine, but
+  not in production: the `Dockerfile` is a bare `python:3.13-slim` with no
+  system-package installs.
+- Deviations: none. No dependency was upgraded or removed. Dependency changes
+  are code and belong in a code batch, not a docs commit.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings. Quality Gate run
+  32444711411 passed in 1m12s.
+- Forward guidance: WP-2 is next. `F-B21-3` records a suggested shape --
+  split runtime from developer requirements, drop unimported packages, then
+  upgrade the outbound HTTP libraries -- but the owner has not ruled on it.
+
 ### 2026-08-20 - F-B21-2 deferred to the locked WP-2 remedy (side-task)
 
 - Scope: corrected one finding that prescribed a fix competing with an
