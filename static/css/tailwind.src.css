@@ -1,4 +1,9 @@
-@import "tailwindcss";
+/* source(none) turns off automatic detection, so the two @source lines below
+   are the whole scan. Without it Tailwind also walks the repository from the
+   project root, and its extractor treats ordinary English in Markdown as class
+   candidates -- "contents", "isolate", "flex", "border" and "relative" all
+   reached the compiled stylesheet that way. See F-B21-8. */
+@import "tailwindcss" source(none);
 
 @source "../../templates";
 @source "../../static/js";

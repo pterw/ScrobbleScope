@@ -34,9 +34,17 @@ Nothing else in `README.md` is overridden.
 
 - A **reference snapshot**. It records what the design system said on
   2026-08-21.
-- **Never compiled.** Tailwind's `@source` directives at
-  `static/css/tailwind.src.css:3-4` cover `templates/` and `static/js/` only.
-  Nothing here is scanned, and nothing here can move `static/css/tailwind.css`.
+- **Never compiled -- but only since `F-B21-8`.** The `@source` directives in
+  `static/css/tailwind.src.css` name `templates/` and `static/js/`, and an
+  earlier version of this file claimed that meant nothing here is scanned.
+  That was wrong. `@source` *adds* to Tailwind's automatic detection rather
+  than replacing it, so the whole repository was being walked and this tree
+  did reach the compiled stylesheet. The import made it visible: the drift
+  gate went red on PR #173. The source line now carries `source(none)`, which
+  turns automatic detection off and makes the two `@source` directives the
+  entire scan. The claim is true now because the config was fixed, not
+  because it was ever safe to assume. Do not restate it without checking the
+  source line.
 - **Not shipping code.** The `.d.ts` files are prop contracts, read as specs
   for Jinja macros. This app is server-rendered Flask and does not become React.
 - **Not the owner of any live value.** See the next section.

@@ -292,6 +292,45 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-22 - Tailwind source scope corrected after PR #173 went red (side-task)
+
+- Scope: `static/css/tailwind.src.css` (one directive plus a comment), the
+  regenerated `static/css/tailwind.css`, `FINDINGS.md` (`F-B21-8`), and the
+  false claim in `docs/design/RECONCILIATION.md` section 2. Owner chose the
+  fix and the recording from two options each.
+- Trigger: PR #173's Quality Gate failed on "Verify committed Tailwind CSS".
+  Not a flake. The rebuild added 30 lines the committed file did not have.
+- Cause: `@source` **adds** to Tailwind v4's automatic detection instead of
+  replacing it, so the whole repository was scanned, not just `templates/`
+  and `static/js/`. The extractor turns bare words in Markdown into class
+  candidates, so prose compiled into utilities -- `.contents`, `.isolate`,
+  `.flex`, `.border`, `.relative`, `.sticky`, `.truncate`, `.italic`.
+- The design import did not create this; it exposed it. The committed
+  baseline was already contaminated. Scoping the scan removed **713 of 2,289
+  lines, 31% of the stylesheet**.
+- Fix: `@import "tailwindcss" source(none)`. Rejected alternatives, both
+  offered to the owner: regenerate as-is, which would couple the design
+  documentation to production CSS permanently; and `@source not "../../docs"`,
+  which fixes only `docs/` and leaves `tests/`, `scripts/` and the root
+  Markdown feeding the scanner.
+- Verified rather than assumed: both theme blocks survive (`--color-base-100`
+  is `#faf8f3` light and `#0e0c12` dark, and `data-theme` still appears three
+  times), and a second consecutive build reproduces the first byte for byte.
+- Deviations: two `@source not` directives are now unreachable and were left
+  in place deliberately, as protection if `source(none)` is ever removed.
+  Recorded in `F-B21-8`.
+- **Process failure worth naming.** Last session's check,
+  `git diff --exit-code -- static/css/tailwind.css`, was reported as proof
+  that `docs/design/` was outside Tailwind's scope. It proves only that the
+  file was not hand-edited. The build has to actually run. `F-B21-8` records
+  that nothing local runs it, which is what WP-2's `tailwind-css-drift` hook
+  closes.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+  `doc_state_sync.py --check` exits 0. `pre-commit run --all-files` passes.
+  Quality Gate re-run on PR #173.
+- Forward guidance: **WP-2 is next** and should treat `F-B21-7` and `F-B21-8`
+  as its own, since the drift hook it adds runs both code paths.
+
 ### 2026-08-22 - Two WP-1 review items filed as F-B21-6 and F-B21-7 (side-task)
 
 - Scope: `FINDINGS.md` only -- two new findings plus the stale status header.
@@ -380,53 +419,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: WP-2 is still next. When the wider `AGENTS.md` trim
   happens, do it this way -- one rule at a time, intent replacing the proxy
   metric, and re-grep line citations afterwards because they will move.
-
-### 2026-08-21 - Front-end design handoff imported to docs/design (side-task)
-
-- Scope: imported the owner's Claude Design project
-  (`7d95e96a-613b-4017-9dd7-8b74d2db9535`) into `docs/design/`, recorded where
-  it diverges from the batch contract, and filed two findings. No runtime code
-  changed. WP-2 keeps its own reserved commit.
-- Plan vs implementation: the source project holds 207 files; 61 are imported
-  verbatim through the design MCP -- the canonical `README.md`, 10 token files,
-  24 components as `.prompt.md` plus `.d.ts`, and two subordinate references.
-  The import is a curated subset and says so; everything else stays reachable
-  through the MCP, and `RECONCILIATION.md` section 2 tables what was left
-  behind and why. Claude added a 62nd file,
-  `RECONCILIATION.md`, because a verbatim snapshot states the Adobe Typekit
-  stack and the `.dark` marker as fact and the owner has overridden both;
-  without an override list a later agent reading only the specification would
-  implement the wrong thing. `docs/AGENT_DOC_MAP.md` gains a row so the tree is
-  discoverable.
-- Owner decisions, all made this session: (1) the type stack stays self-hosted,
-  so `BATCH21_DEFINITION.md:155-158` decision 4 stands and kit `rwy8ghw` is not
-  adopted; (2) `docs/design/README.md` is canonical and is the default over
-  both files in `reference/`, but it does not automatically retire an audit
-  finding; (3) curated text-only import; (4) import only, one commit.
-- Deviations: none against the approved plan, but two of its assumptions were
-  corrected by evidence found while importing. The plan treated the mobile
-  input size as a live conflict; it is not -- the canonical bundle's own
-  `components/forms/Input.prompt.md` mandates 16px or larger on mobile, which
-  matches the shipped override at `static/css/index.css:158`. `F-B21-5` records
-  it as settled rather than open. The plan also assumed the component layer
-  followed the Adobe stack; it does not -- `Button.d.ts` and `Input.d.ts` name
-  JetBrains Mono, so the self-hosted mapping agrees with most of the bundle.
-- Verified against code, not accepted from the documents: the seven `rocket_r`
-  stops in `static/js/heatmap.js:14-22` match the specification exactly; every
-  hex value in both colour tables matches `static/css/tailwind.src.css:69-137`;
-  the three accessibility defects in `F-B21-5` were each confirmed at the line
-  cited. The unmatched-grouping bug the design review names was already in the
-  batch contract at `BATCH21_DEFINITION.md:25-27` and is not filed again.
-- `docs/` is excluded from every pre-commit hook by `.pre-commit-config.yaml:2`
-  and sits outside Tailwind's `@source` scope, so the import cannot rewrite the
-  specification's Unicode or move `static/css/tailwind.css`. Both were checked.
-- Validation: `pytest -q` -- **633 passed**, 3 warnings. Unchanged; this commit
-  touches no Python.
-- Forward guidance: WP-2 is still next and its scope is unchanged. Before
-  starting it, read `docs/design/RECONCILIATION.md` section 5 -- the theme
-  marker resolves to `data-theme="dark"` on `<html>` at `templates/base.html:2`,
-  which satisfies daisyUI, the WP-2 contract and the specification at once.
-  WP-3 must measure label and hint widths at 9-11px: there is no narrow
-  JetBrains Mono, so the clipping regression the specification warns about is
-  live here rather than avoided. `F-B21-4` must not be closed by ruling on all
-  four screens at once; each is decided at the WP that builds it.
