@@ -11,14 +11,21 @@
 @source not "../../scripts/bin/*";
 
 @theme {
-  --font-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Instrument Serif", Georgia, serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  /* Adobe Fonts kit rwy8ghw, loaded by the use.typekit.net link in
+     base.html. Each family owns one job: sans for all UI chrome, serif for
+     display words, figure for display numbers, mono for inputs and tabular
+     numbers, mono-narrow for letterspaced caps at 9-11px. */
+  --font-sans: "akzidenz-grotesk-next-pro", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "instrument-serif", Georgia, serif;
+  --font-figure: "gotham", ui-sans-serif, sans-serif;
+  --font-mono: "input-mono", ui-monospace, monospace;
+  --font-mono-narrow: "input-mono-narrow", "input-mono", ui-monospace, monospace;
 
+  /* The kit serves 300, 400 and 700 only. There is no 500 and no 600, so
+     those two tokens could only ever produce a synthesized fake weight.
+     Hierarchy comes from size, colour and letterspacing instead. */
   --font-weight-light: 300;
   --font-weight-normal: 400;
-  --font-weight-medium: 500;
-  --font-weight-semibold: 600;
   --font-weight-bold: 700;
 
   --text-label-sm: 0.71875rem;
