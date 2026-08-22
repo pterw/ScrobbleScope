@@ -292,6 +292,38 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-21 - Size rule restated as intent in AGENTS.md (side-task)
+
+- Scope: rewrote Proposal and Design Rules item 3 in `AGENTS.md`. One rule, no
+  other rule touched, no code touched. Owner-authorised.
+- Plan vs implementation: the rule read "No new file should be larger than the
+  largest peer in its directory", which is the proxy metric rather than the
+  intent, and it is the example `CLAUDE.md` had been carrying as the model for
+  the planned trim. It now states the intent: the rule is against god files,
+  not line counts; a file large because its job is large is fine; the peer
+  comparison is the check you run when you notice scope creep, not a threshold
+  to clear. Owner's framing, given 2026-08-21.
+- This also resolved a contradiction inside the same list. Item 5 already said
+  "SoC/DRY is the constraint on file content, not line count", which item 3
+  denied. They now agree.
+- Checked before writing, not after: `F-WORKTREE-4` and `F-MAS-3` are the only
+  other places that restate the cap, and both already carry the correct
+  reading -- "the rule exists to prevent unmaintainable monoliths" and "size
+  was never the defect". Neither was edited; item 3 now cites both.
+- Deviations: one, and it matters. The rewrite grew the item from three lines
+  to eight, so every `AGENTS.md` line citation past it moved by five. This is
+  the same drift that made `F-STYLE-1` cite 254, 262 and 550 when the real
+  lines were 255, 263 and 551. One live citation was affected --
+  `docs/design/RECONCILIATION.md` pointed at the ASCII rule by line. It now
+  names the section instead, and `CLAUDE.md` records the rule: cite
+  `AGENTS.md` by section or rule name, never by line.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings. Unchanged; no Python
+  touched. `doc_state_sync.py --check` exits 0. `pre-commit run --all-files`
+  passes.
+- Forward guidance: WP-2 is still next. When the wider `AGENTS.md` trim
+  happens, do it this way -- one rule at a time, intent replacing the proxy
+  metric, and re-grep line citations afterwards because they will move.
+
 ### 2026-08-21 - Front-end design handoff imported to docs/design (side-task)
 
 - Scope: imported the owner's Claude Design project
@@ -386,25 +418,3 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **633 passed**, 3 warnings.
 - Forward guidance: WP-2 is next and closes `F-B21-2`. Check a finding against
   the active batch definition before filing a remedy in it.
-
-### 2026-08-20 - README roadmap reconciled with FINDINGS (side-task)
-
-- Scope: removed one stale roadmap item that contradicted an open finding, and
-  retitled the finding it pointed at. No runtime code changed.
-- Plan vs implementation: the README roadmap still asked a reader to
-  consolidate Bootstrap onto one CDN provider. `F-B20-3` already records that
-  remedy as dead, because Batch 21 removes Bootstrap at WP-8 and resolves the
-  split by elimination. Two live documents disagreed, and the README is the one
-  a newcomer reads first. The roadmap line now names the real disposition.
-  `F-B20-3`'s heading described the dead remedy rather than the defect; it now
-  reads "Bootstrap loads from two CDN providers". Every citation of it is by
-  F-ID, so no reference breaks.
-- Deviations: none. Three other roadmap items were checked and left alone.
-  The integration test (`F-LOAD-2`) and the `ENTRY_BATCH_RE` tightening
-  (`F-DOCSYNC-1`) have not been done, so their unchecked boxes are correct.
-  `tests/test_routes.py` reaches the three endpoints only under mocks, and no
-  test covers the whole chain. `parser.py:37` is unchanged.
-- Validation: `pytest -q` -- **633 passed**, 3 warnings.
-- Forward guidance: WP-2 is next. Note `F-DOCSYNC-1` may overstate the problem
-  -- the current regex already requires the parenthesised `(Batch N WP-N)`
-  form, so a failing test should justify the change before anyone makes it.

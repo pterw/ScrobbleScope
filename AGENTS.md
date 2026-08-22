@@ -478,9 +478,14 @@ When all WPs in the active batch are committed and validated:
    in the log entry, not new WPs. If a fix is urgent and small (under ~20
    lines of code change), treat it as a deviation within the current WP; if
    it is larger, log it as a future-batch candidate.
-3. **Size limits on new files:** No new file should be larger than the
-   largest peer in its directory. If a new module or test file exceeds this
-   threshold, split it before committing.
+3. **Size limits on new files:** the rule is against god files, not against
+   line counts. A file that is large because its job is large is fine. When
+   you notice scope creep -- a file taking on a second responsibility, or
+   growing past what one reader holds at once -- compare it against the
+   largest peer in its directory. That comparison is the check, not a
+   threshold to clear. Split only when the file has genuinely outgrown its
+   job; when it is merely large, record that in the log entry and move on.
+   `F-WORKTREE-4` and `F-MAS-3` are the recorded examples of this reading.
 4. **Refactor requires parity tests:** Do not restructure existing code
    (rename, move, split, merge modules) without first verifying that
    existing tests cover the affected paths. If coverage is insufficient,
