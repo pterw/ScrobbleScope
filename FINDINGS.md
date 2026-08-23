@@ -1,13 +1,14 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-22
+Last updated: 2026-08-23
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 and WP-1 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
+WP-0, WP-1 and WP-2 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
 resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
 side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
 WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
-F-B21-8 records the Tailwind source-scope defect PR #173 exposed.
-**WP-2 is next.** 633 tests across 37 test modules.
+F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
+resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10
+and F-B21-11. **WP-3 is next.** 666 tests across 39 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -199,8 +200,8 @@ it, so three defects sit dormant and the first migrated template hits all
 three together.
 
 **Nothing sets `data-theme`.** daisyUI keys both themes on that attribute.
-The live control is `body.classList.toggle('dark-mode')`
-(`static/js/theme.js:17`), which no daisyUI rule reads. A migrated template
+The live control was `body.classList.toggle('dark-mode')` in
+`static/js/theme.js`, which no daisyUI rule reads. A migrated template
 therefore renders the light theme in both modes. `BATCH21_DEFINITION.md` WP-2
 already prescribes the remedy: `theme.js` dual-writes `data-theme` and
 `.dark-mode`.
@@ -213,15 +214,15 @@ inside a dark media query in the generated `static/css/tailwind.css`. While noth
 dark daisyUI colours whatever the in-page toggle says. Setting `data-theme`
 settles this seam too, which is why the two are one finding.
 
-**Bootstrap loads unlayered and therefore wins.** `templates/base.html:26`
-loads Bootstrap 5.1.3 from cdnjs with no `@layer`, while
+**Bootstrap loads unlayered and therefore wins.** `templates/base.html`
+loaded Bootstrap 5.1.3 from cdnjs with no `@layer`, while
 the generated `static/css/tailwind.css` opens with
 `@layer theme, base, components, utilities`. Unlayered styles beat layered ones at any specificity, so
 Bootstrap wins every shared class name. The compiled CSS emits ten daisyUI
 component classes -- `.alert`, `.btn`, `.card`, `.input`, `.modal`,
 `.select`, `.tab`, `.tabs`, `.toast`, `.toggle` -- and Bootstrap defines
 several of the same, `.btn`, `.card`, `.modal`, `.alert` and `.toast` among
-them. `static/css/global.css` (`base.html:29`) is unlayered as well.
+them. `static/css/global.css`, loaded next to it, is unlayered as well.
 The remedy is already locked and this finding defers to it:
 `BATCH21_DEFINITION.md` WP-2 moves the Bootstrap link into a per-page block
 so each template loads exactly one framework stylesheet. That removes the
@@ -232,7 +233,18 @@ removing Bootstrap at WP-8.
 
 Nothing is broken in production today, which is why WP-1's gates passed over
 all three.
-Status: open; closes at Batch 21 WP-2. Source: WP-1 final review, 2026-08-20.
+
+**Resolved by WP-2 on 2026-08-23.** All three seams are closed. `theme.js`
+dual-writes `data-theme` on `<html>` and `.dark-mode` on `<body>`, and an
+inline script in `base.html` sets the attribute before first paint. Setting
+it always also stops the `:root:not([data-theme])` rule matching, which
+settles the `prefersdark` seam. The Bootstrap link and `global.css` moved
+into a per-page `legacy_css` block, so each page loads exactly one framework
+stylesheet and the two frameworks never meet. The frontend gate asserts all
+three, and `tests/test_template_shell.py` asserts the stylesheet rule for
+every page.
+Status: resolved (Batch 21 WP-2, 2026-08-23). Source: WP-1 final review,
+2026-08-20.
 
 ### F-B21-3: 115 dependency advisories, and unused packages ship to production
 
@@ -405,9 +417,17 @@ as a supply-chain compromise. An operator seeing that message will
 investigate the wrong thing. Distinguish short reads from digest mismatches
 before the message is trusted.
 
-Status: open. WP-2 candidate -- it adds the `tailwind-css-drift` hook that
-depends on this same code path. Found in the WP-1 review on 2026-08-20 and
-left unfiled; filed 2026-08-22 after the mutation was run.
+**Resolved by WP-2 on 2026-08-23.** Both halves are fixed. The test now
+asserts the `bin_dir` keyword on every call, and the mutation was re-run to
+prove it: deleting `bin_dir=bin_dir` fails that one test where it previously
+left all 633 green. `_download_verified` counts received bytes, compares them
+against `Content-Length` before hashing, and reports a truncated download
+rather than a digest mismatch; it also catches `http.client.HTTPException`,
+so `IncompleteRead` no longer escapes as a raw traceback. A chunked response
+sends no `Content-Length`, and that case skips the comparison rather than
+reading the absent header as zero.
+Status: resolved (Batch 21 WP-2, 2026-08-23). Found in the WP-1 review on
+2026-08-20 and left unfiled; filed 2026-08-22 after the mutation was run.
 Source: WP-1 parallel review.
 ### F-B21-8: Tailwind scanned the whole repository, and no test would say so
 
@@ -464,6 +484,51 @@ file stays the source of truth. Issues are a read-only mirror.
 Status: open, deferred on purpose. The owner accepted the drift on
 2026-08-22 and asked that the work be recorded rather than done now.
 Source: findings mirror, 2026-08-22.
+
+### F-B21-10: every error page reports 400, whatever the real status
+
+`templates/error.html` renders `{{ status_code|default('400') }}`, and not
+one of the seven `render_template("error.html", ...)` call sites passes
+`status_code`. Six are in `scrobblescope/routes.py` and the seventh is the
+CSRF handler in `app.py`. So a 404 renders the literal text "400", a 500
+renders "400", and the number is decorative rather than informative.
+
+The two `app_errorhandler` registrations that would supply it live in
+`routes.py`, which the batch contract reserves for WP-7. WP-2 migrated this
+template's markup and deliberately did not change the default or the call
+sites: doing so means editing a reserved file for a defect that predates the
+migration.
+
+The fix is to pass the real status at each call site, or to have the error
+handlers supply it, and then to drop the `default('400')` so a missing value
+fails loudly instead of lying quietly.
+
+Status: open. WP-7 candidate, because it owns `routes.py`.
+Source: WP-2 template migration, 2026-08-23.
+
+### F-B21-11: the welcome modal covers the new header theme toggle
+
+WP-2 puts a standing header bar on every page at `z-index: 1030`.
+`index.html` opens the welcome modal on load, and Bootstrap's
+`.modal-backdrop` sits at `z-index: 1050`. The backdrop therefore covers the
+header, and the theme toggle cannot be clicked while the modal is open. This
+was found by the frontend gate, which timed out trying to click the control;
+`document.elementFromPoint` at the toggle's centre returns
+`div.modal-backdrop`.
+
+The header z-index is not the defect. A modal should cover a header. The
+defect is that this modal opens by itself on page load, so the toggle is
+unreachable on first visit.
+
+`BATCH21_DEFINITION.md` owner decision 2 already deletes the welcome modal at
+WP-3, which removes the cause. Nothing is needed beyond that, but the
+interaction is recorded so the deletion is not treated as cosmetic.
+
+The frontend gate's theme-persistence check runs on a migrated page rather
+than the index for this reason, and says so in its docstring.
+
+Status: open. Closes when WP-3 deletes the welcome modal.
+Source: WP-2 frontend gate run, 2026-08-23.
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed
@@ -582,7 +647,14 @@ Status: open. Source: load testing 2026-03-04.
 Fixed-position footer toggle may overlap content on small screens.
 Batch 21 moves the toggle into the standing header bar; its acceptance
 criterion on tap-target size names this finding as closed by that work.
-Status: open; closes at Batch 21 WP-2. Source: AUDIT_2026-02-11.
+
+**Resolved by WP-2 on 2026-08-23.** The footer bar is deleted and the toggle
+now sits in the standing header. Both it and the wordmark link carry
+`min-height: 44px` in `static/css/shell.css`, which is the floor the design
+system sets. The control is a visible label over a visually hidden checkbox,
+so it stays keyboard reachable and keeps its accessible name; on narrow
+screens the label text is hidden visually only, never with `display: none`.
+Status: resolved (Batch 21 WP-2, 2026-08-23). Source: AUDIT_2026-02-11.
 
 ### F-LOAD-2: no integration tests in CI
 

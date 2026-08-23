@@ -82,12 +82,17 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** WP-1 is complete and awaiting owner review of its single
-  commit. The root-hygiene side task is **closed**: the owner rejected the
-  audience-banner scheme on 2026-08-20, and the config-file verdict landed in
-  `DEPLOY.md`. **WP-2 is next.** It owns the base shell, error-page pilot,
-  Playwright runtime, frontend gate, and compiled-CSS pre-commit hook, and it
-  closes the three seams filed as F-B21-2.
+- **Next action:** WP-2 is complete and awaiting owner review of its five
+  commits. It shipped the base shell, the `error.html` pilot, the Playwright
+  runtime, the frontend gate, and the compiled-CSS pre-commit hook, closing
+  F-B21-2, F-B21-7 and F-AUDIT-1 and filing F-B21-10 and F-B21-11.
+  **WP-3 is next**: the index page, which deletes the welcome modal, replaces
+  `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
+  the thresholds disclosure. **Do not push the WP-2 gate commit on its own**
+  -- the Quality Gate runs on push to `wip/**` and the frontend gate fails
+  until the shell commit lands with it. The root-hygiene side task is
+  **closed**: the owner rejected the audience-banner scheme on 2026-08-20,
+  and the config-file verdict landed in `DEPLOY.md`.
   Earlier context, still true: **PR #171 merged to `main` on 2026-08-19**
   (`bb187ae`, rebase merge) with zero unresolved review threads after eight
   rounds; `wip/batch-21` was realigned to it. `BATCH21_DEFINITION.md` was
@@ -98,7 +103,8 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0 and WP-1 done. WP-2 through WP-8 not yet started.
+- Batch 21 WP status: WP-0, WP-1 and WP-2 done. WP-3 through WP-8 not yet
+  started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -289,6 +295,77 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: owner review first; the root-hygiene side task is next;
   WP-2 follows it. WP-2 keeps the cache, removes the direct CI build step only
   when its drift hook lands, and adds the first Tailwind-consuming template.
+
+### 2026-08-23 - Base shell, error-page pilot, and two new gates (Batch 21 WP-2)
+
+- Scope: the first Tailwind template. Added the standing header bar, moved
+  Bootstrap and `global.css` into a per-page block, migrated `error.html`,
+  and built the two gates that protect the rest of the migration.
+- Plan vs implementation: the plan is
+  `docs/superpowers/plans/2026-08-22-batch21-wp2-base-shell.md`, 13 tasks in
+  five commits. All 13 landed.
+  - The Adobe Fonts reversal was recorded first, then the theme tokens moved
+    to kit `rwy8ghw`. `--font-weight-medium` and `--font-weight-semibold`
+    were deleted: the kit serves 300, 400 and 700 only, so those two tokens
+    could only ever produce a synthesized fake weight.
+  - `tailwind-css-drift` rebuilds and diffs on every commit. It sets
+    `always_run` and `pass_filenames: false` because the top-level exclude
+    filters out `static/`, so a filename-driven hook would never run on the
+    one file it exists to check.
+  - `scripts/dev/frontend_gate.py` serves the app on a loopback port it owns
+    and drives Chromium. Four checks: exactly one framework stylesheet per
+    page, `--bars-color` equal to the theme primary with no cool grey left,
+    the theme surviving a reload, and all five kit families resolving as
+    loaded faces.
+  - `base.html` sets `data-theme` before first paint, links the kit, and
+    carries the header bar. `theme.js` dual-writes `data-theme` and
+    `.dark-mode` until WP-8 retires the second write.
+- Deviations, each owner-approved or recorded here:
+  - **The legacy CSS block defaults ON.** The plan left it empty and had each
+    unmigrated page opt in. The owner inverted it on 2026-08-23, so a
+    forgotten template keeps its theme and only a migrated page opts out.
+    Forgetting is now safe instead of silently broken.
+  - **`templates/inline/scrobble_scope_lockup_inline.svg` is new.** The
+    design system reserves the lockup for the header and keeps the full mark
+    with tagline for social use. No lockup asset was imported, so this one is
+    derived from the existing wordmark by removing the tagline group and
+    tightening the viewBox. The letterform paths are unchanged.
+  - **`tests/test_template_shell.py` is new and not in the plan.** The plan
+    says nothing in `pytest` catches a missed legacy block. Twenty tests now
+    do, across all five templates. Emptying the block in `base.html` fails
+    eight of them.
+  - **The direct CI Tailwind build step was removed** rather than kept beside
+    the hook, which is what the batch definition's CI decision says. A digest
+    print survives as a separate diagnostic step, because the hook proves
+    only that the committed file matches a rebuild on that runner and says
+    nothing about Windows against Linux.
+  - **`tests/conftest.py` was fixed alongside the gate.** Both used
+    `os.environ.setdefault` for `SECRET_KEY`. Actions sets that variable to
+    an empty string when the secret is missing, and empty is present, so
+    `setdefault` does nothing and the app refuses to boot.
+  - **The gate's theme-persistence check runs on a migrated page**, not the
+    index, because the welcome modal's backdrop covers the header there.
+    Filed as `F-B21-11`; WP-3 deletes that modal.
+- Findings: `F-B21-2` and `F-B21-7` resolved, and `F-AUDIT-1` resolved by the
+  44px header targets. `F-B21-10` filed -- every error page reports 400
+  whatever the real status, and the fix lives in files WP-7 reserves.
+  `F-B21-11` filed. Neither is mirrored to a GitHub issue; `F-B21-9` records
+  that the mirror is manual.
+- Known gap, recorded rather than fixed: the gate's four browser checks have
+  no unit coverage, though its runtime does. A check that quietly stops
+  asserting looks exactly like a check that passes, so this is worth closing
+  with one stub-page assertion each in a later work package.
+- Validation: `pytest -q` -- **666 passed**, 3 warnings. All 11 pre-commit
+  hooks pass, and `git write-tree` is identical before and after. The
+  frontend gate reports `4 checks passed`, and it was proven able to fail:
+  it reported ten real failures before the shell landed.
+  `doc_state_sync.py --check` exits 0 with the expected active
+  root-definition warning.
+- Forward guidance: owner visual review of the error page in both themes
+  before WP-3. Do not push the gate commit on its own -- the workflow runs on
+  push to `wip/**`, and the gate fails until the shell commit lands with it.
+  WP-3 takes the index page, deletes the welcome modal, and adds its page to
+  `MIGRATED_PAGES` in the gate.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

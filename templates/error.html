@@ -2,45 +2,48 @@
 
 {% block title %}Error | ScrobbleScope{% endblock %}
 
+{# Migrated to Tailwind, so this page opts out of the legacy stack. Loading
+   Bootstrap as well would collide: both frameworks claim .btn and .card, and
+   Tailwind's preflight would reset the Bootstrap rules. #}
+{% block legacy_css %}{% endblock %}
+
 {% block stylesheets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/error.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="error-container">
-        <div class="error-card">
-            <div class="col-md-9 text-center mx-auto mb-4" id="logo-wrapper">
-                <div aria-label="ScrobbleScope logo visualization" role="img">
-                    {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
-                </div>
-            </div>
-            
-            <div class="error-icon">
+<main class="error-page">
+    <div class="card error-card">
+        <div class="card-body items-center text-center">
+            {# The only icon in the system. The design system is text-first and
+               has no icon set: "do not invent one". #}
+            <div class="error-icon" aria-hidden="true">
                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                     <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
                 </svg>
             </div>
-            
-            <h1 class="mb-3">{{ error|default('Error') }} <span class="error-code">{{ status_code|default('400') }}</span></h1>
-            
-            <p class="lead mb-4">{{ message|default('Something went wrong.') }}</p>
-            
+
+            <h1 class="font-serif text-display mb-3">
+                {{ error|default('Error') }}
+                <span class="error-code">{{ status_code|default('400') }}</span>
+            </h1>
+
+            <p class="text-body mb-6">{{ message|default('Something went wrong.') }}</p>
+
             {% if details %}
             <div class="error-details">
-                <h5>Additional Information:</h5>
-                <p>{{ details }}</p>
+                <h2 class="text-label mb-2">Additional information</h2>
+                <p class="text-body-sm">{{ details }}</p>
             </div>
             {% endif %}
-            
-            <div class="actions">
+
+            <div class="flex flex-wrap justify-center gap-4">
                 <a href="/" class="btn btn-primary">Back to Home</a>
-                <button onclick="window.history.back()" class="btn btn-outline-secondary">Go Back</button>
+                <button type="button" class="btn btn-outline" onclick="window.history.back()">Go Back</button>
             </div>
         </div>
     </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/error.js') }}"></script>
+</main>
 {% endblock %}

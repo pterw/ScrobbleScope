@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,11 +22,41 @@
     <meta name="twitter:description" content="{{ self.og_description() }}">
     <meta name="twitter:image" content="{{ url_for('static', filename='images/social-card.png', _external=True) }}">
 
-    {# Bootstrap CSS #}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    {# Set the theme before first paint. Without this the page renders light
+       and then flips, because theme.js cannot run until the body exists. #}
+    <script>
+        (function () {
+            try {
+                var saved = localStorage.getItem('darkMode');
+                var dark = saved === 'true' || (saved === null &&
+                    window.matchMedia('(prefers-color-scheme: dark)').matches);
+                document.documentElement.setAttribute(
+                    'data-theme', dark ? 'dark' : 'light');
+            } catch (error) {
+                /* Storage can throw in private mode. Keep the light default. */
+            }
+        })();
+    </script>
 
-    {# Shared theme: CSS variables, dark-mode class, toggle widget, SVG colors #}
+    {# Adobe Fonts kit rwy8ghw: the five families the design system uses. #}
+    <link rel="stylesheet" href="https://use.typekit.net/rwy8ghw.css">
+
+    {# Legacy framework stack. Every page loads exactly one framework
+       stylesheet: Bootstrap and daisyUI both claim .btn, .card and .modal,
+       and Tailwind's preflight would reset a Bootstrap page.
+
+       The default is ON, so an unmigrated page keeps its theme without doing
+       anything. A migrated page overrides this block with an empty one. That
+       way forgetting is safe; the opposite default loses a page's theme
+       silently and no test catches it. #}
+    {% block legacy_css %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/global.css') }}">
+    {% endblock %}
+
+    {# Shared header bar. Framework-neutral, so it renders the same on a
+       migrated page and an unmigrated one. #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/shell.css') }}">
 
     {# Page-specific CSS #}
     {% block stylesheets %}{% endblock %}
@@ -44,6 +74,25 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
+    {# Standing header bar: wordmark left, theme toggle right, on every page. #}
+    <header class="site-header">
+        <a class="site-header__home" href="/" aria-label="ScrobbleScope home">
+            <span class="site-header__mark">
+                {% include 'inline/scrobble_scope_lockup_inline.svg' ignore missing %}
+            </span>
+        </a>
+        <div class="site-header__actions">
+            {# The input is the real control and stays keyboard reachable; the
+               label is what a person sees and clicks. data-theme-toggle marks
+               exactly one element, because the frontend gate clicks .first. #}
+            <input type="checkbox" id="darkSwitch">
+            <label for="darkSwitch" class="site-header__switch" data-theme-toggle>
+                <span class="site-header__switch-track" aria-hidden="true"></span>
+                <span class="site-header__switch-text">Dark mode</span>
+            </label>
+        </div>
+    </header>
+
     {# Main content area #}
     {% block content %}{% endblock %}
 
@@ -53,16 +102,11 @@
     {# Page-specific JavaScript #}
     {% block scripts %}{% endblock %}
 
-    {# Footer bar: dark-mode toggle (all pages) + optional page extras (e.g. back-to-top) #}
-    <div class="page-footer-bar">
-        <div id="darkModeToggle">
-            <input type="checkbox" id="darkSwitch">
-            <label for="darkSwitch">Dark Mode</label>
-        </div>
-        {% block page_footer_extra %}{% endblock %}
-    </div>
+    {# The toggle moved to the header bar. This block stays for page extras
+       such as the back-to-top control results.html injects. #}
+    {% block page_footer_extra %}{% endblock %}
 
-    {# Shared dark-mode toggle logic -- must load after .page-footer-bar is in the DOM #}
+    {# Shared theme logic -- loads after the header toggle is in the DOM #}
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
 </body>
 </html>

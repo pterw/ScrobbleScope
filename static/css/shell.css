@@ -1,0 +1,216 @@
+/* shell.css -- the standing header bar, loaded on every page.
+
+   Framework-neutral on purpose. During the strangler migration a Bootstrap
+   page and a Tailwind page sit side by side, and the shared shell has to look
+   identical on both, so this file depends on neither. It carries its own
+   tokens rather than reading global.css (legacy) or the daisyUI theme
+   (migrated).
+
+   WP-8 absorbs this file into tailwind.src.css, once no Bootstrap page is
+   left to serve. */
+
+/* ------------------------------------------------------------------ */
+/* Tokens. Keyed on data-theme, which sits on <html> on every page.     */
+/* ------------------------------------------------------------------ */
+:root {
+    --shell-bg: #faf8f3;
+    --shell-ink: #1a1820;
+    --shell-accent: #6a4baf;
+    --shell-border: rgba(26, 24, 32, 0.12);
+    --shell-track: rgba(26, 24, 32, 0.18);
+    --shell-knob: #ffffff;
+    --shell-height: 68px;
+}
+
+:root[data-theme="dark"] {
+    --shell-bg: #0e0c12;
+    --shell-ink: #f1ede4;
+    --shell-accent: #b39dde;
+    --shell-border: rgba(241, 237, 228, 0.14);
+    --shell-track: rgba(241, 237, 228, 0.22);
+    --shell-knob: #181520;
+}
+
+/* ------------------------------------------------------------------ */
+/* The bar itself                                                      */
+/* ------------------------------------------------------------------ */
+
+/* Fixed, so the wordmark holds the same vertical position on every screen
+   and does not jump as the user moves between them. */
+.site-header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1030;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    height: var(--shell-height);
+    padding: 0 1.5rem;
+    background-color: var(--shell-bg);
+    border-bottom: 1px solid var(--shell-border);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* The bar is fixed and therefore out of flow. Without this every page would
+   start underneath it. */
+body {
+    padding-top: var(--shell-height);
+}
+
+.site-header__home {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    /* 44px minimum touch target (F-AUDIT-1), even though the mark is shorter. */
+    min-height: 44px;
+}
+
+.site-header__mark {
+    display: block;
+    /* The lockup is about 6.3:1, so 40px tall lands near 252px wide and
+       leaves breathing room inside a 68px bar. */
+    height: 40px;
+}
+
+.site-header__mark svg {
+    display: block;
+    height: 100%;
+    width: auto;
+}
+
+/* Recolor the mark for the current theme. global.css does this for legacy
+   pages through .dark-mode; these rules cover both page kinds and win by
+   being more specific. */
+.site-header__mark svg .cls-1 {
+    stroke: var(--shell-accent);
+}
+
+.site-header__mark svg #logo-text path {
+    fill: var(--shell-ink);
+}
+
+/* ------------------------------------------------------------------ */
+/* Theme toggle                                                        */
+/* ------------------------------------------------------------------ */
+.site-header__actions {
+    display: flex;
+    align-items: center;
+}
+
+/* Visually hidden, never display:none -- the input stays in the accessibility
+   tree and stays keyboard reachable, and the label drives it natively.
+   Scoped as .site-header #darkSwitch so it outranks the plain #darkSwitch
+   slider rules global.css still serves to unmigrated pages. */
+.site-header #darkSwitch {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+    appearance: none;
+}
+
+/* The visible control. It carries data-theme-toggle, and it is the only
+   element that does: the frontend gate clicks .first, so a second match
+   would silently decide which one it drives. */
+.site-header__switch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    /* 44px minimum touch target (F-AUDIT-1). */
+    min-height: 44px;
+    padding: 0 0.5rem;
+    margin: 0;
+    border-radius: 999px;
+    color: var(--shell-ink);
+    font-size: 0.8125rem;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+}
+
+.site-header__switch-track {
+    position: relative;
+    display: block;
+    width: 2.45rem;
+    height: 1.25rem;
+    flex: none;
+    border-radius: 999px;
+    background-color: var(--shell-track);
+    transition: background-color 0.3s ease;
+}
+
+.site-header__switch-track::before {
+    content: "";
+    position: absolute;
+    top: 0.15rem;
+    left: 0.15rem;
+    width: 0.95rem;
+    height: 0.95rem;
+    border-radius: 50%;
+    background-color: var(--shell-knob);
+    transition: transform 0.3s ease;
+}
+
+.site-header #darkSwitch:checked + .site-header__switch .site-header__switch-track {
+    background-color: var(--shell-accent);
+}
+
+.site-header
+    #darkSwitch:checked
+    + .site-header__switch
+    .site-header__switch-track::before {
+    transform: translateX(1.2rem);
+}
+
+/* The input is visually hidden, so its focus ring would be invisible. Move
+   the ring onto the label the user can actually see. */
+.site-header #darkSwitch:focus-visible + .site-header__switch {
+    outline: 2px solid var(--shell-accent);
+    outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Responsive: one breakpoint, per the design system                   */
+/* ------------------------------------------------------------------ */
+@media (max-width: 860px) {
+    :root {
+        --shell-height: 60px;
+    }
+
+    .site-header {
+        padding: 0 1rem;
+    }
+
+    .site-header__mark {
+        height: 32px;
+    }
+
+    /* The label text is redundant next to the switch on a narrow bar, but the
+       control still needs an accessible name, so hide it visually only. */
+    .site-header__switch-text {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .site-header,
+    .site-header__switch-track,
+    .site-header__switch-track::before {
+        transition-duration: 0ms;
+    }
+}

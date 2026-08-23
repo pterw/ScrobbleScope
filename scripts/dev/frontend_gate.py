@@ -242,11 +242,17 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
     The check drives [data-theme-toggle], the visible control, rather than the
     hidden checkbox behind it. A hidden input is not clickable, so targeting it
     costs a 30-second actionability timeout instead of an answer.
+
+    It runs on a migrated page, not the index. index.html opens the welcome
+    modal on load, and Bootstrap's .modal-backdrop sits at z-index 1050, above
+    the 1030 header, so the toggle is genuinely unclickable there. That is
+    F-B21-11; WP-3 deletes the modal. Persistence is a property of the shared
+    shell, so any page carrying the shell answers the question.
     """
-    page.goto(f"{base_url}/", wait_until="load")
+    page.goto(f"{base_url}{MIGRATED_PAGES[0]}", wait_until="load")
     toggle = page.locator("[data-theme-toggle]")
     if toggle.count() == 0:
-        return ["no [data-theme-toggle] control found on the index page"]
+        return ["no [data-theme-toggle] control found on the page"]
 
     before = page.evaluate("() => document.documentElement.dataset.theme")
     try:

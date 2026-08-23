@@ -2,20 +2,35 @@
 // Shared behaviour loaded via base.html for every page.
 // Handles: dark-mode toggle persistence, back-to-top smooth scroll.
 (function () {
-    // Dark-mode toggle
-    const darkSwitch = document.getElementById('darkSwitch');
-    // Respect saved preference first; fall back to browser/OS dark mode setting.
-    const saved = localStorage.getItem('darkMode');
-    const prefersDark = saved === 'true' ||
-        (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    if (prefersDark) {
-        document.body.classList.add('dark-mode');
-        if (darkSwitch) darkSwitch.checked = true;
+    // The theme is written in two places on purpose, for as long as the
+    // strangler migration runs:
+    //   data-theme on <html>  -- daisyUI keys on it, and so does shell.css
+    //   .dark-mode on <body>  -- the seven legacy stylesheets still key on it
+    // WP-8 retires the second write once no Bootstrap page is left.
+    function applyTheme(isDark) {
+        document.documentElement.setAttribute(
+            'data-theme', isDark ? 'dark' : 'light');
+        document.body.classList.toggle('dark-mode', isDark);
     }
+
+    const darkSwitch = document.getElementById('darkSwitch');
+
+    // An inline script in base.html already set data-theme before first paint,
+    // so read the decision back from the element rather than recomputing it
+    // and risking the two disagreeing.
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    applyTheme(isDark);
+    if (darkSwitch) darkSwitch.checked = isDark;
+
     if (darkSwitch) {
         darkSwitch.addEventListener('change', function () {
-            document.body.classList.toggle('dark-mode', this.checked);
-            localStorage.setItem('darkMode', this.checked);
+            applyTheme(this.checked);
+            try {
+                localStorage.setItem('darkMode', this.checked);
+            } catch (error) {
+                // Storage can throw in private mode. The theme still applies
+                // for this page view; it just will not survive a reload.
+            }
         });
     }
 

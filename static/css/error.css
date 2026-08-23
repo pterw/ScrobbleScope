@@ -1,100 +1,59 @@
 /* error.css -- page-specific styles for the error page (error.html).
-   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
 
-body {
-    min-height: 100vh;
+   error.html is the first Tailwind page, so this file reads the daisyUI theme
+   tokens and knows nothing about Bootstrap or global.css. Only what utilities
+   cannot express lives here; everything else is a utility in the template. */
+
+/* The header bar is fixed and body already carries padding-top for it, so
+   centre inside the space that is left rather than the whole viewport. */
+.error-page {
+    min-height: calc(100vh - var(--shell-height));
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-}
-
-.dark-mode .error-card {
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
-}
-
-.error-container {
-    text-align: center;
-    max-width: 600px;
-    width: 100%;
-    padding: 2rem 1rem;
-}
-
-.error-icon {
-    color: var(--bars-color);
-    margin-bottom: 1.5rem;
-    font-size: 4rem;
+    padding: var(--spacing-8) var(--spacing-4);
 }
 
 .error-card {
-    background-color: var(--surface-color);
-    border-radius: 12px;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    padding: 2.5rem 2rem;
-    animation: fadeIn 0.8s ease-out;
-    transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+    width: 100%;
+    max-width: 600px;
+    background-color: var(--color-base-100);
+    color: var(--color-base-content);
+    /* Borders do the work; the design system gives cards no drop shadow. */
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-lg);
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+.error-icon {
+    color: var(--color-primary);
+    margin-bottom: var(--spacing-6);
 }
 
-.btn-primary {
-    background-color: var(--bars-color);
-    border-color: var(--bars-color);
-}
-
-.btn-primary:hover {
-    background-color: #5a3d99;
-    border-color: #5a3d99;
-}
-
-.btn-outline-secondary {
-    color: var(--bars-color);
-    border-color: var(--bars-color);
-}
-
-.btn-outline-secondary:hover {
-    background-color: var(--bars-color);
-    color: white;
-}
-
+/* A figure, so it takes the figure face rather than the body face. */
 .error-code {
     display: inline-block;
-    background-color: rgba(106, 75, 175, 0.1);
-    color: var(--bars-color);
-    border-radius: 4px;
-    padding: 0.2rem 0.75rem;
-    margin-left: 0.5rem;
-    font-family: monospace;
-    font-weight: bold;
-}
-
-.dark-mode .error-code {
-    background-color: rgba(147, 112, 219, 0.2);
-    color: #9370DB;
+    margin-left: var(--spacing-2);
+    padding: var(--spacing-1) var(--spacing-3);
+    border-radius: var(--radius-sm);
+    background-color: color-mix(in srgb, var(--color-primary) 12%, transparent);
+    color: var(--color-primary);
+    font-family: var(--font-figure);
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-bold);
+    vertical-align: middle;
 }
 
 .error-details {
-    margin: 1.5rem 0;
-    padding: 1rem;
-    border-radius: 8px;
-    background-color: rgba(106, 75, 175, 0.05);
+    width: 100%;
+    margin: var(--spacing-6) 0;
+    padding: var(--spacing-4);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-base-200);
     text-align: left;
 }
 
-.dark-mode .error-details {
-    background-color: rgba(147, 112, 219, 0.1);
+@media (prefers-reduced-motion: reduce) {
+    .error-card {
+        animation: none;
+    }
 }
-
-.actions {
-    margin-top: 2rem;
-    display: flex;
-    justify-content: center;
-    gap: 1rem;
-}
-
