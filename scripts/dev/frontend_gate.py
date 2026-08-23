@@ -313,12 +313,35 @@ def check_fonts(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_body_font(page, base_url: str) -> list[str]:
+    """Body takes the kit UI family on every page, migrated or not.
+
+    check_fonts proves the kit serves a face. It does not prove anything on
+    the page asks for it. Both were true at once for four pages: they
+    downloaded the kit and then rendered in the Bootstrap system stack,
+    because nothing set font-family on body.
+
+    Computed style rather than the stylesheet text, because the failure is a
+    cascade one. shell.css loads after Bootstrap and global.css, and the
+    check has to see which declaration actually wins.
+    """
+    expected = REQUIRED_FONT_FAMILIES[0]
+    failures = []
+    for path in ALL_PAGES:
+        page.goto(f"{base_url}{path}", wait_until="load")
+        family = page.evaluate("() => getComputedStyle(document.body).fontFamily")
+        if expected not in family:
+            failures.append(f"{path}: body renders in {family}, not {expected}")
+    return failures
+
+
 #: Every check the gate runs, in the order it runs them.
 CHECKS = (
     ("stylesheet isolation", check_stylesheet_isolation),
     ("theme tokens", check_theme_tokens),
     ("theme persistence", check_theme_persistence),
     ("fonts", check_fonts),
+    ("body font", check_body_font),
 )
 
 
