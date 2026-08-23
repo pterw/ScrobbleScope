@@ -12,6 +12,7 @@ five, including the three that need a live job to reach.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 import pytest
 from flask import render_template
@@ -20,6 +21,8 @@ from app import create_app
 
 BOOTSTRAP = "bootstrap"
 TAILWIND = "tailwind.css"
+
+STATIC_CSS = Path(__file__).resolve().parents[1] / "static" / "css"
 
 #: Minimum context each template needs to render at all. The values are never
 #: asserted on; they exist so Jinja can finish.
@@ -58,6 +61,30 @@ def app():
 def _stylesheets(html: str) -> list[str]:
     """Return the href of every stylesheet link in the rendered page."""
     return re.findall(r'<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"', html)
+
+
+def _local_sheets(hrefs: list[str]) -> list[Path]:
+    """Return the repository file behind every href that names a local sheet."""
+    names = [href.rsplit("/", 1)[-1] for href in hrefs if "//" not in href]
+    return [STATIC_CSS / name for name in names]
+
+
+def _declared(text: str) -> set[str]:
+    """Return every custom property the stylesheet defines."""
+    return set(re.findall(r"^\s*(--[\w-]+)\s*:", text, re.M))
+
+
+def _read_without_fallback(text: str) -> set[str]:
+    """Return every custom property the stylesheet reads with no fallback.
+
+    A var() that carries a fallback still resolves when the token is absent,
+    so only the bare form can break a declaration.
+    """
+    return {
+        token
+        for token, following in re.findall(r"var\(\s*(--[\w-]+)\s*(.?)", text)
+        if following != ","
+    }
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
@@ -100,6 +127,49 @@ def test_every_page_carries_the_shared_shell(app, template):
     # The frontend gate clicks .first, so a second match would silently decide
     # which control it drives.
     assert html.count("data-theme-toggle") == 1
+
+
+@pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
+def test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads(
+    app, template
+):
+    """An undefined var() with no fallback voids the whole declaration.
+
+    It fails silently: no console error, no failing request, just a rule that
+    stops applying. Tailwind emits a theme variable only when a generated
+    utility uses it, so five tokens error.css reads were pruned out of the
+    compiled sheet and the card lost its rounding. @theme static fixes that;
+    this proves it, for every page rather than only the one that broke.
+
+    The sheets are read back from the rendered page, so a template that starts
+    or stops loading one is covered without editing this test. Bootstrap is a
+    CDN file and is not checked; a var() it owns fails here, which is the
+    right answer for a token the repository cannot see.
+
+    Only handwritten sheets are checked as readers. tailwind.css is generated,
+    and daisyUI leaves one dangling var() of its own in it -- .btn reads
+    --fx-noise, which its suppressed :root block would have defined. That one
+    is harmless, because the layer it paints is sized by --noise and every
+    theme sets --noise to 0. Upstream quirks are not this test's business.
+    """
+    with app.test_request_context("/"):
+        html = render_template(template, **TEMPLATE_CONTEXT[template])
+
+    sheets = _local_sheets(_stylesheets(html))
+    assert sheets, f"{template} loads no local stylesheet"
+
+    texts = [sheet.read_text(encoding="utf-8") for sheet in sheets]
+    defined = set().union(*(_declared(text) for text in texts))
+
+    for sheet, text in zip(sheets, texts):
+        if sheet.name == TAILWIND:
+            continue
+        undefined = sorted(_read_without_fallback(text) - defined)
+        assert not undefined, (
+            f"{template} loads {sheet.name}, which reads {undefined} "
+            f"with no fallback and no definition in "
+            f"{sorted(other.name for other in sheets)}"
+        )
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))

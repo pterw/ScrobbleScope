@@ -201,6 +201,9 @@ def test_theme_source_locks_the_batch_21_design_tokens() -> None:
     # cannot resolve to a real face, so the browser synthesizes a fake one.
     assert "--font-weight-medium" not in source
     assert "--font-weight-semibold" not in source
+    # Without static, Tailwind emits a token only when a utility uses it, and
+    # the handwritten page CSS that reads it directly gets nothing.
+    assert "@theme static {" in source
 
 
 def test_theme_source_includes_only_the_locked_daisyui_components() -> None:
