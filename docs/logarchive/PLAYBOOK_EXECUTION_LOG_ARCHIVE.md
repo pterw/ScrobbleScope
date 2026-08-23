@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-22 - Open findings mirrored to GitHub issues (side-task)
+
+- Scope: created issues #174-#215. Rephrased two rules in `AGENTS.md`. Filed
+  `F-B21-9`. No code changed.
+- Why: Codex raised `F-B21-7` on PR #173 although the PR body listed it.
+  Reviewers do not read `FINDINGS.md`. Issues are cheaper to search.
+- 42 open findings are now mirrored: 28 P1, 10 P2, 3 Info, 1 Feature. Seven
+  resolved findings were skipped. Labels are `finding` plus the severity.
+- Each issue body says `FINDINGS.md` is the source of truth and that the
+  issue is a read-only mirror. Nothing writes back to the file.
+- `AGENTS.md` changes are rephrases, not additions. Bootstrap item 7 already
+  said "read on demand"; it now names the three reasons to open the file and
+  says a recorded defect is known and owned. The Markdown log-entry bullet
+  now also asks for plain English. No new rule was added.
+- `F-B21-9` records the gap. The mirror is manual and will drift. The owner
+  accepted that on 2026-08-22 and asked for it to be written down rather
+  than built now. A sync script is code and needs its own work package.
+- Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
+  exits 0. `pre-commit run --all-files` passes.
+- Next: **WP-2**.
+
 ### 2026-08-22 - PR #173 review answered, two import defects fixed (side-task)
 
 - Scope: moved `docs/design/styles.css`. Fixed one claim in
