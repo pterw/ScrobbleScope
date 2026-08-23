@@ -373,6 +373,39 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-23 - PR #216 review round two applied (side-task)
+
+- Scope: two review comments on `4105aef`, both documentation. Both were
+  verified against the files and both were valid.
+- **The batch definition still said WP-2 was next.** PLAYBOOK Section 3 and
+  `SESSION_CONTEXT.md` Section 1 both said WP-3. `AGENTS.md` makes those
+  three agreeing the condition for bootstrap to complete, so the next agent
+  would have stopped on the disagreement. `git log -S` puts the line's last
+  edit in `7c00754`, the WP-1 commit. WP-1's plan listed updating it as a
+  task and WP-2's did not.
+- **The findings header still published 666 tests.** The round-one commit
+  moved PLAYBOOK and SESSION_CONTEXT to 671 and left that copy behind. It is
+  the instance-not-class anti-pattern `AGENTS.md` names, committed inside the
+  commit that was fixing stale documentation.
+- Every other `666` in a tracked document was checked rather than assumed.
+  The remaining three are dated log entries that were accurate when written,
+  so they stay.
+- **`F-B21-13` filed for the class.** Neither line is read by any gate.
+  `doc_state_sync.py` derives the next work package from PLAYBOOK and never
+  reads the batch definition, and the test-count enforcement in
+  `scripts/docsync/integrity.py` covers SESSION_CONTEXT only. The definition
+  status line has now gone stale twice -- PR #170 corrected it once for
+  WP-1 -- which is the point at which `AGENTS.md` prefers a mechanical check
+  over another written rule.
+- Deviations: the gate was not extended in this round. It is a change to the
+  integrity checks every work package depends on, and scope discipline puts
+  that in a finding rather than in an open UI PR.
+- Validation: `pytest -q` -- **671 passed**, 3 warnings. All 11 pre-commit
+  hooks pass. `doc_state_sync.py --check` exits 0 with the expected active
+  root-definition warning.
+- Forward guidance: WP-3 should carry updating the definition status line as
+  an explicit task, the way WP-1 did, until `F-B21-13` closes.
+
 ### 2026-08-23 - PR #216 review round one applied (side-task)
 
 - Scope: three review comments Codex left on `45fbbe8`. All three were
@@ -459,27 +492,6 @@ non-current operational logs. Older dated entries live in
   still resolve. Those files did not change.
 - This is `F-STYLE-1` happening again. The rule already exists for
   `AGENTS.md`. It applies to every file. Cite a name, not a number.
-- Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
-  exits 0. `pre-commit run --all-files` passes.
-- Next: **WP-2**.
-
-### 2026-08-22 - Open findings mirrored to GitHub issues (side-task)
-
-- Scope: created issues #174-#215. Rephrased two rules in `AGENTS.md`. Filed
-  `F-B21-9`. No code changed.
-- Why: Codex raised `F-B21-7` on PR #173 although the PR body listed it.
-  Reviewers do not read `FINDINGS.md`. Issues are cheaper to search.
-- 42 open findings are now mirrored: 28 P1, 10 P2, 3 Info, 1 Feature. Seven
-  resolved findings were skipped. Labels are `finding` plus the severity.
-- Each issue body says `FINDINGS.md` is the source of truth and that the
-  issue is a read-only mirror. Nothing writes back to the file.
-- `AGENTS.md` changes are rephrases, not additions. Bootstrap item 7 already
-  said "read on demand"; it now names the three reasons to open the file and
-  says a recorded defect is known and owned. The Markdown log-entry bullet
-  now also asks for plain English. No new rule was added.
-- `F-B21-9` records the gap. The mirror is manual and will drift. The owner
-  accepted that on 2026-08-22 and asked for it to be written down rather
-  than built now. A sync script is code and needs its own work package.
 - Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
   exits 0. `pre-commit run --all-files` passes.
 - Next: **WP-2**.

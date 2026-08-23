@@ -8,7 +8,8 @@ side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
 WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
-F-B21-11 and F-B21-12. **WP-3 is next.** 671 tests across 39 test modules.
+F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. **WP-3 is next.**
+671 tests across 39 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -559,6 +560,49 @@ Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
 Status: open. Not urgent, but the deadline belongs to GitHub rather than to
 this repository.
 Source: PR #216 Quality Gate annotation, 2026-08-23.
+
+### F-B21-13: bootstrap state lives in three files and only one is gated
+
+`AGENTS.md` makes bootstrap complete only when PLAYBOOK Section 3, the active
+batch definition and `.claude/SESSION_CONTEXT.md` Section 1 agree on the
+current batch and the next work package. Nothing checks that they do.
+
+`doc_state_sync.py` derives the next work package from PLAYBOOK and writes it
+into the managed SESSION_CONTEXT block. It never reads the batch definition.
+`scripts/docsync/integrity.py` names `FINDINGS.md` once, in the pinned
+root-document list, and its test-count enforcement reads SESSION_CONTEXT
+only. So two of the three legs are hand-maintained and unread.
+
+Both drifted in Batch 21 and both were caught by PR review rather than by a
+gate:
+
+- `BATCH21_DEFINITION.md` still said WP-2 was next after WP-2 shipped. WP-1's
+  plan carried updating that line as an explicit task, WP-2's did not, and
+  PR #170 had already made the same correction once for WP-1. Second
+  occurrence of the same line going stale.
+- The `FINDINGS.md` header still published 666 tests after PLAYBOOK and
+  SESSION_CONTEXT moved to 671, in the very commit that was correcting stale
+  documentation.
+
+Remedy: extend the integrity gate rather than write another rule. Two checks,
+both cheap, because both compare text that already exists:
+
+1. Parse the next-work-package claim out of the active batch definition's
+   status line and compare it to the value the renderer already computes from
+   PLAYBOOK. Report a diagnostic when they disagree.
+2. Apply the existing `latest_test_count_authority()` to the `FINDINGS.md`
+   header the same way it is applied to the SESSION_CONTEXT fields.
+
+Written rules have now failed twice on the definition status line, which is
+the point at which `AGENTS.md` prefers a mechanical check over a restatement.
+Do it in its own commit with tests, not inside a UI work package -- it
+changes the gate every other work package depends on.
+
+Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
+
+Status: open. Both instances are corrected; the gap that let them drift is
+not.
+Source: PR #216 review round two, 2026-08-23.
 
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
