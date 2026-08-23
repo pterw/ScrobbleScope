@@ -102,9 +102,11 @@
     {# Page-specific JavaScript #}
     {% block scripts %}{% endblock %}
 
-    {# The toggle moved to the header bar. This block stays for page extras
-       such as the back-to-top control results.html injects. #}
-    {% block page_footer_extra %}{% endblock %}
+    {# The toggle moved to the header bar, but the wrapper stays. It centres
+       and spaces whatever a page puts here, and results.html still injects
+       its back-to-top control. Emitted on every page so a page cannot forget
+       it; kept on one line so :empty collapses it where nothing is added. #}
+    <div class="page-footer-extras">{% block page_footer_extra %}{% endblock %}</div>
 
     {# Shared theme logic -- loads after the header toggle is in the DOM #}
     <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
