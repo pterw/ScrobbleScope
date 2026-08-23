@@ -7,8 +7,8 @@ resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
 side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
 WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
-resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10
-and F-B21-11. **WP-3 is next.** 666 tests across 39 test modules.
+resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
+F-B21-11 and F-B21-12. **WP-3 is next.** 666 tests across 39 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -529,6 +529,37 @@ than the index for this reason, and says so in its docstring.
 
 Status: open. Closes when WP-3 deletes the welcome modal.
 Source: WP-2 frontend gate run, 2026-08-23.
+
+### F-B21-12: four pinned CI actions target a deprecated Node runtime
+
+Every Quality Gate run now annotates: `Node.js 20 is deprecated. The
+following actions target Node.js 20 but are being forced to run on Node.js
+24: actions/cache@v4, actions/checkout@v4, actions/setup-python@v5,
+actions/upload-artifact@v4.` The changelog is
+`https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/`.
+
+Nothing is broken. GitHub runs those actions on Node 24 anyway and the gate
+passes. The risk is the shape of the fix rather than the fault: all four sit
+in one file, `.github/workflows/test.yml`, and they fail together on the day
+the forced fallback is withdrawn. That failure would land on whichever work
+package happens to be open, would look unrelated to its diff, and would block
+every PR at once.
+
+Remedy: bump each of the four to a release that targets Node 24, in one
+commit, and confirm the annotation is gone from the next run. Do not guess
+the version numbers -- read each action's releases first, because the major
+that carries the new runtime differs per action.
+
+Worth doing on its own rather than inside a UI work package. It touches the
+gate every other work package depends on, so a bad bump is expensive and a
+separate commit is trivial to revert.
+
+Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
+
+Status: open. Not urgent, but the deadline belongs to GitHub rather than to
+this repository.
+Source: PR #216 Quality Gate annotation, 2026-08-23.
+
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed
