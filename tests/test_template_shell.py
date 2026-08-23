@@ -182,6 +182,64 @@ def test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads(
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
+def test_the_header_mark_carries_no_smil_animation(app, template):
+    """CSS cannot stop SMIL, so prefers-reduced-motion would never reach it.
+
+    An <animate> with repeatCount="indefinite" ignores the media query
+    entirely. The mark sits in a fixed header on every page and never
+    scrolls away, so this would be permanent motion for a reader who asked
+    for none. The bars animate from shell.css instead.
+
+    Scoped to the header: the index hero wordmark and the pinwheel still
+    carry SMIL, and those belong to F-B21-5.
+    """
+    with app.test_request_context("/"):
+        html = render_template(template, **TEMPLATE_CONTEXT[template])
+
+    header = html.split('<header class="site-header"', 1)[1]
+    header = header.split("</header>", 1)[0]
+
+    assert "<animate" not in header, (
+        f"{template} ships SMIL inside the standing header, which no CSS "
+        f"media query can pause"
+    )
+
+
+@pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
+def test_every_page_wraps_its_footer_extras(app, template):
+    """The wrapper centres and spaces whatever a page adds after the content.
+
+    Asserting the exact empty markup does double duty. It proves base.html
+    still emits the wrapper, and it proves the tags stay on one line --
+    `.page-footer-extras:empty` is what collapses the wrapper on the pages
+    that add nothing, and a newline between the tags is a text node that
+    stops :empty matching.
+    """
+    with app.test_request_context("/"):
+        html = render_template(template, **TEMPLATE_CONTEXT[template])
+
+    if template == "results.html":
+        wrapper = html.split('<div class="page-footer-extras">', 1)[1]
+        assert 'id="back-to-top"' in wrapper.split("</div>", 1)[0]
+    else:
+        assert '<div class="page-footer-extras"></div>' in html
+
+
+def test_shell_stops_both_animations_under_reduced_motion():
+    """Both rules are load-bearing and neither is obvious from its selector.
+
+    The bar rule is the whole reason the SMIL was stripped. The footer rule
+    restores opacity: cancelling a forwards animation that fades in from 0
+    would otherwise hide the control permanently.
+    """
+    shell = (STATIC_CSS / "shell.css").read_text(encoding="utf-8")
+    reduced = shell.split("@media (prefers-reduced-motion: reduce)", 1)[1]
+
+    assert "#horizontal_bars path:nth-of-type(-n+5)" in reduced
+    assert "opacity: 1;" in reduced
+
+
+@pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
 def test_every_page_sets_the_theme_before_first_paint(app, template):
     """The marker must be on <html>, and set in head, or the page flashes."""
     with app.test_request_context("/"):

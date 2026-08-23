@@ -104,6 +104,70 @@ body {
     fill: var(--shell-ink);
 }
 
+/* The five bars pulse; the letterforms never move.
+
+   The asset used to carry SMIL <animate> elements with repeatCount
+   indefinite. CSS cannot pause SMIL, so prefers-reduced-motion did not
+   reach it, and WP-2 made that far worse by moving the mark into a fixed
+   header that is on every page and never scrolls away. The SMIL is stripped
+   and the motion is CSS, which is the route
+   docs/design/README.md "Wordmark animation" specifies. F-B21-5 still
+   covers the pinwheel and the index hero wordmark.
+
+   Two things this rule depends on, both from that section:
+   - Cap at nth-of-type(-n+5). Unqualified it reaches letterform paths.
+   - transform-box: view-box, never fill-box. Each bar is a pure vertical
+     line, so its fill box is zero-width and the bars drift sideways
+     instead of scaling.
+
+   The origin is 63.5px, exactly as docs/design/tokens/base.css has it, even
+   though this lockup's viewBox starts at y=7 where the full mark starts at
+   y=0. That looks like it should need a 7-unit correction and it does not:
+   view-box resolves transform-origin in the SVG user coordinate system, not
+   from the top-left corner of the viewBox. Measured, not reasoned -- at
+   scaleY(3) an origin of 56.5px slides each bar bottom 8.4px while 63.5px
+   holds it to 0.2px. Do not "fix" this number to match the viewBox. */
+@keyframes ss-bar-pulse {
+    0%,
+    100% {
+        transform: scaleY(1);
+    }
+
+    50% {
+        transform: scaleY(1.1);
+    }
+}
+
+.site-header__mark svg #horizontal_bars path:nth-of-type(-n+5) {
+    transform-box: view-box;
+    transform-origin: 0 63.5px;
+    animation: ss-bar-pulse 1.9s ease-in-out infinite;
+}
+
+/* Deliberately never in sync. */
+.site-header__mark svg #horizontal_bars path:nth-of-type(1) {
+    animation-duration: 1.6s;
+}
+
+.site-header__mark svg #horizontal_bars path:nth-of-type(2) {
+    animation-duration: 2.3s;
+}
+
+.site-header__mark svg #horizontal_bars path:nth-of-type(3) {
+    animation-duration: 1.9s;
+    animation-delay: -0.4s;
+}
+
+.site-header__mark svg #horizontal_bars path:nth-of-type(4) {
+    animation-duration: 2.1s;
+    animation-delay: -0.9s;
+}
+
+.site-header__mark svg #horizontal_bars path:nth-of-type(5) {
+    animation-duration: 1.7s;
+    animation-delay: -0.2s;
+}
+
 /* ------------------------------------------------------------------ */
 /* Theme toggle                                                        */
 /* ------------------------------------------------------------------ */
@@ -191,6 +255,42 @@ body {
 }
 
 /* ------------------------------------------------------------------ */
+/* Page footer extras                                                  */
+/* ------------------------------------------------------------------ */
+
+/* WP-2 moved the theme toggle into the header and removed the
+   .page-footer-bar wrapper with it, but results.html still fills
+   page_footer_extra with its back-to-top control. That left the control
+   bare: left-aligned, unpadded, no entrance.
+
+   The rules live here rather than in global.css because that file only
+   reaches unmigrated pages, and results.html moves in WP-5. Same reason the
+   fade is redefined instead of reusing global.css's fadeInCard. */
+.page-footer-extras {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1rem 1.5rem;
+    margin-top: 0.5rem;
+    opacity: 0;
+    animation: ss-footer-extras-in 1.2s ease 0.6s forwards;
+}
+
+/* Collapses the wrapper on the pages that add nothing. This works only
+   while base.html keeps the tags on one line: a newline between them is a
+   text node, and :empty stops matching. */
+.page-footer-extras:empty {
+    display: none;
+}
+
+@keyframes ss-footer-extras-in {
+    to {
+        opacity: 1;
+    }
+}
+
+/* ------------------------------------------------------------------ */
 /* Responsive: one breakpoint, per the design system                   */
 /* ------------------------------------------------------------------ */
 @media (max-width: 860px) {
@@ -224,5 +324,18 @@ body {
     .site-header__switch-track,
     .site-header__switch-track::before {
         transition-duration: 0ms;
+    }
+
+    /* The reason the SMIL had to go. This rule is what an <animate> element
+       would have ignored. */
+    .site-header__mark svg #horizontal_bars path:nth-of-type(-n+5) {
+        animation: none;
+    }
+
+    /* opacity must be restored with the animation. Cancelling a forwards
+       animation that fades in from 0 otherwise hides the element for good. */
+    .page-footer-extras {
+        animation: none;
+        opacity: 1;
     }
 }
