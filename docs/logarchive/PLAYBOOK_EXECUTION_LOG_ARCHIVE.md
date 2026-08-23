@@ -9,6 +9,31 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-22 - PR #173 review answered, two import defects fixed (side-task)
+
+- Scope: moved `docs/design/styles.css`. Fixed one claim in
+  `docs/design/RECONCILIATION.md`. No code changed.
+- Codex raised four threads. All four are correct. Claude disputed none.
+- `styles.css` went into `docs/design/tokens/`. It belongs one level up.
+  The file imports `tokens/fonts.css`. From inside `tokens/` that path does
+  not exist. So the entry point loaded no tokens.
+- The source project keeps `styles.css` at its root. `DesignSync list_files`
+  confirms this. `git mv` fixes the path. The content does not change.
+- `RECONCILIATION.md` said every colour in the README tables matches the
+  theme. That is wrong. Three tokens match: `--surface-page`, `--text-strong`
+  and `--accent`. Four are absent. Dark `--surface-sunken` is `#181520`, not
+  `#1a1622`. The status colours are still Bootstrap's.
+- A per-token table now replaces the claim.
+- This is the second false claim of this shape in that file. `F-B21-8`
+  records the first. Both came from a spot check.
+- The other two threads repeat `F-B21-7`. Codex found them on its own. They
+  stay with WP-2. WP-2 owns that code next.
+- Checked this pass: only `RECONCILIATION.md` changed under `docs/design/`.
+  The imported files match `fa56cd6`. Claude's Markdown has no non-ASCII.
+- Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
+  exits 0. `pre-commit run --all-files` passes.
+- Next: **WP-2**. It inherits `F-B21-7` and `F-B21-8`.
+
 ### 2026-08-22 - Tailwind source scope corrected after PR #173 went red (side-task)
 
 - Scope: `static/css/tailwind.src.css` (one directive plus a comment), the
