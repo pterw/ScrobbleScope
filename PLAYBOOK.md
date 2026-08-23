@@ -86,10 +86,12 @@ See FINDINGS F-DOCSYNC-3.
   2026-08-23. It shipped the base shell, the `error.html` pilot, the
   Playwright runtime, the frontend gate, and the compiled-CSS pre-commit
   hook, closing F-B21-2, F-B21-7 and F-AUDIT-1 and filing F-B21-10, F-B21-11
-  and F-B21-12. The Quality Gate passes on that PR: 12 steps green in 1m40s,
-  `pytest` 666 passed, `frontend_gate` 4 checks passed, and the Linux digest
-  `71402508a5775dcb...` matches the Windows build. `pip-audit` still reports
-  its advisories without failing the gate, by design (F-B21-3).
+  and F-B21-12. The Quality Gate passed on `45fbbe8`: 12 steps green in
+  1m40s, `pytest` 666 passed, `frontend_gate` 4 checks passed, and the Linux
+  digest `71402508a5775dcb...` matched the Windows build. `pip-audit` still
+  reports its advisories without failing the gate, by design (F-B21-3).
+  Review round one is applied on top: three Codex comments, all valid, all
+  fixed. The suite is 671 and the gate runs 5 checks now.
   **WP-3 is next**: the index page, which deletes the welcome modal, replaces
   `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
   the thresholds disclosure. The root-hygiene side task is
@@ -371,6 +373,51 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-23 - PR #216 review round one applied (side-task)
+
+- Scope: three review comments Codex left on `45fbbe8`. All three were
+  verified against the code and all three were valid. None was declined.
+- **Tailwind was pruning tokens the handwritten CSS reads.** Tailwind v4
+  emits a theme variable only when a generated utility uses it.
+  `static/css/error.css` reads `--font-figure`, `--font-weight-bold`,
+  `--spacing-8`, `--radius-sm` and `--radius-lg` directly, no utility used
+  them, and none reached `static/css/tailwind.css`. An undefined `var()`
+  with no fallback voids the whole declaration, so the error page shipped
+  with no card rounding and no page padding, and its status number took
+  neither the bold weight nor the Gotham face. Nothing failed and nothing
+  logged. `@theme static` fixes it and adds 16 declarations to the compiled
+  file. A browser now reports 14px card rounding and 32px 16px page
+  padding.
+- **No page set `font-family` on `body`.** Neither `global.css` nor
+  `shell.css` carried one, so the four unmigrated pages downloaded the
+  Adobe kit and then rendered in the Bootstrap system stack. The batch
+  definition lists the body font as a WP-2 deliverable, so this was a
+  missed one rather than a new idea. The declaration went into `shell.css`
+  behind a new `--shell-font-sans` token, because an unmigrated page never
+  loads the compiled stylesheet and `var(--font-sans)` resolves to nothing
+  there.
+- **`SESSION_CONTEXT.md` sections 3 and 4 were stale.** They said 9 css and
+  7 js files, still listed a deleted `error.js`, and omitted `shell.css`,
+  `frontend_gate.py` and the lockup SVG. Real counts are 10 and 6.
+- Two gaps closed while in the same files. `tests/test_template_shell.py`
+  gains a test that renders each page, reads back the stylesheets it loads,
+  and asserts every `var()` without a fallback resolves in one of them.
+  Nothing checked that invariant before. The gate gains a fifth check for
+  the body font, reading computed style rather than stylesheet text,
+  because the failure is a cascade one and only a browser can settle it.
+- Deviations: the dependency graph also gained `dev/tailwind_build.py`,
+  which WP-1 added and never recorded. It was a one-line omission in the
+  block being corrected, so leaving it was worse than fixing it.
+- Both fixes were proven able to fail. Reverting `@theme static` fails two
+  tests, and removing the body declaration fails the gate on `/` and names
+  the system stack it fell back to.
+- Validation: `pytest -q` -- **671 passed**, 3 warnings. All 11 pre-commit
+  hooks pass. The frontend gate reports `5 checks passed`.
+  `doc_state_sync.py --check` exits 0 with the expected active
+  root-definition warning.
+- Forward guidance: the compiled stylesheet is 1,650 lines now, so every
+  line citation into it is stale again. Cite the block, not the number.
+
 ### 2026-08-23 - Node 20 CI deprecation filed as F-B21-12 (side-task)
 
 - Scope: recorded a warning the Quality Gate has started printing. No
@@ -436,28 +483,3 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
   exits 0. `pre-commit run --all-files` passes.
 - Next: **WP-2**.
-
-### 2026-08-22 - PR #173 review answered, two import defects fixed (side-task)
-
-- Scope: moved `docs/design/styles.css`. Fixed one claim in
-  `docs/design/RECONCILIATION.md`. No code changed.
-- Codex raised four threads. All four are correct. Claude disputed none.
-- `styles.css` went into `docs/design/tokens/`. It belongs one level up.
-  The file imports `tokens/fonts.css`. From inside `tokens/` that path does
-  not exist. So the entry point loaded no tokens.
-- The source project keeps `styles.css` at its root. `DesignSync list_files`
-  confirms this. `git mv` fixes the path. The content does not change.
-- `RECONCILIATION.md` said every colour in the README tables matches the
-  theme. That is wrong. Three tokens match: `--surface-page`, `--text-strong`
-  and `--accent`. Four are absent. Dark `--surface-sunken` is `#181520`, not
-  `#1a1622`. The status colours are still Bootstrap's.
-- A per-token table now replaces the claim.
-- This is the second false claim of this shape in that file. `F-B21-8`
-  records the first. Both came from a spot check.
-- The other two threads repeat `F-B21-7`. Codex found them on its own. They
-  stay with WP-2. WP-2 owns that code next.
-- Checked this pass: only `RECONCILIATION.md` changed under `docs/design/`.
-  The imported files match `fa56cd6`. Claude's Markdown has no non-ASCII.
-- Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
-  exits 0. `pre-commit run --all-files` passes.
-- Next: **WP-2**. It inherits `F-B21-7` and `F-B21-8`.
