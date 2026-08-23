@@ -45,15 +45,21 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-dev.txt
 
-      - name: Verify committed Tailwind CSS
-        run: |
-          python scripts/dev/tailwind_build.py
-          sha256sum static/css/tailwind.css
-          git diff --exit-code -- static/css/tailwind.css
-
+      # The tailwind-css-drift pre-commit hook rebuilds and diffs, so the
+      # direct build-and-diff step this replaces would compile the stylesheet
+      # a second time for the same answer.
       - name: Run pre-commit checks
         run: |
           pre-commit run --all-files
+
+      # Diagnostic only; nothing is enforced here. The drift hook proves
+      # the committed file matches a rebuild on this runner. It cannot
+      # show a Windows build matching the Linux one, and WP-1's contract
+      # asks for reproducibility to be measured. This printed digest is
+      # what lets the two be compared by eye, from the logs, months apart.
+      - name: Print committed Tailwind CSS digest
+        run: |
+          sha256sum static/css/tailwind.css
 
       - name: Run Tests with Coverage
         run: |
@@ -65,6 +71,16 @@ jobs:
           name: coverage-xml
           path: coverage.xml
           retention-days: 14
+
+      # Last on purpose. Starting a browser costs far more than a lint, a
+      # rebuild or the suite, so every cheaper gate reports first.
+      - name: Install Playwright browser
+        run: |
+          python -m playwright install --with-deps chromium
+
+      - name: Run frontend gate
+        run: |
+          python scripts/dev/frontend_gate.py
 
       - name: Security audit (pip-audit)
         uses: pypa/gh-action-pip-audit@v1.1.0

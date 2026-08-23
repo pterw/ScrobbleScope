@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import subprocess
-from unittest.mock import patch
+from unittest.mock import call, patch
+
+import pytest
 
 from scripts.dev.tailwind_build import (
     OUTPUT_CSS,
@@ -93,6 +95,64 @@ def test_main_reports_a_failed_tailwind_process(capsys) -> None:
         assert main([]) == 1
 
     assert "returned non-zero exit status 2" in capsys.readouterr().err
+
+
+def test_check_rebuilds_then_reports_a_clean_generated_stylesheet() -> None:
+    """--check must rebuild first. A diff alone proves only nobody hand-edited."""
+    with (
+        patch("scripts.dev.tailwind_build.build_tailwind") as build,
+        patch("scripts.dev.tailwind_build.subprocess.run") as run,
+    ):
+        run.return_value = subprocess.CompletedProcess([], returncode=0)
+        assert main(["--check"]) == 0
+
+    build.assert_called_once_with(watch=False)
+    assert run.call_args == call(
+        ["git", "diff", "--exit-code", "--", str(OUTPUT_CSS)],
+        cwd=REPO_ROOT,
+        check=False,
+    )
+
+
+def test_check_fails_when_the_committed_stylesheet_is_stale(capsys) -> None:
+    """A nonzero git diff means the committed CSS does not match its source."""
+    with (
+        patch("scripts.dev.tailwind_build.build_tailwind"),
+        patch("scripts.dev.tailwind_build.subprocess.run") as run,
+    ):
+        run.return_value = subprocess.CompletedProcess([], returncode=1)
+        assert main(["--check"]) == 1
+
+    assert "drift" in capsys.readouterr().err.lower()
+
+
+def test_check_scopes_the_diff_to_the_generated_file() -> None:
+    """An unrelated dirty file, or an earlier hook rewrite, is not drift."""
+    with (
+        patch("scripts.dev.tailwind_build.build_tailwind"),
+        patch("scripts.dev.tailwind_build.subprocess.run") as run,
+    ):
+        run.return_value = subprocess.CompletedProcess([], returncode=0)
+        main(["--check"])
+
+    assert run.call_args.args[0][-2:] == ["--", str(OUTPUT_CSS)]
+
+
+def test_check_and_watch_together_are_rejected() -> None:
+    """Watch never returns, so it cannot be combined with a one-shot check.
+
+    build_tailwind is patched so that a regression in the guard cannot start
+    a real watch process and hang the suite.
+    """
+    with (
+        patch("scripts.dev.tailwind_build.build_tailwind") as build,
+        patch("scripts.dev.tailwind_build.subprocess.run"),
+        pytest.raises(SystemExit) as exit_error,
+    ):
+        main(["--check", "--watch"])
+
+    assert exit_error.value.code == 2
+    build.assert_not_called()
 
 
 def test_theme_source_locks_the_batch_21_design_tokens() -> None:
