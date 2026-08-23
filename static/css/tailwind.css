@@ -7,10 +7,17 @@
     --font-serif: "instrument-serif", Georgia, serif;
     --font-mono: "input-mono", ui-monospace, monospace;
     --color-white: #fff;
+    --font-weight-light: 300;
+    --font-weight-normal: 400;
+    --font-weight-bold: 700;
     --default-transition-duration: 150ms;
     --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
+    --font-figure: "gotham", ui-sans-serif, sans-serif;
+    --font-mono-narrow: "input-mono-narrow", "input-mono", ui-monospace, monospace;
+    --text-label-sm: 0.71875rem;
+    --text-label-sm--line-height: 1rem;
     --text-label: 0.8125rem;
     --text-label--line-height: 1rem;
     --text-body-sm: 0.875rem;
@@ -19,11 +26,20 @@
     --text-body--line-height: 1.5rem;
     --text-display: 1.5rem;
     --text-display--line-height: 1.75rem;
+    --text-display-lg: 2rem;
+    --text-display-lg--line-height: 2.25rem;
+    --text-display-xl: 3rem;
+    --text-display-xl--line-height: 1;
     --spacing-1: 0.25rem;
     --spacing-2: 0.5rem;
     --spacing-3: 0.75rem;
     --spacing-4: 1rem;
     --spacing-6: 1.5rem;
+    --spacing-8: 2rem;
+    --spacing-12: 3rem;
+    --radius-sm: 8px;
+    --radius-lg: 14px;
+    --radius-full: 999px;
   }
 }
 @layer base {

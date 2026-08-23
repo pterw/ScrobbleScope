@@ -10,7 +10,12 @@
 @source not "./tailwind.css";
 @source not "../../scripts/bin/*";
 
-@theme {
+/* static, because handwritten CSS reads these tokens directly. A plain @theme
+   emits a variable only when a generated utility uses it, so tokens that only
+   error.css consumes were pruned. An undefined var() with no fallback voids
+   the whole declaration, which silently dropped the card rounding and the page
+   padding. tests/test_template_shell.py holds the line. */
+@theme static {
   /* Adobe Fonts kit rwy8ghw, loaded by the use.typekit.net link in
      base.html. Each family owns one job: sans for all UI chrome, serif for
      display words, figure for display numbers, mono for inputs and tabular
