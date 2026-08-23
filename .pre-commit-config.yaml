@@ -47,3 +47,13 @@ repos:
         language: python
         pass_filenames: false
         always_run: true
+
+      # always_run and pass_filenames are load-bearing. The top-level exclude
+      # filters out static/, so a filename-driven hook would never run on the
+      # one file this exists to check.
+      - id: tailwind-css-drift
+        name: tailwind-css-drift
+        entry: python scripts/dev/tailwind_build.py --check
+        language: python
+        pass_filenames: false
+        always_run: true

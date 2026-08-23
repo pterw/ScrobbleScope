@@ -342,14 +342,47 @@ def build_tailwind(*, watch: bool = False) -> None:
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
-    """Parse the single supported developer-facing build option."""
+    """Parse the developer-facing build options.
+
+    Watch never returns, so it cannot be combined with the one-shot drift
+    check. argparse rejects the pair rather than silently ignoring one.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--watch",
         action="store_true",
         help="rebuild static/css/tailwind.css whenever source content changes",
     )
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="rebuild, then fail if the committed static/css/tailwind.css drifted",
+    )
     return parser.parse_args(argv)
+
+
+def _report_drift() -> int:
+    """Fail when the committed stylesheet does not match a fresh rebuild.
+
+    The pathspec scopes the comparison to the generated file. Without it an
+    unrelated dirty file, or a rewrite left by an earlier hook in the same
+    pre-commit run, would be reported as Tailwind drift.
+    """
+    completed = subprocess.run(
+        ["git", "diff", "--exit-code", "--", str(OUTPUT_CSS)],
+        cwd=REPO_ROOT,
+        check=False,
+    )
+    if completed.returncode != 0:
+        print(
+            "[tailwind_build] ERROR: committed CSS drift. "
+            f"{OUTPUT_CSS.relative_to(REPO_ROOT)} does not match a rebuild "
+            "from its source. Commit the rebuilt file.",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -357,6 +390,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
     try:
         build_tailwind(watch=args.watch)
+        if args.check:
+            # Rebuild first. A bare git diff proves only that nobody
+            # hand-edited the file, not that it reproduces from source.
+            return _report_drift()
     except (TailwindBuildError, subprocess.CalledProcessError, OSError) as exc:
         print(f"[tailwind_build] ERROR: {exc}", file=sys.stderr)
         return 1
