@@ -20,6 +20,12 @@
     --shell-track: rgba(26, 24, 32, 0.18);
     --shell-knob: #ffffff;
     --shell-height: 68px;
+    /* The same stack as --font-sans in tailwind.src.css, repeated because an
+       unmigrated page never loads the compiled sheet and would resolve
+       var(--font-sans) to nothing. This file already duplicates the palette
+       for that reason; WP-8 absorbs both copies. */
+    --shell-font-sans: "akzidenz-grotesk-next-pro", ui-sans-serif, system-ui,
+        sans-serif;
 }
 
 :root[data-theme="dark"] {
@@ -55,9 +61,15 @@
 }
 
 /* The bar is fixed and therefore out of flow. Without this every page would
-   start underneath it. */
+   start underneath it.
+
+   The font-family sits here rather than in tailwind.src.css because every
+   page loads this file, migrated or not. Set only on tailwind.src.css it
+   would reach the one migrated page and leave the other four rendering the
+   Bootstrap system stack after downloading the kit. */
 body {
     padding-top: var(--shell-height);
+    font-family: var(--shell-font-sans);
 }
 
 .site-header__home {

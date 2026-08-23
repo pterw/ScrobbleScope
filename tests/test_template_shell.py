@@ -69,6 +69,15 @@ def _local_sheets(hrefs: list[str]) -> list[Path]:
     return [STATIC_CSS / name for name in names]
 
 
+def _without_comments(text: str) -> str:
+    """Return the stylesheet with every /* */ block removed.
+
+    Both directions need this. A comment that names a token must not count as
+    a definition, and prose that mentions var(--x) must not count as a read.
+    """
+    return re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+
+
 def _declared(text: str) -> set[str]:
     """Return every custom property the stylesheet defines."""
     return set(re.findall(r"^\s*(--[\w-]+)\s*:", text, re.M))
@@ -158,7 +167,7 @@ def test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads(
     sheets = _local_sheets(_stylesheets(html))
     assert sheets, f"{template} loads no local stylesheet"
 
-    texts = [sheet.read_text(encoding="utf-8") for sheet in sheets]
+    texts = [_without_comments(sheet.read_text(encoding="utf-8")) for sheet in sheets]
     defined = set().union(*(_declared(text) for text in texts))
 
     for sheet, text in zip(sheets, texts):
