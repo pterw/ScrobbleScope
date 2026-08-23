@@ -9,6 +9,45 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-22 - Tailwind source scope corrected after PR #173 went red (side-task)
+
+- Scope: `static/css/tailwind.src.css` (one directive plus a comment), the
+  regenerated `static/css/tailwind.css`, `FINDINGS.md` (`F-B21-8`), and the
+  false claim in `docs/design/RECONCILIATION.md` section 2. Owner chose the
+  fix and the recording from two options each.
+- Trigger: PR #173's Quality Gate failed on "Verify committed Tailwind CSS".
+  Not a flake. The rebuild added 30 lines the committed file did not have.
+- Cause: `@source` **adds** to Tailwind v4's automatic detection instead of
+  replacing it, so the whole repository was scanned, not just `templates/`
+  and `static/js/`. The extractor turns bare words in Markdown into class
+  candidates, so prose compiled into utilities -- `.contents`, `.isolate`,
+  `.flex`, `.border`, `.relative`, `.sticky`, `.truncate`, `.italic`.
+- The design import did not create this; it exposed it. The committed
+  baseline was already contaminated. Scoping the scan removed **713 of 2,289
+  lines, 31% of the stylesheet**.
+- Fix: `@import "tailwindcss" source(none)`. Rejected alternatives, both
+  offered to the owner: regenerate as-is, which would couple the design
+  documentation to production CSS permanently; and `@source not "../../docs"`,
+  which fixes only `docs/` and leaves `tests/`, `scripts/` and the root
+  Markdown feeding the scanner.
+- Verified rather than assumed: both theme blocks survive (`--color-base-100`
+  is `#faf8f3` light and `#0e0c12` dark, and `data-theme` still appears three
+  times), and a second consecutive build reproduces the first byte for byte.
+- Deviations: two `@source not` directives are now unreachable and were left
+  in place deliberately, as protection if `source(none)` is ever removed.
+  Recorded in `F-B21-8`.
+- **Process failure worth naming.** Last session's check,
+  `git diff --exit-code -- static/css/tailwind.css`, was reported as proof
+  that `docs/design/` was outside Tailwind's scope. It proves only that the
+  file was not hand-edited. The build has to actually run. `F-B21-8` records
+  that nothing local runs it, which is what WP-2's `tailwind-css-drift` hook
+  closes.
+- Validation: `pytest -q` -- **633 passed**, 3 warnings.
+  `doc_state_sync.py --check` exits 0. `pre-commit run --all-files` passes.
+  Quality Gate re-run on PR #173.
+- Forward guidance: **WP-2 is next** and should treat `F-B21-7` and `F-B21-8`
+  as its own, since the drift hook it adds runs both code paths.
+
 ### 2026-08-22 - Two WP-1 review items filed as F-B21-6 and F-B21-7 (side-task)
 
 - Scope: `FINDINGS.md` only -- two new findings plus the stale status header.

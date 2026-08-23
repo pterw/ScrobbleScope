@@ -82,15 +82,17 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** WP-2 is complete and awaiting owner review of its five
-  commits. It shipped the base shell, the `error.html` pilot, the Playwright
-  runtime, the frontend gate, and the compiled-CSS pre-commit hook, closing
-  F-B21-2, F-B21-7 and F-AUDIT-1 and filing F-B21-10 and F-B21-11.
+- **Next action:** WP-2 is complete and **submitted as PR #216**, pushed
+  2026-08-23. It shipped the base shell, the `error.html` pilot, the
+  Playwright runtime, the frontend gate, and the compiled-CSS pre-commit
+  hook, closing F-B21-2, F-B21-7 and F-AUDIT-1 and filing F-B21-10, F-B21-11
+  and F-B21-12. The Quality Gate passes on that PR: 12 steps green in 1m40s,
+  `pytest` 666 passed, `frontend_gate` 4 checks passed, and the Linux digest
+  `71402508a5775dcb...` matches the Windows build. `pip-audit` still reports
+  its advisories without failing the gate, by design (F-B21-3).
   **WP-3 is next**: the index page, which deletes the welcome modal, replaces
   `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
-  the thresholds disclosure. **Do not push the WP-2 gate commit on its own**
-  -- the Quality Gate runs on push to `wip/**` and the frontend gate fails
-  until the shell commit lands with it. The root-hygiene side task is
+  the thresholds disclosure. The root-hygiene side task is
   **closed**: the owner rejected the audience-banner scheme on 2026-08-20,
   and the config-file verdict landed in `DEPLOY.md`.
   Earlier context, still true: **PR #171 merged to `main` on 2026-08-19**
@@ -369,6 +371,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-23 - Node 20 CI deprecation filed as F-B21-12 (side-task)
+
+- Scope: recorded a warning the Quality Gate has started printing. No
+  workflow change, no dependency change, no code change.
+- Plan vs implementation: `F-B21-12` filed. Four pinned actions in
+  `.github/workflows/test.yml` -- `actions/cache`, `actions/checkout`,
+  `actions/setup-python` and `actions/upload-artifact` -- target Node 20,
+  which GitHub deprecated. Runs are forced onto Node 24 and pass, so nothing
+  is broken today.
+- Why file it: all four sit in one file and fail together on the day the
+  forced fallback is withdrawn. That break would land on whichever work
+  package is open, would look unrelated to its diff, and would block every
+  PR at once. The finding says to bump them in their own commit and to read
+  each action's releases rather than guess the major that carries the new
+  runtime.
+- Deviations: none.
+- Validation: `pytest -q` -- **666 passed**. All 11 pre-commit hooks pass.
+  `doc_state_sync.py --check` exits 0 with the expected active
+  root-definition warning.
+- Forward guidance: not urgent, but the deadline belongs to GitHub rather
+  than to this repository. Do it as a standalone commit, not folded into a
+  UI work package, because every other work package depends on that gate.
+
 ### 2026-08-22 - Tailwind citations renamed after the rescope (side-task)
 
 - Scope: 13 line citations in `FINDINGS.md` and
@@ -436,42 +461,3 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
   exits 0. `pre-commit run --all-files` passes.
 - Next: **WP-2**. It inherits `F-B21-7` and `F-B21-8`.
-
-### 2026-08-22 - Tailwind source scope corrected after PR #173 went red (side-task)
-
-- Scope: `static/css/tailwind.src.css` (one directive plus a comment), the
-  regenerated `static/css/tailwind.css`, `FINDINGS.md` (`F-B21-8`), and the
-  false claim in `docs/design/RECONCILIATION.md` section 2. Owner chose the
-  fix and the recording from two options each.
-- Trigger: PR #173's Quality Gate failed on "Verify committed Tailwind CSS".
-  Not a flake. The rebuild added 30 lines the committed file did not have.
-- Cause: `@source` **adds** to Tailwind v4's automatic detection instead of
-  replacing it, so the whole repository was scanned, not just `templates/`
-  and `static/js/`. The extractor turns bare words in Markdown into class
-  candidates, so prose compiled into utilities -- `.contents`, `.isolate`,
-  `.flex`, `.border`, `.relative`, `.sticky`, `.truncate`, `.italic`.
-- The design import did not create this; it exposed it. The committed
-  baseline was already contaminated. Scoping the scan removed **713 of 2,289
-  lines, 31% of the stylesheet**.
-- Fix: `@import "tailwindcss" source(none)`. Rejected alternatives, both
-  offered to the owner: regenerate as-is, which would couple the design
-  documentation to production CSS permanently; and `@source not "../../docs"`,
-  which fixes only `docs/` and leaves `tests/`, `scripts/` and the root
-  Markdown feeding the scanner.
-- Verified rather than assumed: both theme blocks survive (`--color-base-100`
-  is `#faf8f3` light and `#0e0c12` dark, and `data-theme` still appears three
-  times), and a second consecutive build reproduces the first byte for byte.
-- Deviations: two `@source not` directives are now unreachable and were left
-  in place deliberately, as protection if `source(none)` is ever removed.
-  Recorded in `F-B21-8`.
-- **Process failure worth naming.** Last session's check,
-  `git diff --exit-code -- static/css/tailwind.css`, was reported as proof
-  that `docs/design/` was outside Tailwind's scope. It proves only that the
-  file was not hand-edited. The build has to actually run. `F-B21-8` records
-  that nothing local runs it, which is what WP-2's `tailwind-css-drift` hook
-  closes.
-- Validation: `pytest -q` -- **633 passed**, 3 warnings.
-  `doc_state_sync.py --check` exits 0. `pre-commit run --all-files` passes.
-  Quality Gate re-run on PR #173.
-- Forward guidance: **WP-2 is next** and should treat `F-B21-7` and `F-B21-8`
-  as its own, since the drift hook it adds runs both code paths.
