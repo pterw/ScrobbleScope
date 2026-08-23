@@ -9,7 +9,7 @@ WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
 F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. **WP-3 is next.**
-671 tests across 39 test modules.
+682 tests across 39 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -340,11 +340,20 @@ design bundle names all three but ships no remedy for any of them.
   `span[role="button"][tabindex="0"]`. The bundle's `ModeTabs` uses real
   `<button>` elements. WP-3 rebuilds this element anyway.
 - **`prefers-reduced-motion` does not reach SMIL.** The pinwheel and the logo
-  bars animate through `<animate>`, which ignores the CSS media query. It
-  needs an explicit `svg.pauseAnimations()` when the query matches. The
+  bars animate through `<animate>`, which ignores the CSS media query. The
   handoff calls reduced motion non-negotiable and specifies the CSS keyframe
-  route for the wordmark, but `templates/inline/scrobblescope_pinwheel.svg`
-  still carries SMIL.
+  route for the wordmark.
+  **Partly resolved on 2026-08-23, PR #216 review round three.** The header
+  lockup took the CSS route the handoff specifies: the SMIL is stripped from
+  `templates/inline/scrobble_scope_lockup_inline.svg` and `shell.css`
+  animates the bars with a reduced-motion guard. That instance was the
+  urgent one, because WP-2 had moved the mark into a fixed header on every
+  page where it never scrolls out of view.
+  **Still open:** `templates/inline/scrobblescope_pinwheel.svg` and the
+  index hero copy of `scrobble_scope_inline.svg` both still carry SMIL.
+  Strip them the same way rather than reaching for `svg.pauseAnimations()`;
+  the CSS route is what the handoff asks for and it needs no JavaScript.
+  WP-3 owns the index page and can close both.
 
 **Settled, recorded here so it is not re-opened as a conflict.** The mobile
 input size looked like a fifth item: `static/css/index.css:158` forces
