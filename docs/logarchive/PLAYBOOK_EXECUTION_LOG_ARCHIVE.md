@@ -9,6 +9,28 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-22 - Tailwind citations renamed after the rescope (side-task)
+
+- Scope: 13 line citations in `FINDINGS.md` and
+  `docs/design/RECONCILIATION.md`. No code changed.
+- Codex caught this on PR #173. It is correct.
+- The `source(none)` comment moved `tailwind.src.css` down five lines. The
+  rescope cut `tailwind.css` from 2,289 lines to 1,576. Every citation into
+  either file broke at once. `:root:not([data-theme])` moved from 2042
+  to 1335.
+- The citations now name the block or the declaration: the two
+  `@plugin "daisyui-theme.mjs"` blocks, `--spacing-*`, `--radius-*`,
+  `--font-sans`, `--font-mono`, `--font-weight-medium`,
+  `@custom-variant dark`, `prefersdark: true`. Named anchors do not drift.
+- Checked the citations Codex did not flag. `heatmap.js:14-22`,
+  `heatmap.js:25-26`, `theme.js:17`, `base.html:26` and `index.css:158` all
+  still resolve. Those files did not change.
+- This is `F-STYLE-1` happening again. The rule already exists for
+  `AGENTS.md`. It applies to every file. Cite a name, not a number.
+- Validation: `pytest -q` -- **633 passed**. `doc_state_sync.py --check`
+  exits 0. `pre-commit run --all-files` passes.
+- Next: **WP-2**.
+
 ### 2026-08-22 - Open findings mirrored to GitHub issues (side-task)
 
 - Scope: created issues #174-#215. Rephrased two rules in `AGENTS.md`. Filed
