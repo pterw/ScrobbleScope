@@ -831,6 +831,34 @@ def test_doc007_unparseable_next_wp_claim_stays_silent(tmp_path: Path):
     assert collect_integrity_issues(**inputs) == []
 
 
+def test_doc007_completed_wp_summary_does_not_steal_the_claim(tmp_path: Path):
+    """The claim is the WP attached to 'is the next', not the first WP seen.
+
+    A status line that summarizes completed work in the same sentence --
+    `WP-1 is complete; WP-2 is the next batch work package` -- must capture
+    WP-2. Capturing WP-1 there would block a definition that agrees with
+    PLAYBOOK, which is exactly the false mismatch this check exists to
+    avoid.
+    """
+    inputs = _valid_inputs(tmp_path)
+    # Insert inside the current-batch markers (end marker is at index 15)
+    # so PLAYBOOK computes WP-2.
+    inputs["playbook_lines"][14:14] = [
+        "",
+        "### 2026-08-06 - First step done (Batch 21 WP-1)",
+        "",
+        "Validation: `pytest -q` -- **400 passed**.",
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    # PLAYBOOK now computes WP-2 as next; the definition agrees on WP-2.
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
+        "**Status:** Active. WP-1 is complete; **WP-2 (shell) is the next "
+        "batch work package.**"
+    )
+
+    assert collect_integrity_issues(**inputs) == []
+
+
 def test_doc007_missing_status_line_stays_silent(tmp_path: Path):
     """A definition without a Status line at all is not a DOC007 defect."""
     inputs = _valid_inputs(tmp_path)

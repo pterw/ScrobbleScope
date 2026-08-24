@@ -44,7 +44,10 @@ DEFINITION_STATUS_LINE_RE = re.compile(r"^\*\*Status:\*\*")
 FINDINGS_HEADER_COUNT_RE = re.compile(
     r"^(\d+)\s+tests\s+across\s+(\d+)\s+test\s+modules\.\s*$"
 )
-NEXT_WP_CLAIM_RE = re.compile(r"\bWP-(\d+)\b[^.]*?is\s+the\s+next", re.IGNORECASE)
+NEXT_WP_CLAIM_RE = re.compile(
+    r"\bWP-(\d+)\b(?:\s*\([^)]*\))?\s+is\s+the\s+next",
+    re.IGNORECASE,
+)
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 SESSION_CURRENT_COUNT_RES = (
     re.compile(r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"),
