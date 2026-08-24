@@ -146,34 +146,179 @@ body {
     }
 }
 
-.site-header__mark svg #horizontal_bars path:nth-of-type(-n+5) {
+.ss-mark svg #horizontal_bars path:nth-of-type(-n+5) {
     transform-box: view-box;
     transform-origin: 0 63.5px;
     animation: ss-bar-pulse 1.9s ease-in-out infinite;
 }
 
 /* Deliberately never in sync. */
-.site-header__mark svg #horizontal_bars path:nth-of-type(1) {
+.ss-mark svg #horizontal_bars path:nth-of-type(1) {
     animation-duration: 1.6s;
 }
 
-.site-header__mark svg #horizontal_bars path:nth-of-type(2) {
+.ss-mark svg #horizontal_bars path:nth-of-type(2) {
     animation-duration: 2.3s;
 }
 
-.site-header__mark svg #horizontal_bars path:nth-of-type(3) {
+.ss-mark svg #horizontal_bars path:nth-of-type(3) {
     animation-duration: 1.9s;
     animation-delay: -0.4s;
 }
 
-.site-header__mark svg #horizontal_bars path:nth-of-type(4) {
+.ss-mark svg #horizontal_bars path:nth-of-type(4) {
     animation-duration: 2.1s;
     animation-delay: -0.9s;
 }
 
-.site-header__mark svg #horizontal_bars path:nth-of-type(5) {
+.ss-mark svg #horizontal_bars path:nth-of-type(5) {
     animation-duration: 1.7s;
     animation-delay: -0.2s;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pinwheel                                                            */
+/* ------------------------------------------------------------------ */
+
+/* Same story as the bars. scrobblescope_pinwheel.svg carried five
+   <animateTransform> elements at repeatCount="indefinite", which no media
+   query can stop, so the motion is CSS now. It lives here rather than in
+   heatmap.css because shell.css is the framework-neutral sheet every page
+   loads: WP-3 renders the pinwheel on a Tailwind page and WP-4 will render
+   the same partial on loading.html while that page is still Bootstrap.
+
+   The selectors are structural because the asset has no hooks of its own and
+   this WP does not add any to the artwork. The shape they assume is one
+   rotor group holding exactly four blade groups, in the source order
+   right / left / up / down. tests/test_template_shell.py asserts that shape,
+   so a re-cut asset fails loudly instead of quietly not animating.
+
+   transform-origin is 16px 16px, the user point SMIL rotated about
+   (`rotate(1080 16 16)`). Write it as a user-space coordinate and nothing
+   else. The viewBox is "-6 -6 44 44", so the tempting answers are both
+   wrong:
+
+   - `50% 50%` computes to `22px 22px`, because the reference box is 44 wide.
+     Chromium then applies that length in the user coordinate system, putting
+     the centre at user (22,22) -- off by exactly the viewBox offset. Measured
+     here: user point (16,16) drifted 49px across one cycle instead of holding
+     still.
+   - Correcting for the viewBox corner, `22px 22px`, is the same wrong answer
+     written out longhand.
+
+   This is the same rule the bar block above records: a length in
+   transform-origin resolves in user space, not from the top-left of the
+   viewBox. It has now cost two wrong answers in this file. Measure a fixed
+   point through getScreenCTM() before believing any origin. */
+@keyframes ss-pinwheel-spin {
+    0% {
+        transform: rotate(0deg);
+        animation-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+    }
+
+    80%,
+    100% {
+        transform: rotate(1080deg);
+    }
+}
+
+@keyframes ss-pinwheel-blade-right {
+    0% {
+        transform: translateX(0);
+        animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    }
+
+    40% {
+        transform: translateX(5.4px);
+        animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    }
+
+    80%,
+    100% {
+        transform: translateX(0);
+    }
+}
+
+@keyframes ss-pinwheel-blade-left {
+    0% {
+        transform: translateX(0);
+        animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    }
+
+    40% {
+        transform: translateX(-5.4px);
+        animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    }
+
+    80%,
+    100% {
+        transform: translateX(0);
+    }
+}
+
+@keyframes ss-pinwheel-blade-up {
+    0% {
+        transform: translateY(0);
+        animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    }
+
+    40% {
+        transform: translateY(-5.4px);
+        animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    }
+
+    80%,
+    100% {
+        transform: translateY(0);
+    }
+}
+
+@keyframes ss-pinwheel-blade-down {
+    0% {
+        transform: translateY(0);
+        animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    }
+
+    40% {
+        transform: translateY(5.4px);
+        animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+    }
+
+    80%,
+    100% {
+        transform: translateY(0);
+    }
+}
+
+.ss-pinwheel svg > g {
+    transform-box: view-box;
+    transform-origin: 16px 16px;
+    animation: ss-pinwheel-spin 2.5s linear infinite;
+}
+
+/* The blades translate inside the rotor, so their offsets stay in the
+   rotating frame -- which is what the nested SMIL groups did. */
+.ss-pinwheel svg > g > g {
+    transform-box: view-box;
+    animation-duration: 2.5s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.ss-pinwheel svg > g > g:nth-of-type(1) {
+    animation-name: ss-pinwheel-blade-right;
+}
+
+.ss-pinwheel svg > g > g:nth-of-type(2) {
+    animation-name: ss-pinwheel-blade-left;
+}
+
+.ss-pinwheel svg > g > g:nth-of-type(3) {
+    animation-name: ss-pinwheel-blade-up;
+}
+
+.ss-pinwheel svg > g > g:nth-of-type(4) {
+    animation-name: ss-pinwheel-blade-down;
 }
 
 /* ------------------------------------------------------------------ */
@@ -334,9 +479,16 @@ body {
         transition-duration: 0ms;
     }
 
-    /* The reason the SMIL had to go. This rule is what an <animate> element
-       would have ignored. */
-    .site-header__mark svg #horizontal_bars path:nth-of-type(-n+5) {
+    /* The reason the SMIL had to go. These rules are what an <animate> or
+       <animateTransform> element would have ignored.
+
+       Neither the bars nor the blades fade in from 0, so neither needs the
+       opacity restore that .page-footer-extras below does. Cancelling their
+       animation leaves them at their static position, which is the drawn
+       artwork. That was checked in a browser, not assumed. */
+    .ss-mark svg #horizontal_bars path:nth-of-type(-n+5),
+    .ss-pinwheel svg > g,
+    .ss-pinwheel svg > g > g {
         animation: none;
     }
 

@@ -55,7 +55,11 @@ def test_home_page_heatmap_loading_uses_unframed_panel(client):
     _, loading_tail = html.split('id="heatmap-loading"', 1)
     loading_markup, _ = loading_tail.split('id="heatmap-result"', 1)
     assert "heatmap-loading-panel" in loading_markup
-    assert "animateTransform" in loading_markup
+    # This used to assert animateTransform, using the SMIL as a stand-in for
+    # "the pinwheel is here". WP-3 stripped the SMIL, so the stand-in is now
+    # ss-pinwheel: the wrapper class shell.css animates. A missing wrapper is
+    # silent -- the blades render and simply never move.
+    assert "ss-pinwheel" in loading_markup
     assert "pinwheel-blade" in loading_markup
     assert "card shadow" not in loading_markup
     assert "card-body" not in loading_markup

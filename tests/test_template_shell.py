@@ -192,27 +192,94 @@ def test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads(
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
-def test_the_header_mark_carries_no_smil_animation(app, template):
-    """CSS cannot stop SMIL, so prefers-reduced-motion would never reach it.
+def test_no_page_carries_smil_animation(app, template):
+    """CSS cannot stop SMIL, so prefers-reduced-motion never reaches it.
 
-    An <animate> with repeatCount="indefinite" ignores the media query
-    entirely. The mark sits in a fixed header on every page and never
-    scrolls away, so this would be permanent motion for a reader who asked
-    for none. The bars animate from shell.css instead.
-
-    Scoped to the header: the index hero wordmark and the pinwheel still
-    carry SMIL, and those belong to F-B21-5.
+    An <animate> or <animateTransform> with repeatCount="indefinite" ignores
+    the media query entirely. WP-2 stripped it from the header lockup and
+    scoped this check to the header, because the full wordmark and the
+    pinwheel still carried it. WP-3 strips both, so the check now covers the
+    whole rendered page. All motion is shell.css keyframes.
     """
     with app.test_request_context("/"):
         html = render_template(template, **TEMPLATE_CONTEXT[template])
 
-    header = html.split('<header class="site-header"', 1)[1]
-    header = header.split("</header>", 1)[0]
+    assert (
+        "<animate" not in html
+    ), f"{template} ships SMIL, which no CSS media query can pause"
 
-    assert "<animate" not in header, (
-        f"{template} ships SMIL inside the standing header, which no CSS "
-        f"media query can pause"
+
+@pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
+def test_every_inline_mark_is_wrapped_for_the_css_animation(app, template):
+    """Stripping SMIL without a wrapper leaves a mark that never moves.
+
+    The animation rules key on .ss-mark, so a page that includes the
+    wordmark and forgets the class loses the motion silently -- there is no
+    error and the page still renders. Every page carries the header lockup,
+    so every page must have at least one.
+    """
+    with app.test_request_context("/"):
+        html = render_template(template, **TEMPLATE_CONTEXT[template])
+
+    marks = html.count("ss-mark")
+    bar_groups = html.count('id="horizontal_bars"')
+
+    assert marks == bar_groups, (
+        f"{template} renders {bar_groups} bar group(s) but {marks} ss-mark "
+        f"wrapper(s); an unwrapped mark is frozen with no error"
     )
+
+
+def test_shell_animates_the_pinwheel_and_reduced_motion_stops_it():
+    """The pinwheel's SMIL is gone, so shell.css owns every part of it.
+
+    Five animations were removed: one rotor spin and four blade extensions.
+    All five need a CSS replacement, and all five need cancelling under
+    reduced motion. A missing keyframe set is invisible -- the blade simply
+    sits still while the others move.
+    """
+    shell = (STATIC_CSS / "shell.css").read_text(encoding="utf-8")
+    reduced = shell.split("@media (prefers-reduced-motion: reduce)", 1)[1]
+
+    for name in (
+        "ss-pinwheel-spin",
+        "ss-pinwheel-blade-right",
+        "ss-pinwheel-blade-left",
+        "ss-pinwheel-blade-up",
+        "ss-pinwheel-blade-down",
+    ):
+        assert f"@keyframes {name}" in shell, f"shell.css has no {name} keyframes"
+
+    # Matched as whole selectors, not substrings. ".ss-pinwheel svg > g" is a
+    # prefix of ".ss-pinwheel svg > g > g", so a substring check would pass on
+    # the blade rule alone and never fail for a missing rotor rule.
+    cancelled = _selectors_that_cancel_animation(reduced)
+
+    assert (
+        ".ss-pinwheel svg > g" in cancelled
+    ), f"reduced motion does not stop the pinwheel rotor; cancels {cancelled}"
+    assert (
+        ".ss-pinwheel svg > g > g" in cancelled
+    ), f"reduced motion does not stop the pinwheel blades; cancels {cancelled}"
+
+
+def test_the_pinwheel_keeps_the_shape_its_selectors_assume():
+    """The CSS targets the blades structurally, so the shape is the contract.
+
+    scrobblescope_pinwheel.svg has no class or id on its groups, and this WP
+    deliberately added none. shell.css therefore selects one rotor group and
+    four blade groups by nth-of-type, in the source order right, left, up,
+    down. A re-cut asset with a different group count would animate the wrong
+    things, or nothing, without any error.
+    """
+    svg = (INLINE_SVG / "scrobblescope_pinwheel.svg").read_text(encoding="utf-8")
+
+    assert (
+        svg.count("<g>") == 5
+    ), f"expected one rotor and four blade groups, found {svg.count('<g>')}"
+    # Counted as an attribute: the bare name also appears in the <style>
+    # rule that colours them, so a plain substring count returns five.
+    assert svg.count('class="pinwheel-blade"') == 4, "expected exactly four blades"
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
@@ -247,6 +314,24 @@ def test_shell_stops_both_animations_under_reduced_motion():
 
     assert "#horizontal_bars path:nth-of-type(-n+5)" in reduced
     assert "opacity: 1;" in reduced
+
+
+def _selectors_that_cancel_animation(css: str) -> set[str]:
+    """Return every selector in a rule whose body sets animation: none.
+
+    Comments are stripped first. Prose contains commas, so an unstripped
+    comment splits into fragments that land in the result set and could
+    satisfy a membership check without any rule existing.
+    """
+    return {
+        selector.strip()
+        for selectors, body in re.findall(
+            r"([^{}]+)\{([^{}]*)\}", _without_comments(css)
+        )
+        if "animation: none" in body
+        for selector in selectors.split(",")
+        if selector.strip()
+    }
 
 
 def _lockup() -> str:
