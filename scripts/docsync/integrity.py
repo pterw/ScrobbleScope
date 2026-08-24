@@ -80,6 +80,11 @@ NEXT_WP_CLAIM_RE = re.compile(
 )
 SECTION3_NEXT_ACTION_RE = re.compile(r"^\s*-\s+\*\*Next action:\*\*", re.IGNORECASE)
 TOP_LEVEL_BULLET_RE = re.compile(r"^-\s+")
+SESSION_SECTION_1_RE = re.compile(r"^##\s+1\.\s+Current state\b", re.IGNORECASE)
+SESSION_BATCH_STATUS_ROW_RE = re.compile(
+    r"^\|\s*Batch\s+(\d+)\s+status\s*\|\s*(.*?)\s*\|\s*$", re.IGNORECASE
+)
+SESSION_ACTIVE_STATUS_RE = re.compile(r"^\s*(?:\*\*)?Active\b", re.IGNORECASE)
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 SESSION_CURRENT_COUNT_RES = (
     re.compile(r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"),
@@ -533,6 +538,94 @@ def _check_section3_next_wp(
     )
 
 
+def _check_session_section1_bootstrap_state(
+    playbook_lines: list[str],
+    session_lines: list[str] | None,
+    current_batch: int,
+    definition_lines: list[str] | None = None,
+) -> IntegrityIssue | None:
+    """DOC007: SESSION_CONTEXT Section 1 must agree on batch and next WP.
+
+    Section 1 is the hand-maintained dashboard leg named by the bootstrap
+    contract; DOC005 covers only the separate machine-managed Section 2 block.
+    Repositories without this optional document or without its canonical
+    Section 1 heading keep the existing skip behaviour.
+    """
+    if session_lines is None:
+        return None
+    try:
+        section_start, section_end = _find_section(
+            session_lines, SESSION_SECTION_1_RE, "SESSION_CONTEXT section 1"
+        )
+    except SyncError:
+        return None
+
+    status_rows = [
+        (int(match.group(1)), match.group(2), line_number + 1)
+        for line_number in range(section_start + 1, section_end)
+        if (match := SESSION_BATCH_STATUS_ROW_RE.match(session_lines[line_number]))
+        is not None
+    ]
+    active_rows = [row for row in status_rows if SESSION_ACTIVE_STATUS_RE.match(row[1])]
+    if len(active_rows) != 1:
+        issue_line = (
+            active_rows[0][2]
+            if active_rows
+            else next(
+                (line for batch, _, line in status_rows if batch == current_batch),
+                section_start + 1,
+            )
+        )
+        return _issue(
+            "DOC007",
+            ".claude/SESSION_CONTEXT.md",
+            issue_line,
+            "SESSION_CONTEXT Section 1 declares exactly one active batch row "
+            "matching PLAYBOOK Section 3.",
+            f"Mark the Batch {current_batch} status row Active and every other "
+            "batch status row Complete.",
+        )
+
+    session_batch, status, status_line = active_rows[0]
+    if session_batch != current_batch:
+        return _issue(
+            "DOC007",
+            ".claude/SESSION_CONTEXT.md",
+            status_line,
+            f"SESSION_CONTEXT Section 1 names Batch {session_batch} active; "
+            f"PLAYBOOK Section 3 names Batch {current_batch}.",
+            f"Mark Batch {current_batch} Active in SESSION_CONTEXT Section 1 "
+            f"and retire the stale Batch {session_batch} active label.",
+        )
+
+    claims = list(NEXT_WP_CLAIM_RE.finditer(status))
+    if not claims:
+        return None
+    claimed = int(claims[-1].group(1))
+    computed, all_planned_complete = _computed_next_wp(playbook_lines, definition_lines)
+    if all_planned_complete:
+        return _issue(
+            "DOC007",
+            ".claude/SESSION_CONTEXT.md",
+            status_line,
+            f"SESSION_CONTEXT Section 1 claims WP-{claimed} is next; PLAYBOOK "
+            "Section 4 entries show that all planned work packages are complete.",
+            f"Update the Batch {current_batch} status row to state that all "
+            "planned work packages are complete.",
+        )
+    if computed is None or computed == claimed:
+        return None
+    return _issue(
+        "DOC007",
+        ".claude/SESSION_CONTEXT.md",
+        status_line,
+        f"SESSION_CONTEXT Section 1 claims WP-{claimed} is next; PLAYBOOK "
+        f"Section 4 entries make WP-{computed} next.",
+        f"Update the Batch {current_batch} status row in SESSION_CONTEXT "
+        f"Section 1 to name WP-{computed} as the next batch work package.",
+    )
+
+
 def _check_findings_header_count(
     findings_lines: list[str] | None, authority: TestCountAuthority
 ) -> IntegrityIssue | None:
@@ -795,6 +888,15 @@ def collect_integrity_issues(
         )
         if section3_next_wp_issue is not None:
             issues.append(section3_next_wp_issue)
+
+        session_section1_issue = _check_session_section1_bootstrap_state(
+            playbook_lines,
+            session_lines,
+            current_batch,
+            live_documents.get(definition_path),
+        )
+        if session_section1_issue is not None:
+            issues.append(session_section1_issue)
 
     findings_count_issue = _check_findings_header_count(
         live_documents.get("FINDINGS.md"),

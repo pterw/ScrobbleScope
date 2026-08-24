@@ -93,7 +93,7 @@ See FINDINGS F-DOCSYNC-3.
   Three review rounds are applied on top: seven Codex comments in all,
   every one valid and fixed. Round three took the SMIL out of the header
   wordmark and gave the back-to-top control its wrapper back. The suite
-  is 714 and the gate runs 5 checks now.
+  is 717 and the gate runs 5 checks now.
   **WP-3 is next**: the index page, which deletes the welcome modal, replaces
   `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
   the thresholds disclosure. The root-hygiene side task is
@@ -386,8 +386,9 @@ non-current operational logs. Older dated entries live in
   dropped and merged WP headings are skipped; a fully completed plan
   terminates with no next package instead of looping forever, while any stale
   numeric next-WP claim left at close-out is blocking. The definition Status
-  line and PLAYBOOK Section 3's actual Next action bullet are checked against
-  that same value. Historical claims outside the bullet and earlier claims
+  line, PLAYBOOK Section 3's actual Next action bullet, and SESSION_CONTEXT
+  Section 1's sole active Batch status row are checked for the same active
+  batch and next WP. Historical claims outside the bullet and earlier claims
   superseded inside it cannot steal the comparison.
 - DOC008 applies `latest_test_count_authority()` to the FINDINGS.md header
   with findings-specific remediation. Authority includes live entries, the
@@ -402,9 +403,9 @@ non-current operational logs. Older dated entries live in
   2026-08-24 after the audit proved DOC007 and the renderer computed different
   next-WP values. The expansion is limited to the renderer/sync/CLI data path
   and its directly related docsync tests; no unrelated refactor was taken.
-- Validation: `pytest -q` -- **714 passed**, 3 warnings (was 682; 32 new
+- Validation: `pytest -q` -- **717 passed**, 3 warnings (was 682; 35 new
   tests across the docsync integrity, renderer, logic, CLI and count suites).
-  The focused docsync suite is **216 passed**.
+  The focused docsync suite is **219 passed**.
 - Forward guidance: WP-3 should still update the definition Status line as
   an explicit task. The gate proves agreement; it does not replace writing
   the canonical status correctly.

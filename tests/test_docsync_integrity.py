@@ -791,6 +791,21 @@ def _definition_with_status(status_line: str) -> list[str]:
     ]
 
 
+def _session_with_status_rows(*rows: str) -> list[str]:
+    """Build the hand-maintained SESSION_CONTEXT Section 1 status table."""
+    return [
+        "# Session",
+        "",
+        "## 1. Current state",
+        "",
+        "| Item | Value |",
+        "|------|-------|",
+        *rows,
+        "",
+        "## 2. Execution status (machine-managed)",
+    ]
+
+
 def test_doc007_agreeing_next_wp_claims_are_clean(tmp_path: Path):
     """A definition naming the same next WP as PLAYBOOK raises nothing."""
     inputs = _valid_inputs(tmp_path)
@@ -1168,6 +1183,61 @@ def test_doc007_section3_without_claim_stays_silent(tmp_path: Path):
     assert collect_integrity_issues(**inputs) == []
 
 
+def test_doc007_stale_session_section1_claim_is_blocking(tmp_path: Path):
+    """The hand-maintained dashboard cannot name a stale next package."""
+    inputs = _valid_inputs(tmp_path)
+    session_lines = _session_with_status_rows(
+        "| Batch 21 status | **Active.** **WP-9 is next.** |"
+    )
+    inputs["session_lines"] = session_lines
+    inputs["expected_session_lines"] = list(session_lines)
+
+    issues = collect_integrity_issues(**inputs)
+
+    doc007 = [
+        issue
+        for issue in issues
+        if issue.code == "DOC007" and issue.path == ".claude/SESSION_CONTEXT.md"
+    ]
+    assert len(doc007) == 1
+    assert "Section 1 claims WP-9 is next" in doc007[0].invariant
+    assert "WP-1" in doc007[0].remediation
+
+
+def test_doc007_wrong_session_section1_active_batch_is_blocking(tmp_path: Path):
+    """The dashboard's sole active row must name PLAYBOOK's active batch."""
+    inputs = _valid_inputs(tmp_path)
+    session_lines = _session_with_status_rows(
+        "| Batch 20 status | **Active.** **WP-1 is next.** |",
+        "| Batch 21 status | **Complete.** All work packages are done. |",
+    )
+    inputs["session_lines"] = session_lines
+    inputs["expected_session_lines"] = list(session_lines)
+
+    issues = collect_integrity_issues(**inputs)
+
+    doc007 = [
+        issue
+        for issue in issues
+        if issue.code == "DOC007" and issue.path == ".claude/SESSION_CONTEXT.md"
+    ]
+    assert len(doc007) == 1
+    assert "Section 1 names Batch 20 active" in doc007[0].invariant
+    assert "Batch 21" in doc007[0].remediation
+
+
+def test_doc007_agreeing_session_section1_claim_is_clean(tmp_path: Path):
+    """The expected active batch and next package raise no dashboard issue."""
+    inputs = _valid_inputs(tmp_path)
+    session_lines = _session_with_status_rows(
+        "| Batch 21 status | **Active.** **WP-1 is next.** |"
+    )
+    inputs["session_lines"] = session_lines
+    inputs["expected_session_lines"] = list(session_lines)
+
+    assert collect_integrity_issues(**inputs) == []
+
+
 def test_doc007_absorbed_wp_is_not_demanded(tmp_path: Path):
     """A gap the definition plans for does not make DOC007 demand it.
 
@@ -1288,12 +1358,18 @@ def test_doc007_all_planned_wps_reject_stale_numeric_claims(tmp_path: Path):
         "",
         "### WP-1 -- Only package",
     ]
+    session_lines = _session_with_status_rows(
+        "| Batch 21 status | **Active.** **WP-1 is next.** |"
+    )
+    inputs["session_lines"] = session_lines
+    inputs["expected_session_lines"] = list(session_lines)
 
     issues = [
         issue for issue in collect_integrity_issues(**inputs) if issue.code == "DOC007"
     ]
 
     assert {issue.path for issue in issues} == {
+        ".claude/SESSION_CONTEXT.md",
         "BATCH21_DEFINITION.md",
         "PLAYBOOK.md",
     }
