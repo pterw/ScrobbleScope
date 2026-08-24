@@ -117,6 +117,7 @@ def _sync(
     session_lines: list[str] | None,
     keep_non_current: int,
     batch_log_lines: dict[int, list[str]] | None = None,
+    planned_wp_numbers: tuple[int, ...] | None = None,
 ) -> SyncResult:
     section_3_start, section_3_end = _find_section(
         playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
@@ -267,6 +268,7 @@ def _sync(
             current_entries=current_entries,
             latest_test_count=count_authority.count,
             count_is_ambiguous=count_authority.ambiguous,
+            planned_wp_numbers=planned_wp_numbers,
         )
         new_session_lines = (
             session_lines[: status_start + 1]
@@ -449,20 +451,26 @@ def latest_test_count_authority(
             archive_entries, key=lambda entry: _date_key(entry.date), reverse=True
         )
     if batch_log_lines:
-        for log_lines in batch_log_lines.values():
+        # Later batches are later work when entries in separate logs share a
+        # date. Iterate numerically newest-first before the stable date sort;
+        # relying on mapping insertion order made BATCH20 outrank BATCH21 when
+        # the CLI happened to read the older filename first.
+        for batch_num in sorted(batch_log_lines, reverse=True):
+            log_lines = batch_log_lines[batch_num]
             try:
                 log_entries, _ = _parse_entries(log_lines)
             except SyncError:
                 continue
             batch_log_candidates.extend(log_entries)
-        # Per-batch logs are newest-first by their own convention; sort keeps
-        # that order within a shared date.
+        # Each log is newest-first by convention, and the numeric iteration
+        # above orders logs. This stable sort keeps both orders on a shared
+        # date.
         batch_log_candidates.sort(key=lambda entry: _date_key(entry.date), reverse=True)
 
     # Build one total ordering over every candidate from every source, newest
     # first: clamped date descending, then source precedence descending.
-    # Scanning three sources separately and reconciling their winners afterwards
-    # is what produced the tie-break and fallback defects this replaces --
+    # Scanning sources separately and reconciling their winners afterwards is
+    # what produced the tie-break and fallback defects this replaces -- source
     # precedence now lives in the sort key alone.
     #
     # `sort` is stable and `reverse=True` does not reorder equal keys, so

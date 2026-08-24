@@ -93,7 +93,7 @@ See FINDINGS F-DOCSYNC-3.
   Three review rounds are applied on top: seven Codex comments in all,
   every one valid and fixed. Round three took the SMIL out of the header
   wordmark and gave the back-to-top control its wrapper back. The suite
-  is 701 and the gate runs 5 checks now.
+  is 713 and the gate runs 5 checks now.
   **WP-3 is next**: the index page, which deletes the welcome modal, replaces
   `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
   the thresholds disclosure. The root-hygiene side task is
@@ -375,38 +375,36 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-23 - F-B21-13 docsync bootstrap checks (side-task)
+### 2026-08-24 - F-B21-13 docsync bootstrap gate remediated (side-task)
 
-- Scope: closed `F-B21-13`. Added two integrity checks so the gate reads
-  all three bootstrap legs, not just PLAYBOOK. Worked on
-  `wip/f-b21-13-docsync-gate`, a linked worktree branched from
-  `origin/main` at `658bdb2`; WP-3 keeps `wip/batch-21`.
-- DOC007 compares the next work package. The renderer already computes it
-  from PLAYBOOK Section 4 entry headings; the check parses the `WP-N` claim
-  out of the active definition's Status line and reports an error when the
-  two disagree. When the status line makes no parseable claim the check
-  stays silent: a false mismatch is worse than no check, and an unparseable
-  line is a separate defect.
+- Scope: closed `F-B21-13` with DOC007 and DOC008 on
+  `wip/f-b21-13-docsync-gate`, branched from `origin/main` at `658bdb2`;
+  WP-3 remains on `wip/batch-21`.
+- DOC007 now has one next-WP calculation. The managed SESSION_CONTEXT
+  renderer owns `_next_wp_number()`, the integrity check calls that helper,
+  and the CLI supplies the active definition's finite plan. Absorbed,
+  dropped and merged WP headings are skipped; a fully completed plan
+  terminates with no next package instead of looping forever. The definition
+  Status line and PLAYBOOK Section 3's actual Next action bullet are checked
+  against that same value. Historical claims outside the bullet and earlier
+  claims superseded inside it cannot steal the comparison.
 - DOC008 applies `latest_test_count_authority()` to the FINDINGS.md header
-  count line, reusing `_count_remediation()`. An ambiguous authority blocks
-  here too, matching DOC006's rule.
-- Deviations: none. The checks were not extended to other documents; that
-  stays a future finding if wanted.
-- Validation: `pytest -q` -- **701 passed**, 3 warnings (was 682; nineteen
-  new tests in `test_docsync_integrity.py`). Both checks were proven able to
-  fail against the live repository before landing:
-  - Definition mutated to claim WP-9:
-    `ERROR DOC007 BATCH21_DEFINITION.md:3 -- The definition claims WP-9 is
-    next; PLAYBOOK Section 4 entries make WP-3 next.` then reverted.
-  - Findings header mutated to 666:
-    `ERROR DOC008 FINDINGS.md:12 -- The findings header test count agrees
-    with the authoritative full-suite validation in the log.` then
-    reverted.
-  After both reverts, `doc_state_sync.py --check` exits 0 with only the
-  expected root-definition warning.
-- Forward guidance: the definition's Status line is now gated, but WP-3
-  should still update it as an explicit task -- passing a gate is not a
-  reason to stop writing the line correctly.
+  with findings-specific remediation. Authority includes live entries, the
+  side-task archive and per-batch logs; a same-date tie between batch logs is
+  resolved by numeric batch chronology rather than filename insertion order.
+- Review remediation also repaired two misleading DOC007 fixtures so their
+  asserted WP ranges really sit inside the current-batch markers. Every new
+  edge case was observed failing before its minimal fix.
+- Deviations: the owner authorized expanding the original PR file set on
+  2026-08-24 after the audit proved DOC007 and the renderer computed different
+  next-WP values. The expansion is limited to the renderer/sync/CLI data path
+  and its directly related docsync tests; no unrelated refactor was taken.
+- Validation: `pytest -q` -- **713 passed**, 3 warnings (was 682; 31 new
+  tests across the docsync integrity, renderer, logic, CLI and count suites).
+  The focused docsync suite is **215 passed**.
+- Forward guidance: WP-3 should still update the definition Status line as
+  an explicit task. The gate proves agreement; it does not replace writing
+  the canonical status correctly.
 
 ### 2026-08-23 - PR #216 review round three applied (side-task)
 

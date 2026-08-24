@@ -1,7 +1,7 @@
 """The authoritative test count must not depend on log-retention settings."""
 
 import pytest
-from docsync.logic import _sync
+from docsync.logic import _sync, latest_test_count_authority
 from docsync.renderer import SIDE_ARCHIVE_PREFIX
 
 ARCHIVE = "\n".join(SIDE_ARCHIVE_PREFIX) + "\n"
@@ -141,3 +141,23 @@ def test_documented_close_out_command_stays_self_consistent():
     )
     assert purged.rotated_count == 1
     assert _status(purged) == _status(kept)
+
+
+def test_same_date_batch_logs_prefer_the_later_batch():
+    """Batch chronology breaks a date tie across separate archived logs."""
+
+    def batch_log(batch: int, count: int) -> list[str]:
+        return (
+            f"# Batch {batch} Execution Log\n\n"
+            f"### 2026-08-05 - Batch {batch} done (Batch {batch} WP-1)\n\n"
+            f"- Validation: `pytest -q` -- **{count} passed**.\n"
+        ).splitlines()
+
+    authority = latest_test_count_authority(
+        _playbook(),
+        ARCHIVE.splitlines(),
+        {20: batch_log(20, 600), 21: batch_log(21, 700)},
+    )
+
+    assert authority.count == 700
+    assert authority.ambiguous is False

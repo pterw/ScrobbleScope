@@ -80,23 +80,53 @@ def _render_side_archive(entries: list[Entry]) -> list[str]:
     return _render_archive(list(SIDE_ARCHIVE_PREFIX), entries)
 
 
+def _next_wp_number(
+    current_entries: list[Entry],
+    planned_wp_numbers: Iterable[int] | None = None,
+) -> int | None:
+    """Return the next positive WP number for the managed status block.
+
+    When an active definition supplies its planned numbers, that finite set is
+    authoritative: absorbed, dropped, or merged work packages are not viable
+    candidates, and completing the set returns ``None``. Without a usable plan,
+    preserve the historical renderer rule by returning the lowest positive
+    integer absent from the current-entry headings. Entries with no WP tags and
+    no plan provide no basis for a numbered answer.
+    """
+    completed = set(_collect_wp_numbers(current_entries))
+    declared_plan = tuple(planned_wp_numbers or ())
+    planned = {number for number in declared_plan if number > 0}
+    if declared_plan:
+        return next(
+            (number for number in sorted(planned) if number not in completed),
+            None,
+        )
+    if not completed:
+        return None
+    candidate = 1
+    while candidate in completed:
+        candidate += 1
+    return candidate
+
+
 def _build_status_block(
     section_3_state: ActiveBatchState,
     current_entries: list[Entry],
     latest_test_count: int | None = None,
     count_is_ambiguous: bool = False,
+    planned_wp_numbers: Iterable[int] | None = None,
 ) -> list[str]:
     if current_entries:
         wp_numbers = _collect_wp_numbers(current_entries)
         completed_wp = (
             ", ".join(f"WP-{num}" for num in wp_numbers) if wp_numbers else "none"
         )
-        if wp_numbers:
-            wp_set = set(wp_numbers)
-            candidate = 1
-            while candidate in wp_set:
-                candidate += 1
-            next_wp = f"WP-{candidate}"
+        planned = tuple(planned_wp_numbers or ())
+        next_wp_number = _next_wp_number(current_entries, planned)
+        if next_wp_number is not None:
+            next_wp = f"WP-{next_wp_number}"
+        elif planned:
+            next_wp = "none (all planned work packages complete)"
         else:
             next_wp = "unknown"
         newest_heading = current_entries[-1].heading.removeprefix("### ").strip()

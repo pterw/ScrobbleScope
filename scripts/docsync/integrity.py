@@ -14,14 +14,13 @@ from docsync.parser import (
     CURRENT_BATCH_START_MARKER,
     SECTION_3_RE,
     SECTION_4_RE,
-    _collect_wp_numbers,
     _extract_entry_batch,
     _find_marker_pair,
     _find_section,
     _parse_active_batch_state,
     _parse_entries,
 )
-from docsync.renderer import SIDE_ARCHIVE_PREFIX
+from docsync.renderer import SIDE_ARCHIVE_PREFIX, _next_wp_number
 
 BACKTICK_MD_RE = re.compile(r"`([^`\n]+\.md)`")
 BACKTICK_MD_TOKEN_RE = re.compile(r"`([^`\n]+)`")
@@ -55,21 +54,14 @@ def _definition_wp_numbers(definition_lines: list[str]) -> tuple[int, ...]:
     WP-5 dropped; Batch 21 absorbs WP-6 into WP-3), and a lowest-missing-
     integer rule would then demand a number that no work package will ever
     satisfy. A heading whose section is marked absorbed or dropped is
-    excluded, so an honestly stubbed-out package never blocks the gate.
+    excluded when its heading says so, so an honestly stubbed-out package never
+    blocks the gate.
     """
     numbers: list[int] = []
-    current_skipped = False
     for line in definition_lines:
         heading_match = DEFINITION_WP_HEADING_RE.match(line)
-        if heading_match is not None:
-            if WP_SKIPPED_RE.search(line):
-                current_skipped = True
-            else:
-                current_skipped = False
-                numbers.append(int(heading_match.group(1)))
-        elif current_skipped and line.startswith("### "):
-            # A new non-WP section ends the skipped block.
-            current_skipped = False
+        if heading_match is not None and WP_SKIPPED_RE.search(line) is None:
+            numbers.append(int(heading_match.group(1)))
     return tuple(numbers)
 
 
@@ -86,6 +78,8 @@ NEXT_WP_CLAIM_RE = re.compile(
     r"\bWP-(\d+)\b(?:\s*\([^)]*\))?\s+is\s+(?:the\s+)?next",
     re.IGNORECASE,
 )
+SECTION3_NEXT_ACTION_RE = re.compile(r"^\s*-\s+\*\*Next action:\*\*", re.IGNORECASE)
+TOP_LEVEL_BULLET_RE = re.compile(r"^-\s+")
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 SESSION_CURRENT_COUNT_RES = (
     re.compile(r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"),
@@ -353,15 +347,10 @@ def _computed_next_wp(
 ) -> int | None:
     """Return the next work package number derived from PLAYBOOK Section 4.
 
-    Mirrors the renderer's rule -- the lowest positive integer not among the
-    WP numbers in current-batch entry headings -- but only over work
-    packages the definition actually plans. When the definition is
-    supplied, numbers it does not declare (dropped or absorbed packages)
-    are not candidates, so a batch with a gap computes its true next WP
-    instead of demanding a number that no work package will ever satisfy.
-    Returns None when there are no current-batch entries at all, which is
-    also what the renderer renders as "unknown" -- there is no number to
-    compare against then.
+    Parse the current-batch entries, then delegate to the renderer's shared
+    plan-aware rule. This keeps DOC007 and the managed SESSION_CONTEXT block on
+    the same value, including absorbed gaps and the all-complete close-out
+    state. Return ``None`` when there are no current entries.
     """
     try:
         s4_start, s4_end = _find_section(
@@ -382,17 +371,12 @@ def _computed_next_wp(
     ]
     if not current_entries:
         return None
-    wp_numbers = set(_collect_wp_numbers(current_entries))
-    if definition_lines is not None:
-        planned = set(_definition_wp_numbers(definition_lines))
-        candidate = 1
-        while candidate in wp_numbers or (planned and candidate not in planned):
-            candidate += 1
-        return candidate
-    candidate = 1
-    while candidate in wp_numbers:
-        candidate += 1
-    return candidate
+    planned_wp_numbers = (
+        _definition_wp_numbers(definition_lines)
+        if definition_lines is not None
+        else None
+    )
+    return _next_wp_number(current_entries, planned_wp_numbers)
 
 
 def _definition_next_wp_claim(
@@ -427,10 +411,12 @@ def _section3_next_wp_claim(
     Section 4 headings, but Section 3's own "Next action" prose restates
     the claim by hand -- `**WP-3 is next**` is the shape this corpus uses.
     A stale Section 3 beside a fresh definition would otherwise pass every
-    check while an arriving agent reads a contradictory next action from
-    the canonical status section. No parseable claim stays silent, for the
-    same reason as the definition side: a false mismatch is worse than no
-    check.
+    check while an arriving agent reads a contradictory next action from the
+    canonical status section. Only the final parseable claim inside the actual
+    Next action bullet is current; historical prose elsewhere in Section 3 and
+    superseded text earlier in that bullet cannot steal it. No parseable claim
+    stays silent, for the same reason as the definition side: a false mismatch
+    is worse than no check.
     """
     try:
         s3_start, s3_end = _find_section(
@@ -438,12 +424,27 @@ def _section3_next_wp_claim(
         )
     except SyncError:
         return None, None
-    for line_number in range(s3_start + 1, s3_end):
-        line = playbook_lines[line_number]
-        match = NEXT_WP_CLAIM_RE.search(line)
-        if match is not None:
-            return int(match.group(1)), line_number + 1
-    return None, None
+    action_starts = [
+        line_number
+        for line_number in range(s3_start + 1, s3_end)
+        if SECTION3_NEXT_ACTION_RE.match(playbook_lines[line_number])
+    ]
+    if not action_starts:
+        return None, None
+
+    action_start = action_starts[-1]
+    action_end = s3_end
+    for line_number in range(action_start + 1, s3_end):
+        if TOP_LEVEL_BULLET_RE.match(playbook_lines[line_number]):
+            action_end = line_number
+            break
+
+    claims = [
+        (int(match.group(1)), line_number + 1)
+        for line_number in range(action_start, action_end)
+        for match in NEXT_WP_CLAIM_RE.finditer(playbook_lines[line_number])
+    ]
+    return claims[-1] if claims else (None, None)
 
 
 def _check_definition_next_wp(

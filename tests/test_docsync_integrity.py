@@ -888,14 +888,14 @@ def test_doc007_between_batches_never_reports(tmp_path: Path):
 def test_doc007_gap_in_completed_wps_picks_lowest_missing(tmp_path: Path):
     """The renderer's lowest-missing rule decides what 'next' means."""
     inputs = _valid_inputs(tmp_path)
-    inputs["playbook_lines"].extend(
-        [
-            "",
-            "### 2026-08-06 - Another step (Batch 21 WP-2)",
-            "",
-            "Validation: `pytest -q` -- **400 passed**.",
-        ]
-    )
+    # Insert WP-2 before the current-batch end marker. Together with the
+    # fixture's WP-0, this creates the claimed live gap at WP-1.
+    inputs["playbook_lines"][14:14] = [
+        "",
+        "### 2026-08-06 - Another step (Batch 21 WP-2)",
+        "",
+        "Validation: `pytest -q` -- **400 passed**.",
+    ]
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
     # WP-0 and WP-2 are tagged, so the lowest missing number is WP-1.
     inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
@@ -1023,6 +1023,10 @@ def test_doc008_rotated_batch_log_supplies_the_authority(tmp_path: Path):
     inputs = _valid_inputs(tmp_path)
     # No count-bearing entry remains in PLAYBOOK or the monolith archive;
     # the newest full-suite result lives only in the per-batch log.
+    inputs["playbook_lines"] = [
+        line for line in inputs["playbook_lines"] if "390 passed" not in line
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
     inputs["batch_log_lines"] = {
         21: [
             "# Batch 21 Execution Log",
@@ -1045,6 +1049,10 @@ def test_doc008_rotated_batch_log_supplies_the_authority(tmp_path: Path):
 def test_doc008_stale_header_blocked_by_batch_log_authority(tmp_path: Path):
     """A per-batch-log authority must still catch a wrong header number."""
     inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"] = [
+        line for line in inputs["playbook_lines"] if "390 passed" not in line
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
     inputs["batch_log_lines"] = {
         21: [
             "# Batch 21 Execution Log",
@@ -1122,6 +1130,30 @@ def test_doc007_agreeing_section3_claim_is_clean(tmp_path: Path):
     assert collect_integrity_issues(**inputs) == []
 
 
+def test_doc007_section3_ignores_claim_outside_next_action(tmp_path: Path):
+    """Historical prose cannot steal the current Next action claim."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"][6:6] = [
+        "- Historical note: **WP-9 is next** was an abandoned proposal.",
+        "- **Next action:** **WP-1 is next**: the toolchain work package.",
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_section3_uses_final_claim_in_next_action(tmp_path: Path):
+    """A correction later in the Next action bullet supersedes old prose."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"][6:6] = [
+        "- **Next action:** An earlier draft said **WP-9 is next**.",
+        "  Current decision: **WP-1 is next**: the toolchain work package.",
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
 def test_doc007_section3_without_claim_stays_silent(tmp_path: Path):
     """No parseable claim in Section 3 means no mismatch."""
     inputs = _valid_inputs(tmp_path)
@@ -1143,9 +1175,17 @@ def test_doc007_absorbed_wp_is_not_demanded(tmp_path: Path):
     definition's own WP headings and compute WP-7 instead.
     """
     inputs = _valid_inputs(tmp_path)
-    # Insert inside the current-batch markers (end marker is at index 15)
-    # so all four WP entries are current-batch entries.
+    # Insert WP-1 through WP-5 inside the current-batch markers. The fixture
+    # already supplies WP-0, so every member of the asserted range is present.
     inputs["playbook_lines"][14:14] = [
+        "",
+        "### 2026-08-22 - Preflight done (Batch 21 WP-1)",
+        "",
+        "Validation: `pytest -q` -- **690 passed**.",
+        "",
+        "### 2026-08-23 - Shell done (Batch 21 WP-2)",
+        "",
+        "Validation: `pytest -q` -- **695 passed**.",
         "",
         "### 2026-08-24 - Index done (Batch 21 WP-3)",
         "",
@@ -1160,13 +1200,19 @@ def test_doc007_absorbed_wp_is_not_demanded(tmp_path: Path):
         "Validation: `pytest -q` -- **710 passed**.",
     ]
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
-    # The definition plans WP-0..WP-8 but marks WP-6 absorbed into WP-3.
+    # The definition plans WP-0 through WP-8 but marks WP-6 absorbed into WP-3.
     inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
         "# BATCH21",
         "",
         "**Status:** Active. **WP-7 (unmatched) is the next batch work " "package.**",
         "",
         "**Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
+        "",
+        "### WP-0 -- Definition",
+        "",
+        "### WP-1 -- Preflight",
+        "",
+        "### WP-2 -- Shell",
         "",
         "### WP-3 -- Index page",
         "",
@@ -1183,6 +1229,33 @@ def test_doc007_absorbed_wp_is_not_demanded(tmp_path: Path):
         "### WP-7 -- Unmatched page",
         "",
         "### WP-8 -- Sweep + close-out",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_all_planned_wps_complete_is_clean(tmp_path: Path):
+    """Close-out terminates when no planned work package remains."""
+    inputs = _valid_inputs(tmp_path)
+    # The fixture already records WP-0. Add its sole planned package inside
+    # the current-batch markers so the definition's complete set is done.
+    inputs["playbook_lines"][14:14] = [
+        "",
+        "### 2026-08-24 - Only package done (Batch 21 WP-1)",
+        "",
+        "Validation: `pytest -q` -- **704 passed**.",
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
+        "# BATCH21",
+        "",
+        "**Status:** Complete. All work packages are done.",
+        "",
+        "**Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
+        "",
+        "### WP-0 -- Batch opened",
+        "",
+        "### WP-1 -- Only package",
     ]
 
     assert collect_integrity_issues(**inputs) == []

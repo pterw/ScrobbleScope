@@ -119,6 +119,85 @@ class TestBuildStatusBlock:
         assert "WP-2" in text
         assert "Batch 11" in text
 
+    def test_planned_wp_gap_skips_absorbed_number(self):
+        """A number absent from the active plan is not rendered as next."""
+        entries = [
+            Entry(
+                heading=f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",
+                date=f"2026-02-2{wp}",
+                title=f"Work (Batch 11 WP-{wp})",
+                lines=(f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",),
+                start_idx=wp,
+                fingerprint=str(wp),
+            )
+            for wp in (1, 3)
+        ]
+        state = ActiveBatchState(
+            current_batch=11, last_completed_batch=10, next_undefined_batch=None
+        )
+
+        block = _build_status_block(
+            state,
+            entries,
+            planned_wp_numbers=(1, 3, 4),
+        )
+
+        assert "- Next expected work package: WP-4." in block
+        assert all("WP-2" not in line for line in block)
+
+    def test_all_planned_wps_complete_renders_no_next_package(self):
+        """Completing a non-contiguous plan terminates with no next WP."""
+        entries = [
+            Entry(
+                heading=f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",
+                date=f"2026-02-2{wp}",
+                title=f"Work (Batch 11 WP-{wp})",
+                lines=(f"### 2026-02-2{wp} - Work (Batch 11 WP-{wp})",),
+                start_idx=wp,
+                fingerprint=str(wp),
+            )
+            for wp in (1, 3)
+        ]
+        state = ActiveBatchState(
+            current_batch=11, last_completed_batch=10, next_undefined_batch=None
+        )
+
+        block = _build_status_block(
+            state,
+            entries,
+            planned_wp_numbers=(1, 3),
+        )
+
+        assert (
+            "- Next expected work package: none "
+            "(all planned work packages complete)." in block
+        )
+
+    def test_preflight_only_plan_can_complete_at_wp_zero(self):
+        """WP-0 is completion evidence, never a reason to invent WP-1."""
+        entry = Entry(
+            heading="### 2026-02-20 - Opened (Batch 11 WP-0)",
+            date="2026-02-20",
+            title="Opened (Batch 11 WP-0)",
+            lines=("### 2026-02-20 - Opened (Batch 11 WP-0)",),
+            start_idx=0,
+            fingerprint="zero",
+        )
+        state = ActiveBatchState(
+            current_batch=11, last_completed_batch=10, next_undefined_batch=None
+        )
+
+        block = _build_status_block(
+            state,
+            [entry],
+            planned_wp_numbers=(0,),
+        )
+
+        assert (
+            "- Next expected work package: none "
+            "(all planned work packages complete)." in block
+        )
+
     def test_entries_without_wp_tags(self):
         """Entries with no WP- tags -- completed should say 'none'."""
         entry = Entry(

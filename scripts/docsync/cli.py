@@ -7,7 +7,12 @@ import re
 import sys
 from pathlib import Path
 
-from docsync.integrity import collect_integrity_issues, collect_tracked_paths
+from docsync.integrity import (
+    _active_definition_reference,
+    _definition_wp_numbers,
+    collect_integrity_issues,
+    collect_tracked_paths,
+)
 from docsync.logic import (
     _merge_entries_into_log,
     _split_archive,
@@ -90,6 +95,26 @@ def _read_live_documents() -> dict[str, list[str]]:
     for definition_path in REPO_ROOT.glob("BATCH*.md"):
         documents[_repository_relative(definition_path)] = _read_lines(definition_path)
     return documents
+
+
+def _read_active_planned_wp_numbers(
+    playbook_lines: list[str],
+) -> tuple[int, ...] | None:
+    """Read the valid active definition's finite work-package plan.
+
+    Invalid, missing, and between-batch declarations return ``None`` so the
+    renderer can retain its safe legacy fallback while DOC002 reports the
+    declaration defect during the integrity pass.
+    """
+    current_batch, definition_path, _line, issue = _active_definition_reference(
+        playbook_lines
+    )
+    if current_batch is None or definition_path is None or issue is not None:
+        return None
+    definition_lines = _read_lines_optional(REPO_ROOT / definition_path)
+    if definition_lines is None:
+        return None
+    return _definition_wp_numbers(definition_lines)
 
 
 def _format_issue(issue: IntegrityIssue) -> str:
@@ -234,6 +259,7 @@ def main() -> int:
             session_lines=session_lines,
             keep_non_current=args.keep_non_current,
             batch_log_lines=batch_log_lines,
+            planned_wp_numbers=_read_active_planned_wp_numbers(playbook_lines),
         )
     except SyncError as exc:
         print(f"doc_state_sync failed: {exc}", file=sys.stderr)
@@ -296,6 +322,7 @@ def main() -> int:
             session_lines=final_session,
             keep_non_current=args.keep_non_current,
             batch_log_lines=_read_batch_log_lines(),
+            planned_wp_numbers=_read_active_planned_wp_numbers(final_playbook),
         )
         final_changed = _changed_paths(final_result, final_session)
         issues = _collect_current_integrity_issues(final_result.session_lines)
