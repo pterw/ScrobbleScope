@@ -1,161 +1,210 @@
-/* heatmap.css -- styles for heatmap pill tabs, form, loading, and result.
-   Global theme (variables, dark-mode, toggle, SVG) is in global.css.
-   index.css handles album form controls; this file handles heatmap-specific
-   layout only. */
+/* heatmap.css -- the heatmap surface: the wait panel, the result frame, the
+   grid and its tooltip. static/css/index.css owns the hero, the mode tabs and
+   every form control; static/css/shell.css owns the header and the two mark
+   animations.
+
+   This file used to open with a :root block holding three of its own colours,
+   and to read --text-color, --border-color and --error-accent from
+   static/css/global.css. Both are gone: global.css left the page when the
+   index moved to Tailwind. Every value now comes from the two daisyUI theme
+   blocks in static/css/tailwind.src.css, which is the only place a colour is
+   written down. */
 
 /* ------------------------------------------------------------------ */
-/* Pill tab bar                                                        */
+/* Full-width stages                                                   */
 /* ------------------------------------------------------------------ */
-.mode-pills {
+/* The wait panel and the result sit outside the two-column grid. A 53-week
+   grid is about 880px wide and cannot fit the 380px form column, so
+   static/js/heatmap.js hides #index-grid while either of these is on screen. */
+.heatmap-stage {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* ------------------------------------------------------------------ */
+/* Wait panel (templates/partials/_loading.html)                        */
+/* ------------------------------------------------------------------ */
+.wait-panel {
   display: flex;
-  justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-}
-
-.mode-pill {
-  padding: 0.4rem 1rem;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  font-size: 0.88rem;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  user-select: none;
-  color: var(--text-color);
-  background-color: transparent;
-  text-decoration: none;
-}
-
-.mode-pill:hover {
-  border-color: var(--bars-color);
-  color: var(--bars-color);
-}
-
-.mode-pill.active {
-  background-color: var(--bars-color);
-  color: #fff;
-  border-color: var(--bars-color);
-}
-
-/* ------------------------------------------------------------------ */
-/* Heatmap form card                                                   */
-/* ------------------------------------------------------------------ */
-#heatmap-form-section .card-body h2 {
-  color: var(--text-color);
-}
-
-/* Username validation feedback icons */
-#heatmap-form-section .is-valid {
-  border-color: #198754;
-}
-
-#heatmap-form-section .is-invalid {
-  border-color: var(--error-accent);
-}
-
-/* ------------------------------------------------------------------ */
-/* Heatmap loading container                                           */
-/* ------------------------------------------------------------------ */
-#heatmap-loading {
-  text-align: center;
-  padding: clamp(2.5rem, 7vh, 4.5rem) 1rem;
-}
-
-.heatmap-loading-panel {
-  display: flex;
-  min-height: clamp(190px, 28vh, 300px);
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  min-height: clamp(190px, 28vh, 300px);
+  padding: clamp(2.5rem, 7vh, 4.5rem) 1rem;
+  text-align: center;
 }
 
-.heatmap-spinner-wrapper {
+/* The blades translate 5.4 units outside the viewBox at the peak of the
+   cycle, so the SVG must not be clipped. */
+.wait-panel__mark {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   width: clamp(112px, 11vw, 168px);
   height: clamp(112px, 11vw, 168px);
   margin: 0 auto 1.25rem;
   overflow: visible;
 }
 
-.heatmap-spinner-wrapper svg {
+.wait-panel__mark svg {
+  display: block;
   width: 100%;
   height: 100%;
   overflow: visible;
-  display: block;
 }
 
-#heatmap-progress-text {
-  font-size: 0.9rem;
-  color: var(--text-color);
-  opacity: 0.7;
-  margin-top: 0.5rem;
+/* One progress signal only, so this line carries the phase and nothing else
+   competes with it. Mono uppercase, per the loading screen spec. */
+.wait-panel__phase {
+  margin: 0.5rem 0 0;
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
 }
 
-/* Error display within the loading container */
-#heatmap-error {
+.wait-panel__error {
   margin-top: 1.5rem;
 }
 
-#heatmap-error-message {
-  color: var(--error-accent);
-  font-weight: 500;
+.wait-panel__error-message {
   margin-bottom: 0.75rem;
+  color: var(--ss-bad);
+  font-size: var(--text-body-sm);
+}
+
+.wait-panel__error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
 /* ------------------------------------------------------------------ */
-/* Heatmap result container                                            */
+/* Hairline button                                                     */
 /* ------------------------------------------------------------------ */
-:root {
-  --hm-surface-light: #faf8f3;
-  --hm-surface-dark: #181520;
-  --hm-text-muted: #9a9a9a;
+/* Peers in a hairline treatment, never a solid fill: a solid brand fill on
+   one of several equal actions reads as an unearned hierarchy. The name is
+   ours, not daisyUI's .btn, because templates/partials/_loading.html has to
+   render on a Bootstrap page too and both frameworks claim .btn. */
+.ss-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--color-base-content);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-normal);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.2s ease, border-color 0.2s ease;
 }
 
+.ss-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.ss-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Heatmap mode preview panel                                          */
+/* ------------------------------------------------------------------ */
+/* Stands in for album mode's filter tags. It says what the run produces,
+   then shows the ramp the result will be drawn on. */
+.hm-preview {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-md);
+  background-color: var(--ss-surface-sunken);
+}
+
+.hm-preview__key {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+}
+
+.hm-preview__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-label);
+  line-height: 1.6;
+  color: var(--ss-text-body);
+}
+
+.hm-preview__ramp {
+  display: block;
+  height: 8px;
+  margin-top: 10px;
+  border-radius: 2px;
+  /* The gradient is set by static/js/heatmap.js from ROCKET_STOPS, the one
+     place the seven-stop ramp is defined. Writing the stops here as well
+     would give the preview and the legend separate copies to drift apart. */
+}
+
+/* ------------------------------------------------------------------ */
+/* Result headline                                                     */
+/* ------------------------------------------------------------------ */
 .heatmap-headline {
-  font-size: 1.75rem;
-  font-weight: 400;
-  color: var(--text-color);
   margin-bottom: 1rem;
-  line-height: 1.2;
+  font-family: var(--font-serif);
+  font-size: clamp(1.375rem, 4vw, 1.875rem);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.15;
+  color: var(--color-base-content);
   overflow-wrap: anywhere;
 }
 
+/* The accent is only ever the reader's own data -- their username. */
 .heatmap-headline-username {
-  color: var(--bars-color);
+  color: var(--color-primary);
   font-style: italic;
 }
 
+/* ------------------------------------------------------------------ */
+/* Result frame                                                        */
+/* ------------------------------------------------------------------ */
+/* The warm ground the whole palette came from. Edge, not elevation. */
 .heatmap-frame {
-  background-color: var(--hm-surface-light);
-  border-radius: 14px;
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  padding: 1.5rem 1.75rem;
   width: 100%;
   box-sizing: border-box;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-lg);
+  background-color: var(--heatmap-surface);
   overflow: hidden;
-}
-
-.dark-mode .heatmap-frame {
-  background-color: var(--hm-surface-dark);
-  border-color: rgba(255, 255, 255, 0.06);
 }
 
 .heatmap-frame-top {
   display: flex;
-  justify-content: space-between;
   align-items: flex-end;
+  justify-content: space-between;
   gap: 1.5rem;
   margin-bottom: 1.25rem;
 }
 
 .heatmap-kpi-row {
   display: flex;
-  gap: 2rem;
-  margin-bottom: 0;
   flex-wrap: wrap;
+  gap: 2rem;
 }
 
 .heatmap-kpi {
@@ -165,30 +214,36 @@
   min-width: 4.5rem;
 }
 
+/* The signature move: a mono uppercase label above a Gotham numeral. */
 .heatmap-kpi-label {
-  font-family: ui-monospace, "Cascadia Code", "Fira Mono", monospace;
-  font-size: 0.65rem;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-color);
-  opacity: 0.5;
+  color: var(--ss-text-muted);
 }
 
+/* Gotham for display numbers, and never at bold -- geometric numerals blob
+   at 700. The kit ships no 500 or 600 either, so 400 is the weight. */
 .heatmap-kpi-value {
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: var(--text-color);
+  font-family: var(--font-figure);
+  font-size: var(--text-display);
+  font-weight: var(--font-weight-normal);
   line-height: 1.1;
+  color: var(--color-base-content);
 }
 
 .heatmap-kpi-sub {
-  font-family: ui-monospace, "Cascadia Code", "Fira Mono", monospace;
-  font-size: 0.7rem;
-  color: var(--text-color);
-  opacity: 0.5;
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--ss-text-muted);
 }
 
+/* ------------------------------------------------------------------ */
+/* Grid                                                                */
+/* ------------------------------------------------------------------ */
 #heatmap-grid {
   width: 100%;
   max-width: 100%;
@@ -198,41 +253,59 @@
 }
 
 #heatmap-grid svg {
+  display: block;
   width: 100%;
   height: auto;
-  display: block;
 }
 
-@media (min-width: 768px) {
-  #heatmap-result {
-    flex: 0 0 min(100%, 1040px);
-    max-width: min(100%, 1040px);
-  }
-
+@media (min-width: 860px) {
   #heatmap-grid {
     overflow-x: hidden;
   }
 }
 
-/* Color scale legend */
+/* SVG text labels inherit the page colour through currentColor. The family
+   and tracking are set on the nodes themselves in static/js/heatmap.js,
+   because they land on SVG presentation attributes where var() does not
+   resolve. */
+.heatmap-day-label,
+.heatmap-month-label {
+  fill: currentColor;
+  color: var(--ss-text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Legend                                                              */
+/* ------------------------------------------------------------------ */
 .heatmap-legend {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 0.4rem;
-  flex: 0 0 auto;
-  font-family: ui-monospace, "Cascadia Code", "Fira Mono", monospace;
-  font-size: 0.65rem;
-  letter-spacing: 0.06em;
+}
+
+.heatmap-legend__cap {
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-color);
-  opacity: 0.6;
+  color: var(--ss-text-muted);
 }
 
 .heatmap-legend-bar {
   width: 80px;
   height: 8px;
   border-radius: 2px;
-  /* Gradient set by JS or inline style using rocket_r stops */
+  /* Gradient set by static/js/heatmap.js from the seven rocket_r stops. */
+}
+
+/* ------------------------------------------------------------------ */
+/* Result actions                                                      */
+/* ------------------------------------------------------------------ */
+.heatmap-result__actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
 }
 
 /* ------------------------------------------------------------------ */
@@ -240,17 +313,18 @@
 /* ------------------------------------------------------------------ */
 .heatmap-tooltip {
   position: absolute;
-  pointer-events: none;
-  padding: 0.4rem 0.65rem;
-  border-radius: 6px;
-  font-size: 0.78rem;
-  line-height: 1.4;
-  background-color: var(--surface-elevated);
-  color: var(--text-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--border-color);
   z-index: 1000;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-xs);
+  background-color: var(--ss-surface-card);
+  color: var(--color-base-content);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  line-height: 1.4;
   white-space: nowrap;
+  pointer-events: none;
   opacity: 0;
   transition: opacity 0.15s ease;
 }
@@ -259,8 +333,8 @@
   opacity: 1;
 }
 
-.dark-mode .heatmap-tooltip {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+[data-theme="dark"] .heatmap-tooltip {
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.4);
 }
 
 /* ------------------------------------------------------------------ */
@@ -275,65 +349,28 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* SVG grid cell styles (applied via JS, documented here for reference)*/
+/* Mobile                                                              */
 /* ------------------------------------------------------------------ */
-/* rect.heatmap-cell { rx: 2; ry: 2; }                                */
-/* Zero-scrobble fill: #e0e0e0 (light) / #2a2a2a (dark)              */
-
-/* SVG text labels inherit page color via currentColor */
-.heatmap-day-label,
-.heatmap-month-label {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  fill: currentColor;
-  opacity: 0.6;
-}
-
-/* ------------------------------------------------------------------ */
-/* Mobile responsive                                                   */
-/* ------------------------------------------------------------------ */
-@media (max-width: 767.98px) {
-  .mode-pills {
-    gap: 0.35rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .mode-pill {
-    font-size: 0.78rem;
-    padding: 0.32rem 0.75rem;
-  }
-
-  #heatmap-loading {
+@media (max-width: 859.98px) {
+  .wait-panel {
+    min-height: 180px;
     padding: 2.25rem 0.75rem;
   }
 
-  .heatmap-loading-panel {
-    min-height: 180px;
-  }
-
-  .heatmap-spinner-wrapper {
+  .wait-panel__mark {
     width: clamp(96px, 30vw, 128px);
     height: clamp(96px, 30vw, 128px);
   }
 
-  #heatmap-progress-text {
-    font-size: 0.8rem;
-  }
-
+  /* The headline wraps. It used to carry white-space: nowrap here, which
+     clipped a long username on a narrow screen -- the one thing the
+     overflow-wrap above it was added to prevent. */
   .heatmap-headline {
-    font-size: clamp(1rem, 5.4vw, 1.35rem);
     margin-bottom: 0.75rem;
-    overflow-wrap: normal;
-    white-space: nowrap;
   }
 
   .heatmap-frame {
     padding: 1rem 0.75rem;
-  }
-
-  #heatmap-result {
-    max-width: 100%;
-    min-width: 0;
   }
 
   .heatmap-frame-top {
@@ -351,23 +388,14 @@
   }
 
   .heatmap-kpi-value {
-    font-size: 1.1rem;
-  }
-
-  .heatmap-legend {
-    font-size: 0.65rem;
-  }
-
-  .heatmap-legend-bar {
-    width: 80px;
-    height: 8px;
+    font-size: var(--text-display);
   }
 
   #heatmap-grid {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
     align-items: flex-start;
+    justify-content: flex-start;
     gap: 0.45rem;
     overflow-x: hidden;
   }
@@ -375,10 +403,21 @@
   #heatmap-grid svg[data-layout="mobile"] {
     display: block;
     flex: 0 0 auto;
-    margin: 0;
     width: 100%;
     max-width: 100%;
     height: auto;
     max-height: none;
+    margin: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Reduced motion                                                      */
+/* ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .heatmap-fade,
+  .heatmap-tooltip,
+  .ss-btn {
+    transition-duration: 0ms;
   }
 }

@@ -148,6 +148,22 @@
   --ss-border-default: #e5dfd1;
   --ss-accent-soft: #efe9fa;
 
+  /* The design has three surfaces -- page, sunken and card -- and daisyUI's
+     base ramp only lines up with two of them, differently in each theme.
+     Light: page and sunken are base-100 and base-200, and the card is white.
+     Dark: page is base-100, the card is base-200, and the sunken tone has no
+     slot at all. Two named tokens are cheaper than a per-theme override on
+     every panel. The heatmap frame gets its own because it is page-coloured
+     in light and card-coloured in dark. */
+  --ss-surface-card: #ffffff;
+  --ss-surface-sunken: #f0ebe0;
+  --heatmap-surface: #faf8f3;
+
+  /* The error accent. daisyUI still carries Bootstrap's #dc3545 in
+     --color-error, which is the cool red the whole batch is moving away
+     from. docs/design/README.md names this one. */
+  --ss-bad: #b03434;
+
   /* The empty heatmap cell. README wins over the #e0e0e0 in the unimported
      guidelines/colors-rocket.prompt.md, which predates the warm revision --
      RECONCILIATION.md section 7. */
@@ -197,8 +213,33 @@
   --ss-text-muted: #908a9a;
   --ss-border-default: #2a2434;
   --ss-accent-soft: #2a1f44;
+  --ss-surface-card: #181520;
+  --ss-surface-sunken: #1a1622;
+  --heatmap-surface: #181520;
+  --ss-bad: #e07070;
 
   --heatmap-empty: #262230;
+}
+
+/* Paint the page from the theme, not from the browser.
+
+   daisyUI's rootcolor base module emits nothing while themes: false, so
+   until now no rule set a background on html or body. A migrated page took
+   the user-agent canvas instead. Chromium derives that from color-scheme,
+   so a dark page still looked dark -- but it was the browser's own dark
+   grey, which is one of the two cool surfaces this batch exists to remove
+   arriving through the back door. The hex is not written here on purpose:
+   tests/scripts/dev/test_tailwind_build_cli.py forbids both of them in this
+   file by substring, and a mention would read as a reintroduction.
+
+   It goes here rather than in a page stylesheet because it is true of every
+   migrated page. static/css/error.css paints its own .error-page and is
+   unaffected. */
+@layer base {
+  body {
+    background-color: var(--color-base-100);
+    color: var(--color-base-content);
+  }
 }
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
