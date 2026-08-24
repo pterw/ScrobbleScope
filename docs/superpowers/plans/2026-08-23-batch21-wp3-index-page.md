@@ -154,13 +154,13 @@ the only record of where inside WP-3 the work stands.
 | 2 -- strip the SMIL | done | `b17a741` |
 | (unplanned) plan amendment | done | `89a5da2` |
 | 3 -- the tokens | done | `a1e607b` |
-| 4 -- rebuild the page | **next** | -- |
-| 5 -- extend the gates | not started | -- |
+| 4 -- rebuild the page | done | `b1374b1` |
+| 5 -- extend the gates | **next** | -- |
 | 6 -- record it | not started | -- |
 
 Nothing is pushed. The owner has not authorised a push or a pull request.
 
-**Three deviations so far. Commit 6 must record all three honestly.**
+**Eight deviations so far. Commit 6 must record all eight honestly.**
 
 1. **The lockup was realigned**, which the plan never scoped. Removing the
    tagline in WP-2 left the letterforms floating about 13 units above the bar
@@ -173,6 +173,32 @@ Nothing is pushed. The owner has not authorised a push or a pull request.
    stripping the SMIL broke it.
 3. **Task 13 grew a mobile viewport pass**, owner decision 2026-08-24. See
    the decisions table and Task 13.
+4. **A page background rule was added to `static/css/tailwind.src.css`.**
+   daisyUI's `rootcolor` base module emits nothing while `themes: false`, so
+   no rule set a background on `html` or `body` and a migrated page took the
+   browser's own canvas. In dark mode that is a cool grey the batch exists to
+   remove, arriving behind the gate that forbids it. Fixed for every migrated
+   page, not just the index, because the cause is shared.
+5. **Four more tokens landed in commit 4**, not commit 3:
+   `--ss-surface-card`, `--ss-surface-sunken`, `--heatmap-surface` and
+   `--ss-bad`. The design has three surfaces and daisyUI's base ramp matches
+   only two of them, differently in each theme. Task 14 should add all four
+   to `INDEX_TOKENS`.
+6. **The daisyUI component classes were dropped from the index.** The plan
+   expected `card`, `input`, `select`, `button` and `tab`. The design fixes
+   radius, height, family and colour for every control, so each daisyUI class
+   was fully overridden wherever it appeared. `error.html` still uses them.
+7. **The Info button is deleted, not rebuilt as a small about panel.**
+   `BATCH21_DEFINITION.md` decision 2 says it becomes one, but the design's
+   IndexScreen has no Info control and the hero plus the three capability
+   marks now carry what the modal said. Owner ruled it on 2026-08-24.
+8. **The plan's one expected red does not happen.** Task 12 step 8 says
+   `check_stylesheet_isolation` fails between commits 4 and 5 because `/` is
+   still in `LEGACY_PAGES`. It does not: that check counts framework
+   stylesheets rather than naming which framework a page should carry, so a
+   page that swaps one for the other stays green. Commit 4 is green on all
+   four gate commands. The index is simply still outside `check_theme_tokens`
+   and `check_fonts` until Task 13 moves it.
 
 **Two facts commits 4 onward depend on, both established after the plan was
 written.**
@@ -186,11 +212,24 @@ written.**
   rendered pages rather than partials.
 - **The new colour tokens are `--ss-` prefixed, not the design's names.**
   They are `--ss-text-body`, `--ss-text-muted`, `--ss-border-default` and
-  `--ss-accent-soft`, plus `--heatmap-empty`, `--rocket-5`, `--radius-xs`
-  and `--radius-md`. The design calls the first two `--text-body` and
+  `--ss-accent-soft`, plus `--ss-surface-card`, `--ss-surface-sunken`,
+  `--heatmap-surface`, `--ss-bad`, `--heatmap-empty`, `--rocket-5`,
+  `--radius-xs` and `--radius-md`. The design calls the first two
+  `--text-body` and
   `--text-muted`, but `--text-*` is Tailwind v4's font-size namespace and
   `--text-body: 1rem` already exists, so a colour under that name shadows the
   type scale and `.text-body` silently stops working.
+- **Two classes the JS reads were renamed, and both were repointed.**
+  `.heatmap-spinner-wrapper` is `.wait-panel__mark`, because the partial is
+  shared, and `static/js/heatmap.js` queries it in two places to hide the
+  pinwheel on error. `.invalid-feedback` is `.field__error` in both scripts.
+  Renaming either without the other is silent: the pinwheel keeps spinning
+  behind an error message, or a validation message renders unstyled.
+- **A hex in a comment fails the source guard.**
+  `tests/scripts/dev/test_tailwind_build_cli.py` forbids both cool greys in
+  `static/css/tailwind.src.css` by plain substring, so a comment that names
+  one to explain why it is wrong reads as a reintroduction. Describe the
+  colour in words there.
 
 ---
 
