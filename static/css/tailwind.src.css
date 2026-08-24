@@ -59,9 +59,22 @@
   --spacing-12: 3rem;
 
   --radius-*: initial;
+  --radius-xs: 4px;
   --radius-sm: 8px;
+  --radius-md: 10px;
   --radius-lg: 14px;
   --radius-full: 999px;
+
+  /* One stop out of the rocket_r ramp, for the Heatmap mode tab's square
+     mark that components/navigation/ModeTabs.prompt.md specifies.
+
+     static/js/heatmap.js ROCKET_STOPS owns all seven stops and stays the
+     only place the ramp is defined. This mirrors index 5 -- rgb(240,144,58),
+     the orange -- because the absorbed WP-6 item asks for one warm accent in
+     the page UI, and one accent needs one stop. Do not grow this into a
+     second copy of the ramp: two copies drift and the grid would then
+     disagree with its own legend. */
+  --rocket-5: #f0903a;
 }
 
 @theme inline {
@@ -113,6 +126,32 @@
   --depth: 1;
   --noise: 0;
   --bars-color: var(--color-primary);
+
+  /* The four colours docs/design/RECONCILIATION.md section 3 records as
+     absent from the theme. daisyUI has no semantic slot for body text,
+     muted text, a hairline or an accent tint, so they land here, in the WP
+     that first needs them.
+
+     The ss- prefix is deliberate and is not cosmetic. The design names these
+     --text-body and --text-muted, but --text-* is Tailwind v4's font-size
+     namespace and --text-body: 1rem already exists in the @theme static
+     block above. A colour of the same name emitted under [data-theme] wins
+     on specificity, so .text-body would set font-size to a hex colour and
+     the utility would silently stop working. --border-default and
+     --accent-soft do not collide today, but they are prefixed too so the
+     four read as one set. --bars-color shows a non-namespaced property is
+     fine in these blocks.
+
+     Values are docs/design/README.md "Colour -- light". */
+  --ss-text-body: #4a4456;
+  --ss-text-muted: #6f6a7a;
+  --ss-border-default: #e5dfd1;
+  --ss-accent-soft: #efe9fa;
+
+  /* The empty heatmap cell. README wins over the #e0e0e0 in the unimported
+     guidelines/colors-rocket.prompt.md, which predates the warm revision --
+     RECONCILIATION.md section 7. */
+  --heatmap-empty: #e8e2d6;
 }
 
 @plugin "../../scripts/bin/daisyui-theme.mjs" {
@@ -151,6 +190,15 @@
   --depth: 1;
   --noise: 0;
   --bars-color: var(--color-primary);
+
+  /* Same four, dark values, from README "Colour -- dark". See the light
+     block above for why the ss- prefix is load-bearing. */
+  --ss-text-body: #c5bfb1;
+  --ss-text-muted: #908a9a;
+  --ss-border-default: #2a2434;
+  --ss-accent-soft: #2a1f44;
+
+  --heatmap-empty: #262230;
 }
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
