@@ -1263,6 +1263,49 @@ def test_doc007_all_planned_wps_complete_is_clean(tmp_path: Path):
     assert collect_integrity_issues(**inputs) == []
 
 
+def test_doc007_all_planned_wps_reject_stale_numeric_claims(tmp_path: Path):
+    """Close-out rejects next-WP claims after the finite plan is complete."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].insert(
+        6,
+        "- **Next action:** **WP-1 is next**: close out the completed batch.",
+    )
+    inputs["playbook_lines"][15:15] = [
+        "",
+        "### 2026-08-24 - Only package done (Batch 21 WP-1)",
+        "",
+        "Validation: `pytest -q` -- **704 passed**.",
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
+        "# BATCH21",
+        "",
+        "**Status:** Active. **WP-1 is the next batch work package.**",
+        "",
+        "**Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
+        "",
+        "### WP-0 -- Batch opened",
+        "",
+        "### WP-1 -- Only package",
+    ]
+
+    issues = [
+        issue for issue in collect_integrity_issues(**inputs) if issue.code == "DOC007"
+    ]
+
+    assert {issue.path for issue in issues} == {
+        "BATCH21_DEFINITION.md",
+        "PLAYBOOK.md",
+    }
+    assert all(
+        "all planned work packages are complete" in issue.invariant for issue in issues
+    )
+    assert all(
+        "all planned work packages are complete" in issue.remediation
+        for issue in issues
+    )
+
+
 def test_doc008_bolded_header_count_is_matched(tmp_path: Path):
     """The natural bolded header form is not invisible to DOC008."""
     inputs = _valid_inputs(tmp_path)

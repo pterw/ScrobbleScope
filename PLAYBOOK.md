@@ -93,7 +93,7 @@ See FINDINGS F-DOCSYNC-3.
   Three review rounds are applied on top: seven Codex comments in all,
   every one valid and fixed. Round three took the SMIL out of the header
   wordmark and gave the back-to-top control its wrapper back. The suite
-  is 713 and the gate runs 5 checks now.
+  is 714 and the gate runs 5 checks now.
   **WP-3 is next**: the index page, which deletes the welcome modal, replaces
   `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
   the thresholds disclosure. The root-hygiene side task is
@@ -384,10 +384,11 @@ non-current operational logs. Older dated entries live in
   renderer owns `_next_wp_number()`, the integrity check calls that helper,
   and the CLI supplies the active definition's finite plan. Absorbed,
   dropped and merged WP headings are skipped; a fully completed plan
-  terminates with no next package instead of looping forever. The definition
-  Status line and PLAYBOOK Section 3's actual Next action bullet are checked
-  against that same value. Historical claims outside the bullet and earlier
-  claims superseded inside it cannot steal the comparison.
+  terminates with no next package instead of looping forever, while any stale
+  numeric next-WP claim left at close-out is blocking. The definition Status
+  line and PLAYBOOK Section 3's actual Next action bullet are checked against
+  that same value. Historical claims outside the bullet and earlier claims
+  superseded inside it cannot steal the comparison.
 - DOC008 applies `latest_test_count_authority()` to the FINDINGS.md header
   with findings-specific remediation. Authority includes live entries, the
   side-task archive and per-batch logs; a same-date tie between batch logs is
@@ -401,9 +402,9 @@ non-current operational logs. Older dated entries live in
   2026-08-24 after the audit proved DOC007 and the renderer computed different
   next-WP values. The expansion is limited to the renderer/sync/CLI data path
   and its directly related docsync tests; no unrelated refactor was taken.
-- Validation: `pytest -q` -- **713 passed**, 3 warnings (was 682; 31 new
+- Validation: `pytest -q` -- **714 passed**, 3 warnings (was 682; 32 new
   tests across the docsync integrity, renderer, logic, CLI and count suites).
-  The focused docsync suite is **215 passed**.
+  The focused docsync suite is **216 passed**.
 - Forward guidance: WP-3 should still update the definition Status line as
   an explicit task. The gate proves agreement; it does not replace writing
   the canonical status correctly.

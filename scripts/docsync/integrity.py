@@ -344,13 +344,14 @@ def _findings_count_remediation(authority: TestCountAuthority) -> str:
 
 def _computed_next_wp(
     playbook_lines: list[str], definition_lines: list[str] | None = None
-) -> int | None:
-    """Return the next work package number derived from PLAYBOOK Section 4.
+) -> tuple[int | None, bool]:
+    """Return the next WP number and whether the finite plan is complete.
 
     Parse the current-batch entries, then delegate to the renderer's shared
     plan-aware rule. This keeps DOC007 and the managed SESSION_CONTEXT block on
     the same value, including absorbed gaps and the all-complete close-out
-    state. Return ``None`` when there are no current entries.
+    state. The boolean distinguishes that valid all-complete result from an
+    unknown result caused by missing entries or malformed PLAYBOOK structure.
     """
     try:
         s4_start, s4_end = _find_section(
@@ -365,18 +366,19 @@ def _computed_next_wp(
         )
         entries, _ = _parse_entries(section_4_lines)
     except SyncError:
-        return None
+        return None, False
     current_entries = [
         entry for entry in entries if marker_start < entry.start_idx < marker_end
     ]
     if not current_entries:
-        return None
+        return None, False
     planned_wp_numbers = (
         _definition_wp_numbers(definition_lines)
         if definition_lines is not None
         else None
     )
-    return _next_wp_number(current_entries, planned_wp_numbers)
+    computed = _next_wp_number(current_entries, planned_wp_numbers)
+    return computed, bool(planned_wp_numbers) and computed is None
 
 
 def _definition_next_wp_claim(
@@ -463,9 +465,21 @@ def _check_definition_next_wp(
     """
     if definition_lines is None:
         return None
-    computed = _computed_next_wp(playbook_lines, definition_lines)
+    computed, all_planned_complete = _computed_next_wp(playbook_lines, definition_lines)
     claimed, claimed_line = _definition_next_wp_claim(definition_lines)
-    if computed is None or claimed is None:
+    if claimed is None:
+        return None
+    if all_planned_complete:
+        return _issue(
+            "DOC007",
+            definition_path,
+            claimed_line,
+            f"The definition claims WP-{claimed} is next; PLAYBOOK Section 4 "
+            "entries show that all planned work packages are complete.",
+            "Update the definition's Status line to state that all planned "
+            "work packages are complete.",
+        )
+    if computed is None:
         return None
     if computed == claimed:
         return None
@@ -490,9 +504,21 @@ def _check_section3_next_wp(
     action prose restates it by hand and has drifted before. Silence when
     Section 3 makes no parseable claim, matching the definition side.
     """
-    computed = _computed_next_wp(playbook_lines, definition_lines)
+    computed, all_planned_complete = _computed_next_wp(playbook_lines, definition_lines)
     claimed, claimed_line = _section3_next_wp_claim(playbook_lines)
-    if computed is None or claimed is None:
+    if claimed is None:
+        return None
+    if all_planned_complete:
+        return _issue(
+            "DOC007",
+            "PLAYBOOK.md",
+            claimed_line,
+            f"Section 3 claims WP-{claimed} is next; PLAYBOOK Section 4 entries "
+            "show that all planned work packages are complete.",
+            "Update the Section 3 Next action to state that all planned work "
+            "packages are complete.",
+        )
+    if computed is None:
         return None
     if computed == claimed:
         return None
