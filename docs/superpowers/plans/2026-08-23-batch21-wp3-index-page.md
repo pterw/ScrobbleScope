@@ -630,10 +630,17 @@ taken the next one. Cross-reference the deferred
 `GET /heatmap/<username>` item in `BATCH21_DEFINITION.md` "Out of scope", and
 say that the split only pays for itself alongside that feature.
 
-**Step 6.** Findings are mirrored to GitHub issues by hand and the mirror
+**Step 6.** Move the header count. `FINDINGS.md` carries a bare line reading
+`NNN tests across NN test modules.` Once `F-B21-13`'s DOC008 check has landed,
+that line is gated against the same authority as SESSION_CONTEXT, so it must
+move in this commit alongside the Section 4 entry. Keep the line's exact shape
+-- DOC008 matches a bare line and does not see a bolded one, so reformatting it
+switches the check off silently.
+
+**Step 7.** Findings are mirrored to GitHub issues by hand and the mirror
 drifts; `F-B21-9` records that the owner accepted this. Do not try to sync it.
 
-**Step 7.** Run the four gate commands, then commit.
+**Step 8.** Run the four gate commands, then commit.
 
 ---
 
@@ -698,16 +705,43 @@ rather than hand-maintained. It touches `scripts/docsync/integrity.py`,
 `PLAYBOOK.md` entry. It has been told not to touch `BATCH21_DEFINITION.md`,
 `templates/` or `static/`.
 
-**This is why the status line moves in commit 6, not commit 1.** Setting the
-batch definition to "WP-4 is next" while PLAYBOOK Section 3 still says WP-3 is
-exactly the disagreement DOC007 and DOC008 exist to catch. All three legs
-agree at every commit in this plan.
+**What the two checks actually assert**, read off `f15e7e7` on 2026-08-24 and
+verified by probing the functions directly rather than by reading them:
+
+- **DOC007** derives the next work package from PLAYBOOK **Section 4** entry
+  headings -- the WP numbers tagged there, then the lowest positive integer not
+  among them -- and compares that to the claim in the definition's `**Status:**`
+  line and in Section 3. A status line with no parseable claim makes the check
+  silent rather than failing.
+- **DOC008** compares the `FINDINGS.md` header line, which must read exactly
+  `NNN tests across NN test modules.`, against the same authority DOC006 uses.
+
+**This is why the status line moves in commit 6, not commit 1.** The
+constraint is not what Section 3 says at the time -- it is that the definition
+may not claim WP-4 is next until a WP-3 entry exists in Section 4. Commit 1
+writes "WP-3 is in progress", which parses as no claim and is silent; commit 6
+adds the Section 4 entry and moves all three legs together.
+
+**Commit 6 must also move the `FINDINGS.md` header count**, in the same commit
+as the Section 4 entry. DOC008 blocks otherwise. Write the entry so the count
+is unambiguous -- one `pytest -q` result, not several bold numbers -- because
+an ambiguous authority blocks DOC008 too.
+
+**Known defect in DOC007, reported on PR #217 on 2026-08-24.** Its lowest-
+unused-integer rule cannot express a gap in the WP sequence. Because this plan
+absorbs WP-6, the rule returns 6 from WP-5 onward and keeps returning 6 even
+after WP-7 ships. Until it is fixed, DOC007 will demand a next-WP claim that
+is false. Do not work around it by tagging one log entry with two WP numbers:
+`_extract_entry_batch()` returns `None` for a two-WP heading, so rotation
+misfiles the entry into the monolith archive instead of `BATCH21_LOG.md`. That
+was tested.
 
 Expect that branch to merge first. When it does:
 
 1. Rebase onto it before pushing.
-2. **Read `scripts/docsync/integrity.py` after the rebase.** Do not assume
-   what DOC007 and DOC008 assert; this plan was written before they existed.
+2. **Re-read `scripts/docsync/integrity.py` after the rebase** and confirm the
+   summary above still holds. It was written against `f15e7e7`, which had two
+   open review comments at the time.
 3. A conflict in the `.claude/SESSION_CONTEXT.md` managed block is not a real
    conflict. That block is deterministic output. Take either side, then re-run
    `python scripts/doc_state_sync.py --fix`.
