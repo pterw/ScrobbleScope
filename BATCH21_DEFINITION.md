@@ -1,6 +1,6 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 is submitted as PR #216. **WP-3 (index page) is the next batch work package.**
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. **WP-3 (index page) is the next batch work package**, and it is now in progress. WP-6 is absorbed into WP-3; see its stub below.
 **Branch:** `wip/batch-21` (linked worktree; lineage changes are recorded
 in PLAYBOOK Section 4 rather than pinned here).
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
@@ -238,6 +238,12 @@ kickoff log entry.
 
 ### WP-3 -- Index page
 
+**Scope expanded 2026-08-23 (owner).** The heatmap has no page of its own.
+Its form, its loading panel and its result frame all live on `index.html`,
+so WP-6 is absorbed here and every WP-6 deliverable ships with this
+rebuild. WP-7 and WP-8 keep their numbers; renumbering would break every
+citation of them in `PLAYBOOK.md`, `FINDINGS.md` and `AGENT_NOTES.md`.
+
 - Editorial hero; form regrouped (identity / filtering / display /
   thresholds); segmented Albums|Heatmap tabs sharing one card frame.
 - Decade pills restyled; year input becomes placeholder + join-year hint
@@ -259,6 +265,40 @@ kickoff log entry.
   form rejects and accepts exactly what it accepts. The server contract
   does not change in this WP, so any behavioural difference is a
   regression, not a redesign.
+
+Moved in by the scope ruling:
+
+- The heatmap form, the shared loading partial and the heatmap result
+  frame. All three are on this page today and stay on it.
+- Three Jinja partials extracted from `index.html`:
+  `templates/partials/_loading.html`, `_heatmap_form.html` and
+  `_heatmap_result.html`. `_loading.html` stays framework-neutral because
+  WP-4 renders it on `loading.html`, which is still a Bootstrap page then.
+- **No separate `heatmap.html`.** The Batch 18 ruling stands: all states on
+  one page, no navigation. The page split is filed as a finding and
+  cross-referenced to the deferred `GET /heatmap/<username>` item under
+  "Out of scope", because the split only pays for itself alongside it.
+- Mode pills rebuilt as real `<button>` elements with equal `min-width`,
+  closing F-B18-12 and satisfying criterion 8.
+- SMIL stripped from `templates/inline/scrobblescope_pinwheel.svg` and
+  `templates/inline/scrobble_scope_inline.svg`, and the motion reinstated
+  in `static/css/shell.css` so `prefers-reduced-motion` can stop it. CSS
+  cannot pause SMIL at all. Four templates include those files, so all
+  four are covered. This closes the remaining SMIL item in F-B21-5.
+- The six absorbed WP-6 deliverables, listed under that stub below.
+
+**Two rulings this WP owes.**
+
+1. **F-B21-4 item 1 resolves to the canonical README.** The hero is the
+   two-column `1.1fr 1fr` grid from `docs/design/README.md` screen 1, not
+   the audit review's single column. Items 2, 3 and 4 stay open for WP-4,
+   WP-5 and WP-7; do not close the finding here.
+2. **Heatmap cell geometry resolves `docs/design/RECONCILIATION.md`
+   section 7.** Keep
+   the shipped 14px cell and its 2px radius; take the README's gap of 2px
+   desktop and 1px mobile. `--heatmap-empty` takes the README values,
+   `#e8e2d6` light and `#262230` dark.
+
 `feat(ui): rebuild index page on tailwind`
 
 ### WP-4 -- Unified loading experience
@@ -306,14 +346,25 @@ kickoff log entry.
   tested in both modes at mobile + desktop widths.
 `feat(ui): results leaderboard rebuild`
 
-### WP-6 -- Heatmap seam removal
+### WP-6 -- Heatmap seam removal (ABSORBED INTO WP-3, 2026-08-23)
 
-- Page background/frame unified with the promoted global themes; the
-  `:root` token block leaves `heatmap.css`.
-- Month labels to mono small-caps; one warm rocket_r accent pulled into
-  the page UI; headline nowrap clip fixed; `.mode-pill` `min-width`
-  equalized (F-B18-12).
-`feat(ui): unify heatmap page with global theme`
+The heatmap has no page of its own. Every deliverable below is on
+`index.html` and shipped with the index rebuild. This stub stays so that
+criteria 2, 3 and 8 and the PLAYBOOK Section 4 entries keep resolving.
+
+- Page background and frame unified with the global themes -- WP-3
+- The `:root` token block leaves `heatmap.css` -- WP-3
+- Month labels to mono small-caps -- WP-3
+- One warm `rocket_r` accent in the page UI -- WP-3
+- Headline nowrap clip fixed -- WP-3
+- `.mode-pill` min-width equalized, closing F-B18-12 -- WP-3
+
+**Do not reword this heading.** `WP_SKIPPED_RE` in
+`scripts/docsync/integrity.py` recognises `absorbed into`, `dropped` and
+`merged into`, and nothing else. A paraphrase such as
+`(ABSORBED, see WP-3)` fails to match, and DOC007 then demands a WP-6 that
+will never ship. Do not renumber WP-7 or WP-8 to close the gap either;
+DOC007 reads this file's own headings and handles the gap.
 
 ### WP-7 -- Unmatched page + reason_code (only backend WP)
 
