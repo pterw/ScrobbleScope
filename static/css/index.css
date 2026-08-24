@@ -40,6 +40,18 @@
   gap: 0;
 }
 
+/* Tailwind's .hidden is one class, and so is .index-grid. Same specificity,
+   so the later stylesheet wins -- and this file loads after tailwind.css.
+   Without this rule static/js/heatmap.js adds the class, the element keeps
+   display: grid, and the hero stays on screen underneath the heatmap while
+   every readable signal says it is hidden.
+
+   The trap applies to any rule in this file that sets display on an element
+   the scripts toggle. Today that is only this one. */
+.index-grid.hidden {
+  display: none;
+}
+
 @media (min-width: 860px) {
   .index-page {
     padding: 0 34px;
