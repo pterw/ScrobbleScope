@@ -273,3 +273,44 @@ This file, being Claude's prose rather than a snapshot, follows the rule.
   from `README.md`. Open; judged per WP.
 - **`F-B21-5`** -- accessibility and mobile defects the handoff does not
   resolve.
+
+---
+
+## 10. The lockup asset, 2026-08-24
+
+Section numbers are never reused here and never renumbered, so this is
+appended rather than slotted next to the asset material in section 7. Other
+documents cite these sections by number.
+
+`templates/inline/scrobble_scope_lockup_inline.svg` was not imported with the
+handoff -- assets were excluded, per section 2 -- so WP-2 derived one by
+removing the tagline group from the full mark and tightening the viewBox. The
+letterforms were left where they sat. In the full mark the bars descend
+alongside the tagline, which balances them; with the tagline gone they hung
+about 13 units below the text baseline. The owner reported it on 2026-08-24.
+
+The design project does hold a canonical lockup at
+`assets/scrobble_scope_lockup_inline.svg`. Two of its three differences are
+now adopted:
+
+1. **`#logo-text` carries a static transform**,
+   `translate(99.10, 39.40) scale(1.1) translate(-99.10, -29.21)`. It scales
+   the word 1.1x and seats its baseline on the bars'. It is an attribute, not
+   an animation -- the letterforms still never move.
+2. **Every bar ends at exactly 63.50**, the baseline `README.md` "Wordmark
+   animation" names. The repo's bars ended between 63.46 and 63.70, so the
+   `transform-origin: 0 63.5px` in `static/css/shell.css` was slightly wrong
+   for each of the five.
+
+**The viewBox is the deviation. The repo wins here.** Canonical is
+`0 0 453 69`, which cuts 3.2 user units off the `p` descender in "Scope" --
+measured in Chromium, not inferred. The repo uses `0 0 453 74`, which is the
+same frame with enough height to keep the descender whole. The owner ruled
+this on 2026-08-24 after seeing both rendered.
+
+Three tests in `tests/test_template_shell.py` hold all three facts, because
+none of them is visible to any other gate: a clipped descender renders as a
+slightly odd letter, and a drifting bar foot renders as nothing at all.
+
+The full mark, `scrobble_scope_inline.svg`, is unaffected and was not
+touched. Its tagline still balances the bars.

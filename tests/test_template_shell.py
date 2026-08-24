@@ -23,6 +23,16 @@ BOOTSTRAP = "bootstrap"
 TAILWIND = "tailwind.css"
 
 STATIC_CSS = Path(__file__).resolve().parents[1] / "static" / "css"
+INLINE_SVG = Path(__file__).resolve().parents[1] / "templates" / "inline"
+
+#: The bar baseline docs/design/README.md "Wordmark animation" names, and the
+#: value shell.css uses as transform-origin for the pulse.
+BAR_BASELINE = 63.5
+
+#: The lockup's frame. The design project's own asset uses 0 0 453 69, which
+#: cuts 3.2 units off the p descender in "Scope"; the owner took the extra 5
+#: units on 2026-08-24. docs/design/RECONCILIATION.md records the deviation.
+LOCKUP_VIEWBOX = "0 0 453 74"
 
 #: Minimum context each template needs to render at all. The values are never
 #: asserted on; they exist so Jinja can finish.
@@ -237,6 +247,59 @@ def test_shell_stops_both_animations_under_reduced_motion():
 
     assert "#horizontal_bars path:nth-of-type(-n+5)" in reduced
     assert "opacity: 1;" in reduced
+
+
+def _lockup() -> str:
+    """The header lockup markup."""
+    return (INLINE_SVG / "scrobble_scope_lockup_inline.svg").read_text(encoding="utf-8")
+
+
+def _bar_feet(svg: str) -> list[float]:
+    """Return where each vertical bar path ends, in SVG user units."""
+    return [
+        round(float(top) + float(length), 2)
+        for _x, top, length in re.findall(r'd="M([\d.]+),([\d.]+)v([\d.]+)"', svg)
+    ]
+
+
+def test_the_lockup_bars_share_the_baseline_shell_css_scales_from():
+    """Each bar must end at 63.50 or it pulses from the wrong foot.
+
+    shell.css pins transform-origin to 0 63.5px for all five at once. The
+    bars used to end between 63.46 and 63.70, so each one drifted a little
+    as it scaled. Nothing rendered wrongly enough to notice, which is why a
+    test holds it now.
+    """
+    feet = _bar_feet(_lockup())
+
+    assert len(feet) == 5, f"expected five bars, found {len(feet)}"
+    assert set(feet) == {BAR_BASELINE}, f"bars end at {sorted(set(feet))}"
+
+
+def test_the_lockup_seats_its_letterforms_on_the_bar_baseline():
+    """Without the transform the word floats above the bars.
+
+    The lockup drops the tagline that the bars used to descend alongside, so
+    the letterforms need seating on the bar baseline. This is a static
+    attribute -- geometry, not motion. The letterforms never animate, which
+    docs/design/README.md "Wordmark animation" requires.
+    """
+    group = re.search(r'<g id="logo-text"[^>]*>', _lockup())
+
+    assert group is not None, "the lockup has no #logo-text group"
+    assert "transform=" in group.group(
+        0
+    ), "#logo-text lost its transform, so the word floats above the bars"
+    assert "scale(1.1)" in group.group(0)
+
+
+def test_the_lockup_frame_keeps_the_whole_descender():
+    """A clipped descender is invisible to every other gate.
+
+    The design project's own lockup uses 0 0 453 69 and cuts the p in
+    "Scope". Nothing else here would catch that, so the frame is pinned.
+    """
+    assert f'viewBox="{LOCKUP_VIEWBOX}"' in _lockup()
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))

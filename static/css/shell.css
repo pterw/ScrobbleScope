@@ -82,7 +82,7 @@ body {
 
 .site-header__mark {
     display: block;
-    /* The lockup is about 6.3:1, so 40px tall lands near 252px wide and
+    /* The lockup is about 6.1:1, so 40px tall lands near 245px wide and
        leaves breathing room inside a 68px bar. */
     height: 40px;
 }
@@ -120,13 +120,21 @@ body {
      line, so its fill box is zero-width and the bars drift sideways
      instead of scaling.
 
-   The origin is 63.5px, exactly as docs/design/tokens/base.css has it, even
-   though this lockup's viewBox starts at y=7 where the full mark starts at
-   y=0. That looks like it should need a 7-unit correction and it does not:
+   The origin is 63.5px, exactly as docs/design/tokens/base.css has it, and
+   since 2026-08-24 every bar in the lockup ends at exactly 63.50, so each
+   one scales from its own foot. Before that the five bars ended between
+   63.46 and 63.70 and the origin was slightly wrong for all five.
+
    view-box resolves transform-origin in the SVG user coordinate system, not
-   from the top-left corner of the viewBox. Measured, not reasoned -- at
-   scaleY(3) an origin of 56.5px slides each bar bottom 8.4px while 63.5px
-   holds it to 0.2px. Do not "fix" this number to match the viewBox. */
+   from the top-left corner of the viewBox, so this number needs no
+   correction when the viewBox moves -- and it has moved once already.
+   Measured, not reasoned -- at scaleY(3) an origin of 56.5px slides each bar
+   bottom 8.4px while 63.5px holds it to 0.2px. Do not "fix" this number to
+   match the viewBox.
+
+   #logo-text carries a static transform attribute that seats the letterforms
+   on the bar baseline. It is geometry, not motion. Never animate that group
+   and never move these rules up to cover it. */
 @keyframes ss-bar-pulse {
     0%,
     100% {

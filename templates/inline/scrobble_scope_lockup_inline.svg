@@ -1,10 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Derived from scrobble_scope_inline.svg: the tagline group removed and
-     the viewBox tightened to the mark. The design system calls this the
-     lockup and reserves it for the header and the index mark; the full
-     mark with tagline is for social and standalone use. Keep the
-     letterform paths identical to the source file. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="7 7 410 65">
+<!-- Derived from scrobble_scope_inline.svg with the tagline group removed.
+     The design system calls this the lockup and reserves it for the header
+     and the index mark; the full mark with tagline is for social and
+     standalone use. Keep the letterform paths identical to the source file.
+
+     Geometry taken from the design project's own
+     assets/scrobble_scope_lockup_inline.svg, which is the canonical lockup:
+
+     1. #logo-text carries a static transform. Dropping the tagline removed
+        what the bars descended alongside, so the letterforms were left
+        floating about 13 units above the bar baseline. The transform scales
+        the text 1.1x and drops its baseline onto the bars'. It is an
+        attribute, not an animation -- the letterforms never move, which
+        docs/design/README.md "Wordmark animation" requires.
+     2. Every bar now ends at exactly 63.50, the baseline that README names
+        and that shell.css uses as transform-origin. The five bars used to
+        end between 63.46 and 63.70, so that origin was slightly wrong for
+        each of them.
+
+     The viewBox is the one deviation from the canonical asset. Canonical is
+     "0 0 453 69", which cuts 3.2 units off the p descender in "Scope". The
+     extra 5 units of height keep the descender whole. Owner ruled this on
+     2026-08-24; docs/design/RECONCILIATION.md records it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 453 74">
   <defs>
     <style>
       .cls-1 {
@@ -16,7 +34,7 @@
       }
     </style>
   </defs>
-  <g id="logo-text">
+  <g id="logo-text" transform="translate(99.10, 39.40) scale(1.1) translate(-99.10, -29.21)">
     <g>
       <path d="M103.65,15.26v3.65c-.17,2.37-1.32,3.55-3.45,3.55h-2.75c-.87,0-1.68.15-2.45.45-.77.3-1.46.71-2.07,1.23-.62.52-1.12,1.13-1.53,1.85-.4.72-.65,1.51-.75,2.38l-.25,2.25v2.3c-1.4-.8-2.51-1.9-3.32-3.3-.82-1.4-1.23-2.95-1.23-4.65s.4-3.25,1.2-4.55c.8-1.3,1.92-2.4,3.35-3.3.77-.43,1.54-.78,2.33-1.05.78-.27,1.61-.48,2.48-.65.2-.03.53-.06,1-.08.47-.02.96-.03,1.48-.05.52-.02,1-.02,1.45-.02h4.52ZM99.1,32.91c1.4.77,2.51,1.85,3.33,3.25.82,1.4,1.22,2.95,1.22,4.65,0,1.37-.26,2.62-.77,3.77-.52,1.15-1.24,2.14-2.17,2.97-.93.73-1.83,1.3-2.7,1.7-.87.4-1.75.7-2.65.9-.9.2-1.84.32-2.83.35-.98.03-2.02.05-3.12.05h-3.55v-3.65c.17-2.37,1.32-3.55,3.45-3.55h2.75c.87,0,1.68-.15,2.45-.45.77-.3,1.45-.71,2.05-1.22.6-.52,1.11-1.14,1.52-1.87.42-.73.67-1.52.77-2.35l.25-2.25v-2.3Z"/>
       <path d="M118.75,22.56h5.4v3.65c-.2,2.37-1.35,3.55-3.45,3.55h-1.35c-.2,0-.33.02-.4.05-1.27.33-2.36,1.01-3.27,2.02-.92,1.02-1.51,2.16-1.77,3.43-.03.2-.06.4-.08.6-.02.2-.02.42-.02.65,0,.93.17,1.82.52,2.65.35.83.84,1.57,1.48,2.2.63.63,1.37,1.12,2.2,1.48.83.35,1.72.52,2.65.52h.05c2.1,0,3.25,1.18,3.45,3.55v3.65h-3.55c-1.93,0-3.75-.37-5.45-1.1-1.7-.73-3.18-1.74-4.45-3.03-1.27-1.28-2.27-2.78-3-4.47-.73-1.7-1.1-3.52-1.1-5.45,0-1.73.3-3.38.9-4.95.6-1.57,1.42-2.97,2.47-4.2,1.05-1.23,2.3-2.27,3.75-3.1,1.45-.83,3.03-1.38,4.73-1.65l.3-.05Z"/>
@@ -34,10 +52,10 @@
     </g>
   </g>
 <g id="horizontal_bars" data-name="horizontal bars">
-  <path class="cls-1" d="M15.13,32.45v31.02" />
-  <path class="cls-1" d="M69.47,46.06v17.63" />
-  <path class="cls-1" d="M28.72,47.25v16.21" />
-  <path class="cls-1" d="M42.3,15.06v48.64" />
-  <path class="cls-1" d="M55.89,31.21v32.25" />
+  <path class="cls-1" d="M15.13,32.45v31.05" />
+  <path class="cls-1" d="M69.47,46.06v17.44" />
+  <path class="cls-1" d="M28.72,47.25v16.25" />
+  <path class="cls-1" d="M42.3,15.06v48.44" />
+  <path class="cls-1" d="M55.89,31.21v32.29" />
 </g>
 </svg>
