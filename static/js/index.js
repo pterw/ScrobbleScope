@@ -290,12 +290,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // The steppers reach 1, and "1 tracks" is the kind of small wrongness that
+  // makes a careful interface look careless.
+  function countOf(value, noun) {
+    return `≥${value} ${noun}${value === 1 ? '' : 's'}`;
+  }
+
   function updateThresholdSummary() {
     if (!thresholdSummary || !minPlays || !minTracks) return;
-    const plays  = clampToBounds(minPlays);
-    const tracks = clampToBounds(minTracks);
     // ≥ is the greater-or-equal glyph the content rules require.
-    thresholdSummary.textContent = `≥${plays} plays · ≥${tracks} tracks`;
+    thresholdSummary.textContent = [
+      countOf(clampToBounds(minPlays), 'play'),
+      countOf(clampToBounds(minTracks), 'track'),
+    ].join(' · ');
   }
 
   [minPlays, minTracks].forEach((input) => {
@@ -348,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const checked = document.querySelector('input[name="sort_by"]:checked');
       return checked && checked.value === 'playtime' ? 'play time' : 'play count';
     }
-    return `≥${clampToBounds(minPlays)} plays`;
+    return countOf(clampToBounds(minPlays), 'play');
   }
 
   function updateFilterTags() {
