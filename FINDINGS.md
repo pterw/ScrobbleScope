@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-23
+Last updated: 2026-08-24
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0, WP-1 and WP-2 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
 resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
@@ -9,7 +9,7 @@ WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
 F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. **WP-3 is next.**
-682 tests across 39 test modules.
+717 tests across 39 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -609,8 +609,16 @@ changes the gate every other work package depends on.
 
 Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
 
-Status: open. Both instances are corrected; the gap that let them drift is
-not.
+Status: closed. DOC007 and the SESSION_CONTEXT renderer now call the same
+finite, plan-aware next-WP helper. The CLI supplies the active definition's
+planned headings, so absorbed gaps are skipped and an all-complete plan
+terminates instead of hanging. DOC007 checks both the definition Status line
+and PLAYBOOK's actual Next action bullet; a missing parseable claim remains
+silent because it is a different defect. DOC008 applies the shared count
+authority to the FINDINGS header with header-specific remediation, including
+rotated per-batch logs and deterministic same-date batch ordering. Regression
+tests cover agreeing, disagreeing, unparseable, absorbed-gap, all-complete,
+header-scope, ambiguity and rotated-authority cases.
 Source: PR #216 review round two, 2026-08-23.
 
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries

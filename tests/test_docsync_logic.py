@@ -384,6 +384,21 @@ class TestSyncIntegration:
         assert "Batch 11" in session_text
         assert "Section 3 and Section 4" in session_text
 
+    def test_session_status_uses_active_definition_plan(self, sync_env: Path):
+        """The sync path passes the finite plan through to the renderer."""
+        playbook, archive, session = self._files(sync_env)
+
+        result = _sync(
+            playbook,
+            archive,
+            session,
+            keep_non_current=4,
+            planned_wp_numbers=(1, 3),
+        )
+
+        assert "- Next expected work package: WP-3." in result.session_lines
+        assert all("WP-2" not in line for line in result.session_lines)
+
     def test_session_status_uses_newest_side_task_full_suite_count(
         self, sync_env: Path
     ):

@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-23 - Node 20 CI deprecation filed as F-B21-12 (side-task)
+
+- Scope: recorded a warning the Quality Gate has started printing. No
+  workflow change, no dependency change, no code change.
+- Plan vs implementation: `F-B21-12` filed. Four pinned actions in
+  `.github/workflows/test.yml` -- `actions/cache`, `actions/checkout`,
+  `actions/setup-python` and `actions/upload-artifact` -- target Node 20,
+  which GitHub deprecated. Runs are forced onto Node 24 and pass, so nothing
+  is broken today.
+- Why file it: all four sit in one file and fail together on the day the
+  forced fallback is withdrawn. That break would land on whichever work
+  package is open, would look unrelated to its diff, and would block every
+  PR at once. The finding says to bump them in their own commit and to read
+  each action's releases rather than guess the major that carries the new
+  runtime.
+- Deviations: none.
+- Validation: `pytest -q` -- **666 passed**. All 11 pre-commit hooks pass.
+  `doc_state_sync.py --check` exits 0 with the expected active
+  root-definition warning.
+- Forward guidance: not urgent, but the deadline belongs to GitHub rather
+  than to this repository. Do it as a standalone commit, not folded into a
+  UI work package, because every other work package depends on that gate.
+
 ### 2026-08-22 - Tailwind citations renamed after the rescope (side-task)
 
 - Scope: 13 line citations in `FINDINGS.md` and

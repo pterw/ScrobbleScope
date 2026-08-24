@@ -93,7 +93,7 @@ See FINDINGS F-DOCSYNC-3.
   Three review rounds are applied on top: seven Codex comments in all,
   every one valid and fixed. Round three took the SMIL out of the header
   wordmark and gave the back-to-top control its wrapper back. The suite
-  is 682 and the gate runs 5 checks now.
+  is 717 and the gate runs 5 checks now.
   **WP-3 is next**: the index page, which deletes the welcome modal, replaces
   `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
   the thresholds disclosure. The root-hygiene side task is
@@ -375,6 +375,41 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-24 - F-B21-13 docsync bootstrap gate remediated (side-task)
+
+- Scope: closed `F-B21-13` with DOC007 and DOC008 on
+  `wip/f-b21-13-docsync-gate`, branched from `origin/main` at `658bdb2`;
+  WP-3 remains on `wip/batch-21`.
+- DOC007 now has one next-WP calculation. The managed SESSION_CONTEXT
+  renderer owns `_next_wp_number()`, the integrity check calls that helper,
+  and the CLI supplies the active definition's finite plan. Absorbed,
+  dropped and merged WP headings are skipped; a fully completed plan
+  terminates with no next package instead of looping forever, while any stale
+  numeric next-WP claim left at close-out is blocking. The definition Status
+  line, PLAYBOOK Section 3's actual Next action bullet, and SESSION_CONTEXT
+  Section 1's sole active Batch status row are checked for the same active
+  batch and next WP. Historical claims outside the bullet and earlier claims
+  superseded inside it cannot steal the comparison.
+- DOC008 applies `latest_test_count_authority()` to the FINDINGS.md header
+  with findings-specific remediation. Authority includes live entries, the
+  side-task archive and per-batch logs; a same-date tie between batch logs is
+  resolved by numeric batch chronology rather than filename insertion order.
+- Review remediation also repaired two misleading DOC007 fixtures so their
+  asserted WP ranges really sit inside the current-batch markers, and made
+  DOC008's error invariant say the header count "must agree" instead of
+  claiming that a detected mismatch already agrees. Every new edge case was
+  observed failing before its minimal fix.
+- Deviations: the owner authorized expanding the original PR file set on
+  2026-08-24 after the audit proved DOC007 and the renderer computed different
+  next-WP values. The expansion is limited to the renderer/sync/CLI data path
+  and its directly related docsync tests; no unrelated refactor was taken.
+- Validation: `pytest -q` -- **717 passed**, 3 warnings (was 682; 35 new
+  tests across the docsync integrity, renderer, logic, CLI and count suites).
+  The focused docsync suite is **219 passed**.
+- Forward guidance: WP-3 should still update the definition Status line as
+  an explicit task. The gate proves agreement; it does not replace writing
+  the canonical status correctly.
+
 ### 2026-08-23 - PR #216 review round three applied (side-task)
 
 - Scope: two review comments on `e9bac27`, both real rendering defects in
@@ -497,26 +532,3 @@ non-current operational logs. Older dated entries live in
   root-definition warning.
 - Forward guidance: the compiled stylesheet is 1,650 lines now, so every
   line citation into it is stale again. Cite the block, not the number.
-
-### 2026-08-23 - Node 20 CI deprecation filed as F-B21-12 (side-task)
-
-- Scope: recorded a warning the Quality Gate has started printing. No
-  workflow change, no dependency change, no code change.
-- Plan vs implementation: `F-B21-12` filed. Four pinned actions in
-  `.github/workflows/test.yml` -- `actions/cache`, `actions/checkout`,
-  `actions/setup-python` and `actions/upload-artifact` -- target Node 20,
-  which GitHub deprecated. Runs are forced onto Node 24 and pass, so nothing
-  is broken today.
-- Why file it: all four sit in one file and fail together on the day the
-  forced fallback is withdrawn. That break would land on whichever work
-  package is open, would look unrelated to its diff, and would block every
-  PR at once. The finding says to bump them in their own commit and to read
-  each action's releases rather than guess the major that carries the new
-  runtime.
-- Deviations: none.
-- Validation: `pytest -q` -- **666 passed**. All 11 pre-commit hooks pass.
-  `doc_state_sync.py --check` exits 0 with the expected active
-  root-definition warning.
-- Forward guidance: not urgent, but the deadline belongs to GitHub rather
-  than to this repository. Do it as a standalone commit, not folded into a
-  UI work package, because every other work package depends on that gate.

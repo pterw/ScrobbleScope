@@ -132,6 +132,28 @@ class TestMainArgs:
         monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
         assert cli_mod.main() == 0
 
+    def test_fix_renders_next_wp_from_active_definition_plan(
+        self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """The CLI supplies the active definition's finite plan to sync."""
+        (sync_env / "BATCH11_DEFINITION.md").write_text(
+            "# BATCH11\n\n"
+            "**Branch:** `wip/batch-11`.\n\n"
+            "### WP-1 -- Complete\n\n"
+            "### WP-2 -- Absorbed into WP-1\n\n"
+            "### WP-3 -- Next\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--fix"])
+
+        assert cli_mod.main() == 0
+
+        session = (sync_env / ".claude" / "SESSION_CONTEXT.md").read_text(
+            encoding="utf-8"
+        )
+        assert "- Next expected work package: WP-3." in session
+        assert "- Next expected work package: WP-2." not in session
+
     def test_missing_playbook_raises_exits_2(
         self, sync_env: Path, monkeypatch: pytest.MonkeyPatch
     ):

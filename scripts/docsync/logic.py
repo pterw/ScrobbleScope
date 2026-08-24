@@ -117,6 +117,7 @@ def _sync(
     session_lines: list[str] | None,
     keep_non_current: int,
     batch_log_lines: dict[int, list[str]] | None = None,
+    planned_wp_numbers: tuple[int, ...] | None = None,
 ) -> SyncResult:
     section_3_start, section_3_end = _find_section(
         playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
@@ -252,17 +253,22 @@ def _sync(
             SESSION_STATUS_END_MARKER,
             "SESSION_CONTEXT",
         )
-        count_authority = latest_test_count_authority(playbook_lines, new_archive_lines)
+        # Read the pre-rotation document. The authoritative count is a fact
+        # about the repository, so it must not change with how many entries
+        # the retention window happens to keep: the documented close-out
+        # command purges that window entirely, which would otherwise revive
+        # a superseded count and then fail its own consistency check.
+        # The batch logs are part of that fact too -- tagged entries rotate
+        # there rather than into the monolith -- so they travel with it.
+        count_authority = latest_test_count_authority(
+            playbook_lines, new_archive_lines, effective_batch_log_lines
+        )
         status_block = _build_status_block(
             section_3_state=section_3_state,
             current_entries=current_entries,
-            # Read the pre-rotation document. The authoritative count is a fact
-            # about the repository, so it must not change with how many entries
-            # the retention window happens to keep: the documented close-out
-            # command purges the window entirely, which would otherwise revive
-            # a superseded count and then fail its own consistency check.
             latest_test_count=count_authority.count,
             count_is_ambiguous=count_authority.ambiguous,
+            planned_wp_numbers=planned_wp_numbers,
         )
         new_session_lines = (
             session_lines[: status_start + 1]
@@ -299,10 +305,14 @@ _AMBIGUOUS_COUNT = _AmbiguousCount()
 # Source precedence, applied only to break a same-date tie in the ordering
 # below. A side-task entry is written after the batch entry it follows, and a
 # side-task entry still live in PLAYBOOK is newer than one that retention has
-# already moved into the archive.
-_PRECEDENCE_LIVE_SIDE = 2
-_PRECEDENCE_ROTATED = 1
-_PRECEDENCE_CURRENT_BATCH = 0
+# already moved into the archive -- so the monolith outranks the current batch
+# on a shared date. A per-batch log is different: its entries always belong to
+# a completed batch, so even on a shared date they are older work than the
+# active batch's entries and sit below them.
+_PRECEDENCE_LIVE_SIDE = 3
+_PRECEDENCE_ROTATED = 2
+_PRECEDENCE_CURRENT_BATCH = 1
+_PRECEDENCE_BATCH_LOG = 0
 
 
 def _monotonic_dates(source: list[Entry]) -> list[int]:
@@ -376,17 +386,25 @@ def _latest_test_count_from_entries(
 
 
 def latest_test_count_authority(
-    playbook_lines: list[str], archive_lines: list[str] | None = None
+    playbook_lines: list[str],
+    archive_lines: list[str] | None = None,
+    batch_log_lines: dict[int, list[str]] | None = None,
 ) -> TestCountAuthority:
     """Return the newest full-suite count recorded anywhere in the log.
 
     Authority is decided by one total ordering over every candidate entry --
     date descending, then source precedence descending -- which is walked once.
-    The three sources are the live side-task entries after the end marker
-    (newest-first as written), the rotated entries in ``archive_lines``, and the
+    The sources are the live side-task entries after the end marker
+    (newest-first as written), the rotated entries in ``archive_lines``, the
+    rotated entries in the per-batch logs (``batch_log_lines``), and the
     current-batch entries between the markers (append-ordered, so reversed
     here). Precedence breaks same-date ties only, in this order: live side task,
-    then rotated, then current batch.
+    then rotated monolith, then current batch, then per-batch logs. The
+    per-batch logs rank below the current batch because their entries always
+    belong to a completed batch -- even on a shared date they are older work
+    than the active batch's entries. The monolith ranks above the current
+    batch because a rotated side-task entry genuinely can be newer than the
+    batch entry it follows.
 
     Within that ordering, an explicit ``pytest -q`` result wins; an entry
     quoting several bold counts without one is ambiguous and makes the count
@@ -397,7 +415,9 @@ def latest_test_count_authority(
     The test count is a fact about the repository, so it must not change when
     the retention window moves an entry out of PLAYBOOK: the documented
     close-out command purges that window entirely, which would otherwise revive
-    a superseded count.
+    a superseded count. Tagged entries rotate into their per-batch log rather
+    than the monolith, so those logs are part of the same fact and are scanned
+    here too.
     """
     try:
         s4_start, s4_end = _find_section(
@@ -421,6 +441,7 @@ def latest_test_count_authority(
 
     current_candidates = list(reversed(current_entries))
     rotated_candidates: list[Entry] = []
+    batch_log_candidates: list[Entry] = []
     if archive_lines is not None:
         try:
             archive_entries, _ = _parse_entries(archive_lines)
@@ -429,11 +450,27 @@ def latest_test_count_authority(
         rotated_candidates = sorted(
             archive_entries, key=lambda entry: _date_key(entry.date), reverse=True
         )
+    if batch_log_lines:
+        # Later batches are later work when entries in separate logs share a
+        # date. Iterate numerically newest-first before the stable date sort;
+        # relying on mapping insertion order made BATCH20 outrank BATCH21 when
+        # the CLI happened to read the older filename first.
+        for batch_num in sorted(batch_log_lines, reverse=True):
+            log_lines = batch_log_lines[batch_num]
+            try:
+                log_entries, _ = _parse_entries(log_lines)
+            except SyncError:
+                continue
+            batch_log_candidates.extend(log_entries)
+        # Each log is newest-first by convention, and the numeric iteration
+        # above orders logs. This stable sort keeps both orders on a shared
+        # date.
+        batch_log_candidates.sort(key=lambda entry: _date_key(entry.date), reverse=True)
 
     # Build one total ordering over every candidate from every source, newest
     # first: clamped date descending, then source precedence descending.
-    # Scanning three sources separately and reconciling their winners afterwards
-    # is what produced the tie-break and fallback defects this replaces --
+    # Scanning sources separately and reconciling their winners afterwards is
+    # what produced the tie-break and fallback defects this replaces -- source
     # precedence now lives in the sort key alone.
     #
     # `sort` is stable and `reverse=True` does not reorder equal keys, so
@@ -449,6 +486,7 @@ def latest_test_count_authority(
         for source, precedence in (
             (current_candidates, _PRECEDENCE_CURRENT_BATCH),
             (rotated_candidates, _PRECEDENCE_ROTATED),
+            (batch_log_candidates, _PRECEDENCE_BATCH_LOG),
             (side_entries, _PRECEDENCE_LIVE_SIDE),
         )
         for entry, date_key in zip(source, _monotonic_dates(source))
