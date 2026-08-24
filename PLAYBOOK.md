@@ -82,23 +82,28 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** WP-2 is complete and **submitted as PR #216**, pushed
-  2026-08-23. It shipped the base shell, the `error.html` pilot, the
-  Playwright runtime, the frontend gate, and the compiled-CSS pre-commit
-  hook, closing F-B21-2, F-B21-7 and F-AUDIT-1 and filing F-B21-10, F-B21-11
-  and F-B21-12. The Quality Gate passed on `45fbbe8`: 12 steps green in
-  1m40s, `pytest` 666 passed, `frontend_gate` 4 checks passed, and the Linux
-  digest `71402508a5775dcb...` matched the Windows build. `pip-audit` still
-  reports its advisories without failing the gate, by design (F-B21-3).
-  Three review rounds are applied on top: seven Codex comments in all,
-  every one valid and fixed. Round three took the SMIL out of the header
-  wordmark and gave the back-to-top control its wrapper back. The suite
-  is 717 and the gate runs 5 checks now.
-  **WP-3 is next**: the index page, which deletes the welcome modal, replaces
-  `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
-  the thresholds disclosure. The root-hygiene side task is
-  **closed**: the owner rejected the audience-banner scheme on 2026-08-20,
-  and the config-file verdict landed in `DEPLOY.md`.
+- **Next action:** **WP-3 is next**, and it is now in progress. It rebuilds
+  `index.html` on Tailwind: editorial hero, regrouped form, the welcome
+  modal and the `bootstrap.Popover` hints deleted, and `limit_results`
+  relocated into the thresholds disclosure. The scope grew on 2026-08-23:
+  the heatmap has no page of its own, so its form, loading panel and result
+  frame are all on this page and **WP-6 is absorbed into WP-3**. WP-7 and
+  WP-8 keep their numbers. The plan is
+  `docs/superpowers/plans/2026-08-23-batch21-wp3-index-page.md`: 16 tasks in
+  six commits, owner-approved.
+  Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
+  (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
+  pilot, the Playwright runtime, the frontend gate and the compiled-CSS
+  pre-commit hook, closing F-B21-2, F-B21-7 and F-AUDIT-1 and filing
+  F-B21-10, F-B21-11 and F-B21-12. Codex raised seven comments across three
+  rounds; every one was valid and all seven were fixed before the merge.
+  Round three took the SMIL out of the header wordmark and gave the
+  back-to-top control its wrapper back. PR #217 merged the same day
+  (`8ed1650`), adding the DOC007 and DOC008 checks that close F-B21-13.
+  `pip-audit` still reports its advisories without failing the gate, by
+  design (F-B21-3). The root-hygiene side task is **closed**: the owner
+  rejected the audience-banner scheme on 2026-08-20, and the config-file
+  verdict landed in `DEPLOY.md`.
   Earlier context, still true: **PR #171 merged to `main` on 2026-08-19**
   (`bb187ae`, rebase merge) with zero unresolved review threads after eight
   rounds; `wip/batch-21` was realigned to it. `BATCH21_DEFINITION.md` was
@@ -109,8 +114,9 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0, WP-1 and WP-2 done. WP-3 through WP-8 not yet
-  started.
+- Batch 21 WP status: WP-0, WP-1 and WP-2 done. WP-3 in progress. WP-6 is
+  absorbed into WP-3 and ships no commit of its own. WP-4, WP-5, WP-7 and
+  WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
