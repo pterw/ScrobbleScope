@@ -393,8 +393,10 @@ non-current operational logs. Older dated entries live in
   side-task archive and per-batch logs; a same-date tie between batch logs is
   resolved by numeric batch chronology rather than filename insertion order.
 - Review remediation also repaired two misleading DOC007 fixtures so their
-  asserted WP ranges really sit inside the current-batch markers. Every new
-  edge case was observed failing before its minimal fix.
+  asserted WP ranges really sit inside the current-batch markers, and made
+  DOC008's error invariant say the header count "must agree" instead of
+  claiming that a detected mismatch already agrees. Every new edge case was
+  observed failing before its minimal fix.
 - Deviations: the owner authorized expanding the original PR file set on
   2026-08-24 after the audit proved DOC007 and the renderer computed different
   next-WP values. The expansion is limited to the renderer/sync/CLI data path

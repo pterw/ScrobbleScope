@@ -938,6 +938,8 @@ def test_doc008_stale_findings_header_count_is_blocking(tmp_path: Path):
     assert [(issue.code, issue.path, issue.line) for issue in issues] == [
         ("DOC008", "FINDINGS.md", 2)
     ]
+    assert "must agree" in issues[0].invariant
+    assert "count agrees" not in issues[0].invariant
     assert "666" not in issues[0].remediation
 
 

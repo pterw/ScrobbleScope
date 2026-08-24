@@ -550,7 +550,7 @@ def _check_findings_header_count(
         "DOC008",
         "FINDINGS.md",
         issue_line,
-        "The findings header test count agrees with the authoritative "
+        "The findings header test count must agree with the authoritative "
         "full-suite validation in the log.",
         _findings_count_remediation(authority),
     )
