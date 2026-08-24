@@ -103,6 +103,7 @@ Do not re-open these. Each is recorded with its source.
 | Heatmap cell geometry | Keep the 14px cell. Take the README's gap: 2px desktop, 1px mobile. Radius 2px already matches | This plan, resolving `RECONCILIATION.md` section 7 |
 | `--heatmap-empty` | Take the README values `#e8e2d6` light, `#262230` dark | `RECONCILIATION.md` section 7, which rules the README wins on this token |
 | `rocket_r` ramp in CSS | Mirror `--rocket-5` only. `static/js/heatmap.js` stays the owner of all seven stops | This plan. The absorbed WP-6 item asks for one accent, so one stop is all that is needed |
+| Mobile stylesheet | No separate Bootstrap sheet for mobile. Instead the frontend gate grows a 390x844 pass and a touch-target check, in Task 13 | Owner, 2026-08-24. Reasoning under Task 13 |
 
 **Do not re-open the 16px mobile input.** `static/css/index.css` forces
 `font-size: 16px` on mobile inputs to stop iOS auto-zoom, and
@@ -554,8 +555,40 @@ explains that the check avoids the index because the welcome modal covers the
 toggle. That reason is gone. This is the same class of staleness that cost
 PR #216 its second review round.
 
-**Step 3.** Run the gate. It should report 5 checks passed with the index now
-inside the theme-token, font and persistence checks.
+**Step 3.** Run the gate. The index now sits inside the theme-token, font and
+persistence checks. Do not quote a check count from this plan -- read it off
+the run, because step 4 changes it.
+
+**Step 4 (added 2026-08-24, owner).** **Give the gate a mobile viewport.**
+`main()` calls `browser.new_page()` with no viewport, so every check this
+batch has built runs at Playwright's 1280x720 default. Mobile is verified by
+owner review and nothing else, and WP-2 shipped two live rendering defects
+past all four gates. Run the visual checks at the design's mobile reference
+canvas, 390x844, as well as at desktop, and report which viewport a failure
+came from. `docs/design/README.md` "Responsive" fixes the single breakpoint
+at 860px, so the two sides are the whole matrix.
+
+**Step 5.** Add a touch-target check at the mobile viewport: every
+interactive element on a migrated page is at least 44px on its smaller axis.
+The README calls this non-negotiable and criterion 8 names it, and `F-AUDIT-1`
+was closed against the toggle alone with nothing holding the rest.
+
+**Why not a separate mobile stylesheet.** The owner asked on 2026-08-24
+whether Bootstrap should stay for mobile only. It cannot: a media-scoped link
+is still a loaded stylesheet, so `check_stylesheet_isolation` -- which asserts
+exactly one framework sheet, not merely "not both" -- fails on every page, and
+on mobile both sheets would apply, which is the `.btn`/`.card`/`.modal`
+collision the strangler exists to avoid. It would also leave criterion 1 and
+`F-B20-3` permanently unclosable. The measured work it would save is small:
+14 responsive Bootstrap grid classes across all six templates, five of them
+in `index.html` and deleted by commit 4 anyway. Tailwind is mobile-first, so
+the unprefixed utilities are the mobile case. The real gap the question
+exposed is the desktop-only gate, which steps 4 and 5 close.
+
+**Also worth recording:** the repository currently uses four breakpoints --
+860px in `shell.css`, 620px in `results.css`, 768px in `heatmap.css` and
+600px in `error.css` -- against a design that mandates one. Task 12 rewrites
+two of those files and should land on 860px. `error.css` belongs to WP-8.
 
 ### Task 14: The shell tests
 
