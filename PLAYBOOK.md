@@ -93,7 +93,7 @@ See FINDINGS F-DOCSYNC-3.
   Three review rounds are applied on top: seven Codex comments in all,
   every one valid and fixed. Round three took the SMIL out of the header
   wordmark and gave the back-to-top control its wrapper back. The suite
-  is 682 and the gate runs 5 checks now.
+  is 692 and the gate runs 5 checks now.
   **WP-3 is next**: the index page, which deletes the welcome modal, replaces
   `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
   the thresholds disclosure. The root-hygiene side task is
@@ -375,6 +375,39 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-23 - F-B21-13 docsync bootstrap checks (side-task)
+
+- Scope: closed `F-B21-13`. Added two integrity checks so the gate reads
+  all three bootstrap legs, not just PLAYBOOK. Worked on
+  `wip/f-b21-13-docsync-gate`, a linked worktree branched from
+  `origin/main` at `658bdb2`; WP-3 keeps `wip/batch-21`.
+- DOC007 compares the next work package. The renderer already computes it
+  from PLAYBOOK Section 4 entry headings; the check parses the `WP-N` claim
+  out of the active definition's Status line and reports an error when the
+  two disagree. When the status line makes no parseable claim the check
+  stays silent: a false mismatch is worse than no check, and an unparseable
+  line is a separate defect.
+- DOC008 applies `latest_test_count_authority()` to the FINDINGS.md header
+  count line, reusing `_count_remediation()`. An ambiguous authority blocks
+  here too, matching DOC006's rule.
+- Deviations: none. The checks were not extended to other documents; that
+  stays a future finding if wanted.
+- Validation: `pytest -q` -- **692 passed**, 3 warnings (was 682; ten new
+  tests in `test_docsync_integrity.py`). Both checks were proven able to
+  fail against the live repository before landing:
+  - Definition mutated to claim WP-9:
+    `ERROR DOC007 BATCH21_DEFINITION.md:3 -- The definition claims WP-9 is
+    next; PLAYBOOK Section 4 entries make WP-3 next.` then reverted.
+  - Findings header mutated to 666:
+    `ERROR DOC008 FINDINGS.md:12 -- The findings header test count agrees
+    with the authoritative full-suite validation in the log.` then
+    reverted.
+  After both reverts, `doc_state_sync.py --check` exits 0 with only the
+  expected root-definition warning.
+- Forward guidance: the definition's Status line is now gated, but WP-3
+  should still update it as an explicit task -- passing a gate is not a
+  reason to stop writing the line correctly.
+
 ### 2026-08-23 - PR #216 review round three applied (side-task)
 
 - Scope: two review comments on `e9bac27`, both real rendering defects in
@@ -497,26 +530,3 @@ non-current operational logs. Older dated entries live in
   root-definition warning.
 - Forward guidance: the compiled stylesheet is 1,650 lines now, so every
   line citation into it is stale again. Cite the block, not the number.
-
-### 2026-08-23 - Node 20 CI deprecation filed as F-B21-12 (side-task)
-
-- Scope: recorded a warning the Quality Gate has started printing. No
-  workflow change, no dependency change, no code change.
-- Plan vs implementation: `F-B21-12` filed. Four pinned actions in
-  `.github/workflows/test.yml` -- `actions/cache`, `actions/checkout`,
-  `actions/setup-python` and `actions/upload-artifact` -- target Node 20,
-  which GitHub deprecated. Runs are forced onto Node 24 and pass, so nothing
-  is broken today.
-- Why file it: all four sit in one file and fail together on the day the
-  forced fallback is withdrawn. That break would land on whichever work
-  package is open, would look unrelated to its diff, and would block every
-  PR at once. The finding says to bump them in their own commit and to read
-  each action's releases rather than guess the major that carries the new
-  runtime.
-- Deviations: none.
-- Validation: `pytest -q` -- **666 passed**. All 11 pre-commit hooks pass.
-  `doc_state_sync.py --check` exits 0 with the expected active
-  root-definition warning.
-- Forward guidance: not urgent, but the deadline belongs to GitHub rather
-  than to this repository. Do it as a standalone commit, not folded into a
-  UI work package, because every other work package depends on that gate.

@@ -9,7 +9,7 @@ WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
 F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. **WP-3 is next.**
-682 tests across 39 test modules.
+692 tests across 39 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -609,8 +609,12 @@ changes the gate every other work package depends on.
 
 Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
 
-Status: open. Both instances are corrected; the gap that let them drift is
-not.
+Status: closed. Both checks shipped as DOC007 and DOC008 in
+`scripts/docsync/integrity.py`, each with agreeing, disagreeing and
+unparseable-case tests, and both proven able to fail against the live
+repository before landing. The check stays silent when the definition makes
+no parseable next-WP claim: a false mismatch is worse than no check, and an
+unparseable status line is a separate defect.
 Source: PR #216 review round two, 2026-08-23.
 
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries

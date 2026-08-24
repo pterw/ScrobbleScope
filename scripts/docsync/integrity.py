@@ -10,8 +10,13 @@ from pathlib import Path
 from docsync.logic import latest_test_count_authority
 from docsync.models import IntegrityIssue, SyncError, TestCountAuthority
 from docsync.parser import (
+    CURRENT_BATCH_END_MARKER,
+    CURRENT_BATCH_START_MARKER,
     SECTION_3_RE,
     SECTION_4_RE,
+    _collect_wp_numbers,
+    _extract_entry_batch,
+    _find_marker_pair,
     _find_section,
     _parse_active_batch_state,
     _parse_entries,
@@ -35,6 +40,11 @@ NON_REPOSITORY_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|/|\.\./)")
 GENERATED_LOG_RE = re.compile(r"^docs/history/logs/BATCH\d+_LOG\.md$", re.IGNORECASE)
 DEFINITION_REFERENCE_RE = re.compile(r"Definition:\s*`([^`\n]+\.md)`")
 BRANCH_FIELD_RE = re.compile(r"^\s*(?:[-*+]\s+)?\*\*Branch:\*\*")
+DEFINITION_STATUS_LINE_RE = re.compile(r"^\*\*Status:\*\*")
+FINDINGS_HEADER_COUNT_RE = re.compile(
+    r"^(\d+)\s+tests\s+across\s+(\d+)\s+test\s+modules\.\s*$"
+)
+NEXT_WP_CLAIM_RE = re.compile(r"\bWP-(\d+)\b[^.]*?is\s+the\s+next", re.IGNORECASE)
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
 SESSION_CURRENT_COUNT_RES = (
     re.compile(r"^\|\s*Tests\s*\|\s*\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*"),
@@ -279,6 +289,135 @@ def _count_remediation(authority: TestCountAuthority) -> str:
     )
 
 
+def _computed_next_wp(playbook_lines: list[str]) -> int | None:
+    """Return the next work package number derived from PLAYBOOK Section 4.
+
+    Mirrors the renderer's rule: take the WP numbers named in current-batch
+    entry headings and choose the lowest positive integer not among them.
+    Returns None when there are no current-batch entries at all, which is
+    also what the renderer renders as "unknown" -- there is no number to
+    compare against then.
+    """
+    try:
+        s4_start, s4_end = _find_section(
+            playbook_lines, SECTION_4_RE, "PLAYBOOK section 4"
+        )
+        section_4_lines = playbook_lines[s4_start:s4_end]
+        marker_start, marker_end = _find_marker_pair(
+            section_4_lines,
+            CURRENT_BATCH_START_MARKER,
+            CURRENT_BATCH_END_MARKER,
+            "PLAYBOOK section 4",
+        )
+        entries, _ = _parse_entries(section_4_lines)
+    except SyncError:
+        return None
+    current_entries = [
+        entry for entry in entries if marker_start < entry.start_idx < marker_end
+    ]
+    if not current_entries:
+        return None
+    wp_numbers = set(_collect_wp_numbers(current_entries))
+    candidate = 1
+    while candidate in wp_numbers:
+        candidate += 1
+    return candidate
+
+
+def _definition_next_wp_claim(
+    definition_lines: list[str],
+) -> tuple[int | None, int | None]:
+    """Return (claimed next WP number, its line) from a definition status line.
+
+    The claim is recognized only in the sentence shape the definitions use:
+    a `WP-<N>` token followed by "is the next" wording. A status line with no
+    such claim returns (None, None) and DOC007 stays silent rather than
+    reporting a false mismatch -- an absent claim is a different defect than
+    a wrong one, and inventing a mismatch would train readers to ignore the
+    diagnostic. A second distinct problem, a malformed or missing status
+    line entirely, is likewise left to future work rather than guessed at.
+    """
+    for line_number, line in enumerate(definition_lines, start=1):
+        if DEFINITION_STATUS_LINE_RE.match(line) is None:
+            continue
+        match = NEXT_WP_CLAIM_RE.search(line)
+        if match is not None:
+            return int(match.group(1)), line_number
+    return None, None
+
+
+def _check_definition_next_wp(
+    playbook_lines: list[str],
+    definition_path: str,
+    definition_lines: list[str] | None,
+) -> IntegrityIssue | None:
+    """DOC007: the active definition must agree on the next work package.
+
+    PLAYBOOK Section 4 decides which work package comes next; the batch
+    definition's status line restates it by hand. Twice that hand copy went
+    stale during Batch 21 and both times a human reviewer caught it, so this
+    check compares the two mechanically. When the definition makes no
+    parseable claim the check stays silent: a false mismatch is worse than
+    no check, and an unparseable status line is a separate finding.
+    """
+    if definition_lines is None:
+        return None
+    computed = _computed_next_wp(playbook_lines)
+    claimed, claimed_line = _definition_next_wp_claim(definition_lines)
+    if computed is None or claimed is None:
+        return None
+    if computed == claimed:
+        return None
+    return _issue(
+        "DOC007",
+        definition_path,
+        claimed_line,
+        f"The definition claims WP-{claimed} is next; PLAYBOOK Section 4 "
+        f"entries make WP-{computed} next.",
+        "Update the definition's Status line to name WP-"
+        f"{computed} as the next batch work package.",
+    )
+
+
+def _check_findings_header_count(
+    findings_lines: list[str] | None, authority: TestCountAuthority
+) -> IntegrityIssue | None:
+    """DOC008: the FINDINGS.md header must carry the authoritative count.
+
+    The header publishes the suite total to every reader who opens the file,
+    but nothing gated it, and it published 666 for a full day after PLAYBOOK
+    and SESSION_CONTEXT had moved on. This applies the same authority DOC006
+    uses for SESSION_CONTEXT to that one header line. An ambiguous authority
+    blocks here too, exactly as it does for SESSION_CONTEXT: ambiguity let a
+    stale dashboard survive once already.
+    """
+    if findings_lines is None:
+        return None
+    fields = [
+        (line_number, int(match.group(1)))
+        for line_number, line in enumerate(findings_lines, start=1)
+        if (match := FINDINGS_HEADER_COUNT_RE.match(line)) is not None
+    ]
+    if not fields:
+        return None
+    mismatched = [
+        (line_number, count)
+        for line_number, count in fields
+        if authority.count is not None and count != authority.count
+    ]
+    if not mismatched and not (authority.ambiguous) and authority.count is not None:
+        return None
+    issue_line = mismatched[0][0] if mismatched else fields[0][0]
+    return _issue(
+        "DOC008",
+        "FINDINGS.md",
+        issue_line,
+        "The findings header test count agrees with the authoritative "
+        "full-suite validation in the log.",
+        _count_remediation(authority),
+    )
+
+
 def collect_integrity_issues(
     *,
     repo_root: Path,
@@ -470,5 +609,25 @@ def collect_integrity_issues(
                     _count_remediation(authority),
                 )
             )
+
+    if (
+        current_batch is not None
+        and definition_path is not None
+        and definition_issue is None
+    ):
+        definition_next_wp_issue = _check_definition_next_wp(
+            playbook_lines,
+            definition_path,
+            live_documents.get(definition_path),
+        )
+        if definition_next_wp_issue is not None:
+            issues.append(definition_next_wp_issue)
+
+    findings_count_issue = _check_findings_header_count(
+        live_documents.get("FINDINGS.md"),
+        latest_test_count_authority(playbook_lines, archive_lines),
+    )
+    if findings_count_issue is not None:
+        issues.append(findings_count_issue)
 
     return sorted(issues, key=lambda issue: (issue.path, issue.line or 0, issue.code))

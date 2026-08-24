@@ -776,6 +776,177 @@ def test_test_count_in_only_one_source_is_not_a_contradiction(tmp_path: Path):
     assert collect_integrity_issues(**inputs) == []
 
 
+# ---------------------------------------------------------------------------
+# DOC007: the definition's next-work-package claim vs PLAYBOOK Section 4
+# ---------------------------------------------------------------------------
+
+
+def _definition_with_status(status_line: str) -> list[str]:
+    return [
+        "# BATCH21",
+        "",
+        status_line,
+        "",
+        "**Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
+    ]
+
+
+def test_doc007_agreeing_next_wp_claims_are_clean(tmp_path: Path):
+    """A definition naming the same next WP as PLAYBOOK raises nothing."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
+        "**Status:** Active. WP-0 is complete. **WP-1 (toolchain) is the "
+        "next batch work package.**"
+    )
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_disagreeing_next_wp_claim_is_blocking(tmp_path: Path):
+    """A stale claim in the definition blocks at its own line."""
+    inputs = _valid_inputs(tmp_path)
+    # The fixture's only current-batch entry is tagged WP-0, so PLAYBOOK
+    # computes WP-1; a definition still claiming WP-2 must be caught.
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
+        "**Status:** Active. **WP-2 (shell) is the next batch work " "package.**"
+    )
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC007", "BATCH21_DEFINITION.md", 3)
+    ]
+    assert "WP-1" in issues[0].invariant
+    assert "WP-2" in issues[0].invariant
+    assert "WP-1" in issues[0].remediation
+
+
+def test_doc007_unparseable_next_wp_claim_stays_silent(tmp_path: Path):
+    """No parseable claim means no mismatch -- silence beats a false hit."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
+        "**Status:** Active. Work continues per PLAYBOOK Section 3."
+    )
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_missing_status_line_stays_silent(tmp_path: Path):
+    """A definition without a Status line at all is not a DOC007 defect."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
+        "# BATCH21",
+        "**Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_between_batches_never_reports(tmp_path: Path):
+    """With no current-batch entries there is no computed value to compare."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"][4:6] = [
+        "- **Batch 21 is complete.**",
+        "- **Batch 22 is not yet defined.**",
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
+        "**Status:** Complete. **WP-9 (sweep) is the next batch work " "package.**"
+    )
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_gap_in_completed_wps_picks_lowest_missing(tmp_path: Path):
+    """The renderer's lowest-missing rule decides what 'next' means."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        [
+            "",
+            "### 2026-08-06 - Another step (Batch 21 WP-2)",
+            "",
+            "Validation: `pytest -q` -- **400 passed**.",
+        ]
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    # WP-0 and WP-2 are tagged, so the lowest missing number is WP-1.
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
+        "**Status:** Active. **WP-3 (index) is the next batch work " "package.**"
+    )
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC007"]
+    assert "WP-1" in issues[0].invariant
+
+
+# ---------------------------------------------------------------------------
+# DOC008: the FINDINGS.md header test count
+# ---------------------------------------------------------------------------
+
+
+def test_doc008_agreeing_findings_header_count_is_clean(tmp_path: Path):
+    """The header repeating the authoritative count raises nothing."""
+    inputs = _valid_inputs(tmp_path)
+    # The fixture's newest full-suite entry records **390 passed**.
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "390 tests across 39 test modules.",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc008_stale_findings_header_count_is_blocking(tmp_path: Path):
+    """A header publishing an old total blocks at that line."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "666 tests across 39 test modules.",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [(issue.code, issue.path, issue.line) for issue in issues] == [
+        ("DOC008", "FINDINGS.md", 2)
+    ]
+    assert "666" not in issues[0].remediation
+
+
+def test_doc008_unparseable_findings_header_stays_silent(tmp_path: Path):
+    """No header count line means nothing to compare against."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "The suite grows every week.",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc008_ambiguous_authority_blocks_a_named_header_count(tmp_path: Path):
+    """Ambiguity suppresses older entries but must not disable this check."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        [
+            "",
+            "### 2026-08-06 - Ambiguous side task",
+            "",
+            "Validation: focused suite **12 passed**; full suite **530 passed**.",
+        ]
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "682 tests across 39 test modules.",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC008"]
+    assert "quotes several counts" in issues[0].remediation
+
+
 def test_collect_tracked_paths_reads_real_git_output(tmp_path: Path):
     """The default runner is never exercised through the CLI fixtures."""
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)

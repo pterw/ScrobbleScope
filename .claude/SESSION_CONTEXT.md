@@ -9,7 +9,7 @@ Last updated: 2026-08-23
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **682 passing** across 39 test modules |
+| Tests | **692 passing** across 39 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -47,7 +47,7 @@ Last updated: 2026-08-23
 - Current-batch entries in active log block: 5.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2.
 - Next expected work package: WP-3.
-- Latest validated test count: **682 passed**.
+- Latest validated test count: **692 passed**.
 - Newest current-batch entry: 2026-08-23 - Base shell, error-page pilot, and two new gates (Batch 21 WP-2).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -183,7 +183,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (682 tests)
+## 6. Test structure (692 tests)
 
 | File | Count |
 |------|-------|
@@ -213,7 +213,7 @@ loading.js polls GET /progress?job_id=...
 | services/test_spotify_service.py | 10 |
 | test_app_factory.py | 6 |
 | test_docsync_cli.py | 23 |
-| test_docsync_integrity.py | 61 |
+| test_docsync_integrity.py | 71 |
 | test_docsync_logic.py | 32 |
 | test_docsync_parser.py | 35 |
 | test_docsync_renderer.py | 25 |
