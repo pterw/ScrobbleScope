@@ -1,172 +1,823 @@
-/* index.css -- page-specific styles for the search form (index.html).
-   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
+/* index.css -- the index page: hero, mode tabs and every form control.
+   static/css/heatmap.css owns the heatmap surface and the wait panel.
+   static/css/shell.css owns the header bar and the two mark animations.
 
-.dark-mode .form-control,
-.dark-mode .form-select {
-  background-color: var(--input-bg);
-  border-color: var(--border-color);
-  color: #f8f9fa;
+   Every colour here comes from a theme token. The two daisyUI theme blocks in
+   static/css/tailwind.src.css are the only place a value is written down, so
+   both themes follow from one edit. Nothing in this file hardcodes a hex. */
+
+/* ------------------------------------------------------------------ */
+/* Page frame                                                          */
+/* ------------------------------------------------------------------ */
+.index-page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 18px 48px;
 }
 
-.dark-mode .form-text {
-  color: #aaa;
+.index-alert {
+  margin: 24px auto 0;
+  max-width: 640px;
+  padding: 12px 16px;
+  border: 1px solid var(--ss-bad);
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+  background-color: var(--ss-surface-card);
+  color: var(--ss-bad);
+  font-size: var(--text-body-sm);
 }
 
-/* Hide by default */
-#decade_dropdown,
-#release_year_group,
-#thresholdSettings {
-  display: none;
+/* Two columns, 1.1fr 1fr. Fixed padding on each side, so nothing re-centres
+   when the form grows or the browser zooms.
+
+   The columns stretch and their content sits at the top. Top-anchored is
+   about the content, not the box: with align-items: start the sunken well on
+   the right stops at the last form field and leaves a torn edge halfway down
+   the page. */
+.index-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
 }
 
-/* Tooltip icon (? circle next to labels) */
-.tooltip-icon {
+@media (min-width: 860px) {
+  .index-page {
+    padding: 0 34px;
+  }
+
+  .index-grid {
+    grid-template-columns: 1.1fr 1fr;
+    min-height: calc(100vh - var(--shell-height));
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Left column: the editorial hero                                     */
+/* ------------------------------------------------------------------ */
+.index-hero {
+  padding: 32px 0 40px;
+}
+
+@media (min-width: 860px) {
+  .index-hero {
+    padding: 56px;
+    padding-left: 0;
+  }
+}
+
+/* The wrapper needs an explicit auto height. A fixed height with a fluid SVG
+   inside makes the mark overflow its box and the h1 slides underneath it.
+   The cap matters too: uncapped, the mark grows with the viewport until it
+   dwarfs the headline. Both are recorded constraints, not preferences. */
+.index-hero__mark {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  margin-bottom: 32px;
+}
+
+.index-hero__mark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.eyebrow {
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  font-weight: var(--font-weight-normal);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+  margin: 0 0 12px;
+}
+
+.index-hero__headline {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 6vw, 2.625rem);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  color: var(--color-base-content);
+  margin: 0 0 16px;
+}
+
+/* The one italic clause. Purple carries it; the serif carries the voice. */
+.index-hero__headline em {
+  font-style: italic;
+  color: var(--color-primary);
+}
+
+.index-hero__lede {
+  max-width: 38ch;
+  font-size: var(--text-body-sm);
+  line-height: 1.5;
+  color: var(--ss-text-body);
+  margin: 0 0 24px;
+}
+
+/* Three capability marks. The arrow is a Unicode character on a pseudo
+   element, not an icon: the design system has no icon set and says so. */
+.index-hero__marks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.index-hero__marks li {
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.08em;
+  color: var(--ss-text-muted);
+}
+
+.index-hero__marks li::before {
+  content: "\2192";
+  margin-right: 8px;
+  color: var(--color-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/* Right column: the sunken form well                                  */
+/* ------------------------------------------------------------------ */
+.index-form {
+  padding: 24px 0 32px;
+}
+
+@media (min-width: 860px) {
+  .index-form {
+    padding: 52px 56px 56px 44px;
+    background-color: var(--ss-surface-sunken);
+    border-left: 1px solid var(--ss-border-default);
+    /* The well runs the height of the page, not the height of the form. */
+    min-height: 100%;
+  }
+}
+
+.index-form__inner {
+  width: 100%;
+  max-width: 380px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mode tabs                                                           */
+/* ------------------------------------------------------------------ */
+/* A raised chip on a sunken track -- the same grammar as the segmented
+   control below it, one size up. Both tabs share a min-width so neither is
+   wider than the other, which is F-B18-12. */
+.mode-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 14px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ss-border-default);
+  background-color: var(--color-base-100);
+}
+
+.mode-pill {
+  flex: 1 1 0;
+  min-width: 9rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.1rem;
-  height: 1.1rem;
-  border-radius: 50%;
-  background-color: #999;
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: var(--ss-text-muted);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-normal);
+  white-space: nowrap;
   cursor: pointer;
-  vertical-align: middle;
-  margin-left: 0.3rem;
-  transition: background-color 0.2s ease;
+  transition: color 0.2s ease, border-color 0.2s ease,
+    background-color 0.2s ease;
 }
 
-.tooltip-icon:hover,
-.tooltip-icon:focus {
-  background-color: var(--bars-color);
-  outline: none;
+.mode-pill:hover {
+  color: var(--color-primary);
 }
 
-/* Decade pill selector */
+.mode-pill.active {
+  background-color: var(--ss-surface-card);
+  border-color: var(--ss-border-default);
+  color: var(--color-base-content);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
+}
+
+/* The small square is a placeholder mark, not an icon set. The heatmap tab
+   takes the orange end of the rocket ramp, so the tab previews the data
+   colour it leads to. */
+.mode-pill__mark {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background-color: var(--color-primary);
+}
+
+.mode-pill__mark--heatmap {
+  background-color: var(--rocket-5);
+}
+
+/* ------------------------------------------------------------------ */
+/* Card                                                                */
+/* ------------------------------------------------------------------ */
+/* Border-defined, never shadow-defined. Cards in this system are an edge on
+   a warm surface, with no drop shadow at all. */
+.ss-card {
+  display: block;
+  padding: 18px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-lg);
+  background-color: var(--ss-surface-card);
+  box-shadow: none;
+}
+
+.ss-card__note {
+  margin: 4px 0 12px;
+  font-size: var(--text-body-sm);
+  line-height: 1.5;
+  color: var(--ss-text-body);
+}
+
+/* ------------------------------------------------------------------ */
+/* Fields                                                              */
+/* ------------------------------------------------------------------ */
+.field {
+  margin-bottom: 12px;
+}
+
+.field__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.field__label {
+  font-family: var(--font-sans);
+  font-size: var(--text-label);
+  font-weight: var(--font-weight-normal);
+  color: var(--color-base-content);
+}
+
+/* Micro-copy is mono and lowercase, right-aligned on the label row. Narrow
+   mono, not full-width: at this size and tracking the full-width face pushes
+   a hint into the label and clips it. */
+.field__hint {
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.04em;
+  color: var(--ss-text-muted);
+  text-align: right;
+}
+
+.field__help {
+  margin: 4px 0 0;
+  font-size: var(--text-label-sm);
+  line-height: 1.4;
+  color: var(--ss-text-muted);
+}
+
+/* Written into the page by static/js/index.js and static/js/heatmap.js. It
+   replaces Bootstrap's .invalid-feedback, which left with Bootstrap. */
+.field__error {
+  margin-top: 4px;
+  font-size: var(--text-label-sm);
+  line-height: 1.4;
+  color: var(--ss-bad);
+}
+
+.field__error:empty {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* Inputs and selects                                                  */
+/* ------------------------------------------------------------------ */
+.ss-input,
+.ss-select {
+  display: block;
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-sm);
+  /* The page colour, not the card colour: fields read as recessed. */
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+  font-family: var(--font-mono);
+  font-size: var(--text-body-sm);
+  line-height: 1.4;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.ss-input::placeholder {
+  color: var(--ss-text-muted);
+}
+
+.ss-input:hover,
+.ss-select:hover {
+  border-color: var(--color-primary);
+}
+
+/* The chevron is two CSS gradient triangles, not an icon font, and it
+   inherits the muted text colour in both themes. */
+.ss-select {
+  appearance: none;
+  padding-right: 34px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) calc(50% + 2px),
+    calc(100% - 12px) calc(50% + 2px);
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--color-base-content);
+}
+
+/* A resolved username shows a green check inside the field. Never both
+   states at once. The check is a Unicode character on a pseudo element, so
+   it takes the theme token; the design system has no icon set. Where :has()
+   is unsupported the border still turns green, which is the whole signal. */
+.field__control {
+  position: relative;
+}
+
+.field__control:has(.ss-input.is-valid)::after {
+  content: "\2713";
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  color: var(--color-success);
+  font-size: var(--text-body-sm);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.ss-input.is-valid {
+  border-color: var(--color-success);
+  padding-right: 34px;
+}
+
+.ss-input.is-invalid {
+  border-color: var(--ss-bad);
+}
+
+/* ------------------------------------------------------------------ */
+/* Field hints that open (the two ambiguous fields)                     */
+/* ------------------------------------------------------------------ */
+/* details/summary, not hover. A hover-only disclosure is unreachable by
+   keyboard and on touch, which turns "removed the popover dependency" into
+   "removed the explanation for some users". */
+.hint {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* The ring is a child, not the summary itself. That lets the summary grow to
+   a real 44px touch target on mobile while the visible circle stays 18px --
+   a 44px ring in a label row reads as a button. */
+.hint__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  list-style: none;
+}
+
+.hint__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.hint__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-full);
+  color: var(--ss-text-muted);
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  line-height: 1;
+}
+
+.hint__toggle:hover .hint__mark {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.hint__body {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: max-content;
+  max-width: 17rem;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-sm);
+  background-color: var(--ss-surface-card);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  color: var(--ss-text-body);
+  font-size: var(--text-label-sm);
+  line-height: 1.45;
+  text-align: left;
+}
+
+/* ------------------------------------------------------------------ */
+/* Decade pills                                                        */
+/* ------------------------------------------------------------------ */
 .decade-pills {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.4rem;
+  gap: 4px;
 }
 
 .decade-radio {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .decade-pill {
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  color: var(--ss-text-body);
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.06em;
   cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
-  user-select: none;
+  transition: color 0.2s ease, border-color 0.2s ease,
+    background-color 0.2s ease;
 }
 
 .decade-pill:hover {
-  border-color: var(--bars-color);
-  color: var(--bars-color);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .decade-radio:checked + .decade-pill {
-  background-color: var(--bars-color);
-  color: #fff;
-  border-color: var(--bars-color);
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-content);
 }
 
-.decade-pill-disabled {
-  opacity: 0.35;
+/* Kept visible, not removed. A dimmed decade tells the reader the decade
+   exists and holds nothing, which a missing pill does not. */
+.decade-pill.decade-pill-disabled {
+  opacity: 0.4;
   cursor: not-allowed;
-  pointer-events: none;
 }
 
-.dark-mode .decade-pill {
-  border-color: var(--border-color);
-  color: var(--text-color);
+.decade-radio:focus-visible + .decade-pill {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
-.dark-mode .decade-pill:hover {
-  border-color: var(--bars-color);
+/* ------------------------------------------------------------------ */
+/* Segmented control                                                   */
+/* ------------------------------------------------------------------ */
+.seg {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-base-100);
 }
 
-/* Info button (matches logo fade-in) */
-#infoButton {
-  opacity: 0;
-  animation: fadeIn 2s ease forwards;
+.seg__radio {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-/* Mobile scaling -- inputs stay >=16px to prevent iOS auto-zoom */
-@media (max-width: 767.98px) {
-  body {
-    min-height: 100dvh;
-    overflow-x: hidden;
-  }
+.seg__option {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border-radius: 6px;
+  color: var(--ss-text-muted);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-normal);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
 
-  .container.mt-5 {
-    margin-top: 0.5rem !important;
-    margin-bottom: 1rem !important;
-    padding-left: 0.6rem;
-    padding-right: 0.6rem;
-  }
+.seg__option:hover {
+  color: var(--color-primary);
+}
 
-  .container.mt-5 > .row {
-    --bs-gutter-x: 0;
-    margin-left: 0;
-    margin-right: 0;
-  }
+.seg__radio:checked + .seg__option {
+  background-color: var(--ss-surface-card);
+  color: var(--color-base-content);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
+}
 
-  #logo-wrapper {
-    margin-bottom: 0.5rem !important;
-  }
+.seg__radio:focus-visible + .seg__option {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
 
-  .card-body {
-    padding: 0.85rem;
-  }
+/* ------------------------------------------------------------------ */
+/* Thresholds disclosure                                               */
+/* ------------------------------------------------------------------ */
+/* Dashed top border marks the boundary. It expands in place, so nothing
+   below it jumps out of view on a phone. */
+.disclosure {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--ss-border-default);
+}
 
-  .card-body h2 {
-    font-size: 1.05rem;
-    margin-bottom: 0.7rem !important;
-  }
+.disclosure__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  cursor: pointer;
+  list-style: none;
+}
 
-  .card-body .form-label {
-    font-size: 0.8rem;
-    margin-bottom: 0.2rem;
-  }
+.disclosure__summary::-webkit-details-marker {
+  display: none;
+}
 
-  .card-body .form-check-label {
-    font-size: 0.8rem;
-  }
+/* The label is larger than its own summary, not smaller. */
+.disclosure__label {
+  font-size: var(--text-label);
+  color: var(--color-base-content);
+}
 
-  #logo-wrapper svg {
-    max-height: 72px;
-  }
+.disclosure__label::after {
+  content: "\25BC";
+  margin-left: 6px;
+  font-size: 0.6em;
+  color: var(--ss-text-muted);
+}
 
-  #infoButton {
-    margin-top: 0.3rem !important;
-    font-size: 0.72rem;
-    padding: 0.2rem 0.45rem;
-  }
+.disclosure[open] .disclosure__label::after {
+  content: "\25B2";
+}
 
-  .mb-3 {
-    margin-bottom: 0.55rem !important;
-  }
+/* The collapsed summary always states the active values. */
+.disclosure__values {
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.04em;
+  color: var(--ss-text-muted);
+  white-space: nowrap;
+}
 
-  .form-control,
-  .form-select {
+.th-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 0;
+}
+
+.th-row + .th-row {
+  border-top: 1px solid var(--ss-border-default);
+}
+
+.th-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-label);
+  color: var(--color-base-content);
+}
+
+.th-label small {
+  font-size: var(--text-label-sm);
+  color: var(--ss-text-muted);
+}
+
+.th-row--select {
+  border-top: 1px solid var(--ss-border-default);
+}
+
+.th-row--select .ss-select {
+  width: auto;
+  min-width: 8.5rem;
+  height: 38px;
+}
+
+.th-reset {
+  display: block;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.06em;
+  text-align: left;
+  cursor: pointer;
+}
+
+.th-reset:hover {
+  opacity: 0.86;
+}
+
+/* ------------------------------------------------------------------ */
+/* Stepper                                                             */
+/* ------------------------------------------------------------------ */
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-base-100);
+}
+
+.stepper__btn {
+  width: 34px;
+  height: 38px;
+  border: 0;
+  background: none;
+  color: var(--ss-text-body);
+  font-family: var(--font-mono);
+  font-size: var(--text-body);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.stepper__btn:hover {
+  color: var(--color-primary);
+}
+
+.stepper__value {
+  width: 3.25rem;
+  height: 38px;
+  border: 0;
+  border-left: 1px solid var(--ss-border-default);
+  border-right: 1px solid var(--ss-border-default);
+  background: none;
+  color: var(--color-base-content);
+  font-family: var(--font-mono);
+  font-size: var(--text-body-sm);
+  text-align: center;
+  /* The native spinners duplicate the two buttons beside them. */
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.stepper__value::-webkit-outer-spin-button,
+.stepper__value::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Submit                                                              */
+/* ------------------------------------------------------------------ */
+/* The one solid action on the page. Weight 400: a bold button label reads as
+   stapled on. Hover is opacity, never a colour change or a transform. */
+.ss-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary);
+  color: var(--color-primary-content);
+  font-family: var(--font-sans);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-normal);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.ss-submit:hover {
+  background-color: var(--color-primary);
+  opacity: 0.86;
+}
+
+.ss-submit__trail {
+  font-family: var(--font-mono);
+}
+
+/* ------------------------------------------------------------------ */
+/* Filter tags                                                         */
+/* ------------------------------------------------------------------ */
+.filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-full);
+  color: var(--ss-text-muted);
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------ */
+/* Focus                                                               */
+/* ------------------------------------------------------------------ */
+/* 2px accent ring at 2px offset on every interactive element, both themes.
+   The design calls this non-negotiable. */
+.index-page :is(a, button, input, select, summary):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Mobile                                                              */
+/* ------------------------------------------------------------------ */
+@media (max-width: 859.98px) {
+  /* 16px or larger, so iOS does not zoom the page on focus. The design's
+     9.5-13px mono sizes are desktop values. */
+  .ss-input,
+  .ss-select,
+  .stepper__value {
     font-size: 16px;
-    padding: 0.35rem 0.55rem;
   }
 
-  .form-text {
-    font-size: 0.73rem;
-    margin-top: 0.15rem;
+  .index-form__inner {
+    max-width: none;
   }
 
-  .decade-pill {
-    font-size: 0.75rem;
-    padding: 0.28rem 0.6rem;
+  .th-row {
+    flex-wrap: wrap;
   }
 
+  /* Touch targets never below 44px. The design calls this non-negotiable and
+     names the shipped build as the thing that broke it. Measured at the
+     390x844 reference canvas, six controls came in between 17px and 38px. */
+  .seg__option,
+  .stepper__btn,
+  .stepper__value,
+  .disclosure__summary,
+  .th-row--select .ss-select {
+    min-height: 44px;
+  }
+
+  .th-reset {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .hint__toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Reduced motion                                                      */
+/* ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .index-page * {
+    transition-duration: 0ms;
+  }
 }

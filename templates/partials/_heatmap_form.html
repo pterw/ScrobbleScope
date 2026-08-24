@@ -1,0 +1,48 @@
+{#
+  Heatmap mode: the form and the preview panel.
+
+  The card collapses to a single line here. The heatmap endpoint takes a
+  username and nothing else, so there is no year, no release filter and no
+  threshold. docs/design/README.md screen 1 states the line verbatim.
+
+  static/js/heatmap.js owns this section. It toggles #heatmap-form-section,
+  submits #heatmap-form over fetch, and appends its own .field__error
+  element to the parent of #heatmap-username. Keep that input inside a
+  wrapper of its own or the message lands beside the label.
+#}
+<section id="heatmap-form-section" class="mode-panel hidden" role="tabpanel"
+         aria-labelledby="mode-tab-heatmap">
+  <form id="heatmap-form" class="ss-card" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="field">
+      <div class="field__label-row">
+        <label class="field__label" for="heatmap-username">Last.fm username</label>
+        <span class="field__hint">public profile</span>
+      </div>
+      <div class="field__control">
+        <input type="text" id="heatmap-username" name="username" class="ss-input"
+               placeholder="your last.fm handle" autocomplete="username"
+               autocapitalize="none" spellcheck="false" required>
+      </div>
+    </div>
+
+    <p class="ss-card__note">The heatmap always covers the last 365 days. No other settings.</p>
+
+    <button type="submit" class="ss-submit">
+      Generate heatmap<span class="ss-submit__trail" aria-hidden="true">&#8594;</span>
+    </button>
+  </form>
+
+  {# Replaces the album mode filter tags. Says what the run produces, then
+     shows the ramp it will be drawn on. #}
+  <div class="hm-preview">
+    <span class="hm-preview__key">You&#8217;ll get</span>
+    <ul class="hm-preview__list">
+      <li>Scrobbles per day, coloured on the rocket scale</li>
+      <li>Total scrobbles and daily average</li>
+      <li>Your best day and current streak</li>
+    </ul>
+    <span class="hm-preview__ramp" aria-hidden="true"></span>
+  </div>
+</section>

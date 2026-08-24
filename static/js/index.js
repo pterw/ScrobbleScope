@@ -13,33 +13,29 @@ document.addEventListener('DOMContentLoaded', () => {
   scope.addEventListener('change', () => {
     toggleReleaseOptions();
     updateDecadePills();
-  });
-
-  /* ---------- Threshold settings ---------- */
-  const thresholdSwitch   = document.getElementById('thresholdSwitch');
-  const thresholdSettings = document.getElementById('thresholdSettings');
-
-  thresholdSwitch.addEventListener('change', () => {
-    thresholdSettings.style.display = thresholdSwitch.checked ? 'block' : 'none';
+    updateFilterTags();
   });
 
   /* ---------- Username & year validation ---------- */
   const usernameInput    = document.getElementById('username');
   const yearSelect       = document.getElementById('year');
   const releaseYearInput = document.getElementById('release_year');
+  const yearHint         = document.getElementById('year-hint');
   const usernameError    = document.createElement('div');
-  usernameError.className = 'invalid-feedback';
+  // field__error is ours. The Bootstrap classes this used to carry
+  // (invalid-feedback, form-text, text-danger) left the page with Bootstrap.
+  usernameError.className = 'field__error';
   usernameInput.parentNode.appendChild(usernameError);
 
   // Year inline warning (no green/checkmark — only shows on error)
   const yearWarning = document.createElement('div');
-  yearWarning.className = 'form-text text-danger';
+  yearWarning.className = 'field__error';
   yearWarning.style.display = 'none';
   if (yearSelect) yearSelect.parentNode.appendChild(yearWarning);
 
   // Custom Release Year inline warning
   const releaseYearWarning = document.createElement('div');
-  releaseYearWarning.className = 'form-text text-danger';
+  releaseYearWarning.className = 'field__error';
   releaseYearWarning.style.display = 'none';
   if (releaseYearInput) releaseYearInput.parentNode.appendChild(releaseYearWarning);
 
@@ -153,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Decade warning shown below the pills
   const decadeWarning = document.createElement('div');
-  decadeWarning.className = 'form-text text-danger mt-1';
+  decadeWarning.className = 'field__error';
   decadeWarning.style.display = 'none';
   if (decadeDropdown) decadeDropdown.appendChild(decadeWarning);
 
@@ -239,6 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (data.registered_year && yearSelect) {
             registeredYear = data.registered_year;
             yearSelect.min = registeredYear;
+            // The hint carries the join year once we know it. It is the whole
+            // reason the field no longer needs a "?" popover: the range shown
+            // is the range this account can actually answer for.
+            if (yearHint) {
+              yearHint.textContent = `joined ${registeredYear}`;
+            }
             validateYear();
             updateDecadePills();
           }
@@ -255,22 +257,119 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 300);
   });
 
-  /* ---------- Welcome modal (first visit) ---------- */
-  const welcomeModal = document.getElementById('welcomeModal');
-  if (welcomeModal && !localStorage.getItem('seenWelcome')) {
-    const modal = new bootstrap.Modal(welcomeModal);
-    modal.show();
-    welcomeModal.addEventListener('hidden.bs.modal', () => {
-      localStorage.setItem('seenWelcome', 'true');
-    }, { once: true });
+  /* ---------- Thresholds: steppers, summary, reset ---------- */
+  // The two minimums are real number inputs now, not selects of fixed values.
+  // The buttons only move the input; every reader listens to its input event,
+  // so keyboard entry and the buttons take the same path.
+  const minPlays  = document.getElementById('min_plays');
+  const minTracks = document.getElementById('min_tracks');
+  const thresholdSummary = document.getElementById('threshold-summary');
+  const thresholdReset   = document.getElementById('threshold_reset');
+  const limitResults     = document.getElementById('limit_results');
+
+  function clampToBounds(input) {
+    const min = parseInt(input.min, 10);
+    const max = parseInt(input.max, 10);
+    let value = parseInt(input.value, 10);
+    if (Number.isNaN(value)) value = min;
+    return Math.min(max, Math.max(min, value));
   }
 
-  /* ---------- Bootstrap popovers ---------- */
-  const popoverTriggers = document.querySelectorAll('[data-bs-toggle="popover"]');
-  popoverTriggers.forEach(el => {
-    new bootstrap.Popover(el, { placement: 'top', container: 'body' });
+  function nudge(input, step) {
+    input.value = String(Math.min(
+      parseInt(input.max, 10),
+      Math.max(parseInt(input.min, 10), clampToBounds(input) + step)
+    ));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  document.querySelectorAll('.stepper__btn').forEach((button) => {
+    button.addEventListener('click', () => {
+      const target = document.getElementById(button.dataset.target);
+      if (target) nudge(target, parseInt(button.dataset.step, 10));
+    });
   });
+
+  function updateThresholdSummary() {
+    if (!thresholdSummary || !minPlays || !minTracks) return;
+    const plays  = clampToBounds(minPlays);
+    const tracks = clampToBounds(minTracks);
+    // ≥ is the greater-or-equal glyph the content rules require.
+    thresholdSummary.textContent = `≥${plays} plays · ≥${tracks} tracks`;
+  }
+
+  [minPlays, minTracks].forEach((input) => {
+    if (!input) return;
+    input.addEventListener('input', () => {
+      updateThresholdSummary();
+      updateFilterTags();
+    });
+    // A typed value outside the range is only corrected when the field is
+    // left, so the user can still type "1" on the way to "15".
+    input.addEventListener('blur', () => {
+      input.value = String(clampToBounds(input));
+      updateThresholdSummary();
+      updateFilterTags();
+    });
+  });
+
+  if (thresholdReset) {
+    thresholdReset.addEventListener('click', () => {
+      if (minPlays) minPlays.value = '10';
+      if (minTracks) minTracks.value = '3';
+      updateThresholdSummary();
+      updateFilterTags();
+    });
+  }
+
+  /* ---------- Filter tags ---------- */
+  // A read-only echo of the four settings that change what comes back. It
+  // saves reopening the disclosure to check what is set.
+  const filterTags = document.getElementById('filter-tags');
+
+  function tagText(name) {
+    const year = parseInt(yearSelect.value, 10);
+    if (name === 'year') {
+      return Number.isNaN(year) ? 'no year' : String(year);
+    }
+    if (name === 'scope') {
+      if (scope.value === 'all') return 'all years';
+      if (scope.value === 'decade') {
+        const checked = document.querySelector('.decade-radio:checked');
+        return checked ? checked.value : 'no decade';
+      }
+      if (scope.value === 'custom') {
+        return releaseYearInput.value ? `release ${releaseYearInput.value}` : 'any release';
+      }
+      if (Number.isNaN(year)) return 'release year';
+      return `release ${scope.value === 'previous' ? year - 1 : year}`;
+    }
+    if (name === 'sort') {
+      const checked = document.querySelector('input[name="sort_by"]:checked');
+      return checked && checked.value === 'playtime' ? 'play time' : 'play count';
+    }
+    return `≥${clampToBounds(minPlays)} plays`;
+  }
+
+  function updateFilterTags() {
+    if (!filterTags) return;
+    filterTags.querySelectorAll('[data-tag]').forEach((tag) => {
+      tag.textContent = tagText(tag.dataset.tag);
+    });
+  }
+
+  document.querySelectorAll('input[name="sort_by"]').forEach((radio) => {
+    radio.addEventListener('change', updateFilterTags);
+  });
+  document.querySelectorAll('.decade-radio').forEach((radio) => {
+    radio.addEventListener('change', updateFilterTags);
+  });
+  if (yearSelect) yearSelect.addEventListener('input', updateFilterTags);
+  if (releaseYearInput) releaseYearInput.addEventListener('input', updateFilterTags);
+  if (limitResults) limitResults.addEventListener('change', updateFilterTags);
 
   /* ---------- Initial state sync ---------- */
   toggleReleaseOptions();           // set decade/custom vis on first load
+  updateThresholdSummary();
+  updateFilterTags();
 });

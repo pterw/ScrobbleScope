@@ -2,256 +2,261 @@
 
 {% block title %}ScrobbleScope{% endblock %}
 
+{# Migrated to Tailwind, so this page opts out of the legacy stack. Loading
+   Bootstrap as well would collide: both frameworks claim .btn and .card, and
+   Tailwind's preflight would reset the Bootstrap rules. #}
+{% block legacy_css %}{% endblock %}
+
 {% block stylesheets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/heatmap.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-  <div class="row justify-content-center">
-    <div class="col-md-8 text-center mb-4" id="logo-wrapper">
-      <div class="ss-mark" aria-label="ScrobbleScope logo visualization" role="img">
-        {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
-      </div>
-      <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="infoButton" data-bs-toggle="modal" data-bs-target="#welcomeModal">Info</button>
+<main class="index-page">
 
-      {# Pill tabs: switch between Top Albums and Heatmap modes #}
-      <div class="mode-pills mt-3">
-        <span class="mode-pill active" data-mode="album" role="button" tabindex="0">Top Albums</span>
-        <span class="mode-pill" data-mode="heatmap" role="button" tabindex="0">Heatmap</span>
+  {% if error %}
+  <div class="index-alert" role="alert">{{ error }}</div>
+  {% endif %}
+
+  {# Two columns on desktop, 1.1fr 1fr, both top-anchored. One column under
+     860px, the single breakpoint for the whole design. The grid hides while
+     the heatmap runs so the 53-week grid gets the full page width. #}
+  <div class="index-grid" id="index-grid">
+
+    <div class="index-hero">
+      {# The lockup, not the full mark. The tagline lives inside the full logo
+         art, and the h1 below already states the proposition. #}
+      <div class="index-hero__mark ss-mark">
+        {% include 'inline/scrobble_scope_lockup_inline.svg' ignore missing %}
       </div>
+
+      <div data-mode-hero="album">
+        <p class="eyebrow">Album filtering</p>
+        <h1 class="index-hero__headline">Your top albums, <em>any year or decade.</em></h1>
+        <p class="index-hero__lede">Rank a single year, a whole decade, or your entire
+          history &#8212; by play count or by the hours you actually spent listening.
+          Built for AOTY lists with the nuance the official charts never give you.</p>
+      </div>
+
+      <div data-mode-hero="heatmap" class="hidden">
+        <p class="eyebrow">Listening heatmap</p>
+        <h1 class="index-hero__headline">A year of listening, <em>one grid.</em></h1>
+        <p class="index-hero__lede">Every scrobble from the last 365 days, coloured on
+          the rocket scale. Hover any day to see what you played.</p>
+      </div>
+
+      <ul class="index-hero__marks">
+        <li>Any year or decade</li>
+        <li>Count or listening time</li>
+        <li>CSV + JPEG export</li>
+      </ul>
     </div>
 
-    {# ---- Top Albums form (default visible) ---- #}
-    <div class="col-md-6" id="album-form-section">
+    <div class="index-form">
+      <div class="index-form__inner">
 
-      {% if error %}
-      <div class="alert alert-danger alert-dismissible fade show text-center mb-3" role="alert">
-        {{ error }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-      </div>
-      {% endif %}
+        {# The app's only navigation. Real buttons, equal width, closing
+           F-B18-12 and the span[role=button] item in F-B21-5. The class
+           mode-pill is the hook static/js/heatmap.js queries. #}
+        <div class="mode-tabs" role="tablist" aria-label="Mode">
+          <button type="button" id="mode-tab-album" class="mode-pill active"
+                  data-mode="album" role="tab" aria-selected="true"
+                  aria-controls="album-form-section">
+            <span class="mode-pill__mark" aria-hidden="true"></span>Top albums
+          </button>
+          <button type="button" id="mode-tab-heatmap" class="mode-pill"
+                  data-mode="heatmap" role="tab" aria-selected="false"
+                  aria-controls="heatmap-form-section">
+            <span class="mode-pill__mark mode-pill__mark--heatmap" aria-hidden="true"></span>Heatmap
+          </button>
+        </div>
 
-      <div class="card shadow">
-        <div class="card-body">
-          <h2 class="text-center mb-4">Filter Your Album Scrobbles!</h2>
-
-          <form method="post" action="/results_loading">
+        <section id="album-form-section" class="mode-panel" role="tabpanel"
+                 aria-labelledby="mode-tab-album">
+          <form method="post" action="/results_loading" class="ss-card">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="mb-3">
-              <label for="username" class="form-label">
-                Last.fm Username:
-                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Your public Last.fm username — scrobbles are fetched from this account.">?</span>
-              </label>
-              <input type="text" id="username" name="username" class="form-control" placeholder="Enter your Last.fm username" required>
+
+            {# --- Identity --- #}
+            <div class="field">
+              <div class="field__label-row">
+                <label class="field__label" for="username">Last.fm username</label>
+                <span class="field__hint">public profile</span>
+              </div>
+              <div class="field__control">
+                <input type="text" id="username" name="username" class="ss-input"
+                       placeholder="your last.fm handle" autocomplete="username"
+                       autocapitalize="none" spellcheck="false" required>
+              </div>
             </div>
 
-            <div class="mb-3">
-              <label for="year" class="form-label">
-                Listening Year:
-                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="The calendar year to scan your scrobbles from. Only plays within this year are counted.">?</span>
-              </label>
-              <input type="number" id="year" name="year" class="form-control" inputmode="numeric" min="2002" max="{{ current_year }}" value="{{ current_year }}" placeholder="e.g. {{ current_year }}" required>
+            {# --- Filtering --- #}
+            <div class="field">
+              <div class="field__label-row">
+                <label class="field__label" for="year">Listening year</label>
+                {# static/js/index.js rewrites this to the join year once
+                   /validate_user resolves the username. #}
+                <span class="field__hint" id="year-hint">2002&#8211;{{ current_year }}</span>
+              </div>
+              <div class="field__control">
+                <input type="number" id="year" name="year" class="ss-input"
+                       inputmode="numeric" min="2002" max="{{ current_year }}"
+                       value="{{ current_year }}" placeholder="{{ current_year }}" required>
+              </div>
+              <p class="field__help">Only plays inside this calendar year are counted.</p>
             </div>
 
-            <div class="mb-3">
-              <label for="release_scope" class="form-label">
-                Album Release Date Filter:
-                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Controls which albums appear based on their Spotify release date. 'Same as Listening Year' is ideal for AOTY lists.">?</span>
-              </label>
-              <select id="release_scope" name="release_scope" class="form-select">
-                <option value="same">Same as Listening Year</option>
-                <option value="previous">Previous Year</option>
-                <option value="decade">Choose Decade</option>
-                <option value="custom">Pick Specific Year</option>
-                <option value="all">All Years (No Filter)</option>
-              </select>
+            <div class="field">
+              <div class="field__label-row">
+                <label class="field__label" for="release_scope">Album release filter</label>
+                {# One of the two ambiguous fields. details/summary opens on
+                   click, tap and Enter, so the explanation is reachable by
+                   keyboard and on touch. Hover alone would not be. #}
+                <details class="hint">
+                  <summary class="hint__toggle" aria-label="What the release filter does">
+                    <span class="hint__mark" aria-hidden="true">?</span>
+                  </summary>
+                  <p class="hint__body">Filters albums by their Spotify release date.
+                    Same as listening year is the one for AOTY lists.</p>
+                </details>
+              </div>
+              <div class="field__control">
+                <select id="release_scope" name="release_scope" class="ss-select">
+                  <option value="same">Same as listening year</option>
+                  <option value="previous">Previous year</option>
+                  <option value="decade">Choose decade</option>
+                  <option value="custom">Pick specific year</option>
+                  <option value="all">All years (no filter)</option>
+                </select>
+              </div>
             </div>
 
-            <div class="mb-3" id="decade_dropdown">
-              <label class="form-label">Decade:</label>
-              <div class="decade-pills">
+            <div class="field" id="decade_dropdown">
+              <div class="field__label-row">
+                <span class="field__label" id="decade-label">Decade</span>
+              </div>
+              <div class="decade-pills" role="group" aria-labelledby="decade-label">
                 {% for decade in ['2020s','2010s','2000s','1990s','1980s','1970s','1960s','1950s'] %}
-                  <input type="radio" id="decade_{{ decade }}" name="decade" value="{{ decade }}" class="decade-radio"{% if loop.first %} checked{% endif %}>
-                  <label for="decade_{{ decade }}" class="decade-pill">{{ decade }}</label>
+                <input type="radio" id="decade_{{ decade }}" name="decade" value="{{ decade }}" class="decade-radio"{% if loop.first %} checked{% endif %}>
+                <label for="decade_{{ decade }}" class="decade-pill">{{ decade }}</label>
                 {% endfor %}
               </div>
             </div>
 
-            <div class="mb-3" id="release_year_group">
-              <label for="release_year" class="form-label">Custom Release Year:</label>
-              <input type="number" id="release_year" name="release_year" class="form-control" inputmode="numeric" min="1900" max="{{ current_year }}" placeholder="e.g., 1982">
-            </div>
-
-            <div class="mb-3">
-              <label for="sort_by" class="form-label">
-                Sort By:
-                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Play Count ranks by total scrobbles. Play Time ranks by how long you actually listened (track runtime × plays).">?</span>
-              </label>
-              <select id="sort_by" name="sort_by" class="form-select">
-                <option value="playcount">Play Count</option>
-                <option value="playtime">Play Time</option>
-              </select>
-            </div>
-
-            <!-- Limit Results -->
-            <div class="mb-3">
-              <label for="limit_results" class="form-label">
-                Number of Albums to Display:
-                <span class="tooltip-icon" tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-content="Cap how many albums appear in your results. 'Show All' returns every album that passes your filters.">?</span>
-              </label>
-              <select id="limit_results" name="limit_results" class="form-select">
-                <option value="all" selected>Show All Results</option>
-                <option value="10">Top 10</option>
-                <option value="25">Top 25</option>
-                <option value="50">Top 50</option>
-                <option value="100">Top 100</option>
-              </select>
-            </div>
-
-            <!-- Define Album Thresholds toggle -->
-            <div class="mb-3 form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="thresholdSwitch">
-              <label class="form-check-label" for="thresholdSwitch">
-                Customize Album Thresholds
-                <small class="text-muted">(Filter out albums with too few plays)</small>
-              </label>
-            </div>
-
-            <div id="thresholdSettings">
-              <div class="mb-3">
-                <label for="min_plays" class="form-label">Minimum Track Plays Per Album</label>
-                <select id="min_plays" name="min_plays" class="form-select">
-                  <option value="1">1 play</option>
-                  <option value="3">3 plays</option>
-                  <option value="5">5 plays</option>
-                  <option value="7">7 plays</option>
-                  <option value="10" selected>10 plays (default)</option>
-                  <option value="15">15 plays</option>
-                  <option value="20">20 plays</option>
-                </select>
-                <div class="form-text">Total plays across all tracks from the album. Lower values show more albums.</div>
+            <div class="field" id="release_year_group">
+              <div class="field__label-row">
+                <label class="field__label" for="release_year">Release year</label>
               </div>
-              <div class="mb-3">
-                <label for="min_tracks" class="form-label">Minimum Unique Tracks Per Album</label>
-                <select id="min_tracks" name="min_tracks" class="form-select">
-                  <option value="1">1 track</option>
-                  <option value="2">2 tracks</option>
-                  <option value="3" selected>3 tracks (default)</option>
-                  <option value="4">4 tracks</option>
-                  <option value="5">5 tracks</option>
-                </select>
-                <div class="form-text">Different tracks you must have played from the album. Filters out single-song listens.</div>
+              <div class="field__control">
+                <input type="number" id="release_year" name="release_year" class="ss-input"
+                       inputmode="numeric" min="1900" max="{{ current_year }}" placeholder="1982">
               </div>
             </div>
 
-            <div class="text-center mt-4">
-              <button type="submit" class="btn btn-primary">Search Albums</button>
+            {# --- Display --- #}
+            <div class="field">
+              <div class="field__label-row">
+                <span class="field__label" id="sort-label">Rank by</span>
+                <details class="hint">
+                  <summary class="hint__toggle" aria-label="What ranking does">
+                    <span class="hint__mark" aria-hidden="true">?</span>
+                  </summary>
+                  <p class="hint__body">Play count ranks by total scrobbles. Play time
+                    ranks by how long you actually listened, track runtime times plays.</p>
+                </details>
+              </div>
+              <div class="seg" role="group" aria-labelledby="sort-label">
+                <input type="radio" id="sort_playcount" name="sort_by" value="playcount" class="seg__radio" checked>
+                <label for="sort_playcount" class="seg__option">Play count</label>
+                <input type="radio" id="sort_playtime" name="sort_by" value="playtime" class="seg__radio">
+                <label for="sort_playtime" class="seg__option">Play time</label>
+              </div>
             </div>
+
+            {# --- Thresholds ---
+               Closed by default, dashed top border, expands in place. The
+               summary always states the active values. limit_results lives
+               here by BATCH21_DEFINITION.md decision 3: the control is a real
+               Spotify-load saving on large libraries, so it moves rather than
+               going away. It sits below the two minimums and outside the
+               summary, because how many albums you list is not part of what
+               counts as listened. #}
+            <details class="disclosure">
+              <summary class="disclosure__summary">
+                <span class="disclosure__label">What counts as listened</span>
+                <span class="disclosure__values" id="threshold-summary">&#8805;10 plays &#183; &#8805;3 tracks</span>
+              </summary>
+
+              <div class="th-row">
+                <label class="th-label" for="min_plays">Minimum plays
+                  <small>total plays across the album</small>
+                </label>
+                <div class="stepper">
+                  <button type="button" class="stepper__btn" data-step="-1" data-target="min_plays" aria-label="Decrease minimum plays">&#8722;</button>
+                  <input type="number" id="min_plays" name="min_plays" class="stepper__value"
+                         value="10" min="1" max="50" step="1" inputmode="numeric">
+                  <button type="button" class="stepper__btn" data-step="1" data-target="min_plays" aria-label="Increase minimum plays">+</button>
+                </div>
+              </div>
+
+              <div class="th-row">
+                <label class="th-label" for="min_tracks">Minimum unique tracks
+                  <small>filters out single-song listens</small>
+                </label>
+                <div class="stepper">
+                  <button type="button" class="stepper__btn" data-step="-1" data-target="min_tracks" aria-label="Decrease minimum unique tracks">&#8722;</button>
+                  <input type="number" id="min_tracks" name="min_tracks" class="stepper__value"
+                         value="3" min="1" max="10" step="1" inputmode="numeric">
+                  <button type="button" class="stepper__btn" data-step="1" data-target="min_tracks" aria-label="Increase minimum unique tracks">+</button>
+                </div>
+              </div>
+
+              <button type="button" class="th-reset" id="threshold_reset">Reset to &#8805;10 plays and &#8805;3 tracks</button>
+
+              <div class="th-row th-row--select">
+                <label class="th-label" for="limit_results">Show
+                  <small>how many albums to list</small>
+                </label>
+                <select id="limit_results" name="limit_results" class="ss-select">
+                  <option value="all" selected>All results</option>
+                  <option value="10">Top 10</option>
+                  <option value="25">Top 25</option>
+                  <option value="50">Top 50</option>
+                  <option value="100">Top 100</option>
+                </select>
+              </div>
+            </details>
+
+            <button type="submit" class="ss-submit">
+              Search albums<span class="ss-submit__trail" aria-hidden="true">&#8594;</span>
+            </button>
           </form>
 
-        </div>
-      </div>
-    </div>
-    {# ---- end Top Albums form ---- #}
-
-    {# ---- Heatmap form (hidden by default) ---- #}
-    <div class="col-md-6 d-none" id="heatmap-form-section">
-      <div class="card shadow">
-        <div class="card-body">
-          <h2 class="text-center mb-4">Scrobble Heatmap</h2>
-          <p class="text-center text-muted mb-3" style="font-size: 0.85rem;">
-            Visualize your listening activity over the last 365 days.
-          </p>
-
-          <form id="heatmap-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="mb-3">
-              <label for="heatmap-username" class="form-label">Last.fm Username:</label>
-              <input type="text" id="heatmap-username" name="username" class="form-control" placeholder="Enter your Last.fm username" required autocomplete="username">
-            </div>
-
-            <div class="text-center mt-4">
-              <button type="submit" class="btn btn-primary">Generate Heatmap</button>
-            </div>
-          </form>
-
-        </div>
-      </div>
-    </div>
-    {# ---- end Heatmap form ---- #}
-
-    {# ---- Heatmap loading container (hidden) ---- #}
-    <div class="col-md-8 d-none" id="heatmap-loading">
-      <div class="heatmap-loading-panel">
-        <div class="heatmap-spinner-wrapper ss-pinwheel" aria-label="Loading animation" role="img">
-          {% include 'inline/scrobblescope_pinwheel.svg' ignore missing %}
-        </div>
-        <p id="heatmap-progress-text">Initializing...</p>
-
-        <div id="heatmap-error" class="d-none">
-          <p id="heatmap-error-message"></p>
-          <button type="button" class="btn btn-outline-primary btn-sm" id="heatmap-retry-btn">Retry</button>
-          <a href="/" class="btn btn-outline-secondary btn-sm ms-2">Home</a>
-        </div>
-      </div>
-    </div>
-    {# ---- end Heatmap loading ---- #}
-
-    {# ---- Heatmap result container (hidden) ---- #}
-    <div class="col-md-8 d-none" id="heatmap-result">
-      <p class="heatmap-headline d-none" id="heatmap-result-headline"></p>
-      <div class="heatmap-frame d-none" id="heatmap-result-frame">
-        <div class="heatmap-frame-top">
-          <div class="heatmap-kpi-row" id="heatmap-kpi-row"></div>
-          <div class="heatmap-legend">
-            <span>Less</span>
-            <div class="heatmap-legend-bar" id="heatmap-legend-bar"></div>
-            <span>More</span>
+          {# Echoes the active filters. static/js/index.js keeps them current. #}
+          <div class="filter-tags" id="filter-tags" aria-live="polite">
+            <span class="tag" data-tag="year">{{ current_year }}</span>
+            <span class="tag" data-tag="scope">release {{ current_year }}</span>
+            <span class="tag" data-tag="sort">play count</span>
+            <span class="tag" data-tag="plays">&#8805;10 plays</span>
           </div>
-        </div>
-        <div id="heatmap-grid"></div>
-      </div>
-      <div class="text-center mt-3">
-        <button type="button" class="btn btn-outline-primary btn-sm" id="heatmap-search-again">Search Again</button>
-      </div>
-    </div>
-    {# ---- end Heatmap result ---- #}
+        </section>
 
-  </div>
-</div>
+        {% include 'partials/_heatmap_form.html' %}
 
-<!-- Welcome Modal -->
-<div class="modal fade" id="welcomeModal" tabindex="-1" aria-labelledby="welcomeModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="welcomeModalLabel">Welcome to ScrobbleScope!</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <p>Discover your top albums from Last.fm with powerful filtering and sorting options:</p>
-        <ul>
-          <li><strong>Filter by Release Date:</strong> View albums from a specific year, decade, or all time</li>
-          <li><strong>Sort by Play Count or Listening Time:</strong> See what you played most or listened to longest</li>
-          <li><strong>Customize Thresholds:</strong> Focus on albums you really engaged with</li>
-          <li><strong>Limit Results:</strong> View your top 10, 25, 50, or 100 albums</li>
-          <li><strong>Export &amp; Share:</strong> Download as CSV or save as an image</li>
-          <li><strong>Scrobble Heatmap:</strong> Visualize your daily listening activity over the last year</li>
-        </ul>
-        <p class="mb-0"><small><strong>Tip:</strong> Use the pill tabs above the form to switch between Top Albums and Heatmap modes.</small></p>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Get Started</button>
       </div>
     </div>
   </div>
-</div>
-{% endblock %}
 
-{% block bootstrap_js %}
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  {# Both heatmap stages sit outside the grid so the 53-week grid can use the
+     whole page. static/js/heatmap.js hides #index-grid while either shows. #}
+  <div id="heatmap-loading" class="heatmap-stage hidden">
+    {% include 'partials/_loading.html' %}
+  </div>
+
+  {% include 'partials/_heatmap_result.html' %}
+
+</main>
 {% endblock %}
 
 {% block scripts %}

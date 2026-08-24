@@ -24,6 +24,16 @@ from tests.helpers import TEST_JOB_PARAMS, VALID_FORM_DATA
 HEATMAP_JOB_PARAMS = {"username": "testuser", "mode": "heatmap"}
 
 
+#: Stands in for "the index page rendered" in the tests below.
+#:
+#: It used to be the form card's h2, "Filter Your Album Scrobbles!". WP-3
+#: removed that heading: the design's card carries no title, and the
+#: exclamation mark belongs to the old register. This is the page headline
+#: instead -- copy the index would be wrong without, which is what a marker
+#: has to be.
+INDEX_HEADLINE = b"Your top albums,"
+
+
 def test_home_page(client):
     """
     GIVEN a Flask application configured for testing
@@ -32,18 +42,26 @@ def test_home_page(client):
     """
     response = client.get("/")
     assert response.status_code == 200
-    assert b"Filter Your Album Scrobbles!" in response.data
+    assert INDEX_HEADLINE in response.data
 
 
-def test_home_page_uses_top_albums_mode_label(client):
-    """The index page labels the album mode as Top Albums in tabs and help copy."""
+def test_home_page_mode_tabs_are_real_buttons(client):
+    """The mode tabs are buttons, in sentence case, with no span standing in.
+
+    They were span[role="button"][tabindex="0"] before WP-3, which is one of
+    the three defects in F-B21-5, and they had unequal widths, which is
+    F-B18-12. A real button brings Enter and Space with it, so the keydown
+    handler that used to fake them is gone from static/js/heatmap.js.
+    """
     response = client.get("/")
 
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert ">Top Albums</span>" in html
-    assert "switch between Top Albums and Heatmap modes" in html
-    assert ">Album Filtering</span>" not in html
+    assert '<button type="button" id="mode-tab-album"' in html
+    assert '<button type="button" id="mode-tab-heatmap"' in html
+    assert "Top albums" in html
+    assert "Top Albums" not in html
+    assert 'role="button"' not in html
 
 
 def test_home_page_heatmap_loading_uses_unframed_panel(client):
@@ -54,7 +72,7 @@ def test_home_page_heatmap_loading_uses_unframed_panel(client):
     html = response.get_data(as_text=True)
     _, loading_tail = html.split('id="heatmap-loading"', 1)
     loading_markup, _ = loading_tail.split('id="heatmap-result"', 1)
-    assert "heatmap-loading-panel" in loading_markup
+    assert "wait-panel" in loading_markup
     # This used to assert animateTransform, using the SMIL as a stand-in for
     # "the pinwheel is here". WP-3 stripped the SMIL, so the stand-in is now
     # ss-pinwheel: the wrapper class shell.css animates. A missing wrapper is
@@ -203,7 +221,7 @@ def test_results_loading_capacity_exceeded_returns_error(client):
     ):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 200
-    assert b"Filter Your Album Scrobbles!" in response.data
+    assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
     assert b"Too many requests" in response.data
 
@@ -237,7 +255,7 @@ def test_results_loading_thread_start_failure_renders_error(client):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
 
     assert response.status_code == 200
-    assert b"Filter Your Album Scrobbles!" in response.data
+    assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
     # The route must have called delete_job on the job it created: JOBS must be
     # back to its pre-request size with no orphan entry left behind.
@@ -279,7 +297,7 @@ def test_results_loading_missing_username(client):
     )
     assert response.status_code == 200
     # Should render the index form, NOT the loading page
-    assert b"Filter Your Album Scrobbles!" in response.data
+    assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
     # Error message should be rendered in the alert block
     assert b"Username and year are required." in response.data
@@ -297,7 +315,7 @@ def test_results_loading_year_out_of_bounds(client):
     )
     assert response.status_code == 200
     # Should render the index form, NOT the loading page
-    assert b"Filter Your Album Scrobbles!" in response.data
+    assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
     # Error message should be rendered in the alert block
     assert b"Year must be between" in response.data
@@ -672,7 +690,7 @@ def test_results_loading_year_below_registration_year_rejected(client):
             "/results_loading", data={**VALID_FORM_DATA, "year": "2015"}
         )
     assert response.status_code == 200
-    assert b"Filter Your Album Scrobbles!" in response.data
+    assert INDEX_HEADLINE in response.data
     assert b"window.SCROBBLE" not in response.data
     assert b"2016" in response.data
     assert b"registration year" in response.data

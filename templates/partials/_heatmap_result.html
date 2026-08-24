@@ -1,0 +1,30 @@
+{#
+  The heatmap result: headline, frame and the way back to the form.
+
+  static/js/heatmap.js fills every empty node here and toggles the "hidden"
+  class on the section, the headline and the frame. Do not rename an id; the
+  script reads all seven by id.
+
+  The frame carries its own surface and radius so the grid sits on the warm
+  heatmap ground rather than the page. docs/design/README.md screen 4 owns
+  those values.
+#}
+<section id="heatmap-result" class="heatmap-stage hidden">
+  <p class="heatmap-headline hidden" id="heatmap-result-headline"></p>
+
+  <div class="heatmap-frame hidden" id="heatmap-result-frame">
+    <div class="heatmap-frame-top">
+      <div class="heatmap-kpi-row" id="heatmap-kpi-row"></div>
+      <div class="heatmap-legend">
+        <span class="heatmap-legend__cap">Less</span>
+        <div class="heatmap-legend-bar" id="heatmap-legend-bar"></div>
+        <span class="heatmap-legend__cap">More</span>
+      </div>
+    </div>
+    <div id="heatmap-grid"></div>
+  </div>
+
+  <div class="heatmap-result__actions">
+    <button type="button" class="ss-btn" id="heatmap-search-again">New search</button>
+  </div>
+</section>

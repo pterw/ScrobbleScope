@@ -23,7 +23,7 @@
 
   // Grid geometry
   const CELL_SIZE  = 14;
-  const CELL_GAP   = 3;
+  const CELL_GAP   = 2;
   const STEP       = CELL_SIZE + CELL_GAP;
   const LEFT_PAD   = 32;  // space for day-of-week labels
   const TOP_PAD    = 20;  // space for month labels
@@ -33,7 +33,14 @@
   const MOBILE_MAX_CELL_SIZE = 28;
   const MOBILE_MIN_COLUMNS = 10;
   const MOBILE_MAX_COLUMNS = 28;
-  const MOBILE_GAP = 2;
+  const MOBILE_GAP = 1;
+
+  // Input Mono Narrow, not Input Mono. Full-width Input at 9-11px with this
+  // much tracking overflows its row and clips. Named here rather than read
+  // from var(--font-mono-narrow), because these land on an SVG presentation
+  // attribute, where a custom property does not resolve.
+  const LABEL_FONT_STACK =
+    '"input-mono-narrow", "input-mono", ui-monospace, monospace';
 
   const MONTH_NAMES = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -109,9 +116,19 @@
     return Math.log10(count + 1) / Math.log10(maxCount + 1);
   }
 
-  /** Zero-scrobble cell fill based on dark mode. */
+  /**
+   * Zero-scrobble cell fill based on dark mode.
+   *
+   * The two values are --heatmap-empty from the theme. They are repeated as
+   * literals because this fill goes on an SVG attribute, where var() does not
+   * resolve. static/css/tailwind.src.css stays the definition; change both.
+   *
+   * The marker read here is body.dark-mode, not the data-theme attribute on
+   * html. static/js/theme.js still writes both, and WP-8 owns retiring the
+   * older one -- do not switch this ahead of it.
+   */
   function zeroFill() {
-    return document.body.classList.contains('dark-mode') ? '#2a2a2a' : '#e0e0e0';
+    return document.body.classList.contains('dark-mode') ? '#262230' : '#e8e2d6';
   }
 
   /** Build the rocket_r CSS gradient string for the legend bar. */
@@ -163,7 +180,7 @@
   }
 
   function fitHeadlineToWidth() {
-    if (!resultHeadline || resultHeadline.classList.contains('d-none')) return;
+    if (!resultHeadline || resultHeadline.classList.contains('hidden')) return;
 
     resultHeadline.style.fontSize = '';
     resultHeadline.style.whiteSpace = '';
@@ -244,7 +261,8 @@
   // ----------------------------------------------------------------
   // DOM references (set on DOMContentLoaded)
   // ----------------------------------------------------------------
-  var pills, albumSection, heatmapSection, heatmapLoading,
+  var pills, albumSection, heatmapSection, heatmapLoading, indexGrid,
+      heroBlocks,
       heatmapResult, heatmapForm, heatmapUsernameInput,
       progressText, errorContainer, errorMessage,
       retryBtn, searchAgainBtn, resultHeadline, resultFrame,
@@ -267,51 +285,53 @@
     pills = document.querySelectorAll('.mode-pill');
     albumSection   = document.getElementById('album-form-section');
     heatmapSection = document.getElementById('heatmap-form-section');
+    indexGrid      = document.getElementById('index-grid');
+    heroBlocks     = document.querySelectorAll('[data-mode-hero]');
 
     pills.forEach(function (pill) {
       pill.addEventListener('click', function () {
         var mode = this.getAttribute('data-mode');
-        pills.forEach(function (p) { p.classList.remove('active'); });
-        this.classList.add('active');
+        var self = this;
+        pills.forEach(function (p) {
+          p.classList.toggle('active', p === self);
+          p.setAttribute('aria-selected', p === self ? 'true' : 'false');
+        });
 
-        if (mode === 'heatmap') {
-          albumSection.classList.add('d-none');
-          heatmapSection.classList.remove('d-none');
-          // Hide result/loading if showing
-          hideElement(heatmapLoading);
-          hideElement(heatmapResult);
-        } else {
-          heatmapSection.classList.add('d-none');
-          albumSection.classList.remove('d-none');
-          hideElement(heatmapLoading);
-          hideElement(heatmapResult);
-        }
-      });
+        // The hero names the mode in its eyebrow and its headline, so it
+        // switches with the form. Both blocks are in the page; one is hidden.
+        heroBlocks.forEach(function (hero) {
+          hero.classList.toggle(
+            'hidden', hero.getAttribute('data-mode-hero') !== mode);
+        });
 
-      // Keyboard accessibility: Enter/Space toggles pill
-      pill.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          this.click();
-        }
+        hideElement(mode === 'heatmap' ? albumSection : heatmapSection);
+        showElement(mode === 'heatmap' ? heatmapSection : albumSection);
+        hideElement(heatmapLoading);
+        hideElement(heatmapResult);
+        showElement(indexGrid);
       });
     });
   }
+
+  // The pills are real <button> elements now, so Enter and Space already
+  // activate them. The keydown handler that stood in for that on
+  // span[role="button"] is gone with the spans -- F-B18-12 and one of the
+  // three items in F-B21-5.
 
   // ----------------------------------------------------------------
   // Show/hide helpers with optional fade
   // ----------------------------------------------------------------
   function showElement(el) {
-    el.classList.remove('d-none');
+    el.classList.remove('hidden');
   }
 
   function hideElement(el) {
-    el.classList.add('d-none');
+    el.classList.add('hidden');
   }
 
   function fadeIn(el) {
     el.classList.add('heatmap-fade', 'fading-out');
-    el.classList.remove('d-none');
+    el.classList.remove('hidden');
     // Force reflow then remove fading-out
     void el.offsetWidth;
     el.classList.remove('fading-out');
@@ -325,7 +345,7 @@
     if (!heatmapUsernameInput) return;
 
     var feedback = document.createElement('div');
-    feedback.className = 'invalid-feedback';
+    feedback.className = 'field__error';
     heatmapUsernameInput.parentNode.appendChild(feedback);
 
     heatmapUsernameInput.addEventListener('input', function () {
@@ -408,7 +428,8 @@
 
     searchAgainBtn.addEventListener('click', function () {
       hideElement(heatmapResult);
-      heatmapSection.classList.remove('d-none');
+      showElement(indexGrid);
+      showElement(heatmapSection);
       heatmapUsernameInput.value = lastUsername;
       heatmapUsernameInput.classList.remove('is-valid', 'is-invalid');
       heatmapUsernameInput.focus();
@@ -418,12 +439,15 @@
   function submitHeatmap(username) {
     // Reset UI: show loading, hide form + result + error
     stopPolling();
+    // The grid is 53 weeks wide and cannot fit the form column, so the whole
+    // two-column hero steps aside while the heatmap is on screen.
+    hideElement(indexGrid);
     hideElement(heatmapSection);
     hideElement(heatmapResult);
     hideElement(errorContainer);
     progressText.textContent = 'Initializing...';
     // Show spinner wrapper if hidden
-    var spinnerWrapper = heatmapLoading.querySelector('.heatmap-spinner-wrapper');
+    var spinnerWrapper = heatmapLoading.querySelector('.wait-panel__mark');
     if (spinnerWrapper) spinnerWrapper.style.display = '';
     fadeIn(heatmapLoading);
 
@@ -520,7 +544,7 @@
 
   function showError(message, retryable) {
     // Hide spinner
-    var spinnerWrapper = heatmapLoading.querySelector('.heatmap-spinner-wrapper');
+    var spinnerWrapper = heatmapLoading.querySelector('.wait-panel__mark');
     if (spinnerWrapper) spinnerWrapper.style.display = 'none';
     progressText.textContent = '';
 
@@ -576,10 +600,10 @@
       txt.setAttribute('x', LEFT_PAD - 6);
       txt.setAttribute('y', TOP_PAD + dl.row * STEP + CELL_SIZE * 0.75);
       txt.setAttribute('text-anchor', 'end');
-      txt.setAttribute('font-size', '9');
-      txt.setAttribute('font-family',
-        'ui-monospace, "Cascadia Code", "Fira Mono", monospace');
-      txt.setAttribute('letter-spacing', '0.04em');
+      txt.setAttribute('font-size', '9.5');
+      txt.setAttribute('font-family', LABEL_FONT_STACK);
+      txt.setAttribute('font-variant', 'small-caps');
+      txt.setAttribute('letter-spacing', '0.12em');
       txt.setAttribute('fill', 'currentColor');
       txt.setAttribute('class', 'heatmap-day-label');
       txt.textContent = dl.text;
@@ -598,10 +622,10 @@
           var mTxt = document.createElementNS(SVG_NS, 'text');
           mTxt.setAttribute('x', LEFT_PAD + col * STEP);
           mTxt.setAttribute('y', TOP_PAD - 5);
-          mTxt.setAttribute('font-size', '9');
-          mTxt.setAttribute('font-family',
-            'ui-monospace, "Cascadia Code", "Fira Mono", monospace');
-          mTxt.setAttribute('letter-spacing', '0.04em');
+          mTxt.setAttribute('font-size', '9.5');
+          mTxt.setAttribute('font-family', LABEL_FONT_STACK);
+          mTxt.setAttribute('font-variant', 'small-caps');
+          mTxt.setAttribute('letter-spacing', '0.12em');
           mTxt.setAttribute('fill', 'currentColor');
           mTxt.setAttribute('class', 'heatmap-month-label');
           mTxt.textContent = MONTH_NAMES[d.getMonth()];
@@ -837,7 +861,7 @@
     resizeTimer = window.setTimeout(function () {
       fitHeadlineToWidth();
 
-      if (!lastHeatmapData || !heatmapResult || heatmapResult.classList.contains('d-none')) {
+      if (!lastHeatmapData || !heatmapResult || heatmapResult.classList.contains('hidden')) {
         return;
       }
 
@@ -851,7 +875,21 @@
   // ----------------------------------------------------------------
   // Init on DOMContentLoaded
   // ----------------------------------------------------------------
+  /**
+   * Paint the heatmap-mode preview ramp.
+   *
+   * The ramp shows the reader the colour scale before there is any data. It
+   * reads ROCKET_STOPS through the same helper the legend uses, so the two
+   * cannot drift. The CSS deliberately does not carry the seven stops: one
+   * copy of the ramp, and this file owns it.
+   */
+  function initPreviewRamp() {
+    var ramp = document.querySelector('.hm-preview__ramp');
+    if (ramp) ramp.style.backgroundImage = legendGradient();
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
+    initPreviewRamp();
     initPills();
     initUsernameValidation();
     initForm();
