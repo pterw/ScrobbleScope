@@ -41,9 +41,47 @@ GENERATED_LOG_RE = re.compile(r"^docs/history/logs/BATCH\d+_LOG\.md$", re.IGNORE
 DEFINITION_REFERENCE_RE = re.compile(r"Definition:\s*`([^`\n]+\.md)`")
 BRANCH_FIELD_RE = re.compile(r"^\s*(?:[-*+]\s+)?\*\*Branch:\*\*")
 DEFINITION_STATUS_LINE_RE = re.compile(r"^\*\*Status:\*\*")
-FINDINGS_HEADER_COUNT_RE = re.compile(
-    r"^(\d+)\s+tests\s+across\s+(\d+)\s+test\s+modules\.\s*$"
+DEFINITION_WP_HEADING_RE = re.compile(r"^###\s+WP-(\d+)\b", re.IGNORECASE)
+WP_SKIPPED_RE = re.compile(
+    r"\b(?:absorbed\s+into|dropped|merged\s+into)\b", re.IGNORECASE
 )
+
+
+def _definition_wp_numbers(definition_lines: list[str]) -> tuple[int, ...]:
+    """Return the work-package numbers the definition actually plans.
+
+    Read from the definition's own `### WP-N` headings rather than assumed
+    contiguous: batches drop or absorb work packages (Batch 17 shipped with
+    WP-5 dropped; Batch 21 absorbs WP-6 into WP-3), and a lowest-missing-
+    integer rule would then demand a number that no work package will ever
+    satisfy. A heading whose section is marked absorbed or dropped is
+    excluded, so an honestly stubbed-out package never blocks the gate.
+    """
+    numbers: list[int] = []
+    current_skipped = False
+    for line in definition_lines:
+        heading_match = DEFINITION_WP_HEADING_RE.match(line)
+        if heading_match is not None:
+            if WP_SKIPPED_RE.search(line):
+                current_skipped = True
+            else:
+                current_skipped = False
+                numbers.append(int(heading_match.group(1)))
+        elif current_skipped and line.startswith("### "):
+            # A new non-WP section ends the skipped block.
+            current_skipped = False
+    return tuple(numbers)
+
+
+FINDINGS_HEADER_COUNT_RE = re.compile(
+    r"^>?\s*\*{0,2}(\d+)\s+tests\s+across\s+(\d+)\s+test\s+modules\.\*{0,2}\s*$"
+)
+# The count line lives in FINDINGS.md's header block, before the first
+# section heading. Scanning the whole file let a historical example or an
+# archived finding's prose become a live count assertion; scoping to the
+# region also makes a formatting change to the real header a visible
+# failure instead of a silent skip.
+_FINDINGS_HEADER_END_RE = re.compile(r"^#{1,6}\s+")
 NEXT_WP_CLAIM_RE = re.compile(
     r"\bWP-(\d+)\b(?:\s*\([^)]*\))?\s+is\s+(?:the\s+)?next",
     re.IGNORECASE,
@@ -310,11 +348,17 @@ def _findings_count_remediation(authority: TestCountAuthority) -> str:
     )
 
 
-def _computed_next_wp(playbook_lines: list[str]) -> int | None:
+def _computed_next_wp(
+    playbook_lines: list[str], definition_lines: list[str] | None = None
+) -> int | None:
     """Return the next work package number derived from PLAYBOOK Section 4.
 
-    Mirrors the renderer's rule: take the WP numbers named in current-batch
-    entry headings and choose the lowest positive integer not among them.
+    Mirrors the renderer's rule -- the lowest positive integer not among the
+    WP numbers in current-batch entry headings -- but only over work
+    packages the definition actually plans. When the definition is
+    supplied, numbers it does not declare (dropped or absorbed packages)
+    are not candidates, so a batch with a gap computes its true next WP
+    instead of demanding a number that no work package will ever satisfy.
     Returns None when there are no current-batch entries at all, which is
     also what the renderer renders as "unknown" -- there is no number to
     compare against then.
@@ -339,6 +383,12 @@ def _computed_next_wp(playbook_lines: list[str]) -> int | None:
     if not current_entries:
         return None
     wp_numbers = set(_collect_wp_numbers(current_entries))
+    if definition_lines is not None:
+        planned = set(_definition_wp_numbers(definition_lines))
+        candidate = 1
+        while candidate in wp_numbers or (planned and candidate not in planned):
+            candidate += 1
+        return candidate
     candidate = 1
     while candidate in wp_numbers:
         candidate += 1
@@ -412,7 +462,7 @@ def _check_definition_next_wp(
     """
     if definition_lines is None:
         return None
-    computed = _computed_next_wp(playbook_lines)
+    computed = _computed_next_wp(playbook_lines, definition_lines)
     claimed, claimed_line = _definition_next_wp_claim(definition_lines)
     if computed is None or claimed is None:
         return None
@@ -430,7 +480,7 @@ def _check_definition_next_wp(
 
 
 def _check_section3_next_wp(
-    playbook_lines: list[str],
+    playbook_lines: list[str], definition_lines: list[str] | None = None
 ) -> IntegrityIssue | None:
     """DOC007: PLAYBOOK Section 3 must agree on the next work package.
 
@@ -439,7 +489,7 @@ def _check_section3_next_wp(
     action prose restates it by hand and has drifted before. Silence when
     Section 3 makes no parseable claim, matching the definition side.
     """
-    computed = _computed_next_wp(playbook_lines)
+    computed = _computed_next_wp(playbook_lines, definition_lines)
     claimed, claimed_line = _section3_next_wp_claim(playbook_lines)
     if computed is None or claimed is None:
         return None
@@ -475,9 +525,14 @@ def _check_findings_header_count(
     """
     if findings_lines is None:
         return None
+    header_end = len(findings_lines)
+    for line_number, line in enumerate(findings_lines, start=1):
+        if line_number > 1 and _FINDINGS_HEADER_END_RE.match(line):
+            header_end = line_number - 1
+            break
     fields = [
         (line_number, int(match.group(1)))
-        for line_number, line in enumerate(findings_lines, start=1)
+        for line_number, line in enumerate(findings_lines[:header_end], start=1)
         if (match := FINDINGS_HEADER_COUNT_RE.match(line)) is not None
     ]
     if not fields:
@@ -708,7 +763,9 @@ def collect_integrity_issues(
         if definition_next_wp_issue is not None:
             issues.append(definition_next_wp_issue)
 
-        section3_next_wp_issue = _check_section3_next_wp(playbook_lines)
+        section3_next_wp_issue = _check_section3_next_wp(
+            playbook_lines, live_documents.get(definition_path)
+        )
         if section3_next_wp_issue is not None:
             issues.append(section3_next_wp_issue)
 

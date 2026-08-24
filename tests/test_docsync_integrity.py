@@ -1134,6 +1134,91 @@ def test_doc007_section3_without_claim_stays_silent(tmp_path: Path):
     assert collect_integrity_issues(**inputs) == []
 
 
+def test_doc007_absorbed_wp_is_not_demanded(tmp_path: Path):
+    """A gap the definition plans for does not make DOC007 demand it.
+
+    Batch 21 absorbs WP-6 into WP-3 and keeps WP-6 as a stub. Once WP-0
+    through WP-5 are tagged, the lowest missing integer is 6 -- but no
+    work package will ever satisfy that, so the check must read the
+    definition's own WP headings and compute WP-7 instead.
+    """
+    inputs = _valid_inputs(tmp_path)
+    # Insert inside the current-batch markers (end marker is at index 15)
+    # so all four WP entries are current-batch entries.
+    inputs["playbook_lines"][14:14] = [
+        "",
+        "### 2026-08-24 - Index done (Batch 21 WP-3)",
+        "",
+        "Validation: `pytest -q` -- **700 passed**.",
+        "",
+        "### 2026-08-25 - Loading done (Batch 21 WP-4)",
+        "",
+        "Validation: `pytest -q` -- **705 passed**.",
+        "",
+        "### 2026-08-26 - Leaderboard done (Batch 21 WP-5)",
+        "",
+        "Validation: `pytest -q` -- **710 passed**.",
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    # The definition plans WP-0..WP-8 but marks WP-6 absorbed into WP-3.
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
+        "# BATCH21",
+        "",
+        "**Status:** Active. **WP-7 (unmatched) is the next batch work " "package.**",
+        "",
+        "**Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
+        "",
+        "### WP-3 -- Index page",
+        "",
+        "Absorbs WP-6.",
+        "",
+        "### WP-4 -- Loading",
+        "",
+        "### WP-5 -- Leaderboard",
+        "",
+        "### WP-6 -- Heatmap seam removal (absorbed into WP-3)",
+        "",
+        "Stub: every deliverable ships with WP-3.",
+        "",
+        "### WP-7 -- Unmatched page",
+        "",
+        "### WP-8 -- Sweep + close-out",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc008_bolded_header_count_is_matched(tmp_path: Path):
+    """The natural bolded header form is not invisible to DOC008."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "**666 tests across 39 test modules.**",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC008"]
+    assert issues[0].line == 2
+
+
+def test_doc008_scan_is_scoped_to_the_header_region(tmp_path: Path):
+    """A count-shaped line below the first heading is not a live assertion."""
+    inputs = _valid_inputs(tmp_path)
+    # The fixture's authoritative count is 390; the header agrees with it.
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "**390 tests across 39 test modules.**",
+        "",
+        "## Findings",
+        "",
+        'An old audit once said "666 tests across 39 test modules." as an',
+        "example of drift.",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
 def test_collect_tracked_paths_reads_real_git_output(tmp_path: Path):
     """The default runner is never exercised through the CLI fixtures."""
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)

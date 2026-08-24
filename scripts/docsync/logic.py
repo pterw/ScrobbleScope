@@ -303,10 +303,14 @@ _AMBIGUOUS_COUNT = _AmbiguousCount()
 # Source precedence, applied only to break a same-date tie in the ordering
 # below. A side-task entry is written after the batch entry it follows, and a
 # side-task entry still live in PLAYBOOK is newer than one that retention has
-# already moved into the archive.
-_PRECEDENCE_LIVE_SIDE = 2
-_PRECEDENCE_ROTATED = 1
-_PRECEDENCE_CURRENT_BATCH = 0
+# already moved into the archive -- so the monolith outranks the current batch
+# on a shared date. A per-batch log is different: its entries always belong to
+# a completed batch, so even on a shared date they are older work than the
+# active batch's entries and sit below them.
+_PRECEDENCE_LIVE_SIDE = 3
+_PRECEDENCE_ROTATED = 2
+_PRECEDENCE_CURRENT_BATCH = 1
+_PRECEDENCE_BATCH_LOG = 0
 
 
 def _monotonic_dates(source: list[Entry]) -> list[int]:
@@ -393,7 +397,12 @@ def latest_test_count_authority(
     rotated entries in the per-batch logs (``batch_log_lines``), and the
     current-batch entries between the markers (append-ordered, so reversed
     here). Precedence breaks same-date ties only, in this order: live side task,
-    then rotated (monolith and per-batch alike), then current batch.
+    then rotated monolith, then current batch, then per-batch logs. The
+    per-batch logs rank below the current batch because their entries always
+    belong to a completed batch -- even on a shared date they are older work
+    than the active batch's entries. The monolith ranks above the current
+    batch because a rotated side-task entry genuinely can be newer than the
+    batch entry it follows.
 
     Within that ordering, an explicit ``pytest -q`` result wins; an entry
     quoting several bold counts without one is ambiguous and makes the count
@@ -430,6 +439,7 @@ def latest_test_count_authority(
 
     current_candidates = list(reversed(current_entries))
     rotated_candidates: list[Entry] = []
+    batch_log_candidates: list[Entry] = []
     if archive_lines is not None:
         try:
             archive_entries, _ = _parse_entries(archive_lines)
@@ -444,8 +454,10 @@ def latest_test_count_authority(
                 log_entries, _ = _parse_entries(log_lines)
             except SyncError:
                 continue
-            rotated_candidates.extend(log_entries)
-        rotated_candidates.sort(key=lambda entry: _date_key(entry.date), reverse=True)
+            batch_log_candidates.extend(log_entries)
+        # Per-batch logs are newest-first by their own convention; sort keeps
+        # that order within a shared date.
+        batch_log_candidates.sort(key=lambda entry: _date_key(entry.date), reverse=True)
 
     # Build one total ordering over every candidate from every source, newest
     # first: clamped date descending, then source precedence descending.
@@ -466,6 +478,7 @@ def latest_test_count_authority(
         for source, precedence in (
             (current_candidates, _PRECEDENCE_CURRENT_BATCH),
             (rotated_candidates, _PRECEDENCE_ROTATED),
+            (batch_log_candidates, _PRECEDENCE_BATCH_LOG),
             (side_entries, _PRECEDENCE_LIVE_SIDE),
         )
         for entry, date_key in zip(source, _monotonic_dates(source))
