@@ -93,7 +93,7 @@ See FINDINGS F-DOCSYNC-3.
   Three review rounds are applied on top: seven Codex comments in all,
   every one valid and fixed. Round three took the SMIL out of the header
   wordmark and gave the back-to-top control its wrapper back. The suite
-  is 692 and the gate runs 5 checks now.
+  is 697 and the gate runs 5 checks now.
   **WP-3 is next**: the index page, which deletes the welcome modal, replaces
   `bootstrap.Popover` with CSS-only hints, and relocates `limit_results` into
   the thresholds disclosure. The root-hygiene side task is
@@ -392,8 +392,8 @@ non-current operational logs. Older dated entries live in
   here too, matching DOC006's rule.
 - Deviations: none. The checks were not extended to other documents; that
   stays a future finding if wanted.
-- Validation: `pytest -q` -- **692 passed**, 3 warnings (was 682; ten new
-  tests in `test_docsync_integrity.py`). Both checks were proven able to
+- Validation: `pytest -q` -- **697 passed**, 3 warnings (was 682; fifteen
+  new tests in `test_docsync_integrity.py`). Both checks were proven able to
   fail against the live repository before landing:
   - Definition mutated to claim WP-9:
     `ERROR DOC007 BATCH21_DEFINITION.md:3 -- The definition claims WP-9 is
