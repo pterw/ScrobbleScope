@@ -1067,6 +1067,73 @@ def test_doc008_stale_header_blocked_by_batch_log_authority(tmp_path: Path):
     assert "FINDINGS.md header" in issues[0].remediation
 
 
+def test_doc008_absent_authority_does_not_block_a_header_count(tmp_path: Path):
+    """No count anywhere is not a mismatch -- there is nothing to agree with.
+
+    Blocking here would demand a repair that cannot satisfy the gate: the
+    remediation names an authoritative result that does not exist.
+    """
+    inputs = _valid_inputs(tmp_path)
+    # The fixture's only count-bearing entry is removed, so no source
+    # records any count.
+    inputs["playbook_lines"] = [
+        line for line in inputs["playbook_lines"] if "390 passed" not in line
+    ]
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "682 tests across 39 test modules.",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+# ---------------------------------------------------------------------------
+# DOC007: PLAYBOOK Section 3's own next-WP claim
+# ---------------------------------------------------------------------------
+
+
+def test_doc007_stale_section3_claim_is_blocking(tmp_path: Path):
+    """Section 3 naming a different WP than Section 4 computes blocks."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].insert(
+        6,
+        "- **Next action:** **WP-9 is next**: the sweep and close-out work.",
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    issues = collect_integrity_issues(**inputs)
+
+    doc007 = [i for i in issues if i.code == "DOC007" and i.path == "PLAYBOOK.md"]
+    assert len(doc007) == 1
+    assert "Section 3 claims WP-9 is next" in doc007[0].invariant
+    assert "WP-1" in doc007[0].remediation
+
+
+def test_doc007_agreeing_section3_claim_is_clean(tmp_path: Path):
+    """Section 3 agreeing with Section 4 raises nothing."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].insert(
+        6,
+        "- **Next action:** **WP-1 is next**: the toolchain work package.",
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_section3_without_claim_stays_silent(tmp_path: Path):
+    """No parseable claim in Section 3 means no mismatch."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].insert(
+        6,
+        "- **Next action:** continue per the batch definition.",
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
 def test_collect_tracked_paths_reads_real_git_output(tmp_path: Path):
     """The default runner is never exercised through the CLI fixtures."""
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)

@@ -252,15 +252,19 @@ def _sync(
             SESSION_STATUS_END_MARKER,
             "SESSION_CONTEXT",
         )
-        count_authority = latest_test_count_authority(playbook_lines, new_archive_lines)
+        # Read the pre-rotation document. The authoritative count is a fact
+        # about the repository, so it must not change with how many entries
+        # the retention window happens to keep: the documented close-out
+        # command purges that window entirely, which would otherwise revive
+        # a superseded count and then fail its own consistency check.
+        # The batch logs are part of that fact too -- tagged entries rotate
+        # there rather than into the monolith -- so they travel with it.
+        count_authority = latest_test_count_authority(
+            playbook_lines, new_archive_lines, effective_batch_log_lines
+        )
         status_block = _build_status_block(
             section_3_state=section_3_state,
             current_entries=current_entries,
-            # Read the pre-rotation document. The authoritative count is a fact
-            # about the repository, so it must not change with how many entries
-            # the retention window happens to keep: the documented close-out
-            # command purges the window entirely, which would otherwise revive
-            # a superseded count and then fail its own consistency check.
             latest_test_count=count_authority.count,
             count_is_ambiguous=count_authority.ambiguous,
         )

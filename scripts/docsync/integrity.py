@@ -45,7 +45,7 @@ FINDINGS_HEADER_COUNT_RE = re.compile(
     r"^(\d+)\s+tests\s+across\s+(\d+)\s+test\s+modules\.\s*$"
 )
 NEXT_WP_CLAIM_RE = re.compile(
-    r"\bWP-(\d+)\b(?:\s*\([^)]*\))?\s+is\s+the\s+next",
+    r"\bWP-(\d+)\b(?:\s*\([^)]*\))?\s+is\s+(?:the\s+)?next",
     re.IGNORECASE,
 )
 _HEX_DIGITS = frozenset("0123456789abcdefABCDEF")
@@ -367,6 +367,35 @@ def _definition_next_wp_claim(
     return None, None
 
 
+def _section3_next_wp_claim(
+    playbook_lines: list[str],
+) -> tuple[int | None, int | None]:
+    """Return (claimed next WP number, its line) from PLAYBOOK Section 3.
+
+    Bootstrap requires Section 3, the definition, and SESSION_CONTEXT to
+    agree on the next work package. The renderer derives its value from
+    Section 4 headings, but Section 3's own "Next action" prose restates
+    the claim by hand -- `**WP-3 is next**` is the shape this corpus uses.
+    A stale Section 3 beside a fresh definition would otherwise pass every
+    check while an arriving agent reads a contradictory next action from
+    the canonical status section. No parseable claim stays silent, for the
+    same reason as the definition side: a false mismatch is worse than no
+    check.
+    """
+    try:
+        s3_start, s3_end = _find_section(
+            playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
+        )
+    except SyncError:
+        return None, None
+    for line_number in range(s3_start + 1, s3_end):
+        line = playbook_lines[line_number]
+        match = NEXT_WP_CLAIM_RE.search(line)
+        if match is not None:
+            return int(match.group(1)), line_number + 1
+    return None, None
+
+
 def _check_definition_next_wp(
     playbook_lines: list[str],
     definition_path: str,
@@ -400,6 +429,33 @@ def _check_definition_next_wp(
     )
 
 
+def _check_section3_next_wp(
+    playbook_lines: list[str],
+) -> IntegrityIssue | None:
+    """DOC007: PLAYBOOK Section 3 must agree on the next work package.
+
+    The same bootstrap leg as the definition check, on the Section 3 side.
+    Section 4 headings decide what is actually next; Section 3's Next
+    action prose restates it by hand and has drifted before. Silence when
+    Section 3 makes no parseable claim, matching the definition side.
+    """
+    computed = _computed_next_wp(playbook_lines)
+    claimed, claimed_line = _section3_next_wp_claim(playbook_lines)
+    if computed is None or claimed is None:
+        return None
+    if computed == claimed:
+        return None
+    return _issue(
+        "DOC007",
+        "PLAYBOOK.md",
+        claimed_line,
+        f"Section 3 claims WP-{claimed} is next; PLAYBOOK Section 4 "
+        f"entries make WP-{computed} next.",
+        "Update the Section 3 Next action to name WP-"
+        f"{computed} as the next batch work package.",
+    )
+
+
 def _check_findings_header_count(
     findings_lines: list[str] | None, authority: TestCountAuthority
 ) -> IntegrityIssue | None:
@@ -411,6 +467,11 @@ def _check_findings_header_count(
     uses for SESSION_CONTEXT to that one header line. An ambiguous authority
     blocks here too, exactly as it does for SESSION_CONTEXT: ambiguity let a
     stale dashboard survive once already.
+
+    A merely absent authority -- no entry anywhere records a count -- is not
+    a mismatch: there is nothing to agree with, and blocking would demand a
+    repair that cannot satisfy the gate. Only ambiguity, which suppresses
+    older entries, still blocks.
     """
     if findings_lines is None:
         return None
@@ -426,7 +487,7 @@ def _check_findings_header_count(
         for line_number, count in fields
         if authority.count is not None and count != authority.count
     ]
-    if not mismatched and not (authority.ambiguous) and authority.count is not None:
+    if not mismatched and not authority.ambiguous:
         return None
     issue_line = mismatched[0][0] if mismatched else fields[0][0]
     return _issue(
@@ -646,6 +707,10 @@ def collect_integrity_issues(
         )
         if definition_next_wp_issue is not None:
             issues.append(definition_next_wp_issue)
+
+        section3_next_wp_issue = _check_section3_next_wp(playbook_lines)
+        if section3_next_wp_issue is not None:
+            issues.append(section3_next_wp_issue)
 
     findings_count_issue = _check_findings_header_count(
         live_documents.get("FINDINGS.md"),
