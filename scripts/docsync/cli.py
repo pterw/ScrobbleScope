@@ -134,6 +134,7 @@ def _collect_current_integrity_issues(
         session_lines=current_session,
         expected_session_lines=expected_session_lines,
         tracked_paths=collect_tracked_paths(REPO_ROOT),
+        batch_log_lines=_read_batch_log_lines(),
     )
 
 

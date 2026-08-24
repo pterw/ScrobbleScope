@@ -376,17 +376,20 @@ def _latest_test_count_from_entries(
 
 
 def latest_test_count_authority(
-    playbook_lines: list[str], archive_lines: list[str] | None = None
+    playbook_lines: list[str],
+    archive_lines: list[str] | None = None,
+    batch_log_lines: dict[int, list[str]] | None = None,
 ) -> TestCountAuthority:
     """Return the newest full-suite count recorded anywhere in the log.
 
     Authority is decided by one total ordering over every candidate entry --
     date descending, then source precedence descending -- which is walked once.
-    The three sources are the live side-task entries after the end marker
-    (newest-first as written), the rotated entries in ``archive_lines``, and the
+    The sources are the live side-task entries after the end marker
+    (newest-first as written), the rotated entries in ``archive_lines``, the
+    rotated entries in the per-batch logs (``batch_log_lines``), and the
     current-batch entries between the markers (append-ordered, so reversed
     here). Precedence breaks same-date ties only, in this order: live side task,
-    then rotated, then current batch.
+    then rotated (monolith and per-batch alike), then current batch.
 
     Within that ordering, an explicit ``pytest -q`` result wins; an entry
     quoting several bold counts without one is ambiguous and makes the count
@@ -397,7 +400,9 @@ def latest_test_count_authority(
     The test count is a fact about the repository, so it must not change when
     the retention window moves an entry out of PLAYBOOK: the documented
     close-out command purges that window entirely, which would otherwise revive
-    a superseded count.
+    a superseded count. Tagged entries rotate into their per-batch log rather
+    than the monolith, so those logs are part of the same fact and are scanned
+    here too.
     """
     try:
         s4_start, s4_end = _find_section(
@@ -429,6 +434,14 @@ def latest_test_count_authority(
         rotated_candidates = sorted(
             archive_entries, key=lambda entry: _date_key(entry.date), reverse=True
         )
+    if batch_log_lines:
+        for log_lines in batch_log_lines.values():
+            try:
+                log_entries, _ = _parse_entries(log_lines)
+            except SyncError:
+                continue
+            rotated_candidates.extend(log_entries)
+        rotated_candidates.sort(key=lambda entry: _date_key(entry.date), reverse=True)
 
     # Build one total ordering over every candidate from every source, newest
     # first: clamped date descending, then source precedence descending.

@@ -292,6 +292,24 @@ def _count_remediation(authority: TestCountAuthority) -> str:
     )
 
 
+def _findings_count_remediation(authority: TestCountAuthority) -> str:
+    """Point the reader at the FINDINGS header, the document DOC008 owns.
+
+    ``_count_remediation`` names SESSION_CONTEXT fields because that is what
+    DOC006 governs; following it for DOC008 would edit a correct dashboard
+    and leave the stale findings header in place. The ambiguous case keeps
+    the shared guidance: with no authoritative number at all, recording one
+    is the only repair either document can follow.
+    """
+    if authority.ambiguous:
+        return _count_remediation(authority)
+    return (
+        "Update the FINDINGS.md header count line to match the authoritative "
+        "`pytest -q` result -- the newest full-suite entry, which may be in "
+        "PLAYBOOK or in a rotated archive."
+    )
+
+
 def _computed_next_wp(playbook_lines: list[str]) -> int | None:
     """Return the next work package number derived from PLAYBOOK Section 4.
 
@@ -417,7 +435,7 @@ def _check_findings_header_count(
         issue_line,
         "The findings header test count agrees with the authoritative "
         "full-suite validation in the log.",
-        _count_remediation(authority),
+        _findings_count_remediation(authority),
     )
 
 
@@ -430,6 +448,7 @@ def collect_integrity_issues(
     session_lines: list[str] | None,
     expected_session_lines: list[str] | None,
     tracked_paths: frozenset[str],
+    batch_log_lines: Mapping[int, list[str]] | None = None,
 ) -> list[IntegrityIssue]:
     """Return deterministic live-document integrity issues."""
     issues: list[IntegrityIssue] = []
@@ -575,7 +594,9 @@ def collect_integrity_issues(
                     "Run doc_state_sync.py --fix to refresh the managed session block.",
                 )
             )
-        authority = latest_test_count_authority(playbook_lines, archive_lines)
+        authority = latest_test_count_authority(
+            playbook_lines, archive_lines, batch_log_lines
+        )
         session_count_fields = [
             (line_number, int(match.group(1)))
             for line_number, line in enumerate(session_lines, start=1)
@@ -628,7 +649,7 @@ def collect_integrity_issues(
 
     findings_count_issue = _check_findings_header_count(
         live_documents.get("FINDINGS.md"),
-        latest_test_count_authority(playbook_lines, archive_lines),
+        latest_test_count_authority(playbook_lines, archive_lines, batch_log_lines),
     )
     if findings_count_issue is not None:
         issues.append(findings_count_issue)

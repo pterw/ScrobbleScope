@@ -975,6 +975,98 @@ def test_doc008_ambiguous_authority_blocks_a_named_header_count(tmp_path: Path):
     assert "quotes several counts" in issues[0].remediation
 
 
+def test_doc008_remediation_names_the_findings_header(tmp_path: Path):
+    """The fix must update the header, not the dashboard DOC006 governs."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "666 tests across 39 test modules.",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC008"]
+    assert "FINDINGS.md header" in issues[0].remediation
+    assert "SESSION_CONTEXT" not in issues[0].remediation
+
+
+def test_doc008_ambiguous_authority_keeps_shared_remediation(tmp_path: Path):
+    """With no authoritative number anywhere, recording one is the only fix."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["playbook_lines"].extend(
+        [
+            "",
+            "### 2026-08-06 - Ambiguous side task",
+            "",
+            "Validation: focused suite **12 passed**; full suite **530 passed**.",
+        ]
+    )
+    inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "666 tests across 39 test modules.",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC008"]
+    assert "quotes several counts" in issues[0].remediation
+
+
+def test_doc008_rotated_batch_log_supplies_the_authority(tmp_path: Path):
+    """A count rotated into a per-batch log still decides the header.
+
+    Close-out purges PLAYBOOK's non-current window and routes tagged WP
+    entries into `docs/history/logs/BATCHN_LOG.md`. The authority must read
+    those logs too, or close-out would block on a correct header.
+    """
+    inputs = _valid_inputs(tmp_path)
+    # No count-bearing entry remains in PLAYBOOK or the monolith archive;
+    # the newest full-suite result lives only in the per-batch log.
+    inputs["batch_log_lines"] = {
+        21: [
+            "# Batch 21 Execution Log",
+            "",
+            "Archived entries for Batch 21 work packages.",
+            "",
+            "### 2026-08-23 - Index page done (Batch 21 WP-3)",
+            "",
+            "Validation: `pytest -q` -- **700 passed**.",
+        ]
+    }
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "700 tests across 39 test modules.",
+    ]
+
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc008_stale_header_blocked_by_batch_log_authority(tmp_path: Path):
+    """A per-batch-log authority must still catch a wrong header number."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["batch_log_lines"] = {
+        21: [
+            "# Batch 21 Execution Log",
+            "",
+            "Archived entries for Batch 21 work packages.",
+            "",
+            "### 2026-08-23 - Index page done (Batch 21 WP-3)",
+            "",
+            "Validation: `pytest -q` -- **700 passed**.",
+        ]
+    }
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "666 tests across 39 test modules.",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    assert [issue.code for issue in issues] == ["DOC008"]
+    assert "FINDINGS.md header" in issues[0].remediation
+
+
 def test_collect_tracked_paths_reads_real_git_output(tmp_path: Path):
     """The default runner is never exercised through the CLI fixtures."""
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
