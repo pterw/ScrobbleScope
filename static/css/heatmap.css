@@ -15,11 +15,17 @@
 /* ------------------------------------------------------------------ */
 /* The wait panel and the result sit outside the two-column grid. A 53-week
    grid is about 880px wide and cannot fit the 380px form column, so
-   static/js/heatmap.js hides #index-grid while either of these is on screen. */
+   static/js/heatmap.js hides #index-grid while either of these is on screen.
+
+   Unlike the index the heatmap is capped and centred, at the README's
+   1100px. The padding is the page gutter, and the top of it is what keeps
+   the headline off the header bar. */
 .heatmap-stage {
   width: 100%;
-  max-width: 1100px;
+  max-width: 1168px;
+  box-sizing: border-box;
   margin: 0 auto;
+  padding: 40px 34px 56px;
 }
 
 /* ------------------------------------------------------------------ */
@@ -161,10 +167,27 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Result headline                                                     */
+/* Result head: eyebrow, headline, actions                             */
 /* ------------------------------------------------------------------ */
+/* The actions sit beside the title rather than under the frame. They are
+   hairline peers: a solid fill on one of two equal actions would read as an
+   unearned hierarchy. */
+.heatmap-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.heatmap-head__actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+}
+
 .heatmap-headline {
-  margin-bottom: 1rem;
+  margin-bottom: 0;
   font-family: var(--font-serif);
   font-size: clamp(1.375rem, 4vw, 1.875rem);
   font-weight: var(--font-weight-normal);
@@ -186,7 +209,7 @@
 .heatmap-frame {
   width: 100%;
   box-sizing: border-box;
-  padding: 1.5rem 1.75rem;
+  padding: 1.25rem 1.75rem 1.5rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-lg);
   background-color: var(--heatmap-surface);
@@ -195,10 +218,10 @@
 
 .heatmap-frame-top {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
 }
 
 .heatmap-kpi-row {
@@ -300,15 +323,6 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Result actions                                                      */
-/* ------------------------------------------------------------------ */
-.heatmap-result__actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 1rem;
-}
-
-/* ------------------------------------------------------------------ */
 /* Tooltip (positioned div, injected by JS)                            */
 /* ------------------------------------------------------------------ */
 .heatmap-tooltip {
@@ -352,6 +366,17 @@
 /* Mobile                                                              */
 /* ------------------------------------------------------------------ */
 @media (max-width: 859.98px) {
+  .heatmap-stage {
+    padding: 24px 18px 40px;
+  }
+
+  /* The actions drop under the title rather than squeezing it. */
+  .heatmap-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
   .wait-panel {
     min-height: 180px;
     padding: 2.25rem 0.75rem;

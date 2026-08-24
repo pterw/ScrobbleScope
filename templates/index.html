@@ -174,14 +174,31 @@
               </div>
             </div>
 
+            <div class="field">
+              <div class="field__label-row">
+                <label class="field__label" for="limit_results">Show</label>
+              </div>
+              <div class="field__control">
+                <select id="limit_results" name="limit_results" class="ss-select">
+                  <option value="all" selected>All results</option>
+                  <option value="10">Top 10</option>
+                  <option value="25">Top 25</option>
+                  <option value="50">Top 50</option>
+                  <option value="100">Top 100</option>
+                </select>
+              </div>
+            </div>
+
             {# --- Thresholds ---
                Closed by default, dashed top border, expands in place. The
-               summary always states the active values. limit_results lives
-               here by BATCH21_DEFINITION.md decision 3: the control is a real
-               Spotify-load saving on large libraries, so it moves rather than
-               going away. It sits below the two minimums and outside the
-               summary, because how many albums you list is not part of what
-               counts as listened. #}
+               summary always states the active values.
+
+               limit_results is a visible field above, not a row inside here.
+               BATCH21_DEFINITION.md decision 3 relocated it into this
+               disclosure; the owner ruled on 2026-08-24 that the design's
+               placement wins, because how many albums you list is not part of
+               what counts as listened and the label would then describe two
+               of the three things it holds. #}
             <details class="disclosure">
               <summary class="disclosure__summary">
                 <span class="disclosure__label">What counts as listened</span>
@@ -214,18 +231,6 @@
 
               <button type="button" class="th-reset" id="threshold_reset">Reset to &#8805;10 plays and &#8805;3 tracks</button>
 
-              <div class="th-row th-row--select">
-                <label class="th-label" for="limit_results">Show
-                  <small>how many albums to list</small>
-                </label>
-                <select id="limit_results" name="limit_results" class="ss-select">
-                  <option value="all" selected>All results</option>
-                  <option value="10">Top 10</option>
-                  <option value="25">Top 25</option>
-                  <option value="50">Top 50</option>
-                  <option value="100">Top 100</option>
-                </select>
-              </div>
             </details>
 
             <button type="submit" class="ss-submit">

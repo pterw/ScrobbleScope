@@ -10,7 +10,19 @@
   those values.
 #}
 <section id="heatmap-result" class="heatmap-stage hidden">
-  <p class="heatmap-headline hidden" id="heatmap-result-headline"></p>
+  {# The eyebrow carries the range, so the headline does not have to. It says
+     the window is 365 days in as many words, which the serif line above the
+     frame used to do at the cost of running long. #}
+  <div class="heatmap-head">
+    <div class="heatmap-head__titles">
+      <p class="eyebrow">Listening heatmap &middot; Last 365 days</p>
+      <p class="heatmap-headline hidden" id="heatmap-result-headline"></p>
+    </div>
+    <div class="heatmap-head__actions">
+      <button type="button" class="ss-btn" id="heatmap-save-image">Save image</button>
+      <button type="button" class="ss-btn" id="heatmap-search-again">Search again</button>
+    </div>
+  </div>
 
   <div class="heatmap-frame hidden" id="heatmap-result-frame">
     <div class="heatmap-frame-top">
@@ -24,7 +36,4 @@
     <div id="heatmap-grid"></div>
   </div>
 
-  <div class="heatmap-result__actions">
-    <button type="button" class="ss-btn" id="heatmap-search-again">New search</button>
-  </div>
 </section>

@@ -8,6 +8,9 @@
   // Constants
   // ----------------------------------------------------------------
   const POLL_INTERVAL_MS = 1000;
+
+  //: The heatmap window. Named because the daily average divides by it.
+  const WINDOW_DAYS = 365;
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   // rocket_r palette stops (sampled from matplotlib/seaborn rocket_r).
@@ -166,6 +169,16 @@
     return streak;
   }
 
+  /**
+   * Write the result headline.
+   *
+   * "A year of <name>", not the old "<name>'s last 365 days, day by day.".
+   * The eyebrow above it states the range now, so the headline does not have
+   * to, and a short serif line survives a long username without shrinking.
+   *
+   * The accent is only ever the reader's own data. Never the year: the year
+   * is a filter, so a fixed one becomes a lie the moment someone changes it.
+   */
   function renderHeadline(username) {
     clearChildren(resultHeadline);
     resultHeadline.style.fontSize = '';
@@ -175,31 +188,8 @@
     nameSpan.className = 'heatmap-headline-username';
     nameSpan.textContent = username || '';
 
+    resultHeadline.appendChild(document.createTextNode('A year of '));
     resultHeadline.appendChild(nameSpan);
-    resultHeadline.appendChild(document.createTextNode("'s last 365 days, day by day."));
-  }
-
-  function fitHeadlineToWidth() {
-    if (!resultHeadline || resultHeadline.classList.contains('hidden')) return;
-
-    resultHeadline.style.fontSize = '';
-    resultHeadline.style.whiteSpace = '';
-
-    if (window.innerWidth >= 768) return;
-
-    resultHeadline.style.whiteSpace = 'nowrap';
-
-    var availableWidth = resultHeadline.clientWidth;
-    if (!availableWidth) return;
-
-    var size = 22;
-    var minSize = 15;
-    resultHeadline.style.fontSize = size + 'px';
-
-    while (resultHeadline.scrollWidth > availableWidth && size > minSize) {
-      size -= 0.5;
-      resultHeadline.style.fontSize = size + 'px';
-    }
   }
 
   function revealHeatmapResult() {
@@ -207,7 +197,6 @@
     fadeIn(resultHeadline);
     fadeIn(resultFrame);
     fadeIn(heatmapResult);
-    window.requestAnimationFrame(fitHeadlineToWidth);
   }
 
   function appendKpi(label, value, subLabel) {
@@ -247,15 +236,180 @@
       : isoDate(toDate);
     var bestCount = dailyCounts[bestDate] || 0;
     var bestLabel = formatMonthDayUpper(parseLocalDate(bestDate));
-    var activeDays = dayKeys.filter(function (key) {
-      return dailyCounts[key] > 0;
-    }).length;
     var streak = computeStreak(dailyCounts, toDate);
 
-    appendKpi('TOTAL SCROBBLES', total.toLocaleString(), '');
+    // The four the design names. Daily average replaced active days on
+    // 2026-08-24; it is scrobbles over the whole 365-day window, not over
+    // the days with a scrobble in them, so a quiet month pulls it down.
+    var dailyAverage = Math.round(total / WINDOW_DAYS);
+
+    appendKpi('SCROBBLES', total.toLocaleString(), '');
+    appendKpi('DAILY AVERAGE', dailyAverage.toLocaleString(), '');
     appendKpi('BEST DAY', String(bestCount), bestLabel);
-    appendKpi('ACTIVE DAYS', String(activeDays), '/ 365');
-    appendKpi('CURRENT STREAK', streak + 'd', '');
+    appendKpi('CURRENT STREAK', String(streak), 'DAYS');
+  }
+
+
+  // ----------------------------------------------------------------
+  // Save image
+  // ----------------------------------------------------------------
+
+  //: Drawn at 2x so the grid stays crisp on a high-density screen and when
+  //: the file is opened larger than it was on the page.
+  const EXPORT_SCALE = 2;
+  const EXPORT_PAD = 28;
+
+  /**
+   * Read a CSS custom property as a resolved colour.
+   *
+   * getPropertyValue can hand back the unresolved var(--other) text, so the
+   * value is painted onto a probe and read back from the cascade instead.
+   */
+  function resolvedColour(token) {
+    var probe = document.createElement('div');
+    probe.style.color = 'var(' + token + ')';
+    document.body.appendChild(probe);
+    var value = getComputedStyle(probe).color;
+    probe.remove();
+    return value;
+  }
+
+  /**
+   * Turn the on-screen grid into an image the canvas can draw.
+   *
+   * The SVG is cloned, given explicit pixel dimensions -- it renders at
+   * width="100%" on the page, which means nothing outside a layout -- and
+   * its label font is pinned to a plain monospace stack. The Adobe kit does
+   * not load inside a serialized SVG, so leaving the kit families there
+   * would let the renderer pick any fallback it liked. Pinning it makes the
+   * saved file the same everywhere.
+   */
+  function gridAsImage(svg, width, height) {
+    var clone = svg.cloneNode(true);
+    clone.setAttribute('width', String(width));
+    clone.setAttribute('height', String(height));
+    clone.setAttribute('xmlns', SVG_NS);
+    Array.prototype.forEach.call(
+      clone.querySelectorAll('.heatmap-month-label, .heatmap-day-label'),
+      function (node) {
+        node.setAttribute('font-family', 'monospace');
+        node.setAttribute('fill', resolvedColour('--ss-text-muted'));
+      }
+    );
+    var markup = new XMLSerializer().serializeToString(clone);
+    var image = new Image();
+    image.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(markup);
+    return image;
+  }
+
+  /** Draw the KPI row, returning the y the next block starts at. */
+  function drawKpis(ctx, x, y, width) {
+    var items = document.querySelectorAll('.heatmap-kpi');
+    var muted = resolvedColour('--ss-text-muted');
+    var ink = resolvedColour('--color-base-content');
+    var step = Math.min(190, width / Math.max(items.length, 1));
+
+    Array.prototype.forEach.call(items, function (item, index) {
+      var left = x + index * step;
+      var label = item.querySelector('.heatmap-kpi-label');
+      var value = item.querySelector('.heatmap-kpi-value');
+      var sub = item.querySelector('.heatmap-kpi-sub');
+
+      ctx.fillStyle = muted;
+      ctx.font = '10px "input-mono-narrow", "input-mono", monospace';
+      ctx.fillText(label ? label.textContent : '', left, y);
+
+      ctx.fillStyle = ink;
+      ctx.font = '24px "gotham", sans-serif';
+      ctx.fillText(value ? value.textContent : '', left, y + 28);
+
+      if (sub && sub.textContent) {
+        ctx.fillStyle = muted;
+        ctx.font = '10px "input-mono-narrow", "input-mono", monospace';
+        ctx.fillText(sub.textContent, left, y + 46);
+      }
+    });
+    return y + 62;
+  }
+
+  /** Draw the rocket ramp, so the file carries its own legend. */
+  function drawLegend(ctx, x, y, width) {
+    var gradient = ctx.createLinearGradient(x, 0, x + width, 0);
+    ROCKET_STOPS.forEach(function (stop) {
+      gradient.addColorStop(
+        stop.pos, 'rgb(' + stop.r + ',' + stop.g + ',' + stop.b + ')');
+    });
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x, y, width, 8);
+  }
+
+  /**
+   * Save the heatmap as a JPEG.
+   *
+   * The canvas is drawn by hand rather than captured from the page. The
+   * results page uses html2canvas for the same job and carries about ninety
+   * lines of workarounds for colours it renders wrongly; the heatmap is an
+   * SVG on a flat background, so none of that is needed and no library is
+   * loaded onto a migrated page.
+   *
+   * Canvas text uses the kit faces, because it draws in this document where
+   * they are already loaded. Only the labels inside the serialized SVG fall
+   * back -- see gridAsImage.
+   *
+   * Known deviation: the design asks for the desktop 53x7 grid even when the
+   * reader is on a phone. This saves whatever layout is on screen.
+   */
+  function saveHeatmapImage() {
+    var svg = gridContainer ? gridContainer.querySelector('svg') : null;
+    if (!svg) return;
+
+    var svgBox = svg.getBoundingClientRect();
+    var gridWidth = Math.round(svgBox.width);
+    var gridHeight = Math.round(svgBox.height);
+    if (!gridWidth || !gridHeight) return;
+
+    var width = gridWidth + EXPORT_PAD * 2;
+    var headHeight = 150;
+    var height = headHeight + gridHeight + EXPORT_PAD;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = width * EXPORT_SCALE;
+    canvas.height = height * EXPORT_SCALE;
+    var ctx = canvas.getContext('2d');
+    ctx.scale(EXPORT_SCALE, EXPORT_SCALE);
+    ctx.textBaseline = 'alphabetic';
+
+    ctx.fillStyle = resolvedColour('--heatmap-surface');
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.fillStyle = resolvedColour('--ss-text-muted');
+    ctx.font = '10px "input-mono-narrow", "input-mono", monospace';
+    ctx.fillText(
+      'LISTENING HEATMAP \u00b7 LAST 365 DAYS', EXPORT_PAD, EXPORT_PAD + 10);
+
+    var lead = 'A year of ';
+    ctx.fillStyle = resolvedColour('--color-base-content');
+    ctx.font = '26px "instrument-serif", Georgia, serif';
+    ctx.fillText(lead, EXPORT_PAD, EXPORT_PAD + 42);
+    var leadWidth = ctx.measureText(lead).width;
+    ctx.fillStyle = resolvedColour('--color-primary');
+    ctx.font = 'italic 26px "instrument-serif", Georgia, serif';
+    ctx.fillText(lastUsername, EXPORT_PAD + leadWidth, EXPORT_PAD + 42);
+
+    var afterKpis = drawKpis(ctx, EXPORT_PAD, EXPORT_PAD + 76, gridWidth);
+    drawLegend(ctx, width - EXPORT_PAD - 90, afterKpis - 20, 90);
+
+    var image = gridAsImage(svg, gridWidth, gridHeight);
+    image.onload = function () {
+      ctx.drawImage(image, EXPORT_PAD, headHeight, gridWidth, gridHeight);
+      var link = document.createElement('a');
+      link.href = canvas.toDataURL('image/jpeg', 0.95);
+      link.download =
+        'scrobblescope_' + (lastUsername || 'heatmap') + '_heatmap.jpg';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    };
   }
 
   // ----------------------------------------------------------------
@@ -265,7 +419,7 @@
       heroBlocks,
       heatmapResult, heatmapForm, heatmapUsernameInput,
       progressText, errorContainer, errorMessage,
-      retryBtn, searchAgainBtn, resultHeadline, resultFrame,
+      retryBtn, searchAgainBtn, saveImageBtn, resultHeadline, resultFrame,
       kpiRow, gridContainer, legendBar, tooltip;
 
   // ----------------------------------------------------------------
@@ -400,6 +554,7 @@
     errorMessage   = document.getElementById('heatmap-error-message');
     retryBtn       = document.getElementById('heatmap-retry-btn');
     searchAgainBtn = document.getElementById('heatmap-search-again');
+    saveImageBtn   = document.getElementById('heatmap-save-image');
     resultHeadline = document.getElementById('heatmap-result-headline');
     resultFrame    = document.getElementById('heatmap-result-frame');
     kpiRow         = document.getElementById('heatmap-kpi-row');
@@ -425,6 +580,10 @@
         submitHeatmap(lastUsername);
       }
     });
+
+    if (saveImageBtn) {
+      saveImageBtn.addEventListener('click', saveHeatmapImage);
+    }
 
     searchAgainBtn.addEventListener('click', function () {
       hideElement(heatmapResult);
@@ -859,7 +1018,6 @@
     }
 
     resizeTimer = window.setTimeout(function () {
-      fitHeadlineToWidth();
 
       if (!lastHeatmapData || !heatmapResult || heatmapResult.classList.contains('hidden')) {
         return;
