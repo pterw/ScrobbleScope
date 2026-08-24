@@ -11,7 +11,7 @@
 <div class="container mt-5">
   <div class="row justify-content-center">
     <div class="col-md-8 text-center mb-4" id="logo-wrapper">
-      <div aria-label="ScrobbleScope logo visualization" role="img">
+      <div class="ss-mark" aria-label="ScrobbleScope logo visualization" role="img">
         {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
       </div>
       <button type="button" class="btn btn-outline-secondary btn-sm mt-2" id="infoButton" data-bs-toggle="modal" data-bs-target="#welcomeModal">Info</button>
@@ -185,7 +185,7 @@
     {# ---- Heatmap loading container (hidden) ---- #}
     <div class="col-md-8 d-none" id="heatmap-loading">
       <div class="heatmap-loading-panel">
-        <div class="heatmap-spinner-wrapper" aria-label="Loading animation" role="img">
+        <div class="heatmap-spinner-wrapper ss-pinwheel" aria-label="Loading animation" role="img">
           {% include 'inline/scrobblescope_pinwheel.svg' ignore missing %}
         </div>
         <p id="heatmap-progress-text">Initializing...</p>

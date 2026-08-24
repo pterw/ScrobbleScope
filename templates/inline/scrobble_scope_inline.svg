@@ -63,24 +63,14 @@
     </g>
   </g>
 <g id="horizontal_bars" data-name="horizontal bars">
-  <path class="cls-1" d="M15.13,32.45v31.02">
-    <animate attributeName="d" values="M15.13,32.45v31.02;M15.13,37.45v26.02;M15.13,32.45v31.02" dur="1.7s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1" />
-  </path>
+  <path class="cls-1" d="M15.13,32.45v31.02" />
   
-  <path class="cls-1" d="M69.47,46.06v17.63">
-    <animate attributeName="d" values="M69.47,46.06v17.63;M69.47,43.06v20.63;M69.47,46.06v17.63" dur="2.3s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1" />
-  </path>
+  <path class="cls-1" d="M69.47,46.06v17.63" />
   
-  <path class="cls-1" d="M28.72,47.25v16.21">
-    <animate attributeName="d" values="M28.72,47.25v16.21;M28.72,42.25v21.21;M28.72,47.25v16.21" dur="2.1s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1" />
-  </path>
+  <path class="cls-1" d="M28.72,47.25v16.21" />
   
-  <path class="cls-1" d="M42.3,15.06v48.64">
-    <animate attributeName="d" values="M42.3,15.06v48.64;M42.3,20.06v43.64;M42.3,15.06v48.64" dur="1.6s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1" />
-  </path>
+  <path class="cls-1" d="M42.3,15.06v48.64" />
   
-  <path class="cls-1" d="M55.89,31.21v32.25">
-    <animate attributeName="d" values="M55.89,31.21v32.25;M55.89,36.21v27.25;M55.89,31.21v32.25" dur="1.9s" repeatCount="indefinite" calcMode="spline" keySplines="0.42 0 0.58 1; 0.42 0 0.58 1" />
-  </path>
+  <path class="cls-1" d="M55.89,31.21v32.25" />
 </g>
 </svg>
