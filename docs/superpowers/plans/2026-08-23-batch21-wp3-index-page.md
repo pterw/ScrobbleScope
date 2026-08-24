@@ -238,14 +238,35 @@ written.**
 The plan requires a visual pass and the gates cannot do it, so here is the
 mechanism rather than only the instruction. This works for any agent.
 
-Serve the worktree on a fixed port, using the same construction as
-`serve_app()` in `scripts/dev/frontend_gate.py` -- `make_server` plus
-`serve_forever` in a background process. Do **not** use `python app.py`: its
-`__main__` block calls `webbrowser.open()` and opens a real window on the
-owner's desktop. Then drive it with Playwright, which is already pinned in
-`requirements-dev.txt` at 1.62.0 with Chromium provisioned.
+**Prefer a script that owns its own server.** Write one script that starts
+the app, drives Chromium, measures, screenshots, and shuts the server down --
+all in one process. `serve_app()` in `scripts/dev/frontend_gate.py` is the
+construction to copy: `make_server` on port 0, `serve_forever` on a daemon
+thread, and `shutdown()` in a `finally` block so a failing check can never
+leave a socket listening. Playwright is pinned in `requirements-dev.txt` at
+1.62.0 with Chromium provisioned.
 
-Four things that produced wrong readings during this WP:
+Do **not** use `python app.py`. Its `__main__` block calls
+`webbrowser.open()` and opens a real window on the owner's desktop.
+
+**A persistent server is allowed here, by owner exception granted
+2026-08-24.** `AGENTS.md` Anti-Pattern Registry item 5 says never to start a
+server from the Bash tool, because an abandoned one blocks the owner's
+terminal. The owner lifted that for visual inspection in this work package,
+"unless it causes issues". So a background server on a fixed port is
+available when you need one that outlives a single command -- driving the
+page through the Playwright MCP tools, for example. The obligation the rule
+exists for does not lift: stop it when you are done, and stop it on failure.
+
+**Measure, do not only look.** The self-contained script is the better tool
+for a reason beyond tidiness: it reads computed values. Commit 4's worst
+defect was a page with no background at all, inheriting the browser's own
+canvas. Every screenshot of it looked correct.
+
+Screenshots default to the repository root and dirty the tree. Write them to
+`.playwright-mcp/`, which `.gitignore` already covers.
+
+Five things that produced wrong readings during this WP:
 
 - **Read colours as computed values, not from a screenshot.** Both themes use
   close neighbours and a JPEG-eyeball is not evidence.
@@ -257,6 +278,10 @@ Four things that produced wrong readings during this WP:
   Calling Bootstrap's `hide()` during its opening transition is ignored.
 - **Element screenshots crop to the element box.** The pinwheel paints
   outside its wrapper with `overflow: visible`, so shoot a roomier parent.
+- **A rect is not a touch target.** `getBoundingClientRect()` on a control
+  misses a hit area drawn by a pseudo element, and reports 1px for a
+  visually hidden input whose label is the real target. Both appear on this
+  page. Hit-test with `elementFromPoint`, or size the control itself.
 
 `flounder14` is a real Last.fm account the owner supplied for live checks. It
 returns `registered_year: 2016`, which is what the join-year hint floors the

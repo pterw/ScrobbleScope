@@ -72,6 +72,8 @@ body {
     font-family: var(--shell-font-sans);
 }
 
+/* static/css/index.css hides this link. The index hero carries the same
+   lockup at full size, and one page should not show the asset twice. */
 .site-header__home {
     display: flex;
     align-items: center;
