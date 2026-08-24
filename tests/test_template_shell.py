@@ -34,6 +34,21 @@ BAR_BASELINE = 63.5
 #: units on 2026-08-24. docs/design/RECONCILIATION.md records the deviation.
 LOCKUP_VIEWBOX = "0 0 453 74"
 
+#: Tokens WP-3 adds for the index page, with the values
+#: docs/design/README.md "Design tokens" gives them. Single-value entries are
+#: theme-independent and live in @theme static; pairs are (light, dark) and
+#: live in the two daisyUI theme blocks.
+INDEX_TOKENS = {
+    "--radius-xs": ("4px",),
+    "--radius-md": ("10px",),
+    "--rocket-5": ("#f0903a",),
+    "--ss-text-body": ("#4a4456", "#c5bfb1"),
+    "--ss-text-muted": ("#6f6a7a", "#908a9a"),
+    "--ss-border-default": ("#e5dfd1", "#2a2434"),
+    "--ss-accent-soft": ("#efe9fa", "#2a1f44"),
+    "--heatmap-empty": ("#e8e2d6", "#262230"),
+}
+
 #: Minimum context each template needs to render at all. The values are never
 #: asserted on; they exist so Jinja can finish.
 TEMPLATE_CONTEXT = {
@@ -261,6 +276,62 @@ def test_shell_animates_the_pinwheel_and_reduced_motion_stops_it():
     assert (
         ".ss-pinwheel svg > g > g" in cancelled
     ), f"reduced motion does not stop the pinwheel blades; cancels {cancelled}"
+
+
+@pytest.mark.parametrize("token", sorted(INDEX_TOKENS))
+def test_the_index_tokens_survive_the_tailwind_build(token):
+    """These land a commit before the markup that reads them.
+
+    Tailwind v4 emits a theme variable only when a generated utility uses it,
+    and an undefined var() with no fallback voids the whole declaration, so a
+    pruned token means a rule in commit 4 silently does not apply.
+
+    The two sources behave differently, which was measured rather than
+    assumed. Dropping the static keyword from @theme prunes exactly three of
+    these -- --radius-xs, --radius-md and --rocket-5, the ones that live in
+    that block and that nothing uses yet. The other five sit in the two
+    daisyUI theme blocks, which daisyUI emits directly, so Tailwind's
+    usage-based pruning never reaches them. Put a token nothing reads in
+    @theme and it needs the static keyword; put it in a theme block and it
+    does not.
+
+    Asserted against the compiled stylesheet, not the source. The source only
+    says what was asked for; the build says what shipped.
+    """
+    compiled = (STATIC_CSS / TAILWIND).read_text(encoding="utf-8")
+    emitted = [
+        value.strip()
+        for value in re.findall(rf"{re.escape(token)}:\s*([^;]+);", compiled)
+    ]
+
+    assert emitted, f"{token} was pruned out of the compiled stylesheet"
+    for expected in INDEX_TOKENS[token]:
+        assert any(
+            expected.lower() == value.lower() for value in emitted
+        ), f"{token} should carry {expected}; the build emitted {emitted}"
+
+
+def test_the_font_size_scale_is_not_shadowed_by_a_colour():
+    """--text-* is Tailwind's font-size namespace, not a colour namespace.
+
+    The design calls its body and muted colours --text-body and --text-muted.
+    Adding them under those names would collide: --text-body: 1rem already
+    exists in @theme static, .text-body is generated as
+    font-size: var(--text-body), and a colour of the same name emitted under
+    [data-theme] wins on specificity. The utility would then set a font size
+    to a hex string and quietly do nothing. That is why the four colour
+    tokens carry an ss- prefix.
+    """
+    compiled = (STATIC_CSS / TAILWIND).read_text(encoding="utf-8")
+
+    for size_token in ("--text-body", "--text-label", "--text-display"):
+        values = re.findall(rf"{re.escape(size_token)}:\s*([^;]+);", compiled)
+        assert values, f"{size_token} is missing from the compiled sheet"
+        for value in values:
+            assert "#" not in value, (
+                f"{size_token} resolves to {value.strip()}, a colour. A theme "
+                f"block has shadowed the font-size scale."
+            )
 
 
 def test_the_pinwheel_keeps_the_shape_its_selectors_assume():
