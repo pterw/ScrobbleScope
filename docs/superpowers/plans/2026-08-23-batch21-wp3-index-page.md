@@ -169,6 +169,16 @@ criteria 2, 3 and 8 and the PLAYBOOK Section 4 entries keep resolving.
 - `.mode-pill` min-width equalized, closing F-B18-12 -- WP-3
 ```
 
+**Use that heading text exactly.** DOC007 reads the definition's own
+`### WP-N` headings to learn which work packages are real, and drops any whose
+heading matches `WP_SKIPPED_RE` in `scripts/docsync/integrity.py`. The three
+recognised phrasings are `absorbed into`, `dropped` and `merged into`, case
+insensitive. Verified against the merged check on 2026-08-24: with this
+heading the planned set is `(0,1,2,3,4,5,7,8)`, and the next work package
+after WP-5 computes as WP-7. Paraphrasing breaks it silently --
+`(ABSORBED, see WP-3)` and `(folded into WP-3)` both fail to match, and
+DOC007 would then demand a WP-6 that will never ship.
+
 **Step 3.** Record the two rulings this WP owes: `F-B21-4` item 1 resolves to
 the README two-column hero, and `RECONCILIATION.md` section 7's cell geometry
 resolves as the table above states. One sentence each.
@@ -727,26 +737,34 @@ as the Section 4 entry. DOC008 blocks otherwise. Write the entry so the count
 is unambiguous -- one `pytest -q` result, not several bold numbers -- because
 an ambiguous authority blocks DOC008 too.
 
-**Known defect in DOC007, reported on PR #217 on 2026-08-24.** Its lowest-
-unused-integer rule cannot express a gap in the WP sequence. Because this plan
-absorbs WP-6, the rule returns 6 from WP-5 onward and keeps returning 6 even
-after WP-7 ships. Until it is fixed, DOC007 will demand a next-WP claim that
-is false. Do not work around it by tagging one log entry with two WP numbers:
-`_extract_entry_batch()` returns `None` for a two-WP heading, so rotation
-misfiles the entry into the monolith archive instead of `BATCH21_LOG.md`. That
-was tested.
+**That branch is merged.** PR #217 landed on `main` as `8ed1650` on
+2026-08-24, and `wip/batch-21` is rebased onto it. The summary above was read
+off the merged code, not off the PR.
 
-Expect that branch to merge first. When it does:
+DOC007 handles the absorbed WP-6 correctly, which was not true of the version
+first pushed to that PR -- it used a lowest-unused-integer rule that could not
+express a gap and would have demanded WP-6 for the rest of the batch. The
+merged version reads the definition's planned set instead. Task 1 carries the
+heading wording that rule depends on.
 
-1. Rebase onto it before pushing.
-2. **Re-read `scripts/docsync/integrity.py` after the rebase** and confirm the
-   summary above still holds. It was written against `f15e7e7`, which had two
-   open review comments at the time.
-3. A conflict in the `.claude/SESSION_CONTEXT.md` managed block is not a real
+Two things not to redo:
+
+- **Do not tag one log entry with two WP numbers** to record an absorbed
+  package as done. `_extract_entry_batch()` returns `None` for a two-WP
+  heading, so rotation misfiles the entry into the monolith archive instead of
+  `docs/history/logs/BATCH21_LOG.md`. Tested on 2026-08-24.
+- **Do not reformat the `FINDINGS.md` header line.** DOC008 now accepts a
+  bold or blockquoted form and is scoped to the header region above the first
+  heading, so a historical example inside a finding no longer counts. Keep the
+  line where it is.
+
+Remaining coordination, if that branch or another one moves again:
+
+1. A conflict in the `.claude/SESSION_CONTEXT.md` managed block is not a real
    conflict. That block is deterministic output. Take either side, then re-run
    `python scripts/doc_state_sync.py --fix`.
-4. A conflict in PLAYBOOK Section 4 will be two dated entries wanting the same
+2. A conflict in PLAYBOOK Section 4 will be two dated entries wanting the same
    place. Keep both, newest first.
-5. Whoever merges second re-runs the suite and moves the count.
-6. Re-check the highest `F-B21-N` before writing the new finding ID in
+3. Whoever merges second re-runs the suite and moves the count.
+4. Re-check the highest `F-B21-N` before writing the new finding ID in
    Task 16.
