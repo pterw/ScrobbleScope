@@ -140,6 +140,91 @@ that does not have to be in it.
 
 ---
 
+## Progress -- read this before starting anything
+
+Kept current by hand as each commit lands. PLAYBOOK Section 4 stays empty of
+a WP-3 entry until commit 6, because DOC007 derives the next work package
+from it and an early entry would claim WP-3 is finished. So this section is
+the only record of where inside WP-3 the work stands.
+
+| Commit | State | SHA |
+| --- | --- | --- |
+| 1 -- record the scope | done | `03ce1f8` |
+| (unplanned) lockup alignment | done | `46fe475` |
+| 2 -- strip the SMIL | done | `b17a741` |
+| (unplanned) plan amendment | done | `89a5da2` |
+| 3 -- the tokens | done | `a1e607b` |
+| 4 -- rebuild the page | **next** | -- |
+| 5 -- extend the gates | not started | -- |
+| 6 -- record it | not started | -- |
+
+Nothing is pushed. The owner has not authorised a push or a pull request.
+
+**Three deviations so far. Commit 6 must record all three honestly.**
+
+1. **The lockup was realigned**, which the plan never scoped. Removing the
+   tagline in WP-2 left the letterforms floating about 13 units above the bar
+   baseline. `templates/inline/scrobble_scope_lockup_inline.svg` now carries
+   the design project's own static transform on `#logo-text`, all five bars
+   end at exactly 63.50, and the viewBox is `0 0 453 74`. Owner ruled the
+   frame on 2026-08-24. `docs/design/RECONCILIATION.md` section 10 has it.
+2. **`tests/test_routes.py` was edited**, which the plan did not list. It
+   asserted `animateTransform` as a stand-in for "the pinwheel is here", and
+   stripping the SMIL broke it.
+3. **Task 13 grew a mobile viewport pass**, owner decision 2026-08-24. See
+   the decisions table and Task 13.
+
+**Two facts commits 4 onward depend on, both established after the plan was
+written.**
+
+- **The animation wrapper classes are load-bearing.** `static/css/shell.css`
+  animates `.ss-mark svg #horizontal_bars path:nth-of-type(-n+5)` and
+  `.ss-pinwheel svg > g`. Any markup that includes a wordmark or the pinwheel
+  must carry the matching class or it renders correctly and never moves, with
+  no error anywhere. This bites Task 6 hardest: the extracted
+  `_loading.html` carries the pinwheel, and the existing shell test checks
+  rendered pages rather than partials.
+- **The new colour tokens are `--ss-` prefixed, not the design's names.**
+  They are `--ss-text-body`, `--ss-text-muted`, `--ss-border-default` and
+  `--ss-accent-soft`, plus `--heatmap-empty`, `--rocket-5`, `--radius-xs`
+  and `--radius-md`. The design calls the first two `--text-body` and
+  `--text-muted`, but `--text-*` is Tailwind v4's font-size namespace and
+  `--text-body: 1rem` already exists, so a colour under that name shadows the
+  type scale and `.text-body` silently stops working.
+
+---
+
+## How to look at the page
+
+The plan requires a visual pass and the gates cannot do it, so here is the
+mechanism rather than only the instruction. This works for any agent.
+
+Serve the worktree on a fixed port, using the same construction as
+`serve_app()` in `scripts/dev/frontend_gate.py` -- `make_server` plus
+`serve_forever` in a background process. Do **not** use `python app.py`: its
+`__main__` block calls `webbrowser.open()` and opens a real window on the
+owner's desktop. Then drive it with Playwright, which is already pinned in
+`requirements-dev.txt` at 1.62.0 with Chromium provisioned.
+
+Four things that produced wrong readings during this WP:
+
+- **Read colours as computed values, not from a screenshot.** Both themes use
+  close neighbours and a JPEG-eyeball is not evidence.
+- **Wait out the transition.** `shell.css` transitions `background-color`
+  over 0.3s, so `getComputedStyle` immediately after a theme toggle returns
+  the old colour. Dark mode first read as `#f8f9fa`.
+- **The welcome modal auto-opens and its backdrop covers the header.** Until
+  commit 4 deletes it, remove `#welcomeModal` from the DOM before measuring.
+  Calling Bootstrap's `hide()` during its opening transition is ignored.
+- **Element screenshots crop to the element box.** The pinwheel paints
+  outside its wrapper with `overflow: visible`, so shoot a roomier parent.
+
+`flounder14` is a real Last.fm account the owner supplied for live checks. It
+returns `registered_year: 2016`, which is what the join-year hint floors the
+year input at.
+
+---
+
 ## Commit 1: record the scope
 
 ### Task 1: Amend the batch definition
@@ -367,6 +452,21 @@ line and the error block. Read
 anything. Grep both files for `getElementById` and check the list before you
 finish.
 
+**Step 4 (added after commit 2).** **Carry the `ss-pinwheel` class into the
+partial.** `static/css/shell.css` animates `.ss-pinwheel svg > g` and
+`.ss-pinwheel svg > g > g`; the pinwheel's own SMIL was stripped in commit 2,
+so the class is now the only thing that makes it move. Drop it and the
+pinwheel renders perfectly and sits still, with no error and nothing in the
+console. The wrapper in `index.html` today reads:
+
+```html
+<div class="heatmap-spinner-wrapper ss-pinwheel" aria-label="Loading animation" role="img">
+```
+
+The same applies to `ss-mark` anywhere a wordmark is included. Task 14 should
+assert the partial carries it, because the existing shell test renders whole
+pages and would not catch a partial that lost the class.
+
 ### Task 7: The hero and the mode tabs
 
 **Files:** Modify `templates/index.html`
@@ -518,6 +618,30 @@ surface. Two responsibilities, and the split keeps the diff reviewable.
 `global.css` leaves the page at Task 9. Repoint all 13 at theme tokens.
 `global.css` is also the only definer of `#f8f9fa` and `#121212`, the two
 surfaces the frontend gate's `check_theme_tokens` forbids, so it has to go.
+
+Commit 3 landed the tokens to repoint them at. **Use these names, not the
+design's.** `--text-*` is Tailwind v4's font-size namespace and
+`--text-body: 1rem` already exists, so a colour called `--text-body` shadows
+the type scale and `.text-body` silently stops setting a font size.
+
+| Need | Token | Light | Dark |
+| --- | --- | --- | --- |
+| Paragraph text | `--ss-text-body` | `#4a4456` | `#c5bfb1` |
+| Hints, eyebrows, meta | `--ss-text-muted` | `#6f6a7a` | `#908a9a` |
+| Every hairline | `--ss-border-default` | `#e5dfd1` | `#2a2434` |
+| Accent tint | `--ss-accent-soft` | `#efe9fa` | `#2a1f44` |
+| Empty heatmap cell | `--heatmap-empty` | `#e8e2d6` | `#262230` |
+| Mode-tab mark | `--rocket-5` | `#f0903a` | same |
+
+Headings and values take `--color-base-content`; the page and card surfaces
+take `--color-base-100` and `--color-base-200`; the accent is
+`--color-primary`. Radius now has five steps: `--radius-xs` 4px,
+`--radius-sm` 8px, `--radius-md` 10px, `--radius-lg` 14px, `--radius-full`.
+
+The error accent has no token yet. The README specifies `--ss-bad` `#b03434`
+light and `#e07070` dark, and the theme still carries Bootstrap's `#dc3545`
+in `--color-error`. Either add `--ss-bad` in this commit or use
+`--color-error` and note the deviation; do not leave a bare hex.
 
 **Step 3.** Delete the `:root` block in `heatmap.css` above
 `.heatmap-headline`. Its three tokens move into the theme or into the rules
@@ -716,7 +840,11 @@ pilot page.
 6. The three unmigrated pages -- loading, results, unmatched -- unchanged
    apart from the wordmark's reduced-motion behaviour.
 7. Both heatmap paths: a successful fetch to a rendered grid, and a failure to
-   the error block with Retry.
+   the error block with Retry. Use `flounder14` for the success path -- the
+   owner supplied it and `/validate_user` returns
+   `{"valid": true, "registered_year": 2016}` against the live API. A
+   nonsense username exercises the not-found path without touching the
+   pipeline.
 
 ---
 

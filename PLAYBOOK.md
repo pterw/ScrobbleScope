@@ -90,7 +90,14 @@ See FINDINGS F-DOCSYNC-3.
   frame are all on this page and **WP-6 is absorbed into WP-3**. WP-7 and
   WP-8 keep their numbers. The plan is
   `docs/superpowers/plans/2026-08-23-batch21-wp3-index-page.md`: 16 tasks in
-  six commits, owner-approved.
+  six commits, owner-approved. **Commits 1 to 3 have landed and are
+  unpushed; commit 4 is next.** That plan's "Progress" section is the only
+  record of where inside WP-3 the work stands, because Section 4 below stays
+  empty of a WP-3 entry until commit 6 -- DOC007 reads Section 4 to derive
+  the next work package, so an early entry would claim WP-3 was finished.
+  Three deviations so far, all listed there: the header lockup was realigned
+  after the owner reported it looked unaligned, a test outside the plan's
+  file list had to be edited, and Task 13 grew a mobile viewport pass.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
   pilot, the Playwright runtime, the frontend gate and the compiled-CSS
