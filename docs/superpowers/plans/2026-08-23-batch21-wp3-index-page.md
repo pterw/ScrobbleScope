@@ -159,12 +159,12 @@ the only record of where inside WP-3 the work stands.
 | (unplanned) hidden collision | done | `fa381d2` |
 | (unplanned) design refresh | done | `6e3f0ad` |
 | (unplanned) hero scale, mobile | done | `c0dadb0` |
-| 5 -- extend the gates | **next** | -- |
-| 6 -- record it | not started | -- |
+| 5 -- extend the gates | done | `9ca9598` |
+| 6 -- record it | **next** | -- |
 
 Nothing is pushed. The owner has not authorised a push or a pull request.
 
-**Twelve deviations so far. Commit 6 must record all twelve honestly.**
+**Fifteen deviations so far. Commit 6 must record all fifteen honestly.**
 
 1. **The lockup was realigned**, which the plan never scoped. Removing the
    tagline in WP-2 left the letterforms floating about 13 units above the bar
@@ -224,6 +224,21 @@ Nothing is pushed. The owner has not authorised a push or a pull request.
     in a wide window, and the design caps results and the heatmap but never
     the index. The hero mark now grows to 820px and the headline to 56px,
     both past the design's stated 560px and 42px. Owner ruled both.
+13. **Task 14's `limit_results` assertion is inverted** (`9ca9598`). The plan
+    asks for a test that the field renders inside the thresholds disclosure.
+    The owner reversed that placement on 2026-08-24, so the test asserts the
+    opposite: the field renders above the disclosure, and the order in the
+    markup is what it checks.
+14. **The gate now runs two viewports and two new checks**, one more than the
+    plan asked for. Task 13 scoped a touch-target check; `check_initial_visibility`
+    is added beside it, because the `.hidden` collision in commit 4 proved
+    that asserting a class name proves nothing.
+15. **`error.css` was edited in this commit** (`9ca9598`), though the plan
+    assigns that file to WP-8. The new touch check measured its daisyUI
+    buttons at 40px against the design's 44px minimum. Fixing it was cheaper
+    than shipping a gate with a known failure in it, and a gate that fails on
+    purpose stops being read. WP-8 still owns the rest of the file, including
+    its 600px breakpoint.
 
 **Two facts commits 4 onward depend on, both established after the plan was
 written.**
@@ -269,7 +284,17 @@ written.**
   scripts toggle and asserts `display: none` -- Task 13.
 - **Four tokens landed in commit 4, not commit 3**: `--ss-surface-card`,
   `--ss-surface-sunken`, `--heatmap-surface` and `--ss-bad`. Task 14 must
-  add all four to `INDEX_TOKENS`.
+  add all four to `INDEX_TOKENS`. Done in `9ca9598`.
+- **A gate check that measures only what is on screen measures almost
+  nothing.** The first touch-target run passed every hidden control, because
+  the decade pills, the release-year field and the heatmap form all start
+  hidden. The check now drives the page into four states before measuring,
+  and the pills failed immediately. Any later check over page elements needs
+  the same treatment.
+- **A `<label for>` and its input are one target.** Measuring both fails
+  correct markup every time, and measuring neither is what let six small
+  targets ship. The rule is: measure the input where it is visible, measure
+  the label where the input is clipped to 1x1.
 
 ---
 
