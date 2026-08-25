@@ -94,8 +94,8 @@ See FINDINGS F-DOCSYNC-3.
   which is not merged. It rebuilt `index.html` on Tailwind, deleted the
   welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
   the frontend gate from four checks at one desktop viewport to nine across
-  three device profiles. Codex raised twenty-two comments on it; every one
-  was valid and all twenty-two were answered.
+  three device profiles. Codex raised twenty-three comments on it; every
+  one was valid and all twenty-three were answered.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
   pilot, the Playwright runtime, the frontend gate and the compiled-CSS
@@ -462,11 +462,11 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-25 - PR #218 review rounds one to seven applied (side-task)
+### 2026-08-25 - PR #218 review rounds one to eight applied (side-task)
 
 - Scope: answered every Codex comment on PR #218 while WP-3 sat open and
-  unmerged. Twenty-nine comments across PR #216 and #218 in total -- seven
-  on #216 and twenty-two on #218 -- and all valid.
+  unmerged. Thirty comments across PR #216 and #218 in total -- seven on
+  #216 and twenty-three on #218 -- and all valid.
   One was declined on its premise -- it said the closed thresholds disclosure
   gave its controls zero-sized boxes, and deleting their sizing turns the gate
   red, so they were being measured -- and its remedy was applied anyway.
@@ -523,6 +523,14 @@ non-current operational logs. Older dated entries live in
     outright is the obvious fix and is wrong: "Year cannot be in the future"
     is about the year, not the account. The handler re-derives instead, and a
     ninth gate check holds the half a reader would not notice was broken.
+  - **A malformed declarations file is refused, not ignored.** Reading a
+    required key straight out of the mapping raised a bare `KeyError`, so an
+    anchor with no `target` ended the run in a traceback and exit 1. Looking
+    for the siblings found four more, and all four are worse because they are
+    silent: a misspelled key, a list written as a bare string, a misspelled
+    table, and a misspelled option. Each leaves a check quietly not checking
+    while the gate stays green. Every declaration is now held to a declared
+    schema, so an unknown key is an error rather than a shrug.
   - **A bad declarations file is reported rather than thrown.** Malformed
     TOML, or a declaration holding an invalid regex, raised
     `DeclarationError` straight through both CLI paths, which catch
@@ -536,7 +544,7 @@ non-current operational logs. Older dated entries live in
 - Deviations: none against a plan, because there was none -- this is review
   remediation. Each round was answered in one batched PR comment rather than
   per comment, per the `pr-bot-triage` skill.
-- Validation: `pytest -q` -- **785 passed**, 3 warnings. All 11 pre-commit
+- Validation: `pytest -q` -- **792 passed**, 3 warnings. All 11 pre-commit
   hooks pass with an identical `git write-tree` either side.
   `doc_state_sync.py --check` exits 0. The frontend gate reports 9 checks in
   14 runs across desktop, mobile and wide touch. Every fix was reproduced
