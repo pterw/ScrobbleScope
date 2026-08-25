@@ -85,6 +85,48 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ---
 
+## This repository is also a template being extracted
+
+**Owner intent, stated 2026-08-25.** The long-term goal is to lift the
+workflow out of ScrobbleScope and reuse it when building any app, at least
+any data-visualisation or full-stack one: the guards, `scripts/docsync/`,
+`scripts/dev/frontend_gate.py`, `AGENTS.md`, the PLAYBOOK and FINDINGS
+discipline, and the batch and work-package structure. That is why the tooling
+is larger than the application it checks, and why hardening has been
+progressive rather than a one-off.
+
+**What this changes about how you write tooling here.** Treat every check as
+something that will run in a repository that is not this one:
+
+- **Keep repository facts out of the mechanism.** A check reads its facts from
+  a declarations file; it does not hard-code them. `scripts/docsync/
+  declarations.py` and `.docsync.toml` are the worked example -- the module
+  carries no ScrobbleScope value at all.
+- **Name assumptions and make them switchable.** An assumption that is true
+  here becomes doctrine the moment the tool is lifted. DOC011 treats
+  `~~struck-through text~~` as retired, which is true in this corpus and is a
+  convention rather than a rule of Markdown; it is a declared option for that
+  reason, and the owner caught it by reading the check against this intent.
+- **Prefer the standard library.** `tomllib`, `re`, `pathlib`. A dependency is
+  a thing the next repository has to agree to.
+- **Fail with a path, a line and a remediation**, because the reader will not
+  be the person who wrote the check.
+
+**What is already extractable, and what is not.** `scripts/docsync/` is close:
+its integrity checks are generic apart from the document names in
+`_LIVE_DOCUMENT_PATHS`. `scripts/dev/frontend_gate.py` is generic in structure
+-- serve, drive a browser, run checks per device profile -- and specific in
+its checks, which is the right split. The batch and work-package vocabulary in
+`AGENTS.md` is portable. What is not portable: `.docsync.toml`, the design
+system under `docs/design/`, and every path constant naming a ScrobbleScope
+file.
+
+**Do not start the extraction as a side task.** It is a batch of its own, and
+the owner has not scheduled it. Until then, the constraint is only that new
+tooling is written so the extraction stays cheap.
+
+---
+
 ## Venv and Pip Rules
 
 Owned by `AGENTS.md`: Environment Setup, plus the Anti-Pattern Registry
