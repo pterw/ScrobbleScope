@@ -82,17 +82,18 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **The owner merges PR #218, then WP-4 is next.** The
+- **Next action:** **WP-4 starts from the PR #218 merged result.** The
   original twelve-round Codex review closed at `77bb001`: all thirty threads
   were resolved, both Quality Gate runs passed, and the Codex connector
-  recorded a thumbs-up. Two later Graphify passes produced advisory findings.
-  Codex confirmed four defect classes: the root-font and saved-theme checks
+  recorded a thumbs-up. Three later Graphify passes produced advisory findings.
+  Codex confirmed five defect classes: the root-font and saved-theme checks
   leaked state, declaration paths could escape the repository, and joining
-  documents for wrapped regex matches lost the original per-line semantics.
-  All four are hardened at shared seams with regression tests. The remaining
-  claims were disproved against section boundaries, source contracts, tests
-  and live browser execution. GitHub remains the source of truth for the
-  follow-up's live state. Codex did not attempt a merge.
+  documents for wrapped regex matches lost the original per-line semantics;
+  equivalent spellings of one repository path could also bypass a live
+  in-memory document and read stale disk. All five are hardened at shared
+  seams with regression tests. The remaining claims were disproved against
+  section boundaries, source contracts, tests and live browser execution.
+  GitHub remains the source of truth for the PR's integration state.
   WP-4 then migrates `loading.html` to the unified wait panel.
   `templates/partials/_loading.html` already exists and is framework-neutral
   -- WP-3 built it a work package early -- so WP-4 consumes that partial
@@ -130,9 +131,9 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0, WP-1, WP-2 and WP-3 done; PR #218 review is
-  complete and the owner merge is pending. WP-6 is absorbed into WP-3 and
-  ships no commit of its own. WP-4, WP-5, WP-7 and WP-8 not yet started.
+- Batch 21 WP status: WP-0, WP-1, WP-2 and WP-3 done; PR #218 is the completed
+  WP-3 integration branch. WP-6 is absorbed into WP-3 and ships no commit of
+  its own. WP-4, WP-5, WP-7 and WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -640,8 +641,15 @@ non-current operational logs. Older dated entries live in
   interface. Its duplicated coupling comments supplied counts but no defect;
   the cohesive functions remain in place rather than undergoing a risky late
   refactor.
-- Validation: `pytest -q` -- **821 passed**, 3 warnings. The declaration seam
-  is **70 passed** and `pytest --collect-only` confirms 821 tests across 40
+- The final Graphify pass found one more real boundary defect among four false
+  alarms. `_Files` resolved `nested/../PLAYBOOK.md` to the right filesystem
+  path but used the unnormalized spelling to look up live documents and its
+  cache, so a declaration could grade stale disk instead of the document this
+  run had just rendered. Both lookups now use the confined repository-relative
+  key. The import, page-factory, generated tab and pruned-utility claims were
+  disproved by execution, current callers and source census.
+- Validation: `pytest -q` -- **822 passed**, 3 warnings. The declaration seam
+  is **71 passed** and `pytest --collect-only` confirms 822 tests across 40
   files. The frontend gate reports **15 checks in 23 runs** across desktop,
   mobile and wide touch. All 11 pre-commit hooks pass.
   `doc_state_sync.py --check` exits 0 with only the expected active-batch
@@ -650,9 +658,11 @@ non-current operational logs. Older dated entries live in
 - Review completion: `77bb001` closed the original twelve Codex rounds. Both
   Quality Gate runs passed, all thirty threads were resolved, and the Codex
   connector recorded a thumbs-up at 2026-08-25 19:17:45 UTC. `bd49cdb` then
-  recorded the documentation-only handoff. The current follow-up owns the four
-  developer-gate hardening classes above. Codex did not attempt a merge. The
-  owner merge is the remaining integration step; WP-4 stays next after it.
+  recorded the documentation-only handoff. The final follow-ups own the five
+  developer-gate hardening classes above. PR #218 is the completed WP-3
+  integration branch; WP-4 starts from its merged result. The owner selected
+  a rebase merge so the individual commit history remains visible without
+  adding a merge commit.
 - Forward guidance: a quiet round was not treated as completion. The recorded
   thumbs-up was. Rounds four and five found defects that earlier fixes in the
   series had introduced. Round six then found two holes in one-day-old code,

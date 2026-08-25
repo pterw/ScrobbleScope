@@ -1384,6 +1384,34 @@ def test_the_in_memory_copy_wins_over_the_file_on_disk(tmp_path: Path) -> None:
     assert in_memory == []
 
 
+def test_an_equivalent_path_still_reads_the_in_memory_copy(tmp_path: Path) -> None:
+    """Path spelling must not choose stale disk content over rendered state."""
+    root = _repo(
+        tmp_path,
+        {
+            DECLARATIONS_FILENAME: (
+                "[[value]]\n"
+                'name = "a value"\n'
+                "[[value.sites]]\n"
+                'file = "nested/../a.md"\n'
+                'pattern = "fresh text"\n'
+                "[[value.sites]]\n"
+                'file = "b.md"\n'
+                'pattern = "fresh text"\n'
+            ),
+            "a.md": "stale text\n",
+            "b.md": "fresh text\n",
+        },
+    )
+
+    issues = collect_declaration_issues(
+        repo_root=root,
+        live_documents={"a.md": ["fresh text"]},
+    )
+
+    assert issues == []
+
+
 def test_a_named_declaration_path_cannot_escape_the_repository(
     tmp_path: Path,
 ) -> None:

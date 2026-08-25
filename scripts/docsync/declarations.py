@@ -348,16 +348,17 @@ class _Files:
     def lines(self, rel_path: str) -> list[str] | None:
         """Return the file's lines, or None when it does not exist."""
         path = self._path(rel_path)
-        if rel_path in self._live:
-            return list(self._live[rel_path])
-        if rel_path not in self._cache:
+        key = self._relative(path, rel_path)
+        if key in self._live:
+            return list(self._live[key])
+        if key not in self._cache:
             try:
-                self._cache[rel_path] = path.read_text(
+                self._cache[key] = path.read_text(
                     encoding="utf-8", errors="replace"
                 ).splitlines()
             except OSError:
-                self._cache[rel_path] = None
-        cached = self._cache[rel_path]
+                self._cache[key] = None
+        cached = self._cache[key]
         return list(cached) if cached is not None else None
 
 
