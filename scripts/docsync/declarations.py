@@ -28,6 +28,7 @@ from __future__ import annotations
 import fnmatch
 import re
 import tomllib
+from collections import namedtuple
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
@@ -92,15 +93,68 @@ class DeclarationError(SyncError):
     """
 
 
+#: A declared type. A plain type where the value stands alone, or one of these
+#: two where it is a container: what a container holds has to be right as well.
+#: `scan = [1]` is a list, and reaches `_expand` as a TypeError.
+_ListOf = namedtuple("_ListOf", "element")
+_MappingOf = namedtuple("_MappingOf", "key value")
+
+
+def _describe(spec: object) -> str:
+    """Name a declared type the way the file's author would write it."""
+    if isinstance(spec, _ListOf):
+        return f"a list of {spec.element.__name__}"
+    if isinstance(spec, _MappingOf):
+        return f"a table of {spec.key.__name__} to {spec.value.__name__}"
+    return spec.__name__  # type: ignore[union-attr]
+
+
+def _mismatch(spec: object, value: object) -> str | None:
+    """Say how a value fails its declared type, or None when it fits.
+
+    Checks inside a container, not only the container. A shallow check
+    accepted `scan = [1]` and `allow_after = {"PLAYBOOK.md" = 5}`, which then
+    raised TypeError somewhere far from the declaration that caused it.
+    """
+    if isinstance(spec, _ListOf):
+        if not isinstance(value, list):
+            return f"{type(value).__name__}, not {_describe(spec)}"
+        for position, item in enumerate(value):
+            if not isinstance(item, spec.element):
+                return (
+                    f"a list whose item {position} is {type(item).__name__}, "
+                    f"not {spec.element.__name__}"
+                )
+        return None
+    if isinstance(spec, _MappingOf):
+        if not isinstance(value, Mapping):
+            return f"{type(value).__name__}, not {_describe(spec)}"
+        for key, held in value.items():
+            if not isinstance(key, spec.key):
+                return (
+                    f"a table with a {type(key).__name__} key, "
+                    f"not {spec.key.__name__}"
+                )
+            if not isinstance(held, spec.value):
+                return (
+                    f"a table whose {key!r} is {type(held).__name__}, "
+                    f"not {spec.value.__name__}"
+                )
+        return None
+    if not isinstance(value, spec):  # type: ignore[arg-type]
+        return f"{type(value).__name__}, not {_describe(spec)}"
+    return None
+
+
 #: What a declaration of each kind may hold, and what type each key takes.
 #:
 #: Every key is listed rather than only the required ones, because the worst
 #: way a declarations file can be wrong is quietly. A misspelled `scans` left
 #: the declaration scanning nothing and the gate green, which is the exact
 #: failure this whole module exists to prevent. An unknown key is an error.
-_DECLARATION_SCHEMA: dict[str, dict[str, dict[str, type]]] = {
+_DECLARATION_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
     "value": {
-        "required": {"sites": list},
+        "required": {"sites": _ListOf(dict)},
         "optional": {"name": str},
     },
     "site": {
@@ -109,16 +163,20 @@ _DECLARATION_SCHEMA: dict[str, dict[str, dict[str, type]]] = {
     },
     "anchor": {
         "required": {"target": str, "pattern": str},
-        "optional": {"name": str, "scan": list, "allow_files": list},
+        "optional": {
+            "name": str,
+            "scan": _ListOf(str),
+            "allow_files": _ListOf(str),
+        },
     },
     "retired": {
         "required": {"pattern": str},
         "optional": {
             "name": str,
             "reason": str,
-            "scan": list,
-            "allow_files": list,
-            "allow_after": dict,
+            "scan": _ListOf(str),
+            "allow_files": _ListOf(str),
+            "allow_after": _MappingOf(str, str),
             "strikethrough_exempt": bool,
         },
     },
@@ -179,11 +237,14 @@ def _validate(
                 f"{where} has no {key!r}, which it cannot work without."
             )
     for key, wanted in known.items():
-        if key in declaration and not isinstance(declaration[key], wanted):
+        if key not in declaration:
+            continue
+        bad = _mismatch(wanted, declaration[key])
+        if bad:
             raise DeclarationError(
-                f"{where} gives {key!r} as {type(declaration[key]).__name__}, "
-                f"not {wanted.__name__}. A list written as a bare string is "
-                f"read one character at a time and matches nothing."
+                f"{where} gives {key!r} as {bad}. A list written as a bare "
+                f"string is read one character at a time and matches nothing, "
+                f"and a non-string inside one reaches the matcher as a crash."
             )
 
     if kind == "value":
@@ -208,11 +269,9 @@ def _validate_options(options: object) -> None:
                 f"[options] has an unknown key {key!r}. Known keys: "
                 f"{', '.join(sorted(schema['optional']))}."
             )
-        if not isinstance(value, wanted):
-            raise DeclarationError(
-                f"[options] gives {key!r} as {type(value).__name__}, "
-                f"not {wanted.__name__}."
-            )
+        bad = _mismatch(wanted, value)
+        if bad:
+            raise DeclarationError(f"[options] gives {key!r} as {bad}.")
 
 
 def _issue(
