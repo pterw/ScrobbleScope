@@ -462,6 +462,46 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-25 - PR #218 review rounds one to five applied (side-task)
+
+- Scope: answered every Codex comment on PR #218 while WP-3 sat open and
+  unmerged. Twenty-one comments across PR #216 and #218 in total; all valid.
+  One was declined on its premise -- it said the closed thresholds disclosure
+  gave its controls zero-sized boxes, and deleting their sizing turns the gate
+  red, so they were being measured -- and its remedy was applied anyway.
+- What changed, beyond the individual fixes:
+  - **Touch sizing and the 1rem input size moved off the width query** onto
+    `@media (any-pointer: coarse), (max-width: 859.98px)`. A tablet in
+    landscape is wide and touched. The two rules were corrected one round
+    apart, which is the lesson: a rule moved for a newly understood condition
+    is not done until every rule sharing that condition moves with it.
+  - **The frontend gate gained a third device profile**, a wide touch screen,
+    and `run_checks` now takes a page factory because touch emulation belongs
+    to a browser context.
+  - **The export header is measured rather than fixed**, after the file it
+    produced was opened and looked at.
+  - **A `/validate_user` reply is discarded when the field has moved on.**
+    The submit guard added earlier in the series had turned a cosmetic stale
+    message into a block that no blur clears.
+- Two findings came out of reading the comments as a set rather than one at a
+  time: `F-B21-17`, that six of nineteen were one fact written twice, and
+  `F-B21-18`, that 2,344 lines of JavaScript have no runner. `F-B21-17` was
+  then built and closed the same day; see the DOC009 entry below.
+- Deviations: none against a plan, because there was none -- this is review
+  remediation. Each round was answered in one batched PR comment rather than
+  per comment, per the `pr-bot-triage` skill.
+- Validation: `pytest -q` -- **773 passed**, 3 warnings. All 11 pre-commit
+  hooks pass with an identical `git write-tree` either side.
+  `doc_state_sync.py --check` exits 0. The frontend gate reports 8 checks in
+  13 runs across desktop, mobile and wide touch. Every fix was reproduced
+  against the running page before it was written and re-measured after.
+- Forward guidance: the merge is the owner's and is being held while rounds
+  still return findings. Codex reacts to the PR summary with a thumbs-up when
+  it has nothing to say and comments when it does, so that reaction is the
+  signal to stop, not a quiet round. The last two rounds found defects that
+  earlier fixes had introduced rather than pre-existing ones, which is the
+  usual sign of approaching diminishing returns.
+
 ### 2026-08-25 - DOC009 to DOC011: facts written down more than once (side-task)
 
 - Scope: closed the buildable half of `F-B21-17`. Three declared integrity
@@ -588,36 +628,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: strip the SMIL from the remaining two assets the same
   way. Do not reach for `svg.pauseAnimations()` -- the CSS route is what the
   design contract asks for and it needs no JavaScript.
-
-### 2026-08-23 - PR #216 review round two applied (side-task)
-
-- Scope: two review comments on `4105aef`, both documentation. Both were
-  verified against the files and both were valid.
-- **The batch definition still said WP-2 was next.** PLAYBOOK Section 3 and
-  `SESSION_CONTEXT.md` Section 1 both said WP-3. `AGENTS.md` makes those
-  three agreeing the condition for bootstrap to complete, so the next agent
-  would have stopped on the disagreement. `git log -S` puts the line's last
-  edit in `7c00754`, the WP-1 commit. WP-1's plan listed updating it as a
-  task and WP-2's did not.
-- **The findings header still published 666 tests.** The round-one commit
-  moved PLAYBOOK and SESSION_CONTEXT to 671 and left that copy behind. It is
-  the instance-not-class anti-pattern `AGENTS.md` names, committed inside the
-  commit that was fixing stale documentation.
-- Every other `666` in a tracked document was checked rather than assumed.
-  The remaining three are dated log entries that were accurate when written,
-  so they stay.
-- **`F-B21-13` filed for the class.** Neither line is read by any gate.
-  `doc_state_sync.py` derives the next work package from PLAYBOOK and never
-  reads the batch definition, and the test-count enforcement in
-  `scripts/docsync/integrity.py` covers SESSION_CONTEXT only. The definition
-  status line has now gone stale twice -- PR #170 corrected it once for
-  WP-1 -- which is the point at which `AGENTS.md` prefers a mechanical check
-  over another written rule.
-- Deviations: the gate was not extended in this round. It is a change to the
-  integrity checks every work package depends on, and scope discipline puts
-  that in a finding rather than in an open UI PR.
-- Validation: `pytest -q` -- **671 passed**, 3 warnings. All 11 pre-commit
-  hooks pass. `doc_state_sync.py --check` exits 0 with the expected active
-  root-definition warning.
-- Forward guidance: WP-3 should carry updating the definition status line as
-  an explicit task, the way WP-1 did, until `F-B21-13` closes.
