@@ -172,6 +172,33 @@
   color: var(--color-primary);
 }
 
+/* Above about 1500px the hero column keeps growing and its content does not:
+   the mark sits at its 560px cap and the headline at its 42px ceiling, so
+   every pixel of a wider window became empty space. Measured identical at
+   1600, 2000 and 2560 -- 538px of nothing below the marks at all three.
+
+   The design states 560px and 42px, and this scales past both. Owner ruled it
+   on 2026-08-24: a fixed hero in a fluid column is what produced the hole. */
+@media (min-width: 1500px) {
+  .index-hero__mark {
+    /* 560px is the design's cap and stays the floor here, so this only
+       ever grows the mark, never shrinks it below the stated value. */
+    max-width: clamp(560px, 74%, 820px);
+  }
+
+  .index-hero__headline {
+    font-size: clamp(2.625rem, 3.1vw, 3.5rem);
+  }
+
+  .index-hero__lede {
+    font-size: var(--text-body);
+  }
+
+  .index-hero__marks li {
+    font-size: var(--text-label);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Right column: the sunken form well                                  */
 /* ------------------------------------------------------------------ */
@@ -476,10 +503,14 @@
 /* ------------------------------------------------------------------ */
 /* Decade pills                                                        */
 /* ------------------------------------------------------------------ */
+/* A grid, not wrapped flex. With eight pills and flex-wrap the first row
+   filled nearly edge to edge and only the short second row centred, which
+   reads as ragged rather than centred -- measured 3px of slack on the left
+   and 71px on the right. Four fixed columns give two balanced rows at every
+   width the card can be. */
 .decade-pills {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
 }
 
@@ -495,8 +526,9 @@
 .decade-pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 32px;
-  padding: 0 12px;
+  padding: 0 8px;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-full);
   background-color: transparent;
@@ -809,6 +841,32 @@
 
   .index-form__inner {
     max-width: none;
+  }
+
+  /* The form card started at y=602 on an 844px screen, so the thing the page
+     exists for was entirely below the fold. These three cuts bring it up by
+     about 115px between them. */
+
+  /* The headline and the lede already say all three of these. They are the
+     least load-bearing thing in the hero, and they cost two rows here. */
+  .index-hero__marks {
+    display: none;
+  }
+
+  .index-hero {
+    padding-bottom: 24px;
+  }
+
+  .index-form {
+    padding-top: 16px;
+  }
+
+  /* The submit read as oversized because its type was too small for its box,
+     not because the box was wrong: the field above it went to 16px to stop
+     iOS zooming, and the button stayed at 14px. The 48px height is the touch
+     target and stays. */
+  .ss-submit {
+    font-size: 16px;
   }
 
   .th-row {
