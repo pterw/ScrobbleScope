@@ -10,13 +10,13 @@
 /* Page frame                                                          */
 /* ------------------------------------------------------------------ */
 .index-page {
-  padding: 0 18px 48px;
+  padding: 0 1.125rem 3rem;
 }
 
 .index-alert {
-  margin: 24px auto 0;
-  max-width: 640px;
-  padding: 12px 16px;
+  margin: 1.5rem auto 0;
+  max-width: 40rem;
+  padding: 0.75rem 1rem;
   border: 1px solid var(--ss-bad);
   border-left-width: 3px;
   border-radius: var(--radius-sm);
@@ -87,12 +87,12 @@
 /* Left column: the editorial hero                                     */
 /* ------------------------------------------------------------------ */
 .index-hero {
-  padding: 32px 0 40px;
+  padding: 2rem 0 2.5rem;
 }
 
 @media (min-width: 860px) {
   .index-hero {
-    padding: 56px;
+    padding: 3.5rem;
   }
 }
 
@@ -103,9 +103,9 @@
 .index-hero__mark {
   display: block;
   width: 100%;
-  max-width: 560px;
+  max-width: 35rem;
   height: auto;
-  margin-bottom: 32px;
+  margin-bottom: 2rem;
 }
 
 .index-hero__mark svg {
@@ -121,7 +121,7 @@
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--ss-text-muted);
-  margin: 0 0 12px;
+  margin: 0 0 0.75rem;
 }
 
 .index-hero__headline {
@@ -131,7 +131,7 @@
   line-height: 1.05;
   letter-spacing: -0.01em;
   color: var(--color-base-content);
-  margin: 0 0 16px;
+  margin: 0 0 1rem;
 }
 
 /* The one italic clause. Purple carries it; the serif carries the voice. */
@@ -145,7 +145,7 @@
   font-size: var(--text-body-sm);
   line-height: 1.5;
   color: var(--ss-text-body);
-  margin: 0 0 24px;
+  margin: 0 0 1.5rem;
 }
 
 /* Three capability marks. The arrow is a Unicode character on a pseudo
@@ -156,7 +156,7 @@
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 24px;
+  gap: 0.5rem 1.5rem;
 }
 
 .index-hero__marks li {
@@ -168,7 +168,7 @@
 
 .index-hero__marks li::before {
   content: "\2192";
-  margin-right: 8px;
+  margin-right: 0.5rem;
   color: var(--color-primary);
 }
 
@@ -183,7 +183,7 @@
   .index-hero__mark {
     /* 560px is the design's cap and stays the floor here, so this only
        ever grows the mark, never shrinks it below the stated value. */
-    max-width: clamp(560px, 74%, 820px);
+    max-width: clamp(35rem, 74%, 51.25rem);
   }
 
   .index-hero__headline {
@@ -203,12 +203,12 @@
 /* Right column: the sunken form well                                  */
 /* ------------------------------------------------------------------ */
 .index-form {
-  padding: 24px 0 32px;
+  padding: 1.5rem 0 2rem;
 }
 
 @media (min-width: 860px) {
   .index-form {
-    padding: 52px 56px 56px 44px;
+    padding: 3.25rem 3.5rem 3.5rem 2.75rem;
     background-color: var(--ss-surface-sunken);
     border-left: 1px solid var(--ss-border-default);
     /* The well runs the height of the page, not the height of the form. */
@@ -221,7 +221,7 @@
    border leaves the card marooned beside a field of empty sunken colour. */
 .index-form__inner {
   width: 100%;
-  max-width: 380px;
+  max-width: 23.75rem;
   margin: 0 auto;
 }
 
@@ -233,9 +233,9 @@
    wider than the other, which is F-B18-12. */
 .mode-tabs {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  margin-bottom: 14px;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin-bottom: 0.875rem;
   border-radius: var(--radius-md);
   border: 1px solid var(--ss-border-default);
   background-color: var(--color-base-100);
@@ -247,9 +247,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 8px 12px;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background-color: transparent;
@@ -278,8 +278,8 @@
    takes the orange end of the rocket ramp, so the tab previews the data
    colour it leads to. */
 .mode-pill__mark {
-  width: 9px;
-  height: 9px;
+  width: 0.5625rem;
+  height: 0.5625rem;
   border-radius: 2px;
   background-color: var(--color-primary);
 }
@@ -295,7 +295,7 @@
    a warm surface, with no drop shadow at all. */
 .ss-card {
   display: block;
-  padding: 18px;
+  padding: 1.125rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-lg);
   background-color: var(--ss-surface-card);
@@ -303,7 +303,7 @@
 }
 
 .ss-card__note {
-  margin: 4px 0 12px;
+  margin: 0.25rem 0 0.75rem;
   font-size: var(--text-body-sm);
   line-height: 1.5;
   color: var(--ss-text-body);
@@ -313,15 +313,15 @@
 /* Fields                                                              */
 /* ------------------------------------------------------------------ */
 .field {
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
 }
 
 .field__label-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
 }
 
 .field__label {
@@ -343,7 +343,7 @@
 }
 
 .field__help {
-  margin: 4px 0 0;
+  margin: 0.25rem 0 0;
   font-size: var(--text-label-sm);
   line-height: 1.4;
   color: var(--ss-text-muted);
@@ -352,7 +352,7 @@
 /* Written into the page by static/js/index.js and static/js/heatmap.js. It
    replaces Bootstrap's .invalid-feedback, which left with Bootstrap. */
 .field__error {
-  margin-top: 4px;
+  margin-top: 0.25rem;
   font-size: var(--text-label-sm);
   line-height: 1.4;
   color: var(--ss-bad);
@@ -369,8 +369,8 @@
 .ss-select {
   display: block;
   width: 100%;
-  height: 44px;
-  padding: 0 12px;
+  height: 2.75rem;
+  padding: 0 0.75rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
   /* The page colour, not the card colour: fields read as recessed. */
@@ -395,7 +395,7 @@
    inherits the muted text colour in both themes. */
 .ss-select {
   appearance: none;
-  padding-right: 34px;
+  padding-right: 2.125rem;
   background-image:
     linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
@@ -419,7 +419,7 @@
   content: "\2713";
   position: absolute;
   top: 50%;
-  right: 12px;
+  right: 0.75rem;
   transform: translateY(-50%);
   color: var(--color-success);
   font-size: var(--text-body-sm);
@@ -429,7 +429,7 @@
 
 .ss-input.is-valid {
   border-color: var(--color-success);
-  padding-right: 34px;
+  padding-right: 2.125rem;
 }
 
 .ss-input.is-invalid {
@@ -466,8 +466,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 1.125rem;
+  height: 1.125rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-full);
   color: var(--ss-text-muted);
@@ -484,12 +484,12 @@
 .hint__body {
   position: absolute;
   right: 0;
-  top: calc(100% + 6px);
+  top: calc(100% + 0.375rem);
   z-index: 20;
   width: max-content;
   max-width: 17rem;
   margin: 0;
-  padding: 8px 10px;
+  padding: 0.5rem 0.625rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
   background-color: var(--ss-surface-card);
@@ -511,7 +511,7 @@
 .decade-pills {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 4px;
+  gap: 0.25rem;
 }
 
 .decade-radio {
@@ -527,8 +527,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 32px;
-  padding: 0 8px;
+  min-height: 2rem;
+  padding: 0 0.5rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-full);
   background-color: transparent;
@@ -569,8 +569,8 @@
 /* ------------------------------------------------------------------ */
 .seg {
   display: flex;
-  gap: 4px;
-  padding: 3px;
+  gap: 0.25rem;
+  padding: 0.1875rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
   background-color: var(--color-base-100);
@@ -590,7 +590,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 38px;
+  min-height: 2.375rem;
   border-radius: 6px;
   color: var(--ss-text-muted);
   font-size: var(--text-body-sm);
@@ -621,8 +621,8 @@
 /* Dashed top border marks the boundary. It expands in place, so nothing
    below it jumps out of view on a phone. */
 .disclosure {
-  margin-top: 14px;
-  padding-top: 12px;
+  margin-top: 0.875rem;
+  padding-top: 0.75rem;
   border-top: 1px dashed var(--ss-border-default);
 }
 
@@ -630,8 +630,8 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 8px;
-  min-height: 32px;
+  gap: 0.5rem;
+  min-height: 2rem;
   cursor: pointer;
   list-style: none;
 }
@@ -648,7 +648,7 @@
 
 .disclosure__label::after {
   content: "\25BC";
-  margin-left: 6px;
+  margin-left: 0.375rem;
   font-size: 0.6em;
   color: var(--ss-text-muted);
 }
@@ -670,9 +670,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 44px;
-  padding: 8px 0;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0;
 }
 
 .th-row + .th-row {
@@ -694,7 +694,7 @@
 
 .th-reset {
   display: block;
-  margin: 8px 0 0;
+  margin: 0.5rem 0 0;
   padding: 0;
   border: 0;
   background: none;
@@ -722,8 +722,8 @@
 }
 
 .stepper__btn {
-  width: 34px;
-  height: 38px;
+  width: 2.125rem;
+  height: 2.375rem;
   border: 0;
   background: none;
   color: var(--ss-text-body);
@@ -739,7 +739,7 @@
 
 .stepper__value {
   width: 3.25rem;
-  height: 38px;
+  height: 2.375rem;
   border: 0;
   border-left: 1px solid var(--ss-border-default);
   border-right: 1px solid var(--ss-border-default);
@@ -768,11 +768,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0.5rem;
   width: 100%;
-  min-height: 48px;
-  margin-top: 14px;
-  padding: 0 16px;
+  min-height: 3rem;
+  margin-top: 0.875rem;
+  padding: 0 1rem;
   border: 0;
   border-radius: var(--radius-md);
   background-color: var(--color-primary);
@@ -800,14 +800,14 @@
 .filter-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 12px;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
+  padding: 0.1875rem 0.5rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-full);
   color: var(--ss-text-muted);
@@ -836,7 +836,7 @@
   .ss-input,
   .ss-select,
   .stepper__value {
-    font-size: 16px;
+    font-size: 1rem;
   }
 
   .index-form__inner {
@@ -854,11 +854,11 @@
   }
 
   .index-hero {
-    padding-bottom: 24px;
+    padding-bottom: 1.5rem;
   }
 
   .index-form {
-    padding-top: 16px;
+    padding-top: 1rem;
   }
 
   /* The submit read as oversized because its type was too small for its box,
@@ -866,7 +866,7 @@
      iOS zooming, and the button stayed at 14px. The 48px height is the touch
      target and stays. */
   .ss-submit {
-    font-size: 16px;
+    font-size: 1rem;
   }
 
   .th-row {
@@ -887,22 +887,22 @@
   .stepper__value,
   .decade-pill,
   .disclosure__summary {
-    min-height: 44px;
+    min-height: 2.75rem;
   }
 
   .stepper__btn {
-    min-width: 44px;
+    min-width: 2.75rem;
   }
 
   .th-reset {
     display: flex;
     align-items: center;
-    min-height: 44px;
+    min-height: 2.75rem;
   }
 
   .hint__toggle {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 }
 
