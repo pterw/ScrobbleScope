@@ -347,7 +347,32 @@ agent starts from identical state. It:
 3. **Refreshes** the machine-managed `DOCSYNC:STATUS` block in
    SESSION_CONTEXT from PLAYBOOK truth (Section 3 + Section 4).
 4. **Validates** the live document corpus through `docsync.integrity`,
-   which returns typed DOC001-DOC006 issues that block rather than warn.
+   which returns typed DOC001-DOC011 issues that block rather than warn.
+   (This range said DOC001-DOC006 until 2026-08-25, four checks after it
+   stopped being true. DOC009 to DOC011 exist because of that class.)
+
+**DOC009 to DOC011 are declared, not hard-coded.** They read
+`.docsync.toml` at the repository root, so `scripts/docsync/declarations.py`
+is repository-independent and only the declarations are local. Three kinds:
+
+- **DOC009 -- value.** One fact written in several places must still be
+  stated in all of them, and where a pattern captures a group, the captured
+  text must agree across sites. A pattern with no group only has to match,
+  which is how sites that spell one fact differently are declared: a media
+  query writes `859.98px` where a script writes `860`.
+- **DOC010 -- anchor.** A cross-reference must resolve to a heading, bold
+  section label or list item that exists. The declaration describes the
+  *shape* of a citation rather than one citation, so a reference written
+  tomorrow is checked with no new declaration. This is the check that
+  `F-STYLE-1` could not be: citing by name does not help when the name moves.
+- **DOC011 -- retired.** A claim that is no longer true must not survive in
+  a document that still prescribes behaviour. Dated log entries are exempt
+  below a declared marker, and struck-through text is exempt everywhere --
+  an author who wrote `~~this~~` has already said it is not current.
+
+Add a declaration when a fact starts living in two places, not after it
+drifts. `F-B21-17` has the tally that motivated this: six of nineteen review
+comments in Batch 21 were one fact written twice.
 
 **Lookup map (avoid path confusion):**
 - Untagged side-task archive: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`

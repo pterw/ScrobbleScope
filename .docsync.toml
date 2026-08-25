@@ -1,0 +1,149 @@
+# Facts this repository writes down more than once.
+#
+# `scripts/docsync/declarations.py` is the mechanism and carries to any
+# repository unchanged. This file is the local half: what is duplicated here,
+# and where. Every entry below was added because the copies really did drift
+# and a reviewer caught it, not because the drift was imagined. F-B21-17.
+#
+# Three kinds:
+#   [[value]]    one value, several places, they must agree
+#   [[anchor]]   a cross-reference must resolve to something that exists
+#   [[retired]]  a claim that is no longer true must not still prescribe
+
+# ----------------------------------------------------------------------
+# Values
+# ----------------------------------------------------------------------
+
+# Drifted in WP-3: the stylesheets moved to the design's single 860px
+# breakpoint and the renderer stayed at 768, so widths from 768 to 859 got the
+# mobile frame with the desktop grid scaled into it.
+#
+# No capture groups here on purpose. A media query stops just short of the
+# breakpoint and writes 859.98px, while the script compares against 860.
+# Both are correct, and comparing the two strings would fail on correct code,
+# so each site declares the literal it must still contain.
+[[value]]
+name = "the single 860px breakpoint"
+
+[[value.sites]]
+file = "static/css/index.css"
+pattern = 'max-width: 859\.98px'
+
+[[value.sites]]
+file = "static/css/heatmap.css"
+pattern = 'max-width: 859\.98px'
+
+[[value.sites]]
+file = "static/css/shell.css"
+pattern = 'max-width: 859\.98px'
+
+[[value.sites]]
+file = "static/js/heatmap.js"
+pattern = 'MOBILE_MAX_WIDTH = 860\b'
+
+# The touch minimum is stated as a number in the gate and as a length in the
+# stylesheets. 2.75rem is 44px at a 16px root; the units rule in AGENTS.md
+# requires the stylesheet half to be rem.
+[[value]]
+name = "the 44px minimum touch target"
+
+[[value.sites]]
+file = "scripts/dev/frontend_gate.py"
+pattern = 'MIN_TOUCH_TARGET_PX = 44\b'
+
+[[value.sites]]
+file = "static/css/index.css"
+pattern = 'min-height: 2\.75rem'
+
+[[value.sites]]
+file = "static/css/error.css"
+pattern = 'min-height: 2\.75rem'
+
+# The Adobe Fonts kit id. It reversed once already, from self-hosted faces to
+# this kit, and the id appears in the template, the gate and the design notes.
+[[value]]
+name = "the Adobe Fonts kit id"
+
+[[value.sites]]
+file = "templates/base.html"
+pattern = 'use\.typekit\.net/(\w+)\.css'
+
+[[value.sites]]
+file = "docs/design/README.md"
+pattern = 'kit `(\w+)`'
+
+# The heatmap window. The daily average divides by it, so a change in one
+# place and not the other silently misreports every average.
+[[value]]
+name = "the 365-day heatmap window"
+
+[[value.sites]]
+file = "static/js/heatmap.js"
+pattern = 'WINDOW_DAYS = (\d+)'
+
+[[value.sites]]
+file = "templates/partials/_heatmap_result.html"
+pattern = 'Last (\d+) days'
+
+# ----------------------------------------------------------------------
+# Anchors
+# ----------------------------------------------------------------------
+
+# The citation this whole check exists for. RECONCILIATION.md pointed at
+# `AGENTS.md` "Proposal and Design Rules" item 6; the rule moved to a new
+# section in the same commit that created it, and the pointer stayed behind.
+# Citing by name was already the rule and did not save it, because the name
+# itself changed.
+#
+# The pattern is a shape, not one citation, so a reference written tomorrow is
+# checked with no new declaration.
+[[anchor]]
+name = "AGENTS.md section and item citations"
+target = "AGENTS.md"
+pattern = '`AGENTS\.md` "([^"]+)"(?: item (\d+))?'
+scan = [
+  "*.md",
+  "docs/design/*.md",
+  "docs/superpowers/plans/*.md",
+  ".claude/SESSION_CONTEXT.md",
+]
+
+# The design contract is cited the same way and moves for the same reasons.
+[[anchor]]
+name = "design README section citations"
+target = "docs/design/README.md"
+pattern = '`docs/design/README\.md` "([^"]+)"'
+scan = ["*.md", "docs/design/*.md", "static/css/*.css", "scripts/dev/*.py"]
+
+# ----------------------------------------------------------------------
+# Retired claims
+# ----------------------------------------------------------------------
+
+# Owner reversed BATCH21_DEFINITION.md decision 3 on 2026-08-24. The reversal
+# was recorded as a deviation in the plan while five normative copies still
+# prescribed the old placement, and a reviewer found every one of them.
+#
+# The execution log is exempt below its heading: a dated entry recording what
+# the definition said that day is correct and stays.
+[[retired]]
+name = "limit_results belongs inside the thresholds disclosure"
+reason = "Owner reversed decision 3 on 2026-08-24; it is a visible field above it."
+pattern = 'limit_results.{0,80}?(?:inside|into) the thresholds disclosure'
+scan = ["*.md", "docs/superpowers/plans/*.md", ".claude/SESSION_CONTEXT.md"]
+allow_files = ["docs/logarchive/*"]
+
+[retired.allow_after]
+"PLAYBOOK.md" = "## 4. Execution log"
+
+# Owner reversed decision 4 on 2026-08-22. Adobe Fonts kit rwy8ghw is the type
+# stack and no static/fonts/ directory is coming, but four documents recorded
+# the self-hosted plan and had to be rewritten.
+[[retired]]
+name = "the type stack is self-hosted under static/fonts/"
+reason = "Owner adopted Adobe Fonts kit rwy8ghw on 2026-08-22."
+pattern = 'fonts self-hosted under `static/fonts/`'
+scan = ["*.md", "docs/design/*.md", ".claude/SESSION_CONTEXT.md"]
+allow_files = ["docs/logarchive/*"]
+
+[retired.allow_after]
+"PLAYBOOK.md" = "## 4. Execution log"

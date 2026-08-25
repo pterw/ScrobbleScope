@@ -448,7 +448,10 @@ body {
 /* ------------------------------------------------------------------ */
 /* Responsive: one breakpoint, per the design system                   */
 /* ------------------------------------------------------------------ */
-@media (max-width: 860px) {
+/* 859.98, not 860. index.css and heatmap.css open their desktop rules at
+   min-width: 860px, so a max-width of 860 here means both sides apply at
+   exactly that width. Found by DOC009. */
+@media (max-width: 859.98px) {
     :root {
         --shell-height: 60px;
     }

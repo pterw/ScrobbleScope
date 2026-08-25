@@ -1,0 +1,553 @@
+"""Tests for docsync.declarations: DOC009, DOC010 and DOC011.
+
+Each check exists because a real fact drifted and a reviewer caught it rather
+than a gate. The first test in each group reproduces that original defect from
+the batch record, so the check is anchored to something that actually happened
+and not only to a case invented to make it pass.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from docsync.declarations import (
+    DECLARATIONS_FILENAME,
+    DeclarationError,
+    _Files,
+    check_anchors,
+    check_retired,
+    check_values,
+    collect_declaration_issues,
+    load_declarations,
+)
+
+
+def _repo(tmp_path: Path, files: dict[str, str]) -> Path:
+    """Write a throwaway repository and return its root."""
+    for rel_path, text in files.items():
+        path = tmp_path / rel_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+    return tmp_path
+
+
+def _files(tmp_path: Path, live: dict[str, list[str]] | None = None) -> _Files:
+    return _Files(tmp_path, live or {})
+
+
+# ----------------------------------------------------------------------
+# DOC009 -- values
+# ----------------------------------------------------------------------
+
+
+def test_a_breakpoint_that_drifts_between_a_stylesheet_and_a_script_fails(
+    tmp_path: Path,
+) -> None:
+    """The original defect: CSS moved to 860 and the renderer stayed at 768.
+
+    Widths from 768 to 859 got the mobile frame with the desktop grid scaled
+    into it, and no gate could see it because each file was internally
+    consistent.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "app.css": "@media (max-width: 859.98px) { .x { color: red } }\n",
+            "app.js": "const MOBILE_MAX_WIDTH = 768;\n",
+        },
+    )
+    declaration = {
+        "name": "the breakpoint",
+        "sites": [
+            {"file": "app.css", "pattern": r"max-width: 859\.98px"},
+            {"file": "app.js", "pattern": r"MOBILE_MAX_WIDTH = 860\b"},
+        ],
+    }
+
+    issues = check_values(_files(root), [declaration])
+
+    assert [issue.code for issue in issues] == ["DOC009"]
+    assert issues[0].path == "app.js"
+    assert "no longer states" in issues[0].invariant
+
+
+def test_sites_that_all_state_the_value_report_nothing(tmp_path: Path) -> None:
+    """The check must be silent on correct code, or it stops being read."""
+    root = _repo(
+        tmp_path,
+        {
+            "app.css": "@media (max-width: 859.98px) { }\n",
+            "app.js": "const MOBILE_MAX_WIDTH = 860;\n",
+        },
+    )
+    declaration = {
+        "name": "the breakpoint",
+        "sites": [
+            {"file": "app.css", "pattern": r"max-width: 859\.98px"},
+            {"file": "app.js", "pattern": r"MOBILE_MAX_WIDTH = 860\b"},
+        ],
+    }
+
+    assert check_values(_files(root), [declaration]) == []
+
+
+def test_captured_values_that_disagree_are_reported_with_both_readings(
+    tmp_path: Path,
+) -> None:
+    """A pattern with a group compares what it captured, not just presence.
+
+    Both files state a version; they simply state different ones. Presence
+    alone would pass this, which is why the capturing form exists.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "a.txt": "playwright==1.62.0\n",
+            "b.txt": "pinned to playwright==1.55.1 here\n",
+        },
+    )
+    declaration = {
+        "name": "the playwright pin",
+        "sites": [
+            {"file": "a.txt", "pattern": r"playwright==([\d.]+)"},
+            {"file": "b.txt", "pattern": r"playwright==([\d.]+)"},
+        ],
+    }
+
+    issues = check_values(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert "a.txt says 1.62.0" in issues[0].invariant
+    assert "b.txt says 1.55.1" in issues[0].invariant
+    assert issues[0].line == 1
+
+
+def test_captured_values_that_agree_report_nothing(tmp_path: Path) -> None:
+    """The adversary for the test above: same value, two spellings around it."""
+    root = _repo(
+        tmp_path,
+        {
+            "a.txt": "playwright==1.62.0\n",
+            "b.txt": "we pin playwright==1.62.0 deliberately\n",
+        },
+    )
+    declaration = {
+        "name": "the playwright pin",
+        "sites": [
+            {"file": "a.txt", "pattern": r"playwright==([\d.]+)"},
+            {"file": "b.txt", "pattern": r"playwright==([\d.]+)"},
+        ],
+    }
+
+    assert check_values(_files(root), [declaration]) == []
+
+
+def test_a_site_naming_a_file_that_does_not_exist_is_reported(
+    tmp_path: Path,
+) -> None:
+    """A declaration pointing at a deleted file must not pass silently.
+
+    Reported against the declarations file, not the missing one, because that
+    is the file the reader has to edit.
+    """
+    root = _repo(tmp_path, {"a.txt": "value 1\n"})
+    declaration = {
+        "name": "a value",
+        "sites": [
+            {"file": "a.txt", "pattern": "value 1"},
+            {"file": "gone.txt", "pattern": "value 1"},
+        ],
+    }
+
+    issues = check_values(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].path == DECLARATIONS_FILENAME
+    assert "gone.txt" in issues[0].invariant
+
+
+def test_a_value_declared_at_one_site_is_a_declaration_error(
+    tmp_path: Path,
+) -> None:
+    """One copy cannot disagree with itself, so the declaration is the defect."""
+    root = _repo(tmp_path, {"a.txt": "value\n"})
+    declaration = {"name": "lonely", "sites": [{"file": "a.txt", "pattern": "value"}]}
+
+    with pytest.raises(DeclarationError, match="cannot disagree with itself"):
+        check_values(_files(root), [declaration])
+
+
+def test_an_unparseable_pattern_blames_the_declaration(tmp_path: Path) -> None:
+    """A bad regex is a defect in the gate, not in the document it scanned."""
+    root = _repo(tmp_path, {"a.txt": "x\n", "b.txt": "x\n"})
+    declaration = {
+        "name": "broken",
+        "sites": [
+            {"file": "a.txt", "pattern": "("},
+            {"file": "b.txt", "pattern": "x"},
+        ],
+    }
+
+    with pytest.raises(DeclarationError, match="not a valid regex"):
+        check_values(_files(root), [declaration])
+
+
+# ----------------------------------------------------------------------
+# DOC010 -- anchors
+# ----------------------------------------------------------------------
+
+
+ANCHOR_PATTERN = r'`RULES\.md` "([^"]+)"(?: item (\d+))?'
+
+
+def test_a_citation_of_a_heading_that_moved_is_reported(tmp_path: Path) -> None:
+    """The original defect, and the reason a written rule could not catch it.
+
+    The pointer cited the rule by name, which is what the style rule asks for.
+    Then the rule moved to a new section in the same commit, so the name
+    itself changed and the citation was left resolving to nothing.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## UI and Accessibility Rules\n\n1. Units.\n",
+            "notes.md": 'See `RULES.md` "Proposal and Design Rules" item 6.\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    issues = check_anchors(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].code == "DOC010"
+    assert issues[0].path == "notes.md"
+    assert issues[0].line == 1
+    assert "no such heading" in issues[0].invariant
+
+
+def test_a_citation_of_an_item_beyond_the_list_is_reported(tmp_path: Path) -> None:
+    """Renumbering a list breaks every citation of it, silently."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Design Rules\n\n1. One.\n2. Two.\n",
+            "notes.md": 'See `RULES.md` "Design Rules" item 6.\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    issues = check_anchors(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert "which has 2 item(s)" in issues[0].invariant
+
+
+def test_a_citation_that_resolves_reports_nothing(tmp_path: Path) -> None:
+    """Non-vacuous partner: the same shape, pointing somewhere real."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Design Rules\n\n1. One.\n2. Two.\n",
+            "notes.md": 'See `RULES.md` "Design Rules" item 2.\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert check_anchors(_files(root), [declaration]) == []
+
+
+def test_a_heading_cited_without_its_parenthetical_still_resolves(
+    tmp_path: Path,
+) -> None:
+    """ "Session Bootstrap" must resolve to "Session Bootstrap (in order)".
+
+    Dropping the parenthetical is normal prose, not a broken reference, and
+    reporting it would train the reader to ignore this check.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Session Bootstrap (in order)\n\n1. One.\n",
+            "notes.md": 'See `RULES.md` "Session Bootstrap".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert check_anchors(_files(root), [declaration]) == []
+
+
+def test_a_bold_lead_in_counts_as_a_citable_place(tmp_path: Path) -> None:
+    """The design contract marks its sections in bold rather than with hashes.
+
+    Both spellings are real places in the file, and the trailing sentence
+    after the label is not part of the name anyone cites.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "**Wordmark animation -- read this first.** The bars move.\n",
+            "notes.md": 'See `RULES.md` "Wordmark animation".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert check_anchors(_files(root), [declaration]) == []
+
+
+def test_an_anchor_target_that_is_missing_is_reported_once(tmp_path: Path) -> None:
+    """A citation into a file that is gone is one declaration defect, not many."""
+    root = _repo(tmp_path, {"notes.md": 'See `RULES.md` "Anything".\n'})
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    issues = check_anchors(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].path == DECLARATIONS_FILENAME
+
+
+# ----------------------------------------------------------------------
+# DOC011 -- retired claims
+# ----------------------------------------------------------------------
+
+
+RETIRED = {
+    "name": "the old placement",
+    "reason": "Reversed on 2026-08-24.",
+    "pattern": r"limit_results.{0,80}?(?:inside|into) the thresholds disclosure",
+    "scan": ["spec.md", "log.md", "plan.md"],
+}
+
+
+def test_a_reversed_decision_still_prescribed_is_reported(tmp_path: Path) -> None:
+    """The original defect: recorded as reversed in one file, live in five.
+
+    An agent reading the canonical bootstrap would have moved the field back.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "limit_results is relocated into the thresholds disclosure.\n",
+            "log.md": "nothing here\n",
+            "plan.md": "nothing here\n",
+        },
+    )
+
+    issues = check_retired(_files(root), [dict(RETIRED)])
+
+    assert len(issues) == 1
+    assert issues[0].code == "DOC011"
+    assert issues[0].path == "spec.md"
+    assert issues[0].line == 1
+    assert "Reversed on 2026-08-24." in issues[0].invariant
+
+
+def test_a_dated_log_entry_below_its_marker_is_left_alone(tmp_path: Path) -> None:
+    """History is exempt. What it said that day was true that day.
+
+    Only the part of the file below the marker is exempt, so a stale copy in
+    the same file's live prose is still reported -- which is exactly the shape
+    PLAYBOOK.md has.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "clean\n",
+            "plan.md": "clean\n",
+            "log.md": (
+                "- Next action: limit_results moves into the thresholds "
+                "disclosure.\n"
+                "## 4. Execution log\n"
+                "- 2026-07-24: limit_results kept inside the thresholds "
+                "disclosure.\n"
+            ),
+        },
+    )
+    declaration = dict(RETIRED, allow_after={"log.md": "## 4. Execution log"})
+
+    issues = check_retired(_files(root), [declaration])
+
+    assert len(issues) == 1, "the live prose above the marker must still fail"
+    assert issues[0].line == 1
+
+
+def test_a_struck_through_claim_is_left_alone(tmp_path: Path) -> None:
+    """~~this~~ already says the claim is not current.
+
+    A superseded plan step is often kept struck through with the reversal
+    written above it, and deleting it would lose why the step existed.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "clean\n",
+            "log.md": "clean\n",
+            "plan.md": (
+                "**REVERSED, do not do this.**\n"
+                "~~Move limit_results inside the thresholds disclosure.~~\n"
+            ),
+        },
+    )
+
+    assert check_retired(_files(root), [dict(RETIRED)]) == []
+
+
+def test_a_file_exempted_by_glob_is_not_scanned(tmp_path: Path) -> None:
+    """The archive keeps grep history and must not be rewritten."""
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "clean\n",
+            "log.md": "clean\n",
+            "plan.md": "clean\n",
+            "archive/old.md": ("limit_results moves into the thresholds disclosure\n"),
+        },
+    )
+    declaration = dict(
+        RETIRED,
+        scan=["spec.md", "log.md", "plan.md", "archive/*.md"],
+        allow_files=["archive/*"],
+    )
+
+    assert check_retired(_files(root), [declaration]) == []
+
+
+def test_the_exemption_is_scoped_and_does_not_hide_a_live_copy(
+    tmp_path: Path,
+) -> None:
+    """Adversarial: the glob must not be so broad it silences everything.
+
+    Without this, an exemption written to cover the archive could be widened
+    to cover the document it was meant to protect the reader from.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "limit_results moves into the thresholds disclosure\n",
+            "log.md": "clean\n",
+            "plan.md": "clean\n",
+            "archive/old.md": "limit_results into the thresholds disclosure\n",
+        },
+    )
+    declaration = dict(
+        RETIRED,
+        scan=["spec.md", "log.md", "plan.md", "archive/*.md"],
+        allow_files=["archive/*"],
+    )
+
+    issues = check_retired(_files(root), [declaration])
+
+    assert [issue.path for issue in issues] == ["spec.md"]
+
+
+# ----------------------------------------------------------------------
+# Loading and wiring
+# ----------------------------------------------------------------------
+
+
+def test_a_repository_with_no_declarations_file_reports_nothing(
+    tmp_path: Path,
+) -> None:
+    """Every repository starts here, and that is not a failure."""
+    assert load_declarations(tmp_path) == {}
+    assert collect_declaration_issues(repo_root=tmp_path, live_documents={}) == []
+
+
+def test_a_malformed_declarations_file_is_a_declaration_error(
+    tmp_path: Path,
+) -> None:
+    """Invalid TOML must name itself rather than surface as a document fault."""
+    (tmp_path / DECLARATIONS_FILENAME).write_text("[[value\n", encoding="utf-8")
+
+    with pytest.raises(DeclarationError, match="not valid TOML"):
+        load_declarations(tmp_path)
+
+
+def test_the_in_memory_copy_wins_over_the_file_on_disk(tmp_path: Path) -> None:
+    """The gate grades documents it may have just rewritten in memory.
+
+    Reading from disk here would grade the previous version and pass a
+    document the run itself had already fixed, or fail one it had broken.
+    """
+    root = _repo(tmp_path, {"a.md": "stale text\n", "b.md": "fresh text\n"})
+    declaration = {
+        "name": "a value",
+        "sites": [
+            {"file": "a.md", "pattern": "fresh text"},
+            {"file": "b.md", "pattern": "fresh text"},
+        ],
+    }
+
+    on_disk = check_values(_files(root), [declaration])
+    in_memory = check_values(_files(root, {"a.md": ["fresh text"]}), [declaration])
+
+    assert [issue.path for issue in on_disk] == ["a.md"]
+    assert in_memory == []
+
+
+def test_collect_runs_all_three_kinds_and_sorts_them(tmp_path: Path) -> None:
+    """One malformed fact of each kind, reported together in a stable order."""
+    root = _repo(
+        tmp_path,
+        {
+            DECLARATIONS_FILENAME: (
+                "[[value]]\n"
+                'name = "a value"\n'
+                "[[value.sites]]\n"
+                'file = "a.md"\n'
+                "pattern = 'present'\n"
+                "[[value.sites]]\n"
+                'file = "b.md"\n'
+                "pattern = 'present'\n"
+                "\n"
+                "[[anchor]]\n"
+                'name = "citations"\n'
+                'target = "RULES.md"\n'
+                'pattern = \'`RULES\\.md` "([^"]+)"\'\n'
+                'scan = ["a.md"]\n'
+                "\n"
+                "[[retired]]\n"
+                'name = "an old claim"\n'
+                "pattern = 'old claim'\n"
+                'scan = ["b.md"]\n'
+            ),
+            "RULES.md": "## Real Heading\n",
+            "a.md": 'present, and see `RULES.md` "Missing Heading"\n',
+            "b.md": "an old claim lives here\n",
+        },
+    )
+
+    issues = collect_declaration_issues(repo_root=root, live_documents={})
+
+    assert [issue.code for issue in issues] == ["DOC010", "DOC009", "DOC011"]
+    assert [issue.path for issue in issues] == ["a.md", "b.md", "b.md"]

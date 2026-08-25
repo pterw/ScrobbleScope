@@ -10,7 +10,7 @@ F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
 F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11 and F-B18-12 and
 filed F-B21-14 through F-B21-18. **WP-4 is next.**
-749 tests across 39 test modules.
+771 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -716,8 +716,8 @@ a single fact recorded in more than one place, where the copies had drifted:
 - the WP-3 checkpoint, stale in PLAYBOOK Section 3 and SESSION_CONTEXT;
 - the test count in the FINDINGS header;
 - the batch definition's next-work-package line;
-- a cross-reference to `AGENTS.md` "Proposal and Design Rules item 6", which
-  broke in the same commit that moved the rule to a new section.
+- a cross-reference naming the units rule by the AGENTS.md section it used
+  to sit in, which broke in the same commit that moved it to a new one.
 
 The last one is the argument for a mechanical check rather than a better
 rule. `F-STYLE-1` already says to cite by name and not by line number, and
@@ -739,7 +739,15 @@ the mechanism carries to another repository unchanged:
 Stdlib only, and it inherits the pre-commit wiring the docsync package
 already has.
 
-Status: open, approved, not started. Build after WP-3 closes.
+Status: resolved 2026-08-25. Built as DOC009, DOC010 and DOC011 in
+`scripts/docsync/declarations.py`, declared in `.docsync.toml`, stdlib
+only. Each check was proved against the real defect it was built for by
+restoring that defect and watching the check name it. On its first run,
+before any test existed, it found `static/css/shell.css` stopping at
+`max-width: 860px` where every other stylesheet stops at `859.98px` --
+so both the mobile and desktop rules applied at exactly 860 -- and
+`AGENTS.md` describing the integrity codes as DOC001-DOC006, four checks
+after that stopped being true.
 Source: Batch 21 WP-3 review analysis, 2026-08-25.
 
 ### F-B21-18: 2,344 lines of JavaScript have no automated coverage at all

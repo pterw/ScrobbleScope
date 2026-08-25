@@ -9,6 +9,51 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-23 - PR #216 review round one applied (side-task)
+
+- Scope: three review comments Codex left on `45fbbe8`. All three were
+  verified against the code and all three were valid. None was declined.
+- **Tailwind was pruning tokens the handwritten CSS reads.** Tailwind v4
+  emits a theme variable only when a generated utility uses it.
+  `static/css/error.css` reads `--font-figure`, `--font-weight-bold`,
+  `--spacing-8`, `--radius-sm` and `--radius-lg` directly, no utility used
+  them, and none reached `static/css/tailwind.css`. An undefined `var()`
+  with no fallback voids the whole declaration, so the error page shipped
+  with no card rounding and no page padding, and its status number took
+  neither the bold weight nor the Gotham face. Nothing failed and nothing
+  logged. `@theme static` fixes it and adds 16 declarations to the compiled
+  file. A browser now reports 14px card rounding and 32px 16px page
+  padding.
+- **No page set `font-family` on `body`.** Neither `global.css` nor
+  `shell.css` carried one, so the four unmigrated pages downloaded the
+  Adobe kit and then rendered in the Bootstrap system stack. The batch
+  definition lists the body font as a WP-2 deliverable, so this was a
+  missed one rather than a new idea. The declaration went into `shell.css`
+  behind a new `--shell-font-sans` token, because an unmigrated page never
+  loads the compiled stylesheet and `var(--font-sans)` resolves to nothing
+  there.
+- **`SESSION_CONTEXT.md` sections 3 and 4 were stale.** They said 9 css and
+  7 js files, still listed a deleted `error.js`, and omitted `shell.css`,
+  `frontend_gate.py` and the lockup SVG. Real counts are 10 and 6.
+- Two gaps closed while in the same files. `tests/test_template_shell.py`
+  gains a test that renders each page, reads back the stylesheets it loads,
+  and asserts every `var()` without a fallback resolves in one of them.
+  Nothing checked that invariant before. The gate gains a fifth check for
+  the body font, reading computed style rather than stylesheet text,
+  because the failure is a cascade one and only a browser can settle it.
+- Deviations: the dependency graph also gained `dev/tailwind_build.py`,
+  which WP-1 added and never recorded. It was a one-line omission in the
+  block being corrected, so leaving it was worse than fixing it.
+- Both fixes were proven able to fail. Reverting `@theme static` fails two
+  tests, and removing the body declaration fails the gate on `/` and names
+  the system stack it fell back to.
+- Validation: `pytest -q` -- **671 passed**, 3 warnings. All 11 pre-commit
+  hooks pass. The frontend gate reports `5 checks passed`.
+  `doc_state_sync.py --check` exits 0 with the expected active
+  root-definition warning.
+- Forward guidance: the compiled stylesheet is 1,650 lines now, so every
+  line citation into it is stale again. Cite the block, not the number.
+
 ### 2026-08-23 - Node 20 CI deprecation filed as F-B21-12 (side-task)
 
 - Scope: recorded a warning the Quality Gate has started printing. No
