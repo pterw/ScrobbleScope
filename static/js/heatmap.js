@@ -272,6 +272,19 @@
   const EXPORT_SCALE = 2;
   const EXPORT_PAD = 28;
 
+  //: Export header geometry. Every one of these used to be a literal inside
+  //: the drawing code, and the header height was a flat 150 that no longer
+  //: matched what was drawn into it: the KPI row ends at 166 and the legend
+  //: at 154, so the grid was painted over both. Named here because the canvas
+  //: has to be sized before anything is drawn, so the sizing pass and the
+  //: drawing pass have to agree on the same numbers.
+  const EXPORT_KPI_STEP = 190;      // widest a KPI column ever gets
+  const EXPORT_KPI_ROW_H = 62;      // label, value and sub-label together
+  const EXPORT_KPI_GUTTER = 14;     // smallest gap between two columns
+  const EXPORT_LEGEND_W = 90;
+  const EXPORT_LEGEND_H = 8;
+  const EXPORT_HEAD_GAP = 16;       // air between the header and the grid
+
   /**
    * Read a CSS custom property as a resolved colour.
    *
@@ -315,34 +328,104 @@
     return image;
   }
 
-  /** Draw the KPI row, returning the y the next block starts at. */
-  function drawKpis(ctx, x, y, width) {
-    var items = document.querySelectorAll('.heatmap-kpi');
+  const KPI_LABEL_FONT = '10px "input-mono-narrow", "input-mono", monospace';
+  const KPI_VALUE_FONT = '24px "gotham", sans-serif';
+
+  /** The KPI blocks on the page, as plain text. */
+  function kpiTexts() {
+    return Array.prototype.map.call(
+      document.querySelectorAll('.heatmap-kpi'),
+      function (item) {
+        var pick = function (sel) {
+          var node = item.querySelector(sel);
+          return node ? node.textContent : '';
+        };
+        return {
+          label: pick('.heatmap-kpi-label'),
+          value: pick('.heatmap-kpi-value'),
+          sub: pick('.heatmap-kpi-sub'),
+        };
+      }
+    );
+  }
+
+  /**
+   * Decide how the export header lays out at this width.
+   *
+   * Measured, not assumed. A single row of four columns needs about 90px
+   * each for the labels alone, and the mobile grid is only ~340px wide, so
+   * four columns ran "DAILY AVERAGE" straight into "BEST DAY". The columns
+   * wrap instead, and the header grows to whatever it actually needs -- the
+   * old flat 150 was shorter than the content, which is why the grid painted
+   * over the legend and the streak's DAYS label.
+   */
+  function exportHeaderLayout(ctx, gridWidth, items) {
+    var widest = 0;
+    items.forEach(function (item) {
+      ctx.font = KPI_LABEL_FONT;
+      widest = Math.max(widest, ctx.measureText(item.label).width);
+      widest = Math.max(widest, ctx.measureText(item.sub).width);
+      ctx.font = KPI_VALUE_FONT;
+      widest = Math.max(widest, ctx.measureText(item.value).width);
+    });
+    var needed = widest + EXPORT_KPI_GUTTER;
+
+    // Four across, else two, else stacked. Two keeps a four-item row square
+    // rather than leaving one orphan on a second line.
+    var columns = Math.max(items.length, 1);
+    while (columns > 1 && gridWidth / columns < needed) {
+      columns = columns > 2 ? 2 : 1;
+    }
+
+    var top = EXPORT_PAD + 76;
+    var step = Math.min(EXPORT_KPI_STEP, gridWidth / columns);
+    var rows = Math.ceil(Math.max(items.length, 1) / columns);
+    var kpiBottom = top + rows * EXPORT_KPI_ROW_H;
+
+    // The legend keeps its place beside the KPIs when there is honestly room
+    // for it, and takes a row of its own when there is not.
+    var width = gridWidth + EXPORT_PAD * 2;
+    var besideX = width - EXPORT_PAD - EXPORT_LEGEND_W;
+    var kpiRight = EXPORT_PAD + columns * step;
+    var beside = besideX >= kpiRight + EXPORT_KPI_GUTTER;
+    var legendY = beside ? top + 42 : kpiBottom + 4;
+
+    return {
+      columns: columns,
+      step: step,
+      kpiTop: top,
+      kpiBottom: kpiBottom,
+      legendX: beside ? besideX : EXPORT_PAD,
+      legendY: legendY,
+      headHeight:
+        Math.max(kpiBottom, legendY + EXPORT_LEGEND_H) + EXPORT_HEAD_GAP,
+    };
+  }
+
+  /** Draw the KPI blocks into the space exportHeaderLayout set aside. */
+  function drawKpis(ctx, items, layout) {
     var muted = resolvedColour('--ss-text-muted');
     var ink = resolvedColour('--color-base-content');
-    var step = Math.min(190, width / Math.max(items.length, 1));
 
-    Array.prototype.forEach.call(items, function (item, index) {
-      var left = x + index * step;
-      var label = item.querySelector('.heatmap-kpi-label');
-      var value = item.querySelector('.heatmap-kpi-value');
-      var sub = item.querySelector('.heatmap-kpi-sub');
+    items.forEach(function (item, index) {
+      var left = EXPORT_PAD + (index % layout.columns) * layout.step;
+      var top =
+        layout.kpiTop + Math.floor(index / layout.columns) * EXPORT_KPI_ROW_H;
 
       ctx.fillStyle = muted;
-      ctx.font = '10px "input-mono-narrow", "input-mono", monospace';
-      ctx.fillText(label ? label.textContent : '', left, y);
+      ctx.font = KPI_LABEL_FONT;
+      ctx.fillText(item.label, left, top);
 
       ctx.fillStyle = ink;
-      ctx.font = '24px "gotham", sans-serif';
-      ctx.fillText(value ? value.textContent : '', left, y + 28);
+      ctx.font = KPI_VALUE_FONT;
+      ctx.fillText(item.value, left, top + 28);
 
-      if (sub && sub.textContent) {
+      if (item.sub) {
         ctx.fillStyle = muted;
-        ctx.font = '10px "input-mono-narrow", "input-mono", monospace';
-        ctx.fillText(sub.textContent, left, y + 46);
+        ctx.font = KPI_LABEL_FONT;
+        ctx.fillText(item.sub, left, top + 46);
       }
     });
-    return y + 62;
   }
 
   /** Draw the rocket ramp, so the file carries its own legend. */
@@ -353,7 +436,7 @@
         stop.pos, 'rgb(' + stop.r + ',' + stop.g + ',' + stop.b + ')');
     });
     ctx.fillStyle = gradient;
-    ctx.fillRect(x, y, width, 8);
+    ctx.fillRect(x, y, width, EXPORT_LEGEND_H);
   }
 
   /**
@@ -382,13 +465,19 @@
     if (!gridWidth || !gridHeight) return;
 
     var width = gridWidth + EXPORT_PAD * 2;
-    var headHeight = 150;
-    var height = headHeight + gridHeight + EXPORT_PAD;
 
     var canvas = document.createElement('canvas');
+    var ctx = canvas.getContext('2d');
+
+    // Measure first, then size the canvas. Setting width or height clears the
+    // canvas and resets the context, so the scale is applied afterwards.
+    var items = kpiTexts();
+    var layout = exportHeaderLayout(ctx, gridWidth, items);
+    var headHeight = layout.headHeight;
+    var height = headHeight + gridHeight + EXPORT_PAD;
+
     canvas.width = width * EXPORT_SCALE;
     canvas.height = height * EXPORT_SCALE;
-    var ctx = canvas.getContext('2d');
     ctx.scale(EXPORT_SCALE, EXPORT_SCALE);
     ctx.textBaseline = 'alphabetic';
 
@@ -409,8 +498,8 @@
     ctx.font = 'italic 26px "instrument-serif", Georgia, serif';
     ctx.fillText(lastUsername, EXPORT_PAD + leadWidth, EXPORT_PAD + 42);
 
-    var afterKpis = drawKpis(ctx, EXPORT_PAD, EXPORT_PAD + 76, gridWidth);
-    drawLegend(ctx, width - EXPORT_PAD - 90, afterKpis - 20, 90);
+    drawKpis(ctx, items, layout);
+    drawLegend(ctx, layout.legendX, layout.legendY, EXPORT_LEGEND_W);
 
     var image = gridAsImage(svg, gridWidth, gridHeight);
     image.onload = function () {

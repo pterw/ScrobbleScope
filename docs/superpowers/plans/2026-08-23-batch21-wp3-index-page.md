@@ -927,9 +927,21 @@ test count from the Section 4 entry. Never hand-edit it.
 3. **`unmatched.html` loads the Bootstrap JS bundle but no `data-bs-*`
    attribute on it uses the bundle.** It may already be dead weight. WP-7
    should check rather than assume.
-4. **The heatmap export saves whatever layout is on screen.**
-   `docs/design/README.md` screen 4 asks for the desktop 53x7 grid even on a
-   phone. `saveHeatmapImage` does not re-render for export.
+4. **The heatmap export has no automated coverage, and two defects reached
+   review through that gap.** The canvas is drawn by hand and every check in
+   this repository stops at the page. The second review round found the
+   export header painting over itself on a phone -- the header height was a
+   flat 150 while its own content ended at 166, so the grid covered the
+   legend and the streak's DAYS label, and four KPI columns at 85px ran
+   "DAILY AVERAGE" into "BEST DAY". Fixed by measuring, and verified by
+   rendering the file at both sizes and looking at it, which is not a gate.
+   The export cannot be checked in CI as it stands: it needs a rendered
+   heatmap, so it needs live Last.fm data and a key. Either give the module a
+   seam a check can call with fixed data, or accept that owner review owns
+   this file and say so somewhere a reader will find it.
+   Also still true: `docs/design/README.md` screen 4 asks for the desktop
+   53x7 grid even on a phone, and `saveHeatmapImage` does not re-render for
+   export -- it saves what is on screen.
 
 
 
