@@ -93,9 +93,9 @@ See FINDINGS F-DOCSYNC-3.
   **WP-3 is complete**, recorded in Section 4 below and open as **PR #218**,
   which is not merged. It rebuilt `index.html` on Tailwind, deleted the
   welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
-  the frontend gate from four checks at one desktop viewport to eight across
-  three device profiles. Codex raised twelve comments across three rounds;
-  every one was valid and all twelve were answered.
+  the frontend gate from four checks at one desktop viewport to nine across
+  three device profiles. Codex raised twenty-two comments on it; every one
+  was valid and all twenty-two were answered.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
   pilot, the Playwright runtime, the frontend gate and the compiled-CSS
@@ -462,10 +462,11 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-25 - PR #218 review rounds one to six applied (side-task)
+### 2026-08-25 - PR #218 review rounds one to seven applied (side-task)
 
 - Scope: answered every Codex comment on PR #218 while WP-3 sat open and
-  unmerged. Twenty-one comments across PR #216 and #218 in total; all valid.
+  unmerged. Twenty-nine comments across PR #216 and #218 in total -- seven
+  on #216 and twenty-two on #218 -- and all valid.
   One was declined on its premise -- it said the closed thresholds disclosure
   gave its controls zero-sized boxes, and deleting their sizing turns the gate
   red, so they were being measured -- and its remedy was applied anyway.
@@ -493,6 +494,41 @@ non-current operational logs. Older dated entries live in
     about 76 columns is the likely shape rather than an edge case; it matches
     the joined document now and maps back to the starting line, with the
     history and strikethrough exemptions applied after that mapping.
+  - **Round seven found the same two blind spots one level further out.**
+    DOC010 also searched line by line, and `PLAYBOOK.md` already carried a
+    citation of `AGENTS.md` "UI and Accessibility Rules" across two lines, so
+    that heading could have moved with the gate green. DOC009 shared the
+    shape, quietly: a file that states a value more than once satisfied the
+    check on the unwrapped copy while a drifted wrapped one went unread. Both
+    read the joined document now. `_joined_text` strips each line before
+    joining, without which a correct wrapped citation resolves to a heading
+    name with five spaces in the middle of it.
+  - **The anchor scan is every Markdown tree**, not the trees someone
+    remembered. It had missed `docs/SWE_AUDIT_CHARTER.md`, which cites
+    `AGENTS.md` and was never read. Three exemptions are declared with it:
+    `docs/history` and `docs/logarchive`, because a dated record is accurate
+    at write time and renaming one heading would otherwise turn 70 archived
+    files red with no fix but editing history; and `CLAUDE.md`, because it is
+    gitignored, so scanning it made the gate's answer depend on which machine
+    ran it.
+  - **Widening the scan found a checker defect before it found a document
+    defect.** The design contract labels some sections as list items, and the
+    bold-label pattern insisted the asterisks start the line, so the WP-3
+    plan's citation of "Responsive" resolved nowhere. Fixing that first was
+    the difference between the widening finding a defect and the widening
+    crying wolf.
+  - **A year warning that is still true survives a username edit.**
+    `clearRegistrationState()` had reset the minimum and the hint and left the
+    message naming the previous account's join year. Clearing the message
+    outright is the obvious fix and is wrong: "Year cannot be in the future"
+    is about the year, not the account. The handler re-derives instead, and a
+    ninth gate check holds the half a reader would not notice was broken.
+  - **A bad declarations file is reported rather than thrown.** Malformed
+    TOML, or a declaration holding an invalid regex, raised
+    `DeclarationError` straight through both CLI paths, which catch
+    `SyncError` and exit 2. The run ended in a traceback and exit 1 instead.
+    It is a `SyncError` now, keeping the distinct class its docstring asks
+    for so the reader is not sent to edit the wrong file.
 - Two findings came out of reading the comments as a set rather than one at a
   time: `F-B21-17`, that six of nineteen were one fact written twice, and
   `F-B21-18`, that 2,344 lines of JavaScript have no runner. `F-B21-17` was
@@ -500,10 +536,10 @@ non-current operational logs. Older dated entries live in
 - Deviations: none against a plan, because there was none -- this is review
   remediation. Each round was answered in one batched PR comment rather than
   per comment, per the `pr-bot-triage` skill.
-- Validation: `pytest -q` -- **779 passed**, 3 warnings. All 11 pre-commit
+- Validation: `pytest -q` -- **785 passed**, 3 warnings. All 11 pre-commit
   hooks pass with an identical `git write-tree` either side.
-  `doc_state_sync.py --check` exits 0. The frontend gate reports 8 checks in
-  13 runs across desktop, mobile and wide touch. Every fix was reproduced
+  `doc_state_sync.py --check` exits 0. The frontend gate reports 9 checks in
+  14 runs across desktop, mobile and wide touch. Every fix was reproduced
   against the running page before it was written and re-measured after.
 - Forward guidance: the merge is the owner's and is being held while rounds
   still return findings. Codex reacts to the PR summary with a thumbs-up when
