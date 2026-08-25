@@ -9,7 +9,7 @@ Last updated: 2026-08-24
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **785 passing** across 40 test modules |
+| Tests | **792 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -20,7 +20,7 @@ Last updated: 2026-08-24
 | Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
 | Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
 | Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
-| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0, WP-1, WP-2 and WP-3 are done. **WP-4 (unified loading) is next.** WP-3 rebuilt `index.html` on Tailwind -- editorial hero, regrouped form, the welcome modal and the `bootstrap.Popover` hints deleted, `limit_results` kept as a visible field above the thresholds disclosure (decision 3 moved it inside; the owner reversed that on 2026-08-24), and **WP-6 absorbed into it** because the heatmap has no page of its own. WP-7 and WP-8 keep their numbers. It is open as **PR #218**, unmerged, and Codex raised twenty-two valid comments across seven rounds. The frontend gate grew from four checks at one desktop viewport to nine across three device profiles, and stylesheet units moved to rem for type and spacing. WP-4 needs a GET route for `loading.html` before the gate can see it: `LEGACY_PAGES` is empty because the three remaining templates render only from a POST with session state. `templates/partials/_loading.html` already exists, built a work package early, and WP-4 consumes it. WP-2 **merged as PR #216** on 2026-08-24 (`658bdb2`), landing the base shell, the `error.html` pilot, the `tailwind-css-drift` pre-commit hook and `scripts/dev/frontend_gate.py` (Playwright, pinned `playwright==1.62.0`); it closed F-B21-2, F-B21-7 and F-AUDIT-1 and filed F-B21-10, F-B21-11, F-B21-12 and F-B21-13. Codex raised seven comments across three rounds; every one was valid and all seven were fixed before the merge. Round one: Tailwind was pruning five tokens `error.css` reads, no page set `font-family` on `body`, and sections 3 and 4 below were stale. Round two: the batch definition and the findings header still described the pre-WP-2 state. Round three: the header wordmark ran SMIL that `prefers-reduced-motion` cannot stop, and the back-to-top control had lost its layout wrapper. PR #217 merged the same day (`8ed1650`), adding the DOC007 and DOC008 bootstrap checks that close F-B21-13. The type stack is Adobe Fonts kit `rwy8ghw`, reversing the self-hosted ruling on 2026-08-22. The root-hygiene side task closed 2026-08-20 (the owner rejected the audience-banner scheme). The front-end design handoff was imported to `docs/design/` on 2026-08-21; `docs/design/README.md` is the canonical design spec and `docs/design/RECONCILIATION.md` is the repo's override list. The repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. The F-SWE-1 audit ran 2026-08-20 and blocked migration on F-SWE-2 (report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`); the charter is retired. F-SWE-2 was resolved 2026-08-20 in its standalone prerequisite commit. Definition: `BATCH21_DEFINITION.md`. |
+| Batch 21 status | **Active.** UI overhaul: Tailwind + daisyUI migration, warm theme propagation. WP-0, WP-1, WP-2 and WP-3 are done. **WP-4 (unified loading) is next.** WP-3 rebuilt `index.html` on Tailwind -- editorial hero, regrouped form, the welcome modal and the `bootstrap.Popover` hints deleted, `limit_results` kept as a visible field above the thresholds disclosure (decision 3 moved it inside; the owner reversed that on 2026-08-24), and **WP-6 absorbed into it** because the heatmap has no page of its own. WP-7 and WP-8 keep their numbers. It is open as **PR #218**, unmerged, and Codex raised twenty-three valid comments across eight rounds. The frontend gate grew from four checks at one desktop viewport to nine across three device profiles, and stylesheet units moved to rem for type and spacing. WP-4 needs a GET route for `loading.html` before the gate can see it: `LEGACY_PAGES` is empty because the three remaining templates render only from a POST with session state. `templates/partials/_loading.html` already exists, built a work package early, and WP-4 consumes it. WP-2 **merged as PR #216** on 2026-08-24 (`658bdb2`), landing the base shell, the `error.html` pilot, the `tailwind-css-drift` pre-commit hook and `scripts/dev/frontend_gate.py` (Playwright, pinned `playwright==1.62.0`); it closed F-B21-2, F-B21-7 and F-AUDIT-1 and filed F-B21-10, F-B21-11, F-B21-12 and F-B21-13. Codex raised seven comments across three rounds; every one was valid and all seven were fixed before the merge. Round one: Tailwind was pruning five tokens `error.css` reads, no page set `font-family` on `body`, and sections 3 and 4 below were stale. Round two: the batch definition and the findings header still described the pre-WP-2 state. Round three: the header wordmark ran SMIL that `prefers-reduced-motion` cannot stop, and the back-to-top control had lost its layout wrapper. PR #217 merged the same day (`8ed1650`), adding the DOC007 and DOC008 bootstrap checks that close F-B21-13. The type stack is Adobe Fonts kit `rwy8ghw`, reversing the self-hosted ruling on 2026-08-22. The root-hygiene side task closed 2026-08-20 (the owner rejected the audience-banner scheme). The front-end design handoff was imported to `docs/design/` on 2026-08-21; `docs/design/README.md` is the canonical design spec and `docs/design/RECONCILIATION.md` is the repo's override list. The repository-integrity gate and split worktree guard shipped via PR #169 (merged 2026-08-08), F-DOCSYNC-5/F-WORKTREE-1/F-WORKTREE-2 are resolved. PR #170 merged 2026-08-12 (`5b060a2`), remediating the four round-6 findings that had merged unaddressed. The F-SWE-1 audit ran 2026-08-20 and blocked migration on F-SWE-2 (report: `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`); the charter is retired. F-SWE-2 was resolved 2026-08-20 in its standalone prerequisite commit. Definition: `BATCH21_DEFINITION.md`. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -47,7 +47,7 @@ Last updated: 2026-08-24
 - Current-batch entries in active log block: 6.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
 - Next expected work package: WP-4.
-- Latest validated test count: **785 passed**.
+- Latest validated test count: **792 passed**.
 - Newest current-batch entry: 2026-08-25 - Index page migrated to Tailwind (Batch 21 WP-3).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -184,7 +184,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (785 tests)
+## 6. Test structure (792 tests)
 
 | File | Count |
 |------|-------|
@@ -214,7 +214,7 @@ loading.js polls GET /progress?job_id=...
 | services/test_spotify_service.py | 10 |
 | test_app_factory.py | 6 |
 | test_docsync_cli.py | 24 |
-| test_docsync_declarations.py | 36 |
+| test_docsync_declarations.py | 43 |
 | test_docsync_integrity.py | 90 |
 | test_docsync_logic.py | 33 |
 | test_docsync_parser.py | 35 |
