@@ -249,6 +249,12 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const res = await fetch(`/validate_user?username=${encodeURIComponent(username)}`);
         const data = await res.json();
+        // The answer belongs to the username that was asked about. Editing
+        // the field while the request is in flight would otherwise land a
+        // rejection on whatever is in the box by then, and this form uses
+        // native validation, so a stale setCustomValidity blocks the real
+        // submit until the next blur.
+        if (usernameInput.value.trim() !== username) return;
         if (data.valid) {
           usernameInput.classList.remove('is-invalid');
           usernameInput.classList.add('is-valid');

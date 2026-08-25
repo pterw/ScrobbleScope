@@ -620,9 +620,16 @@
         return;
       }
 
+      // The answer belongs to the username that was asked about. Edit the
+      // field while the request is in flight and the reply lands on whatever
+      // is in the box by then, so a rejected name could mark a good one
+      // invalid -- and since the submit guard reads checkValidity, that
+      // rejection would hold until the next blur, which pressing Enter never
+      // fires. Discard a reply the field has moved on from.
       fetch('/validate_user?username=' + encodeURIComponent(username))
         .then(function (res) { return res.json(); })
         .then(function (data) {
+          if (heatmapUsernameInput.value.trim() !== username) return;
           if (data.valid) {
             heatmapUsernameInput.classList.remove('is-invalid');
             heatmapUsernameInput.classList.add('is-valid');
@@ -636,6 +643,7 @@
           }
         })
         .catch(function () {
+          if (heatmapUsernameInput.value.trim() !== username) return;
           heatmapUsernameInput.setCustomValidity('');
         });
     });
