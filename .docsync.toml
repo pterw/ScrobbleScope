@@ -100,12 +100,47 @@ pattern = 'kit `(\w+)`'
 
 # The heatmap window. The daily average divides by it, so a change in one
 # place and not the other silently misreports every average.
+#
+# Seven sites, because the number is fetched once and then said out loud six
+# times. The backend is the source and was the copy this declaration used to
+# miss: it wrote `timedelta(days=364)` for an inclusive 365-day range, so a
+# change there could fetch one interval while the page displayed and averaged
+# another, with DOC009 green because the two copies it did watch agreed with
+# each other. The 364 is now `HEATMAP_WINDOW_DAYS - 1`, so every site states
+# the same number.
+#
+# static/js/loading.js is deliberately absent. Its 365 is the number of days
+# in a calendar year, used for a per-day average on the top-albums loading
+# screen, and it is leap-aware -- a different fact that happens to share a
+# number. Adding it here would tie the heatmap window to the length of a year.
 [[value]]
 name = "the 365-day heatmap window"
 
 [[value.sites]]
+file = "scrobblescope/heatmap.py"
+pattern = 'HEATMAP_WINDOW_DAYS = (\d+)'
+
+[[value.sites]]
+file = "scrobblescope/errors.py"
+pattern = 'last (\d+) days'
+
+[[value.sites]]
 file = "static/js/heatmap.js"
 pattern = 'WINDOW_DAYS = (\d+)'
+
+# The caption burned into the exported JPEG. Upper case, so it matches the
+# export and not the two comments in the same file that mention the window.
+[[value.sites]]
+file = "static/js/heatmap.js"
+pattern = 'LAST (\d+) DAYS'
+
+[[value.sites]]
+file = "templates/index.html"
+pattern = 'last (\d+) days'
+
+[[value.sites]]
+file = "templates/partials/_heatmap_form.html"
+pattern = 'last (\d+) days'
 
 [[value.sites]]
 file = "templates/partials/_heatmap_result.html"

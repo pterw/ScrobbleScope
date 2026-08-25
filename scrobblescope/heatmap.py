@@ -33,6 +33,15 @@ from scrobblescope.repositories import (
 from scrobblescope.utils import cleanup_expired_cache
 from scrobblescope.worker import release_job_slot
 
+#: How many calendar days the heatmap covers, today included.
+#:
+#: This is the source the rest of the window follows. The renderer divides the
+#: total by it for the daily average, and six lines of copy say the number out
+#: loud, so a change here that does not reach them fetches one range while
+#: displaying and averaging another. `.docsync.toml` declares every copy
+#: against this one, and DOC009 fails if they stop agreeing.
+HEATMAP_WINDOW_DAYS = 365
+
 
 def _aggregate_daily_counts(pages, from_date, to_date):
     """Aggregate raw Last.fm page data into a ``{YYYY-MM-DD: count}`` dict.
@@ -115,7 +124,10 @@ async def _fetch_and_process_heatmap(job_id, username):
     # server's local timezone (Fly.io is UTC but local Windows dev is not).
     now = datetime.now(timezone.utc)
     to_date = now.date()
-    from_date = to_date - timedelta(days=364)  # 365 calendar days inclusive
+    # Minus one because both ends are inclusive. Written as arithmetic rather
+    # than as a literal 364, which read as a different number from every other
+    # copy of the window and could not be checked against them.
+    from_date = to_date - timedelta(days=HEATMAP_WINDOW_DAYS - 1)
     from_ts = int(
         datetime.combine(from_date, dt_time.min, tzinfo=timezone.utc).timestamp()
     )
