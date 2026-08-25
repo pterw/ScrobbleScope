@@ -21,6 +21,7 @@ from docsync.declarations import (
     collect_declaration_issues,
     load_declarations,
 )
+from docsync.models import SyncError
 
 
 def _repo(tmp_path: Path, files: dict[str, str]) -> Path:
@@ -855,6 +856,17 @@ def test_a_malformed_declarations_file_is_a_declaration_error(
 
     with pytest.raises(DeclarationError, match="not valid TOML"):
         load_declarations(tmp_path)
+
+
+def test_a_declaration_fault_reaches_the_cli_as_a_sync_error() -> None:
+    """The CLI has to be able to report it, or the gate ends in a traceback.
+
+    Both `--check` and `--fix` catch SyncError and exit 2. A declaration fault
+    raised as anything else ended the run with an unhandled traceback and exit
+    1, which reads as "the gate crashed" rather than "the declarations file
+    has a typo, and here is the line".
+    """
+    assert issubclass(DeclarationError, SyncError)
 
 
 def test_the_in_memory_copy_wins_over_the_file_on_disk(tmp_path: Path) -> None:

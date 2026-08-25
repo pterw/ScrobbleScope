@@ -31,7 +31,7 @@ import tomllib
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 
-from docsync.models import IntegrityIssue
+from docsync.models import IntegrityIssue, SyncError
 
 #: Where the repository's own declarations live, relative to the repo root.
 DECLARATIONS_FILENAME = ".docsync.toml"
@@ -78,12 +78,17 @@ _STRIKETHROUGH_RE = re.compile(r"~~.+?~~")
 DEFAULT_STRIKETHROUGH_EXEMPT = True
 
 
-class DeclarationError(RuntimeError):
+class DeclarationError(SyncError):
     """The declarations file itself is wrong, so no check could run.
 
     Kept separate from a check failing. A malformed declaration is a defect in
     the gate, and reporting it as a document problem would send the reader to
-    edit the wrong file.
+    edit the wrong file. The distinct class and message keep that separation.
+
+    It is a SyncError so the CLI reports it the documented way and exits 2.
+    Raising a type the CLI had never heard of ended the run in a traceback and
+    exit 1, which reads as "the gate crashed" rather than "the declarations
+    file has a typo, and here is the line".
     """
 
 
