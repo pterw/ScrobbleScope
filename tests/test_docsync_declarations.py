@@ -193,6 +193,126 @@ def test_an_unparseable_pattern_blames_the_declaration(tmp_path: Path) -> None:
         check_values(_files(root), [declaration])
 
 
+def test_a_later_occurrence_that_drifts_is_caught(tmp_path: Path) -> None:
+    """The check reads every occurrence, not the first one it finds.
+
+    index.css carries the breakpoint in three media queries. The first version
+    of this check stopped at the first match, so a file could state the value
+    once and contradict itself further down and still pass -- which is exactly
+    the drift the check exists to catch.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "app.css": (
+                "@media (max-width: 859.98px) { .a { color: red } }\n"
+                ".card { max-width: 380px }\n"
+                "@media (max-width: 860px) { .b { color: blue } }\n"
+            ),
+            "app.js": "const MOBILE_MAX_WIDTH = 860;\n",
+        },
+    )
+    declaration = {
+        "name": "the breakpoint",
+        "sites": [
+            {
+                "file": "app.css",
+                "pattern": r"@media[^{]*max-width: ([\d.]+)px",
+                "expect": "859.98",
+            },
+            {
+                "file": "app.js",
+                "pattern": r"MOBILE_MAX_WIDTH = (\d+)",
+                "expect": "860",
+            },
+        ],
+    }
+
+    issues = check_values(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].line == 3, "must name the drifted query, not the first one"
+    assert "expects 859.98" in issues[0].invariant
+
+
+def test_the_media_prefix_keeps_ordinary_widths_out(tmp_path: Path) -> None:
+    """A max-width on an element is a width, not a breakpoint.
+
+    Without the @media prefix the 380px card cap above would read as a third
+    breakpoint and fail a correct file.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "app.css": (
+                "@media (max-width: 859.98px) { .a { color: red } }\n"
+                ".card { max-width: 380px }\n"
+            ),
+            "app.js": "const MOBILE_MAX_WIDTH = 860;\n",
+        },
+    )
+    declaration = {
+        "name": "the breakpoint",
+        "sites": [
+            {
+                "file": "app.css",
+                "pattern": r"@media[^{]*max-width: ([\d.]+)px",
+                "expect": "859.98",
+            },
+            {
+                "file": "app.js",
+                "pattern": r"MOBILE_MAX_WIDTH = (\d+)",
+                "expect": "860",
+            },
+        ],
+    }
+
+    assert check_values(_files(root), [declaration]) == []
+
+
+def test_a_file_that_contradicts_itself_is_caught_without_expect(
+    tmp_path: Path,
+) -> None:
+    """Two readings in one file are settled before comparing across files."""
+    root = _repo(
+        tmp_path,
+        {
+            "a.txt": "playwright==1.62.0\nand also playwright==1.55.1\n",
+            "b.txt": "playwright==1.62.0\n",
+        },
+    )
+    declaration = {
+        "name": "the playwright pin",
+        "sites": [
+            {"file": "a.txt", "pattern": r"playwright==([\d.]+)"},
+            {"file": "b.txt", "pattern": r"playwright==([\d.]+)"},
+        ],
+    }
+
+    issues = check_values(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert "contradicts itself" in issues[0].invariant
+    assert "1.55.1, 1.62.0" in issues[0].invariant
+
+
+def test_expect_without_a_capture_group_is_a_declaration_error(
+    tmp_path: Path,
+) -> None:
+    """Declaring what to expect from a pattern that captures nothing is a typo."""
+    root = _repo(tmp_path, {"a.txt": "value\n", "b.txt": "value\n"})
+    declaration = {
+        "name": "a value",
+        "sites": [
+            {"file": "a.txt", "pattern": "value", "expect": "value"},
+            {"file": "b.txt", "pattern": "value"},
+        ],
+    }
+
+    with pytest.raises(DeclarationError, match="captures nothing"):
+        check_values(_files(root), [declaration])
+
+
 # ----------------------------------------------------------------------
 # DOC010 -- anchors
 # ----------------------------------------------------------------------
@@ -370,6 +490,56 @@ def test_a_reversed_decision_still_prescribed_is_reported(tmp_path: Path) -> Non
     assert issues[0].path == "spec.md"
     assert issues[0].line == 1
     assert "Reversed on 2026-08-24." in issues[0].invariant
+
+
+def test_a_claim_wrapped_across_two_lines_is_still_found(tmp_path: Path) -> None:
+    """Wrapping is the one edit a document gets for free.
+
+    A per-line search can never match a phrase that ends one line and resumes
+    on the next, so a normative copy could hide behind ordinary reflow. The
+    reported line must be where the phrase starts, not where it finishes.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "clean\n",
+            "log.md": "clean\n",
+            "plan.md": (
+                "Some preamble that pushes the phrase onto its own line.\n"
+                "The field limit_results is relocated\n"
+                "into the thresholds disclosure by decision 3.\n"
+            ),
+        },
+    )
+
+    issues = check_retired(_files(root), [dict(RETIRED)])
+
+    assert len(issues) == 1
+    assert issues[0].path == "plan.md"
+    assert issues[0].line == 2, "report where the phrase starts"
+
+
+def test_a_wrapped_claim_below_the_marker_is_still_exempt(tmp_path: Path) -> None:
+    """Matching across lines must not defeat the history exemption.
+
+    The adversary for the test above: a wrapped phrase in a dated log entry is
+    still history, and joining the document must not move it above the marker.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "clean\n",
+            "log.md": (
+                "## 4. Execution log\n"
+                "- 2026-07-24: limit_results kept\n"
+                "  inside the thresholds disclosure.\n"
+            ),
+            "plan.md": "clean\n",
+        },
+    )
+    declaration = dict(RETIRED, allow_after={"log.md": "## 4. Execution log"})
+
+    assert check_retired(_files(root), [declaration]) == []
 
 
 def test_a_dated_log_entry_below_its_marker_is_left_alone(tmp_path: Path) -> None:

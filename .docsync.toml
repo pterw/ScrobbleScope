@@ -32,28 +32,40 @@ strikethrough_exempt = true
 # breakpoint and the renderer stayed at 768, so widths from 768 to 859 got the
 # mobile frame with the desktop grid scaled into it.
 #
-# No capture groups here on purpose. A media query stops just short of the
-# breakpoint and writes 859.98px, while the script compares against 860.
-# Both are correct, and comparing the two strings would fail on correct code,
-# so each site declares the literal it must still contain.
+# Each site captures what it reads and declares what it should be, rather
+# than only asserting a literal is present somewhere in the file. A media
+# query stops just short of the breakpoint and writes 859.98px while the
+# script compares against 860, so the two notations are both correct, and
+# `expect` is what lets them differ without the check going blind.
+#
+# Every occurrence is checked, not the first: index.css carries the breakpoint
+# in three media queries, and a check that stopped at the first would pass a
+# file that contradicted itself further down.
+#
+# The @media prefix matters. index.css also has seven max-width properties on
+# ordinary elements, and those are widths, not breakpoints.
 [[value]]
 name = "the single 860px breakpoint"
 
 [[value.sites]]
 file = "static/css/index.css"
-pattern = 'max-width: 859\.98px'
+pattern = '@media[^{]*max-width: ([\d.]+)px'
+expect = "859.98"
 
 [[value.sites]]
 file = "static/css/heatmap.css"
-pattern = 'max-width: 859\.98px'
+pattern = '@media[^{]*max-width: ([\d.]+)px'
+expect = "859.98"
 
 [[value.sites]]
 file = "static/css/shell.css"
-pattern = 'max-width: 859\.98px'
+pattern = '@media[^{]*max-width: ([\d.]+)px'
+expect = "859.98"
 
 [[value.sites]]
 file = "static/js/heatmap.js"
-pattern = 'MOBILE_MAX_WIDTH = 860\b'
+pattern = 'MOBILE_MAX_WIDTH = (\d+)'
+expect = "860"
 
 # The touch minimum is stated as a number in the gate and as a length in the
 # stylesheets. 2.75rem is 44px at a 16px root; the units rule in AGENTS.md

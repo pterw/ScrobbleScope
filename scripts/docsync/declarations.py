@@ -193,6 +193,7 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
             )
 
         captured: list[tuple[str, str]] = []
+        first_line: dict[str, int] = {}
         for site in sites:
             rel_path = site["file"]
             lines = files.lines(rel_path)
@@ -201,15 +202,18 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
                 continue
 
             pattern = _compile(site["pattern"], f"value {name!r}")
-            match = None
-            line_number = None
-            for index, line in enumerate(lines, start=1):
-                match = pattern.search(line)
-                if match:
-                    line_number = index
-                    break
+            expect = site.get("expect")
 
-            if match is None:
+            # Every occurrence, not the first. Stopping at the first match
+            # accepted a file that stated the value once and contradicted it
+            # further down: index.css carries the breakpoint in three media
+            # queries, and only one of them was ever read.
+            found: list[tuple[int, str | None]] = []
+            for index, line in enumerate(lines, start=1):
+                for match in pattern.finditer(line):
+                    found.append((index, match.group(1) if match.groups() else None))
+
+            if not found:
                 issues.append(
                     _issue(
                         "DOC009",
@@ -223,9 +227,50 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
                 )
                 continue
 
-            if match.groups():
-                captured.append((rel_path, match.group(1)))
-                declaration.setdefault("_lines", {})[rel_path] = line_number
+            first_line[rel_path] = found[0][0]
+            values = [value for _line, value in found if value is not None]
+            if expect is not None and not values:
+                raise DeclarationError(
+                    f"value {name!r} declares expect={expect!r} for {rel_path}, "
+                    f"but its pattern captures nothing to compare"
+                )
+
+            # A declared expectation is checked against every occurrence, so a
+            # file is held to one reading of the fact throughout.
+            if expect is not None:
+                wrong = [(line, value) for line, value in found if value != expect]
+                if wrong:
+                    issues.append(
+                        _issue(
+                            "DOC009",
+                            rel_path,
+                            wrong[0][0],
+                            f"{rel_path} states {name!r} as {wrong[0][1]} here "
+                            f"and the declaration expects {expect}.",
+                            "Every occurrence in this file must read the same. "
+                            "Change it, or change the declaration if the value "
+                            "itself has moved.",
+                        )
+                    )
+                continue
+
+            if values:
+                distinct_here = sorted(set(values))
+                if len(distinct_here) > 1:
+                    issues.append(
+                        _issue(
+                            "DOC009",
+                            rel_path,
+                            found[0][0],
+                            f"{rel_path} contradicts itself on {name!r}: "
+                            f"{', '.join(distinct_here)}.",
+                            "One file, one reading of the fact. Decide which "
+                            "is right before comparing it with the other "
+                            "sites.",
+                        )
+                    )
+                    continue
+                captured.append((rel_path, distinct_here[0]))
 
         if len(captured) > 1:
             distinct = {value for _path, value in captured}
@@ -236,7 +281,7 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
                     _issue(
                         "DOC009",
                         first_path,
-                        declaration.get("_lines", {}).get(first_path),
+                        first_line.get(first_path),
                         f"The sites for {name!r} disagree: {reported}.",
                         "Decide which value is right, change every site to it, "
                         "and say in the commit which sites you checked.",
@@ -408,26 +453,59 @@ def check_retired(
                         exempt_from = index
                         break
 
-            for line_number, line in enumerate(lines, start=1):
+            # Matched against the whole document, not line by line. A phrase
+            # that wraps -- `limit_results` ending one line and "inside the
+            # thresholds disclosure" starting the next -- can never match a
+            # per-line search, and wrapping is the one edit a document gets
+            # for free. Newlines become spaces so a pattern written for prose
+            # still reads as prose.
+            joined, starts = _joined_text(lines)
+            for match in pattern.finditer(joined):
+                line_number = _line_of(starts, match.start())
                 if exempt_from is not None and line_number >= exempt_from:
-                    break
-                match = pattern.search(line)
-                if match and skip_struck and _is_struck_through(line, match.start()):
                     continue
-                if match:
-                    issues.append(
-                        _issue(
-                            "DOC011",
-                            rel_path,
-                            line_number,
-                            f"{rel_path} still states {name!r}, which was "
-                            f"retired. {reason}".strip(),
-                            "Update this copy. A reversal recorded in one "
-                            "place while the normative copies still prescribe "
-                            "the old behaviour is how an agent undoes it.",
-                        )
+                if skip_struck and _is_struck_through(joined, match.start()):
+                    continue
+                issues.append(
+                    _issue(
+                        "DOC011",
+                        rel_path,
+                        line_number,
+                        f"{rel_path} still states {name!r}, which was "
+                        f"retired. {reason}".strip(),
+                        "Update this copy. A reversal recorded in one "
+                        "place while the normative copies still prescribe "
+                        "the old behaviour is how an agent undoes it.",
                     )
+                )
     return issues
+
+
+def _joined_text(lines: list[str]) -> tuple[str, list[int]]:
+    """Return the document as one string, plus each line's start offset.
+
+    Lines are joined with a single space so a wrapped phrase reads the way it
+    would be spoken. The offsets are what map a match back to the line a
+    reader has to open.
+    """
+    starts: list[int] = []
+    position = 0
+    for line in lines:
+        starts.append(position)
+        position += len(line) + 1
+    return " ".join(lines), starts
+
+
+def _line_of(starts: list[int], position: int) -> int:
+    """Return the 1-based line holding this offset in the joined text."""
+    low, high = 0, len(starts) - 1
+    while low < high:
+        middle = (low + high + 1) // 2
+        if starts[middle] <= position:
+            low = middle
+        else:
+            high = middle - 1
+    return low + 1
 
 
 # ----------------------------------------------------------------------
