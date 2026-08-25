@@ -54,9 +54,8 @@
 
 /* daisyUI sizes .btn at 40px. That is fine with a mouse and four short of
    the design's touch minimum, which the frontend gate now measures. WP-2
-   shipped this page before the gate could see a viewport narrower than
-   1280px. WP-8 owns the rest of this file, including its 600px breakpoint
-   against the design's single 860px one. */
+   shipped this page before the gate could see a narrow viewport. WP-8 owns
+   the rest of this file, including its legacy page-specific breakpoint. */
 @media (any-pointer: coarse), (max-width: 859.98px) {
     .btn {
         min-height: 2.75rem;

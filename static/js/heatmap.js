@@ -37,10 +37,9 @@
   const MOBILE_MIN_COLUMNS = 10;
   const MOBILE_MAX_COLUMNS = 28;
   const MOBILE_GAP = 1;
-  // The design mandates a single breakpoint and docs/design/README.md
-  // "Responsive" puts it at 860px. static/css/heatmap.css moved to it in
-  // WP-3 and this file did not, so 768 to 859 got the mobile frame with the
-  // desktop 53-week grid scaled into it, and a resize across 860 never
+  // The design mandates one breakpoint. static/css/heatmap.css moved to it in
+  // WP-3 and this file did not, so a band of widths got the mobile frame with
+  // the desktop grid scaled into it, and crossing the boundary never
   // re-rendered. Named once, because two copies is how they drifted.
   const MOBILE_MAX_WIDTH = 860;
 
@@ -178,7 +177,7 @@
   /**
    * Write the result headline.
    *
-   * "A year of <name>", not the old "<name>'s last 365 days, day by day.".
+   * "A year of <name>", not the old possessive range sentence.
    * The eyebrow above it states the range now, so the headline does not have
    * to, and a short serif line survives a long username without shrinking.
    *
@@ -603,8 +602,10 @@
     var feedback = document.createElement('div');
     feedback.className = 'field__error';
     heatmapUsernameInput.parentNode.appendChild(feedback);
+    var validationGeneration = 0;
 
     heatmapUsernameInput.addEventListener('input', function () {
+      validationGeneration += 1;
       this.classList.remove('is-valid', 'is-invalid');
       this.setCustomValidity('');
       // .field__error hides only while it is empty. Bootstrap's
@@ -615,6 +616,7 @@
 
     heatmapUsernameInput.addEventListener('blur', function () {
       var username = heatmapUsernameInput.value.trim();
+      var generation = ++validationGeneration;
       if (!username) {
         heatmapUsernameInput.classList.remove('is-valid', 'is-invalid');
         return;
@@ -634,7 +636,10 @@
         })
         .then(function (answer) {
           var data = answer.data;
-          if (heatmapUsernameInput.value.trim() !== username) return;
+          if (
+            generation !== validationGeneration ||
+            heatmapUsernameInput.value.trim() !== username
+          ) return;
           // A 5xx is the service failing, not a verdict about the username.
           // The route returns one as {valid: false, "Validation service
           // unavailable. Try again."}, which read here as "no such account"
@@ -662,8 +667,13 @@
           }
         })
         .catch(function () {
-          if (heatmapUsernameInput.value.trim() !== username) return;
+          if (
+            generation !== validationGeneration ||
+            heatmapUsernameInput.value.trim() !== username
+          ) return;
+          heatmapUsernameInput.classList.remove('is-valid', 'is-invalid');
           heatmapUsernameInput.setCustomValidity('');
+          feedback.textContent = 'Validation service unavailable. Try again.';
         });
     });
   }

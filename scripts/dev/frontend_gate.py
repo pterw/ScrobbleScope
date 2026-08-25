@@ -10,10 +10,11 @@ owns, drives a real Chromium, and asserts those properties. It needs no
 separately running server and no MCP service, so it runs the same way locally
 and in CI.
 
-Every check runs at a real viewport, desktop and mobile, and every failure says
-which one it came from. The gate grows with the migration: each work package
-adds its page to MIGRATED_PAGES, and adds a check when it ships something the
-existing ones cannot see.
+Every check runs in the real viewport profiles it declares, and every failure
+says which one it came from. The matrix includes both sides of the layout
+breakpoint plus a wide coarse-pointer device. The gate grows with the
+migration: each work package adds its page to MIGRATED_PAGES, and adds a check
+when it ships something the existing ones cannot see.
 """
 
 from __future__ import annotations
@@ -58,7 +59,7 @@ SETUP_COMMAND = "python -m playwright install chromium"
 #: Cool-grey surfaces the warm themes replaced. Batch criterion 2 forbids them.
 FORBIDDEN_SURFACES = ("rgb(248, 249, 250)", "rgb(18, 18, 18)")
 
-#: Every family in Adobe Fonts kit rwy8ghw that the design system uses.
+#: Every family in the configured Adobe Fonts kit that the design system uses.
 REQUIRED_FONT_FAMILIES = (
     "akzidenz-grotesk-next-pro",
     "instrument-serif",
@@ -104,12 +105,12 @@ LEGACY_PAGES = ()
 #: a claim about every page, migrated or not, so this check takes both lists.
 ALL_PAGES = LEGACY_PAGES + MIGRATED_PAGES
 
-#: The device profiles every visual check runs against.
+#: The device profiles available to visual checks.
 #:
 #: Every check this batch built ran at Playwright's 1280x720 default, so
 #: mobile was verified by owner review and nothing else. The design has one
-#: breakpoint, 860px -- docs/design/README.md "Responsive" -- so a width each
-#: side of it covers layout. 390x844 is the design's mobile reference canvas.
+#: breakpoint, so a width each side of it covers layout. 390x844 is the
+#: design's mobile reference canvas.
 #:
 #: Width is not the whole story, which a PR #218 review found. A tablet in
 #: landscape and a touch laptop are both wide and both touched, so a
@@ -299,6 +300,21 @@ def _computed_colour(page, value: str) -> str:
     )
 
 
+def _computed_shadow(page, value: str) -> str:
+    """Resolve a box-shadow value through the browser's CSS parser."""
+    return page.evaluate(
+        """(value) => {
+            const probe = document.createElement('div');
+            document.body.appendChild(probe);
+            probe.style.boxShadow = value;
+            const computed = getComputedStyle(probe).boxShadow;
+            probe.remove();
+            return computed;
+        }""",
+        value,
+    )
+
+
 def check_theme_tokens(page, base_url: str) -> list[str]:
     """--bars-color aliases the theme primary, and no cool-grey survives."""
     failures = []
@@ -331,6 +347,107 @@ def check_theme_tokens(page, base_url: str) -> list[str]:
                     failures.append(
                         f"{path} {theme}: forbidden cool-grey surface {forbidden}"
                     )
+    return failures
+
+
+def check_index_design_tokens(page, base_url: str) -> list[str]:
+    """Rendered index states use the canonical status, radius and shadows."""
+    expected = {
+        "light": {
+            "good": "#2f7a4a",
+            "chip": "0 1px 3px rgb(0 0 0 / 0.06)",
+            "float": "0 2px 8px rgb(0 0 0 / 0.15)",
+        },
+        "dark": {
+            "good": "#6fcf97",
+            "chip": "0 1px 3px rgb(0 0 0 / 0.4)",
+            "float": "0 2px 8px rgb(0 0 0 / 0.4)",
+        },
+    }
+    failures = []
+    for theme, wanted in expected.items():
+        page.goto(f"{base_url}/", wait_until="load")
+        page.evaluate(
+            "(theme) => document.documentElement.setAttribute('data-theme', theme)",
+            theme,
+        )
+        page.evaluate(
+            """() => {
+                document.querySelector('#username').classList.add('is-valid');
+                document.querySelector('.hint').open = true;
+            }"""
+        )
+        # Border colour transitions for 200ms. Read the settled state a user
+        # sees, not the first animation frame after the class changes.
+        page.wait_for_timeout(250)
+        state = page.evaluate(
+            """() => {
+                const username = document.querySelector('#username');
+                return {
+                    good: getComputedStyle(document.documentElement)
+                        .getPropertyValue('--ss-good').trim(),
+                    fieldBorder: getComputedStyle(username).borderColor,
+                    chipToken: getComputedStyle(document.documentElement)
+                        .getPropertyValue('--ss-shadow-chip').trim(),
+                    floatToken: getComputedStyle(document.documentElement)
+                        .getPropertyValue('--ss-shadow-float').trim(),
+                    modeShadow: getComputedStyle(
+                        document.querySelector('.mode-pill.active')
+                    ).boxShadow,
+                    segmentShadow: getComputedStyle(
+                        document.querySelector('.seg__radio:checked + .seg__option')
+                    ).boxShadow,
+                    hintShadow: getComputedStyle(
+                        document.querySelector('.hint__body')
+                    ).boxShadow,
+                    segmentRadius: getComputedStyle(
+                        document.querySelector('.seg__option')
+                    ).borderRadius,
+                };
+            }"""
+        )
+        good = _computed_colour(page, wanted["good"])
+        if state["good"] != wanted["good"]:
+            failures.append(
+                f"/ {theme}: --ss-good is {state['good']!r}, expected {wanted['good']}"
+            )
+        if state["fieldBorder"] != good:
+            failures.append(
+                f"/ {theme}: a valid username border is {state['fieldBorder']}, "
+                f"expected {good}"
+            )
+
+        chip = _computed_shadow(page, wanted["chip"])
+        if state["chipToken"] != wanted["chip"]:
+            failures.append(
+                f"/ {theme}: --ss-shadow-chip is {state['chipToken']!r}, "
+                f"expected {wanted['chip']}"
+            )
+        for selector, actual in (
+            (".mode-pill.active", state["modeShadow"]),
+            (".seg__option", state["segmentShadow"]),
+        ):
+            if actual != chip:
+                failures.append(
+                    f"/ {theme} {selector}: shadow is {actual}, expected {chip}"
+                )
+
+        floating = _computed_shadow(page, wanted["float"])
+        if state["floatToken"] != wanted["float"]:
+            failures.append(
+                f"/ {theme}: --ss-shadow-float is {state['floatToken']!r}, "
+                f"expected {wanted['float']}"
+            )
+        if state["hintShadow"] != floating:
+            failures.append(
+                f"/ {theme} .hint__body: shadow is {state['hintShadow']}, "
+                f"expected {floating}"
+            )
+        if state["segmentRadius"] != "8px":
+            failures.append(
+                f"/ {theme} .seg__option: radius is {state['segmentRadius']}, "
+                f"expected the 8px design step"
+            )
     return failures
 
 
@@ -383,7 +500,7 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
 
 
 def check_touch_targets(page, base_url: str) -> list[str]:
-    """Every tappable element is at least 44px on its smaller side.
+    """Every tappable element reaches the design minimum on its smaller side.
 
     The design calls this non-negotiable and batch criterion 8 names it, but
     F-AUDIT-1 was closed against the theme toggle alone and nothing held the
@@ -549,6 +666,43 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_hint_access(page, base_url: str) -> list[str]:
+    """Each ambiguous-field hint opens from real keyboard focus and touch."""
+    failures = []
+    for position in range(2):
+        page.goto(f"{base_url}/", wait_until="load")
+        selector = f".hint:nth-of-type({position + 1})"
+        hints = page.locator(".hint")
+        if hints.count() <= position:
+            failures.append(f"/ {selector}: no such hint")
+            continue
+        hint = hints.nth(position)
+        toggle = hint.locator(".hint__toggle")
+
+        reached = False
+        for _ in range(30):
+            page.keyboard.press("Tab")
+            reached = toggle.evaluate("node => document.activeElement === node")
+            if reached:
+                break
+        if not reached:
+            failures.append(f"/ {selector}: tab traversal never reached its summary")
+        elif not hint.evaluate("node => node.open"):
+            failures.append(f"/ {selector}: keyboard focus left the hint closed")
+
+        page.goto(f"{base_url}/", wait_until="load")
+        hint = page.locator(".hint").nth(position)
+        toggle = hint.locator(".hint__toggle")
+        coarse = page.evaluate("() => matchMedia('(any-pointer: coarse)').matches")
+        if coarse:
+            toggle.tap()
+        else:
+            toggle.click()
+        if not hint.evaluate("node => node.open"):
+            failures.append(f"/ {selector}: pointer activation left the hint closed")
+    return failures
+
+
 def check_validator_outage_is_recoverable(page, base_url: str) -> list[str]:
     """A failing validator does not lock the form it was meant to help.
 
@@ -602,6 +756,149 @@ def check_validator_outage_is_recoverable(page, base_url: str) -> list[str]:
                 failures.append(f"{path} {selector}: a 503 said nothing to the reader")
     finally:
         page.unroute("**/validate_user*")
+    return failures
+
+
+def check_stale_validator_failure_is_discarded(page, base_url: str) -> list[str]:
+    """An older failed request cannot clear a newer same-name verdict.
+
+    Two blur validations can overlap because an earlier fetch stays in flight;
+    the album form's debounce cancels only work that has not started. A value
+    comparison handles A then B, but not A then B then A: both requests name
+    A. If the newer A is rejected first and the older A then fails, only
+    request identity can keep the older catch from clearing current validity.
+    """
+    fields = (
+        ("/", "#username", ()),
+        ("/", "#heatmap-username", (("click", "#mode-tab-heatmap"),)),
+    )
+    failures = []
+    for path, selector, actions in fields:
+        pending = []
+        handled = []
+        page.route("**/validate_user*", lambda route: pending.append(route))
+        try:
+            page.goto(f"{base_url}{path}", wait_until="load")
+            _reach_state(page, actions)
+            field = page.locator(selector)
+
+            field.fill("repeated-request")
+            field.blur()
+            page.wait_for_timeout(400)
+            field.fill("temporary-request")
+            field.fill("repeated-request")
+            field.blur()
+            page.wait_for_timeout(400)
+            if len(pending) != 2:
+                failures.append(
+                    f"{path} {selector}: expected two overlapping validations, "
+                    f"held {len(pending)}"
+                )
+                continue
+
+            pending[1].fulfill(
+                status=404,
+                content_type="application/json",
+                body='{"valid": false, "message": "Newer username is invalid."}',
+            )
+            handled.append(pending[1])
+            page.wait_for_function(
+                "(selector) => !document.querySelector(selector).checkValidity()",
+                arg=selector,
+            )
+
+            pending[0].abort("failed")
+            handled.append(pending[0])
+            page.wait_for_timeout(100)
+            if page.locator(selector).evaluate("input => input.checkValidity()"):
+                failures.append(
+                    f"{path} {selector}: the older same-name failure cleared "
+                    f"the newer invalid verdict"
+                )
+        finally:
+            for route in pending:
+                if route not in handled:
+                    route.abort("failed")
+            page.unroute("**/validate_user*")
+    return failures
+
+
+def check_current_validator_failure_replaces_old_verdict(
+    page, base_url: str
+) -> list[str]:
+    """A current network failure cannot leave an older invalid verdict visible."""
+    fields = (
+        ("/", "#username", ()),
+        ("/", "#heatmap-username", (("click", "#mode-tab-heatmap"),)),
+    )
+    failures = []
+    for path, selector, actions in fields:
+        pending = []
+        handled = []
+        page.route("**/validate_user*", lambda route: pending.append(route))
+        try:
+            page.goto(f"{base_url}{path}", wait_until="load")
+            _reach_state(page, actions)
+            field = page.locator(selector)
+
+            field.fill("same-request")
+            field.blur()
+            page.wait_for_timeout(400)
+            if len(pending) != 1:
+                failures.append(
+                    f"{path} {selector}: expected the first validation, held "
+                    f"{len(pending)}"
+                )
+                continue
+            pending[0].fulfill(
+                status=404,
+                content_type="application/json",
+                body='{"valid": false, "message": "Initial username is invalid."}',
+            )
+            handled.append(pending[0])
+            page.wait_for_function(
+                "(selector) => !document.querySelector(selector).checkValidity()",
+                arg=selector,
+            )
+
+            field.focus()
+            field.blur()
+            page.wait_for_timeout(400)
+            if len(pending) != 2:
+                failures.append(
+                    f"{path} {selector}: expected a same-name retry, held "
+                    f"{len(pending)} validations"
+                )
+                continue
+            pending[1].abort("failed")
+            handled.append(pending[1])
+            page.wait_for_timeout(100)
+            state = field.evaluate(
+                """input => ({
+                    blocked: !input.checkValidity(),
+                    invalidClass: input.classList.contains('is-invalid'),
+                    told: input.parentNode.querySelector('.field__error')
+                        .textContent.trim(),
+                })"""
+            )
+            if state["blocked"]:
+                failures.append(
+                    f"{path} {selector}: a network failure blocked submission"
+                )
+            if state["invalidClass"]:
+                failures.append(
+                    f"{path} {selector}: a network failure left the old invalid style"
+                )
+            if "unavailable" not in state["told"].lower():
+                failures.append(
+                    f"{path} {selector}: a network failure left stale feedback "
+                    f"{state['told']!r}"
+                )
+        finally:
+            for route in pending:
+                if route not in handled:
+                    route.abort("failed")
+            page.unroute("**/validate_user*")
     return failures
 
 
@@ -743,21 +1040,54 @@ def check_body_font(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_shell_scales_with_text(page, base_url: str) -> list[str]:
+    """The text-holding header grows when the reader enlarges root text."""
+    page.goto(f"{base_url}/", wait_until="load")
+    state = page.evaluate(
+        """() => {
+            document.documentElement.style.fontSize = '20px';
+            const mobile = matchMedia('(max-width: 859.98px)').matches;
+            return {
+                height: document.querySelector('.site-header')
+                    .getBoundingClientRect().height,
+                expected: (mobile ? 3.75 : 4.25) * 20,
+            };
+        }"""
+    )
+    if abs(state["height"] - state["expected"]) > 0.1:
+        return [
+            f"/ .site-header: 20px root text produced {state['height']}px height, "
+            f"expected {state['expected']}px"
+        ]
+    return []
+
+
 #: Every check the gate runs, with the viewports each one runs at.
 #:
-#: Width changes nothing for the first two: a link set and a font download are
-#: the same at any size. The rest can all differ across the 860px breakpoint,
-#: so they run twice. Touch targets are a mobile question only.
+#: Width changes nothing for stylesheet links, font downloads or the
+#: validation request state machines, so those use the smallest useful set.
+#: Layout and theme checks run on both sides of the design breakpoint. Touch
+#: targets run on a narrow phone and a wide coarse-pointer device, because
+#: pointer capability rather than window width is the contract.
 CHECKS = (
     ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,)),
     ("fonts", check_fonts, (DESKTOP,)),
     ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE)),
+    ("index design tokens", check_index_design_tokens, (DESKTOP, MOBILE)),
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE)),
     ("body font", check_body_font, (DESKTOP, MOBILE)),
+    ("shell text scaling", check_shell_scales_with_text, (DESKTOP, MOBILE)),
     ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
     ("validation feedback", check_validation_feedback, (DESKTOP,)),
+    ("hint access", check_hint_access, (DESKTOP, MOBILE)),
     ("true warning survives", check_true_warning_survives, (DESKTOP,)),
     ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
+    ("validator race", check_stale_validator_failure_is_discarded, (DESKTOP,)),
+    (
+        "validator network failure",
+        check_current_validator_failure_replaces_old_verdict,
+        (DESKTOP,),
+    ),
     ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE)),
 )
 

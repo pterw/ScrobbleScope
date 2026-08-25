@@ -16,7 +16,7 @@
    the whole declaration, which silently dropped the card rounding and the page
    padding. tests/test_template_shell.py holds the line. */
 @theme static {
-  /* Adobe Fonts kit rwy8ghw, loaded by the use.typekit.net link in
+  /* Adobe Fonts, loaded by the use.typekit.net link in
      base.html. Each family owns one job: sans for all UI chrome, serif for
      display words, figure for display numbers, mono for inputs and tabular
      numbers, mono-narrow for letterspaced caps at 9-11px. */
@@ -163,6 +163,12 @@
      --color-error, which is the cool red the whole batch is moving away
      from. docs/design/README.md names this one. */
   --ss-bad: #b03434;
+  --ss-good: #2f7a4a;
+
+  /* The two elevations used on the index. Dark raises both alphas, so these
+     are theme tokens rather than light-only literals in the page sheet. */
+  --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.06);
+  --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.15);
 
   /* The empty heatmap cell. README wins over the #e0e0e0 in the unimported
      guidelines/colors-rocket.prompt.md, which predates the warm revision --
@@ -217,6 +223,9 @@
   --ss-surface-sunken: #1a1622;
   --heatmap-surface: #181520;
   --ss-bad: #e07070;
+  --ss-good: #6fcf97;
+  --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.4);
+  --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.4);
 
   --heatmap-empty: #262230;
 }

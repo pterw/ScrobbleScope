@@ -19,7 +19,7 @@
     --shell-border: rgba(26, 24, 32, 0.12);
     --shell-track: rgba(26, 24, 32, 0.18);
     --shell-knob: #ffffff;
-    --shell-height: 68px;
+    --shell-height: 4.25rem;
     /* The same stack as --font-sans in tailwind.src.css, repeated because an
        unmigrated page never loads the compiled sheet and would resolve
        var(--font-sans) to nothing. This file already duplicates the palette
@@ -78,14 +78,14 @@ body {
     display: flex;
     align-items: center;
     text-decoration: none;
-    /* 44px minimum touch target (F-AUDIT-1), even though the mark is shorter. */
+    /* Minimum touch target (F-AUDIT-1), even though the mark is shorter. */
     min-height: 2.75rem;
 }
 
 .site-header__mark {
     display: block;
     /* The lockup is about 6.1:1, so 40px tall lands near 245px wide and
-       leaves breathing room inside a 68px bar. */
+       leaves breathing room inside a 68px bar at the default root size. */
     height: 2.5rem;
 }
 
@@ -356,7 +356,7 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    /* 44px minimum touch target (F-AUDIT-1). */
+    /* Minimum touch target (F-AUDIT-1). */
     min-height: 2.75rem;
     padding: 0 0.5rem;
     margin: 0;
@@ -448,12 +448,11 @@ body {
 /* ------------------------------------------------------------------ */
 /* Responsive: one breakpoint, per the design system                   */
 /* ------------------------------------------------------------------ */
-/* 859.98, not 860. index.css and heatmap.css open their desktop rules at
-   min-width: 860px, so a max-width of 860 here means both sides apply at
-   exactly that width. Found by DOC009. */
+/* Stop immediately below the desktop min-width used by index.css and
+   heatmap.css, so both sides never apply at the boundary. Found by DOC009. */
 @media (max-width: 859.98px) {
     :root {
-        --shell-height: 60px;
+        --shell-height: 3.75rem;
     }
 
     .site-header {
