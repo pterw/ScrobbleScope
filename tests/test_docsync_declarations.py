@@ -422,6 +422,50 @@ def test_a_struck_through_claim_is_left_alone(tmp_path: Path) -> None:
     assert check_retired(_files(root), [dict(RETIRED)]) == []
 
 
+def test_the_strikethrough_exemption_can_be_switched_off(tmp_path: Path) -> None:
+    """The exemption is a guess about intent, so it must be declarable.
+
+    Treating ~~this~~ as retired holds in this repository and is a convention
+    rather than a rule of Markdown. A corpus that strikes text through
+    rhetorically would get a silent blind spot, so the tool must be able to
+    stop assuming rather than carry the doctrine into every repository it is
+    lifted into.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "clean\n",
+            "log.md": "clean\n",
+            "plan.md": "~~limit_results inside the thresholds disclosure~~\n",
+        },
+    )
+
+    assert check_retired(_files(root), [dict(RETIRED)]) == []
+    assert (
+        check_retired(_files(root), [dict(RETIRED)], strikethrough_exempt=False)[0].path
+        == "plan.md"
+    )
+
+
+def test_one_declaration_can_override_the_global_strikethrough_option(
+    tmp_path: Path,
+) -> None:
+    """A single claim can be held to a stricter reading than the corpus."""
+    root = _repo(
+        tmp_path,
+        {
+            "spec.md": "clean\n",
+            "log.md": "clean\n",
+            "plan.md": "~~limit_results inside the thresholds disclosure~~\n",
+        },
+    )
+    strict = dict(RETIRED, strikethrough_exempt=False)
+
+    issues = check_retired(_files(root), [strict], strikethrough_exempt=True)
+
+    assert [issue.path for issue in issues] == ["plan.md"]
+
+
 def test_a_file_exempted_by_glob_is_not_scanned(tmp_path: Path) -> None:
     """The archive keeps grep history and must not be rewritten."""
     root = _repo(

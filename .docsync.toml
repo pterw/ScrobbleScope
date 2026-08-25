@@ -11,6 +11,20 @@
 #   [[retired]]  a claim that is no longer true must not still prescribe
 
 # ----------------------------------------------------------------------
+# Options
+# ----------------------------------------------------------------------
+
+# Is ~~struck-through text~~ already saying "not current"?
+#
+# True here, because this repository only ever strikes text through to keep a
+# superseded step visible beside its reversal. It is a convention, not a rule
+# of Markdown: a repository that strikes text through rhetorically -- "~~bugs~~
+# features" -- should set this false, or the checker hands a retired claim an
+# invisibility cloak. Any [[retired]] entry can override it.
+[options]
+strikethrough_exempt = true
+
+# ----------------------------------------------------------------------
 # Values
 # ----------------------------------------------------------------------
 

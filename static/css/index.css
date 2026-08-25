@@ -830,15 +830,22 @@
 /* ------------------------------------------------------------------ */
 /* Mobile                                                              */
 /* ------------------------------------------------------------------ */
-@media (max-width: 859.98px) {
-  /* 16px or larger, so iOS does not zoom the page on focus. The design's
-     9.5-13px mono sizes are desktop values. */
+/* 1rem or larger, so iOS does not zoom the page when a field takes focus.
+   The design's 9.5-13px mono sizes are desktop values.
+
+   Keyed on the pointer for the same reason the touch targets are: an iPad in
+   landscape is wide and still runs Safari, so a width-only rule left every
+   input at 0.875rem there and the page zoomed on every focus. The touch
+   sizing was corrected and this was not, which is half a fix. */
+@media (any-pointer: coarse), (max-width: 859.98px) {
   .ss-input,
   .ss-select,
   .stepper__value {
     font-size: 1rem;
   }
+}
 
+@media (max-width: 859.98px) {
   .index-form__inner {
     max-width: none;
   }

@@ -119,9 +119,9 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0, WP-1 and WP-2 done. WP-3 in progress. WP-6 is
-  absorbed into WP-3 and ships no commit of its own. WP-4, WP-5, WP-7 and
-  WP-8 not yet started.
+- Batch 21 WP status: WP-0, WP-1, WP-2 and WP-3 done; WP-3 is open as
+  PR #218 and not merged. WP-6 is absorbed into WP-3 and ships no commit
+  of its own. WP-4, WP-5, WP-7 and WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
