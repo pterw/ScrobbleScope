@@ -141,12 +141,22 @@ INTERACTIVE_SELECTOR = (
 #: hidden, and a control a person has not reached yet is still a control.
 #: Every state here is one click or one select away. The heatmap result needs
 #: live API data and is out of reach from here -- owner review still owns it.
+#:
+#: "thresholds open" is insurance, not a fix. Chromium lays out the contents
+#: of a closed <details>: the steppers measure 44x44 with the disclosure shut,
+#: and deleting their sizing turns this check red in the "as loaded" state.
+#: Measured, because a PR #218 review said the opposite. But the same probe
+#: shows checkVisibility() returning false for those controls, so the layout
+#: is a quirk rather than a promise, and a browser that stops laying them out
+#: would silently stop measuring them. Opening the disclosure costs one click
+#: and removes the dependency.
 TOUCH_TARGET_STATES = {
     "/": (
         ("as loaded", ()),
         ("heatmap mode", (("click", "#mode-tab-heatmap"),)),
         ("decade filter", (("select", "#release_scope", "decade"),)),
         ("release year", (("select", "#release_scope", "custom"),)),
+        ("thresholds open", (("click", ".disclosure__summary"),)),
     ),
 }
 
@@ -473,6 +483,61 @@ def _small_targets(page, path: str, state: str) -> list[str]:
     ]
 
 
+def check_validation_feedback(page, base_url: str) -> list[str]:
+    """Typing clears a validation message that is already on screen.
+
+    Bootstrap's .invalid-feedback was hidden unless a sibling carried
+    .is-invalid, so dropping that class hid stale text for free. The
+    replacement .field__error hides only while it is empty, so every script
+    that writes into one has to empty it again. Both did not, and a rejected
+    username stayed on screen while the reader typed a new one and after a
+    valid one resolved -- a green field and a red error at once.
+
+    No network call. The check writes a message into the node itself, which is
+    exactly the state a rejection leaves behind, then types one real character
+    and asks whether the handler cleared it. /validate_user needs a live
+    Last.fm key, and a gate that needs a secret does not run in CI.
+    """
+    # The heatmap field lives in a panel that starts hidden, so its tab has to
+    # be clicked before anything can be typed into it.
+    fields = (
+        ("/", "#username", ()),
+        ("/", "#heatmap-username", (("click", "#mode-tab-heatmap"),)),
+    )
+    failures = []
+    for path, selector, actions in fields:
+        page.goto(f"{base_url}{path}", wait_until="load")
+        _reach_state(page, actions)
+        node = page.evaluate(
+            """(selector) => {
+                const input = document.querySelector(selector);
+                if (!input) return 'no such input';
+                const error = input.parentNode.querySelector('.field__error');
+                if (!error) return 'no .field__error beside it';
+                error.textContent = 'Username not found on Last.fm.';
+                return null;
+            }""",
+            selector,
+        )
+        if node:
+            failures.append(f"{path} {selector}: {node}")
+            continue
+
+        # A real keystroke. A dispatched event can reach a listener that a
+        # person never could, which is the opposite of what this proves.
+        page.locator(selector).type("a")
+        left = page.evaluate(
+            """(selector) => document.querySelector(selector)
+                .parentNode.querySelector('.field__error').textContent""",
+            selector,
+        )
+        if left:
+            failures.append(
+                f"{path} {selector}: typing left the message {left!r} on screen"
+            )
+    return failures
+
+
 def check_initial_visibility(page, base_url: str) -> list[str]:
     """Everything a script reveals later is really invisible on load.
 
@@ -579,6 +644,7 @@ CHECKS = (
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE)),
     ("body font", check_body_font, (DESKTOP, MOBILE)),
     ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
+    ("validation feedback", check_validation_feedback, (DESKTOP,)),
     ("touch targets", check_touch_targets, (MOBILE,)),
 )
 
