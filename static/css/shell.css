@@ -79,14 +79,14 @@ body {
     align-items: center;
     text-decoration: none;
     /* 44px minimum touch target (F-AUDIT-1), even though the mark is shorter. */
-    min-height: 44px;
+    min-height: 2.75rem;
 }
 
 .site-header__mark {
     display: block;
     /* The lockup is about 6.1:1, so 40px tall lands near 245px wide and
        leaves breathing room inside a 68px bar. */
-    height: 40px;
+    height: 2.5rem;
 }
 
 .site-header__mark svg {
@@ -357,7 +357,7 @@ body {
     align-items: center;
     gap: 0.5rem;
     /* 44px minimum touch target (F-AUDIT-1). */
-    min-height: 44px;
+    min-height: 2.75rem;
     padding: 0 0.5rem;
     margin: 0;
     border-radius: 999px;
@@ -458,7 +458,7 @@ body {
     }
 
     .site-header__mark {
-        height: 32px;
+        height: 2rem;
     }
 
     /* The label text is redundant next to the switch on a narrow bar, but the
