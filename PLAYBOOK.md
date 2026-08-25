@@ -94,8 +94,8 @@ See FINDINGS F-DOCSYNC-3.
   which is not merged. It rebuilt `index.html` on Tailwind, deleted the
   welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
   the frontend gate from four checks at one desktop viewport to nine across
-  three device profiles. Codex raised twenty-three comments on it; every
-  one was valid and all twenty-three were answered.
+  three device profiles. Codex raised twenty-five comments on it; every
+  one was valid and all twenty-five were answered.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
   pilot, the Playwright runtime, the frontend gate and the compiled-CSS
@@ -462,11 +462,11 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-25 - PR #218 review rounds one to eight applied (side-task)
+### 2026-08-25 - PR #218 review rounds one to nine applied (side-task)
 
 - Scope: answered every Codex comment on PR #218 while WP-3 sat open and
-  unmerged. Thirty comments across PR #216 and #218 in total -- seven on
-  #216 and twenty-three on #218 -- and all valid.
+  unmerged. Thirty-two comments across PR #216 and #218 in total -- seven
+  on #216 and twenty-five on #218 -- and all valid.
   One was declined on its premise -- it said the closed thresholds disclosure
   gave its controls zero-sized boxes, and deleting their sizing turns the gate
   red, so they were being measured -- and its remedy was applied anyway.
@@ -523,6 +523,21 @@ non-current operational logs. Older dated entries live in
     outright is the obvious fix and is wrong: "Year cannot be in the future"
     is about the year, not the account. The handler re-derives instead, and a
     ninth gate check holds the half a reader would not notice was broken.
+  - **The heatmap window is declared against one source.** DOC009 watched
+    two copies of it and there are seven. The backend was not one of the two,
+    and it wrote `timedelta(days=364)` for an inclusive range, so it could not
+    have been compared with them anyway. A change there would have fetched one
+    interval while the page displayed and averaged another, gate green.
+    `HEATMAP_WINDOW_DAYS` is the source now and the fetch subtracts one from
+    it. `static/js/loading.js` is deliberately excluded and the declaration
+    says why: its 365 is the length of a calendar year, leap-aware, for a
+    different average. That is the same trap as reading an ordinary max-width
+    as a breakpoint.
+  - **A declared container is checked for what it holds.** `scan = [1]` is a
+    list, so the shallow check passed it and the integer reached the glob
+    matcher as a `TypeError`. Round eight was the third round on this module
+    and each one sat one level further in than the last: wrapped text, then
+    missing and misspelled keys, then the contents of a container.
   - **A malformed declarations file is refused, not ignored.** Reading a
     required key straight out of the mapping raised a bare `KeyError`, so an
     anchor with no `target` ended the run in a traceback and exit 1. Looking
@@ -544,7 +559,7 @@ non-current operational logs. Older dated entries live in
 - Deviations: none against a plan, because there was none -- this is review
   remediation. Each round was answered in one batched PR comment rather than
   per comment, per the `pr-bot-triage` skill.
-- Validation: `pytest -q` -- **792 passed**, 3 warnings. All 11 pre-commit
+- Validation: `pytest -q` -- **795 passed**, 3 warnings. All 11 pre-commit
   hooks pass with an identical `git write-tree` either side.
   `doc_state_sync.py --check` exits 0. The frontend gate reports 9 checks in
   14 runs across desktop, mobile and wide touch. Every fix was reproduced
