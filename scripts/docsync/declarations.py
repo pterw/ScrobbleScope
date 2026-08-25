@@ -56,9 +56,21 @@ _HEADING_SUFFIX_RE = re.compile(r"\s*\([^()]*\)\s*$")
 #: names the label, never the sentence after it.
 _LABEL_TAIL_RE = re.compile(r"\s*(?:--|—|:)\s.*$")
 
-#: Text struck through in Markdown. An author who wrote ~~this~~ has already
-#: said it is not current, which is what a retired claim needs to be.
+#: Text struck through in Markdown.
+#:
+#: Treating ~~this~~ as "no longer current" is a convention, not a rule of the
+#: language. It holds in this repository, where strikethrough is only ever used
+#: to keep a superseded step visible beside its reversal. Somewhere else it may
+#: be rhetorical -- "~~bugs~~ features" -- and exempting it there would hand a
+#: retired claim an invisibility cloak. So the exemption is a declared option
+#: rather than doctrine baked into the tool: `[options] strikethrough_exempt`
+#: sets the default, and any [[retired]] declaration can override it.
 _STRIKETHROUGH_RE = re.compile(r"~~.+?~~")
+
+#: What `strikethrough_exempt` defaults to when nothing declares it. On,
+#: because it matches the convention most Markdown corpora follow -- but the
+#: option exists so a corpus that does not follow it can say so.
+DEFAULT_STRIKETHROUGH_EXEMPT = True
 
 
 class DeclarationError(RuntimeError):
@@ -350,7 +362,12 @@ def check_anchors(files: _Files, declarations: Iterable[dict]) -> list[Integrity
 # ----------------------------------------------------------------------
 
 
-def check_retired(files: _Files, declarations: Iterable[dict]) -> list[IntegrityIssue]:
+def check_retired(
+    files: _Files,
+    declarations: Iterable[dict],
+    *,
+    strikethrough_exempt: bool = DEFAULT_STRIKETHROUGH_EXEMPT,
+) -> list[IntegrityIssue]:
     """A claim that is no longer true is gone from every document that acts.
 
     History is exempt on purpose. A dated log entry recording what a decision
@@ -361,6 +378,11 @@ def check_retired(files: _Files, declarations: Iterable[dict]) -> list[Integrity
     ``allow_files`` exempts whole files by glob. ``allow_after`` exempts the
     part of one file below a marker line, which is how an execution log inside
     a live document is exempted without exempting the document.
+
+    ``strikethrough_exempt`` is the third exemption and the only one that is a
+    guess about what an author meant. It is declared rather than assumed, per
+    declaration or once under ``[options]``, because a repository that uses
+    strikethrough rhetorically would otherwise get a silent blind spot.
     """
     issues: list[IntegrityIssue] = []
     for declaration in declarations:
@@ -369,6 +391,7 @@ def check_retired(files: _Files, declarations: Iterable[dict]) -> list[Integrity
         pattern = _compile(declaration["pattern"], f"retired {name!r}")
         allow_files = declaration.get("allow_files", [])
         allow_after = declaration.get("allow_after", {})
+        skip_struck = declaration.get("strikethrough_exempt", strikethrough_exempt)
 
         for rel_path in _expand(files, declaration.get("scan", [])):
             if any(fnmatch.fnmatch(rel_path, glob) for glob in allow_files):
@@ -389,7 +412,7 @@ def check_retired(files: _Files, declarations: Iterable[dict]) -> list[Integrity
                 if exempt_from is not None and line_number >= exempt_from:
                     break
                 match = pattern.search(line)
-                if match and _is_struck_through(line, match.start()):
+                if match and skip_struck and _is_struck_through(line, match.start()):
                     continue
                 if match:
                     issues.append(
@@ -458,5 +481,14 @@ def collect_declaration_issues(
     issues: list[IntegrityIssue] = []
     issues.extend(check_values(files, declarations.get("value", [])))
     issues.extend(check_anchors(files, declarations.get("anchor", [])))
-    issues.extend(check_retired(files, declarations.get("retired", [])))
+    options = declarations.get("options", {})
+    issues.extend(
+        check_retired(
+            files,
+            declarations.get("retired", []),
+            strikethrough_exempt=options.get(
+                "strikethrough_exempt", DEFAULT_STRIKETHROUGH_EXEMPT
+            ),
+        )
+    )
     return sorted(issues, key=lambda issue: (issue.path, issue.line or 0, issue.code))
