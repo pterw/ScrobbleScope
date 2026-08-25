@@ -875,13 +875,23 @@
 
   /* Touch targets never below 44px. The design calls this non-negotiable and
      names the shipped build as the thing that broke it. Measured at the
-     390x844 reference canvas, six controls came in between 17px and 38px. */
+     390x844 reference canvas, six controls came in between 17px and 38px.
+
+     The stepper buttons need the width as well. They were 34x44: tall enough
+     and too narrow, which a min-height alone cannot catch. The decade pills
+     are here because the frontend gate now drives the page into the states
+     that reveal them -- they are hidden at load, so nothing measured them
+     until the gate learned to pick a decade first. */
   .seg__option,
   .stepper__btn,
   .stepper__value,
-  .disclosure__summary,
-  .th-row--select .ss-select {
+  .decade-pill,
+  .disclosure__summary {
     min-height: 44px;
+  }
+
+  .stepper__btn {
+    min-width: 44px;
   }
 
   .th-reset {

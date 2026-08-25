@@ -47,6 +47,12 @@ INDEX_TOKENS = {
     "--ss-border-default": ("#e5dfd1", "#2a2434"),
     "--ss-accent-soft": ("#efe9fa", "#2a1f44"),
     "--heatmap-empty": ("#e8e2d6", "#262230"),
+    # Added during commit 4 rather than commit 3, because the rebuild found
+    # the page needed them. They live in the two daisyUI theme blocks.
+    "--ss-surface-card": ("#ffffff", "#181520"),
+    "--ss-surface-sunken": ("#f0ebe0", "#1a1622"),
+    "--heatmap-surface": ("#faf8f3", "#181520"),
+    "--ss-bad": ("#b03434", "#e07070"),
 }
 
 #: Minimum context each template needs to render at all. The values are never
@@ -204,6 +210,74 @@ def test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads(
             f"with no fallback and no definition in "
             f"{sorted(other.name for other in sheets)}"
         )
+
+
+@pytest.mark.parametrize("template", sorted(MIGRATED))
+def test_a_migrated_page_loads_no_bootstrap_javascript(app, template):
+    """The stylesheet is only half of Bootstrap.
+
+    A migrated page that still loads the JS bundle keeps the dependency the
+    batch exists to remove, and the bundle is invisible to every stylesheet
+    check. unmatched.html loads it with nothing on the page using it, which
+    is filed for WP-7; a migrated page must not repeat that.
+    """
+    with app.test_request_context("/"):
+        html = render_template(template, **TEMPLATE_CONTEXT[template])
+
+    scripts = re.findall(r'<script[^>]+src="([^"]+)"', html)
+    bootstrap = [src for src in scripts if BOOTSTRAP in src.lower()]
+
+    assert not bootstrap, f"{template} still loads Bootstrap JS: {bootstrap}"
+
+
+@pytest.mark.parametrize("template", sorted(MIGRATED))
+def test_a_migrated_page_carries_no_bootstrap_data_attribute(app, template):
+    """data-bs-* is Bootstrap's JS API, and it fails silently without it.
+
+    A leftover data-bs-toggle on a Tailwind page is a control that looks
+    interactive and does nothing at all. Batch criterion 1 requires the whole
+    dependency gone, not only the stylesheet.
+    """
+    with app.test_request_context("/"):
+        html = render_template(template, **TEMPLATE_CONTEXT[template])
+
+    assert "data-bs-" not in html, f"{template} still carries a data-bs- attribute"
+
+
+def test_home_page_has_no_welcome_modal(app):
+    """The modal opened by itself and its backdrop covered the header.
+
+    Bootstrap's .modal-backdrop sits at z-index 1050 and the header at 1030,
+    so the theme toggle was genuinely unclickable on the index. That is
+    F-B21-11, and deleting the modal is what closes it. Decision 2 in
+    BATCH21_DEFINITION.md asks for the deletion outright.
+    """
+    with app.test_request_context("/"):
+        html = render_template("index.html")
+
+    assert "welcomeModal" not in html
+    assert 'class="modal' not in html
+
+
+def test_home_page_shows_the_result_count_outside_the_disclosure(app):
+    """How many albums you list is not part of what counts as listened.
+
+    BATCH21_DEFINITION.md decision 3 moved limit_results into the thresholds
+    disclosure. The owner reversed that on 2026-08-24: the label would then
+    describe two of the three things the disclosure holds, and the design
+    keeps the field visible in the card. The order in the markup is the
+    assertion, because a field inside the disclosure renders after it opens.
+    """
+    with app.test_request_context("/"):
+        html = render_template("index.html")
+
+    field = html.index('id="limit_results"')
+    disclosure = html.index('<details class="disclosure">')
+
+    assert field < disclosure, (
+        "limit_results renders inside the thresholds disclosure; the owner "
+        "ruled on 2026-08-24 that it stays a visible field above it"
+    )
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
