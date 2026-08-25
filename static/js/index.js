@@ -259,6 +259,20 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const res = await fetch(`/validate_user?username=${encodeURIComponent(username)}`);
         const data = await res.json();
+        // A 5xx is the service failing, not a verdict about the username.
+        // This form carries no novalidate, so a custom validity error from a
+        // transient outage makes the browser refuse the submit outright --
+        // the same trap the heatmap form hits through its explicit guard.
+        // Show what happened and leave the field submittable; the catch
+        // below already treats a network failure this way.
+        if (res.status >= 500) {
+          if (usernameInput.value.trim() !== username) return;
+          usernameInput.classList.remove('is-valid', 'is-invalid');
+          usernameInput.setCustomValidity('');
+          usernameError.textContent =
+            data.message || 'Validation service unavailable. Try again.';
+          return;
+        }
         // The answer belongs to the username that was asked about. Editing
         // the field while the request is in flight would otherwise land a
         // rejection on whatever is in the box by then, and this form uses

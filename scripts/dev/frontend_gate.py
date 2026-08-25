@@ -549,6 +549,62 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_validator_outage_is_recoverable(page, base_url: str) -> list[str]:
+    """A failing validator does not lock the form it was meant to help.
+
+    /validate_user answers a Last.fm outage with 503 and {"valid": false,
+    "Validation service unavailable. Try again."}. Read as a verdict about the
+    username, that sets a custom validity error, and then trying again is the
+    one thing the message asks for that cannot work -- the heatmap form
+    refuses at its own submit guard and the index form refuses at native
+    validation, since only the heatmap form carries novalidate.
+
+    The route is stubbed rather than called. A real 503 needs Last.fm to be
+    down, and a gate that needs a secret does not run in CI.
+    """
+    fields = (
+        ("/", "#username", ()),
+        ("/", "#heatmap-username", (("click", "#mode-tab-heatmap"),)),
+    )
+    failures = []
+    page.route(
+        "**/validate_user*",
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"valid": false, "message": "Validation service unavailable."}',
+        ),
+    )
+    try:
+        for path, selector, actions in fields:
+            page.goto(f"{base_url}{path}", wait_until="load")
+            _reach_state(page, actions)
+            page.locator(selector).type("someone")
+            page.locator(selector).blur()
+            page.wait_for_timeout(600)
+            state = page.evaluate(
+                """(selector) => {
+                    const input = document.querySelector(selector);
+                    const error = input.parentNode.querySelector('.field__error');
+                    return {
+                        blocked: !input.checkValidity(),
+                        told: error ? error.textContent.trim() : '',
+                    };
+                }""",
+                selector,
+            )
+            if state["blocked"]:
+                failures.append(
+                    f"{path} {selector}: a 503 left the field refusing to submit, "
+                    f"so the reader cannot do what it tells them"
+                )
+            if not state["told"]:
+                failures.append(f"{path} {selector}: a 503 said nothing to the reader")
+    finally:
+        page.unroute("**/validate_user*")
+    return failures
+
+
 def check_true_warning_survives(page, base_url: str) -> list[str]:
     """Editing the username does not wipe a year warning that is still true.
 
@@ -701,6 +757,7 @@ CHECKS = (
     ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
     ("validation feedback", check_validation_feedback, (DESKTOP,)),
     ("true warning survives", check_true_warning_survives, (DESKTOP,)),
+    ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
     ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE)),
 )
 
