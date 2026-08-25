@@ -42,6 +42,24 @@ document.addEventListener('DOMContentLoaded', () => {
   let registeredYear = null;
   let validationTimeout = null;
 
+  // What the year field says before any account is known. Captured at load
+  // so a second username can be given the page back exactly as it started.
+  const defaultYearMin = yearSelect ? yearSelect.min : '';
+  const defaultYearHint = yearHint ? yearHint.textContent : '';
+
+  /** Forget everything the last validated account taught us about years.
+   *
+   * The join year is a property of one account. Left in place it becomes a
+   * claim about the next one: a second, valid username kept the first
+   * account's "joined 2002" hint, its minimum, and the error text naming a
+   * year that account never joined in.
+   */
+  function clearRegistrationState() {
+    registeredYear = null;
+    if (yearSelect) yearSelect.min = defaultYearMin;
+    if (yearHint) yearHint.textContent = defaultYearHint;
+  }
+
   // Helper: check if a string contains any non-numeric characters (besides leading minus)
   function hasNonNumeric(str) {
     return /[^0-9]/.test(str);
@@ -215,6 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // .is-invalid, so dropping the class hid stale text for free. The
     // replacement is hidden only while it is empty, so it has to be emptied.
     usernameError.textContent = '';
+    clearRegistrationState();
   });
 
   usernameInput.addEventListener('blur', async () => {
@@ -235,6 +254,14 @@ document.addEventListener('DOMContentLoaded', () => {
           usernameInput.classList.add('is-valid');
           usernameInput.setCustomValidity('');
           usernameError.textContent = '';
+
+          // A valid account with no registration data still has to clear the
+          // last one's, or it inherits a join year it never had.
+          if (!data.registered_year) {
+            clearRegistrationState();
+            validateYear();
+            updateDecadePills();
+          }
 
           // Dynamically set year min based on registration date
           if (data.registered_year && yearSelect) {
