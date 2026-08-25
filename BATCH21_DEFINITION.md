@@ -72,9 +72,14 @@ stylesheet is in scope for this batch.
    replace them; keep one threshold-fired big-library notice.
 2. **Welcome modal (WP-3): DELETE.** The hero replaces it; Info button
    becomes a small about panel.
-3. **`limit_results` control (WP-3): KEEP**, relocated into the
-   thresholds disclosure -- `_apply_pre_slice()` is a real Spotify-load
-   and cache saving on large libraries. Not dropped, not half-wired.
+3. **`limit_results` control (WP-3): KEEP**, as a visible field in the
+   card -- `_apply_pre_slice()` is a real Spotify-load and cache saving on
+   large libraries. Not dropped, not half-wired.
+   **Relocation reversed 2026-08-24 (owner).** This decision first moved the
+   field into the thresholds disclosure. It stays above it: how many albums
+   you list is not part of what counts as listened, and the disclosure's
+   label would then describe two of the three things it holds. The design's
+   own placement wins.
 4. **Fonts (WP-2): ADOBE FONTS.** Kit `rwy8ghw`, linked from
    `use.typekit.net` in `base.html`. Five families:
    `akzidenz-grotesk-next-pro` for UI chrome, labels and body;

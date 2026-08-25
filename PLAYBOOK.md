@@ -85,19 +85,21 @@ See FINDINGS F-DOCSYNC-3.
 - **Next action:** **WP-3 is next**, and it is now in progress. It rebuilds
   `index.html` on Tailwind: editorial hero, regrouped form, the welcome
   modal and the `bootstrap.Popover` hints deleted, and `limit_results`
-  relocated into the thresholds disclosure. The scope grew on 2026-08-23:
+  kept as a visible field above the thresholds disclosure -- decision 3
+  moved it inside and the owner reversed that on 2026-08-24. The scope grew
+  on 2026-08-23:
   the heatmap has no page of its own, so its form, loading panel and result
   frame are all on this page and **WP-6 is absorbed into WP-3**. WP-7 and
   WP-8 keep their numbers. The plan is
   `docs/superpowers/plans/2026-08-23-batch21-wp3-index-page.md`: 16 tasks in
-  six commits, owner-approved. **Commits 1 to 3 have landed and are
-  unpushed; commit 4 is next.** That plan's "Progress" section is the only
-  record of where inside WP-3 the work stands, because Section 4 below stays
-  empty of a WP-3 entry until commit 6 -- DOC007 reads Section 4 to derive
-  the next work package, so an early entry would claim WP-3 was finished.
-  Three deviations so far, all listed there: the header lockup was realigned
-  after the owner reported it looked unaligned, a test outside the plan's
-  file list had to be edited, and Task 13 grew a mobile viewport pass.
+  six commits, owner-approved. **Commits 1 to 5 have landed and are
+  pushed; commit 6, the documentation commit, is next.** That plan's
+  "Progress" section is the only record of where inside WP-3 the work
+  stands, because Section 4 below stays empty of a WP-3 entry until commit
+  6 -- DOC007 reads Section 4 to derive the next work package, so an early
+  entry would claim WP-3 was finished. Fifteen deviations so far, all listed
+  there, and four findings are queued for Task 16. The work is open as
+  **PR #218**, which has drawn two Codex rounds.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
   pilot, the Playwright runtime, the frontend gate and the compiled-CSS
