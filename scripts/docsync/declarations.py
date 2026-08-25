@@ -45,7 +45,12 @@ _LIST_ITEM_RE = re.compile(r"^(\d+)\.\s")
 #: A bold lead-in used as a section marker: "**Wordmark animation** ...".
 #: docs/design/README.md labels its sections this way rather than with
 #: hashes, and a citation of one is a citation of a real place in the file.
-_BOLD_LABEL_RE = re.compile(r"^\*\*([^*]+?)\*\*")
+#:
+#: The list bullet is optional because that document labels sections both
+#: ways. "- **Responsive.** Single breakpoint at 860px." is a section of it,
+#: and a citation of "Responsive" resolved nowhere while this pattern
+#: insisted the asterisks start the line.
+_BOLD_LABEL_RE = re.compile(r"^\s*(?:[-*+]\s+)?\*\*([^*]+?)\*\*")
 
 #: A trailing parenthetical on a heading: "Session Bootstrap (in order)".
 #: Citations routinely leave it off, and that is not a broken reference.
@@ -208,10 +213,22 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
             # accepted a file that stated the value once and contradicted it
             # further down: index.css carries the breakpoint in three media
             # queries, and only one of them was ever read.
-            found: list[tuple[int, str | None]] = []
-            for index, line in enumerate(lines, start=1):
-                for match in pattern.finditer(line):
-                    found.append((index, match.group(1) if match.groups() else None))
+            #
+            # Read from the joined document for the same reason DOC010 and
+            # DOC011 are: a media query or a sentence that wraps is invisible
+            # to a per-line search. Here the miss is quiet rather than loud
+            # only when a file states the value more than once -- the
+            # unwrapped copy satisfies the check while a drifted wrapped one
+            # goes unread, which is the exact hole "every occurrence" was
+            # meant to close.
+            joined, starts = _joined_text(lines)
+            found: list[tuple[int, str | None]] = [
+                (
+                    _line_of(starts, match.start()),
+                    match.group(1) if match.groups() else None,
+                )
+                for match in pattern.finditer(joined)
+            ]
 
             if not found:
                 issues.append(
@@ -364,41 +381,48 @@ def check_anchors(files: _Files, declarations: Iterable[dict]) -> list[Integrity
             lines = files.lines(rel_path)
             if lines is None:
                 continue
-            for line_number, line in enumerate(lines, start=1):
-                for match in pattern.finditer(line):
-                    heading = match.group(1)
-                    item = match.group(2) if len(match.groups()) > 1 else None
-                    if heading not in headings:
-                        issues.append(
-                            _issue(
-                                "DOC010",
-                                rel_path,
-                                line_number,
-                                f'{rel_path} cites "{heading}" in '
-                                f"{target_path}, which has no such heading.",
-                                "Find where that rule lives now and cite it "
-                                "by its current heading. Moving a rule and "
-                                "leaving the pointer behind is the defect "
-                                "this check exists for.",
-                            )
+            # Matched against the joined document, as DOC011 already is. A
+            # citation that wraps is invisible to a per-line search, and
+            # wrapping is the one edit a document gets for free -- PLAYBOOK.md
+            # already carried `AGENTS.md` "UI and / Accessibility Rules"
+            # across two lines, so the gate could not have caught that heading
+            # moving.
+            joined, starts = _joined_text(lines)
+            for match in pattern.finditer(joined):
+                line_number = _line_of(starts, match.start())
+                heading = match.group(1)
+                item = match.group(2) if len(match.groups()) > 1 else None
+                if heading not in headings:
+                    issues.append(
+                        _issue(
+                            "DOC010",
+                            rel_path,
+                            line_number,
+                            f'{rel_path} cites "{heading}" in '
+                            f"{target_path}, which has no such heading.",
+                            "Find where that rule lives now and cite it "
+                            "by its current heading. Moving a rule and "
+                            "leaving the pointer behind is the defect "
+                            "this check exists for.",
                         )
-                        continue
-                    if item is None:
-                        continue
-                    available = _list_numbers_under(target_lines, headings[heading])
-                    if int(item) not in available:
-                        issues.append(
-                            _issue(
-                                "DOC010",
-                                rel_path,
-                                line_number,
-                                f'{rel_path} cites item {item} of "{heading}" '
-                                f"in {target_path}, which has "
-                                f"{len(available)} item(s).",
-                                "Renumbering a list breaks every citation of "
-                                "it. Cite the item that holds the rule now.",
-                            )
+                    )
+                    continue
+                if item is None:
+                    continue
+                available = _list_numbers_under(target_lines, headings[heading])
+                if int(item) not in available:
+                    issues.append(
+                        _issue(
+                            "DOC010",
+                            rel_path,
+                            line_number,
+                            f'{rel_path} cites item {item} of "{heading}" '
+                            f"in {target_path}, which has "
+                            f"{len(available)} item(s).",
+                            "Renumbering a list breaks every citation of "
+                            "it. Cite the item that holds the rule now.",
                         )
+                    )
     return issues
 
 
@@ -484,16 +508,32 @@ def check_retired(
 def _joined_text(lines: list[str]) -> tuple[str, list[int]]:
     """Return the document as one string, plus each line's start offset.
 
-    Lines are joined with a single space so a wrapped phrase reads the way it
-    would be spoken. The offsets are what map a match back to the line a
-    reader has to open.
+    Each line is stripped before joining, and the lines are joined with a
+    single space, so a wrapped phrase reads the way it would be spoken. The
+    stripping is what makes the join useful rather than merely different: a
+    continuation line carries the indentation of whatever list or block it
+    sits in, and joining raw lines puts that indentation *inside* the phrase.
+    A citation wrapped as `"UI and` / `    Accessibility Rules"` then joins to
+    five spaces in the middle of the heading and still matches nothing.
+
+    Indentation is presentation, not content, so dropping it costs nothing and
+    an offset built from the stripped pieces still maps a match back to the
+    line a reader has to open.
+
+    This handles a wrap. It does not handle arbitrary reflow: a pattern
+    written with a literal single space still needs the two words it joins to
+    end up one space apart, which they do here and would not if a document
+    put two spaces between sentences mid-phrase.
     """
+    pieces: list[str] = []
     starts: list[int] = []
     position = 0
     for line in lines:
+        piece = line.strip()
         starts.append(position)
-        position += len(line) + 1
-    return " ".join(lines), starts
+        position += len(piece) + 1
+        pieces.append(piece)
+    return " ".join(pieces), starts
 
 
 def _line_of(starts: list[int], position: int) -> int:
@@ -510,6 +550,9 @@ def _line_of(starts: list[int], position: int) -> int:
 
 # ----------------------------------------------------------------------
 # Shared
+#
+# _joined_text and _line_of sit above rather than here only because DOC011
+# needed them first. All three checks read from them now.
 # ----------------------------------------------------------------------
 
 
