@@ -445,6 +445,28 @@ def test_a_wrapped_occurrence_that_drifts_is_not_hidden_by_an_unwrapped_one(
     assert issues[0].line == 3
 
 
+def test_a_line_anchored_value_pattern_still_matches_later_lines(
+    tmp_path: Path,
+) -> None:
+    """Joining for wrapped values must preserve the original line semantics."""
+    root = _repo(
+        tmp_path,
+        {
+            "a.txt": "preamble\nVALUE=7\n",
+            "b.txt": "another preamble\nVALUE=7\n",
+        },
+    )
+    declaration = {
+        "name": "a line value",
+        "sites": [
+            {"file": "a.txt", "pattern": r"^VALUE=(\d+)$"},
+            {"file": "b.txt", "pattern": r"^VALUE=(\d+)$"},
+        ],
+    }
+
+    assert check_values(_files(root), [declaration]) == []
+
+
 # ----------------------------------------------------------------------
 # DOC010 -- anchors
 # ----------------------------------------------------------------------
@@ -737,6 +759,30 @@ def test_a_wrapped_citation_that_resolves_reports_nothing(tmp_path: Path) -> Non
     assert check_anchors(_files(root), [declaration]) == []
 
 
+def test_a_line_anchored_citation_pattern_still_matches_later_lines(
+    tmp_path: Path,
+) -> None:
+    """Joining for wrapped citations must not hide a later anchored citation."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Real Heading\n",
+            "notes.md": 'Preamble.\n`RULES.md` "Missing Heading"\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": r'^`RULES\.md` "([^"]+)"$',
+        "scan": ["notes.md"],
+    }
+
+    issues = check_anchors(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].line == 2
+
+
 def test_an_anchor_target_that_is_missing_is_reported_once(tmp_path: Path) -> None:
     """A citation into a file that is gone is one declaration defect, not many."""
     root = _repo(tmp_path, {"notes.md": 'See `RULES.md` "Anything".\n'})
@@ -896,6 +942,23 @@ def test_a_claim_wrapped_across_two_lines_is_still_found(tmp_path: Path) -> None
     assert len(issues) == 1
     assert issues[0].path == "plan.md"
     assert issues[0].line == 2, "report where the phrase starts"
+
+
+def test_a_line_anchored_retired_pattern_still_matches_later_lines(
+    tmp_path: Path,
+) -> None:
+    """Joining for wrapped claims must preserve per-line anchors."""
+    root = _repo(tmp_path, {"notes.md": "preamble\n  retired words\n"})
+    declaration = {
+        "name": "old words",
+        "pattern": r"^  retired words$",
+        "scan": ["notes.md"],
+    }
+
+    issues = check_retired(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].line == 2
 
 
 def test_a_wrapped_claim_below_the_marker_is_still_exempt(tmp_path: Path) -> None:
@@ -1319,6 +1382,36 @@ def test_the_in_memory_copy_wins_over_the_file_on_disk(tmp_path: Path) -> None:
 
     assert [issue.path for issue in on_disk] == ["a.md"]
     assert in_memory == []
+
+
+def test_a_named_declaration_path_cannot_escape_the_repository(
+    tmp_path: Path,
+) -> None:
+    """A repository-owned declaration must never read a sibling path."""
+    root = _repo(tmp_path / "repo", {"notes.md": "clean\n"})
+    (tmp_path / "outside.md").write_text("retired words\n", encoding="utf-8")
+    declaration = {
+        "name": "old words",
+        "pattern": "retired words",
+        "scan": ["../outside.md"],
+    }
+
+    with pytest.raises(DeclarationError, match="outside the repository root"):
+        check_retired(_files(root), [declaration])
+
+
+def test_a_declaration_glob_cannot_escape_the_repository(tmp_path: Path) -> None:
+    """A glob receives the same root boundary as a named file."""
+    root = _repo(tmp_path / "repo", {"notes.md": "clean\n"})
+    _repo(tmp_path / "outside", {"claim.md": "retired words\n"})
+    declaration = {
+        "name": "old words",
+        "pattern": "retired words",
+        "scan": ["../outside/*.md"],
+    }
+
+    with pytest.raises(DeclarationError, match="outside the repository root"):
+        check_retired(_files(root), [declaration])
 
 
 def test_collect_runs_all_three_kinds_and_sorts_them(tmp_path: Path) -> None:

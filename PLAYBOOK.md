@@ -82,12 +82,17 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **The owner merges PR #218, then WP-4 is next.** Review is
-  complete at final review-fix code head `77bb001`: all thirty threads are
-  resolved, both Quality Gate runs pass, and the Codex connector recorded a
-  thumbs-up after that commit became the head. Codex did not attempt a merge.
-  The tracked close-out after `77bb001` changes only handoff documents and the
-  completed WP-3 plan; GitHub remains the source of truth for live PR state.
+- **Next action:** **The owner merges PR #218, then WP-4 is next.** The
+  original twelve-round Codex review closed at `77bb001`: all thirty threads
+  were resolved, both Quality Gate runs passed, and the Codex connector
+  recorded a thumbs-up. Two later Graphify passes produced advisory findings.
+  Codex confirmed four defect classes: the root-font and saved-theme checks
+  leaked state, declaration paths could escape the repository, and joining
+  documents for wrapped regex matches lost the original per-line semantics.
+  All four are hardened at shared seams with regression tests. The remaining
+  claims were disproved against section boundaries, source contracts, tests
+  and live browser execution. GitHub remains the source of truth for the
+  follow-up's live state. Codex did not attempt a merge.
   WP-4 then migrates `loading.html` to the unified wait panel.
   `templates/partials/_loading.html` already exists and is framework-neutral
   -- WP-3 built it a work package early -- so WP-4 consumes that partial
@@ -468,7 +473,7 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-25 - PR #218 review rounds one to twelve applied (side-task)
+### 2026-08-25 - PR #218 review rounds and post-completion pass applied (side-task)
 
 - Scope: remediated every Codex comment on PR #218 while WP-3 sat open and
   unmerged. Thirty-seven comments across PR #216 and #218 in total -- seven
@@ -620,22 +625,34 @@ non-current operational logs. Older dated entries live in
   day-detail gaps and the gate-order contradiction were not improvised during
   review; `F-B21-18`, `F-B21-19` and `F-B21-20` record them for an owner ruling
   and a bounded implementation.
-- Validation: `pytest -q` -- **814 passed**, 3 warnings. The declaration seam
-  is **65 passed** and `pytest --collect-only` confirms 814 tests across 40
+- Post-completion review: the root-font mutation was reproduced at `20px`
+  instead of the original `17px`, and the theme-persistence check also left
+  its saved choice behind. Both now restore state in `finally`. Two earlier
+  Graphify findings were also real: declaration paths could traverse outside
+  the repository, while joined-document matching had lost the original
+  per-line `^`/`$` behavior in DOC009, DOC010 and DOC011. Root confinement and
+  a shared dual-representation matcher close those classes. Four claims were
+  rejected: F-B21-4's do-not-close instruction does not govern F-B21-5; the
+  validator state is reached without aborting; claimed profiles are the only
+  planned runs; and `run_checks` deliberately takes a page factory because
+  touch capability belongs to the browser context. No Page-object caller
+  remains, and Graphify's reproducer passed an integer instead of either valid
+  interface. Its duplicated coupling comments supplied counts but no defect;
+  the cohesive functions remain in place rather than undergoing a risky late
+  refactor.
+- Validation: `pytest -q` -- **821 passed**, 3 warnings. The declaration seam
+  is **70 passed** and `pytest --collect-only` confirms 821 tests across 40
   files. The frontend gate reports **15 checks in 23 runs** across desktop,
-  mobile and wide touch. All 11 pre-commit hooks pass against an exact-name
-  staged candidate with an identical index tree before and after; the index is
-  restored afterward. `doc_state_sync.py --check` exits 0 with only the
-  expected active-batch root-definition warning. Every behavioral fix was red
-  before it was written and re-measured after.
-- Review completion: `77bb001` is the final review-fix code head. Both Quality
-  Gate runs passed, all thirty threads were resolved, and the Codex connector
-  recorded a thumbs-up at 2026-08-25 19:17:45 UTC after that commit became the
-  head. Codex performed the final audit and did not attempt a merge. The owner
-  merge is the remaining integration step; WP-4 stays next after it. The
-  close-out also restores the already-shipped `docsync/declarations.py` module
-  to SESSION_CONTEXT Sections 3 and 4 and its eleventh hook to Section 7; no
-  production module changed.
+  mobile and wide touch. All 11 pre-commit hooks pass.
+  `doc_state_sync.py --check` exits 0 with only the expected active-batch
+  root-definition warning. Every behavioral fix was red before it was written
+  and re-measured after.
+- Review completion: `77bb001` closed the original twelve Codex rounds. Both
+  Quality Gate runs passed, all thirty threads were resolved, and the Codex
+  connector recorded a thumbs-up at 2026-08-25 19:17:45 UTC. `bd49cdb` then
+  recorded the documentation-only handoff. The current follow-up owns the four
+  developer-gate hardening classes above. Codex did not attempt a merge. The
+  owner merge is the remaining integration step; WP-4 stays next after it.
 - Forward guidance: a quiet round was not treated as completion. The recorded
   thumbs-up was. Rounds four and five found defects that earlier fixes in the
   series had introduced. Round six then found two holes in one-day-old code,
