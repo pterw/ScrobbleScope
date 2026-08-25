@@ -930,8 +930,50 @@ def test_a_list_written_as_a_bare_string_is_refused(tmp_path: Path) -> None:
         "scan": "notes.md",
     }
 
-    with pytest.raises(DeclarationError, match="'scan' as str, not list"):
+    with pytest.raises(DeclarationError, match="'scan' as str, not a list of str"):
         check_anchors(_files(root), [declaration])
+
+
+def test_a_non_string_inside_a_list_is_refused(tmp_path: Path) -> None:
+    """The container being right does not make its contents right.
+
+    `scan = [1]` is a list, so a shallow check passed it, and the integer then
+    reached the glob matcher as a TypeError far from the declaration that
+    caused it. Same for a path inside `allow_files`.
+    """
+    root = _repo(tmp_path, {"RULES.md": "## A\n", "notes.md": "text\n"})
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": [1],
+    }
+
+    with pytest.raises(DeclarationError, match="item 0 is int, not str"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_a_non_string_allow_after_marker_is_refused(tmp_path: Path) -> None:
+    """A marker is searched for inside a line, so it has to be a string."""
+    root = _repo(tmp_path, {"notes.md": "text\n"})
+    declaration = {
+        "name": "r",
+        "pattern": "x",
+        "scan": ["notes.md"],
+        "allow_after": {"notes.md": 5},
+    }
+
+    with pytest.raises(DeclarationError, match="'notes.md' is int, not str"):
+        check_retired(_files(root), [declaration])
+
+
+def test_a_site_that_is_not_a_table_is_refused(tmp_path: Path) -> None:
+    """`sites` holds tables. An integer in it never reaches a key lookup."""
+    root = _repo(tmp_path, {"a.txt": "value\n"})
+    declaration = {"name": "a value", "sites": [1, 2]}
+
+    with pytest.raises(DeclarationError, match="item 0 is int, not dict"):
+        check_values(_files(root), [declaration])
 
 
 def test_a_retired_declaration_is_held_to_the_schema_too(tmp_path: Path) -> None:
