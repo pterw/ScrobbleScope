@@ -1281,6 +1281,24 @@ def test_a_misspelled_option_is_refused(tmp_path: Path) -> None:
         collect_declaration_issues(repo_root=tmp_path, live_documents={})
 
 
+@pytest.mark.parametrize("kind", ["value", "anchor", "retired"])
+def test_a_top_level_declaration_collection_must_be_a_list(
+    tmp_path: Path, kind: str
+) -> None:
+    """A scalar collection must not crash before its entries are validated.
+
+    TOML accepts ``anchor = 1`` and the two sibling spellings. Iterating that
+    integer raised TypeError before the per-declaration schema could produce
+    the documented input error.
+    """
+    (tmp_path / DECLARATIONS_FILENAME).write_text(f"{kind} = 1\n", encoding="utf-8")
+
+    with pytest.raises(
+        DeclarationError, match=rf"{kind!r} is int, not a list of tables"
+    ):
+        collect_declaration_issues(repo_root=tmp_path, live_documents={})
+
+
 def test_the_in_memory_copy_wins_over_the_file_on_disk(tmp_path: Path) -> None:
     """The gate grades documents it may have just rewritten in memory.
 
