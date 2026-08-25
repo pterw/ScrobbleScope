@@ -82,24 +82,20 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **WP-3 is next**, and it is now in progress. It rebuilds
-  `index.html` on Tailwind: editorial hero, regrouped form, the welcome
-  modal and the `bootstrap.Popover` hints deleted, and `limit_results`
-  kept as a visible field above the thresholds disclosure -- decision 3
-  moved it inside and the owner reversed that on 2026-08-24. The scope grew
-  on 2026-08-23:
-  the heatmap has no page of its own, so its form, loading panel and result
-  frame are all on this page and **WP-6 is absorbed into WP-3**. WP-7 and
-  WP-8 keep their numbers. The plan is
-  `docs/superpowers/plans/2026-08-23-batch21-wp3-index-page.md`: 16 tasks in
-  six commits, owner-approved. **Commits 1 to 5 have landed and are
-  pushed; commit 6, the documentation commit, is next.** That plan's
-  "Progress" section is the only record of where inside WP-3 the work
-  stands, because Section 4 below stays empty of a WP-3 entry until commit
-  6 -- DOC007 reads Section 4 to derive the next work package, so an early
-  entry would claim WP-3 was finished. Fifteen deviations so far, all listed
-  there, and four findings are queued for Task 16. The work is open as
-  **PR #218**, which has drawn two Codex rounds.
+- **Next action:** **WP-4 is next.** It migrates `loading.html` to the
+  unified wait panel. `templates/partials/_loading.html` already exists and
+  is framework-neutral -- WP-3 built it a work package early -- so WP-4
+  consumes that partial rather than writing one. Before the frontend gate
+  can see the page, WP-4 needs a GET route for it: `LEGACY_PAGES` in
+  `scripts/dev/frontend_gate.py` is empty because `loading.html`,
+  `results.html` and `unmatched.html` render only from a POST with session
+  state, so no browser check has ever reached them.
+  **WP-3 is complete**, recorded in Section 4 below and open as **PR #218**,
+  which is not merged. It rebuilt `index.html` on Tailwind, deleted the
+  welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
+  the frontend gate from four checks at one desktop viewport to eight across
+  three device profiles. Codex raised twelve comments across three rounds;
+  every one was valid and all twelve were answered.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
   pilot, the Playwright runtime, the frontend gate and the compiled-CSS
@@ -387,6 +383,82 @@ non-current operational logs. Older dated entries live in
   push to `wip/**`, and the gate fails until the shell commit lands with it.
   WP-3 takes the index page, deletes the welcome modal, and adds its page to
   `MIGRATED_PAGES` in the gate.
+
+### 2026-08-25 - Index page migrated to Tailwind (Batch 21 WP-3)
+
+- Scope: rebuilt `index.html` on Tailwind and daisyUI, deleted the welcome
+  modal and the `bootstrap.Popover` hints, extracted three Jinja partials,
+  and moved the index into every frontend-gate check. WP-6 is absorbed here
+  (owner, 2026-08-23): the heatmap has no page of its own, so its form,
+  loading panel and result frame all live on this page.
+- Plan vs implementation: the plan is
+  `docs/superpowers/plans/2026-08-23-batch21-wp3-index-page.md`, 16 tasks in
+  six commits. All 16 landed, in eleven commits rather than six -- five
+  unplanned ones came out of owner visual review and two Codex review
+  rounds. That plan's Progress section carries the commit table.
+- Deviations, fifteen in total and all listed in the plan. The ones that
+  change a contract:
+  - **WP-6 absorbed into WP-3.** Its stub heading must keep the words
+    "absorbed into" verbatim; `WP_SKIPPED_RE` in DOC007 recognises that
+    phrasing and two others, and nothing else.
+  - **`limit_results` stays a visible field**, reversing definition
+    decision 3. Owner ruled that how many albums you list is not part of
+    what counts as listened.
+  - **The type stack is Adobe Fonts**, not self-hosted; that reversal
+    predates this WP and is recorded in `docs/design/RECONCILIATION.md`.
+  - **`/validate_user` is kept** against the design README's simpler
+    "more than two characters" rule, because the definition requires
+    validation parity.
+  - **The heatmap geometry ruling is Claude's**, not the owner's: 14px
+    cell, 2px gap desktop and 1px mobile, radius 2px, `--heatmap-empty`
+    `#e8e2d6` / `#262230`. It resolves `RECONCILIATION.md` section 7.
+  - **The index is full bleed and the hero scales past 1500px**, both past
+    the design's stated 560px mark and 42px headline. Owner ruled both
+    after seeing 538px of dead space at 1600, 2000 and 2560 alike.
+  - **`Save image` is a new feature the plan never scoped**, about 120
+    lines drawing a canvas by hand. Owner approved it knowing the labels
+    inside the serialized SVG fall back to a plain monospace stack.
+  - **Stylesheet units moved to rem** for type and spacing, px kept for
+    thin detail. Owner rule, 2026-08-25; `AGENTS.md` "UI and
+    Accessibility Rules" item 1 carries it and `RECONCILIATION.md`
+    section 11 records why it overrides the design snapshot.
+  - **`error.css` and `shell.css` were edited**, though the plan assigns
+    them to WP-8 and WP-2. The touch-target check found 40px buttons on
+    the error page, and `shell.css` loads on every page so leaving it in
+    px put px spacing around rem type on the migrated one.
+- The plan's one predicted red never happened. `check_stylesheet_isolation`
+  counts framework stylesheets rather than naming which framework a page
+  should carry, so a page that swaps one for the other stays green.
+- Gates grew with the work. The frontend gate went from four checks at a
+  single desktop viewport to eight across three device profiles -- a 1280
+  mouse, a 390 touch phone and a 1280 touch screen. Two checks are new:
+  touch targets, which drives the page into five states before measuring
+  because most controls start hidden, and initial visibility, which asserts
+  computed display rather than a class name. A third, validation feedback,
+  was added after review found a defect no gate could see.
+- Reviews: Codex raised twelve comments across three rounds on PR #218.
+  Every one was valid. One was declined on its premise -- it claimed the
+  closed thresholds disclosure gave its controls zero-sized boxes, and
+  deleting their sizing turns the gate red, so the controls were being
+  measured -- and its remedy was applied anyway as insurance.
+- Findings: `F-B21-11` and `F-B18-12` resolved. `F-B21-5` updated; its SMIL
+  and mode-pill items are resolved. `F-B21-4` item 1 is decided and the
+  finding stays open for items 2 to 4. Five filed: `F-B21-14` through
+  `F-B21-18`.
+- Validation: `pytest -q` -- **749 passed**, 3 warnings. All 11 pre-commit
+  hooks pass with an identical `git write-tree` either side. The frontend
+  gate reports `8 checks passed in 13 runs across desktop, mobile, wide
+  touch`, and every new check was proved able to fail by mutation.
+  `doc_state_sync.py --check` exits 0 with the expected active
+  root-definition warning.
+- Forward guidance: WP-4 takes `loading.html`. It needs a GET route before
+  the gate can see the page it migrates -- `LEGACY_PAGES` is empty because
+  the three remaining templates render only from a POST with session state.
+  `templates/partials/_loading.html` already exists and is framework-neutral,
+  built a work package early; WP-4 consumes it rather than writing one.
+  `F-B21-17` proposes the deterministic drift check that would have caught a
+  third of this batch's review comments, and the owner approved building it
+  after this work package closes.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
