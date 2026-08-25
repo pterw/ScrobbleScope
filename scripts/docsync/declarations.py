@@ -92,6 +92,129 @@ class DeclarationError(SyncError):
     """
 
 
+#: What a declaration of each kind may hold, and what type each key takes.
+#:
+#: Every key is listed rather than only the required ones, because the worst
+#: way a declarations file can be wrong is quietly. A misspelled `scans` left
+#: the declaration scanning nothing and the gate green, which is the exact
+#: failure this whole module exists to prevent. An unknown key is an error.
+_DECLARATION_SCHEMA: dict[str, dict[str, dict[str, type]]] = {
+    "value": {
+        "required": {"sites": list},
+        "optional": {"name": str},
+    },
+    "site": {
+        "required": {"file": str, "pattern": str},
+        "optional": {"expect": str},
+    },
+    "anchor": {
+        "required": {"target": str, "pattern": str},
+        "optional": {"name": str, "scan": list, "allow_files": list},
+    },
+    "retired": {
+        "required": {"pattern": str},
+        "optional": {
+            "name": str,
+            "reason": str,
+            "scan": list,
+            "allow_files": list,
+            "allow_after": dict,
+            "strikethrough_exempt": bool,
+        },
+    },
+}
+
+#: The tables the declarations file itself may hold.
+_TOP_LEVEL_SCHEMA = {
+    "options": {"required": {}, "optional": {"strikethrough_exempt": bool}},
+}
+
+
+def _where(
+    kind: str, index: int, declaration: Mapping, parent: str | None = None
+) -> str:
+    """Name a declaration the way its author would recognise it.
+
+    A site carries no name of its own, so it is named by its position and by
+    the declaration holding it. "site 0 of value 'the 860px breakpoint'" finds
+    the right four lines in the file; "value site declaration 0" does not.
+    """
+    name = declaration.get("name") if isinstance(declaration, Mapping) else None
+    if isinstance(name, str) and name:
+        base = f"{kind} {name!r}"
+    else:
+        base = f"{kind} {index}"
+    return f"{base} of {parent}" if parent else base
+
+
+def _validate(
+    kind: str, index: int, declaration: object, parent: str | None = None
+) -> None:
+    """Check one declaration's shape, blaming the declaration rather than a doc.
+
+    Raised as DeclarationError so the CLI reports it and exits 2. Reading a
+    required key straight out of the mapping ended the run in a KeyError
+    traceback and exit 1, which tells the reader nothing about which
+    declaration is wrong or what is missing from it.
+    """
+    schema = _DECLARATION_SCHEMA[kind]
+    holder = declaration if isinstance(declaration, Mapping) else {}
+    where = _where(kind, index, holder, parent)
+    if not isinstance(declaration, Mapping):
+        raise DeclarationError(f"{where} is {type(declaration).__name__}, not a table.")
+
+    required, optional = schema["required"], schema["optional"]
+    known = {**required, **optional}
+    for key in declaration:
+        if key not in known:
+            raise DeclarationError(
+                f"{where} has an unknown key {key!r}. A misspelled key is "
+                f"refused rather than ignored, because a declaration that "
+                f"silently checks nothing is worse than one that fails. "
+                f"Known keys: {', '.join(sorted(known))}."
+            )
+    for key in required:
+        if key not in declaration:
+            raise DeclarationError(
+                f"{where} has no {key!r}, which it cannot work without."
+            )
+    for key, wanted in known.items():
+        if key in declaration and not isinstance(declaration[key], wanted):
+            raise DeclarationError(
+                f"{where} gives {key!r} as {type(declaration[key]).__name__}, "
+                f"not {wanted.__name__}. A list written as a bare string is "
+                f"read one character at a time and matches nothing."
+            )
+
+    if kind == "value":
+        for site_index, site in enumerate(declaration["sites"]):
+            _validate("site", site_index, site, parent=where)
+
+
+def _validate_options(options: object) -> None:
+    """Check the [options] table, which sets a default for every declaration.
+
+    A typo here is the quietest fault in the file: `strikethough_exempt` reads
+    as an unknown key, the real option keeps its default, and every retired
+    claim the author meant to expose stays exempt.
+    """
+    schema = _TOP_LEVEL_SCHEMA["options"]
+    if not isinstance(options, Mapping):
+        raise DeclarationError(f"[options] is {type(options).__name__}, not a table.")
+    for key, value in options.items():
+        wanted = schema["optional"].get(key)
+        if wanted is None:
+            raise DeclarationError(
+                f"[options] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(schema['optional']))}."
+            )
+        if not isinstance(value, wanted):
+            raise DeclarationError(
+                f"[options] gives {key!r} as {type(value).__name__}, "
+                f"not {wanted.__name__}."
+            )
+
+
 def _issue(
     code: str, path: str, line: int | None, invariant: str, remediation: str
 ) -> IntegrityIssue:
@@ -193,7 +316,8 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
       must still contain.
     """
     issues: list[IntegrityIssue] = []
-    for declaration in declarations:
+    for index, declaration in enumerate(declarations):
+        _validate("value", index, declaration)
         name = declaration.get("name", "<unnamed>")
         sites = declaration.get("sites", [])
         if len(sites) < 2:
@@ -368,7 +492,8 @@ def check_anchors(files: _Files, declarations: Iterable[dict]) -> list[Integrity
     the same day, and nobody would have declared it in between.
     """
     issues: list[IntegrityIssue] = []
-    for declaration in declarations:
+    for index, declaration in enumerate(declarations):
+        _validate("anchor", index, declaration)
         name = declaration.get("name", "<unnamed>")
         target_path = declaration["target"]
         target_lines = files.lines(target_path)
@@ -459,7 +584,8 @@ def check_retired(
     strikethrough rhetorically would otherwise get a silent blind spot.
     """
     issues: list[IntegrityIssue] = []
-    for declaration in declarations:
+    for index, declaration in enumerate(declarations):
+        _validate("retired", index, declaration)
         name = declaration.get("name", "<unnamed>")
         reason = declaration.get("reason", "")
         pattern = _compile(declaration["pattern"], f"retired {name!r}")
@@ -602,6 +728,18 @@ def collect_declaration_issues(
     declarations = load_declarations(repo_root)
     if not declarations:
         return []
+
+    # The table names too. A misspelled [[ancor]] parses as valid TOML, is
+    # never read, and leaves the gate green with one fewer check running.
+    known_tables = set(_DECLARATION_SCHEMA) | set(_TOP_LEVEL_SCHEMA)
+    known_tables.discard("site")
+    for table in declarations:
+        if table not in known_tables:
+            raise DeclarationError(
+                f"{DECLARATIONS_FILENAME} has an unknown table {table!r}. "
+                f"Known tables: {', '.join(sorted(known_tables))}."
+            )
+    _validate_options(declarations.get("options", {}))
 
     files = _Files(repo_root, live_documents)
     issues: list[IntegrityIssue] = []
