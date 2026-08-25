@@ -94,10 +94,10 @@ See FINDINGS F-DOCSYNC-3.
   which is not merged. It rebuilt `index.html` on Tailwind, deleted the
   welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
   the frontend gate from four checks at one desktop viewport into a
-  multi-profile regression suite. Codex raised twenty-nine comments on it;
-  twenty-eight were valid, and one sizing premise was disproved but received
+  multi-profile regression suite. Codex raised thirty comments on it;
+  twenty-nine were valid, and one sizing premise was disproved but received
   its conservative remedy. All are remediated in the cumulative branch.
-  The owner authorized the round-eleven GitHub write on 2026-08-25; the PR
+  The owner authorized review-fix GitHub writes on 2026-08-25; the PR
   remains the source of truth for live reply and thread state.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
@@ -465,14 +465,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-25 - PR #218 review rounds one to eleven applied (side-task)
+### 2026-08-25 - PR #218 review rounds one to twelve applied (side-task)
 
 - Scope: remediated every Codex comment on PR #218 while WP-3 sat open and
-  unmerged. Thirty-six comments across PR #216 and #218 in total -- seven
-  on #216 and twenty-nine on #218. Thirty-five were valid; all were actioned.
-  Rounds one through ten were answered. On 2026-08-25 the owner authorized
-  the round-eleven batched reply and resolution of threads whose fixes are
-  present at the pushed head; GitHub owns the resulting live state.
+  unmerged. Thirty-seven comments across PR #216 and #218 in total -- seven
+  on #216 and thirty on #218. Thirty-six were valid; all were actioned.
+  Rounds one through eleven were answered and resolved. On 2026-08-25 the
+  owner authorized batched review replies and resolution of threads whose
+  fixes are present at the pushed head; GitHub owns the resulting live state.
   One was declined on its premise -- it said the closed thresholds disclosure
   gave its controls zero-sized boxes, and deleting their sizing turns the gate
   red, so they were being measured -- and its remedy was applied anyway.
@@ -553,6 +553,13 @@ non-current operational logs. Older dated entries live in
     participating heading and numeric item, and value patterns reject extra,
     missing, optional-empty and empty captures before those assumptions can
     turn into a crash or a false agreement.
+  - **Top-level declaration collections validate before iteration.** Round
+    twelve found that `value = 1`, `anchor = 1` and `retired = 1` reached their
+    collectors as integers and raised `TypeError` before the per-declaration
+    schema could report malformed input. All three outer collections now fail
+    once at the wiring boundary. The raw collector calls predated round eleven,
+    so this was backlog in the new module rather than a regression from that
+    round; the earlier class sweep still stopped one boundary too low.
   - **The heatmap window declaration covers the class, not the remembered
     instances.** Its runtime, product, owner, architecture and canonical-design
     copies are now sites. `HEATMAP_WINDOW_DAYS` remains the source and the
@@ -609,8 +616,8 @@ non-current operational logs. Older dated entries live in
   day-detail gaps and the gate-order contradiction were not improvised during
   review; `F-B21-18`, `F-B21-19` and `F-B21-20` record them for an owner ruling
   and a bounded implementation.
-- Validation: `pytest -q` -- **811 passed**, 3 warnings. The declaration seam
-  is **62 passed** and `pytest --collect-only` confirms 811 tests across 40
+- Validation: `pytest -q` -- **814 passed**, 3 warnings. The declaration seam
+  is **65 passed** and `pytest --collect-only` confirms 814 tests across 40
   files. The frontend gate reports **15 checks in 23 runs** across desktop,
   mobile and wide touch. All 11 pre-commit hooks pass against an exact-name
   staged candidate with an identical index tree before and after; the index is
@@ -625,9 +632,9 @@ non-current operational logs. Older dated entries live in
   introduced, which reads as approaching diminishing returns. Round six then
   found two holes in code that was one day old, which corrects that reading:
   yield tracks new surface area, not elapsed rounds. Expect a round on
-  whatever `F-B21-18` builds. The owner authorized round eleven's GitHub
-  write on 2026-08-25. Resolve a thread only after its fix is present at the
-  pushed head; do not infer resolution from this dated record.
+  whatever `F-B21-18` builds. The owner authorized review-fix GitHub writes
+  on 2026-08-25. Resolve a thread only after its fix is present at the pushed
+  head; do not infer resolution from this dated record.
   Both round-six holes were of a kind a check's own tests cannot find, because
   the tests were written from the same understanding as the code. That is the
   argument for keeping a reviewer on tooling and not only on features.

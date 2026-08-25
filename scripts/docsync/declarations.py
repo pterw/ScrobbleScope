@@ -886,15 +886,28 @@ def collect_declaration_issues(
             )
     _validate_options(declarations.get("options", {}))
 
+    # Validate the outer collections before a collector tries to iterate one.
+    # Per-declaration validation starts inside that iteration, so it cannot
+    # turn ``anchor = 1`` into the input error the CLI knows how to report.
+    collections: dict[str, list] = {}
+    for kind in ("value", "anchor", "retired"):
+        collection = declarations.get(kind, [])
+        if not isinstance(collection, list):
+            raise DeclarationError(
+                f"top-level {kind!r} is {type(collection).__name__}, not a "
+                f"list of tables. Write each declaration as [[{kind}]]."
+            )
+        collections[kind] = collection
+
     files = _Files(repo_root, live_documents)
     issues: list[IntegrityIssue] = []
-    issues.extend(check_values(files, declarations.get("value", [])))
-    issues.extend(check_anchors(files, declarations.get("anchor", [])))
+    issues.extend(check_values(files, collections["value"]))
+    issues.extend(check_anchors(files, collections["anchor"]))
     options = declarations.get("options", {})
     issues.extend(
         check_retired(
             files,
-            declarations.get("retired", []),
+            collections["retired"],
             strikethrough_exempt=options.get(
                 "strikethrough_exempt", DEFAULT_STRIKETHROUGH_EXEMPT
             ),

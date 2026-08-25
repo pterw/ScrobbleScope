@@ -243,10 +243,10 @@ still next. This review follow-up does not change its scope or sequence.
     purpose stops being read. WP-8 still owns the rest of the file, including
     its 600px breakpoint.
 
-### What eleven review rounds changed after commit 6
+### What twelve review rounds changed after commit 6
 
-Thirty-six comments landed across PR #216 and #218: seven on PR #216 and
-twenty-nine on PR #218. Thirty-five were valid. One sizing premise was
+Thirty-seven comments landed across PR #216 and #218: seven on PR #216 and
+thirty on PR #218. Thirty-six were valid. One sizing premise was
 disproved, but its conservative remedy was applied. PLAYBOOK Section 4 has
 the round-by-round record. What a later agent needs to know:
 
@@ -270,8 +270,10 @@ the round-by-round record. What a later agent needs to know:
 - **Declarations now reject semantic no-ops before scanning.** Missing named
   files, zero-match globs and an `allow_files` list that exempts every path are
   errors. Anchor and value regexes also validate the capture contracts their
-  consumers rely on. This turns a clean run back into evidence that work was
-  performed, rather than evidence that a list container parsed.
+  consumers rely on. The outer `value`, `anchor` and `retired` collections
+  must be lists before a collector can iterate them. This turns a clean run
+  back into evidence that work was performed, rather than evidence that one
+  layer of a container parsed.
 - **The username validators identify requests, not only values.** Request
   generations close the A-to-B-to-A race in both forms. A current network
   failure replaces an obsolete verdict and leaves server-side submission
@@ -280,7 +282,7 @@ the round-by-round record. What a later agent needs to know:
 - **Rendered behaviour is part of the gate.** Keyboard hint access, dark-mode
   shadows, the canonical good colour, radius steps and root-font header
   scaling are measured across desktop, phone and wide-touch profiles. At the
-  review checkpoint the gate ran 15 checks in 23 runs and the suite had 811
+  review checkpoint the gate ran 15 checks in 23 runs and the suite had 814
   tests.
 - **Three decisions remain outside this review fix.** `F-B21-18` records the
   JavaScript test seam and layout-independent export contract. `F-B21-19`
