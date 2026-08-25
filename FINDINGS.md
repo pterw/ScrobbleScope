@@ -8,8 +8,9 @@ side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
 WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
-F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. **WP-3 is next.**
-717 tests across 39 test modules.
+F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11 and F-B18-12 and
+filed F-B21-14 through F-B21-18. **WP-4 is next.**
+749 tests across 39 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -294,7 +295,10 @@ disagree. `docs/design/README.md` is canonical. `docs/design/reference/
 audit-review.md` is a later second-pass critique, and it dissents on four
 screens:
 
-1. **Index hero.** The README specifies a two-column `1.1fr 1fr` editorial
+1. **Index hero -- DECIDED 2026-08-24 (owner), README wins.** WP-3 shipped
+   the two-column split. Items 2, 3 and 4 stay open for WP-4, WP-5 and WP-7;
+   do not close this finding on the strength of this one ruling.
+   The README specifies a two-column `1.1fr 1fr` editorial
    split. The review calls it a generic SaaS landing layout applied to a tool
    whose users arrive to type a username and press go, and asks for a single
    centred column. It names this "the thing to challenge first".
@@ -354,6 +358,10 @@ design bundle names all three but ships no remedy for any of them.
   Strip them the same way rather than reaching for `svg.pauseAnimations()`;
   the CSS route is what the handoff asks for and it needs no JavaScript.
   WP-3 owns the index page and can close both.
+  **Resolved 2026-08-25.** WP-3 stripped the SMIL from both. A test asserts
+  no rendered page contains `<animate>` at all, and a second asserts every
+  inline mark carries the wrapper class the CSS animation keys on -- an
+  unwrapped mark is frozen with no error anywhere.
 
 **Settled, recorded here so it is not re-opened as a conflict.** The mobile
 input size looked like a fifth item: `static/css/index.css:158` forces
@@ -363,7 +371,17 @@ bundle's own `docs/design/components/forms/Input.prompt.md` opens with "On
 mobile keep the rendered font-size at 16px or larger to stop iOS auto-zoom."
 The README's sizes are desktop values. **Keep the override.**
 
-Status: open. WP-3 and WP-6 candidates.
+Status: resolved 2026-08-25 by WP-3, all three items.
+
+- The KPI labels take `var(--ss-text-muted)` in the rewritten
+  `static/css/heatmap.css`; the `opacity: 0.5` text is gone. A real token was
+  the prescribed fix and it is what shipped.
+- The mode pills are `<button>` elements. A test asserts both, and asserts
+  that no `role="button"` survives anywhere on the page -- the class, not the
+  instance.
+- The SMIL is gone from every mark on every page, animated from CSS keyframes
+  with a reduced-motion guard.
+
 Source: design handoff import, 2026-08-21.
 
 ### F-B21-6: the year gate reads host-local time, the fetch window reads UTC
@@ -537,7 +555,10 @@ interaction is recorded so the deletion is not treated as cosmetic.
 The frontend gate's theme-persistence check runs on a migrated page rather
 than the index for this reason, and says so in its docstring.
 
-Status: open. Closes when WP-3 deletes the welcome modal.
+Status: resolved 2026-08-25. WP-3 deleted the welcome modal, so nothing
+covers the header on the index. The gate's theme-persistence check now runs on
+every migrated page including `/`, and passes at both viewports, which is the
+evidence rather than the deletion itself.
 Source: WP-2 frontend gate run, 2026-08-23.
 
 ### F-B21-12: four pinned CI actions target a deprecated Node runtime
@@ -620,6 +641,140 @@ rotated per-batch logs and deterministic same-date batch ordering. Regression
 tests cover agreeing, disagreeing, unparseable, absorbed-gap, all-complete,
 header-scope, ambiguity and rotated-authority cases.
 Source: PR #216 review round two, 2026-08-23.
+
+### F-B21-14: the heatmap has no path to its data that is not colour
+
+Every value in the grid is encoded once, as a fill. The only way to read a
+day is a mouse hover: the cells are `<rect>` elements with no `tabindex`, so
+a keyboard reader cannot reach any of them, and there is no table view.
+
+The ramp itself is sound. Measured in OKLab, `rocket_r` runs strictly
+monotonic in lightness from 0.13 to 0.884 in steps of 0.107 to 0.144 -- a
+reader who cannot separate the hues can still separate the values, which is
+what a sequential ramp has to do. The `dataviz` skill's validator fails it,
+but that validator is scoped to categorical palettes by its own footer, and
+lightness monotonicity is the right test here.
+
+The defect is at the ends, against their own surface. `#f9d576` sits at
+1.34:1 on the light frame and `#03051a` at 1.12:1 on the dark one, so the
+busiest and quietest days both disappear into the background they are drawn
+on. The ramp is fixed by the design contract, so the fix is relief and not
+re-tinting: make the cells focusable and give each an accessible name, or
+ship a table view, or both.
+
+**Owner ruled this critical on 2026-08-24**, while noting that a sighted
+mouse user sees no problem. Both halves of that are the finding: it is
+severe for the readers it affects and invisible to everyone else, which is
+why no review caught it and no gate can.
+
+Status: open. Owner-ruled critical. Not scheduled to a work package.
+Source: Batch 21 WP-3, `dataviz` skill pass, 2026-08-24.
+
+### F-B21-15: the heatmap stays on the index page, and the split waits
+
+WP-3 kept the heatmap form, wait panel and result frame on `index.html` and
+extracted three Jinja partials instead of a page. The Batch 18 decision that
+all states live on one page with no navigation still stands, and the owner
+reaffirmed it on 2026-08-23.
+
+The split only pays for itself alongside the deferred
+`GET /heatmap/<username>` item under "Out of scope" in
+`BATCH21_DEFINITION.md`. Without a route, a separate template cannot be
+reached, linked or shared, and the frontend gate cannot see it either --
+which is the same reason `LEGACY_PAGES` is empty.
+
+The partials are the enabler. `templates/partials/_loading.html` is
+framework-neutral and parameterised by id, so a future page can include it
+without inheriting the index's script wiring.
+
+Status: open, deferred. Do this with the GET route or not at all.
+Source: Batch 21 WP-3, owner decision 3, 2026-08-23.
+
+### F-B21-16: unmatched.html loads a Bootstrap bundle nothing on it uses
+
+`templates/unmatched.html` pulls the Bootstrap JS bundle, and no `data-bs-*`
+attribute on that page uses it. It may already be dead weight, in which case
+WP-7 deletes a script tag rather than migrating a dependency.
+
+Check rather than assume. The quick-view modal was deleted earlier in this
+batch's plan and the bundle may simply have outlived it, but a `dropdown` or
+`collapse` initialised from `unmatched.js` would not show up in a
+`data-bs-` grep.
+
+Status: open. WP-7 verifies before removing.
+Source: Batch 21 WP-3 review of the remaining legacy pages, 2026-08-25.
+
+### F-B21-17: a third of this batch's review comments were one fact written twice
+
+Codex raised nineteen comments across PR #216 and PR #218. Every one was
+valid. Six of them -- 32 percent -- were not logic defects at all. They were
+a single fact recorded in more than one place, where the copies had drifted:
+
+- the mobile breakpoint, 860px in `heatmap.css` and 768 in `heatmap.js`;
+- the `limit_results` reversal, recorded as a deviation in the plan while
+  five normative copies still prescribed the old placement;
+- the WP-3 checkpoint, stale in PLAYBOOK Section 3 and SESSION_CONTEXT;
+- the test count in the FINDINGS header;
+- the batch definition's next-work-package line;
+- a cross-reference to `AGENTS.md` "Proposal and Design Rules item 6", which
+  broke in the same commit that moved the rule to a new section.
+
+The last one is the argument for a mechanical check rather than a better
+rule. `F-STYLE-1` already says to cite by name and not by line number, and
+that citation *was* by name -- the name itself moved. A written rule cannot
+catch this class; only something that resolves the reference can.
+
+**Proposal, owner-approved 2026-08-25 to build after WP-3 closes.** Three
+checks beside the existing DOC001 to DOC008, driven by a declarations file so
+the mechanism carries to another repository unchanged:
+
+1. **value** -- a canonical source and the mirrors that must agree with it.
+   Catches a constant duplicated across a stylesheet and a script.
+2. **anchor** -- a cross-reference must resolve to a heading or list item
+   that exists. Catches the broken citation above.
+3. **retired** -- a phrase that is no longer true, plus the regions where it
+   may still appear. Point-in-time log entries are exempt by design; one
+   declaration finds every normative copy.
+
+Stdlib only, and it inherits the pre-commit wiring the docsync package
+already has.
+
+Status: open, approved, not started. Build after WP-3 closes.
+Source: Batch 21 WP-3 review analysis, 2026-08-25.
+
+### F-B21-18: 2,344 lines of JavaScript have no automated coverage at all
+
+There is no `package.json`, no test runner, and no `.test.js` anywhere in the
+repository. `docs/SWE_AUDIT_CHARTER.md` also excludes `static/js/` from the
+audit, on the grounds that Batch 21 rewrites it -- which is true, and leaves
+the rewritten code as the only code in the batch that nothing checks.
+
+Five of the nineteen review comments in this batch came from that gap: a
+validation message never cleared, a join year leaking between accounts, a
+daily average rounding a positive total to zero, a form that submitted a
+username it had already been told was invalid, and an export header laid out
+for one screen width that painted over itself on another.
+
+The export is the sharpest case. `saveHeatmapImage` draws a canvas by hand,
+and it cannot be reached by any check as it stands: it needs a rendered
+heatmap, so it needs live Last.fm data and a key, which does not belong in
+CI.
+
+**Do not add Node.** The batch decided against a `package.json`, and the
+repository already owns a JavaScript engine it paid for -- Chromium, through
+the pinned Playwright runtime the frontend gate uses. The blocker is only
+that every module is an IIFE with no exports. A guarded seam, exposing pure
+functions when a test flag is set and nothing otherwise, would put
+`rocketColor`, `countToNorm`, `computeStreak` and the export's header layout
+under test for about eighty lines of harness.
+
+DOM-state defects are a different half and are already being covered where
+they bite: `check_validation_feedback` in the frontend gate was written after
+this batch's stale-message defect and fails on both forms when the fix is
+removed.
+
+Status: open. Queued behind F-B21-17 by the owner, 2026-08-25.
+Source: Batch 21 WP-3 review analysis, 2026-08-25.
 
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
@@ -1111,9 +1266,10 @@ audits; 2026-03-04 load-test data is in the findings archive.
 - F-B18-5: inline SVG payload growth; lazy-load or sprite if more added.
 - F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2.
 - F-B18-10: heatmap + album jobs share the 10 req/s throttle (by design).
-- F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`);
-  in Batch 21 scope (WP-6, and the acceptance criterion requiring equal
-  mode-pill width) -- no longer a future-batch candidate.
+- F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`)
+  -- RESOLVED 2026-08-25 by Batch 21 WP-3. They are equal-width `<button>`
+  elements in a two-column grid, which also closes the `span[role="button"]`
+  item in F-B21-5.
 - F-B19-3: last.timer aggregate endpoints are not a drop-in heatmap
   speedup; future perf experiments listed in the archive.
 - F-B19-4: front-end UI audit notes -- basis of `BATCH21_DEFINITION.md`.
