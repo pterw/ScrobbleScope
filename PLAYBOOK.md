@@ -82,23 +82,26 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **WP-4 is next.** It migrates `loading.html` to the
-  unified wait panel. `templates/partials/_loading.html` already exists and
-  is framework-neutral -- WP-3 built it a work package early -- so WP-4
-  consumes that partial rather than writing one. Before the frontend gate
-  can see the page, WP-4 needs a GET route for it: `LEGACY_PAGES` in
+- **Next action:** **The owner merges PR #218, then WP-4 is next.** Review is
+  complete at final review-fix code head `77bb001`: all thirty threads are
+  resolved, both Quality Gate runs pass, and the Codex connector recorded a
+  thumbs-up after that commit became the head. Codex did not attempt a merge.
+  The tracked close-out after `77bb001` changes only handoff documents and the
+  completed WP-3 plan; GitHub remains the source of truth for live PR state.
+  WP-4 then migrates `loading.html` to the unified wait panel.
+  `templates/partials/_loading.html` already exists and is framework-neutral
+  -- WP-3 built it a work package early -- so WP-4 consumes that partial
+  rather than writing one. Before the frontend gate can see the page, WP-4
+  needs a GET route for it: `LEGACY_PAGES` in
   `scripts/dev/frontend_gate.py` is empty because `loading.html`,
   `results.html` and `unmatched.html` render only from a POST with session
   state, so no browser check has ever reached them.
-  **WP-3 is complete**, recorded in Section 4 below and open as **PR #218**,
-  which is not merged. It rebuilt `index.html` on Tailwind, deleted the
+  **WP-3 is complete.** It rebuilt `index.html` on Tailwind, deleted the
   welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
   the frontend gate from four checks at one desktop viewport into a
-  multi-profile regression suite. Codex raised thirty comments on it;
-  twenty-nine were valid, and one sizing premise was disproved but received
-  its conservative remedy. All are remediated in the cumulative branch.
-  The owner authorized review-fix GitHub writes on 2026-08-25; the PR
-  remains the source of truth for live reply and thread state.
+  multi-profile regression suite. Codex raised thirty comments across twelve
+  rounds; twenty-nine were valid, and one sizing premise was disproved but
+  received its conservative remedy. All were actioned.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
   pilot, the Playwright runtime, the frontend gate and the compiled-CSS
@@ -122,9 +125,9 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0, WP-1, WP-2 and WP-3 done; WP-3 is open as
-  PR #218 and not merged. WP-6 is absorbed into WP-3 and ships no commit
-  of its own. WP-4, WP-5, WP-7 and WP-8 not yet started.
+- Batch 21 WP status: WP-0, WP-1, WP-2 and WP-3 done; PR #218 review is
+  complete and the owner merge is pending. WP-6 is absorbed into WP-3 and
+  ships no commit of its own. WP-4, WP-5, WP-7 and WP-8 not yet started.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -470,9 +473,10 @@ non-current operational logs. Older dated entries live in
 - Scope: remediated every Codex comment on PR #218 while WP-3 sat open and
   unmerged. Thirty-seven comments across PR #216 and #218 in total -- seven
   on #216 and thirty on #218. Thirty-six were valid; all were actioned.
-  Rounds one through eleven were answered and resolved. On 2026-08-25 the
-  owner authorized batched review replies and resolution of threads whose
-  fixes are present at the pushed head; GitHub owns the resulting live state.
+  All twelve rounds were answered and all thirty threads were resolved. On
+  2026-08-25 the owner authorized batched review replies and resolution of
+  threads whose fixes are present at the pushed head; GitHub owns the
+  resulting live state.
   One was declined on its premise -- it said the closed thresholds disclosure
   gave its controls zero-sized boxes, and deleting their sizing turns the gate
   red, so they were being measured -- and its remedy was applied anyway.
@@ -624,20 +628,22 @@ non-current operational logs. Older dated entries live in
   restored afterward. `doc_state_sync.py --check` exits 0 with only the
   expected active-batch root-definition warning. Every behavioral fix was red
   before it was written and re-measured after.
-- Forward guidance: the merge is the owner's and is being held while rounds
-  still return findings. Codex reacts to the PR summary with a thumbs-up when
-  it has nothing to say and comments when it does, so that reaction is the
-  signal to stop, not a quiet round.
-  Rounds four and five found defects that earlier fixes in the series had
-  introduced, which reads as approaching diminishing returns. Round six then
-  found two holes in code that was one day old, which corrects that reading:
-  yield tracks new surface area, not elapsed rounds. Expect a round on
-  whatever `F-B21-18` builds. The owner authorized review-fix GitHub writes
-  on 2026-08-25. Resolve a thread only after its fix is present at the pushed
-  head; do not infer resolution from this dated record.
-  Both round-six holes were of a kind a check's own tests cannot find, because
-  the tests were written from the same understanding as the code. That is the
-  argument for keeping a reviewer on tooling and not only on features.
+- Review completion: `77bb001` is the final review-fix code head. Both Quality
+  Gate runs passed, all thirty threads were resolved, and the Codex connector
+  recorded a thumbs-up at 2026-08-25 19:17:45 UTC after that commit became the
+  head. Codex performed the final audit and did not attempt a merge. The owner
+  merge is the remaining integration step; WP-4 stays next after it. The
+  close-out also restores the already-shipped `docsync/declarations.py` module
+  to SESSION_CONTEXT Sections 3 and 4 and its eleventh hook to Section 7; no
+  production module changed.
+- Forward guidance: a quiet round was not treated as completion. The recorded
+  thumbs-up was. Rounds four and five found defects that earlier fixes in the
+  series had introduced. Round six then found two holes in one-day-old code,
+  so review yield tracked new surface area rather than elapsed rounds. Expect
+  a fresh review of whatever `F-B21-18` builds. Both round-six holes were of a
+  kind a check's own tests cannot find because the tests were written from the
+  same understanding as the code. Keep an independent reviewer on tooling as
+  well as features.
 
 ### 2026-08-25 - DOC009 to DOC011: facts written down more than once (side-task)
 

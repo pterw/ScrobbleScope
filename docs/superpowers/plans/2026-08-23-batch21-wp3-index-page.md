@@ -167,6 +167,14 @@ Commit 6 closed the planned work and opened PR #218. Later review fixes are
 outside this six-commit map and are recorded in PLAYBOOK Section 4. WP-4 is
 still next. This review follow-up does not change its scope or sequence.
 
+**Review is complete.** Codex performed the final audit and review hardening.
+`77bb001` is the final review-fix code head. All thirty PR threads are
+resolved, both Quality Gate runs pass, and the Codex connector recorded a
+thumbs-up after that commit became the head. The tracked close-out after it
+changes only this completed plan and handoff documents. Codex did not attempt
+a merge. The owner merge is the remaining integration step; WP-4 stays next
+after it.
+
 **Commit 6 recorded all fifteen implementation deviations below.**
 
 1. **The lockup was realigned**, which the plan never scoped. Removing the
@@ -282,8 +290,8 @@ the round-by-round record. What a later agent needs to know:
 - **Rendered behaviour is part of the gate.** Keyboard hint access, dark-mode
   shadows, the canonical good colour, radius steps and root-font header
   scaling are measured across desktop, phone and wide-touch profiles. At the
-  review checkpoint the gate ran 15 checks in 23 runs and the suite had 814
-  tests.
+  final review-fix code head the gate ran 15 checks in 23 runs and the suite
+  had 814 tests.
 - **Three decisions remain outside this review fix.** `F-B21-18` records the
   JavaScript test seam and layout-independent export contract. `F-B21-19`
   records mobile heatmap and day-detail design drift. `F-B21-20` records the
