@@ -627,9 +627,28 @@
       // rejection would hold until the next blur, which pressing Enter never
       // fires. Discard a reply the field has moved on from.
       fetch('/validate_user?username=' + encodeURIComponent(username))
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { data: data, transient: res.status >= 500 };
+          });
+        })
+        .then(function (answer) {
+          var data = answer.data;
           if (heatmapUsernameInput.value.trim() !== username) return;
+          // A 5xx is the service failing, not a verdict about the username.
+          // The route returns one as {valid: false, "Validation service
+          // unavailable. Try again."}, which read here as "no such account"
+          // and set a validity error -- so the submit guard below refused
+          // every attempt, and trying again was the one thing the message
+          // told the reader to do that could not work. The network-error
+          // path already clears validity for exactly this reason.
+          if (answer.transient) {
+            heatmapUsernameInput.classList.remove('is-valid', 'is-invalid');
+            heatmapUsernameInput.setCustomValidity('');
+            feedback.textContent =
+              data.message || 'Validation service unavailable. Try again.';
+            return;
+          }
           if (data.valid) {
             heatmapUsernameInput.classList.remove('is-invalid');
             heatmapUsernameInput.classList.add('is-valid');
