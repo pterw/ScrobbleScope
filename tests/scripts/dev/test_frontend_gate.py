@@ -115,7 +115,9 @@ def test_a_raising_check_is_reported_and_the_run_continues() -> None:
             ("later", _reports, (frontend_gate.DESKTOP,)),
         ),
     ):
-        failures = run_checks(page=Mock(), base_url="http://127.0.0.1:0")
+        failures = run_checks(
+            new_page=lambda spec: Mock(), base_url="http://127.0.0.1:0"
+        )
 
     assert failures == [
         "exploding [desktop]: raised TypeError: bad selector",
@@ -123,12 +125,12 @@ def test_a_raising_check_is_reported_and_the_run_continues() -> None:
     ]
 
 
-def test_a_check_runs_once_per_viewport_it_claims() -> None:
-    """A mobile-only check must not also run at desktop, and the reverse.
+def test_a_check_runs_once_per_profile_it_claims() -> None:
+    """A profile-scoped check must run on its profiles and no others.
 
-    Every check in this gate ran at 1280x720 and nothing else until WP-3, so
-    the viewport a failure came from is new information and the table that
-    assigns it is worth holding.
+    Every check in this gate ran at 1280x720 with a mouse and nothing else
+    until WP-3, so the profile a failure came from is new information and the
+    table that assigns it is worth holding.
     """
     seen = []
 
@@ -139,45 +141,69 @@ def test_a_check_runs_once_per_viewport_it_claims() -> None:
         "scripts.dev.frontend_gate.CHECKS",
         (
             ("both", _record, (frontend_gate.DESKTOP, frontend_gate.MOBILE)),
-            ("mobile only", _record, (frontend_gate.MOBILE,)),
+            ("touch only", _record, (frontend_gate.TOUCH_WIDE,)),
         ),
     ):
-        page = Mock()
-        page.set_viewport_size.side_effect = lambda size: seen.append(size)
-        failures = run_checks(page=page, base_url="http://127.0.0.1:0")
+        failures = run_checks(
+            new_page=lambda spec: seen.append(spec) or Mock(),
+            base_url="http://127.0.0.1:0",
+        )
 
-    assert seen == [
-        frontend_gate.VIEWPORTS[frontend_gate.DESKTOP],
-        frontend_gate.VIEWPORTS[frontend_gate.MOBILE],
-    ]
+    # Every profile is opened, in order, even one no check claims.
+    assert seen == list(frontend_gate.VIEWPORTS.values())
     assert failures == [
         "both [desktop]: found something",
         "both [mobile]: found something",
-        "mobile only [mobile]: found something",
+        "touch only [wide touch]: found something",
     ]
 
 
-def test_a_viewport_that_cannot_be_set_is_reported_not_raised() -> None:
+def test_a_profile_that_cannot_be_opened_is_reported_not_raised() -> None:
     """The same rule as a broken check: report it, keep going.
 
-    Outside the try, a browser that refuses a resize ends the run in a
-    traceback, which reads as "the gate crashed" rather than "one viewport
-    could not be reached".
+    Outside the try, a browser that refuses a context ends the run in a
+    traceback, which reads as "the gate crashed" rather than "one profile
+    could not be opened".
     """
 
     def _reports(_page, _base_url):
         return ["a real finding"]
 
-    page = Mock()
-    page.set_viewport_size.side_effect = [RuntimeError("no resize"), None]
+    calls = []
+
+    def _new_page(spec):
+        calls.append(spec)
+        if len(calls) == 1:
+            raise RuntimeError("no context")
+        return Mock()
 
     with patch(
         "scripts.dev.frontend_gate.CHECKS",
         (("later", _reports, (frontend_gate.DESKTOP, frontend_gate.MOBILE)),),
     ):
-        failures = run_checks(page=page, base_url="http://127.0.0.1:0")
+        failures = run_checks(new_page=_new_page, base_url="http://127.0.0.1:0")
 
     assert failures == [
-        "the desktop viewport could not be set: RuntimeError: no resize",
+        "the desktop profile could not be opened: RuntimeError: no context",
         "later [mobile]: a real finding",
     ]
+
+
+def test_the_touch_profiles_really_carry_a_coarse_pointer() -> None:
+    """The wide-touch profile is the whole point, so its flag is asserted.
+
+    A touch-target rule keyed on (any-pointer: coarse) is only tested if the
+    profile actually reports one. Chromium derives that media feature from
+    has_touch; drop the flag and the check would pass on a mouse and prove
+    nothing. is_mobile stays off deliberately -- it changes device scale and
+    scrollbars, which would move every measurement taken so far.
+    """
+    for profile in (frontend_gate.MOBILE, frontend_gate.TOUCH_WIDE):
+        spec = frontend_gate.VIEWPORTS[profile]
+        assert spec.get("has_touch") is True, f"{profile} is not a touch device"
+        assert "is_mobile" not in spec, f"{profile} must not emulate a phone"
+
+    desktop = frontend_gate.VIEWPORTS[frontend_gate.DESKTOP]
+    assert not desktop.get("has_touch"), "the mouse profile must stay a mouse"
+    # Wide, so a width-scoped rule cannot be what satisfies the check.
+    assert frontend_gate.VIEWPORTS[frontend_gate.TOUCH_WIDE]["viewport"]["width"] >= 860

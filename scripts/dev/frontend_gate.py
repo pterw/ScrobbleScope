@@ -104,18 +104,29 @@ LEGACY_PAGES = ()
 #: a claim about every page, migrated or not, so this check takes both lists.
 ALL_PAGES = LEGACY_PAGES + MIGRATED_PAGES
 
-#: The two widths every visual check runs at.
+#: The device profiles every visual check runs against.
 #:
 #: Every check this batch built ran at Playwright's 1280x720 default, so
 #: mobile was verified by owner review and nothing else. The design has one
 #: breakpoint, 860px -- docs/design/README.md "Responsive" -- so a width each
-#: side of it is the whole matrix. 390x844 is the design's mobile reference
-#: canvas.
+#: side of it covers layout. 390x844 is the design's mobile reference canvas.
+#:
+#: Width is not the whole story, which a PR #218 review found. A tablet in
+#: landscape and a touch laptop are both wide and both touched, so a
+#: touch-target rule written against a width misses them entirely. The third
+#: profile is a wide screen with a coarse pointer. Chromium's has_touch
+#: emulation drives (pointer: coarse) and (any-pointer: coarse), measured,
+#: which is what makes the rule testable at all.
+#:
+#: is_mobile is deliberately off. It changes device scale and scrollbars,
+#: which would move every measurement this gate has taken so far.
 DESKTOP = "desktop"
 MOBILE = "mobile"
+TOUCH_WIDE = "wide touch"
 VIEWPORTS = {
-    DESKTOP: {"width": 1280, "height": 720},
-    MOBILE: {"width": 390, "height": 844},
+    DESKTOP: {"viewport": {"width": 1280, "height": 720}},
+    MOBILE: {"viewport": {"width": 390, "height": 844}, "has_touch": True},
+    TOUCH_WIDE: {"viewport": {"width": 1280, "height": 800}, "has_touch": True},
 }
 
 #: Smallest side the design allows an interactive element to have, in CSS
@@ -645,7 +656,7 @@ CHECKS = (
     ("body font", check_body_font, (DESKTOP, MOBILE)),
     ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
     ("validation feedback", check_validation_feedback, (DESKTOP,)),
-    ("touch targets", check_touch_targets, (MOBILE,)),
+    ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE)),
 )
 
 #: How many check runs a clean pass performs. Printed so a check that silently
@@ -653,24 +664,28 @@ CHECKS = (
 PLANNED_RUNS = sum(len(viewports) for _, _, viewports in CHECKS)
 
 
-def run_checks(page, base_url: str) -> list[str]:
-    """Run every check at every viewport it claims, collecting all failures.
+def run_checks(new_page, base_url: str) -> list[str]:
+    """Run every check against every profile it claims, collecting failures.
+
+    Takes a factory rather than a page, because a coarse pointer cannot be
+    switched on mid-session: touch emulation belongs to a browser context, so
+    each profile needs its own page.
 
     A check that raises is reported as a failure and the run continues. A bare
     call would let one TypeError skip every later check and surface as a
     traceback, which reads as "the gate crashed" rather than "the gate found
     three problems".
 
-    Every failure carries its viewport. "the submit button is 38px" is not
-    actionable until you know which width produced it.
+    Every failure carries its profile. "the submit button is 38px" is not
+    actionable until you know which device produced it.
     """
     failures = []
-    for viewport, size in VIEWPORTS.items():
+    for viewport, spec in VIEWPORTS.items():
         try:
-            page.set_viewport_size(size)
+            page = new_page(spec)
         except Exception as exc:  # noqa: BLE001 - same rule as a check fault
             failures.append(
-                f"the {viewport} viewport could not be set: "
+                f"the {viewport} profile could not be opened: "
                 f"{type(exc).__name__}: {exc}"
             )
             continue
@@ -707,7 +722,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         with serve_app() as base_url, sync_playwright() as playwright:
             browser = _launch_chromium(playwright, headless=not args.headed)
             try:
-                failures = run_checks(browser.new_page(), base_url)
+                # One context per profile, all closed with the browser.
+                failures = run_checks(
+                    lambda spec: browser.new_context(**spec).new_page(),
+                    base_url,
+                )
             finally:
                 browser.close()
     except FrontendGateError as exc:
@@ -720,8 +739,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     print(
-        f"[frontend_gate] {len(CHECKS)} checks passed "
-        f"in {PLANNED_RUNS} runs across desktop and mobile"
+        f"[frontend_gate] {len(CHECKS)} checks passed in {PLANNED_RUNS} runs "
+        f"across {', '.join(VIEWPORTS)}"
     )
     return 0
 
