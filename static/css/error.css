@@ -57,9 +57,9 @@
    shipped this page before the gate could see a viewport narrower than
    1280px. WP-8 owns the rest of this file, including its 600px breakpoint
    against the design's single 860px one. */
-@media (max-width: 859.98px) {
+@media (any-pointer: coarse), (max-width: 859.98px) {
     .btn {
-        min-height: 44px;
+        min-height: 2.75rem;
     }
 }
 

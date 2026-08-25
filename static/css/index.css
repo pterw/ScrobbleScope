@@ -872,16 +872,30 @@
   .th-row {
     flex-wrap: wrap;
   }
+}
 
-  /* Touch targets never below 44px. The design calls this non-negotiable and
-     names the shipped build as the thing that broke it. Measured at the
-     390x844 reference canvas, six controls came in between 17px and 38px.
+/* ------------------------------------------------------------------ */
+/* Touch targets                                                       */
+/* ------------------------------------------------------------------ */
 
-     The stepper buttons need the width as well. They were 34x44: tall enough
-     and too narrow, which a min-height alone cannot catch. The decade pills
-     are here because the frontend gate now drives the page into the states
-     that reveal them -- they are hidden at load, so nothing measured them
-     until the gate learned to pick a decade first. */
+/* Never below 44px. The design calls this non-negotiable and names the
+   shipped build as the thing that broke it. Six controls came in between
+   17px and 38px.
+
+   Keyed on the pointer, not the window. These rules used to live inside the
+   860px block, which meant a tablet in landscape and a touch laptop -- both
+   wide and both touched -- kept the 32px pills and 38px steppers. The
+   frontend gate could not see it either, because its touch check only ran at
+   390px wide. any-pointer, not pointer: a laptop with both a mouse and a
+   touchscreen reports its mouse as the primary pointer and is still touched.
+
+   The width query stays beside it so this can only ever add coverage. If a
+   device reports no coarse pointer at all, narrow screens keep the sizing
+   they already had.
+
+   The stepper buttons need the width as well. They were 34x44: tall enough
+   and too narrow, which a min-height alone cannot catch. */
+@media (any-pointer: coarse), (max-width: 859.98px) {
   .seg__option,
   .stepper__btn,
   .stepper__value,
