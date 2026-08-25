@@ -211,6 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
   usernameInput.addEventListener('input', () => {
     usernameInput.setCustomValidity('');
     usernameInput.classList.remove('is-valid', 'is-invalid');
+    // Bootstrap's .invalid-feedback was hidden unless a sibling carried
+    // .is-invalid, so dropping the class hid stale text for free. The
+    // replacement is hidden only while it is empty, so it has to be emptied.
+    usernameError.textContent = '';
   });
 
   usernameInput.addEventListener('blur', async () => {
@@ -230,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
           usernameInput.classList.remove('is-invalid');
           usernameInput.classList.add('is-valid');
           usernameInput.setCustomValidity('');
+          usernameError.textContent = '';
 
           // Dynamically set year min based on registration date
           if (data.registered_year && yearSelect) {
