@@ -1666,6 +1666,9 @@
     --ss-surface-sunken: #f0ebe0;
     --heatmap-surface: #faf8f3;
     --ss-bad: #b03434;
+    --ss-good: #2f7a4a;
+    --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.06);
+    --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.15);
     --heatmap-empty: #e8e2d6;
   }
   @media (prefers-color-scheme: dark) {
@@ -1708,6 +1711,9 @@
       --ss-surface-sunken: #1a1622;
       --heatmap-surface: #181520;
       --ss-bad: #e07070;
+      --ss-good: #6fcf97;
+      --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.4);
+      --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.4);
       --heatmap-empty: #262230;
     }
   }
@@ -1750,6 +1756,9 @@
     --ss-surface-sunken: #1a1622;
     --heatmap-surface: #181520;
     --ss-bad: #e07070;
+    --ss-good: #6fcf97;
+    --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.4);
+    --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.4);
     --heatmap-empty: #262230;
   }
 }

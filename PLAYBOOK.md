@@ -93,9 +93,12 @@ See FINDINGS F-DOCSYNC-3.
   **WP-3 is complete**, recorded in Section 4 below and open as **PR #218**,
   which is not merged. It rebuilt `index.html` on Tailwind, deleted the
   welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
-  the frontend gate from four checks at one desktop viewport to nine across
-  three device profiles. Codex raised twenty-seven comments on it; every
-  one was valid and all twenty-seven were answered.
+  the frontend gate from four checks at one desktop viewport into a
+  multi-profile regression suite. Codex raised twenty-nine comments on it;
+  twenty-eight were valid, and one sizing premise was disproved but received
+  its conservative remedy. All are remediated in the cumulative branch.
+  The owner authorized the round-eleven GitHub write on 2026-08-25; the PR
+  remains the source of truth for live reply and thread state.
   Earlier context, still true: WP-2 **merged as PR #216** on 2026-08-24
   (`658bdb2`, rebase merge). It shipped the base shell, the `error.html`
   pilot, the Playwright runtime, the frontend gate and the compiled-CSS
@@ -462,11 +465,14 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-25 - PR #218 review rounds one to ten applied (side-task)
+### 2026-08-25 - PR #218 review rounds one to eleven applied (side-task)
 
-- Scope: answered every Codex comment on PR #218 while WP-3 sat open and
-  unmerged. Thirty-four comments across PR #216 and #218 in total -- seven
-  on #216 and twenty-seven on #218 -- and all valid.
+- Scope: remediated every Codex comment on PR #218 while WP-3 sat open and
+  unmerged. Thirty-six comments across PR #216 and #218 in total -- seven
+  on #216 and twenty-nine on #218. Thirty-five were valid; all were actioned.
+  Rounds one through ten were answered. On 2026-08-25 the owner authorized
+  the round-eleven batched reply and resolution of threads whose fixes are
+  present at the pushed head; GitHub owns the resulting live state.
   One was declined on its premise -- it said the closed thresholds disclosure
   gave its controls zero-sized boxes, and deleting their sizing turns the gate
   red, so they were being measured -- and its remedy was applied anyway.
@@ -536,16 +542,26 @@ non-current operational logs. Older dated entries live in
     That is the same silent end state as the misspelled key closed the round
     before, reached without a typo -- the earlier fix stopped at the way the
     fault had been reported rather than at the condition behind it.
-  - **The heatmap window is declared against one source.** DOC009 watched
-    two copies of it and there are seven. The backend was not one of the two,
-    and it wrote `timedelta(days=364)` for an inclusive range, so it could not
-    have been compared with them anyway. A change there would have fetched one
-    interval while the page displayed and averaged another, gate green.
-    `HEATMAP_WINDOW_DAYS` is the source now and the fetch subtracts one from
-    it. `static/js/loading.js` is deliberately excluded and the declaration
-    says why: its 365 is the length of a calendar year, leap-aware, for a
-    different average. That is the same trap as reading an ordinary max-width
-    as a breakpoint.
+  - **A nonempty scan must resolve to work.** Round eleven found named files
+    and globs that resolved nowhere were silently skipped. The sibling sweep
+    also found a third route to the same clean no-op: `allow_files` could
+    exempt every resolved path. DOC010 and DOC011 now fail loudly for all
+    three, rather than validating only the list container.
+  - **Declared regexes carry semantic contracts.** A syntactically valid
+    anchor with no heading capture crashed at its first match. Anchor patterns
+    now require exactly the heading plus optional item captures, validate a
+    participating heading and numeric item, and value patterns reject extra,
+    missing, optional-empty and empty captures before those assumptions can
+    turn into a crash or a false agreement.
+  - **The heatmap window declaration covers the class, not the remembered
+    instances.** Its runtime, product, owner, architecture and canonical-design
+    copies are now sites. `HEATMAP_WINDOW_DAYS` remains the source and the
+    inclusive fetch subtracts one from it. `static/js/loading.js` is
+    deliberately excluded because its number is the leap-aware length of a
+    calendar year for a different average. The same census widened the older
+    breakpoint, touch-target and Adobe-kit declarations across their runtime,
+    owner and canonical-design copies, and removed redundant literals where
+    the adjacent code already owns the value.
   - **A declared container is checked for what it holds.** `scan = [1]` is a
     list, so the shallow check passed it and the integer reached the glob
     matcher as a `TypeError`. Round eight was the third round on this module
@@ -565,18 +581,42 @@ non-current operational logs. Older dated entries live in
     `SyncError` and exit 2. The run ended in a traceback and exit 1 instead.
     It is a `SyncError` now, keeping the distinct class its docstring asks
     for so the reader is not sent to edit the wrong file.
+  - **The validators identify requests, not only values.** The first sweep
+    found that the album validator discarded stale replies but not stale
+    failures. Copying the heatmap sibling's value guard closed A-then-B and
+    still failed A-then-B-then-A, where the oldest and newest requests carry
+    identical text. Both state machines now use request generations, and the
+    browser check holds that ABA sequence. A second check holds the current
+    failure path: a network outage replaces an older red invalid verdict with
+    an outage message while leaving server-side submission available.
+  - **The independent visual sweep closed six contract slips.** Keyboard focus
+    opens both ambiguous-field hints without breaking tap; valid usernames use
+    the canonical good colour; selected controls and hints raise their shadows
+    in dark mode; the lone 6px radius moved onto the 8px ladder step; and both
+    text-holding header heights scale in rem. Three browser checks exercise the
+    rendered states at both sides of the breakpoint.
+- **The final gate found its own procedure contradiction.** The Tailwind drift
+  hook compares the generated working file with the index, so a correct
+  source-and-output edit cannot pass before staging even though `AGENTS.md`
+  requires pre-commit before staging. `F-B21-20` records the owner decision;
+  this review validates an exact-name staged candidate and restores the index.
 - Two findings came out of reading the comments as a set rather than one at a
   time: `F-B21-17`, that six of nineteen were one fact written twice, and
-  `F-B21-18`, that 2,344 lines of JavaScript have no runner. `F-B21-17` was
+  `F-B21-18`, that browser JavaScript has no unit runner. `F-B21-17` was
   then built and closed the same day; see the DOC009 entry below.
 - Deviations: none against a plan, because there was none -- this is review
-  remediation. Each round was answered in one batched PR comment rather than
-  per comment, per the `pr-bot-triage` skill.
-- Validation: `pytest -q` -- **798 passed**, 3 warnings. All 11 pre-commit
-  hooks pass with an identical `git write-tree` either side.
-  `doc_state_sync.py --check` exits 0. The frontend gate reports 10 checks
-  in 15 runs across desktop, mobile and wide touch. Every fix was reproduced
-  against the running page before it was written and re-measured after.
+  remediation. The canonical mobile-strip, layout-independent export and
+  day-detail gaps and the gate-order contradiction were not improvised during
+  review; `F-B21-18`, `F-B21-19` and `F-B21-20` record them for an owner ruling
+  and a bounded implementation.
+- Validation: `pytest -q` -- **811 passed**, 3 warnings. The declaration seam
+  is **62 passed** and `pytest --collect-only` confirms 811 tests across 40
+  files. The frontend gate reports **15 checks in 23 runs** across desktop,
+  mobile and wide touch. All 11 pre-commit hooks pass against an exact-name
+  staged candidate with an identical index tree before and after; the index is
+  restored afterward. `doc_state_sync.py --check` exits 0 with only the
+  expected active-batch root-definition warning. Every behavioral fix was red
+  before it was written and re-measured after.
 - Forward guidance: the merge is the owner's and is being held while rounds
   still return findings. Codex reacts to the PR summary with a thumbs-up when
   it has nothing to say and comments when it does, so that reaction is the
@@ -585,7 +625,9 @@ non-current operational logs. Older dated entries live in
   introduced, which reads as approaching diminishing returns. Round six then
   found two holes in code that was one day old, which corrects that reading:
   yield tracks new surface area, not elapsed rounds. Expect a round on
-  whatever `F-B21-18` builds.
+  whatever `F-B21-18` builds. The owner authorized round eleven's GitHub
+  write on 2026-08-25. Resolve a thread only after its fix is present at the
+  pushed head; do not infer resolution from this dated record.
   Both round-six holes were of a kind a check's own tests cannot find, because
   the tests were written from the same understanding as the code. That is the
   argument for keeping a reviewer on tooling and not only on features.
@@ -633,7 +675,7 @@ non-current operational logs. Older dated entries live in
   still reports 8 checks in 13 runs.
 - Forward guidance: add a declaration when a fact starts living in two
   places, not after it drifts. `F-B21-18` is the other half and is not
-  started -- 2,344 lines of JavaScript with no runner, to be reached through
+  started -- browser JavaScript with no unit runner, to be reached through
   a guarded seam onto the Chromium the frontend gate already pays for, not
   through npm.
 

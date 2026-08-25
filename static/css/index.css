@@ -271,7 +271,7 @@
   background-color: var(--ss-surface-card);
   border-color: var(--ss-border-default);
   color: var(--color-base-content);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
+  box-shadow: var(--ss-shadow-chip);
 }
 
 /* The small square is a placeholder mark, not an icon set. The heatmap tab
@@ -421,14 +421,14 @@
   top: 50%;
   right: 0.75rem;
   transform: translateY(-50%);
-  color: var(--color-success);
+  color: var(--ss-good);
   font-size: var(--text-body-sm);
   line-height: 1;
   pointer-events: none;
 }
 
 .ss-input.is-valid {
-  border-color: var(--color-success);
+  border-color: var(--ss-good);
   padding-right: 2.125rem;
 }
 
@@ -447,9 +447,8 @@
   flex: 0 0 auto;
 }
 
-/* The ring is a child, not the summary itself. That lets the summary grow to
-   a real 44px touch target on mobile while the visible circle stays 18px --
-   a 44px ring in a label row reads as a button. */
+/* The ring is a child, not the summary itself. That lets the summary reach the
+   full touch minimum on mobile while the visible circle stays compact. */
 .hint__toggle {
   display: inline-flex;
   align-items: center;
@@ -493,7 +492,7 @@
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
   background-color: var(--ss-surface-card);
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+  box-shadow: var(--ss-shadow-float);
   color: var(--ss-text-body);
   font-size: var(--text-label-sm);
   line-height: 1.45;
@@ -591,7 +590,7 @@
   align-items: center;
   justify-content: center;
   min-height: 2.375rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--ss-text-muted);
   font-size: var(--text-body-sm);
   font-weight: var(--font-weight-normal);
@@ -607,7 +606,7 @@
 .seg__radio:checked + .seg__option {
   background-color: var(--ss-surface-card);
   color: var(--color-base-content);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.06);
+  box-shadow: var(--ss-shadow-chip);
 }
 
 .seg__radio:focus-visible + .seg__option {
@@ -885,12 +884,12 @@
 /* Touch targets                                                       */
 /* ------------------------------------------------------------------ */
 
-/* Never below 44px. The design calls this non-negotiable and names the
+/* Never below the touch minimum. The design calls this non-negotiable and names the
    shipped build as the thing that broke it. Six controls came in between
    17px and 38px.
 
    Keyed on the pointer, not the window. These rules used to live inside the
-   860px block, which meant a tablet in landscape and a touch laptop -- both
+   width-query block, which meant a tablet in landscape and a touch laptop -- both
    wide and both touched -- kept the 32px pills and 38px steppers. The
    frontend gate could not see it either, because its touch check only ran at
    390px wide. any-pointer, not pointer: a laptop with both a mouse and a

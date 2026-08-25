@@ -1,8 +1,8 @@
 """Deterministic checks for facts that are written down more than once.
 
-Six of the nineteen review comments Batch 21 drew were not logic defects. They
+Six of Batch 21's first nineteen review comments were not logic defects. They
 were one fact recorded in several places, where the copies had drifted: a
-breakpoint that read 860 in a stylesheet and 768 in a script, a reversed
+breakpoint that differed between a stylesheet and a script, a reversed
 decision still prescribed by five documents, a test count, a checkpoint, and a
 cross-reference to a rule that had moved. `F-B21-17` has the tally.
 
@@ -48,7 +48,7 @@ _LIST_ITEM_RE = re.compile(r"^(\d+)\.\s")
 #: hashes, and a citation of one is a citation of a real place in the file.
 #:
 #: The list bullet is optional because that document labels sections both
-#: ways. "- **Responsive.** Single breakpoint at 860px." is a section of it,
+#: ways. "- **Responsive.** Single breakpoint." is a section of it,
 #: and a citation of "Responsive" resolved nowhere while this pattern
 #: insisted the asterisks start the line.
 _BOLD_LABEL_RE = re.compile(r"^\s*(?:[-*+]\s+)?\*\*([^*]+?)\*\*")
@@ -199,7 +199,7 @@ def _where(
     """Name a declaration the way its author would recognise it.
 
     A site carries no name of its own, so it is named by its position and by
-    the declaration holding it. "site 0 of value 'the 860px breakpoint'" finds
+    the declaration holding it. "site 0 of value 'the responsive breakpoint'" finds
     the right four lines in the file; "value site declaration 0" does not.
     """
     name = declaration.get("name") if isinstance(declaration, Mapping) else None
@@ -346,6 +346,33 @@ def _compile(pattern: str, where: str) -> re.Pattern[str]:
         raise DeclarationError(f"{where}: {pattern!r} is not a valid regex: {exc}")
 
 
+def _compile_value(pattern: str, expect: str | None, where: str) -> re.Pattern[str]:
+    """Compile a value pattern and validate its single-value capture."""
+    compiled = _compile(pattern, where)
+    if compiled.groups > 1:
+        raise DeclarationError(
+            f"{where}: a value pattern may capture at most one value; "
+            f"it has {compiled.groups} capture groups"
+        )
+    if expect is not None and compiled.groups == 0:
+        raise DeclarationError(
+            f"{where} declares expect={expect!r}, but its pattern captures "
+            f"nothing to compare"
+        )
+    return compiled
+
+
+def _compile_anchor(pattern: str, where: str) -> re.Pattern[str]:
+    """Compile an anchor pattern and validate its positional captures."""
+    compiled = _compile(pattern, where)
+    if compiled.groups not in {1, 2}:
+        raise DeclarationError(
+            f"{where}: the pattern must capture one heading and may capture "
+            f"one numeric item; it has {compiled.groups} capture group(s)"
+        )
+    return compiled
+
+
 def _missing_file_issue(code: str, rel_path: str, name: str) -> IntegrityIssue:
     """One shape for "the declaration names a file that is not there"."""
     return _issue(
@@ -374,10 +401,9 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
       a version pin or a count is.
     - **With no capture group**, the pattern only has to match. Use this where
       the sites express one fact in different notations. The breakpoint is the
-      real example: a stylesheet writes ``859.98px`` because a media query
-      stops just short, and a script writes ``860``. Comparing those two
-      strings would fail on correct code, so each site declares the literal it
-      must still contain.
+      real example: a stylesheet's exclusive maximum stops just short of the
+      inclusive threshold used by a script. Comparing those two strings would
+      fail on correct code, so each site declares the literal it must contain.
     """
     issues: list[IntegrityIssue] = []
     for index, declaration in enumerate(declarations):
@@ -394,13 +420,14 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
         first_line: dict[str, int] = {}
         for site in sites:
             rel_path = site["file"]
+            expect = site.get("expect")
+            pattern = _compile_value(
+                site["pattern"], expect, f"value {name!r} for {rel_path}"
+            )
             lines = files.lines(rel_path)
             if lines is None:
                 issues.append(_missing_file_issue("DOC009", rel_path, name))
                 continue
-
-            pattern = _compile(site["pattern"], f"value {name!r}")
-            expect = site.get("expect")
 
             # Every occurrence, not the first. Stopping at the first match
             # accepted a file that stated the value once and contradicted it
@@ -436,6 +463,24 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
                     )
                 )
                 continue
+
+            if pattern.groups:
+                missing_capture = next(
+                    ((line, value) for line, value in found if value is None), None
+                )
+                if missing_capture is not None:
+                    raise DeclarationError(
+                        f"value {name!r} for {rel_path}: the value capture "
+                        f"matched nothing at line {missing_capture[0]}"
+                    )
+                empty_capture = next(
+                    ((line, value) for line, value in found if value == ""), None
+                )
+                if empty_capture is not None:
+                    raise DeclarationError(
+                        f"value {name!r} for {rel_path}: the pattern captured "
+                        f"an empty value at line {empty_capture[0]}"
+                    )
 
             first_line[rel_path] = found[0][0]
             values = [value for _line, value in found if value is not None]
@@ -559,6 +604,7 @@ def check_anchors(files: _Files, declarations: Iterable[dict]) -> list[Integrity
     for index, declaration in enumerate(declarations):
         _validate("anchor", index, declaration)
         name = declaration.get("name", "<unnamed>")
+        pattern = _compile_anchor(declaration["pattern"], f"anchor {name!r}")
         target_path = declaration["target"]
         target_lines = files.lines(target_path)
         if target_lines is None:
@@ -566,14 +612,14 @@ def check_anchors(files: _Files, declarations: Iterable[dict]) -> list[Integrity
             continue
 
         headings = _headings(target_lines)
-        pattern = _compile(declaration["pattern"], f"anchor {name!r}")
         allow_files = declaration.get("allow_files", [])
 
-        for rel_path in _expand(files, declaration.get("scan", [])):
-            if any(fnmatch.fnmatch(rel_path, glob) for glob in allow_files):
-                continue
+        for rel_path in _effective_scan(
+            files, declaration.get("scan", []), allow_files, f"anchor {name!r}"
+        ):
             lines = files.lines(rel_path)
             if lines is None:
+                issues.append(_missing_file_issue("DOC010", rel_path, name))
                 continue
             # Matched against the joined document, as DOC011 already is. A
             # citation that wraps is invisible to a per-line search, and
@@ -586,6 +632,16 @@ def check_anchors(files: _Files, declarations: Iterable[dict]) -> list[Integrity
                 line_number = _line_of(starts, match.start())
                 heading = match.group(1)
                 item = match.group(2) if len(match.groups()) > 1 else None
+                if not heading:
+                    raise DeclarationError(
+                        f"anchor {name!r}: the required heading capture matched "
+                        f"nothing in {rel_path}:{line_number}"
+                    )
+                if item is not None and re.fullmatch(r"[0-9]+", item) is None:
+                    raise DeclarationError(
+                        f"anchor {name!r}: the optional numeric item capture "
+                        f"matched {item!r} in {rel_path}:{line_number}"
+                    )
                 if heading not in headings:
                     issues.append(
                         _issue(
@@ -657,11 +713,12 @@ def check_retired(
         allow_after = declaration.get("allow_after", {})
         skip_struck = declaration.get("strikethrough_exempt", strikethrough_exempt)
 
-        for rel_path in _expand(files, declaration.get("scan", [])):
-            if any(fnmatch.fnmatch(rel_path, glob) for glob in allow_files):
-                continue
+        for rel_path in _effective_scan(
+            files, declaration.get("scan", []), allow_files, f"retired {name!r}"
+        ):
             lines = files.lines(rel_path)
             if lines is None:
+                issues.append(_missing_file_issue("DOC011", rel_path, name))
                 continue
 
             exempt_from = None
@@ -768,21 +825,45 @@ def _is_struck_through(line: str, position: int) -> bool:
 def _expand(files: _Files, patterns: Iterable[str]) -> list[str]:
     """Turn declared scan globs into repository-relative paths.
 
-    Globs are matched against the filesystem rather than the tracked set,
-    because a declaration that stops matching when a file is renamed should
-    report nothing rather than silently narrow its scope. The missing-file
-    diagnostics above cover the named-file case.
+    Globs are matched against the filesystem rather than the tracked set. An
+    unmatched glob stays in the result so the caller reports it like a named
+    file that disappeared; dropping it would silently narrow the declaration.
     """
     found: list[str] = []
     for pattern in patterns:
         if any(ch in pattern for ch in "*?["):
+            matched = False
             for path in sorted(files._root.glob(pattern)):
                 if path.is_file():
+                    matched = True
                     found.append(path.relative_to(files._root).as_posix())
+            if not matched:
+                found.append(pattern)
         else:
             found.append(pattern)
     # Stable and unique: a file named by two globs is checked once.
     return sorted(dict.fromkeys(found))
+
+
+def _effective_scan(
+    files: _Files,
+    patterns: Iterable[str],
+    allow_files: Iterable[str],
+    where: str,
+) -> list[str]:
+    """Expand a scan and refuse an allow list that excludes all of it."""
+    expanded = _expand(files, patterns)
+    included = [
+        rel_path
+        for rel_path in expanded
+        if not any(fnmatch.fnmatch(rel_path, glob) for glob in allow_files)
+    ]
+    if not included:
+        raise DeclarationError(
+            f"{where}: allow_files exempts every scan path, so the declaration "
+            f"would inspect no documents"
+        )
+    return included
 
 
 def collect_declaration_issues(

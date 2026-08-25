@@ -1,16 +1,16 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-24
+Last updated: 2026-08-25
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0, WP-1 and WP-2 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
+WP-0 through WP-3 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
 resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
 side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
 WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
 F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11 and F-B18-12 and
-filed F-B21-14 through F-B21-18. **WP-4 is next.**
-798 tests across 40 test modules.
+filed F-B21-14 through F-B21-20. **WP-4 is next.**
+811 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -706,9 +706,10 @@ Source: Batch 21 WP-3 review of the remaining legacy pages, 2026-08-25.
 
 ### F-B21-17: a third of this batch's review comments were one fact written twice
 
-Codex raised nineteen comments across PR #216 and PR #218. Every one was
-valid. Six of them -- 32 percent -- were not logic defects at all. They were
-a single fact recorded in more than one place, where the copies had drifted:
+By the review point that opened this finding, Codex had raised nineteen
+comments across PR #216 and PR #218. Six of that first set -- 32 percent --
+were not logic defects at all. They were a single fact recorded in more than
+one place, where the copies had drifted:
 
 - the mobile breakpoint, 860px in `heatmap.css` and 768 in `heatmap.js`;
 - the `limit_results` reversal, recorded as a deviation in the plan while
@@ -750,14 +751,15 @@ so both the mobile and desktop rules applied at exactly 860 -- and
 after that stopped being true.
 Source: Batch 21 WP-3 review analysis, 2026-08-25.
 
-### F-B21-18: 2,344 lines of JavaScript have no automated coverage at all
+### F-B21-18: browser JavaScript has no automated unit coverage
 
-There is no `package.json`, no test runner, and no `.test.js` anywhere in the
-repository. `docs/SWE_AUDIT_CHARTER.md` also excludes `static/js/` from the
-audit, on the grounds that Batch 21 rewrites it -- which is true, and leaves
-the rewritten code as the only code in the batch that nothing checks.
+There are more than 2,400 lines under `static/js/`, with no `package.json`,
+test runner or `.test.js` anywhere in the repository.
+`docs/SWE_AUDIT_CHARTER.md` also excludes `static/js/` from the audit, on the
+grounds that Batch 21 rewrites it -- which is true, and leaves the rewritten
+code as the only code in the batch that nothing checks at unit level.
 
-Five of the nineteen review comments in this batch came from that gap: a
+Five of the first nineteen review comments in this batch came from that gap: a
 validation message never cleared, a join year leaking between accounts, a
 daily average rounding a positive total to zero, a form that submitted a
 username it had already been told was invalid, and an export header laid out
@@ -767,6 +769,15 @@ The export is the sharpest case. `saveHeatmapImage` draws a canvas by hand,
 and it cannot be reached by any check as it stands: it needs a rendered
 heatmap, so it needs live Last.fm data and a key, which does not belong in
 CI.
+
+Independent PR review confirmed the untested path is already off contract:
+`docs/design/components/heatmap/HeatmapFrame.prompt.md` requires JPEG export
+to render the desktop 53x7 grid at every viewport, while
+`saveHeatmapImage()` serializes whichever mobile or desktop SVG is on screen.
+Its own docstring records the deviation, but no owner ruling adds that
+deviation to `docs/design/RECONCILIATION.md`. A pure render seam would make the
+contract testable without a Last.fm key and let mobile export use the desktop
+geometry without changing the visible page.
 
 **Do not add Node.** The batch decided against a `package.json`, and the
 repository already owns a JavaScript engine it paid for -- Chromium, through
@@ -781,8 +792,71 @@ they bite: `check_validation_feedback` in the frontend gate was written after
 this batch's stale-message defect and fails on both forms when the fix is
 removed.
 
-Status: open. Queued behind F-B21-17 by the owner, 2026-08-25.
+The two username validators are also duplicated state machines:
+`static/js/index.js` owns the album version and `static/js/heatmap.js` owns the
+heatmap version. Their success work differs, but request freshness, outage and
+failure semantics do not. The independent review first found that only the
+heatmap catch discarded a stale failed request. The sibling fix compared field
+values in both consumers, and the final self-review found that still fails an
+A-to-B-to-A sequence because the oldest and newest requests carry the same
+text. Both now use request generations, with the browser gate holding the ABA
+case. Centralise that shared base only after broader browser parity checks
+cover both consumers; refactoring it before then would trade a demonstrated
+shotgun-surgery bug for an unproved rewrite.
+
+Status: open. The owner queued it behind F-B21-17 on 2026-08-25; that
+prerequisite is now resolved, but this implementation is not scheduled.
 Source: Batch 21 WP-3 review analysis, 2026-08-25.
+
+### F-B21-19: heatmap mobile and day-detail behaviour drifted from the design
+
+Two canonical heatmap requirements have no ruling and do not match the PR:
+
+- `docs/design/components/heatmap/HeatmapFrame.prompt.md` requires four
+  stacked, season-labelled 13-week strips on a phone with the same cell size.
+  `BATCH21_DEFINITION.md` and the WP-3 plan also say to keep the 14px cell.
+  `renderHeatmapMobile()` instead chooses 10 to 28 columns and 18px to 28px
+  cells from container width, producing one unlabelled sequential grid. The
+  product README was rewritten to describe that implementation, but the
+  reconciliation file has no owner-approved override.
+- `docs/design/README.md` says hovering a day reveals what was played. The
+  heatmap payload contains only `daily_counts`, and the tooltip renders only
+  date plus count, so the client has no track detail it could reveal.
+
+The export sibling is recorded under F-B21-18 rather than duplicated here.
+The mobile requirement needs a product ruling before code: implement the four
+strips, or explicitly override the canonical handoff. Day detail changes the
+response contract and is a future-batch feature if the canonical requirement
+stands.
+
+Status: open. Owner decision required; not assigned to a work package.
+Source: independent PR #218 specification review, 2026-08-25.
+
+### F-B21-20: the Tailwind hook and commit procedure disagree on staging order
+
+`AGENTS.md` requires `pre-commit run --all-files` to pass before any path is
+staged. The `tailwind-css-drift` hook rebuilds `static/css/tailwind.css`, then
+runs `git diff --exit-code` against the index. A correct source-and-output edit
+therefore fails before staging for the same reason a stale output fails: both
+make the generated file differ from the index. Rebuilding again does not
+change that answer.
+
+The hook passes at commit time after the source and generated output are
+staged, which is the state its Batch 21 acceptance criterion describes. The
+manual commit procedure demands the opposite state. This review had to run
+all hooks with an exact-name staged candidate, compare the index tree before
+and after, and restore the index afterward; otherwise the final gate could
+never be green.
+
+Do not silently reorder the repository-wide commit procedure or rewrite the
+hook inside a UI review. The owner needs to choose one contract: stage named
+paths before pre-commit, or make `--check` compare the freshly built bytes with
+the bytes present before the build instead of comparing the working file with
+the index. Either choice needs a regression test for an intentionally changed,
+already rebuilt stylesheet.
+
+Status: open. Owner decision required; not assigned to a work package.
+Source: PR #218 final verification, 2026-08-25.
 
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 

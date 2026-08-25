@@ -142,10 +142,11 @@ that does not have to be in it.
 
 ## Progress -- read this before starting anything
 
-Kept current by hand as each commit lands. PLAYBOOK Section 4 stays empty of
-a WP-3 entry until commit 6, because DOC007 derives the next work package
-from it and an early entry would claim WP-3 is finished. So this section is
-the only record of where inside WP-3 the work stands.
+This table was kept current by hand while each commit landed. PLAYBOOK
+Section 4 stayed empty of a WP-3 entry until commit 6, because DOC007 derives
+the next work package from it and an early entry would have claimed WP-3 was
+finished. The table is now the final implementation ledger. PLAYBOOK owns the
+current work order.
 
 | Commit | State | SHA |
 | --- | --- | --- |
@@ -160,11 +161,13 @@ the only record of where inside WP-3 the work stands.
 | (unplanned) design refresh | done | `6e3f0ad` |
 | (unplanned) hero scale, mobile | done | `c0dadb0` |
 | 5 -- extend the gates | done | `9ca9598` |
-| 6 -- record it | **next** | -- |
+| 6 -- record it | done | `b839436` |
 
-Nothing is pushed. The owner has not authorised a push or a pull request.
+Commit 6 closed the planned work and opened PR #218. Later review fixes are
+outside this six-commit map and are recorded in PLAYBOOK Section 4. WP-4 is
+still next. This review follow-up does not change its scope or sequence.
 
-**Fifteen deviations so far. Commit 6 must record all fifteen honestly.**
+**Commit 6 recorded all fifteen implementation deviations below.**
 
 1. **The lockup was realigned**, which the plan never scoped. Removing the
    tagline in WP-2 left the letterforms floating about 13 units above the bar
@@ -240,11 +243,12 @@ Nothing is pushed. The owner has not authorised a push or a pull request.
     purpose stops being read. WP-8 still owns the rest of the file, including
     its 600px breakpoint.
 
-### What the five review rounds changed after commit 6
+### What eleven review rounds changed after commit 6
 
-Twenty-one comments across PR #216 and #218, every one valid; one was declined
-on its premise and its remedy applied anyway. `F-B21-17` has the
-classification. What a later agent needs to know:
+Thirty-six comments landed across PR #216 and #218: seven on PR #216 and
+twenty-nine on PR #218. Thirty-five were valid. One sizing premise was
+disproved, but its conservative remedy was applied. PLAYBOOK Section 4 has
+the round-by-round record. What a later agent needs to know:
 
 - **Touch sizing and input size are keyed on the pointer, not the window.**
   `@media (any-pointer: coarse), (max-width: 859.98px)`. A tablet in landscape
@@ -263,6 +267,26 @@ classification. What a later agent needs to know:
   repository writes down twice. Add a declaration when a fact starts living in
   two places, not after it drifts. They found the `shell.css` 860px overlap
   and a stale DOC range in `AGENTS.md` on their first run.
+- **Declarations now reject semantic no-ops before scanning.** Missing named
+  files, zero-match globs and an `allow_files` list that exempts every path are
+  errors. Anchor and value regexes also validate the capture contracts their
+  consumers rely on. This turns a clean run back into evidence that work was
+  performed, rather than evidence that a list container parsed.
+- **The username validators identify requests, not only values.** Request
+  generations close the A-to-B-to-A race in both forms. A current network
+  failure replaces an obsolete verdict and leaves server-side submission
+  available. The shared state-machine base is deliberately not refactored
+  until broader parity coverage exists; see `F-B21-18`.
+- **Rendered behaviour is part of the gate.** Keyboard hint access, dark-mode
+  shadows, the canonical good colour, radius steps and root-font header
+  scaling are measured across desktop, phone and wide-touch profiles. At the
+  review checkpoint the gate ran 15 checks in 23 runs and the suite had 811
+  tests.
+- **Three decisions remain outside this review fix.** `F-B21-18` records the
+  JavaScript test seam and layout-independent export contract. `F-B21-19`
+  records mobile heatmap and day-detail design drift. `F-B21-20` records the
+  Tailwind hook versus staging-order conflict. WP-4 remains the next planned
+  task; none of these was silently inserted into it.
 
 
 **Two facts commits 4 onward depend on, both established after the plan was

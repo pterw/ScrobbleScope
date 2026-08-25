@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let registeredYear = null;
   let validationTimeout = null;
+  let validationGeneration = 0;
 
   // What the year field says before any account is known. Captured at load
   // so a second username can be given the page back exactly as it started.
@@ -237,6 +238,8 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ---------- Username validation (blur) ---------- */
   // Clear validation block while the user is still typing
   usernameInput.addEventListener('input', () => {
+    clearTimeout(validationTimeout);
+    validationGeneration += 1;
     usernameInput.setCustomValidity('');
     usernameInput.classList.remove('is-valid', 'is-invalid');
     // Bootstrap's .invalid-feedback was hidden unless a sibling carried
@@ -248,17 +251,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   usernameInput.addEventListener('blur', async () => {
     const username = usernameInput.value.trim();
+    clearTimeout(validationTimeout);
+    const generation = ++validationGeneration;
 
     if (!username) {
       usernameInput.classList.remove('is-valid', 'is-invalid');
       return;
     }
 
-    clearTimeout(validationTimeout);
     validationTimeout = setTimeout(async () => {
+      const isCurrent = () => (
+        generation === validationGeneration &&
+        usernameInput.value.trim() === username
+      );
       try {
         const res = await fetch(`/validate_user?username=${encodeURIComponent(username)}`);
         const data = await res.json();
+        if (!isCurrent()) return;
         // A 5xx is the service failing, not a verdict about the username.
         // This form carries no novalidate, so a custom validity error from a
         // transient outage makes the browser refuse the submit outright --
@@ -266,7 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show what happened and leave the field submittable; the catch
         // below already treats a network failure this way.
         if (res.status >= 500) {
-          if (usernameInput.value.trim() !== username) return;
           usernameInput.classList.remove('is-valid', 'is-invalid');
           usernameInput.setCustomValidity('');
           usernameError.textContent =
@@ -278,7 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // rejection on whatever is in the box by then, and this form uses
         // native validation, so a stale setCustomValidity blocks the real
         // submit until the next blur.
-        if (usernameInput.value.trim() !== username) return;
         if (data.valid) {
           usernameInput.classList.remove('is-invalid');
           usernameInput.classList.add('is-valid');
@@ -312,10 +319,24 @@ document.addEventListener('DOMContentLoaded', () => {
           usernameInput.setCustomValidity(data.message || 'Username not found on Last.fm');
         }
       } catch (e) {
-        // Network error — clear validity so the server can handle it
+        // A network failure is an outage, not the previous name's verdict.
+        if (!isCurrent()) return;
+        usernameInput.classList.remove('is-valid', 'is-invalid');
         usernameInput.setCustomValidity('');
+        usernameError.textContent = 'Validation service unavailable. Try again.';
       }
     }, 300);
+  });
+
+  /* ---------- Ambiguous-field hints ---------- */
+  // Native details/summary opens on activation, which covers click, tap and
+  // Enter but not the definition's keyboard-focus requirement. Open only for
+  // focus-visible: opening on pointer focus would run before the following
+  // click and make the native toggle close the hint again.
+  document.querySelectorAll('.hint__toggle').forEach((toggle) => {
+    toggle.addEventListener('focus', () => {
+      if (toggle.matches(':focus-visible')) toggle.parentElement.open = true;
+    });
   });
 
   /* ---------- Thresholds: steppers, summary, reset ---------- */
@@ -328,6 +349,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const thresholdReset   = document.getElementById('threshold_reset');
   const limitResults     = document.getElementById('limit_results');
 
+  /** Read a numeric field as an integer inside its declared min/max range.
+   *
+   * Empty or nonnumeric input falls back to the minimum so every summary and
+   * nudge has a stable value even before blur normalises the field itself.
+   */
   function clampToBounds(input) {
     const min = parseInt(input.min, 10);
     const max = parseInt(input.max, 10);
@@ -336,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.min(max, Math.max(min, value));
   }
 
+  /** Move a bounded numeric field and notify every normal input listener. */
   function nudge(input, step) {
     input.value = String(Math.min(
       parseInt(input.max, 10),
@@ -353,10 +380,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // The steppers reach 1, and "1 tracks" is the kind of small wrongness that
   // makes a careful interface look careless.
+  /** Format one threshold with the required greater-or-equal and plural. */
   function countOf(value, noun) {
     return `≥${value} ${noun}${value === 1 ? '' : 's'}`;
   }
 
+  /** Rebuild the closed disclosure's summary from both threshold inputs. */
   function updateThresholdSummary() {
     if (!thresholdSummary || !minPlays || !minTracks) return;
     // ≥ is the greater-or-equal glyph the content rules require.
@@ -416,6 +445,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // saves reopening the disclosure to check what is set.
   const filterTags = document.getElementById('filter-tags');
 
+  /** Derive the reader-facing text for one active-filter tag. */
   function tagText(name) {
     const year = parseInt(yearSelect.value, 10);
     if (name === 'year') {
@@ -440,6 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return countOf(clampToBounds(minPlays), 'play');
   }
 
+  /** Refresh every filter tag from the controls that own its current value. */
   function updateFilterTags() {
     if (!filterTags) return;
     filterTags.querySelectorAll('[data-tag]').forEach((tag) => {

@@ -39,11 +39,11 @@ strikethrough_exempt = true
 # `expect` is what lets them differ without the check going blind.
 #
 # Every occurrence is checked, not the first: index.css carries the breakpoint
-# in three media queries, and a check that stopped at the first would pass a
-# file that contradicted itself further down.
+# across several min/max media queries, and a check that stopped at the first
+# would pass a file that contradicted itself further down.
 #
-# The @media prefix matters. index.css also has seven max-width properties on
-# ordinary elements, and those are widths, not breakpoints.
+# The @media prefix matters. index.css also has ordinary max-width properties,
+# and those are widths, not breakpoints.
 [[value]]
 name = "the single 860px breakpoint"
 
@@ -53,9 +53,19 @@ pattern = '@media[^{]*max-width: ([\d.]+)px'
 expect = "859.98"
 
 [[value.sites]]
+file = "static/css/index.css"
+pattern = '@media \(min-width: ([\d.]+)px\) \{ [^}]*\.(?:index-page|index-hero|index-form) \{'
+expect = "860"
+
+[[value.sites]]
 file = "static/css/heatmap.css"
 pattern = '@media[^{]*max-width: ([\d.]+)px'
 expect = "859.98"
+
+[[value.sites]]
+file = "static/css/heatmap.css"
+pattern = '@media \(min-width: ([\d.]+)px\) \{ #heatmap-grid \{'
+expect = "860"
 
 [[value.sites]]
 file = "static/css/shell.css"
@@ -63,8 +73,33 @@ pattern = '@media[^{]*max-width: ([\d.]+)px'
 expect = "859.98"
 
 [[value.sites]]
+file = "static/css/error.css"
+pattern = 'any-pointer: coarse\), \(max-width: ([\d.]+)px'
+expect = "859.98"
+
+[[value.sites]]
 file = "static/js/heatmap.js"
 pattern = 'MOBILE_MAX_WIDTH = (\d+)'
+expect = "860"
+
+[[value.sites]]
+file = "scripts/dev/frontend_gate.py"
+pattern = '''matchMedia\('[^']*max-width: ([\d.]+)px'''
+expect = "859.98"
+
+[[value.sites]]
+file = "docs/design/README.md"
+pattern = '(?:under |breakpoint at )(\d+)px'
+expect = "860"
+
+[[value.sites]]
+file = "AGENTS.md"
+pattern = 'query writes `([\d.]+)px`'
+expect = "859.98"
+
+[[value.sites]]
+file = "AGENTS.md"
+pattern = 'script writes `(\d+)`'
 expect = "860"
 
 # The touch minimum is stated as a number in the gate and as a length in the
@@ -82,11 +117,39 @@ file = "static/css/index.css"
 pattern = 'min-height: 2\.75rem'
 
 [[value.sites]]
+file = "static/css/index.css"
+pattern = 'min-width: 2\.75rem'
+
+[[value.sites]]
 file = "static/css/error.css"
 pattern = 'min-height: 2\.75rem'
 
+[[value.sites]]
+file = "static/css/heatmap.css"
+pattern = 'min-height: 2\.75rem'
+
+[[value.sites]]
+file = "static/css/shell.css"
+pattern = 'min-height: 2\.75rem'
+
+[[value.sites]]
+file = "AGENTS.md"
+pattern = 'at least 44px on its smaller side'
+
+[[value.sites]]
+file = "docs/design/README.md"
+pattern = 'Touch targets never below 44px'
+
+[[value.sites]]
+file = "docs/design/components/forms/Stepper.prompt.md"
+pattern = 'at least 44px tall'
+
+[[value.sites]]
+file = "docs/design/reference/audit-review.md"
+pattern = '44px minimum'
+
 # The Adobe Fonts kit id. It reversed once already, from self-hosted faces to
-# this kit, and the id appears in the template, the gate and the design notes.
+# this kit, and the id appears in runtime plus current owner and design docs.
 [[value]]
 name = "the Adobe Fonts kit id"
 
@@ -98,27 +161,63 @@ pattern = 'use\.typekit\.net/(\w+)\.css'
 file = "docs/design/README.md"
 pattern = 'kit `(\w+)`'
 
+[[value.sites]]
+file = "docs/design/README.md"
+pattern = 'use\.typekit\.net/(\w+)\.css'
+
+[[value.sites]]
+file = "BATCH21_DEFINITION.md"
+pattern = 'Kit `(\w+)`'
+
+[[value.sites]]
+file = ".claude/SESSION_CONTEXT.md"
+pattern = 'Adobe Fonts kit `(\w+)`'
+
+[[value.sites]]
+file = "docs/design/RECONCILIATION.md"
+pattern = '`(\w+)` is adopted'
+
+[[value.sites]]
+file = "docs/design/reference/design-system-readme.md"
+pattern = 'kit `(\w+)`'
+
+[[value.sites]]
+file = "docs/design/reference/design-system-readme.md"
+pattern = 'use\.typekit\.net/(\w+)\.css'
+
+[[value.sites]]
+file = "docs/design/tokens/typography.css"
+pattern = 'Adobe Fonts kit (\w+)'
+
+[[value.sites]]
+file = "docs/design/tokens/fonts.css"
+pattern = 'Adobe Fonts, kit (\w+)'
+
+[[value.sites]]
+file = "docs/design/tokens/fonts.css"
+pattern = 'use\.typekit\.net/(\w+)\.css'
+
 # The heatmap window. The daily average divides by it, so a change in one
-# place and not the other silently misreports every average.
-#
-# Seven sites, because the number is fetched once and then said out loud six
-# times. The backend is the source and was the copy this declaration used to
-# miss: it wrote `timedelta(days=364)` for an inclusive 365-day range, so a
-# change there could fetch one interval while the page displayed and averaged
-# another, with DOC009 green because the two copies it did watch agreed with
-# each other. The 364 is now `HEATMAP_WINDOW_DAYS - 1`, so every site states
-# the same number.
+# place and not the other silently misreports every average. The backend is
+# the source and was the copy this declaration first missed: its inclusive
+# range once differed from what the page displayed and averaged. Runtime,
+# product, owner, architecture and canonical-design copies are all declared;
+# one file site may cover several occurrences of the same wording.
 #
 # static/js/loading.js is deliberately absent. Its 365 is the number of days
 # in a calendar year, used for a per-day average on the top-albums loading
 # screen, and it is leap-aware -- a different fact that happens to share a
 # number. Adding it here would tie the heatmap window to the length of a year.
 [[value]]
-name = "the 365-day heatmap window"
+name = "the heatmap window length"
 
 [[value.sites]]
 file = "scrobblescope/heatmap.py"
 pattern = 'HEATMAP_WINDOW_DAYS = (\d+)'
+
+[[value.sites]]
+file = "scrobblescope/heatmap.py"
+pattern = '(?:last |the )(\d+)(?: days|-day window)'
 
 [[value.sites]]
 file = "scrobblescope/errors.py"
@@ -129,10 +228,14 @@ file = "static/js/heatmap.js"
 pattern = 'WINDOW_DAYS = (\d+)'
 
 # The caption burned into the exported JPEG. Upper case, so it matches the
-# export and not the two comments in the same file that mention the window.
+# export and not prose comments in the same file that mention the window.
 [[value.sites]]
 file = "static/js/heatmap.js"
 pattern = 'LAST (\d+) DAYS'
+
+[[value.sites]]
+file = "static/js/heatmap.js"
+pattern = 'whole (\d+)-day window'
 
 [[value.sites]]
 file = "templates/index.html"
@@ -144,7 +247,31 @@ pattern = 'last (\d+) days'
 
 [[value.sites]]
 file = "templates/partials/_heatmap_result.html"
-pattern = 'Last (\d+) days'
+pattern = '(?:window is |Last )(\d+) days'
+
+[[value.sites]]
+file = "README.md"
+pattern = 'last (\d+) days'
+
+[[value.sites]]
+file = "AGENT_NOTES.md"
+pattern = 'last (\d+) days'
+
+[[value.sites]]
+file = "docs/architecture/heatmap-sequence.md"
+pattern = 'last (\d+) days'
+
+[[value.sites]]
+file = "docs/design/README.md"
+pattern = '(?:a |last )?(\d+)(?:-day| days)'
+
+[[value.sites]]
+file = "docs/design/reference/design-system-readme.md"
+pattern = 'a (\d+)-day listening heatmap'
+
+[[value.sites]]
+file = "docs/design/components/heatmap/HeatmapFrame.prompt.md"
+pattern = 'The (\d+)-day listening heatmap'
 
 # ----------------------------------------------------------------------
 # Anchors
@@ -217,12 +344,12 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 [retired.allow_after]
 "PLAYBOOK.md" = "## 4. Execution log"
 
-# Owner reversed decision 4 on 2026-08-22. Adobe Fonts kit rwy8ghw is the type
-# stack and no static/fonts/ directory is coming, but four documents recorded
+# Owner reversed decision 4 on 2026-08-22. The configured Adobe Fonts kit is
+# the type stack and no static/fonts/ directory is coming, but four documents recorded
 # the self-hosted plan and had to be rewritten.
 [[retired]]
 name = "the type stack is self-hosted under static/fonts/"
-reason = "Owner adopted Adobe Fonts kit rwy8ghw on 2026-08-22."
+reason = "Owner adopted the configured Adobe Fonts kit on 2026-08-22."
 pattern = 'fonts self-hosted under `static/fonts/`'
 scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]

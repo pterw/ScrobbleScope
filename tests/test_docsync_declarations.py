@@ -314,6 +314,68 @@ def test_expect_without_a_capture_group_is_a_declaration_error(
         check_values(_files(root), [declaration])
 
 
+def test_expect_without_a_capture_is_refused_before_the_file_scan(
+    tmp_path: Path,
+) -> None:
+    """A missing site must not hide an impossible capture expectation."""
+    root = _repo(tmp_path, {"b.txt": "value\n"})
+    declaration = {
+        "name": "a value",
+        "sites": [
+            {"file": "gone.txt", "pattern": "value", "expect": "value"},
+            {"file": "b.txt", "pattern": "value"},
+        ],
+    }
+
+    with pytest.raises(DeclarationError, match="captures nothing"):
+        check_values(_files(root), [declaration])
+
+
+def test_a_value_pattern_with_multiple_captures_is_refused(tmp_path: Path) -> None:
+    """DOC009 compares one value and must not silently ignore later groups."""
+    root = _repo(tmp_path, {"a.txt": "version 1.2\n", "b.txt": "version 1.2\n"})
+    declaration = {
+        "name": "a version",
+        "sites": [
+            {"file": "a.txt", "pattern": r"version (\d+)\.(\d+)"},
+            {"file": "b.txt", "pattern": r"version (\d+)\.(\d+)"},
+        ],
+    }
+
+    with pytest.raises(DeclarationError, match="at most one value"):
+        check_values(_files(root), [declaration])
+
+
+def test_a_value_match_without_its_captured_value_is_refused(tmp_path: Path) -> None:
+    """An optional group must not let one value site opt out of comparison."""
+    root = _repo(tmp_path, {"a.txt": "value\n", "b.txt": "value 1\n"})
+    declaration = {
+        "name": "a value",
+        "sites": [
+            {"file": "a.txt", "pattern": r"value(?: (\d+))?"},
+            {"file": "b.txt", "pattern": r"value(?: (\d+))?"},
+        ],
+    }
+
+    with pytest.raises(DeclarationError, match="value capture matched nothing"):
+        check_values(_files(root), [declaration])
+
+
+def test_an_empty_captured_value_is_refused(tmp_path: Path) -> None:
+    """Two empty captures must not agree and make a content-free value green."""
+    root = _repo(tmp_path, {"a.txt": "value\n", "b.txt": "value\n"})
+    declaration = {
+        "name": "a value",
+        "sites": [
+            {"file": "a.txt", "pattern": r"value(.*)"},
+            {"file": "b.txt", "pattern": r"value(.*)"},
+        ],
+    }
+
+    with pytest.raises(DeclarationError, match="captured an empty value"):
+        check_values(_files(root), [declaration])
+
+
 def test_a_value_that_wraps_across_two_lines_is_still_read(tmp_path: Path) -> None:
     """A media query broken over two lines states the same breakpoint.
 
@@ -389,6 +451,90 @@ def test_a_wrapped_occurrence_that_drifts_is_not_hidden_by_an_unwrapped_one(
 
 
 ANCHOR_PATTERN = r'`RULES\.md` "([^"]+)"(?: item (\d+))?'
+
+
+def test_an_anchor_pattern_without_a_heading_capture_is_refused(
+    tmp_path: Path,
+) -> None:
+    """DOC010 must reject a pattern that cannot say which heading it found."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Design Rules\n",
+            "notes.md": 'See `RULES.md` "Design Rules".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": r"`RULES\.md`",
+        "scan": ["notes.md"],
+    }
+
+    with pytest.raises(DeclarationError, match="capture one heading"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_an_anchor_pattern_with_extra_captures_is_refused(tmp_path: Path) -> None:
+    """Only the heading and optional item captures have defined meanings."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Design Rules\n\n1. One.\n",
+            "notes.md": 'See `RULES.md` "Design Rules" item 1.\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": r'(`RULES\.md`) "([^"]+)"(?: item (\d+))?',
+        "scan": ["notes.md"],
+    }
+
+    with pytest.raises(DeclarationError, match="has 3 capture group"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_an_anchor_pattern_with_a_non_numeric_item_capture_is_refused(
+    tmp_path: Path,
+) -> None:
+    """An item capture must not reach the list lookup as arbitrary text."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Design Rules\n\n1. One.\n",
+            "notes.md": 'See `RULES.md` "Design Rules" item 1.\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": r'`RULES\.md` "([^"]+)" (item) \d+',
+        "scan": ["notes.md"],
+    }
+
+    with pytest.raises(DeclarationError, match="numeric item"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_an_anchor_match_without_a_heading_value_is_refused(tmp_path: Path) -> None:
+    """An optional first group does not satisfy the required-heading contract."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Design Rules\n",
+            "notes.md": "See `RULES.md`.\n",
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": r'`RULES\.md`(?: "([^"]+)")?',
+        "scan": ["notes.md"],
+    }
+
+    with pytest.raises(DeclarationError, match="heading capture matched nothing"):
+        check_anchors(_files(root), [declaration])
 
 
 def test_a_citation_of_a_heading_that_moved_is_reported(tmp_path: Path) -> None:
@@ -607,6 +753,64 @@ def test_an_anchor_target_that_is_missing_is_reported_once(tmp_path: Path) -> No
     assert issues[0].path == DECLARATIONS_FILENAME
 
 
+def test_an_anchor_scan_file_that_is_missing_is_reported(tmp_path: Path) -> None:
+    """A mistyped scan path must not quietly turn DOC010 off."""
+    root = _repo(tmp_path, {"RULES.md": "## Design Rules\n"})
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    issues = check_anchors(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].code == "DOC010"
+    assert issues[0].path == DECLARATIONS_FILENAME
+    assert "notes.md" in issues[0].invariant
+
+
+def test_an_anchor_scan_glob_that_matches_nothing_is_reported(
+    tmp_path: Path,
+) -> None:
+    """A nonempty glob is still an empty scan when it resolves nowhere."""
+    root = _repo(tmp_path, {"RULES.md": "## Design Rules\n"})
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["docs/**/*.md"],
+    }
+
+    issues = check_anchors(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].code == "DOC010"
+    assert "docs/**/*.md" in issues[0].invariant
+
+
+def test_an_anchor_cannot_exempt_every_scanned_file(tmp_path: Path) -> None:
+    """A broad allow list must not turn a nonempty scan back into no work."""
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Design Rules\n",
+            "notes.md": 'See `RULES.md` "Design Rules".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+        "allow_files": ["*.md"],
+    }
+
+    with pytest.raises(DeclarationError, match="exempts every scan path"):
+        check_anchors(_files(root), [declaration])
+
+
 # ----------------------------------------------------------------------
 # DOC011 -- retired claims
 # ----------------------------------------------------------------------
@@ -641,6 +845,30 @@ def test_a_reversed_decision_still_prescribed_is_reported(tmp_path: Path) -> Non
     assert issues[0].path == "spec.md"
     assert issues[0].line == 1
     assert "Reversed on 2026-08-24." in issues[0].invariant
+
+
+def test_a_retired_scan_file_that_is_missing_is_reported(tmp_path: Path) -> None:
+    """DOC011 must report a scan path that no repository file satisfies."""
+    root = _repo(tmp_path, {"spec.md": "clean\n"})
+    declaration = dict(RETIRED, scan=["gone.md"])
+
+    issues = check_retired(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].code == "DOC011"
+    assert issues[0].path == DECLARATIONS_FILENAME
+    assert "gone.md" in issues[0].invariant
+
+
+def test_a_retired_declaration_cannot_exempt_every_scanned_file(
+    tmp_path: Path,
+) -> None:
+    """DOC011 must not report clean after excluding its entire scan."""
+    root = _repo(tmp_path, {"notes.md": "retired words\n"})
+    declaration = dict(RETIRED, scan=["notes.md"], allow_files=["*.md"])
+
+    with pytest.raises(DeclarationError, match="exempts every scan path"):
+        check_retired(_files(root), [declaration])
 
 
 def test_a_claim_wrapped_across_two_lines_is_still_found(tmp_path: Path) -> None:

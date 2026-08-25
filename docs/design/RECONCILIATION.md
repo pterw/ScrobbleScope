@@ -18,14 +18,17 @@ Written by Claude on 2026-08-21, in the commit that imported the tree.
    **still live.** The README is the default where the two disagree, but it
    does not automatically retire an audit finding. See `F-B21-4`.
 
-Where this repository overrides `README.md`, the list is short and complete:
+The owner-approved overrides currently recorded are:
 
 | Point | README says | This repo does | Why |
 | --- | --- | --- | --- |
 | Theme marker | `.dark` class on `<html>` | `data-theme="dark"` on `<html>` | Section 5, below |
-| Radius steps | 5 values | 3 shipped, 2 still to add | Section 6, below |
+| Index hero cap | 560px mark, 42px headline | Grows to 820px / 56px on very wide screens | The measured dead-space ruling in `static/css/index.css` |
+| Lockup viewBox | `0 0 453 69` | `0 0 453 74` | Section 10, below |
+| Type and spacing units | px | equivalent rem at the default root size | Section 11, below |
 
-Nothing else in `README.md` is overridden.
+Unruled implementation drift is a defect, not an implicit addition to this
+table.
 
 ---
 
@@ -109,15 +112,16 @@ theme. That is false, and the PR #173 review caught it. What actually holds:
 | `--surface-page` | `#faf8f3` | `#0e0c12` | Yes -- `--color-base-100` |
 | `--text-strong` | `#1a1820` | `#f1ede4` | Yes -- `--color-base-content` |
 | `--accent` | `#6a4baf` | `#b39dde` | Yes -- `--color-primary` |
-| `--surface-sunken` | `#f0ebe0` | `#1a1622` | Light only. Dark `--color-base-200` is `#181520` |
-| `--surface-card` | `#ffffff` | `#181520` | No slot. Dark value is used, but for the sunken role |
+| `--surface-sunken` | `#f0ebe0` | `#1a1622` | Yes -- `--ss-surface-sunken` |
+| `--surface-card` | `#ffffff` | `#181520` | Yes -- `--ss-surface-card` |
 | `--accent-contrast` | `#ffffff` | `#0e0c12` | Dark only. Light `--color-primary-content` is `#faf8f3` |
-| `--text-body`, `--text-muted`, `--border-default`, `--accent-soft` | -- | -- | **Absent entirely** |
+| `--text-body`, `--text-muted`, `--border-default`, `--accent-soft` | -- | -- | Yes -- the `--ss-*` theme tokens |
 
-The status colours are not migrated at all. The README specifies `--ss-good`
-`#2f7a4a`/`#6fcf97`, `--ss-warn` `#b35a1f`/`#e0a458` and `--ss-bad`
-`#b03434`/`#e07070`. The theme still carries Bootstrap's `#198754`, `#ffc107`
-and `#dc3545`.
+The status migration is partial. `--ss-good` and `--ss-bad` now carry the
+README values; `--ss-warn` has no consumer and has not landed. daisyUI's
+generic `--color-success`, `--color-warning` and `--color-error` slots still
+carry Bootstrap's `#198754`, `#ffc107` and `#dc3545`, so page components use
+the `--ss-*` tokens for the states the design specifies.
 
 None of this is a contradiction to resolve. daisyUI's semantic slots have no
 home for a body-text, muted-text, border or accent-tint colour, so those
@@ -210,11 +214,8 @@ selector to `[data-theme="dark"]` when the values move into the theme.
 
 `README.md` uses five steps: 4px cover art and tiny tags, 8px inputs and small
 buttons, 10px stat strips and submit buttons, 14px cards and the heatmap frame,
-999px pills. The `--radius-*` steps in the `@theme` block ship three: 8, 14,
-999.
-
-**4px and 10px are still missing.** Whichever WP first needs album cover art
-(WP-5) or a stat strip (WP-4) adds them.
+999px pills. The `--radius-*` steps in the `@theme` block now ship all five;
+WP-3 added 4px and 10px when the index and absorbed heatmap first needed them.
 
 ---
 
@@ -355,9 +356,12 @@ requirement -- do not cite it as one.
 2.625rem. The design's own values are unchanged by this; only how they are
 written down is.
 
-`static/css/index.css`, `static/css/heatmap.css` and `static/css/shell.css`
-were converted in WP-3, 102 declarations, proved neutral by measuring 1917
-rendered values across three viewports and three page states.
+The WP-3 sweep converted 102 declarations in `static/css/index.css`,
+`static/css/heatmap.css` and `static/css/shell.css`, proved neutral by measuring
+1917 rendered values across three viewports and three page states. Two custom
+properties escaped that sweep: the desktop and mobile header heights still
+held text in px. PR review converted them to equivalent rem values and added a
+browser check that raises the root font size and measures the rendered header.
 
 `shell.css` is in that list because it loads on every page, migrated or not,
 so leaving it in px put px spacing around rem type on the one page already
