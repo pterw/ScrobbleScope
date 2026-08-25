@@ -361,6 +361,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /* ---------- Invalid fields inside a closed disclosure ---------- */
+  // Both thresholds are required, so clearing one and pressing Enter is now
+  // refused instead of sending "" to the server, which failed at int("") and
+  // reported it as a bad year. But the fields live inside a closed <details>,
+  // and Chromium does not open it to report the message -- measured: the
+  // submit is blocked, the disclosure stays shut, and the reader sees a
+  // button that does nothing. Open it so the message has somewhere to land.
+  //
+  // Capture phase, because the invalid event does not bubble.
+  const albumForm = document.querySelector('#album-form-section form');
+  if (albumForm) {
+    albumForm.addEventListener(
+      'invalid',
+      (event) => {
+        const disclosure = event.target.closest('details');
+        if (disclosure) disclosure.open = true;
+      },
+      true
+    );
+  }
+
   /* ---------- Filter tags ---------- */
   // A read-only echo of the four settings that change what comes back. It
   // saves reopening the disclosure to check what is set.

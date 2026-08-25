@@ -337,9 +337,11 @@ nothing recorded the divergence. WP-3 then wrote page spacing in px against a
 type scale already in rem.
 
 **The owner ruled on 2026-08-24:** rem for font size and spacing, px for thin
-details a reader never scales. `AGENTS.md` "Proposal and Design Rules" item 6
+details a reader never scales. `AGENTS.md` "UI and Accessibility Rules" item 1
 carries the rule for every agent; this section carries why it overrides the
-snapshot.
+snapshot. It was written as item 6 of "Proposal and Design Rules" and moved
+the same day, and this pointer was left behind -- the same class of defect
+this section documents, in the sentence that documents it.
 
 The reason is not only preference. A reader who raises the browser font size
 gets larger text inside boxes that did not grow, so the text crowds and
