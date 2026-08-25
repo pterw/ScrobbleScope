@@ -496,6 +496,24 @@ When all WPs in the active batch are committed and validated:
 5. **Docstrings and comments:** every function has a comprehensive
    docstring; inline comments explain non-obvious logic (the why, not the
    what). SoC/DRY is the constraint on file content, not line count.
+6. **Stylesheet units: rem for type and space, px for fine detail.** A
+   reader who raises their browser font size should get a layout that grows
+   with the text. Font size, line height, padding, margin, gap, and any
+   width or height that holds text take rem -- divide the design's px figure
+   by 16. Borders, outlines, radii, shadows and anything 2px or under stay
+   px: a hairline is a hairline at any text size, and 1px is also the
+   visually-hidden clip. Media query breakpoints stay px, because the design
+   states them in px.
+   This is not a style preference. The type scale is already rem
+   (`--text-body: 1rem` in `static/css/tailwind.src.css`), and rem text
+   inside px boxes is the mismatch that crowds and clips when a reader
+   scales up. WCAG technique C14 makes relative font sizes a sufficient
+   technique for 1.4.4 Resize Text; the spacing half is this repository's
+   own choice, for the same reason. The design snapshot under
+   `docs/design/tokens/` states its ladders in px and is overridden here;
+   `docs/design/RECONCILIATION.md` section 11 records that.
+   Prove a conversion neutral by measuring the rendered page before and
+   after, not by reading the diff.
 
 ---
 

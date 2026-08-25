@@ -314,3 +314,47 @@ slightly odd letter, and a drifting bar foot renders as nothing at all.
 
 The full mark, `scrobble_scope_inline.svg`, is unaffected and was not
 touched. Its tagline still balances the bars.
+
+---
+
+## 11. Units: rem for type and space, 2026-08-24
+
+**The snapshot states px. The repo states rem. The repo wins, and this is
+the record of that.**
+
+`tokens/typography.css` gives the type ladder as `--text-display-lg: 42px`
+down to `--text-label: 11.5px`. `tokens/spacing.css` gives a 4px ladder and
+says outright that it replaces "the current Bootstrap build mixes
+0.25/0.35/0.45/0.6rem values". So the snapshot moved deliberately from rem to
+px, and this repository moved back.
+
+**It moved back before anyone noticed.** WP-1 wrote the type scale into
+`static/css/tailwind.src.css` in rem -- `--text-body: 1rem`,
+`--text-label: 0.8125rem` -- because that is Tailwind v4's own convention for
+the `--text-*` namespace. The px figures in the snapshot and the rem figures
+in the repo are the same sizes at a 16px root, so nothing looked wrong and
+nothing recorded the divergence. WP-3 then wrote page spacing in px against a
+type scale already in rem.
+
+**The owner ruled on 2026-08-24:** rem for font size and spacing, px for thin
+details a reader never scales. `AGENTS.md` "Proposal and Design Rules" item 6
+carries the rule for every agent; this section carries why it overrides the
+snapshot.
+
+The reason is not only preference. A reader who raises the browser font size
+gets larger text inside boxes that did not grow, so the text crowds and
+clips -- and that mismatch is worse than either unit used consistently,
+because the type scale was already rem. WCAG technique C14 makes relative
+font sizes a sufficient technique for 1.4.4 Resize Text. The spacing half is
+this repository's choice, made for the same reason, and it is not a WCAG
+requirement -- do not cite it as one.
+
+**Read the snapshot's px figures as sizes, not as units.** 42px means
+2.625rem. The design's own values are unchanged by this; only how they are
+written down is.
+
+`static/css/index.css` and `static/css/heatmap.css` were converted in WP-3,
+98 declarations, proved neutral by measuring 1917 rendered values across
+three viewports and three page states. `error.css`, `shell.css`,
+`global.css`, `loading.css`, `results.css` and `unmatched.css` are not
+converted; each moves with the work package that owns it.
