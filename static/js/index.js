@@ -58,6 +58,16 @@ document.addEventListener('DOMContentLoaded', () => {
     registeredYear = null;
     if (yearSelect) yearSelect.min = defaultYearMin;
     if (yearHint) yearHint.textContent = defaultYearHint;
+    // The warning on screen is part of what the last account taught us, and
+    // the docstring above already promised to clear it. It names that
+    // account's join year, so leaving it up contradicts the hint and the
+    // minimum this function has just reset: the field reads "2002-2026"
+    // while the error under it demands 2015 or later.
+    //
+    // Re-derive rather than clear. "Year cannot be in the future" is still
+    // true about whatever is in the box and has to survive; only the part
+    // that belonged to the old account goes.
+    validateYear();
   }
 
   // Helper: check if a string contains any non-numeric characters (besides leading minus)
@@ -265,7 +275,6 @@ document.addEventListener('DOMContentLoaded', () => {
           // last one's, or it inherits a join year it never had.
           if (!data.registered_year) {
             clearRegistrationState();
-            validateYear();
             updateDecadePills();
           }
 
