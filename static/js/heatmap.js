@@ -247,10 +247,17 @@
     // The four the design names. Daily average replaced active days on
     // 2026-08-24; it is scrobbles over the whole 365-day window, not over
     // the days with a scrobble in them, so a quiet month pulls it down.
-    var dailyAverage = Math.round(total / WINDOW_DAYS);
+    // One decimal, always. Math.round showed 0 for anyone under 183
+    // scrobbles in the window -- a positive total reported as no listening
+    // at all, which is the one number this KPI must never say. It also read
+    // 49.9 as 50. A fixed decimal keeps the column aligned.
+    var dailyAverage = (total / WINDOW_DAYS).toLocaleString(undefined, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
 
     appendKpi('SCROBBLES', total.toLocaleString(), '');
-    appendKpi('DAILY AVERAGE', dailyAverage.toLocaleString(), '');
+    appendKpi('DAILY AVERAGE', dailyAverage, '');
     appendKpi('BEST DAY', String(bestCount), bestLabel);
     appendKpi('CURRENT STREAK', String(streak), 'DAYS');
   }
@@ -578,6 +585,15 @@
       e.preventDefault();
       var username = heatmapUsernameInput.value.trim();
       if (!username) {
+        heatmapUsernameInput.classList.add('is-invalid');
+        heatmapUsernameInput.focus();
+        return;
+      }
+      // The blur validator calls setCustomValidity, but the form carries
+      // novalidate, so the browser never consults it. Without this the page
+      // ran a second Last.fm lookup and showed the loading screen for a
+      // username it had already been told does not exist.
+      if (!heatmapUsernameInput.checkValidity()) {
         heatmapUsernameInput.classList.add('is-invalid');
         heatmapUsernameInput.focus();
         return;
