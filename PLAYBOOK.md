@@ -462,6 +462,53 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-25 - DOC009 to DOC011: facts written down more than once (side-task)
+
+- Scope: closed the buildable half of `F-B21-17`. Three declared integrity
+  checks in a new `scripts/docsync/declarations.py`, driven by a new
+  `.docsync.toml` at the repository root. No new dependency; the declarations
+  are TOML read with `tomllib` from the standard library.
+- Why: six of the nineteen Codex comments across PR #216 and PR #218 were not
+  logic defects. They were one fact recorded in several places where the
+  copies had drifted. The clinching case was a cross-reference that named its
+  target by heading, exactly as `F-STYLE-1` asks, and broke in the same commit
+  that moved the heading. A written rule cannot catch that; only something
+  that resolves the reference can.
+- Plan vs implementation: DOC009 compares a value across its sites, DOC010
+  resolves a citation shape against the document it names, DOC011 keeps a
+  retired claim out of anything that still prescribes. Four behaviours were
+  added after the first run reported false positives on real documents, and
+  each is a property of how this repository actually writes: bold lead-ins
+  count as citable places, a heading cited without its trailing parenthetical
+  resolves, a label's trailing sentence is not part of its name, and
+  struck-through text is already marked as not current.
+- What the first run found, before any test was written:
+  - **`static/css/shell.css` used `max-width: 860px`** where every other
+    stylesheet uses `859.98px`. Both the mobile and the desktop rules
+    therefore applied at exactly 860px. Fixed.
+  - **`AGENTS.md` described the integrity codes as DOC001-DOC006**, four
+    checks after that stopped being true. Fixed, and the line now says when
+    it went stale, because that is the same class the new checks exist for.
+  - Two stale citations, one of them inside the finding that proposed the
+    check.
+- Deviations: the declarations file is at the repository root as
+  `.docsync.toml` rather than under `docs/`. It is configuration, it sits
+  beside `.pre-commit-config.yaml` and `.gitattributes`, and keeping the
+  repository-specific half out of `scripts/docsync/` is what lets that
+  package be lifted into another repository unchanged.
+- Validation: `pytest -q` -- **771 passed**, 3 warnings, 22 of them new. All
+  11 pre-commit hooks pass with an identical `git write-tree` either side.
+  Each of the three checks was proved against the real defect it was built
+  for, by restoring that defect and watching the check name it. Five
+  mutations of the module each killed exactly one test and no others.
+  `doc_state_sync.py --check` exits 0. The frontend gate is unaffected and
+  still reports 8 checks in 13 runs.
+- Forward guidance: add a declaration when a fact starts living in two
+  places, not after it drifts. `F-B21-18` is the other half and is not
+  started -- 2,344 lines of JavaScript with no runner, to be reached through
+  a guarded seam onto the Chromium the frontend gate already pays for, not
+  through npm.
+
 ### 2026-08-24 - F-B21-13 docsync bootstrap gate remediated (side-task)
 
 - Scope: closed `F-B21-13` with DOC007 and DOC008 on
@@ -574,48 +621,3 @@ non-current operational logs. Older dated entries live in
   root-definition warning.
 - Forward guidance: WP-3 should carry updating the definition status line as
   an explicit task, the way WP-1 did, until `F-B21-13` closes.
-
-### 2026-08-23 - PR #216 review round one applied (side-task)
-
-- Scope: three review comments Codex left on `45fbbe8`. All three were
-  verified against the code and all three were valid. None was declined.
-- **Tailwind was pruning tokens the handwritten CSS reads.** Tailwind v4
-  emits a theme variable only when a generated utility uses it.
-  `static/css/error.css` reads `--font-figure`, `--font-weight-bold`,
-  `--spacing-8`, `--radius-sm` and `--radius-lg` directly, no utility used
-  them, and none reached `static/css/tailwind.css`. An undefined `var()`
-  with no fallback voids the whole declaration, so the error page shipped
-  with no card rounding and no page padding, and its status number took
-  neither the bold weight nor the Gotham face. Nothing failed and nothing
-  logged. `@theme static` fixes it and adds 16 declarations to the compiled
-  file. A browser now reports 14px card rounding and 32px 16px page
-  padding.
-- **No page set `font-family` on `body`.** Neither `global.css` nor
-  `shell.css` carried one, so the four unmigrated pages downloaded the
-  Adobe kit and then rendered in the Bootstrap system stack. The batch
-  definition lists the body font as a WP-2 deliverable, so this was a
-  missed one rather than a new idea. The declaration went into `shell.css`
-  behind a new `--shell-font-sans` token, because an unmigrated page never
-  loads the compiled stylesheet and `var(--font-sans)` resolves to nothing
-  there.
-- **`SESSION_CONTEXT.md` sections 3 and 4 were stale.** They said 9 css and
-  7 js files, still listed a deleted `error.js`, and omitted `shell.css`,
-  `frontend_gate.py` and the lockup SVG. Real counts are 10 and 6.
-- Two gaps closed while in the same files. `tests/test_template_shell.py`
-  gains a test that renders each page, reads back the stylesheets it loads,
-  and asserts every `var()` without a fallback resolves in one of them.
-  Nothing checked that invariant before. The gate gains a fifth check for
-  the body font, reading computed style rather than stylesheet text,
-  because the failure is a cascade one and only a browser can settle it.
-- Deviations: the dependency graph also gained `dev/tailwind_build.py`,
-  which WP-1 added and never recorded. It was a one-line omission in the
-  block being corrected, so leaving it was worse than fixing it.
-- Both fixes were proven able to fail. Reverting `@theme static` fails two
-  tests, and removing the body declaration fails the gate on `/` and names
-  the system stack it fell back to.
-- Validation: `pytest -q` -- **671 passed**, 3 warnings. All 11 pre-commit
-  hooks pass. The frontend gate reports `5 checks passed`.
-  `doc_state_sync.py --check` exits 0 with the expected active
-  root-definition warning.
-- Forward guidance: the compiled stylesheet is 1,650 lines now, so every
-  line citation into it is stale again. Cite the block, not the number.

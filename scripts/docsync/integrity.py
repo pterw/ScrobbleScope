@@ -7,6 +7,7 @@ import subprocess
 from collections.abc import Callable, Mapping
 from pathlib import Path
 
+from docsync.declarations import collect_declaration_issues
 from docsync.logic import latest_test_count_authority
 from docsync.models import IntegrityIssue, SyncError, TestCountAuthority
 from docsync.parser import (
@@ -904,5 +905,11 @@ def collect_integrity_issues(
     )
     if findings_count_issue is not None:
         issues.append(findings_count_issue)
+
+    # DOC009 to DOC011. Declared rather than hard-coded, so the mechanism is
+    # repository-independent and only .docsync.toml is local. See F-B21-17.
+    issues.extend(
+        collect_declaration_issues(repo_root=repo_root, live_documents=live_documents)
+    )
 
     return sorted(issues, key=lambda issue: (issue.path, issue.line or 0, issue.code))
