@@ -313,6 +313,75 @@ def test_expect_without_a_capture_group_is_a_declaration_error(
         check_values(_files(root), [declaration])
 
 
+def test_a_value_that_wraps_across_two_lines_is_still_read(tmp_path: Path) -> None:
+    """A media query broken over two lines states the same breakpoint.
+
+    Wrapping is the one edit a file gets for free, from a formatter or from a
+    condition growing too long. Reporting it as "no longer states" would send
+    the reader to restore a value that is already there.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "a.css": "@media (any-pointer: coarse),\n  (max-width: 859.98px) {\n}\n",
+            "b.js": "const MOBILE_MAX_WIDTH = 860;\n",
+        },
+    )
+    declaration = {
+        "name": "the breakpoint",
+        "sites": [
+            {
+                "file": "a.css",
+                "pattern": r"@media[^{]*max-width: ([\d.]+)px",
+                "expect": "859.98",
+            },
+            {"file": "b.js", "pattern": r"MOBILE_MAX_WIDTH = (\d+)", "expect": "860"},
+        ],
+    }
+
+    assert check_values(_files(root), [declaration]) == []
+
+
+def test_a_wrapped_occurrence_that_drifts_is_not_hidden_by_an_unwrapped_one(
+    tmp_path: Path,
+) -> None:
+    """The quiet half of the per-line defect, and the reason it matters.
+
+    A file that states the value twice satisfied the check on the unwrapped
+    copy while the wrapped one went unread. That is the hole "every
+    occurrence" was added to close, still open for any file that wraps.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "a.css": (
+                "@media (max-width: 859.98px) {\n}\n"
+                "@media (any-pointer: coarse),\n  (max-width: 768px) {\n}\n"
+            ),
+            "b.js": "const MOBILE_MAX_WIDTH = 860;\n",
+        },
+    )
+    declaration = {
+        "name": "the breakpoint",
+        "sites": [
+            {
+                "file": "a.css",
+                "pattern": r"@media[^{]*max-width: ([\d.]+)px",
+                "expect": "859.98",
+            },
+            {"file": "b.js", "pattern": r"MOBILE_MAX_WIDTH = (\d+)", "expect": "860"},
+        ],
+    }
+
+    issues = check_values(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].path == "a.css"
+    assert "768" in issues[0].invariant
+    # The line the drifted query starts on, not the line the number sits on.
+    assert issues[0].line == 3
+
+
 # ----------------------------------------------------------------------
 # DOC010 -- anchors
 # ----------------------------------------------------------------------
@@ -428,6 +497,87 @@ def test_a_bold_lead_in_counts_as_a_citable_place(tmp_path: Path) -> None:
         {
             "RULES.md": "**Wordmark animation -- read this first.** The bars move.\n",
             "notes.md": 'See `RULES.md` "Wordmark animation".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert check_anchors(_files(root), [declaration]) == []
+
+
+def test_a_bold_lead_in_inside_a_list_item_counts_as_a_citable_place(
+    tmp_path: Path,
+) -> None:
+    """The design contract labels sections both ways, bulleted and not.
+
+    "- **Responsive.** Single breakpoint at 860px." is a section of that
+    document. Insisting the asterisks start the line made the WP-3 plan's
+    citation of it resolve nowhere, so widening the scan would have reported
+    a correct citation as broken.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "- **Responsive.** Single breakpoint at 860px.\n",
+            "notes.md": 'See `RULES.md` "Responsive".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    assert check_anchors(_files(root), [declaration]) == []
+
+
+def test_a_citation_that_wraps_across_two_lines_is_still_checked(
+    tmp_path: Path,
+) -> None:
+    """A citation broken over two lines is invisible to a per-line search.
+
+    PLAYBOOK.md already carried one, so the gate could not have caught that
+    heading moving. The reported line is where the citation starts, which is
+    where the reader has to go to fix it.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## Commit Rules\n\n1. One.\n",
+            "notes.md": 'Follow `RULES.md` "UI and\n    Accessibility Rules".\n',
+        },
+    )
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": ["notes.md"],
+    }
+
+    issues = check_anchors(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert issues[0].line == 1
+    assert "UI and Accessibility Rules" in issues[0].invariant
+
+
+def test_a_wrapped_citation_that_resolves_reports_nothing(tmp_path: Path) -> None:
+    """Joining must not turn correct wrapped prose into a false alarm.
+
+    The continuation line carries the indentation of whatever block it sits
+    in. Joining raw lines puts that indentation inside the heading name, so a
+    correct citation would resolve nowhere.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            "RULES.md": "## UI and Accessibility Rules\n\n1. One.\n",
+            "notes.md": 'Follow `RULES.md` "UI and\n        Accessibility Rules".\n',
         },
     )
     declaration = {
