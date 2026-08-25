@@ -462,7 +462,7 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-08-25 - PR #218 review rounds one to five applied (side-task)
+### 2026-08-25 - PR #218 review rounds one to six applied (side-task)
 
 - Scope: answered every Codex comment on PR #218 while WP-3 sat open and
   unmerged. Twenty-one comments across PR #216 and #218 in total; all valid.
@@ -483,6 +483,16 @@ non-current operational logs. Older dated entries live in
   - **A `/validate_user` reply is discarded when the field has moved on.**
     The submit guard added earlier in the series had turned a cosmetic stale
     message into a block that no blur clears.
+  - **Round six found two blind spots in DOC009 and DOC011 themselves**, one
+    day old. DOC009 accepted a file after its first match, so `index.css`
+    could state the breakpoint once and contradict it in either of its other
+    two media queries; it reads every occurrence now, and a site may declare
+    `expect` so two notations of one fact -- `859.98px` and `860` -- can
+    differ without the check going blind. DOC011 searched line by line and
+    could never match a phrase that wrapped, which in Markdown that wraps at
+    about 76 columns is the likely shape rather than an edge case; it matches
+    the joined document now and maps back to the starting line, with the
+    history and strikethrough exemptions applied after that mapping.
 - Two findings came out of reading the comments as a set rather than one at a
   time: `F-B21-17`, that six of nineteen were one fact written twice, and
   `F-B21-18`, that 2,344 lines of JavaScript have no runner. `F-B21-17` was
@@ -490,7 +500,7 @@ non-current operational logs. Older dated entries live in
 - Deviations: none against a plan, because there was none -- this is review
   remediation. Each round was answered in one batched PR comment rather than
   per comment, per the `pr-bot-triage` skill.
-- Validation: `pytest -q` -- **773 passed**, 3 warnings. All 11 pre-commit
+- Validation: `pytest -q` -- **779 passed**, 3 warnings. All 11 pre-commit
   hooks pass with an identical `git write-tree` either side.
   `doc_state_sync.py --check` exits 0. The frontend gate reports 8 checks in
   13 runs across desktop, mobile and wide touch. Every fix was reproduced
@@ -498,9 +508,15 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the merge is the owner's and is being held while rounds
   still return findings. Codex reacts to the PR summary with a thumbs-up when
   it has nothing to say and comments when it does, so that reaction is the
-  signal to stop, not a quiet round. The last two rounds found defects that
-  earlier fixes had introduced rather than pre-existing ones, which is the
-  usual sign of approaching diminishing returns.
+  signal to stop, not a quiet round.
+  Rounds four and five found defects that earlier fixes in the series had
+  introduced, which reads as approaching diminishing returns. Round six then
+  found two holes in code that was one day old, which corrects that reading:
+  yield tracks new surface area, not elapsed rounds. Expect a round on
+  whatever `F-B21-18` builds.
+  Both round-six holes were of a kind a check's own tests cannot find, because
+  the tests were written from the same understanding as the code. That is the
+  argument for keeping a reviewer on tooling and not only on features.
 
 ### 2026-08-25 - DOC009 to DOC011: facts written down more than once (side-task)
 
