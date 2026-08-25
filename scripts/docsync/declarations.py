@@ -318,16 +318,39 @@ class _Files:
     """
 
     def __init__(self, repo_root: Path, live: Mapping[str, list[str]]):
-        self._root = repo_root
+        self._root = repo_root.resolve()
         self._live = live
         self._cache: dict[str, list[str] | None] = {}
 
+    def _path(self, rel_path: str) -> Path:
+        """Resolve one declaration path and keep it inside the repository."""
+        candidate = (self._root / rel_path).resolve()
+        try:
+            candidate.relative_to(self._root)
+        except ValueError:
+            raise DeclarationError(
+                f"{DECLARATIONS_FILENAME} path {rel_path!r} resolves outside "
+                "the repository root"
+            ) from None
+        return candidate
+
+    def _relative(self, path: Path, declared: str) -> str:
+        """Return a matched path relative to the root, rejecting symlink escape."""
+        candidate = path.resolve()
+        try:
+            return candidate.relative_to(self._root).as_posix()
+        except ValueError:
+            raise DeclarationError(
+                f"{DECLARATIONS_FILENAME} path {declared!r} resolves outside "
+                "the repository root"
+            ) from None
+
     def lines(self, rel_path: str) -> list[str] | None:
         """Return the file's lines, or None when it does not exist."""
+        path = self._path(rel_path)
         if rel_path in self._live:
             return list(self._live[rel_path])
         if rel_path not in self._cache:
-            path = self._root / rel_path
             try:
                 self._cache[rel_path] = path.read_text(
                     encoding="utf-8", errors="replace"
@@ -434,20 +457,20 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
             # further down: index.css carries the breakpoint in three media
             # queries, and only one of them was ever read.
             #
-            # Read from the joined document for the same reason DOC010 and
-            # DOC011 are: a media query or a sentence that wraps is invisible
-            # to a per-line search. Here the miss is quiet rather than loud
-            # only when a file states the value more than once -- the
+            # The shared matcher adds cross-line matches without replacing the
+            # raw per-line scan. A media query or sentence that wraps would be
+            # invisible to the line scan alone; replacing it made ^, $ and
+            # indentation mean something new. Here the miss is quiet when an
             # unwrapped copy satisfies the check while a drifted wrapped one
-            # goes unread, which is the exact hole "every occurrence" was
-            # meant to close.
-            joined, starts = _joined_text(lines)
+            # goes unread, which is the exact hole "every occurrence" closes.
             found: list[tuple[int, str | None]] = [
                 (
-                    _line_of(starts, match.start()),
+                    line_number,
                     match.group(1) if match.groups() else None,
                 )
-                for match in pattern.finditer(joined)
+                for match, line_number, _text, _position in _declared_matches(
+                    pattern, lines
+                )
             ]
 
             if not found:
@@ -621,15 +644,15 @@ def check_anchors(files: _Files, declarations: Iterable[dict]) -> list[Integrity
             if lines is None:
                 issues.append(_missing_file_issue("DOC010", rel_path, name))
                 continue
-            # Matched against the joined document, as DOC011 already is. A
-            # citation that wraps is invisible to a per-line search, and
-            # wrapping is the one edit a document gets for free -- PLAYBOOK.md
+            # The shared matcher adds citations that cross a line boundary and
+            # keeps raw-line matches for their original regex semantics.
+            # Wrapping is the one edit a document gets for free -- PLAYBOOK.md
             # already carried `AGENTS.md` "UI and / Accessibility Rules"
-            # across two lines, so the gate could not have caught that heading
-            # moving.
-            joined, starts = _joined_text(lines)
-            for match in pattern.finditer(joined):
-                line_number = _line_of(starts, match.start())
+            # across two lines, so a per-line-only gate could not have caught
+            # that heading moving.
+            for match, line_number, _text, _position in _declared_matches(
+                pattern, lines
+            ):
                 heading = match.group(1)
                 item = match.group(2) if len(match.groups()) > 1 else None
                 if not heading:
@@ -729,18 +752,15 @@ def check_retired(
                         exempt_from = index
                         break
 
-            # Matched against the whole document, not line by line. A phrase
-            # that wraps -- `limit_results` ending one line and "inside the
-            # thresholds disclosure" starting the next -- can never match a
-            # per-line search, and wrapping is the one edit a document gets
-            # for free. Newlines become spaces so a pattern written for prose
-            # still reads as prose.
-            joined, starts = _joined_text(lines)
-            for match in pattern.finditer(joined):
-                line_number = _line_of(starts, match.start())
+            # Cross-line matches supplement, rather than replace, raw-line
+            # matches. A phrase that wraps -- `limit_results` ending one line
+            # and "inside the thresholds disclosure" starting the next -- can
+            # never match a per-line search, while replacing that search loses
+            # line anchors. Newlines become spaces only for the cross-line pass.
+            for match, line_number, text, position in _declared_matches(pattern, lines):
                 if exempt_from is not None and line_number >= exempt_from:
                     continue
-                if skip_struck and _is_struck_through(joined, match.start()):
+                if skip_struck and _is_struck_through(text, position):
                     continue
                 issues.append(
                     _issue(
@@ -788,6 +808,58 @@ def _joined_text(lines: list[str]) -> tuple[str, list[int]]:
     return " ".join(pieces), starts
 
 
+def _declared_matches(
+    pattern: re.Pattern[str], lines: list[str]
+) -> list[tuple[re.Match[str], int, str, int]]:
+    """Find original per-line matches plus matches that cross a line boundary.
+
+    The raw line remains authoritative for a match contained on one line, so
+    ``^``, ``$`` and indentation keep their original meaning. The joined form
+    contributes only matches that reach text on a later line. Each result
+    retains its source text and local offset for the strikethrough exemption.
+    """
+    joined, starts = _joined_text(lines)
+    found: list[tuple[int, int, re.Match[str], int, str, int]] = []
+
+    for match in pattern.finditer(joined):
+        line_number = _line_of(starts, match.start())
+        if line_number >= len(starts) or match.end() <= starts[line_number]:
+            continue
+        found.append(
+            (
+                match.start(),
+                match.end(),
+                match,
+                line_number,
+                joined,
+                match.start(),
+            )
+        )
+
+    for line_number, line in enumerate(lines, start=1):
+        line_start = starts[line_number - 1]
+        leading_space = len(line) - len(line.lstrip())
+        for match in pattern.finditer(line):
+            absolute_start = line_start + max(match.start() - leading_space, 0)
+            absolute_end = absolute_start + len(match.group(0))
+            found.append(
+                (
+                    absolute_start,
+                    absolute_end,
+                    match,
+                    line_number,
+                    line,
+                    match.start(),
+                )
+            )
+
+    found.sort(key=lambda item: (item[0], item[1]))
+    return [
+        (match, line_number, text, position)
+        for _start, _end, match, line_number, text, position in found
+    ]
+
+
 def _line_of(starts: list[int], position: int) -> int:
     """Return the 1-based line holding this offset in the joined text."""
     low, high = 0, len(starts) - 1
@@ -831,12 +903,13 @@ def _expand(files: _Files, patterns: Iterable[str]) -> list[str]:
     """
     found: list[str] = []
     for pattern in patterns:
+        files._path(pattern)
         if any(ch in pattern for ch in "*?["):
             matched = False
             for path in sorted(files._root.glob(pattern)):
                 if path.is_file():
                     matched = True
-                    found.append(path.relative_to(files._root).as_posix())
+                    found.append(files._relative(path, pattern))
             if not matched:
                 found.append(pattern)
         else:

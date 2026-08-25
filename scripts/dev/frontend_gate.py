@@ -452,7 +452,7 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
 
 
 def check_theme_persistence(page, base_url: str) -> list[str]:
-    """Toggling the theme then reloading keeps it. This is what F-B21-2 broke.
+    """Toggling then reloading keeps the theme without changing shared state.
 
     The check drives [data-theme-toggle], the visible control, rather than the
     hidden checkbox behind it. A hidden input is not clickable, so targeting it
@@ -465,37 +465,56 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
     reason is gone and the index is covered like any other page.
     """
     failures = []
-    for path in MIGRATED_PAGES:
-        page.goto(f"{base_url}{path}", wait_until="load")
-        toggle = page.locator("[data-theme-toggle]")
-        if toggle.count() == 0:
-            failures.append(f"{path}: no [data-theme-toggle] control found")
-            continue
+    saved_preference = None
+    preference_read = False
+    try:
+        for path in MIGRATED_PAGES:
+            page.goto(f"{base_url}{path}", wait_until="load")
+            if not preference_read:
+                saved_preference = page.evaluate(
+                    "() => localStorage.getItem('darkMode')"
+                )
+                preference_read = True
+            toggle = page.locator("[data-theme-toggle]")
+            if toggle.count() == 0:
+                failures.append(f"{path}: no [data-theme-toggle] control found")
+                continue
 
-        before = page.evaluate("() => document.documentElement.dataset.theme")
-        try:
-            toggle.first.click(timeout=TOGGLE_TIMEOUT_MS)
-        except Exception as exc:  # noqa: BLE001 - any failure to click is a failure
-            failures.append(
-                f"{path}: the theme toggle could not be clicked: "
-                f"{type(exc).__name__}"
-            )
-            continue
+            before = page.evaluate("() => document.documentElement.dataset.theme")
+            try:
+                toggle.first.click(timeout=TOGGLE_TIMEOUT_MS)
+            except Exception as exc:  # noqa: BLE001 - any click fault is a failure
+                failures.append(
+                    f"{path}: the theme toggle could not be clicked: "
+                    f"{type(exc).__name__}"
+                )
+                continue
 
-        toggled = page.evaluate("() => document.documentElement.dataset.theme")
-        if toggled == before:
-            failures.append(
-                f"{path}: toggling did not change data-theme " f"(stayed {before!r})"
-            )
-            continue
+            toggled = page.evaluate("() => document.documentElement.dataset.theme")
+            if toggled == before:
+                failures.append(
+                    f"{path}: toggling did not change data-theme "
+                    f"(stayed {before!r})"
+                )
+                continue
 
-        page.reload(wait_until="load")
-        after = page.evaluate("() => document.documentElement.dataset.theme")
-        if after != toggled:
-            failures.append(
-                f"{path}: theme did not survive reload: "
-                f"{toggled!r} became {after!r}"
+            page.reload(wait_until="load")
+            after = page.evaluate("() => document.documentElement.dataset.theme")
+            if after != toggled:
+                failures.append(
+                    f"{path}: theme did not survive reload: "
+                    f"{toggled!r} became {after!r}"
+                )
+    finally:
+        if preference_read:
+            page.evaluate(
+                """(saved) => {
+                    if (saved === null) localStorage.removeItem('darkMode');
+                    else localStorage.setItem('darkMode', saved);
+                }""",
+                saved_preference,
             )
+            page.reload(wait_until="load")
     return failures
 
 
@@ -1041,19 +1060,26 @@ def check_body_font(page, base_url: str) -> list[str]:
 
 
 def check_shell_scales_with_text(page, base_url: str) -> list[str]:
-    """The text-holding header grows when the reader enlarges root text."""
+    """The header grows with root text without changing the shared page."""
     page.goto(f"{base_url}/", wait_until="load")
-    state = page.evaluate(
-        """() => {
-            document.documentElement.style.fontSize = '20px';
-            const mobile = matchMedia('(max-width: 859.98px)').matches;
-            return {
-                height: document.querySelector('.site-header')
-                    .getBoundingClientRect().height,
-                expected: (mobile ? 3.75 : 4.25) * 20,
-            };
-        }"""
-    )
+    previous_font_size = page.evaluate("() => document.documentElement.style.fontSize")
+    try:
+        state = page.evaluate(
+            """() => {
+                document.documentElement.style.fontSize = '20px';
+                const mobile = matchMedia('(max-width: 859.98px)').matches;
+                return {
+                    height: document.querySelector('.site-header')
+                        .getBoundingClientRect().height,
+                    expected: (mobile ? 3.75 : 4.25) * 20,
+                };
+            }"""
+        )
+    finally:
+        page.evaluate(
+            "(fontSize) => { document.documentElement.style.fontSize = fontSize; }",
+            previous_font_size,
+        )
     if abs(state["height"] - state["expected"]) > 0.1:
         return [
             f"/ .site-header: 20px root text produced {state['height']}px height, "

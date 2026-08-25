@@ -16,6 +16,8 @@ from scripts.dev.frontend_gate import (
     FrontendGateError,
     _launch_chromium,
     _load_playwright,
+    check_shell_scales_with_text,
+    check_theme_persistence,
     run_checks,
     serve_app,
 )
@@ -97,6 +99,68 @@ def test_launch_is_headless_by_default() -> None:
     _launch_chromium(playwright)
 
     assert playwright.chromium.launch.call_args.kwargs == {"headless": True}
+
+
+def test_text_scaling_check_restores_the_page_root() -> None:
+    """A diagnostic does not leak its enlarged root into later checks."""
+
+    class ScalingPage:
+        """Small page seam that exposes only the root style the check changes."""
+
+        root_font_size = "17px"
+
+        def goto(self, _url, *, wait_until):
+            assert wait_until == "load"
+
+        def evaluate(self, script, arg=None):
+            if "style.fontSize = '20px'" in script:
+                self.root_font_size = "20px"
+                return {"height": 85.0, "expected": 85.0}
+            if "style.fontSize = fontSize" in script:
+                self.root_font_size = arg
+                return None
+            if "document.documentElement.style.fontSize" in script:
+                return self.root_font_size
+            raise AssertionError(f"unexpected browser expression: {script}")
+
+    page = ScalingPage()
+
+    assert check_shell_scales_with_text(page, "http://127.0.0.1:0") == []
+    assert page.root_font_size == "17px"
+
+
+def test_theme_persistence_check_restores_the_saved_preference() -> None:
+    """The persistence diagnostic must not choose a theme for later checks."""
+    state = {"saved": "true", "theme": "dark"}
+    page = MagicMock()
+
+    def load_saved_theme(*_args, **_kwargs):
+        state["theme"] = "dark" if state["saved"] == "true" else "light"
+
+    def evaluate(script, arg=None):
+        if "localStorage.getItem('darkMode')" in script:
+            return state["saved"]
+        if "document.documentElement.dataset.theme" in script:
+            return state["theme"]
+        if "localStorage.removeItem('darkMode')" in script:
+            state["saved"] = arg
+            return None
+        raise AssertionError(f"unexpected browser expression: {script}")
+
+    def toggle_theme(*_args, **_kwargs):
+        state["saved"] = "false" if state["saved"] == "true" else "true"
+        load_saved_theme()
+
+    page.goto.side_effect = load_saved_theme
+    page.reload.side_effect = load_saved_theme
+    page.evaluate.side_effect = evaluate
+    page.locator.return_value.count.return_value = 1
+    page.locator.return_value.first.click.side_effect = toggle_theme
+
+    with patch("scripts.dev.frontend_gate.MIGRATED_PAGES", ("/",)):
+        assert check_theme_persistence(page, "http://127.0.0.1:0") == []
+
+    assert state == {"saved": "true", "theme": "dark"}
 
 
 def test_a_raising_check_is_reported_and_the_run_continues() -> None:
