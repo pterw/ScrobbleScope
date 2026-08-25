@@ -9,7 +9,7 @@ Last updated: 2026-08-24
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **773 passing** across 40 test modules |
+| Tests | **779 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
@@ -47,7 +47,7 @@ Last updated: 2026-08-24
 - Current-batch entries in active log block: 6.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
 - Next expected work package: WP-4.
-- Latest validated test count: **773 passed**.
+- Latest validated test count: **779 passed**.
 - Newest current-batch entry: 2026-08-25 - Index page migrated to Tailwind (Batch 21 WP-3).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -184,7 +184,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (773 tests)
+## 6. Test structure (779 tests)
 
 | File | Count |
 |------|-------|
