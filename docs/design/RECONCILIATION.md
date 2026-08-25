@@ -353,8 +353,18 @@ requirement -- do not cite it as one.
 2.625rem. The design's own values are unchanged by this; only how they are
 written down is.
 
-`static/css/index.css` and `static/css/heatmap.css` were converted in WP-3,
-98 declarations, proved neutral by measuring 1917 rendered values across
-three viewports and three page states. `error.css`, `shell.css`,
+`static/css/index.css`, `static/css/heatmap.css` and `static/css/shell.css`
+were converted in WP-3, 102 declarations, proved neutral by measuring 1917
+rendered values across three viewports and three page states.
+
+`shell.css` is in that list because it loads on every page, migrated or not,
+so leaving it in px put px spacing around rem type on the one page already
+converted. That is the mismatch this section exists to prevent, and it would
+have sat there until WP-8.
+
 `global.css`, `loading.css`, `results.css` and `unmatched.css` are not
-converted; each moves with the work package that owns it.
+converted. Each is a Bootstrap-era page stylesheet that its own work package
+rewrites -- WP-4, WP-5, WP-7 -- so converting them now would churn a file
+about to be replaced, for pages whose type is not rem yet either. Convert
+each one with the rewrite that owns it. `error.css` keeps px in the rules
+WP-2 wrote; only its touch-target rule moved, with the rule that changed it.
