@@ -642,7 +642,11 @@ touch, which turns "removed the Popover dependency" into "removed the
 explanation for some users". The batch definition states this as a
 requirement.
 
-**Step 3.** Move `limit_results` inside the thresholds disclosure. Owner
+**Step 3. REVERSED 2026-08-24 (owner) -- do not do this.** Keep
+`limit_results` a visible field in the card, above the disclosure. The
+original step, and the reasoning that no longer applies, follow.
+
+~~Move `limit_results` inside the thresholds disclosure.~~ Owner
 decision 3 in `BATCH21_DEFINITION.md` keeps the control and relocates it; it
 is a real Spotify-load saving on large libraries. Do not drop it and do not
 half-wire it.
@@ -856,7 +860,8 @@ parametrised tests then invert for that template automatically.
   `role="button"` span left on the page;
 - the page loads no Bootstrap JS bundle;
 - no `data-bs-` attribute survives anywhere in the rendered page;
-- `limit_results` renders inside the thresholds disclosure;
+- `limit_results` renders **above** the thresholds disclosure, not inside
+  it (reversed 2026-08-24, owner);
 - the welcome modal id is absent.
 
 **Step 3.** Mutation proof each new assertion individually. Five assertions,
