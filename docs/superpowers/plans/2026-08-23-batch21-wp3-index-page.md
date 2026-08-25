@@ -240,6 +240,31 @@ Nothing is pushed. The owner has not authorised a push or a pull request.
     purpose stops being read. WP-8 still owns the rest of the file, including
     its 600px breakpoint.
 
+### What the five review rounds changed after commit 6
+
+Twenty-one comments across PR #216 and #218, every one valid; one was declined
+on its premise and its remedy applied anyway. `F-B21-17` has the
+classification. What a later agent needs to know:
+
+- **Touch sizing and input size are keyed on the pointer, not the window.**
+  `@media (any-pointer: coarse), (max-width: 859.98px)`. A tablet in landscape
+  is wide and touched. Both rules must move together -- the input size was
+  left behind when the touch targets moved, and a later round caught it.
+- **The frontend gate runs three device profiles**, not two viewports: a 1280
+  mouse, a 390 touch phone and a 1280 touch screen. `run_checks` takes a page
+  factory, because touch emulation belongs to a browser context and cannot be
+  switched on mid-session.
+- **A `/validate_user` reply is discarded when the field has moved on.**
+  Without that a rejection lands on a name it was never about, and the submit
+  guard added in the same series turns it into a block no blur clears.
+- **The export header is measured, not fixed.** Its height was a constant that
+  no longer matched its own content, so the grid painted over the legend.
+- **DOC009 to DOC011 exist**, and `.docsync.toml` declares what this
+  repository writes down twice. Add a declaration when a fact starts living in
+  two places, not after it drifts. They found the `shell.css` 860px overlap
+  and a stale DOC range in `AGENTS.md` on their first run.
+
+
 **Two facts commits 4 onward depend on, both established after the plan was
 written.**
 

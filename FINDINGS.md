@@ -10,7 +10,7 @@ F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
 F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11 and F-B18-12 and
 filed F-B21-14 through F-B21-18. **WP-4 is next.**
-771 tests across 40 test modules.
+773 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
