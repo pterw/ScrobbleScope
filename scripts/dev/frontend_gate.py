@@ -6,12 +6,14 @@ stylesheet a page loads, what a token resolves to, whether the theme survives a
 reload, whether a font actually arrives -- have nothing enforcing them.
 
 This script closes that gap. It starts the real Flask app on a loopback port it
-owns, drives a real Chromium, and asserts those four properties. It needs no
+owns, drives a real Chromium, and asserts those properties. It needs no
 separately running server and no MCP service, so it runs the same way locally
 and in CI.
 
-Checks 5 and 6 from the batch definition belong to WP-5 and WP-6, and land with
-the work they check.
+Every check runs at a real viewport, desktop and mobile, and every failure says
+which one it came from. The gate grows with the migration: each work package
+adds its page to MIGRATED_PAGES, and adds a check when it ships something the
+existing ones cannot see.
 """
 
 from __future__ import annotations
@@ -86,15 +88,90 @@ ERROR_PAGE_PATH = "/no-such-page-for-the-gate"
 #: and loads no kit faces, so pointing those two checks at every page would
 #: park four permanent failures in the output until WP-7 -- and a gate with
 #: expected failures in it stops being read.
-MIGRATED_PAGES = (ERROR_PAGE_PATH,)
+MIGRATED_PAGES = ("/", ERROR_PAGE_PATH)
 
 #: Pages still served by Bootstrap. Move each one into MIGRATED_PAGES in the
 #: work package that migrates it.
-LEGACY_PAGES = ("/",)
+#:
+#: Empty since WP-3, and it stays empty until a GET route exists for the three
+#: remaining templates. loading.html, results.html and unmatched.html render
+#: only from a POST with session state, so a browser cannot reach them by URL
+#: and no check here has ever covered them. WP-4 needs a route before the gate
+#: can see the page it migrates.
+LEGACY_PAGES = ()
 
 #: Consumed by check_stylesheet_isolation. Exactly one framework stylesheet is
 #: a claim about every page, migrated or not, so this check takes both lists.
 ALL_PAGES = LEGACY_PAGES + MIGRATED_PAGES
+
+#: The two widths every visual check runs at.
+#:
+#: Every check this batch built ran at Playwright's 1280x720 default, so
+#: mobile was verified by owner review and nothing else. The design has one
+#: breakpoint, 860px -- docs/design/README.md "Responsive" -- so a width each
+#: side of it is the whole matrix. 390x844 is the design's mobile reference
+#: canvas.
+DESKTOP = "desktop"
+MOBILE = "mobile"
+VIEWPORTS = {
+    DESKTOP: {"width": 1280, "height": 720},
+    MOBILE: {"width": 390, "height": 844},
+}
+
+#: Smallest side the design allows an interactive element to have, in CSS
+#: pixels. docs/design/README.md calls this non-negotiable on touch.
+MIN_TOUCH_TARGET_PX = 44
+
+#: Everything a person can tap. [tabindex="-1"] is excluded: it is focusable
+#: by script only and is not a target.
+#:
+#: label[for] is in the list and has to be. The theme toggle, the decade pills
+#: and the sort segments are all a clipped 1x1 input driven by a styled label,
+#: so the label is the only thing a finger can land on. Skipping the input
+#: without measuring the label would measure none of them.
+INTERACTIVE_SELECTOR = (
+    "a[href], button, input, select, textarea, summary, label[for], "
+    '[tabindex]:not([tabindex="-1"])'
+)
+
+#: States the touch-target check drives before measuring, per page.
+#:
+#: Measuring only what is on screen at load measures almost nothing: the
+#: decade pills, the release-year field and the whole heatmap form all start
+#: hidden, and a control a person has not reached yet is still a control.
+#: Every state here is one click or one select away. The heatmap result needs
+#: live API data and is out of reach from here -- owner review still owns it.
+TOUCH_TARGET_STATES = {
+    "/": (
+        ("as loaded", ()),
+        ("heatmap mode", (("click", "#mode-tab-heatmap"),)),
+        ("decade filter", (("select", "#release_scope", "decade"),)),
+        ("release year", (("select", "#release_scope", "custom"),)),
+    ),
+}
+
+#: Used for a page with nothing to drive.
+DEFAULT_STATES = (("as loaded", ()),)
+
+#: What must be invisible when a migrated page first loads. The scripts reveal
+#: each one later.
+#:
+#: A class name is not evidence. `.index-grid` set display:grid and outranked
+#: Tailwind's `.hidden`, so the heatmap rendered under a hero that never left,
+#: and a probe asserting className passed anyway. Assert the computed value.
+HIDDEN_ON_LOAD = {
+    "/": (
+        "#heatmap-form-section",
+        "#heatmap-loading",
+        "#heatmap-result",
+        "#heatmap-result-headline",
+        "#heatmap-result-frame",
+        "#heatmap-error",
+        '[data-mode-hero="heatmap"]',
+        "#decade_dropdown",
+        "#release_year_group",
+    ),
+}
 
 
 class FrontendGateError(RuntimeError):
@@ -243,32 +320,187 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
     hidden checkbox behind it. A hidden input is not clickable, so targeting it
     costs a 30-second actionability timeout instead of an answer.
 
-    It runs on a migrated page, not the index. index.html opens the welcome
-    modal on load, and Bootstrap's .modal-backdrop sits at z-index 1050, above
-    the 1030 header, so the toggle is genuinely unclickable there. That is
-    F-B21-11; WP-3 deletes the modal. Persistence is a property of the shared
-    shell, so any page carrying the shell answers the question.
+    It runs on every migrated page. It used to skip the index deliberately:
+    index.html opened a welcome modal on load, and Bootstrap's .modal-backdrop
+    sits at z-index 1050, above the 1030 header, so the toggle was genuinely
+    unclickable there. WP-3 deleted that modal, which closes F-B21-11, so the
+    reason is gone and the index is covered like any other page.
     """
-    page.goto(f"{base_url}{MIGRATED_PAGES[0]}", wait_until="load")
-    toggle = page.locator("[data-theme-toggle]")
-    if toggle.count() == 0:
-        return ["no [data-theme-toggle] control found on the page"]
+    failures = []
+    for path in MIGRATED_PAGES:
+        page.goto(f"{base_url}{path}", wait_until="load")
+        toggle = page.locator("[data-theme-toggle]")
+        if toggle.count() == 0:
+            failures.append(f"{path}: no [data-theme-toggle] control found")
+            continue
 
-    before = page.evaluate("() => document.documentElement.dataset.theme")
-    try:
-        toggle.first.click(timeout=TOGGLE_TIMEOUT_MS)
-    except Exception as exc:  # noqa: BLE001 - any failure to click is a failure
-        return [f"the theme toggle could not be clicked: {type(exc).__name__}"]
+        before = page.evaluate("() => document.documentElement.dataset.theme")
+        try:
+            toggle.first.click(timeout=TOGGLE_TIMEOUT_MS)
+        except Exception as exc:  # noqa: BLE001 - any failure to click is a failure
+            failures.append(
+                f"{path}: the theme toggle could not be clicked: "
+                f"{type(exc).__name__}"
+            )
+            continue
 
-    toggled = page.evaluate("() => document.documentElement.dataset.theme")
-    if toggled == before:
-        return [f"toggling did not change data-theme (stayed {before!r})"]
+        toggled = page.evaluate("() => document.documentElement.dataset.theme")
+        if toggled == before:
+            failures.append(
+                f"{path}: toggling did not change data-theme " f"(stayed {before!r})"
+            )
+            continue
 
-    page.reload(wait_until="load")
-    after = page.evaluate("() => document.documentElement.dataset.theme")
-    if after != toggled:
-        return [f"theme did not survive reload: {toggled!r} became {after!r}"]
-    return []
+        page.reload(wait_until="load")
+        after = page.evaluate("() => document.documentElement.dataset.theme")
+        if after != toggled:
+            failures.append(
+                f"{path}: theme did not survive reload: "
+                f"{toggled!r} became {after!r}"
+            )
+    return failures
+
+
+def check_touch_targets(page, base_url: str) -> list[str]:
+    """Every tappable element is at least 44px on its smaller side.
+
+    The design calls this non-negotiable and batch criterion 8 names it, but
+    F-AUDIT-1 was closed against the theme toggle alone and nothing held the
+    rest. This check runs at the mobile viewport only, where a finger is the
+    pointer.
+
+    An element with no box is not rendered, so there is nothing to hit and it
+    is skipped.
+
+    A label and its input are one target, and the check measures whichever of
+    the pair a finger actually lands on. Where the input is visible -- a text
+    field with a caption above it -- the input is the target and the caption is
+    skipped. Where the input is clipped to 1x1 and styled through its label --
+    the theme toggle, the decade pills, the sort segments -- the label is the
+    target and the input is skipped. Measuring both would fail correct markup
+    every time; measuring neither is what let six small targets ship.
+    """
+    failures = []
+    for path in MIGRATED_PAGES:
+        for state, actions in TOUCH_TARGET_STATES.get(path, DEFAULT_STATES):
+            page.goto(f"{base_url}{path}", wait_until="load")
+            try:
+                _reach_state(page, actions)
+            except Exception as exc:  # noqa: BLE001 - unreachable is a failure
+                failures.append(
+                    f"{path}: could not reach the {state!r} state: "
+                    f"{type(exc).__name__}"
+                )
+                continue
+            failures.extend(_small_targets(page, path, state))
+    return failures
+
+
+def _reach_state(page, actions) -> None:
+    """Drive the page into one state, using real clicks and selections.
+
+    Real interactions rather than dispatched events: a synthetic event can
+    reach a listener that a genuine click could never trigger, and the check
+    is about what a finger can do.
+    """
+    for action in actions:
+        kind, selector = action[0], action[1]
+        target = page.locator(selector).first
+        if kind == "click":
+            target.click(timeout=TOGGLE_TIMEOUT_MS)
+        elif kind == "select":
+            target.select_option(action[2], timeout=TOGGLE_TIMEOUT_MS)
+        else:  # pragma: no cover - a typo in the table, not a page fault
+            raise ValueError(f"unknown touch-target action {kind!r}")
+
+
+def _small_targets(page, path: str, state: str) -> list[str]:
+    """Return one failure line per distinct undersized target in this state."""
+    small = page.evaluate(
+        """([selector, minimum]) => {
+            const describe = (node) => {
+                const name = node.tagName.toLowerCase();
+                if (node.id) return `${name}#${node.id}`;
+                const cls = (node.getAttribute('class') || '')
+                    .trim().split(/\\s+/)[0];
+                return cls ? `${name}.${cls}` : name;
+            };
+            // Clipped to 1x1 by the visually-hidden pattern, so a finger
+            // cannot land on it and its partner is the real target.
+            const CLIPPED_PX = 2;
+            const side = (node) => {
+                const rect = node.getBoundingClientRect();
+                return Math.min(rect.width, rect.height);
+            };
+            const found = [];
+            for (const node of document.querySelectorAll(selector)) {
+                const rect = node.getBoundingClientRect();
+                if (rect.width === 0 && rect.height === 0) continue;
+                const smaller = Math.min(rect.width, rect.height);
+                // An input styled through its label: the label is hit.
+                if (smaller <= CLIPPED_PX && node.labels
+                    && node.labels.length) {
+                    continue;
+                }
+                // A label whose input is visible: the input is hit.
+                if (node.tagName === 'LABEL') {
+                    if (!node.control) continue;
+                    if (side(node.control) > CLIPPED_PX) continue;
+                }
+                if (smaller < minimum) {
+                    found.push({
+                        what: describe(node),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height),
+                    });
+                }
+            }
+            return found;
+        }""",
+        [INTERACTIVE_SELECTOR, MIN_TOUCH_TARGET_PX],
+    )
+    # Four identical stepper buttons are one defect, not four. Collapse them
+    # so the count reads as how many places to fix.
+    counted: dict[tuple[str, int, int], int] = {}
+    for item in small:
+        key = (item["what"], item["width"], item["height"])
+        counted[key] = counted.get(key, 0) + 1
+    return [
+        f"{path} [{state}]: {what} is {width}x{height}"
+        + (f" ({count} of them)" if count > 1 else "")
+        + f", smaller side under {MIN_TOUCH_TARGET_PX}px"
+        for (what, width, height), count in counted.items()
+    ]
+
+
+def check_initial_visibility(page, base_url: str) -> list[str]:
+    """Everything a script reveals later is really invisible on load.
+
+    Computed display, not a class name. `.index-grid { display: grid }` beat
+    Tailwind's `.hidden` because a page stylesheet loads after tailwind.css and
+    wins at equal specificity, so the heatmap rendered below a hero that was
+    supposed to be gone. A probe that asserted the class name passed.
+    """
+    failures = []
+    for path, selectors in HIDDEN_ON_LOAD.items():
+        page.goto(f"{base_url}{path}", wait_until="load")
+        for selector in selectors:
+            state = page.evaluate(
+                """(selector) => {
+                    const node = document.querySelector(selector);
+                    if (!node) return null;
+                    return getComputedStyle(node).display;
+                }""",
+                selector,
+            )
+            if state is None:
+                failures.append(f"{path}: {selector} is not in the page at all")
+            elif state != "none":
+                failures.append(
+                    f"{path}: {selector} should start hidden but computes "
+                    f"display: {state}"
+                )
+    return failures
 
 
 def check_fonts(page, base_url: str) -> list[str]:
@@ -335,32 +567,58 @@ def check_body_font(page, base_url: str) -> list[str]:
     return failures
 
 
-#: Every check the gate runs, in the order it runs them.
+#: Every check the gate runs, with the viewports each one runs at.
+#:
+#: Width changes nothing for the first two: a link set and a font download are
+#: the same at any size. The rest can all differ across the 860px breakpoint,
+#: so they run twice. Touch targets are a mobile question only.
 CHECKS = (
-    ("stylesheet isolation", check_stylesheet_isolation),
-    ("theme tokens", check_theme_tokens),
-    ("theme persistence", check_theme_persistence),
-    ("fonts", check_fonts),
-    ("body font", check_body_font),
+    ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,)),
+    ("fonts", check_fonts, (DESKTOP,)),
+    ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE)),
+    ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE)),
+    ("body font", check_body_font, (DESKTOP, MOBILE)),
+    ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
+    ("touch targets", check_touch_targets, (MOBILE,)),
 )
+
+#: How many check runs a clean pass performs. Printed so a check that silently
+#: stops running is visible as a smaller number.
+PLANNED_RUNS = sum(len(viewports) for _, _, viewports in CHECKS)
 
 
 def run_checks(page, base_url: str) -> list[str]:
-    """Run every check and collect all failures rather than stopping at one.
+    """Run every check at every viewport it claims, collecting all failures.
 
     A check that raises is reported as a failure and the run continues. A bare
     call would let one TypeError skip every later check and surface as a
     traceback, which reads as "the gate crashed" rather than "the gate found
     three problems".
+
+    Every failure carries its viewport. "the submit button is 38px" is not
+    actionable until you know which width produced it.
     """
     failures = []
-    for name, check in CHECKS:
+    for viewport, size in VIEWPORTS.items():
         try:
-            results = check(page, base_url)
-        except Exception as exc:  # noqa: BLE001 - any check fault is a failure
-            failures.append(f"{name}: raised {type(exc).__name__}: {exc}")
+            page.set_viewport_size(size)
+        except Exception as exc:  # noqa: BLE001 - same rule as a check fault
+            failures.append(
+                f"the {viewport} viewport could not be set: "
+                f"{type(exc).__name__}: {exc}"
+            )
             continue
-        failures.extend(f"{name}: {failure}" for failure in results)
+        for name, check, viewports in CHECKS:
+            if viewport not in viewports:
+                continue
+            try:
+                results = check(page, base_url)
+            except Exception as exc:  # noqa: BLE001 - any check fault is a failure
+                failures.append(
+                    f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"
+                )
+                continue
+            failures.extend(f"{name} [{viewport}]: {failure}" for failure in results)
     return failures
 
 
@@ -395,7 +653,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"[frontend_gate] FAIL {failure}", file=sys.stderr)
         return 1
 
-    print(f"[frontend_gate] {len(CHECKS)} checks passed")
+    print(
+        f"[frontend_gate] {len(CHECKS)} checks passed "
+        f"in {PLANNED_RUNS} runs across desktop and mobile"
+    )
     return 0
 
 

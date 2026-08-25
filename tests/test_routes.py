@@ -60,6 +60,9 @@ def test_home_page_mode_tabs_are_real_buttons(client):
     assert '<button type="button" id="mode-tab-album"' in html
     assert '<button type="button" id="mode-tab-heatmap"' in html
     assert "Top albums" in html
+    # Not only the tabs. A span standing in for a control anywhere on the page
+    # is the same defect, and the next one would be added the same way.
+    assert 'role="button"' not in html
     assert "Top Albums" not in html
     assert 'role="button"' not in html
 
