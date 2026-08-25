@@ -37,6 +37,12 @@
   const MOBILE_MIN_COLUMNS = 10;
   const MOBILE_MAX_COLUMNS = 28;
   const MOBILE_GAP = 1;
+  // The design mandates a single breakpoint and docs/design/README.md
+  // "Responsive" puts it at 860px. static/css/heatmap.css moved to it in
+  // WP-3 and this file did not, so 768 to 859 got the mobile frame with the
+  // desktop 53-week grid scaled into it, and a resize across 860 never
+  // re-rendered. Named once, because two copies is how they drifted.
+  const MOBILE_MAX_WIDTH = 860;
 
   // Input Mono Narrow, not Input Mono. Full-width Input at 9-11px with this
   // much tracking overflows its row and clips. Named here rather than read
@@ -505,6 +511,10 @@
     heatmapUsernameInput.addEventListener('input', function () {
       this.classList.remove('is-valid', 'is-invalid');
       this.setCustomValidity('');
+      // .field__error hides only while it is empty. Bootstrap's
+      // .invalid-feedback keyed off a sibling class and hid stale text for
+      // free; this replacement has to be emptied by hand.
+      feedback.textContent = '';
     });
 
     heatmapUsernameInput.addEventListener('blur', function () {
@@ -521,6 +531,7 @@
             heatmapUsernameInput.classList.remove('is-invalid');
             heatmapUsernameInput.classList.add('is-valid');
             heatmapUsernameInput.setCustomValidity('');
+            feedback.textContent = '';
           } else {
             heatmapUsernameInput.classList.remove('is-valid');
             heatmapUsernameInput.classList.add('is-invalid');
@@ -717,7 +728,7 @@
   // ----------------------------------------------------------------
   function renderHeatmap(data) {
     lastHeatmapData = data;
-    lastRenderMobile = window.innerWidth < 768;
+    lastRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
     if (lastRenderMobile) {
       renderHeatmapMobile(data);
     } else {
@@ -1023,7 +1034,7 @@
         return;
       }
 
-      var shouldRenderMobile = window.innerWidth < 768;
+      var shouldRenderMobile = window.innerWidth < MOBILE_MAX_WIDTH;
       if (shouldRenderMobile !== lastRenderMobile) {
         renderHeatmap(lastHeatmapData);
       }
