@@ -169,13 +169,15 @@ still next. This review follow-up does not change its scope or sequence.
 
 **The original review is complete.** Codex performed the final audit and
 review hardening. `77bb001` closed all thirty PR threads, both Quality Gate
-runs passed, and the Codex connector recorded a thumbs-up. Post-completion
-Graphify passes then exposed four developer-gate hardening classes: root-font
-and saved-theme state isolation, repository-root confinement for declaration
-paths, and preservation of per-line regex semantics beside wrapped-document
-matching. Codex reproduced and fixed each at a shared seam, and rejected the
-remaining claims with live and source evidence. Codex did not attempt a merge.
-The owner merge remains the integration step; WP-4 stays next after it.
+runs passed, and the Codex connector recorded a thumbs-up. Three
+post-completion Graphify passes then exposed five developer-gate hardening
+classes: root-font and saved-theme state isolation, repository-root confinement
+for declaration paths, and preservation of per-line regex semantics beside
+wrapped-document matching. Equivalent spellings of one confined path also
+bypassed the live document map until the final pass. Codex reproduced and
+fixed each at a shared seam, and rejected the remaining claims with live and
+source evidence. PR #218 is the completed WP-3 integration branch; WP-4 starts
+from its merged result.
 
 **Commit 6 recorded all fifteen implementation deviations below.**
 
@@ -293,7 +295,7 @@ the round-by-round record. What a later agent needs to know:
   shadows, the canonical good colour, radius steps and root-font header
   scaling are measured across desktop, phone and wide-touch profiles. At the
   post-completion follow-up the gate ran 15 checks in 23 runs and the suite
-  had 821 tests.
+  had 822 tests.
 - **Three decisions remain outside this review fix.** `F-B21-18` records the
   JavaScript test seam and layout-independent export contract. `F-B21-19`
   records mobile heatmap and day-detail design drift. `F-B21-20` records the
