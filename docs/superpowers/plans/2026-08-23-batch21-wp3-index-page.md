@@ -155,12 +155,16 @@ the only record of where inside WP-3 the work stands.
 | (unplanned) plan amendment | done | `89a5da2` |
 | 3 -- the tokens | done | `a1e607b` |
 | 4 -- rebuild the page | done | `b1374b1` |
+| (unplanned) one wordmark | done | `e7ce039` |
+| (unplanned) hidden collision | done | `fa381d2` |
+| (unplanned) design refresh | done | `6e3f0ad` |
+| (unplanned) hero scale, mobile | done | `c0dadb0` |
 | 5 -- extend the gates | **next** | -- |
 | 6 -- record it | not started | -- |
 
 Nothing is pushed. The owner has not authorised a push or a pull request.
 
-**Eight deviations so far. Commit 6 must record all eight honestly.**
+**Twelve deviations so far. Commit 6 must record all twelve honestly.**
 
 1. **The lockup was realigned**, which the plan never scoped. Removing the
    tagline in WP-2 left the letterforms floating about 13 units above the bar
@@ -199,6 +203,27 @@ Nothing is pushed. The owner has not authorised a push or a pull request.
    page that swaps one for the other stays green. Commit 4 is green on all
    four gate commands. The index is simply still outside `check_theme_tokens`
    and `check_fonts` until Task 13 moves it.
+9. **The header wordmark is hidden on the index** (`e7ce039`). The header
+   carries the lockup on every page and the hero carries it again, about
+   60px apart. Owner ruled the header must not repeat the asset. The rule
+   lives in `static/css/index.css` with a pointer comment beside the header
+   rule in `shell.css`.
+10. **`limit_results` went back into the card** (`6e3f0ad`), reversing
+    `BATCH21_DEFINITION.md` decision 3. Owner ruled the design's placement
+    wins: how many albums you list is not part of what counts as listened.
+11. **The heatmap result was rebuilt against the design mock** (`6e3f0ad`):
+    a mono eyebrow carrying the range, the headline shortened to "A year of
+    <name>", `Save image` and `Search again` as hairline peers beside the
+    title, the ramp raised onto the KPI value line, and daily average
+    replacing active days in the KPI row. **`Save image` is a new feature
+    the plan never scoped** -- about 120 lines in `heatmap.js` that draw a
+    canvas by hand. Owner approved it knowing the labels inside the
+    serialized SVG fall back to a plain monospace stack.
+12. **The index is full bleed and the hero scales past 1500px**
+    (`6e3f0ad`, `c0dadb0`). The 1180px page cap left a narrow block floating
+    in a wide window, and the design caps results and the heatmap but never
+    the index. The hero mark now grows to 820px and the headline to 56px,
+    both past the design's stated 560px and 42px. Owner ruled both.
 
 **Two facts commits 4 onward depend on, both established after the plan was
 written.**
@@ -230,6 +255,21 @@ written.**
   `static/css/tailwind.src.css` by plain substring, so a comment that names
   one to explain why it is wrong reads as a reintroduction. Describe the
   colour in words there.
+- **A page stylesheet loads after `tailwind.css`, so it beats a utility of
+  equal specificity.** `.index-grid { display: grid }` overrode Tailwind's
+  `.hidden`, and the scripts then hid an element that stayed on screen with
+  the class applied. `.index-grid.hidden` restores it. The same ordering
+  trap bit a second time inside `index.css` itself: a `@media` block placed
+  above the base rule it meant to override did nothing at all, and the
+  measurements came back byte-identical to before. **Measure after the
+  change, not only before.**
+- **Assert computed style, never a class name.** The probe that was meant to
+  prove the grid hid asserted `className`, passed, and missed a live defect.
+  `scripts/dev/frontend_gate.py` should gain a check that walks every id the
+  scripts toggle and asserts `display: none` -- Task 13.
+- **Four tokens landed in commit 4, not commit 3**: `--ss-surface-card`,
+  `--ss-surface-sunken`, `--heatmap-surface` and `--ss-bad`. Task 14 must
+  add all four to `INDEX_TOKENS`.
 
 ---
 
@@ -838,6 +878,30 @@ test count from the Section 4 entry. Never hand-edit it.
 `templates/partials/` directory and its three files.
 
 ### Task 16: Findings
+
+**Four findings this work surfaced, all owner-acknowledged. File them here.**
+
+1. **The heatmap has no non-colour path to its data.** Measured with the
+   `dataviz` skill's validator and by hand: the rocket ramp itself is sound
+   -- strictly monotonic in OKLab lightness, steps 0.107 to 0.144 -- but the
+   ends nearly vanish into their own surface. `#f9d576` sits at 1.34:1
+   against the light frame and `#03051a` at 1.12:1 against the dark one. The
+   only relief that exists is a mouse hover: cells are not focusable, so a
+   keyboard reader cannot reach any day's value, and there is no table view.
+   The ramp is fixed by the design contract, so the fix is relief, not
+   re-tinting. **Owner ruled this critical on 2026-08-24** while noting that
+   a sighted mouse user sees no problem -- record that scope in the finding.
+2. **The page split is deferred.** Cross-reference the `GET /heatmap/<user>`
+   item under "Out of scope"; the split only pays for itself alongside it.
+   Owner decision 3, 2026-08-23.
+3. **`unmatched.html` loads the Bootstrap JS bundle but no `data-bs-*`
+   attribute on it uses the bundle.** It may already be dead weight. WP-7
+   should check rather than assume.
+4. **The heatmap export saves whatever layout is on screen.**
+   `docs/design/README.md` screen 4 asks for the desktop 53x7 grid even on a
+   phone. `saveHeatmapImage` does not re-render for export.
+
+
 
 **Files:** Modify `FINDINGS.md`
 
