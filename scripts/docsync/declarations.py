@@ -96,13 +96,15 @@ class DeclarationError(SyncError):
 #: A declared type. A plain type where the value stands alone, or one of these
 #: two where it is a container: what a container holds has to be right as well.
 #: `scan = [1]` is a list, and reaches `_expand` as a TypeError.
-_ListOf = namedtuple("_ListOf", "element")
+_ListOf = namedtuple("_ListOf", "element minimum", defaults=(0,))
 _MappingOf = namedtuple("_MappingOf", "key value")
 
 
 def _describe(spec: object) -> str:
     """Name a declared type the way the file's author would write it."""
     if isinstance(spec, _ListOf):
+        if spec.minimum:
+            return f"a list of at least {spec.minimum} {spec.element.__name__}"
         return f"a list of {spec.element.__name__}"
     if isinstance(spec, _MappingOf):
         return f"a table of {spec.key.__name__} to {spec.value.__name__}"
@@ -119,6 +121,9 @@ def _mismatch(spec: object, value: object) -> str | None:
     if isinstance(spec, _ListOf):
         if not isinstance(value, list):
             return f"{type(value).__name__}, not {_describe(spec)}"
+        if len(value) < spec.minimum:
+            seen = "an empty list" if not value else f"a list of {len(value)}"
+            return f"{seen}, not {_describe(spec)}"
         for position, item in enumerate(value):
             if not isinstance(item, spec.element):
                 return (
@@ -162,19 +167,19 @@ _DECLARATION_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
         "optional": {"expect": str},
     },
     "anchor": {
-        "required": {"target": str, "pattern": str},
-        "optional": {
-            "name": str,
-            "scan": _ListOf(str),
-            "allow_files": _ListOf(str),
-        },
+        # `scan` is required and may not be empty. Left optional, a
+        # declaration carrying only `target` and `pattern` validated, visited
+        # no documents, and DOC010 reported a clean result while checking no
+        # citations at all -- the same silent end state as the misspelled key
+        # above, reached without a typo.
+        "required": {"target": str, "pattern": str, "scan": _ListOf(str, 1)},
+        "optional": {"name": str, "allow_files": _ListOf(str)},
     },
     "retired": {
-        "required": {"pattern": str},
+        "required": {"pattern": str, "scan": _ListOf(str, 1)},
         "optional": {
             "name": str,
             "reason": str,
-            "scan": _ListOf(str),
             "allow_files": _ListOf(str),
             "allow_after": _MappingOf(str, str),
             "strikethrough_exempt": bool,
