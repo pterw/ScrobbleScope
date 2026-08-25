@@ -869,6 +869,104 @@ def test_a_declaration_fault_reaches_the_cli_as_a_sync_error() -> None:
     assert issubclass(DeclarationError, SyncError)
 
 
+def test_a_declaration_missing_a_required_key_names_the_key(tmp_path: Path) -> None:
+    """Reading the key straight out of the mapping raised a bare KeyError.
+
+    That ends the run in a traceback and exit 1, and tells the reader neither
+    which declaration is wrong nor what is missing from it.
+    """
+    root = _repo(tmp_path, {"notes.md": "text\n"})
+    declaration = {"name": "rule citations", "pattern": ANCHOR_PATTERN}
+
+    with pytest.raises(DeclarationError, match="has no 'target'"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_a_site_missing_a_key_is_named_by_the_value_that_holds_it(
+    tmp_path: Path,
+) -> None:
+    """A site carries no name, so it is named by its position and its parent."""
+    root = _repo(tmp_path, {"a.txt": "value\n", "b.txt": "value\n"})
+    declaration = {
+        "name": "the breakpoint",
+        "sites": [{"pattern": "value"}, {"file": "b.txt", "pattern": "value"}],
+    }
+
+    with pytest.raises(DeclarationError, match="site 0 of value 'the breakpoint'"):
+        check_values(_files(root), [declaration])
+
+
+def test_a_misspelled_key_is_refused_rather_than_ignored(tmp_path: Path) -> None:
+    """The quietest way this file can be wrong, and the reason for a schema.
+
+    `scans` instead of `scan` parses as valid TOML, is never read, and leaves
+    the declaration scanning nothing with the gate green. A check that
+    silently stops checking is the failure this whole module exists to
+    prevent, so an unknown key is an error rather than a shrug.
+    """
+    root = _repo(tmp_path, {"RULES.md": "## A\n", "notes.md": "text\n"})
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scans": ["notes.md"],
+    }
+
+    with pytest.raises(DeclarationError, match="unknown key 'scans'"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_a_list_written_as_a_bare_string_is_refused(tmp_path: Path) -> None:
+    """A string where a list belongs is read one character at a time.
+
+    Every character becomes a path that does not exist, so the declaration
+    matches nothing and reports nothing. Silent, like the misspelled key.
+    """
+    root = _repo(tmp_path, {"RULES.md": "## A\n", "notes.md": "text\n"})
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": "notes.md",
+    }
+
+    with pytest.raises(DeclarationError, match="'scan' as str, not list"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_a_retired_declaration_is_held_to_the_schema_too(tmp_path: Path) -> None:
+    """All three kinds validate, so a typo cannot hide in the third one."""
+    root = _repo(tmp_path, {"notes.md": "text\n"})
+    declaration = {"name": "r", "pattern": "x", "allow_file": ["notes.md"]}
+
+    with pytest.raises(DeclarationError, match="unknown key 'allow_file'"):
+        check_retired(_files(root), [declaration])
+
+
+def test_an_unknown_table_name_is_refused(tmp_path: Path) -> None:
+    """A misspelled [[ancor]] parses, is never read, and runs one fewer check."""
+    (tmp_path / DECLARATIONS_FILENAME).write_text(
+        '[[ancor]]\nname = "x"\n', encoding="utf-8"
+    )
+
+    with pytest.raises(DeclarationError, match="unknown table 'ancor'"):
+        collect_declaration_issues(repo_root=tmp_path, live_documents={})
+
+
+def test_a_misspelled_option_is_refused(tmp_path: Path) -> None:
+    """The quietest fault of all: the real option keeps its default.
+
+    `strikethough_exempt` leaves every retired claim exempt that the author
+    meant to expose, and nothing anywhere says so.
+    """
+    (tmp_path / DECLARATIONS_FILENAME).write_text(
+        "[options]\nstrikethough_exempt = true\n", encoding="utf-8"
+    )
+
+    with pytest.raises(DeclarationError, match="unknown key 'strikethough_exempt'"):
+        collect_declaration_issues(repo_root=tmp_path, live_documents={})
+
+
 def test_the_in_memory_copy_wins_over_the_file_on_disk(tmp_path: Path) -> None:
     """The gate grades documents it may have just rewritten in memory.
 
