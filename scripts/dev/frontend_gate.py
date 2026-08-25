@@ -549,6 +549,50 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_true_warning_survives(page, base_url: str) -> list[str]:
+    """Editing the username does not wipe a year warning that is still true.
+
+    The complement of the check above, and the harder half to keep right.
+    Clearing the last account's state has to take its error message with it:
+    "This user joined Last.fm in 2015" is a claim about an account nobody is
+    asking about any more. The obvious fix is to clear the year message
+    outright, and that is wrong -- "Year cannot be in the future" is about
+    the year, not the account, and has to survive.
+
+    So the handler re-derives instead of clearing, and this proves the half a
+    reader would not notice was broken: the message stays. No network call.
+    A future year is refused by the year field alone.
+    """
+    page.goto(f"{base_url}/", wait_until="load")
+    page.locator("#year").fill("")
+    page.locator("#year").type("2099")
+    before = _year_warning(page)
+    if "future" not in before.lower():
+        return [f"/ #year: 2099 did not raise a future-year warning, got {before!r}"]
+
+    page.locator("#username").type("a")
+    after = _year_warning(page)
+    if after != before:
+        return [
+            f"/ #username: typing changed a year warning it does not own, "
+            f"{before!r} -> {after!r}"
+        ]
+    return []
+
+
+def _year_warning(page) -> str:
+    """The text of the warning the year field writes beside itself."""
+    return page.evaluate(
+        """() => {
+            const year = document.querySelector('#year');
+            const error = year && year.parentNode.querySelector('.field__error');
+            return error && error.style.display !== 'none'
+                ? error.textContent
+                : '';
+        }"""
+    )
+
+
 def check_initial_visibility(page, base_url: str) -> list[str]:
     """Everything a script reveals later is really invisible on load.
 
@@ -656,6 +700,7 @@ CHECKS = (
     ("body font", check_body_font, (DESKTOP, MOBILE)),
     ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
     ("validation feedback", check_validation_feedback, (DESKTOP,)),
+    ("true warning survives", check_true_warning_survives, (DESKTOP,)),
     ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE)),
 )
 
