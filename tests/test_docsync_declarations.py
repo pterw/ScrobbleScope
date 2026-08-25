@@ -930,8 +930,52 @@ def test_a_list_written_as_a_bare_string_is_refused(tmp_path: Path) -> None:
         "scan": "notes.md",
     }
 
-    with pytest.raises(DeclarationError, match="'scan' as str, not a list of str"):
+    with pytest.raises(
+        DeclarationError, match="'scan' as str, not a list of at least 1"
+    ):
         check_anchors(_files(root), [declaration])
+
+
+def test_an_anchor_with_nothing_to_scan_is_refused(tmp_path: Path) -> None:
+    """A declaration that visits no documents reports a clean result.
+
+    `scan` was optional, so an anchor carrying only `target` and `pattern`
+    validated, `_expand` returned nothing, and DOC010 passed while checking no
+    citations at all. That is the same silent end state as a misspelled key,
+    reached without anyone making a typo.
+    """
+    root = _repo(tmp_path, {"RULES.md": "## A\n"})
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+    }
+
+    with pytest.raises(DeclarationError, match="has no 'scan'"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_an_empty_scan_is_refused(tmp_path: Path) -> None:
+    """Present but empty reaches the same nothing as absent."""
+    root = _repo(tmp_path, {"RULES.md": "## A\n"})
+    declaration = {
+        "name": "rule citations",
+        "target": "RULES.md",
+        "pattern": ANCHOR_PATTERN,
+        "scan": [],
+    }
+
+    with pytest.raises(DeclarationError, match="an empty list"):
+        check_anchors(_files(root), [declaration])
+
+
+def test_a_retired_declaration_needs_something_to_scan_too(tmp_path: Path) -> None:
+    """The same invariant, because the same silence is available in DOC011."""
+    root = _repo(tmp_path, {"notes.md": "text\n"})
+    declaration = {"name": "r", "pattern": "x"}
+
+    with pytest.raises(DeclarationError, match="has no 'scan'"):
+        check_retired(_files(root), [declaration])
 
 
 def test_a_non_string_inside_a_list_is_refused(tmp_path: Path) -> None:
