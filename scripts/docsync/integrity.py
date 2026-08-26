@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import subprocess
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from docsync.declarations import collect_declaration_issues
@@ -15,6 +15,7 @@ from docsync.parser import (
     CURRENT_BATCH_START_MARKER,
     SECTION_3_RE,
     SECTION_4_RE,
+    TEST_COUNT_RE,
     _extract_entry_batch,
     _find_marker_pair,
     _find_section,
@@ -455,6 +456,90 @@ def _section3_next_wp_claim(
     return claims[-1] if claims else (None, None)
 
 
+#: A pass claim whose count is not wrapped in the bold the authority needs.
+#:
+#: `**823 passed**` is what `TEST_COUNT_RE` reads. `823 passed` is invisible to
+#: it, and invisibility is the whole problem: the entry is skipped, an older
+#: entry supplies the count, and the gate passes green while every documented
+#: figure is stale. Prose that says "823 tests across 40 test modules" does not
+#: claim a pass result and does not match.
+_UNBOLDED_COUNT_RE = re.compile(
+    r"(?<!\*)(?<!\*\*)\b(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)\b(?!\*)",
+    re.IGNORECASE,
+)
+
+#: Where the execution log starts. Counts above it are prose, not entries.
+_EXECUTION_LOG_HEADING = "## 4. Execution log"
+
+
+def _check_unbolded_test_counts(
+    playbook_lines: Sequence[str],
+) -> list[IntegrityIssue]:
+    """DOC012: a pass claim in the log must carry the bold the authority reads.
+
+    The count that drives every documented figure is parsed from PLAYBOOK
+    Section 4, and only in bold. An author who writes `823 passed` gets no
+    feedback at all: the entry is skipped as though it recorded nothing, the
+    previous entry stays authoritative, and `--check` exits 0 with every
+    dashboard holding the old number.
+
+    That is a silent miss in the one chain the repository trusts to be
+    machine-derived, and it was found the way such things usually are -- an
+    agent wrote the unbolded form, watched the count not move, and only then
+    read the regex. Failing loudly here costs one line and removes the class.
+    """
+    issues: list[IntegrityIssue] = []
+    start = next(
+        (
+            index
+            for index, line in enumerate(playbook_lines)
+            if line.startswith(_EXECUTION_LOG_HEADING)
+        ),
+        None,
+    )
+    if start is None:
+        return issues
+
+    # Scoped per entry, not per line. An entry that records a bold count is
+    # readable, so a subset claim beside it -- "(35 passed)" for one module --
+    # is prose and not a miss. Only an entry the authority would skip
+    # entirely, because nothing in it is bold, can silently hold the wrong
+    # number.
+    for first, last in _entry_spans(playbook_lines, start):
+        entry_lines = playbook_lines[first:last]
+        if any(TEST_COUNT_RE.search(line) for line in entry_lines):
+            continue
+        for offset, line in enumerate(entry_lines, start=first + 1):
+            match = _UNBOLDED_COUNT_RE.search(line)
+            if match is None:
+                continue
+            issues.append(
+                _issue(
+                    "DOC012",
+                    "PLAYBOOK.md",
+                    offset,
+                    "A full-suite pass claim in the execution log carries the "
+                    "bold the count authority reads.",
+                    f"Write `**{match.group(1)} passed**`. Without the "
+                    f"asterisks the authority skips this entry and an older "
+                    f"count stays current, with no error to say so.",
+                )
+            )
+            break
+    return issues
+
+
+def _entry_spans(lines: Sequence[str], start: int) -> list[tuple[int, int]]:
+    """Return (first, last) index pairs for each `### ` entry after ``start``."""
+    heads = [
+        index for index in range(start, len(lines)) if lines[index].startswith("### ")
+    ]
+    return [
+        (head, heads[position + 1] if position + 1 < len(heads) else len(lines))
+        for position, head in enumerate(heads)
+    ]
+
+
 def _check_definition_next_wp(
     playbook_lines: list[str],
     definition_path: str,
@@ -870,6 +955,8 @@ def collect_integrity_issues(
                     _count_remediation(authority),
                 )
             )
+
+    issues.extend(_check_unbolded_test_counts(playbook_lines))
 
     if (
         current_batch is not None

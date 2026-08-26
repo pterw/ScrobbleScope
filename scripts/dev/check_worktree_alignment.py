@@ -44,6 +44,11 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
         action="store_true",
         help="re-raise inspection failures instead of rendering WT014",
     )
+    parser.add_argument(
+        "--advisory",
+        action="store_true",
+        help="always exit 0; print the diagnostics without gating the caller",
+    )
     return parser.parse_args(argv)
 
 
@@ -59,7 +64,17 @@ def _render(diagnostic: Diagnostic) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Print worktree diagnostics and return nonzero when errors exist."""
+    """Print worktree diagnostics and return nonzero when errors exist.
+
+    Under ``--advisory`` the exit code is always 0. The diagnostics still
+    print, unchanged. This exists so a caller can surface lineage without
+    gating on it: eleven of the fifteen codes are errors, including WT003 for
+    any branch the active batch does not name and WT004 for the identical-tree
+    divergence a rebase merge always leaves. A pre-commit hook that gated on
+    those would refuse every commit on a feature branch and every commit after
+    a merge until the branch is realigned, which is a workflow decision and
+    not this command's to make.
+    """
     args = _parse_args(argv)
     try:
         diagnostics = inspect_worktree(
@@ -78,6 +93,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     for diagnostic in diagnostics:
         print(_render(diagnostic))
+    if args.advisory:
+        return 0
     return 1 if any(d.severity == "ERROR" for d in diagnostics) else 0
 
 

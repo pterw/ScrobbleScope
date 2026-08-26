@@ -13,7 +13,7 @@ and F-B18-12 and filed F-B21-14 through F-B21-20. The owner's review of the
 deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
 F-B21-23 and F-B21-24, and the workflow review that followed it added
 F-B21-25. **WP-4 is next.**
-822 tests across 40 test modules.
+826 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -807,9 +807,27 @@ case. Centralise that shared base only after broader browser parity checks
 cover both consumers; refactoring it before then would trade a demonstrated
 shotgun-surgery bug for an unproved rewrite.
 
-Status: open. The owner queued it behind F-B21-17 on 2026-08-25; that
-prerequisite is now resolved, but this implementation is not scheduled.
-Source: Batch 21 WP-3 review analysis, 2026-08-25.
+Status: open, and **scheduled**. The owner ruled on 2026-08-26 that this
+becomes a work package of its own, sequenced before WP-5, and is not folded
+into WP-4. Scope is the pure-function seam only -- `rocketColor`,
+`countToNorm`, `computeStreak` and the export header layout -- on the
+Chromium the frontend gate already owns. No Node, no `package.json`.
+
+The timing is the reason for that position. WP-5 and WP-7 are the two
+remaining JavaScript-heavy pages, so a seam built before WP-5 still guards
+work this batch does; built at WP-8 it would guard nothing here. The DOM
+half is deliberately excluded, because the frontend gate already covers it
+where it bites -- 2026-08-26 is the worked example: a real pre-paint theme
+defect was caught by a browser check reading `data-theme` under blocked
+storage, which no unit test of a pure function could have seen.
+
+Placing it needs care. `WP_SKIPPED_RE` and the DOC007 derivation read work
+package numbers from PLAYBOOK Section 4 headings, and WP-6 is already
+absorbed into WP-3, so the number this takes and how the definition records
+it must be settled before the first commit rather than discovered by a red
+gate.
+Source: Batch 21 WP-3 review analysis, 2026-08-25. Scheduled by owner
+ruling, 2026-08-26.
 
 ### F-B21-19: heatmap mobile and day-detail behaviour drifted from the design
 
@@ -1045,7 +1063,27 @@ behind the length problem, and it is narrower than `F-STYLE-1`.
 
 **Partly closed on 2026-08-26.** The guard now runs as the
 `worktree-alignment` pre-commit hook, verbose so lineage is visible on a
-passing run. It is skipped in CI, and the reason is worth keeping: the
+passing run, and **advisory**: it prints and never gates.
+
+That last word was wrong twice before it was right. The hook first shipped
+gating, on the claim that only WT002, WT007 and WT014 are errors. A PR #220
+reviewer corrected it: eleven of the fifteen codes are errors -- WT001,
+WT002, WT003, WT004, WT005, WT006, WT007, WT008, WT012, WT014, and WT009
+inside a linked worktree. WT003 fires for any branch the active batch does
+not name, and WT004 for the identical-tree divergence a rebase merge always
+leaves, so the gating version would have refused every commit on a feature
+branch and every commit after a merge until realignment. The owner ruled it
+advisory on 2026-08-26: the problem was that the guard's output was
+invisible, not that commits needed a new gate. `--advisory` carries that,
+and a test asserts it exits 0 on an ERROR while the same run without the
+flag still exits 1.
+
+The claim was wrong because the severity check grepped two of the guard's
+six modules and generalised. That is the same incomplete-sweep mistake
+`AGENTS.md` names, made while writing this finding about mechanisms that
+only hold in one place.
+
+It is skipped in CI, and the reason is worth keeping: the
 first push went red on `ERROR WT007`, because `actions/checkout` makes a
 shallow single-branch clone with no `origin/main`, so the guard failed
 closed on a base ref that is legitimately absent. The guard measures

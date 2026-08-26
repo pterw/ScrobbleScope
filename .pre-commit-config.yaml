@@ -58,18 +58,23 @@ repos:
         pass_filenames: false
         always_run: true
 
-      # The guard already exits 1 on an ERROR diagnostic and 0 otherwise, so
-      # it was built to gate and was simply never wired to one. Only WT002
-      # (PLAYBOOK Section 3 unparseable), WT007 (base ref absent) and WT014
-      # (inspection failed) are errors. WT004, the identical-tree state a
-      # rebase merge always leaves, is not, and neither is WT010 for a dirty
-      # tree -- so the states the owner treats as normal still commit.
-      # verbose surfaces the INFO lines on a passing run, which is the point:
-      # branch lineage should be visible at commit time, not only when
-      # somebody remembers to ask for it.
+      # Advisory on purpose: --advisory always exits 0, and verbose prints the
+      # diagnostics on a passing run. The problem this solves is that the
+      # guard's output was invisible unless somebody remembered to run it, not
+      # that commits needed a new gate.
+      #
+      # It must not gate. Eleven of the fifteen codes are errors -- WT001,
+      # WT002, WT003, WT004, WT005, WT006, WT007, WT008, WT012, WT014, and
+      # WT009 inside a linked worktree. WT003 fires for any branch the active
+      # batch does not name and WT004 for the identical-tree divergence a
+      # rebase merge always leaves, so gating here would refuse every commit
+      # on a feature branch and every commit after a merge until the branch is
+      # realigned. Only WT010 (dirty tree) and WT000/WT011/WT013 are not
+      # errors. An earlier revision of this hook claimed the error set was
+      # three codes; a PR #220 reviewer corrected it.
       - id: worktree-alignment
         name: worktree-alignment
-        entry: python scripts/dev/check_worktree_alignment.py
+        entry: python scripts/dev/check_worktree_alignment.py --advisory
         language: python
         pass_filenames: false
         always_run: true
