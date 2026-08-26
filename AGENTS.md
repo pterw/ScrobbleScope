@@ -255,7 +255,7 @@ pushing, spend the two minutes these checks cost:
 
 1. Read each changed file **whole**, not as a diff -- contradictions hide
    in the unchanged text next to the edit.
-2. Run the blast-radius greps described in the Anti-Pattern Registry
+2. Run the repo-wide greps described in the Anti-Pattern Registry
    under "Fixing the instance instead of the class", "Lossy or
    contradictory consolidation", and "Assertions over sets, ranges, and
    citations": citations of anything renumbered or renamed, sibling
@@ -263,7 +263,7 @@ pushing, spend the two minutes these checks cost:
    asserts.
 3. Derive that sweep from `git diff origin/main...HEAD` -- the branch's
    cumulative state, never one review round's commits. Each round
-   inherits every earlier round's blast radius, so a sweep scoped to
+   inherits everything the earlier rounds touched, so a sweep scoped to
    today's edits narrows a little further each time until it finds
    nothing and the next reviewer does.
 4. Recording a deviation does not discharge the sweep. After writing a
@@ -609,11 +609,14 @@ Agents must check their work against this list before committing.
    or drain the active venv. This happened in Batch 17 and caused a full
    package reinstall with version drift. Always use `.venv/Scripts/pip`
    (Windows) or `.venv/bin/pip` (Linux) explicitly.
-5. **Background server processes:** Starting `python app.py` or any Flask
-   server in a background Bash process and not cleaning it up blocks the
-   owner's terminal. Never start a server via the Bash tool. The owner runs
-   the app in their own terminal. To probe a running server use
-   `python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:5000/').status)"`.
+5. **A server you start is yours to stop.** The harm is a stray process on
+   the owner's machine and a terminal they cannot get back, not the act of
+   serving. Serving is normal here: `scripts/dev/frontend_gate.py` starts
+   the real app every run. Copy what it does -- bind loopback, ask the OS
+   for a port instead of taking 5000, and shut down in a `finally` so a
+   failure cannot leave a socket listening. Never leave a server running
+   past the task that needed it. The owner runs the app on 5000 in their
+   own terminal; do not compete for that port.
 6. **Naive-tz vacuous datetime tests (PR #152, F-B19-6):** A datetime test
    that builds its inputs with the same tz-awareness pattern (naive vs
    aware) as the code under test compares the code against itself, not
@@ -642,7 +645,7 @@ Agents must check their work against this list before committing.
     largest source of repeat review rounds in this repository -- a
     documentation PR needed several extra rounds because each round's
     findings were produced by the previous round's own fixes. Every edit
-    requires a blast-radius grep before the validation gates:
+    requires a repo-wide grep for the other copies before the gates run:
     - after renumbering or renaming, repoint every citation by **name**,
       not number -- a name cannot go stale when the list reorders. What
       matters is whether the target can move, not the wording: an item in

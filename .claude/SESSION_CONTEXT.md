@@ -12,14 +12,7 @@ Last updated: 2026-08-25
 | Tests | **822 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
-| Batch 13 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH13_DEFINITION.md`. |
-| Batch 14 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH14_DEFINITION.md`. |
-| Batch 15 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH15_DEFINITION.md`. |
-| Batch 16 status | **Complete**. All 6 WPs done. Definition: `docs/history/definitions/BATCH16_DEFINITION.md`. |
-| Batch 17 status | **Complete**. All 4 WPs done (WP-5 dropped). Definition: `docs/history/definitions/BATCH17_DEFINITION.md`. |
-| Batch 18 status | **Complete**. All 5 WPs done. Definition: `docs/history/definitions/BATCH18_DEFINITION.md`. |
-| Batch 19 status | **Complete**. All 5 WPs done plus owner-review follow-up. Definition: `docs/history/definitions/BATCH19_DEFINITION.md`. PR #152 merged to `main`. |
-| Batch 20 status | **Complete**. All 9 WPs done. Definition: `docs/history/definitions/BATCH20_DEFINITION.md`. |
+| Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
 | Batch 21 status | **Active.** WP-0 through WP-3 are done. PR #218 carries the completed WP-3 integration and five Codex-verified developer-gate hardenings; GitHub owns its live integration state. **WP-4 (unified loading) is next from the merged result.** WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for evidence and history. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
@@ -188,48 +181,20 @@ loading.js polls GET /progress?job_id=...
 
 ## 6. Test structure (822 tests)
 
-| File | Count |
-|------|-------|
-| scripts/dev/test_dev_start.py | 11 |
-| scripts/dev/test_frontend_gate.py | 12 |
-| scripts/dev/test_tailwind_build.py | 37 |
-| scripts/dev/test_tailwind_build_cli.py | 11 |
-| scripts/dev/test_worktree_guard.py | 23 |
-| scripts/dev/test_worktree_guard_base_ref.py | 6 |
-| scripts/dev/test_worktree_guard_cli.py | 5 |
-| scripts/dev/test_worktree_guard_cli_e2e.py | 11 |
-| scripts/dev/test_worktree_guard_inspection.py | 14 |
-| scripts/dev/test_worktree_guard_playbook.py | 15 |
-| scripts/dev/test_worktree_guard_runner.py | 4 |
-| scripts/dev/test_worktree_guard_severity.py | 15 |
-| scripts/dev/test_worktree_guard_subject.py | 20 |
-| scripts/dev/test_worktree_guard_topology.py | 7 |
-| scripts/dev/test_worktree_guard_venv.py | 13 |
-| scripts/testing/test_concurrent_users_test.py | 6 |
-| scripts/testing/test_smoke_cache_check.py | 13 |
-| services/test_lastfm_logic.py | 8 |
-| services/test_lastfm_service.py | 9 |
-| services/test_orchestrator_fetch_and_process.py | 10 |
-| services/test_orchestrator_fetch_spotify.py | 8 |
-| services/test_orchestrator_helpers.py | 18 |
-| services/test_orchestrator_process_albums.py | 7 |
-| services/test_spotify_service.py | 10 |
-| test_app_factory.py | 6 |
-| test_docsync_cli.py | 24 |
-| test_docsync_declarations.py | 71 |
-| test_docsync_integrity.py | 90 |
-| test_docsync_logic.py | 33 |
-| test_docsync_parser.py | 35 |
-| test_docsync_renderer.py | 28 |
-| test_docsync_test_count.py | 9 |
-| test_domain.py | 13 |
-| test_heatmap.py | 20 |
-| test_repositories.py | 20 |
-| test_retry_with_semaphore.py | 8 |
-| test_routes.py | 67 |
-| test_template_shell.py | 65 |
-| test_utils.py | 34 |
-| test_worker.py | 6 |
+The per-file breakdown used to live here as a 40-row table. It was
+removed on 2026-08-26: nothing read it, only the total is gated, and it
+drifted three times during Batch 21 -- each drift a false fact in the document
+agents bootstrap from. Derive it instead, which cannot go stale:
+
+```
+pytest --collect-only -q tests | grep "::" | cut -d: -f1 | sort | uniq -c | sort -rn
+```
+
+The total above is machine-managed. Section 2's STATUS block is the authority
+and `doc_state_sync.py --fix` writes it; see PLAYBOOK Section 4.
+
+Layout: `tests/` mirrors the package, with `tests/scripts/dev/` covering the
+developer tooling and `tests/services/` the Last.fm and Spotify paths.
 
 ---
 

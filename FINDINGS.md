@@ -858,6 +858,83 @@ already rebuilt stylesheet.
 Status: open. Owner decision required; not assigned to a work package.
 Source: PR #218 final verification, 2026-08-25.
 
+### F-B21-21: the index hero wordmark ignores the theme
+
+Measured on the deployed page, both themes, `data-theme` set on `<html>`:
+
+| mark | light | dark |
+| --- | --- | --- |
+| header `.site-header__mark` | ink `#1a1820`, bars `#6a4baf` | ink `#f1ede4`, bars `#b39dde` |
+| hero `.index-hero__mark` | ink `#000000`, bars `#6a4baf` | ink `#000000`, bars `#6a4baf` |
+
+The hero mark is frozen. Its letterforms are pure black in both themes, so on
+the dark page background (`#0e0c12`) they are nearly invisible. Owner reported
+it as the main visual defect after the PR #218 deploy.
+
+Both wrappers include the same asset, `inline/scrobble_scope_lockup_inline.svg`,
+and both carry the shared `ss-mark` class. Only the header is coloured:
+
+```css
+/* static/css/shell.css */
+.site-header__mark svg .cls-1        { stroke: var(--shell-accent); }
+.site-header__mark svg #logo-text path { fill: var(--shell-ink); }
+```
+
+Unstyled, the asset falls back to its own embedded `<style>`, which pins
+`stroke: #6a4baf`, and the letterforms have no fill rule at all, so the user
+agent paints them black.
+
+`global.css` had the equivalent rules unscoped, matching any SVG on the page:
+
+```css
+.dark-mode svg .cls-1 { stroke: var(--bars-color); }
+.dark-mode svg #logo-text path, .dark-mode svg #tagline path { fill: var(--text-color); }
+```
+
+The four unmigrated Bootstrap pages still load `global.css` and still look
+right. The migrated index page does not load it, and `shell.css` replaced the
+rule at a narrower scope, so the hero fell through the gap. This is the PR #216
+round-three lesson in mirror image: there the defect came from deleting a
+container without checking what it styled; here it comes from reusing an asset
+under a new container without carrying its styling across.
+
+Remedy, four lines: move both declarations from `.site-header__mark` to the
+shared `.ss-mark`, which both wrappers already carry. `--shell-ink` and
+`--shell-accent` are defined on `:root` and `:root[data-theme="dark"]`, so they
+resolve anywhere. Add a frontend-gate check asserting that every `.ss-mark` on
+a migrated page changes its computed fill between themes; the existing gate
+cannot see this, because no check reads a colour off an inline SVG.
+
+Not animation. Measured `animate`/`animateTransform` count is 0 on all three
+index marks; the only CSS animations target `#horizontal_bars` and the
+pinwheel. What reads as moving text is the bars pulsing beside it.
+
+Status: open. Small and self-contained; suitable for WP-7 or a standalone fix.
+Source: owner review of the deployed merge, 2026-08-26. Verified in Chromium.
+
+### F-B21-22: theme follows the system only until the toggle is first used
+
+`templates/base.html` picks the pre-paint theme with
+`saved === 'true' || (saved === null && matchMedia('(prefers-color-scheme: dark)').matches)`.
+That is correct for a first visit. But the toggle is a two-state switch that
+writes `'true'` or `'false'`, and `saved === null` is then never true again, so
+one click permanently detaches the page from the system preference. There is no
+way back to "follow the system" short of clearing site data.
+
+Owner reported being served light while their system default is dark, which
+this explains: a stored `'false'` from earlier review outranks the media query.
+`theme.js` writes only on `change`, so nothing persists a value the reader did
+not choose -- the mechanism is working, the model is missing a third state.
+
+Remedy: store `'system'` as a third value and default to it, or drop the key
+when the chosen state matches the system so the preference reattaches. Either
+needs the pre-paint script and `theme.js` to agree, and a gate check that a
+stored choice still survives a reload.
+
+Status: open, low severity. Owner decision on whether a three-state control is
+wanted before WP-8 retires the second theme write.
+Source: owner review of the deployed merge, 2026-08-26.
+
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed

@@ -66,6 +66,17 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ## Architectural Constraints
 
+- **The wordmark typeface is Oblong Regular, by WAPType.** Free, and licensed
+  so this project can host it. The owner recovered this on 2026-08-25 after
+  about three hours: the original was set in Illustrator and converted to
+  paths, so the wordmark and the pinwheel `S` on the loading page are outline
+  geometry with no font reference left in them. Nothing in the repository
+  recorded which face they came from, and nothing could have.
+  Write it down rather than re-deriving it. It is what makes the letterforms
+  editable again, and it is the precondition for splitting the mark into a
+  live text element plus the bar visualiser, instead of one frozen outline.
+  The owner has judged that split **not worth doing yet** -- it is recorded
+  as an option, not as planned work. Do not start it without a ruling.
 - Runtime concurrency constants (`MAX_ACTIVE_JOBS`, `_GlobalThrottle`,
   `_cache_lock`, `_PLAYTIME_ALBUM_CAP`): see SESSION_CONTEXT Section 1
   "Key runtime facts" (single source; do not restate values here).
