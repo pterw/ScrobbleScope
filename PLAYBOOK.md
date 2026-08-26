@@ -514,8 +514,20 @@ non-current operational logs. Older dated entries live in
   the numbered list, and the file carries origin narrative that serves the
   editor rather than the reader. Both edit `AGENTS.md` and need an owner
   ruling first.
-- Validation: 822 tests, all 12 hooks, docsync `--check` exit 0, guard
-  exit 0.
+- **The first push went red, and the hook was the cause.** `12cfe25` failed
+  the Quality Gate with `ERROR WT007 origin/main -- comparison base ref is
+  missing`. `actions/checkout` makes a shallow single-branch clone, so
+  `origin/main` does not exist on a runner and the guard fails closed on a
+  base ref that is legitimately absent. `WARNING WT009` also fired for the
+  `.venv` CI does not use. The step now sets `SKIP: worktree-alignment`,
+  with the reason at the step: the guard measures developer worktree
+  lineage, and a runner has no worktree topology to protect. Fetching the
+  base ref would have silenced WT007 and left the check measuring nothing.
+- The lesson is the one this entry is about, applied to its own author. A
+  check was added without asking where it runs, and its assumptions held on
+  one machine only. Local verification passed and proved nothing about CI.
+- Validation: 822 tests, all 12 hooks locally, docsync `--check` exit 0,
+  guard exit 0, and the Quality Gate green after the skip landed.
 
 ### 2026-08-25 - PR #218 review rounds and post-completion pass applied (side-task)
 

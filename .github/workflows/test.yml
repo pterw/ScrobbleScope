@@ -48,7 +48,19 @@ jobs:
       # The tailwind-css-drift pre-commit hook rebuilds and diffs, so the
       # direct build-and-diff step this replaces would compile the stylesheet
       # a second time for the same answer.
+      # worktree-alignment is skipped here on purpose. The guard checks
+      # developer worktree lineage -- which branch is checked out, how it
+      # relates to origin/main, which virtualenv the tools resolve to. A
+      # runner has none of that: actions/checkout makes a shallow
+      # single-branch clone with no origin/main, so the guard reports
+      # ERROR WT007 for a base ref that is legitimately absent, and
+      # WARNING WT009 for a .venv that CI does not use. Fetching the base
+      # ref would silence WT007 and still leave the check measuring
+      # nothing. The states it exists to catch can only occur on a
+      # developer machine.
       - name: Run pre-commit checks
+        env:
+          SKIP: worktree-alignment
         run: |
           pre-commit run --all-files
 

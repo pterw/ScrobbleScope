@@ -1045,7 +1045,15 @@ behind the length problem, and it is narrower than `F-STYLE-1`.
 
 **Partly closed on 2026-08-26.** The guard now runs as the
 `worktree-alignment` pre-commit hook, verbose so lineage is visible on a
-passing run. A `SessionStart` hook injects branch, working-tree state,
+passing run. It is skipped in CI, and the reason is worth keeping: the
+first push went red on `ERROR WT007`, because `actions/checkout` makes a
+shallow single-branch clone with no `origin/main`, so the guard failed
+closed on a base ref that is legitimately absent. The guard measures
+developer worktree lineage and a runner has no worktree topology to
+protect, so the step sets `SKIP: worktree-alignment` rather than fetching
+a base ref to satisfy a check that would then measure nothing. The
+failure is itself an instance of this finding: a check added without
+asking where it runs, whose assumptions held on one machine only. A `SessionStart` hook injects branch, working-tree state,
 guard codes and the machine-managed status block into every new Claude
 Code session, so the state arrives without depending on effort level,
 model, or the model choosing to read. The second virtualenv the allowlist
