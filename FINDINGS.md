@@ -943,6 +943,67 @@ Status: open, low severity. Owner decision on whether a three-state control is
 wanted before WP-8 retires the second theme write.
 Source: owner review of the deployed merge, 2026-08-26.
 
+### F-B21-23: the inline marks diverge from the design contract on colour
+
+`docs/design/README.md` "Assets" specifies the two inline variants as
+**theme-reactive: text `currentColor`, bars `var(--bars-color)`**. Neither
+shipped asset does it. `templates/inline/scrobble_scope_lockup_inline.svg` and
+`scrobble_scope_inline.svg` contain zero occurrences of `currentColor`; the
+letterforms carry no fill rule at all and the bars are pinned by an embedded
+`<style>` to a literal `#6a4baf`.
+
+This is the real cause of F-B21-21, which was fixed at the symptom. Because
+the asset does not react to anything, every wrapper that displays it has to be
+named explicitly in a stylesheet, and the index hero was the wrapper somebody
+forgot. The list will need extending again for every mark WP-4 through WP-8
+adds, and the gate check added with F-B21-21 exists only to catch that.
+
+Doing what the contract says removes the class. Give the letterforms
+`fill="currentColor"` and the bars `stroke: var(--bars-color)`, then any
+wrapper that sets `color` and defines that token gets a correct mark with no
+selector naming it. The per-wrapper list in `shell.css` collapses to nothing.
+
+Two reasons it was not done in the F-B21-21 fix. The assets are shared with the
+four Bootstrap pages, which currently colour them through `global.css`
+`.dark-mode`, and those pages render only from a POST with session state, so no
+gate can show the result. And `--bars-color` is a `global.css` token while the
+migrated pages use `--shell-accent`; the two carry different dark values
+(`#9370DB` against `#b39dde`), so unifying the asset means first deciding which
+value wins.
+
+Status: open. Right shape for WP-8, alongside retiring `global.css` and the
+second `.dark-mode` theme write. Doing it there makes one change instead of
+three.
+Source: F-B21-21 follow-up, 2026-08-26.
+
+### F-B21-24: the index does not scale up on large displays
+
+The owner runs a 1080p and a 1440p monitor and reports that dragging the window
+to the larger one leaves too much whitespace: the content keeps its size and
+the margins absorb the extra width.
+
+That is the design contract working as written, not a defect.
+`docs/design/README.md` "Screens" caps the form at 380px and the wordmark at
+560px, with the stated reason that an uncapped mark "grows with the viewport
+until it dwarfs the h1". `index.css` implements it -- the desktop hero is
+`max-width: clamp(35rem, 74%, 51.25rem)`, and the form column is `23.75rem`.
+So above roughly 1400px nothing grows.
+
+Changing it is an amendment to the design contract and needs an owner ruling,
+not a stylesheet tweak. The owner has asked for content to hold the same
+apparent size across displays "up to a point", which is a third cap rather than
+no cap: raise the ceilings and let type and spacing scale with the viewport
+between the floor and the new ceiling, rather than jumping at a breakpoint.
+
+If it is taken: the existing `clamp()` usage is the pattern, `rem` for type and
+spacing per `AGENTS.md` "UI and Accessibility Rules" item 1, and a gate check
+comparing rendered content width at 1920 and 2560 against the ratio the owner
+accepts. `docs/design/RECONCILIATION.md` records the override when the shipped values
+stop matching the imported snapshot.
+
+Status: open. Owner decision on the new ceilings before any work.
+Source: owner review of the deployed merge, 2026-08-26.
+
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
 Cases the PR #169 review round confirmed and deliberately left unfixed
