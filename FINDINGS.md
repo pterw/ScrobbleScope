@@ -8,9 +8,11 @@ side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
 WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
-F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11 and F-B18-12 and
-filed F-B21-14 through F-B21-22; the owner's review of the deployed merge
-added F-B21-21 (resolved same day) and F-B21-22. **WP-4 is next.**
+F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11
+and F-B18-12 and filed F-B21-14 through F-B21-20. The owner's review of the
+deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
+F-B21-23 and F-B21-24, and the workflow review that followed it added
+F-B21-25. **WP-4 is next.**
 822 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
@@ -1003,6 +1005,61 @@ stop matching the imported snapshot.
 
 Status: open. Owner decision on the new ceilings before any work.
 Source: owner review of the deployed merge, 2026-08-26.
+
+### F-B21-25: every gate runs at commit time, so the session is unguarded
+
+The documentation integrity gate, the compiled-CSS drift hook and the test
+suite all run through `pre-commit`. They work: each was mutation-tested on
+2026-08-26 and each caught its defect with the right code. They also share
+one blind spot.
+
+**Nothing runs at session time or at filesystem time.** Deleting local
+files, removing a worktree, deleting a branch and force-replacing its
+remote produce no commit, so no gate is consulted. On 2026-08-25 a session
+branched from `origin/main`, made three commits with no PLAYBOOK Section 4
+entry, renamed the branch over the retained one and replaced its remote.
+Every gate stayed green. A reviewer caught the missing entry, not a check.
+
+Three causes, each fixable on its own:
+
+1. **The worktree guard was wired to nothing.** It exits 1 on an ERROR
+   diagnostic and 0 otherwise, so it was built to gate, but it appeared in
+   no hook and ran only when somebody chose to run it.
+2. **Bootstrap was self-referential.** The rule that says to read
+   `AGENTS.md` lives in `AGENTS.md`. A session that does not open it never
+   learns it should. `.claude/settings.local.json` carried a permission
+   allowlist and no hooks at all.
+3. **What was lost was gitignored.** `skills-lock.json` is still missing.
+   Git protects tracked files; the workflow depends on untracked ones and
+   nothing declares which of them matter.
+
+**Two structural defects in `AGENTS.md` itself.** Its "Session Bootstrap
+(in order)" section opens with two fast-path paragraphs that authorise
+skipping bootstrap, placed above the numbered list, so a skim finds the
+exemption before the obligation. And the file has accumulated origin
+narrative: agents editing it explain why a rule came to be written, which
+serves the editor and not the reader. A bootstrap ruleset is read cold and
+under pressure. Rationale belongs in a finding or a PLAYBOOK entry; the
+rule should state the intent and stop. This is the specific mechanism
+behind the length problem, and it is narrower than `F-STYLE-1`.
+
+**Partly closed on 2026-08-26.** The guard now runs as the
+`worktree-alignment` pre-commit hook, verbose so lineage is visible on a
+passing run. A `SessionStart` hook injects branch, working-tree state,
+guard codes and the machine-managed status block into every new Claude
+Code session, so the state arrives without depending on effort level,
+model, or the model choosing to read. The second virtualenv the allowlist
+had been authorising is deleted.
+
+Remaining, and not started: a declared manifest of untracked-but-essential
+files, in the shape of `.docsync.toml` so the mechanism carries no
+repository facts; the two `AGENTS.md` defects above; and an equivalent
+entry point for Codex and Copilot, which have no session hook and for whom
+the top of `AGENTS.md` is the only forcing function there is.
+
+Status: partly closed. The remaining items need an owner ruling, because
+two of them edit `AGENTS.md`.
+Source: workflow review after the worktree retirement, 2026-08-26.
 
 ### F-DOCSYNC-6: known DOC001 and count-derivation boundaries
 
