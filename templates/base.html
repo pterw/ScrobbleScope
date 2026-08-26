@@ -26,15 +26,28 @@
        and then flips, because theme.js cannot run until the body exists. #}
     <script>
         (function () {
+            // Only the read is guarded, and that is the whole point. Reading
+            // localStorage throws outright where a browser blocks site data:
+            // a private window, tracking protection, a per-origin block. The
+            // previous version wrapped the read, the media query and the write
+            // in one try, so a thrown read skipped all three and left
+            // data-theme at the hardcoded "light". A reader whose system says
+            // dark then got a light page, and toggling did not help, because
+            // the matching setItem in theme.js throws too and nothing sticks.
+            //
+            // The system preference needs no storage, so it has to stay
+            // reachable when storage is not.
+            var saved = null;
             try {
-                var saved = localStorage.getItem('darkMode');
-                var dark = saved === 'true' || (saved === null &&
-                    window.matchMedia('(prefers-color-scheme: dark)').matches);
-                document.documentElement.setAttribute(
-                    'data-theme', dark ? 'dark' : 'light');
+                saved = localStorage.getItem('darkMode');
             } catch (error) {
-                /* Storage can throw in private mode. Keep the light default. */
+                /* No readable choice; fall through to the system preference. */
             }
+            var dark = saved === 'true'
+                || (saved !== 'false'
+                    && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.setAttribute(
+                'data-theme', dark ? 'dark' : 'light');
         })();
     </script>
 

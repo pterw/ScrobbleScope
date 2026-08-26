@@ -9,6 +9,88 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-25 - DOC009 to DOC011: facts written down more than once (side-task)
+
+- Scope: closed the buildable half of `F-B21-17`. Three declared integrity
+  checks in a new `scripts/docsync/declarations.py`, driven by a new
+  `.docsync.toml` at the repository root. No new dependency; the declarations
+  are TOML read with `tomllib` from the standard library.
+- Why: six of the nineteen Codex comments across PR #216 and PR #218 were not
+  logic defects. They were one fact recorded in several places where the
+  copies had drifted. The clinching case was a cross-reference that named its
+  target by heading, exactly as `F-STYLE-1` asks, and broke in the same commit
+  that moved the heading. A written rule cannot catch that; only something
+  that resolves the reference can.
+- Plan vs implementation: DOC009 compares a value across its sites, DOC010
+  resolves a citation shape against the document it names, DOC011 keeps a
+  retired claim out of anything that still prescribes. Four behaviours were
+  added after the first run reported false positives on real documents, and
+  each is a property of how this repository actually writes: bold lead-ins
+  count as citable places, a heading cited without its trailing parenthetical
+  resolves, a label's trailing sentence is not part of its name, and
+  struck-through text is already marked as not current.
+- What the first run found, before any test was written:
+  - **`static/css/shell.css` used `max-width: 860px`** where every other
+    stylesheet uses `859.98px`. Both the mobile and the desktop rules
+    therefore applied at exactly 860px. Fixed.
+  - **`AGENTS.md` described the integrity codes as DOC001-DOC006**, four
+    checks after that stopped being true. Fixed, and the line now says when
+    it went stale, because that is the same class the new checks exist for.
+  - Two stale citations, one of them inside the finding that proposed the
+    check.
+- Deviations: the declarations file is at the repository root as
+  `.docsync.toml` rather than under `docs/`. It is configuration, it sits
+  beside `.pre-commit-config.yaml` and `.gitattributes`, and keeping the
+  repository-specific half out of `scripts/docsync/` is what lets that
+  package be lifted into another repository unchanged.
+- Validation: `pytest -q` -- **771 passed**, 3 warnings, 22 of them new. All
+  11 pre-commit hooks pass with an identical `git write-tree` either side.
+  Each of the three checks was proved against the real defect it was built
+  for, by restoring that defect and watching the check name it. Five
+  mutations of the module each killed exactly one test and no others.
+  `doc_state_sync.py --check` exits 0. The frontend gate is unaffected and
+  still reports 8 checks in 13 runs.
+- Forward guidance: add a declaration when a fact starts living in two
+  places, not after it drifts. `F-B21-18` is the other half and is not
+  started -- browser JavaScript with no unit runner, to be reached through
+  a guarded seam onto the Chromium the frontend gate already pays for, not
+  through npm.
+
+### 2026-08-24 - F-B21-13 docsync bootstrap gate remediated (side-task)
+
+- Scope: closed `F-B21-13` with DOC007 and DOC008 on
+  `wip/f-b21-13-docsync-gate`, branched from `origin/main` at `658bdb2`;
+  WP-3 remains on `wip/batch-21`.
+- DOC007 now has one next-WP calculation. The managed SESSION_CONTEXT
+  renderer owns `_next_wp_number()`, the integrity check calls that helper,
+  and the CLI supplies the active definition's finite plan. Absorbed,
+  dropped and merged WP headings are skipped; a fully completed plan
+  terminates with no next package instead of looping forever, while any stale
+  numeric next-WP claim left at close-out is blocking. The definition Status
+  line, PLAYBOOK Section 3's actual Next action bullet, and SESSION_CONTEXT
+  Section 1's sole active Batch status row are checked for the same active
+  batch and next WP. Historical claims outside the bullet and earlier claims
+  superseded inside it cannot steal the comparison.
+- DOC008 applies `latest_test_count_authority()` to the FINDINGS.md header
+  with findings-specific remediation. Authority includes live entries, the
+  side-task archive and per-batch logs; a same-date tie between batch logs is
+  resolved by numeric batch chronology rather than filename insertion order.
+- Review remediation also repaired two misleading DOC007 fixtures so their
+  asserted WP ranges really sit inside the current-batch markers, and made
+  DOC008's error invariant say the header count "must agree" instead of
+  claiming that a detected mismatch already agrees. Every new edge case was
+  observed failing before its minimal fix.
+- Deviations: the owner authorized expanding the original PR file set on
+  2026-08-24 after the audit proved DOC007 and the renderer computed different
+  next-WP values. The expansion is limited to the renderer/sync/CLI data path
+  and its directly related docsync tests; no unrelated refactor was taken.
+- Validation: `pytest -q` -- **717 passed**, 3 warnings (was 682; 35 new
+  tests across the docsync integrity, renderer, logic, CLI and count suites).
+  The focused docsync suite is **219 passed**.
+- Forward guidance: WP-3 should still update the definition Status line as
+  an explicit task. The gate proves agreement; it does not replace writing
+  the canonical status correctly.
+
 ### 2026-08-23 - PR #216 review round three applied (side-task)
 
 - Scope: two review comments on `e9bac27`, both real rendering defects in
