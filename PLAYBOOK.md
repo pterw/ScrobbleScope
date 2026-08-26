@@ -474,6 +474,71 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-26 - PR #220 review applied, and the theme fallback proved (side-task)
+
+- Scope: remediated the three Codex comments on PR #220. All three were
+  verified against the code before any fix; all three were valid.
+- **The missing log entry** is the entry below this one, covering `9330ac8`,
+  `ebb542b` and `6f8ff98`.
+- **The `FINDINGS.md` header** attributed F-B21-21 and F-B21-22 to both WP-3
+  and the owner review while omitting F-B21-23 and F-B21-24. Corrected in
+  `12cfe25`.
+- **`check_mark_follows_theme` was weak in two ways**, and both are closed. A
+  part whose selector stopped matching read as null and was skipped, so
+  re-cutting the asset would have retired the check silently. And the test
+  was only that light differs from dark, so a wrapper wired to the wrong but
+  theme-varying token passed. It now compares each mark against the resolved
+  `--shell-ink` and `--shell-accent` for that theme, read through a probe
+  element so the browser normalises `#1a1820` and `rgb(26, 24, 32)` to the
+  same string. Mutation-checked: pointing the letterforms at
+  `var(--shell-accent)` -- a wrong value that does vary by theme, which the
+  old check accepted -- fails four times with the token named.
+- **The uncommitted `base.html` theme fallback is real, and is now proved.**
+  It was written on 2026-08-26 at 00:08 and left uncommitted when that
+  session hit its spend limit mid-verification. Its own mutation check had
+  passed on both the new and the reverted code, so it proved nothing: the
+  harness never made storage actually throw. Rerun with `localStorage`
+  genuinely throwing, the shipped version renders `light` on a dark system
+  when site data is blocked, and the fix corrects it. A sixteenth gate check,
+  `check_theme_survives_blocked_storage`, holds it; reverting the fix fails
+  it by name. The check opens its own browser context, because blocked
+  storage is installed as an init script and cannot be removed from the
+  shared page afterwards.
+- This does **not** close F-B21-22. A stored `'false'` still outranks the
+  system preference forever; that needs the third state and an owner ruling.
+- Validation: 822 tests, all 12 hooks, docsync exit 0, frontend gate 17
+  checks in 25 runs.
+
+### 2026-08-26 - Deployed-merge review: wordmark theme fix and doc trim (side-task)
+
+- Scope: the owner reviewed the deployed PR #218 merge and found two defects.
+  This entry covers `9330ac8`, `ebb542b` and `6f8ff98`, which shipped without
+  one. A PR #220 reviewer raised the omission; the entry is written here
+  rather than by amending pushed commits.
+- `9330ac8` trimmed the documents a session bootstraps from. SESSION_CONTEXT
+  lost 35 lines: eight "Batch N complete" rows that restated the Section 2
+  index one batch at a time, and a per-file test table that duplicated forty
+  counts from the suite while only the total was gated. It had drifted three
+  times during Batch 21, each drift a false fact in a bootstrap document, so
+  the command that derives it replaced the table. Two `AGENTS.md` rules were
+  restated as intent. AGENT_NOTES gained the wordmark typeface, Oblong
+  Regular by WAPType, which took the owner about three hours to recover
+  because the mark was converted to paths and no font reference survives in
+  the asset. F-B21-21 and F-B21-22 were filed.
+- `ebb542b` fixed F-B21-21. The index hero mark shipped with pure black
+  letterforms on the `#0e0c12` dark page. Both wrappers include the same
+  asset; it pins its own stroke and gives the letterforms no fill rule, so
+  any wrapper `shell.css` does not name renders fixed-purple bars and
+  user-agent black text, and only `.site-header__mark` was named. The gate
+  gained its first check that reads a colour off an inline SVG.
+- `6f8ff98` filed F-B21-23 and F-B21-24. F-B21-23 records that the assets
+  diverge from the design contract, which specifies `currentColor`
+  letterforms and `var(--bars-color)` bars; that divergence is the real
+  cause of F-B21-21, which was fixed at the symptom. F-B21-24 rules that the
+  index not growing past about 1400px is the contract working as written.
+- Validation at the time: 822 tests, all hooks, docsync exit 0, and the
+  Quality Gate green on `6f8ff98`.
+
 ### 2026-08-26 - Session-time enforcement added after the worktree retirement (side-task)
 
 - Scope: the batch-21 worktree was retired on 2026-08-26. Reviewing how that
@@ -483,9 +548,10 @@ non-current operational logs. Older dated entries live in
   from `origin/main` at 2026-08-25 21:57, took three commits, and was renamed
   to `wip/batch-21` at 2026-08-26 00:07. The rename only succeeds when the
   retained branch of that name is already deleted, and the push four seconds
-  later replaced the remote. None of the three commits carries a Section 4
+  later replaced the remote. None of the three commits carried a Section 4
   entry, because the session treated the branch as a quick documentation trim
-  rather than batch work, and nothing told it otherwise.
+  rather than batch work, and nothing told it otherwise. A PR #220 reviewer
+  raised it; the entry two above this one now covers that work.
 - What changed:
   - **`worktree-alignment` is now a pre-commit hook.** The guard already
     exited 1 on an ERROR diagnostic and 0 otherwise, so it was built to gate
@@ -726,85 +792,3 @@ non-current operational logs. Older dated entries live in
   kind a check's own tests cannot find because the tests were written from the
   same understanding as the code. Keep an independent reviewer on tooling as
   well as features.
-
-### 2026-08-25 - DOC009 to DOC011: facts written down more than once (side-task)
-
-- Scope: closed the buildable half of `F-B21-17`. Three declared integrity
-  checks in a new `scripts/docsync/declarations.py`, driven by a new
-  `.docsync.toml` at the repository root. No new dependency; the declarations
-  are TOML read with `tomllib` from the standard library.
-- Why: six of the nineteen Codex comments across PR #216 and PR #218 were not
-  logic defects. They were one fact recorded in several places where the
-  copies had drifted. The clinching case was a cross-reference that named its
-  target by heading, exactly as `F-STYLE-1` asks, and broke in the same commit
-  that moved the heading. A written rule cannot catch that; only something
-  that resolves the reference can.
-- Plan vs implementation: DOC009 compares a value across its sites, DOC010
-  resolves a citation shape against the document it names, DOC011 keeps a
-  retired claim out of anything that still prescribes. Four behaviours were
-  added after the first run reported false positives on real documents, and
-  each is a property of how this repository actually writes: bold lead-ins
-  count as citable places, a heading cited without its trailing parenthetical
-  resolves, a label's trailing sentence is not part of its name, and
-  struck-through text is already marked as not current.
-- What the first run found, before any test was written:
-  - **`static/css/shell.css` used `max-width: 860px`** where every other
-    stylesheet uses `859.98px`. Both the mobile and the desktop rules
-    therefore applied at exactly 860px. Fixed.
-  - **`AGENTS.md` described the integrity codes as DOC001-DOC006**, four
-    checks after that stopped being true. Fixed, and the line now says when
-    it went stale, because that is the same class the new checks exist for.
-  - Two stale citations, one of them inside the finding that proposed the
-    check.
-- Deviations: the declarations file is at the repository root as
-  `.docsync.toml` rather than under `docs/`. It is configuration, it sits
-  beside `.pre-commit-config.yaml` and `.gitattributes`, and keeping the
-  repository-specific half out of `scripts/docsync/` is what lets that
-  package be lifted into another repository unchanged.
-- Validation: `pytest -q` -- **771 passed**, 3 warnings, 22 of them new. All
-  11 pre-commit hooks pass with an identical `git write-tree` either side.
-  Each of the three checks was proved against the real defect it was built
-  for, by restoring that defect and watching the check name it. Five
-  mutations of the module each killed exactly one test and no others.
-  `doc_state_sync.py --check` exits 0. The frontend gate is unaffected and
-  still reports 8 checks in 13 runs.
-- Forward guidance: add a declaration when a fact starts living in two
-  places, not after it drifts. `F-B21-18` is the other half and is not
-  started -- browser JavaScript with no unit runner, to be reached through
-  a guarded seam onto the Chromium the frontend gate already pays for, not
-  through npm.
-
-### 2026-08-24 - F-B21-13 docsync bootstrap gate remediated (side-task)
-
-- Scope: closed `F-B21-13` with DOC007 and DOC008 on
-  `wip/f-b21-13-docsync-gate`, branched from `origin/main` at `658bdb2`;
-  WP-3 remains on `wip/batch-21`.
-- DOC007 now has one next-WP calculation. The managed SESSION_CONTEXT
-  renderer owns `_next_wp_number()`, the integrity check calls that helper,
-  and the CLI supplies the active definition's finite plan. Absorbed,
-  dropped and merged WP headings are skipped; a fully completed plan
-  terminates with no next package instead of looping forever, while any stale
-  numeric next-WP claim left at close-out is blocking. The definition Status
-  line, PLAYBOOK Section 3's actual Next action bullet, and SESSION_CONTEXT
-  Section 1's sole active Batch status row are checked for the same active
-  batch and next WP. Historical claims outside the bullet and earlier claims
-  superseded inside it cannot steal the comparison.
-- DOC008 applies `latest_test_count_authority()` to the FINDINGS.md header
-  with findings-specific remediation. Authority includes live entries, the
-  side-task archive and per-batch logs; a same-date tie between batch logs is
-  resolved by numeric batch chronology rather than filename insertion order.
-- Review remediation also repaired two misleading DOC007 fixtures so their
-  asserted WP ranges really sit inside the current-batch markers, and made
-  DOC008's error invariant say the header count "must agree" instead of
-  claiming that a detected mismatch already agrees. Every new edge case was
-  observed failing before its minimal fix.
-- Deviations: the owner authorized expanding the original PR file set on
-  2026-08-24 after the audit proved DOC007 and the renderer computed different
-  next-WP values. The expansion is limited to the renderer/sync/CLI data path
-  and its directly related docsync tests; no unrelated refactor was taken.
-- Validation: `pytest -q` -- **717 passed**, 3 warnings (was 682; 35 new
-  tests across the docsync integrity, renderer, logic, CLI and count suites).
-  The focused docsync suite is **219 passed**.
-- Forward guidance: WP-3 should still update the definition Status line as
-  an explicit task. The gate proves agreement; it does not replace writing
-  the canonical status correctly.

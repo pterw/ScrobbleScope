@@ -731,25 +731,42 @@ def check_mark_follows_theme(page, base_url: str) -> list[str]:
     shipped that way: pure black letterforms on the #0e0c12 dark page.
 
     No other check reads a colour off an inline SVG, which is why the whole
-    gate stayed green through it. This one asserts the letterforms and the
-    bars both differ between themes, per wrapper, so a mark added tomorrow
-    and forgotten in shell.css fails here rather than on the deployed page.
+    gate stayed green through it.
+
+    It compares each mark against the resolved `--shell-ink` and
+    `--shell-accent` for the theme, not merely light against dark. Two holes
+    in the first version made that necessary, both raised on PR #220. A part
+    whose selector stopped matching read as null and was skipped, so re-cutting
+    the asset would retire the check silently. And a wrapper wired to the wrong
+    but theme-varying token passed, because differing between themes was the
+    whole test. Reading the tokens through a probe element lets the browser
+    normalise them, so `#1a1820` and `rgb(26, 24, 32)` compare equal.
     """
     failures = []
     for path in MIGRATED_PAGES:
         page.goto(f"{base_url}{path}", wait_until="load")
         seen = page.evaluate(
             """() => {
-                const read = () => [...document.querySelectorAll('.ss-mark')]
-                    .map(node => {
+                const probe = document.createElement('span');
+                probe.style.display = 'none';
+                document.body.appendChild(probe);
+                const token = name => {
+                    probe.style.color = `var(${name})`;
+                    return getComputedStyle(probe).color;
+                };
+                const read = () => ({
+                    ink: token('--shell-ink'),
+                    accent: token('--shell-accent'),
+                    marks: [...document.querySelectorAll('.ss-mark')].map(node => {
                         const bar = node.querySelector('svg .cls-1');
                         const text = node.querySelector('svg #logo-text path');
                         return {
-                            name: node.className,
+                            name: node.getAttribute('class'),
                             bar: bar ? getComputedStyle(bar).stroke : null,
                             text: text ? getComputedStyle(text).fill : null,
                         };
-                    });
+                    }),
+                });
                 const root = document.documentElement;
                 const before = root.getAttribute('data-theme');
                 root.setAttribute('data-theme', 'light');
@@ -757,23 +774,95 @@ def check_mark_follows_theme(page, base_url: str) -> list[str]:
                 root.setAttribute('data-theme', 'dark');
                 const dark = read();
                 root.setAttribute('data-theme', before || 'light');
-                return light.map((entry, index) => ({
-                    name: entry.name,
-                    lightText: entry.text, darkText: dark[index].text,
-                    lightBar: entry.bar, darkBar: dark[index].bar,
-                }));
+                probe.remove();
+                return {light, dark};
             }"""
         )
-        for mark in seen:
-            for part in ("Text", "Bar"):
-                light, dark = mark[f"light{part}"], mark[f"dark{part}"]
-                if light is None:
-                    continue
-                if light == dark:
-                    failures.append(
-                        f"{path} .{mark['name']}: {part.lower()} stays {light} "
-                        f"in both themes -- shell.css does not name this wrapper"
-                    )
+        light, dark = seen["light"], seen["dark"]
+        if not light["marks"]:
+            failures.append(
+                f"{path}: no .ss-mark found -- the header mark is on every page, "
+                f"so this check is measuring nothing"
+            )
+            continue
+        for index, mark in enumerate(light["marks"]):
+            name = mark["name"]
+            for part, key in (("letterforms", "text"), ("bars", "bar")):
+                want_key = "ink" if key == "text" else "accent"
+                for theme, side in (("light", light), ("dark", dark)):
+                    got = side["marks"][index][key]
+                    if got is None:
+                        failures.append(
+                            f"{path} .{name}: {part} not found in {theme} -- the "
+                            f"selector no longer matches, so nothing is checked"
+                        )
+                        continue
+                    want = side[want_key]
+                    if got != want:
+                        failures.append(
+                            f"{path} .{name}: {part} are {got} in {theme}, expected "
+                            f"{want} from var(--shell-{want_key}) -- shell.css does "
+                            f"not name this wrapper, or names the wrong token"
+                        )
+    return failures
+
+
+#: Make every localStorage access throw the way a browser does when site data
+#: is blocked -- a private window, tracking protection, a per-origin block.
+#: Installed before any page script runs.
+_BLOCK_STORAGE = """
+(() => {
+  const boom = () => { throw new DOMException('denied', 'SecurityError'); };
+  Object.defineProperty(window, 'localStorage', {
+    configurable: true,
+    get() { return { getItem: boom, setItem: boom, removeItem: boom }; },
+  });
+})();
+"""
+
+
+def check_theme_survives_blocked_storage(page, base_url: str) -> list[str]:
+    """The system preference still decides the theme when storage throws.
+
+    `base.html` sets `data-theme` before first paint so the page does not
+    render light and flip. Reading `localStorage` is the first thing it does,
+    and that read throws outright where a browser blocks site data. While the
+    read, the media query and the write shared one `try`, a thrown read
+    skipped all three and left the hardcoded `light` on the root -- so a
+    reader whose system says dark got a light page, and the toggle could not
+    help, because the matching `setItem` throws too.
+
+    The system preference needs no storage, so it has to stay reachable when
+    storage is not.
+
+    This opens its own context. Blocked storage is installed as an init
+    script, which cannot be removed afterwards, so running it on the shared
+    page would poison every later check.
+    """
+    browser = page.context.browser
+    if browser is None:  # pragma: no cover - only for a browserless context
+        return ["blocked-storage check needs a browser-backed context"]
+
+    cases = (
+        ("dark", "dark"),
+        ("light", "light"),
+    )
+    failures = []
+    for scheme, expected in cases:
+        context = browser.new_context(color_scheme=scheme)
+        context.add_init_script(_BLOCK_STORAGE)
+        probe = context.new_page()
+        try:
+            probe.goto(base_url, wait_until="load")
+            got = probe.get_attribute("html", "data-theme")
+            if got != expected:
+                failures.append(
+                    f"/ storage blocked, system {scheme}: data-theme is {got!r}, "
+                    f"expected {expected!r} -- the pre-paint script let a thrown "
+                    f"storage read skip the media query"
+                )
+        finally:
+            context.close()
     return failures
 
 
@@ -1164,6 +1253,11 @@ CHECKS = (
     ("true warning survives", check_true_warning_survives, (DESKTOP,)),
     ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
     ("mark follows theme", check_mark_follows_theme, (DESKTOP,)),
+    (
+        "theme survives blocked storage",
+        check_theme_survives_blocked_storage,
+        (DESKTOP,),
+    ),
     ("validator race", check_stale_validator_failure_is_discarded, (DESKTOP,)),
     (
         "validator network failure",
