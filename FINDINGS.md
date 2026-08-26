@@ -9,7 +9,8 @@ WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
 F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
 resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
 F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11 and F-B18-12 and
-filed F-B21-14 through F-B21-20. **WP-4 is next.**
+filed F-B21-14 through F-B21-22; the owner's review of the deployed merge
+added F-B21-21 (resolved same day) and F-B21-22. **WP-4 is next.**
 822 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
@@ -909,7 +910,14 @@ Not animation. Measured `animate`/`animateTransform` count is 0 on all three
 index marks; the only CSS animations target `#horizontal_bars` and the
 pinwheel. What reads as moving text is the bars pulsing beside it.
 
-Status: open. Small and self-contained; suitable for WP-7 or a standalone fix.
+Status: **resolved** 2026-08-26. `.index-hero__mark` joins `.site-header__mark`
+on both declarations in `shell.css`, and the hero now measures ink `#1a1820`
+light / `#f1ede4` dark, identical to the header. `.ss-mark` is not yet the
+selector: `shell.css` loads after `global.css`, so a rule on the shared class
+would also win on loading, results and unmatched, whose values differ and
+which no gate can render. WP-8 makes that move when `global.css` retires.
+`check_mark_follows_theme` in the frontend gate now fails if a migrated
+wrapper is missed; reverting the fix reproduces the failure by name.
 Source: owner review of the deployed merge, 2026-08-26. Verified in Chromium.
 
 ### F-B21-22: theme follows the system only until the toggle is first used
