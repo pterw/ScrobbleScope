@@ -57,3 +57,20 @@ repos:
         language: python
         pass_filenames: false
         always_run: true
+
+      # The guard already exits 1 on an ERROR diagnostic and 0 otherwise, so
+      # it was built to gate and was simply never wired to one. Only WT002
+      # (PLAYBOOK Section 3 unparseable), WT007 (base ref absent) and WT014
+      # (inspection failed) are errors. WT004, the identical-tree state a
+      # rebase merge always leaves, is not, and neither is WT010 for a dirty
+      # tree -- so the states the owner treats as normal still commit.
+      # verbose surfaces the INFO lines on a passing run, which is the point:
+      # branch lineage should be visible at commit time, not only when
+      # somebody remembers to ask for it.
+      - id: worktree-alignment
+        name: worktree-alignment
+        entry: python scripts/dev/check_worktree_alignment.py
+        language: python
+        pass_filenames: false
+        always_run: true
+        verbose: true

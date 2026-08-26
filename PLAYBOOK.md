@@ -474,6 +474,49 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-26 - Session-time enforcement added after the worktree retirement (side-task)
+
+- Scope: the batch-21 worktree was retired on 2026-08-26. Reviewing how that
+  went found that every gate in this repository runs at commit time and
+  nothing runs at session time. Filed as F-B21-25 and partly closed here.
+- What happened, from the branch reflog. `wip/batch21-doc-trim` was created
+  from `origin/main` at 2026-08-25 21:57, took three commits, and was renamed
+  to `wip/batch-21` at 2026-08-26 00:07. The rename only succeeds when the
+  retained branch of that name is already deleted, and the push four seconds
+  later replaced the remote. None of the three commits carries a Section 4
+  entry, because the session treated the branch as a quick documentation trim
+  rather than batch work, and nothing told it otherwise.
+- What changed:
+  - **`worktree-alignment` is now a pre-commit hook.** The guard already
+    exited 1 on an ERROR diagnostic and 0 otherwise, so it was built to gate
+    and was simply never wired to one. Only WT002, WT007 and WT014 are
+    errors; WT004 and WT010 are not, so the identical-tree state a rebase
+    merge always leaves, and a dirty tree, both still commit. It runs verbose
+    so branch lineage is visible on a passing run.
+  - **The stray `venv/` is deleted.** It carried black 25.1.0 against the
+    24.3.0 this repository pins, and two entries in the local permission
+    allowlist had been authorising it. Both entries are removed. It came from
+    the Batch 12/13 convention, which spelled the directory without the dot;
+    the archived definitions still show that spelling, so reading one can
+    recreate it. `resolve_venv()` looks only for `.venv` and cannot see a
+    second one.
+  - **A `SessionStart` hook** injects branch, working-tree state, guard codes
+    and the machine-managed status block into every new Claude Code session,
+    with the reminder that a tracked-file commit needs its Section 4 entry in
+    the same commit. It is local to this machine and does not help Codex or
+    Copilot, which is recorded in the finding.
+  - **The `FINDINGS.md` header is corrected.** It attributed F-B21-21 and
+    F-B21-22 to both WP-3 and the owner review, and omitted F-B21-23 and
+    F-B21-24. Raised on PR #220.
+- Not done, and deliberately: a manifest of untracked-but-essential files
+  (`skills-lock.json` is still missing), and two structural defects in
+  `AGENTS.md` -- the fast-paths that authorise skipping bootstrap sit above
+  the numbered list, and the file carries origin narrative that serves the
+  editor rather than the reader. Both edit `AGENTS.md` and need an owner
+  ruling first.
+- Validation: 822 tests, all 12 hooks, docsync `--check` exit 0, guard
+  exit 0.
+
 ### 2026-08-25 - PR #218 review rounds and post-completion pass applied (side-task)
 
 - Scope: remediated every Codex comment on PR #218 while WP-3 sat open and
@@ -753,48 +796,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: WP-3 should still update the definition Status line as
   an explicit task. The gate proves agreement; it does not replace writing
   the canonical status correctly.
-
-### 2026-08-23 - PR #216 review round three applied (side-task)
-
-- Scope: two review comments on `e9bac27`, both real rendering defects in
-  WP-2's own shell commit. Both were verified in a browser before any edit.
-- **The header wordmark ignored `prefers-reduced-motion`.** The lockup
-  carried five SMIL `<animate>` elements with `repeatCount="indefinite"`.
-  No CSS can pause SMIL, so the media query in `shell.css` never reached
-  them. WP-2 made the exposure much worse: the mark moved from per-page
-  hero content that scrolls away into a fixed header that is on every page
-  and never leaves the viewport. `docs/design/README.md` already prescribed
-  the remedy and says the SMIL must be stripped and the bars animated from
-  CSS. Done, with the keyframes taken from `docs/design/tokens/base.css`.
-- **A wrong assumption was caught by measuring.** The origin looked like it
-  needed a 7-unit correction, because this lockup's viewBox starts at y=7
-  where the full mark starts at y=0. It does not: `view-box` resolves
-  `transform-origin` in the SVG user coordinate system, not from the
-  viewBox corner. At `scaleY(3)` the proposed 56.5px slid each bar bottom
-  8.4px and the canonical 63.5px held it to 0.2px. Under the shipped 1.10
-  scale the gap is under half a pixel, so eyeballing would have missed it.
-- **The back-to-top control lost its layout.** `base.html` used to wrap the
-  theme toggle and `page_footer_extra` together in `.page-footer-bar`. WP-2
-  moved the toggle into the header and removed the wrapper with it, but
-  `results.html` still fills that block and `#back-to-top` has no CSS of its
-  own anywhere. Centring, gap, padding and entrance all came from the
-  wrapper, so the control shipped bare and left-aligned. Restored in
-  `shell.css` rather than `global.css`, which only reaches unmigrated pages.
-- Both guards were proven able to fail. Putting one `<animate>` back fails
-  five tests, reflowing the wrapper onto three lines fails four, and
-  dropping the reduced-motion `opacity: 1` fails one.
-- Deviations: the frontend gate gained no reduced-motion check. Its checks
-  take a page rather than a browser, so a second context needs a signature
-  change, and that is a refactor rather than a review fix. The template
-  tests cover the markup and the CSS; the computed behaviour was verified
-  by hand this round.
-- Findings: `F-B21-5` updated rather than closed. The header instance is
-  resolved; the pinwheel and the index hero wordmark still carry SMIL and
-  belong to WP-3.
-- Validation: `pytest -q` -- **682 passed**, 3 warnings. All 11 pre-commit
-  hooks pass. The frontend gate reports `5 checks passed`.
-  `doc_state_sync.py --check` exits 0 with the expected active
-  root-definition warning.
-- Forward guidance: strip the SMIL from the remaining two assets the same
-  way. Do not reach for `svg.pauseAnimations()` -- the CSS route is what the
-  design contract asks for and it needs no JavaScript.

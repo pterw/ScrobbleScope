@@ -9,6 +9,51 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-23 - PR #216 review round three applied (side-task)
+
+- Scope: two review comments on `e9bac27`, both real rendering defects in
+  WP-2's own shell commit. Both were verified in a browser before any edit.
+- **The header wordmark ignored `prefers-reduced-motion`.** The lockup
+  carried five SMIL `<animate>` elements with `repeatCount="indefinite"`.
+  No CSS can pause SMIL, so the media query in `shell.css` never reached
+  them. WP-2 made the exposure much worse: the mark moved from per-page
+  hero content that scrolls away into a fixed header that is on every page
+  and never leaves the viewport. `docs/design/README.md` already prescribed
+  the remedy and says the SMIL must be stripped and the bars animated from
+  CSS. Done, with the keyframes taken from `docs/design/tokens/base.css`.
+- **A wrong assumption was caught by measuring.** The origin looked like it
+  needed a 7-unit correction, because this lockup's viewBox starts at y=7
+  where the full mark starts at y=0. It does not: `view-box` resolves
+  `transform-origin` in the SVG user coordinate system, not from the
+  viewBox corner. At `scaleY(3)` the proposed 56.5px slid each bar bottom
+  8.4px and the canonical 63.5px held it to 0.2px. Under the shipped 1.10
+  scale the gap is under half a pixel, so eyeballing would have missed it.
+- **The back-to-top control lost its layout.** `base.html` used to wrap the
+  theme toggle and `page_footer_extra` together in `.page-footer-bar`. WP-2
+  moved the toggle into the header and removed the wrapper with it, but
+  `results.html` still fills that block and `#back-to-top` has no CSS of its
+  own anywhere. Centring, gap, padding and entrance all came from the
+  wrapper, so the control shipped bare and left-aligned. Restored in
+  `shell.css` rather than `global.css`, which only reaches unmigrated pages.
+- Both guards were proven able to fail. Putting one `<animate>` back fails
+  five tests, reflowing the wrapper onto three lines fails four, and
+  dropping the reduced-motion `opacity: 1` fails one.
+- Deviations: the frontend gate gained no reduced-motion check. Its checks
+  take a page rather than a browser, so a second context needs a signature
+  change, and that is a refactor rather than a review fix. The template
+  tests cover the markup and the CSS; the computed behaviour was verified
+  by hand this round.
+- Findings: `F-B21-5` updated rather than closed. The header instance is
+  resolved; the pinwheel and the index hero wordmark still carry SMIL and
+  belong to WP-3.
+- Validation: `pytest -q` -- **682 passed**, 3 warnings. All 11 pre-commit
+  hooks pass. The frontend gate reports `5 checks passed`.
+  `doc_state_sync.py --check` exits 0 with the expected active
+  root-definition warning.
+- Forward guidance: strip the SMIL from the remaining two assets the same
+  way. Do not reach for `svg.pauseAnimations()` -- the CSS route is what the
+  design contract asks for and it needs no JavaScript.
+
 ### 2026-08-23 - PR #216 review round two applied (side-task)
 
 - Scope: two review comments on `4105aef`, both documentation. Both were
