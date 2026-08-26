@@ -1424,3 +1424,61 @@ def test_collect_tracked_paths_reads_real_git_output(tmp_path: Path):
 
     assert "tracked.md" in tracked
     assert "untracked.md" not in tracked
+
+
+def _doc012_codes(playbook_lines):
+    """Return the DOC012 codes raised for one PLAYBOOK body."""
+    from docsync.integrity import _check_unbolded_test_counts
+
+    return [issue.code for issue in _check_unbolded_test_counts(playbook_lines)]
+
+
+def test_doc012_flags_a_pass_claim_the_authority_cannot_read():
+    """An entry whose only count is unbolded is skipped in silence today.
+
+    TEST_COUNT_RE reads `**823 passed**`. Written without the asterisks the
+    entry records nothing, an older entry stays authoritative, and --check
+    exits 0 with every dashboard holding the previous number. That is the
+    failure this check exists to make loud.
+    """
+    lines = [
+        "## 4. Execution log",
+        "",
+        "### 2026-08-26 - a side task",
+        "",
+        "- Validation: `pytest -q` -- 823 passed, all hooks green.",
+    ]
+    assert _doc012_codes(lines) == ["DOC012"]
+
+
+def test_doc012_leaves_a_subset_claim_beside_a_bold_count_alone():
+    """A readable entry may also mention a partial suite.
+
+    The WP-1 entry says "(35 passed)" for the toolchain module beside its own
+    bold full-suite figure. The authority reads that entry fine, so the subset
+    claim is prose. Scoping per entry rather than per line is what keeps this
+    from rewriting history.
+    """
+    lines = [
+        "## 4. Execution log",
+        "",
+        "### 2026-08-20 - a work package",
+        "",
+        "- Toolchain module (35 passed).",
+        "- Validation: `pytest -q` -- **682 passed**.",
+    ]
+    assert _doc012_codes(lines) == []
+
+
+def test_doc012_ignores_counts_above_the_execution_log():
+    """Section 2 prose is not an entry and carries no authority."""
+    lines = [
+        "## 2. Batch order",
+        "- An old note saying 350 passed.",
+        "## 4. Execution log",
+        "",
+        "### 2026-08-26 - a side task",
+        "",
+        "- Validation: `pytest -q` -- **823 passed**.",
+    ]
+    assert _doc012_codes(lines) == []

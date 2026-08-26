@@ -107,3 +107,33 @@ def test_cli_converts_runtime_failures_without_traceback_or_sensitive_text(
     assert "secret" not in captured.out
     assert "Traceback" not in captured.out + captured.err
     assert captured.err == ""
+
+
+def test_advisory_reports_errors_but_does_not_gate(monkeypatch, capsys):
+    """--advisory prints an ERROR diagnostic and still exits 0.
+
+    Eleven of the fifteen codes are errors, WT003 and WT004 among them, so a
+    caller that gated on this command would block every commit on a branch the
+    active batch does not name and every commit after a rebase merge. The flag
+    lets a hook surface lineage without owning that decision.
+
+    The failure is forced through the same runtime-failure boundary the test
+    above uses, so the diagnostic is real rather than constructed.
+    """
+
+    def fail_run(*args, **kwargs):
+        """Raise a process failure from the real run_git boundary."""
+        raise OSError("inspection unavailable")
+
+    monkeypatch.setattr(subprocess, "run", fail_run)
+
+    assert cli.main(["--advisory"]) == 0
+    advisory = capsys.readouterr().out
+
+    # The same run without the flag must still gate, or the flag is measuring
+    # nothing and this test would pass against a no-op implementation.
+    assert cli.main([]) == 1
+    gating = capsys.readouterr().out
+
+    assert _rendered_pairs(advisory) == [("WT014", "ERROR")]
+    assert _rendered_pairs(advisory) == _rendered_pairs(gating)
