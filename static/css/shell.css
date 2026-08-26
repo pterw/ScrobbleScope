@@ -95,14 +95,31 @@ body {
     width: auto;
 }
 
-/* Recolor the mark for the current theme. global.css does this for legacy
-   pages through .dark-mode; these rules cover both page kinds and win by
-   being more specific. */
-.site-header__mark svg .cls-1 {
+/* Recolor the mark for the current theme.
+
+   Every wrapper listed here has to be listed. The asset carries its own
+   <style> pinning stroke: #6a4baf, and its letterforms have no fill rule at
+   all, so anything not named below renders fixed-purple bars and user-agent
+   black text. That is what happened to the index hero: it shipped with pure
+   black letterforms on the #0e0c12 dark page and nobody could read it.
+   F-B21-21.
+
+   Why not just `.ss-mark`, which all five wrappers already share: this file
+   loads after global.css, so an equal-specificity rule on the shared class
+   would also win on loading, results and unmatched. Those three still take
+   their mark colours from global.css `.dark-mode`, whose values differ
+   (#f8f9fa/#9370DB against #f1ede4/#b39dde), and they render only from a POST
+   with session state, so no gate can see whether that shift is acceptable.
+   `.ss-mark` is the right home the moment WP-8 retires global.css. Until
+   then, adding a migrated wrapper here is a required step of migrating it,
+   and check_mark_follows_theme in the frontend gate fails if it is missed. */
+.site-header__mark svg .cls-1,
+.index-hero__mark svg .cls-1 {
     stroke: var(--shell-accent);
 }
 
-.site-header__mark svg #logo-text path {
+.site-header__mark svg #logo-text path,
+.index-hero__mark svg #logo-text path {
     fill: var(--shell-ink);
 }
 

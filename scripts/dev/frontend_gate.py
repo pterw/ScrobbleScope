@@ -722,6 +722,61 @@ def check_hint_access(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_mark_follows_theme(page, base_url: str) -> list[str]:
+    """Every ScrobbleScope mark on a migrated page recolours with the theme.
+
+    The wordmark asset carries its own <style> pinning stroke: #6a4baf, and
+    its letterforms have no fill rule, so a wrapper shell.css does not name
+    renders fixed-purple bars and user-agent black text. The index hero
+    shipped that way: pure black letterforms on the #0e0c12 dark page.
+
+    No other check reads a colour off an inline SVG, which is why the whole
+    gate stayed green through it. This one asserts the letterforms and the
+    bars both differ between themes, per wrapper, so a mark added tomorrow
+    and forgotten in shell.css fails here rather than on the deployed page.
+    """
+    failures = []
+    for path in MIGRATED_PAGES:
+        page.goto(f"{base_url}{path}", wait_until="load")
+        seen = page.evaluate(
+            """() => {
+                const read = () => [...document.querySelectorAll('.ss-mark')]
+                    .map(node => {
+                        const bar = node.querySelector('svg .cls-1');
+                        const text = node.querySelector('svg #logo-text path');
+                        return {
+                            name: node.className,
+                            bar: bar ? getComputedStyle(bar).stroke : null,
+                            text: text ? getComputedStyle(text).fill : null,
+                        };
+                    });
+                const root = document.documentElement;
+                const before = root.getAttribute('data-theme');
+                root.setAttribute('data-theme', 'light');
+                const light = read();
+                root.setAttribute('data-theme', 'dark');
+                const dark = read();
+                root.setAttribute('data-theme', before || 'light');
+                return light.map((entry, index) => ({
+                    name: entry.name,
+                    lightText: entry.text, darkText: dark[index].text,
+                    lightBar: entry.bar, darkBar: dark[index].bar,
+                }));
+            }"""
+        )
+        for mark in seen:
+            for part in ("Text", "Bar"):
+                light, dark = mark[f"light{part}"], mark[f"dark{part}"]
+                if light is None:
+                    continue
+                if light == dark:
+                    failures.append(
+                        f"{path} .{mark['name']}: {part.lower()} stays {light} "
+                        f"in both themes -- shell.css does not name this wrapper"
+                    )
+    return failures
+
+
 def check_validator_outage_is_recoverable(page, base_url: str) -> list[str]:
     """A failing validator does not lock the form it was meant to help.
 
@@ -1108,6 +1163,7 @@ CHECKS = (
     ("hint access", check_hint_access, (DESKTOP, MOBILE)),
     ("true warning survives", check_true_warning_survives, (DESKTOP,)),
     ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
+    ("mark follows theme", check_mark_follows_theme, (DESKTOP,)),
     ("validator race", check_stale_validator_failure_is_discarded, (DESKTOP,)),
     (
         "validator network failure",
