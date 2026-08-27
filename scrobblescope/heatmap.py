@@ -137,6 +137,8 @@ async def _fetch_and_process_heatmap(job_id, username):
     def _heatmap_progress(pages_done, total_pages):
         """Map page-fetching progress into the 5%-80% range."""
         pct = 5 + int(75 * pages_done / max(total_pages, 1))
+        set_job_stat(job_id, "pages_received", pages_done)
+        set_job_stat(job_id, "pages_expected", total_pages)
         set_job_progress(
             job_id,
             progress=pct,
@@ -188,6 +190,9 @@ async def _fetch_and_process_heatmap(job_id, username):
 
     total = sum(daily_counts.values())
     max_count = max(daily_counts.values()) if daily_counts else 0
+    active_days = sum(1 for count in daily_counts.values() if count)
+    set_job_stat(job_id, "total_scrobbles", total)
+    set_job_stat(job_id, "active_days", active_days)
 
     # Phase 90%: zero-scrobble guard ------------------------------------------
     if total == 0:
@@ -195,7 +200,9 @@ async def _fetch_and_process_heatmap(job_id, username):
         return
 
     # Phase 100%: store results -----------------------------------------------
-    set_job_progress(job_id, progress=100, message="Heatmap ready!", error=False)
+    # The progress endpoint is the browser's completion signal. Store the
+    # payload first so a client that observes 100% can always read a ready
+    # result immediately, rather than racing the two repository writes.
     set_job_results(
         job_id,
         {
@@ -207,6 +214,8 @@ async def _fetch_and_process_heatmap(job_id, username):
             "daily_counts": daily_counts,
         },
     )
+    set_job_progress(job_id, progress=100, message="Heatmap ready!", error=False)
+    logging.info("Heatmap ready for %s: %s scrobbles", username, total)
 
 
 def heatmap_task(job_id, username):

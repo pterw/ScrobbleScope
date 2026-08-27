@@ -78,7 +78,7 @@ TEMPLATE_CONTEXT = {
 }
 
 #: Pages migrated to Tailwind. Every other page must still carry Bootstrap.
-MIGRATED = {"error.html", "index.html"}
+MIGRATED = {"error.html", "index.html", "loading.html"}
 
 
 @pytest.fixture

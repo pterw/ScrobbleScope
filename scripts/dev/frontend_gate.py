@@ -53,6 +53,15 @@ if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = GATE_SECRET_KEY
 
 from app import create_app  # noqa: E402
+from scrobblescope.repositories import (  # noqa: E402
+    create_job,
+    delete_job,
+    reset_job_state,
+    set_job_error,
+    set_job_progress,
+    set_job_results,
+    set_job_stat,
+)
 
 SETUP_COMMAND = "python -m playwright install chromium"
 
@@ -89,21 +98,22 @@ ERROR_PAGE_PATH = "/no-such-page-for-the-gate"
 #: and loads no kit faces, so pointing those two checks at every page would
 #: park four permanent failures in the output until WP-7 -- and a gate with
 #: expected failures in it stops being read.
-MIGRATED_PAGES = ("/", ERROR_PAGE_PATH)
+MIGRATED_PAGES = ["/", ERROR_PAGE_PATH]
+
+#: Throwaway jobs owned by serve_app and driven by pipeline checks.
+GATE_JOB_IDS: dict[str, str] = {}
 
 #: Pages still served by Bootstrap. Move each one into MIGRATED_PAGES in the
 #: work package that migrates it.
 #:
-#: Empty since WP-3, and it stays empty until a GET route exists for the three
-#: remaining templates. loading.html, results.html and unmatched.html render
-#: only from a POST with session state, so a browser cannot reach them by URL
-#: and no check here has ever covered them. WP-4 needs a route before the gate
-#: can see the page it migrates.
-LEGACY_PAGES = ()
+#: Results and Unmatched remain on Bootstrap until their work packages.
+#: Their friendly no-job pages render error.html, so those routes do not prove
+#: the job-backed templates use the right framework yet.
+LEGACY_PAGES = []
 
 #: Consumed by check_stylesheet_isolation. Exactly one framework stylesheet is
 #: a claim about every page, migrated or not, so this check takes both lists.
-ALL_PAGES = LEGACY_PAGES + MIGRATED_PAGES
+ALL_PAGES = [*LEGACY_PAGES, *MIGRATED_PAGES]
 
 #: The device profiles available to visual checks.
 #:
@@ -237,6 +247,35 @@ def serve_app() -> Iterator[str]:
     shutdown sits in a finally block: a failing check must never leave a
     listening socket behind.
     """
+    loading_job_id = create_job(
+        {
+            "username": "frontend-gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "same",
+            "min_plays": 10,
+            "min_tracks": 3,
+            "limit_results": "all",
+            "mode": "album",
+        }
+    )
+    set_job_progress(
+        loading_job_id,
+        progress=42,
+        message="Fetching scrobbles - page 21 / 50",
+        error=False,
+    )
+    loading_path = f"/loading?job_id={loading_job_id}"
+    heatmap_job_id = create_job(
+        {
+            "username": "frontend-gate",
+            "mode": "heatmap",
+        }
+    )
+    GATE_JOB_IDS.update(album=loading_job_id, heatmap=heatmap_job_id)
+    MIGRATED_PAGES.append(loading_path)
+    ALL_PAGES.append(loading_path)
+
     server = make_server("127.0.0.1", 0, create_app())
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -245,6 +284,11 @@ def serve_app() -> Iterator[str]:
     finally:
         server.shutdown()
         thread.join(timeout=5)
+        MIGRATED_PAGES.remove(loading_path)
+        ALL_PAGES.remove(loading_path)
+        delete_job(loading_job_id)
+        delete_job(heatmap_job_id)
+        GATE_JOB_IDS.clear()
 
 
 def _stylesheet_hrefs(page) -> list[str]:
@@ -351,7 +395,7 @@ def check_theme_tokens(page, base_url: str) -> list[str]:
 
 
 def check_index_design_tokens(page, base_url: str) -> list[str]:
-    """Rendered index states use the canonical status, radius and shadows."""
+    """Rendered index states use the canonical status and radius tokens."""
     expected = {
         "light": {
             "good": "#2f7a4a",
@@ -371,12 +415,7 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
             "(theme) => document.documentElement.setAttribute('data-theme', theme)",
             theme,
         )
-        page.evaluate(
-            """() => {
-                document.querySelector('#username').classList.add('is-valid');
-                document.querySelector('.hint').open = true;
-            }"""
-        )
+        page.evaluate("document.querySelector('#username').classList.add('is-valid')")
         # Border colour transitions for 200ms. Read the settled state a user
         # sees, not the first animation frame after the class changes.
         page.wait_for_timeout(250)
@@ -397,9 +436,6 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
                     segmentShadow: getComputedStyle(
                         document.querySelector('.seg__radio:checked + .seg__option')
                     ).boxShadow,
-                    hintShadow: getComputedStyle(
-                        document.querySelector('.hint__body')
-                    ).boxShadow,
                     segmentRadius: getComputedStyle(
                         document.querySelector('.seg__option')
                     ).borderRadius,
@@ -417,7 +453,6 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
                 f"expected {good}"
             )
 
-        chip = _computed_shadow(page, wanted["chip"])
         if state["chipToken"] != wanted["chip"]:
             failures.append(
                 f"/ {theme}: --ss-shadow-chip is {state['chipToken']!r}, "
@@ -427,21 +462,15 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
             (".mode-pill.active", state["modeShadow"]),
             (".seg__option", state["segmentShadow"]),
         ):
-            if actual != chip:
+            if actual != "none":
                 failures.append(
-                    f"/ {theme} {selector}: shadow is {actual}, expected {chip}"
+                    f"/ {theme} {selector}: shadow is {actual}, expected none"
                 )
 
-        floating = _computed_shadow(page, wanted["float"])
         if state["floatToken"] != wanted["float"]:
             failures.append(
                 f"/ {theme}: --ss-shadow-float is {state['floatToken']!r}, "
                 f"expected {wanted['float']}"
-            )
-        if state["hintShadow"] != floating:
-            failures.append(
-                f"/ {theme} .hint__body: shadow is {state['hintShadow']}, "
-                f"expected {floating}"
             )
         if state["segmentRadius"] != "8px":
             failures.append(
@@ -591,6 +620,9 @@ def _small_targets(page, path: str, state: str) -> list[str]:
             };
             const found = [];
             for (const node of document.querySelectorAll(selector)) {
+                // Impeccable Live injects its own developer-only controls.
+                // They are not part of the application touch surface.
+                if (node.closest('[id^="impeccable-live-"]')) continue;
                 const rect = node.getBoundingClientRect();
                 if (rect.width === 0 && rect.height === 0) continue;
                 const smaller = Math.min(rect.width, rect.height);
@@ -682,43 +714,6 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
             failures.append(
                 f"{path} {selector}: typing left the message {left!r} on screen"
             )
-    return failures
-
-
-def check_hint_access(page, base_url: str) -> list[str]:
-    """Each ambiguous-field hint opens from real keyboard focus and touch."""
-    failures = []
-    for position in range(2):
-        page.goto(f"{base_url}/", wait_until="load")
-        selector = f".hint:nth-of-type({position + 1})"
-        hints = page.locator(".hint")
-        if hints.count() <= position:
-            failures.append(f"/ {selector}: no such hint")
-            continue
-        hint = hints.nth(position)
-        toggle = hint.locator(".hint__toggle")
-
-        reached = False
-        for _ in range(30):
-            page.keyboard.press("Tab")
-            reached = toggle.evaluate("node => document.activeElement === node")
-            if reached:
-                break
-        if not reached:
-            failures.append(f"/ {selector}: tab traversal never reached its summary")
-        elif not hint.evaluate("node => node.open"):
-            failures.append(f"/ {selector}: keyboard focus left the hint closed")
-
-        page.goto(f"{base_url}/", wait_until="load")
-        hint = page.locator(".hint").nth(position)
-        toggle = hint.locator(".hint__toggle")
-        coarse = page.evaluate("() => matchMedia('(any-pointer: coarse)').matches")
-        if coarse:
-            toggle.tap()
-        else:
-            toggle.click()
-        if not hint.evaluate("node => node.open"):
-            failures.append(f"/ {selector}: pointer activation left the hint closed")
     return failures
 
 
@@ -1232,6 +1227,258 @@ def check_shell_scales_with_text(page, base_url: str) -> list[str]:
     return []
 
 
+def check_loading_composition(page, base_url: str) -> list[str]:
+    """The job-backed loading route uses the shared determinate wait panel."""
+    loading_path = next(path for path in MIGRATED_PAGES if path.startswith("/loading?"))
+    page.goto(f"{base_url}{loading_path}", wait_until="networkidle")
+    page.wait_for_function(
+        "document.querySelector('#progress-track')?.getAttribute('aria-valuenow') === '42'"
+    )
+    geometry = page.evaluate(
+        """() => {
+          const mark = document.querySelector('.wait-panel__mark').getBoundingClientRect();
+          const track = document.querySelector('#progress-track').getBoundingClientRect();
+          const phase = document.querySelector('#step-text').getBoundingClientRect();
+          return {
+            markWidth: mark.width,
+            trackWidth: track.width,
+            trackHeight: track.height,
+            trackTop: track.top,
+            phaseTop: phase.top,
+            fill: getComputedStyle(document.querySelector('#progress-bar')).backgroundColor,
+            primary: document.documentElement.dataset.theme === 'dark'
+              ? 'rgb(179, 157, 222)'
+              : 'rgb(106, 75, 175)',
+          };
+        }"""
+    )
+
+    failures = []
+    if abs(geometry["trackHeight"] - 3) > 0.1:
+        failures.append(
+            f"/loading progress hairline is {geometry['trackHeight']}px, expected 3px"
+        )
+    if geometry["trackWidth"] < geometry["markWidth"] * 1.75:
+        failures.append(
+            "/loading progress hairline is not substantially wider than the pinwheel"
+        )
+    if geometry["phaseTop"] <= geometry["trackTop"]:
+        failures.append("/loading phase label does not follow the progress hairline")
+    if geometry["fill"] != geometry["primary"]:
+        failures.append(
+            f"/loading progress fill is {geometry['fill']}, expected {geometry['primary']}"
+        )
+
+    # Use a disposable job. Opening an explicit Heatmap job intentionally
+    # stores it in the browser session; deleting it afterward lets the next
+    # request clear that pointer instead of making later form checks resume a
+    # synthetic in-progress run.
+    heatmap_job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    set_job_stat(heatmap_job_id, "pages_received", 7)
+    set_job_stat(heatmap_job_id, "pages_expected", 12)
+    set_job_progress(
+        heatmap_job_id,
+        progress=48,
+        message="Fetching Last.fm page 7/12...",
+        error=False,
+    )
+    try:
+        page.goto(f"{base_url}/heatmap?job_id={heatmap_job_id}", wait_until="load")
+        page.locator("#heatmap-loading-stats").wait_for(state="visible")
+        heatmap_state = page.evaluate(
+            """() => ({
+                progress: document.querySelector('#heatmap-progress-track')
+                    ?.getAttribute('aria-valuenow'),
+                pages: document.querySelector('#heatmap-stat-pages')?.textContent,
+                parameters: document.querySelectorAll('.heatmap-loading__params li').length,
+                backHome: document.querySelector('.heatmap-loading__back')?.getAttribute('href'),
+            })"""
+        )
+    finally:
+        delete_job(heatmap_job_id)
+    if heatmap_state["progress"] != "48":
+        failures.append("/heatmap did not render backend-owned progress")
+    if heatmap_state["pages"] != "7 / 12":
+        failures.append("/heatmap did not render live page-fetch depth")
+    if heatmap_state["parameters"] != 3:
+        failures.append("/heatmap did not retain its loading parameters")
+    if heatmap_state["backHome"] != "/":
+        failures.append("/heatmap loading state has no route-backed home escape")
+    return failures
+
+
+def check_large_display_scale_parity(page, base_url: str) -> list[str]:
+    """A 4K canvas preserves the established 1080p component scale.
+
+    Responsive placement may use the extra room, but the wordmark, type,
+    navigation, form, and controls must not independently inflate. This is a
+    CSS-pixel comparison: it protects proportions without pretending that
+    browser or operating-system display scaling belongs to the page.
+    """
+    original_viewport = page.viewport_size
+    selectors = {
+        "wordmark": ".index-hero__mark",
+        "headline": ".index-hero__headline",
+        "form": ".ss-card",
+        "input": ".ss-input",
+        "mode tab": ".mode-pill",
+        "page navigation": ".site-header__nav-link",
+    }
+    dimensions = {
+        "wordmark": ("width", "height"),
+        # A heading is a flow box: its available width follows the responsive
+        # column while its type scale stays fixed.
+        "headline": ("fontSize",),
+        "form": ("width",),
+        "input": ("width", "height", "fontSize"),
+        "mode tab": ("width", "height", "fontSize"),
+        "page navigation": ("width", "height", "fontSize"),
+    }
+
+    def measure(width: int, height: int):
+        page.set_viewport_size({"width": width, "height": height})
+        page.goto(f"{base_url}/", wait_until="load")
+        return page.evaluate(
+            """(targets) => Object.fromEntries(
+                Object.entries(targets).map(([name, selector]) => {
+                    const node = document.querySelector(selector);
+                    if (!node) return [name, null];
+                    const rect = node.getBoundingClientRect();
+                    const style = getComputedStyle(node);
+                    return [name, {
+                        width: rect.width,
+                        height: rect.height,
+                        fontSize: parseFloat(style.fontSize),
+                    }];
+                })
+            )""",
+            selectors,
+        )
+
+    try:
+        at_1080p = measure(1920, 1080)
+        at_4k = measure(3840, 2160)
+    finally:
+        if original_viewport:
+            page.set_viewport_size(original_viewport)
+
+    failures = []
+    for name in selectors:
+        baseline = at_1080p.get(name)
+        large = at_4k.get(name)
+        if baseline is None or large is None:
+            failures.append(f"/: {name} could not be measured at both display sizes")
+            continue
+        for dimension in dimensions[name]:
+            if abs(baseline[dimension] - large[dimension]) > 0.5:
+                failures.append(
+                    f"/: {name} {dimension} changes from "
+                    f"{baseline[dimension]:.1f}px at 1080p to "
+                    f"{large[dimension]:.1f}px at 4K"
+                )
+    return failures
+
+
+def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
+    """Both polling clients reach success, retryable, and terminal states."""
+    album_job_id = GATE_JOB_IDS["album"]
+    heatmap_job_id = GATE_JOB_IDS["heatmap"]
+    loading_path = next(path for path in MIGRATED_PAGES if path.startswith("/loading?"))
+    failures = []
+
+    # Keep the production delay in source while making the gate deterministic
+    # and fast. The one-second poll cadence is unchanged.
+    page.add_init_script(
+        """() => {
+            const nativeTimeout = window.setTimeout;
+            window.setTimeout = (callback, delay, ...args) =>
+                nativeTimeout(callback, delay === 3000 ? 0 : delay, ...args);
+        }"""
+    )
+
+    reset_job_state(album_job_id)
+    set_job_results(
+        album_job_id,
+        [
+            {
+                "artist": "Gate Artist",
+                "album": "Gate Album",
+                "play_count": 12,
+                "play_time": "42m",
+                "play_time_seconds": 2520,
+                "release_date": "2025-01-01",
+                "album_image": "",
+                "spotify_id": "gate-album",
+            }
+        ],
+    )
+    set_job_progress(album_job_id, progress=100, message="Done", error=False)
+    page.goto(f"{base_url}{loading_path}", wait_until="load")
+    page.wait_for_url(f"{base_url}/results")
+    if "Gate Album" not in page.locator("body").inner_text():
+        failures.append("album success did not render the saved result")
+
+    reset_job_state(album_job_id)
+    set_job_error(album_job_id, "lastfm_rate_limited")
+    page.goto(f"{base_url}{loading_path}", wait_until="load")
+    page.locator("#retry-button").wait_for(state="visible")
+    if not page.url.startswith(f"{base_url}/loading"):
+        failures.append("album retryable failure left the loading route")
+
+    reset_job_state(album_job_id)
+    set_job_error(album_job_id, "user_not_found", username="frontend-gate")
+    page.goto(f"{base_url}{loading_path}", wait_until="load")
+    page.wait_for_url(f"{base_url}/results")
+    if not page.locator(".error-icon").is_visible():
+        failures.append("album terminal failure did not reach its results error")
+
+    heatmap_path = f"/heatmap?job_id={heatmap_job_id}"
+    reset_job_state(heatmap_job_id)
+    set_job_results(
+        heatmap_job_id,
+        {
+            "username": "frontend-gate",
+            "from_date": "2025-01-01",
+            "to_date": "2025-01-01",
+            "total_scrobbles": 4,
+            "daily_counts": {"2025-01-01": 4},
+        },
+    )
+    set_job_progress(heatmap_job_id, progress=100, message="Done", error=False)
+    page.goto(f"{base_url}{heatmap_path}", wait_until="load")
+    page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+
+    reset_job_state(heatmap_job_id)
+    set_job_error(heatmap_job_id, "lastfm_rate_limited")
+    page.goto(f"{base_url}{heatmap_path}", wait_until="load")
+    page.locator("#heatmap-error").wait_for(state="visible")
+    if not page.locator("#heatmap-retry-btn").is_visible():
+        failures.append("heatmap retryable failure did not offer Retry")
+
+    reset_job_state(heatmap_job_id)
+    set_job_error(heatmap_job_id, "user_not_found", username="frontend-gate")
+    page.goto(f"{base_url}{heatmap_path}", wait_until="load")
+    page.locator("#heatmap-error").wait_for(state="visible")
+    if page.locator("#heatmap-retry-btn").is_visible():
+        failures.append("heatmap terminal failure incorrectly offered Retry")
+    return failures
+
+
+def check_pipeline_state_machines(page, base_url: str) -> list[str]:
+    """Exercise both clients and restore the shared loading fixture."""
+    try:
+        return _exercise_pipeline_state_machines(page, base_url)
+    finally:
+        reset_job_state(GATE_JOB_IDS["album"])
+        set_job_progress(
+            GATE_JOB_IDS["album"],
+            progress=42,
+            message="Fetching scrobbles - page 21 / 50",
+            error=False,
+        )
+        reset_job_state(GATE_JOB_IDS["heatmap"])
+
+
 #: Every check the gate runs, with the viewports each one runs at.
 #:
 #: Width changes nothing for stylesheet links, font downloads or the
@@ -1247,9 +1494,9 @@ CHECKS = (
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE)),
     ("body font", check_body_font, (DESKTOP, MOBILE)),
     ("shell text scaling", check_shell_scales_with_text, (DESKTOP, MOBILE)),
+    ("loading composition", check_loading_composition, (DESKTOP, MOBILE)),
     ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
     ("validation feedback", check_validation_feedback, (DESKTOP,)),
-    ("hint access", check_hint_access, (DESKTOP, MOBILE)),
     ("true warning survives", check_true_warning_survives, (DESKTOP,)),
     ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
     ("mark follows theme", check_mark_follows_theme, (DESKTOP,)),
@@ -1265,6 +1512,8 @@ CHECKS = (
         (DESKTOP,),
     ),
     ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE)),
+    ("pipeline state machines", check_pipeline_state_machines, (DESKTOP,)),
+    ("large display scale parity", check_large_display_scale_parity, (DESKTOP,)),
 )
 
 #: How many check runs a clean pass performs. Printed so a check that silently
@@ -1291,6 +1540,10 @@ def run_checks(new_page, base_url: str) -> list[str]:
     for viewport, spec in VIEWPORTS.items():
         try:
             page = new_page(spec)
+            # Impeccable Live is a developer overlay injected into base.html
+            # while visual review is active. Keep the production UI gate
+            # independent from that local instrumentation.
+            page.route("http://localhost:8400/**", lambda route: route.abort())
         except Exception as exc:  # noqa: BLE001 - same rule as a check fault
             failures.append(
                 f"the {viewport} profile could not be opened: "

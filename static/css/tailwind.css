@@ -10,8 +10,6 @@
     --font-weight-light: 300;
     --font-weight-normal: 400;
     --font-weight-bold: 700;
-    --default-transition-duration: 150ms;
-    --default-transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     --default-font-family: var(--font-sans);
     --default-mono-font-family: var(--font-mono);
     --font-figure: "gotham", ui-sans-serif, sans-serif;
@@ -1292,6 +1290,17 @@
     border-end-start-radius: var(--join-ee, var(--radius-field));
     border-end-end-radius: var(--join-es, var(--radius-field));
   }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
   @layer daisyui.l1.l2.l3 {
     .card-body {
       display: flex;
@@ -1426,9 +1435,6 @@
   .me-auto {
     margin-inline-end: auto;
   }
-  .mt-3 {
-    margin-top: var(--spacing-3);
-  }
   .mt-4 {
     margin-top: var(--spacing-4);
   }
@@ -1515,9 +1521,6 @@
   .gap-4 {
     gap: var(--spacing-4);
   }
-  .bg-primary {
-    background-color: var(--color-primary);
-  }
   @layer daisyui.l1.l2.l3 {
     .btn-outline {
       --btn-bg: #0000;
@@ -1546,6 +1549,10 @@
   .text-display {
     font-size: var(--text-display);
     line-height: var(--tw-leading, var(--text-display--line-height));
+  }
+  .text-display-lg {
+    font-size: var(--text-display-lg);
+    line-height: var(--tw-leading, var(--text-display-lg--line-height));
   }
   .text-label {
     font-size: var(--text-label);
@@ -1586,11 +1593,6 @@
   }
   .filter {
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
-  }
-  .transition {
-    transition-property: color, background-color, border-color, outline-color, text-decoration-color, fill, stroke, --tw-gradient-from, --tw-gradient-via, --tw-gradient-to, opacity, box-shadow, transform, translate, scale, rotate, filter, -webkit-backdrop-filter, backdrop-filter, display, content-visibility, overlay, pointer-events;
-    transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
-    transition-duration: var(--tw-duration, var(--default-transition-duration));
   }
   @layer daisyui.l1.l2 {
     .btn-primary {

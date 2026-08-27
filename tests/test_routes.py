@@ -78,6 +78,31 @@ def test_heatmap_page_opens_with_heatmap_mode_selected(client):
     assert 'href="/heatmap" aria-current="page"' in html
 
 
+def test_heatmap_page_embeds_latest_session_job_for_resume(client):
+    """The Heatmap destination should resume this browser's latest run."""
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+    with client.session_transaction() as browser_session:
+        browser_session["latest_heatmap_job_id"] = job_id
+
+    response = client.get("/heatmap")
+
+    assert response.status_code == 200
+    assert f'"job_id": "{job_id}"'.encode() in response.data
+    assert b'"username": "testuser"' in response.data
+
+
+def test_heatmap_page_accepts_explicit_job_then_saves_it(client):
+    """An explicit compatibility ID should seed later clean Heatmap visits."""
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+
+    response = client.get(f"/heatmap?job_id={job_id}")
+
+    assert response.status_code == 200
+    assert f'"job_id": "{job_id}"'.encode() in response.data
+    with client.session_transaction() as browser_session:
+        assert browser_session["latest_heatmap_job_id"] == job_id
+
+
 def test_home_page_heatmap_loading_uses_unframed_panel(client):
     """The heatmap loading state should not render as a Bootstrap card."""
     response = client.get("/")
@@ -93,6 +118,8 @@ def test_home_page_heatmap_loading_uses_unframed_panel(client):
     # silent -- the blades render and simply never move.
     assert "ss-pinwheel" in loading_markup
     assert "pinwheel-blade" in loading_markup
+    assert 'id="heatmap-progress-track"' in loading_markup
+    assert 'id="heatmap-progress-bar"' in loading_markup
     assert "card shadow" not in loading_markup
     assert "card-body" not in loading_markup
 
@@ -293,6 +320,9 @@ def test_results_loading_valid_post(client):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 303
     assert re.fullmatch(r"/loading\?job_id=[^&]+", response.location)
+    job_id = response.location.split("job_id=", 1)[1]
+    with client.session_transaction() as browser_session:
+        assert browser_session["latest_album_job_id"] == job_id
     # Verify start_job_thread was called with background_task as the target
     mock_start.assert_called_once()
     assert mock_start.call_args[0][0] is background_task
@@ -595,6 +625,11 @@ def test_loading_page_uses_job_context_at_canonical_url(client):
     assert b"window.SCROBBLE" in response.data
     assert b"testuser" in response.data
     assert b">Loading</a>" not in response.data
+    assert b'id="progress-track"' in response.data
+    assert b'id="progress-bar"' in response.data
+    assert b"progress-bar-striped" not in response.data
+    with client.session_transaction() as browser_session:
+        assert browser_session["latest_album_job_id"] == job_id
 
 
 def test_results_page_uses_job_context_at_canonical_url(client):
@@ -623,6 +658,10 @@ def test_results_page_uses_job_context_at_canonical_url(client):
     assert b"Kendrick Lamar" in response.data
     assert b'aria-current="page">Results</a>' in response.data
 
+    resumed = client.get("/results")
+    assert resumed.status_code == 200
+    assert b"Kendrick Lamar" in resumed.data
+
 
 def test_unmatched_page_uses_job_context_at_canonical_url(client):
     """GET /unmatched should render the report and a stable results link."""
@@ -637,8 +676,12 @@ def test_unmatched_page_uses_job_context_at_canonical_url(client):
 
     assert response.status_code == 200
     assert b"Artist A" in response.data
-    assert f"/results?job_id={job_id}".encode() in response.data
+    assert b'href="/results"' in response.data
     assert b'aria-current="page">Unmatched</a>' in response.data
+
+    resumed = client.get("/unmatched")
+    assert resumed.status_code == 200
+    assert b"Artist A" in resumed.data
 
 
 def test_job_backed_navigation_pages_have_friendly_empty_states(client):
@@ -647,8 +690,21 @@ def test_job_backed_navigation_pages_have_friendly_empty_states(client):
         response = client.get(path)
         assert response.status_code == 200
         assert b"You haven&#39;t filtered your scrobbles yet." in response.data
-        assert b' href="/" class="btn btn-primary">Back to Home</a>' in response.data
+        assert b' href="/" class="btn btn-primary">Start from Home</a>' in response.data
         assert b'class="error-code"' not in response.data
+
+
+def test_expired_saved_album_job_returns_to_friendly_empty_state(client):
+    """A stale browser-session pointer should not become a dead-end error."""
+    with client.session_transaction() as browser_session:
+        browser_session["latest_album_job_id"] = "expired-job"
+
+    response = client.get("/results")
+
+    assert response.status_code == 200
+    assert b"previous results have expired" in response.data
+    with client.session_transaction() as browser_session:
+        assert "latest_album_job_id" not in browser_session
 
 
 def test_app_404_handler_renders_error_template(client):
@@ -693,6 +749,34 @@ def test_csrf_rejects_post_without_token(csrf_app_client):
     """
     response = csrf_app_client.post("/results_loading", data=VALID_FORM_DATA)
     assert response.status_code == 400
+
+
+def test_heatmap_csrf_failure_is_json_and_fresh_token_can_retry(csrf_app_client):
+    """The AJAX heatmap form can recover without reloading a long-lived tab."""
+    rejected = csrf_app_client.post("/heatmap_loading", data={"username": "testuser"})
+    assert rejected.status_code == 400
+    assert rejected.is_json
+    assert rejected.get_json()["error_code"] == "csrf_invalid"
+
+    token_response = csrf_app_client.get("/csrf-token")
+    assert token_response.status_code == 200
+    token = token_response.get_json()["csrf_token"]
+
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            return_value={"exists": True, "registered_year": None},
+        ),
+        patch("scrobblescope.routes.start_job_thread"),
+        patch("scrobblescope.routes.acquire_job_slot", return_value=True),
+    ):
+        accepted = csrf_app_client.post(
+            "/heatmap_loading",
+            data={"username": "testuser", "csrf_token": token},
+        )
+
+    assert accepted.status_code == 202
+    assert accepted.get_json()["job_id"]
 
 
 def test_csrf_accepts_post_with_valid_token(csrf_app_client):
@@ -870,6 +954,8 @@ def test_heatmap_loading_valid_username(client):
     data = response.get_json()
     assert "job_id" in data
     assert "error" not in data
+    with client.session_transaction() as browser_session:
+        assert browser_session["latest_heatmap_job_id"] == data["job_id"]
     # Verify the thread target is heatmap_task, not background_task.
     from scrobblescope.heatmap import heatmap_task
 

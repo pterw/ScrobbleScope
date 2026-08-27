@@ -24,6 +24,24 @@
     border-radius: var(--radius-lg);
 }
 
+.error-card--empty {
+    max-width: 34rem;
+}
+
+.error-page--empty .card-body {
+    gap: 0;
+    padding: clamp(1.75rem, 4vw, 2.5rem);
+}
+
+.error-page--empty .btn {
+    border-radius: var(--radius-sm);
+    box-shadow: none;
+    font-family: var(--font-mono-narrow);
+    font-size: var(--text-label);
+    font-weight: var(--font-weight-normal);
+    letter-spacing: 0.06em;
+}
+
 .error-icon {
     color: var(--color-primary);
     margin-bottom: var(--spacing-6);

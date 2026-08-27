@@ -13,6 +13,12 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/heatmap.css') }}">
 {% endblock %}
 
+{% block head_extra %}
+<script id="heatmap-session-config" type="application/json">{{
+  initial_heatmap_job|default(none)|tojson
+}}</script>
+{% endblock %}
+
 {% block content %}
 <main class="index-page">
 
@@ -42,7 +48,7 @@
 
       <div data-mode-hero="heatmap"{% if initial_mode != 'heatmap' %} class="hidden"{% endif %}>
         <p class="eyebrow">Listening heatmap</p>
-        <h1 class="index-hero__headline">A year of listening, <em>one grid.</em></h1>
+        <h1 class="index-hero__headline">Your last 365 days, <em>one grid.</em></h1>
         <p class="index-hero__lede">Every scrobble from the last 365 days, coloured on
           the rocket scale. Hover any day to see what you played.</p>
       </div>
@@ -109,17 +115,7 @@
 
             <div class="field">
               <div class="field__label-row">
-                <label class="field__label" for="release_scope">Album release filter</label>
-                {# One of the two ambiguous fields. details/summary opens on
-                   click, tap and Enter, so the explanation is reachable by
-                   keyboard and on touch. Hover alone would not be. #}
-                <details class="hint">
-                  <summary class="hint__toggle" aria-label="What the release filter does">
-                    <span class="hint__mark" aria-hidden="true">?</span>
-                  </summary>
-                  <p class="hint__body">Filters albums by their Spotify release date.
-                    Same as listening year is the one for AOTY lists.</p>
-                </details>
+                <label class="field__label" for="release_scope">Release filter</label>
               </div>
               <div class="field__control">
                 <select id="release_scope" name="release_scope" class="ss-select">
@@ -158,13 +154,6 @@
             <div class="field">
               <div class="field__label-row">
                 <span class="field__label" id="sort-label">Rank by</span>
-                <details class="hint">
-                  <summary class="hint__toggle" aria-label="What ranking does">
-                    <span class="hint__mark" aria-hidden="true">?</span>
-                  </summary>
-                  <p class="hint__body">Play count ranks by total scrobbles. Play time
-                    ranks by how long you actually listened, track runtime times plays.</p>
-                </details>
               </div>
               <div class="seg" role="group" aria-labelledby="sort-label">
                 <input type="radio" id="sort_playcount" name="sort_by" value="playcount" class="seg__radio" checked>
@@ -258,7 +247,9 @@
   {# Both heatmap stages sit outside the grid so the 53-week grid can use the
      whole page. static/js/heatmap.js hides #index-grid while either shows. #}
   <div id="heatmap-loading" class="heatmap-stage hidden">
-    {% include 'partials/_loading.html' %}
+    {% with wait_details_partial='partials/_heatmap_loading_details.html' %}
+      {% include 'partials/_loading.html' %}
+    {% endwith %}
   </div>
 
   {% include 'partials/_heatmap_result.html' %}

@@ -1,7 +1,16 @@
 import logging
 from datetime import datetime
 
-from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
+from flask_wtf.csrf import generate_csrf
 
 from scrobblescope.heatmap import heatmap_task
 from scrobblescope.lastfm import check_user_exists
@@ -20,6 +29,9 @@ from scrobblescope.utils import run_async_in_thread
 from scrobblescope.worker import acquire_job_slot, start_job_thread
 
 bp = Blueprint("main", __name__)
+
+_LATEST_ALBUM_JOB = "latest_album_job_id"
+_LATEST_HEATMAP_JOB = "latest_heatmap_job_id"
 
 
 def _check_user_exists(username):
@@ -93,15 +105,27 @@ def _get_filter_description(release_scope, decade, release_year, listening_year)
         return "albums matching your criteria"
 
 
+def _request_or_session_job_id(session_key=None):
+    """Return an explicit job ID, or the latest one stored for this browser."""
+    return request.values.get("job_id") or (
+        session.get(session_key) if session_key else None
+    )
+
+
 def _get_validated_job_context(
-    missing_id_message, expired_error, expired_message, expired_details
+    missing_id_message,
+    expired_error,
+    expired_message,
+    expired_details,
+    session_key=None,
+    expected_mode=None,
 ):
     """Validate ``job_id`` from the current request query or form data.
 
     Returns ``(job_id, job_context, None)`` on success, or
     ``(None, None, error_response)`` when validation fails.
     """
-    job_id = request.values.get("job_id")
+    job_id = _request_or_session_job_id(session_key)
     if not job_id:
         return (
             None,
@@ -115,8 +139,13 @@ def _get_validated_job_context(
         )
 
     job_context = get_job_context(job_id)
-    if not job_context:
+    actual_mode = None
+    if job_context:
+        actual_mode = job_context.get("params", {}).get("mode", "album")
+    if not job_context or (expected_mode and actual_mode != expected_mode):
         logging.warning(f"Job context not found for {job_id}")
+        if session_key and session.get(session_key) == job_id:
+            session.pop(session_key, None)
         return (
             None,
             None,
@@ -128,7 +157,28 @@ def _get_validated_job_context(
             ),
         )
 
+    if session_key:
+        session[session_key] = job_id
     return job_id, job_context, None
+
+
+def _latest_heatmap_job():
+    """Return resumable heatmap metadata from an explicit or saved job."""
+    job_id = request.values.get("job_id") or session.get(_LATEST_HEATMAP_JOB)
+    if not job_id:
+        return None
+
+    job_context = get_job_context(job_id)
+    if not job_context or job_context.get("params", {}).get("mode") != "heatmap":
+        if session.get(_LATEST_HEATMAP_JOB) == job_id:
+            session.pop(_LATEST_HEATMAP_JOB, None)
+        return None
+
+    session[_LATEST_HEATMAP_JOB] = job_id
+    return {
+        "job_id": job_id,
+        "username": job_context.get("params", {}).get("username", ""),
+    }
 
 
 def _render_no_job_state(title, message):
@@ -138,11 +188,11 @@ def _render_no_job_state(title, message):
         page_title=title,
         error=title,
         message=message,
-        details="Start from Home, enter your Last.fm username, and run a search.",
+        empty_state=True,
         show_error_icon=False,
         show_status_code=False,
         show_back_action=False,
-        primary_action_label="Back to Home",
+        primary_action_label="Start from Home",
     )
 
 
@@ -155,13 +205,6 @@ def inject_current_year():
 @bp.app_context_processor
 def inject_page_navigation():
     """Build the shared, canonical page navigation for the current request."""
-    job_id = request.values.get("job_id")
-
-    def job_url(endpoint):
-        if job_id:
-            return url_for(endpoint, job_id=job_id)
-        return url_for(endpoint)
-
     endpoint = request.endpoint
     return {
         "page_navigation": (
@@ -171,18 +214,18 @@ def inject_page_navigation():
                 "active": endpoint == "main.home",
             },
             {
-                "label": "Results",
-                "href": job_url("main.results"),
-                "active": endpoint in {"main.results", "main.results_complete"},
-            },
-            {
                 "label": "Heatmap",
                 "href": url_for("main.heatmap"),
                 "active": endpoint == "main.heatmap",
             },
             {
+                "label": "Results",
+                "href": url_for("main.results"),
+                "active": endpoint in {"main.results", "main.results_complete"},
+            },
+            {
                 "label": "Unmatched",
-                "href": job_url("main.unmatched_page"),
+                "href": url_for("main.unmatched_page"),
                 "active": endpoint in {"main.unmatched_page", "main.unmatched_view"},
             },
         )
@@ -193,13 +236,21 @@ def inject_page_navigation():
 def home():
     """Serve the home page"""
     logging.info("Serving index.html as the homepage.")
-    return render_template("index.html", initial_mode="album")
+    return render_template(
+        "index.html",
+        initial_mode="album",
+        initial_heatmap_job=_latest_heatmap_job(),
+    )
 
 
 @bp.route("/heatmap", methods=["GET"])
 def heatmap():
     """Serve the index workflow with the heatmap mode selected."""
-    return render_template("index.html", initial_mode="heatmap")
+    return render_template(
+        "index.html",
+        initial_mode="heatmap",
+        initial_heatmap_job=_latest_heatmap_job(),
+    )
 
 
 @bp.route("/validate_user", methods=["GET"])
@@ -231,6 +282,12 @@ def validate_user():
             payload["registered_year"] = result["registered_year"]
         return jsonify(payload)
     return jsonify({"valid": False, "message": "Username not found on Last.fm."})
+
+
+@bp.route("/csrf-token", methods=["GET"])
+def csrf_token():
+    """Issue a fresh token for a long-lived AJAX form without reloading it."""
+    return jsonify({"csrf_token": generate_csrf()})
 
 
 @bp.route("/progress")
@@ -291,6 +348,8 @@ def _render_loading_page():
         expired_error="Job Not Found",
         expired_message="Your loading session has expired.",
         expired_details="Please start a new search.",
+        session_key=_LATEST_ALBUM_JOB,
+        expected_mode="album",
     )
     if err:
         return err
@@ -360,7 +419,8 @@ def internal_error(e):
 
 def _render_results_page():
     """Render the results page for a completed job, or an error page on failure."""
-    if request.method == "GET" and not request.values.get("job_id"):
+    used_saved_job = request.method == "GET" and not request.values.get("job_id")
+    if request.method == "GET" and not _request_or_session_job_id(_LATEST_ALBUM_JOB):
         return _render_no_job_state(
             "No results yet",
             "You haven't filtered your scrobbles yet.",
@@ -371,8 +431,15 @@ def _render_results_page():
         expired_error="Results Not Found",
         expired_message="We couldn't find your results.",
         expired_details="The processing may have expired. Please try again.",
+        session_key=_LATEST_ALBUM_JOB,
+        expected_mode="album",
     )
     if err:
+        if used_saved_job:
+            return _render_no_job_state(
+                "No results yet",
+                "Your previous results have expired. Run a new album search.",
+            )
         return err
 
     # Type narrowing: after the err guard, job_context is guaranteed non-None.
@@ -469,7 +536,8 @@ def results_complete():
 
 def _render_unmatched_page():
     """Render the unmatched-album report for an existing job."""
-    if request.method == "GET" and not request.values.get("job_id"):
+    used_saved_job = request.method == "GET" and not request.values.get("job_id")
+    if request.method == "GET" and not _request_or_session_job_id(_LATEST_ALBUM_JOB):
         return _render_no_job_state(
             "No unmatched albums yet",
             "You haven't filtered your scrobbles yet.",
@@ -480,8 +548,15 @@ def _render_unmatched_page():
         expired_error="Job Not Found",
         expired_message="Your unmatched album data has expired.",
         expired_details="Please run a new search.",
+        session_key=_LATEST_ALBUM_JOB,
+        expected_mode="album",
     )
     if err:
+        if used_saved_job:
+            return _render_no_job_state(
+                "No unmatched albums yet",
+                "Your previous results have expired. Run a new album search.",
+            )
         return err
 
     # Type narrowing: after the err guard, job_context is guaranteed non-None.
@@ -630,6 +705,8 @@ def results_loading():
             error="Failed to start processing. Please try again.",
         )
 
+    session[_LATEST_ALBUM_JOB] = job_id
+
     return redirect(url_for(".loading_page", job_id=job_id), code=303)
 
 
@@ -714,6 +791,7 @@ def heatmap_loading():
             500,
         )
 
+    session[_LATEST_HEATMAP_JOB] = job_id
     return jsonify({"job_id": job_id}), 202
 
 

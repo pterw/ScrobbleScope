@@ -7,16 +7,14 @@
 
   The frame carries its own surface and radius so the grid sits on the warm
   heatmap ground rather than the page. docs/design/README.md screen 4 owns
-  those values.
+  those values. The visible result covers the Last 365 days.
 #}
 <section id="heatmap-result" class="heatmap-stage hidden">
-  {# The eyebrow carries the range, so the headline does not have to. It says
-     the window is 365 days in as many words, which the serif line above the
-     frame used to do at the cost of running long. #}
+  {# The short result headline leads; the range becomes its quiet label. #}
   <div class="heatmap-head">
     <div class="heatmap-head__titles">
-      <p class="eyebrow">Listening heatmap &middot; Last 365 days</p>
       <p class="heatmap-headline hidden" id="heatmap-result-headline"></p>
+      <p class="eyebrow">Listening heatmap</p>
     </div>
     <div class="heatmap-head__actions">
       <button type="button" class="ss-btn" id="heatmap-save-image">Save image</button>
