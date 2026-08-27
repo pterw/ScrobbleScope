@@ -72,15 +72,9 @@
    repeat the same asset 60px above it. Nothing is lost: the header mark is
    only ever a link back to this page.
 
-   static/css/shell.css owns the header and sets it to space-between, so with
-   the link gone the toggle would slide to the left edge. margin-left: auto
-   holds it where it sits on every other page. */
+   static/css/shell.css owns the header. The page navigation remains visible. */
 .site-header__home {
   display: none;
-}
-
-.site-header__actions {
-  margin-left: auto;
 }
 
 /* ------------------------------------------------------------------ */

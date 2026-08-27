@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Error | ScrobbleScope{% endblock %}
+{% block title %}{{ page_title|default('Error') }} | ScrobbleScope{% endblock %}
 
 {# Migrated to Tailwind, so this page opts out of the legacy stack. Loading
    Bootstrap as well would collide: both frameworks claim .btn and .card, and
@@ -18,16 +18,20 @@
         <div class="card-body items-center text-center">
             {# The only icon in the system. The design system is text-first and
                has no icon set: "do not invent one". #}
+            {% if show_error_icon|default(true) %}
             <div class="error-icon" aria-hidden="true">
                 <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                     <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
                 </svg>
             </div>
+            {% endif %}
 
             <h1 class="font-serif text-display mb-3">
                 {{ error|default('Error') }}
+                {% if show_status_code|default(true) %}
                 <span class="error-code">{{ status_code|default('400') }}</span>
+                {% endif %}
             </h1>
 
             <p class="text-body mb-6">{{ message|default('Something went wrong.') }}</p>
@@ -40,8 +44,10 @@
             {% endif %}
 
             <div class="flex flex-wrap justify-center gap-4">
-                <a href="/" class="btn btn-primary">Back to Home</a>
+                <a href="/" class="btn btn-primary">{{ primary_action_label|default('Back to Home') }}</a>
+                {% if show_back_action|default(true) %}
                 <button type="button" class="btn btn-outline" onclick="window.history.back()">Go Back</button>
+                {% endif %}
             </div>
         </div>
     </div>

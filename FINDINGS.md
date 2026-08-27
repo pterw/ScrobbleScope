@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-25
+Last updated: 2026-08-26
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0 through WP-3 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
 resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
@@ -12,8 +12,9 @@ F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11
 and F-B18-12 and filed F-B21-14 through F-B21-20. The owner's review of the
 deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
 F-B21-23 and F-B21-24, and the workflow review that followed it added
-F-B21-25. **WP-4 is next.**
-826 tests across 40 test modules.
+F-B21-25. The canonical routing and navigation
+prerequisite is complete; **WP-4 continues with the unified loading rebuild.**
+833 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during

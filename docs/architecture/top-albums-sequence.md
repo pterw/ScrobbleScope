@@ -169,15 +169,15 @@ sequenceDiagram
             Browser->>Browser: Stop polling and show the error
             alt Error is retryable
                 Browser->>Browser: Offer Retry and stay on the loading page
-                Note over Browser,Routes: The browser does not post results_complete on this path
+                Note over Browser,Routes: The browser stays on canonical /loading on this path
             else Error is not retryable
                 Browser->>Browser: Wait three seconds
-                Browser->>Routes: POST /results_complete + job_id
+                Browser->>Routes: GET /results?job_id=...
                 Routes-->>Browser: error.html -- Processing Error
                 Note over Browser,Routes: Same handler as the 100% path, taking its Job errored branch
             end
         else Progress reaches 100%
-            Browser->>Routes: POST /results_complete + job_id
+            Browser->>Routes: GET /results?job_id=...
             alt job_id missing
                 Routes-->>Browser: error.html -- Missing Job Identifier
             else job_id present
@@ -193,7 +193,7 @@ sequenceDiagram
                 else Results present
                     Routes-->>Browser: results.html
                     opt User opens the unmatched list
-                        Browser->>Routes: POST /unmatched_view + job_id
+                        Browser->>Routes: GET /unmatched?job_id=...
                         Routes-->>Browser: unmatched.html grouped by reason
                     end
                 end

@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        fetch(`/unmatched?job_id=${encodeURIComponent(jobId)}`)
+        fetch(`/api/unmatched?job_id=${encodeURIComponent(jobId)}`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status}`);

@@ -340,32 +340,9 @@ async function fetchProgress() {
   }
 }
 
-//Helper to build and submit the POST form to /results_complete
+// Move to the canonical, refreshable results URL for this job.
 function redirectToResults() {
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = '/results_complete';
-
-  form.appendChild(createHiddenInput('csrf_token', csrfToken));
-  form.appendChild(createHiddenInput('job_id', job_id));
-  form.appendChild(createHiddenInput('username', username));
-  form.appendChild(createHiddenInput('year', year));
-  form.appendChild(createHiddenInput('sort_by', sort_by));
-  form.appendChild(createHiddenInput('release_scope', release_scope));
-
-  if (decade) {
-    form.appendChild(createHiddenInput('decade', decade));
-  }
-  if (release_year) {
-    form.appendChild(createHiddenInput('release_year', release_year));
-  }
-
-  form.appendChild(createHiddenInput('min_plays', min_plays));
-  form.appendChild(createHiddenInput('min_tracks', min_tracks));
-  form.appendChild(createHiddenInput('limit_results', limit_results || 'all'));
-
-  document.body.appendChild(form);
-  form.submit();
+  window.location.assign(`/results?job_id=${encodeURIComponent(job_id)}`);
 }
 
 // Resubmit the original search to /results_loading (creates a fresh job)

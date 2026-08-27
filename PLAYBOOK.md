@@ -82,8 +82,13 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **WP-4 starts from the PR #218 merged result.** The
-  original twelve-round Codex review closed at `77bb001`: all thirty threads
+- **Next action:** **WP-4 continues from the canonical routing and navigation
+  prerequisite completed on 2026-08-26.** The owner added four functional
+  header destinations, canonical GET routes for every page state, friendly
+  pre-search states, and the segmented Light/Dark control before the loading
+  rebuild. The next implementation slice migrates `loading.html` to the
+  unified wait panel and extends the frontend gate to that job-backed route.
+  The original twelve-round Codex review closed at `77bb001`: all thirty threads
   were resolved, both Quality Gate runs passed, and the Codex connector
   recorded a thumbs-up. Three later Graphify passes produced advisory findings.
   Codex confirmed five defect classes: the root-font and saved-theme checks
@@ -94,14 +99,10 @@ See FINDINGS F-DOCSYNC-3.
   seams with regression tests. The remaining claims were disproved against
   section boundaries, source contracts, tests and live browser execution.
   GitHub remains the source of truth for the PR's integration state.
-  WP-4 then migrates `loading.html` to the unified wait panel.
   `templates/partials/_loading.html` already exists and is framework-neutral
   -- WP-3 built it a work package early -- so WP-4 consumes that partial
-  rather than writing one. Before the frontend gate can see the page, WP-4
-  needs a GET route for it: `LEGACY_PAGES` in
-  `scripts/dev/frontend_gate.py` is empty because `loading.html`,
-  `results.html` and `unmatched.html` render only from a POST with session
-  state, so no browser check has ever reached them.
+  rather than writing one. `GET /loading` now supplies the route the gate
+  needs; its job fixture and loading-specific checks still belong to WP-4.
   **WP-3 is complete.** It rebuilt `index.html` on Tailwind, deleted the
   welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
   the frontend gate from four checks at one desktop viewport into a
@@ -132,8 +133,9 @@ See FINDINGS F-DOCSYNC-3.
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
 - Batch 21 WP status: WP-0, WP-1, WP-2 and WP-3 done; PR #218 is the completed
-  WP-3 integration branch. WP-6 is absorbed into WP-3 and ships no commit of
-  its own. WP-4, WP-5, WP-7 and WP-8 not yet started.
+  WP-3 integration branch. The canonical routing/navigation prerequisite for
+  WP-4 is done; the unified loading rebuild is next. WP-6 is absorbed into
+  WP-3 and ships no commit of its own. WP-4, WP-5, WP-7 and WP-8 are not done.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -474,6 +476,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-26 - Canonical page navigation and routes added (side-task)
+
+- Scope: implemented the owner-requested navigation prerequisite before the
+  WP-4 loading rebuild. The shared header now offers Home, Results, Heatmap,
+  and Unmatched in Input Mono Narrow, plus the segmented Light/Dark control.
+  Loading stays transient and has no navigation pill.
+- Plan vs implementation: added canonical `GET /loading`, `/results`,
+  `/heatmap`, and `/unmatched` routes. New album jobs redirect to the loading
+  URL and the loading script opens the results URL at completion. The old
+  completion and unmatched POST routes remain compatibility shims during the
+  strangler. Unmatched JSON moved to `GET /api/unmatched` so the page owns
+  `/unmatched`.
+- Deviations: direct Results and Unmatched visits without a job now render a
+  friendly pre-search state with a Home action. Heatmap already falls back to
+  its form. The owner renamed the prototype's Index pill to Home and removed
+  Loading from the destination set.
+- Validation: `pytest -q` **833 passed**, 3 warnings. The frontend gate
+  reports 17 checks passed in 25 runs across desktop, mobile, and wide touch.
+  JavaScript syntax checks and `doc_state_sync.py --check` pass.
+- Forward guidance: WP-4 still owns the unified loading-page rebuild and the
+  two pipeline state-machine checks in `BATCH21_DEFINITION.md`. Keep the
+  canonical route and compatibility shims until the strangler retires them.
+
 ### 2026-08-26 - PR #220 review applied, and the theme fallback proved (side-task)
 
 - Scope: remediated the three Codex comments on PR #220. All three were
@@ -631,201 +656,3 @@ non-current operational logs. Older dated entries live in
   one machine only. Local verification passed and proved nothing about CI.
 - Validation: 822 tests, all 12 hooks locally, docsync `--check` exit 0,
   guard exit 0, and the Quality Gate green after the skip landed.
-
-### 2026-08-25 - PR #218 review rounds and post-completion pass applied (side-task)
-
-- Scope: remediated every Codex comment on PR #218 while WP-3 sat open and
-  unmerged. Thirty-seven comments across PR #216 and #218 in total -- seven
-  on #216 and thirty on #218. Thirty-six were valid; all were actioned.
-  All twelve rounds were answered and all thirty threads were resolved. On
-  2026-08-25 the owner authorized batched review replies and resolution of
-  threads whose fixes are present at the pushed head; GitHub owns the
-  resulting live state.
-  One was declined on its premise -- it said the closed thresholds disclosure
-  gave its controls zero-sized boxes, and deleting their sizing turns the gate
-  red, so they were being measured -- and its remedy was applied anyway.
-- What changed, beyond the individual fixes:
-  - **Touch sizing and the 1rem input size moved off the width query** onto
-    `@media (any-pointer: coarse), (max-width: 859.98px)`. A tablet in
-    landscape is wide and touched. The two rules were corrected one round
-    apart, which is the lesson: a rule moved for a newly understood condition
-    is not done until every rule sharing that condition moves with it.
-  - **The frontend gate gained a third device profile**, a wide touch screen,
-    and `run_checks` now takes a page factory because touch emulation belongs
-    to a browser context.
-  - **The export header is measured rather than fixed**, after the file it
-    produced was opened and looked at.
-  - **A `/validate_user` reply is discarded when the field has moved on.**
-    The submit guard added earlier in the series had turned a cosmetic stale
-    message into a block that no blur clears.
-  - **Round six found two blind spots in DOC009 and DOC011 themselves**, one
-    day old. DOC009 accepted a file after its first match, so `index.css`
-    could state the breakpoint once and contradict it in either of its other
-    two media queries; it reads every occurrence now, and a site may declare
-    `expect` so two notations of one fact -- `859.98px` and `860` -- can
-    differ without the check going blind. DOC011 searched line by line and
-    could never match a phrase that wrapped, which in Markdown that wraps at
-    about 76 columns is the likely shape rather than an edge case; it matches
-    the joined document now and maps back to the starting line, with the
-    history and strikethrough exemptions applied after that mapping.
-  - **Round seven found the same two blind spots one level further out.**
-    DOC010 also searched line by line, and `PLAYBOOK.md` already carried a
-    citation of `AGENTS.md` "UI and Accessibility Rules" across two lines, so
-    that heading could have moved with the gate green. DOC009 shared the
-    shape, quietly: a file that states a value more than once satisfied the
-    check on the unwrapped copy while a drifted wrapped one went unread. Both
-    read the joined document now. `_joined_text` strips each line before
-    joining, without which a correct wrapped citation resolves to a heading
-    name with five spaces in the middle of it.
-  - **The anchor scan is every Markdown tree**, not the trees someone
-    remembered. It had missed `docs/SWE_AUDIT_CHARTER.md`, which cites
-    `AGENTS.md` and was never read. Three exemptions are declared with it:
-    `docs/history` and `docs/logarchive`, because a dated record is accurate
-    at write time and renaming one heading would otherwise turn 70 archived
-    files red with no fix but editing history; and `CLAUDE.md`, because it is
-    gitignored, so scanning it made the gate's answer depend on which machine
-    ran it.
-  - **Widening the scan found a checker defect before it found a document
-    defect.** The design contract labels some sections as list items, and the
-    bold-label pattern insisted the asterisks start the line, so the WP-3
-    plan's citation of "Responsive" resolved nowhere. Fixing that first was
-    the difference between the widening finding a defect and the widening
-    crying wolf.
-  - **A year warning that is still true survives a username edit.**
-    `clearRegistrationState()` had reset the minimum and the hint and left the
-    message naming the previous account's join year. Clearing the message
-    outright is the obvious fix and is wrong: "Year cannot be in the future"
-    is about the year, not the account. The handler re-derives instead, and a
-    ninth gate check holds the half a reader would not notice was broken.
-  - **A failing validator no longer locks the form it serves.**
-    `/validate_user` answers an outage with 503 and `valid: false`, which both
-    blur handlers read as a verdict about the username. Trying again was the
-    one thing the message asked for that could not work. Reported against the
-    heatmap form, which refuses at its own submit guard; the index form has
-    the same defect through native validation, because only the heatmap form
-    carries `novalidate`. One comment, two forms.
-  - **A declaration with nothing to scan is refused.** `scan` was optional, so
-    an anchor carrying only `target` and `pattern` validated, visited no
-    documents, and DOC010 reported clean while checking no citations at all.
-    That is the same silent end state as the misspelled key closed the round
-    before, reached without a typo -- the earlier fix stopped at the way the
-    fault had been reported rather than at the condition behind it.
-  - **A nonempty scan must resolve to work.** Round eleven found named files
-    and globs that resolved nowhere were silently skipped. The sibling sweep
-    also found a third route to the same clean no-op: `allow_files` could
-    exempt every resolved path. DOC010 and DOC011 now fail loudly for all
-    three, rather than validating only the list container.
-  - **Declared regexes carry semantic contracts.** A syntactically valid
-    anchor with no heading capture crashed at its first match. Anchor patterns
-    now require exactly the heading plus optional item captures, validate a
-    participating heading and numeric item, and value patterns reject extra,
-    missing, optional-empty and empty captures before those assumptions can
-    turn into a crash or a false agreement.
-  - **Top-level declaration collections validate before iteration.** Round
-    twelve found that `value = 1`, `anchor = 1` and `retired = 1` reached their
-    collectors as integers and raised `TypeError` before the per-declaration
-    schema could report malformed input. All three outer collections now fail
-    once at the wiring boundary. The raw collector calls predated round eleven,
-    so this was backlog in the new module rather than a regression from that
-    round; the earlier class sweep still stopped one boundary too low.
-  - **The heatmap window declaration covers the class, not the remembered
-    instances.** Its runtime, product, owner, architecture and canonical-design
-    copies are now sites. `HEATMAP_WINDOW_DAYS` remains the source and the
-    inclusive fetch subtracts one from it. `static/js/loading.js` is
-    deliberately excluded because its number is the leap-aware length of a
-    calendar year for a different average. The same census widened the older
-    breakpoint, touch-target and Adobe-kit declarations across their runtime,
-    owner and canonical-design copies, and removed redundant literals where
-    the adjacent code already owns the value.
-  - **A declared container is checked for what it holds.** `scan = [1]` is a
-    list, so the shallow check passed it and the integer reached the glob
-    matcher as a `TypeError`. Round eight was the third round on this module
-    and each one sat one level further in than the last: wrapped text, then
-    missing and misspelled keys, then the contents of a container.
-  - **A malformed declarations file is refused, not ignored.** Reading a
-    required key straight out of the mapping raised a bare `KeyError`, so an
-    anchor with no `target` ended the run in a traceback and exit 1. Looking
-    for the siblings found four more, and all four are worse because they are
-    silent: a misspelled key, a list written as a bare string, a misspelled
-    table, and a misspelled option. Each leaves a check quietly not checking
-    while the gate stays green. Every declaration is now held to a declared
-    schema, so an unknown key is an error rather than a shrug.
-  - **A bad declarations file is reported rather than thrown.** Malformed
-    TOML, or a declaration holding an invalid regex, raised
-    `DeclarationError` straight through both CLI paths, which catch
-    `SyncError` and exit 2. The run ended in a traceback and exit 1 instead.
-    It is a `SyncError` now, keeping the distinct class its docstring asks
-    for so the reader is not sent to edit the wrong file.
-  - **The validators identify requests, not only values.** The first sweep
-    found that the album validator discarded stale replies but not stale
-    failures. Copying the heatmap sibling's value guard closed A-then-B and
-    still failed A-then-B-then-A, where the oldest and newest requests carry
-    identical text. Both state machines now use request generations, and the
-    browser check holds that ABA sequence. A second check holds the current
-    failure path: a network outage replaces an older red invalid verdict with
-    an outage message while leaving server-side submission available.
-  - **The independent visual sweep closed six contract slips.** Keyboard focus
-    opens both ambiguous-field hints without breaking tap; valid usernames use
-    the canonical good colour; selected controls and hints raise their shadows
-    in dark mode; the lone 6px radius moved onto the 8px ladder step; and both
-    text-holding header heights scale in rem. Three browser checks exercise the
-    rendered states at both sides of the breakpoint.
-- **The final gate found its own procedure contradiction.** The Tailwind drift
-  hook compares the generated working file with the index, so a correct
-  source-and-output edit cannot pass before staging even though `AGENTS.md`
-  requires pre-commit before staging. `F-B21-20` records the owner decision;
-  this review validates an exact-name staged candidate and restores the index.
-- Two findings came out of reading the comments as a set rather than one at a
-  time: `F-B21-17`, that six of nineteen were one fact written twice, and
-  `F-B21-18`, that browser JavaScript has no unit runner. `F-B21-17` was
-  then built and closed the same day; see the DOC009 entry below.
-- Deviations: none against a plan, because there was none -- this is review
-  remediation. The canonical mobile-strip, layout-independent export and
-  day-detail gaps and the gate-order contradiction were not improvised during
-  review; `F-B21-18`, `F-B21-19` and `F-B21-20` record them for an owner ruling
-  and a bounded implementation.
-- Post-completion review: the root-font mutation was reproduced at `20px`
-  instead of the original `17px`, and the theme-persistence check also left
-  its saved choice behind. Both now restore state in `finally`. Two earlier
-  Graphify findings were also real: declaration paths could traverse outside
-  the repository, while joined-document matching had lost the original
-  per-line `^`/`$` behavior in DOC009, DOC010 and DOC011. Root confinement and
-  a shared dual-representation matcher close those classes. Four claims were
-  rejected: F-B21-4's do-not-close instruction does not govern F-B21-5; the
-  validator state is reached without aborting; claimed profiles are the only
-  planned runs; and `run_checks` deliberately takes a page factory because
-  touch capability belongs to the browser context. No Page-object caller
-  remains, and Graphify's reproducer passed an integer instead of either valid
-  interface. Its duplicated coupling comments supplied counts but no defect;
-  the cohesive functions remain in place rather than undergoing a risky late
-  refactor.
-- The final Graphify pass found one more real boundary defect among four false
-  alarms. `_Files` resolved `nested/../PLAYBOOK.md` to the right filesystem
-  path but used the unnormalized spelling to look up live documents and its
-  cache, so a declaration could grade stale disk instead of the document this
-  run had just rendered. Both lookups now use the confined repository-relative
-  key. The import, page-factory, generated tab and pruned-utility claims were
-  disproved by execution, current callers and source census.
-- Validation: `pytest -q` -- **822 passed**, 3 warnings. The declaration seam
-  is **71 passed** and `pytest --collect-only` confirms 822 tests across 40
-  files. The frontend gate reports **15 checks in 23 runs** across desktop,
-  mobile and wide touch. All 11 pre-commit hooks pass.
-  `doc_state_sync.py --check` exits 0 with only the expected active-batch
-  root-definition warning. Every behavioral fix was red before it was written
-  and re-measured after.
-- Review completion: `77bb001` closed the original twelve Codex rounds. Both
-  Quality Gate runs passed, all thirty threads were resolved, and the Codex
-  connector recorded a thumbs-up at 2026-08-25 19:17:45 UTC. `bd49cdb` then
-  recorded the documentation-only handoff. The final follow-ups own the five
-  developer-gate hardening classes above. PR #218 is the completed WP-3
-  integration branch; WP-4 starts from its merged result. The owner selected
-  a rebase merge so the individual commit history remains visible without
-  adding a merge commit.
-- Forward guidance: a quiet round was not treated as completion. The recorded
-  thumbs-up was. Rounds four and five found defects that earlier fixes in the
-  series had introduced. Round six then found two holes in one-day-old code,
-  so review yield tracked new surface area rather than elapsed rounds. Expect
-  a fresh review of whatever `F-B21-18` builds. Both round-six holes were of a
-  kind a check's own tests cannot find because the tests were written from the
-  same understanding as the code. Keep an independent reviewer on tooling as
-  well as features.

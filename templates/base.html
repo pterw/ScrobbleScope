@@ -87,21 +87,24 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
-    {# Standing header bar: wordmark left, theme toggle right, on every page. #}
+    {# Standing header bar: wordmark, canonical page navigation and theme. #}
     <header class="site-header">
         <a class="site-header__home" href="/" aria-label="ScrobbleScope home">
             <span class="site-header__mark ss-mark">
                 {% include 'inline/scrobble_scope_lockup_inline.svg' ignore missing %}
             </span>
         </a>
+        <nav class="site-header__nav" aria-label="Pages">
+            {% for item in page_navigation %}
+            <a class="site-header__nav-link{% if item.active %} active{% endif %}"
+               href="{{ item.href }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.label }}</a>
+            {% endfor %}
+        </nav>
         <div class="site-header__actions">
-            {# The input is the real control and stays keyboard reachable; the
-               label is what a person sees and clicks. data-theme-toggle marks
-               exactly one element, because the frontend gate clicks .first. #}
-            <input type="checkbox" id="darkSwitch">
-            <label for="darkSwitch" class="site-header__switch" data-theme-toggle>
-                <span class="site-header__switch-track" aria-hidden="true"></span>
-                <span class="site-header__switch-text">Dark mode</span>
+            <input type="checkbox" id="darkSwitch" aria-label="Use dark theme">
+            <label for="darkSwitch" class="site-header__theme-toggle" data-theme-toggle>
+                <span class="site-header__theme-choice site-header__theme-choice--light">Light</span>
+                <span class="site-header__theme-choice site-header__theme-choice--dark">Dark</span>
             </label>
         </div>
     </header>
