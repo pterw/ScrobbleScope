@@ -1447,6 +1447,11 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     set_job_progress(heatmap_job_id, progress=100, message="Done", error=False)
     page.goto(f"{base_url}{heatmap_path}", wait_until="load")
     page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+    header_wordmark_display = page.locator(".site-header__home").evaluate(
+        "element => getComputedStyle(element).display"
+    )
+    if header_wordmark_display == "none":
+        failures.append("heatmap success did not restore the header wordmark")
 
     reset_job_state(heatmap_job_id)
     set_job_error(heatmap_job_id, "lastfm_rate_limited")

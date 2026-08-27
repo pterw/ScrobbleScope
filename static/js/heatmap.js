@@ -200,6 +200,7 @@
   }
 
   function revealHeatmapResult() {
+    setHeatmapStageActive(true);
     hideElement(heatmapLoading);
     fadeIn(resultHeadline);
     fadeIn(resultFrame);
@@ -577,6 +578,7 @@
 
         if (mode === 'heatmap' && resumeSavedHeatmap()) return;
 
+        setHeatmapStageActive(false);
         hideElement(mode === 'heatmap' ? albumSection : heatmapSection);
         showElement(mode === 'heatmap' ? heatmapSection : albumSection);
         hideElement(heatmapLoading);
@@ -600,6 +602,10 @@
 
   function hideElement(el) {
     el.classList.add('hidden');
+  }
+
+  function setHeatmapStageActive(isActive) {
+    document.body.classList.toggle('heatmap-stage-active', isActive);
   }
 
   function switchModeHero(mode) {
@@ -650,6 +656,7 @@
     stopPolling();
     currentJobId = savedHeatmapJobId;
     lastUsername = savedHeatmapUsername;
+    setHeatmapStageActive(true);
     if (heatmapUsernameInput) heatmapUsernameInput.value = lastUsername;
     hideElement(indexGrid);
     hideElement(heatmapSection);
@@ -828,6 +835,7 @@
     }
 
     searchAgainBtn.addEventListener('click', function () {
+      setHeatmapStageActive(false);
       hideElement(heatmapResult);
       showElement(indexGrid);
       showElement(heatmapSection);
@@ -840,6 +848,7 @@
   function submitHeatmap(username) {
     // Reset UI: show loading, hide form + result + error
     stopPolling();
+    setHeatmapStageActive(true);
     // The grid is 53 weeks wide and cannot fit the form column, so the whole
     // two-column hero steps aside while the heatmap is on screen.
     hideElement(indexGrid);
