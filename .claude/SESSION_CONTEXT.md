@@ -9,11 +9,11 @@ Last updated: 2026-08-25
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **826 passing** across 40 test modules |
+| Tests | **833 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** WP-0 through WP-3 are done. PR #218 carries the completed WP-3 integration and five Codex-verified developer-gate hardenings; GitHub owns its live integration state. **WP-4 (unified loading) is next from the merged result.** WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for evidence and history. |
+| Batch 21 status | **Active.** WP-0 through WP-3 are done. The canonical routing/navigation prerequisite is complete; **WP-4 continues with the unified loading rebuild.** WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for evidence and history. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -40,7 +40,7 @@ Last updated: 2026-08-25
 - Current-batch entries in active log block: 6.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
 - Next expected work package: WP-4.
-- Latest validated test count: **826 passed**.
+- Latest validated test count: **833 passed**.
 - Newest current-batch entry: 2026-08-25 - Index page migrated to Tailwind (Batch 21 WP-3).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -173,13 +173,13 @@ background_task (orchestrator.py, daemon Thread):
       5: Build results -> set_job_results()
 
 loading.js polls GET /progress?job_id=...
-  -> 100% + no error -> POST /results_complete -> renders results.html
+  -> 100% + no error -> GET /results?job_id=... -> renders results.html
   -> error + retryable -> show Retry button
 ```
 
 ---
 
-## 6. Test structure (826 tests)
+## 6. Test structure (833 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

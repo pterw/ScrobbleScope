@@ -67,6 +67,17 @@ def test_home_page_mode_tabs_are_real_buttons(client):
     assert 'role="button"' not in html
 
 
+def test_heatmap_page_opens_with_heatmap_mode_selected(client):
+    """The canonical heatmap URL should render the existing heatmap workflow."""
+    response = client.get("/heatmap")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'id="mode-tab-heatmap" class="mode-pill active"' in html
+    assert 'id="heatmap-form-section" class="mode-panel"' in html
+    assert 'href="/heatmap" aria-current="page"' in html
+
+
 def test_home_page_heatmap_loading_uses_unframed_panel(client):
     """The heatmap loading state should not render as a Bootstrap card."""
     response = client.get("/")
@@ -270,7 +281,7 @@ def test_results_loading_valid_post(client):
     """
     GIVEN valid form data for a search
     WHEN POST /results_loading is submitted
-    THEN it should call start_job_thread with background_task and render the loading page.
+    THEN it should start the job and redirect to its canonical loading URL.
     """
     with (
         patch(
@@ -280,9 +291,8 @@ def test_results_loading_valid_post(client):
         patch("scrobblescope.routes.start_job_thread") as mock_start,
     ):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
-    assert response.status_code == 200
-    assert b"window.SCROBBLE" in response.data
-    assert b"flounder14" in response.data
+    assert response.status_code == 303
+    assert re.fullmatch(r"/loading\?job_id=[^&]+", response.location)
     # Verify start_job_thread was called with background_task as the target
     mock_start.assert_called_once()
     assert mock_start.call_args[0][0] is background_task
@@ -420,22 +430,22 @@ def test_validate_user_not_found(client):
     assert "not found" in payload["message"].lower()
 
 
-def test_unmatched_endpoint_missing_job_id(client):
+def test_unmatched_api_missing_job_id(client):
     """
     GIVEN no job_id query parameter
-    WHEN GET /unmatched is requested
+    WHEN GET /api/unmatched is requested
     THEN it should return 400 with an error.
     """
-    response = client.get("/unmatched")
+    response = client.get("/api/unmatched")
     assert response.status_code == 400
     data = response.get_json()
     assert "Missing" in data.get("error", "")
 
 
-def test_unmatched_endpoint_returns_data(client):
+def test_unmatched_api_returns_data(client):
     """
     GIVEN a job with unmatched album data
-    WHEN GET /unmatched is requested with that job_id
+    WHEN GET /api/unmatched is requested with that job_id
     THEN it should return the unmatched albums and count.
     """
     job_id = create_job(TEST_JOB_PARAMS)
@@ -449,7 +459,7 @@ def test_unmatched_endpoint_returns_data(client):
         },
     )
 
-    response = client.get(f"/unmatched?job_id={job_id}")
+    response = client.get(f"/api/unmatched?job_id={job_id}")
     assert response.status_code == 200
     data = response.get_json()
     assert data["count"] == 1
@@ -575,6 +585,72 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     assert b"Artist C" in response.data
 
 
+def test_loading_page_uses_job_context_at_canonical_url(client):
+    """GET /loading should rebuild the loading view from the stored job."""
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    response = client.get(f"/loading?job_id={job_id}")
+
+    assert response.status_code == 200
+    assert b"window.SCROBBLE" in response.data
+    assert b"testuser" in response.data
+    assert b">Loading</a>" not in response.data
+
+
+def test_results_page_uses_job_context_at_canonical_url(client):
+    """GET /results should render completed data without a form resubmission."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(
+        job_id,
+        [
+            {
+                "artist": "Kendrick Lamar",
+                "album": "GNX",
+                "play_count": 312,
+                "play_time": "18h 42m",
+                "play_time_seconds": 67320,
+                "release_date": "2025-02-07",
+                "album_image": "https://example.com/gnx.jpg",
+                "spotify_id": "abc123",
+            }
+        ],
+    )
+    set_job_progress(job_id, progress=100, message="Done!", error=False)
+
+    response = client.get(f"/results?job_id={job_id}")
+
+    assert response.status_code == 200
+    assert b"Kendrick Lamar" in response.data
+    assert b'aria-current="page">Results</a>' in response.data
+
+
+def test_unmatched_page_uses_job_context_at_canonical_url(client):
+    """GET /unmatched should render the report and a stable results link."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    add_job_unmatched(
+        job_id,
+        "a|one",
+        {"artist": "Artist A", "album": "Album One", "reason": "No match"},
+    )
+
+    response = client.get(f"/unmatched?job_id={job_id}")
+
+    assert response.status_code == 200
+    assert b"Artist A" in response.data
+    assert f"/results?job_id={job_id}".encode() in response.data
+    assert b'aria-current="page">Unmatched</a>' in response.data
+
+
+def test_job_backed_navigation_pages_have_friendly_empty_states(client):
+    """Direct navigation before a search should guide the user home."""
+    for path in ("/results", "/unmatched"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert b"You haven&#39;t filtered your scrobbles yet." in response.data
+        assert b' href="/" class="btn btn-primary">Back to Home</a>' in response.data
+        assert b'class="error-code"' not in response.data
+
+
 def test_app_404_handler_renders_error_template(client):
     """
     GIVEN a nonexistent URL
@@ -642,8 +718,8 @@ def test_csrf_accepts_post_with_valid_token(csrf_app_client):
             "/results_loading",
             data={**VALID_FORM_DATA, "csrf_token": token},
         )
-    assert response.status_code == 200
-    assert b"window.SCROBBLE" in response.data
+    assert response.status_code == 303
+    assert response.location.startswith("/loading?job_id=")
 
 
 def test_csrf_rejects_results_complete_without_token(csrf_app_client):
@@ -715,8 +791,8 @@ def test_results_loading_year_at_registration_year_allowed(client):
         response = client.post(
             "/results_loading", data={**VALID_FORM_DATA, "year": "2016"}
         )
-    assert response.status_code == 200
-    assert b"window.SCROBBLE" in response.data
+    assert response.status_code == 303
+    assert response.location.startswith("/loading?job_id=")
 
 
 def test_results_loading_registration_check_unavailable_proceeds(client):
@@ -733,8 +809,8 @@ def test_results_loading_registration_check_unavailable_proceeds(client):
         patch("scrobblescope.routes.start_job_thread"),
     ):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
-    assert response.status_code == 200
-    assert b"window.SCROBBLE" in response.data
+    assert response.status_code == 303
+    assert response.location.startswith("/loading?job_id=")
 
 
 def test_results_loading_no_registered_year_proceeds(client):
@@ -751,8 +827,8 @@ def test_results_loading_no_registered_year_proceeds(client):
         patch("scrobblescope.routes.start_job_thread"),
     ):
         response = client.post("/results_loading", data=VALID_FORM_DATA)
-    assert response.status_code == 200
-    assert b"window.SCROBBLE" in response.data
+    assert response.status_code == 303
+    assert response.location.startswith("/loading?job_id=")
 
 
 def test_csrf_accepts_reset_progress_with_header_token(csrf_app_client):

@@ -104,7 +104,8 @@ stylesheet is in scope for this batch.
    remain. The heatmap frame no longer sits on a mismatched background.
 3. `--bars-color` aliases the theme primary in both themes; pinwheel and
    wordmark render correctly in both modes on every page.
-4. Standing header bar on all pages: wordmark left (~64px), theme toggle
+4. Standing header bar on all pages: wordmark left (~64px), four functional
+   Input Mono Narrow page-navigation pills, segmented Light/Dark toggle
    top-right; footer toggle removed; landing page keeps the large brand
    moment in the hero.
 5. CSV export, JPEG export (both modes, mobile + desktop), progress
@@ -279,10 +280,9 @@ Moved in by the scope ruling:
   `templates/partials/_loading.html`, `_heatmap_form.html` and
   `_heatmap_result.html`. `_loading.html` stays framework-neutral because
   WP-4 renders it on `loading.html`, which is still a Bootstrap page then.
-- **No separate `heatmap.html`.** The Batch 18 ruling stands: all states on
-  one page, no navigation. The page split is filed as a finding and
-  cross-referenced to the deferred `GET /heatmap/<username>` item under
-  "Out of scope", because the split only pays for itself alongside it.
+- **No separate `heatmap.html`.** The form, loading state, and result remain
+  in `index.html`, but the owner expansion on 2026-08-26 gives that workflow
+  the canonical `/heatmap` route and shared page navigation.
 - Mode pills rebuilt as real `<button>` elements with equal `min-width`,
   closing F-B18-12 and satisfying criterion 8.
 - SMIL stripped from `templates/inline/scrobblescope_pinwheel.svg` and
@@ -308,6 +308,16 @@ Moved in by the scope ruling:
 
 ### WP-4 -- Unified loading experience
 
+- **Owner expansion, 2026-08-26:** production navigation contains Home,
+  Results, Heatmap, and Unmatched. Loading retains canonical `GET /loading`
+  for redirect/refresh behaviour but has no pill because it is transient.
+  Canonical page routes are `GET /`, `/loading`, `/results`, `/heatmap`, and
+  `/unmatched`; job-backed routes keep `job_id` in the query string and show
+  a friendly Home action when opened without one. Existing
+  completion/report POST routes remain compatibility shims during the
+  strangler. Unmatched JSON moves to `GET /api/unmatched` so the page route
+  owns `/unmatched`. The header theme control is the handoff's segmented
+  Light/Dark pill, not the earlier compact switch.
 - Shared Jinja2 loading partial used by `loading.html` and the heatmap
   panel: pinwheel + thin determinate hairline bar, mono phase label
   ("FETCHING SCROBBLES - PAGE 23 / 102"), four-KPI stat strip (same
@@ -326,7 +336,7 @@ Moved in by the scope ruling:
   a shared partial proves shared appearance and nothing about shared
   behaviour. Cover for each: normal progress to 100%; a retryable failure
   (Retry offered, page holds, no `results_complete` post); and a
-  non-retryable failure (three-second wait, posts `results_complete`,
+  non-retryable failure (three-second wait, opens canonical `/results`,
   lands on the processing-error page). The two failure paths differ and
   are drawn in `docs/architecture/top-albums-sequence.md`.
 `feat(ui): unified pinwheel loading screen for both pipelines`
@@ -523,7 +533,8 @@ commit: production serves the committed file with no runtime build.
 - Near-miss retention in `fetch_top_albums_async` + "loosen filters"
   quantified controls (+58 albums) on the unmatched page (introduces
   the `below_min_plays` / `below_min_tracks` reason codes).
-- `GET /unmatched_view` + routing the empty-result state there.
+- Near-miss retention remains deferred; the canonical `GET /unmatched` page
+  route itself moved into WP-4 by owner decision on 2026-08-26.
 - Shareable heatmap URL (`GET /heatmap/<username>`).
 - Purpose-built save-as-image card node (wordmark + top 10 + chips).
 - True server-side job cancellation.

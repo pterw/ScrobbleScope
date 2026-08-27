@@ -10,7 +10,7 @@
   element to the parent of #heatmap-username. Keep that input inside a
   wrapper of its own or the message lands beside the label.
 #}
-<section id="heatmap-form-section" class="mode-panel hidden" role="tabpanel"
+<section id="heatmap-form-section" class="mode-panel{% if initial_mode != 'heatmap' %} hidden{% endif %}" role="tabpanel"
          aria-labelledby="mode-tab-heatmap">
   <form id="heatmap-form" class="ss-card" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

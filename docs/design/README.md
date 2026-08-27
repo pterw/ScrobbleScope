@@ -111,7 +111,7 @@ Sizes: display 42 / 30 / 22px, leading 1.05, tracking −0.01em. Body 16 / 14 / 
 
 ## Screens
 
-Five screens, all in `ui_kits/scrobblescope-web/`. Open `index.html` and use the header pills to move between them; the theme toggle flips light/dark. The pills are prototype scaffolding — **do not build them**.
+Five screens, all in `ui_kits/scrobblescope-web/`. Four header pills are production navigation: Home, Results, Heatmap, and Unmatched. They use Input Mono Narrow and expose `/`, `/results`, `/heatmap`, and `/unmatched`. Loading keeps its canonical `/loading` URL but is transient, so it is not a navigation destination. Job-backed routes retain `job_id` in the query string when one is active. Results and Unmatched show a friendly Home action when opened before a search. The segmented theme control flips light/dark.
 
 ### 1. Index — `IndexScreen.jsx`
 
@@ -165,8 +165,8 @@ Max width 1180px, three-column grid of `UnmatchedGroup` cards, one column on mob
 
 ## Interactions & behaviour
 
-- **Navigation.** Index → loading → results *or* heatmap, by mode. Results → unmatched (and back). Any screen → index via the header wordmark.
-- **Theme.** A two-segment pill toggle, top right. Toggles `.dark` on `<html>`. 300ms transition on background and colour.
+- **Navigation.** The shared header links to Home, Results, Heatmap, and Unmatched; the active route is filled purple. Home → transient `/loading` → Results for Top Albums. Results → Unmatched (and back). Heatmap remains its own input-and-result workflow at `/heatmap`. A job-backed page opened without a run explains what is missing and links Home.
+- **Theme.** A two-segment Light/Dark pill toggle, top right. The repository writes `data-theme` on `<html>` and keeps `.dark-mode` on `<body>` during the Bootstrap strangler. 300ms transition on background and colour.
 - **Hover.** Opacity 0.86 on buttons; border and text shift to purple on pills and inputs. Never a size change, never a shadow bloom.
 - **Press.** Colour only — no shrink transform.
 - **Focus.** 2px solid `--accent` ring at 2px offset on every interactive element. Non-negotiable.

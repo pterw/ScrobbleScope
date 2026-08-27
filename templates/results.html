@@ -174,20 +174,8 @@
                                 Quick View of Unmatched Albums
                             </button>
                             
-                            <form action="/unmatched_view" method="post" class="mb-2">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <form action="/unmatched" method="get" class="mb-2">
                                 <input type="hidden" name="job_id" value="{{ job_id }}">
-                                <input type="hidden" name="username" value="{{ username }}">
-                                <input type="hidden" name="year" value="{{ year }}">
-                                <input type="hidden" name="release_scope" value="{{ release_scope }}">
-                                {% if decade %}
-                                <input type="hidden" name="decade" value="{{ decade }}">
-                                {% endif %}
-                                {% if release_year %}
-                                <input type="hidden" name="release_year" value="{{ release_year }}">
-                                {% endif %}
-                                <input type="hidden" name="min_plays" value="{{ min_plays|default('10') }}">
-                                <input type="hidden" name="min_tracks" value="{{ min_tracks|default('3') }}">
                                 <button type="submit" class="btn btn-outline-primary w-100">
                                     View Detailed Unmatched Albums Report
                                 </button>

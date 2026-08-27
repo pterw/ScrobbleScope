@@ -167,6 +167,32 @@ def test_every_page_carries_the_shared_shell(app, template):
     # The frontend gate clicks .first, so a second match would silently decide
     # which control it drives.
     assert html.count("data-theme-toggle") == 1
+    assert 'class="site-header__nav" aria-label="Pages"' in html
+    for label in ("Home", "Results", "Heatmap", "Unmatched"):
+        assert f">{label}</a>" in html
+    assert ">Index</a>" not in html
+    assert ">Loading</a>" not in html
+    assert ">Light</span>" in html
+    assert ">Dark</span>" in html
+
+
+def test_shared_navigation_uses_input_mono_narrow():
+    """Page pills use the typeface specified by the WP-4 design."""
+    shell = _without_comments((STATIC_CSS / "shell.css").read_text(encoding="utf-8"))
+
+    assert '--shell-font-mono-narrow: "input-mono-narrow"' in shell
+    nav_rule = re.search(r"\.site-header__nav-link\s*\{([^}]+)\}", shell, re.S)
+    assert nav_rule
+    assert "font-family: var(--shell-font-mono-narrow)" in nav_rule.group(1)
+
+
+def test_migrated_wordmarks_use_theme_ink_for_letterforms():
+    """Hero and header letterforms must remain legible in dark mode."""
+    shell = _without_comments((STATIC_CSS / "shell.css").read_text(encoding="utf-8"))
+
+    assert ".site-header__mark svg #logo-text path" in shell
+    assert ".index-hero__mark svg #logo-text path" in shell
+    assert "fill: var(--shell-ink)" in shell
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))

@@ -122,9 +122,10 @@ Top Albums
     -> POST /results_loading
     -> acquire worker slot + create job
     -> start background_task(...) in a daemon thread
-    -> loading.html polls GET /progress
-    -> POST /results_complete renders results.html
-    -> optional POST /unmatched_view renders unmatched.html
+    -> 303 GET /loading?job_id=...; loading.html polls GET /progress
+    -> GET /results?job_id=... renders results.html
+    -> optional GET /unmatched?job_id=... renders unmatched.html
+    -> GET /api/unmatched?job_id=... supplies the quick-view JSON
 
   orchestrator.background_task
     -> fetch Last.fm pages
@@ -165,13 +166,13 @@ Heatmap
     * In-memory request cache (`REQUEST_CACHE` in `utils.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
     * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
 * **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
-* **CSRF Protection:** All mutating POST routes (`/results_loading`, `/heatmap_loading`, `/results_complete`, `/unmatched_view`, `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Two complementary mechanisms are used: form-submit routes (`/results_loading`, `/results_complete`, `/unmatched_view`) include a hidden `csrf_token` body input; fetch-based routes read a `<meta name="csrf-token">` tag -- `/reset_progress` sends the token in the `X-CSRFToken` header only, while `/heatmap_loading` sends it in both the body and the header.
+* **CSRF Protection:** All mutating POST routes (`/results_loading`, `/heatmap_loading`, the compatibility routes `/results_complete` and `/unmatched_view`, and `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Canonical result and report pages use safe GET routes with only `job_id`; fetch-based POST routes read a `<meta name="csrf-token">` tag.
 * **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
 * **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
 <details>
 <summary><strong>Styling &amp; UX</strong></summary>
 
-   * **Dark Mode:** A toggle switch allows users to switch themes, with preferences persisted via `localStorage`. CSS custom properties (`--var`) are used for dynamic color adjustments.
+   * **Navigation and Dark Mode:** Five shared page pills expose the canonical UI routes. A segmented Light/Dark control persists the theme via `localStorage`; CSS custom properties provide the theme colours.
    * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The header logo features an animated SVG waveform, and the heatmap feature uses a custom breathing SVG pinwheel animation while loading.
    * **Accessibility:** `aria-labels` on SVGs and interactive elements; semantic form markup.
    * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.

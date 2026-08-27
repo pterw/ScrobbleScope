@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 
 from scrobblescope.heatmap import heatmap_task
 from scrobblescope.lastfm import check_user_exists
@@ -43,6 +43,8 @@ def _extract_job_params(job_context):
         "release_year": params.get("release_year"),
         "min_plays": params.get("min_plays", 10),
         "min_tracks": params.get("min_tracks", 3),
+        "limit_results": params.get("limit_results", "all"),
+        "mode": params.get("mode", "album"),
     }
 
 
@@ -94,12 +96,12 @@ def _get_filter_description(release_scope, decade, release_year, listening_year)
 def _get_validated_job_context(
     missing_id_message, expired_error, expired_message, expired_details
 ):
-    """Validate ``job_id`` from the current request form.
+    """Validate ``job_id`` from the current request query or form data.
 
     Returns ``(job_id, job_context, None)`` on success, or
     ``(None, None, error_response)`` when validation fails.
     """
-    job_id = request.form.get("job_id")
+    job_id = request.values.get("job_id")
     if not job_id:
         return (
             None,
@@ -129,17 +131,75 @@ def _get_validated_job_context(
     return job_id, job_context, None
 
 
+def _render_no_job_state(title, message):
+    """Render a friendly empty state for a job-backed page opened directly."""
+    return render_template(
+        "error.html",
+        page_title=title,
+        error=title,
+        message=message,
+        details="Start from Home, enter your Last.fm username, and run a search.",
+        show_error_icon=False,
+        show_status_code=False,
+        show_back_action=False,
+        primary_action_label="Back to Home",
+    )
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
     return {"current_year": datetime.now().year}
 
 
+@bp.app_context_processor
+def inject_page_navigation():
+    """Build the shared, canonical page navigation for the current request."""
+    job_id = request.values.get("job_id")
+
+    def job_url(endpoint):
+        if job_id:
+            return url_for(endpoint, job_id=job_id)
+        return url_for(endpoint)
+
+    endpoint = request.endpoint
+    return {
+        "page_navigation": (
+            {
+                "label": "Home",
+                "href": url_for("main.home"),
+                "active": endpoint == "main.home",
+            },
+            {
+                "label": "Results",
+                "href": job_url("main.results"),
+                "active": endpoint in {"main.results", "main.results_complete"},
+            },
+            {
+                "label": "Heatmap",
+                "href": url_for("main.heatmap"),
+                "active": endpoint == "main.heatmap",
+            },
+            {
+                "label": "Unmatched",
+                "href": job_url("main.unmatched_page"),
+                "active": endpoint in {"main.unmatched_page", "main.unmatched_view"},
+            },
+        )
+    }
+
+
 @bp.route("/", methods=["GET"])
 def home():
     """Serve the home page"""
     logging.info("Serving index.html as the homepage.")
-    return render_template("index.html")
+    return render_template("index.html", initial_mode="album")
+
+
+@bp.route("/heatmap", methods=["GET"])
+def heatmap():
+    """Serve the index workflow with the heatmap mode selected."""
+    return render_template("index.html", initial_mode="heatmap")
 
 
 @bp.route("/validate_user", methods=["GET"])
@@ -207,8 +267,8 @@ def progress():
     return jsonify(progress_payload)
 
 
-@bp.route("/unmatched")
-def unmatched():
+@bp.route("/api/unmatched")
+def unmatched_data():
     """Return unmatched albums for a specific job ID."""
     job_id = request.args.get("job_id")
     if not job_id:
@@ -222,6 +282,40 @@ def unmatched():
         return jsonify({"count": 0, "data": {}, "error": "Job not found."}), 404
 
     return jsonify({"count": len(unmatched_data), "data": unmatched_data})
+
+
+def _render_loading_page():
+    """Render the canonical loading page for an existing job."""
+    job_id, job_context, err = _get_validated_job_context(
+        missing_id_message="We could not identify your in-progress request.",
+        expired_error="Job Not Found",
+        expired_message="Your loading session has expired.",
+        expired_details="Please start a new search.",
+    )
+    if err:
+        return err
+
+    assert job_context is not None
+    p = _extract_job_params(job_context)
+    return render_template(
+        "loading.html",
+        job_id=job_id,
+        username=p["username"],
+        year=p["year"],
+        sort_by=p["sort_mode"],
+        release_scope=p["release_scope"],
+        decade=p["decade"],
+        release_year=p["release_year"],
+        min_plays=p["min_plays"],
+        min_tracks=p["min_tracks"],
+        limit_results=p["limit_results"],
+    )
+
+
+@bp.route("/loading", methods=["GET"])
+def loading_page():
+    """Show the canonical loading URL for the current job."""
+    return _render_loading_page()
 
 
 @bp.route("/reset_progress", methods=["POST"])
@@ -264,9 +358,14 @@ def internal_error(e):
     )
 
 
-@bp.route("/results_complete", methods=["POST"])
-def results_complete():
+def _render_results_page():
     """Render the results page for a completed job, or an error page on failure."""
+    if request.method == "GET" and not request.values.get("job_id"):
+        return _render_no_job_state(
+            "No results yet",
+            "You haven't filtered your scrobbles yet.",
+        )
+
     job_id, job_context, err = _get_validated_job_context(
         missing_id_message="We could not identify your in-progress request.",
         expired_error="Results Not Found",
@@ -296,12 +395,12 @@ def results_complete():
         )
 
     p = _extract_job_params(job_context)
-    username = p["username"] or request.form.get("username")
+    username = p["username"] or request.values.get("username")
     year = p["year"]
     if year is None:
-        year = int(request.form.get("year", datetime.now().year))
-    sort_mode = p["sort_mode"] or request.form.get("sort_by", "playcount")
-    release_scope = p["release_scope"] or request.form.get("release_scope", "same")
+        year = int(request.values.get("year", datetime.now().year))
+    sort_mode = p["sort_mode"] or request.values.get("sort_by", "playcount")
+    release_scope = p["release_scope"] or request.values.get("release_scope", "same")
     decade = p["decade"]
     release_year = p["release_year"]
     min_plays = p["min_plays"]
@@ -356,9 +455,26 @@ def results_complete():
     )
 
 
-@bp.route("/unmatched_view", methods=["POST"])
-def unmatched_view():
-    """Show a dedicated page of unmatched albums that didn't match the filters."""
+@bp.route("/results", methods=["GET"])
+def results():
+    """Show completed results at their canonical URL."""
+    return _render_results_page()
+
+
+@bp.route("/results_complete", methods=["POST"])
+def results_complete():
+    """Keep the legacy completion POST working while callers move to GET."""
+    return _render_results_page()
+
+
+def _render_unmatched_page():
+    """Render the unmatched-album report for an existing job."""
+    if request.method == "GET" and not request.values.get("job_id"):
+        return _render_no_job_state(
+            "No unmatched albums yet",
+            "You haven't filtered your scrobbles yet.",
+        )
+
     job_id, job_context, err = _get_validated_job_context(
         missing_id_message="We could not find unmatched albums without a valid job ID.",
         expired_error="Job Not Found",
@@ -398,7 +514,20 @@ def unmatched_view():
         total_count=len(unmatched_data),
         min_plays=min_plays,
         min_tracks=min_tracks,
+        job_id=job_id,
     )
+
+
+@bp.route("/unmatched", methods=["GET"])
+def unmatched_page():
+    """Show the unmatched-album report at its canonical URL."""
+    return _render_unmatched_page()
+
+
+@bp.route("/unmatched_view", methods=["POST"])
+def unmatched_view():
+    """Keep the legacy unmatched POST working while callers move to GET."""
+    return _render_unmatched_page()
 
 
 @bp.route("/results_loading", methods=["POST"])
@@ -501,19 +630,7 @@ def results_loading():
             error="Failed to start processing. Please try again.",
         )
 
-    return render_template(
-        "loading.html",
-        job_id=job_id,
-        username=username,
-        year=year,
-        sort_by=sort_mode,
-        release_scope=release_scope,
-        decade=decade,
-        release_year=release_year,
-        min_plays=min_plays,
-        min_tracks=min_tracks,
-        limit_results=limit_results,
-    )
+    return redirect(url_for(".loading_page", job_id=job_id), code=303)
 
 
 @bp.route("/heatmap_loading", methods=["POST"])

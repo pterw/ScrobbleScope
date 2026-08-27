@@ -32,7 +32,7 @@
         {% include 'inline/scrobble_scope_lockup_inline.svg' ignore missing %}
       </div>
 
-      <div data-mode-hero="album">
+      <div data-mode-hero="album"{% if initial_mode == 'heatmap' %} class="hidden"{% endif %}>
         <p class="eyebrow">Album filtering</p>
         <h1 class="index-hero__headline">Your top albums, <em>any year or decade.</em></h1>
         <p class="index-hero__lede">Rank a single year, a whole decade, or your entire
@@ -40,7 +40,7 @@
           Built for AOTY lists with the nuance the official charts never give you.</p>
       </div>
 
-      <div data-mode-hero="heatmap" class="hidden">
+      <div data-mode-hero="heatmap"{% if initial_mode != 'heatmap' %} class="hidden"{% endif %}>
         <p class="eyebrow">Listening heatmap</p>
         <h1 class="index-hero__headline">A year of listening, <em>one grid.</em></h1>
         <p class="index-hero__lede">Every scrobble from the last 365 days, coloured on
@@ -61,19 +61,19 @@
            F-B18-12 and the span[role=button] item in F-B21-5. The class
            mode-pill is the hook static/js/heatmap.js queries. #}
         <div class="mode-tabs" role="tablist" aria-label="Mode">
-          <button type="button" id="mode-tab-album" class="mode-pill active"
-                  data-mode="album" role="tab" aria-selected="true"
+          <button type="button" id="mode-tab-album" class="mode-pill{% if initial_mode != 'heatmap' %} active{% endif %}"
+                  data-mode="album" role="tab" aria-selected="{{ 'false' if initial_mode == 'heatmap' else 'true' }}"
                   aria-controls="album-form-section">
             <span class="mode-pill__mark" aria-hidden="true"></span>Top albums
           </button>
-          <button type="button" id="mode-tab-heatmap" class="mode-pill"
-                  data-mode="heatmap" role="tab" aria-selected="false"
+          <button type="button" id="mode-tab-heatmap" class="mode-pill{% if initial_mode == 'heatmap' %} active{% endif %}"
+                  data-mode="heatmap" role="tab" aria-selected="{{ 'true' if initial_mode == 'heatmap' else 'false' }}"
                   aria-controls="heatmap-form-section">
             <span class="mode-pill__mark mode-pill__mark--heatmap" aria-hidden="true"></span>Heatmap
           </button>
         </div>
 
-        <section id="album-form-section" class="mode-panel" role="tabpanel"
+        <section id="album-form-section" class="mode-panel{% if initial_mode == 'heatmap' %} hidden{% endif %}" role="tabpanel"
                  aria-labelledby="mode-tab-album">
           <form method="post" action="/results_loading" class="ss-card">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

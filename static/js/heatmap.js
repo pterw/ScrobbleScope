@@ -546,6 +546,19 @@
     pills.forEach(function (pill) {
       pill.addEventListener('click', function () {
         var mode = this.getAttribute('data-mode');
+        var canonicalPath = mode === 'heatmap' ? '/heatmap' : '/';
+        if (window.location.pathname !== canonicalPath) {
+          window.history.replaceState({}, '', canonicalPath);
+          document.querySelectorAll('.site-header__nav-link').forEach(function (link) {
+            var isCurrent = link.getAttribute('href') === canonicalPath;
+            link.classList.toggle('active', isCurrent);
+            if (isCurrent) {
+              link.setAttribute('aria-current', 'page');
+            } else {
+              link.removeAttribute('aria-current');
+            }
+          });
+        }
         var self = this;
         pills.forEach(function (p) {
           p.classList.toggle('active', p === self);

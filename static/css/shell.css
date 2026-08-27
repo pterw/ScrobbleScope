@@ -14,11 +14,12 @@
 /* ------------------------------------------------------------------ */
 :root {
     --shell-bg: #faf8f3;
+    --shell-surface: #f0ebe0;
     --shell-ink: #1a1820;
+    --shell-muted: #6f6a7a;
     --shell-accent: #6a4baf;
+    --shell-accent-ink: #ffffff;
     --shell-border: rgba(26, 24, 32, 0.12);
-    --shell-track: rgba(26, 24, 32, 0.18);
-    --shell-knob: #ffffff;
     --shell-height: 4.25rem;
     /* The same stack as --font-sans in tailwind.src.css, repeated because an
        unmigrated page never loads the compiled sheet and would resolve
@@ -26,15 +27,18 @@
        for that reason; WP-8 absorbs both copies. */
     --shell-font-sans: "akzidenz-grotesk-next-pro", ui-sans-serif, system-ui,
         sans-serif;
+    --shell-font-mono-narrow: "input-mono-narrow", "input-mono", ui-monospace,
+        monospace;
 }
 
 :root[data-theme="dark"] {
     --shell-bg: #0e0c12;
+    --shell-surface: #181520;
     --shell-ink: #f1ede4;
+    --shell-muted: #908a9a;
     --shell-accent: #b39dde;
+    --shell-accent-ink: #0e0c12;
     --shell-border: rgba(241, 237, 228, 0.14);
-    --shell-track: rgba(241, 237, 228, 0.22);
-    --shell-knob: #181520;
 }
 
 /* ------------------------------------------------------------------ */
@@ -121,6 +125,53 @@ body {
 .site-header__mark svg #logo-text path,
 .index-hero__mark svg #logo-text path {
     fill: var(--shell-ink);
+}
+
+/* ------------------------------------------------------------------ */
+/* Page navigation                                                     */
+/* ------------------------------------------------------------------ */
+.site-header__nav {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
+}
+
+.site-header__nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border: 1px solid var(--shell-border);
+    border-radius: 999px;
+    color: var(--shell-muted);
+    font-family: var(--shell-font-mono-narrow);
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    text-decoration: none;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color 160ms ease, border-color 160ms ease,
+        background-color 160ms ease;
+}
+
+.site-header__nav-link:hover {
+    color: var(--shell-ink);
+    border-color: var(--shell-accent);
+}
+
+.site-header__nav-link.active {
+    color: var(--shell-accent-ink);
+    border-color: var(--shell-accent);
+    background-color: var(--shell-accent);
+}
+
+.site-header__nav-link:focus-visible {
+    outline: 2px solid var(--shell-accent);
+    outline-offset: 2px;
 }
 
 /* The five bars pulse; the letterforms never move.
@@ -346,6 +397,7 @@ body {
 .site-header__actions {
     display: flex;
     align-items: center;
+    flex: none;
 }
 
 /* Visually hidden, never display:none -- the input stays in the accessibility
@@ -369,59 +421,56 @@ body {
 /* The visible control. It carries data-theme-toggle, and it is the only
    element that does: the frontend gate clicks .first, so a second match
    would silently decide which one it drives. */
-.site-header__switch {
+.site-header__theme-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    /* Minimum touch target (F-AUDIT-1). */
-    min-height: 2.75rem;
-    padding: 0 0.5rem;
-    margin: 0;
+    padding: 0.2rem;
+    border: 1px solid var(--shell-border);
     border-radius: 999px;
-    color: var(--shell-ink);
-    font-size: 0.8125rem;
+    background-color: var(--shell-surface);
+    color: var(--shell-muted);
+    font-family: var(--shell-font-mono-narrow);
+    font-size: 0.75rem;
     line-height: 1;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    min-height: 2.75rem;
+    margin: 0;
     cursor: pointer;
     user-select: none;
 }
 
-.site-header__switch-track {
-    position: relative;
-    display: block;
-    width: 2.45rem;
-    height: 1.25rem;
-    flex: none;
+.site-header__theme-choice {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    padding: 0 0.8rem;
     border-radius: 999px;
-    background-color: var(--shell-track);
-    transition: background-color 0.3s ease;
+    transition: color 160ms ease, background-color 160ms ease;
 }
 
-.site-header__switch-track::before {
-    content: "";
-    position: absolute;
-    top: 0.15rem;
-    left: 0.15rem;
-    width: 0.95rem;
-    height: 0.95rem;
-    border-radius: 50%;
-    background-color: var(--shell-knob);
-    transition: transform 0.3s ease;
-}
-
-.site-header #darkSwitch:checked + .site-header__switch .site-header__switch-track {
+.site-header__theme-choice--light {
+    color: var(--shell-accent-ink);
     background-color: var(--shell-accent);
+}
+
+.site-header #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--light {
+    color: var(--shell-muted);
+    background-color: transparent;
 }
 
 .site-header
     #darkSwitch:checked
-    + .site-header__switch
-    .site-header__switch-track::before {
-    transform: translateX(1.2rem);
+    + .site-header__theme-toggle
+    .site-header__theme-choice--dark {
+    color: var(--shell-accent-ink);
+    background-color: var(--shell-accent);
 }
 
 /* The input is visually hidden, so its focus ring would be invisible. Move
    the ring onto the label the user can actually see. */
-.site-header #darkSwitch:focus-visible + .site-header__switch {
+.site-header #darkSwitch:focus-visible + .site-header__theme-toggle {
     outline: 2px solid var(--shell-accent);
     outline-offset: 2px;
 }
@@ -473,30 +522,51 @@ body {
     }
 
     .site-header {
+        gap: 0.75rem;
         padding: 0 1rem;
     }
 
-    .site-header__mark {
-        height: 2rem;
+    .site-header__home {
+        display: none;
     }
 
-    /* The label text is redundant next to the switch on a narrow bar, but the
-       control still needs an accessible name, so hide it visually only. */
-    .site-header__switch-text {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        overflow: hidden;
-        clip: rect(0 0 0 0);
-        clip-path: inset(50%);
-        white-space: nowrap;
+    .site-header__actions {
+        margin-left: 0;
+    }
+
+    .site-header__theme-toggle {
+        min-height: 2.75rem;
+    }
+
+    .site-header__theme-choice {
+        min-height: 2rem;
+        padding: 0 0.65rem;
+    }
+
+    .site-header__nav {
+        flex: 1 1 0;
+        min-width: 0;
+        gap: 0.3rem;
+        margin: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .site-header__nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .site-header__nav-link {
+        min-height: 2.75rem;
+        padding: 0 0.8rem;
+        font-size: 0.6875rem;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .site-header,
-    .site-header__switch-track,
-    .site-header__switch-track::before {
+    .site-header__nav-link,
+    .site-header__theme-choice {
         transition-duration: 0ms;
     }
 
