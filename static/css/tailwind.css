@@ -1290,17 +1290,6 @@
     border-end-start-radius: var(--join-ee, var(--radius-field));
     border-end-end-radius: var(--join-es, var(--radius-field));
   }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-    border-width: 0;
-  }
   @layer daisyui.l1.l2.l3 {
     .card-body {
       display: flex;

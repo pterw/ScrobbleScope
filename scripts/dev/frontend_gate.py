@@ -1240,6 +1240,7 @@ def check_loading_composition(page, base_url: str) -> list[str]:
           const track = document.querySelector('#progress-track').getBoundingClientRect();
           const phase = document.querySelector('#step-text').getBoundingClientRect();
           return {
+            redundantTitle: document.querySelector('.loading-screen > h1') !== null,
             markWidth: mark.width,
             trackWidth: track.width,
             trackHeight: track.height,
@@ -1254,6 +1255,8 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     )
 
     failures = []
+    if geometry["redundantTitle"]:
+        failures.append("/loading repeats the pinwheel's loading cue as a heading")
     if abs(geometry["trackHeight"] - 3) > 0.1:
         failures.append(
             f"/loading progress hairline is {geometry['trackHeight']}px, expected 3px"
