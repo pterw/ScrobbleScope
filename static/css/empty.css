@@ -1,0 +1,94 @@
+/* Route-specific empty states for the saved Results and Heatmap destinations. */
+
+.empty-page {
+  min-height: calc(100vh - var(--shell-height));
+  display: grid;
+  place-items: center;
+  padding: clamp(2rem, 6vh, 4.5rem) 1.5rem;
+}
+
+.empty-state {
+  width: min(100%, 38rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.empty-state__signal {
+  width: 5rem;
+  height: 3px;
+  margin-bottom: 1.5rem;
+  border-radius: 2px;
+  background-color: var(--color-primary);
+}
+
+.empty-state__signal--heatmap {
+  background-image: linear-gradient(
+    90deg,
+    var(--color-primary),
+    var(--rocket-5)
+  );
+}
+
+.empty-state h1 {
+  margin: 0 0 0.75rem;
+  color: var(--color-base-content);
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 4vw, 2.625rem);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+.empty-state p {
+  max-width: 42ch;
+  margin: 0 0 1.75rem;
+  color: var(--ss-text-body);
+  font-size: var(--text-body);
+  line-height: 1.55;
+}
+
+.empty-state__action {
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1.25rem;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary);
+  color: var(--color-primary-content);
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label);
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.empty-state__action:hover {
+  background-color: transparent;
+  color: var(--color-primary);
+}
+
+.empty-state__action:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+@media (max-width: 859.98px) {
+  .empty-page {
+    place-items: start center;
+    padding: clamp(4.5rem, 16vh, 7rem) 1.125rem 2rem;
+  }
+
+  .empty-state__action {
+    width: min(100%, 20rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty-state__action {
+    transition-duration: 0ms;
+  }
+}

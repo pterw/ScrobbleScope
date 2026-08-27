@@ -9,7 +9,7 @@ Last updated: 2026-08-27
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **840 passing** across 40 test modules |
+| Tests | **862 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -40,7 +40,7 @@ Last updated: 2026-08-27
 - Current-batch entries in active log block: 7.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
 - Next expected work package: WP-5.
-- Latest validated test count: **840 passed**.
+- Latest validated test count: **862 passed**.
 - Newest current-batch entry: 2026-08-27 - Unified loading and recent-result recovery completed (Batch 21 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -67,7 +67,7 @@ templates/                  # base, index, loading, results, unmatched, error
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_result.html
 static/
-  css/                      # global, index, loading, results, unmatched, error, heatmap, shell, tailwind.src.css, tailwind.css (10 files)
+  css/                      # global, index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (11 files)
   js/                       # theme, index, loading, results, unmatched, heatmap (6 files)
 scripts/
   bin/                       # gitignored verified Tailwind/daisyUI artifact cache
@@ -179,7 +179,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (840 tests)
+## 6. Test structure (862 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

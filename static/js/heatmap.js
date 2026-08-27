@@ -545,6 +545,21 @@
   // ----------------------------------------------------------------
   // Pill switching
   // ----------------------------------------------------------------
+  function replaceCanonicalPath(path, activeHref) {
+    if (window.location.pathname + window.location.search !== path) {
+      window.history.replaceState({}, '', path);
+    }
+    document.querySelectorAll('.site-header__nav-link').forEach(function (link) {
+      var isCurrent = link.getAttribute('href') === activeHref;
+      link.classList.toggle('active', isCurrent);
+      if (isCurrent) {
+        link.setAttribute('aria-current', 'page');
+      } else {
+        link.removeAttribute('aria-current');
+      }
+    });
+  }
+
   function initPills() {
     pills = document.querySelectorAll('.mode-pill');
     albumSection   = document.getElementById('album-form-section');
@@ -555,19 +570,8 @@
     pills.forEach(function (pill) {
       pill.addEventListener('click', function () {
         var mode = this.getAttribute('data-mode');
-        var canonicalPath = mode === 'heatmap' ? '/heatmap' : '/';
-        if (window.location.pathname !== canonicalPath) {
-          window.history.replaceState({}, '', canonicalPath);
-          document.querySelectorAll('.site-header__nav-link').forEach(function (link) {
-            var isCurrent = link.getAttribute('href') === canonicalPath;
-            link.classList.toggle('active', isCurrent);
-            if (isCurrent) {
-              link.setAttribute('aria-current', 'page');
-            } else {
-              link.removeAttribute('aria-current');
-            }
-          });
-        }
+        var canonicalPath = mode === 'heatmap' ? '/?mode=heatmap' : '/';
+        replaceCanonicalPath(canonicalPath, '/');
         var self = this;
         pills.forEach(function (p) {
           p.classList.toggle('active', p === self);
@@ -577,8 +581,6 @@
         // The hero names the mode in its eyebrow and its headline, so it
         // switches with the form. Both blocks are in the page; one is hidden.
         switchModeHero(mode);
-
-        if (mode === 'heatmap' && resumeSavedHeatmap()) return;
 
         setHeatmapStageActive(false);
         hideElement(mode === 'heatmap' ? albumSection : heatmapSection);
@@ -879,13 +881,7 @@
     }
 
     searchAgainBtn.addEventListener('click', function () {
-      setHeatmapStageActive(false);
-      hideElement(heatmapResult);
-      showElement(indexGrid);
-      showElement(heatmapSection);
-      heatmapUsernameInput.value = lastUsername;
-      heatmapUsernameInput.classList.remove('is-valid', 'is-invalid');
-      heatmapUsernameInput.focus();
+      window.location.assign('/?mode=heatmap');
     });
   }
 
@@ -971,6 +967,7 @@
         currentJobId = result.data.job_id;
         savedHeatmapJobId = currentJobId;
         savedHeatmapUsername = username;
+        replaceCanonicalPath('/heatmap', '/heatmap');
         startPolling();
       } else {
         showError(result.data.message || 'Failed to start heatmap.', result.data.retryable);

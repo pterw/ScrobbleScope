@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Heatmap | ScrobbleScope{% endblock %}
+
+{% block legacy_css %}{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/empty.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="empty-page" data-empty-state="heatmap">
+    <section class="empty-state" aria-labelledby="heatmap-empty-title">
+        <span class="empty-state__signal empty-state__signal--heatmap" aria-hidden="true"></span>
+        <h1 id="heatmap-empty-title">No heatmap yet</h1>
+        <p>Generate a heatmap to map your last 365 days. Your latest heatmap will return here.</p>
+        <a class="empty-state__action" href="/?mode=heatmap">Create heatmap</a>
+    </section>
+</main>
+{% endblock %}
