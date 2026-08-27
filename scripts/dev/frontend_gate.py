@@ -439,6 +439,8 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
                     segmentRadius: getComputedStyle(
                         document.querySelector('.seg__option')
                     ).borderRadius,
+                    descriptorOrder: [...document.querySelectorAll('[data-mode-hero]')]
+                        .every(hero => hero.querySelector('h1 + .eyebrow')),
                 };
             }"""
         )
@@ -477,6 +479,8 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
                 f"/ {theme} .seg__option: radius is {state['segmentRadius']}, "
                 f"expected the 8px design step"
             )
+        if not state["descriptorOrder"]:
+            failures.append(f"/ {theme}: a mode descriptor appears above its heading")
     return failures
 
 

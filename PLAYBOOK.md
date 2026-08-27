@@ -489,7 +489,8 @@ non-current operational logs. Older dated entries live in
   Heatmap loading or results replace the landing hero. The album wait screen
   no longer repeats the pinwheel's loading cue as a heading. At desktop widths,
   the hero and form now scale up together by 7.5%; tablet and mobile keep the
-  existing composition.
+  existing composition. Both landing modes now place their mono descriptor
+  below the serif heading, matching the Heatmap result hierarchy.
 - Backend hardening: Heatmap stores its payload before exposing 100% progress,
   reports live page/scrobble/day facts to the loading view, and refreshes an
   expired AJAX request token once before retrying. A real browser run completed
