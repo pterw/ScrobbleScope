@@ -486,7 +486,8 @@ non-current operational logs. Older dated entries live in
   form-help icons; tightened the empty state; removed selected-control shadows;
   kept index mode copy on a quick cross-fade; and scaled the loading cluster
   up and down as one composition. The compact shell wordmark now returns when
-  Heatmap loading or results replace the landing hero.
+  Heatmap loading or results replace the landing hero. The album wait screen
+  no longer repeats the pinwheel's loading cue as a heading.
 - Backend hardening: Heatmap stores its payload before exposing 100% progress,
   reports live page/scrobble/day facts to the loading view, and refreshes an
   expired AJAX request token once before retrying. A real browser run completed

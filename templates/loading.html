@@ -33,9 +33,7 @@
 
 {% block content %}
 <main class="loading-page">
-  <section class="loading-screen" aria-labelledby="loading-title">
-    <h1 class="sr-only" id="loading-title">Loading your results</h1>
-
+  <section class="loading-screen" aria-label="Album analysis progress">
     {% with phase_id='step-text', progress_id='progress-bar',
             progress_track_id='progress-track', error_id='error-container',
             error_message_id='error-text', retry_id='retry-button',
