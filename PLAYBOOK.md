@@ -485,7 +485,8 @@ non-current operational logs. Older dated entries live in
   Unmatched; renamed Album release filter to Release filter; removed redundant
   form-help icons; tightened the empty state; removed selected-control shadows;
   kept index mode copy on a quick cross-fade; and scaled the loading cluster
-  up and down as one composition.
+  up and down as one composition. The compact shell wordmark now returns when
+  Heatmap loading or results replace the landing hero.
 - Backend hardening: Heatmap stores its payload before exposing 100% progress,
   reports live page/scrobble/day facts to the loading view, and refreshes an
   expired AJAX request token once before retrying. A real browser run completed

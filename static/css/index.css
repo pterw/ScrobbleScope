@@ -77,6 +77,15 @@
   display: none;
 }
 
+/* Loading and results replace the hero, so the compact shell wordmark becomes
+   the page's only brand mark. Keep the narrow header uncluttered: shell.css
+   still hides it below the desktop breakpoint. */
+@media (min-width: 860px) {
+  body.heatmap-stage-active .site-header__home {
+    display: flex;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Left column: the editorial hero                                     */
 /* ------------------------------------------------------------------ */
