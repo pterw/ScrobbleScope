@@ -82,11 +82,13 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **WP-4 is complete and awaits owner review. WP-5 is next.**
+- **Next action:** **WP-4 is complete. Owner review is paused after the first
+  annotation pass; resume those minor refinements before WP-5.**
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
-  latest album and heatmap jobs at clean destination routes. The owner is
-  reviewing the result in Impeccable Live before WP-5 begins.
+  latest album and heatmap jobs at clean destination routes. The owner
+  completed the first Impeccable Live annotation pass and paused for the day;
+  resume that review before WP-5 begins.
   The original twelve-round Codex review closed at `77bb001`: all thirty threads
   were resolved, both Quality Gate runs passed, and the Codex connector
   recorded a thumbs-up. Three later Graphify passes produced advisory findings.
@@ -505,9 +507,11 @@ non-current operational logs. Older dated entries live in
   including exact 1080p-to-4K component-scale parity.
   JavaScript syntax checks, all pre-commit hooks, and
   `doc_state_sync.py --check` pass.
-- Forward guidance: pause for owner Firefox review at 1080p and 1440p before
-  WP-5. Keep the latest-run session contract when the Results and Unmatched
-  templates migrate; do not reintroduce query strings into the header pills.
+- Forward guidance: owner review is paused after the first annotation pass.
+  Resume minor Firefox and Impeccable Live refinements at 1080p and 1440p
+  before WP-5. Keep the latest-run session contract when the Results and
+  Unmatched templates migrate; do not reintroduce query strings into the
+  header pills.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
