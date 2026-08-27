@@ -1320,6 +1320,8 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     """
     original_viewport = page.viewport_size
     selectors = {
+        "hero composition": ".index-hero__inner",
+        "form composition": ".index-form__inner",
         "wordmark": ".index-hero__mark",
         "headline": ".index-hero__headline",
         "form": ".ss-card",
@@ -1328,6 +1330,8 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "page navigation": ".site-header__nav-link",
     }
     dimensions = {
+        "hero composition": ("zoom",),
+        "form composition": ("zoom",),
         "wordmark": ("width", "height"),
         # A heading is a flow box: its available width follows the responsive
         # column while its type scale stays fixed.
@@ -1352,6 +1356,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                         width: rect.width,
                         height: rect.height,
                         fontSize: parseFloat(style.fontSize),
+                        zoom: parseFloat(style.zoom),
                     }];
                 })
             )""",
@@ -1361,6 +1366,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     try:
         at_1080p = measure(1920, 1080)
         at_4k = measure(3840, 2160)
+        at_mobile = measure(390, 844)
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
@@ -1379,6 +1385,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     f"{baseline[dimension]:.1f}px at 1080p to "
                     f"{large[dimension]:.1f}px at 4K"
                 )
+    for name in ("hero composition", "form composition"):
+        if abs(at_1080p[name]["zoom"] - 1.075) > 0.001:
+            failures.append(f"/: {name} is not scaled as part of the desktop layout")
+        if abs(at_mobile[name]["zoom"] - 1) > 0.001:
+            failures.append(f"/: {name} desktop scale leaked into the mobile layout")
     return failures
 
 

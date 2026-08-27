@@ -99,6 +99,17 @@
   }
 }
 
+/* Scale each desktop composition as one unit. This preserves the exact type,
+   control and spacing relationships inside both columns instead of growing
+   selected pieces independently. The content-driven threshold leaves the
+   existing tablet and mobile composition untouched. */
+@media (min-width: 1200px) {
+  .index-hero__inner,
+  .index-form__inner {
+    zoom: 1.075;
+  }
+}
+
 /* The wrapper needs an explicit auto height. A fixed height with a fluid SVG
    inside makes the mark overflow its box and the h1 slides underneath it.
    The cap matters too: uncapped, the mark grows with the viewport until it
