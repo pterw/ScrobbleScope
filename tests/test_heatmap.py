@@ -405,15 +405,25 @@ class TestFetchAndProcessHeatmap:
         meta = {"status": "ok", "pages_expected": 1, "pages_received": 1}
 
         stored_result = {}
+        completion_events = []
 
         def _capture_result(job_id, results):
             stored_result.update(results)
+            completion_events.append("results")
+            return True
+
+        def _capture_progress(job_id, **kwargs):
+            if kwargs.get("progress") == 100:
+                completion_events.append("ready")
             return True
 
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
             patch("scrobblescope.heatmap.cleanup_expired_jobs"),
-            patch("scrobblescope.heatmap.set_job_progress"),
+            patch(
+                "scrobblescope.heatmap.set_job_progress",
+                side_effect=_capture_progress,
+            ),
             patch("scrobblescope.heatmap.set_job_stat"),
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
@@ -437,6 +447,40 @@ class TestFetchAndProcessHeatmap:
         assert stored_result["max_count"] == 2  # yesterday had 2
         assert stored_result["daily_counts"][yesterday.isoformat()] == 2
         assert stored_result["daily_counts"][today.isoformat()] == 1
+        assert completion_events == ["results", "ready"]
+
+    @pytest.mark.asyncio
+    async def test_success_is_readable_through_repository_at_100_percent(self):
+        """A real job exposes its payload whenever progress reports complete."""
+        from scrobblescope.repositories import create_job, delete_job, get_job_context
+
+        today = datetime.now(timezone.utc).date()
+        page = _wrap_tracks([_make_track(today)])
+        metadata = {"status": "ok", "pages_expected": 1, "pages_received": 1}
+        job_id = create_job({"username": "wired-user", "mode": "heatmap"})
+
+        try:
+            with (
+                patch("scrobblescope.heatmap.cleanup_expired_cache"),
+                patch("scrobblescope.heatmap.cleanup_expired_jobs"),
+                patch(
+                    "scrobblescope.heatmap.fetch_all_recent_tracks_async",
+                    new_callable=AsyncMock,
+                    return_value=([page], metadata),
+                ),
+            ):
+                await _fetch_and_process_heatmap(job_id, "wired-user")
+
+            context = get_job_context(job_id)
+            assert context is not None
+            assert context["progress"]["progress"] == 100
+            assert context["progress"]["error"] is False
+            assert context["results"]["username"] == "wired-user"
+            assert context["results"]["total_scrobbles"] == 1
+            assert context["progress"]["stats"]["pages_received"] == 1
+            assert context["progress"]["stats"]["active_days"] == 1
+        finally:
+            delete_job(job_id)
 
     @pytest.mark.asyncio
     async def test_progress_callback_sends_correct_percentages(self):

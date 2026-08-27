@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-08-25
+Last updated: 2026-08-27
 
 ---
 
@@ -9,11 +9,11 @@ Last updated: 2026-08-25
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **833 passing** across 40 test modules |
+| Tests | **840 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** WP-0 through WP-3 are done. The canonical routing/navigation prerequisite is complete; **WP-4 continues with the unified loading rebuild.** WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for evidence and history. |
+| Batch 21 status | **Active.** WP-0 through WP-4 are done; **WP-5 is next.** WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for evidence and history. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -37,11 +37,11 @@ Last updated: 2026-08-25
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 21.
-- Current-batch entries in active log block: 6.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
-- Next expected work package: WP-4.
-- Latest validated test count: **833 passed**.
-- Newest current-batch entry: 2026-08-25 - Index page migrated to Tailwind (Batch 21 WP-3).
+- Current-batch entries in active log block: 7.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
+- Next expected work package: WP-5.
+- Latest validated test count: **840 passed**.
+- Newest current-batch entry: 2026-08-27 - Unified loading and recent-result recovery completed (Batch 21 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -179,7 +179,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (833 tests)
+## 6. Test structure (840 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

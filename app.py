@@ -19,7 +19,7 @@ import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 
-from flask import Flask, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_wtf.csrf import CSRFError, CSRFProtect
 
 csrf = CSRFProtect()
@@ -118,6 +118,18 @@ def create_app():
     def handle_csrf_error(e):
         """Return a user-friendly error page on CSRF token validation failure."""
         logging.warning(f"CSRF validation failed: {e.description}")
+        if request.path == "/heatmap_loading":
+            return (
+                jsonify(
+                    {
+                        "error": True,
+                        "error_code": "csrf_invalid",
+                        "message": "Your session expired. Refreshing it now.",
+                        "retryable": True,
+                    }
+                ),
+                400,
+            )
         return (
             render_template(
                 "error.html",

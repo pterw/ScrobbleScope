@@ -1,6 +1,6 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page) is complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. **WP-4 (unified loading) is the next batch work package from its merged result.** WP-6 is absorbed into WP-3; see its stub below.
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page) and WP-4 (unified loading and recent-result recovery) are complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. **WP-5 (results leaderboard) is the next batch work package.** WP-6 is absorbed into WP-3; see its stub below.
 **Branch:** `wip/batch-21` (linked worktree; lineage changes are recorded
 in PLAYBOOK Section 4 rather than pinned here).
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
@@ -70,6 +70,9 @@ stylesheet is in scope for this batch.
 
 1. **Rotating loading messages (WP-4): CUT.** Phase label + live counters
    replace them; keep one threshold-fired big-library notice.
+   **Progress signal revised 2026-08-27 (owner).** Keep the animated pinwheel,
+   then place one slim determinate purple hairline directly below it. The
+   polling percentage drives the hairline; do not print a second percentage.
 2. **Welcome modal (WP-3): DELETE.** The hero replaces it; Info button
    becomes a small about panel.
 3. **`limit_results` control (WP-3): KEEP**, as a visible field in the
@@ -105,9 +108,9 @@ stylesheet is in scope for this batch.
 3. `--bars-color` aliases the theme primary in both themes; pinwheel and
    wordmark render correctly in both modes on every page.
 4. Standing header bar on all pages: wordmark left (~64px), four functional
-   Input Mono Narrow page-navigation pills, segmented Light/Dark toggle
-   top-right; footer toggle removed; landing page keeps the large brand
-   moment in the hero.
+   Input Mono Narrow page-navigation pills (Home, Heatmap, Results,
+   Unmatched), segmented Light/Dark toggle top-right; footer toggle removed;
+   landing page keeps the large brand moment in the hero.
 5. CSV export, JPEG export (both modes, mobile + desktop), progress
    polling, username validation, decade pills, and thresholds disclosure
    all still work; the results list remains a semantic `<table>`.
@@ -308,21 +311,25 @@ Moved in by the scope ruling:
 
 ### WP-4 -- Unified loading experience
 
-- **Owner expansion, 2026-08-26:** production navigation contains Home,
-  Results, Heatmap, and Unmatched. Loading retains canonical `GET /loading`
-  for redirect/refresh behaviour but has no pill because it is transient.
-  Canonical page routes are `GET /`, `/loading`, `/results`, `/heatmap`, and
-  `/unmatched`; job-backed routes keep `job_id` in the query string and show
-  a friendly Home action when opened without one. Existing
-  completion/report POST routes remain compatibility shims during the
-  strangler. Unmatched JSON moves to `GET /api/unmatched` so the page route
-  owns `/unmatched`. The header theme control is the handoff's segmented
-  Light/Dark pill, not the earlier compact switch.
-- Shared Jinja2 loading partial used by `loading.html` and the heatmap
-  panel: pinwheel + thin determinate hairline bar, mono phase label
-  ("FETCHING SCROBBLES - PAGE 23 / 102"), four-KPI stat strip (same
-  component shape as heatmap KPIs), parameter chip row replacing the
-  table.
+- **Owner expansion, 2026-08-26, revised 2026-08-27:** production navigation
+  contains Home, Heatmap, Results, and Unmatched. Home and Heatmap form one
+  workflow group; Results and Unmatched form the report group. Loading keeps
+  canonical `GET /loading` for redirect/refresh behaviour but has no pill
+  because it is transient. Canonical destination routes are `GET /`,
+  `/results`, `/heatmap`, and `/unmatched`; `/loading?job_id=...` remains the
+  transient job route. Album and heatmap starts store separate latest-job
+  pointers in the browser session. Results, Unmatched, and Heatmap therefore
+  resume the latest valid run at their clean route. The in-memory job expires
+  after two idle hours, and access refreshes that window. Missing or expired
+  jobs show a friendly Home action. Explicit `job_id` values and existing
+  completion/report POST routes remain compatibility paths during the
+  strangler. Unmatched JSON uses `GET /api/unmatched` so the page route owns
+  `/unmatched`. The header theme control is the segmented Light/Dark pill.
+- Shared Jinja2 loading partial used by `loading.html` and the heatmap panel:
+  pinwheel + thin determinate hairline bar and mono phase label ("FETCHING
+  SCROBBLES - PAGE 23 / 102"). Album loading has its four pipeline KPIs;
+  Heatmap uses its three relevant facts: pages fetched, scrobbles counted,
+  and days with listening. Both retain request parameters and a Home escape.
 - Decision 1 lands here (rotating messages).
 - Leaving the page: a quiet "Back home" link only -- no
   `/reset_progress` call and no "Cancel" label. The endpoint cannot
@@ -335,10 +342,11 @@ Moved in by the scope ruling:
   the heatmap run independent state machines against different endpoints;
   a shared partial proves shared appearance and nothing about shared
   behaviour. Cover for each: normal progress to 100%; a retryable failure
-  (Retry offered, page holds, no `results_complete` post); and a
-  non-retryable failure (three-second wait, opens canonical `/results`,
-  lands on the processing-error page). The two failure paths differ and
-  are drawn in `docs/architecture/top-albums-sequence.md`.
+  (Retry offered and the page holds); and a non-retryable failure. Top Albums
+  opens canonical `/results` and lands on its processing-error page after the
+  three-second handoff. Heatmap stays at `/heatmap`, shows the terminal error,
+  and does not offer Retry. The two failure paths differ and are drawn in
+  `docs/architecture/top-albums-sequence.md`.
 `feat(ui): unified pinwheel loading screen for both pipelines`
 
 ### WP-5 -- Results leaderboard

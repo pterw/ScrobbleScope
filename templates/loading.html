@@ -2,15 +2,18 @@
 
 {% block title %}Loading | ScrobbleScope{% endblock %}
 
-{% block meta_description %}ScrobbleScope - Loading your Last.fm album scrobbles. Please wait...{% endblock %}
+{% block meta_description %}ScrobbleScope is filtering your Last.fm album scrobbles.{% endblock %}
+
+{# WP-4 migrated this page. Loading Bootstrap beside Tailwind would make the
+   shared controls inherit two competing .btn and .card systems. #}
+{% block legacy_css %}{% endblock %}
 
 {% block stylesheets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/loading.css') }}">
 {% endblock %}
 
 {% block head_extra %}
-<meta name="csrf-token" content="{{ csrf_token() }}">
-<!--Bridge data: Jinja2 values injected as JSON; read by loading.js via window.SCROBBLE-->
 <script id="scrobble-config" type="application/json">{{ {
     "job_id": job_id,
     "username": username,
@@ -29,100 +32,63 @@
 {% endblock %}
 
 {% block content %}
-<div class="container mt-5 mb-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8 text-center mb-4" id="logo-wrapper">
-            <div class="ss-mark" aria-label="ScrobbleScope logo visualization" role="img">
-                {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
-            </div>
-        </div>
+<main class="loading-page">
+  <section class="loading-screen" aria-labelledby="loading-title">
+    <h1 class="sr-only" id="loading-title">Loading your results</h1>
+
+    {% with phase_id='step-text', progress_id='progress-bar',
+            progress_track_id='progress-track', error_id='error-container',
+            error_message_id='error-text', retry_id='retry-button',
+            retry_hidden=true %}
+      {% include 'partials/_loading.html' ignore missing %}
+    {% endwith %}
+
+    <p class="loading-detail" id="step-details" aria-live="polite"></p>
+
+    <div class="loading-stats hidden" id="live-stats" aria-label="Live processing statistics">
+      <div class="loading-stat hidden" data-stat="scrobbles">
+        <span class="loading-stat__label">Scrobbles</span>
+        <strong class="loading-stat__value" id="stat-scrobbles">0</strong>
+      </div>
+      <div class="loading-stat hidden" data-stat="pages">
+        <span class="loading-stat__label">Pages fetched</span>
+        <strong class="loading-stat__value" id="stat-pages">0</strong>
+      </div>
+      <div class="loading-stat hidden" data-stat="albums">
+        <span class="loading-stat__label">Albums passing</span>
+        <strong class="loading-stat__value" id="stat-albums">0</strong>
+      </div>
+      <div class="loading-stat hidden" data-stat="spotify">
+        <span class="loading-stat__label">Spotify matched</span>
+        <strong class="loading-stat__value" id="stat-spotify">0</strong>
+      </div>
     </div>
-    <div class="row justify-content-center">
-        <div class="col-md-6">
-            <div class="card shadow">
-                <div class="card-body">
-                    <h2 class="text-center mb-3">Loading your results...</h2>
-                    <div class="progress mt-4">
-                        <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;" id="progress-bar"></div>
-                    </div>
-                    <p id="step-text" class="step-text">Initializing...</p>
-                    <p id="step-details" class="step-details"></p>
 
-                    <div id="live-stats" class="live-stats d-none">
-                        <p id="stat-scrobbles" class="live-stat d-none"></p>
-                        <p id="stat-pages"    class="live-stat d-none"></p>
-                        <p id="stat-albums"   class="live-stat d-none"></p>
-                        <p id="stat-cache"    class="live-stat d-none"></p>
-                        <p id="stat-spotify"  class="live-stat d-none"></p>
-                    </div>
+    <p class="loading-warning hidden" id="partial-warning">
+      <span id="partial-warning-text"></span>
+    </p>
 
-                    <div id="partial-warning" class="partial-warning d-none">
-                        <p id="partial-warning-text"></p>
-                    </div>
+    <ul class="loading-params" aria-label="Search parameters">
+      <li>{{ username }}</li>
+      <li>{{ year }}</li>
+      <li>
+        {% if release_scope == 'same' %}release {{ year }}
+        {% elif release_scope == 'previous' %}release {{ year - 1 }}
+        {% elif release_scope == 'decade' %}{{ decade }} releases
+        {% elif release_scope == 'custom' %}release {{ release_year }}
+        {% else %}all releases{% endif %}
+      </li>
+      <li>{{ 'play time' if sort_by == 'playtime' else 'play count' }}</li>
+      <li>&ge;{{ min_plays|default('10') }} plays</li>
+      <li>&ge;{{ min_tracks|default('3') }} tracks</li>
+    </ul>
 
-                    <div class="request-info">
-                        <h4>Your Search Parameters</h4>
-                        <table class="info-table">
-                            <tr>
-                                <td>Username:</td>
-                                <td>{{ username }}</td>
-                            </tr>
-                            <tr>
-                                <td>Year:</td>
-                                <td>{{ year }}</td>
-                            </tr>
-                            {% if release_scope %}
-                            <tr>
-                                <td>Release Filter:</td>
-                                <td>
-                                    {% if release_scope == "same" %}
-                                        Same as Listening Year ({{ year }})
-                                    {% elif release_scope == "previous" %}
-                                        Previous Year ({{ year - 1 }})
-                                    {% elif release_scope == "decade" %}
-                                        {{ decade }}
-                                    {% elif release_scope == "custom" %}
-                                        {{ release_year }}
-                                    {% else %}
-                                        All Years
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endif %}
-                            <tr>
-                                <td>Sort By:</td>
-                                <td>
-                                    {% if sort_by == "playtime" %}
-                                        Listening Time
-                                    {% else %}
-                                        Play Count
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            <tr>
-                                <td>Thresholds:</td>
-                                <td>≥{{ min_plays|default('10') }} plays, ≥{{ min_tracks|default('3') }} tracks</td>
-                            </tr>
-                        </table>
-                    </div>
-
-                    <div id="error-container" class="d-none">
-                        <div class="error-message">
-                            <p id="error-text">An error occurred while processing your request.</p>
-                            <p id="error-source" class="error-source d-none"></p>
-                        </div>
-                        <div id="error-actions" class="error-actions">
-                            <button id="retry-button" class="btn btn-primary mt-3 d-none">Retry Now</button>
-                            <a href="/" id="home-button" class="btn btn-outline-secondary mt-3">Back to Home</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+    <p class="loading-cache hidden" id="stat-cache"></p>
+    <p class="loading-error-source hidden" id="error-source"></p>
+    <a class="loading-back" href="/">Back home</a>
+  </section>
+</main>
 {% endblock %}
-
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/loading.js') }}"></script>

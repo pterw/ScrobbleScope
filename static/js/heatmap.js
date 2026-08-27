@@ -193,8 +193,10 @@
     nameSpan.className = 'heatmap-headline-username';
     nameSpan.textContent = username || '';
 
-    resultHeadline.appendChild(document.createTextNode('A year of '));
     resultHeadline.appendChild(nameSpan);
+    resultHeadline.appendChild(
+      document.createTextNode('\u2019s last 365 days of scrobbling')
+    );
   }
 
   function revealHeatmapResult() {
@@ -519,7 +521,9 @@
   var pills, albumSection, heatmapSection, heatmapLoading, indexGrid,
       heroBlocks,
       heatmapResult, heatmapForm, heatmapUsernameInput,
-      progressText, errorContainer, errorMessage,
+      progressText, progressBar, progressTrack, errorContainer, errorMessage,
+      loadingDetail, loadingStats, loadingUsername,
+      loadingStatPages, loadingStatScrobbles, loadingStatDays,
       retryBtn, searchAgainBtn, saveImageBtn, resultHeadline, resultFrame,
       kpiRow, gridContainer, legendBar, tooltip;
 
@@ -529,6 +533,8 @@
   var pollTimer = null;
   var currentJobId = null;
   var lastUsername = '';
+  var savedHeatmapJobId = null;
+  var savedHeatmapUsername = '';
   var lastHeatmapData = null;
   var lastRenderMobile = null;
   var resizeTimer = null;
@@ -567,10 +573,9 @@
 
         // The hero names the mode in its eyebrow and its headline, so it
         // switches with the form. Both blocks are in the page; one is hidden.
-        heroBlocks.forEach(function (hero) {
-          hero.classList.toggle(
-            'hidden', hero.getAttribute('data-mode-hero') !== mode);
-        });
+        switchModeHero(mode);
+
+        if (mode === 'heatmap' && resumeSavedHeatmap()) return;
 
         hideElement(mode === 'heatmap' ? albumSection : heatmapSection);
         showElement(mode === 'heatmap' ? heatmapSection : albumSection);
@@ -595,6 +600,69 @@
 
   function hideElement(el) {
     el.classList.add('hidden');
+  }
+
+  function switchModeHero(mode) {
+    var nextHero = null;
+    var currentHero = null;
+    heroBlocks.forEach(function (hero) {
+      if (hero.getAttribute('data-mode-hero') === mode) nextHero = hero;
+      if (!hero.classList.contains('hidden')) currentHero = hero;
+    });
+    if (!nextHero || nextHero === currentHero) return;
+
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion || !currentHero) {
+      if (currentHero) hideElement(currentHero);
+      showElement(nextHero);
+      return;
+    }
+
+    currentHero.classList.add('mode-hero-out');
+    window.setTimeout(function () {
+      hideElement(currentHero);
+      currentHero.classList.remove('mode-hero-out');
+      nextHero.classList.add('mode-hero-out');
+      showElement(nextHero);
+      void nextHero.offsetWidth;
+      nextHero.classList.remove('mode-hero-out');
+    }, 160);
+  }
+
+  function readSavedHeatmap() {
+    var config = document.getElementById('heatmap-session-config');
+    if (!config) return;
+    try {
+      var saved = JSON.parse(config.textContent || 'null');
+      if (saved && saved.job_id) {
+        savedHeatmapJobId = saved.job_id;
+        savedHeatmapUsername = saved.username || '';
+      }
+    } catch (error) {
+      savedHeatmapJobId = null;
+      savedHeatmapUsername = '';
+    }
+  }
+
+  function resumeSavedHeatmap() {
+    if (!savedHeatmapJobId || !heatmapLoading) return false;
+
+    stopPolling();
+    currentJobId = savedHeatmapJobId;
+    lastUsername = savedHeatmapUsername;
+    if (heatmapUsernameInput) heatmapUsernameInput.value = lastUsername;
+    hideElement(indexGrid);
+    hideElement(heatmapSection);
+    hideElement(heatmapResult);
+    hideElement(errorContainer);
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressTrack) hideElement(progressTrack);
+    progressText.textContent = 'Restoring your latest heatmap...';
+    resetLoadingDetails(lastUsername);
+    fadeIn(heatmapLoading);
+    pollProgress();
+    startPolling();
+    return true;
   }
 
   function fadeIn(el) {
@@ -707,8 +775,16 @@
     heatmapLoading = document.getElementById('heatmap-loading');
     heatmapResult  = document.getElementById('heatmap-result');
     progressText   = document.getElementById('heatmap-progress-text');
+    progressBar    = document.getElementById('heatmap-progress-bar');
+    progressTrack  = document.getElementById('heatmap-progress-track');
     errorContainer = document.getElementById('heatmap-error');
     errorMessage   = document.getElementById('heatmap-error-message');
+    loadingDetail  = document.getElementById('heatmap-loading-detail');
+    loadingStats   = document.getElementById('heatmap-loading-stats');
+    loadingUsername = document.getElementById('heatmap-loading-username');
+    loadingStatPages = document.getElementById('heatmap-stat-pages');
+    loadingStatScrobbles = document.getElementById('heatmap-stat-scrobbles');
+    loadingStatDays = document.getElementById('heatmap-stat-days');
     retryBtn       = document.getElementById('heatmap-retry-btn');
     searchAgainBtn = document.getElementById('heatmap-search-again');
     saveImageBtn   = document.getElementById('heatmap-save-image');
@@ -771,11 +847,48 @@
     hideElement(heatmapResult);
     hideElement(errorContainer);
     progressText.textContent = 'Initializing...';
+    resetLoadingDetails(username);
+    if (progressBar) progressBar.style.width = '0%';
+    if (progressTrack) {
+      progressTrack.setAttribute('aria-valuenow', '0');
+      hideElement(progressTrack);
+    }
     // Show spinner wrapper if hidden
     var spinnerWrapper = heatmapLoading.querySelector('.wait-panel__mark');
     if (spinnerWrapper) spinnerWrapper.style.display = '';
     fadeIn(heatmapLoading);
 
+    startHeatmapRequest(username, true);
+  }
+
+  function parseJsonResponse(res) {
+    return res.text().then(function (body) {
+      var data;
+      try {
+        data = JSON.parse(body);
+      } catch (error) {
+        data = { error: true, message: 'The server returned an unreadable response.' };
+      }
+      return { status: res.status, data: data };
+    });
+  }
+
+  function refreshCsrfToken() {
+    return fetch('/csrf-token')
+      .then(parseJsonResponse)
+      .then(function (result) {
+        if (result.status !== 200 || !result.data.csrf_token) {
+          throw new Error('Could not refresh the request token.');
+        }
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) meta.setAttribute('content', result.data.csrf_token);
+        document.querySelectorAll('input[name="csrf_token"]').forEach(function (input) {
+          input.value = result.data.csrf_token;
+        });
+      });
+  }
+
+  function startHeatmapRequest(username, mayRefreshToken) {
     var csrfToken = getCsrfToken();
     var body = new URLSearchParams();
     body.append('username', username);
@@ -789,14 +902,22 @@
       },
       body: body.toString(),
     })
-    .then(function (res) {
-      return res.json().then(function (data) {
-        return { status: res.status, data: data };
-      });
-    })
+    .then(parseJsonResponse)
     .then(function (result) {
+      if (
+        mayRefreshToken &&
+        result.status === 400 &&
+        result.data.error_code === 'csrf_invalid'
+      ) {
+        progressText.textContent = 'Refreshing your session...';
+        return refreshCsrfToken().then(function () {
+          return startHeatmapRequest(username, false);
+        });
+      }
       if (result.status === 202 && result.data.job_id) {
         currentJobId = result.data.job_id;
+        savedHeatmapJobId = currentJobId;
+        savedHeatmapUsername = username;
         startPolling();
       } else {
         showError(result.data.message || 'Failed to start heatmap.', result.data.retryable);
@@ -828,10 +949,17 @@
         if (data.message) {
           progressText.textContent = data.message;
         }
+        updateLoadingDetails(data.stats || {});
+        if (typeof data.progress === 'number' && progressBar && progressTrack) {
+          var progress = Math.max(0, Math.min(100, data.progress));
+          progressBar.style.width = progress + '%';
+          progressTrack.setAttribute('aria-valuenow', String(progress));
+          showElement(progressTrack);
+        }
 
         if (data.error) {
           stopPolling();
-          showError(data.message || 'An error occurred.', true);
+          showError(data.message || 'An error occurred.', data.retryable);
           return;
         }
 
@@ -843,6 +971,55 @@
       .catch(function () {
         // Transient network error; keep polling
       });
+  }
+
+  function resetLoadingDetails(username) {
+    if (loadingDetail) {
+      loadingDetail.textContent = 'Preparing the last 365 days of listening.';
+    }
+    if (loadingUsername) loadingUsername.textContent = username || 'Last.fm profile';
+    if (loadingStats) loadingStats.classList.add('hidden');
+    [loadingStatPages, loadingStatScrobbles, loadingStatDays].forEach(function (node) {
+      if (node && node.closest('.heatmap-loading__stat')) {
+        node.closest('.heatmap-loading__stat').classList.add('hidden');
+      }
+    });
+  }
+
+  function revealLoadingStat(node, text) {
+    if (!node || text === null || text === undefined) return false;
+    node.textContent = text;
+    var item = node.closest('.heatmap-loading__stat');
+    if (item) item.classList.remove('hidden');
+    return true;
+  }
+
+  function updateLoadingDetails(stats) {
+    if (!stats) return;
+    var shown = false;
+    var received = stats.pages_received;
+    var expected = stats.pages_expected;
+    if (received !== undefined && expected !== undefined) {
+      shown = revealLoadingStat(
+        loadingStatPages,
+        Number(received).toLocaleString() + ' / ' + Number(expected).toLocaleString()
+      ) || shown;
+      if (loadingDetail) loadingDetail.textContent = 'Reading your Last.fm history.';
+    }
+    if (stats.total_scrobbles !== undefined) {
+      shown = revealLoadingStat(
+        loadingStatScrobbles,
+        Number(stats.total_scrobbles).toLocaleString()
+      ) || shown;
+      if (loadingDetail) loadingDetail.textContent = 'Building one day at a time.';
+    }
+    if (stats.active_days !== undefined) {
+      shown = revealLoadingStat(
+        loadingStatDays,
+        Number(stats.active_days).toLocaleString()
+      ) || shown;
+    }
+    if (shown && loadingStats) loadingStats.classList.remove('hidden');
   }
 
   function fetchHeatmapData() {
@@ -1214,11 +1391,13 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     initPreviewRamp();
-    initPills();
+    readSavedHeatmap();
     initUsernameValidation();
     initForm();
+    initPills();
     initDarkModeObserver();
     window.addEventListener('resize', handleResize);
+    if (window.location.pathname === '/heatmap') resumeSavedHeatmap();
   });
 
 })();

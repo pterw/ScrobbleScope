@@ -82,12 +82,11 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **WP-4 continues from the canonical routing and navigation
-  prerequisite completed on 2026-08-26.** The owner added four functional
-  header destinations, canonical GET routes for every page state, friendly
-  pre-search states, and the segmented Light/Dark control before the loading
-  rebuild. The next implementation slice migrates `loading.html` to the
-  unified wait panel and extends the frontend gate to that job-backed route.
+- **Next action:** **WP-4 is complete and awaits owner review. WP-5 is next.**
+  WP-4 migrated `loading.html` to the shared determinate wait panel, completed
+  both polling state machines, and added browser-session recovery for the
+  latest album and heatmap jobs at clean destination routes. The owner is
+  reviewing the result in Impeccable Live before WP-5 begins.
   The original twelve-round Codex review closed at `77bb001`: all thirty threads
   were resolved, both Quality Gate runs passed, and the Codex connector
   recorded a thumbs-up. Three later Graphify passes produced advisory findings.
@@ -101,8 +100,9 @@ See FINDINGS F-DOCSYNC-3.
   GitHub remains the source of truth for the PR's integration state.
   `templates/partials/_loading.html` already exists and is framework-neutral
   -- WP-3 built it a work package early -- so WP-4 consumes that partial
-  rather than writing one. `GET /loading` now supplies the route the gate
-  needs; its job fixture and loading-specific checks still belong to WP-4.
+  rather than writing one. `GET /loading` supplies the route the gate needs;
+  its job fixture, composition check, and two-pipeline state-machine check
+  landed in WP-4.
   **WP-3 is complete.** It rebuilt `index.html` on Tailwind, deleted the
   welcome modal and the `bootstrap.Popover` hints, absorbed WP-6, and grew
   the frontend gate from four checks at one desktop viewport into a
@@ -132,10 +132,8 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0, WP-1, WP-2 and WP-3 done; PR #218 is the completed
-  WP-3 integration branch. The canonical routing/navigation prerequisite for
-  WP-4 is done; the unified loading rebuild is next. WP-6 is absorbed into
-  WP-3 and ships no commit of its own. WP-4, WP-5, WP-7 and WP-8 are not done.
+- Batch 21 WP status: WP-0 through WP-4 are done. WP-6 is absorbed into WP-3
+  and ships no commit of its own. WP-5 is next; WP-7 and WP-8 are not done.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -473,6 +471,38 @@ non-current operational logs. Older dated entries live in
   `F-B21-17` proposes the deterministic drift check that would have caught a
   third of this batch's review comments, and the owner approved building it
   after this work package closes.
+
+### 2026-08-27 - Unified loading and recent-result recovery completed (Batch 21 WP-4)
+
+- Scope: migrated the album loading route to Tailwind and the shared wait
+  panel, completed the shared polling hairline, and made Results, Unmatched,
+  and Heatmap recover the latest valid run at their clean routes.
+- Plan vs implementation: the album and heatmap clients now share the same
+  pinwheel, three-pixel determinate hairline, and backend-owned phase copy.
+  The browser gate creates real album and heatmap jobs and drives each client
+  through success, retryable failure, and terminal failure.
+- Owner-review refinements: grouped Home with Heatmap and Results with
+  Unmatched; renamed Album release filter to Release filter; removed redundant
+  form-help icons; tightened the empty state; removed selected-control shadows;
+  kept index mode copy on a quick cross-fade; and scaled the loading cluster
+  up and down as one composition.
+- Backend hardening: Heatmap stores its payload before exposing 100% progress,
+  reports live page/scrobble/day facts to the loading view, and refreshes an
+  expired AJAX request token once before retrying. A real browser run completed
+  from the form through polling to a 365-day result.
+- Deviations: the owner reversed the old no-progress-bar rule in favour of one
+  slim hairline below the pinwheel. Destination routes no longer carry job IDs;
+  separate browser-session pointers recover album and heatmap jobs instead.
+  Jobs expire after two idle hours, and access refreshes that window. Explicit
+  job IDs remain compatibility inputs during the strangler.
+- Validation: `pytest -q` -- **840 passed**, 3 warnings. The frontend gate
+  reports `19 checks passed in 27 runs across desktop, mobile, wide touch`,
+  including exact 1080p-to-4K component-scale parity.
+  JavaScript syntax checks, all pre-commit hooks, and
+  `doc_state_sync.py --check` pass.
+- Forward guidance: pause for owner Firefox review at 1080p and 1440p before
+  WP-5. Keep the latest-run session contract when the Results and Unmatched
+  templates migrate; do not reintroduce query strings into the header pills.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

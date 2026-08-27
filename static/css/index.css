@@ -99,7 +99,7 @@
   width: 100%;
   max-width: 35rem;
   height: auto;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
 }
 
 .index-hero__mark svg {
@@ -164,33 +164,6 @@
   content: "\2192";
   margin-right: 0.5rem;
   color: var(--color-primary);
-}
-
-/* Above about 1500px the hero column keeps growing and its content does not:
-   the mark sits at its 560px cap and the headline at its 42px ceiling, so
-   every pixel of a wider window became empty space. Measured identical at
-   1600, 2000 and 2560 -- 538px of nothing below the marks at all three.
-
-   The design states 560px and 42px, and this scales past both. Owner ruled it
-   on 2026-08-24: a fixed hero in a fluid column is what produced the hole. */
-@media (min-width: 1500px) {
-  .index-hero__mark {
-    /* 560px is the design's cap and stays the floor here, so this only
-       ever grows the mark, never shrinks it below the stated value. */
-    max-width: clamp(35rem, 74%, 51.25rem);
-  }
-
-  .index-hero__headline {
-    font-size: clamp(2.625rem, 3.1vw, 3.5rem);
-  }
-
-  .index-hero__lede {
-    font-size: var(--text-body);
-  }
-
-  .index-hero__marks li {
-    font-size: var(--text-label);
-  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,10 +235,10 @@
 }
 
 .mode-pill.active {
-  background-color: var(--ss-surface-card);
-  border-color: var(--ss-border-default);
-  color: var(--color-base-content);
-  box-shadow: var(--ss-shadow-chip);
+  background-color: var(--ss-accent-soft);
+  border-color: transparent;
+  color: var(--color-primary);
+  box-shadow: none;
 }
 
 /* The small square is a placeholder mark, not an icon set. The heatmap tab
@@ -503,8 +476,11 @@
    width the card can be. */
 .decade-pills {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.25rem;
+  grid-template-columns: repeat(4, minmax(0, 4.5rem));
+  width: min(100%, 19.5rem);
+  margin-inline: auto;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .decade-radio {
@@ -520,8 +496,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2rem;
-  padding: 0 0.5rem;
+  width: 100%;
+  max-width: 4.5rem;
+  min-height: 1.875rem;
+  justify-self: center;
+  padding: 0 0.375rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-full);
   background-color: transparent;
@@ -598,9 +577,9 @@
 }
 
 .seg__radio:checked + .seg__option {
-  background-color: var(--ss-surface-card);
-  color: var(--color-base-content);
-  box-shadow: var(--ss-shadow-chip);
+  background-color: var(--ss-accent-soft);
+  color: var(--color-primary);
+  box-shadow: none;
 }
 
 .seg__radio:focus-visible + .seg__option {
@@ -793,6 +772,7 @@
 .filter-tags {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 0.25rem;
   margin-top: 0.75rem;
 }
@@ -872,6 +852,14 @@
   .th-row {
     flex-wrap: wrap;
   }
+}
+
+[data-mode-hero] {
+  transition: opacity 160ms ease;
+}
+
+[data-mode-hero].mode-hero-out {
+  opacity: 0;
 }
 
 /* ------------------------------------------------------------------ */

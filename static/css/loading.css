@@ -1,171 +1,223 @@
-/* loading.css -- page-specific styles for the loading page (loading.html).
-   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
+/* loading.css -- WP-4's migrated, framework-neutral loading screen. */
 
-.progress-bar {
-    height: 20px;
-    background-color: var(--bars-color);
+.loading-page {
+  min-height: calc(100vh - var(--shell-height));
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
 }
 
-.step-text {
-    font-size: 1.3em;
-    margin-top: 16px;
-    text-align: center;
+.loading-screen {
+  width: min(68rem, calc(100% - 3rem));
+  margin: 0 auto;
+  padding: clamp(5rem, 12vh, 8rem) 0 3rem;
+  text-align: center;
 }
 
-.step-details {
-    font-size: 1em;
-    color: #6c757d;
-    margin-top: 12px;
-    text-align: center;
+.wait-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.dark-mode .step-details {
-    color: #aaa;
+.wait-panel__mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(9rem, 10vw, 12rem);
+  height: clamp(9rem, 10vw, 12rem);
+  margin-bottom: 1.75rem;
+  overflow: visible;
 }
 
-.error-message {
-    color: var(--error-accent);
-    padding: 10px;
-    margin-top: 15px;
-    border-radius: 4px;
-    background-color: rgba(220, 53, 69, 0.1);
-    border: 1px solid rgba(220, 53, 69, 0.2);
+.wait-panel__mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.dark-mode .error-message {
-    background-color: rgba(220, 53, 69, 0.2);
-    color: #f8d7da;
+.wait-panel__progress {
+  width: min(40rem, 74vw);
+  height: 3px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--ss-surface-sunken);
 }
 
-.reset-button {
-    margin-top: 15px;
+.wait-panel__progress-value {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--color-primary);
+  transition: width 200ms ease;
 }
 
-/* Error actions (retry / home buttons) */
-.error-actions {
-    display: flex;
-    justify-content: center;
-    gap: 12px;
-    margin-top: 10px;
+.wait-panel__progress-value.is-error {
+  background-color: var(--ss-bad);
 }
 
-/* Error source label */
-.error-source {
-    font-size: 0.85em;
-    color: #999;
-    margin-top: 4px;
-    margin-bottom: 0;
+.wait-panel__phase {
+  margin: 0;
+  font-family: var(--font-mono-narrow);
+  font-size: clamp(var(--text-label), 0.9vw, 1rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
 }
 
-.dark-mode .error-source {
-    color: #777;
+.loading-detail {
+  min-height: 1.5rem;
+  margin: 0.5rem 0 0;
+  color: var(--ss-text-body);
+  font-size: var(--text-body-sm);
 }
 
-/* Partial data warning */
-.partial-warning {
-    background-color: rgba(255, 193, 7, 0.12);
-    border: 1px solid rgba(255, 193, 7, 0.3);
-    border-radius: 8px;
-    padding: 10px 16px;
-    margin-top: 14px;
-    text-align: center;
+.loading-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 2.75rem 0 0;
+  border-top: 1px solid var(--ss-border-default);
+  border-bottom: 1px solid var(--ss-border-default);
 }
 
-.dark-mode .partial-warning {
-    background-color: rgba(255, 193, 7, 0.08);
-    border-color: rgba(255, 193, 7, 0.2);
+.loading-stat {
+  min-width: 0;
+  padding: 1rem 0.75rem;
 }
 
-.partial-warning p {
-    margin: 0;
-    font-size: 0.9em;
-    color: #856404;
+.loading-stat + .loading-stat {
+  border-left: 1px solid var(--ss-border-default);
 }
 
-.dark-mode .partial-warning p {
-    color: #ffc107;
+.loading-stat__label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
 }
 
-/* Parameter summary styles */
-.request-info {
-    margin-top: 25px;
-    text-align: left;
-    background-color: var(--info-bg);
-    border-radius: 8px;
-    padding: 20px;
+.loading-stat__value {
+  display: block;
+  overflow-wrap: anywhere;
+  font-family: var(--font-figure);
+  font-size: 1.375rem;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-base-content);
 }
 
-.info-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
+.loading-params {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  margin: 2rem 0 0;
+  padding: 1.25rem 0 0;
+  border-top: 1px dashed var(--ss-border-default);
+  list-style: none;
 }
 
-.info-table tr td {
-    padding: 8px 10px;
+.loading-params li,
+.loading-cache,
+.loading-error-source {
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.08em;
+  color: var(--ss-text-muted);
 }
 
-.info-table tr td:first-child {
-    font-weight: 600;
-    width: 40%;
+.loading-warning,
+.loading-cache,
+.loading-error-source {
+  margin: 0.75rem 0 0;
 }
 
-.dark-mode .info-table tr:nth-child(odd) {
-    background-color: rgba(255, 255, 255, 0.05);
+.loading-warning,
+.loading-error-source {
+  color: var(--ss-bad);
 }
 
-h4 {
-    margin-bottom: 15px;
-    font-weight: 500;
+.loading-back {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  margin-top: 1.5rem;
+  color: var(--ss-text-muted);
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.1em;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+  text-transform: uppercase;
 }
 
-/* Live stats (personalized loading messages) */
-.live-stats {
-    background-color: rgba(106, 75, 175, 0.08);
-    border-radius: 8px;
-    padding: 12px 20px;
-    margin-top: 18px;
-    text-align: center;
+.loading-back:hover {
+  color: var(--color-primary);
 }
 
-.dark-mode .live-stats {
-    background-color: rgba(147, 112, 219, 0.12);
+.wait-panel__error {
+  margin-top: 1.25rem;
 }
 
-.live-stat {
-    margin: 4px 0;
-    font-size: 0.95em;
-    color: var(--bars-color);
-    opacity: 0;
-    animation: fadeInStat 0.5s ease forwards;
+.wait-panel__error-message {
+  margin: 0 0 0.75rem;
+  color: var(--ss-bad);
+  font-size: var(--text-body-sm);
 }
 
-@keyframes fadeInStat {
-    from {
-        opacity: 0;
-        transform: translateY(6px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+.wait-panel__error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
-/* ------------------------------------------------------------------ */
-/* Mobile responsive overrides                                         */
-/* ------------------------------------------------------------------ */
-@media (max-width: 767.98px) {
-    #logo-wrapper svg {
-        max-height: 100px;
-    }
+.ss-btn {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  border: 1px solid var(--ss-border-default);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-base-content);
+  font-size: var(--text-body-sm);
+  text-decoration: none;
+  cursor: pointer;
+}
 
-    .request-info {
-        padding: 12px 14px;
-        margin-top: 14px;
-    }
+.ss-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
 
-    .live-stats {
-        padding: 8px 14px;
-        margin-top: 12px;
-    }
+@media (max-width: 859.98px) {
+  .loading-screen {
+    width: min(100% - 2rem, 38rem);
+    padding-top: 2.5rem;
+  }
+
+  .loading-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .loading-stat:nth-child(3) {
+    border-left: 0;
+    border-top: 1px solid var(--ss-border-default);
+  }
+
+  .loading-stat:nth-child(4) {
+    border-top: 1px solid var(--ss-border-default);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wait-panel__progress-value {
+    transition-duration: 0ms;
+  }
 }

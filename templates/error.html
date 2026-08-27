@@ -13,8 +13,8 @@
 {% endblock %}
 
 {% block content %}
-<main class="error-page">
-    <div class="card error-card">
+<main class="error-page{% if empty_state|default(false) %} error-page--empty{% endif %}">
+    <div class="card error-card{% if empty_state|default(false) %} error-card--empty{% endif %}">
         <div class="card-body items-center text-center">
             {# The only icon in the system. The design system is text-first and
                has no icon set: "do not invent one". #}
@@ -27,14 +27,14 @@
             </div>
             {% endif %}
 
-            <h1 class="font-serif text-display mb-3">
+            <h1 class="font-serif {{ 'text-display-lg mb-2' if empty_state|default(false) else 'text-display mb-3' }}">
                 {{ error|default('Error') }}
                 {% if show_status_code|default(true) %}
                 <span class="error-code">{{ status_code|default('400') }}</span>
                 {% endif %}
             </h1>
 
-            <p class="text-body mb-6">{{ message|default('Something went wrong.') }}</p>
+            <p class="text-body {{ 'mb-4' if empty_state|default(false) else 'mb-6' }}">{{ message|default('Something went wrong.') }}</p>
 
             {% if details %}
             <div class="error-details">

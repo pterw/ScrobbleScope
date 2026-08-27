@@ -174,12 +174,9 @@
                                 Quick View of Unmatched Albums
                             </button>
                             
-                            <form action="/unmatched" method="get" class="mb-2">
-                                <input type="hidden" name="job_id" value="{{ job_id }}">
-                                <button type="submit" class="btn btn-outline-primary w-100">
-                                    View Detailed Unmatched Albums Report
-                                </button>
-                            </form>
+                            <a href="{{ url_for('main.unmatched_page') }}" class="btn btn-outline-primary mb-2">
+                                View Detailed Unmatched Albums Report
+                            </a>
                         </div>
                     </div>
                 </div>

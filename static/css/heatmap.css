@@ -36,8 +36,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: clamp(11.875rem, 28vh, 18.75rem);
-  padding: clamp(2.5rem, 7vh, 4.5rem) 1rem;
+  min-height: min(44rem, calc(100vh - var(--shell-height) - 4rem));
+  padding: clamp(4rem, 9vh, 6rem) 1rem 2rem;
   text-align: center;
 }
 
@@ -47,9 +47,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: clamp(7rem, 11vw, 10.5rem);
-  height: clamp(7rem, 11vw, 10.5rem);
-  margin: 0 auto 1.25rem;
+  width: clamp(9rem, 10vw, 12rem);
+  height: clamp(9rem, 10vw, 12rem);
+  margin: 0 auto 1.75rem;
   overflow: visible;
 }
 
@@ -60,12 +60,29 @@
   overflow: visible;
 }
 
-/* One progress signal only, so this line carries the phase and nothing else
-   competes with it. Mono uppercase, per the loading screen spec. */
+.wait-panel__progress {
+  width: min(40rem, 74vw);
+  height: 3px;
+  margin: 0 auto 1rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--ss-surface-sunken);
+}
+
+.wait-panel__progress-value {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--color-primary);
+  transition: width 200ms ease;
+}
+
+/* Mono uppercase, per the loading screen spec. */
 .wait-panel__phase {
   margin: 0.5rem 0 0;
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label);
+  font-size: clamp(var(--text-label), 0.9vw, 1rem);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ss-text-muted);
@@ -178,6 +195,98 @@
   justify-content: space-between;
   gap: 1.5rem;
   margin-bottom: 1.25rem;
+}
+
+/* Heatmap loading carries the same hierarchy as the album loader: live
+   measurements, the request being processed, and a quiet escape route. */
+.heatmap-loading__detail {
+  min-height: 1.5rem;
+  margin: 0.5rem 0 0;
+  text-align: center;
+  color: var(--ss-text-body);
+  font-size: var(--text-body-sm);
+}
+
+.heatmap-loading__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 54rem;
+  margin: 2.75rem auto 0;
+  border-top: 1px solid var(--ss-border-default);
+  border-bottom: 1px solid var(--ss-border-default);
+}
+
+.heatmap-loading__stat {
+  min-width: 0;
+  padding: 1rem 0.75rem;
+  text-align: center;
+}
+
+.heatmap-loading__stat + .heatmap-loading__stat {
+  border-left: 1px solid var(--ss-border-default);
+}
+
+.heatmap-loading__stat-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ss-text-muted);
+}
+
+.heatmap-loading__stat-value {
+  display: block;
+  font-family: var(--font-figure);
+  font-size: 1.375rem;
+  font-weight: var(--font-weight-normal);
+  color: var(--color-base-content);
+}
+
+.heatmap-loading__params {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  max-width: 54rem;
+  margin: 2rem auto 0;
+  padding: 1.25rem 0 0;
+  border-top: 1px dashed var(--ss-border-default);
+  list-style: none;
+}
+
+.heatmap-loading__params li,
+.heatmap-loading__back {
+  font-family: var(--font-mono-narrow);
+  font-size: var(--text-label-sm);
+  letter-spacing: 0.08em;
+  color: var(--ss-text-muted);
+}
+
+.heatmap-loading__back {
+  display: flex;
+  width: max-content;
+  min-height: 2.75rem;
+  align-items: center;
+  margin: 1.5rem auto 0;
+  text-decoration: underline;
+  text-underline-offset: 0.25rem;
+  text-transform: uppercase;
+}
+
+.heatmap-loading__back:hover {
+  color: var(--color-primary);
+}
+
+.heatmap-head__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.heatmap-head__titles .eyebrow {
+  margin: 0;
 }
 
 .heatmap-head__actions {

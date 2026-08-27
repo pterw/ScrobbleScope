@@ -24,27 +24,41 @@
 
   The ids are parameters because the two pages read different ones.
   static/js/heatmap.js reads the heatmap- defaults below. static/js/loading.js
-  reads step-text, error-container and friends, so WP-4 passes its own.
+  reads progress-bar, step-text, error-container and friends, so WP-4 passes
+  its own.
 #}
 {% set phase_id = phase_id|default('heatmap-progress-text', true) %}
+{% set progress_id = progress_id|default('heatmap-progress-bar', true) %}
+{% set progress_track_id = progress_track_id|default('heatmap-progress-track', true) %}
 {% set error_id = error_id|default('heatmap-error', true) %}
 {% set error_message_id = error_message_id|default('heatmap-error-message', true) %}
 {% set retry_id = retry_id|default('heatmap-retry-btn', true) %}
+{% set retry_hidden = retry_hidden|default(false) %}
 <div class="wait-panel">
   <div class="wait-panel__mark ss-pinwheel" aria-label="Loading animation" role="img">
     {% include 'inline/scrobblescope_pinwheel.svg' ignore missing %}
   </div>
 
-  {# One progress signal only. The design forbids running a bar, a spinner and
-     a percentage at the same time, so the pinwheel carries the wait and this
-     line carries the phase. #}
+  {# The bar stays hidden until polling returns a real determinate value. #}
+  <div class="wait-panel__progress hidden" id="{{ progress_track_id }}"
+       role="progressbar" aria-label="Loading progress" aria-valuemin="0"
+       aria-valuemax="100" aria-valuenow="0">
+    <span class="wait-panel__progress-value" id="{{ progress_id }}"></span>
+  </div>
+
   <p class="wait-panel__phase" id="{{ phase_id }}" role="status" aria-live="polite">Initializing...</p>
 
   <div class="wait-panel__error hidden" id="{{ error_id }}">
     <p class="wait-panel__error-message" id="{{ error_message_id }}"></p>
     <div class="wait-panel__error-actions">
-      <button type="button" class="ss-btn" id="{{ retry_id }}">Try again</button>
+      <button type="button" class="ss-btn{% if retry_hidden %} hidden{% endif %}" id="{{ retry_id }}">Try again</button>
       <a class="ss-btn" href="/">Start over</a>
     </div>
   </div>
+
+  {# Optional page-owned depth belongs inside the centred loading cluster.
+     The shared partial controls placement; each workflow controls its facts. #}
+  {% if wait_details_partial %}
+    {% include wait_details_partial %}
+  {% endif %}
 </div>
