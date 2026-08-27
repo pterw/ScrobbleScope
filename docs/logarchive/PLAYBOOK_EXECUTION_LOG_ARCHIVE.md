@@ -9,6 +9,36 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-26 - Deployed-merge review: wordmark theme fix and doc trim (side-task)
+
+- Scope: the owner reviewed the deployed PR #218 merge and found two defects.
+  This entry covers `9330ac8`, `ebb542b` and `6f8ff98`, which shipped without
+  one. A PR #220 reviewer raised the omission; the entry is written here
+  rather than by amending pushed commits.
+- `9330ac8` trimmed the documents a session bootstraps from. SESSION_CONTEXT
+  lost 35 lines: eight "Batch N complete" rows that restated the Section 2
+  index one batch at a time, and a per-file test table that duplicated forty
+  counts from the suite while only the total was gated. It had drifted three
+  times during Batch 21, each drift a false fact in a bootstrap document, so
+  the command that derives it replaced the table. Two `AGENTS.md` rules were
+  restated as intent. AGENT_NOTES gained the wordmark typeface, Oblong
+  Regular by WAPType, which took the owner about three hours to recover
+  because the mark was converted to paths and no font reference survives in
+  the asset. F-B21-21 and F-B21-22 were filed.
+- `ebb542b` fixed F-B21-21. The index hero mark shipped with pure black
+  letterforms on the `#0e0c12` dark page. Both wrappers include the same
+  asset; it pins its own stroke and gives the letterforms no fill rule, so
+  any wrapper `shell.css` does not name renders fixed-purple bars and
+  user-agent black text, and only `.site-header__mark` was named. The gate
+  gained its first check that reads a colour off an inline SVG.
+- `6f8ff98` filed F-B21-23 and F-B21-24. F-B21-23 records that the assets
+  diverge from the design contract, which specifies `currentColor`
+  letterforms and `var(--bars-color)` bars; that divergence is the real
+  cause of F-B21-21, which was fixed at the symptom. F-B21-24 rules that the
+  index not growing past about 1400px is the contract working as written.
+- Validation at the time: 822 tests, all hooks, docsync exit 0, and the
+  Quality Gate green on `6f8ff98`.
+
 ### 2026-08-26 - Session-time enforcement added after the worktree retirement (side-task)
 
 - Scope: the batch-21 worktree was retired on 2026-08-26. Reviewing how that

@@ -318,10 +318,13 @@ Moved in by the scope ruling:
   because it is transient. Canonical destination routes are `GET /`,
   `/results`, `/heatmap`, and `/unmatched`; `/loading?job_id=...` remains the
   transient job route. Album and heatmap starts store separate latest-job
-  pointers in the browser session. Results, Unmatched, and Heatmap therefore
-  resume the latest valid run at their clean route. The in-memory job expires
-  after two idle hours, and access refreshes that window. Missing or expired
-  jobs show a friendly Home action. Explicit `job_id` values and existing
+  pointers in the browser session. The header destinations resume the latest
+  valid run at their clean route. Home's Heatmap selector instead opens a fresh
+  form at `/?mode=heatmap` without deleting that latest-job pointer; a
+  successful start promotes the URL to `/heatmap`. Results and Heatmap use
+  dedicated `results_empty.html` and `heatmap_empty.html` surfaces when no
+  resumable job exists. The in-memory job expires after two idle hours, and
+  access refreshes that window. Explicit `job_id` values and existing
   completion/report POST routes remain compatibility paths during the
   strangler. Unmatched JSON uses `GET /api/unmatched` so the page route owns
   `/unmatched`. The header theme control is the segmented Light/Dark pill.

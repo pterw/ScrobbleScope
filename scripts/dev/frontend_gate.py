@@ -98,7 +98,7 @@ ERROR_PAGE_PATH = "/no-such-page-for-the-gate"
 #: and loads no kit faces, so pointing those two checks at every page would
 #: park four permanent failures in the output until WP-7 -- and a gate with
 #: expected failures in it stops being read.
-MIGRATED_PAGES = ["/", ERROR_PAGE_PATH]
+MIGRATED_PAGES = ["/", "/results", "/heatmap", ERROR_PAGE_PATH]
 
 #: Throwaway jobs owned by serve_app and driven by pipeline checks.
 GATE_JOB_IDS: dict[str, str] = {}
@@ -106,9 +106,10 @@ GATE_JOB_IDS: dict[str, str] = {}
 #: Pages still served by Bootstrap. Move each one into MIGRATED_PAGES in the
 #: work package that migrates it.
 #:
-#: Results and Unmatched remain on Bootstrap until their work packages.
-#: Their friendly no-job pages render error.html, so those routes do not prove
-#: the job-backed templates use the right framework yet.
+#: The job-backed Results and Unmatched templates remain on Bootstrap until
+#: their work packages. The dedicated no-job Results route is migrated, but it
+#: does not claim that results.html is migrated. Unmatched still renders the
+#: shared migrated error surface when no album job exists.
 LEGACY_PAGES = []
 
 #: Consumed by check_stylesheet_isolation. Exactly one framework stylesheet is
@@ -1397,6 +1398,44 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_destination_empty_states(page, base_url: str) -> list[str]:
+    """Clean destinations explain the next action without changing saved work."""
+    failures = []
+    page.context.clear_cookies()
+    expected = {
+        "/results": ("results", "/"),
+        "/heatmap": ("heatmap", "/?mode=heatmap"),
+    }
+    for path, (kind, action) in expected.items():
+        page.goto(f"{base_url}{path}", wait_until="load")
+        state = page.locator(f'[data-empty-state="{kind}"]')
+        if state.count() != 1:
+            failures.append(f"{path}: dedicated {kind} empty state is missing")
+            continue
+        href = state.locator("a").first.get_attribute("href")
+        if href != action:
+            failures.append(
+                f"{path}: empty-state action is {href!r}, expected {action!r}"
+            )
+
+    page.goto(f"{base_url}/?mode=heatmap", wait_until="load")
+    fresh_state = page.evaluate(
+        """() => ({
+            formVisible: getComputedStyle(
+                document.querySelector('#heatmap-form-section')
+            ).display !== 'none',
+            heatmapSelected: document.querySelector('#mode-tab-heatmap')
+                .classList.contains('active'),
+            homeCurrent: document.querySelector('.site-header__nav-link[href="/"]')
+                .getAttribute('aria-current') === 'page',
+        })"""
+    )
+    for claim, passed in fresh_state.items():
+        if not passed:
+            failures.append(f"/?mode=heatmap: fresh-start claim {claim!r} failed")
+    return failures
+
+
 def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     """Both polling clients reach success, retryable, and terminal states."""
     album_job_id = GATE_JOB_IDS["album"]
@@ -1535,6 +1574,11 @@ CHECKS = (
         (DESKTOP,),
     ),
     ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE)),
+    (
+        "destination empty states",
+        check_destination_empty_states,
+        (DESKTOP, MOBILE),
+    ),
     ("pipeline state machines", check_pipeline_state_machines, (DESKTOP,)),
     ("large display scale parity", check_large_display_scale_parity, (DESKTOP,)),
 )

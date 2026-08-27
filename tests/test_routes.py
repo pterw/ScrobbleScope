@@ -67,15 +67,33 @@ def test_home_page_mode_tabs_are_real_buttons(client):
     assert 'role="button"' not in html
 
 
-def test_heatmap_page_opens_with_heatmap_mode_selected(client):
-    """The canonical heatmap URL should render the existing heatmap workflow."""
+def test_heatmap_page_without_saved_job_uses_dedicated_empty_state(client):
+    """The Heatmap destination should explain how to create the first result."""
     response = client.get("/heatmap")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'data-empty-state="heatmap"' in html
+    assert 'href="/?mode=heatmap"' in html
+    assert 'href="/heatmap" aria-current="page"' in html
+
+
+def test_home_heatmap_mode_starts_fresh_without_forgetting_latest_job(client):
+    """The index selector opens a new form while navigation keeps the latest run."""
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+    with client.session_transaction() as browser_session:
+        browser_session["latest_heatmap_job_id"] = job_id
+
+    response = client.get("/?mode=heatmap")
 
     assert response.status_code == 200
     html = response.get_data(as_text=True)
     assert 'id="mode-tab-heatmap" class="mode-pill active"' in html
     assert 'id="heatmap-form-section" class="mode-panel"' in html
-    assert 'href="/heatmap" aria-current="page"' in html
+    assert 'id="heatmap-session-config" type="application/json">null' in html
+    assert 'href="/" aria-current="page"' in html
+    with client.session_transaction() as browser_session:
+        assert browser_session["latest_heatmap_job_id"] == job_id
 
 
 def test_heatmap_page_embeds_latest_session_job_for_resume(client):
@@ -686,12 +704,24 @@ def test_unmatched_page_uses_job_context_at_canonical_url(client):
 
 def test_job_backed_navigation_pages_have_friendly_empty_states(client):
     """Direct navigation before a search should guide the user home."""
-    for path in ("/results", "/unmatched"):
-        response = client.get(path)
-        assert response.status_code == 200
-        assert b"You haven&#39;t filtered your scrobbles yet." in response.data
-        assert b' href="/" class="btn btn-primary">Start from Home</a>' in response.data
-        assert b'class="error-code"' not in response.data
+    results_response = client.get("/results")
+    assert results_response.status_code == 200
+    assert b'data-empty-state="results"' in results_response.data
+    assert b'href="/"' in results_response.data
+
+    heatmap_response = client.get("/heatmap")
+    assert heatmap_response.status_code == 200
+    assert b'data-empty-state="heatmap"' in heatmap_response.data
+    assert b'href="/?mode=heatmap"' in heatmap_response.data
+
+    unmatched_response = client.get("/unmatched")
+    assert unmatched_response.status_code == 200
+    assert b"You haven&#39;t filtered your scrobbles yet." in unmatched_response.data
+    assert (
+        b' href="/" class="btn btn-primary">Start from Home</a>'
+        in unmatched_response.data
+    )
+    assert b'class="error-code"' not in unmatched_response.data
 
 
 def test_expired_saved_album_job_returns_to_friendly_empty_state(client):
@@ -705,6 +735,20 @@ def test_expired_saved_album_job_returns_to_friendly_empty_state(client):
     assert b"previous results have expired" in response.data
     with client.session_transaction() as browser_session:
         assert "latest_album_job_id" not in browser_session
+
+
+def test_expired_saved_heatmap_job_returns_to_dedicated_empty_state(client):
+    """A stale heatmap pointer should clear and offer a fresh heatmap run."""
+    with client.session_transaction() as browser_session:
+        browser_session["latest_heatmap_job_id"] = "expired-job"
+
+    response = client.get("/heatmap")
+
+    assert response.status_code == 200
+    assert b'data-empty-state="heatmap"' in response.data
+    assert b'href="/?mode=heatmap"' in response.data
+    with client.session_transaction() as browser_session:
+        assert "latest_heatmap_job_id" not in browser_session
 
 
 def test_app_404_handler_renders_error_template(client):

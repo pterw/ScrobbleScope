@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Results | ScrobbleScope{% endblock %}
+
+{% block legacy_css %}{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/empty.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="empty-page" data-empty-state="results">
+    <section class="empty-state" aria-labelledby="results-empty-title">
+        <span class="empty-state__signal" aria-hidden="true"></span>
+        <h1 id="results-empty-title">No album results yet</h1>
+        <p>{{ empty_message|default('Run an album search to build your ranking. Your latest results will return here.') }}</p>
+        <a class="empty-state__action" href="/">Search albums</a>
+    </section>
+</main>
+{% endblock %}

@@ -125,6 +125,7 @@ def _get_validated_job_context(
     Returns ``(job_id, job_context, None)`` on success, or
     ``(None, None, error_response)`` when validation fails.
     """
+    cleanup_expired_jobs()
     job_id = _request_or_session_job_id(session_key)
     if not job_id:
         return (
@@ -164,6 +165,7 @@ def _get_validated_job_context(
 
 def _latest_heatmap_job():
     """Return resumable heatmap metadata from an explicit or saved job."""
+    cleanup_expired_jobs()
     job_id = request.values.get("job_id") or session.get(_LATEST_HEATMAP_JOB)
     if not job_id:
         return None
@@ -236,20 +238,24 @@ def inject_page_navigation():
 def home():
     """Serve the home page"""
     logging.info("Serving index.html as the homepage.")
+    initial_mode = "heatmap" if request.args.get("mode") == "heatmap" else "album"
     return render_template(
         "index.html",
-        initial_mode="album",
-        initial_heatmap_job=_latest_heatmap_job(),
+        initial_mode=initial_mode,
+        initial_heatmap_job=None,
     )
 
 
 @bp.route("/heatmap", methods=["GET"])
 def heatmap():
-    """Serve the index workflow with the heatmap mode selected."""
+    """Show this browser's latest heatmap or its dedicated empty state."""
+    latest_job = _latest_heatmap_job()
+    if not latest_job:
+        return render_template("heatmap_empty.html")
     return render_template(
         "index.html",
         initial_mode="heatmap",
-        initial_heatmap_job=_latest_heatmap_job(),
+        initial_heatmap_job=latest_job,
     )
 
 
@@ -421,10 +427,7 @@ def _render_results_page():
     """Render the results page for a completed job, or an error page on failure."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
     if request.method == "GET" and not _request_or_session_job_id(_LATEST_ALBUM_JOB):
-        return _render_no_job_state(
-            "No results yet",
-            "You haven't filtered your scrobbles yet.",
-        )
+        return render_template("results_empty.html")
 
     job_id, job_context, err = _get_validated_job_context(
         missing_id_message="We could not identify your in-progress request.",
@@ -436,9 +439,12 @@ def _render_results_page():
     )
     if err:
         if used_saved_job:
-            return _render_no_job_state(
-                "No results yet",
-                "Your previous results have expired. Run a new album search.",
+            return render_template(
+                "results_empty.html",
+                empty_message=(
+                    "Your previous results have expired. Run an album search "
+                    "to build a new ranking."
+                ),
             )
         return err
 

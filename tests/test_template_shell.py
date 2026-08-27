@@ -5,8 +5,8 @@ block. A page that ends up with neither loses its theme completely, and a page
 that ends up with both gets a Bootstrap/daisyUI class collision. Neither shows
 up in any other test, and neither is visible until someone opens the page.
 
-The browser gate checks the two pages it can reach over HTTP. This checks all
-five, including the three that need a live job to reach.
+The browser gate checks the pages it can reach without a job. This module also
+checks the job-backed templates directly.
 """
 
 from __future__ import annotations
@@ -60,6 +60,7 @@ INDEX_TOKENS = {
 TEMPLATE_CONTEXT = {
     "index.html": {},
     "error.html": {},
+    "heatmap_empty.html": {},
     "loading.html": {
         "job_id": "job-1",
         "username": "someone",
@@ -74,11 +75,18 @@ TEMPLATE_CONTEXT = {
         "username": "someone",
         "year": "2024",
     },
+    "results_empty.html": {},
     "unmatched.html": {"reasons": {}},
 }
 
 #: Pages migrated to Tailwind. Every other page must still carry Bootstrap.
-MIGRATED = {"error.html", "index.html", "loading.html"}
+MIGRATED = {
+    "error.html",
+    "heatmap_empty.html",
+    "index.html",
+    "loading.html",
+    "results_empty.html",
+}
 
 
 @pytest.fixture
