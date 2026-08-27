@@ -515,6 +515,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-27 - Index mode-copy transition made interruptible (side-task)
+
+- Scope: refined only the index hero copy swap between Top albums and Heatmap.
+  The wordmark, shared capability line, form layout, routes, and pipeline
+  behaviour are unchanged.
+- Implementation: replaced the fixed-delay class swap with cancellable Web
+  Animations. The current copy exits in 110 ms, the selected copy enters in
+  180 ms, and a new click cancels stale motion before it can win. Reduced-motion
+  users and browsers without Web Animations receive an immediate swap.
+- Visual evidence: the live browser held the wordmark at `(56, 124)` through
+  both modes. A rapid album-heatmap-album sequence settled on the album URL,
+  selected tab, copy, opacity, and visibility together.
+- Validation: `pytest -q` -- **840 passed**, 3 warnings. Frontend gate --
+  19 checks passed in 27 runs across desktop, mobile, and wide touch. All
+  pre-commit hooks passed, including compiled-CSS drift and worktree alignment;
+  `doc_state_sync.py --check` passed with only the expected active-root warning.
+
 ### 2026-08-26 - Canonical page navigation and routes added (side-task)
 
 - Scope: implemented the owner-requested navigation prerequisite before the
@@ -639,59 +656,3 @@ non-current operational logs. Older dated entries live in
   index not growing past about 1400px is the contract working as written.
 - Validation at the time: 822 tests, all hooks, docsync exit 0, and the
   Quality Gate green on `6f8ff98`.
-
-### 2026-08-26 - Session-time enforcement added after the worktree retirement (side-task)
-
-- Scope: the batch-21 worktree was retired on 2026-08-26. Reviewing how that
-  went found that every gate in this repository runs at commit time and
-  nothing runs at session time. Filed as F-B21-25 and partly closed here.
-- What happened, from the branch reflog. `wip/batch21-doc-trim` was created
-  from `origin/main` at 2026-08-25 21:57, took three commits, and was renamed
-  to `wip/batch-21` at 2026-08-26 00:07. The rename only succeeds when the
-  retained branch of that name is already deleted, and the push four seconds
-  later replaced the remote. None of the three commits carried a Section 4
-  entry, because the session treated the branch as a quick documentation trim
-  rather than batch work, and nothing told it otherwise. A PR #220 reviewer
-  raised it; the entry two above this one now covers that work.
-- What changed:
-  - **`worktree-alignment` is now a pre-commit hook.** The guard already
-    exited 1 on an ERROR diagnostic and 0 otherwise, so it was built to gate
-    and was simply never wired to one. Only WT002, WT007 and WT014 are
-    errors; WT004 and WT010 are not, so the identical-tree state a rebase
-    merge always leaves, and a dirty tree, both still commit. It runs verbose
-    so branch lineage is visible on a passing run.
-  - **The stray `venv/` is deleted.** It carried black 25.1.0 against the
-    24.3.0 this repository pins, and two entries in the local permission
-    allowlist had been authorising it. Both entries are removed. It came from
-    the Batch 12/13 convention, which spelled the directory without the dot;
-    the archived definitions still show that spelling, so reading one can
-    recreate it. `resolve_venv()` looks only for `.venv` and cannot see a
-    second one.
-  - **A `SessionStart` hook** injects branch, working-tree state, guard codes
-    and the machine-managed status block into every new Claude Code session,
-    with the reminder that a tracked-file commit needs its Section 4 entry in
-    the same commit. It is local to this machine and does not help Codex or
-    Copilot, which is recorded in the finding.
-  - **The `FINDINGS.md` header is corrected.** It attributed F-B21-21 and
-    F-B21-22 to both WP-3 and the owner review, and omitted F-B21-23 and
-    F-B21-24. Raised on PR #220.
-- Not done, and deliberately: a manifest of untracked-but-essential files
-  (`skills-lock.json` is still missing), and two structural defects in
-  `AGENTS.md` -- the fast-paths that authorise skipping bootstrap sit above
-  the numbered list, and the file carries origin narrative that serves the
-  editor rather than the reader. Both edit `AGENTS.md` and need an owner
-  ruling first.
-- **The first push went red, and the hook was the cause.** `12cfe25` failed
-  the Quality Gate with `ERROR WT007 origin/main -- comparison base ref is
-  missing`. `actions/checkout` makes a shallow single-branch clone, so
-  `origin/main` does not exist on a runner and the guard fails closed on a
-  base ref that is legitimately absent. `WARNING WT009` also fired for the
-  `.venv` CI does not use. The step now sets `SKIP: worktree-alignment`,
-  with the reason at the step: the guard measures developer worktree
-  lineage, and a runner has no worktree topology to protect. Fetching the
-  base ref would have silenced WT007 and left the check measuring nothing.
-- The lesson is the one this entry is about, applied to its own author. A
-  check was added without asking where it runs, and its assumptions held on
-  one machine only. Local verification passed and proved nothing about CI.
-- Validation: 822 tests, all 12 hooks locally, docsync `--check` exit 0,
-  guard exit 0, and the Quality Gate green after the skip landed.

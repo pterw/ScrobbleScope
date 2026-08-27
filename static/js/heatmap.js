@@ -539,6 +539,8 @@
   var lastHeatmapData = null;
   var lastRenderMobile = null;
   var resizeTimer = null;
+  var heroTransitionToken = 0;
+  var heroAnimations = [];
 
   // ----------------------------------------------------------------
   // Pill switching
@@ -611,28 +613,70 @@
   function switchModeHero(mode) {
     var nextHero = null;
     var currentHero = null;
+    heroTransitionToken += 1;
+    var transitionToken = heroTransitionToken;
+
+    heroAnimations.forEach(function (animation) {
+      animation.cancel();
+    });
+    heroAnimations = [];
+
     heroBlocks.forEach(function (hero) {
+      hero.style.opacity = '';
       if (hero.getAttribute('data-mode-hero') === mode) nextHero = hero;
       if (!hero.classList.contains('hidden')) currentHero = hero;
     });
-    if (!nextHero || nextHero === currentHero) return;
+    if (!nextHero) return;
+
+    if (nextHero === currentHero) {
+      heroBlocks.forEach(function (hero) {
+        if (hero !== nextHero) hideElement(hero);
+      });
+      return;
+    }
 
     var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reducedMotion || !currentHero) {
+    if (
+      reducedMotion ||
+      !currentHero ||
+      typeof currentHero.animate !== 'function'
+    ) {
       if (currentHero) hideElement(currentHero);
       showElement(nextHero);
       return;
     }
 
-    currentHero.classList.add('mode-hero-out');
-    window.setTimeout(function () {
+    var exitAnimation = currentHero.animate(
+      [{ opacity: 1 }, { opacity: 0 }],
+      {
+        duration: 110,
+        easing: 'cubic-bezier(0.4, 0, 1, 1)',
+        fill: 'forwards'
+      }
+    );
+    heroAnimations = [exitAnimation];
+
+    exitAnimation.onfinish = function () {
+      if (transitionToken !== heroTransitionToken) return;
       hideElement(currentHero);
-      currentHero.classList.remove('mode-hero-out');
-      nextHero.classList.add('mode-hero-out');
+      exitAnimation.cancel();
       showElement(nextHero);
-      void nextHero.offsetWidth;
-      nextHero.classList.remove('mode-hero-out');
-    }, 160);
+
+      var enterAnimation = nextHero.animate(
+        [{ opacity: 0 }, { opacity: 1 }],
+        {
+          duration: 180,
+          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+          fill: 'forwards'
+        }
+      );
+      heroAnimations = [enterAnimation];
+      enterAnimation.onfinish = function () {
+        if (transitionToken !== heroTransitionToken) return;
+        enterAnimation.cancel();
+        heroAnimations = [];
+      };
+    };
   }
 
   function readSavedHeatmap() {
