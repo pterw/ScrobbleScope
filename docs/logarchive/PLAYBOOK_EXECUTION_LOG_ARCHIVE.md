@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-26 - Canonical page navigation and routes added (side-task)
+
+- Scope: implemented the owner-requested navigation prerequisite before the
+  WP-4 loading rebuild. The shared header now offers Home, Results, Heatmap,
+  and Unmatched in Input Mono Narrow, plus the segmented Light/Dark control.
+  Loading stays transient and has no navigation pill.
+- Plan vs implementation: added canonical `GET /loading`, `/results`,
+  `/heatmap`, and `/unmatched` routes. New album jobs redirect to the loading
+  URL and the loading script opens the results URL at completion. The old
+  completion and unmatched POST routes remain compatibility shims during the
+  strangler. Unmatched JSON moved to `GET /api/unmatched` so the page owns
+  `/unmatched`.
+- Deviations: direct Results and Unmatched visits without a job now render a
+  friendly pre-search state with a Home action. Heatmap already falls back to
+  its form. The owner renamed the prototype's Index pill to Home and removed
+  Loading from the destination set.
+- Validation: `pytest -q` **833 passed**, 3 warnings. The frontend gate
+  reports 17 checks passed in 25 runs across desktop, mobile, and wide touch.
+  JavaScript syntax checks and `doc_state_sync.py --check` pass.
+- Forward guidance: WP-4 still owns the unified loading-page rebuild and the
+  two pipeline state-machine checks in `BATCH21_DEFINITION.md`. Keep the
+  canonical route and compatibility shims until the strangler retires them.
+
 ### 2026-08-26 - PR #220 review applied, and the theme fallback proved (side-task)
 
 - Scope: remediated the three Codex comments on PR #220. All three were
