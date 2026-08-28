@@ -516,6 +516,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-28 - Index entrance-motion regression filed (side-task)
+
+- Scope: compared the deployed index, the locally served primary checkout,
+  the active PR #220 worktree, source history, computed browser styles, and
+  production asset identities after the owner reported a large regression.
+- Finding: filed F-B21-26 as P0. The Tailwind index opts out of `global.css`,
+  which owned the old card and logo entrance fades, and no Tailwind-owned
+  page-entry replacement exists. PR #220's mode-copy cross-fade is separate
+  and does not restore the page-entry behaviour.
+- Deployment and font disposition: production serves the `1bf888f`
+  `origin/main` assets from PR #218, not PR #220. The local server also ran
+  the stale primary checkout. Deployed Adobe faces loaded successfully; the
+  visible type-scale difference remains F-B21-24 and is corrected in the
+  undeployed PR #220 calibration.
+- Implementation: documentation only. No application code or deployment was
+  changed; F-B21-26 owns the required motion restoration and browser check.
+
 ### 2026-08-28 - Index width, scale, and small-text refinement (side-task)
 
 - Scope: applied the owner-review amendment to the migrated Home composition
@@ -581,20 +598,3 @@ non-current operational logs. Older dated entries live in
   reported no regex findings but was degraded because its optional HTML parser
   modules are unavailable; browser-computed checks provide the stronger UI
   evidence for this change.
-
-### 2026-08-27 - Index mode-copy transition made interruptible (side-task)
-
-- Scope: refined only the index hero copy swap between Top albums and Heatmap.
-  The wordmark, shared capability line, form layout, routes, and pipeline
-  behaviour are unchanged.
-- Implementation: replaced the fixed-delay class swap with cancellable Web
-  Animations. The current copy exits in 110 ms, the selected copy enters in
-  180 ms, and a new click cancels stale motion before it can win. Reduced-motion
-  users and browsers without Web Animations receive an immediate swap.
-- Visual evidence: the live browser held the wordmark at `(56, 124)` through
-  both modes. A rapid album-heatmap-album sequence settled on the album URL,
-  selected tab, copy, opacity, and visibility together.
-- Validation: `pytest -q` -- **840 passed**, 3 warnings. Frontend gate --
-  19 checks passed in 27 runs across desktop, mobile, and wide touch. All
-  pre-commit hooks passed, including compiled-CSS drift and worktree alignment;
-  `doc_state_sync.py --check` passed with only the expected active-root warning.

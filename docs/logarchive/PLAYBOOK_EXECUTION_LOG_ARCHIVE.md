@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-27 - Index mode-copy transition made interruptible (side-task)
+
+- Scope: refined only the index hero copy swap between Top albums and Heatmap.
+  The wordmark, shared capability line, form layout, routes, and pipeline
+  behaviour are unchanged.
+- Implementation: replaced the fixed-delay class swap with cancellable Web
+  Animations. The current copy exits in 110 ms, the selected copy enters in
+  180 ms, and a new click cancels stale motion before it can win. Reduced-motion
+  users and browsers without Web Animations receive an immediate swap.
+- Visual evidence: the live browser held the wordmark at `(56, 124)` through
+  both modes. A rapid album-heatmap-album sequence settled on the album URL,
+  selected tab, copy, opacity, and visibility together.
+- Validation: `pytest -q` -- **840 passed**, 3 warnings. Frontend gate --
+  19 checks passed in 27 runs across desktop, mobile, and wide touch. All
+  pre-commit hooks passed, including compiled-CSS drift and worktree alignment;
+  `doc_state_sync.py --check` passed with only the expected active-root warning.
+
 ### 2026-08-26 - Canonical page navigation and routes added (side-task)
 
 - Scope: implemented the owner-requested navigation prerequisite before the
