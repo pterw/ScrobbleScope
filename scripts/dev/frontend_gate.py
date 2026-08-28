@@ -103,6 +103,11 @@ MIGRATED_PAGES = ["/", "/results", "/heatmap", ERROR_PAGE_PATH]
 #: Throwaway jobs owned by serve_app and driven by pipeline checks.
 GATE_JOB_IDS: dict[str, str] = {}
 
+#: ``serve_app`` temporarily extends module-level page inventories for the
+#: loading fixture. Serialising that context keeps two in-process gate runs
+#: from clearing each other's job IDs or removing each other's route.
+_SERVE_APP_LOCK = threading.Lock()
+
 #: Pages still served by Bootstrap. Move each one into MIGRATED_PAGES in the
 #: work package that migrates it.
 #:
@@ -248,48 +253,68 @@ def serve_app() -> Iterator[str]:
     shutdown sits in a finally block: a failing check must never leave a
     listening socket behind.
     """
-    loading_job_id = create_job(
-        {
-            "username": "frontend-gate",
-            "year": 2025,
-            "sort_mode": "playcount",
-            "release_scope": "same",
-            "min_plays": 10,
-            "min_tracks": 3,
-            "limit_results": "all",
-            "mode": "album",
-        }
-    )
-    set_job_progress(
-        loading_job_id,
-        progress=42,
-        message="Fetching scrobbles - page 21 / 50",
-        error=False,
-    )
-    loading_path = f"/loading?job_id={loading_job_id}"
-    heatmap_job_id = create_job(
-        {
-            "username": "frontend-gate",
-            "mode": "heatmap",
-        }
-    )
-    GATE_JOB_IDS.update(album=loading_job_id, heatmap=heatmap_job_id)
-    MIGRATED_PAGES.append(loading_path)
-    ALL_PAGES.append(loading_path)
+    with _SERVE_APP_LOCK:
+        loading_job_id = None
+        heatmap_job_id = None
+        loading_path = None
+        server = None
+        thread = None
+        thread_started = False
+        previous_job_ids = dict(GATE_JOB_IDS)
+        try:
+            app = create_app()
+            loading_job_id = create_job(
+                {
+                    "username": "frontend-gate",
+                    "year": 2025,
+                    "sort_mode": "playcount",
+                    "release_scope": "same",
+                    "min_plays": 10,
+                    "min_tracks": 3,
+                    "limit_results": "all",
+                    "mode": "album",
+                }
+            )
+            set_job_progress(
+                loading_job_id,
+                progress=42,
+                message="Fetching scrobbles - page 21 / 50",
+                error=False,
+            )
+            loading_path = f"/loading?job_id={loading_job_id}"
+            heatmap_job_id = create_job(
+                {
+                    "username": "frontend-gate",
+                    "mode": "heatmap",
+                }
+            )
+            GATE_JOB_IDS.update(album=loading_job_id, heatmap=heatmap_job_id)
+            MIGRATED_PAGES.append(loading_path)
+            ALL_PAGES.append(loading_path)
 
-    server = make_server("127.0.0.1", 0, create_app())
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    try:
-        yield f"http://127.0.0.1:{server.server_port}"
-    finally:
-        server.shutdown()
-        thread.join(timeout=5)
-        MIGRATED_PAGES.remove(loading_path)
-        ALL_PAGES.remove(loading_path)
-        delete_job(loading_job_id)
-        delete_job(heatmap_job_id)
-        GATE_JOB_IDS.clear()
+            server = make_server("127.0.0.1", 0, app)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            thread_started = True
+            yield f"http://127.0.0.1:{server.server_port}"
+        finally:
+            if server is not None:
+                if thread_started:
+                    server.shutdown()
+                if thread is not None:
+                    thread.join(timeout=5)
+                server.server_close()
+            if loading_path is not None:
+                if loading_path in MIGRATED_PAGES:
+                    MIGRATED_PAGES.remove(loading_path)
+                if loading_path in ALL_PAGES:
+                    ALL_PAGES.remove(loading_path)
+            if loading_job_id is not None:
+                delete_job(loading_job_id)
+            if heatmap_job_id is not None:
+                delete_job(heatmap_job_id)
+            GATE_JOB_IDS.clear()
+            GATE_JOB_IDS.update(previous_job_ids)
 
 
 def _stylesheet_hrefs(page) -> list[str]:
@@ -850,9 +875,9 @@ def check_theme_survives_blocked_storage(page, base_url: str) -> list[str]:
     failures = []
     for scheme, expected in cases:
         context = browser.new_context(color_scheme=scheme)
-        context.add_init_script(_BLOCK_STORAGE)
-        probe = context.new_page()
         try:
+            context.add_init_script(_BLOCK_STORAGE)
+            probe = context.new_page()
             probe.goto(base_url, wait_until="load")
             got = probe.get_attribute("html", "data-theme")
             if got != expected:

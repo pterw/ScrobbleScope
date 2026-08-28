@@ -18,6 +18,7 @@ from scripts.dev.frontend_gate import (
     _load_playwright,
     check_shell_scales_with_text,
     check_theme_persistence,
+    check_theme_survives_blocked_storage,
     run_checks,
     serve_app,
 )
@@ -78,6 +79,53 @@ def test_the_server_reports_the_port_the_os_actually_assigned() -> None:
     assert base_url == "http://127.0.0.1:5123"
     assert factory.call_args.args[:2] == ("127.0.0.1", 0)
     server.shutdown.assert_called_once()
+
+
+def test_server_setup_failure_restores_jobs_and_page_inventories() -> None:
+    """A bind failure must not leak fixture jobs or temporary routes."""
+    migrated_before = list(frontend_gate.MIGRATED_PAGES)
+    all_before = list(frontend_gate.ALL_PAGES)
+    job_ids_before = dict(frontend_gate.GATE_JOB_IDS)
+
+    with (
+        patch("scripts.dev.frontend_gate.create_app"),
+        patch(
+            "scripts.dev.frontend_gate.create_job",
+            side_effect=("album-job", "heatmap-job"),
+        ),
+        patch("scripts.dev.frontend_gate.set_job_progress"),
+        patch(
+            "scripts.dev.frontend_gate.make_server",
+            side_effect=OSError("bind failed"),
+        ),
+        patch("scripts.dev.frontend_gate.delete_job") as delete_job,
+        pytest.raises(OSError, match="bind failed"),
+    ):
+        with serve_app():
+            pass
+
+    assert frontend_gate.MIGRATED_PAGES == migrated_before
+    assert frontend_gate.ALL_PAGES == all_before
+    assert frontend_gate.GATE_JOB_IDS == job_ids_before
+    assert [call.args[0] for call in delete_job.call_args_list] == [
+        "album-job",
+        "heatmap-job",
+    ]
+
+
+def test_blocked_storage_probe_closes_context_when_page_creation_fails() -> None:
+    """A failed probe page must not leave its isolated context open."""
+    context = MagicMock()
+    context.new_page.side_effect = RuntimeError("page unavailable")
+    browser = MagicMock()
+    browser.new_context.return_value = context
+    page = MagicMock()
+    page.context.browser = browser
+
+    with pytest.raises(RuntimeError, match="page unavailable"):
+        check_theme_survives_blocked_storage(page, "http://127.0.0.1:0")
+
+    context.close.assert_called_once()
 
 
 def test_headed_reaches_the_browser_launch() -> None:
