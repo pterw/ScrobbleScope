@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-27
+Last updated: 2026-08-28
 Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
 WP-0 through WP-3 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
 resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
@@ -12,8 +12,9 @@ F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11
 and F-B18-12 and filed F-B21-14 through F-B21-20. The owner's review of the
 deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
 F-B21-23 and F-B21-24, and the workflow review that followed it added
-F-B21-25. The canonical routing and navigation
-prerequisite and WP-4 unified loading rebuild are complete; **WP-5 is next.**
+F-B21-25. The production differential on 2026-08-28 added F-B21-26. The
+canonical routing and navigation prerequisite and WP-4 unified loading rebuild
+are complete; **WP-5 is next.**
 864 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
@@ -38,7 +39,35 @@ F-* ID or a P0/P1 item -- not as part of the standard bootstrap order.
 
 ## P0 -- Fix before next deploy
 
-_No open P0 items._
+### F-B21-26: the Tailwind index dropped its page-entry motion
+
+The WP-3 index migration stopped loading `global.css` and removed the
+existing entrance motion without giving that behaviour a Tailwind-owned
+replacement.
+
+`templates/index.html` empties the `legacy_css` block. The old index therefore
+lost the `.card` opacity entrance and the slower `#logo-wrapper svg` fade that
+still live in `static/css/global.css`. Neither the deployed `origin/main` tree
+at `1bf888f` nor the current PR #220 Tailwind source defines an equivalent
+page-entry animation.
+
+The PR #220 mode-copy transition is a different interaction. It cross-fades
+the Top Albums and Heatmap copy after a mode change; it does not animate the
+composition when the page first appears. Merging that PR would restore the
+mode-copy transition but would not close this finding.
+
+Restore a Tailwind-owned, opacity-only entrance for the index composition and
+leave its final state visible under `prefers-reduced-motion`. Add a browser
+check against computed animation state so a stylesheet opt-out cannot remove
+the behaviour silently again.
+
+The deployed Adobe font faces loaded during the same browser comparison. The
+visible type-scale difference is the older production calibration already
+owned by F-B21-24 and corrected in the undeployed PR #220, not evidence of a
+new font-loading defect.
+
+Status: open, P0. Restore before the next production deploy.
+Source: owner report and production/browser differential, 2026-08-28.
 
 ---
 
