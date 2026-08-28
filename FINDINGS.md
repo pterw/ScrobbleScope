@@ -997,32 +997,28 @@ second `.dark-mode` theme write. Doing it there makes one change instead of
 three.
 Source: F-B21-21 follow-up, 2026-08-26.
 
-### F-B21-24: the index does not scale up on large displays
+### F-B21-24: the index does not use large displays well
 
 The owner runs a 1080p and a 1440p monitor and reports that dragging the window
 to the larger one leaves too much whitespace: the content keeps its size and
 the margins absorb the extra width.
 
-That is the design contract working as written, not a defect.
-`docs/design/README.md` "Screens" caps the form at 380px and the wordmark at
-560px, with the stated reason that an uncapped mark "grows with the viewport
-until it dwarfs the h1". `index.css` implements it -- the desktop hero is
-`max-width: clamp(35rem, 74%, 51.25rem)`, and the form column is `23.75rem`.
-So above roughly 1400px nothing grows.
+The original contract capped the form at 380px and the wordmark at 560px. It
+preserved component scale, but the nearly equal split compressed the tool while
+the editorial side accumulated passive space.
 
-Changing it is an amendment to the design contract and needs an owner ruling,
-not a stylesheet tweak. The owner has asked for content to hold the same
-apparent size across displays "up to a point", which is a third cap rather than
-no cap: raise the ceilings and let type and spacing scale with the viewport
-between the floor and the new ceiling, rather than jumping at a breakpoint.
+The owner ruling on 2026-08-28 keeps the scale invariant and changes placement:
+at 1200px and above the split is `3fr 4fr`, the form cap is 28rem, and both
+compositions retain the shared `1.075` desktop scale. A compact-height rule
+reduces only the form column's outer vertical padding. The label floor is 12px,
+phrase-length capability copy uses less tracking, and the light muted token now
+passes 4.5:1 on the sunken surface.
 
-If it is taken: the existing `clamp()` usage is the pattern, `rem` for type and
-spacing per `AGENTS.md` "UI and Accessibility Rules" item 1, and a gate check
-comparing rendered content width at 1920 and 2560 against the ratio the owner
-accepts. `docs/design/RECONCILIATION.md` records the override when the shipped values
-stop matching the imported snapshot.
+The browser gate compares wordmark, type, form, controls, and navigation at
+1920x1080, 2560x1440, and 3840x2160. Larger screens improve placement without
+inflating individual components; the mobile breakpoint remains unchanged.
 
-Status: open. Owner decision on the new ceilings before any work.
+Status: resolved by the PR #220 owner-review refinement.
 Source: owner review of the deployed merge, 2026-08-26.
 
 ### F-B21-25: every gate runs at commit time, so the session is unguarded

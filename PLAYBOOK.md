@@ -83,7 +83,8 @@ See FINDINGS F-DOCSYNC-3.
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
 - **Next action:** **WP-4 is complete. Owner review refinements are in
-  progress; finish the wide-layout and progress-signal pass before WP-5.**
+  progress; the wide-layout pass is complete and the progress-signal pass is
+  next before WP-5.**
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -515,6 +516,25 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-28 - Index width, scale, and small-text refinement (side-task)
+
+- Scope: applied the owner-review amendment to the migrated Home composition
+  without changing its content order, navigation, mode transition, or mobile
+  layout.
+- Implementation: desktop widths from 1200px use a `3fr 4fr` split, a 28rem
+  form cap, and the existing shared `1.075` scale. A compact-height desktop
+  rule reduces only the form column's outer padding. The small-label floor is
+  12px, phrase-length capability text uses 0.04em tracking, and the light
+  muted token is `#6c6676` in both framework paths.
+- Contract: component sizes remain equal at 1920x1080, 2560x1440, and
+  3840x2160; larger canvases change placement, not scale. The imported design
+  snapshot remains untouched, with the amendment recorded in
+  `docs/design/RECONCILIATION.md` and F-B21-24 resolved.
+- Validation: focused template and build tests -- 100 passed. Full `pytest -q`
+  -- **864 passed**, 3 warnings. The frontend gate reports 20 checks passed in
+  29 runs across desktop, mobile, and wide touch. `doc_state_sync.py --check`
+  passes.
+
 ### 2026-08-27 - PR #220 Graphify findings audited and gate cleanup hardened (side-task)
 
 - Scope: checked every open Codex and Graphify review thread on PR #220
@@ -578,26 +598,3 @@ non-current operational logs. Older dated entries live in
   19 checks passed in 27 runs across desktop, mobile, and wide touch. All
   pre-commit hooks passed, including compiled-CSS drift and worktree alignment;
   `doc_state_sync.py --check` passed with only the expected active-root warning.
-
-### 2026-08-26 - Canonical page navigation and routes added (side-task)
-
-- Scope: implemented the owner-requested navigation prerequisite before the
-  WP-4 loading rebuild. The shared header now offers Home, Results, Heatmap,
-  and Unmatched in Input Mono Narrow, plus the segmented Light/Dark control.
-  Loading stays transient and has no navigation pill.
-- Plan vs implementation: added canonical `GET /loading`, `/results`,
-  `/heatmap`, and `/unmatched` routes. New album jobs redirect to the loading
-  URL and the loading script opens the results URL at completion. The old
-  completion and unmatched POST routes remain compatibility shims during the
-  strangler. Unmatched JSON moved to `GET /api/unmatched` so the page owns
-  `/unmatched`.
-- Deviations: direct Results and Unmatched visits without a job now render a
-  friendly pre-search state with a Home action. Heatmap already falls back to
-  its form. The owner renamed the prototype's Index pill to Home and removed
-  Loading from the destination set.
-- Validation: `pytest -q` **833 passed**, 3 warnings. The frontend gate
-  reports 17 checks passed in 25 runs across desktop, mobile, and wide touch.
-  JavaScript syntax checks and `doc_state_sync.py --check` pass.
-- Forward guidance: WP-4 still owns the unified loading-page rebuild and the
-  two pipeline state-machine checks in `BATCH21_DEFINITION.md`. Keep the
-  canonical route and compatibility shims until the strangler retires them.

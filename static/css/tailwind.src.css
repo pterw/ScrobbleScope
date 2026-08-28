@@ -33,7 +33,7 @@
   --font-weight-normal: 400;
   --font-weight-bold: 700;
 
-  --text-label-sm: 0.71875rem;
+  --text-label-sm: 0.75rem;
   --text-label-sm--line-height: 1rem;
   --text-label: 0.8125rem;
   --text-label--line-height: 1rem;
@@ -144,7 +144,7 @@
 
      Values are docs/design/README.md "Colour -- light". */
   --ss-text-body: #4a4456;
-  --ss-text-muted: #6f6a7a;
+  --ss-text-muted: #6c6676;
   --ss-border-default: #e5dfd1;
   --ss-accent-soft: #efe9fa;
 

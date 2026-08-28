@@ -164,7 +164,7 @@ def test_theme_source_locks_the_batch_21_design_tokens() -> None:
         '--font-figure: "gotham", ui-sans-serif, sans-serif;',
         '--font-mono: "input-mono", ui-monospace, monospace;',
         '--font-mono-narrow: "input-mono-narrow", "input-mono", ui-monospace, monospace;',
-        "--text-label-sm: 0.71875rem;",
+        "--text-label-sm: 0.75rem;",
         "--text-label: 0.8125rem;",
         "--text-body-sm: 0.875rem;",
         "--text-body: 1rem;",

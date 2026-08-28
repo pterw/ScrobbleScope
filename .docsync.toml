@@ -28,6 +28,40 @@ strikethrough_exempt = true
 # Values
 # ----------------------------------------------------------------------
 
+# Owner review raised the small-text floor and strengthened the light muted
+# token. These values straddle source CSS, the legacy shell bridge, and exact
+# tests, so a later one-sided edit would reintroduce the contrast drift.
+[[value]]
+name = "the light muted text token"
+
+[[value.sites]]
+file = "static/css/tailwind.src.css"
+pattern = 'name: "light";[^}]*--ss-text-muted: (#[0-9a-f]{6});'
+expect = "#6c6676"
+
+[[value.sites]]
+file = "static/css/shell.css"
+pattern = ':root \{[^}]*--shell-muted: (#[0-9a-f]{6});'
+expect = "#6c6676"
+
+[[value.sites]]
+file = "tests/test_template_shell.py"
+pattern = '"--ss-text-muted": \("(#[0-9a-f]{6})"'
+expect = "#6c6676"
+
+[[value]]
+name = "the 12px small-label floor"
+
+[[value.sites]]
+file = "static/css/tailwind.src.css"
+pattern = '--text-label-sm: ([\d.]+)rem;'
+expect = "0.75"
+
+[[value.sites]]
+file = "tests/scripts/dev/test_tailwind_build_cli.py"
+pattern = '"--text-label-sm: ([\d.]+)rem;"'
+expect = "0.75"
+
 # Drifted in WP-3: the stylesheets moved to the design's single 860px
 # breakpoint and the renderer stayed at 768, so widths from 768 to 859 got the
 # mobile frame with the desktop grid scaled into it.

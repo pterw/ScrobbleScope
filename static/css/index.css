@@ -25,8 +25,8 @@
   font-size: var(--text-body-sm);
 }
 
-/* Two columns, 1.1fr 1fr. Fixed padding on each side, so nothing re-centres
-   when the form grows or the browser zooms.
+/* The desktop starts with the canonical 1.1fr 1fr split. Wide tool layouts
+   give the application column more room without changing component scale.
 
    The columns stretch and their content sits at the top. Top-anchored is
    about the content, not the box: with align-items: start the sunken well on
@@ -104,10 +104,15 @@
    selected pieces independently. The content-driven threshold leaves the
    existing tablet and mobile composition untouched. */
 @media (min-width: 1200px) {
+  .index-grid {
+    grid-template-columns: 3fr 4fr;
+  }
+
   .index-hero__inner,
   .index-form__inner {
     zoom: 1.075;
   }
+
 }
 
 /* The wrapper needs an explicit auto height. A fixed height with a fluid SVG
@@ -176,7 +181,7 @@
 .index-hero__marks li {
   font-family: var(--font-mono-narrow);
   font-size: var(--text-label-sm);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: var(--ss-text-muted);
 }
 
@@ -210,6 +215,18 @@
   width: 100%;
   max-width: 23.75rem;
   margin: 0 auto;
+}
+
+@media (min-width: 1200px) {
+  .index-form__inner {
+    max-width: 28rem;
+  }
+}
+
+@media (min-width: 1200px) and (max-height: 900px) {
+  .index-form {
+    padding-block: 2rem;
+  }
 }
 
 /* ------------------------------------------------------------------ */

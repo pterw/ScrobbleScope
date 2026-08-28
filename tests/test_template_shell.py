@@ -43,7 +43,7 @@ INDEX_TOKENS = {
     "--radius-md": ("10px",),
     "--rocket-5": ("#f0903a",),
     "--ss-text-body": ("#4a4456", "#c5bfb1"),
-    "--ss-text-muted": ("#6f6a7a", "#908a9a"),
+    "--ss-text-muted": ("#6c6676", "#908a9a"),
     "--ss-border-default": ("#e5dfd1", "#2a2434"),
     "--ss-accent-soft": ("#efe9fa", "#2a1f44"),
     "--heatmap-empty": ("#e8e2d6", "#262230"),

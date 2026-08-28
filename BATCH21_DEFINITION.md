@@ -171,7 +171,7 @@ kickoff log entry.
   `#1a1820` / primary `#6a4baf`; dark bg `#0e0c12` / surface `#181520` /
   text `#f1ede4` (warm cream) / primary `#b39dde`. Type (Adobe Fonts kit
   per decision 4): `akzidenz-grotesk-next-pro` 300-700 (body 14-16px,
-  labels 11.5-13px), `instrument-serif` 400 + italic (>= 24px only),
+  labels 12-13px), `instrument-serif` 400 + italic (>= 24px only),
   `gotham` 400 (display numbers), `input-mono` 400-700
   (numerals, eyebrow labels, pills). 4px spacing ladder
   (4/8/12/16/24/32/48 only); radius 8 (inputs/small cards), 14 (large
@@ -297,10 +297,13 @@ Moved in by the scope ruling:
 
 **Two rulings this WP owes.**
 
-1. **F-B21-4 item 1 resolves to the canonical README.** The hero is the
-   two-column `1.1fr 1fr` grid from `docs/design/README.md` screen 1, not
-   the audit review's single column. Items 2, 3 and 4 stay open for WP-4,
-   WP-5 and WP-7; do not close the finding here.
+1. **F-B21-4 item 1 resolves to the canonical README.** The hero starts with
+   the two-column `1.1fr 1fr` grid from `docs/design/README.md` screen 1, not
+   the audit review's single column. Owner review on 2026-08-28 amends the
+   wide desktop state at 1200px and above to `3fr 4fr`, with a 28rem form cap
+   and the existing shared `1.075` composition scale. Components keep the
+   same CSS-pixel size at 1080p, 1440p, and 4K. Items 2, 3 and 4 stay open for
+   WP-4, WP-5 and WP-7; do not close the finding here.
 2. **Heatmap cell geometry resolves `docs/design/RECONCILIATION.md`
    section 7.** Keep
    the shipped 14px cell and its 2px radius; take the README's gap of 2px

@@ -1341,7 +1341,7 @@ def check_loading_composition(page, base_url: str) -> list[str]:
 
 
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
-    """A 4K canvas preserves the established 1080p component scale.
+    """Larger desktop canvases preserve the established 1080p scale.
 
     Responsive placement may use the extra room, but the wordmark, type,
     navigation, form, and controls must not independently inflate. This is a
@@ -1393,10 +1393,47 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             selectors,
         )
 
+    def measure_wide_layout():
+        return page.evaluate(
+            """() => {
+                const hero = document.querySelector('.index-hero');
+                const application = document.querySelector('.index-form');
+                const form = document.querySelector('.index-form__inner');
+                return {
+                    heroWidth: hero.getBoundingClientRect().width,
+                    applicationWidth: application.getBoundingClientRect().width,
+                    formWidth: form.getBoundingClientRect().width,
+                };
+            }"""
+        )
+
+    def measure_compact_height():
+        page.set_viewport_size({"width": 1920, "height": 900})
+        page.goto(f"{base_url}/", wait_until="load")
+        return page.evaluate(
+            """() => {
+                const formColumn = document.querySelector('.index-form');
+                const submit = document.querySelector('.ss-submit');
+                const tags = document.querySelector('#filter-tags');
+                const style = getComputedStyle(formColumn);
+                return {
+                    paddingTop: parseFloat(style.paddingTop),
+                    paddingBottom: parseFloat(style.paddingBottom),
+                    submitBottom: submit.getBoundingClientRect().bottom,
+                    tagsBottom: tags.getBoundingClientRect().bottom,
+                    viewportHeight: window.innerHeight,
+                    documentHeight: document.documentElement.scrollHeight,
+                };
+            }"""
+        )
+
     try:
         at_1080p = measure(1920, 1080)
+        wide_layout = measure_wide_layout()
+        at_1440p = measure(2560, 1440)
         at_4k = measure(3840, 2160)
         at_mobile = measure(390, 844)
+        compact_height = measure_compact_height()
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
@@ -1404,22 +1441,49 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     failures = []
     for name in selectors:
         baseline = at_1080p.get(name)
-        large = at_4k.get(name)
-        if baseline is None or large is None:
-            failures.append(f"/: {name} could not be measured at both display sizes")
+        if baseline is None:
+            failures.append(f"/: {name} could not be measured at 1080p")
             continue
-        for dimension in dimensions[name]:
-            if abs(baseline[dimension] - large[dimension]) > 0.5:
-                failures.append(
-                    f"/: {name} {dimension} changes from "
-                    f"{baseline[dimension]:.1f}px at 1080p to "
-                    f"{large[dimension]:.1f}px at 4K"
-                )
+        for label, large in (("1440p", at_1440p.get(name)), ("4K", at_4k.get(name))):
+            if large is None:
+                failures.append(f"/: {name} could not be measured at {label}")
+                continue
+            for dimension in dimensions[name]:
+                if abs(baseline[dimension] - large[dimension]) > 0.5:
+                    failures.append(
+                        f"/: {name} {dimension} changes from "
+                        f"{baseline[dimension]:.1f}px at 1080p to "
+                        f"{large[dimension]:.1f}px at {label}"
+                    )
     for name in ("hero composition", "form composition"):
         if abs(at_1080p[name]["zoom"] - 1.075) > 0.001:
             failures.append(f"/: {name} is not scaled as part of the desktop layout")
         if abs(at_mobile[name]["zoom"] - 1) > 0.001:
             failures.append(f"/: {name} desktop scale leaked into the mobile layout")
+
+    split_ratio = wide_layout["applicationWidth"] / wide_layout["heroWidth"]
+    if abs(split_ratio - (4 / 3)) > 0.02:
+        failures.append(
+            f"/: wide desktop split is {split_ratio:.3f}, expected 4:3 application-to-hero"
+        )
+    if not 470 <= wide_layout["formWidth"] <= 500:
+        failures.append(
+            f"/: desktop form is {wide_layout['formWidth']:.1f}px wide, expected 470-500px"
+        )
+
+    if (
+        abs(compact_height["paddingTop"] - 32) > 0.5
+        or abs(compact_height["paddingBottom"] - 32) > 0.5
+    ):
+        failures.append(
+            "/: compact desktop height did not reduce form-column padding to 2rem"
+        )
+    if compact_height["submitBottom"] > compact_height["viewportHeight"] + 0.5:
+        failures.append("/: compact-height form leaves the submit button below view")
+    if compact_height["tagsBottom"] > compact_height["viewportHeight"] + 0.5:
+        failures.append("/: compact-height form leaves filter tags below view")
+    if compact_height["documentHeight"] > compact_height["viewportHeight"] + 1:
+        failures.append("/: compact-height form requires document scrolling")
     return failures
 
 
