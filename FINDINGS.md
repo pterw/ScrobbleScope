@@ -14,7 +14,7 @@ deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
 F-B21-23 and F-B21-24, and the workflow review that followed it added
 F-B21-25. The canonical routing and navigation
 prerequisite and WP-4 unified loading rebuild are complete; **WP-5 is next.**
-862 tests across 40 test modules.
+864 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during

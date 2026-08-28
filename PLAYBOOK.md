@@ -82,8 +82,8 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **WP-4 is complete. Owner review is paused after the first
-  annotation pass; resume those minor refinements before WP-5.**
+- **Next action:** **WP-4 is complete. Owner review refinements are in
+  progress; finish the wide-layout and progress-signal pass before WP-5.**
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -515,6 +515,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-27 - PR #220 Graphify findings audited and gate cleanup hardened (side-task)
+
+- Scope: checked every open Codex and Graphify review thread on PR #220
+  against current source, callers, tests, Git history, and browser behaviour.
+- Review disposition: the five Codex findings are already addressed. The
+  thirteen inline Graphify coupling notices are duplicated metrics rather
+  than defects. Graphify's missing `logging` import, advisory-exit, result
+  redirect, and unmatched-route claims are disproved or deliberate contracts.
+  Two cleanup findings were valid: failed frontend-gate setup could leak its
+  temporary jobs and routes, and a failed blocked-storage probe could leave
+  its browser context open. Concurrent in-process gate contexts could also
+  overwrite the shared fixture state.
+- Implementation: `serve_app` now serialises its temporary global fixture,
+  restores prior state, and cleans jobs, routes, sockets, and threads even
+  when application or server setup fails. The blocked-storage context now
+  enters its cleanup boundary before either probe setup call.
+- Validation: focused frontend-gate unit tests -- 14 passed. `pytest -q` --
+  **864 passed**, 3 warnings. The frontend gate reports 20 checks passed in
+  29 runs across desktop, mobile, and wide touch.
+
 ### 2026-08-27 - Fresh heatmap starts separated from saved destinations (side-task)
 
 - Scope: made Home's Heatmap selector start a new run while the header Heatmap
@@ -581,75 +601,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: WP-4 still owns the unified loading-page rebuild and the
   two pipeline state-machine checks in `BATCH21_DEFINITION.md`. Keep the
   canonical route and compatibility shims until the strangler retires them.
-
-### 2026-08-26 - PR #220 review applied, and the theme fallback proved (side-task)
-
-- Scope: remediated the three Codex comments on PR #220. All three were
-  verified against the code before any fix; all three were valid.
-- **The missing log entry** is the entry below this one, covering `9330ac8`,
-  `ebb542b` and `6f8ff98`.
-- **The `FINDINGS.md` header** attributed F-B21-21 and F-B21-22 to both WP-3
-  and the owner review while omitting F-B21-23 and F-B21-24. Corrected in
-  `12cfe25`.
-- **`check_mark_follows_theme` was weak in two ways**, and both are closed. A
-  part whose selector stopped matching read as null and was skipped, so
-  re-cutting the asset would have retired the check silently. And the test
-  was only that light differs from dark, so a wrapper wired to the wrong but
-  theme-varying token passed. It now compares each mark against the resolved
-  `--shell-ink` and `--shell-accent` for that theme, read through a probe
-  element so the browser normalises `#1a1820` and `rgb(26, 24, 32)` to the
-  same string. Mutation-checked: pointing the letterforms at
-  `var(--shell-accent)` -- a wrong value that does vary by theme, which the
-  old check accepted -- fails four times with the token named.
-- **The uncommitted `base.html` theme fallback is real, and is now proved.**
-  It was written on 2026-08-26 at 00:08 and left uncommitted when that
-  session hit its spend limit mid-verification. Its own mutation check had
-  passed on both the new and the reverted code, so it proved nothing: the
-  harness never made storage actually throw. Rerun with `localStorage`
-  genuinely throwing, the shipped version renders `light` on a dark system
-  when site data is blocked, and the fix corrects it. A sixteenth gate check,
-  `check_theme_survives_blocked_storage`, holds it; reverting the fix fails
-  it by name. The check opens its own browser context, because blocked
-  storage is installed as an init script and cannot be removed from the
-  shared page afterwards.
-- This does **not** close F-B21-22. A stored `'false'` still outranks the
-  system preference forever; that needs the third state and an owner ruling.
-- **A fourth comment arrived on the sweep after `3526edd`, and it was
-  right.** The `worktree-alignment` hook shipped gating, documented as
-  erroring only on WT002, WT007 and WT014. Eleven of the fifteen codes are
-  errors: WT001, WT002, WT003, WT004, WT005, WT006, WT007, WT008, WT012,
-  WT014, and WT009 inside a linked worktree. WT003 fires for any branch the
-  active batch does not name and WT004 for the identical-tree divergence a
-  rebase merge always leaves, so the gating version would have refused every
-  commit on a feature branch and every commit after a merge until the branch
-  was realigned. The claim came from grepping two of the guard's six modules
-  and generalising -- the incomplete sweep the Anti-Pattern Registry names,
-  committed inside a finding about mechanisms that hold in one place only.
-- **The owner ruled the hook advisory on 2026-08-26.** The guard gained
-  `--advisory`, which prints every diagnostic and always exits 0, and the
-  hook uses it. The problem being solved was that the guard's output was
-  invisible unless somebody ran it, not that commits needed a new gate. A
-  test asserts `--advisory` exits 0 on an ERROR while the same run without
-  the flag still exits 1; removing the short-circuit fails it.
-- **F-B21-18 is scheduled**, by owner ruling the same day: the JavaScript
-  unit-test seam becomes a work package of its own, sequenced before WP-5 and
-  not folded into WP-4, scoped to the pure-function half on the existing
-  Chromium. WP-5 and WP-7 are the remaining JavaScript-heavy pages, so a seam
-  before WP-5 still guards work this batch does. The number it takes needs
-  settling against DOC007 and the absorbed WP-6 before its first commit.
-- **DOC012 is new, and it exists because this entry nearly lied.** The count
-  authority reads `**823 passed**` and nothing else: written without the
-  asterisks, the entry records nothing, an older entry stays authoritative,
-  and `--check` exits 0 with every dashboard holding the previous number.
-  That happened here -- the count was written unbolded, the figure did not
-  move, and the gate stayed green. The owner ruled that bolding the line was
-  the wrong fix, because the next agent will make the same mistake. DOC012
-  now fails an execution-log entry that claims a pass result with no bold
-  count anywhere in it. It is scoped per entry, not per line, so a subset
-  claim beside a bold figure -- WP-1's "(35 passed)" for the toolchain
-  module -- stays prose and history is not rewritten. Mutation-checked in
-  both directions: neutering the check fails the first test, dropping the
-  entry-scoping fails the second.
-- Validation: `pytest -q` -- **826 passed**, all 12 hooks, docsync exit 0,
-  frontend gate 17 checks in 25 runs. The suite grew by four: the
-  `--advisory` exit contract and three DOC012 cases.
