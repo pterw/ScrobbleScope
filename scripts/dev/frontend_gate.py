@@ -1535,11 +1535,12 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     # Keep the production delay in source while making the gate deterministic
     # and fast. The one-second poll cadence is unchanged.
     page.add_init_script(
-        """() => {
+        """(() => {
             const nativeTimeout = window.setTimeout;
             window.setTimeout = (callback, delay, ...args) =>
                 nativeTimeout(callback, delay === 3000 ? 0 : delay, ...args);
-        }"""
+            window.__scrobbleGateFastRedirect = true;
+        })();"""
     )
 
     reset_job_state(album_job_id)
@@ -1560,6 +1561,8 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     )
     set_job_progress(album_job_id, progress=100, message="Done", error=False)
     page.goto(f"{base_url}{loading_path}", wait_until="load")
+    if not page.evaluate("window.__scrobbleGateFastRedirect === true"):
+        failures.append("pipeline timer init script did not execute")
     page.wait_for_url(f"{base_url}/results")
     if "Gate Album" not in page.locator("body").inner_text():
         failures.append("album success did not render the saved result")
@@ -1616,10 +1619,18 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
 
 
 def check_pipeline_state_machines(page, base_url: str) -> list[str]:
-    """Exercise both clients and restore the shared loading fixture."""
+    """Exercise both clients on a disposable page and restore job fixtures.
+
+    Playwright cannot remove a page init script. The accelerated redirect is
+    therefore installed on a short-lived probe instead of the profile page
+    used by later checks.
+    """
+    probe = page.context.new_page()
     try:
-        return _exercise_pipeline_state_machines(page, base_url)
+        probe.route("http://localhost:8400/**", lambda route: route.abort())
+        return _exercise_pipeline_state_machines(probe, base_url)
     finally:
+        probe.close()
         reset_job_state(GATE_JOB_IDS["album"])
         set_job_progress(
             GATE_JOB_IDS["album"],

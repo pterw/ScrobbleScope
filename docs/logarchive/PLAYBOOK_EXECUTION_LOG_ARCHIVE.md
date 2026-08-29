@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-27 - Fresh heatmap starts separated from saved destinations (side-task)
+
+- Scope: made Home's Heatmap selector start a new run while the header Heatmap
+  and Results destinations continue to reopen the latest valid browser-session
+  jobs. Added dedicated empty pages for those two destinations.
+- Plan vs implementation: `/?mode=heatmap` now opens a fresh form without
+  deleting the saved heatmap pointer. A successful start promotes the URL to
+  `/heatmap`. Clean `/heatmap` and `/results` visits resume valid jobs or render
+  `heatmap_empty.html` and `results_empty.html`; job access now runs expiry
+  cleanup so the documented two-hour idle limit is enforced.
+- UX and responsive behavior: the empty pages use one centered, shadow-free
+  message group with a route-specific action. The Heatmap state retains a
+  short rocket-scale gradient. Mobile actions keep the 44px touch minimum;
+  large displays keep the established CSS-pixel scale instead of inflating
+  controls independently.
+- Deviations: the index selector does not clear the cached job. It ignores the
+  pointer for the fresh form, because deletion would also remove the latest
+  result that the header destination promises to restore. During live review,
+  two stale Flask processes were found on port 5000; both were stopped and one
+  current no-reload server was started from this worktree.
+- Validation: the TDD red run reported 6 failed and 5 passed. `pytest -q` --
+  **862 passed**, 3 warnings. The frontend gate reports 20 checks
+  passed in 29 runs across desktop, mobile, and wide touch. Impeccable Detect
+  reported no regex findings but was degraded because its optional HTML parser
+  modules are unavailable; browser-computed checks provide the stronger UI
+  evidence for this change.
+
 ### 2026-08-27 - Index mode-copy transition made interruptible (side-task)
 
 - Scope: refined only the index hero copy swap between Top albums and Heatmap.
