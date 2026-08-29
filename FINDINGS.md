@@ -15,7 +15,7 @@ F-B21-23 and F-B21-24, and the workflow review that followed it added
 F-B21-25. The production differential on 2026-08-28 added F-B21-26. The
 canonical routing and navigation prerequisite and WP-4 unified loading rebuild
 are complete; **WP-5 is next.**
-864 tests across 40 test modules.
+865 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during

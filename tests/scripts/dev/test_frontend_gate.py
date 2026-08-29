@@ -16,6 +16,7 @@ from scripts.dev.frontend_gate import (
     FrontendGateError,
     _launch_chromium,
     _load_playwright,
+    check_pipeline_state_machines,
     check_shell_scales_with_text,
     check_theme_persistence,
     check_theme_survives_blocked_storage,
@@ -126,6 +127,31 @@ def test_blocked_storage_probe_closes_context_when_page_creation_fails() -> None
         check_theme_survives_blocked_storage(page, "http://127.0.0.1:0")
 
     context.close.assert_called_once()
+
+
+def test_pipeline_state_machine_uses_a_disposable_page() -> None:
+    """Its page-level timer patch must not reach later checks."""
+    page = MagicMock()
+    probe = page.context.new_page.return_value
+
+    with (
+        patch.dict(
+            "scripts.dev.frontend_gate.GATE_JOB_IDS",
+            {"album": "album-job", "heatmap": "heatmap-job"},
+            clear=True,
+        ),
+        patch("scripts.dev.frontend_gate.reset_job_state"),
+        patch("scripts.dev.frontend_gate.set_job_progress"),
+        patch(
+            "scripts.dev.frontend_gate._exercise_pipeline_state_machines",
+            side_effect=RuntimeError("pipeline failed"),
+        ) as exercise,
+    ):
+        with pytest.raises(RuntimeError, match="pipeline failed"):
+            check_pipeline_state_machines(page, "http://127.0.0.1:0")
+
+    exercise.assert_called_once_with(probe, "http://127.0.0.1:0")
+    probe.close.assert_called_once()
 
 
 def test_headed_reaches_the_browser_launch() -> None:

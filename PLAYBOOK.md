@@ -533,6 +533,22 @@ non-current operational logs. Older dated entries live in
 - Implementation: documentation only. No application code or deployment was
   changed; F-B21-26 owns the required motion restoration and browser check.
 
+### 2026-08-28 - PR #220 timer-probe review remediated (side-task)
+
+- Scope: audited the frontend pipeline probe after browser evidence showed its
+  timeout patch was installed as an unevaluated arrow expression.
+- Reproduction: invoking the same body as an IIFE sets a page marker. A page
+  init script survives later navigations, so installing it on the shared
+  profile page can also alter unrelated checks.
+- Implementation: the pipeline state-machine check now runs on a disposable
+  page, installs and verifies the invoked timeout patch there, and closes the
+  page on both success and failure. The profile page remains clean for the
+  later scale checks.
+- Validation: focused frontend-gate unit tests -- **15 passed**. Full
+  `pytest -q` -- **865 passed**, 3 warnings. The frontend gate reports
+  20 checks passed in 29 runs across desktop, mobile, and wide touch.
+  All pre-commit hooks and `doc_state_sync.py --check` pass.
+
 ### 2026-08-28 - Index width, scale, and small-text refinement (side-task)
 
 - Scope: applied the owner-review amendment to the migrated Home composition
@@ -571,30 +587,3 @@ non-current operational logs. Older dated entries live in
 - Validation: focused frontend-gate unit tests -- 14 passed. `pytest -q` --
   **864 passed**, 3 warnings. The frontend gate reports 20 checks passed in
   29 runs across desktop, mobile, and wide touch.
-
-### 2026-08-27 - Fresh heatmap starts separated from saved destinations (side-task)
-
-- Scope: made Home's Heatmap selector start a new run while the header Heatmap
-  and Results destinations continue to reopen the latest valid browser-session
-  jobs. Added dedicated empty pages for those two destinations.
-- Plan vs implementation: `/?mode=heatmap` now opens a fresh form without
-  deleting the saved heatmap pointer. A successful start promotes the URL to
-  `/heatmap`. Clean `/heatmap` and `/results` visits resume valid jobs or render
-  `heatmap_empty.html` and `results_empty.html`; job access now runs expiry
-  cleanup so the documented two-hour idle limit is enforced.
-- UX and responsive behavior: the empty pages use one centered, shadow-free
-  message group with a route-specific action. The Heatmap state retains a
-  short rocket-scale gradient. Mobile actions keep the 44px touch minimum;
-  large displays keep the established CSS-pixel scale instead of inflating
-  controls independently.
-- Deviations: the index selector does not clear the cached job. It ignores the
-  pointer for the fresh form, because deletion would also remove the latest
-  result that the header destination promises to restore. During live review,
-  two stale Flask processes were found on port 5000; both were stopped and one
-  current no-reload server was started from this worktree.
-- Validation: the TDD red run reported 6 failed and 5 passed. `pytest -q` --
-  **862 passed**, 3 warnings. The frontend gate reports 20 checks
-  passed in 29 runs across desktop, mobile, and wide touch. Impeccable Detect
-  reported no regex findings but was degraded because its optional HTML parser
-  modules are unavailable; browser-computed checks provide the stronger UI
-  evidence for this change.
