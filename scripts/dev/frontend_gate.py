@@ -1495,9 +1495,9 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             failures.append(f"/: {name} desktop scale leaked into the mobile layout")
 
     split_ratio = layout_1080p["applicationWidth"] / layout_1080p["heroWidth"]
-    if abs(split_ratio - (4 / 3)) > 0.02:
+    if abs(split_ratio - (5 / 3)) > 0.02:
         failures.append(
-            f"/: wide desktop split is {split_ratio:.3f}, expected 4:3 application-to-hero"
+            f"/: wide desktop split is {split_ratio:.3f}, expected 5:3 application-to-hero"
         )
     for label, layout in (
         ("1080p", layout_1080p),

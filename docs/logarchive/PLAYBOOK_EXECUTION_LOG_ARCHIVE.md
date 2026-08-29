@@ -9,6 +9,19 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-28 - Wide index gap tightened (side-task)
+
+- Scope: corrected the oversized visual void between the scaled hero lockup
+  and the form that remained after the proportional large-display repair.
+- Implementation: the 1200px-and-wider composition now uses `3fr 5fr` rather
+  than `3fr 4fr`. The shared viewport scale and the form's fixed physical
+  gutters remain unchanged, so the lockup retains its 1080p, 1440p, and 4K
+  scale while the form moves closer to it.
+- Reproduction and validation: the browser gate first rejected the prior 4:3
+  application-to-hero split, then passed with the new 5:3 split. A rendered
+  1920x1080 inspection confirms the reduced visual gap without compressing
+  the wordmark or removing header navigation.
+
 ### 2026-08-28 - Proportional large-display scale restored (side-task)
 
 - Scope: corrected the index scale regression reported from 2560x1440 local

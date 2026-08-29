@@ -300,11 +300,13 @@ Moved in by the scope ruling:
 1. **F-B21-4 item 1 resolves to the canonical README.** The hero starts with
    the two-column `1.1fr 1fr` grid from `docs/design/README.md` screen 1, not
    the audit review's single column. Owner review on 2026-08-28 amends the
-   wide desktop state at 1200px and above to `3fr 4fr`, with one shared
+   wide desktop state at 1200px and above to `3fr 5fr`, with one shared
    factor of `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`,
    capped at `2.15`. The form fills its well to the existing fixed side
-   gutters instead of holding a width cap. The expected factors are `1.075`
-   at 1920x1080, about `1.433` at 2560x1440, and `2.15` at 3840x2160.
+   gutters instead of holding a width cap. The narrower editorial column
+   removes the oversized visual void between the wordmark and form. The
+   expected factors are `1.075` at 1920x1080, about `1.433` at 2560x1440,
+   and `2.15` at 3840x2160.
    Browser zoom reflows the layout through the CSS viewport; it does not add
    a second page scale. Items 2, 3 and 4 stay open for WP-4, WP-5 and WP-7;
    do not close the finding here.

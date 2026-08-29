@@ -23,7 +23,7 @@ The owner-approved overrides currently recorded are:
 | Point | README says | This repo does | Why |
 | --- | --- | --- | --- |
 | Theme marker | `.dark` class on `<html>` | `data-theme="dark"` on `<html>` | Section 5, below |
-| Wide index composition | `1.1fr 1fr`, form capped at 380px | At 1200px and wider, `3fr 4fr`; hero and form use `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped at `2.15`; the form fills its well to the existing side gutters | Owner review keeps the composition proportional at large display sizes while preserving reflow and fixed physical form gutters |
+| Wide index composition | `1.1fr 1fr`, form capped at 380px | At 1200px and wider, `3fr 5fr`; hero and form use `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped at `2.15`; the form fills its well to the existing side gutters | Owner review keeps the composition proportional while removing the excessive gap between the hero and form |
 | Small label size | 11.5px | 12px | Owner review readability floor; touch and mobile sizing remain unchanged |
 | Light muted text | `#6f6a7a` | `#6c6676` | Keeps small muted copy at 4.5:1 or better on every shipped light surface |
 | Lockup viewBox | `0 0 453 69` | `0 0 453 74` | Section 10, below |
