@@ -142,7 +142,7 @@ async def _fetch_and_process_heatmap(job_id, username):
         set_job_progress(
             job_id,
             progress=pct,
-            message=f"Fetching Last.fm page {pages_done}/{total_pages}...",
+            message="Reading your Last.fm history...",
         )
 
     set_job_progress(

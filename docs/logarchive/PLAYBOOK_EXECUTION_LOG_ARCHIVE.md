@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-28 - PR #220 timer-probe review remediated (side-task)
+
+- Scope: audited the frontend pipeline probe after browser evidence showed its
+  timeout patch was installed as an unevaluated arrow expression.
+- Reproduction: invoking the same body as an IIFE sets a page marker. A page
+  init script survives later navigations, so installing it on the shared
+  profile page can also alter unrelated checks.
+- Implementation: the pipeline state-machine check now runs on a disposable
+  page, installs and verifies the invoked timeout patch there, and closes the
+  page on both success and failure. The profile page remains clean for the
+  later scale checks.
+- Validation: focused frontend-gate unit tests -- **15 passed**. Full
+  `pytest -q` -- **865 passed**, 3 warnings. The frontend gate reports
+  20 checks passed in 29 runs across desktop, mobile, and wide touch.
+  All pre-commit hooks and `doc_state_sync.py --check` pass.
+
 ### 2026-08-28 - Index width, scale, and small-text refinement (side-task)
 
 - Scope: applied the owner-review amendment to the migrated Home composition

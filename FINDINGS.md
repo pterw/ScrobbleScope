@@ -72,6 +72,28 @@ Source: owner report and production/browser differential, 2026-08-28.
 
 ---
 
+### F-B21-28: cached heatmap completion snaps from loading to a fully drawn result
+
+When a saved heatmap job is already complete, the client sees 100 percent,
+builds the complete result, hides the loading stage, and starts three nested
+result fades in the same turn. The reader receives no painted handoff and the
+whole screen appears at once. The loading phase also duplicates the `Pages
+fetched` stat's page count, and its later detail claims "Building one day at a
+time" after aggregation has already happened.
+
+Keep the determinate hairline driven by the backend percentage, make the
+stat the only page-count presentation, and crossfade exactly one prepared
+result root with the loading stage. Use opacity and transforms only; retain a
+motion-free direct result for reduced-motion readers. Replace the normal
+loading route's `Back home` link with an honest `Cancel and return home`
+control on both workflows. It returns home and does not cancel the background
+job.
+
+Status: resolved locally; deploy before the next production release.
+Source: owner visual review and Impeccable performance finding, 2026-08-28.
+
+---
+
 ### F-B21-27: private Last.fm profiles start jobs they cannot complete
 
 The index validates only `user.getinfo`, which may confirm that a Last.fm

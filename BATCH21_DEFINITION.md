@@ -73,6 +73,13 @@ stylesheet is in scope for this batch.
    **Progress signal revised 2026-08-27 (owner).** Keep the animated pinwheel,
    then place one slim determinate purple hairline directly below it. The
    polling percentage drives the hairline; do not print a second percentage.
+   **Loading clarity addendum 2026-08-28 (owner).** The phase line names the
+   current operation; it does not repeat a known page count that the `Pages
+   fetched` stat already owns. The normal-state `Cancel and return home`
+   control navigates home; it does not claim to stop the server job. When a
+   cached heatmap is ready, render its DOM first and use one short
+   opacity-only handoff from loading to result rather than a snap or nested
+   fades.
 2. **Welcome modal (WP-3): DELETE.** The hero replaces it; Info button
    becomes a small about panel.
 3. **`limit_results` control (WP-3): KEEP**, as a visible field in the

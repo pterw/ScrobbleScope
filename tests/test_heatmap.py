@@ -493,8 +493,12 @@ class TestFetchAndProcessHeatmap:
 
         def _capture_progress(job_id, **kwargs):
             if "progress" in kwargs:
-                progress_calls.append(kwargs["progress"])
+                progress_calls.append(kwargs)
             return True
+
+        async def _fetch_with_progress(*_args, **kwargs):
+            kwargs["progress_cb"](1, 1)
+            return [page], meta
 
         with (
             patch("scrobblescope.heatmap.cleanup_expired_cache"),
@@ -507,18 +511,42 @@ class TestFetchAndProcessHeatmap:
             patch(
                 "scrobblescope.heatmap.fetch_all_recent_tracks_async",
                 new_callable=AsyncMock,
-                return_value=([page], meta),
+                side_effect=_fetch_with_progress,
             ),
             patch("scrobblescope.heatmap.set_job_results"),
             patch("scrobblescope.heatmap.set_job_error"),
         ):
             await _fetch_and_process_heatmap("job-5", "progressuser")
 
-        # Should include 0 (init), 5 (pre-fetch), 80 (aggregation), 100 (done).
-        assert 0 in progress_calls
-        assert 5 in progress_calls
-        assert 80 in progress_calls
-        assert 100 in progress_calls
+        # The phase owns the operation name; the live statistic owns N / T.
+        assert {
+            "progress": 0,
+            "message": "Initializing heatmap...",
+            "error": False,
+            "reset_stats": True,
+        } in progress_calls
+        assert {
+            "progress": 5,
+            "message": "Fetching your scrobble history from Last.fm...",
+            "error": False,
+        } in progress_calls
+        assert {
+            "progress": 80,
+            "message": "Counting your daily scrobbles...",
+        } in progress_calls
+        assert {
+            "progress": 100,
+            "message": "Heatmap ready!",
+            "error": False,
+        } in progress_calls
+        page_calls = [
+            update
+            for update in progress_calls
+            if update.get("message") == "Reading your Last.fm history..."
+        ]
+        assert page_calls == [
+            {"progress": 80, "message": "Reading your Last.fm history..."}
+        ]
 
 
 # ===========================================================================

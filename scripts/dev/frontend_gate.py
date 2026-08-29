@@ -1373,6 +1373,11 @@ def check_loading_composition(page, base_url: str) -> list[str]:
             trackTop: track.top,
             phaseTop: phase.top,
             fill: getComputedStyle(document.querySelector('#progress-bar')).backgroundColor,
+            fillTransform: getComputedStyle(document.querySelector('#progress-bar')).transform,
+            cancel: {
+              href: document.querySelector('.loading-back')?.getAttribute('href'),
+              text: document.querySelector('.loading-back')?.textContent?.trim(),
+            },
             primary: document.documentElement.dataset.theme === 'dark'
               ? 'rgb(179, 157, 222)'
               : 'rgb(106, 75, 175)',
@@ -1397,6 +1402,12 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         failures.append(
             f"/loading progress fill is {geometry['fill']}, expected {geometry['primary']}"
         )
+    if geometry["fillTransform"] == "none":
+        failures.append(
+            "/loading progress fill still animates layout instead of transform"
+        )
+    if geometry["cancel"] != {"href": "/", "text": "Cancel and return home"}:
+        failures.append("/loading has no honest Cancel and return home control")
 
     # Use a disposable job. Opening an explicit Heatmap job intentionally
     # stores it in the browser session; deleting it afterward lets the next
@@ -1408,7 +1419,7 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     set_job_progress(
         heatmap_job_id,
         progress=48,
-        message="Fetching Last.fm page 7/12...",
+        message="Reading your Last.fm history...",
         error=False,
     )
     try:
@@ -1420,7 +1431,12 @@ def check_loading_composition(page, base_url: str) -> list[str]:
                     ?.getAttribute('aria-valuenow'),
                 pages: document.querySelector('#heatmap-stat-pages')?.textContent,
                 parameters: document.querySelectorAll('.heatmap-loading__params li').length,
-                backHome: document.querySelector('.heatmap-loading__back')?.getAttribute('href'),
+                phase: document.querySelector('#heatmap-progress-text')?.textContent?.trim(),
+                fillTransform: getComputedStyle(document.querySelector('#heatmap-progress-bar')).transform,
+                cancel: {
+                  href: document.querySelector('.heatmap-loading__back')?.getAttribute('href'),
+                  text: document.querySelector('.heatmap-loading__back')?.textContent?.trim(),
+                },
             })"""
         )
     finally:
@@ -1431,8 +1447,14 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         failures.append("/heatmap did not render live page-fetch depth")
     if heatmap_state["parameters"] != 3:
         failures.append("/heatmap did not retain its loading parameters")
-    if heatmap_state["backHome"] != "/":
-        failures.append("/heatmap loading state has no route-backed home escape")
+    if heatmap_state["phase"] != "Reading your Last.fm history...":
+        failures.append("/heatmap phase does not name the current operation")
+    if heatmap_state["fillTransform"] == "none":
+        failures.append(
+            "/heatmap progress fill still animates layout instead of transform"
+        )
+    if heatmap_state["cancel"] != {"href": "/", "text": "Cancel and return home"}:
+        failures.append("/heatmap has no honest Cancel and return home control")
     return failures
 
 
@@ -1742,7 +1764,17 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     )
     set_job_progress(heatmap_job_id, progress=100, message="Done", error=False)
     page.goto(f"{base_url}{heatmap_path}", wait_until="load")
+    page.locator("#heatmap-result.is-handing-off").wait_for(state="visible")
+    handoff_state = page.evaluate(
+        """() => ({
+            root: document.querySelector('#heatmap-result')?.classList.contains('heatmap-fade'),
+            headline: document.querySelector('#heatmap-result-headline')?.classList.contains('heatmap-fade'),
+            frame: document.querySelector('#heatmap-result-frame')?.classList.contains('heatmap-fade'),
+        })"""
+    )
     page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+    if handoff_state != {"root": True, "headline": False, "frame": False}:
+        failures.append("cached heatmap result does not use one root handoff")
     header_wordmark_display = page.locator(".site-header__home").evaluate(
         "element => getComputedStyle(element).display"
     )
