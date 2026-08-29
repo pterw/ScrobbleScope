@@ -20,7 +20,7 @@
     --shell-accent: #6a4baf;
     --shell-accent-ink: #ffffff;
     --shell-border: rgba(26, 24, 32, 0.12);
-    --shell-height: 4.25rem;
+    --shell-height: 4.75rem;
     /* The same stack as --font-sans in tailwind.src.css, repeated because an
        unmigrated page never loads the compiled sheet and would resolve
        var(--font-sans) to nothing. This file already duplicates the palette
@@ -133,7 +133,7 @@ body {
 .site-header__nav {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
+    gap: 0.75rem;
     margin-left: auto;
 }
 
@@ -141,9 +141,9 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: clamp(5.5rem, 7vw, 7rem);
-    min-height: 2.75rem;
-    padding: 0 1.125rem;
+    min-width: clamp(5.75rem, 7.25vw, 7.25rem);
+    min-height: 3rem;
+    padding: 0 1.25rem;
     border: 1px solid var(--shell-border);
     border-radius: 0.625rem;
     color: var(--shell-muted);
@@ -157,11 +157,6 @@ body {
     white-space: nowrap;
     transition: color 160ms ease, border-color 160ms ease,
         background-color 160ms ease;
-}
-
-/* Home/Heatmap are entry points; Results/Unmatched are the album report pair. */
-.site-header__nav-link:nth-child(3) {
-    margin-left: 0.375rem;
 }
 
 .site-header__nav-link:hover {
@@ -440,7 +435,7 @@ body {
     line-height: 1;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    min-height: 2.75rem;
+    min-height: 3rem;
     margin: 0;
     cursor: pointer;
     user-select: none;
@@ -450,7 +445,7 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 2.25rem;
+    min-height: 2.5rem;
     padding: 0 0.8rem;
     border-radius: 999px;
     transition: color 160ms ease, background-color 160ms ease;
@@ -569,9 +564,6 @@ body {
         font-size: 0.6875rem;
     }
 
-    .site-header__nav-link:nth-child(3) {
-        margin-left: 0;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {

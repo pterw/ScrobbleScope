@@ -13,8 +13,9 @@ and F-B18-12 and filed F-B21-14 through F-B21-20. The owner's review of the
 deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
 F-B21-23 and F-B21-24, and the workflow review that followed it added
 F-B21-25. The production differential on 2026-08-28 added F-B21-26 and the
-private-profile submission defect F-B21-27. The canonical routing and
-navigation prerequisite and WP-4 unified loading rebuild are complete;
+private-profile submission defect F-B21-27. Recent owner review also filed
+F-B21-28 and F-B21-29. The canonical routing and navigation prerequisite and
+WP-4 unified loading rebuild are complete;
 **WP-5 is next.**
 870 tests across 40 test modules.
 
@@ -91,6 +92,25 @@ job.
 
 Status: resolved locally; deploy before the next production release.
 Source: owner visual review and Impeccable performance finding, 2026-08-28.
+
+---
+
+### F-B21-29: wide-index form ignores the shared composition cap
+
+At the wide-desktop breakpoint, `.index-form__inner` resets its 23.75rem cap
+to `none` while the hero remains constrained. The form then fills the entire
+right well instead of scaling as one composition, producing the owner-reported
+oversized card and unstable side gutters. The shared header uses 44px page
+links inside a 68px bar with narrow inter-link gaps, making the desktop
+navigation feel cramped at browser zoom.
+
+Restore the scaled form cap and centre it in symmetric inline padding. Give
+the desktop header links and theme control a 48px target inside a taller bar
+with one consistent sibling gap. Do not apply the hero scale to the header or
+change the compact mobile shell.
+
+Status: resolved locally; deploy before the next production release.
+Source: owner browser review, 2026-08-29.
 
 ---
 
