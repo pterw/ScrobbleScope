@@ -1341,12 +1341,12 @@ def check_loading_composition(page, base_url: str) -> list[str]:
 
 
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
-    """Larger desktop canvases preserve the established 1080p scale.
+    """Prove the shared wide-desktop scale and fixed form gutters.
 
-    Responsive placement may use the extra room, but the wordmark, type,
-    navigation, form, and controls must not independently inflate. This is a
-    CSS-pixel comparison: it protects proportions without pretending that
-    browser or operating-system display scaling belongs to the page.
+    The CSS viewport determines the proportional scale. Browser and operating
+    system zoom therefore reflow the page instead of receiving a second page
+    scale. Navigation remains shell-sized while the hero and form grow as one
+    composition, with the form card ending at the column's fixed side padding.
     """
     original_viewport = page.viewport_size
     selectors = {
@@ -1359,16 +1359,15 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "mode tab": ".mode-pill",
         "page navigation": ".site-header__nav-link",
     }
-    dimensions = {
-        "hero composition": ("zoom",),
-        "form composition": ("zoom",),
+    scalable_dimensions = {
         "wordmark": ("width", "height"),
-        # A heading is a flow box: its available width follows the responsive
-        # column while its type scale stays fixed.
+        "input": ("height",),
+        "mode tab": ("height",),
+    }
+    fixed_dimensions = {
+        # A heading inherits the shared composition scale through its parent;
+        # getComputedStyle reports its authored size, which stays relative.
         "headline": ("fontSize",),
-        "form": ("width",),
-        "input": ("width", "height", "fontSize"),
-        "mode tab": ("width", "height", "fontSize"),
         "page navigation": ("width", "height", "fontSize"),
     }
 
@@ -1399,10 +1398,20 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 const hero = document.querySelector('.index-hero');
                 const application = document.querySelector('.index-form');
                 const form = document.querySelector('.index-form__inner');
+                const card = document.querySelector('.ss-card');
+                const style = getComputedStyle(application);
+                const formRect = form.getBoundingClientRect();
                 return {
                     heroWidth: hero.getBoundingClientRect().width,
                     applicationWidth: application.getBoundingClientRect().width,
-                    formWidth: form.getBoundingClientRect().width,
+                    formLeft: application.getBoundingClientRect().left,
+                    formRight: application.getBoundingClientRect().right,
+                    formInnerLeft: formRect.left,
+                    formInnerRight: formRect.right,
+                    cardLeft: card.getBoundingClientRect().left,
+                    cardRight: card.getBoundingClientRect().right,
+                    paddingLeft: parseFloat(style.paddingLeft),
+                    paddingRight: parseFloat(style.paddingRight),
                 };
             }"""
         )
@@ -1429,9 +1438,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
 
     try:
         at_1080p = measure(1920, 1080)
-        wide_layout = measure_wide_layout()
+        layout_1080p = measure_wide_layout()
         at_1440p = measure(2560, 1440)
+        layout_1440p = measure_wide_layout()
         at_4k = measure(3840, 2160)
+        layout_4k = measure_wide_layout()
         at_mobile = measure(390, 844)
         compact_height = measure_compact_height()
     finally:
@@ -1439,37 +1450,77 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             page.set_viewport_size(original_viewport)
 
     failures = []
-    for name in selectors:
-        baseline = at_1080p.get(name)
-        if baseline is None:
-            failures.append(f"/: {name} could not be measured at 1080p")
-            continue
-        for label, large in (("1440p", at_1440p.get(name)), ("4K", at_4k.get(name))):
-            if large is None:
+    expected_scales = {"1080p": 1.075, "1440p": 1.075 * (4 / 3), "4K": 2.15}
+    measured_sizes = {
+        "1080p": at_1080p,
+        "1440p": at_1440p,
+        "4K": at_4k,
+    }
+    for label, measurements in measured_sizes.items():
+        for name in selectors:
+            if measurements.get(name) is None:
                 failures.append(f"/: {name} could not be measured at {label}")
-                continue
-            for dimension in dimensions[name]:
-                if abs(baseline[dimension] - large[dimension]) > 0.5:
+        for name in ("hero composition", "form composition"):
+            if abs(measurements[name]["zoom"] - expected_scales[label]) > 0.001:
+                failures.append(
+                    f"/: {name} has scale {measurements[name]['zoom']:.3f} at {label}, "
+                    f"expected {expected_scales[label]:.3f}"
+                )
+    baseline_scale = expected_scales["1080p"]
+    for label in ("1440p", "4K"):
+        ratio = expected_scales[label] / baseline_scale
+        for name, dimensions in scalable_dimensions.items():
+            for dimension in dimensions:
+                expected = at_1080p[name][dimension] * ratio
+                actual = measured_sizes[label][name][dimension]
+                if abs(actual - expected) > 1.0:
                     failures.append(
-                        f"/: {name} {dimension} changes from "
-                        f"{baseline[dimension]:.1f}px at 1080p to "
-                        f"{large[dimension]:.1f}px at {label}"
+                        f"/: {name} {dimension} is {actual:.1f}px at {label}, "
+                        f"expected proportional {expected:.1f}px"
+                    )
+        for name, dimensions in fixed_dimensions.items():
+            for dimension in dimensions:
+                if (
+                    abs(
+                        at_1080p[name][dimension]
+                        - measured_sizes[label][name][dimension]
+                    )
+                    > 0.5
+                ):
+                    failures.append(
+                        f"/: {name} {dimension} changes outside the shared composition"
                     )
     for name in ("hero composition", "form composition"):
-        if abs(at_1080p[name]["zoom"] - 1.075) > 0.001:
-            failures.append(f"/: {name} is not scaled as part of the desktop layout")
         if abs(at_mobile[name]["zoom"] - 1) > 0.001:
             failures.append(f"/: {name} desktop scale leaked into the mobile layout")
 
-    split_ratio = wide_layout["applicationWidth"] / wide_layout["heroWidth"]
+    split_ratio = layout_1080p["applicationWidth"] / layout_1080p["heroWidth"]
     if abs(split_ratio - (4 / 3)) > 0.02:
         failures.append(
             f"/: wide desktop split is {split_ratio:.3f}, expected 4:3 application-to-hero"
         )
-    if not 470 <= wide_layout["formWidth"] <= 500:
-        failures.append(
-            f"/: desktop form is {wide_layout['formWidth']:.1f}px wide, expected 470-500px"
-        )
+    for label, layout in (
+        ("1080p", layout_1080p),
+        ("1440p", layout_1440p),
+        ("4K", layout_4k),
+    ):
+        if (
+            abs(layout["formInnerLeft"] - layout["formLeft"] - layout["paddingLeft"])
+            > 1
+        ):
+            failures.append(f"/: form misses its left gutter at {label}")
+        if (
+            abs(layout["formRight"] - layout["formInnerRight"] - layout["paddingRight"])
+            > 1
+        ):
+            failures.append(f"/: form misses its right gutter at {label}")
+        if (
+            abs(layout["cardLeft"] - layout["formInnerLeft"]) > 1
+            or abs(layout["cardRight"] - layout["formInnerRight"]) > 1
+        ):
+            failures.append(
+                f"/: form card does not fill the composed form width at {label}"
+            )
 
     if (
         abs(compact_height["paddingTop"] - 32) > 0.5

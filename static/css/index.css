@@ -110,7 +110,7 @@
 
   .index-hero__inner,
   .index-form__inner {
-    zoom: 1.075;
+    zoom: var(--index-wide-scale, 1.075);
   }
 
 }
@@ -219,7 +219,8 @@
 
 @media (min-width: 1200px) {
   .index-form__inner {
-    max-width: 28rem;
+    width: 100%;
+    max-width: none;
   }
 }
 
