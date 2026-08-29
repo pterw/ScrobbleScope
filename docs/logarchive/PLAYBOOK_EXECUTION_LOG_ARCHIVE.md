@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-28 - Index width, scale, and small-text refinement (side-task)
+
+- Scope: applied the owner-review amendment to the migrated Home composition
+  without changing its content order, navigation, mode transition, or mobile
+  layout.
+- Implementation: desktop widths from 1200px use a `3fr 4fr` split, a 28rem
+  form cap, and the existing shared `1.075` scale. A compact-height desktop
+  rule reduces only the form column's outer padding. The small-label floor is
+  12px, phrase-length capability text uses 0.04em tracking, and the light
+  muted token is `#6c6676` in both framework paths.
+- Contract: component sizes remain equal at 1920x1080, 2560x1440, and
+  3840x2160; larger canvases change placement, not scale. The imported design
+  snapshot remains untouched, with the amendment recorded in
+  `docs/design/RECONCILIATION.md` and F-B21-24 resolved.
+- Validation: focused template and build tests -- 100 passed. Full `pytest -q`
+  -- **864 passed**, 3 warnings. The frontend gate reports 20 checks passed in
+  29 runs across desktop, mobile, and wide touch. `doc_state_sync.py --check`
+  passes.
+
 ### 2026-08-28 - Wide index gap tightened (side-task)
 
 - Scope: corrected the oversized visual void between the scaled hero lockup

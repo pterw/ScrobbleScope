@@ -805,6 +805,44 @@ def check_private_profile_is_blocked(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_index_entrance_motion(page, base_url: str) -> list[str]:
+    """The index composition enters once, while reduced motion stays visible."""
+    failures = []
+    try:
+        page.emulate_media(reduced_motion="no-preference")
+        page.goto(f"{base_url}/", wait_until="load")
+        standard = page.locator("#index-grid").evaluate(
+            """element => {
+                const style = getComputedStyle(element);
+                return {
+                    name: style.animationName,
+                    duration: style.animationDuration,
+                    delay: style.animationDelay,
+                };
+            }"""
+        )
+        if standard != {
+            "name": "ss-index-page-enter",
+            "duration": "1.2s",
+            "delay": "0.2s",
+        }:
+            failures.append(f"index entrance motion is {standard!r}")
+
+        page.emulate_media(reduced_motion="reduce")
+        page.goto(f"{base_url}/", wait_until="load")
+        reduced = page.locator("#index-grid").evaluate(
+            """element => {
+                const style = getComputedStyle(element);
+                return {name: style.animationName, opacity: style.opacity};
+            }"""
+        )
+        if reduced != {"name": "none", "opacity": "1"}:
+            failures.append(f"reduced-motion index entrance is {reduced!r}")
+    finally:
+        page.emulate_media(reduced_motion="no-preference")
+    return failures
+
+
 def check_mark_follows_theme(page, base_url: str) -> list[str]:
     """Every ScrobbleScope mark on a migrated page recolours with the theme.
 
@@ -1769,6 +1807,7 @@ CHECKS = (
     ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
     ("validation feedback", check_validation_feedback, (DESKTOP,)),
     ("private profiles", check_private_profile_is_blocked, (DESKTOP,)),
+    ("index entrance motion", check_index_entrance_motion, (DESKTOP,)),
     ("true warning survives", check_true_warning_survives, (DESKTOP,)),
     ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
     ("mark follows theme", check_mark_follows_theme, (DESKTOP,)),
