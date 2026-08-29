@@ -67,7 +67,7 @@ visible type-scale difference is the older production calibration already
 owned by F-B21-24 and corrected in the undeployed PR #220, not evidence of a
 new font-loading defect.
 
-Status: open, P0. Restore before the next production deploy.
+Status: resolved locally; deploy before the next production release.
 Source: owner report and production/browser differential, 2026-08-28.
 
 ---

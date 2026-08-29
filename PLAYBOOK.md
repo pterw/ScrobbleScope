@@ -516,6 +516,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-28 - Index page-entry fade restored (side-task)
+
+- Scope: restore the Home destination entrance lost when the Tailwind index
+  stopped loading the legacy page stylesheet.
+- Implementation: the complete index composition now fades from opacity zero
+  over 1.2 seconds after a 0.2-second delay. It does not move or resize, and
+  the existing light/dark mode transition is unchanged. Reduced-motion readers
+  receive the visible final state without an animation.
+- Validation: full `pytest -q` -- **870 passed**, 5 existing warnings. The
+  frontend gate reports 22 checks passed in 31 runs, including the
+  computed-style check in standard and reduced-motion modes.
+
 ### 2026-08-28 - Private Last.fm profiles are blocked before jobs start (side-task)
 
 - Scope: stop index submissions for profiles that hide their recent listening,
@@ -561,22 +573,3 @@ non-current operational logs. Older dated entries live in
   `pytest -q` -- **865 passed**, 3 warnings. The frontend gate reports
   20 checks passed in 29 runs across desktop, mobile, and wide touch.
   All pre-commit hooks and `doc_state_sync.py --check` pass.
-
-### 2026-08-28 - Index width, scale, and small-text refinement (side-task)
-
-- Scope: applied the owner-review amendment to the migrated Home composition
-  without changing its content order, navigation, mode transition, or mobile
-  layout.
-- Implementation: desktop widths from 1200px use a `3fr 4fr` split, a 28rem
-  form cap, and the existing shared `1.075` scale. A compact-height desktop
-  rule reduces only the form column's outer padding. The small-label floor is
-  12px, phrase-length capability text uses 0.04em tracking, and the light
-  muted token is `#6c6676` in both framework paths.
-- Contract: component sizes remain equal at 1920x1080, 2560x1440, and
-  3840x2160; larger canvases change placement, not scale. The imported design
-  snapshot remains untouched, with the amendment recorded in
-  `docs/design/RECONCILIATION.md` and F-B21-24 resolved.
-- Validation: focused template and build tests -- 100 passed. Full `pytest -q`
-  -- **864 passed**, 3 warnings. The frontend gate reports 20 checks passed in
-  29 runs across desktop, mobile, and wide touch. `doc_state_sync.py --check`
-  passes.
