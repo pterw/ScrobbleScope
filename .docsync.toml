@@ -91,6 +91,46 @@ file = "static/css/index.css"
 pattern = '@media \(min-width: ([\d.]+)px\) \{ [^}]*\.(?:index-page|index-hero|index-form) \{'
 expect = "860"
 
+# Large desktop scaling has a fixed baseline and cap, but is otherwise driven
+# by the CSS viewport. The active definition and reconciliation record must
+# agree with the runtime constants; otherwise a visually plausible scale can
+# drift away from the owner-approved monitor contract.
+[[value]]
+name = "the wide-desktop scale baseline"
+
+[[value.sites]]
+file = "static/js/index.js"
+pattern = 'WIDE_DESKTOP_BASE_SCALE = ([\d.]+)'
+expect = "1.075"
+
+[[value.sites]]
+file = "BATCH21_DEFINITION.md"
+pattern = 'factor of `([\d.]+)'
+expect = "1.075"
+
+[[value.sites]]
+file = "docs/design/RECONCILIATION.md"
+pattern = 'hero and form use `([\d.]+)'
+expect = "1.075"
+
+[[value]]
+name = "the wide-desktop scale cap"
+
+[[value.sites]]
+file = "static/js/index.js"
+pattern = 'WIDE_DESKTOP_SCALE_CAP = ([\d.]+)'
+expect = "2.15"
+
+[[value.sites]]
+file = "BATCH21_DEFINITION.md"
+pattern = 'capped at `([\d.]+)`'
+expect = "2.15"
+
+[[value.sites]]
+file = "docs/design/RECONCILIATION.md"
+pattern = 'capped at `([\d.]+)`'
+expect = "2.15"
+
 [[value.sites]]
 file = "static/css/heatmap.css"
 pattern = '@media[^{]*max-width: ([\d.]+)px'

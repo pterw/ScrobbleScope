@@ -1036,19 +1036,24 @@ The original contract capped the form at 380px and the wordmark at 560px. It
 preserved component scale, but the nearly equal split compressed the tool while
 the editorial side accumulated passive space.
 
-The owner ruling on 2026-08-28 keeps the scale invariant and changes placement:
-at 1200px and above the split is `3fr 4fr`, the form cap is 28rem, and both
-compositions retain the shared `1.075` desktop scale. A compact-height rule
-reduces only the form column's outer vertical padding. The label floor is 12px,
-phrase-length capability copy uses less tracking, and the light muted token now
-passes 4.5:1 on the sunken surface.
+The owner follow-up on 2026-08-28 keeps the desktop composition proportional:
+at 1200px and above the split is `3fr 4fr` and hero and form share
+`1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped at
+`2.15`. The form uses the form column's existing 2.75rem / 3.5rem side padding
+as its physical gutter instead of staying capped while the well grows. The
+expected factors are `1.075` at 1920x1080, about `1.433` at 2560x1440, and
+`2.15` at 3840x2160. Browser zoom reflows through the CSS viewport and does not
+apply a second page scale. A compact-height rule reduces only the form column's
+outer vertical padding. The label floor is 12px, phrase-length capability copy
+uses less tracking, and the light muted token now passes 4.5:1 on the sunken
+surface.
 
-The browser gate compares wordmark, type, form, controls, and navigation at
-1920x1080, 2560x1440, and 3840x2160. Larger screens improve placement without
-inflating individual components; the mobile breakpoint remains unchanged.
+The browser gate compares wordmark, form, controls, fixed form gutters, and
+navigation at 1920x1080, 2560x1440, and 3840x2160. The mobile breakpoint
+remains unchanged.
 
-Status: resolved by the PR #220 owner-review refinement.
-Source: owner review of the deployed merge, 2026-08-26.
+Status: resolved by the 2026-08-28 PR #220 recovery refinement.
+Source: owner large-display review, 2026-08-28.
 
 ### F-B21-25: every gate runs at commit time, so the session is unguarded
 

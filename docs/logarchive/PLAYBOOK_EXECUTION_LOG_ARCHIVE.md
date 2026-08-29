@@ -9,6 +9,25 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-28 - Proportional large-display scale restored (side-task)
+
+- Scope: corrected the index scale regression reported from 2560x1440 local
+  browser captures. The previous rule retained a fixed `1.075` zoom and a
+  28rem form cap at every desktop size, leaving a large inactive canvas on
+  high-resolution displays.
+- Implementation: at 1200px and wider, the hero and form calculate one shared
+  CSS-viewport factor: `1.075 × max(1, min(viewportWidth / 1920,
+  viewportHeight / 1080))`, capped at `2.15`. The form now fills the right
+  well to its existing 2.75rem / 3.5rem physical gutters. Navigation remains
+  shell-sized; compact-height and mobile rules are unchanged.
+- Reproduction and validation: the large-display browser check initially
+  failed at 1440p and 4K because both compositions remained at `1.075` and
+  the form missed its fixed gutters. It now passes at 1920x1080, 2560x1440,
+  and 3840x2160. Browser inspection at 2560x1440 confirmed the `1.433` scale,
+  an 803px wordmark, the fixed form gutters, and all four navigation links.
+  The full suite reports **865 passed**, 3 warnings, and the frontend gate
+  reports 20 checks passed in 29 runs across desktop, mobile, and wide touch.
+
 ### 2026-08-27 - Fresh heatmap starts separated from saved destinations (side-task)
 
 - Scope: made Home's Heatmap selector start a new run while the header Heatmap
