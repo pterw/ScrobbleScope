@@ -74,7 +74,7 @@ function updateLiveStats(stats) {
 function updateProgress(value) {
   if (typeof value !== 'number' || !progressBar || !progressTrack) return;
   const progress = Math.max(0, Math.min(100, value));
-  progressBar.style.width = `${progress}%`;
+  progressBar.style.transform = `scaleX(${progress / 100})`;
   progressTrack.setAttribute('aria-valuenow', String(progress));
   progressTrack.classList.remove('hidden');
 }

@@ -412,7 +412,8 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
     GIVEN _fetch_and_process is called
     WHEN fetch_top_albums_async invokes progress_cb per page
     THEN set_job_progress maps page progress into the 5%-20% range
-    with messages like "Fetching Last.fm page N/T...".
+    with the phase line "Reading your Last.fm history...". The detailed
+    fraction belongs exclusively to the visible `Pages fetched` statistic.
 
     Arithmetic: pct = 5 + int(15 * pages_done / total_pages)
     For 3 pages: (1,3)->10, (2,3)->15, (3,3)->20.
@@ -448,13 +449,22 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
     ):
         await _fetch_and_process(job_id, "testuser", 2025, "playcount", "all")
 
-    # Filter for the page-fetching progress calls
+    # Keep page depth out of the phase line; the UI has a dedicated stat.
     page_calls = [
         c
         for c in progress_calls
-        if "message" in c and "Fetching Last.fm page" in c["message"]
+        if c.get("message") == "Reading your Last.fm history..."
     ]
     assert len(page_calls) == 3
-    assert page_calls[0] == {"progress": 10, "message": "Fetching Last.fm page 1/3..."}
-    assert page_calls[1] == {"progress": 15, "message": "Fetching Last.fm page 2/3..."}
-    assert page_calls[2] == {"progress": 20, "message": "Fetching Last.fm page 3/3..."}
+    assert page_calls[0] == {
+        "progress": 10,
+        "message": "Reading your Last.fm history...",
+    }
+    assert page_calls[1] == {
+        "progress": 15,
+        "message": "Reading your Last.fm history...",
+    }
+    assert page_calls[2] == {
+        "progress": 20,
+        "message": "Reading your Last.fm history...",
+    }

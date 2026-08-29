@@ -8,6 +8,7 @@
   // Constants
   // ----------------------------------------------------------------
   const POLL_INTERVAL_MS = 1000;
+  const HEATMAP_HANDOFF_MS = 300;
 
   //: The heatmap window. Named because the daily average divides by it.
   const WINDOW_DAYS = 365;
@@ -201,10 +202,30 @@
 
   function revealHeatmapResult() {
     setHeatmapStageActive(true);
-    hideElement(heatmapLoading);
-    fadeIn(resultHeadline);
-    fadeIn(resultFrame);
-    fadeIn(heatmapResult);
+    resultHeadline.classList.remove('hidden', 'heatmap-fade', 'fading-out');
+    resultFrame.classList.remove('hidden', 'heatmap-fade', 'fading-out');
+    heatmapResult.classList.remove('hidden');
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      heatmapResult.classList.remove('heatmap-fade', 'fading-out', 'is-handing-off');
+      hideElement(heatmapLoading);
+      return;
+    }
+
+    // The result DOM is complete before this runs. Two frames give the browser
+    // a real loader paint before one root crossfade begins; no fake delay.
+    heatmapResult.classList.add('heatmap-fade', 'fading-out', 'is-handing-off');
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        heatmapResult.classList.remove('fading-out');
+        heatmapLoading.classList.add('heatmap-fade', 'fading-out');
+        window.setTimeout(function () {
+          hideElement(heatmapLoading);
+          heatmapLoading.classList.remove('heatmap-fade', 'fading-out');
+          heatmapResult.classList.remove('is-handing-off');
+        }, HEATMAP_HANDOFF_MS);
+      });
+    });
   }
 
   function appendKpi(label, value, subLabel) {
@@ -708,7 +729,7 @@
     hideElement(heatmapSection);
     hideElement(heatmapResult);
     hideElement(errorContainer);
-    if (progressBar) progressBar.style.width = '0%';
+    if (progressBar) progressBar.style.transform = 'scaleX(0)';
     if (progressTrack) hideElement(progressTrack);
     progressText.textContent = 'Restoring your latest heatmap...';
     resetLoadingDetails(lastUsername);
@@ -897,7 +918,7 @@
     hideElement(errorContainer);
     progressText.textContent = 'Initializing...';
     resetLoadingDetails(username);
-    if (progressBar) progressBar.style.width = '0%';
+    if (progressBar) progressBar.style.transform = 'scaleX(0)';
     if (progressTrack) {
       progressTrack.setAttribute('aria-valuenow', '0');
       hideElement(progressTrack);
@@ -1002,7 +1023,7 @@
         updateLoadingDetails(data.stats || {});
         if (typeof data.progress === 'number' && progressBar && progressTrack) {
           var progress = Math.max(0, Math.min(100, data.progress));
-          progressBar.style.width = progress + '%';
+          progressBar.style.transform = 'scaleX(' + (progress / 100) + ')';
           progressTrack.setAttribute('aria-valuenow', String(progress));
           showElement(progressTrack);
         }
@@ -1061,7 +1082,7 @@
         loadingStatScrobbles,
         Number(stats.total_scrobbles).toLocaleString()
       ) || shown;
-      if (loadingDetail) loadingDetail.textContent = 'Building one day at a time.';
+      if (loadingDetail) loadingDetail.textContent = 'Preparing your heatmap.';
     }
     if (stats.active_days !== undefined) {
       shown = revealLoadingStat(

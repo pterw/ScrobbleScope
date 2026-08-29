@@ -756,7 +756,7 @@ async def _fetch_and_process(
             set_job_progress(
                 job_id,
                 progress=pct,
-                message=f"Fetching Last.fm page {pages_done}/{total_pages}...",
+                message="Reading your Last.fm history...",
             )
 
         filtered_albums, fetch_metadata = await fetch_top_albums_async(
