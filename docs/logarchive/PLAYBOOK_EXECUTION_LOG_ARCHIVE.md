@@ -41,6 +41,26 @@ Read helpers:
   The full suite reports **865 passed**, 3 warnings, and the frontend gate
   reports 20 checks passed in 29 runs across desktop, mobile, and wide touch.
 
+### 2026-08-27 - PR #220 Graphify findings audited and gate cleanup hardened (side-task)
+
+- Scope: checked every open Codex and Graphify review thread on PR #220
+  against current source, callers, tests, Git history, and browser behaviour.
+- Review disposition: the five Codex findings are already addressed. The
+  thirteen inline Graphify coupling notices are duplicated metrics rather
+  than defects. Graphify's missing `logging` import, advisory-exit, result
+  redirect, and unmatched-route claims are disproved or deliberate contracts.
+  Two cleanup findings were valid: failed frontend-gate setup could leak its
+  temporary jobs and routes, and a failed blocked-storage probe could leave
+  its browser context open. Concurrent in-process gate contexts could also
+  overwrite the shared fixture state.
+- Implementation: `serve_app` now serialises its temporary global fixture,
+  restores prior state, and cleans jobs, routes, sockets, and threads even
+  when application or server setup fails. The blocked-storage context now
+  enters its cleanup boundary before either probe setup call.
+- Validation: focused frontend-gate unit tests -- 14 passed. `pytest -q` --
+  **864 passed**, 3 warnings. The frontend gate reports 20 checks passed in
+  29 runs across desktop, mobile, and wide touch.
+
 ### 2026-08-27 - Fresh heatmap starts separated from saved destinations (side-task)
 
 - Scope: made Home's Heatmap selector start a new run while the header Heatmap

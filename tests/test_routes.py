@@ -153,6 +153,23 @@ def test_validate_user_success(client):
     assert payload["registered_year"] == 2016
 
 
+def test_validate_user_private_profile_is_rejected(client):
+    """The index validator must turn Last.fm's private-profile verdict into a block."""
+    with patch(
+        "scrobblescope.routes.run_async_in_thread",
+        side_effect=[{"exists": True, "registered_year": 2016}, False],
+    ):
+        response = client.get(
+            "/validate_user", query_string={"username": "private_user"}
+        )
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["valid"] is False
+    assert "private" in payload["message"].lower()
+    assert "public" in payload["message"].lower()
+
+
 def test_validate_user_missing_username(client):
     """Validate endpoint should reject empty usernames."""
     response = client.get("/validate_user")
@@ -344,6 +361,22 @@ def test_results_loading_valid_post(client):
     # Verify start_job_thread was called with background_task as the target
     mock_start.assert_called_once()
     assert mock_start.call_args[0][0] is background_task
+
+
+def test_results_loading_private_profile_does_not_start_a_job(client):
+    """A direct album POST cannot bypass the index's private-profile guard."""
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            side_effect=[{"exists": True, "registered_year": None}, False],
+        ),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/results_loading", data=VALID_FORM_DATA)
+
+    assert response.status_code == 200
+    assert b"private" in response.data.lower()
+    mock_start.assert_not_called()
 
 
 def test_results_loading_missing_username(client):
@@ -1028,6 +1061,24 @@ def test_heatmap_loading_nonexistent_user(client):
     assert data["error"] is True
     assert data["error_code"] == "user_not_found"
     assert data["retryable"] is False
+
+
+def test_heatmap_loading_private_profile_does_not_start_a_job(client):
+    """The Heatmap mode on the index shares the same public-profile gate."""
+    with (
+        patch(
+            "scrobblescope.routes.run_async_in_thread",
+            side_effect=[{"exists": True, "registered_year": None}, False],
+        ),
+        patch("scrobblescope.routes.start_job_thread") as mock_start,
+    ):
+        response = client.post("/heatmap_loading", data={"username": "private_user"})
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["error_code"] == "private_profile"
+    assert "public" in data["message"].lower()
+    mock_start.assert_not_called()
 
 
 def test_heatmap_loading_no_job_slot(client):

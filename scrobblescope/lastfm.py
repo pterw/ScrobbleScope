@@ -69,6 +69,41 @@ async def check_user_exists(username):
             return {"exists": True, "registered_year": None}
 
 
+async def check_profile_is_public(username: str) -> bool:
+    """Return whether Last.fm permits access to *username*'s recent listening.
+
+    A private profile is distinct from an account with no scrobbles: Last.fm
+    answers ``user.getrecenttracks`` with HTTP 403 and error 17 only when
+    recent listening is not public. Every other failure remains an operational
+    error for the caller to handle rather than a privacy verdict.
+    """
+
+    def _is_private_profile(data: Any) -> bool:
+        return isinstance(data, dict) and str(data.get("error")) == "17"
+
+    url = "https://ws.audioscrobbler.com/2.0/"
+    params = {
+        "method": "user.getrecenttracks",
+        "user": username,
+        "api_key": LASTFM_API_KEY,
+        "format": "json",
+        "limit": 1,
+    }
+    cached_response = get_cached_response(url, params)
+    if cached_response:
+        return not _is_private_profile(cached_response)
+
+    async with create_optimized_session() as session:
+        async with session.get(url, params=params) as resp:
+            data = await resp.json()
+            if resp.status == 403 and _is_private_profile(data):
+                set_cached_response(url, data, params)
+                return False
+            resp.raise_for_status()
+            set_cached_response(url, data, params)
+            return True
+
+
 async def fetch_recent_tracks_page_async(
     session, username, from_ts, to_ts, page, retries=3, semaphore=None
 ):

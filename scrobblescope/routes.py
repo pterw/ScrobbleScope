@@ -13,7 +13,7 @@ from flask import (
 from flask_wtf.csrf import generate_csrf
 
 from scrobblescope.heatmap import heatmap_task
-from scrobblescope.lastfm import check_user_exists
+from scrobblescope.lastfm import check_profile_is_public, check_user_exists
 from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
     cleanup_expired_jobs,
@@ -32,6 +32,9 @@ bp = Blueprint("main", __name__)
 
 _LATEST_ALBUM_JOB = "latest_album_job_id"
 _LATEST_HEATMAP_JOB = "latest_heatmap_job_id"
+_PRIVATE_PROFILE_MESSAGE = (
+    "This Last.fm profile is private. Make recent listening public and try again."
+)
 
 
 def _check_user_exists(username):
@@ -39,6 +42,15 @@ def _check_user_exists(username):
 
     async def _check():
         return await check_user_exists(username)
+
+    return run_async_in_thread(_check)
+
+
+def _check_profile_is_public(username):
+    """Call the Last.fm recent-listening privacy preflight in its own thread."""
+
+    async def _check():
+        return await check_profile_is_public(username)
 
     return run_async_in_thread(_check)
 
@@ -270,6 +282,8 @@ def validate_user():
 
     try:
         result = _check_user_exists(username)
+        if result["exists"] and not _check_profile_is_public(username):
+            return jsonify({"valid": False, "message": _PRIVATE_PROFILE_MESSAGE})
     except Exception:
         logging.exception("Username validation failed")
         return (
@@ -651,6 +665,8 @@ def results_loading():
 
     try:
         user_info = _check_user_exists(username)
+        if not _check_profile_is_public(username):
+            return render_template("index.html", error=_PRIVATE_PROFILE_MESSAGE)
         registered_year = user_info.get("registered_year")
         if registered_year and year < registered_year:
             return render_template(
@@ -763,6 +779,32 @@ def heatmap_loading():
                 }
             ),
             404,
+        )
+
+    try:
+        if not _check_profile_is_public(username):
+            return (
+                jsonify(
+                    {
+                        "error": True,
+                        "error_code": "private_profile",
+                        "message": _PRIVATE_PROFILE_MESSAGE,
+                        "retryable": False,
+                    }
+                ),
+                403,
+            )
+    except Exception:
+        logging.exception("Profile privacy check failed for %s", username)
+        return (
+            jsonify(
+                {
+                    "error": True,
+                    "message": "Validation service unavailable. Try again.",
+                    "retryable": True,
+                }
+            ),
+            503,
         )
 
     cleanup_expired_jobs()

@@ -315,6 +315,14 @@ Moved in by the scope ruling:
    the shipped 14px cell and its 2px radius; take the README's gap of 2px
    desktop and 1px mobile. `--heatmap-empty` takes the README values,
    `#e8e2d6` light and `#262230` dark.
+3. **The index accepts public listening histories only.** Before either the
+   album or heatmap pipeline accepts a username, a one-track
+   `user.getrecenttracks` preflight must identify Last.fm error `17` / HTTP
+   `403` as a private profile. The field explains how to make recent listening
+   public and native validation prevents the album form from submitting.
+   Both start routes enforce the same rule so a direct request cannot start a
+   job. An empty but public history remains a valid submission and reaches its
+   existing empty-state handling.
 
 `feat(ui): rebuild index page on tailwind`
 

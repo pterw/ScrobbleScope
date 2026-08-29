@@ -516,6 +516,19 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-28 - Private Last.fm profiles are blocked before jobs start (side-task)
+
+- Scope: stop index submissions for profiles that hide their recent listening,
+  rather than reporting a misleading empty result after a job starts.
+- Implementation: preflight `user.getrecenttracks` with a one-item request;
+  Last.fm's 403/error-17 verdict blocks both index modes in the browser and
+  both loading routes on the server. Public accounts with an empty history
+  remain eligible.
+- Validation: focused service and route tests -- **92 passed**, 5 existing
+  warnings. Full `pytest -q` -- **870 passed**, 5 existing warnings. The
+  frontend gate reports 21 checks passed in 30 runs, including both forms
+  against the same private-profile response.
+
 ### 2026-08-28 - Index entrance-motion regression filed (side-task)
 
 - Scope: compared the deployed index, the locally served primary checkout,
@@ -567,23 +580,3 @@ non-current operational logs. Older dated entries live in
   -- **864 passed**, 3 warnings. The frontend gate reports 20 checks passed in
   29 runs across desktop, mobile, and wide touch. `doc_state_sync.py --check`
   passes.
-
-### 2026-08-27 - PR #220 Graphify findings audited and gate cleanup hardened (side-task)
-
-- Scope: checked every open Codex and Graphify review thread on PR #220
-  against current source, callers, tests, Git history, and browser behaviour.
-- Review disposition: the five Codex findings are already addressed. The
-  thirteen inline Graphify coupling notices are duplicated metrics rather
-  than defects. Graphify's missing `logging` import, advisory-exit, result
-  redirect, and unmatched-route claims are disproved or deliberate contracts.
-  Two cleanup findings were valid: failed frontend-gate setup could leak its
-  temporary jobs and routes, and a failed blocked-storage probe could leave
-  its browser context open. Concurrent in-process gate contexts could also
-  overwrite the shared fixture state.
-- Implementation: `serve_app` now serialises its temporary global fixture,
-  restores prior state, and cleans jobs, routes, sockets, and threads even
-  when application or server setup fails. The blocked-storage context now
-  enters its cleanup boundary before either probe setup call.
-- Validation: focused frontend-gate unit tests -- 14 passed. `pytest -q` --
-  **864 passed**, 3 warnings. The frontend gate reports 20 checks passed in
-  29 runs across desktop, mobile, and wide touch.

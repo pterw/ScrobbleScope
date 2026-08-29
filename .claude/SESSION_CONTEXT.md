@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-08-27
+Last updated: 2026-08-28
 
 ---
 
@@ -9,7 +9,7 @@ Last updated: 2026-08-27
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **865 passing** across 40 test modules |
+| Tests | **870 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -40,7 +40,7 @@ Last updated: 2026-08-27
 - Current-batch entries in active log block: 7.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
 - Next expected work package: WP-5.
-- Latest validated test count: **865 passed**.
+- Latest validated test count: **870 passed**.
 - Newest current-batch entry: 2026-08-27 - Unified loading and recent-result recovery completed (Batch 21 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -179,7 +179,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (865 tests)
+## 6. Test structure (870 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

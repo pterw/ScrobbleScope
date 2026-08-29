@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from scrobblescope.lastfm import (
+    check_profile_is_public,
     check_user_exists,
     fetch_all_recent_tracks_async,
     fetch_recent_tracks_page_async,
@@ -48,6 +49,36 @@ async def test_check_user_does_not_exist():
         result = await check_user_exists("nonexistent_user")
         assert result["exists"] is False
         assert result["registered_year"] is None
+
+
+@pytest.mark.asyncio
+async def test_check_profile_is_public_rejects_lastfm_private_profile():
+    """Last.fm error 17 means a profile hides its recent listening history."""
+    with patch("aiohttp.ClientSession.get") as mock_get:
+        mock_response = AsyncMock()
+        mock_response.status = 403
+        mock_response.json.return_value = {
+            "error": 17,
+            "message": "Login: User required to be logged in",
+        }
+        mock_get.return_value.__aenter__.return_value = mock_response
+
+        with patch("scrobblescope.lastfm.get_cached_response", return_value=None):
+            assert await check_profile_is_public("private_user") is False
+
+
+@pytest.mark.asyncio
+async def test_check_profile_is_public_allows_empty_public_history():
+    """A public account remains eligible even when it has no scrobbles yet."""
+    with patch("aiohttp.ClientSession.get") as mock_get:
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json.return_value = {"recenttracks": {"track": []}}
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value.__aenter__.return_value = mock_response
+
+        with patch("scrobblescope.lastfm.get_cached_response", return_value=None):
+            assert await check_profile_is_public("empty_public_user") is True
 
 
 @pytest.mark.asyncio
