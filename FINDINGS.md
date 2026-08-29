@@ -14,10 +14,10 @@ deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
 F-B21-23 and F-B21-24, and the workflow review that followed it added
 F-B21-25. The production differential on 2026-08-28 added F-B21-26 and the
 private-profile submission defect F-B21-27. Recent owner review also filed
-F-B21-28 and F-B21-29. The canonical routing and navigation prerequisite and
-WP-4 unified loading rebuild are complete;
+F-B21-28 through F-B21-30. The canonical routing and navigation prerequisite
+and WP-4 unified loading rebuild are complete;
 **WP-5 is next.**
-870 tests across 40 test modules.
+871 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -108,6 +108,22 @@ Restore the scaled form cap and centre it in symmetric inline padding. Give
 the desktop header links and theme control a 48px target inside a taller bar
 with one consistent sibling gap. Do not apply the hero scale to the header or
 change the compact mobile shell.
+
+Status: resolved locally; deploy before the next production release.
+Source: owner browser review, 2026-08-29.
+
+---
+
+### F-B21-30: unmatched report describes zero rows as a populated exclusion list
+
+The unmatched route passes `total_count=0` correctly, but its template always
+states that albums were found and did not match the filter. The following
+total of zero contradicts that claim and makes a successful no-unmatched state
+look like a backend error.
+
+When the count is zero, render a direct no-unmatched state and retain the
+search settings plus existing navigation actions. Do not change the route,
+the API, or the job's unmatched payload; this is a presentation condition.
 
 Status: resolved locally; deploy before the next production release.
 Source: owner browser review, 2026-08-29.

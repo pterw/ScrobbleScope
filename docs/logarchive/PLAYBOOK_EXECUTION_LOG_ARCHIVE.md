@@ -9,6 +9,19 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-28 - Private Last.fm profiles are blocked before jobs start (side-task)
+
+- Scope: stop index submissions for profiles that hide their recent listening,
+  rather than reporting a misleading empty result after a job starts.
+- Implementation: preflight `user.getrecenttracks` with a one-item request;
+  Last.fm's 403/error-17 verdict blocks both index modes in the browser and
+  both loading routes on the server. Public accounts with an empty history
+  remain eligible.
+- Validation: focused service and route tests -- **92 passed**, 5 existing
+  warnings. Full `pytest -q` -- **870 passed**, 5 existing warnings. The
+  frontend gate reports 21 checks passed in 30 runs, including both forms
+  against the same private-profile response.
+
 ### 2026-08-28 - Index entrance-motion regression filed (side-task)
 
 - Scope: compared the deployed index, the locally served primary checkout,

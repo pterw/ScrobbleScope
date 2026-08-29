@@ -735,6 +735,19 @@ def test_unmatched_page_uses_job_context_at_canonical_url(client):
     assert b"Artist A" in resumed.data
 
 
+def test_unmatched_page_with_zero_rows_renders_a_clear_empty_state(client):
+    """A zero unmatched count must not be described as a populated report."""
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    response = client.get(f"/unmatched?job_id={job_id}")
+
+    assert response.status_code == 200
+    assert b"No unmatched albums to review" in response.data
+    assert b"These albums were found in your" not in response.data
+    assert b"Total albums that didn&#39;t match" not in response.data
+    assert b'href="/results"' in response.data
+
+
 def test_job_backed_navigation_pages_have_friendly_empty_states(client):
     """Direct navigation before a search should guide the user home."""
     results_response = client.get("/results")

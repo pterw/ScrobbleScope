@@ -16,7 +16,9 @@
                 </div>
             </div>
 
-            <h1 class="text-center mb-4">Albums That Didn't Match Your Filter</h1>
+            <h1 class="text-center mb-4">
+                {% if total_count %}Albums That Didn't Match Your Filter{% else %}No Unmatched Albums{% endif %}
+            </h1>
 
             <div class="action-buttons">
                 <a href="{{ url_for('main.results') }}" class="btn btn-primary">Back to Results</a>
@@ -26,6 +28,7 @@
             <div class="card shadow-sm fade-in">
                 <div class="card-body">
                     <div class="info-card">
+                        {% if total_count %}
                         <h5>Filter Information</h5>
                         <p>These albums were found in your {{ year }} listening history but didn't match your filter criteria:</p>
                         <ul>
@@ -35,6 +38,16 @@
                             <li><strong>Album Thresholds:</strong> Minimum {{ min_plays }} plays and {{ min_tracks }} unique tracks</li>
                         </ul>
                         <p>Total albums that didn't match: <strong>{{ total_count }}</strong></p>
+                        {% else %}
+                        <h5>No unmatched albums to review</h5>
+                        <p>This search has no albums that need an unmatched review.</p>
+                        <ul>
+                            <li><strong>Username:</strong> {{ username }}</li>
+                            <li><strong>Listening Year:</strong> {{ year }}</li>
+                            <li><strong>Filter:</strong> Albums from {{ filter_desc }}</li>
+                            <li><strong>Album Thresholds:</strong> Minimum {{ min_plays }} plays and {{ min_tracks }} unique tracks</li>
+                        </ul>
+                        {% endif %}
                     </div>
 
                     {% for reason, albums in reasons.items() %}
