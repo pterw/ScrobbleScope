@@ -12,10 +12,11 @@ F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11
 and F-B18-12 and filed F-B21-14 through F-B21-20. The owner's review of the
 deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
 F-B21-23 and F-B21-24, and the workflow review that followed it added
-F-B21-25. The production differential on 2026-08-28 added F-B21-26. The
-canonical routing and navigation prerequisite and WP-4 unified loading rebuild
-are complete; **WP-5 is next.**
-865 tests across 40 test modules.
+F-B21-25. The production differential on 2026-08-28 added F-B21-26 and the
+private-profile submission defect F-B21-27. The canonical routing and
+navigation prerequisite and WP-4 unified loading rebuild are complete;
+**WP-5 is next.**
+870 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -68,6 +69,26 @@ new font-loading defect.
 
 Status: open, P0. Restore before the next production deploy.
 Source: owner report and production/browser differential, 2026-08-28.
+
+---
+
+### F-B21-27: private Last.fm profiles start jobs they cannot complete
+
+The index validates only `user.getinfo`, which may confirm that a Last.fm
+account exists while its recent listening remains private. The later
+`user.getrecenttracks` call returns Last.fm error `17` with HTTP `403` for
+that privacy setting. The heatmap then presents a misleading zero-scrobble
+state after it has already started work.
+
+Preflight `user.getrecenttracks` with `limit=1` during username validation.
+Classify exactly error `17` / `403` as a private profile, tell the reader to
+make recent listening public, and prevent submission. Enforce the same result
+in both start routes; other failed responses remain service failures rather
+than privacy claims. Do not reject a public profile simply because it has no
+listening history.
+
+Status: resolved locally; deploy before the next production release.
+Source: owner report and Last.fm API response classification, 2026-08-28.
 
 ---
 

@@ -747,6 +747,64 @@ def check_validation_feedback(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_private_profile_is_blocked(page, base_url: str) -> list[str]:
+    """A private-profile verdict blocks both forms on the index before submit.
+
+    The backend owns the Last.fm error-17 classification. This browser check
+    supplies that result at the network boundary and proves the shared index
+    validation UI turns it into an actionable message and native form block.
+    """
+    fields = (
+        ("/", "#username", ()),
+        ("/", "#heatmap-username", (("click", "#mode-tab-heatmap"),)),
+    )
+    message = (
+        "This Last.fm profile is private. Make recent listening public and try again."
+    )
+    failures = []
+    page.route(
+        "**/validate_user*",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=f'{{"valid": false, "message": "{message}"}}',
+        ),
+    )
+    try:
+        for path, selector, actions in fields:
+            page.goto(f"{base_url}{path}", wait_until="load")
+            _reach_state(page, actions)
+            page.locator(selector).type("private_profile")
+            page.locator(selector).blur()
+            page.wait_for_function(
+                """(selector) => {
+                    const input = document.querySelector(selector);
+                    return input && !input.checkValidity();
+                }""",
+                arg=selector,
+            )
+            state = page.evaluate(
+                """(selector) => {
+                    const input = document.querySelector(selector);
+                    const error = input.parentNode.querySelector('.field__error');
+                    return {
+                        blocked: !input.checkValidity(),
+                        message: error ? error.textContent.trim() : '',
+                    };
+                }""",
+                selector,
+            )
+            if not state["blocked"]:
+                failures.append(f"{path} {selector}: private profile can submit")
+            if state["message"] != message:
+                failures.append(
+                    f"{path} {selector}: private-profile message is {state['message']!r}"
+                )
+    finally:
+        page.unroute("**/validate_user*")
+    return failures
+
+
 def check_mark_follows_theme(page, base_url: str) -> list[str]:
     """Every ScrobbleScope mark on a migrated page recolours with the theme.
 
@@ -1710,6 +1768,7 @@ CHECKS = (
     ("loading composition", check_loading_composition, (DESKTOP, MOBILE)),
     ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
     ("validation feedback", check_validation_feedback, (DESKTOP,)),
+    ("private profiles", check_private_profile_is_blocked, (DESKTOP,)),
     ("true warning survives", check_true_warning_survives, (DESKTOP,)),
     ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
     ("mark follows theme", check_mark_follows_theme, (DESKTOP,)),
