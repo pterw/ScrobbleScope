@@ -189,7 +189,14 @@ def test_text_scaling_check_restores_the_page_root() -> None:
         def evaluate(self, script, arg=None):
             if "style.fontSize = '20px'" in script:
                 self.root_font_size = "20px"
-                return {"height": 85.0, "expected": 85.0}
+                return {
+                    "height": 95.0,
+                    "expected": 95.0,
+                    "navTarget": 60.0,
+                    "expectedTarget": 60.0,
+                    "navGap": 15.0,
+                    "expectedGap": 15.0,
+                }
             if "style.fontSize = fontSize" in script:
                 self.root_font_size = arg
                 return None

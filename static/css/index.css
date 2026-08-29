@@ -216,7 +216,7 @@
 
 @media (min-width: 860px) {
   .index-form {
-    padding: 3.25rem 3.5rem 3.5rem 2.75rem;
+    padding: 3.25rem 3.25rem 3.5rem;
     background-color: var(--ss-surface-sunken);
     border-left: 1px solid var(--ss-border-default);
     /* The well runs the height of the page, not the height of the form. */
@@ -231,13 +231,6 @@
   width: 100%;
   max-width: 23.75rem;
   margin: 0 auto;
-}
-
-@media (min-width: 1200px) {
-  .index-form__inner {
-    width: 100%;
-    max-width: none;
-  }
 }
 
 @media (min-width: 1200px) and (max-height: 900px) {

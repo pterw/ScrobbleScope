@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-28 - Index entrance-motion regression filed (side-task)
+
+- Scope: compared the deployed index, the locally served primary checkout,
+  the active PR #220 worktree, source history, computed browser styles, and
+  production asset identities after the owner reported a large regression.
+- Finding: filed F-B21-26 as P0. The Tailwind index opts out of `global.css`,
+  which owned the old card and logo entrance fades, and no Tailwind-owned
+  page-entry replacement exists. PR #220's mode-copy cross-fade is separate
+  and does not restore the page-entry behaviour.
+- Deployment and font disposition: production serves the `1bf888f`
+  `origin/main` assets from PR #218, not PR #220. The local server also ran
+  the stale primary checkout. Deployed Adobe faces loaded successfully; the
+  visible type-scale difference remains F-B21-24 and is corrected in the
+  undeployed PR #220 calibration.
+- Implementation: documentation only. No application code or deployment was
+  changed; F-B21-26 owns the required motion restoration and browser check.
+
 ### 2026-08-28 - PR #220 timer-probe review remediated (side-task)
 
 - Scope: audited the frontend pipeline probe after browser evidence showed its

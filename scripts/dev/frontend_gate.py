@@ -1325,7 +1325,7 @@ def check_body_font(page, base_url: str) -> list[str]:
 
 
 def check_shell_scales_with_text(page, base_url: str) -> list[str]:
-    """The header grows with root text without changing the shared page."""
+    """The desktop header leaves readable air around its global controls."""
     page.goto(f"{base_url}/", wait_until="load")
     previous_font_size = page.evaluate("() => document.documentElement.style.fontSize")
     try:
@@ -1336,7 +1336,12 @@ def check_shell_scales_with_text(page, base_url: str) -> list[str]:
                 return {
                     height: document.querySelector('.site-header')
                         .getBoundingClientRect().height,
-                    expected: (mobile ? 3.75 : 4.25) * 20,
+                    navGap: parseFloat(getComputedStyle(document.querySelector('.site-header__nav')).gap),
+                    navTarget: document.querySelector('.site-header__nav-link')
+                        .getBoundingClientRect().height,
+                    expected: (mobile ? 3.75 : 4.75) * 20,
+                    expectedTarget: mobile ? 55 : 60,
+                    expectedGap: mobile ? 4.8 : 15,
                 };
             }"""
         )
@@ -1349,6 +1354,16 @@ def check_shell_scales_with_text(page, base_url: str) -> list[str]:
         return [
             f"/ .site-header: 20px root text produced {state['height']}px height, "
             f"expected {state['expected']}px"
+        ]
+    if state["navTarget"] < state["expectedTarget"] - 0.1:
+        return [
+            f"/ .site-header nav target is {state['navTarget']}px, "
+            f"expected at least {state['expectedTarget']}px"
+        ]
+    if state["navGap"] < state["expectedGap"] - 0.1:
+        return [
+            f"/ .site-header nav gap is {state['navGap']}px, "
+            f"expected at least {state['expectedGap']}px"
         ]
     return []
 
@@ -1459,12 +1474,13 @@ def check_loading_composition(page, base_url: str) -> list[str]:
 
 
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
-    """Prove the shared wide-desktop scale and fixed form gutters.
+    """Prove the shared wide-desktop scale, capped form, and equal gutters.
 
     The CSS viewport determines the proportional scale. Browser and operating
     system zoom therefore reflow the page instead of receiving a second page
     scale. Navigation remains shell-sized while the hero and form grow as one
-    composition, with the form card ending at the column's fixed side padding.
+    composition, with a cap that scales in proportion and remains centred in
+    the application well.
     """
     original_viewport = page.viewport_size
     selectors = {
@@ -1526,6 +1542,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     formRight: application.getBoundingClientRect().right,
                     formInnerLeft: formRect.left,
                     formInnerRight: formRect.right,
+                    formInnerWidth: formRect.width,
                     cardLeft: card.getBoundingClientRect().left,
                     cardRight: card.getBoundingClientRect().right,
                     paddingLeft: parseFloat(style.paddingLeft),
@@ -1622,16 +1639,20 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         ("1440p", layout_1440p),
         ("4K", layout_4k),
     ):
-        if (
-            abs(layout["formInnerLeft"] - layout["formLeft"] - layout["paddingLeft"])
-            > 1
-        ):
-            failures.append(f"/: form misses its left gutter at {label}")
-        if (
-            abs(layout["formRight"] - layout["formInnerRight"] - layout["paddingRight"])
-            > 1
-        ):
-            failures.append(f"/: form misses its right gutter at {label}")
+        expected_form_width = 23.75 * 16 * expected_scales[label]
+        left_gutter = layout["formInnerLeft"] - layout["formLeft"]
+        right_gutter = layout["formRight"] - layout["formInnerRight"]
+        if abs(layout["paddingLeft"] - layout["paddingRight"]) > 0.1:
+            failures.append(f"/: form well has asymmetric inline padding at {label}")
+        if abs(layout["formInnerWidth"] - expected_form_width) > 1:
+            failures.append(
+                f"/: form width is {layout['formInnerWidth']:.1f}px at {label}, "
+                f"expected shared-scale cap {expected_form_width:.1f}px"
+            )
+        if abs(left_gutter - right_gutter) > 1:
+            failures.append(f"/: form has unequal side gutters at {label}")
+        if min(left_gutter, right_gutter) < layout["paddingLeft"] - 1:
+            failures.append(f"/: form intrudes into its well padding at {label}")
         if (
             abs(layout["cardLeft"] - layout["formInnerLeft"]) > 1
             or abs(layout["cardRight"] - layout["formInnerRight"]) > 1
