@@ -1037,10 +1037,12 @@ preserved component scale, but the nearly equal split compressed the tool while
 the editorial side accumulated passive space.
 
 The owner follow-up on 2026-08-28 keeps the desktop composition proportional:
-at 1200px and above the split is `3fr 4fr` and hero and form share
+at 1200px and above the split is `3fr 5fr` and hero and form share
 `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped at
 `2.15`. The form uses the form column's existing 2.75rem / 3.5rem side padding
 as its physical gutter instead of staying capped while the well grows. The
+narrower editorial column removes the excessive visual gap between the hero
+content and the form. The
 expected factors are `1.075` at 1920x1080, about `1.433` at 2560x1440, and
 `2.15` at 3840x2160. Browser zoom reflows through the CSS viewport and does not
 apply a second page scale. A compact-height rule reduces only the form column's

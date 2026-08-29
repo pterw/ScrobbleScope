@@ -105,7 +105,7 @@
    existing tablet and mobile composition untouched. */
 @media (min-width: 1200px) {
   .index-grid {
-    grid-template-columns: 3fr 4fr;
+    grid-template-columns: 3fr 5fr;
   }
 
   .index-hero__inner,
