@@ -516,6 +516,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-08-29 - Unmatched zero state corrected (side-task)
+
+- Scope: remove the contradiction where the unmatched page says albums were
+  excluded and immediately reports a total of zero.
+- Implementation: use the existing `total_count` condition in the template.
+  A zero count now states that there are no unmatched albums to review while
+  retaining the search settings and results navigation. The populated report,
+  reason tables, and filter facts are unchanged.
+- TDD: the route-backed zero-payload render test failed against the prior
+  claim and now protects the empty copy, omitted populated-report copy, and
+  results navigation. The populated report test remains green.
+- Validation: focused route and template checks -- **91 passed**. Full
+  `pytest -q` -- **871 passed**, 5 existing warnings. `doc_state_sync.py
+  --check` and all pre-commit hooks pass.
+- Forward guidance: this is not a data-pipeline fix. Keep `/unmatched` and
+  `/api/unmatched` semantics unchanged for WP-7's separate backend work.
+
 ### 2026-08-29 - Wide index form and shell rhythm corrected (side-task)
 
 - Scope: correct the wide form that grows beyond its shared composition and
@@ -567,16 +584,3 @@ non-current operational logs. Older dated entries live in
 - Validation: full `pytest -q` -- **870 passed**, 5 existing warnings. The
   frontend gate reports 22 checks passed in 31 runs, including the
   computed-style check in standard and reduced-motion modes.
-
-### 2026-08-28 - Private Last.fm profiles are blocked before jobs start (side-task)
-
-- Scope: stop index submissions for profiles that hide their recent listening,
-  rather than reporting a misleading empty result after a job starts.
-- Implementation: preflight `user.getrecenttracks` with a one-item request;
-  Last.fm's 403/error-17 verdict blocks both index modes in the browser and
-  both loading routes on the server. Public accounts with an empty history
-  remain eligible.
-- Validation: focused service and route tests -- **92 passed**, 5 existing
-  warnings. Full `pytest -q` -- **870 passed**, 5 existing warnings. The
-  frontend gate reports 21 checks passed in 30 runs, including both forms
-  against the same private-profile response.
