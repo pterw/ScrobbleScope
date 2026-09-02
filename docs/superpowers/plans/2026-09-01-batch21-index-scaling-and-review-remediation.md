@@ -835,8 +835,27 @@ add an ultrawide profile to the gate and do not design for it.
 Keep the `@media (max-width: 859.98px)` rule that removes the cap on mobile.
 Keep the `min-width: 1200px and max-height: 900px` padding rule.
 
-Do not widen past `28rem` and do not implement the slider treatment for nested
-cards. Both need a fresh owner decision after the visual pass.
+**The `28rem` cap is superseded. Owner review 2026-09-02.** The owner widened
+the card in Chrome DevTools -- source untouched -- and ruled the wider card the
+better default. Direction agreed:
+
+- The **card** widens well past `28rem`, then locks. Still never zoomed.
+- The **controls do not inherit that width.** Stretching every field is a side
+  effect of `width: 100%`, not a decision. At the reviewed width the username
+  field ran about 605px for a 6-15 character handle, `Rank by` gave each half
+  about 300px, and `Listening year` put its label roughly 600px from its
+  stepper. Cap the fields that have no use for the space.
+- **Open, needs an owner ruling:** whether to pair fields at the wider card --
+  `Listening year` beside `Release filter`, `Rank by` beside `Show`. That uses
+  the width structurally and shortens the card, but it is a layout change, not
+  a width change.
+
+The exact card width is **not yet recorded**; it was estimated from a screenshot
+at roughly 640-650px and must be measured, not inferred. Every `28rem` figure in
+this plan is stale until it is.
+
+Do not implement the slider treatment for nested cards; that still needs a fresh
+owner decision after the visual pass.
 
 - [ ] **Step 4: Raise divider contrast in both themes**
 

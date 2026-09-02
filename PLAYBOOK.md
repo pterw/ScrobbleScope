@@ -549,6 +549,16 @@ non-current operational logs. Older dated entries live in
   term, the header's `7.25vw` saturates near 1600px, and the H1's `6vw`
   saturates near 700px. Compute where a `clamp()` or `min()` saturates before
   trusting it.
+- Form card width: the `28rem` cap is superseded. The owner widened the card in
+  Chrome DevTools, source untouched, and ruled the wider card the better
+  default. The card widens past `28rem` and then locks, still never zoomed; the
+  controls do not inherit that width. The exact figure is not recorded yet and
+  must be measured rather than read off a screenshot. Whether to pair fields at
+  the wider card is open and needs an owner ruling.
+- Correction: `docs/design/RECONCILIATION.md` still carried the disproved
+  Firefox premise and cited the superseded plan. The earlier commit corrected
+  `FINDINGS.md` and `BATCH21_DEFINITION.md` and missed this third copy --
+  Anti-Pattern 11 in the same session that quoted it. Swept and fixed here.
 - Plan vs implementation: no implementation. No production code, CSS or gate
   code changed.
 - Deviations: none.
