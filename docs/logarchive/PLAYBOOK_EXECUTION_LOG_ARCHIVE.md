@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-29 - Wide index form and shell rhythm corrected (side-task)
+
+- Scope: correct the wide form that grows beyond its shared composition and
+  give the desktop navigation breathable, uniform control spacing.
+- Implementation: wide layouts no longer remove the form's 23.75rem cap, so
+  the existing 1.075-to-2.15 composition scale controls the card and its
+  fields together. The well's inline padding is symmetric and the form stays
+  centred. Desktop shell height is 4.75rem; page links and the theme control
+  are 48px tall with one 0.75rem sibling gap. Mobile retains its compact
+  shell rules.
+- TDD and validation: the rendered frontend check failed before the CSS
+  change: 1920px, 2560px, and 3840px form widths were 1099px, 1499px, and
+  2299px instead of the shared-scale caps, and their gutters were unequal.
+  It now reports 22 checks passed in 31 runs across desktop, mobile, and wide
+  touch. Full `pytest -q` -- **870 passed**, 5 existing warnings.
+- Forward guidance: keep the header outside the wide composition scale; it
+  must remain an independently readable global control strip.
+
 ### 2026-08-28 - Cached Heatmap loading handoff clarified (side-task)
 
 - Scope: repair the owner-reported cached Heatmap result snap, redundant
