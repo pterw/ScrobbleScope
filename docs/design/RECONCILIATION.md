@@ -23,11 +23,18 @@ The owner-approved overrides currently recorded are:
 | Point | README says | This repo does | Why |
 | --- | --- | --- | --- |
 | Theme marker | `.dark` class on `<html>` | `data-theme="dark"` on `<html>` | Section 5, below |
-| Wide index composition | `1.1fr 1fr`, form capped at 380px | At 1200px and wider, `3fr 5fr`; hero and form use `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped at `2.15`; the form fills its well to the existing side gutters | Owner review keeps the composition proportional while removing the excessive gap between the hero and form |
+| Wide index composition | `1.1fr 1fr`, form capped at 380px | Current source declares `3fr 5fr`; hero and form use `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped at `2.15`, and the centred form remains capped at `23.75rem`. Owner Firefox evidence shows the intended proportional composition is not rendered. | The **Owner Review Remediation Implementation Plan** (2026-09-01) is the acceptance source; do not describe proportional scaling as shipped until Firefox proves it. |
 | Small label size | 11.5px | 12px | Owner review readability floor; touch and mobile sizing remain unchanged |
 | Light muted text | `#6f6a7a` | `#6c6676` | Keeps small muted copy at 4.5:1 or better on every shipped light surface |
 | Lockup viewBox | `0 0 453 69` | `0 0 453 74` | Section 10, below |
 | Type and spacing units | px | equivalent rem at the default root size | Section 11, below |
+| Header pills | Prototype scaffolding, do not build | Production navigation: Home, Heatmap, Results, Unmatched | Owner decision, `624ebb9` |
+| Loading progress signal | A progress bar | One slim determinate hairline; the pinwheel is status motion only | Owner decision, `17ca9eb`; the "exactly one progress signal" rule is preserved, the hairline is that signal |
+| Heatmap H1 copy | "A year of listening, *one grid.*" | "Your last 365 days, *one grid.*" | Owner copy change, `17ca9eb` |
+| Heatmap mode card copy | "The heatmap always covers the last 365 days. No other settings." | "Your listening heatmap covers the last 365 days." | Owner copy change, `17ca9eb` |
+| Release filter label | "Album release filter" | "Release filter" | Owner review, WP-4 |
+| Run lifetime | Not specified | In-memory runs expire after two idle hours; clean routes recover the latest run from browser-session pointers | WP-4 |
+| Form help affordance | `?` in a circle for tooltips | No `?` control where label and inline copy already explain; a data tooltip stays valid on a heatmap cell | Owner review, `17ca9eb` |
 
 Unruled implementation drift is a defect, not an implicit addition to this
 table.
