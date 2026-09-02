@@ -586,11 +586,39 @@ number nobody measured.
     }
 ```
 
-- [ ] **Step 2: Add the assertion that would have caught this**
+- [ ] **Step 2: Retire the contradicted assertions, then add the one that would have caught this**
 
-Absolute per-profile scale values are brittle and were the reason the defect hid.
-Assert the *relationship* instead: the composition must actually grow between one
-window and the next. Add after the existing per-profile checks:
+`check_large_display_scale_parity` was written against the JavaScript path, where
+the form carried `zoom` as well. Step 4 removes that. Four of its existing
+assertions then demand behaviour the corrected CSS deliberately does not produce,
+so the gate cannot pass until they are retired. This is not optional cleanup; it
+is part of the change.
+
+In `scripts/dev/frontend_gate.py`, inside `check_large_display_scale_parity`:
+
+1. **The per-profile zoom check** loops over
+   `("hero composition", "form composition")`. Drop `"form composition"` -- after
+   Step 4 the form carries no `zoom` at any width.
+2. **`scalable_dimensions`** lists the `input` and `mode tab` heights. Both sit
+   inside the form, so neither scales any more. Move both into
+   `fixed_dimensions`, where they are asserted *not* to change. That is the
+   stronger claim and the one the owner ruling actually makes.
+3. **`expected_form_width = 23.75 * 16 * expected_scales[label]`** multiplies by
+   a scale the form no longer carries. Drop the factor here, leaving
+   `23.75 * 16`, so the check stays live through Task 2. Task 3 replaces the
+   whole assertion with the clamp-derived cap; do not delete it in the meantime.
+4. **`expected_scales`** holds `{1080p: 1.075, 1440p: 1.075 * (4 / 3),
+   4K: 2.15}`. Those are the old JavaScript figures, including the retired
+   `2.15` cap. Recompute all three from the Step 4 CSS against the real window
+   sizes fixed in Step 1, and take the ceiling from `--index-scale-cap` (1.45).
+
+The mobile assertion that neither composition carries desktop zoom stays as
+written. It remains true of the hero and is trivially true of the form.
+
+Then add the relationship check. Absolute per-profile scale values are brittle
+and were the reason the defect hid. Assert the *relationship* instead: the
+composition must actually grow between one window and the next. Add after the
+existing per-profile checks:
 
 ```python
     # The defect this catches: on 2026-08-28 the form measured 408px at 1080p
@@ -617,8 +645,10 @@ window and the next. Add after the existing per-profile checks:
 python scripts/dev/frontend_gate.py
 ```
 
-Expected: FAIL. `form composition grows only 1.029x ...`, plus per-profile scale
-mismatches, because the JavaScript formula is height-limited.
+Expected: FAIL. `hero composition grows only 1.029x ...`, plus per-profile scale
+mismatches, because the JavaScript formula is height-limited. The message names
+the hero, because Step 2 measures the hero; the form is flat between these
+windows by design and asserting growth on it would fail correct code.
 
 - [ ] **Step 4: Replace the JavaScript scale with one CSS declaration**
 
@@ -752,12 +782,27 @@ Stop for owner review.
 
 - [ ] **Step 1: Add the failing split, cap and contrast checks**
 
-Extend `check_large_display_scale_parity` with:
+Change `check_large_display_scale_parity`, rather than adding alongside it. Both
+assertions below **replace** existing ones; leaving the originals in place is the
+same defect Step 2 of Task 2 exists to prevent.
+
+The split check already exists and reads the ratio the other way round. Retune
+it in place -- `measure_wide_layout` returns `applicationWidth` and `heroWidth`,
+and no `grid_left` or `grid_right` key exists:
 
 ```python
-    if abs(layout_1080p["grid_right"] / layout_1080p["grid_left"] - (4 / 3)) > 0.02:
-        failures.append("/: wide index split is not 3fr 4fr")
+    # Was 5 / 3. Task 3 narrows the application column to 3fr 4fr.
+    split_ratio = layout_1080p["applicationWidth"] / layout_1080p["heroWidth"]
+    if abs(split_ratio - (4 / 3)) > 0.02:
+        failures.append(
+            f"/: wide desktop split is {split_ratio:.3f}, expected 4:3 application-to-hero"
+        )
+```
 
+Then replace the `expected_form_width` assertion that Task 2 left at a flat
+`23.75 * 16`:
+
+```python
     # 37.5rem (600px) at a 16px root. No scale factor: the form is not zoomed.
     expected_cap = 37.5 * 16
     for label in ("1080p", "1440p"):
@@ -779,8 +824,9 @@ string -- the token carries alpha and the alpha is the defect.
 python scripts/dev/frontend_gate.py
 ```
 
-Expected: FAIL on the 5:3 split, on the 408px cap against an expected 482px, and
-on dark divider contrast near 1.4:1.
+Expected: FAIL on the 5:3 split, on a 380px form against the expected 600px cap,
+and on dark divider contrast near 1.4:1. The form measures a flat 380px here, not
+the old 408px: Task 2 already took the `zoom` off it.
 
 - [ ] **Step 3: Apply the split and the cap**
 
