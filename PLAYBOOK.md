@@ -552,8 +552,9 @@ non-current operational logs. Older dated entries live in
 - Form card width: the `28rem` cap is superseded. The owner widened the card in
   Chrome DevTools, source untouched, and ruled the wider card the better
   default. The card widens past `28rem` and then locks, still never zoomed; the
-  controls do not inherit that width. The exact figure is not recorded yet and
-  must be measured rather than read off a screenshot. Whether to pair fields at
+  controls do not inherit that width. The card caps at `37.5rem` (600px),
+  the value the owner reached in DevTools. It locks at 1920px, so 1080p and
+  1440p both render a 600px card -- the same visual size on both. Whether to pair fields at
   the wider card is open and needs an owner ruling.
 - Correction: `docs/design/RECONCILIATION.md` still carried the disproved
   Firefox premise and cited the superseded plan. The earlier commit corrected

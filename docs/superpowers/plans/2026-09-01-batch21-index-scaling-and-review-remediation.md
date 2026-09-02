@@ -74,12 +74,12 @@ mistaken penalty applies to every window. Browser chrome costs 130-330px of
 height and almost no width, so the height term always wins and the width
 contribution is discarded entirely.
 
-| Window | scale today | form today | hero scale fixed | form fixed @ 28rem | height guard |
+| Window | scale today | form today | hero scale fixed | form fixed @ 37.5rem | height guard |
 | --- | --- | --- | --- | --- | --- |
-| 1920x912 (real 1080p) | 1.075 | 408px | 1.075 | 448px | 1.35 |
-| 2510x1110 (owner capture) | 1.105 | **420px** | **1.405** | **448px** | 1.65 |
-| 2490x1230 (owner capture) | 1.224 | 465px | 1.394 | 448px | 1.83 |
-| 2560x1272 (real 1440p) | 1.266 | 481px | 1.433 | 448px | 1.89 |
+| 1920x912 (real 1080p) | 1.075 | 408px | 1.075 | 600px | 1.35 |
+| 2510x1110 (owner capture) | 1.105 | **420px** | **1.405** | **600px** | 1.65 |
+| 2490x1230 (owner capture) | 1.224 | 465px | 1.394 | 600px | 1.83 |
+| 2560x1272 (real 1440p) | 1.266 | 481px | 1.433 | 600px | 1.89 |
 | 2560x1440 (**gate only**) | 1.433 | 545px | -- | -- | -- |
 
 The `form fixed` column is flat on purpose. Owner ruling 2026-09-01: the form
@@ -101,7 +101,8 @@ genuinely short one.
 
 **Two independent defects.** The formula fix moves 420px to 630px at 1440p and
 does nothing at 1080p, where the factor is correctly 1.0. The width fix
-(`3fr 4fr` plus a `28rem` cap) moves 408px to 482px at 1080p. Both are needed.
+(`3fr 4fr` plus a `37.5rem` cap) moves 408px to 600px at 1080p. Both are
+needed.
 
 **The form must widen, not magnify (owner ruling, 2026-09-01).** `zoom` scales a
 composition uniformly, so it buys width by charging height and control size.
@@ -596,7 +597,7 @@ window and the next. Add after the existing per-profile checks:
     # and 420px at 1440p, a 2.9% change the owner correctly read as "the same
     # width". A ratio floor fails on that and cannot be satisfied by a formula
     # that discards the width term.
-    # Measure the HERO, not the form. The form is capped at 28rem and is never
+    # Measure the HERO, not the form. The form caps at 37.5rem and is never
     # zoomed, so it is flat between these two windows by design; asserting
     # growth on it would fail correct code.
     growth = (
@@ -757,8 +758,8 @@ Extend `check_large_display_scale_parity` with:
     if abs(layout_1080p["grid_right"] / layout_1080p["grid_left"] - (4 / 3)) > 0.02:
         failures.append("/: wide index split is not 3fr 4fr")
 
-    # 28rem at a 16px root. No scale factor: the form is not zoomed.
-    expected_cap = 28 * 16
+    # 37.5rem (600px) at a 16px root. No scale factor: the form is not zoomed.
+    expected_cap = 37.5 * 16
     for label in ("1080p", "1440p"):
         actual = measured_sizes[label]["form composition"]["width"]
         if abs(actual - expected_cap) > 2:
@@ -790,12 +791,14 @@ rather than magnify -- it must carry no `zoom` at any size:
 ```css
 /* Widens, then locks. Type, 44px touch targets and the 16px input floor stay
    exactly as designed at every display size.
-   Derivation: 23.75rem (380px) at the 1200px breakpoint, reaching the 28rem
-   (448px) lock at 1920px. slope = (448-380)/(1920-1200) = 0.0944 -> 9.44vw;
-   intercept = 380 - 0.0944*1200 = 266.7px = 16.67rem. */
+   Derivation: 23.75rem (380px) at the 1200px breakpoint, reaching the 37.5rem
+   (600px) lock at 1920px. slope = (600-380)/(1920-1200) = 0.3056 -> 30.56vw;
+   intercept = 380 - 0.3056*1200 = 13.3px = 0.83rem.
+   Check: 1200px -> 380px, 1920px -> 600px, 2560px -> 795px clamped to 600px,
+   so 1080p and 1440p render the same 600px card. */
 .index-form__inner {
   width: 100%;
-  max-width: clamp(23.75rem, 16.67rem + 9.44vw, 28rem);
+  max-width: clamp(23.75rem, 0.83rem + 30.56vw, 37.5rem);
   margin: 0 auto;
 }
 ```
@@ -850,9 +853,10 @@ better default. Direction agreed:
   the width structurally and shortens the card, but it is a layout change, not
   a width change.
 
-The exact card width is **not yet recorded**; it was estimated from a screenshot
-at roughly 640-650px and must be measured, not inferred. Every `28rem` figure in
-this plan is stale until it is.
+**The card width is `37.5rem` (600px), owner-set 2026-09-02.** That is the value
+the owner reached in DevTools, not a screenshot estimate. It locks at 1920px, so
+1080p and 1440p both render a 600px card -- the same visual size on both, which
+is what Ruling A asks for. Verify the rendered width before accepting it.
 
 Do not implement the slider treatment for nested cards; that still needs a fresh
 owner decision after the visual pass.
@@ -1259,7 +1263,7 @@ without a separate explicit instruction.
   measured root cause and the gate blindness that hid it. Task 3 delivers the
   width the owner asked for and the contrast defect. Tasks 4 and 5 carry forward
   the two verified-unshipped items. Task 6 is the accessibility pass.
-- **Intentional exclusions:** no nested-card slider, no widening past `28rem`, no
+- **Intentional exclusions:** no nested-card slider, no widening past `37.5rem`, no
   cancellation, no navigation regrouping, no WP-5 leaderboard work, no edits to
   dated archive history.
 - **Known risk:** `--index-natural-height` is a measured constant that goes stale
