@@ -234,10 +234,12 @@ pattern = 'use\.typekit\.net/(\w+)\.css'
 [[value.sites]]
 file = "docs/design/README.md"
 pattern = 'kit `(\w+)`'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/README.md"
 pattern = 'use\.typekit\.net/(\w+)\.css'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "BATCH21_DEFINITION.md"
@@ -254,6 +256,7 @@ pattern = '`(\w+)` is adopted'
 [[value.sites]]
 file = "docs/design/reference/design-system-readme.md"
 pattern = 'kit `(\w+)`'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/reference/design-system-readme.md"
@@ -262,14 +265,17 @@ pattern = 'use\.typekit\.net/(\w+)\.css'
 [[value.sites]]
 file = "docs/design/tokens/typography.css"
 pattern = 'Adobe Fonts kit (\w+)'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/tokens/fonts.css"
 pattern = 'Adobe Fonts, kit (\w+)'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/tokens/fonts.css"
 pattern = 'use\.typekit\.net/(\w+)\.css'
+expect = "rwy8ghw"
 
 # The heatmap window. The daily average divides by it, so a change in one
 # place and not the other silently misreports every average. The backend is
@@ -338,14 +344,17 @@ pattern = 'last (\d+) days'
 [[value.sites]]
 file = "docs/design/README.md"
 pattern = '(?:a |last )?(\d+)(?:-day| days)'
+expect = "365"
 
 [[value.sites]]
 file = "docs/design/reference/design-system-readme.md"
 pattern = 'a (\d+)-day listening heatmap'
+expect = "365"
 
 [[value.sites]]
 file = "docs/design/components/heatmap/HeatmapFrame.prompt.md"
 pattern = 'The (\d+)-day listening heatmap'
+expect = "365"
 
 # ----------------------------------------------------------------------
 # Anchors

@@ -82,9 +82,13 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **Next action:** **WP-4 is complete. Owner review refinements are in
-  progress; the wide-layout pass is complete and the progress-signal pass is
-  next before WP-5.**
+- **Next action:** **WP-4 is complete. Owner-review remediation is planned,
+  not implemented; begin it before WP-5.** Owner Firefox annotations show
+  that the current source-scale attempt does not render proportional desktop
+  scaling. Start with the Firefox reproduction and evidence gate in the
+  **Owner Review Remediation Implementation Plan** (2026-09-01), then make
+  the wide-layout, progress, and unmatched-empty-state changes in its stated
+  order.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -164,7 +168,6 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-START -->`
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->`
 - After any edit here, run `python scripts/doc_state_sync.py --fix`.
-- Archive search: `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
@@ -516,6 +519,46 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-01 - Restore design snapshot provenance and re-home overrides (side-task)
+
+- Scope: restore `docs/design/README.md` to its verbatim import at `b4e23bf` and
+  move the seven decisions its edits carried into `docs/design/RECONCILIATION.md`
+  as override rows, so the snapshot can disagree with the implementation again.
+- Decisions re-homed: header pills are production navigation, loading progress is
+  a hairline with pinwheel status, heatmap H1 and mode card copy are owner
+  changes, release filter label is WP-4 scoping, runs expire after two idle
+  hours, form help affordance is no `?` control.
+- Defect being prevented: three `.docsync.toml` declarations (44px touch target,
+  Adobe Fonts kit, heatmap window) had snapshot sites with no `expect` value,
+  allowing docsync to satisfy drift by editing the import instead of the code.
+  Added explicit `expect` values to close that deadlock. Sites without capturing
+  groups remain unmatched and satisfied by agreement; sites with groups now
+  demand the expected value.
+- Validation: snapshot test created and passes at the restored digest. `pytest
+  -q` -- **871 passed**. `pre-commit run --all-files` -- all 12 hooks pass.
+  `doc_state_sync.py --check` -- exit 0. No drift in binary files or structure.
+- Deviations: none.
+
+### 2026-09-01 - Owner-review remediation consolidated (side-task)
+
+- Scope: consolidate the owner-review remediation in one plan and correct the
+  active Batch 21 records that described unshipped index behavior as present.
+- Evidence: `BATCH21_DEFINITION.md` and `docs/design/RECONCILIATION.md`
+  claimed that the form filled its well, while current `static/css/index.css`
+  retains its `23.75rem` cap. `FINDINGS.md` also marked the broader refinement
+  resolved even though the owner-confirmed remaining work has not shipped.
+- Disposition: the **Owner Review Remediation Implementation Plan** (2026-09-01)
+  is the sole comprehensive future-work specification. It treats the source
+  scale formula as unproven because owner Firefox evidence does not show the
+  intended rendered scaling, and adds the required 1080p test of the 1440p
+  header-density candidate. Active records refer to it without claiming its
+  changes are implemented. Dated history remains unchanged.
+- Follow-up: the final annotation review confirmed that the intended shared
+  scaling is not implemented. The plan and active Batch 21 records now state
+  that source code is not acceptance evidence; Firefox rendering must prove
+  the composition before the work can be marked complete. No product code,
+  staging, commit, or push occurred in this planning pass.
+
 ### 2026-08-29 - Unmatched zero state corrected (side-task)
 
 - Scope: remove the contradiction where the unmatched page says albums were
@@ -550,37 +593,3 @@ non-current operational logs. Older dated entries live in
   touch. Full `pytest -q` -- **870 passed**, 5 existing warnings.
 - Forward guidance: keep the header outside the wide composition scale; it
   must remain an independently readable global control strip.
-
-### 2026-08-28 - Cached Heatmap loading handoff clarified (side-task)
-
-- Scope: repair the owner-reported cached Heatmap result snap, redundant
-  loading signals, and misleading normal-state return control without
-  changing worker cancellation semantics.
-- Implementation: the backend still reports real progress, but phase text now
-  says `Reading your Last.fm history...` while `Pages fetched` owns its only
-  visible fraction. Both fills use `scaleX` rather than layout-width
-  animation. The Heatmap renders its complete DOM, then lets the loader paint
-  for two frames before one 300ms root opacity handoff. Reduced motion skips
-  that handoff. Both workflows now say `Cancel and return home`; each only
-  navigates home.
-- TDD and validation: the new service and browser-gate assertions failed
-  before the implementation because both workflows still emitted counted
-  phase text, used a layout fill, lacked the named return control, and the
-  cached result had no root-handoff state. Focused tests -- **17 passed**.
-  Full `pytest -q` -- **870 passed**, 5 existing warnings. The frontend gate
-  reports 22 checks passed in 31 runs, including the warm-cache handoff.
-- Forward guidance: deploy this with the existing private-profile and index
-  motion fixes. It deliberately does not claim or implement worker
-  cancellation.
-
-### 2026-08-28 - Index page-entry fade restored (side-task)
-
-- Scope: restore the Home destination entrance lost when the Tailwind index
-  stopped loading the legacy page stylesheet.
-- Implementation: the complete index composition now fades from opacity zero
-  over 1.2 seconds after a 0.2-second delay. It does not move or resize, and
-  the existing light/dark mode transition is unchanged. Reduced-motion readers
-  receive the visible final state without an animation.
-- Validation: full `pytest -q` -- **870 passed**, 5 existing warnings. The
-  frontend gate reports 22 checks passed in 31 runs, including the
-  computed-style check in standard and reduced-motion modes.

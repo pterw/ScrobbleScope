@@ -104,14 +104,14 @@ Sizes: display 42 / 30 / 22px, leading 1.05, tracking −0.01em. Body 16 / 14 / 
 
 - **Spacing** — 4px base, seven steps, nothing between: 4 / 8 / 12 / 16 / 24 / 32 / 48. Card padding 16px mobile, 24px desktop. Page gutter 18px mobile, 34px desktop. Form fields 12px apart.
 - **Radius** — four values: 4px cover art and tiny tags, 8px inputs and small buttons, 10px stat strips and submit buttons, 14px cards and the heatmap frame, 999px pills. Nothing else.
-- **Elevation** -- borders do the work. Cards, selected segments, and buttons use **no drop shadow**. `--shadow-float` remains reserved for transient overlays such as a data tooltip; `--shadow-modal` remains reserved for a modal. Scrim `rgba(14,12,18,.5)` light, `rgba(0,0,0,.62)` dark. Sticky blur `blur(8px)`.
+- **Elevation** — borders do the work. Cards are a 1px `--border-default` line on a warm surface with **no drop shadow**. Only three shadows exist: `--shadow-chip` `0 1px 3px rgba(0,0,0,.06)` (selected segment), `--shadow-float` `0 2px 8px rgba(0,0,0,.15)` (toast, tooltip), `--shadow-modal` `0 24px 60px -24px rgba(20,18,30,.4)`. Dark raises each to `.4`/`.4`/`.7`. Scrim `rgba(14,12,18,.5)` light, `rgba(0,0,0,.62)` dark. Sticky blur `blur(8px)`.
 - **Motion** — hover 200ms, theme swap 300ms, content enter 500ms with a 20px rise, wordmark fade 2000ms, pinwheel cycle 2.5s. Easing `ease` standard, `cubic-bezier(.22,.61,.36,1)` for out. All durations collapse to 0ms under `prefers-reduced-motion`. No bounces, no springs, no parallax.
 
 ---
 
 ## Screens
 
-Five screens, all in `ui_kits/scrobblescope-web/`. Four header pills are production navigation: Home, Heatmap, Results, and Unmatched. They use Input Mono Narrow and expose `/`, `/heatmap`, `/results`, and `/unmatched`. Loading keeps `/loading?job_id=...` as its transient job URL, so it is not a navigation destination. The clean Results, Unmatched, and Heatmap routes recover the latest valid run from separate browser-session pointers. The in-memory run expires after two idle hours. A missing or expired run shows a friendly Home action. The segmented theme control flips light/dark.
+Five screens, all in `ui_kits/scrobblescope-web/`. Open `index.html` and use the header pills to move between them; the theme toggle flips light/dark. The pills are prototype scaffolding — **do not build them**.
 
 ### 1. Index — `IndexScreen.jsx`
 
@@ -123,19 +123,19 @@ Five screens, all in `ui_kits/scrobblescope-web/`. Four header pills are product
 
 The wordmark spans the column width so its left, right and top insets all equal the 56px padding, **capped at 560px** — uncapped it grows with the viewport until it dwarfs the h1. Its wrapper needs an explicit `height: auto`; a fixed height on the wrapper with a fluid SVG inside makes the mark overflow its box and the h1 slides underneath it.
 
-**Right column:** mode tabs (Top albums / Heatmap, the Heatmap tab marked with `--rocket-5` orange); then a 14px-radius card at 18px padding containing, in order -- Last.fm username (hint "public profile", green check when >2 chars); Listening year (hint "2002-2026", with the inline note "Only plays inside this calendar year are counted."); Release filter select (Same as listening year / Previous year / Choose decade / Pick specific year / All years); conditionally a centred decade pill group (2020s through 1950s, pre-1970s disabled) or a release-year input; Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100); a dashed-top disclosure "What counts as listened" summarising the play and track thresholds and opening two stepper rows; then the one solid purple submit, full width, trailing arrow. Below the card, four outline tags echoing the active filters. Do not add a `?` help control when the field label and inline copy already explain the concept.
+**Right column:** mode tabs (Top albums / Heatmap, the Heatmap tab marked with `--rocket-5` orange); then a 14px-radius card at 18px padding containing, in order — Last.fm username (hint "public profile", green check when >2 chars); Listening year (hint "2002–2026", help "Only plays inside this calendar year are counted."); Album release filter select (Same as listening year / Previous year / Choose decade / Pick specific year / All years); conditionally a centred decade pill group (2020s→1950s, pre-1970s disabled) or a release-year input; Rank by segmented control (Play count / Play time); Show select (All results / Top 10 / 25 / 50 / 100); a dashed-top disclosure "What counts as listened" summarising `≥N plays · ≥N tracks` and opening two stepper rows; then the one solid purple submit, full width, trailing `→`. Below the card, four outline tags echoing the active filters.
 
-In heatmap mode the card collapses to one line: "Your listening heatmap covers the last 365 days." The tags are replaced by a bordered preview panel listing what the run produces, closed by an 8px `rocket_r` gradient bar.
+In heatmap mode the card collapses to a single line — "The heatmap always covers the last 365 days. No other settings." — and the tags are replaced by a bordered preview panel listing what you'll get, closed by an 8px `rocket_r` gradient bar.
 
-**Copy, exactly:** h1 album mode "Your top albums, *any year or decade.*" / heatmap mode "Your last 365 days, *one grid.*" Body: "Rank a single year, a whole decade, or your entire history — by play count or by the hours you actually spent listening. Built for AOTY lists with the nuance the official charts never give you." Submit: "Search albums" / "Generate heatmap".
+**Copy, exactly:** h1 album mode "Your top albums, *any year or decade.*" / heatmap mode "A year of listening, *one grid.*" Body: "Rank a single year, a whole decade, or your entire history — by play count or by the hours you actually spent listening. Built for AOTY lists with the nuance the official charts never give you." Submit: "Search albums" / "Generate heatmap".
 
 ### 2. Loading — `LoadingScreen.jsx`
 
 **Purpose:** hold attention during a multi-page Last.fm fetch.
 
-Centred column, 64px top padding. The **pinwheel** (built from the S of the wordmark, 2.5s, 1080-degree rotation with a 5.4-unit blade expansion, reads `--bars-color`); a slim determinate purple hairline; a mono uppercase phase line; three stats in a row with mono uppercase labels above Gotham 22px figures; a dashed-top row of mono parameter tags.
+Centred column, 64px top padding. The **pinwheel** (built from the S of the wordmark, 2.5s, 1080° rotation with a 5.4-unit blade expansion, reads `--bars-color`); a mono uppercase phase line; a progress bar; three stats in a row with mono uppercase labels above Gotham 22px figures; a dashed-top row of mono parameter tags.
 
-Progress copy states progress, never encouragement: "Fetching scrobbles - page 31 of 45", not "Hang tight". The hairline is the only quantified progress signal. The pinwheel remains status motion, and no second percentage is printed.
+Progress copy states progress, never encouragement: "Fetching scrobbles · page 31 of 45", not "Hang tight". Exactly one progress signal at a time — do not run a bar and a spinner and a percentage together.
 
 ### 3. Results — `ResultsScreen.jsx`
 
@@ -165,9 +165,8 @@ Max width 1180px, three-column grid of `UnmatchedGroup` cards, one column on mob
 
 ## Interactions & behaviour
 
-- **Navigation.** The shared header groups Home with Heatmap, then Results with Unmatched; the active route is filled purple. Home opens the album form, then uses transient `/loading?job_id=...` before the clean Results route. Results and Unmatched recover the latest album run from the browser session. Heatmap recovers the latest heatmap run at `/heatmap`; without one it shows the heatmap form. A missing or expired run explains what is missing and links Home.
-- **Long-lived forms.** If the Heatmap form's request token expires while its tab remains open, the AJAX client fetches a fresh token and retries the start once. It does not mislabel an expired session as a network outage or ask the reader to re-enter the form.
-- **Theme.** A two-segment Light/Dark pill toggle, top right. The repository writes `data-theme` on `<html>` and keeps `.dark-mode` on `<body>` during the Bootstrap strangler. 300ms transition on background and colour.
+- **Navigation.** Index → loading → results *or* heatmap, by mode. Results → unmatched (and back). Any screen → index via the header wordmark.
+- **Theme.** A two-segment pill toggle, top right. Toggles `.dark` on `<html>`. 300ms transition on background and colour.
 - **Hover.** Opacity 0.86 on buttons; border and text shift to purple on pills and inputs. Never a size change, never a shadow bloom.
 - **Press.** Colour only — no shrink transform.
 - **Focus.** 2px solid `--accent` ring at 2px offset on every interactive element. Non-negotiable.
@@ -210,7 +209,7 @@ Keyframes: `scaleY(1)` → `scaleY(1.10)`, durations 1.6 / 1.7 / 1.9 / 2.1 / 2.3
 
 ## Iconography
 
-**There is no icon system, and that is deliberate -- do not invent one.** The shipped UI is text-first: buttons carry words, not glyphs. Exactly one inline SVG icon exists in the templates (the exclamation-circle on `error.html`). Other marks are Unicode characters or CSS shapes: the back-to-top arrow, modal close, stepper minus/plus, the select chevron, the mode-tab square, and the disclosure triangles. Form labels do not carry `?` icons. A data tooltip remains appropriate when a heatmap cell exposes detail that is not otherwise visible.
+**There is no icon system, and that is deliberate — do not invent one.** The shipped UI is text-first: buttons carry words, not glyphs. Exactly one inline SVG icon exists in the templates (the exclamation-circle on `error.html`). Everything else is a Unicode character or a CSS shape: `↑` back-to-top, `×` modal close, `?` in a circle for tooltips, `−`/`+` for steppers, a two-triangle CSS gradient for the select chevron, a small purple square as the mode-tab mark, `▲`/`▼` for the disclosure.
 
 Prefer a word. If a glyph is unavoidable, reuse one of the above. No icon font, no sprite sheet, no emoji.
 

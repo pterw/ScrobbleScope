@@ -9,6 +9,40 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-28 - Cached Heatmap loading handoff clarified (side-task)
+
+- Scope: repair the owner-reported cached Heatmap result snap, redundant
+  loading signals, and misleading normal-state return control without
+  changing worker cancellation semantics.
+- Implementation: the backend still reports real progress, but phase text now
+  says `Reading your Last.fm history...` while `Pages fetched` owns its only
+  visible fraction. Both fills use `scaleX` rather than layout-width
+  animation. The Heatmap renders its complete DOM, then lets the loader paint
+  for two frames before one 300ms root opacity handoff. Reduced motion skips
+  that handoff. Both workflows now say `Cancel and return home`; each only
+  navigates home.
+- TDD and validation: the new service and browser-gate assertions failed
+  before the implementation because both workflows still emitted counted
+  phase text, used a layout fill, lacked the named return control, and the
+  cached result had no root-handoff state. Focused tests -- **17 passed**.
+  Full `pytest -q` -- **870 passed**, 5 existing warnings. The frontend gate
+  reports 22 checks passed in 31 runs, including the warm-cache handoff.
+- Forward guidance: deploy this with the existing private-profile and index
+  motion fixes. It deliberately does not claim or implement worker
+  cancellation.
+
+### 2026-08-28 - Index page-entry fade restored (side-task)
+
+- Scope: restore the Home destination entrance lost when the Tailwind index
+  stopped loading the legacy page stylesheet.
+- Implementation: the complete index composition now fades from opacity zero
+  over 1.2 seconds after a 0.2-second delay. It does not move or resize, and
+  the existing light/dark mode transition is unchanged. Reduced-motion readers
+  receive the visible final state without an animation.
+- Validation: full `pytest -q` -- **870 passed**, 5 existing warnings. The
+  frontend gate reports 22 checks passed in 31 runs, including the
+  computed-style check in standard and reduced-motion modes.
+
 ### 2026-08-28 - Private Last.fm profiles are blocked before jobs start (side-task)
 
 - Scope: stop index submissions for profiles that hide their recent listening,
