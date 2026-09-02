@@ -83,12 +83,17 @@ See FINDINGS F-DOCSYNC-3.
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
 - **Next action:** **WP-4 is complete. Owner-review remediation is planned,
-  not implemented; begin it before WP-5.** Owner Firefox annotations show
-  that the current source-scale attempt does not render proportional desktop
-  scaling. Start with the Firefox reproduction and evidence gate in the
-  **Owner Review Remediation Implementation Plan** (2026-09-01), then make
-  the wide-layout, progress, and unmatched-empty-state changes in its stated
-  order.
+  not implemented; begin it before WP-5.** The index does not grow with the
+  window on large displays. Measurement on 2026-09-01 named the cause: the
+  scale formula divides window height by the 1080px design viewport instead of
+  by the composition's own height, and an unconditional `min()` then lets
+  browser chrome discard the width term on every real window. Chromium and
+  Firefox measured identically, so this is not engine-specific; the browser
+  gate missed it because it measures panel dimensions no window has. Work from
+  `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`,
+  which supersedes the earlier remediation plan. It restores the design
+  snapshot first, then fixes the gate geometry and the scale in one commit,
+  then widens, then does progress, empty state and accessibility.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -519,6 +524,47 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-01 - Diagnose the large-display scale defect and supersede its plan (side-task)
+
+- Scope: documentation only. No production code, CSS or gate code changed.
+  Measured the large-display scale defect, replaced the remediation plan that
+  rested on a disproved premise, and corrected every live document that
+  repeated it.
+- Cause found: `syncWideDesktopScale` divides window height by the 1080px
+  design viewport instead of by the composition's own 673px height. The
+  `min()` is unconditional, so browser chrome -- which costs 130-330px of
+  height and almost no width -- makes the height term win on every real
+  window and the width term is discarded.
+- Why no gate caught it: `check_large_display_scale_parity` measures
+  1920x1080, 2560x1440 and 3840x2160. `page.set_viewport_size` sets the
+  content box to exactly those numbers, so the gate tests a geometry no
+  maximised browser reports. The gate saw 33% growth; the owner saw 2.9%.
+- Premise disproved: the superseded plan gated acceptance on Firefox.
+  Chromium and Firefox measured the same composition width to within 0.1px at
+  four window sizes, so the defect is engine-independent. Playwright's Firefox
+  build is installed and launches at version 153.0, so dual-engine checks are
+  available without a download; the owner adopted them for the scale check.
+- Plan vs implementation: no implementation. The plan at
+  `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`
+  supersedes `docs/superpowers/plans/2026-09-01-owner-review-remediation.md`,
+  whose Task 1 rested on four claims measurement disproved. Its Task 1 is
+  already complete: it landed as `eeaa1a8` on this branch, unpushed, from a
+  concurrent session. Work starts at Task 2.
+- Deviations: none. The branch was moved from `wip/batch-21-owner-review` to
+  `wip/batch-21` on the owner's ruling, because PLAYBOOK Section 3 names the
+  latter and the guard raised WT003. Local `wip/batch-21` was reset to
+  `origin/main`; `aadf2b7` is unchanged on `origin/wip/batch-21` and its
+  content is already in `origin/main`. A later push needs
+  `--force-with-lease` and a separate owner ruling.
+- Validation: **872 passed**. All 12 pre-commit hooks pass. Worktree guard exits 0.
+  `doc_state_sync.py --check` exits 0.
+- Forward guidance: start at Task 2, which fixes the gate geometry and the
+  scale together because the gate change alone turns the suite red. Two owner
+  rulings are recorded in the plan and must not be re-derived: the hero scales
+  proportionally while the form widens and then locks, never zoomed; and
+  ultrawide is out of scope. The nested-card slider and any widening past
+  `28rem` stay behind a fresh owner review.
+
 ### 2026-09-01 - Restore design snapshot provenance and re-home overrides (side-task)
 
 - Scope: restore `docs/design/README.md` to its verbatim import at `b4e23bf` and
@@ -575,21 +621,3 @@ non-current operational logs. Older dated entries live in
   --check` and all pre-commit hooks pass.
 - Forward guidance: this is not a data-pipeline fix. Keep `/unmatched` and
   `/api/unmatched` semantics unchanged for WP-7's separate backend work.
-
-### 2026-08-29 - Wide index form and shell rhythm corrected (side-task)
-
-- Scope: correct the wide form that grows beyond its shared composition and
-  give the desktop navigation breathable, uniform control spacing.
-- Implementation: wide layouts no longer remove the form's 23.75rem cap, so
-  the existing 1.075-to-2.15 composition scale controls the card and its
-  fields together. The well's inline padding is symmetric and the form stays
-  centred. Desktop shell height is 4.75rem; page links and the theme control
-  are 48px tall with one 0.75rem sibling gap. Mobile retains its compact
-  shell rules.
-- TDD and validation: the rendered frontend check failed before the CSS
-  change: 1920px, 2560px, and 3840px form widths were 1099px, 1499px, and
-  2299px instead of the shared-scale caps, and their gutters were unequal.
-  It now reports 22 checks passed in 31 runs across desktop, mobile, and wide
-  touch. Full `pytest -q` -- **870 passed**, 5 existing warnings.
-- Forward guidance: keep the header outside the wide composition scale; it
-  must remain an independently readable global control strip.

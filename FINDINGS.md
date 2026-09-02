@@ -1111,30 +1111,30 @@ The owner runs a 1080p and a 1440p monitor and reports that dragging the window
 to the larger one leaves too much whitespace: the content keeps its size and
 the margins absorb the extra width.
 
-The original contract capped the form at 380px and the wordmark at 560px. It
-preserved component scale, but the nearly equal split compressed the tool while
-the editorial side accumulated passive space.
+PR #220 added a source-level viewport-scale path, the compact-height padding
+rule, the 12px label floor, reduced capability-mark tracking, and the light
+muted-text contrast. The source path did not ship usable proportional
+composition scaling. The later owner-review layout, hierarchy, boundary,
+loading-progress, and unmatched-empty-state work also remains incomplete. In
+particular, the live source still uses the interim wide split and a centred
+`23.75rem` form cap.
 
-The owner follow-up on 2026-08-28 keeps the desktop composition proportional:
-at 1200px and above the split is `3fr 5fr` and hero and form share
-`1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped at
-`2.15`. The form uses the form column's existing 2.75rem / 3.5rem side padding
-as its physical gutter instead of staying capped while the well grows. The
-narrower editorial column removes the excessive visual gap between the hero
-content and the form. The
-expected factors are `1.075` at 1920x1080, about `1.433` at 2560x1440, and
-`2.15` at 3840x2160. Browser zoom reflows through the CSS viewport and does not
-apply a second page scale. A compact-height rule reduces only the form column's
-outer vertical padding. The label floor is 12px, phrase-length capability copy
-uses less tracking, and the light muted token now passes 4.5:1 on the sunken
-surface.
+Measurement on 2026-09-01 named the cause. The formula divides window height by
+the 1080px design viewport instead of by the composition's own 673px height,
+and an unconditional `min()` then lets browser chrome discard the width term on
+every real window. The browser gate missed it because `set_viewport_size` sets
+the content box exactly, so the gate measured `2560x1440` -- a geometry no
+maximised window has. Chromium and Firefox measured the same composition width
+to within 0.1px at four window sizes, so this is not an engine defect and
+Firefox evidence is not the acceptance condition. Realistic window geometry is.
 
-The browser gate compares wordmark, form, controls, fixed form gutters, and
-navigation at 1920x1080, 2560x1440, and 3840x2160. The mobile breakpoint
-remains unchanged.
+`docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`
+is the sole acceptance specification for the reopened work. It records the
+1080p comparison needed before any global header-density decision.
 
-Status: resolved by the 2026-08-28 PR #220 recovery refinement.
-Source: owner large-display review, 2026-08-28.
+Status: reopened; owner-review remediation is planned, not implemented.
+Source: owner large-display review, 2026-08-28; owner clarification and
+measurement, 2026-09-01.
 
 ### F-B21-25: every gate runs at commit time, so the session is unguarded
 

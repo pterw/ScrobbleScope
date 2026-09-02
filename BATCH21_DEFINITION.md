@@ -306,17 +306,22 @@ Moved in by the scope ruling:
 
 1. **F-B21-4 item 1 resolves to the canonical README.** The hero starts with
    the two-column `1.1fr 1fr` grid from `docs/design/README.md` screen 1, not
-   the audit review's single column. Owner review on 2026-08-28 amends the
-   wide desktop state at 1200px and above to `3fr 5fr`, with one shared
-   factor of `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`,
-   capped at `2.15`. The form fills its well to the existing fixed side
-   gutters instead of holding a width cap. The narrower editorial column
-   removes the oversized visual void between the wordmark and form. The
-   expected factors are `1.075` at 1920x1080, about `1.433` at 2560x1440,
-   and `2.15` at 3840x2160.
-   Browser zoom reflows the layout through the CSS viewport; it does not add
-   a second page scale. Items 2, 3 and 4 stay open for WP-4, WP-5 and WP-7;
-   do not close the finding here.
+   the audit review's single column. Current source declares a 1200px-wide
+   `3fr 5fr` state and one shared factor of
+   `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped
+   at `2.15`, while retaining a centred `23.75rem` form cap. That source
+   attempt does not produce the intended proportional composition, so scaling
+   remains unimplemented. Measurement on 2026-09-01 named the cause: the
+   formula divides window height by the 1080px design viewport rather than by
+   the composition's own height, and an unconditional `min()` then lets browser
+   chrome discard the width term on every real window. The defect reproduces
+   identically in Chromium and Firefox; it is not engine-specific.
+
+   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`
+   is the sole acceptance source for proportional scaling and the remaining
+   layout, hierarchy, boundary, progress, and empty-state changes.
+   Items 2, 3 and 4 stay open for WP-4, WP-5 and WP-7; do not close the
+   finding here.
 2. **Heatmap cell geometry resolves `docs/design/RECONCILIATION.md`
    section 7.** Keep
    the shipped 14px cell and its 2px radius; take the README's gap of 2px
