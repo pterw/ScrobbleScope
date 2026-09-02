@@ -131,6 +131,40 @@ and works. There is no `vw` feedback loop inside a zoomed element: with
 `zoom: 2` on a parent, a `width: 10vw` child computes `192px` against the true
 1920px viewport and renders at `384px`.
 
+**The H1 wraps when windowed, and the cause is a third pinned clamp.**
+`.index-hero__headline` is `font-size: clamp(2rem, 6vw, 2.625rem)`. `6vw`
+reaches the 42px ceiling at about a 700px viewport, so the H1 is a fixed 42px
+across the whole desktop range. Owner report 2026-09-02: it newlines when the
+window is not maximised, and it must not.
+
+This is the same defect class as the other two, and worth naming as such: the
+composition's unconditional `min()` discards the width term, the header's
+`7.25vw` caps at roughly 1600px, and the H1's `6vw` caps at 700px. Three
+declarations that read as responsive and are pinned in the range that matters.
+**Before trusting any `clamp()` or `min()` in this codebase, compute where it
+saturates.**
+
+**The fix is a lower bound on the hero zoom, not a fluid H1.** Wrapping happens
+because the hero column narrows while the composition cannot shrink: the scale
+is floored at `--index-scale-base` (1.075) and only ever grows. A zoomed
+element gets `column_width / zoom` of effective space, so the floor actively
+starves the H1 as the window narrows.
+
+Making the H1 alone fluid would break the annotation's own constraint --
+"Logo scale should increase slightly, without changing the current rem/px ratio
+measurement to `<h1>`". Scaling the composition preserves that ratio for free.
+
+So the `clamp()` in Task 2 takes a floor **below** the base:
+
+```css
+zoom: clamp(var(--index-scale-min), <computed>, var(--index-scale-cap));
+```
+
+`--index-scale-min` is not a guess. Measure it: the largest value at which the
+H1 holds one line at the narrowest desktop window (1200px, the breakpoint),
+with the longest headline the page can render. Record the number and the date.
+Expect roughly 0.85; do not ship that figure without measuring it.
+
 **Dark divider contrast is a real defect.** `--shell-border` is
 `rgba(241, 237, 228, 0.14)` (`static/css/shell.css:41`), which composites to
 roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
@@ -144,9 +178,44 @@ roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
       entry: gate wall-time roughly doubles. The two engines measured
       identically here, so the value is regression insurance against a future
       divergence, not a defect this catches today.
-- [ ] **Header density.** The 1440p navigation density is a candidate, not an
-      approved global target. Task 3 Step 5 renders it at 1920x1080 beside the
-      widened form and stops for the ruling.
+- [x] **Header density -- RULED (owner, 2026-09-02).** The header scales with
+      the viewport. The baseline is **not** the 1080p rendering: the reference
+      is how the navbar renders at 1440p, which is smaller as a fraction of the
+      page. So at 1080p the header becomes smaller than it is today, and the
+      1440p appearance is what the proportion locks to.
+
+      Measured source today: `.site-header__nav-link` is `min-height: 3rem`
+      (48px) with `min-width: clamp(5.75rem, 7.25vw, 7.25rem)`. That clamp
+      reaches its 116px cap at roughly 1600px, so 1080p and 1440p render
+      identical pixels and only the screen fraction differs. That is why the
+      1440p rendering reads as correct and the 1080p one reads as chunky.
+
+      The header stays outside the composition `zoom`; it takes its own
+      viewport-proportional sizing. Do not fold it into `--index-scale-*`.
+
+      **Floor: 44px, ruled 2026-09-02.** A strict viewport fraction would take
+      the 48px link to `48 * 1920/2560 = 36px` at 1080p, under the touch
+      minimum in `AGENTS.md` "UI and Accessibility Rules" item 2 and reversing
+      the 48px desktop target F-B21-29 established. So the header scales but
+      never goes below 44px on its smaller side: 44px at 1080p, 48px at 1440p,
+      growing above that.
+
+      Express it as a clamp on the existing properties rather than a second
+      scale variable, so the header keeps one sizing mechanism:
+
+      ```css
+      .site-header__nav-link {
+        min-height: clamp(2.75rem, 1.875vw, 3.5rem);
+        min-width: clamp(5.75rem, 4.53vw, 7.25rem);
+      }
+      ```
+
+      `1.875vw` is `48px / 2560px`; `4.53vw` is `116px / 2560px`. Both reproduce
+      today's 1440p rendering exactly at 2560 CSS px, which is the reference the
+      owner approved. Measure the rendered values at both windows before
+      accepting; do not trust the arithmetic alone. Mirror the same treatment on
+      the theme control and the bar height, and keep one consistent sibling gap
+      (F-B21-29).
 
 ## Global constraints
 
@@ -463,9 +532,16 @@ There is no helper script for this. Run it inline, and close the browser in a
 from playwright.sync_api import sync_playwright
 
 with sync_playwright() as p:
-    browser = p.chromium.launch(headless=False, args=["--start-maximized"])
+    # channel="chrome" drives the installed Chrome, not Playwright's bundled
+    # Chromium, so the toolbar is the real one. Playwright creates a fresh
+    # temporary profile per launch, which IS the fresh-install baseline: no
+    # extensions, no bookmarks bar, 100% zoom.
+    browser = p.chromium.launch(
+        headless=False, channel="chrome", args=["--start-maximized"]
+    )
     try:
         page = browser.new_context(no_viewport=True).new_page()
+        page.goto("about:blank")
         print(page.evaluate(
             "({w: innerWidth, h: innerHeight, "
             " sw: screen.width, sh: screen.height, dpr: devicePixelRatio})"
@@ -474,9 +550,20 @@ with sync_playwright() as p:
         browser.close()
 ```
 
-`no_viewport=True` is the part that matters: without it Playwright forces its own
-viewport and `innerHeight` reports that instead of the real window. Run it once
-per panel the owner has.
+Three things this gets right, and each was a way to get it wrong:
+
+- **`channel="chrome"`.** Bundled Chromium has a different toolbar from Chrome,
+  so its chrome height is not the baseline the owner named.
+- **A fresh temporary profile.** Do not measure against the owner's daily
+  Chrome. Their profile carries extensions and a bookmarks bar, and the owner's
+  Firefox captures are already narrowed by the Sideberry sidebar.
+- **`no_viewport=True`.** Without it Playwright forces its own viewport and
+  `innerHeight` reports that instead of the real window -- the same blindness
+  this whole task exists to fix.
+
+**Measure, do not infer.** Do not reason about whether a bookmarks bar is
+showing, or add an allowance for one. Take the number the fresh profile reports,
+record it with the date, and use it. Run it once per panel the owner has.
 
 The direction of the error is safe either way -- a shorter assumed window makes
 the height guard bind earlier, never later -- but the comment must not state a
@@ -775,10 +862,13 @@ composition zoom.
 
 - [ ] **Step 6: Confirm the H1 stays on one line**
 
-At windows 1920px wide and above, the H1 must not wrap or clip. Assert
-`headline_line_count == 1` at each wide window. Below that profile, normal
-wrapping stays available. The owner's Chrome capture shows the two-line wrap this
-prevents.
+The H1 must not wrap or clip at **any** desktop width, not only when
+maximised. Owner report 2026-09-02: it newlines when the window is not
+maximised. Assert `headline_line_count == 1` across the desktop range -- at
+1200px (the breakpoint), at an intermediate windowed width such as 1500px, and
+at 1920 and 2560 -- not only at the wide profiles. Below the 860px breakpoint
+normal wrapping stays available. This is what `--index-scale-min` buys, so a
+failure here means the floor is too high, not that the H1 needs its own rule.
 
 - [ ] **Step 7: Document, validate, commit**
 

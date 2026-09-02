@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-08-29 - Unmatched zero state corrected (side-task)
+
+- Scope: remove the contradiction where the unmatched page says albums were
+  excluded and immediately reports a total of zero.
+- Implementation: use the existing `total_count` condition in the template.
+  A zero count now states that there are no unmatched albums to review while
+  retaining the search settings and results navigation. The populated report,
+  reason tables, and filter facts are unchanged.
+- TDD: the route-backed zero-payload render test failed against the prior
+  claim and now protects the empty copy, omitted populated-report copy, and
+  results navigation. The populated report test remains green.
+- Validation: focused route and template checks -- **91 passed**. Full
+  `pytest -q` -- **871 passed**, 5 existing warnings. `doc_state_sync.py
+  --check` and all pre-commit hooks pass.
+- Forward guidance: this is not a data-pipeline fix. Keep `/unmatched` and
+  `/api/unmatched` semantics unchanged for WP-7's separate backend work.
+
 ### 2026-08-29 - Wide index form and shell rhythm corrected (side-task)
 
 - Scope: correct the wide form that grows beyond its shared composition and
