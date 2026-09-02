@@ -9,6 +9,26 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-01 - Owner-review remediation consolidated (side-task)
+
+- Scope: consolidate the owner-review remediation in one plan and correct the
+  active Batch 21 records that described unshipped index behavior as present.
+- Evidence: `BATCH21_DEFINITION.md` and `docs/design/RECONCILIATION.md`
+  claimed that the form filled its well, while current `static/css/index.css`
+  retains its `23.75rem` cap. `FINDINGS.md` also marked the broader refinement
+  resolved even though the owner-confirmed remaining work has not shipped.
+- Disposition: the **Owner Review Remediation Implementation Plan** (2026-09-01)
+  is the sole comprehensive future-work specification. It treats the source
+  scale formula as unproven because owner Firefox evidence does not show the
+  intended rendered scaling, and adds the required 1080p test of the 1440p
+  header-density candidate. Active records refer to it without claiming its
+  changes are implemented. Dated history remains unchanged.
+- Follow-up: the final annotation review confirmed that the intended shared
+  scaling is not implemented. The plan and active Batch 21 records now state
+  that source code is not acceptance evidence; Firefox rendering must prove
+  the composition before the work can be marked complete. No product code,
+  staging, commit, or push occurred in this planning pass.
+
 ### 2026-08-29 - Unmatched zero state corrected (side-task)
 
 - Scope: remove the contradiction where the unmatched page says albums were

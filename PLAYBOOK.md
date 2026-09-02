@@ -524,6 +524,36 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-02 - Remediate PR #221 review round one (side-task)
+
+- Scope: documentation and tests. Six bot findings on PR #221, from Codex, qlty
+  and Graphify. All six were verified against the code before any edit; none was
+  a hallucinated line range.
+- Gate assertions: the remediation plan told an executor to add gate checks
+  without retiring the ones they contradict, so its own Task 2 Step 5 could not
+  pass. `check_large_display_scale_parity` still required the form composition
+  to carry `zoom`, treated the input and mode-tab heights as scalable, and
+  derived the form width from the superseded `23.75rem` cap times a scale the
+  form no longer carries. Task 2 Step 2 now names all four assertions to retire
+  and why.
+- Sweep beyond the reported instance: the same defect class appeared twice more
+  in the plan and neither was reported. Task 3 Step 1 added a `3fr 4fr` split
+  check alongside the existing 5:3 assertion instead of retuning it, and did so
+  through `grid_left` and `grid_right` keys that `measure_wide_layout` does not
+  return. Both expected-FAIL messages also named stale figures. Fixed together,
+  per `AGENTS.md` Anti-Pattern 11.
+- Step numbering was left alone deliberately. This plan cites its own
+  "Task 2 Step 6", so the retirement instructions extend Step 2 in place rather
+  than inserting a step and breaking that citation.
+- Plan vs implementation: no implementation. No production code, CSS or gate
+  code changed in this commit; the plan describes the gate edits for Task 2.
+- Deviations: none.
+- Validation: **872 passed**. All 12 pre-commit hooks pass. Worktree guard
+  exits 0. `doc_state_sync.py --check` exits 0.
+- Forward guidance: three findings from the same round remain -- the `clamp()`
+  floor, the acceptance contradiction, and the snapshot digest set. They are
+  separate commits because each is independently revertable.
+
 ### 2026-09-02 - Record the header, H1 and browser-baseline rulings (side-task)
 
 - Scope: documentation only. Three owner rulings and one measured defect class,
@@ -629,23 +659,3 @@ non-current operational logs. Older dated entries live in
   -q` -- **871 passed**. `pre-commit run --all-files` -- all 12 hooks pass.
   `doc_state_sync.py --check` -- exit 0. No drift in binary files or structure.
 - Deviations: none.
-
-### 2026-09-01 - Owner-review remediation consolidated (side-task)
-
-- Scope: consolidate the owner-review remediation in one plan and correct the
-  active Batch 21 records that described unshipped index behavior as present.
-- Evidence: `BATCH21_DEFINITION.md` and `docs/design/RECONCILIATION.md`
-  claimed that the form filled its well, while current `static/css/index.css`
-  retains its `23.75rem` cap. `FINDINGS.md` also marked the broader refinement
-  resolved even though the owner-confirmed remaining work has not shipped.
-- Disposition: the **Owner Review Remediation Implementation Plan** (2026-09-01)
-  is the sole comprehensive future-work specification. It treats the source
-  scale formula as unproven because owner Firefox evidence does not show the
-  intended rendered scaling, and adds the required 1080p test of the 1440p
-  header-density candidate. Active records refer to it without claiming its
-  changes are implemented. Dated history remains unchanged.
-- Follow-up: the final annotation review confirmed that the intended shared
-  scaling is not implemented. The plan and active Batch 21 records now state
-  that source code is not acceptance evidence; Firefox rendering must prove
-  the composition before the work can be marked complete. No product code,
-  staging, commit, or push occurred in this planning pass.
