@@ -17,7 +17,7 @@ private-profile submission defect F-B21-27. Recent owner review also filed
 F-B21-28 through F-B21-30. The canonical routing and navigation prerequisite
 and WP-4 unified loading rebuild are complete;
 **WP-5 is next.**
-871 tests across 40 test modules.
+872 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during

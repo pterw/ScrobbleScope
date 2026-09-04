@@ -9,6 +9,26 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-01 - Restore design snapshot provenance and re-home overrides (side-task)
+
+- Scope: restore `docs/design/README.md` to its verbatim import at `b4e23bf` and
+  move the seven decisions its edits carried into `docs/design/RECONCILIATION.md`
+  as override rows, so the snapshot can disagree with the implementation again.
+- Decisions re-homed: header pills are production navigation, loading progress is
+  a hairline with pinwheel status, heatmap H1 and mode card copy are owner
+  changes, release filter label is WP-4 scoping, runs expire after two idle
+  hours, form help affordance is no `?` control.
+- Defect being prevented: three `.docsync.toml` declarations (44px touch target,
+  Adobe Fonts kit, heatmap window) had snapshot sites with no `expect` value,
+  allowing docsync to satisfy drift by editing the import instead of the code.
+  Added explicit `expect` values to close that deadlock. Sites without capturing
+  groups remain unmatched and satisfied by agreement; sites with groups now
+  demand the expected value.
+- Validation: snapshot test created and passes at the restored digest. `pytest
+  -q` -- **871 passed**. `pre-commit run --all-files` -- all 12 hooks pass.
+  `doc_state_sync.py --check` -- exit 0. No drift in binary files or structure.
+- Deviations: none.
+
 ### 2026-09-01 - Owner-review remediation consolidated (side-task)
 
 - Scope: consolidate the owner-review remediation in one plan and correct the
