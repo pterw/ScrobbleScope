@@ -1,10 +1,11 @@
 """Guard the verbatim design import against in-place edits.
 
-`docs/design/README.md` and the files under `docs/design/tokens/` are a
-snapshot of the owner's design project, imported byte-for-byte by `b4e23bf`.
-Their value is that they can disagree with the implementation. An agent that
-edits the snapshot to match the code silently removes the only independent
-check on the code. Overrides belong in `docs/design/RECONCILIATION.md`.
+The 61 design-project files under `docs/design/` are a byte-for-byte snapshot
+imported by `b4e23bf`; `f857ac2` later corrected the location of `styles.css`
+without changing its bytes. Their value is that they can disagree with the
+implementation. An agent that edits the snapshot to match the code silently
+removes the only independent check on the code. Overrides belong in the
+repository-owned `docs/design/RECONCILIATION.md`, which is excluded here.
 
 To change a digest here you must be re-importing from the design project, not
 reconciling with the repository.
@@ -13,24 +14,51 @@ reconciling with the repository.
 import hashlib
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SNAPSHOT_ROOT = REPO_ROOT / "docs" / "design"
+REPOSITORY_OWNED_PATHS = frozenset({"RECONCILIATION.md"})
 
-#: SHA-256 of each imported file, as committed by `b4e23bf`. Update ONLY on a
-#: fresh import from the design project.
-SNAPSHOT_DIGESTS = {
-    "docs/design/README.md": "eed192f1b272fae904d3401fe60bcab32bcfebccab425ce6d858672ca33adf6b",
-}
+#: Aggregate manifest of every imported path and byte. Update ONLY on a fresh
+#: import from the design project.
+SNAPSHOT_FILE_COUNT = 61
+SNAPSHOT_TREE_DIGEST = (
+    "0c60b0316d3df661e3004ad4454c43c325d87bfc794596e023029eacaa5bedb7"
+)
 
 
-@pytest.mark.parametrize("relative_path", sorted(SNAPSHOT_DIGESTS))
-def test_imported_design_file_is_unedited(relative_path):
-    """The snapshot must match its import digest byte for byte."""
-    path = REPO_ROOT / relative_path
-    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-    assert actual == SNAPSHOT_DIGESTS[relative_path], (
-        f"{relative_path} was edited in place. Record the override in "
-        f"docs/design/RECONCILIATION.md instead, or update this digest only "
-        f"when re-importing from the design project."
+def _snapshot_tree_digest() -> tuple[int, str]:
+    """Hash the complete imported manifest with stable, unambiguous framing.
+
+    Relative POSIX paths make the digest platform-independent. Length prefixes
+    keep path and content boundaries unambiguous, so a rename, add, deletion,
+    or byte edit changes the aggregate even when the remaining files match.
+    """
+    paths = sorted(
+        (
+            path
+            for path in SNAPSHOT_ROOT.rglob("*")
+            if path.is_file()
+            and path.relative_to(SNAPSHOT_ROOT).as_posix() not in REPOSITORY_OWNED_PATHS
+        ),
+        key=lambda path: path.relative_to(SNAPSHOT_ROOT).as_posix(),
+    )
+    digest = hashlib.sha256()
+    for path in paths:
+        relative_bytes = path.relative_to(SNAPSHOT_ROOT).as_posix().encode("utf-8")
+        content = path.read_bytes()
+        digest.update(len(relative_bytes).to_bytes(4, "big"))
+        digest.update(relative_bytes)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return len(paths), digest.hexdigest()
+
+
+def test_imported_design_tree_is_unedited() -> None:
+    """Every imported design path and byte must match the guarded manifest."""
+    actual = _snapshot_tree_digest()
+    expected = (SNAPSHOT_FILE_COUNT, SNAPSHOT_TREE_DIGEST)
+    assert actual == expected, (  # nosec B101 - pytest rewrites assertions.
+        f"docs/design snapshot changed: expected {expected}, got {actual}. "
+        "Record repository overrides in docs/design/RECONCILIATION.md, or "
+        "update this manifest only when re-importing from the design project."
     )

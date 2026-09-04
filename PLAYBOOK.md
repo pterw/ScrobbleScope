@@ -91,9 +91,13 @@ See FINDINGS F-DOCSYNC-3.
   Firefox measured identically, so this is not engine-specific; the browser
   gate missed it because it measures panel dimensions no window has. Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`,
-  which supersedes the earlier remediation plan. It restores the design
-  snapshot first, then fixes the gate geometry and the scale in one commit,
-  then widens, then does progress, empty state and accessibility.
+  which supersedes the earlier remediation plan. The owner clarified on
+  2026-09-04 that the complete index composition scales proportionally through
+  layout-aware values: no CSS or browser zoom, no visual scale transform, and
+  no fixed-form exception. Task 1's snapshot restoration is already complete;
+  the remaining tasks fix the real-window, two-engine gate and proportional
+  layout, then widen the base composition, then do progress, empty state and
+  accessibility. The header keeps its independent viewport sizing.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -524,6 +528,53 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-04 - Reconcile PR #221 review with final scale direction (side-task)
+
+- Scope: documentation and one provenance test. Audited all nine unresolved
+  inline threads on PR #221 plus Graphify's earlier review-body advisory against
+  the current files, the stashed scale checkpoints, and the owner's final
+  direction. No production CSS, JavaScript, template or browser-gate behavior
+  changed in this review-fix commit.
+- Owner direction: the earlier hero-only zoom and fixed 600px form rulings are
+  superseded. Hero, wordmark, form, type, controls and spacing grow together
+  through explicit layout values from 1080p through the 4K ceiling. CSS zoom,
+  browser zoom and visual scale transforms are forbidden; the header remains an
+  independently sized shell. The plan now treats its untracked predecessor as
+  outcome evidence, not executable mechanism.
+- Review remediation: Task 2 now retires zoom-property assertions in favor of
+  rendered rectangles and ratios, uses realistic window content boxes, runs the
+  complete gate in Chromium and Firefox locally and in CI, migrates the root
+  `.docsync.toml` declarations when the JavaScript constants disappear, and
+  keeps the generic docsync implementation repository-independent. Task 3 uses
+  the 3:4 split and a proportional 28rem base form cap, keeps controls in that
+  same scale relationship, implements the already-ruled header clamps, and
+  mutation-checks that zoom and transform scaling stay absent.
+- Snapshot and command guards: `tests/test_design_snapshot.py` now hashes one
+  deterministic manifest of all 61 imported design paths and bytes while
+  excluding repository-owned `RECONCILIATION.md`; edits, additions, deletions
+  and renames all invalidate it. Repository-relative POSIX path sorting keeps
+  the aggregate order identical on Windows and Linux. Its pytest assertion
+  carries an explicit B101 suppression. The historical restore instruction now
+  uses `git restore` instead of a PowerShell pipeline that could concatenate
+  lines.
+- Test-count check: the observed 871/872 discrepancy crossed two different
+  commits while another process advanced the branch. The current tree and all
+  live records agree on 872. Docsync validates the latest recorded `pytest -q`
+  result but deliberately does not execute pytest, so no same-revision docsync
+  defect was reproduced. A future generic control-plane hardening would guard
+  that HEAD did not change across a validation run, not encode a
+  ScrobbleScope-specific test-count rule.
+- Stash audit: `checkpoint/pr220-deferred-loading-progress-build` and
+  `checkpoint/pr220-scale-isolated-gates` confirm the complete-composition
+  relationship and a wider form, but both use the rejected CSS-zoom mechanism
+  and the old 1080px height denominator. Neither stash was applied or changed.
+- Validation: the focused snapshot test passes, and a temporary 62nd imported
+  file made it fail before removal and a clean rerun. `pytest -q` reports
+  **872 passed**, 5 warnings. The frontend gate reports 22 checks passed in 31
+  runs across desktop, mobile and wide touch. All 12 pre-commit hooks,
+  `doc_state_sync.py --check`, `git diff --check`, and the worktree guard pass;
+  WT010 is the expected dirty-tree warning and WT000 confirms branch alignment.
+
 ### 2026-09-04 - Graphify knowledge-graph build and audit published (side-task)
 
 - Scope: built a graphify knowledge graph over the worktree corpus (301
@@ -639,44 +690,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: Task 2 is next and must take two measurements before it
   writes any number -- the fresh-Chrome window geometry, and the largest
   composition scale at which the H1 holds one line at the 1200px breakpoint.
-
-### 2026-09-01 - Diagnose the large-display scale defect and supersede its plan (side-task)
-
-- Scope: documentation only. No production code, CSS or gate code changed.
-  Measured the large-display scale defect, replaced the remediation plan that
-  rested on a disproved premise, and corrected every live document that
-  repeated it.
-- Cause found: `syncWideDesktopScale` divides window height by the 1080px
-  design viewport instead of by the composition's own 673px height. The
-  `min()` is unconditional, so browser chrome -- which costs 130-330px of
-  height and almost no width -- makes the height term win on every real
-  window and the width term is discarded.
-- Why no gate caught it: `check_large_display_scale_parity` measures
-  1920x1080, 2560x1440 and 3840x2160. `page.set_viewport_size` sets the
-  content box to exactly those numbers, so the gate tests a geometry no
-  maximised browser reports. The gate saw 33% growth; the owner saw 2.9%.
-- Premise disproved: the superseded plan gated acceptance on Firefox.
-  Chromium and Firefox measured the same composition width to within 0.1px at
-  four window sizes, so the defect is engine-independent. Playwright's Firefox
-  build is installed and launches at version 153.0, so dual-engine checks are
-  available without a download; the owner adopted them for the scale check.
-- Plan vs implementation: no implementation. The plan at
-  `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`
-  supersedes `docs/superpowers/plans/2026-09-01-owner-review-remediation.md`,
-  whose Task 1 rested on four claims measurement disproved. Its Task 1 is
-  already complete: it landed as `eeaa1a8` on this branch, unpushed, from a
-  concurrent session. Work starts at Task 2.
-- Deviations: none. The branch was moved from `wip/batch-21-owner-review` to
-  `wip/batch-21` on the owner's ruling, because PLAYBOOK Section 3 names the
-  latter and the guard raised WT003. Local `wip/batch-21` was reset to
-  `origin/main`; `aadf2b7` is unchanged on `origin/wip/batch-21` and its
-  content is already in `origin/main`. A later push needs
-  `--force-with-lease` and a separate owner ruling.
-- Validation: **872 passed**. All 12 pre-commit hooks pass. Worktree guard exits 0.
-  `doc_state_sync.py --check` exits 0.
-- Forward guidance: start at Task 2, which fixes the gate geometry and the
-  scale together because the gate change alone turns the suite red. Two owner
-  rulings are recorded in the plan and must not be re-derived: the hero scales
-  proportionally while the form widens and then locks, never zoomed; and
-  ultrawide is out of scope. The nested-card slider and any widening past
-  `28rem` stay behind a fresh owner review.
