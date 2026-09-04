@@ -74,8 +74,12 @@ stylesheet is in scope for this batch.
    then place one slim determinate purple hairline directly below it. The
    polling percentage drives the hairline; do not print a second percentage.
    **Loading clarity addendum 2026-08-28 (owner).** The phase line names the
-   current operation; it does not repeat a known page count that the `Pages
-   fetched` stat already owns. The normal-state `Cancel and return home`
+   current operation. **Count display revised 2026-09-04 (owner):** counted
+   phases may show their accurate current/total fraction in the phase line.
+   Keep album and heatmap polling, completion and error paths distinct; the
+   shared presentation must not imply they have the same pipeline or derive
+   counts from overall progress. The remediation plan's Task 4 owns the
+   accuracy checks and phase contract. The normal-state `Cancel and return home`
    control navigates home; it does not claim to stop the server job. When a
    cached heatmap is ready, render its DOM first and use one short
    opacity-only handoff from loading to result rather than a snap or nested
@@ -308,7 +312,7 @@ Moved in by the scope ruling:
    the two-column `1.1fr 1fr` grid from `docs/design/README.md` screen 1, not
    the audit review's single column. Current source declares a 1200px-wide
    `3fr 5fr` state and one shared factor of
-   `1.075 × max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped
+   `1.075 * max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped
    at `2.15`, while retaining a centred `23.75rem` form cap. That source
    attempt does not produce the intended proportional composition, so scaling
    remains unimplemented. Measurement on 2026-09-01 named the cause: the

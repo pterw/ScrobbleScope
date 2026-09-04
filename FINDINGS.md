@@ -152,6 +152,34 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 
 ## Resolved this batch
 
+### F-B21-31: the remediation plan conflicted on counts and omitted a phase-copy reader
+
+Task 4 prescribed counted phase labels while the batch still prescribed
+operation-only copy, and its proposed mutable phase dictionary would leave `get_job_context`
+returning that nested object by reference.
+
+The owner reaffirmed visible counts on 2026-09-04, conditional on accurate
+polling, as the September 1 owner-remediation plan intended. The batch decision
+now records that override. The plan requires mutation-isolation assertions for
+both repository readers and the F-B21-33 accuracy prerequisites. This corrects
+the execution contract; the phase feature has not been implemented. The gaps
+predate the latest review fix, rather than being production regressions from it.
+
+Status: resolved in the plan, 2026-09-04; implementation remains Task 4.
+Source: PR #221 review threads 3938450404 and 3938450413.
+
+### F-B21-32: repository-authored PR documentation violated the ASCII rule
+
+The batch definition and reconciliation used a multiplication sign, and the
+published Graphify report used non-ASCII punctuation on 89 lines.
+
+Normalized those repository-authored files to ASCII without touching any of
+the 61 guarded design imports or the preserved Graphify data. The generated
+report introduced most violations; the branch-wide scan covers sibling claims.
+
+Status: resolved, 2026-09-04.
+Source: PR #221 review thread 3938450418.
+
 ### F-WORKTREE-5: display-unsafe branch candidates were dropped before the conflict check
 
 `parse_batch_branch` filtered candidates through `is_display_safe_ref` and only
@@ -284,6 +312,28 @@ Source: SWE_PRINCIPLES_AUDIT.
 ---
 
 ## P1 -- Next batch candidates
+
+### F-B21-33: heatmap progress can apply stale responses and mislabel failed pages
+
+Heatmap's interval polls can overlap and apply an older response after a newer
+one, while its received-page stat temporarily counts failed fetch attempts.
+
+A Node probe executed the current `pollProgress` function with held fetch
+responses: two timer ticks created two requests, and resolving the newer
+response before the older one left the older phase label visible. The client
+also reads mutable `currentJobId` when requesting results, so a response from
+an earlier job must be invalidated on replacement. Album polling instead
+schedules its next request after the preceding response.
+
+In `lastfm.py`, `completed` increments before checking whether a page result
+exists; `_heatmap_progress` writes this count to `pages_received`. Final fetch
+metadata corrects it to `len(all_pages)`, so a failed page can make the displayed
+received count fall at phase completion. Attempt counts are valid phase work
+but must not be presented as successfully received data.
+
+Status: open; owner-approved Task 4 prerequisite for accurate visible counts.
+Source: owner-requested polling audit, 2026-09-04; current Last.fm callback,
+heatmap worker and browser polling, plus reversed-response execution probe.
 
 ### F-B21-1: a failed event-loop setup leaks a job slot
 

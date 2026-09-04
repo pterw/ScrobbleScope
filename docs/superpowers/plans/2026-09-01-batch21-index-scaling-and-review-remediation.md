@@ -285,7 +285,12 @@ roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
 > snapshot is digest-guarded already. Left open; decide it when the touch
 > minimum actually changes.
 >
-> Steps 1 to 5 below are kept as the record of what was done and why.
+> Steps 1 to 5 below are kept as the record of what was done and why. Checked
+> boxes are supported by the tree and commits `eeaa1a8` and `5b7e675`;
+> `eeaa1a8` restored README, and `5b7e675` extended its guard to all 61 files.
+> Step 2 remains unchecked
+> because the historical placeholder-digest failure was not independently
+> observed during this verification.
 
 `docs/design/README.md` is part of the verbatim design import and is historical
 evidence, not current visual authority. Two commits edited it in place:
@@ -311,7 +316,7 @@ expire after two idle hours. Those decisions stay. They move to
 - Modify: `.docsync.toml` (give snapshot sites an explicit `expect`)
 - Modify: `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`
 
-- [ ] **Step 1: Write the failing snapshot test**
+- [x] **Step 1: Write the snapshot test -- complete in `eeaa1a8`**
 
 `.pre-commit-config.yaml:2` excludes `docs/` from every hook, so no hook can
 guard this. pytest is not excluded, so the guard goes there.
@@ -378,7 +383,7 @@ def test_imported_design_tree_is_unedited() -> None:
     )
 ```
 
-- [ ] **Step 2: Run it and confirm it fails**
+- [ ] **Step 2: Run it and confirm it fails -- historical red run not verified**
 
 ```powershell
 pytest tests/test_design_snapshot.py -q
@@ -387,7 +392,7 @@ pytest tests/test_design_snapshot.py -q
 Expected: FAIL, because the placeholder digest cannot match. The failure prints
 the actual file count and aggregate digest.
 
-- [ ] **Step 3: Restore the file and record the true tree manifest**
+- [x] **Step 3: Restore the file and record the true tree manifest -- complete through `5b7e675`**
 
 Git Bash mangles `git show <rev>:<path>`; use PowerShell.
 
@@ -408,7 +413,7 @@ pytest tests/test_design_snapshot.py -q
 This manifest covers every imported file, not only README or the token
 directory. A file edit, rename, addition or deletion must change it.
 
-- [ ] **Step 4: Run the test and confirm it passes**
+- [x] **Step 4: Run the test and confirm it passes -- current test is green**
 
 ```powershell
 pytest tests/test_design_snapshot.py -q
@@ -416,7 +421,7 @@ pytest tests/test_design_snapshot.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Re-home every decision the edits carried**
+- [x] **Step 5: Re-home every decision the edits carried -- complete in `eeaa1a8`**
 
 Add these rows to the override table in `docs/design/RECONCILIATION.md`, so the
 restoration loses no decision. Each row names the repository as the owner of the
@@ -434,7 +439,7 @@ value, which is the file's stated purpose.
 
 The theme-marker row already exists; do not duplicate it.
 
-- [ ] **Step 6: Stop docsync from asking for snapshot edits**
+- [ ] **Step 6: Stop docsync from asking for snapshot edits -- partially complete**
 
 The digest test and `.docsync.toml` will deadlock without this step, and the
 deadlock is the reason the snapshot was edited in the first place.
@@ -468,7 +473,11 @@ snapshot manifest.
 Prove the new `expect` values are live rather than decorative: change one of
 them by a digit, re-run `--check`, confirm it fails, and change it back.
 
-- [ ] **Step 7: Document, validate, commit**
+Commit `eeaa1a8` hardened every snapshot site whose declaration pattern exposes
+a captured value. The 44px touch-target sites remain presence-only and cannot
+bind an `expect`; keep that deadlock deferred unless the touch minimum changes.
+
+- [x] **Step 7: Document, validate, commit -- complete in `eeaa1a8`**
 
 Add a PLAYBOOK Section 4 side-task entry directly after
 `<!-- DOCSYNC:CURRENT-BATCH-END -->`, explaining that the snapshot was edited in
@@ -819,10 +828,11 @@ rg -n -i 'viewportHeight / 1080|innerHeight / 1080|index-wide-scale|1\.075 .{0,3
 ```
 
 Correct each active claim. Hits inside dated PLAYBOOK Section 4 entries are
-point-in-time records and stay as written. In `FINDINGS.md`, F-B21-24 is
-currently marked resolved by the 2026-08-28 refinement; reopen it with the
-measured evidence, and state plainly that the cause was the denominator, not the
-browser. Do not write that the defect was Firefox-specific.
+point-in-time records and stay as written. In `FINDINGS.md`, F-B21-24 is already
+reopened; preserve that status and update its evidence to state plainly that the
+cause was the denominator, not the browser. Do not write that the defect was
+Firefox-specific or mark it resolved until the replacement passes the rendered
+gate.
 
 In `.docsync.toml`, repoint the wide-desktop baseline and cap sites from the
 deleted JavaScript constants to `--index-scale-base` and
@@ -1023,9 +1033,10 @@ again. Apply the exact navigation clamps recorded there:
 ```
 
 The bar clamp preserves a 68px floor at 1080p and the current 76px reference
-at 1440p. The choice clamp lets the outer theme control actually reach the
-ruled 44px/48px curve instead of its child forcing a fixed 48px height.
-Keep the header outside `--index-scale`.
+at the 2560px-wide 1440p profile: `2560px * 2.96875 / 100 = 76px`, where the profile
+label names the panel resolution. The choice clamp lets the outer theme control
+actually reach the ruled 44px/48px curve instead of its child forcing a fixed
+48px height. Keep the header outside `--index-scale`.
 
 Render both engines at the real 1080p and 1440p windows beside the proportional
 form, with decade selection and thresholds expanded. Confirm the computed
@@ -1058,6 +1069,37 @@ Stop for owner review.
 
 ## Task 4: Align visible loading progress with pipeline phases
 
+**Accuracy prerequisite (owner, 2026-09-04).** Share presentation, not pipeline
+or polling state. Albums fetch Last.fm (overall 5-20%), search Spotify (20-40%)
+and fetch Spotify details (40-60%) before final assembly. Heatmap fetches only
+Last.fm (5-80%), then aggregates. Keep those overall mappings and each client's
+retry, terminal-error and destination behavior. A phase reaching 100% must not
+trigger result navigation; only overall completion with ready results does.
+
+Counts come from the server's current phase, never reverse-calculated from
+overall progress or elapsed polling ticks. Polling may skip intermediate
+updates; render the latest observed snapshot without inventing missing counts.
+Use distinct units for page attempts, album searches and detail batches. Cache
+hits, empty phases and failures must not leave a stale preceding fraction.
+
+F-B21-33 records two prerequisites found during the owner-requested source
+check. Heatmap uses an interval that can overlap requests and apply older
+responses last. Prevent overlapping polls and invalidate in-flight responses
+on job replacement, stop, retry and completion; stopping a timer alone does
+not cancel a pending response. Preserve its existing transient-network retry
+behavior. Last.fm's callback counts completed attempts even for failed pages;
+do not label that value as successfully received pages. Keep received-page
+stats tied to actual successful data, and label the phase's attempted work
+honestly. Include `scrobblescope/lastfm.py` and its service tests if the callback
+contract must be extended; retain existing callers' compatibility.
+
+The permanent browser checks must delay and reverse responses, replace a job
+while a response is pending, and prove that stale responses cannot regress the
+label, restart polling or fetch the new job's result. Exercise each pipeline's
+phase transitions separately, including cache-only album work, a failed page,
+unknown/zero totals, and a phase at 100% while overall progress is below 100%.
+Prove returned phase snapshots remain isolated through both repository readers.
+
 Carried forward from the superseded plan's Task 2, whose baseline verified
 correct: `set_job_progress` has no `phase` keyword, `static/js/loading-progress.js`
 does not exist, and `loading.js` and `heatmap.js` each drive the hairline from
@@ -1078,6 +1120,8 @@ top-level progress alone.
 - [ ] **Step 1: Write the failing repository and route contract tests**
 
 `phase` must be copied, not aliased, and must have three distinct update modes.
+Exercise both repository read paths because `get_job_progress` and
+`get_job_context` each construct their own progress copy:
 
 ```python
 phase = {"key": "lastfm_fetch", "label": "Fetching scrobbles",
@@ -1085,6 +1129,14 @@ phase = {"key": "lastfm_fetch", "label": "Fetching scrobbles",
 set_job_progress(job_id, progress=20, message="Fetching scrobbles", phase=phase)
 phase["current"] = 99
 assert get_job_progress(job_id)["phase"]["current"] == 23
+assert get_job_context(job_id)["progress"]["phase"]["current"] == 23
+
+progress_view = get_job_progress(job_id)
+context_view = get_job_context(job_id)
+progress_view["phase"]["current"] = 77
+context_view["progress"]["phase"]["current"] = 88
+assert get_job_progress(job_id)["phase"]["current"] == 23
+assert get_job_context(job_id)["progress"]["phase"]["current"] == 23
 
 set_job_progress(job_id, message="Still fetching")
 assert get_job_progress(job_id)["phase"]["key"] == "lastfm_fetch"
@@ -1121,8 +1173,11 @@ def set_job_progress(..., phase=_UNSET):
             job["progress"]["phase"] = dict(phase)
 ```
 
-In `get_job_progress`, copy `progress["phase"]` when present, as `stats` already
-is. Never emit `phase: null`; an absent key keeps current clients unchanged.
+In both `get_job_progress` and `get_job_context`, copy `progress["phase"]` when
+present, as each path already copies `stats`. The regression tests above must
+mutate each returned nested dictionary and prove that neither mutation reaches
+shared job state. Never emit `phase: null`; an absent key keeps current clients
+unchanged.
 
 - [ ] **Step 4: Populate counted phases and clear uncounted ones**
 
@@ -1165,7 +1220,7 @@ window.ScrobbleProgress = {
     const phase = payload.phase;
     if (!phase) return payload.message || 'Initializing...';
     const prefix = phase.label.toUpperCase();
-    return Number.isFinite(phase.current) && Number.isFinite(phase.total)
+    return Number.isFinite(phase.current) && Number.isFinite(phase.total) && phase.total > 0
       ? `${prefix} \u00b7 ${phase.unit.toUpperCase()} ${phase.current} / ${phase.total}`
       : prefix;
   },
@@ -1177,7 +1232,10 @@ When the phase key changes, remove the transition, set `scaleX(0)`, and restore
 the transition on the second `requestAnimationFrame` before applying the new
 phase-local fraction, so the reset is instant rather than animating backward.
 Every update sets `transform: scaleX(displayPercent / 100)`, `aria-valuenow` to
-the same rounded percentage, and `aria-valuetext` to `label(payload)`.
+the same rounded percentage, and both the visible phase line and
+`aria-valuetext` to `label(payload)`. The owner confirmed on 2026-09-04 that
+accurate counted phases should display their count, reaffirming the September 1
+owner-remediation plan and superseding the August 28 operation-only ruling.
 
 Both clients call this helper. Do not animate `width`, `height`, `padding`,
 `margin` or `max-width`.
@@ -1204,17 +1262,18 @@ client:
 ```
 
 For the counted frames assert the bar's computed transform matrix and
-`aria-valuenow` correspond to `23 / 102` and `90 / 100`, and that
-`aria-valuetext` carries the exact label and fraction. For the uncounted frame
-assert the bar falls back to top-level 92 and the phase line shows no stale page
-count. Run the equivalent checks against album `/loading` and the heatmap
-in-page loader.
+`aria-valuenow` correspond to `23 / 102` and `90 / 100`, `aria-valuetext`
+carries the exact label and fraction, and the visible phase line contains the
+same accurate phase-specific count. For the uncounted frame assert the bar falls back to top-level 92 and
+the phase line shows no stale count. Run the equivalent checks against album
+`/loading` and the heatmap in-page loader.
 
 - [ ] **Step 8: Document, validate, commit**
 
-Update the active WP-4 text in `BATCH21_DEFINITION.md`: counted phases display
-their count and drive the hairline; uncounted work clears phase and uses overall
-progress. Correct any live statement that `/heatmap_data` is polled as progress
+Preserve the revised owner decision in `BATCH21_DEFINITION.md`: counted phase
+fractions drive the visible phase line, hairline and ARIA, while uncounted work
+clears phase and uses overall progress. Correct any
+live statement that `/heatmap_data` is polled as progress
 -- the client polls `/progress` and requests heatmap data only after completion.
 
 ```powershell
@@ -1330,8 +1389,9 @@ field and the thresholds disclosure, which all start hidden.
 
 - [ ] **Step 3: Progress ARIA**
 
-`aria-valuenow` and `aria-valuetext` agree exactly with the displayed fraction in
-both clients, across a phase switch and an uncounted frame.
+`aria-valuenow` and `aria-valuetext` agree exactly with the fraction represented
+by the hairline in both clients, across a phase switch and an uncounted frame.
+The visible phase line carries the same accurate phase count.
 
 - [ ] **Step 4: Reduced motion**
 
@@ -1397,8 +1457,9 @@ profile in both engines:
 5. Both dividers read clearly in dark mode without shadows.
 6. With decade selection and thresholds open at roughly 1920x900, submit and the
    filter tags stay reachable without document scrolling.
-7. Both loaders show one pinwheel, one hairline matching `23 / 102` and
-   `90 / 100`, correct ARIA, no backward animation at a phase switch, and a
+7. Both loaders show one pinwheel, one accurate counted phase label, one hairline
+   matching `23 / 102` and `90 / 100`, matching ARIA,
+   no backward animation at a phase switch, and a
    visible reduced-motion final state.
 8. `/unmatched` before a search and after an expired pointer shows the borderless
    no-data page; a real unmatched report still renders its reason groups.
