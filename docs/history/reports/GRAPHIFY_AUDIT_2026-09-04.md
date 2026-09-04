@@ -50,13 +50,13 @@ provider stream errors.
 ---
 
 ## Corpus Check
-- 301 files · ~375,205 words
+- 301 files | ~375,205 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 3103 nodes · 5896 edges · 248 communities (149 shown, 99 thin omitted)
-- Extraction: 92% EXTRACTED · 8% INFERRED · 0% AMBIGUOUS · INFERRED: 486 edges (avg confidence: 0.88)
-- Token cost: 0 input · 0 output
+- 3103 nodes | 5896 edges | 248 communities (149 shown, 99 thin omitted)
+- Extraction: 92% EXTRACTED | 8% INFERRED | 0% AMBIGUOUS | INFERRED: 486 edges (avg confidence: 0.88)
+- Token cost: 0 input | 0 output
 
 ## Community Hubs (Navigation)
 - Album Results Pipeline
@@ -309,57 +309,57 @@ provider stream errors.
 
 ## Surprising Connections (you probably didn't know these)
 - `Batch 11` --implements--> `_fetch_spotify_misses()`  [EXTRACTED]
-  docs/history/logs/BATCH11_LOG.md → scrobblescope/orchestrator.py
+  docs/history/logs/BATCH11_LOG.md -> scrobblescope/orchestrator.py
 - `Batch 12` --references--> `_fetch_spotify_misses()`  [EXTRACTED]
-  docs/history/logs/BATCH12_LOG.md → scrobblescope/orchestrator.py
+  docs/history/logs/BATCH12_LOG.md -> scrobblescope/orchestrator.py
 - `Batch 13` --references--> `_fetch_spotify_misses()`  [EXTRACTED]
-  docs/history/logs/BATCH13_LOG.md → scrobblescope/orchestrator.py
+  docs/history/logs/BATCH13_LOG.md -> scrobblescope/orchestrator.py
 - `Batch 11` --implements--> `_build_results()`  [EXTRACTED]
-  docs/history/logs/BATCH11_LOG.md → scrobblescope/orchestrator.py
+  docs/history/logs/BATCH11_LOG.md -> scrobblescope/orchestrator.py
 - `Batch 12` --implements--> `format_seconds_mobile()`  [EXTRACTED]
-  docs/history/logs/BATCH12_LOG.md → scrobblescope/utils.py
+  docs/history/logs/BATCH12_LOG.md -> scrobblescope/utils.py
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **Scrobble filtering form controls** — docs_images_index_dark_thresholds_decade_scrobble_filter_form, docs_images_index_dark_thresholds_decade_decade_filter, docs_images_index_dark_thresholds_decade_album_thresholds_panel, docs_images_index_dark_thresholds_decade_sort_by_play_count [INFERRED]
-- **Documentation sync and gating system** — _docsync_toml, _pre_commit_config_yaml_doc_state_sync_check, _pre_commit_config_yaml, _claude_session_context, _github_pull_request_template_pr_checklist [INFERRED 0.85]
-- **Tailwind CSS reproducibility gates** — _pre_commit_config_yaml_tailwind_css_drift, _github_workflows_test_tailwind_digest_step, _docsync_toml_light_muted_token [INFERRED 0.75]
-- **Multi-agent orchestration method** — development_amnesiac_engineers_problem, development_orchestration_architecture, development_batch_wp_structure, docs_agent_doc_map_anti_duplication_rule, agent_notes_template_extraction_intent [EXTRACTED 1.00]
-- **Docsync toolchain modules** — docs_architecture_documentation_tooling_doc_state_sync, docs_architecture_documentation_tooling_docsync_cli, docs_architecture_documentation_tooling_docsync_integrity, docs_architecture_documentation_tooling_docsync_logic, docs_architecture_documentation_tooling_docsync_models, docs_architecture_documentation_tooling_docsync_parser, docs_architecture_documentation_tooling_docsync_renderer [EXTRACTED 1.00]
-- **Flask runtime modules** — docs_architecture_runtime_system_app_py, docs_architecture_runtime_system_routes_py, docs_architecture_runtime_system_worker_py, docs_architecture_runtime_system_repositories_py, docs_architecture_runtime_system_orchestrator_py, docs_architecture_runtime_system_heatmap_py, docs_architecture_runtime_system_lastfm_py, docs_architecture_runtime_system_spotify_py, docs_architecture_runtime_system_cache_py, docs_architecture_runtime_system_utils_py, docs_architecture_runtime_system_domain_py, docs_architecture_runtime_system_errors_py [EXTRACTED 1.00]
-- **Design token files composed by styles.css** — docs_design_styles_css_design_system_entry_point, docs_design_tokens_colors_css_colors_tokens, docs_design_tokens_elevation_css_elevation_tokens, docs_design_tokens_fonts_css_fonts_tokens, docs_design_tokens_motion_css_motion_tokens, docs_design_tokens_spacing_css_spacing_tokens, docs_design_tokens_typography_css_typography_tokens [EXTRACTED 1.00]
-- **Documentation sync toolchain** — docs_architecture_documentation_tooling_md_doc_state_sync, docs_architecture_documentation_tooling_md_docsync_package, docs_architecture_documentation_tooling_md_pre_commit, docs_architecture_documentation_tooling_md_quality_gate [EXTRACTED 1.00]
-- **Shared job pipeline participants** — docs_architecture_heatmap_sequence_md_routes_py, docs_architecture_heatmap_sequence_md_worker_py, docs_architecture_heatmap_sequence_md_repositories_py, docs_architecture_runtime_system_md_jobs_state [EXTRACTED 1.00]
-- **Design token system** — docs_design_tokens_colors_css, docs_design_tokens_typography_css, docs_design_tokens_spacing_css, docs_design_tokens_motion_css, docs_design_tokens_elevation_css, docs_design_tokens_fonts_css [EXTRACTED 1.00]
-- **Batches that built and polished the scrobble heatmap** — docs_history_definitions_batch18_definition_batch_18, docs_history_definitions_batch19_definition_batch_19, batch21_definition_batch_21 [INFERRED 0.85]
-- **Batches that built and hardened the docsync tooling** — docs_history_definitions_batch14_definition_batch_14, docs_history_definitions_batch15_definition_batch_15, docs_history_definitions_batch20_definition_batch_20 [EXTRACTED 1.00]
-- **Batches that shaped the frontend theme architecture** — docs_history_definitions_batch11_definition_batch_11, docs_history_definitions_batch12_definition_batch_12, batch21_definition_batch_21 [EXTRACTED 1.00]
-- **Batch 16 local-dev and testing tooling** — scripts_dev_dev_start_py, scripts_testing__http_client_py, scripts_testing_smoke_cache_check_py, scripts_testing_concurrent_users_test_py [EXTRACTED 1.00]
-- **Batch 8 modular refactor modules** — scrobblescope, scrobblescope_orchestrator_py, scrobblescope_utils_py, scrobblescope_lastfm_py, scrobblescope_spotify_py, scrobblescope_repositories_py, scrobblescope_routes_py [EXTRACTED 1.00]
-- **Heatmap feature stack introduced across Batches 18-19** — scrobblescope_heatmap_py, heatmap_routes, static_js_heatmap_js, static_css_heatmap_css [EXTRACTED 1.00]
-- **Batch 21 validation gates** — concept_tailwind_css_drift_hook, concept_frontend_gate, concept_doc_state_sync, concept_worktree_guard [EXTRACTED 0.95]
-- **Index wide-composition scaling defect cluster** — concept_index_wide_scale_zoom, concept_scaling_formula_defect, concept_gate_viewport_blindness, concept_realistic_window_geometry_gate [EXTRACTED 0.95]
-- **Tailwind toolchain (build, drift hook, theme tokens)** — concept_tailwind_build, concept_tailwind_css_drift_hook, concept_theme_static, concept_adobe_fonts_kit_rwy8ghw [INFERRED 0.85]
-- **Product analysis modes** — product_scrobblescope, product_top_albums, product_listening_heatmap [EXTRACTED 1.00]
-- **Batch 21 strangler migration machinery** — product_batch21_strangler_migration, product_wp8_audit, product_batch21_definition_md, product_playbook_md [EXTRACTED 1.00]
-- **Bootstrap verification ritual** — handoff_bootstrap_verification, handoff_checklist, product_playbook_md, handoff_session_context_md [INFERRED 0.85]
-- **Batch 21 work packages WP-0 through WP-8** — playbook_batch_21_wp_0, playbook_batch_21_wp_1, playbook_batch_21_wp_2, playbook_batch_21_wp_3, playbook_batch_21_wp_4, playbook_batch_21_wp_5, playbook_batch_21_wp_6, playbook_batch_21_wp_7, playbook_batch_21_wp_8 [EXTRACTED 1.00]
-- **Repository validation gates (docsync, worktree guard, frontend gate, tailwind drift hook)** — concept_docsync, concept_worktree_guard, concept_frontend_gate, concept_tailwind_build [EXTRACTED 1.00]
-- **F-B21 finding cluster driving Batch 21 scope and review** — findings_f_b21_2, findings_f_b21_4, findings_f_b21_13, findings_f_b21_17, findings_f_b21_24 [EXTRACTED 1.00]
-- **External memory layer of scoped documents for amnesiac agents** — development_agents_md_role, development_handoff_prompt_role, development_agent_notes_role, development_playbook_role, development_session_context_role, development_history_archive [EXTRACTED 1.00]
-- **Adobe Fonts type stack with family roles and weight constraints** — docs_design_reconciliation_adobe_fonts, docs_design_reconciliation_font_families, docs_design_reconciliation_no_500_600_weights, agent_notes_adobe_kit_slop, agent_notes_wordmark_typeface [INFERRED 0.85]
-- **Batch 21 frontend toolchain: Tailwind migration, build, scan scoping, Bootstrap retirement** — readme_tailwind_daisyui_migration, development_frontend_asset_build, docs_design_reconciliation_tailwind_source_none, readme_bootstrap_retirement [EXTRACTED 1.00]
-- **Background job pipeline participants** — scrobblescope_worker__acquire_job_slot, scrobblescope_worker__start_job_thread, scrobblescope_repositories__create_job, scrobblescope_orchestrator__background_task, scrobblescope_heatmap__heatmap_task, scrobblescope_repositories__get_job_context [INFERRED 0.85]
-- **Spotify enrichment pipeline** — scrobblescope_orchestrator__run_spotify_search_phase, scrobblescope_orchestrator__run_spotify_batch_detail_phase, scrobblescope_spotify__search_for_spotify_album_id, scrobblescope_spotify__fetch_spotify_album_details_batch, scrobblescope_cache__batch_lookup_metadata [INFERRED 0.85]
-- **Cross-thread rate limiting stack** — scrobblescope_utils__global_throttle, scrobblescope_utils__throttled_limiter, scrobblescope_utils__get_lastfm_limiter, scrobblescope_utils__get_spotify_limiter [EXTRACTED 1.00]
+- **Scrobble filtering form controls** -- docs_images_index_dark_thresholds_decade_scrobble_filter_form, docs_images_index_dark_thresholds_decade_decade_filter, docs_images_index_dark_thresholds_decade_album_thresholds_panel, docs_images_index_dark_thresholds_decade_sort_by_play_count [INFERRED]
+- **Documentation sync and gating system** -- _docsync_toml, _pre_commit_config_yaml_doc_state_sync_check, _pre_commit_config_yaml, _claude_session_context, _github_pull_request_template_pr_checklist [INFERRED 0.85]
+- **Tailwind CSS reproducibility gates** -- _pre_commit_config_yaml_tailwind_css_drift, _github_workflows_test_tailwind_digest_step, _docsync_toml_light_muted_token [INFERRED 0.75]
+- **Multi-agent orchestration method** -- development_amnesiac_engineers_problem, development_orchestration_architecture, development_batch_wp_structure, docs_agent_doc_map_anti_duplication_rule, agent_notes_template_extraction_intent [EXTRACTED 1.00]
+- **Docsync toolchain modules** -- docs_architecture_documentation_tooling_doc_state_sync, docs_architecture_documentation_tooling_docsync_cli, docs_architecture_documentation_tooling_docsync_integrity, docs_architecture_documentation_tooling_docsync_logic, docs_architecture_documentation_tooling_docsync_models, docs_architecture_documentation_tooling_docsync_parser, docs_architecture_documentation_tooling_docsync_renderer [EXTRACTED 1.00]
+- **Flask runtime modules** -- docs_architecture_runtime_system_app_py, docs_architecture_runtime_system_routes_py, docs_architecture_runtime_system_worker_py, docs_architecture_runtime_system_repositories_py, docs_architecture_runtime_system_orchestrator_py, docs_architecture_runtime_system_heatmap_py, docs_architecture_runtime_system_lastfm_py, docs_architecture_runtime_system_spotify_py, docs_architecture_runtime_system_cache_py, docs_architecture_runtime_system_utils_py, docs_architecture_runtime_system_domain_py, docs_architecture_runtime_system_errors_py [EXTRACTED 1.00]
+- **Design token files composed by styles.css** -- docs_design_styles_css_design_system_entry_point, docs_design_tokens_colors_css_colors_tokens, docs_design_tokens_elevation_css_elevation_tokens, docs_design_tokens_fonts_css_fonts_tokens, docs_design_tokens_motion_css_motion_tokens, docs_design_tokens_spacing_css_spacing_tokens, docs_design_tokens_typography_css_typography_tokens [EXTRACTED 1.00]
+- **Documentation sync toolchain** -- docs_architecture_documentation_tooling_md_doc_state_sync, docs_architecture_documentation_tooling_md_docsync_package, docs_architecture_documentation_tooling_md_pre_commit, docs_architecture_documentation_tooling_md_quality_gate [EXTRACTED 1.00]
+- **Shared job pipeline participants** -- docs_architecture_heatmap_sequence_md_routes_py, docs_architecture_heatmap_sequence_md_worker_py, docs_architecture_heatmap_sequence_md_repositories_py, docs_architecture_runtime_system_md_jobs_state [EXTRACTED 1.00]
+- **Design token system** -- docs_design_tokens_colors_css, docs_design_tokens_typography_css, docs_design_tokens_spacing_css, docs_design_tokens_motion_css, docs_design_tokens_elevation_css, docs_design_tokens_fonts_css [EXTRACTED 1.00]
+- **Batches that built and polished the scrobble heatmap** -- docs_history_definitions_batch18_definition_batch_18, docs_history_definitions_batch19_definition_batch_19, batch21_definition_batch_21 [INFERRED 0.85]
+- **Batches that built and hardened the docsync tooling** -- docs_history_definitions_batch14_definition_batch_14, docs_history_definitions_batch15_definition_batch_15, docs_history_definitions_batch20_definition_batch_20 [EXTRACTED 1.00]
+- **Batches that shaped the frontend theme architecture** -- docs_history_definitions_batch11_definition_batch_11, docs_history_definitions_batch12_definition_batch_12, batch21_definition_batch_21 [EXTRACTED 1.00]
+- **Batch 16 local-dev and testing tooling** -- scripts_dev_dev_start_py, scripts_testing__http_client_py, scripts_testing_smoke_cache_check_py, scripts_testing_concurrent_users_test_py [EXTRACTED 1.00]
+- **Batch 8 modular refactor modules** -- scrobblescope, scrobblescope_orchestrator_py, scrobblescope_utils_py, scrobblescope_lastfm_py, scrobblescope_spotify_py, scrobblescope_repositories_py, scrobblescope_routes_py [EXTRACTED 1.00]
+- **Heatmap feature stack introduced across Batches 18-19** -- scrobblescope_heatmap_py, heatmap_routes, static_js_heatmap_js, static_css_heatmap_css [EXTRACTED 1.00]
+- **Batch 21 validation gates** -- concept_tailwind_css_drift_hook, concept_frontend_gate, concept_doc_state_sync, concept_worktree_guard [EXTRACTED 0.95]
+- **Index wide-composition scaling defect cluster** -- concept_index_wide_scale_zoom, concept_scaling_formula_defect, concept_gate_viewport_blindness, concept_realistic_window_geometry_gate [EXTRACTED 0.95]
+- **Tailwind toolchain (build, drift hook, theme tokens)** -- concept_tailwind_build, concept_tailwind_css_drift_hook, concept_theme_static, concept_adobe_fonts_kit_rwy8ghw [INFERRED 0.85]
+- **Product analysis modes** -- product_scrobblescope, product_top_albums, product_listening_heatmap [EXTRACTED 1.00]
+- **Batch 21 strangler migration machinery** -- product_batch21_strangler_migration, product_wp8_audit, product_batch21_definition_md, product_playbook_md [EXTRACTED 1.00]
+- **Bootstrap verification ritual** -- handoff_bootstrap_verification, handoff_checklist, product_playbook_md, handoff_session_context_md [INFERRED 0.85]
+- **Batch 21 work packages WP-0 through WP-8** -- playbook_batch_21_wp_0, playbook_batch_21_wp_1, playbook_batch_21_wp_2, playbook_batch_21_wp_3, playbook_batch_21_wp_4, playbook_batch_21_wp_5, playbook_batch_21_wp_6, playbook_batch_21_wp_7, playbook_batch_21_wp_8 [EXTRACTED 1.00]
+- **Repository validation gates (docsync, worktree guard, frontend gate, tailwind drift hook)** -- concept_docsync, concept_worktree_guard, concept_frontend_gate, concept_tailwind_build [EXTRACTED 1.00]
+- **F-B21 finding cluster driving Batch 21 scope and review** -- findings_f_b21_2, findings_f_b21_4, findings_f_b21_13, findings_f_b21_17, findings_f_b21_24 [EXTRACTED 1.00]
+- **External memory layer of scoped documents for amnesiac agents** -- development_agents_md_role, development_handoff_prompt_role, development_agent_notes_role, development_playbook_role, development_session_context_role, development_history_archive [EXTRACTED 1.00]
+- **Adobe Fonts type stack with family roles and weight constraints** -- docs_design_reconciliation_adobe_fonts, docs_design_reconciliation_font_families, docs_design_reconciliation_no_500_600_weights, agent_notes_adobe_kit_slop, agent_notes_wordmark_typeface [INFERRED 0.85]
+- **Batch 21 frontend toolchain: Tailwind migration, build, scan scoping, Bootstrap retirement** -- readme_tailwind_daisyui_migration, development_frontend_asset_build, docs_design_reconciliation_tailwind_source_none, readme_bootstrap_retirement [EXTRACTED 1.00]
+- **Background job pipeline participants** -- scrobblescope_worker__acquire_job_slot, scrobblescope_worker__start_job_thread, scrobblescope_repositories__create_job, scrobblescope_orchestrator__background_task, scrobblescope_heatmap__heatmap_task, scrobblescope_repositories__get_job_context [INFERRED 0.85]
+- **Spotify enrichment pipeline** -- scrobblescope_orchestrator__run_spotify_search_phase, scrobblescope_orchestrator__run_spotify_batch_detail_phase, scrobblescope_spotify__search_for_spotify_album_id, scrobblescope_spotify__fetch_spotify_album_details_batch, scrobblescope_cache__batch_lookup_metadata [INFERRED 0.85]
+- **Cross-thread rate limiting stack** -- scrobblescope_utils__global_throttle, scrobblescope_utils__throttled_limiter, scrobblescope_utils__get_lastfm_limiter, scrobblescope_utils__get_spotify_limiter [EXTRACTED 1.00]
 
 ## Communities (248 total, 99 thin omitted)
 
 ### Community 0 - "Album Results Pipeline"
 Cohesion: 0.01
-Nodes (145): _filter_results_for_display(), _group_unmatched_by_reason(), Remove albums with no play-time data when sorting by playtime. Albums without…, Group unmatched-album items by their ``reason`` string. Returns a tuple of…, parametrize, The Heatmap destination should resume this browser's latest run., GIVEN CSRF protection is active (default) WHEN POST /reset_progress is…, POST /heatmap_loading with a valid user returns 202 and a job_id. (+137 more)
+Nodes (145): _filter_results_for_display(), _group_unmatched_by_reason(), Remove albums with no play-time data when sorting by playtime. Albums without..., Group unmatched-album items by their ``reason`` string. Returns a tuple of..., parametrize, The Heatmap destination should resume this browser's latest run., GIVEN CSRF protection is active (default) WHEN POST /reset_progress is..., POST /heatmap_loading with a valid user returns 202 and a job_id. (+137 more)
 
 ### Community 1 - "Frontend Browser Gate"
 Cohesion: 0.03
@@ -367,11 +367,11 @@ Nodes (127): route, check_body_font(), check_destination_empty_states(), check_f
 
 ### Community 2 - "Postgres Metadata Cache"
 Cohesion: 0.05
-Nodes (74): _batch_lookup_metadata(), _batch_persist_metadata(), _cleanup_stale_metadata(), _get_db_connection(), Delete spotify_cache rows older than METADATA_CACHE_TTL_DAYS. Called…, Persist newly fetched Spotify metadata in a single INSERT statement. Uses…, Open a single asyncpg connection from DATABASE_URL, or return None. Returns…, Look up cached Spotify metadata for a batch of (artist_norm, album_norm) keys.… (+66 more)
+Nodes (74): _batch_lookup_metadata(), _batch_persist_metadata(), _cleanup_stale_metadata(), _get_db_connection(), Delete spotify_cache rows older than METADATA_CACHE_TTL_DAYS. Called..., Persist newly fetched Spotify metadata in a single INSERT statement. Uses..., Open a single asyncpg connection from DATABASE_URL, or return None. Returns..., Look up cached Spotify metadata for a batch of (artist_norm, album_norm) keys.... (+66 more)
 
 ### Community 3 - "Last.fm Client"
 Cohesion: 0.05
-Nodes (74): check_profile_is_public(), check_user_exists(), fetch_all_recent_tracks_async(), fetch_pages_batch_async(), fetch_recent_tracks_page_async(), Fetch a single page of Last.fm scrobbles with retry and rate limiting. Returns…, Fetch Last.fm pages with controlled concurrency to respect rate limits.…, Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple. Args:… (+66 more)
+Nodes (74): check_profile_is_public(), check_user_exists(), fetch_all_recent_tracks_async(), fetch_pages_batch_async(), fetch_recent_tracks_page_async(), Fetch a single page of Last.fm scrobbles with retry and rate limiting. Returns..., Fetch Last.fm pages with controlled concurrency to respect rate limits...., Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple. Args:... (+66 more)
 
 ### Community 4 - "Worktree Guard Tests"
 Cohesion: 0.06
@@ -387,11 +387,11 @@ Nodes (59): base_ref_label(), branch_label(), finish_diagnostics(), identical_tr
 
 ### Community 7 - "Background Album Job"
 Cohesion: 0.06
-Nodes (61): patch, background_task(), _detect_spotify_total_failure(), _fetch_and_process(), Return True and set job error if all filtered albums had no Spotify match. Only…, Fetch and process albums in the background for a single job., Run the async fetch pipeline in a dedicated event loop on this thread. On…, create_job() (+53 more)
+Nodes (61): patch, background_task(), _detect_spotify_total_failure(), _fetch_and_process(), Return True and set job error if all filtered albums had no Spotify match. Only..., Fetch and process albums in the background for a single job., Run the async fetch pipeline in a dedicated event loop on this thread. On..., create_job() (+53 more)
 
 ### Community 8 - "Spotify Client"
 Cohesion: 0.06
-Nodes (54): fetch_spotify_access_token(), fetch_spotify_album_details_batch(), Return a valid Spotify access token, refreshing from the API if expired., Searches Spotify for a single album and returns its Spotify ID. Optimized: Uses…, Fetches full album details for a list of up to 50 Spotify album IDs in a single…, search_for_spotify_album_id(), get_spotify_limiter(), Return a throttled rate limiter for Spotify API calls. Official limit:… (+46 more)
+Nodes (54): fetch_spotify_access_token(), fetch_spotify_album_details_batch(), Return a valid Spotify access token, refreshing from the API if expired., Searches Spotify for a single album and returns its Spotify ID. Optimized: Uses..., Fetches full album details for a list of up to 50 Spotify album IDs in a single..., search_for_spotify_album_id(), get_spotify_limiter(), Return a throttled rate limiter for Spotify API calls. Official limit:... (+46 more)
 
 ### Community 9 - "Heatmap Frontend"
 Cohesion: 0.09
@@ -399,11 +399,11 @@ Nodes (55): addDays(), appendKpi(), clearChildren(), computeStreak(), countToNor
 
 ### Community 10 - "Name Normalization"
 Cohesion: 0.06
-Nodes (54): normalize_name(), normalize_track_name(), Return a simplified version of a track name for matching. Uses NFKC…, Normalizes artist and album names for more accurate matching by cleaning…, fetch_top_albums_async(), Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple.…, _page(), asyncio (+46 more)
+Nodes (54): normalize_name(), normalize_track_name(), Return a simplified version of a track name for matching. Uses NFKC..., Normalizes artist and album names for more accurate matching by cleaning..., fetch_top_albums_async(), Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple...., _page(), asyncio (+46 more)
 
 ### Community 11 - "Docsync Rotation Logic"
 Cohesion: 0.08
-Nodes (36): _sync(), Path, Read the standard three files from the sync_env tmp directory., Passing None as session_lines should not raise., Entries from a completed batch inside current-batch markers should be rotated…, An untagged entry already in the monolith archive should not be duplicated when…, With keep_non_current=0, all non-current entries should rotate., Section 4 with markers but no entries (valid at batch boundary). (+28 more)
+Nodes (36): _sync(), Path, Read the standard three files from the sync_env tmp directory., Passing None as session_lines should not raise., Entries from a completed batch inside current-batch markers should be rotated..., An untagged entry already in the monolith archive should not be duplicated when..., With keep_non_current=0, all non-current entries should rotate., Section 4 with markers but no entries (valid at batch boundary). (+28 more)
 
 ### Community 12 - "Gate Theme and Text Checks"
 Cohesion: 0.05
@@ -411,11 +411,11 @@ Nodes (51): check_shell_scales_with_text(), check_theme_persistence(), check_the
 
 ### Community 13 - "Docsync Integrity Checks"
 Cohesion: 0.07
-Nodes (50): check_anchors(), Every citation of a declared shape resolves in the document it names. The…, _files(), Tests for docsync.declarations: DOC009, DOC010 and DOC011. Each check exists…, Reading the key straight out of the mapping raised a bare KeyError. That ends…, The quietest way this file can be wrong, and the reason for a schema. `scans`…, A string where a list belongs is read one character at a time. Every character…, A declaration that visits no documents reports a clean result. `scan` was… (+42 more)
+Nodes (50): check_anchors(), Every citation of a declared shape resolves in the document it names. The..., _files(), Tests for docsync.declarations: DOC009, DOC010 and DOC011. Each check exists..., Reading the key straight out of the mapping raised a bare KeyError. That ends..., The quietest way this file can be wrong, and the reason for a schema. `scans`..., A string where a list belongs is read one character at a time. Every character..., A declaration that visits no documents reports a clean result. `scan` was... (+42 more)
 
 ### Community 14 - "Docsync Test Count Authority"
 Cohesion: 0.07
-Nodes (33): _AmbiguousCount, _dedup_sorted(), latest_test_count_authority(), _latest_test_count_from_entries(), _monotonic_dates(), _newest_count(), Core sync logic for docsync. Every function in this module is pure: no file is…, Sentinel type: the newest entry recording counts quotes several of them. Kept… (+25 more)
+Nodes (33): _AmbiguousCount, _dedup_sorted(), latest_test_count_authority(), _latest_test_count_from_entries(), _monotonic_dates(), _newest_count(), Core sync logic for docsync. Every function in this module is pure: no file is..., Sentinel type: the newest entry recording counts quotes several of them. Kept... (+25 more)
 
 ### Community 15 - "Community 15"
 Cohesion: 0.08
@@ -423,7 +423,7 @@ Nodes (23): MonkeyPatch, Path, --fix repairs renderer-owned archive formatting w
 
 ### Community 16 - "Community 16"
 Cohesion: 0.08
-Nodes (28): _aggregate_daily_counts(), Aggregate raw Last.fm page data into a ``{YYYY-MM-DD: count}`` dict. This is a…, _make_track(), asyncio, A range spanning Feb 29 of a leap year produces 366 keys., Tracks at exactly from_date start and to_date end are included., Tracks outside the [from_date, to_date] window are excluded., Empty page list produces a dict of all zeros for the range. (+20 more)
+Nodes (28): _aggregate_daily_counts(), Aggregate raw Last.fm page data into a ``{YYYY-MM-DD: count}`` dict. This is a..., _make_track(), asyncio, A range spanning Feb 29 of a leap year produces 366 keys., Tracks at exactly from_date start and to_date end are included., Tracks outside the [from_date, to_date] window are excluded., Empty page list produces a dict of all zeros for the range. (+20 more)
 
 ### Community 17 - "Community 17"
 Cohesion: 0.06
@@ -431,15 +431,15 @@ Nodes (44): Heatmap request and rendering sequence diagram, heatmap.js, Heatmap 
 
 ### Community 18 - "Community 18"
 Cohesion: 0.07
-Nodes (41): check_retired(), _is_struck_through(), A claim that is no longer true is gone from every document that acts. History…, Is the match inside ~~...~~ on this line? A plan step that has been superseded…, Path, ~~this~~ already says the claim is not current. A superseded plan step is often…, The exemption is a guess about intent, so it must be declarable. Treating…, A single claim can be held to a stricter reading than the corpus. (+33 more)
+Nodes (41): check_retired(), _is_struck_through(), A claim that is no longer true is gone from every document that acts. History..., Is the match inside ~~...~~ on this line? A plan step that has been superseded..., Path, ~~this~~ already says the claim is not current. A superseded plan step is often..., The exemption is a guess about intent, so it must be declarable. Treating..., A single claim can be held to a stricter reading than the corpus. (+33 more)
 
 ### Community 19 - "Community 19"
 Cohesion: 0.12
-Nodes (22): ActiveBatchState, Entry, Represents one dated execution-log entry block., Parsed batch state signals from PLAYBOOK Section 3., _collect_wp_numbers(), _build_status_block(), _next_wp_number(), Return the next positive WP number for the managed status block. When an active… (+14 more)
+Nodes (22): ActiveBatchState, Entry, Represents one dated execution-log entry block., Parsed batch state signals from PLAYBOOK Section 3., _collect_wp_numbers(), _build_status_block(), _next_wp_number(), Return the next positive WP number for the managed status block. When an active... (+14 more)
 
 ### Community 20 - "Community 20"
 Cohesion: 0.10
-Nodes (37): is_runnable(), Path, Report whether a resolved tool path can actually be executed. On POSIX a…, Resolve the sole allowed environment for a normal or linked checkout., resolve_venv(), _checkout(), Path, Behavior tests for primary-checkout virtualenv resolution. (+29 more)
+Nodes (37): is_runnable(), Path, Report whether a resolved tool path can actually be executed. On POSIX a..., Resolve the sole allowed environment for a normal or linked checkout., resolve_venv(), _checkout(), Path, Behavior tests for primary-checkout virtualenv resolution. (+29 more)
 
 ### Community 21 - "Community 21"
 Cohesion: 0.06
@@ -459,23 +459,23 @@ Nodes (35): parametrize, _playbook(), Behavior tests for PLAYBOOK parsing and li
 
 ### Community 25 - "Community 25"
 Cohesion: 0.09
-Nodes (31): main(), _parse_args(), Namespace, Render the read-only ScrobbleScope worktree bootstrap diagnostic. The command…, Parse the comparison ref and explicit offline-mode contract., Render one stable diagnostic and its optional remediation., Print worktree diagnostics and return nonzero when errors exist. Under…, _render() (+23 more)
+Nodes (31): main(), _parse_args(), Namespace, Render the read-only ScrobbleScope worktree bootstrap diagnostic. The command..., Parse the comparison ref and explicit offline-mode contract., Render one stable diagnostic and its optional remediation., Print worktree diagnostics and return nonzero when errors exist. Under..., _render() (+23 more)
 
 ### Community 26 - "Community 26"
 Cohesion: 0.06
-Nodes (34): A site carries no name, so it is named by its position and its parent., The adversary for the test above: same value, two spellings around it., The gate grades documents it may have just rewritten in memory. Reading from…, Path spelling must not choose stale disk content over rendered state., One malformed fact of each kind, reported together in a stable order., A declaration pointing at a deleted file must not pass silently. Reported…, The check reads every occurrence, not the first one it finds. index.css carries…, A max-width on an element is a width, not a breakpoint. Without the @media… (+26 more)
+Nodes (34): A site carries no name, so it is named by its position and its parent., The adversary for the test above: same value, two spellings around it., The gate grades documents it may have just rewritten in memory. Reading from..., Path spelling must not choose stale disk content over rendered state., One malformed fact of each kind, reported together in a stable order., A declaration pointing at a deleted file must not pass silently. Reported..., The check reads every occurrence, not the first one it finds. index.css carries..., A max-width on an element is a width, not a breakpoint. Without the @media... (+26 more)
 
 ### Community 27 - "Community 27"
 Cohesion: 0.08
-Nodes (32): build_tailwind(), main(), _parse_args(), Namespace, Verify the toolchain and compile the committed Tailwind stylesheet., Parse the developer-facing build options. Watch never returns, so it cannot be…, Fail when the committed stylesheet does not match a fresh rebuild. The pathspec…, Run the Tailwind build and translate expected failures to exit code 1. (+24 more)
+Nodes (32): build_tailwind(), main(), _parse_args(), Namespace, Verify the toolchain and compile the committed Tailwind stylesheet., Parse the developer-facing build options. Watch never returns, so it cannot be..., Fail when the committed stylesheet does not match a fresh rebuild. The pathspec..., Run the Tailwind build and translate expected failures to exit code 1. (+24 more)
 
 ### Community 28 - "Community 28"
 Cohesion: 0.08
-Nodes (31): _apply_post_slice(), _apply_pre_slice(), _classify_exception_to_error_code(), Apply pre-Spotify pre-slicing and playtime cap. Playcount pre-slice: only when…, Truncate results to limit_results if it is a valid integer., Map an exception message to a classified error code, or None. Returns…, parametrize, 5 albums, limit=2, sort_mode='playcount', release_scope='all' -> 2. (+23 more)
+Nodes (31): _apply_post_slice(), _apply_pre_slice(), _classify_exception_to_error_code(), Apply pre-Spotify pre-slicing and playtime cap. Playcount pre-slice: only when..., Truncate results to limit_results if it is a valid integer., Map an exception message to a classified error code, or None. Returns..., parametrize, 5 albums, limit=2, sort_mode='playcount', release_scope='all' -> 2. (+23 more)
 
 ### Community 29 - "Community 29"
 Cohesion: 0.10
-Nodes (29): check_container_status(), main(), Start an existing but stopped Docker container. Runs ``docker start <name>``…, Check the Postgres container state and launch Flask. Three-step startup flow:…, Return the Docker container's current state, or None if absent. Runs ``docker…, start_container(), Unit tests for scripts.dev.dev_start. All tests mock subprocess.run so Docker…, GIVEN docker start exits 0 WHEN start_container is called THEN no exception is… (+21 more)
+Nodes (29): check_container_status(), main(), Start an existing but stopped Docker container. Runs ``docker start <name>``..., Check the Postgres container state and launch Flask. Three-step startup flow:..., Return the Docker container's current state, or None if absent. Runs ``docker..., start_container(), Unit tests for scripts.dev.dev_start. All tests mock subprocess.run so Docker..., GIVEN docker start exits 0 WHEN start_container is called THEN no exception is... (+21 more)
 
 ### Community 30 - "Community 30"
 Cohesion: 0.12
@@ -483,7 +483,7 @@ Nodes (28): Barrier, build_parser(), ConcurrentResult, main(), print_aggregate()
 
 ### Community 31 - "Community 31"
 Cohesion: 0.07
-Nodes (29): _doc012_codes(), Behavioural tests for pure live-document integrity analysis., With no authoritative number anywhere, recording one is the only fix., A correction later in the Next action bullet supersedes old prose., The natural bolded header form is not invisible to DOC008., The default runner is never exercised through the CLI fixtures., Return the DOC012 codes raised for one PLAYBOOK body., An entry whose only count is unbolded is skipped in silence today.… (+21 more)
+Nodes (29): _doc012_codes(), Behavioural tests for pure live-document integrity analysis., With no authoritative number anywhere, recording one is the only fix., A correction later in the Next action bullet supersedes old prose., The natural bolded header form is not invisible to DOC008., The default runner is never exercised through the CLI fixtures., Return the DOC012 codes raised for one PLAYBOOK body., An entry whose only count is unbolded is skipped in silence today.... (+21 more)
 
 ### Community 32 - "Community 32"
 Cohesion: 0.10
@@ -495,7 +495,7 @@ Nodes (26): ArtifactSpec, _daisyui_artifact(), _detect_libc(), _download_verifie
 
 ### Community 34 - "Community 34"
 Cohesion: 0.12
-Nodes (16): _check_session_section1_bootstrap_state(), _computed_next_wp(), Return the next WP number and whether the finite plan is complete. Parse the…, DOC007: SESSION_CONTEXT Section 1 must agree on batch and next WP. Section 1 is…, RuntimeError, Raised when deterministic sync cannot proceed safely., SyncError, _find_marker_pair() (+8 more)
+Nodes (16): _check_session_section1_bootstrap_state(), _computed_next_wp(), Return the next WP number and whether the finite plan is complete. Parse the..., DOC007: SESSION_CONTEXT Section 1 must agree on batch and next WP. Section 1 is..., RuntimeError, Raised when deterministic sync cannot proceed safely., SyncError, _find_marker_pair() (+8 more)
 
 ### Community 35 - "Community 35"
 Cohesion: 0.12
@@ -503,11 +503,11 @@ Nodes (23): Album thresholds (minimum 10 plays, 3 unique tracks), Centralized ca
 
 ### Community 36 - "Community 36"
 Cohesion: 0.14
-Nodes (23): build_parser(), main(), print_run_summary(), ArgumentParser, Session, Print one run's results in a stable, grep-friendly format. Output includes all…, Create and return the CLI argument parser. Defaults are tuned for local…, Run the cache smoke test and print cache effectiveness hints. Executes… (+15 more)
+Nodes (23): build_parser(), main(), print_run_summary(), ArgumentParser, Session, Print one run's results in a stable, grep-friendly format. Output includes all..., Create and return the CLI argument parser. Defaults are tuned for local..., Run the cache smoke test and print cache effectiveness hints. Executes... (+15 more)
 
 ### Community 37 - "Community 37"
 Cohesion: 0.08
-Nodes (24): collect_integrity_issues(), Return deterministic live-document integrity issues., A count rotated into a per-batch log still decides the header. Close-out purges…, Section 3 naming a different WP than Section 4 computes blocks., Section 3 agreeing with Section 4 raises nothing., A gap the definition plans for does not make DOC007 demand it. Batch 21 absorbs…, --check must not fail on a per-batch log --fix is about to generate., Only concrete matching root files participate in DOC002 uniqueness. (+16 more)
+Nodes (24): collect_integrity_issues(), Return deterministic live-document integrity issues., A count rotated into a per-batch log still decides the header. Close-out purges..., Section 3 naming a different WP than Section 4 computes blocks., Section 3 agreeing with Section 4 raises nothing., A gap the definition plans for does not make DOC007 demand it. Batch 21 absorbs..., --check must not fail on a per-batch log --fix is about to generate., Only concrete matching root files participate in DOC002 uniqueness. (+16 more)
 
 ### Community 38 - "Community 38"
 Cohesion: 0.13
@@ -515,7 +515,7 @@ Nodes (22): parametrize, Behavior tests for detached and linked worktree inspect
 
 ### Community 39 - "Community 39"
 Cohesion: 0.08
-Nodes (24): No count anywhere is not a mismatch -- there is nothing to agree with. Blocking…, Build one internally consistent active-Batch-21 document set., A Markdown link target is checked as well as a backtick path., The exact root Batch 21 token participates in uniqueness checking., Only the declared Definition path is exempt from generic reference checks., Multiple active definitions create ambiguous ownership., Trimming a no-entry archive prefix must operate on a defensive copy., The optional live session document participates in DOC001 scanning. (+16 more)
+Nodes (24): No count anywhere is not a mismatch -- there is nothing to agree with. Blocking..., Build one internally consistent active-Batch-21 document set., A Markdown link target is checked as well as a backtick path., The exact root Batch 21 token participates in uniqueness checking., Only the declared Definition path is exempt from generic reference checks., Multiple active definitions create ambiguous ownership., Trimming a no-entry archive prefix must operate on a defensive copy., The optional live session document participates in DOC001 scanning. (+16 more)
 
 ### Community 40 - "Community 40"
 Cohesion: 0.11
@@ -523,7 +523,7 @@ Nodes (23): Bootstrap verification (git status / git log / pytest reconciliation
 
 ### Community 41 - "Community 41"
 Cohesion: 0.16
-Nodes (22): parse_batch_branch(), Parse the active batch and stable branch from PLAYBOOK Section 3., BatchBranch, Describe the active batch and its required worktree branch., _playbook(), parametrize, Section 3 parsing must tolerate ordinary prose and the bold label style., Forgery that needs no line break, so line normalization cannot hide it. One… (+14 more)
+Nodes (22): parse_batch_branch(), Parse the active batch and stable branch from PLAYBOOK Section 3., BatchBranch, Describe the active batch and its required worktree branch., _playbook(), parametrize, Section 3 parsing must tolerate ordinary prose and the bold label style., Forgery that needs no line break, so line normalization cannot hide it. One... (+14 more)
 
 ### Community 42 - "Community 42"
 Cohesion: 0.11
@@ -539,7 +539,7 @@ Nodes (22): AI-driven development cycle, Batch 21, Linear-history merge policy (
 
 ### Community 45 - "Community 45"
 Cohesion: 0.11
-Nodes (21): _bar_feet(), _lockup(), Every page renders and loads exactly one framework stylesheet. WP-2 moves…, The modal opened by itself and its backdrop covered the header. Bootstrap's…, How many albums you list is not part of what counts as listened.…, --text-* is Tailwind's font-size namespace, not a colour namespace. The design…, The CSS targets the blades structurally, so the shape is the contract.…, Both rules are load-bearing and neither is obvious from its selector. The bar… (+13 more)
+Nodes (21): _bar_feet(), _lockup(), Every page renders and loads exactly one framework stylesheet. WP-2 moves..., The modal opened by itself and its backdrop covered the header. Bootstrap's..., How many albums you list is not part of what counts as listened...., --text-* is Tailwind's font-size namespace, not a colour namespace. The design..., The CSS targets the blades structurally, so the shape is the contract...., Both rules are load-bearing and neither is obvious from its selector. The bar... (+13 more)
 
 ### Community 46 - "Community 46"
 Cohesion: 0.11
@@ -547,11 +547,11 @@ Nodes (20): AI-driven development cycle diagram, check_worktree_alignment.py gua
 
 ### Community 47 - "Community 47"
 Cohesion: 0.16
-Nodes (18): acquire_job_slot(), Try to acquire a concurrency slot for a new background job. Returns True if the…, Release a previously acquired background job concurrency slot. Safe to call…, Start a daemon thread for a background job. Releases the acquired concurrency…, release_job_slot(), start_job_thread(), GIVEN a semaphore with available capacity WHEN acquire_job_slot is called THEN…, GIVEN a semaphore at capacity WHEN acquire_job_slot is called THEN it returns… (+10 more)
+Nodes (18): acquire_job_slot(), Try to acquire a concurrency slot for a new background job. Returns True if the..., Release a previously acquired background job concurrency slot. Safe to call..., Start a daemon thread for a background job. Releases the acquired concurrency..., release_job_slot(), start_job_thread(), GIVEN a semaphore with available capacity WHEN acquire_job_slot is called THEN..., GIVEN a semaphore at capacity WHEN acquire_job_slot is called THEN it returns... (+10 more)
 
 ### Community 48 - "Community 48"
 Cohesion: 0.15
-Nodes (19): _artifact(), Path, Serve payload in one read, then end-of-body, with a Content-Length., A cache miss publishes exactly the bytes covered by the pinned digest., A bad persistent file triggers one verified replacement download., Untrusted replacement bytes never overwrite the previous cache entry., A failed fetch leaves neither executable bytes nor a partial download., A connection that closes mid-body must not be blamed on the digest. A short… (+11 more)
+Nodes (19): _artifact(), Path, Serve payload in one read, then end-of-body, with a Content-Length., A cache miss publishes exactly the bytes covered by the pinned digest., A bad persistent file triggers one verified replacement download., Untrusted replacement bytes never overwrite the previous cache entry., A failed fetch leaves neither executable bytes nor a partial download., A connection that closes mid-body must not be blamed on the digest. A short... (+11 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.15
@@ -559,19 +559,19 @@ Nodes (16): create_app(), Application factory for ScrobbleScope., client(), csrf
 
 ### Community 50 - "Community 50"
 Cohesion: 0.12
-Nodes (17): check_current_validator_failure_replaces_old_verdict(), check_private_profile_is_blocked(), check_stale_validator_failure_is_discarded(), check_touch_targets(), check_validation_feedback(), check_validator_outage_is_recoverable(), An older failed request cannot clear a newer same-name verdict. Two blur…, A current network failure cannot leave an older invalid verdict visible. (+9 more)
+Nodes (17): check_current_validator_failure_replaces_old_verdict(), check_private_profile_is_blocked(), check_stale_validator_failure_is_discarded(), check_touch_targets(), check_validation_feedback(), check_validator_outage_is_recoverable(), An older failed request cannot clear a newer same-name verdict. Two blur..., A current network failure cannot leave an older invalid verdict visible. (+9 more)
 
 ### Community 51 - "Community 51"
 Cohesion: 0.13
-Nodes (16): fetch_csrf_token(), Session, Shared HTTP transport layer for ScrobbleScope integration test scripts. This…, Submit a search job and return the ``job_id``. Performs the two-step flow: 1.…, Fetch the CSRF token from the index page. GETs ``base_url/`` (the index page)…, submit_job(), GIVEN a POST response that contains no <script id="scrobble-config"> block WHEN…, GIVEN a POST response containing a scrobble-config block whose JSON has no… (+8 more)
+Nodes (16): fetch_csrf_token(), Session, Shared HTTP transport layer for ScrobbleScope integration test scripts. This..., Submit a search job and return the ``job_id``. Performs the two-step flow: 1...., Fetch the CSRF token from the index page. GETs ``base_url/`` (the index page)..., submit_job(), GIVEN a POST response that contains no <script id="scrobble-config"> block WHEN..., GIVEN a POST response containing a scrobble-config block whose JSON has no... (+8 more)
 
 ### Community 52 - "Community 52"
 Cohesion: 0.15
-Nodes (9): When entries are in reverse chronological file order, the last entry in the…, The top side-task full-suite result supersedes the Batch WP baseline., A focused-only result cannot become the repository test authority., Wrap entry_body_lines inside a minimal PLAYBOOK with Section 4 markers., Flat playbook with no Section 4 markers returns None., Bold test count in a current-batch entry body is extracted., Entry with no bold count produces None., With two entries inside markers, the newest (last appended) entry's count is… (+1 more)
+Nodes (9): When entries are in reverse chronological file order, the last entry in the..., The top side-task full-suite result supersedes the Batch WP baseline., A focused-only result cannot become the repository test authority., Wrap entry_body_lines inside a minimal PLAYBOOK with Section 4 markers., Flat playbook with no Section 4 markers returns None., Bold test count in a current-batch entry body is extracted., Entry with no bold count produces None., With two entries inside markers, the newest (last appended) entry's count is... (+1 more)
 
 ### Community 53 - "Community 53"
 Cohesion: 0.12
-Nodes (17): parametrize, The header bar and its stylesheet are on every page, migrated or not., The stylesheet is only half of Bootstrap. A migrated page that still loads the…, data-bs-* is Bootstrap's JS API, and it fails silently without it. A leftover…, CSS cannot stop SMIL, so prefers-reduced-motion never reaches it. An <animate>…, Stripping SMIL without a wrapper leaves a mark that never moves. The animation…, These land a commit before the markup that reads them. Tailwind v4 emits a…, The wrapper centres and spaces whatever a page adds after the content.… (+9 more)
+Nodes (17): parametrize, The header bar and its stylesheet are on every page, migrated or not., The stylesheet is only half of Bootstrap. A migrated page that still loads the..., data-bs-* is Bootstrap's JS API, and it fails silently without it. A leftover..., CSS cannot stop SMIL, so prefers-reduced-motion never reaches it. An <animate>..., Stripping SMIL without a wrapper leaves a mark that never moves. The animation..., These land a commit before the markup that reads them. Tailwind v4 emits a..., The wrapper centres and spaces whatever a page adds after the content.... (+9 more)
 
 ### Community 54 - "Community 54"
 Cohesion: 0.13
@@ -583,11 +583,11 @@ Nodes (16): Adobe Fonts kit rwy8ghw type stack (five families, weights 300/400/7
 
 ### Community 56 - "Community 56"
 Cohesion: 0.16
-Nodes (16): _normalize_libc(), platform_key(), RuntimeError, Map a reported C runtime name onto Tailwind's asset vocabulary.…, Return the official Tailwind asset key for one supported host. Explicit values…, Report a safe, actionable toolchain or build failure., TailwindBuildError, parametrize (+8 more)
+Nodes (16): _normalize_libc(), platform_key(), RuntimeError, Map a reported C runtime name onto Tailwind's asset vocabulary...., Return the official Tailwind asset key for one supported host. Explicit values..., Report a safe, actionable toolchain or build failure., TailwindBuildError, parametrize (+8 more)
 
 ### Community 57 - "Community 57"
 Cohesion: 0.16
-Nodes (10): Partition all entries in monolith_lines by batch tag. Returns: remaining_lines:…, _split_archive(), _extract_entry_batch(), Extract the batch number from an entry heading, if present., GIVEN archive with a Batch 10 tagged entry, WHEN split, THEN the entry is in…, GIVEN archive with an untagged entry, WHEN split, THEN batch_groups is empty…, GIVEN archive with both tagged and untagged entries, WHEN split, THEN each…, TestSplitArchive (+2 more)
+Nodes (10): Partition all entries in monolith_lines by batch tag. Returns: remaining_lines:..., _split_archive(), _extract_entry_batch(), Extract the batch number from an entry heading, if present., GIVEN archive with a Batch 10 tagged entry, WHEN split, THEN the entry is in..., GIVEN archive with an untagged entry, WHEN split, THEN batch_groups is empty..., GIVEN archive with both tagged and untagged entries, WHEN split, THEN each..., TestSplitArchive (+2 more)
 
 ### Community 58 - "Community 58"
 Cohesion: 0.23
@@ -595,7 +595,7 @@ Nodes (14): clampToBounds(), clearRegistrationState(), clearReleaseYearValidatio
 
 ### Community 59 - "Community 59"
 Cohesion: 0.20
-Nodes (6): Validate SECRET_KEY strength at startup. Raises RuntimeError in production if…, _validate_secret_key(), ensure_api_keys(), Raise ``RuntimeError`` if required API keys are missing., Tests for app factory startup secret-key validation (WP-4)., TestValidateSecretKey
+Nodes (6): Validate SECRET_KEY strength at startup. Raises RuntimeError in production if..., _validate_secret_key(), ensure_api_keys(), Raise ``RuntimeError`` if required API keys are missing., Tests for app factory startup secret-key validation (WP-4)., TestValidateSecretKey
 
 ### Community 60 - "Community 60"
 Cohesion: 0.13
@@ -635,7 +635,7 @@ Nodes (11): Deferred / future-batch candidates block (Batch 18/19 audits), F-B21
 
 ### Community 69 - "Community 69"
 Cohesion: 0.22
-Nodes (6): _parse_active_batch_state(), When a batch is marked both complete and active, active wins., TestParseActiveBatchStateConflicting, When only completed batches exist and no 'not yet defined' guard, current_batch…, If current_batch matches next_undefined, current should be None., TestParseActiveBatchState
+Nodes (6): _parse_active_batch_state(), When a batch is marked both complete and active, active wins., TestParseActiveBatchStateConflicting, When only completed batches exist and no 'not yet defined' guard, current_batch..., If current_batch matches next_undefined, current should be None., TestParseActiveBatchState
 
 ### Community 70 - "Community 70"
 Cohesion: 0.21
@@ -643,7 +643,7 @@ Nodes (13): spotify_token_cache shared dict, check_profile_is_public, check_user
 
 ### Community 71 - "Community 71"
 Cohesion: 0.15
-Nodes (13): _definition_with_status(), A definition naming the same next WP as PLAYBOOK raises nothing., A stale claim in the definition blocks at its own line., No parseable claim means no mismatch -- silence beats a false hit., The claim is the WP attached to 'is the next', not the first WP seen. A status…, With no current-batch entries there is no computed value to compare., The renderer's lowest-missing rule decides what 'next' means., test_doc007_agreeing_next_wp_claims_are_clean() (+5 more)
+Nodes (13): _definition_with_status(), A definition naming the same next WP as PLAYBOOK raises nothing., A stale claim in the definition blocks at its own line., No parseable claim means no mismatch -- silence beats a false hit., The claim is the WP attached to 'is the next', not the first WP seen. A status..., With no current-batch entries there is no computed value to compare., The renderer's lowest-missing rule decides what 'next' means., test_doc007_agreeing_next_wp_claims_are_clean() (+5 more)
 
 ### Community 72 - "Community 72"
 Cohesion: 0.21
@@ -671,7 +671,7 @@ Nodes (11): Batch 16 Execution Log, Batch 16, Batch 7 Execution Log, Batch 7, in
 
 ### Community 78 - "Community 78"
 Cohesion: 0.27
-Nodes (7): _merge_entries_into_log(), Merge new_entries into an existing per-batch log, deduplicating by fingerprint.…, Build a minimal Entry with a properly computed fingerprint., GIVEN no existing log, WHEN an entry is merged, THEN a batch header line is…, GIVEN an entry already in the log, WHEN merged again with same entry, THEN the…, GIVEN an older and a newer entry, WHEN merged, THEN the newer date appears…, TestMergeEntriesIntoLog
+Nodes (7): _merge_entries_into_log(), Merge new_entries into an existing per-batch log, deduplicating by fingerprint...., Build a minimal Entry with a properly computed fingerprint., GIVEN no existing log, WHEN an entry is merged, THEN a batch header line is..., GIVEN an entry already in the log, WHEN merged again with same entry, THEN the..., GIVEN an older and a newer entry, WHEN merged, THEN the newer date appears..., TestMergeEntriesIntoLog
 
 ### Community 79 - "Community 79"
 Cohesion: 0.22
@@ -695,7 +695,7 @@ Nodes (10): The hand-maintained dashboard cannot name a stale next package., The
 
 ### Community 84 - "Community 84"
 Cohesion: 0.20
-Nodes (10): Return the stylesheet with every /* */ block removed. Both directions need…, Page pills use the typeface specified by the WP-4 design., Hero and header letterforms must remain legible in dark mode., The pinwheel's SMIL is gone, so shell.css owns every part of it. Five…, Return every selector in a rule whose body sets animation: none. Comments are…, _selectors_that_cancel_animation(), test_migrated_wordmarks_use_theme_ink_for_letterforms(), test_shared_navigation_uses_input_mono_narrow() (+2 more)
+Nodes (10): Return the stylesheet with every /* */ block removed. Both directions need..., Page pills use the typeface specified by the WP-4 design., Hero and header letterforms must remain legible in dark mode., The pinwheel's SMIL is gone, so shell.css owns every part of it. Five..., Return every selector in a rule whose body sets animation: none. Comments are..., _selectors_that_cancel_animation(), test_migrated_wordmarks_use_theme_ink_for_letterforms(), test_shared_navigation_uses_input_mono_narrow() (+2 more)
 
 ### Community 85 - "Community 85"
 Cohesion: 0.22
@@ -703,7 +703,7 @@ Nodes (9): Module dependency graph (Section 4), Known open issues: CSP dropped a
 
 ### Community 86 - "Community 86"
 Cohesion: 0.22
-Nodes (9): Any, poll_until_complete(), Poll ``/progress`` until the job completes or a timeout fires. Repeatedly GETs…, GIVEN a mock session whose first poll returns progress=100 WHEN…, GIVEN a mock session whose GET returns HTTP 500 WHEN poll_until_complete is…, GIVEN a mock session that always returns progress=50 and a mocked time that…, test_poll_raises_on_unexpected_status(), test_poll_raises_timeout_when_deadline_exceeded() (+1 more)
+Nodes (9): Any, poll_until_complete(), Poll ``/progress`` until the job completes or a timeout fires. Repeatedly GETs..., GIVEN a mock session whose first poll returns progress=100 WHEN..., GIVEN a mock session whose GET returns HTTP 500 WHEN poll_until_complete is..., GIVEN a mock session that always returns progress=50 and a mocked time that..., test_poll_raises_on_unexpected_status(), test_poll_raises_timeout_when_deadline_exceeded() (+1 more)
 
 ### Community 87 - "Community 87"
 Cohesion: 0.22
@@ -731,7 +731,7 @@ Nodes (5): _fingerprint(), _normalize_block(), When two entries have the same fi
 
 ### Community 93 - "Community 93"
 Cohesion: 0.22
-Nodes (9): _declared(), _local_sheets(), Path, Return the repository file behind every href that names a local sheet., Return every custom property the stylesheet defines., Return every custom property the stylesheet reads with no fallback. A var()…, An undefined var() with no fallback voids the whole declaration. It fails…, _read_without_fallback() (+1 more)
+Nodes (9): _declared(), _local_sheets(), Path, Return the repository file behind every href that names a local sheet., Return every custom property the stylesheet defines., Return every custom property the stylesheet reads with no fallback. A var()..., An undefined var() with no fallback voids the whole declaration. It fails..., _read_without_fallback() (+1 more)
 
 ### Community 94 - "Community 94"
 Cohesion: 0.25
@@ -747,11 +747,11 @@ Nodes (8): No 500/600 weights rule (300/400/700 only), styles.css single entry p
 
 ### Community 97 - "Community 97"
 Cohesion: 0.25
-Nodes (4): Minimal urlopen stand-in: a context manager exposing headers and read. A real…, IncompleteRead subclasses HTTPException, so it escapes an OSError catch., _StubResponse, test_an_incomplete_read_is_translated_not_raised_raw()
+Nodes (4): Minimal urlopen stand-in: a context manager exposing headers and read. A real..., IncompleteRead subclasses HTTPException, so it escapes an OSError catch., _StubResponse, test_an_incomplete_read_is_translated_not_raised_raw()
 
 ### Community 98 - "Community 98"
 Cohesion: 0.14
-Nodes (8): The CLI has to be able to report it, or the gate ends in a traceback. Both…, Two empty captures must not agree and make a content-free value green., The quiet half of the per-line defect, and the reason it matters. A file that…, The check must be silent on correct code, or it stops being read., test_a_declaration_fault_reaches_the_cli_as_a_sync_error(), test_a_wrapped_occurrence_that_drifts_is_not_hidden_by_an_unwrapped_one(), test_an_empty_captured_value_is_refused(), test_sites_that_all_state_the_value_report_nothing()
+Nodes (8): The CLI has to be able to report it, or the gate ends in a traceback. Both..., Two empty captures must not agree and make a content-free value green., The quiet half of the per-line defect, and the reason it matters. A file that..., The check must be silent on correct code, or it stops being read., test_a_declaration_fault_reaches_the_cli_as_a_sync_error(), test_a_wrapped_occurrence_that_drifts_is_not_hidden_by_an_unwrapped_one(), test_an_empty_captured_value_is_refused(), test_sites_that_all_state_the_value_report_nothing()
 
 ### Community 100 - "Community 100"
 Cohesion: 0.29
@@ -771,7 +771,7 @@ Nodes (7): cleanup_expired_jobs, create_job, get_job_context, JOBS shared in-mem
 
 ### Community 104 - "Community 104"
 Cohesion: 0.29
-Nodes (5): _GlobalThrottle, Thread-safe throttle enforcing a global rate limit across all event loops. Each…, Return seconds to wait before the next call is allowed. Thread-safe. Advances…, GIVEN a _GlobalThrottle at rate=10 (0.1s minimum interval) WHEN next_wait() is…, test_global_throttle_serializes_rapid_calls()
+Nodes (5): _GlobalThrottle, Thread-safe throttle enforcing a global rate limit across all event loops. Each..., Return seconds to wait before the next call is allowed. Thread-safe. Advances..., GIVEN a _GlobalThrottle at rate=10 (0.1s minimum interval) WHEN next_wait() is..., test_global_throttle_serializes_rapid_calls()
 
 ### Community 105 - "Community 105"
 Cohesion: 0.29
@@ -811,7 +811,7 @@ Nodes (6): F-B21-17: a third of the batch's review comments were one fact writte
 
 ### Community 114 - "Community 114"
 Cohesion: 0.33
-Nodes (6): check_index_design_tokens(), check_theme_tokens(), _computed_colour(), Resolve a CSS value through a probe element to a computed rgb() string.…, --bars-color aliases the theme primary, and no cool-grey survives., Rendered index states use the canonical status and radius tokens.
+Nodes (6): check_index_design_tokens(), check_theme_tokens(), _computed_colour(), Resolve a CSS value through a probe element to a computed rgb() string...., --bars-color aliases the theme primary, and no cool-grey survives., Rendered index states use the canonical status and radius tokens.
 
 ### Community 115 - "Community 115"
 Cohesion: 0.40
@@ -851,7 +851,7 @@ Nodes (5): MonkeyPatch, musl hosts report no libc version, so its loader is the 
 
 ### Community 124 - "Community 124"
 Cohesion: 0.40
-Nodes (4): parametrize, Guard the verbatim design import against in-place edits.…, The snapshot must match its import digest byte for byte., test_imported_design_file_is_unedited()
+Nodes (4): parametrize, Guard the verbatim design import against in-place edits...., The snapshot must match its import digest byte for byte., test_imported_design_file_is_unedited()
 
 ### Community 125 - "Community 125"
 Cohesion: 0.50
@@ -902,13 +902,13 @@ Cohesion: 0.67
 Nodes (3): clear_cache(), fixture, Clear REQUEST_CACHE before and after each test to prevent state bleed.
 
 ## Ambiguous Edges - Review These
-- `Listening Heatmap mode` → `Spotify metadata enrichment`  [AMBIGUOUS]
-  PRODUCT.md · relation: conceptually_related_to
+- `Listening Heatmap mode` -> `Spotify metadata enrichment`  [AMBIGUOUS]
+  PRODUCT.md | relation: conceptually_related_to
 
 ## Knowledge Gaps
 - **322 isolated node(s):** `ButtonProps`, `AlbumRowProps`, `StatBlockProps`, `TagProps`, `UnmatchedItem` (+317 more)
-  These have ≤1 connection - possible missing edges or undocumented components.
-- **99 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have <=1 connection - possible missing edges or undocumented components.
+- **99 thin communities (<3 nodes) omitted from report** -- run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_

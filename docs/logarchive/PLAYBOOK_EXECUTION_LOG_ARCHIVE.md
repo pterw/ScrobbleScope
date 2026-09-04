@@ -9,6 +9,51 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-02 - Record the header, H1 and browser-baseline rulings (side-task)
+
+- Scope: documentation only. Three owner rulings and one measured defect class,
+  added to the remediation plan before its Task 2 begins.
+- Header: it scales with the viewport, and the baseline is the 1440p rendering
+  rather than the 1080p one, so the header becomes smaller at 1080p than it is
+  today. Floor is 44px on the smaller side, because a strict viewport fraction
+  takes the 48px link to 36px at 1080p, under the minimum in `AGENTS.md` "UI
+  and Accessibility Rules" item 2 and reversing the 48px desktop target from
+  F-B21-29. The header keeps its own sizing and stays outside the composition
+  scale.
+- H1: it must not wrap at any desktop width, not only when maximised. The cause
+  is that the composition scale is floored at its base and can only grow, so a
+  narrowing hero column starves the headline. The remedy is a lower bound on
+  the composition scale, not a fluid headline, because the annotation requires
+  the logo-to-H1 ratio to stay fixed and scaling the composition preserves it.
+- Browser baseline: a default fresh Chrome install, maximised, no extensions,
+  no bookmarks bar, 100% zoom. Measure it with `channel="chrome"` and a fresh
+  temporary profile; do not measure the owner's daily profile and do not infer
+  a chrome height from whether a bookmarks bar is showing.
+- Defect class worth naming: three declarations in this page read as responsive
+  and are pinned where it matters. The composition's `min()` discards the width
+  term, the header's `7.25vw` saturates near 1600px, and the H1's `6vw`
+  saturates near 700px. Compute where a `clamp()` or `min()` saturates before
+  trusting it.
+- Form card width: the `28rem` cap is superseded. The owner widened the card in
+  Chrome DevTools, source untouched, and ruled the wider card the better
+  default. The card widens past `28rem` and then locks, still never zoomed; the
+  controls do not inherit that width. The card caps at `37.5rem` (600px),
+  the value the owner reached in DevTools. It locks at 1920px, so 1080p and
+  1440p both render a 600px card -- the same visual size on both. Whether to pair fields at
+  the wider card is open and needs an owner ruling.
+- Correction: `docs/design/RECONCILIATION.md` still carried the disproved
+  Firefox premise and cited the superseded plan. The earlier commit corrected
+  `FINDINGS.md` and `BATCH21_DEFINITION.md` and missed this third copy --
+  Anti-Pattern 11 in the same session that quoted it. Swept and fixed here.
+- Plan vs implementation: no implementation. No production code, CSS or gate
+  code changed.
+- Deviations: none.
+- Validation: **872 passed**. All 12 pre-commit hooks pass. Worktree guard
+  exits 0. `doc_state_sync.py --check` exits 0.
+- Forward guidance: Task 2 is next and must take two measurements before it
+  writes any number -- the fresh-Chrome window geometry, and the largest
+  composition scale at which the H1 holds one line at the 1200px breakpoint.
+
 ### 2026-09-01 - Diagnose the large-display scale defect and supersede its plan (side-task)
 
 - Scope: documentation only. No production code, CSS or gate code changed.
