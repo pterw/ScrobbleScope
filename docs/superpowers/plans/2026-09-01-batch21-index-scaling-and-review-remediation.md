@@ -13,12 +13,12 @@ shipped.
 
 **Architecture:** Six independent commits. Task 1 repairs document provenance and
 is unrelated to the rest, so it lands first and alone. Task 2 replaces the
-JavaScript scale with one pure-CSS declaration and, in the same commit, re-points
-the browser gate at window geometry that actually exists -- the gate change is
-what makes the defect visible, so the two cannot be separated. Task 3 widens the
-composition and raises divider contrast. Tasks 4 and 5 are the already-specified
-progress-phase and unmatched-empty work. Task 6 is the accessibility pass the
-owner asked to run last.
+JavaScript scale with one shared pure-CSS factor applied through layout values
+and, in the same commit, re-points the browser gate at window geometry that
+actually exists -- the gate change is what makes the defect visible, so the two
+cannot be separated. Task 3 widens the composition and raises divider contrast.
+Tasks 4 and 5 are the already-specified progress-phase and unmatched-empty work.
+Task 6 is the accessibility pass the owner asked to run last.
 
 **Tech Stack:** Flask, Python 3.13, Jinja2, vanilla browser JavaScript, Tailwind
 v4 generated CSS, pytest, Playwright frontend gate.
@@ -34,8 +34,8 @@ unchanged. Its Task 1 rests on four claims that measurement disproved.
 
 | Claim in that plan | Measured reality |
 | --- | --- |
-| The failure is a Firefox rendering problem; Firefox is the acceptance gate. | The failure reproduces in Chromium. It is engine-independent. |
-| The `zoom` mechanism is unproven and may need replacing. | `zoom` is correct and stays. Its *input formula* is wrong. |
+| The failure is a Firefox rendering problem; Firefox is the acceptance gate. | The failure reproduces in Chromium. It is engine-independent; Firefox remains required regression coverage. |
+| The `zoom` mechanism is unproven and may need replacing. | Engine parity proved only that both browsers implement it alike. The owner rejected `zoom` on 2026-09-04; replace it with layout-aware proportional values. |
 | The gate needs 1920x1080, 2560x1440 and 3840x2160 profiles added. | `check_large_display_scale_parity` already has all three, plus 1920x900. That is the bug, not the fix. |
 | Move the `ALBUM FILTERING` eyebrow below the H1. | Already below it -- `templates/index.html:44-45`. No change needed. |
 
@@ -51,9 +51,9 @@ both engines at four window profiles. **They agree to within 0.1px everywhere:**
 | 1920x912 (real 1080p) | 408.5px | 408.5px |
 
 `zoom` behaves identically in both. There is no engine component to this defect,
-so "Firefox is the acceptance gate" answers a question that does not exist and
-would leave the gate's viewport blindness (defect B) untouched. The acceptance
-gate is **realistic window geometry, in either engine**.
+so Firefox alone would leave the gate's viewport blindness (defect B)
+untouched. Firefox is still adopted as independent regression coverage. The
+acceptance gate is **realistic window geometry in both engines**.
 
 ## Evidence this plan is built on
 
@@ -74,19 +74,19 @@ mistaken penalty applies to every window. Browser chrome costs 130-330px of
 height and almost no width, so the height term always wins and the width
 contribution is discarded entirely.
 
-| Window | scale today | form today | hero scale fixed | form fixed @ 37.5rem | height guard |
+| Window | scale today | form today | corrected factor | form @ 28rem base | height guard |
 | --- | --- | --- | --- | --- | --- |
-| 1920x912 (real 1080p) | 1.075 | 408px | 1.075 | 600px | 1.35 |
-| 2510x1110 (owner capture) | 1.105 | **420px** | **1.405** | **600px** | 1.65 |
-| 2490x1230 (owner capture) | 1.224 | 465px | 1.394 | 600px | 1.83 |
-| 2560x1272 (real 1440p) | 1.266 | 481px | 1.433 | 600px | 1.89 |
-| 2560x1440 (**gate only**) | 1.433 | 545px | -- | -- | -- |
+| 1920x912 (real 1080p) | 1.075 | 408px | 1.075 | 482px | 1.35 |
+| 2510x1110 (owner capture) | 1.105 | **420px** | **1.405** | **629px** | 1.65 |
+| 2490x1230 (owner capture) | 1.224 | 465px | 1.394 | 625px | 1.83 |
+| 2560x1272 (real 1440p) | 1.266 | 481px | 1.433 | 642px | 1.89 |
+| 2560x1440 (**gate only**) | 1.433 | 545px | 1.433 | 642px | 2.14 |
 
-The `form fixed` column is flat on purpose. Owner ruling 2026-09-01: the form
-widens and then locks; it is never zoomed, so its components keep the same
-visual size at 1440p as at 1080p. The column that grows is the hero. An earlier
-draft of this table multiplied 448px by the hero scale and printed 482/630/642,
-which contradicted the rule three paragraphs below it.
+The corrected factor applies to the complete index composition. The form card,
+its type, controls, spacing, hero and wordmark all grow by the same relationship
+from 1080p through the 2.15 4K ceiling. The header remains shell-sized and
+independent. The 28rem value is the remediation plan's unscaled form cap; its
+rendered width expands with the shared factor.
 
 The owner sees 420px at 1440p against 408px at 1080p: a 2.9% difference, which
 is why the report is "the width of the form is the same". The gate sees 545px
@@ -99,38 +99,25 @@ The height-guard column is why the fix is safe: 1.35 to 1.89, always above the
 width factor, so the guard never binds on a normal window and still catches a
 genuinely short one.
 
-**Two independent defects.** The formula fix moves 420px to 630px at 1440p and
-does nothing at 1080p, where the factor is correctly 1.0. The width fix
-(`3fr 4fr` plus a `37.5rem` cap) moves 408px to 600px at 1080p. Both are
-needed.
+**Two independent defects.** The formula uses the display height instead of the
+673px natural composition height, so browser chrome suppresses cross-monitor
+growth. The layout also keeps the old `3fr 5fr` split and 23.75rem base form
+cap instead of the remediation plan's `3fr 4fr` split and 28rem base cap.
 
-**The form must widen, not magnify (owner ruling, 2026-09-01).** `zoom` scales a
-composition uniformly, so it buys width by charging height and control size.
-Measured at a real 1080p window (1920x912):
+**Proportional layout, no CSS `zoom` (owner clarification, 2026-09-04).** The
+staged scale checkpoint in `stash@{0}` proves the intended relationship:
+hero, form, fields and mode controls grow together while navigation does not.
+Its CSS `zoom` plus JavaScript implementation is not approved. Do not use CSS
+`zoom`, browser zoom, or a visual-only `transform`; all three obscure layout,
+focus, scrolling or engine behavior.
 
-| zoom | form width | form height | submit height | document |
-| --- | --- | --- | --- | --- |
-| 1.0 | 380px | 673px | 48.0px | fits |
-| 1.075 (current) | 408px | 723px | 51.6px | fits |
-| 1.4 | 532px | 939px | 67.2px | overflows by 211px |
-
-A 40% wider form costs a 40% taller form, a 67px submit button where 48px is
-already the touch target, and rendered input text above the design's type scale.
-That is why widening to `28rem` and scaling at the same time felt cramped at
-1080p: the two mechanisms fight.
-
-**So the two columns take different mechanisms.** The hero is an editorial
-composition and keeps `zoom`, preserving the measured wordmark-to-H1
-relationship. The form is a tool: it **widens** through `max-width` while its
-type, its 44px touch targets and its 16px input floor stay exactly as designed,
-then locks at the cap. Never apply `zoom` to `.index-form__inner`.
-
-**Pure CSS is viable and was verified.** A length in `zoom` is invalid and fails
-*silently* to `zoom: 1` -- that trap is why the naive `clamp(1.075, 0.056vw,
-1.45)` must not be used. `tan(atan2(<length>, <length>))` yields a plain number
-and works. There is no `vw` feedback loop inside a zoomed element: with
-`zoom: 2` on a parent, a `width: 10vw` child computes `192px` against the true
-1920px viewport and renders at `384px`.
+Use one dimensionless `--index-scale` computed from real viewport geometry,
+then apply it through layout-aware CSS values: the form's max width, type,
+control sizes, padding, margins and gaps. Preserve the repository unit rule:
+remains in rem-based calculations; borders, outlines, radii and other fine
+detail stay px. The frontend gate measures rendered rectangles and ratios, not
+the implementation property, so an omitted dimension cannot hide behind a
+plausible scale token.
 
 **The H1 wraps when windowed, and the cause is a third pinned clamp.**
 `.index-hero__headline` is `font-size: clamp(2rem, 6vw, 2.625rem)`. `6vw`
@@ -145,11 +132,9 @@ declarations that read as responsive and are pinned in the range that matters.
 **Before trusting any `clamp()` or `min()` in this codebase, compute where it
 saturates.**
 
-**The fix is a lower bound on the hero zoom, not a fluid H1.** Wrapping happens
-because the hero column narrows while the composition cannot shrink: the scale
-is floored at `--index-scale-base` (1.075) and only ever grows. A zoomed
-element gets `column_width / zoom` of effective space, so the floor actively
-starves the H1 as the window narrows.
+**The fix is a measured lower bound on the shared layout factor, not a fluid H1.**
+Wrapping happens because the hero column narrows while the current composition
+cannot shrink: its factor is floored at 1.075 and only ever grows.
 
 Making the H1 alone fluid would break the annotation's own constraint --
 "Logo scale should increase slightly, without changing the current rem/px ratio
@@ -158,7 +143,7 @@ measurement to `<h1>`". Scaling the composition preserves that ratio for free.
 So the `clamp()` in Task 2 takes a floor **below** the base:
 
 ```css
-zoom: clamp(var(--index-scale-min), <computed>, var(--index-scale-cap));
+--index-scale: clamp(var(--index-scale-min), <computed>, 2.15);
 ```
 
 `--index-scale-min` is not a guess. Measure it: the largest value at which the
@@ -170,8 +155,16 @@ Expect roughly 0.85; do not ship that figure without measuring it.
 `rgba(241, 237, 228, 0.14)` (`static/css/shell.css:41`), which composites to
 roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
 
-## Owner decisions needed before Task 2 and Task 3
+## Owner decisions governing Task 2 and Task 3
 
+- [x] **Complete composition scaling, without `zoom` -- CLARIFIED (owner,
+      2026-09-04).** `docs/superpowers/plans/2026-09-01-owner-review-remediation.md`
+      remains authoritative for the outcome: hero, wordmark, form, type,
+      controls and spacing grow proportionally from 1080p through the 4K cap.
+      The form width expands; it is not a fixed 600px card. CSS `zoom`,
+      browser zoom and visual-only transforms are rejected implementation
+      mechanisms. Use layout-aware responsive values and prove the rendered
+      ratios in both engines. The header alone remains independent.
 - [x] **Firefox in the gate -- ADOPTED (owner ruling, 2026-09-01).** The build
       is installed locally. Task 2 adds Firefox alongside Chromium so every
       visual check runs in both engines, and the CI workflow installs it the
@@ -191,7 +184,7 @@ roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
       identical pixels and only the screen fraction differs. That is why the
       1440p rendering reads as correct and the 1080p one reads as chunky.
 
-      The header stays outside the composition `zoom`; it takes its own
+      The header stays outside the composition scale; it takes its own
       viewport-proportional sizing. Do not fold it into `--index-scale-*`.
 
       **Floor: 44px, ruled 2026-09-02.** A strict viewport fraction would take
@@ -220,47 +213,31 @@ roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
 
 ## Global constraints
 
-- **The working branch is `wip/batch-21`**, at `origin/main` (`f202b81`) in the
-  `impeccable-init` worktree. The guard exits 0.
-
-  Work started on `wip/batch-21-owner-review`. The guard raised WT003, because
-  PLAYBOOK Section 3 names `wip/batch-21` for the active batch. On 2026-09-01
-  the owner ruled the branch should follow the PLAYBOOK, not the reverse. Local
-  `wip/batch-21` was reset to `origin/main`. Nothing was lost: `aadf2b7` is
-  unchanged on `origin/wip/batch-21` and its content is already in `origin/main`.
-  `wip/batch-21-owner-review` still exists at `f202b81` with no unique commits.
-
-  Do not create a worktree, do not reset again, do not force-push without a
-  separate owner ruling.
+- **The working branch is `wip/batch-21`** in the existing
+  `impeccable-init` worktree. It is the source branch for PR #221; do not
+  assume it is still parked at the historical `f202b81` base. Refresh
+  `origin` and let `check_worktree_alignment.py` report the current
+  comparison before each task. Do not create another worktree, reset history
+  or force-push without a separate owner ruling.
 - **Check the upstream before any push.** `git branch -f` reset this branch's
   upstream to `origin/main` as a side effect, and a bare `git push` would then
   target `main`. It was restored. Verify with
   `git rev-parse --abbrev-ref --symbolic-full-name '@{u}'`; the answer must be
   `origin/wip/batch-21`.
 - **Run every command from the worktree, and check that first.** There are two
-  checkouts and they are on different branches:
+  checkouts; only this exact path is the execution target:
 
   | Path | Branch |
   | --- | --- |
-  | `C:\Users\peter\Python Projects\ScrobbleScope` | `codex/impeccable-init`, 27 behind |
+  | `C:\Users\peter\Python Projects\ScrobbleScope` | primary checkout; tool provider only |
   | `C:\Users\peter\.config\superpowers\worktrees\ScrobbleScope\batch-21\impeccable-init` | `wip/batch-21` |
 
-  A session can start with its working directory in the **primary checkout**,
-  which is where the SessionStart hook then reads state from. That hook printed
-  `Next expected work package: WP-4` and `822 passed` on 2026-09-01 while the
-  real answers were WP-5 and 870, because the primary checkout is parked 27
-  commits behind on an already-merged branch. Do not take the hook's derived
-  state as current until the branch line above it says `wip/batch-21` **and**
-  the path is the worktree.
-
-  Both checkouts have uncommitted edits to `PLAYBOOK.md` and
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, for unrelated reasons. A
-  bare `git add PLAYBOOK.md` from the wrong directory therefore stages the wrong
-  work onto the wrong branch and still looks plausible. Confirm with
-  `git rev-parse --abbrev-ref HEAD` before the first `git add` of every task, or
-  pass `git -C <worktree>` throughout.
-- Preserve the untracked `.impeccable/`, `PRODUCT.md`, `graphify-out/`, and both
-  plan files. Never stage them.
+  A session can start in the primary checkout and read plausible but unrelated
+  state. Confirm the path and `wip/batch-21` before the first command and
+  before every staging operation.
+- Preserve the untracked `.impeccable/`, `PRODUCT.md`, `graphify-out/`, and
+  `docs/superpowers/plans/2026-09-01-owner-review-remediation.md`. The Batch
+  21 plan in this PR is tracked and is staged only when intentionally changed.
 - The worktree guard exits 0 on `wip/batch-21`. It reports WARNING WT010 while
   files are uncommitted. That is expected and is not a fault. If WT003 appears,
   the branch is wrong; stop and check, do not edit the PLAYBOOK to match.
@@ -281,7 +258,7 @@ roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
 
 > **ALREADY DONE -- verify, do not redo. Checked 2026-09-01.**
 >
-> The restoration landed as `eeaa1a8` on `wip/batch-21`, unpushed. It was
+> The restoration landed as `eeaa1a8` on `wip/batch-21`. It was
 > committed by another local process on 2026-09-01 at 22:41, not by the session
 > that wrote this plan.
 > Confirm in three commands rather than trusting this note:
@@ -310,11 +287,12 @@ roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
 >
 > Steps 1 to 5 below are kept as the record of what was done and why.
 
-`docs/design/README.md` is the verbatim design import and the canonical
-specification. Two commits edited it in place: `624ebb9` and `17ca9eb`. Editing
-the snapshot to agree with the code destroys its only function, which is the
-ability to disagree. `docs/design/RECONCILIATION.md` exists precisely so
-overrides live outside the snapshot.
+`docs/design/README.md` is part of the verbatim design import and is historical
+evidence, not current visual authority. Two commits edited it in place:
+`624ebb9` and `17ca9eb`. Editing the snapshot to agree with the code destroys
+its only function, which is the ability to disagree.
+`docs/design/RECONCILIATION.md` exists precisely so repository decisions live
+outside the snapshot.
 
 Nothing canonical was lost -- the shadow values survive in
 `docs/design/tokens/elevation.css`. The drift is 12 insertions and 11 deletions,
@@ -343,11 +321,12 @@ Create `tests/test_design_snapshot.py`:
 ```python
 """Guard the verbatim design import against in-place edits.
 
-`docs/design/README.md` and the files under `docs/design/tokens/` are a
-snapshot of the owner's design project, imported byte-for-byte by `b4e23bf`.
-Their value is that they can disagree with the implementation. An agent that
-edits the snapshot to match the code silently removes the only independent
-check on the code. Overrides belong in `docs/design/RECONCILIATION.md`.
+The 61 design-project files under `docs/design/` are a byte-for-byte snapshot
+imported by `b4e23bf`; `f857ac2` later corrected the location of `styles.css`
+without changing its bytes. Their value is that they can disagree with the
+implementation. An agent that edits the snapshot to match the code silently
+removes the only independent check on the code. Overrides belong in the
+repository-owned `docs/design/RECONCILIATION.md`, which is excluded here.
 
 To change a digest here you must be re-importing from the design project, not
 reconciling with the repository.
@@ -356,26 +335,46 @@ reconciling with the repository.
 import hashlib
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
+SNAPSHOT_ROOT = REPO_ROOT / "docs" / "design"
+REPOSITORY_OWNED_PATHS = frozenset({"RECONCILIATION.md"})
 
-#: SHA-256 of each imported file, as committed by `b4e23bf`. Update ONLY on a
-#: fresh import from the design project.
-SNAPSHOT_DIGESTS = {
-    "docs/design/README.md": "<fill in Step 3>",
-}
+#: Aggregate manifest of every imported path and byte. Update ONLY on a fresh
+#: import from the design project.
+SNAPSHOT_FILE_COUNT = 61
+SNAPSHOT_TREE_DIGEST = "<fill in Step 3>"
 
 
-@pytest.mark.parametrize("relative_path", sorted(SNAPSHOT_DIGESTS))
-def test_imported_design_file_is_unedited(relative_path):
-    """The snapshot must match its import digest byte for byte."""
-    path = REPO_ROOT / relative_path
-    actual = hashlib.sha256(path.read_bytes()).hexdigest()
-    assert actual == SNAPSHOT_DIGESTS[relative_path], (
-        f"{relative_path} was edited in place. Record the override in "
-        f"docs/design/RECONCILIATION.md instead, or update this digest only "
-        f"when re-importing from the design project."
+def _snapshot_tree_digest() -> tuple[int, str]:
+    """Hash the complete imported manifest with stable, unambiguous framing."""
+    paths = sorted(
+        (
+            path
+            for path in SNAPSHOT_ROOT.rglob("*")
+            if path.is_file()
+            and path.relative_to(SNAPSHOT_ROOT).as_posix() not in REPOSITORY_OWNED_PATHS
+        ),
+        key=lambda path: path.relative_to(SNAPSHOT_ROOT).as_posix(),
+    )
+    digest = hashlib.sha256()
+    for path in paths:
+        relative_bytes = path.relative_to(SNAPSHOT_ROOT).as_posix().encode("utf-8")
+        content = path.read_bytes()
+        digest.update(len(relative_bytes).to_bytes(4, "big"))
+        digest.update(relative_bytes)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return len(paths), digest.hexdigest()
+
+
+def test_imported_design_tree_is_unedited() -> None:
+    """Every imported design path and byte must match the guarded manifest."""
+    actual = _snapshot_tree_digest()
+    expected = (SNAPSHOT_FILE_COUNT, SNAPSHOT_TREE_DIGEST)
+    assert actual == expected, (  # nosec B101 - pytest rewrites assertions.
+        f"docs/design snapshot changed: expected {expected}, got {actual}. "
+        "Record repository overrides in docs/design/RECONCILIATION.md, or "
+        "update this manifest only when re-importing from the design project."
     )
 ```
 
@@ -385,25 +384,29 @@ def test_imported_design_file_is_unedited(relative_path):
 pytest tests/test_design_snapshot.py -q
 ```
 
-Expected: FAIL, because the placeholder digest cannot match.
+Expected: FAIL, because the placeholder digest cannot match. The failure prints
+the actual file count and aggregate digest.
 
-- [ ] **Step 3: Restore the file and record its true digest**
+- [ ] **Step 3: Restore the file and record the true tree manifest**
 
 Git Bash mangles `git show <rev>:<path>`; use PowerShell.
 
 ```powershell
-git show b4e23bf:docs/design/README.md | Set-Content -NoNewline -Encoding utf8 docs/design/README.md
+git restore --source=b4e23bf --worktree -- docs/design/README.md
 git diff --stat -- docs/design/README.md
 ```
 
 Confirm the diff reverses exactly the 12 insertions and 11 deletions, and that
-the leading byte-order mark returns. Then record the digest:
+the leading byte-order mark returns. Run the focused test again and copy the
+reported `(file count, digest)` into `SNAPSHOT_FILE_COUNT` and
+`SNAPSHOT_TREE_DIGEST`:
 
 ```powershell
-(Get-FileHash docs/design/README.md -Algorithm SHA256).Hash.ToLower()
+pytest tests/test_design_snapshot.py -q
 ```
 
-Paste that value into `SNAPSHOT_DIGESTS`.
+This manifest covers every imported file, not only README or the token
+directory. A file edit, rename, addition or deletion must change it.
 
 - [ ] **Step 4: Run the test and confirm it passes**
 
@@ -459,8 +462,8 @@ is a `RECONCILIATION.md` row, not an edit.
 
 `docs/design/RECONCILIATION.md` is **not** a snapshot file. It is the
 repository's own override list, written here rather than imported. Leave its
-sites alone and keep it out of
-`SNAPSHOT_DIGESTS`.
+sites alone and keep it in `REPOSITORY_OWNED_PATHS`, outside the aggregate
+snapshot manifest.
 
 Prove the new `expect` values are live rather than decorative: change one of
 them by a digit, re-run `--check`, confirm it fails, and change it back.
@@ -496,18 +499,23 @@ The gate change and the CSS change ship together. The gate change alone turns
 the suite red, and a red commit must not be left standing.
 
 **Files:**
-- Modify: `scripts/dev/frontend_gate.py` (`check_large_display_scale_parity`)
+- Modify: `scripts/dev/frontend_gate.py` (browser lifecycle and
+  `check_large_display_scale_parity`)
+- Modify: `tests/scripts/dev/test_frontend_gate.py`
+- Modify: `.github/workflows/test.yml`
 - Modify: `static/css/index.css:118-133`
 - Modify: `static/js/index.js:1-24` (delete the scale block)
+- Modify: `.docsync.toml` (repoint scale declarations to CSS ownership)
 - Modify: `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, `FINDINGS.md`,
   `BATCH21_DEFINITION.md`, `docs/design/RECONCILIATION.md`
 
 **Interfaces:**
 - Consumes: the `min-width: 1200px` desktop breakpoint, the measured 673px
-  natural composition height, the existing 1.075 base, and the 1.45 cap
-  resolved in Task 3.
-- Produces: one CSS declaration that scales both composition wrappers with
-  window width, guarded by window height, with no JavaScript.
+  natural composition height, the existing 1.075 base, and the remediation
+  plan's 2.15 cap.
+- Produces: one shared, dimensionless CSS layout factor that scales the full
+  index composition with real window geometry, with no JavaScript, CSS
+  `zoom`, or visual transform.
 
 - [ ] **Step 1: Replace the gate's viewport matrix with real window geometry**
 
@@ -586,34 +594,65 @@ number nobody measured.
     }
 ```
 
-- [ ] **Step 2: Retire the contradicted assertions, then add the one that would have caught this**
+- [ ] **Step 2: Run the complete visual matrix in Chromium and Firefox**
 
-`check_large_display_scale_parity` was written against the JavaScript path, where
-the form carried `zoom` as well. Step 4 removes that. Four of its existing
-assertions then demand behaviour the corrected CSS deliberately does not produce,
-so the gate cannot pass until they are retired. This is not optional cleanup; it
-is part of the change.
+The owner adopted Firefox for regression insurance, so changing only the scale
+check is incomplete. Make the browser lifecycle itself engine-aware:
+
+1. Set `BROWSER_NAMES = ("chromium", "firefox")` and change
+   `SETUP_COMMAND` to `python -m playwright install chromium firefox`.
+2. Replace `_launch_chromium` with
+   `_launch_browser(playwright, browser_name, *, headless=True)`. Resolve the
+   Playwright browser by name, preserve the `--headed` flag, and name the
+   missing engine plus `SETUP_COMMAND` in its error.
+3. In `main`, launch each browser in order, run the entire `CHECKS` matrix,
+   prefix every returned failure with the browser name, and close that browser
+   in `finally` before launching the next one. One engine failing must not
+   leave the other process open.
+4. Multiply `PLANNED_RUNS` by `len(BROWSER_NAMES)`, and print both browser
+   names in the success line. This makes a silently skipped engine visible.
+5. Extend `tests/scripts/dev/test_frontend_gate.py` to prove selection,
+   default/headed launch options, actionable per-engine missing-binary errors,
+   both-engine execution, failure prefixes, and closure on a raised check.
+6. Change the CI install command to:
+
+   ```powershell
+   python -m playwright install --with-deps chromium firefox
+   ```
+
+The real-window dimensions in Step 1 still come from the owner-approved fresh
+Chrome reference. Both Playwright engines consume those same content-box
+profiles; Firefox is a second renderer, not a second geometry specification.
+Record in PLAYBOOK that the complete gate's wall time is expected to roughly
+double.
+
+- [ ] **Step 3: Make the gate assert rendered proportional relationships**
+
+`check_large_display_scale_parity` was written around the staged JavaScript
+plus CSS-`zoom` attempt. Step 5 removes that mechanism but preserves its
+intended complete-composition growth. Retune the gate away from a computed
+`zoom` property and toward rendered rectangles, type sizes and ratios.
 
 In `scripts/dev/frontend_gate.py`, inside `check_large_display_scale_parity`:
 
-1. **The per-profile zoom check** loops over
-   `("hero composition", "form composition")`. Drop `"form composition"` -- after
-   Step 4 the form carries no `zoom` at any width.
-2. **`scalable_dimensions`** lists the `input` and `mode tab` heights. Both sit
-   inside the form, so neither scales any more. Move both into
-   `fixed_dimensions`, where they are asserted *not* to change. That is the
-   stronger claim and the one the owner ruling actually makes.
-3. **`expected_form_width = 23.75 * 16 * expected_scales[label]`** multiplies by
-   a scale the form no longer carries. Drop the factor here, leaving
-   `23.75 * 16`, so the check stays live through Task 2. Task 3 replaces the
-   whole assertion with the clamp-derived cap; do not delete it in the meantime.
-4. **`expected_scales`** holds `{1080p: 1.075, 1440p: 1.075 * (4 / 3),
-   4K: 2.15}`. Those are the old JavaScript figures, including the retired
-   `2.15` cap. Recompute all three from the Step 4 CSS against the real window
-   sizes fixed in Step 1, and take the ceiling from `--index-scale-cap` (1.45).
+1. Delete the per-profile `zoom` checks for both wrappers. Assert instead that
+   their rendered width/height relationships follow the same expected factor.
+2. Keep `input` and `mode tab` in `scalable_dimensions`, and add the form
+   card, submit button, representative type and vertical spacing. These are
+   part of the complete composition, not fixed shell dimensions.
+3. Keep
+   `expected_form_width = 23.75 * 16 * expected_scales[label]` through Task 2.
+   Task 3 changes only the unscaled base cap from 23.75rem to 28rem; the factor
+   remains.
+4. Recompute `expected_scales` from the real windows fixed in Step 1, the
+   1920px width reference, the measured 673px natural-height guard, the
+   measured minimum, the 1.075 base and the 2.15 remediation ceiling.
+5. Keep page navigation, the theme control, borders, outlines and radii in the
+   fixed/fine-detail set. The header must not inherit `--index-scale`.
 
-The mobile assertion that neither composition carries desktop zoom stays as
-written. It remains true of the hero and is trivially true of the form.
+On mobile, assert the desktop factor is absent and the existing one-column,
+coarse-pointer behavior is unchanged. Do not assert a `zoom` value that the
+approved implementation is forbidden to set.
 
 Then add the relationship check. Absolute per-profile scale values are brittle
 and were the reason the defect hid. Assert the *relationship* instead: the
@@ -625,40 +664,51 @@ existing per-profile checks:
     # and 420px at 1440p, a 2.9% change the owner correctly read as "the same
     # width". A ratio floor fails on that and cannot be satisfied by a formula
     # that discards the width term.
-    # Measure the HERO, not the form. The form caps at 37.5rem and is never
-    # zoomed, so it is flat between these two windows by design; asserting
-    # growth on it would fail correct code.
-    growth = (
-        measured_sizes["1440p"]["hero composition"]["width"]
-        / at_1080p["hero composition"]["width"]
-    )
-    if growth < 1.20:
-        failures.append(
-            f"/: hero composition grows only {growth:.3f}x from a real 1080p "
-            f"window to a real 1440p window; expected at least 1.20x"
+    for name in ("hero composition", "form composition"):
+        growth = (
+            measured_sizes["1440p"][name]["width"]
+            / at_1080p[name]["width"]
         )
+        if growth < 1.20:
+            failures.append(
+                f"/: {name} grows only {growth:.3f}x from a real 1080p "
+                f"window to a real 1440p window; expected at least 1.20x"
+            )
 ```
 
-- [ ] **Step 3: Run the gate and confirm it fails**
+Before choosing the floor, measure it at the boundary that constrains it. At a
+1200px-wide desktop viewport, test both mode headlines and sweep candidate
+layout-factor values through the same explicit dimensions Step 5 will ship.
+Choose the largest value for which the longest headline still has one rendered
+line; record the value, browser, and date. Expect roughly 0.85, but do not turn
+that estimate into source. Task 3 Step 6 makes the one-line relationship a
+permanent multi-width assertion.
+
+- [ ] **Step 4: Run the gate and confirm it fails**
 
 ```powershell
 python scripts/dev/frontend_gate.py
 ```
 
-Expected: FAIL. `hero composition grows only 1.029x ...`, plus per-profile scale
-mismatches, because the JavaScript formula is height-limited. The message names
-the hero, because Step 2 measures the hero; the form is flat between these
-windows by design and asserting growth on it would fail correct code.
+Expected: FAIL. Both composition wrappers report growth well below the required
+relationship at the owner's real 1440p geometry, because the JavaScript formula
+is height-limited. A failure naming only the hero is incomplete.
 
-- [ ] **Step 4: Replace the JavaScript scale with one CSS declaration**
+- [ ] **Step 5: Replace JavaScript and `zoom` with a CSS layout factor**
 
-In `static/css/index.css`, replace the `@media (min-width: 1200px)` scale block
-at lines 118-133:
+Delete lines 1-24 of `static/js/index.js` -- `WIDE_DESKTOP_BASE_SCALE`,
+`WIDE_DESKTOP_SCALE_CAP`, `syncWideDesktopScale`, its call,
+`scaleAnimationFrame` and the `resize` listener. Keep everything from
+`document.addEventListener('DOMContentLoaded'` onward.
+
+In `static/css/index.css`, replace the `@media (min-width: 1200px)` scale
+block. The factor is inherited data for explicit layout calculations; it is
+not itself a rendering shortcut:
 
 ```css
-/* Scale each desktop composition as one unit, so the type, control and spacing
-   relationships inside both columns are preserved instead of growing selected
-   pieces independently.
+/* Scale the complete desktop composition through its authored dimensions.
+   Never apply this factor through zoom or transform: both hide whether layout,
+   scrolling, focus geometry and touch targets actually grew.
 
    The guard divides window height by the composition's own natural height, not
    by the 1080px design viewport. Dividing by 1080 was the 2026-08-28 defect:
@@ -666,20 +716,15 @@ at lines 118-133:
    innerWidth stays near it, so an unconditional min() against 1080 discarded
    the width term on every real window and pinned the factor near 1.0.
 
-   `tan(atan2(<length>, <length>))` is the supported way to get a plain number
-   from two lengths; `zoom` rejects a length outright and falls back to 1 with
-   no error, so a bare `vw` value here would fail silently. The first `zoom`
-   line is the fallback for engines without trigonometric functions. */
+   `tan(atan2(<length>, <length>))` turns each viewport/reference pair into a
+   dimensionless number. The first assignment is a deliberate fallback; the
+   two-engine rendered-ratio gate stays red if an engine cannot use the fluid
+   expression. */
 @media (min-width: 1200px) {
   .index-grid {
-    grid-template-columns: 3fr 5fr;
-  }
-
-  /* Hero only. The form must never carry zoom -- see "widen, not magnify". */
-  .index-hero__inner {
-    zoom: var(--index-scale-base);
-    zoom: clamp(
-      var(--index-scale-base),
+    --index-scale: var(--index-scale-base);
+    --index-scale: clamp(
+      var(--index-scale-min),
       calc(
         var(--index-scale-base) *
         min(
@@ -689,9 +734,31 @@ at lines 118-133:
       ),
       var(--index-scale-cap)
     );
+    grid-template-columns: 3fr 5fr;
+  }
+
+  .index-hero__mark {
+    max-width: calc(35rem * var(--index-scale));
+  }
+
+  .index-hero__headline {
+    font-size: calc(2.625rem * var(--index-scale));
+  }
+
+  .index-form__inner {
+    max-width: calc(23.75rem * var(--index-scale));
   }
 }
 ```
+
+Those three declarations are examples, not the complete inventory. Sweep every
+non-fine-detail dimension below `.index-hero__inner` and
+`.index-form__inner`: type sizes and line heights, control dimensions, card
+padding, field margins, gaps, disclosure/stepper geometry and submit sizing.
+Express each from its existing rem base and `var(--index-scale)`. Do not scale
+borders, outlines or radii, and do not weaken coarse-pointer 44px minimums.
+After the sweep, the gate's wordmark/H1, field/submit and inter-control ratios
+must match the 1080p baseline in both engines.
 
 Declare the tokens once, near the top of `static/css/index.css`:
 
@@ -703,29 +770,35 @@ Declare the tokens once, near the top of `static/css/index.css`:
   --index-natural-height: 673px;
   --index-scale-width-ref: 1920px;
   --index-scale-base: 1.075;
-  /* Capped at the 1440p value the owner can verify on real hardware. Width
-     beyond 2560 CSS px goes to margin, not magnification. See "Lower the
-     hero's cap" in Task 3 for the display-scaling table behind this. */
-  --index-scale-cap: 1.45;
+  /* The floor sits below the base so the complete composition can contract at
+     the 1200px boundary. Measure it with the longest headline; do not ship the
+     roughly-0.85 estimate without rendered evidence. */
+  --index-scale-min: <measured in Step 3>;
+  /* The owner remediation requires proportional growth through 4K. */
+  --index-scale-cap: 2.15;
 }
 ```
 
-Delete lines 1-24 of `static/js/index.js` -- `WIDE_DESKTOP_BASE_SCALE`,
-`WIDE_DESKTOP_SCALE_CAP`, `syncWideDesktopScale`, its call, `scaleAnimationFrame`
-and the `resize` listener. Keep everything from `document.addEventListener('DOMContentLoaded'` onward.
+`--index-scale-base` stays the multiplier inside the calculation.
+`--index-scale-min` governs contraction below the 1920px reference, and 2.15
+is the 4K ceiling from the owner remediation. If the CSS arithmetic is not
+supported in either engine, stop and choose another layout-aware mechanism;
+never fall back to `zoom` or `transform`.
 
-- [ ] **Step 5: Run the gate and confirm it passes**
+- [ ] **Step 6: Run the gate and confirm it passes**
 
 ```powershell
 python scripts/dev/frontend_gate.py
 ```
 
-Expected: PASS. Confirm the reported form widths are near 482px at 1920x912 and
-630px at 2510x1110. If `clamp()` rejects the custom properties, inline the
-literals and keep the comment; verify by reading the computed `zoom`, never by
-reading the source.
+Expected: PASS in both engines. Before Task 3 changes the base cap, the form is
+about 408px at a real 1080p window and 545px at a real 1440p window; the exact
+figures come from the measured window matrix. Confirm both hero and form cross
+the 1.20 growth floor and their representative type, controls and spacing keep
+the baseline ratios. Verify rendered geometry, never only the custom-property
+string.
 
-- [ ] **Step 6: Prove the guard still protects a short window**
+- [ ] **Step 7: Prove the guard still protects a short window**
 
 ```powershell
 python scripts/dev/frontend_gate.py
@@ -736,7 +809,7 @@ selector driven and thresholds open: the submit button's bottom edge at or above
 the viewport bottom, with no document scrolling at default zoom. If it fails,
 `--index-natural-height` is too small; re-measure rather than guessing.
 
-- [ ] **Step 7: Correct every live document that describes the old formula**
+- [ ] **Step 8: Correct every live document that describes the old formula**
 
 The formula is quoted in more than one place. Grep before editing, per the
 Anti-Pattern Registry:
@@ -751,7 +824,13 @@ currently marked resolved by the 2026-08-28 refinement; reopen it with the
 measured evidence, and state plainly that the cause was the denominator, not the
 browser. Do not write that the defect was Firefox-specific.
 
-- [ ] **Step 8: Document, validate, commit**
+In `.docsync.toml`, repoint the wide-desktop baseline and cap sites from the
+deleted JavaScript constants to `--index-scale-base` and
+`--index-scale-cap` in `static/css/index.css`. Keep the mechanism generic:
+the TOML names this repository's duplicated facts; no ScrobbleScope scale name
+belongs in `scripts/docsync/`.
+
+- [ ] **Step 9: Document, validate, commit**
 
 ```powershell
 python scripts/doc_state_sync.py --fix
@@ -762,7 +841,7 @@ git diff --check
 ```
 
 ```powershell
-git add static/css/index.css static/js/index.js scripts/dev/frontend_gate.py BATCH21_DEFINITION.md FINDINGS.md docs/design/RECONCILIATION.md PLAYBOOK.md .claude/SESSION_CONTEXT.md docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md
+git add static/css/index.css static/js/index.js scripts/dev/frontend_gate.py tests/scripts/dev/test_frontend_gate.py .github/workflows/test.yml .docsync.toml BATCH21_DEFINITION.md FINDINGS.md docs/design/RECONCILIATION.md PLAYBOOK.md .claude/SESSION_CONTEXT.md docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md
 git commit -m "fix(index): scale the desktop composition with the real window"
 ```
 
@@ -774,17 +853,18 @@ Stop for owner review.
 
 **Files:**
 - Modify: `static/css/index.css` (grid split, form cap)
-- Modify: `static/css/shell.css:22, 41` (divider tokens)
+- Modify: `static/css/shell.css` (divider tokens and ruled header sizing)
 - Modify: `static/css/tailwind.src.css` and regenerate `static/css/tailwind.css`
 - Modify: `scripts/dev/frontend_gate.py`
+- Modify: `tests/scripts/dev/test_frontend_gate.py`
 - Modify: `tests/test_template_shell.py`
 - Modify: `BATCH21_DEFINITION.md`, `docs/design/RECONCILIATION.md`, `PLAYBOOK.md`
 
 - [ ] **Step 1: Add the failing split, cap and contrast checks**
 
-Change `check_large_display_scale_parity`, rather than adding alongside it. Both
-assertions below **replace** existing ones; leaving the originals in place is the
-same defect Step 2 of Task 2 exists to prevent.
+Change `check_large_display_scale_parity`, rather than adding alongside it.
+The split and form-cap assertions below **replace** existing ones; leaving the
+originals in place is the same defect Task 2 Step 3 exists to prevent.
 
 The split check already exists and reads the ratio the other way round. Retune
 it in place -- `measure_wide_layout` returns `applicationWidth` and `heroWidth`,
@@ -799,63 +879,81 @@ and no `grid_left` or `grid_right` key exists:
         )
 ```
 
-Then replace the `expected_form_width` assertion that Task 2 left at a flat
-`23.75 * 16`:
+Then replace only the unscaled base in Task 2's proportional form-width
+assertion:
 
 ```python
-    # 37.5rem (600px) at a 16px root. No scale factor: the form is not zoomed.
-    expected_cap = 37.5 * 16
-    for label in ("1080p", "1440p"):
+    # 28rem is the remediation plan's base cap. The rendered card expands by
+    # the same layout factor as the rest of the composition.
+    expected_base_cap = 28 * 16
+    for label in ("1080p", "1440p", "4K"):
+        expected = expected_base_cap * expected_scales[label]
         actual = measured_sizes[label]["form composition"]["width"]
-        if abs(actual - expected_cap) > 2:
+        if abs(actual - expected) > 2:
             failures.append(
                 f"/: form cap is {actual:.0f}px at a real {label} window, "
-                f"expected {expected_cap:.0f}px"
+                f"expected proportional {expected:.0f}px"
             )
 ```
+
+Do not add a fixed control cap. Keep the Task 2 proportional assertions for
+field width and height, mode tabs, card padding, submit sizing, type and gaps;
+Task 3 changes their 1080p base through the 28rem form cap and preserves every
+ratio at 1440p and 4K. Drive both mode panels before measuring; hidden controls
+are not evidence.
+
+Also assert computed `zoom` is `1`/`normal` and `transform` is `none` on
+both composition wrappers, both cards and representative controls.
+Mutation-check each prohibition by temporarily adding `zoom: 1.1` and then
+`transform: scale(1.1)` to a wrapper and confirming the gate fails.
 
 Add a divider-contrast check that composites `--shell-border` over its adjacent
 surface in both themes and requires 3:1. Measure the composite, not the token
 string -- the token carries alpha and the alpha is the defect.
 
-- [ ] **Step 2: Run the gate and confirm all three fail**
+Add the ruled header assertions in the same real-window measurement. At 1080p
+and 1440p respectively, a page-nav link must compute to 44px and 48px high and
+92px and 116px wide; the theme control must follow the same 44px/48px height
+curve; the bar must be smaller at 1080p and reproduce its current 76px height
+at 1440p. Assert that the nav and action controls stay on one row and use the
+same sibling-gap token. These are computed-style and geometry checks, not
+source-string checks.
+
+- [ ] **Step 2: Run the gate and confirm the new contract fails**
 
 ```powershell
 python scripts/dev/frontend_gate.py
 ```
 
-Expected: FAIL on the 5:3 split, on a 380px form against the expected 600px cap,
-and on dark divider contrast near 1.4:1. The form measures a flat 380px here, not
-the old 408px: Task 2 already took the `zoom` off it.
+Expected: FAIL on the 5:3 split, on the 23.75rem base form cap against the
+expected 28rem base, on the unchanged 1080p header dimensions, and on dark
+divider contrast near 1.4:1. The form already expands between real profiles
+after Task 2; this task increases its proportional base width.
 
-- [ ] **Step 3: Apply the split and the cap**
+- [ ] **Step 3: Apply the split and proportional 28rem base cap**
 
 In `static/css/index.css`, inside the `min-width: 1200px` block, change
-`grid-template-columns` to `3fr 4fr`. Then make the form **widen and lock**
-rather than magnify -- it must carry no `zoom` at any size:
+`grid-template-columns` to `3fr 4fr`. Change the form's unscaled base cap
+from 23.75rem to the remediation plan's 28rem. The shared Task 2 layout factor
+makes the rendered width expand proportionally:
 
 ```css
-/* Widens, then locks. Type, 44px touch targets and the 16px input floor stay
-   exactly as designed at every display size.
-   Derivation: 23.75rem (380px) at the 1200px breakpoint, reaching the 37.5rem
-   (600px) lock at 1920px. slope = (600-380)/(1920-1200) = 0.3056 -> 30.56vw;
-   intercept = 380 - 0.3056*1200 = 13.3px = 0.83rem.
-   Check: 1200px -> 380px, 1920px -> 600px, 2560px -> 795px clamped to 600px,
-   so 1080p and 1440p render the same 600px card. */
+/* 28rem is the unscaled design cap. The complete form composition consumes
+   --index-scale through explicit layout values; this wrapper never uses zoom
+   or transform. */
 .index-form__inner {
   width: 100%;
-  max-width: clamp(23.75rem, 0.83rem + 30.56vw, 37.5rem);
+  max-width: calc(28rem * var(--index-scale));
   margin: 0 auto;
 }
 ```
 
-Update the comment above it, which still explains a 380px cap.
+Update the comment above it, which still explains a fixed 380px cap.
 
-**Lower the hero's cap from `2.15` to `1.45` (resolved 2026-09-01).** The
-earlier open question asked the owner to judge a 4K composition. That question
-was mostly fictional: scale is driven by the **CSS** viewport, and a 4K desktop
-runs at 150% or 200% OS scaling, so the browser reports 2560x1440 or 1920x1080 --
-not 3840x2160.
+**Keep the remediation ceiling at `2.15` (owner clarification 2026-09-04).**
+The acceptance source requires proportional growth through a 3840x2160 CSS
+viewport. OS display scaling may map a physical 4K panel to a smaller CSS
+viewport, but that does not remove the 4K-at-100% contract:
 
 | Display / OS scaling | CSS viewport | scale |
 | --- | --- | --- |
@@ -866,46 +964,19 @@ not 3840x2160.
 | 1440p, 125% | 2048x1152 | 1.147 |
 | 4K 32", 100% (rare) | 3840x2160 | 2.150 |
 
-A 4K user at normal scaling lands on one of the two profiles the owner can
-verify on their own hardware. Those two cover the great majority of desktop
-monitors.
-
-So cap at `1.45`, just above the verifiable 1440p value, and let width beyond
-2560 CSS px go to margin rather than magnification. Nothing then ships at a
-scale factor nobody has looked at, and a 4K-at-100% user is treated as 1440p,
-which is defensible since they already chose small UI at the OS level. Set
-`--index-scale-cap: 1.45`. Revisit only if a real 4K-at-100% complaint appears.
-
-**Ultrawide is out of scope.** The owner ruled it a non-issue on 2026-09-01:
-those users rarely run a full-width browser window, so it is a fraction of a
-fraction. The `1.45` cap already gives an ultrawide a sane composition. Do not
-add an ultrawide profile to the gate and do not design for it.
+The 2.15 ceiling prevents growth beyond the 4K reference. Ultrawide-specific
+layout remains out of scope; a wider viewport still receives the same capped
+composition.
 
 Keep the `@media (max-width: 859.98px)` rule that removes the cap on mobile.
 Keep the `min-width: 1200px and max-height: 900px` padding rule.
 
-**The `28rem` cap is superseded. Owner review 2026-09-02.** The owner widened
-the card in Chrome DevTools -- source untouched -- and ruled the wider card the
-better default. Direction agreed:
-
-- The **card** widens well past `28rem`, then locks. Still never zoomed.
-- The **controls do not inherit that width.** Stretching every field is a side
-  effect of `width: 100%`, not a decision. At the reviewed width the username
-  field ran about 605px for a 6-15 character handle, `Rank by` gave each half
-  about 300px, and `Listening year` put its label roughly 600px from its
-  stepper. Cap the fields that have no use for the space.
-- **Open, needs an owner ruling:** whether to pair fields at the wider card --
-  `Listening year` beside `Release filter`, `Rank by` beside `Show`. That uses
-  the width structurally and shortens the card, but it is a layout change, not
-  a width change.
-
-**The card width is `37.5rem` (600px), owner-set 2026-09-02.** That is the value
-the owner reached in DevTools, not a screenshot estimate. It locks at 1920px, so
-1080p and 1440p both render a 600px card -- the same visual size on both, which
-is what Ruling A asks for. Verify the rendered width before accepting it.
-
-Do not implement the slider treatment for nested cards; that still needs a fresh
-owner decision after the visual pass.
+**The fixed 37.5rem card and fixed-width controls are superseded.** The
+authoritative remediation keeps a 28rem unscaled cap and requires the card,
+fields, mode tabs, type and spacing to follow the shared factor. Preserve the
+existing single-column field structure; pairing fields or introducing the
+slider treatment remains a separate owner decision after the proportional
+visual pass.
 
 - [ ] **Step 4: Raise divider contrast in both themes**
 
@@ -921,13 +992,46 @@ git diff --stat -- static/css/tailwind.css
 A rebuilt but unstaged `tailwind.css` reports as drift because `git diff`
 compares the tree to the index. Stage it; that is the hook working.
 
-- [ ] **Step 5: Render the header-density candidate and stop**
+- [ ] **Step 5: Apply the recorded header ruling and verify it**
 
-Render the 1440p navigation density at 1920x1080 beside the widened form with the
-decade selector and thresholds expanded. Record footer space, one-row navigation
-and action reachability. Present the comparison and **stop for the owner ruling**
-before adopting or discarding it. In either outcome the header stays outside the
-composition zoom.
+The decision ledger already marks this ruling complete; do not stop for it
+again. Apply the exact navigation clamps recorded there:
+
+```css
+:root {
+  --shell-control-gap: 0.75rem;
+  --shell-height: clamp(4.25rem, 2.96875vw, 4.75rem);
+}
+
+.site-header,
+.site-header__nav {
+  gap: var(--shell-control-gap);
+}
+
+.site-header__nav-link,
+.site-header__theme-toggle {
+  min-height: clamp(2.75rem, 1.875vw, 3.5rem);
+}
+
+.site-header__nav-link {
+  min-width: clamp(5.75rem, 4.53vw, 7.25rem);
+}
+
+.site-header__theme-choice {
+  min-height: clamp(2.25rem, 1.5625vw, 2.5rem);
+}
+```
+
+The bar clamp preserves a 68px floor at 1080p and the current 76px reference
+at 1440p. The choice clamp lets the outer theme control actually reach the
+ruled 44px/48px curve instead of its child forcing a fixed 48px height.
+Keep the header outside `--index-scale`.
+
+Render both engines at the real 1080p and 1440p windows beside the proportional
+form, with decade selection and thresholds expanded. Confirm the computed
+dimensions from Step 1, one-row navigation, action reachability and available
+footer space. Extend `tests/test_template_shell.py` to hold the shared gap
+token and clamp declarations; the frontend gate remains the rendered proof.
 
 - [ ] **Step 6: Confirm the H1 stays on one line**
 
@@ -944,7 +1048,7 @@ failure here means the floor is too high, not that the H1 needs its own rule.
 Run the full gate sequence, then:
 
 ```powershell
-git add static/css/index.css static/css/shell.css static/css/tailwind.src.css static/css/tailwind.css scripts/dev/frontend_gate.py tests/test_template_shell.py BATCH21_DEFINITION.md docs/design/RECONCILIATION.md PLAYBOOK.md .claude/SESSION_CONTEXT.md docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md
+git add static/css/index.css static/css/shell.css static/css/tailwind.src.css static/css/tailwind.css scripts/dev/frontend_gate.py tests/scripts/dev/test_frontend_gate.py tests/test_template_shell.py BATCH21_DEFINITION.md docs/design/RECONCILIATION.md PLAYBOOK.md .claude/SESSION_CONTEXT.md docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md
 git commit -m "refactor(ui): widen the desktop index composition"
 ```
 
@@ -1254,7 +1358,8 @@ git commit -m "fix(a11y): close the owner-review accessibility pass"
 
 ```powershell
 git diff origin/main...HEAD --stat
-rg -n -i 'viewportHeight / 1080|3fr 5fr|23\.75rem|index-wide-scale|fills its well|Firefox' BATCH21_DEFINITION.md FINDINGS.md PLAYBOOK.md .claude\SESSION_CONTEXT.md docs\design
+rg -n -i 'viewportHeight / 1080|3fr 5fr|23\.75rem|index-wide-scale|fills its well|Firefox-specific|Firefox rendering problem|Firefox is the acceptance gate|fixed 600px|37\.5rem|1\.45|hero-only' BATCH21_DEFINITION.md FINDINGS.md PLAYBOOK.md .claude\SESSION_CONTEXT.md docs\design
+rg -n -i '(^|[;{[:space:]])zoom[[:space:]]*:|transform[[:space:]]*:[^;]*scale[[:space:]]*\(' static scripts templates
 ```
 
 Correct every active affirmative claim. Hits inside dated Section 4 entries are
@@ -1273,11 +1378,12 @@ git status --short
 ```
 
 Status must show only intentional files. `.impeccable/`, `PRODUCT.md`,
-`graphify-out/` and both plan files stay untracked.
+`graphify-out/` and the owner-review remediation plan stay untracked.
 
 - [ ] **Step 3: Owner visual acceptance**
 
-At 1080p and 1440p, in the owner's own browser:
+At 1080p and 1440p in the owner's own browser, plus the automated 4K
+profile in both engines:
 
 1. Wordmark, H1, type, controls and form grow together between the two
    displays; the wordmark-to-H1 relationship holds; the H1 stays on one line.
@@ -1285,22 +1391,25 @@ At 1080p and 1440p, in the owner's own browser:
    space is reduced.
 3. The header keeps its pills and theme control on one readable row and does not
    inherit the composition scale.
-4. Both dividers read clearly in dark mode without shadows.
-5. With decade selection and thresholds open at roughly 1920x900, submit and the
+4. The composition wrappers, cards and representative controls compute to
+   `zoom: 1`/`normal` and `transform: none`; their growth comes from layout
+   dimensions, not page or visual magnification.
+5. Both dividers read clearly in dark mode without shadows.
+6. With decade selection and thresholds open at roughly 1920x900, submit and the
    filter tags stay reachable without document scrolling.
-6. Both loaders show one pinwheel, one hairline matching `23 / 102` and
+7. Both loaders show one pinwheel, one hairline matching `23 / 102` and
    `90 / 100`, correct ARIA, no backward animation at a phase switch, and a
    visible reduced-motion final state.
-7. `/unmatched` before a search and after an expired pointer shows the borderless
+8. `/unmatched` before a search and after an expired pointer shows the borderless
    no-data page; a real unmatched report still renders its reason groups.
 
 - [ ] **Step 4: Request integration authorization**
 
-Ask whether to push and open a PR from `wip/batch-21`. The push needs
-`--force-with-lease`, because local `wip/batch-21` was reset to `origin/main`
-while `origin/wip/batch-21` still holds `aadf2b7`. That lease needs its own
-owner ruling; it is not covered by this plan. PR #220 is merged and must not be
-reopened. Do not rebase-merge, clean up the worktree, or realign anything
+Refresh the remote, run the worktree guard, and inspect the current upstream
+and PR state. Ask for the integration action appropriate at that time. Use a
+normal fast-forward push only when the branch permits it; any force-push or
+history rewrite needs its own explicit owner ruling. PR #220 is merged and must
+not be reopened. Do not rebase-merge, clean up the worktree, or realign anything
 without a separate explicit instruction.
 
 ## Plan self-review
@@ -1309,10 +1418,10 @@ without a separate explicit instruction.
   measured root cause and the gate blindness that hid it. Task 3 delivers the
   width the owner asked for and the contrast defect. Tasks 4 and 5 carry forward
   the two verified-unshipped items. Task 6 is the accessibility pass.
-- **Intentional exclusions:** no nested-card slider, no widening past `37.5rem`, no
-  cancellation, no navigation regrouping, no WP-5 leaderboard work, no edits to
-  dated archive history.
+- **Intentional exclusions:** no nested-card slider, no base-cap expansion
+  beyond 28rem, no cancellation, no navigation regrouping, no WP-5 leaderboard
+  work, no edits to dated archive history.
 - **Known risk:** `--index-natural-height` is a measured constant that goes stale
-  if the form gains or loses a row. Task 2 Step 6 is the check that catches it;
+  if the form gains or loses a row. Task 2 Step 7 is the check that catches it;
   if it proves fragile in practice, promote it to a `.docsync.toml` DOC009
   declaration so the value cannot drift silently.
