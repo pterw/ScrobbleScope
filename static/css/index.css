@@ -1022,8 +1022,21 @@
     --index-height-bound: 68.75rem;
   }
 
+  /* Owner ruling 2026-09-05 (fix round 2): fill the padded column edge in
+     every state, collapsed or expanded. The former `35rem * scale` basis
+     bound smaller than the padded column at every measured width (602px vs
+     a 702px column at 1080p) and, once the form's height guard drops the
+     factor on expansion, shrank to ~400px in a ~743px column -- the hero
+     visibly contracted when the form opened. `.index-hero__mark` mirrors
+     the same rule so wordmark width keeps tracking the inner exactly, as it
+     always has (both used the identical formula before this change too).
+     The mark's own comment above still explains why an unconstrained mark
+     would dwarf the headline; that constraint remains true below 1200px. */
   .index-hero__inner {
-    width: calc(35rem * var(--index-scale));
+    width: 100%;
+  }
+
+  .index-hero__mark {
     max-width: 100%;
   }
 

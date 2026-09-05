@@ -9,6 +9,28 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Remediate PR #224 Task 2 review (side-task)
+
+- Scope: restore Task 2's original authored form geometry, harden its browser
+  gate, and reconcile live status documents found during owner and bot review.
+  Task 3's `3fr 4fr` split and `28rem` base form cap remain untouched.
+- Review dispositions: restored the three `0.25rem` gap bases and scaled `9rem`
+  mode-tab minimum; added an adversarial wrapped-headline helper test; shared
+  the repeated font-ready expression; removed the late-bound browser closure;
+  reduced the flagged helper complexity; and repaired the DOCSYNC marker plus
+  stale Task 2/two-engine claims. F-B21-39 owns the defect record.
+- Declined bot findings: the sixteen Bandit B101 comments target pytest
+  assertions, where assertion rewriting is the test framework's contract.
+  Graphify's missing-selector and unscaled-headline claims do not match current
+  source, and failure when either required browser is unavailable is explicit
+  Task 2 acceptance behavior.
+- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
+  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
+  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
+  final document state.
+- Forward guidance: Task 2 awaits owner review on PR #224. Task 3 remains the
+  next implementation task and owns the final split and form cap.
+
 ### 2026-09-05 - Implement layout-aware desktop scaling, Task 2 (side-task)
 
 - Scope: complete Chromium and Firefox gate lifecycle, realistic window

@@ -531,6 +531,57 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Remediate Task 3 review feedback, fill the hero to its column (side-task)
+
+- Scope: fix round 2/5 for Task 3 owner-review feedback (not a FINDINGS
+  entry -- rendered-evidence feedback, not a review finding): "scale the
+  wordmark and hero up to the edge". `.index-hero__inner`'s width (and the
+  matching `.index-hero__mark` cap) were bound to `calc(35rem *
+  var(--index-scale))`, which the owner's measured evidence showed
+  rendering narrower than the padded hero column in every state -- most
+  visibly in the height-guard-driven expanded state (decade selected,
+  thresholds open), where the hero visibly shrank as the form grew.
+- Plan vs implementation: replaced the `35rem * scale` basis on both
+  `.index-hero__inner` (`width: 100%`) and `.index-hero__mark` (`max-width:
+  100%`) inside the existing `@media (min-width: 1200px)` block, so hero
+  content (wordmark, headline, lede, capability marks) fills to the
+  padding edge in every state. The two rules stay identical twins, as they
+  were before this change (both previously read the same `35rem * scale`
+  value), so wordmark width keeps tracking hero-inner width exactly with no
+  separate rule needed. Nothing below 1200px, the hero's own padding
+  (`3.5rem * scale`), the lede's `38ch` measure, the form side (3fr 4fr
+  split, 28rem cap, height bounds), the header clamps, or either divider
+  token was touched, per the owner's explicit "do not touch" list.
+- TDD evidence: extended `check_large_display_scale_parity` in
+  `scripts/dev/frontend_gate.py` (`measure_wide_layout` and
+  `measure_compact_height`) to read the hero's own padding, its column
+  width, `.index-hero__inner`'s rendered width, and `.index-hero__mark`'s
+  rendered width, then assert hero-inner fills its padded column (within
+  1px) and mark tracks inner (within 1px), across all four real windows
+  (1080p, 1200p measured, 1440p, 4K) plus the driven decade+thresholds
+  expanded state. A genuine RED run against the pre-fix CSS produced
+  exactly 5 failures: hero inner at 602.0px against a 702.4px column
+  (1080p and 1200p measured, same viewport width), 802.7px against 936.6px
+  (1440p), 1204.0px against 1404.9px (4K), and 400.3px against 742.8px in
+  the expanded state -- confirming the owner's diagnosis empirically (my
+  own hand-derivation independently produced the same 602.0px and 702.4px
+  figures before the browser run). No "mark not tracking inner" failures
+  appeared even pre-fix, because the two rules were already numerically
+  identical. Applying the CSS fix produced GREEN in both engines
+  individually, then a full gate GREEN: `23 checks passed in 64 runs across
+  chromium, firefox` (check count unchanged; this extends two existing
+  measurement helpers rather than adding a new check).
+- Validation: full-suite `pytest -q` -- **894 passed**, 5 warnings
+  (unchanged; this is a gate-level browser-measurement change with no new
+  pytest-collected unit test, since no new Python helper function was
+  introduced -- the assertions read directly from browser-measured
+  rectangles already exposed by the existing helpers). All pre-commit
+  hooks and `doc_state_sync.py --check` passed on the final document
+  state.
+- Forward guidance: Task 3's remaining review rounds (3/5 through 5/5) and
+  the seven parked Minor findings proceed separately; Task 4 remains the
+  next batch-order item once Task 3's review is fully closed.
+
 ### 2026-09-05 - Remediate Task 3 review finding, raise the index well divider (side-task)
 
 - Scope: fix round 1/5 for the Task 3 owner-review finding "the index
@@ -663,25 +714,3 @@ non-current operational logs. Older dated entries live in
   final document state.
 - Forward guidance: await the refreshed Qlty and Quality Gate checks on PR
   #224. Task 3 remains next after owner review.
-
-### 2026-09-05 - Remediate PR #224 Task 2 review (side-task)
-
-- Scope: restore Task 2's original authored form geometry, harden its browser
-  gate, and reconcile live status documents found during owner and bot review.
-  Task 3's `3fr 4fr` split and `28rem` base form cap remain untouched.
-- Review dispositions: restored the three `0.25rem` gap bases and scaled `9rem`
-  mode-tab minimum; added an adversarial wrapped-headline helper test; shared
-  the repeated font-ready expression; removed the late-bound browser closure;
-  reduced the flagged helper complexity; and repaired the DOCSYNC marker plus
-  stale Task 2/two-engine claims. F-B21-39 owns the defect record.
-- Declined bot findings: the sixteen Bandit B101 comments target pytest
-  assertions, where assertion rewriting is the test framework's contract.
-  Graphify's missing-selector and unscaled-headline claims do not match current
-  source, and failure when either required browser is unavailable is explicit
-  Task 2 acceptance behavior.
-- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
-  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
-  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
-  final document state.
-- Forward guidance: Task 2 awaits owner review on PR #224. Task 3 remains the
-  next implementation task and owns the final split and form cap.

@@ -1728,10 +1728,13 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         return page.evaluate(
             """() => {
                 const hero = document.querySelector('.index-hero');
+                const heroInner = document.querySelector('.index-hero__inner');
+                const heroMark = document.querySelector('.index-hero__mark');
                 const application = document.querySelector('.index-form');
                 const form = document.querySelector('.index-form__inner');
                 const card = document.querySelector('.ss-card');
                 const style = getComputedStyle(application);
+                const heroStyle = getComputedStyle(hero);
                 const formRect = form.getBoundingClientRect();
                 const header = document.querySelector('.site-header');
                 const nav = document.querySelector('.site-header__nav');
@@ -1745,6 +1748,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 );
                 return {
                     heroWidth: hero.getBoundingClientRect().width,
+                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                    heroInnerWidth: heroInner.getBoundingClientRect().width,
+                    heroMarkWidth: heroMark.getBoundingClientRect().width,
                     applicationWidth: application.getBoundingClientRect().width,
                     formLeft: application.getBoundingClientRect().left,
                     formRight: application.getBoundingClientRect().right,
@@ -1806,6 +1813,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 const submit = document.querySelector('.ss-submit');
                 const tags = document.querySelector('#filter-tags');
                 const style = getComputedStyle(formColumn);
+                const hero = document.querySelector('.index-hero');
+                const heroInner = document.querySelector('.index-hero__inner');
+                const heroMark = document.querySelector('.index-hero__mark');
+                const heroStyle = getComputedStyle(hero);
                 return {
                     paddingTop: parseFloat(style.paddingTop),
                     paddingBottom: parseFloat(style.paddingBottom),
@@ -1813,6 +1824,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     tagsBottom: tags.getBoundingClientRect().bottom,
                     viewportHeight: window.innerHeight,
                     documentHeight: document.documentElement.scrollHeight,
+                    heroWidth: hero.getBoundingClientRect().width,
+                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                    heroInnerWidth: heroInner.getBoundingClientRect().width,
+                    heroMarkWidth: heroMark.getBoundingClientRect().width,
                 };
             }"""
         )
@@ -1975,6 +1991,19 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             failures.append(
                 f"/: form card does not fill the composed form width at {label}"
             )
+        hero_column_fill = (
+            layout["heroWidth"] - layout["heroPaddingLeft"] - layout["heroPaddingRight"]
+        )
+        if abs(layout["heroInnerWidth"] - hero_column_fill) > 1:
+            failures.append(
+                f"/: hero inner is {layout['heroInnerWidth']:.1f}px at {label}, "
+                f"expected to fill its padded column at {hero_column_fill:.1f}px"
+            )
+        if abs(layout["heroMarkWidth"] - layout["heroInnerWidth"]) > 1:
+            failures.append(
+                f"/: wordmark is {layout['heroMarkWidth']:.1f}px at {label}, "
+                f"expected to track the hero inner at {layout['heroInnerWidth']:.1f}px"
+            )
 
     # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
     # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
@@ -2066,6 +2095,28 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         failures.append("/: compact-height form leaves filter tags below view")
     if compact_height["documentHeight"] > compact_height["viewportHeight"] + 1:
         failures.append("/: compact-height form requires document scrolling")
+    # The height guard drops the shared factor in this driven decade+thresholds
+    # state (0.726 at 1080p, measured 2026-09-05), which used to leave the
+    # hero's own content trapped in a `35rem * scale` box far narrower than
+    # its padded column. The hero must still fill the padding edge here, not
+    # just in the width-driven collapsed state above.
+    expanded_hero_fill = (
+        compact_height["heroWidth"]
+        - compact_height["heroPaddingLeft"]
+        - compact_height["heroPaddingRight"]
+    )
+    if abs(compact_height["heroInnerWidth"] - expanded_hero_fill) > 1:
+        failures.append(
+            f"/: hero inner is {compact_height['heroInnerWidth']:.1f}px in the "
+            f"expanded decade+thresholds state, expected to fill its padded "
+            f"column at {expanded_hero_fill:.1f}px"
+        )
+    if abs(compact_height["heroMarkWidth"] - compact_height["heroInnerWidth"]) > 1:
+        failures.append(
+            f"/: wordmark is {compact_height['heroMarkWidth']:.1f}px in the "
+            f"expanded decade+thresholds state, expected to track the hero "
+            f"inner at {compact_height['heroInnerWidth']:.1f}px"
+        )
     failures.extend(_check_desktop_scale_bounds(page, base_url))
     return failures
 
