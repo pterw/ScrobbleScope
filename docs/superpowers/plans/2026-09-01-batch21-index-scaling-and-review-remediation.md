@@ -507,8 +507,10 @@ Stop for owner review.
 
 **Execution checkpoint 2026-09-05:** Task 2 is complete -- implemented,
 validated, committed as `ac6b1b1`, pushed, and opened as PR #224 with owner
-authorization. All nine steps are checked off below. The complete frontend
-gate passed in isolation (22 checks, 62 runs, Chromium and Firefox).
+authorization. Its first review-remediation pass restores the original authored
+geometry, adds adversarial boundary-helper coverage, and reconciles live status
+documents. The remediation passed 881 tests and the complete frontend gate (22
+checks, 62 runs, Chromium and Firefox). All nine steps are checked off below.
 Measurements and the expanded-state guard correction are recorded in
 `FINDINGS.md` F-B21-38. PLAYBOOK Sections 3-4 own current status and
 validation results. The original owner-review notes remain historical; this

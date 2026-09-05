@@ -65,6 +65,7 @@ from scrobblescope.repositories import (  # noqa: E402
 
 BROWSER_NAMES = ("chromium", "firefox")
 SETUP_COMMAND = "python -m playwright install chromium firefox"
+FONTS_READY_EXPRESSION = "document.fonts.ready"
 
 #: Cool-grey surfaces the warm themes replaced. Batch criterion 2 forbids them.
 FORBIDDEN_SURFACES = ("rgb(248, 249, 250)", "rgb(18, 18, 18)")
@@ -1534,7 +1535,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         """Read real rectangles and computed authored dimensions after fonts load."""
         page.set_viewport_size({"width": width, "height": height})
         page.goto(f"{base_url}/", wait_until="load")
-        page.evaluate("document.fonts.ready")
+        page.evaluate(FONTS_READY_EXPRESSION)
         return page.evaluate(
             """(targets) => Object.fromEntries(
                 Object.entries(targets).map(([name, selector]) => {
@@ -1590,7 +1591,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         page.goto(f"{base_url}/", wait_until="load")
         page.locator("#release_scope").select_option("decade")
         page.locator(".disclosure__summary").click()
-        page.evaluate("document.fonts.ready")
+        page.evaluate(FONTS_READY_EXPRESSION)
         return page.evaluate(
             """() => {
                 const formColumn = document.querySelector('.index-form');
@@ -1627,7 +1628,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         # Reset the expanded state: this probe exercises the initial form's
         # font-relative height denominator, with the root enlarged to 20px.
         page.goto(f"{base_url}/", wait_until="load")
-        page.evaluate("document.fonts.ready")
+        page.evaluate(FONTS_READY_EXPRESSION)
         old_root = page.evaluate("document.documentElement.style.fontSize")
         try:
             root_measurement = page.evaluate(
@@ -1756,6 +1757,17 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     return failures
 
 
+def _touch_minimum_failures(
+    width: int, rectangles: dict[str, dict[str, float]]
+) -> list[str]:
+    """Name every control whose rendered box falls below the touch minimum."""
+    return [
+        f"/: {selector} loses its touch minimum at {width}px"
+        for selector, rectangle in rectangles.items()
+        if min(rectangle.values()) < 43.9
+    ]
+
+
 def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
     """Exercise readable narrow headlines, expanded states and wide touch growth.
 
@@ -1768,7 +1780,7 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
         probe = context.new_page()
         probe.set_viewport_size({"width": 1200, "height": 900})
         probe.goto(f"{base_url}/", wait_until="load")
-        probe.evaluate("document.fonts.ready")
+        probe.evaluate(FONTS_READY_EXPRESSION)
         for mode in ("album", "heatmap"):
             probe.locator(f"#mode-tab-{mode}").click()
             headline = probe.locator(f'[data-mode-hero="{mode}"] h1')
@@ -1789,7 +1801,7 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
             probe.goto(f"{base_url}/", wait_until="load")
             probe.locator("#release_scope").select_option("decade")
             probe.locator(".disclosure__summary").click()
-            probe.evaluate("document.fonts.ready")
+            probe.evaluate(FONTS_READY_EXPRESSION)
             widths[width] = probe.evaluate(
                 """() => Object.fromEntries(
                 ['.mode-pill', '.seg__option', '.decade-pill', '.disclosure__summary',
@@ -1798,11 +1810,7 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
                     return [selector, {width: rect.width, height: rect.height}];
                 }))"""
             )
-            for selector, rect in widths[width].items():
-                if min(rect.values()) < 43.9:
-                    failures.append(
-                        f"/: {selector} loses its touch minimum at {width}px"
-                    )
+            failures.extend(_touch_minimum_failures(width, widths[width]))
         # The open form may contract to fit its state. Compare controls at a
         # tall window so that this check tests proportional touch dimensions.
         for width in (1920, 2560):
@@ -2116,7 +2124,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     )
                     # One context per profile, all closed with this engine.
                     results = run_checks(
-                        lambda spec: browser.new_context(**spec).new_page(), base_url
+                        lambda spec, browser=browser: browser.new_context(
+                            **spec
+                        ).new_page(),
+                        base_url,
                     )
                     failures.extend(f"{browser_name}: {result}" for result in results)
                 except Exception as exc:  # noqa: BLE001 - continue with the next engine

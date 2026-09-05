@@ -9,6 +9,35 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-04 - Clear PR #221 plan-review follow-ups (side-task)
+
+- Scope: corrected the execution plan and repository-authored Markdown before
+  the owner-authorized PR merge. Production scaling remains Task 2.
+- Review dispositions: reaffirmed accurate visible phase counts after checking
+  the September 1 owner-remediation plan and obtaining the owner's ruling;
+  required
+  nested phase-copy isolation through both repository readers, and normalized
+  the batch definition, reconciliation and Graphify report to ASCII. Filed
+  F-B21-31 and F-B21-32 with the evidence and implementation boundary. The
+  polling audit reproduced stale heatmap responses and found received-page
+  counts sourced from attempts; F-B21-33 remains open for Task 4. Sharing a
+  renderer must preserve the different album and heatmap pipeline state.
+- Plan vs implementation: verified completed snapshot work is marked without
+  rerunning historical failing steps. The touch-declaration deadlock stays
+  deferred until its minimum changes. The header advisory confused 1440p with
+  a 1440px width: 2.96875vw reaches 76px at 2560px, as intended.
+- Deviations: no production scope added. The broad README refresh stays in
+  WP-8; Firefox setup documentation will change with Task 2. Preserve and query
+  the local Graphify data; no ignore rule, graph rebuild or plugin update is
+  part of this review fix. Older fixed-form and hero-only rulings remain dated
+  history and are superseded by the final complete-composition direction.
+- Validation: `pytest -q` -- **872 passed**, 5 warnings. The frontend gate
+  reports 22 checks passed in 31 runs. All 12 pre-commit hooks and docsync
+  pass; the snapshot remains byte-identical and WT000 confirms alignment.
+- Forward guidance: refresh the PR body, post one batched review disposition,
+  and resolve only addressed threads. The owner authorized merging once review
+  is clear, then continuing Task 2 in this same worktree before WP-5.
+
 ### 2026-09-04 - Reconcile PR #221 review with final scale direction (side-task)
 
 - Scope: documentation and one provenance test. Audited all nine unresolved

@@ -250,8 +250,8 @@ kickoff log entry.
   same run, cannot produce false drift failures.
 - **Add the repository-owned frontend gate and its runtime** (see the
   validation-gate section). This same commit pins `playwright==1.62.0` in
-  `requirements-dev.txt`, provisions Chromium locally and in CI, adds
-  `scripts/dev/frontend_gate.py`, and runs it in the Quality Gate. It starts
+  `requirements-dev.txt`, provisions Chromium and Firefox locally and in CI,
+  adds `scripts/dev/frontend_gate.py`, and runs it in the Quality Gate. It starts
   with the migrated `error.html` pilot and grows one page per WP. README and
   DEVELOPMENT document setup when the runtime actually lands, not before.
 `feat(ui): tailwind base shell, header bar, error page pilot`

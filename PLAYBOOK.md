@@ -87,8 +87,9 @@ See FINDINGS F-DOCSYNC-3.
 - **Planning follow-up:** the original owner-review plan remains historical
   evidence; the superseding plan below is canonical. Task 2 now implements
   the two-engine runner and explicit CSS composition dimensions. Its rendered
-  expanded-state guard and final validation are in progress.
-- **Next action:** **WP-4 is complete. Finish and review remediation Task 2
+  expanded-state guard, complete validation, and first PR #224 review
+  remediation passed.
+- **Next action:** **WP-4 and remediation Task 2 are complete. Review Task 2
   before Task 3 or WP-5.** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
@@ -172,7 +173,8 @@ non-current operational logs. Older dated entries live in
 - Batch scope/acceptance criteria: definitions under `docs/history/definitions/`.
 - Current-batch boundaries are machine-managed (do not move entries manually):
   - `<!-- DOCSYNC:CURRENT-BATCH-START -->`
-  - `<!-- DOCSYNC:CURRENT-BATCH-END -->
+  - `<!-- DOCSYNC:CURRENT-BATCH-END -->`
+- After any edit here, run `python scripts/doc_state_sync.py --fix`.
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
@@ -524,6 +526,28 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Remediate PR #224 Task 2 review (side-task)
+
+- Scope: restore Task 2's original authored form geometry, harden its browser
+  gate, and reconcile live status documents found during owner and bot review.
+  Task 3's `3fr 4fr` split and `28rem` base form cap remain untouched.
+- Review dispositions: restored the three `0.25rem` gap bases and scaled `9rem`
+  mode-tab minimum; added an adversarial wrapped-headline helper test; shared
+  the repeated font-ready expression; removed the late-bound browser closure;
+  reduced the flagged helper complexity; and repaired the DOCSYNC marker plus
+  stale Task 2/two-engine claims. F-B21-39 owns the defect record.
+- Declined bot findings: the sixteen Bandit B101 comments target pytest
+  assertions, where assertion rewriting is the test framework's contract.
+  Graphify's missing-selector and unscaled-headline claims do not match current
+  source, and failure when either required browser is unavailable is explicit
+  Task 2 acceptance behavior.
+- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
+  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
+  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
+  final document state.
+- Forward guidance: Task 2 awaits owner review on PR #224. Task 3 remains the
+  next implementation task and owns the final split and form cap.
+
 ### 2026-09-05 - Implement layout-aware desktop scaling, Task 2 (side-task)
 
 - Scope: complete Chromium and Firefox gate lifecycle, realistic window
@@ -600,32 +624,3 @@ non-current operational logs. Older dated entries live in
   in 31 runs in PR CI. Final pre-commit and docsync checks run before commit.
 - Forward guidance: resume the owner-review scaling plan before WP-5. These
   extractions do not implement its loading-count or layout corrections.
-
-### 2026-09-04 - Clear PR #221 plan-review follow-ups (side-task)
-
-- Scope: corrected the execution plan and repository-authored Markdown before
-  the owner-authorized PR merge. Production scaling remains Task 2.
-- Review dispositions: reaffirmed accurate visible phase counts after checking
-  the September 1 owner-remediation plan and obtaining the owner's ruling;
-  required
-  nested phase-copy isolation through both repository readers, and normalized
-  the batch definition, reconciliation and Graphify report to ASCII. Filed
-  F-B21-31 and F-B21-32 with the evidence and implementation boundary. The
-  polling audit reproduced stale heatmap responses and found received-page
-  counts sourced from attempts; F-B21-33 remains open for Task 4. Sharing a
-  renderer must preserve the different album and heatmap pipeline state.
-- Plan vs implementation: verified completed snapshot work is marked without
-  rerunning historical failing steps. The touch-declaration deadlock stays
-  deferred until its minimum changes. The header advisory confused 1440p with
-  a 1440px width: 2.96875vw reaches 76px at 2560px, as intended.
-- Deviations: no production scope added. The broad README refresh stays in
-  WP-8; Firefox setup documentation will change with Task 2. Preserve and query
-  the local Graphify data; no ignore rule, graph rebuild or plugin update is
-  part of this review fix. Older fixed-form and hero-only rulings remain dated
-  history and are superseded by the final complete-composition direction.
-- Validation: `pytest -q` -- **872 passed**, 5 warnings. The frontend gate
-  reports 22 checks passed in 31 runs. All 12 pre-commit hooks and docsync
-  pass; the snapshot remains byte-identical and WT000 confirms alignment.
-- Forward guidance: refresh the PR body, post one batched review disposition,
-  and resolve only addressed threads. The owner authorized merging once review
-  is clear, then continuing Task 2 in this same worktree before WP-5.

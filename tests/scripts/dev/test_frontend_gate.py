@@ -14,8 +14,10 @@ from scripts.dev import frontend_gate
 from scripts.dev.frontend_gate import (
     SETUP_COMMAND,
     FrontendGateError,
+    _check_desktop_scale_bounds,
     _launch_browser,
     _load_playwright,
+    _touch_minimum_failures,
     check_pipeline_state_machines,
     check_shell_scales_with_text,
     check_theme_persistence,
@@ -362,6 +364,72 @@ def test_the_touch_profiles_really_carry_a_coarse_pointer() -> None:
     assert not desktop.get("has_touch"), "the mouse profile must stay a mouse"
     # Wide, so a width-scoped rule cannot be what satisfies the check.
     assert frontend_gate.VIEWPORTS[frontend_gate.TOUCH_WIDE]["viewport"]["width"] >= 860
+
+
+def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> None:
+    """The boundary probe must report real wrapping and release its context."""
+    assert _touch_minimum_failures(
+        1920,
+        {
+            ".too-short": {"width": 44, "height": 43.8},
+            ".minimum": {"width": 44, "height": 43.9},
+        },
+    ) == ["/: .too-short loses its touch minimum at 1920px"]
+
+    current_width = {"value": 1200}
+    context = MagicMock()
+    probe = context.new_page.return_value
+    page = MagicMock()
+    page.context.browser.new_context.return_value = context
+
+    def set_viewport_size(viewport: dict[str, int]) -> None:
+        """Track the active width so the fake can return proportional heights."""
+        current_width["value"] = viewport["width"]
+
+    def locate(selector: str) -> MagicMock:
+        """Return a wrapped headline and inert controls for all other selectors."""
+        locator = MagicMock()
+        if selector.endswith(" h1"):
+            locator.evaluate.return_value = {"height": 50, "lineHeight": 20}
+        return locator
+
+    def evaluate(script: str):
+        """Return valid touch geometry while preserving the headline failure."""
+        if script == frontend_gate.FONTS_READY_EXPRESSION:
+            return None
+        factor = 1.075 * current_width["value"] / 1920
+        if "rect.width" in script:
+            return {
+                selector: {"width": 44, "height": 44}
+                for selector in (
+                    ".mode-pill",
+                    ".seg__option",
+                    ".decade-pill",
+                    ".disclosure__summary",
+                    ".stepper__value",
+                    ".ss-input",
+                )
+            }
+        return {
+            selector: max(44, authored * factor)
+            for selector, authored in {
+                ".mode-pill": 44,
+                ".seg__option": 38,
+                ".decade-pill": 30,
+                ".disclosure__summary": 32,
+            }.items()
+        }
+
+    probe.set_viewport_size.side_effect = set_viewport_size
+    probe.locator.side_effect = locate
+    probe.evaluate.side_effect = evaluate
+
+    assert _check_desktop_scale_bounds(page, "http://local") == [
+        "/: album headline wraps at the 1200px desktop boundary",
+        "/: heatmap headline wraps at the 1200px desktop boundary",
+    ]
+    page.context.browser.new_context.assert_called_once_with(has_touch=True)
+    context.close.assert_called_once()
 
 
 @pytest.mark.parametrize("raised", (False, True))
