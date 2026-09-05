@@ -9,6 +9,35 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Implement layout-aware desktop scaling, Task 2 (side-task)
+
+- Scope: complete Chromium and Firefox gate lifecycle, realistic window
+  profiles, and explicit CSS composition dimensions. Task 3's final split and
+  base form width are unchanged. Adobe remains the font provider.
+- Plan vs implementation: the initial complete gate failed on the old scale
+  path in both engines. The first replacement run exposed contracted touch
+  inputs and an expanded form taller than the plan's 673px baseline.
+  F-B21-38 owns the measured boundary and expanded-state correction.
+- Deviations: scale hero gutters with the complete composition and retain
+  readable type and coarse-pointer lower bounds below the reference width.
+  The entire two-engine gate should take roughly twice its former wall time.
+- Validation: the complete two-engine gate passed in isolation -- 22 checks
+  in 62 runs across Chromium and Firefox -- after one Chromium pipeline
+  timeout and one Firefox socket-in-use failure that appeared only while
+  unrelated browser work ran concurrently and never reproduced cleanly.
+  Rendered geometry and screenshots were recaptured for both engines at
+  1080p, 1440p, the 1200px boundary, mobile, and the 1920x900 expanded fit;
+  wrappers compute `transform: none` and `zoom: 1` everywhere. The focused
+  runner suite passed 23 tests; full pytest was **880 passed**, 5 warnings.
+  All pre-commit hooks and docsync passed. The final gate and suite ran at
+  close of this entry.
+- Landing: committed as `ac6b1b1`, pushed to `origin/wip/batch-21`, and
+  opened as PR #224 with owner authorization on 2026-09-05. All nine Task 2
+  plan steps are checked off in the canonical plan.
+- Forward guidance: Task 2 awaits PR review and merge. Task 3 is next, as
+  its own commit and review cycle. Do not start WP-5 until Task 3 lands.
+- After any edit here, run `python scripts/doc_state_sync.py --fix`.
+
 ### 2026-09-04 - Preserve owner-plan provenance and late review decisions (side-task)
 
 - Scope: track the original September 1 owner-review proposal with an explicit

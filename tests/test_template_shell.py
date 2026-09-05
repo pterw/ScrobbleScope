@@ -45,6 +45,9 @@ INDEX_TOKENS = {
     "--ss-text-body": ("#4a4456", "#c5bfb1"),
     "--ss-text-muted": ("#6c6676", "#908a9a"),
     "--ss-border-default": ("#e5dfd1", "#2a2434"),
+    # F-B21-40: a dedicated divider token for .index-form's border-left only.
+    # --ss-border-default stays on the other 14 form borders; see .docsync.toml.
+    "--ss-border-divider": ("#858179", "#6e6a75"),
     "--ss-accent-soft": ("#efe9fa", "#2a1f44"),
     "--heatmap-empty": ("#e8e2d6", "#262230"),
     # Added during commit 4 rather than commit 3, because the rebuild found

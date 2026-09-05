@@ -467,22 +467,36 @@ def _worst_divider_contrast(border: str, *surfaces: str) -> float:
     return min(ratios)
 
 
-def _divider_contrast_failure(label: str, ratio: float) -> str | None:
-    """Name a divider-contrast failure, or None once the ratio clears 3:1."""
+def _divider_contrast_failure(
+    label: str, ratio: float, token: str = "--shell-border"
+) -> str | None:
+    """Name a divider-contrast failure, or None once the ratio clears 3:1.
+
+    ``token`` names which custom property the message blames. F-B21-40 made
+    this a parameter rather than a literal: the same helper now checks both
+    the shared ``--shell-border`` and the index page's own
+    ``--ss-border-divider``, and a message that always said "--shell-border"
+    would misattribute a failing index divider to the wrong token.
+    """
     if ratio >= 3.0:
         return None
     return (
-        f"/ {label}: --shell-border composites to {ratio:.2f}:1 against its "
+        f"/ {label}: {token} composites to {ratio:.2f}:1 against its "
         "adjacent surface, expected at least 3:1"
     )
 
 
 def check_divider_contrast(page, base_url: str) -> list[str]:
-    """--shell-border must clear 3:1 against every surface it sits beside.
+    """Every divider token must clear 3:1 against every surface it sits beside.
 
-    The token carries alpha, and alpha -- not the underlying hue -- is the
-    defect F-B21-24 records: the composite, not the token string, is what a
-    reader actually sees.
+    The tokens carry alpha or a fixed hue -- either way, alpha is not the
+    only way contrast drifts, so the composite (or, for an opaque token, the
+    colour itself) is what is measured, not the token string. F-B21-24 found
+    ``--shell-border`` under 3:1; F-B21-40 found the index page's own well
+    divider under 3:1 too, on a *different* token (``--ss-border-default``,
+    since renamed for this purpose to ``--ss-border-divider``) that this
+    check did not previously read at all. Both are measured here so the gate
+    cannot go green while either divider is unreadable.
     """
     failures = []
     for theme in ("light", "dark"):
@@ -498,6 +512,29 @@ def check_divider_contrast(page, base_url: str) -> list[str]:
         failure = _divider_contrast_failure(theme, ratio)
         if failure:
             failures.append(failure)
+
+        # The index well divider sits between the page (the hero column,
+        # which paints no background of its own) and the sunken form well.
+        # Read the rendered border directly off .index-form rather than
+        # only the token, so a selector that stopped applying the token
+        # would also be caught.
+        index_border = page.evaluate(
+            """() => {
+                const form = document.querySelector('.index-form');
+                return form ? getComputedStyle(form).borderLeftColor : null;
+            }"""
+        )
+        if index_border is None:
+            failures.append(f"/ index divider {theme}: .index-form could not be found")
+            continue
+        page_surface = _computed_colour(page, "var(--color-base-100)")
+        well_surface = _computed_colour(page, "var(--ss-surface-sunken)")
+        index_ratio = _worst_divider_contrast(index_border, page_surface, well_surface)
+        index_failure = _divider_contrast_failure(
+            f"index divider {theme}", index_ratio, token="--ss-border-divider"
+        )
+        if index_failure:
+            failures.append(index_failure)
     return failures
 
 

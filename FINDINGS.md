@@ -4,7 +4,7 @@ Last updated: 2026-09-05
 Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
 Tasks 1-3 are complete; Task 4 is next. PLAYBOOK Section 3 owns
 the current work order.
-892 tests across 40 test modules.
+894 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -138,6 +138,25 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-40: Task 3's divider-contrast fix did not cover the index page's own well divider
+
+Task 3 raised `--shell-border` to clear 3:1, but `.index-form`'s
+`border-left` draws from the separate, still-opaque `--ss-border-default`
+token, which measures roughly 1.12:1 (light) and 1.18:1 (dark) against its
+adjoining surfaces -- worse than the 1.27:1 that originally opened
+F-B21-24. `check_divider_contrast` (`frontend_gate.py`) read only
+`--shell-border`, so the gate stayed green while this divider stayed
+unreadable.
+
+Status: resolved in this fix. Added a dedicated `--ss-border-divider` token
+(`#858179` light, `#6e6a75` dark) applied only to `.index-form`'s
+`border-left`; `--ss-border-default` is untouched everywhere else in
+index.css. Measured against both adjoining surfaces in both themes: light
+vs page 3.65:1, vs sunken well 3.26:1 (binding); dark vs page 3.69:1, vs
+sunken well 3.37:1 (binding). `check_divider_contrast` now also reads
+`.index-form`'s rendered `border-left-color` in both engines.
+Source: Task 3 specification and standards review.
 
 ### F-B21-37: PR #223 understates its refactor scope and omits its execution log
 

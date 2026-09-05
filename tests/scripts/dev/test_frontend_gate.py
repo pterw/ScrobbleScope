@@ -444,6 +444,29 @@ def test_divider_contrast_failure_boundary_is_exactly_3_to_1() -> None:
     )
 
 
+def test_divider_contrast_failure_names_the_token_it_checks() -> None:
+    """A caller must be able to attribute a failure to a specific token.
+
+    F-B21-40: the same helper now checks both the shared --shell-border and
+    the index page's own --ss-border-divider. This must fail if the `token`
+    parameter is removed or its default silently changes, since a message
+    that always says "--shell-border" would misattribute a failing index
+    divider to the wrong token.
+    """
+    failure = _divider_contrast_failure(
+        "index divider light", 1.12, token="--ss-border-divider"
+    )
+    assert failure == (
+        "/ index divider light: --ss-border-divider composites to 1.12:1 "
+        "against its adjacent surface, expected at least 3:1"
+    )
+    # The default stays --shell-border for every existing caller.
+    assert _divider_contrast_failure("light", 1.27) == (
+        "/ light: --shell-border composites to 1.27:1 against its "
+        "adjacent surface, expected at least 3:1"
+    )
+
+
 def test_clamp_px_resolves_floor_preferred_and_ceiling() -> None:
     """`_clamp_px` must mirror CSS clamp(): floor, vw-scaled middle, ceiling."""
     # Below the point where 2.96875vw reaches the 4.25rem floor.
