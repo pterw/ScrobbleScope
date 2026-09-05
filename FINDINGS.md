@@ -78,6 +78,10 @@ control on both workflows. It returns home and does not cancel the background
 job.
 
 Status: resolved locally; deploy before the next production release.
+F-B21-43 supersedes the cached-ready part of this transition: the one-root
+crossfade remains for an active job whose loader has painted, while an
+already-complete saved job keeps that obsolete loader hidden and fades the
+prepared result in directly.
 Source: owner visual review and Impeccable performance finding, 2026-08-28.
 
 ---
@@ -138,6 +142,23 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-43: cached Heatmap restoration painted an obsolete loading state
+
+Opening Heatmap from the header after a result was cached called
+`fadeIn(heatmapLoading)` before the first progress request. A completed job
+therefore painted the loading panel for a fraction of a second, then replaced
+it with the cached result. A final DOM assertion could not detect the flash.
+
+Status: resolved, 2026-09-05. Saved-job restoration keeps the loading panel
+hidden until the first response proves that work is still running or reports
+an error. A ready result fades in directly; a still-running result preserves
+the existing Heatmap polling lifecycle and reveals the accurate progress
+state. The Chromium and Firefox gate observes loading-panel class mutations
+from before production `DOMContentLoaded` listeners run and fails if a cached
+result paints that panel.
+Source: owner browser review and two-engine rendered state observation,
+2026-09-05.
 
 ### F-B21-42: index motion used three unrelated timings and blanked mode copy between animations
 

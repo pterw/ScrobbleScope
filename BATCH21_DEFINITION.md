@@ -81,9 +81,10 @@ stylesheet is in scope for this batch.
    counts from overall progress. The remediation plan's Task 4 owns the
    accuracy checks and phase contract. The normal-state `Cancel and return home`
    control navigates home; it does not claim to stop the server job. When a
-   cached heatmap is ready, render its DOM first and use one short
-   opacity-only handoff from loading to result rather than a snap or nested
-   fades.
+   heatmap finishes after its loading panel has painted, render its DOM first
+   and use one short opacity-only handoff from loading to result rather than a
+   snap or nested fades. A saved job that is already cached must keep the
+   loading panel hidden and fade its result in directly.
 2. **Welcome modal (WP-3): DELETE.** The hero replaces it; Info button
    becomes a small about panel.
 3. **`limit_results` control (WP-3): KEEP**, as a visible field in the

@@ -89,10 +89,9 @@ See FINDINGS F-DOCSYNC-3.
   the two-engine runner and explicit CSS composition dimensions. Its rendered
   expanded-state guard, complete validation, and PR #224 review remediation
   passed.
-- **Next action:** **WP-4 and remediation Tasks 2-3 are complete. Remediation
-  Task 4 is implemented and validated locally (commit e0219b2); its owner-review
-  fix for cached Heatmap restoration is underway, followed by task review and
-  then Task 5 (add the unmatched no-data surface).** Work from
+- **Next action:** **WP-4 and remediation Tasks 2-4 are implemented and
+  validated locally. Task 4 review is next, then Task 5 (add the unmatched
+  no-data surface).** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
   defect with layout-aware CSS and a complete real-window gate in Chromium
@@ -106,9 +105,10 @@ See FINDINGS F-DOCSYNC-3.
   loading progress with pipeline phases across Top Albums and Heatmap,
   eliminated overlapping interval polls and stale responses (F-B21-33), decoupled
   received vs attempted Last.fm counts, corrected loading composition
-  (F-B21-36), and added real-browser phase checks to the gate; its task review
-  is pending next. Tasks 5-6 (unmatched no-data surface, accessibility pass)
-  remain open.
+  (F-B21-36), and added real-browser phase checks to the gate. Its review fix
+  keeps the loader hidden when a saved Heatmap job is already cached and fades
+  the result in directly (F-B21-43); task review is pending next. Tasks 5-6
+  (unmatched no-data surface, accessibility pass) remain open.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -539,6 +539,26 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Remove the cached Heatmap loading flash (side-task)
+
+- Scope: address the owner-observed flash when the Heatmap header link restores
+  an already-complete saved job. The client exposed the loading panel before
+  its first progress response, then immediately replaced it with cached data.
+- Implementation: keep saved-job loading hidden through the first progress and
+  data requests. Reveal it only when the response shows ongoing work, a retry,
+  or an error; otherwise fade the complete result in directly. Normal Heatmap
+  submissions and their polling lifecycle remain distinct and unchanged.
+- TDD evidence: the new mutation observer failed against the prior client in
+  Chromium and Firefox even though the final result DOM was correct. It starts
+  before production `DOMContentLoaded` handlers, so it records the transient
+  loading paint rather than sampling only the settled page.
+- Findings: F-B21-43 records the defect and its resolution.
+- Validation: `pytest -q` -- **904 passed**, 5 warnings. Focused frontend and
+  route tests -- **120 passed**. The complete frontend gate reports `23 checks
+  passed in 64 runs across chromium, firefox`; JavaScript syntax and diff checks
+  pass. Final hooks and docsync follow before commit.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
 ### 2026-09-05 - Pin index state geometry and normalize its fades (side-task)
 
 - Scope: address owner review after Task 3. The state-sensitive height
@@ -640,54 +660,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: Task 4 implemented and validated locally in commit e0219b2;
   awaiting task review (spec and quality review is pending as the next action,
   followed by Task 5 per the plan order).
-
-### 2026-09-05 - Remediate Task 3 review feedback, fill the hero to its column (side-task)
-
-- Scope: fix round 2/5 for Task 3 owner-review feedback (not a FINDINGS
-  entry -- rendered-evidence feedback, not a review finding): "scale the
-  wordmark and hero up to the edge". `.index-hero__inner`'s width (and the
-  matching `.index-hero__mark` cap) were bound to `calc(35rem *
-  var(--index-scale))`, which the owner's measured evidence showed
-  rendering narrower than the padded hero column in every state -- most
-  visibly in the height-guard-driven expanded state (decade selected,
-  thresholds open), where the hero visibly shrank as the form grew.
-- Plan vs implementation: replaced the `35rem * scale` basis on both
-  `.index-hero__inner` (`width: 100%`) and `.index-hero__mark` (`max-width:
-  100%`) inside the existing `@media (min-width: 1200px)` block, so hero
-  content (wordmark, headline, lede, capability marks) fills to the
-  padding edge in every state. The two rules stay identical twins, as they
-  were before this change (both previously read the same `35rem * scale`
-  value), so wordmark width keeps tracking hero-inner width exactly with no
-  separate rule needed. Nothing below 1200px, the hero's own padding
-  (`3.5rem * scale`), the lede's `38ch` measure, the form side (3fr 4fr
-  split, 28rem cap, height bounds), the header clamps, or either divider
-  token was touched, per the owner's explicit "do not touch" list.
-- TDD evidence: extended `check_large_display_scale_parity` in
-  `scripts/dev/frontend_gate.py` (`measure_wide_layout` and
-  `measure_compact_height`) to read the hero's own padding, its column
-  width, `.index-hero__inner`'s rendered width, and `.index-hero__mark`'s
-  rendered width, then assert hero-inner fills its padded column (within
-  1px) and mark tracks inner (within 1px), across all four real windows
-  (1080p, 1200p measured, 1440p, 4K) plus the driven decade+thresholds
-  expanded state. A genuine RED run against the pre-fix CSS produced
-  exactly 5 failures: hero inner at 602.0px against a 702.4px column
-  (1080p and 1200p measured, same viewport width), 802.7px against 936.6px
-  (1440p), 1204.0px against 1404.9px (4K), and 400.3px against 742.8px in
-  the expanded state -- confirming the owner's diagnosis empirically (my
-  own hand-derivation independently produced the same 602.0px and 702.4px
-  figures before the browser run). No "mark not tracking inner" failures
-  appeared even pre-fix, because the two rules were already numerically
-  identical. Applying the CSS fix produced GREEN in both engines
-  individually, then a full gate GREEN: `23 checks passed in 64 runs across
-  chromium, firefox` (check count unchanged; this extends two existing
-  measurement helpers rather than adding a new check).
-- Validation: full-suite `pytest -q` -- **894 passed**, 5 warnings
-  (unchanged; this is a gate-level browser-measurement change with no new
-  pytest-collected unit test, since no new Python helper function was
-  introduced -- the assertions read directly from browser-measured
-  rectangles already exposed by the existing helpers). All pre-commit
-  hooks and `doc_state_sync.py --check` passed on the final document
-  state.
-- Forward guidance: Task 3's remaining review rounds (3/5 through 5/5) and
-  the seven parked Minor findings proceed separately; Task 4 remains the
-  next batch-order item once Task 3's review is fully closed.

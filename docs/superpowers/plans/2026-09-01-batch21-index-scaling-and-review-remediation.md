@@ -907,7 +907,7 @@ chromium, firefox`. Measured divider contrast after the fix: light
 3.42:1, both against the worst adjacent surface. `pytest -q` -- 892 passed
 (881 baseline plus 11 new tests: 7 in `tests/scripts/dev/test_frontend_gate.py`,
 4 in `tests/test_template_shell.py`). All seven steps are checked off below.
-Task 4 is next.
+Task 4 follows below.
 
 **Owner correction 2026-09-05:** F-B21-41 supersedes the state-dependent
 height bounds inherited from Task 2. A fixed window must keep the hero, form,
@@ -1185,6 +1185,15 @@ uncentered stat layout. GREEN evidence: `pytest -q` -- 902 passed across 40 test
 `test_frontend_gate.py`). Full frontend gate passed: `23 checks passed in 64 runs
 across chromium, firefox`. Prohibited animation sweep returned 0 matches.
 Task 4 review is the next action, then Task 5.
+
+**Owner review remediation 2026-09-05:** F-B21-43 removes the cached-result
+flash from saved Heatmap restoration. The loading panel stays hidden through
+the first progress and data requests; it appears only if the job is still
+running or fails, while an already-ready result uses the short opacity entrance
+directly. The browser gate observes mutations from before production
+`DOMContentLoaded` listeners and failed on the prior client in both Chromium
+and Firefox before passing on the correction. The combined branch validates at
+904 tests and `23 checks passed in 64 runs across chromium, firefox`.
 
 Carried forward from the superseded plan's Task 2, whose baseline verified
 correct: `set_job_progress` has no `phase` keyword, `static/js/loading-progress.js`

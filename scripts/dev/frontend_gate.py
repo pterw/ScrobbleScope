@@ -2810,6 +2810,26 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
                 return nativeInterval(callback, delay, ...args);
             };
             window.__scrobbleGateFastRedirect = true;
+
+            // A completed saved Heatmap job should reveal its cached result
+            // without painting the loading panel first. Observe class changes
+            // from before production DOMContentLoaded listeners run; a final
+            // display check would miss the brief flash once the result wins.
+            window.__scrobbleGateHeatmapLoadingPaints = 0;
+            document.addEventListener('DOMContentLoaded', () => {
+                const loading = document.querySelector('#heatmap-loading');
+                if (!loading) return;
+                const recordVisible = () => {
+                    if (getComputedStyle(loading).display !== 'none') {
+                        window.__scrobbleGateHeatmapLoadingPaints += 1;
+                    }
+                };
+                new MutationObserver(recordVisible).observe(loading, {
+                    attributes: true,
+                    attributeFilter: ['class'],
+                });
+                recordVisible();
+            });
         })();"""
     )
 
@@ -2876,6 +2896,11 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
         })"""
     )
     page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+    loading_paints = page.evaluate("window.__scrobbleGateHeatmapLoadingPaints || 0")
+    if loading_paints:
+        failures.append(
+            "cached heatmap restoration painted the loading panel before its result"
+        )
     if handoff_state != {"root": True, "headline": False, "frame": False}:
         failures.append("cached heatmap result does not use one root handoff")
     header_wordmark_display = page.locator(".site-header__home").evaluate(

@@ -201,6 +201,10 @@
   }
 
   function revealHeatmapResult() {
+    var loadingIsVisible =
+      !heatmapLoading.classList.contains('hidden') &&
+      getComputedStyle(heatmapLoading).display !== 'none';
+    restoringSavedHeatmap = false;
     setHeatmapStageActive(true);
     resultHeadline.classList.remove('hidden', 'heatmap-fade', 'fading-out');
     resultFrame.classList.remove('hidden', 'heatmap-fade', 'fading-out');
@@ -212,13 +216,16 @@
       return;
     }
 
-    // The result DOM is complete before this runs. Two frames give the browser
-    // a real loader paint before one root crossfade begins; no fake delay.
+    // The result DOM is complete before this runs. A newly completed job
+    // crossfades from its painted loader; a cached job fades the result in
+    // directly because restoration deliberately kept that loader hidden.
     heatmapResult.classList.add('heatmap-fade', 'fading-out', 'is-handing-off');
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         heatmapResult.classList.remove('fading-out');
-        heatmapLoading.classList.add('heatmap-fade', 'fading-out');
+        if (loadingIsVisible) {
+          heatmapLoading.classList.add('heatmap-fade', 'fading-out');
+        }
         window.setTimeout(function () {
           hideElement(heatmapLoading);
           heatmapLoading.classList.remove('heatmap-fade', 'fading-out');
@@ -562,6 +569,7 @@
   var pollSeq = 0;
   var pollInFlight = false;
   var previousPhaseKey = null;
+  var restoringSavedHeatmap = false;
   var lastRenderMobile = null;
   var resizeTimer = null;
 
@@ -610,6 +618,7 @@
         showElement(mode === 'heatmap' ? heatmapSection : albumSection);
         hideElement(heatmapLoading);
         hideElement(heatmapResult);
+        restoringSavedHeatmap = false;
         showElement(indexGrid);
       });
     });
@@ -674,7 +683,9 @@
     if (progressTrack) hideElement(progressTrack);
     progressText.textContent = 'Restoring your latest heatmap...';
     resetLoadingDetails(lastUsername);
-    fadeIn(heatmapLoading);
+    restoringSavedHeatmap = true;
+    hideElement(heatmapLoading);
+    heatmapLoading.classList.remove('heatmap-fade', 'fading-out');
     pollProgress();
     startPolling();
     return true;
@@ -686,6 +697,12 @@
     // Force reflow then remove fading-out
     void el.offsetWidth;
     el.classList.remove('fading-out');
+  }
+
+  function revealRestoredLoading() {
+    if (!restoringSavedHeatmap) return;
+    restoringSavedHeatmap = false;
+    fadeIn(heatmapLoading);
   }
 
   // ----------------------------------------------------------------
@@ -850,6 +867,7 @@
   function submitHeatmap(username) {
     // Reset UI: show loading, hide form + result + error
     stopPolling();
+    restoringSavedHeatmap = false;
     setHeatmapStageActive(true);
     // The grid is 53 weeks wide and cannot fit the form column, so the whole
     // two-column hero steps aside while the heatmap is on screen.
@@ -995,6 +1013,7 @@
 
         if (data.error) {
           stopPolling();
+          revealRestoredLoading();
           showError(data.message || 'An error occurred.', data.retryable);
           return;
         }
@@ -1002,10 +1021,13 @@
         if (data.progress >= 100) {
           stopPolling();
           fetchHeatmapData();
+        } else {
+          revealRestoredLoading();
         }
       })
       .catch(function () {
         pollInFlight = false;
+        revealRestoredLoading();
         // Transient network error; keep polling
       });
   }
@@ -1071,6 +1093,7 @@
           renderHeatmap(data);
         } else {
           // Still processing -- restart polling briefly
+          revealRestoredLoading();
           startPolling();
         }
       })
@@ -1080,6 +1103,7 @@
   }
 
   function showError(message, retryable) {
+    revealRestoredLoading();
     // Hide spinner
     var spinnerWrapper = heatmapLoading.querySelector('.wait-panel__mark');
     if (spinnerWrapper) spinnerWrapper.style.display = 'none';
