@@ -298,3 +298,40 @@ async def test_progress_cb_counts_failed_pages():
     assert meta["pages_dropped"] == 1
     # Only 2 successful pages collected
     assert len(pages) == 2
+
+
+@pytest.mark.asyncio
+async def test_progress_cb_provides_received_count_for_extended_callbacks():
+    """
+    GIVEN a 3-page fetch where page 3 fails (returns None)
+    WHEN fetch_all_recent_tracks_async runs with a callback accepting pages_received
+    THEN pages_received accurately reflects only successful pages (2, not 3).
+    """
+    recorded = []
+
+    def cb(pages_done, total_pages, pages_received=None):
+        recorded.append((pages_done, total_pages, pages_received))
+
+    page_payload = _make_page(3)
+    side_effects = [page_payload, page_payload, None]
+
+    with (
+        patch(
+            "scrobblescope.lastfm.fetch_recent_tracks_page_async",
+            new_callable=AsyncMock,
+            side_effect=side_effects,
+        ),
+        patch("scrobblescope.lastfm.create_optimized_session") as mock_session,
+    ):
+        mock_session.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
+        mock_session.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        pages, meta = await fetch_all_recent_tracks_async("user", 0, 1, progress_cb=cb)
+
+    assert len(recorded) == 3
+    # Initial page: 1 attempt, 3 total, 1 received
+    assert recorded[0] == (1, 3, 1)
+    # Page 2 ok: 2 attempts, 3 total, 2 received
+    assert recorded[1] == (2, 3, 2)
+    # Page 3 failed: 3 attempts, 3 total, still 2 received!
+    assert recorded[2] == (3, 3, 2)

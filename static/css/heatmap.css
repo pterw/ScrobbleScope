@@ -41,6 +41,21 @@
   text-align: center;
 }
 
+@keyframes wait-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.wait-panel__mark,
+.wait-panel__progress,
+.wait-panel__phase {
+  animation: wait-fade-in 200ms ease-out;
+}
+
 /* The blades translate 5.4 units outside the viewBox at the peak of the
    cycle, so the SVG must not be clipped. */
 .wait-panel__mark {
@@ -210,21 +225,34 @@
 }
 
 .heatmap-loading__stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: wrap;
   max-width: 54rem;
   margin: 2.75rem auto 0;
   border-top: 1px solid var(--ss-border-default);
   border-bottom: 1px solid var(--ss-border-default);
 }
 
+.heatmap-loading__stats.hidden {
+  display: none;
+}
+
 .heatmap-loading__stat {
+  flex: 1 1 0;
+  max-width: 18rem;
   min-width: 0;
   padding: 1rem 0.75rem;
   text-align: center;
+  animation: wait-fade-in 200ms ease-out;
 }
 
-.heatmap-loading__stat + .heatmap-loading__stat {
+.heatmap-loading__stat.hidden {
+  display: none;
+}
+
+.heatmap-loading__stat:not(.hidden) ~ .heatmap-loading__stat:not(.hidden) {
   border-left: 1px solid var(--ss-border-default);
 }
 
@@ -551,6 +579,14 @@
 /* Reduced motion                                                      */
 /* ------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
+  .wait-panel__mark,
+  .wait-panel__progress,
+  .wait-panel__phase,
+  .heatmap-loading__stat {
+    animation: none;
+    opacity: 1;
+  }
+
   .heatmap-fade,
   .heatmap-tooltip,
   .ss-btn {

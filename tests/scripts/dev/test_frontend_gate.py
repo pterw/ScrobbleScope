@@ -14,6 +14,7 @@ from scripts.dev import frontend_gate
 from scripts.dev.frontend_gate import (
     SETUP_COMMAND,
     FrontendGateError,
+    _assert_loading_progress_state,
     _check_desktop_scale_bounds,
     _clamp_px,
     _composite_over,
@@ -22,6 +23,7 @@ from scripts.dev.frontend_gate import (
     _headline_wrap_failures,
     _launch_browser,
     _load_playwright,
+    _parse_matrix_scalex,
     _parse_rgb_string,
     _relative_luminance,
     _touch_minimum_failures,
@@ -626,3 +628,101 @@ def test_main_isolates_lifecycle_faults_and_reports_complete_success(fault, caps
         assert frontend_gate.PLANNED_RUNS == 2 * sum(
             len(profiles) for _, _, profiles in frontend_gate.CHECKS
         )
+
+
+def test_parse_matrix_scalex_recovers_scale_and_handles_boundaries() -> None:
+    """The matrix parser must extract scaleX, support zero/identity, and handle invalid strings."""
+    assert _parse_matrix_scalex("matrix(0.2255, 0, 0, 1, 0, 0)") == pytest.approx(
+        0.2255
+    )
+    assert _parse_matrix_scalex("matrix(0.9, 0, 0, 1, 0, 0)") == pytest.approx(0.9)
+    assert _parse_matrix_scalex("matrix(1, 0, 0, 1, 0, 0)") == pytest.approx(1.0)
+    assert _parse_matrix_scalex("none") == 0.0
+    assert _parse_matrix_scalex(None) == 0.0
+    assert _parse_matrix_scalex("") == 0.0
+    assert _parse_matrix_scalex("invalid") is None
+    assert _parse_matrix_scalex("matrix()") is None
+
+
+def test_assert_loading_progress_state_reports_mismatches() -> None:
+    """The progress state assertion must report any discrepancy in valuenow, valuetext, visible text, or scale."""
+    page = MagicMock()
+    valid_state = {
+        "valuenow": "23",
+        "valuetext": "FETCHING SCROBBLES · PAGE 23 / 102",
+        "transform": "matrix(0.2255, 0, 0, 1, 0, 0)",
+        "phaseText": "FETCHING SCROBBLES · PAGE 23 / 102",
+    }
+    page.evaluate.return_value = dict(valid_state)
+
+    # Clean match produces no failures
+    assert (
+        _assert_loading_progress_state(
+            page,
+            "#track",
+            "#bar",
+            "#text",
+            expected_valuenow=23,
+            expected_scalex=0.2255,
+            expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+        )
+        == []
+    )
+
+    # Mismatched valuenow
+    page.evaluate.return_value = dict(valid_state, valuenow="99")
+    failures = _assert_loading_progress_state(
+        page,
+        "#track",
+        "#bar",
+        "#text",
+        expected_valuenow=23,
+        expected_scalex=0.2255,
+        expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+    )
+    assert len(failures) == 1
+    assert "aria-valuenow was '99'" in failures[0]
+
+    # Mismatched valuetext
+    page.evaluate.return_value = dict(valid_state, valuetext="Wrong")
+    failures = _assert_loading_progress_state(
+        page,
+        "#track",
+        "#bar",
+        "#text",
+        expected_valuenow=23,
+        expected_scalex=0.2255,
+        expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+    )
+    assert len(failures) == 1
+    assert "aria-valuetext was 'Wrong'" in failures[0]
+
+    # Mismatched visible text
+    page.evaluate.return_value = dict(valid_state, phaseText="Stale text")
+    failures = _assert_loading_progress_state(
+        page,
+        "#track",
+        "#bar",
+        "#text",
+        expected_valuenow=23,
+        expected_scalex=0.2255,
+        expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+    )
+    assert len(failures) == 1
+    assert "visible text was 'Stale text'" in failures[0]
+
+    # Mismatched scale
+    page.evaluate.return_value = dict(
+        valid_state, transform="matrix(0.5, 0, 0, 1, 0, 0)"
+    )
+    failures = _assert_loading_progress_state(
+        page,
+        "#track",
+        "#bar",
+        "#text",
+        expected_valuenow=23,
+        expected_scalex=0.2255,
+        expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+    )
+    assert len(failures) == 1
+    assert "scaleX was 0.5" in failures[0]

@@ -57,6 +57,8 @@ from app import create_app  # noqa: E402
 from scrobblescope.repositories import (  # noqa: E402
     create_job,
     delete_job,
+    get_job_context,
+    get_job_progress,
     reset_job_state,
     set_job_error,
     set_job_progress,
@@ -1623,8 +1625,10 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         failures.append("/heatmap did not render backend-owned progress")
     if heatmap_state["pages"] != "7 / 12":
         failures.append("/heatmap did not render live page-fetch depth")
-    if heatmap_state["parameters"] != 3:
-        failures.append("/heatmap did not retain its loading parameters")
+    if heatmap_state["parameters"] != 2:
+        failures.append(
+            "/heatmap did not retain its loading parameters (expected username and date window)"
+        )
     if heatmap_state["phase"] != "Reading your Last.fm history...":
         failures.append("/heatmap phase does not name the current operation")
     if heatmap_state["fillTransform"] == "none":
@@ -2256,6 +2260,418 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
     return failures
 
 
+def _parse_matrix_scalex(transform_str: str | None) -> float | None:
+    """Extract the scaleX component from a computed CSS transform matrix."""
+    if not transform_str or transform_str == "none":
+        return 0.0
+    match = re.match(
+        r"^matrix\(\s*([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\s*,",
+        transform_str,
+    )
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return None
+    return None
+
+
+def _assert_loading_progress_state(
+    page,
+    track_sel: str,
+    bar_sel: str,
+    text_sel: str,
+    expected_valuenow: int,
+    expected_scalex: float,
+    expected_text: str,
+    tolerance: float = 0.05,
+) -> list[str]:
+    """Assert progress bar attributes, computed transform, and phase text."""
+    state = {}
+    scale = None
+    for _ in range(8):
+        state = page.evaluate(
+            """([trackSel, barSel, phaseSel]) => {
+                const track = document.querySelector(trackSel);
+                const bar = document.querySelector(barSel);
+                const phase = document.querySelector(phaseSel);
+                const style = bar ? window.getComputedStyle(bar) : null;
+                return {
+                    valuenow: track ? track.getAttribute('aria-valuenow') : null,
+                    valuetext: track ? track.getAttribute('aria-valuetext') : null,
+                    transform: style ? style.transform : null,
+                    phaseText: phase ? (phase.textContent || '').trim() : null,
+                };
+            }""",
+            [track_sel, bar_sel, text_sel],
+        )
+        scale = _parse_matrix_scalex(state.get("transform"))
+        if scale is not None and abs(scale - expected_scalex) <= tolerance:
+            break
+        if hasattr(page, "wait_for_timeout"):
+            page.wait_for_timeout(60)
+
+    failures = []
+    if state.get("valuenow") != str(expected_valuenow):
+        failures.append(
+            f"{track_sel}: aria-valuenow was {state.get('valuenow')!r}, expected {str(expected_valuenow)!r}"
+        )
+    if state.get("valuetext") != expected_text:
+        failures.append(
+            f"{track_sel}: aria-valuetext was {state.get('valuetext')!r}, expected {expected_text!r}"
+        )
+    if state.get("phaseText") != expected_text:
+        failures.append(
+            f"{text_sel}: visible text was {state.get('phaseText')!r}, expected {expected_text!r}"
+        )
+    if scale is None or abs(scale - expected_scalex) > tolerance:
+        failures.append(
+            f"{bar_sel}: scaleX was {scale}, expected approximately {expected_scalex:.4f} "
+            f"(transform: {state.get('transform')!r})"
+        )
+    return failures
+
+
+def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
+    """Exercise sequential counted/uncounted phases, stale response rejection, and composition."""
+    album_job_id = GATE_JOB_IDS["album"]
+    heatmap_job_id = GATE_JOB_IDS["heatmap"]
+    loading_path = next(path for path in MIGRATED_PAGES if path.startswith("/loading?"))
+    heatmap_path = f"/heatmap?job_id={heatmap_job_id}"
+    failures = []
+
+    # 1. Repository mutation isolation
+    test_phase = {
+        "key": "lastfm_fetch",
+        "label": "Fetching scrobbles",
+        "unit": "page",
+        "current": 23,
+        "total": 102,
+    }
+    set_job_progress(
+        album_job_id, progress=20, message="Fetching scrobbles", phase=test_phase
+    )
+    test_phase["current"] = 99
+    if get_job_progress(album_job_id)["phase"]["current"] != 23:
+        failures.append("repository get_job_progress leaked caller phase mutation")
+    if get_job_context(album_job_id)["progress"]["phase"]["current"] != 23:
+        failures.append("repository get_job_context leaked caller phase mutation")
+
+    prog_view = get_job_progress(album_job_id)
+    ctx_view = get_job_context(album_job_id)
+    prog_view["phase"]["current"] = 77
+    ctx_view["progress"]["phase"]["current"] = 88
+    if get_job_progress(album_job_id)["phase"]["current"] != 23:
+        failures.append("repository get_job_progress leaked returned phase mutation")
+    if get_job_context(album_job_id)["progress"]["phase"]["current"] != 23:
+        failures.append(
+            "repository get_job_context leaked returned context phase mutation"
+        )
+
+    # 2. Sequential payloads on Album client (/loading)
+    set_job_progress(
+        album_job_id,
+        progress=20,
+        message="Fetching scrobbles",
+        phase={
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 23,
+            "total": 102,
+        },
+    )
+    page.goto(f"{base_url}{loading_path}", wait_until="load")
+    page.locator("#step-text").filter(has_text="PAGE 23 / 102").wait_for(
+        state="visible"
+    )
+    failures.extend(
+        _assert_loading_progress_state(
+            page,
+            "#progress-track",
+            "#progress-bar",
+            "#step-text",
+            expected_valuenow=23,
+            expected_scalex=23 / 102,
+            expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+        )
+    )
+
+    set_job_progress(
+        album_job_id,
+        progress=90,
+        message="Fetching scrobbles",
+        phase={
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 90,
+            "total": 100,
+        },
+    )
+    page.locator("#step-text").filter(has_text="PAGE 90 / 100").wait_for(
+        state="visible"
+    )
+    failures.extend(
+        _assert_loading_progress_state(
+            page,
+            "#progress-track",
+            "#progress-bar",
+            "#step-text",
+            expected_valuenow=90,
+            expected_scalex=0.9,
+            expected_text="FETCHING SCROBBLES · PAGE 90 / 100",
+        )
+    )
+
+    set_job_progress(
+        album_job_id,
+        progress=92,
+        message="Counting daily scrobbles",
+        phase=None,
+    )
+    page.locator("#step-text").filter(has_text="Counting daily scrobbles").wait_for(
+        state="visible"
+    )
+    failures.extend(
+        _assert_loading_progress_state(
+            page,
+            "#progress-track",
+            "#progress-bar",
+            "#step-text",
+            expected_valuenow=92,
+            expected_scalex=0.92,
+            expected_text="Counting daily scrobbles",
+        )
+    )
+    if "PAGE" in page.locator("#step-text").inner_text():
+        failures.append("album uncounted frame retained stale phase fraction")
+
+    set_job_progress(
+        album_job_id,
+        progress=20,
+        message="Fetching scrobbles",
+        phase={
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 102,
+            "total": 102,
+        },
+    )
+    page.locator("#progress-track[aria-valuenow='100']").wait_for(state="visible")
+    if not page.url.startswith(f"{base_url}/loading"):
+        failures.append("album phase at 100% prematurely triggered navigation")
+
+    # 3. Sequential payloads on Heatmap client
+    reset_job_state(heatmap_job_id)
+    set_job_progress(
+        heatmap_job_id,
+        progress=20,
+        message="Fetching scrobbles",
+        phase={
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 23,
+            "total": 102,
+        },
+    )
+    page.goto(f"{base_url}{heatmap_path}", wait_until="load")
+    page.locator("#heatmap-progress-text").filter(has_text="PAGE 23 / 102").wait_for(
+        state="visible"
+    )
+    failures.extend(
+        _assert_loading_progress_state(
+            page,
+            "#heatmap-progress-track",
+            "#heatmap-progress-bar",
+            "#heatmap-progress-text",
+            expected_valuenow=23,
+            expected_scalex=23 / 102,
+            expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+        )
+    )
+
+    set_job_progress(
+        heatmap_job_id,
+        progress=90,
+        message="Fetching scrobbles",
+        phase={
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 90,
+            "total": 100,
+        },
+    )
+    page.locator("#heatmap-progress-text").filter(has_text="PAGE 90 / 100").wait_for(
+        state="visible"
+    )
+    failures.extend(
+        _assert_loading_progress_state(
+            page,
+            "#heatmap-progress-track",
+            "#heatmap-progress-bar",
+            "#heatmap-progress-text",
+            expected_valuenow=90,
+            expected_scalex=0.9,
+            expected_text="FETCHING SCROBBLES · PAGE 90 / 100",
+        )
+    )
+
+    set_job_progress(
+        heatmap_job_id,
+        progress=92,
+        message="Counting daily scrobbles",
+        phase=None,
+    )
+    page.locator("#heatmap-progress-text").filter(
+        has_text="Counting daily scrobbles"
+    ).wait_for(state="visible")
+    failures.extend(
+        _assert_loading_progress_state(
+            page,
+            "#heatmap-progress-track",
+            "#heatmap-progress-bar",
+            "#heatmap-progress-text",
+            expected_valuenow=92,
+            expected_scalex=0.92,
+            expected_text="Counting daily scrobbles",
+        )
+    )
+    if "PAGE" in page.locator("#heatmap-progress-text").inner_text():
+        failures.append("heatmap uncounted frame retained stale phase fraction")
+
+    set_job_progress(
+        heatmap_job_id,
+        progress=15,
+        message="Fetching scrobbles",
+        phase={
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 0,
+            "total": 0,
+        },
+    )
+    page.locator("#heatmap-progress-text").filter(
+        has_text="FETCHING SCROBBLES"
+    ).wait_for(state="visible")
+    failures.extend(
+        _assert_loading_progress_state(
+            page,
+            "#heatmap-progress-track",
+            "#heatmap-progress-bar",
+            "#heatmap-progress-text",
+            expected_valuenow=15,
+            expected_scalex=0.15,
+            expected_text="FETCHING SCROBBLES",
+        )
+    )
+
+    # 4. Composition check: single stat is centered and hidden stats reserve 0 width
+    page.evaluate(
+        """() => {
+            const stats = document.querySelector('#heatmap-loading-stats');
+            if (stats) stats.classList.remove('hidden');
+            const pages = document.querySelector('[data-heatmap-stat="pages"]');
+            if (pages) pages.classList.remove('hidden');
+            const scrobbles = document.querySelector('[data-heatmap-stat="scrobbles"]');
+            if (scrobbles) scrobbles.classList.add('hidden');
+            const days = document.querySelector('[data-heatmap-stat="days"]');
+            if (days) days.classList.add('hidden');
+        }"""
+    )
+    stat_layout = page.evaluate(
+        """() => {
+            const pages = document.querySelector('[data-heatmap-stat="pages"]');
+            const scrobbles = document.querySelector('[data-heatmap-stat="scrobbles"]');
+            const days = document.querySelector('[data-heatmap-stat="days"]');
+            const container = document.querySelector('#heatmap-loading-stats');
+            const pr = pages ? pages.getBoundingClientRect() : null;
+            const sr = scrobbles ? scrobbles.getBoundingClientRect() : null;
+            const dr = days ? days.getBoundingClientRect() : null;
+            const cr = container ? container.getBoundingClientRect() : null;
+            return {
+                pagesWidth: pr ? pr.width : 0,
+                scrobblesWidth: sr ? sr.width : 0,
+                daysWidth: dr ? dr.width : 0,
+                containerWidth: cr ? cr.width : 0,
+                pagesCenter: pr && cr ? (pr.left + pr.width / 2) - (cr.left + cr.width / 2) : 999,
+            };
+        }"""
+    )
+    if stat_layout["scrobblesWidth"] != 0 or stat_layout["daysWidth"] != 0:
+        failures.append("heatmap hidden stats reserved space in single-stat layout")
+    if abs(stat_layout["pagesCenter"]) > 3.0:
+        failures.append(
+            f"heatmap single stat is not centered: offset {stat_layout['pagesCenter']:.1f}px"
+        )
+
+    # 5. Out-of-order response rejection and job replacement
+    replacement_job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    set_job_progress(
+        replacement_job_id,
+        progress=80,
+        message="Fetching scrobbles",
+        phase={
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 80,
+            "total": 100,
+        },
+    )
+    held_routes = []
+
+    def intercept_progress(route):
+        if heatmap_job_id in route.request.url and not held_routes:
+            held_routes.append(route)
+        else:
+            route.continue_()
+
+    page.route("**/progress?job_id=*", intercept_progress)
+    try:
+        # Load original heatmap job; its first poll will be held
+        page.goto(f"{base_url}{heatmap_path}", wait_until="load")
+        page.wait_for_timeout(100)
+        # Navigate to replacement job while old job poll is held
+        page.goto(f"{base_url}/heatmap?job_id={replacement_job_id}", wait_until="load")
+        page.locator("#heatmap-progress-text").filter(
+            has_text="PAGE 80 / 100"
+        ).wait_for(state="visible")
+
+        # Fulfill held response for the replaced job with stale 20%
+        if held_routes:
+            held_routes[0].fulfill(
+                status=200,
+                content_type="application/json",
+                body=(
+                    '{"progress": 20, "phase": {"key": "lastfm_fetch", '
+                    '"label": "Fetching scrobbles", "unit": "page", '
+                    '"current": 20, "total": 100}}'
+                ),
+            )
+            page.wait_for_timeout(150)
+            current_valuenow = page.locator("#heatmap-progress-track").get_attribute(
+                "aria-valuenow"
+            )
+            if current_valuenow == "20":
+                failures.append(
+                    "stale out-of-order progress response regressed aria-valuenow"
+                )
+            if "PAGE 20" in page.locator("#heatmap-progress-text").inner_text():
+                failures.append(
+                    "stale out-of-order progress response regressed visible text"
+                )
+    finally:
+        page.unroute("**/progress?job_id=*")
+        delete_job(replacement_job_id)
+
+    return failures
+
+
 def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     """Both polling clients reach success, retryable, and terminal states."""
     album_job_id = GATE_JOB_IDS["album"]
@@ -2264,15 +2680,25 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     failures = []
 
     # Keep the production delay in source while making the gate deterministic
-    # and fast. The one-second poll cadence is unchanged.
+    # and fast. Accelerate 1000ms/2000ms polling and 3000ms redirect in the gate.
     page.add_init_script(
         """(() => {
             const nativeTimeout = window.setTimeout;
-            window.setTimeout = (callback, delay, ...args) =>
-                nativeTimeout(callback, delay === 3000 ? 0 : delay, ...args);
+            window.setTimeout = (callback, delay, ...args) => {
+                if (delay === 3000) return nativeTimeout(callback, 0, ...args);
+                if (delay === 1000) return nativeTimeout(callback, 50, ...args);
+                return nativeTimeout(callback, delay, ...args);
+            };
+            const nativeInterval = window.setInterval;
+            window.setInterval = (callback, delay, ...args) => {
+                if (delay === 2000) return nativeInterval(callback, 50, ...args);
+                return nativeInterval(callback, delay, ...args);
+            };
             window.__scrobbleGateFastRedirect = true;
         })();"""
     )
+
+    failures.extend(_exercise_loading_progress_phases(page, base_url))
 
     reset_job_state(album_job_id)
     set_job_results(

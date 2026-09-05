@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Close PR #224 complexity follow-up (side-task)
+
+- Scope: address Qlty's fresh analysis of the first Task 2 review-fix commit.
+  The shared font expression and browser closure findings cleared, while the
+  desktop-boundary helper remained one point over its complexity threshold.
+- Review remediation: extracted the headline-wrap branch into a focused helper
+  and exercised that helper directly through the existing adversarial boundary
+  test. This removes nested control flow from the browser orchestration without
+  changing its rendered assertions.
+- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
+  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
+  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
+  final document state.
+- Forward guidance: await the refreshed Qlty and Quality Gate checks on PR
+  #224. Task 3 remains next after owner review.
+
 ### 2026-09-05 - Remediate PR #224 Task 2 review (side-task)
 
 - Scope: restore Task 2's original authored form geometry, harden its browser

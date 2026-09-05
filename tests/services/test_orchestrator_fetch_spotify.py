@@ -230,6 +230,14 @@ async def test_fetch_spotify_misses_reports_search_progress():
     assert search_calls[-1]["progress"] == 40
     # Messages reference the total album count
     assert "/5 albums..." in search_calls[-1]["message"]
+    for idx, sc in enumerate(search_calls, start=1):
+        assert sc.get("phase") == {
+            "key": "spotify_search",
+            "label": "Searching Spotify",
+            "unit": "album",
+            "current": idx,
+            "total": 5,
+        }
 
 
 @pytest.mark.asyncio
@@ -325,6 +333,14 @@ async def test_fetch_spotify_misses_reports_batch_progress():
     # Both messages should reference total album count
     assert "/25 albums from Spotify..." in enrich_calls[0]["message"]
     assert "/25 albums from Spotify..." in enrich_calls[1]["message"]
+    for idx, bc in enumerate(enrich_calls, start=1):
+        assert bc.get("phase") == {
+            "key": "spotify_details",
+            "label": "Fetching Spotify details",
+            "unit": "batch",
+            "current": idx,
+            "total": 2,
+        }
 
 
 # ---------------------------------------------------------------------------

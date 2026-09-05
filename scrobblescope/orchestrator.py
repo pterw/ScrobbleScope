@@ -239,6 +239,13 @@ async def _run_spotify_search_phase(
             message=(
                 f"Searching Spotify: {searches_done}/" f"{total_searches} albums..."
             ),
+            phase={
+                "key": "spotify_search",
+                "label": "Searching Spotify",
+                "unit": "album",
+                "current": searches_done,
+                "total": total_searches,
+            },
         )
 
     spotify_id_to_key = {}
@@ -328,6 +335,13 @@ async def _run_spotify_batch_detail_phase(
                 f"Enriched {enriched_so_far}/"
                 f"{len(valid_spotify_ids)} albums from Spotify..."
             ),
+            phase={
+                "key": "spotify_details",
+                "label": "Fetching Spotify details",
+                "unit": "batch",
+                "current": batches_done,
+                "total": num_batches,
+            },
         )
 
     batch_duration = time.time() - batch_start_time
@@ -740,6 +754,7 @@ async def _fetch_and_process(
             message="Initializing...",
             error=False,
             reset_stats=True,
+            phase=None,
         )
 
         step_start_time = time.time()
@@ -748,6 +763,7 @@ async def _fetch_and_process(
             progress=5,
             message="Fetching your data from Last.fm...",
             error=False,
+            phase=None,
         )
 
         def _lastfm_progress(pages_done, total_pages):
@@ -757,6 +773,13 @@ async def _fetch_and_process(
                 job_id,
                 progress=pct,
                 message="Reading your Last.fm history...",
+                phase={
+                    "key": "lastfm_fetch",
+                    "label": "Fetching scrobbles",
+                    "unit": "page",
+                    "current": pages_done,
+                    "total": total_pages,
+                },
             )
 
         filtered_albums, fetch_metadata = await fetch_top_albums_async(
@@ -788,10 +811,16 @@ async def _fetch_and_process(
                 progress=100,
                 message="No albums found for the specified criteria.",
                 error=False,
+                phase=None,
             )
             return []
 
-        set_job_progress(job_id, progress=20, message="Processing your albums...")
+        set_job_progress(
+            job_id,
+            progress=20,
+            message="Processing your albums...",
+            phase=None,
+        )
 
         filtered_albums = _apply_pre_slice(
             filtered_albums, sort_mode, limit_results, release_scope
@@ -801,6 +830,7 @@ async def _fetch_and_process(
             job_id,
             progress=20,
             message=f"Preparing {len(filtered_albums)} albums for Spotify lookup...",
+            phase=None,
         )
 
         step_start_time = time.time()
@@ -825,14 +855,25 @@ async def _fetch_and_process(
             return []
 
         set_job_progress(
-            job_id, progress=60, message="Adding album art to your results..."
+            job_id,
+            progress=60,
+            message="Adding album art to your results...",
+            phase=None,
         )
 
         set_job_progress(
-            job_id, progress=80, message="Compiling your top album list..."
+            job_id,
+            progress=80,
+            message="Compiling your top album list...",
+            phase=None,
         )
 
-        set_job_progress(job_id, progress=90, message="Finalizing list...")
+        set_job_progress(
+            job_id,
+            progress=90,
+            message="Finalizing list...",
+            phase=None,
+        )
 
         results = _apply_post_slice(results, limit_results)
 
@@ -845,6 +886,7 @@ async def _fetch_and_process(
             progress=100,
             message=f"Done! Found {len(results)} albums matching your criteria.",
             error=False,
+            phase=None,
         )
         return results
 
@@ -863,6 +905,7 @@ async def _fetch_and_process(
                 error=True,
                 error_code="unknown",
                 retryable=True,
+                phase=None,
             )
 
         logging.exception(f"Error processing request for {username} in {year}")

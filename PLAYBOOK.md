@@ -90,17 +90,22 @@ See FINDINGS F-DOCSYNC-3.
   expanded-state guard, complete validation, and PR #224 review remediation
   passed.
 - **Next action:** **WP-4, remediation Task 2, and remediation Task 3 are
-  complete. Task 4 (align visible loading progress with pipeline phases) is
-  next.** Work from
+  complete. Remediation Task 4 is implemented and validated locally (commit
+  21b5198), awaiting task review; the review of Task 4 is the next action,
+  then Task 5 (add the unmatched no-data surface).** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
   defect with layout-aware CSS and a complete real-window gate in Chromium
   and Firefox; it merged as PR #224. Task 3 landed the final `3fr 4fr` split,
   `28rem` form base cap, raised `--shell-border` contrast to >= 3:1 in both
   themes, and applied the ruled header clamps (`--shell-height`,
-  `--shell-control-gap`, nav-link/theme-control sizing). The header stays
-  independently sized from `--index-scale`. Tasks 4-6 (loading-progress
-  alignment, unmatched no-data surface, accessibility pass) remain open.
+  `--shell-control-gap`, nav-link/theme-control sizing). Task 4 aligned visible
+  loading progress with pipeline phases across Top Albums and Heatmap,
+  eliminated overlapping interval polls and stale responses (F-B21-33), decoupled
+  received vs attempted Last.fm counts, corrected loading composition
+  (F-B21-36), and added real-browser phase checks to the gate; its task review
+  is pending next. Tasks 5-6 (unmatched no-data surface, accessibility pass)
+  remain open.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -531,6 +536,53 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Align loading signals with pipeline phases (side-task)
+
+- Scope: Task 4 of the Batch 21 owner-review remediation plan. Align visible
+  loading progress with pipeline phases for both Top Albums and Heatmap clients,
+  eliminate overlapping interval polls and stale out-of-order response application
+  (F-B21-33), decouple received vs attempted Last.fm counts, and implement loading
+  composition corrections (F-B21-36).
+- Plan vs implementation:
+  - Repository layer: Added `_UNSET` sentinel to `set_job_progress` for `phase`,
+    allowing progress/message updates without clobbering an active phase; updated
+    `set_job_error` to clear `phase=None`; isolated phase dicts in
+    `get_job_progress` and `get_job_context` via `copy.deepcopy` to prevent caller
+    or internal mutations from leaking across boundaries.
+  - Route layer: `/progress` returns `phase` when present in progress dictionary.
+  - Orchestrator and services: Emitted explicit `lastfm_fetch`, `spotify_search`,
+    and `spotify_details` phases with unit, current, total counts in `orchestrator.py`
+    and `heatmap.py`. Updated `lastfm.py` to decouple received vs attempted pages via
+    `pages_received`. Cleared `phase=None` on uncounted states (initialization,
+    counting, filtering, error, 100% completion).
+  - Browser helper (`static/js/loading-progress.js`): Non-module global
+    `window.ScrobbleProgress` providing `displayPercent(payload)`, `label(payload)`,
+    and `update(options)`. Manages instant bar reset on phase change, ARIA attributes
+    (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`), and
+    formatted phase lines.
+  - Polling clients: Integrated `ScrobbleProgress` into `loading.js` and `heatmap.js`.
+    Added `pollInFlight`, `pollSeq`, and `latestAppliedPollSeq` to drop out-of-order or
+    stale responses and prevent overlapping interval fetches.
+  - Loading composition: Removed duplicate phase sentence `<p class="heatmap-loading__detail">`
+    and `<li>rocket scale</li>` in `_heatmap_loading_details.html`. Styled stat items in
+    flex container with centering, 18rem max-width, and divider rules
+    (`:not(.hidden) ~ :not(.hidden)`). Added `@keyframes wait-fade-in` (200ms ease-out)
+    with `@media (prefers-reduced-motion: reduce)` cancellation restoring `opacity: 1`.
+  - Frontend gate: Added unit tests for new gate helpers (`_parse_matrix_scalex`,
+    `_assert_loading_progress_state`) in `test_frontend_gate.py`. Implemented
+    `_exercise_loading_progress_phases` testing sequential frames, zero totals,
+    100% phase without result navigation, flex centering, and stale response rejection
+    across Chromium and Firefox.
+- Deviations: none. All requirements from the task brief implemented strictly.
+- Validation: `pytest -q` -- **902 passed**, 5 warnings (8 new tests across
+  test_repositories, test_routes, test_orchestrator, test_heatmap, test_lastfm_service,
+  test_frontend_gate). Frontend gate: `23 checks passed in 64 runs across chromium,
+  firefox`. Prohibited animation sweep (`rg -n 'transition:\s*(width|height|padding|margin|max-width)' static\css static\js`)
+  returned 0 matches.
+- Forward guidance: Task 4 implemented and validated locally in commit 21b5198;
+  awaiting task review (spec and quality review is pending as the next action,
+  followed by Task 5 per the plan order).
+
 ### 2026-09-05 - Remediate Task 3 review feedback, fill the hero to its column (side-task)
 
 - Scope: fix round 2/5 for Task 3 owner-review feedback (not a FINDINGS
@@ -698,19 +750,3 @@ non-current operational logs. Older dated entries live in
   phases) is next per the canonical plan. Tasks 5 and 6 remain open. PR #224
   (Task 2) merged; PLAYBOOK Section 3 corrected the stale "awaits owner
   review" framing.
-
-### 2026-09-05 - Close PR #224 complexity follow-up (side-task)
-
-- Scope: address Qlty's fresh analysis of the first Task 2 review-fix commit.
-  The shared font expression and browser closure findings cleared, while the
-  desktop-boundary helper remained one point over its complexity threshold.
-- Review remediation: extracted the headline-wrap branch into a focused helper
-  and exercised that helper directly through the existing adversarial boundary
-  test. This removes nested control flow from the browser orchestration without
-  changing its rendered assertions.
-- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
-  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
-  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
-  final document state.
-- Forward guidance: await the refreshed Qlty and Quality Gate checks on PR
-  #224. Task 3 remains next after owner review.

@@ -2,9 +2,9 @@
 
 Last updated: 2026-09-05
 Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
-Tasks 1-3 are complete; Task 4 is next. PLAYBOOK Section 3 owns
+Tasks 1-4 are complete; Task 5 is next. PLAYBOOK Section 3 owns
 the current work order.
-894 tests across 40 test modules.
+902 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -411,7 +411,7 @@ The loading detail repeats the active phase, the lone page stat occupies the
 left third of a three-column grid, and the parameter summary adds rocket-scale
 copy that does not help the current wait.
 
-Status: open; owner screenshot corrections assigned to Task 4.
+Status: resolved 2026-09-05; rotates to the archive at Batch 21 close-out.
 Source: annotated owner heatmap-loading screenshot, 2026-09-04.
 
 ### F-B21-33: heatmap progress can apply stale responses and mislabel failed pages
@@ -432,7 +432,7 @@ metadata corrects it to `len(all_pages)`, so a failed page can make the displaye
 received count fall at phase completion. Attempt counts are valid phase work
 but must not be presented as successfully received data.
 
-Status: open; owner-approved Task 4 prerequisite for accurate visible counts.
+Status: resolved 2026-09-05; rotates to the archive at Batch 21 close-out.
 Source: owner-requested polling audit, 2026-09-04; current Last.fm callback,
 heatmap worker and browser polling, plus reversed-response execution probe.
 

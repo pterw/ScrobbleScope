@@ -227,6 +227,49 @@ async def test_playcount_limit_not_presliced_with_scoped_release():
 
 
 @pytest.mark.asyncio
+async def test_fetch_and_process_lastfm_phase_callback():
+    """
+    GIVEN _fetch_and_process runs with a simulated Last.fm progress callback
+    WHEN progress_cb is invoked with (23, 102)
+    THEN set_job_progress receives the exact lastfm_fetch phase dict,
+    and upon completion, the phase is cleared.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    observed_phase = None
+
+    async def fake_fetch(*args, **kwargs):
+        nonlocal observed_phase
+        cb = kwargs.get("progress_cb")
+        if cb:
+            cb(23, 102)
+            observed_phase = get_job_progress(job_id).get("phase")
+        return {}, {"status": "ok"}
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            side_effect=fake_fetch,
+        ),
+        patch(
+            "scrobblescope.orchestrator.process_albums",
+            new_callable=AsyncMock,
+            return_value=[],
+        ),
+    ):
+        await _fetch_and_process(job_id, "user", 2025, "playcount", "all")
+
+    assert observed_phase == {
+        "key": "lastfm_fetch",
+        "label": "Fetching scrobbles",
+        "unit": "page",
+        "current": 23,
+        "total": 102,
+    }
+    final_progress = get_job_progress(job_id)
+    assert "phase" not in final_progress
+
+
+@pytest.mark.asyncio
 async def test_playtime_limit_does_not_preslice():
     """
     GIVEN filtered_albums has 5 entries and limit_results="2" with sort_mode="playtime"
@@ -459,12 +502,33 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
     assert page_calls[0] == {
         "progress": 10,
         "message": "Reading your Last.fm history...",
+        "phase": {
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 1,
+            "total": 3,
+        },
     }
     assert page_calls[1] == {
         "progress": 15,
         "message": "Reading your Last.fm history...",
+        "phase": {
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 2,
+            "total": 3,
+        },
     }
     assert page_calls[2] == {
         "progress": 20,
         "message": "Reading your Last.fm history...",
+        "phase": {
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 3,
+            "total": 3,
+        },
     }
