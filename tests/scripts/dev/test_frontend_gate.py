@@ -544,7 +544,11 @@ def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> 
         """Return valid touch geometry while preserving the headline failure."""
         if script == frontend_gate.FONTS_READY_EXPRESSION:
             return None
-        factor = 1.075 * current_width["value"] / 1920
+        factor = (
+            1.075 * current_width["value"] / 1920
+            if current_width["value"] <= 1920
+            else 1.075 * (0.35 + 0.65 * current_width["value"] / 1920)
+        )
         if "rect.width" in script:
             return {
                 selector: {"width": 44, "height": 44}

@@ -558,10 +558,7 @@ def _render_unmatched_page():
     """Render the unmatched-album report for an existing job."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
     if request.method == "GET" and not _request_or_session_job_id(_LATEST_ALBUM_JOB):
-        return _render_no_job_state(
-            "No unmatched albums yet",
-            "You haven't filtered your scrobbles yet.",
-        )
+        return render_template("unmatched_empty.html")
 
     job_id, job_context, err = _get_validated_job_context(
         missing_id_message="We could not find unmatched albums without a valid job ID.",
@@ -573,9 +570,11 @@ def _render_unmatched_page():
     )
     if err:
         if used_saved_job:
-            return _render_no_job_state(
-                "No unmatched albums yet",
-                "Your previous results have expired. Run a new album search.",
+            return render_template(
+                "unmatched_empty.html",
+                empty_message=(
+                    "Your previous results have expired. Run a new album search."
+                ),
             )
         return err
 

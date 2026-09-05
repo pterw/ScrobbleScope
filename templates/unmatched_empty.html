@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Unmatched Albums | ScrobbleScope{% endblock %}
+
+{% block legacy_css %}{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/empty.css') }}">
+{% endblock %}
+
+{% block content %}
+<main class="empty-page" data-empty-state="unmatched">
+    <section class="empty-state" aria-labelledby="unmatched-empty-title">
+        <span class="empty-state__signal" aria-hidden="true"></span>
+        <h1 id="unmatched-empty-title">No unmatched albums yet</h1>
+        <p>{{ empty_message|default("You haven't filtered your scrobbles yet.") }}</p>
+        <a class="empty-state__action" href="/">Search albums</a>
+    </section>
+</main>
+{% endblock %}

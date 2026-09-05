@@ -6,8 +6,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const releaseYearGroup = document.getElementById('release_year_group');
 
   const toggleReleaseOptions = () => {
-    decadeDropdown.style.display   = scope.value === 'decade' ? 'block' : 'none';
-    releaseYearGroup.style.display = scope.value === 'custom' ? 'block' : 'none';
+    const isDecade = scope.value === 'decade';
+    const isCustom = scope.value === 'custom';
+    decadeDropdown.style.display   = isDecade ? 'block' : 'none';
+    releaseYearGroup.style.display = isCustom ? 'block' : 'none';
+    decadeDropdown.classList.toggle('is-visible', isDecade);
+    releaseYearGroup.classList.toggle('is-visible', isCustom);
   };
 
   scope.addEventListener('change', () => {
@@ -492,7 +496,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateFilterTags() {
     if (!filterTags) return;
     filterTags.querySelectorAll('[data-tag]').forEach((tag) => {
-      tag.textContent = tagText(tag.dataset.tag);
+      const nextText = tagText(tag.dataset.tag);
+      if (tag.textContent !== nextText) {
+        tag.textContent = nextText;
+        tag.classList.remove('tag--pulse');
+        // trigger reflow for smooth re-animation
+        void tag.offsetWidth;
+        tag.classList.add('tag--pulse');
+        setTimeout(() => tag.classList.remove('tag--pulse'), 300);
+      }
     });
   }
 

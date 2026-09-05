@@ -173,8 +173,9 @@
   margin-top: 0.75rem;
   padding: 0.75rem 0.875rem;
   border: 1px solid var(--ss-border-default);
-  border-radius: var(--radius-md);
-  background-color: var(--ss-surface-sunken);
+  border-radius: var(--radius-lg);
+  background-color: var(--ss-surface-card);
+  box-shadow: var(--ss-shadow-card, none);
 }
 
 .hm-preview__key {
@@ -332,9 +333,10 @@
 }
 
 .heatmap-headline {
+  margin-top: 0;
   margin-bottom: 0;
   font-family: var(--font-serif);
-  font-size: clamp(1.375rem, 4vw, 1.875rem);
+  font-size: clamp(1.625rem, 3.75vw, 2.5rem);
   font-weight: var(--font-weight-normal);
   line-height: 1.15;
   color: var(--color-base-content);

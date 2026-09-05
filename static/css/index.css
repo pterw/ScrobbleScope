@@ -202,34 +202,43 @@ html {
 }
 
 .index-hero__lede {
-  max-width: 38ch;
-  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
-  line-height: 1.5;
+  max-width: 40ch;
+  font-size: max(0.875rem, calc(var(--text-body) * var(--index-scale, 1)));
+  line-height: 1.55;
   color: var(--ss-text-body);
   margin: 0 0 calc(1.5rem * var(--index-scale, 1));
 }
 
-/* Three capability marks. The arrow is a Unicode character on a pseudo
-   element, not an icon: the design system has no icon set and says so. */
+/* Three capability marks. Styled as numbered specification pointers.
+   Stacked vertically below 1785px to avoid awkward asymmetric line breaks;
+   arranged horizontally across the wide hero at 1785px+. */
 .index-hero__marks {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: calc(0.5rem * var(--index-scale, 1)) calc(1.5rem * var(--index-scale, 1));
+  flex-direction: column;
+  gap: calc(0.625rem * var(--index-scale, 1));
 }
 
 .index-hero__marks li {
   font-family: var(--font-mono-narrow);
-  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
+  font-size: max(0.75rem, calc(var(--text-label) * var(--index-scale, 1)));
   letter-spacing: 0.04em;
   color: var(--ss-text-muted);
+  display: inline-flex;
+  align-items: center;
 }
 
-.index-hero__marks li::before {
-  content: "\2192";
-  margin-right: calc(0.5rem * var(--index-scale, 1));
+.index-hero__mark-num {
+  display: inline-block;
+  font-family: var(--font-mono-narrow);
+  font-weight: var(--font-weight-bold);
+  color: #8c74be;
+  margin-right: calc(0.45rem * var(--index-scale, 1));
+}
+
+[data-theme="dark"] .index-hero__mark-num {
   color: var(--color-primary);
 }
 
@@ -550,6 +559,23 @@ html {
   text-align: left;
 }
 
+/* Dynamic field reveals */
+#decade_dropdown,
+#release_year_group {
+  animation: ss-field-reveal 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ss-field-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Decade pills                                                        */
 /* ------------------------------------------------------------------ */
@@ -850,29 +876,6 @@ html {
   font-family: var(--font-mono);
 }
 
-/* ------------------------------------------------------------------ */
-/* Filter tags                                                         */
-/* ------------------------------------------------------------------ */
-.filter-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: calc(0.25rem * var(--index-scale, 1));
-  margin-top: calc(0.75rem * var(--index-scale, 1));
-}
-
-.tag {
-  display: inline-flex;
-  align-items: center;
-  padding: calc(0.1875rem * var(--index-scale, 1)) calc(0.5rem * var(--index-scale, 1));
-  border: 1px solid var(--ss-border-default);
-  border-radius: var(--radius-full);
-  color: var(--ss-text-muted);
-  font-family: var(--font-mono-narrow);
-  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
 
 /* ------------------------------------------------------------------ */
 /* Focus                                                               */
@@ -903,7 +906,61 @@ html {
 }
 
 @media (max-width: 859.98px) {
+  .index-hero,
+  .index-form {
+    min-width: 0;
+  }
+
   .index-form__inner {
+    max-width: none;
+    width: 100%;
+  }
+
+  .ss-card {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .mode-pill {
+    min-width: 0;
+  }
+
+  /* Fluid typography and wordmark scaling for mobile/tablet viewports */
+  .index-hero__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 2.25rem;
+  }
+
+  .index-hero__mark.ss-mark {
+    flex: 0 1 210px;
+    min-width: 180px;
+    max-width: 240px;
+    margin-bottom: 0;
+  }
+
+  .index-hero__copy {
+    flex: 1 1 280px;
+    min-width: 0;
+  }
+
+  .eyebrow {
+    font-size: clamp(0.5625rem, 2.3vw, 0.6875rem);
+    letter-spacing: 0.16em;
+    margin-bottom: 0.25rem;
+  }
+
+  .index-hero__headline {
+    font-size: clamp(1.25rem, 4.5vw, 1.55rem);
+    line-height: 1.15;
+    margin-bottom: 0.25rem;
+  }
+
+  .index-hero__lede {
+    font-size: clamp(0.8125rem, 2.5vw, 0.9375rem);
+    line-height: 1.45;
+    margin-bottom: 0;
     max-width: none;
   }
 
@@ -918,11 +975,11 @@ html {
   }
 
   .index-hero {
-    padding-bottom: 1.5rem;
+    padding: 1.25rem 0 0.75rem;
   }
 
   .index-form {
-    padding-top: 1rem;
+    padding-top: 0.5rem;
   }
 
   /* The submit read as oversized because its type was too small for its box,
@@ -1037,7 +1094,7 @@ html {
   }
 
   .index-form {
-    padding: calc(3.25rem * var(--index-scale));
+    padding: calc(2.25rem * var(--index-scale)) calc(3.25rem * var(--index-scale));
   }
 
   /* Owner ruling 2026-09-05 (fix round 2): fill the padded column edge in
@@ -1058,6 +1115,24 @@ html {
 
   .index-hero__headline {
     font-size: calc(2.625rem * var(--index-scale));
+  }
+}
+
+/* At large displays (1920px+), soften the scaling slope so 1440p and 4K
+   expand with a gentle, dignified growth curve rather than ballooning. */
+@media (min-width: 1920px) {
+  .index-grid {
+    --index-scale: clamp(
+      var(--index-scale-min),
+      min(
+        calc(var(--index-scale-base) * (0.35 + 0.65 * tan(atan2(100vw, var(--index-scale-width-ref))))),
+        tan(atan2(
+          calc(100vh - var(--shell-height)),
+          calc(var(--index-natural-height) + var(--index-form-gutters))
+        ))
+      ),
+      var(--index-scale-cap)
+    );
   }
 }
 

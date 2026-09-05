@@ -168,7 +168,7 @@
      slot at all. Two named tokens are cheaper than a per-theme override on
      every panel. The heatmap frame gets its own because it is page-coloured
      in light and card-coloured in dark. */
-  --ss-surface-card: #ffffff;
+  --ss-surface-card: #fcfbf8;
   --ss-surface-sunken: #f0ebe0;
   --heatmap-surface: #faf8f3;
 

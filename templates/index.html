@@ -55,14 +55,14 @@
           <h1 class="index-hero__headline">Your last 365 days, <em>one grid.</em></h1>
           <p class="eyebrow">Listening heatmap</p>
           <p class="index-hero__lede">Every scrobble from the last 365 days, coloured on
-            the rocket scale. Hover any day to see what you played.</p>
+            the rocket scale. Hover over or tap any tile to see what you played.</p>
         </div>
       </div>
 
       <ul class="index-hero__marks">
-        <li>Any year or decade</li>
-        <li>Count or listening time</li>
-        <li>CSV + JPEG export</li>
+        <li><span class="index-hero__mark-num">§ 01</span>Custom release era</li>
+        <li><span class="index-hero__mark-num">§ 02</span>Count or listening time</li>
+        <li><span class="index-hero__mark-num">§ 03</span>CSV + JPEG export</li>
       </ul>
       </div>
     </div>
@@ -235,14 +235,6 @@
               Search albums<span class="ss-submit__trail" aria-hidden="true">&#8594;</span>
             </button>
           </form>
-
-          {# Echoes the active filters. static/js/index.js keeps them current. #}
-          <div class="filter-tags" id="filter-tags" aria-live="polite">
-            <span class="tag" data-tag="year">{{ current_year }}</span>
-            <span class="tag" data-tag="scope">release {{ current_year }}</span>
-            <span class="tag" data-tag="sort">play count</span>
-            <span class="tag" data-tag="plays">&#8805;10 plays</span>
-          </div>
         </section>
 
         {% include 'partials/_heatmap_form.html' %}

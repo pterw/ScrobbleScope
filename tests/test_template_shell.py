@@ -52,7 +52,7 @@ INDEX_TOKENS = {
     "--heatmap-empty": ("#e8e2d6", "#262230"),
     # Added during commit 4 rather than commit 3, because the rebuild found
     # the page needed them. They live in the two daisyUI theme blocks.
-    "--ss-surface-card": ("#ffffff", "#181520"),
+    "--ss-surface-card": ("#fcfbf8", "#181520"),
     "--ss-surface-sunken": ("#f0ebe0", "#1a1622"),
     "--heatmap-surface": ("#faf8f3", "#181520"),
     "--ss-bad": ("#b03434", "#e07070"),
@@ -80,6 +80,7 @@ TEMPLATE_CONTEXT = {
     },
     "results_empty.html": {},
     "unmatched.html": {"reasons": {}},
+    "unmatched_empty.html": {},
 }
 
 #: Pages migrated to Tailwind. Every other page must still carry Bootstrap.
@@ -89,6 +90,7 @@ MIGRATED = {
     "index.html",
     "loading.html",
     "results_empty.html",
+    "unmatched_empty.html",
 }
 
 

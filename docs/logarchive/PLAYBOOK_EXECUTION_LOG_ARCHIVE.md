@@ -9,6 +9,39 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Pin index state geometry and normalize its fades (side-task)
+
+- Scope: address owner review after Task 3. The state-sensitive height
+  denominator made a fixed 1920x945 window shrink the 481.6px form to 390.5px
+  for a release field, 357.8px for thresholds, and 325.2px when both were
+  open; the hero and every scale-authored dimension changed with it. Mode-copy
+  motion also ran sequential 110ms and 180ms animations while page entrance
+  took 1.2s after a 0.2s delay and Heatmap stage fades took 300ms.
+- Implementation: removed the three reachable-state height overrides. The
+  fixed window alone now selects `--index-scale`; opening rows adds natural
+  document height. A stable root scrollbar gutter prevents Firefox's first
+  scrollbar from shifting the 3fr/4fr columns. Both hero descriptions reserve
+  one overlaid grid track, expose the active copy with `aria-hidden`, and
+  crossfade concurrently. Index entrance, hero copy, and Heatmap stage opacity
+  changes now use one 180ms duration with an immediate reduced-motion state.
+- TDD evidence: the pre-fix browser run failed in both engines and reported
+  every changed form, hero, type, spacing, and control dimension plus the
+  expanded state's missing document scroll. The permanent gate now drives six
+  states at the realistic 1920x945 content box and compares representative
+  rendered dimensions. An adversarial unit test proves material and missing
+  measurements fail; a route test pins the stable hero-copy structure.
+- Review cleanup: replaced the one implicit string concatenation called out on
+  PR #225 and corrected Task 3's stale illustrative commit ID from `c1f10e6`
+  to the actual `8b37566`.
+- Findings: F-B21-41 records the state-dependent resize and F-B21-42 records
+  the inconsistent motion. F-B21-38 now identifies its state-sensitive
+  implementation as superseded.
+- Validation after stacking on the Task 4 branch: `pytest -q` -- **904 passed**,
+  5 warnings. The complete frontend gate reports `23 checks passed in 64 runs
+  across chromium, firefox`; hooks and final docsync follow before commit.
+- Forward guidance: correct the cached-Heatmap restoration flash on PR #226
+  with the loading-progress work, then complete Task 4 review.
+
 ### 2026-09-05 - Close out the Task 4 session and stack its PR (side-task)
 
 - Scope: session close-out after Task 4's implementation pass. Corrected the

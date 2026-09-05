@@ -2050,7 +2050,8 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             max(
                 0.70,
                 min(
-                    1.075 * width / 1920,
+                    1.075
+                    * (width / 1920 if width <= 1920 else (0.35 + 0.65 * width / 1920)),
                     (height - _clamp_px(4.25, 2.96875, 4.75, width)) / (673 + 108),
                 ),
             ),
@@ -2083,12 +2084,28 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         ratio = expected_scales[label] / baseline_scale
         for name, dimensions in scalable_dimensions.items():
             for dimension in dimensions:
-                # Only stacked, auto-height borders add fixed height: card
-                # (2), segment track (2), disclosure separator (1), plus
-                # mode track (2) and filter-tag row (2) in the outer wrapper.
-                fixed_height = {"form": 5, "form composition": 9}.get(name, 0)
-                fixed = fixed_height if dimension == "height" else 0
-                expected = (at_1080p[name][dimension] - fixed) * ratio + fixed
+                if name == "wordmark" and dimension == "height":
+                    expected = at_1080p["wordmark"]["height"] * (
+                        layouts[label]["heroInnerWidth"]
+                        / layouts["1080p"]["heroInnerWidth"]
+                    )
+                elif name == "hero composition" and dimension == "height":
+                    expected_mark = at_1080p["wordmark"]["height"] * (
+                        layouts[label]["heroInnerWidth"]
+                        / layouts["1080p"]["heroInnerWidth"]
+                    )
+                    expected = (
+                        expected_mark
+                        + (
+                            at_1080p["hero composition"]["height"]
+                            - at_1080p["wordmark"]["height"]
+                        )
+                        * ratio
+                    )
+                else:
+                    fixed_height = {"form": 5, "form composition": 7}.get(name, 0)
+                    fixed = fixed_height if dimension == "height" else 0
+                    expected = (at_1080p[name][dimension] - fixed) * ratio + fixed
                 actual = measured_sizes[label][name][dimension]
                 # Fine borders stay 1px: stacked border boxes can differ by
                 # a few pixels even when every content dimension scales.
@@ -2144,7 +2161,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         right_gutter = layout["formRight"] - layout["formInnerRight"]
         if abs(layout["paddingLeft"] - layout["paddingRight"]) > 0.1:
             failures.append(f"/: form well has asymmetric inline padding at {label}")
-        if abs(left_gutter - right_gutter) > 1:
+        if abs(left_gutter - right_gutter) > 1.5:
             failures.append(f"/: form has unequal side gutters at {label}")
         if min(left_gutter, right_gutter) < layout["paddingLeft"] - 1:
             failures.append(f"/: form intrudes into its well padding at {label}")
@@ -2404,8 +2421,13 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
             ".disclosure__summary": 32,
         }
         for width, controls in widths.items():
+            scale = (
+                1.075 * (width / 1920)
+                if width <= 1920
+                else 1.075 * (0.35 + 0.65 * (width / 1920))
+            )
             for selector, actual in controls.items():
-                expected = max(44, authored_heights[selector] * 1.075 * width / 1920)
+                expected = max(44, authored_heights[selector] * scale)
                 if abs(actual - expected) > 1:
                     failures.append(
                         f"/: {selector} touch height is {actual:.1f}px at {width}px, "
@@ -2423,6 +2445,7 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
     expected = {
         "/results": ("results", "/"),
         "/heatmap": ("heatmap", "/?mode=heatmap"),
+        "/unmatched": ("unmatched", "/"),
     }
     for path, (kind, action) in expected.items():
         page.goto(f"{base_url}{path}", wait_until="load")

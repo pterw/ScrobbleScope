@@ -828,11 +828,10 @@ def test_job_backed_navigation_pages_have_friendly_empty_states(client):
 
     unmatched_response = client.get("/unmatched")
     assert unmatched_response.status_code == 200
+    assert b'data-empty-state="unmatched"' in unmatched_response.data
     assert b"You haven&#39;t filtered your scrobbles yet." in unmatched_response.data
-    assert (
-        b' href="/" class="btn btn-primary">Start from Home</a>'
-        in unmatched_response.data
-    )
+    assert b'href="/"' in unmatched_response.data
+    assert b"Search albums" in unmatched_response.data
     assert b'class="error-code"' not in unmatched_response.data
 
 
