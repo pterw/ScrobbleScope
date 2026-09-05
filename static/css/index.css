@@ -216,18 +216,21 @@
   .index-form {
     padding: 3.25rem 3.25rem 3.5rem;
     background-color: var(--ss-surface-sunken);
-    border-left: 1px solid var(--ss-border-default);
+    /* F-B21-40: --ss-border-default measures ~1.1-1.3:1 here and does not
+       clear 3:1 against either adjoining surface. --ss-border-divider is a
+       dedicated token, raised for this seam only -- see tailwind.src.css. */
+    border-left: 1px solid var(--ss-border-divider);
     /* The well runs the height of the page, not the height of the form. */
     min-height: 100%;
   }
 }
 
-/* Centred in the well, not pinned to its left edge. On a wide screen the
-   well is much wider than the 380px the form is capped at, and hugging the
-   border leaves the card marooned beside a field of empty sunken colour. */
+/* 28rem is the unscaled design cap. The complete form composition consumes
+   --index-scale through explicit layout values; this wrapper never uses zoom
+   or transform. */
 .index-form__inner {
   width: 100%;
-  max-width: calc(23.75rem * var(--index-scale, 1));
+  max-width: calc(28rem * var(--index-scale, 1));
   margin: 0 auto;
 }
 
@@ -986,7 +989,7 @@
       ),
       var(--index-scale-cap)
     );
-    grid-template-columns: 3fr 5fr;
+    grid-template-columns: 3fr 4fr;
   }
 
   .index-hero,
@@ -1019,8 +1022,21 @@
     --index-height-bound: 68.75rem;
   }
 
+  /* Owner ruling 2026-09-05 (fix round 2): fill the padded column edge in
+     every state, collapsed or expanded. The former `35rem * scale` basis
+     bound smaller than the padded column at every measured width (602px vs
+     a 702px column at 1080p) and, once the form's height guard drops the
+     factor on expansion, shrank to ~400px in a ~743px column -- the hero
+     visibly contracted when the form opened. `.index-hero__mark` mirrors
+     the same rule so wordmark width keeps tracking the inner exactly, as it
+     always has (both used the identical formula before this change too).
+     The mark's own comment above still explains why an unconstrained mark
+     would dwarf the headline; that constraint remains true below 1200px. */
   .index-hero__inner {
-    width: calc(35rem * var(--index-scale));
+    width: 100%;
+  }
+
+  .index-hero__mark {
     max-width: 100%;
   }
 

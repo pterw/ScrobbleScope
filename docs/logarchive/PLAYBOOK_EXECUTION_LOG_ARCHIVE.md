@@ -9,6 +9,88 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Remediate PR #224 Task 2 review (side-task)
+
+- Scope: restore Task 2's original authored form geometry, harden its browser
+  gate, and reconcile live status documents found during owner and bot review.
+  Task 3's `3fr 4fr` split and `28rem` base form cap remain untouched.
+- Review dispositions: restored the three `0.25rem` gap bases and scaled `9rem`
+  mode-tab minimum; added an adversarial wrapped-headline helper test; shared
+  the repeated font-ready expression; removed the late-bound browser closure;
+  reduced the flagged helper complexity; and repaired the DOCSYNC marker plus
+  stale Task 2/two-engine claims. F-B21-39 owns the defect record.
+- Declined bot findings: the sixteen Bandit B101 comments target pytest
+  assertions, where assertion rewriting is the test framework's contract.
+  Graphify's missing-selector and unscaled-headline claims do not match current
+  source, and failure when either required browser is unavailable is explicit
+  Task 2 acceptance behavior.
+- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
+  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
+  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
+  final document state.
+- Forward guidance: Task 2 awaits owner review on PR #224. Task 3 remains the
+  next implementation task and owns the final split and form cap.
+
+### 2026-09-05 - Implement layout-aware desktop scaling, Task 2 (side-task)
+
+- Scope: complete Chromium and Firefox gate lifecycle, realistic window
+  profiles, and explicit CSS composition dimensions. Task 3's final split and
+  base form width are unchanged. Adobe remains the font provider.
+- Plan vs implementation: the initial complete gate failed on the old scale
+  path in both engines. The first replacement run exposed contracted touch
+  inputs and an expanded form taller than the plan's 673px baseline.
+  F-B21-38 owns the measured boundary and expanded-state correction.
+- Deviations: scale hero gutters with the complete composition and retain
+  readable type and coarse-pointer lower bounds below the reference width.
+  The entire two-engine gate should take roughly twice its former wall time.
+- Validation: the complete two-engine gate passed in isolation -- 22 checks
+  in 62 runs across Chromium and Firefox -- after one Chromium pipeline
+  timeout and one Firefox socket-in-use failure that appeared only while
+  unrelated browser work ran concurrently and never reproduced cleanly.
+  Rendered geometry and screenshots were recaptured for both engines at
+  1080p, 1440p, the 1200px boundary, mobile, and the 1920x900 expanded fit;
+  wrappers compute `transform: none` and `zoom: 1` everywhere. The focused
+  runner suite passed 23 tests; full pytest was **880 passed**, 5 warnings.
+  All pre-commit hooks and docsync passed. The final gate and suite ran at
+  close of this entry.
+- Landing: committed as `ac6b1b1`, pushed to `origin/wip/batch-21`, and
+  opened as PR #224 with owner authorization on 2026-09-05. All nine Task 2
+  plan steps are checked off in the canonical plan.
+- Forward guidance: Task 2 awaits PR review and merge. Task 3 is next, as
+  its own commit and review cycle. Do not start WP-5 until Task 3 lands.
+- After any edit here, run `python scripts/doc_state_sync.py --fix`.
+
+### 2026-09-04 - Preserve owner-plan provenance and late review decisions (side-task)
+
+- Scope: track the original September 1 owner-review proposal with an explicit
+  historical/non-executable banner, and identify its superseding execution
+  plan. Ignore generated `graphify-out/` while preserving and querying it
+  locally. Planning documents remain tracked rather than ignored.
+- Review corrections: pin the remaining captured snapshot kit URL; express the
+  planned natural-height guard in rem and require enlarged-root browser checks;
+  record Adobe Fonts ownership and the loading screenshot corrections.
+  F-B21-34 and F-B21-35 record plan/config fixes; F-B21-36 remains implementation
+  work. F-B21-37 records PR #223's completed documentation repair.
+- Plan vs implementation: no production scaling or loading behavior changed.
+  The old proposal stays intact below its supersession notice, including old
+  instructions. The active plan owns execution and the owner rulings win.
+- Deviations: defer the unfinished Task 2 test-first changes from this commit;
+  preserve and restore them locally after validation. The owner approved this
+  documentation commit; no push is requested. `.impeccable/` and `PRODUCT.md`
+  remain untracked and preserved.
+- Validation: `pytest -q`: **872 passed**, 5 warnings on the commit candidate
+  with the unfinished tests shelved. Run hooks and docsync before commit.
+  No production UI changed; PR #223 already passed both browser gates.
+- Forward guidance: resume Task 2 of the canonical scaling/remediation plan
+  before WP-5. Query the local graph as navigation, then verify current source.
+  On 2026-09-04, headed Chrome at DPR 1 measured 2560x1305 content inside
+  2560x1392 outer bounds on the 2560x1440 monitor; the second 1920x1200 monitor
+  measured 1920x1065 content inside 1920x1152 outer bounds. Other panel profiles
+  remain derived rather than physically measured. Both browsers must execute
+  the full gate. Late PR #221 threads 3938613706 and 3938613711 have local fixes
+  recorded here; reply/resolve only after these fixes are published. PR #223
+  is merged; issue #222 stays open for its remaining complexity targets.
+
 ### 2026-09-04 - Review three complexity extractions in PR #223 (side-task)
 
 - Scope: split loading progress error/poll/redirect handling, index filter-label

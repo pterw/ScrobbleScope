@@ -893,6 +893,20 @@ Stop for owner review.
 
 ## Task 3: Widen the composition and raise divider contrast
 
+**Execution checkpoint 2026-09-05:** Task 3 is complete -- implemented,
+validated, and committed as `c1f10e6`. RED evidence (genuine, captured
+against the pre-fix CSS after a stash-based ordering correction) showed 28
+failures across both engines: divider contrast (1.27:1 light, 1.40:1 dark),
+the 5:3 split, the 23.75rem-based form cap, the unruled 76px header bar and
+48px/116px nav-link geometry, the 48.4px theme control, and mismatched
+header/nav gap tokens. GREEN evidence: `23 checks passed in 64 runs across
+chromium, firefox`. Measured divider contrast after the fix: light
+`rgba(26, 24, 32, 0.5)` at 3.23:1, dark `rgba(241, 237, 228, 0.4)` at
+3.42:1, both against the worst adjacent surface. `pytest -q` -- 892 passed
+(881 baseline plus 11 new tests: 7 in `tests/scripts/dev/test_frontend_gate.py`,
+4 in `tests/test_template_shell.py`). All seven steps are checked off below.
+Task 4 is next.
+
 **Owner clarification 2026-09-05:** The 28rem base cap is approved at 1080p
 too. Retain the Task 3 instructions below; Task 2 keeps its interim 23.75rem
 base until this task runs.
@@ -906,7 +920,7 @@ base until this task runs.
 - Modify: `tests/test_template_shell.py`
 - Modify: `BATCH21_DEFINITION.md`, `docs/design/RECONCILIATION.md`, `PLAYBOOK.md`
 
-- [ ] **Step 1: Add the failing split, cap and contrast checks**
+- [x] **Step 1: Add the failing split, cap and contrast checks -- complete**
 
 Change `check_large_display_scale_parity`, rather than adding alongside it.
 The split and form-cap assertions below **replace** existing ones; leaving the
@@ -965,7 +979,8 @@ at 1440p. Assert that the nav and action controls stay on one row and use the
 same sibling-gap token. These are computed-style and geometry checks, not
 source-string checks.
 
-- [ ] **Step 2: Run the gate and confirm the new contract fails**
+- [x] **Step 2: Run the gate and confirm the new contract fails -- confirmed,
+  28 failures across both engines**
 
 ```powershell
 python scripts/dev/frontend_gate.py
@@ -976,7 +991,10 @@ expected 28rem base, on the unchanged 1080p header dimensions, and on dark
 divider contrast near 1.4:1. The form already expands between real profiles
 after Task 2; this task increases its proportional base width.
 
-- [ ] **Step 3: Apply the split and proportional 28rem base cap**
+- [x] **Step 3: Apply the split and proportional 28rem base cap -- complete
+  (kept the `, 1` fallback per owner ruling; the brief's snippet omits it,
+  but omitting it would make the declaration invalid, and therefore
+  uncapped, at 860-1200px)**
 
 In `static/css/index.css`, inside the `min-width: 1200px` block, change
 `grid-template-columns` to `3fr 4fr`. Change the form's unscaled base cap
@@ -1024,7 +1042,10 @@ existing single-column field structure; pairing fields or introducing the
 slider treatment remains a separate owner decision after the proportional
 visual pass.
 
-- [ ] **Step 4: Raise divider contrast in both themes**
+- [x] **Step 4: Raise divider contrast in both themes -- complete; measured
+  3.23:1 light, 3.42:1 dark. No `--shell-border` duplicate exists in
+  `tailwind.src.css`, so nothing to mirror; `tailwind_build.py` re-run
+  confirmed zero drift**
 
 In `static/css/shell.css`, raise the `--shell-border` alpha in each theme block
 until the composite clears 3:1 against its adjacent surface. Do not add a shadow.
@@ -1038,7 +1059,7 @@ git diff --stat -- static/css/tailwind.css
 A rebuilt but unstaged `tailwind.css` reports as drift because `git diff`
 compares the tree to the index. Stage it; that is the hook working.
 
-- [ ] **Step 5: Apply the recorded header ruling and verify it**
+- [x] **Step 5: Apply the recorded header ruling and verify it -- complete**
 
 The decision ledger already marks this ruling complete; do not stop for it
 again. Apply the exact navigation clamps recorded there:
@@ -1080,7 +1101,8 @@ dimensions from Step 1, one-row navigation, action reachability and available
 footer space. Extend `tests/test_template_shell.py` to hold the shared gap
 token and clamp declarations; the frontend gate remains the rendered proof.
 
-- [ ] **Step 6: Confirm the H1 stays on one line**
+- [x] **Step 6: Confirm the H1 stays on one line -- extended across 1200,
+  1500, 1920 and 2560px, both modes; complete**
 
 The H1 must not wrap or clip at **any** desktop width, not only when
 maximised. Owner report 2026-09-02: it newlines when the window is not
@@ -1090,7 +1112,7 @@ at 1920 and 2560 -- not only at the wide profiles. Below the 860px breakpoint
 normal wrapping stays available. This is what `--index-scale-min` buys, so a
 failure here means the floor is too high, not that the H1 needs its own rule.
 
-- [ ] **Step 7: Document, validate, commit**
+- [x] **Step 7: Document, validate, commit -- complete in `c1f10e6`**
 
 Run the full gate sequence, then:
 

@@ -1653,6 +1653,7 @@
     --ss-text-muted: #6c6676;
     --ss-border-default: #e5dfd1;
     --ss-accent-soft: #efe9fa;
+    --ss-border-divider: #858179;
     --ss-surface-card: #ffffff;
     --ss-surface-sunken: #f0ebe0;
     --heatmap-surface: #faf8f3;
@@ -1698,6 +1699,7 @@
       --ss-text-muted: #908a9a;
       --ss-border-default: #2a2434;
       --ss-accent-soft: #2a1f44;
+      --ss-border-divider: #6e6a75;
       --ss-surface-card: #181520;
       --ss-surface-sunken: #1a1622;
       --heatmap-surface: #181520;
@@ -1743,6 +1745,7 @@
     --ss-text-muted: #908a9a;
     --ss-border-default: #2a2434;
     --ss-accent-soft: #2a1f44;
+    --ss-border-divider: #6e6a75;
     --ss-surface-card: #181520;
     --ss-surface-sunken: #1a1622;
     --heatmap-surface: #181520;
