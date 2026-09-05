@@ -1166,7 +1166,7 @@ unknown/zero totals, and a phase at 100% while overall progress is below 100%.
 Prove returned phase snapshots remain isolated through both repository readers.
 
 **Execution checkpoint 2026-09-05:** Task 4 implemented and validated locally in
-`21b5198` (awaiting task review). RED evidence: repository contract tests failed on
+`e0219b2` (awaiting task review). RED evidence: repository contract tests failed on
 unknown `phase` keyword; route test failed on missing `phase` JSON key;
 orchestrator/service tests failed on missing phase payloads; gate helper unit tests
 failed on ImportError; gate browser test failed on stale response application and
