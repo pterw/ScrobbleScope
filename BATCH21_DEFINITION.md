@@ -363,9 +363,13 @@ Moved in by the scope ruling:
   `/unmatched`. The header theme control is the segmented Light/Dark pill.
 - Shared Jinja2 loading partial used by `loading.html` and the heatmap panel:
   pinwheel + thin determinate hairline bar and mono phase label ("FETCHING
-  SCROBBLES - PAGE 23 / 102"). Album loading has its four pipeline KPIs;
-  Heatmap uses its three relevant facts: pages fetched, scrobbles counted,
-  and days with listening. Both retain request parameters and a Home escape.
+  SCROBBLES - PAGE 23 / 102"). Counted phases display their count in the phase
+  line and drive the hairline; uncounted work clears phase and uses overall progress.
+  Both clients poll `/progress` during execution; the heatmap client requests
+  `/heatmap_data` only after progress reaches 100% completion. Album loading has
+  its four pipeline KPIs; Heatmap uses its three relevant facts: pages fetched,
+  scrobbles counted, and days with listening. Both retain request parameters
+  and a Home escape.
 - Decision 1 lands here (rotating messages).
 - Leaving the page: a quiet "Back home" link only -- no
   `/reset_progress` call and no "Cancel" label. The endpoint cannot

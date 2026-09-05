@@ -53,6 +53,9 @@ def create_job(params):
     return job_id
 
 
+_UNSET = object()
+
+
 def set_job_progress(
     job_id,
     progress=None,
@@ -63,6 +66,7 @@ def set_job_progress(
     error_source=None,
     retryable=None,
     retry_after=None,
+    phase=_UNSET,
 ):
     """Update one or more progress fields on an existing job."""
     with jobs_lock:
@@ -85,6 +89,11 @@ def set_job_progress(
             job["progress"]["retryable"] = retryable
         if retry_after is not None:
             job["progress"]["retry_after"] = retry_after
+        if phase is not _UNSET:
+            if phase is None:
+                job["progress"].pop("phase", None)
+            else:
+                job["progress"]["phase"] = dict(phase)
         job["updated_at"] = time.time()
     return True
 
@@ -104,6 +113,7 @@ def set_job_error(job_id, error_code, username=None, retry_after=None):
         error_source=info.get("source"),
         retryable=info.get("retryable", False),
         retry_after=retry_after,
+        phase=None,
     )
     set_job_results(job_id, [])
 
@@ -163,6 +173,8 @@ def get_job_progress(job_id):
         job["updated_at"] = time.time()
         progress = dict(job["progress"])
         progress["stats"] = dict(progress.get("stats", {}))
+        if "phase" in progress:
+            progress["phase"] = dict(progress["phase"])
         return progress
 
 
@@ -211,6 +223,8 @@ def get_job_context(job_id):
 
         progress = dict(job["progress"])
         progress["stats"] = dict(progress.get("stats", {}))
+        if "phase" in progress:
+            progress["phase"] = dict(progress["phase"])
         return {
             "progress": progress,
             "results": results,

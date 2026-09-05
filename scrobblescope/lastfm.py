@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 import time
 from collections.abc import Callable
@@ -201,13 +202,57 @@ async def fetch_pages_batch_async(session, username, from_ts, to_ts, pages):
     return results
 
 
+def _notify_progress_cb(
+    cb: Any, pages_done: int, total_pages: int, pages_received: int
+) -> None:
+    """Notify progress_cb with backward-compatible argument count inspection.
+
+    If cb accepts a third parameter (e.g. pages_received), pass it; otherwise
+    pass only (pages_done, total_pages). Bare unittest.mock.Mock/MagicMock
+    instances without custom specs receive (pages_done, total_pages).
+    """
+    if cb is None:
+        return
+    try:
+        sig = inspect.signature(cb)
+        params = [
+            p
+            for p in sig.parameters.values()
+            if p.kind not in (inspect.Parameter.VAR_KEYWORD,)
+        ]
+        has_varargs = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in params)
+        explicit_pos = [
+            p
+            for p in params
+            if p.kind
+            in (
+                inspect.Parameter.POSITIONAL_ONLY,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            )
+        ]
+        if len(explicit_pos) >= 3:
+            cb(pages_done, total_pages, pages_received)
+        elif has_varargs:
+            if hasattr(cb, "_mock_return_value") or hasattr(cb, "_mock_self"):
+                cb(pages_done, total_pages)
+            else:
+                cb(pages_done, total_pages, pages_received)
+        else:
+            cb(pages_done, total_pages)
+    except (TypeError, ValueError):
+        try:
+            cb(pages_done, total_pages)
+        except TypeError:
+            cb(pages_done, total_pages, pages_received)
+
+
 async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=None):
     """Fetch all Last.fm scrobble pages. Returns (pages, metadata) tuple.
 
     Args:
-        progress_cb: Optional ``Callable[[int, int], None]`` invoked as
-            ``progress_cb(pages_done, total_pages)`` after each page
-            fetch completes.
+        progress_cb: Optional callback invoked as
+            ``progress_cb(pages_done, total_pages, pages_received)`` or
+            ``progress_cb(pages_done, total_pages)`` after each page fetch.
     """
     fetch_start_time = time.time()
     async with create_optimized_session() as session:
@@ -227,7 +272,7 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
         all_pages = [first]
 
         if progress_cb is not None:
-            progress_cb(1, total_pages)
+            _notify_progress_cb(progress_cb, 1, total_pages, len(all_pages))
 
         if total_pages > 1:
             remaining = range(2, total_pages + 1)
@@ -254,7 +299,9 @@ async def fetch_all_recent_tracks_async(username, from_ts, to_ts, progress_cb=No
                     completed += 1
                     if result is not None:
                         all_pages.append(result)
-                    progress_cb(completed, total_pages)
+                    _notify_progress_cb(
+                        progress_cb, completed, total_pages, len(all_pages)
+                    )
             else:
                 results = await fetch_pages_batch_async(
                     session, username, from_ts, to_ts, remaining

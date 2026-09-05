@@ -1165,6 +1165,19 @@ phase transitions separately, including cache-only album work, a failed page,
 unknown/zero totals, and a phase at 100% while overall progress is below 100%.
 Prove returned phase snapshots remain isolated through both repository readers.
 
+**Execution checkpoint 2026-09-05:** Task 4 implemented and validated locally in
+`e0219b2` (awaiting task review). RED evidence: repository contract tests failed on
+unknown `phase` keyword; route test failed on missing `phase` JSON key;
+orchestrator/service tests failed on missing phase payloads; gate helper unit tests
+failed on ImportError; gate browser test failed on stale response application and
+uncentered stat layout. GREEN evidence: `pytest -q` -- 902 passed across 40 test modules
+(8 new tests: 2 in `test_repositories.py`, 1 in `test_routes.py`, 1 in
+`test_orchestrator_fetch_and_process.py`, 1 in `test_orchestrator_fetch_spotify.py`,
+1 in `test_heatmap.py`, 1 in `test_lastfm_service.py`, 1 in
+`test_frontend_gate.py`). Full frontend gate passed: `23 checks passed in 64 runs
+across chromium, firefox`. Prohibited animation sweep returned 0 matches.
+Task 4 review is the next action, then Task 5.
+
 Carried forward from the superseded plan's Task 2, whose baseline verified
 correct: `set_job_progress` has no `phase` keyword, `static/js/loading-progress.js`
 does not exist, and `loading.js` and `heatmap.js` each drive the hairline from
@@ -1182,7 +1195,7 @@ top-level progress alone.
   `tests/services/test_orchestrator_fetch_spotify.py`, `tests/test_heatmap.py`,
   `scripts/dev/frontend_gate.py`
 
-- [ ] **Step 1: Write the failing repository and route contract tests**
+- [x] **Step 1: Write the failing repository and route contract tests**
 
 `phase` must be copied, not aliased, and must have three distinct update modes.
 Exercise both repository read paths because `get_job_progress` and
@@ -1213,7 +1226,7 @@ assert "phase" not in get_job_progress(job_id)
 Add a `/progress` test asserting the exact JSON phase payload survives the route,
 and that the no-job and error responses stay compatible with no `phase` key.
 
-- [ ] **Step 2: Run and confirm they fail**
+- [x] **Step 2: Run and confirm they fail**
 
 ```powershell
 pytest tests/test_repositories.py tests/test_routes.py -q
@@ -1221,7 +1234,7 @@ pytest tests/test_repositories.py tests/test_routes.py -q
 
 Expected: `set_job_progress()` rejects the unknown `phase` keyword.
 
-- [ ] **Step 3: Add additive repository support with an explicit sentinel**
+- [x] **Step 3: Add additive repository support with an explicit sentinel**
 
 An omitted argument and an explicit `None` must do different things, so a plain
 message-only update cannot silently clear the phase.
@@ -1244,7 +1257,7 @@ mutate each returned nested dictionary and prove that neither mutation reaches
 shared job state. Never emit `phase: null`; an absent key keeps current clients
 unchanged.
 
-- [ ] **Step 4: Populate counted phases and clear uncounted ones**
+- [x] **Step 4: Populate counted phases and clear uncounted ones**
 
 ```python
 # Both Last.fm callbacks
@@ -1267,7 +1280,7 @@ Extend the service tests to assert the exact phase dictionaries for the Last.fm
 `(23, 102)`, Spotify search and Spotify detail paths. Keep their existing
 state-side-effect assertions; do not replace them with mock-call-only checks.
 
-- [ ] **Step 5: Create one browser helper and move both clients onto it**
+- [x] **Step 5: Create one browser helper and move both clients onto it**
 
 Create `static/js/loading-progress.js` as a small non-module global, loaded
 before `loading.js` and `heatmap.js`:
@@ -1305,7 +1318,7 @@ owner-remediation plan and superseding the August 28 operation-only ruling.
 Both clients call this helper. Do not animate `width`, `height`, `padding`,
 `margin` or `max-width`.
 
-- [ ] **Step 6: Add one opacity-only entrance and reduced-motion behaviour**
+- [x] **Step 6: Add one opacity-only entrance and reduced-motion behaviour**
 
 Apply the same short entrance to the shared loading composition in `loading.css`
 and `heatmap.css`: pinwheel, track, phase line and visible stats animate through
@@ -1315,7 +1328,7 @@ in from zero also requires restoring `opacity: 1`. Keep the existing heatmap
 cached-result handoff. Do not add a heading, a navigation pill, cancellation, or
 a second percentage.
 
-- [ ] **Step 7: Add real-browser progress checks**
+- [x] **Step 7: Add real-browser progress checks**
 
 Extend the gate with a fixture job returning these sequential payloads to each
 client:
@@ -1333,7 +1346,7 @@ same accurate phase-specific count. For the uncounted frame assert the bar falls
 the phase line shows no stale count. Run the equivalent checks against album
 `/loading` and the heatmap in-page loader.
 
-- [ ] **Step 8: Document, validate, commit**
+- [x] **Step 8: Document, validate, commit**
 
 Preserve the revised owner decision in `BATCH21_DEFINITION.md`: counted phase
 fractions drive the visible phase line, hairline and ARIA, while uncounted work
