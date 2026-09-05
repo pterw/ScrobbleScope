@@ -8,7 +8,7 @@
   // Constants
   // ----------------------------------------------------------------
   const POLL_INTERVAL_MS = 1000;
-  const HEATMAP_HANDOFF_MS = 300;
+  const HEATMAP_HANDOFF_MS = 180;
 
   //: The heatmap window. Named because the daily average divides by it.
   const WINDOW_DAYS = 365;
@@ -564,8 +564,6 @@
   var previousPhaseKey = null;
   var lastRenderMobile = null;
   var resizeTimer = null;
-  var heroTransitionToken = 0;
-  var heroAnimations = [];
 
   // ----------------------------------------------------------------
   // Pill switching
@@ -603,8 +601,8 @@
           p.setAttribute('aria-selected', p === self ? 'true' : 'false');
         });
 
-        // The hero names the mode in its eyebrow and its headline, so it
-        // switches with the form. Both blocks are in the page; one is hidden.
+        // The hero names the mode in its eyebrow and headline. Both blocks
+        // reserve one grid track, and CSS crossfades the active description.
         switchModeHero(mode);
 
         setHeatmapStageActive(false);
@@ -638,72 +636,11 @@
   }
 
   function switchModeHero(mode) {
-    var nextHero = null;
-    var currentHero = null;
-    heroTransitionToken += 1;
-    var transitionToken = heroTransitionToken;
-
-    heroAnimations.forEach(function (animation) {
-      animation.cancel();
-    });
-    heroAnimations = [];
-
     heroBlocks.forEach(function (hero) {
-      hero.style.opacity = '';
-      if (hero.getAttribute('data-mode-hero') === mode) nextHero = hero;
-      if (!hero.classList.contains('hidden')) currentHero = hero;
+      var isActive = hero.getAttribute('data-mode-hero') === mode;
+      hero.classList.toggle('is-active', isActive);
+      hero.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
-    if (!nextHero) return;
-
-    if (nextHero === currentHero) {
-      heroBlocks.forEach(function (hero) {
-        if (hero !== nextHero) hideElement(hero);
-      });
-      return;
-    }
-
-    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (
-      reducedMotion ||
-      !currentHero ||
-      typeof currentHero.animate !== 'function'
-    ) {
-      if (currentHero) hideElement(currentHero);
-      showElement(nextHero);
-      return;
-    }
-
-    var exitAnimation = currentHero.animate(
-      [{ opacity: 1 }, { opacity: 0 }],
-      {
-        duration: 110,
-        easing: 'cubic-bezier(0.4, 0, 1, 1)',
-        fill: 'forwards'
-      }
-    );
-    heroAnimations = [exitAnimation];
-
-    exitAnimation.onfinish = function () {
-      if (transitionToken !== heroTransitionToken) return;
-      hideElement(currentHero);
-      exitAnimation.cancel();
-      showElement(nextHero);
-
-      var enterAnimation = nextHero.animate(
-        [{ opacity: 0 }, { opacity: 1 }],
-        {
-          duration: 180,
-          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          fill: 'forwards'
-        }
-      );
-      heroAnimations = [enterAnimation];
-      enterAnimation.onfinish = function () {
-        if (transitionToken !== heroTransitionToken) return;
-        enterAnimation.cancel();
-        heroAnimations = [];
-      };
-    };
   }
 
   function readSavedHeatmap() {

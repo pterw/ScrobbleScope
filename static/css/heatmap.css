@@ -494,7 +494,7 @@
 /* Fade transitions for state changes                                  */
 /* ------------------------------------------------------------------ */
 .heatmap-fade {
-  transition: opacity 0.3s ease;
+  transition: opacity var(--index-fade-duration) ease-out;
 }
 
 .heatmap-fade.fading-out {

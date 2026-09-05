@@ -67,6 +67,25 @@ def test_home_page_mode_tabs_are_real_buttons(client):
     assert 'role="button"' not in html
 
 
+def test_home_page_mode_copy_reserves_one_stable_crossfade_track(client):
+    """Both hero descriptions stay in layout while only one is exposed."""
+    response = client.get("/")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'class="index-hero__copy"' in html
+    assert re.search(
+        r'data-mode-hero="album" class="index-hero__mode-copy is-active"\s+'
+        r'aria-hidden="false"',
+        html,
+    )
+    assert re.search(
+        r'data-mode-hero="heatmap" class="index-hero__mode-copy"\s+'
+        r'aria-hidden="true"',
+        html,
+    )
+
+
 def test_heatmap_page_without_saved_job_uses_dedicated_empty_state(client):
     """The Heatmap destination should explain how to create the first result."""
     response = client.get("/heatmap")

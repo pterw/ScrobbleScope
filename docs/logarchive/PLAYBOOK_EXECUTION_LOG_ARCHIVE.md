@@ -9,6 +9,60 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Remediate Task 3 review finding, raise the index well divider (side-task)
+
+- Scope: fix round 1/5 for the Task 3 owner-review finding "the index
+  page's own dividers were not raised, and the new check cannot see them".
+  `.index-form`'s `border-left` drew from the shared, still-opaque
+  `--ss-border-default` (measured ~1.12:1 light, ~1.18:1 dark against its
+  adjoining surfaces), which Task 3's `--shell-border` fix never touched.
+  Owner ruling: add a dedicated index-only divider token rather than
+  restyling the other 14 `--ss-border-default` uses in `index.css`.
+- Plan vs implementation: added `--ss-border-divider` (`#858179` light,
+  `#6e6a75` dark) to both daisyUI theme blocks in
+  `static/css/tailwind.src.css`, applied only to `.index-form`'s
+  `border-left` in `static/css/index.css`, and regenerated
+  `static/css/tailwind.css` with the qualified `tailwind_build.py` (this
+  time producing a genuine 3-line diff, since the token is new -- unlike
+  Task 3, where the same build produced no drift). `check_divider_contrast`
+  in `scripts/dev/frontend_gate.py` now also reads `.index-form`'s real
+  rendered `border-left-color` against `--color-base-100` and
+  `--ss-surface-sunken` in both themes and engines, reusing the existing
+  minimum-across-surfaces helper. `_divider_contrast_failure` gained a
+  `token` parameter (default `--shell-border`, preserving every existing
+  call site) so the new failure message names `--ss-border-divider`
+  instead of misattributing it.
+- TDD evidence: a genuine RED run against the pre-fix CSS (extended gate
+  assertion in place, `.index-form` still on `--ss-border-default`)
+  produced exactly 4 failures -- index divider light/dark in both
+  Chromium and Firefox, reporting `1.12:1` and `1.18:1`, matching the
+  reviewer's hand-computed ratios exactly. Applying the CSS fix produced a
+  genuine GREEN run: `23 checks passed in 64 runs across chromium,
+  firefox` (check count unchanged; this extends an existing check rather
+  than adding a new one).
+- Measured divider contrast (both engines agreed): light vs page
+  3.65:1, vs sunken well 3.26:1 (binding); dark vs page 3.69:1, vs sunken
+  well 3.37:1 (binding). Both clear the 3:1 floor with comparable headroom
+  to Task 3's shell-border ratios.
+- Test additions: `--ss-border-divider` added to `INDEX_TOKENS` in
+  `tests/test_template_shell.py` (covered by the existing parametrized
+  token-build test, no new test function needed). One new adversarial unit
+  test in `tests/scripts/dev/test_frontend_gate.py` asserting
+  `_divider_contrast_failure`'s `token` parameter is honoured and that the
+  default stays `--shell-border` for existing callers. A new
+  `.docsync.toml` pair of `[[value]]` declarations pins the token's light
+  and dark values across `tailwind.src.css` (both theme blocks) and
+  `tests/test_template_shell.py`.
+- Validation: full-suite `pytest -q` -- **894 passed**, 5 warnings (892
+  baseline plus the 2 new tests above). The complete frontend gate passed
+  23 checks in 64 runs across Chromium and Firefox. All pre-commit hooks
+  and `doc_state_sync.py --check` passed on the final document state.
+- Forward guidance: FINDINGS.md F-B21-40 records this defect and its
+  resolution. Task 3's broader remaining review rounds (2/5 through 5/5)
+  and the seven parked Minor findings are unaffected and proceed
+  separately; Task 4 remains the next batch-order item once Task 3's
+  review is fully closed.
+
 ### 2026-09-05 - Implement remediation Task 3, widen composition and raise divider contrast (side-task)
 
 - Scope: land the final desktop index composition and divider-contrast fix

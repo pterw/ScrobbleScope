@@ -316,7 +316,8 @@ Moved in by the scope ruling:
    capped at `2.15`. The centred form carries a `28rem` base cap, the final
    remediation width landed in Task 3. `static/css/index.css` owns the
    layout-aware factor, explicit dimensions, narrow-window readability
-   bounds and expanded-state guard.
+   bounds, and fixed-viewport state invariance. Extra form rows add natural
+   document height without changing the hero, form, type, or control scale.
    The former 1080px height denominator was an engine-independent defect;
    the complete Chromium and Firefox matrices now consume realistic content
    boxes and assert rendered proportions instead of a zoom property.

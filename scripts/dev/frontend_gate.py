@@ -210,7 +210,6 @@ HIDDEN_ON_LOAD = {
         "#heatmap-result-headline",
         "#heatmap-result-frame",
         "#heatmap-error",
-        '[data-mode-hero="heatmap"]',
         "#decade_dropdown",
         "#release_year_group",
     ),
@@ -504,7 +503,7 @@ def check_divider_contrast(page, base_url: str) -> list[str]:
     for theme in ("light", "dark"):
         page.goto(f"{base_url}/", wait_until="load")
         page.evaluate(
-            "(theme) => document.documentElement" ".setAttribute('data-theme', theme)",
+            "(theme) => document.documentElement.setAttribute('data-theme', theme)",
             theme,
         )
         border = _computed_colour(page, "var(--shell-border)")
@@ -978,10 +977,89 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
         )
         if standard != {
             "name": "ss-index-page-enter",
-            "duration": "1.2s",
-            "delay": "0.2s",
+            "duration": "0.18s",
+            "delay": "0s",
         }:
             failures.append(f"index entrance motion is {standard!r}")
+
+        initial_hero = page.evaluate(
+            """() => {
+                const copy = document.querySelector('.index-hero__copy');
+                const album = document.querySelector('[data-mode-hero="album"]');
+                const heatmap = document.querySelector('[data-mode-hero="heatmap"]');
+                const read = node => {
+                    const style = getComputedStyle(node);
+                    return {
+                        active: node.classList.contains('is-active'),
+                        ariaHidden: node.getAttribute('aria-hidden'),
+                        opacity: style.opacity,
+                        visibility: style.visibility,
+                        duration: style.transitionDuration,
+                    };
+                };
+                return {
+                    height: copy && copy.getBoundingClientRect().height,
+                    album: album && read(album),
+                    heatmap: heatmap && read(heatmap),
+                };
+            }"""
+        )
+        page.locator("#mode-tab-heatmap").click()
+        page.wait_for_timeout(220)
+        switched_hero = page.evaluate(
+            """() => {
+                const copy = document.querySelector('.index-hero__copy');
+                const album = document.querySelector('[data-mode-hero="album"]');
+                const heatmap = document.querySelector('[data-mode-hero="heatmap"]');
+                const read = node => {
+                    const style = getComputedStyle(node);
+                    return {
+                        active: node.classList.contains('is-active'),
+                        ariaHidden: node.getAttribute('aria-hidden'),
+                        opacity: style.opacity,
+                        visibility: style.visibility,
+                        duration: style.transitionDuration,
+                    };
+                };
+                return {
+                    height: copy && copy.getBoundingClientRect().height,
+                    album: album && read(album),
+                    heatmap: heatmap && read(heatmap),
+                };
+            }"""
+        )
+        expected_initial = {
+            "active": True,
+            "ariaHidden": "false",
+            "opacity": "1",
+            "visibility": "visible",
+            "duration": "0.18s, 0s",
+        }
+        expected_inactive = {
+            "active": False,
+            "ariaHidden": "true",
+            "opacity": "0",
+            "visibility": "hidden",
+            "duration": "0.18s, 0s",
+        }
+        if initial_hero["album"] != expected_initial:
+            failures.append(
+                f"initial album hero transition is {initial_hero['album']!r}"
+            )
+        if initial_hero["heatmap"] != expected_inactive:
+            failures.append(
+                f"initial heatmap hero transition is {initial_hero['heatmap']!r}"
+            )
+        if switched_hero["album"] != expected_inactive:
+            failures.append(
+                f"switched album hero transition is {switched_hero['album']!r}"
+            )
+        if switched_hero["heatmap"] != expected_initial:
+            failures.append(
+                f"switched heatmap hero transition is {switched_hero['heatmap']!r}"
+            )
+        if abs(switched_hero["height"] - initial_hero["height"]) > 0.5:
+            failures.append("mode hero crossfade changes the reserved copy height")
 
         page.emulate_media(reduced_motion="reduce")
         page.goto(f"{base_url}/", wait_until="load")
@@ -993,6 +1071,13 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
         )
         if reduced != {"name": "none", "opacity": "1"}:
             failures.append(f"reduced-motion index entrance is {reduced!r}")
+        reduced_hero_duration = page.locator('[data-mode-hero="album"]').evaluate(
+            "element => getComputedStyle(element).transitionDuration"
+        )
+        if reduced_hero_duration != "0s":
+            failures.append(
+                f"reduced-motion hero transition lasts {reduced_hero_duration!r}"
+            )
     finally:
         page.emulate_media(reduced_motion="no-preference")
     return failures
@@ -1666,9 +1751,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "header bar": ".site-header",
     }
     scalable_dimensions = {
-        "hero composition": ("width", "height"),
+        # Width fills the 3fr column and is checked against its rendered
+        # padding below; it does not follow the authored scale ratio.
+        "hero composition": ("height",),
         "form composition": ("width", "height"),
-        "wordmark": ("width", "height", "marginBottom"),
+        "wordmark": ("height", "marginBottom"),
         "headline": ("fontSize", "lineHeight", "marginBottom"),
         "form": ("width", "height", "paddingTop"),
         "input": ("height", "fontSize"),
@@ -1804,35 +1891,52 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             }"""
         )
 
-    def measure_compact_height():
-        """Exercise the tallest reachable album form in a short desktop window."""
-        page.set_viewport_size({"width": 1920, "height": 900})
+    def measure_fixed_state(actions):
+        """Measure scale-controlled dimensions after one reachable state change."""
+        page.set_viewport_size({"width": 1920, "height": 945})
         page.goto(f"{base_url}/", wait_until="load")
-        page.locator("#release_scope").select_option("decade")
-        page.locator(".disclosure__summary").click()
+        _reach_state(page, actions)
         page.evaluate(FONTS_READY_EXPRESSION)
+        page.wait_for_timeout(350)
         return page.evaluate(
             """() => {
+                const visible = selector => [...document.querySelectorAll(selector)]
+                    .find(node => node.getClientRects().length > 0);
+                const activeHero = document.querySelector('[data-mode-hero].is-active')
+                    || [...document.querySelectorAll('[data-mode-hero]')]
+                        .find(node => !node.classList.contains('hidden'));
                 const formColumn = document.querySelector('.index-form');
-                const submit = document.querySelector('.ss-submit');
-                const tags = document.querySelector('#filter-tags');
-                const style = getComputedStyle(formColumn);
                 const hero = document.querySelector('.index-hero');
                 const heroInner = document.querySelector('.index-hero__inner');
                 const heroMark = document.querySelector('.index-hero__mark');
+                const formInner = document.querySelector('.index-form__inner');
+                const card = visible('.ss-card');
+                const input = visible('.ss-input');
+                const headline = activeHero && activeHero.querySelector('.index-hero__headline');
+                const formStyle = getComputedStyle(formColumn);
                 const heroStyle = getComputedStyle(hero);
+                const cardStyle = getComputedStyle(card);
+                const inputStyle = getComputedStyle(input);
+                const headlineStyle = getComputedStyle(headline);
+                const modeStyle = getComputedStyle(document.querySelector('.mode-pill'));
                 return {
-                    paddingTop: parseFloat(style.paddingTop),
-                    paddingBottom: parseFloat(style.paddingBottom),
-                    submitBottom: submit.getBoundingClientRect().bottom,
-                    tagsBottom: tags.getBoundingClientRect().bottom,
+                    dimensions: {
+                        formWidth: formInner.getBoundingClientRect().width,
+                        formPaddingTop: parseFloat(formStyle.paddingTop),
+                        heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                        heroInnerWidth: heroInner.getBoundingClientRect().width,
+                        heroMarkWidth: heroMark.getBoundingClientRect().width,
+                        headlineFont: parseFloat(headlineStyle.fontSize),
+                        headlineLineHeight: parseFloat(headlineStyle.lineHeight),
+                        cardPaddingTop: parseFloat(cardStyle.paddingTop),
+                        inputHeight: input.getBoundingClientRect().height,
+                        inputFont: parseFloat(inputStyle.fontSize),
+                        modeHeight: document.querySelector('.mode-pill')
+                            .getBoundingClientRect().height,
+                        modeFont: parseFloat(modeStyle.fontSize),
+                    },
                     viewportHeight: window.innerHeight,
                     documentHeight: document.documentElement.scrollHeight,
-                    heroWidth: hero.getBoundingClientRect().width,
-                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
-                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
-                    heroInnerWidth: heroInner.getBoundingClientRect().width,
-                    heroMarkWidth: heroMark.getBoundingClientRect().width,
                 };
             }"""
         )
@@ -1853,9 +1957,24 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 .gridTemplateColumns.split(' ').length,
         })"""
         )
-        compact_height = measure_compact_height()
+        fixed_states = {
+            "as loaded": (),
+            "heatmap mode": (("click", "#mode-tab-heatmap"),),
+            "decade filter": (("select", "#release_scope", "decade"),),
+            "release year": (("select", "#release_scope", "custom"),),
+            "thresholds open": (("click", ".disclosure__summary"),),
+            "decade + thresholds": (
+                ("select", "#release_scope", "decade"),
+                ("click", ".disclosure__summary"),
+            ),
+        }
+        state_measurements = {
+            state: measure_fixed_state(actions)
+            for state, actions in fixed_states.items()
+        }
         # Reset the expanded state: this probe exercises the initial form's
         # font-relative height denominator, with the root enlarged to 20px.
+        page.set_viewport_size({"width": 1920, "height": 900})
         page.goto(f"{base_url}/", wait_until="load")
         page.evaluate(FONTS_READY_EXPRESSION)
         old_root = page.evaluate("document.documentElement.style.fontSize")
@@ -2080,46 +2199,21 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 "expected none"
             )
 
-    header_height_at_1920 = _clamp_px(4.25, 2.96875, 4.75, 1920)
-    if (
-        abs(compact_height["paddingTop"] - 32 * ((900 - header_height_at_1920) / 1164))
-        > 0.5
-        or abs(
-            compact_height["paddingBottom"]
-            - 32 * ((900 - header_height_at_1920) / 1164)
+    baseline_state = state_measurements["as loaded"]
+    failures.extend(
+        _state_dimension_failures(
+            baseline_state["dimensions"],
+            {
+                state: measurement["dimensions"]
+                for state, measurement in state_measurements.items()
+                if state != "as loaded"
+            },
         )
-        > 0.5
-    ):
-        failures.append(
-            "/: compact desktop height lost proportional 2rem form-column padding"
-        )
-    if compact_height["submitBottom"] > compact_height["viewportHeight"] + 0.5:
-        failures.append("/: compact-height form leaves the submit button below view")
-    if compact_height["tagsBottom"] > compact_height["viewportHeight"] + 0.5:
-        failures.append("/: compact-height form leaves filter tags below view")
-    if compact_height["documentHeight"] > compact_height["viewportHeight"] + 1:
-        failures.append("/: compact-height form requires document scrolling")
-    # The height guard drops the shared factor in this driven decade+thresholds
-    # state (0.726 at 1080p, measured 2026-09-05), which used to leave the
-    # hero's own content trapped in a `35rem * scale` box far narrower than
-    # its padded column. The hero must still fill the padding edge here, not
-    # just in the width-driven collapsed state above.
-    expanded_hero_fill = (
-        compact_height["heroWidth"]
-        - compact_height["heroPaddingLeft"]
-        - compact_height["heroPaddingRight"]
     )
-    if abs(compact_height["heroInnerWidth"] - expanded_hero_fill) > 1:
+    expanded_state = state_measurements["decade + thresholds"]
+    if expanded_state["documentHeight"] <= expanded_state["viewportHeight"] + 1:
         failures.append(
-            f"/: hero inner is {compact_height['heroInnerWidth']:.1f}px in the "
-            f"expanded decade+thresholds state, expected to fill its padded "
-            f"column at {expanded_hero_fill:.1f}px"
-        )
-    if abs(compact_height["heroMarkWidth"] - compact_height["heroInnerWidth"]) > 1:
-        failures.append(
-            f"/: wordmark is {compact_height['heroMarkWidth']:.1f}px in the "
-            f"expanded decade+thresholds state, expected to track the hero "
-            f"inner at {compact_height['heroInnerWidth']:.1f}px"
+            "/: expanded decade + thresholds state shrinks to avoid document scrolling"
         )
     failures.extend(_check_desktop_scale_bounds(page, base_url))
     return failures
@@ -2134,6 +2228,27 @@ def _touch_minimum_failures(
         for selector, rectangle in rectangles.items()
         if min(rectangle.values()) < 43.9
     ]
+
+
+def _state_dimension_failures(
+    baseline: dict[str, float],
+    states: dict[str, dict[str, float]],
+    *,
+    tolerance: float = 0.5,
+) -> list[str]:
+    """Report authored dimensions that move while the viewport stays fixed."""
+    failures = []
+    for state, measurements in states.items():
+        for dimension, expected in baseline.items():
+            actual = measurements.get(dimension)
+            if actual is None:
+                failures.append(f"/: {state} did not measure {dimension}")
+            elif abs(actual - expected) > tolerance:
+                failures.append(
+                    f"/: {dimension} changes from {expected:.1f}px to "
+                    f"{actual:.1f}px in {state} at a fixed viewport"
+                )
+    return failures
 
 
 def _headline_wrap_failures(probe, width: int) -> list[str]:

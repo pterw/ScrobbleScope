@@ -512,8 +512,9 @@ geometry, add adversarial coverage for the boundary helpers, reduce the flagged
 orchestrator complexity, and reconcile live status documents. The remediation
 passed 881 tests and the complete frontend gate (22 checks, 62 runs, Chromium
 and Firefox). All nine steps are checked off below.
-Measurements and the expanded-state guard correction are recorded in
-`FINDINGS.md` F-B21-38. PLAYBOOK Sections 3-4 own current status and
+Measurements and the original expanded-state guard are recorded in
+`FINDINGS.md` F-B21-38. The later owner correction in F-B21-41 replaces that
+state-dependent contraction with a fixed-window scale. PLAYBOOK Sections 3-4 own current status and
 validation results. The original owner-review notes remain historical; this
 plan owns the superseding execution requirements. Task 3 is next, on its own
 commit and review cycle.
@@ -835,18 +836,19 @@ the 1.20 growth floor and their representative type, controls and spacing keep
 the baseline ratios. Verify rendered geometry, never only the custom-property
 string.
 
-- [x] **Step 7: Prove the guard still protects a short window -- complete
-      2026-09-05.** Expanded decade-plus-threshold state fits 1920x900 in
-      both engines with no document scrolling.
+- [x] **Step 7: Prove the guard still protects a short window -- completed
+      2026-09-05, then superseded by the F-B21-41 owner correction.**
 
 ```powershell
 python scripts/dev/frontend_gate.py
 ```
 
-The existing compact-height check at 1920x900 must still pass with the decade
-selector driven and thresholds open: the submit button's bottom edge at or above
-the viewport bottom, with no document scrolling at default zoom. If it fails,
-`--index-natural-height` is too small; re-measure rather than guessing.
+The original compact-height check required the decade-plus-threshold form to
+fit without document scrolling. That requirement made a fixed browser window
+rescale the entire composition when a reader opened fields. Current acceptance
+keeps every scale-controlled dimension fixed across album, heatmap, decade,
+custom-year, thresholds, and combined states; additional rows extend the
+document and remain reachable by normal scrolling.
 
 - [x] **Step 8: Correct every live document that describes the old formula --
       complete in `ac6b1b1`.** Repo-wide sweeps came back clean on 2026-09-05.
@@ -894,7 +896,7 @@ Stop for owner review.
 ## Task 3: Widen the composition and raise divider contrast
 
 **Execution checkpoint 2026-09-05:** Task 3 is complete -- implemented,
-validated, and committed as `c1f10e6`. RED evidence (genuine, captured
+validated, and committed as `8b37566`. RED evidence (genuine, captured
 against the pre-fix CSS after a stash-based ordering correction) showed 28
 failures across both engines: divider contrast (1.27:1 light, 1.40:1 dark),
 the 5:3 split, the 23.75rem-based form cap, the unruled 76px header bar and
@@ -906,6 +908,12 @@ chromium, firefox`. Measured divider contrast after the fix: light
 (881 baseline plus 11 new tests: 7 in `tests/scripts/dev/test_frontend_gate.py`,
 4 in `tests/test_template_shell.py`). All seven steps are checked off below.
 Task 4 is next.
+
+**Owner correction 2026-09-05:** F-B21-41 supersedes the state-dependent
+height bounds inherited from Task 2. A fixed window must keep the hero, form,
+type, spacing, and controls at one scale across all reachable states; added
+rows extend the document. F-B21-42 overlays both mode descriptions in one
+reserved grid track and standardizes index opacity motion at 180ms.
 
 **Owner clarification 2026-09-05:** The 28rem base cap is approved at 1080p
 too. Retain the Task 3 instructions below; Task 2 keeps its interim 23.75rem
@@ -1112,7 +1120,7 @@ at 1920 and 2560 -- not only at the wide profiles. Below the 860px breakpoint
 normal wrapping stays available. This is what `--index-scale-min` buys, so a
 failure here means the floor is too high, not that the H1 needs its own rule.
 
-- [x] **Step 7: Document, validate, commit -- complete in `c1f10e6`**
+- [x] **Step 7: Document, validate, commit -- complete in `8b37566`**
 
 Run the full gate sequence, then:
 
@@ -1533,8 +1541,9 @@ profile in both engines:
    `zoom: 1`/`normal` and `transform: none`; their growth comes from layout
    dimensions, not page or visual magnification.
 5. Both dividers read clearly in dark mode without shadows.
-6. With decade selection and thresholds open at roughly 1920x900, submit and the
-   filter tags stay reachable without document scrolling.
+6. With decade selection and thresholds open at roughly 1920x900, the hero,
+   form, type, and controls retain their collapsed-state dimensions; submit and
+   filter tags stay reachable through normal document scrolling.
 7. Both loaders show one pinwheel, one accurate counted phase label, one hairline
    matching `23 / 102` and `90 / 100`, matching ARIA,
    no backward animation at a phase switch, and a

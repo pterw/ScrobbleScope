@@ -89,9 +89,9 @@ See FINDINGS F-DOCSYNC-3.
   the two-engine runner and explicit CSS composition dimensions. Its rendered
   expanded-state guard, complete validation, and PR #224 review remediation
   passed.
-- **Next action:** **WP-4, remediation Task 2, and remediation Task 3 are
-  complete. Remediation Task 4 is implemented and validated locally (commit
-  e0219b2), awaiting task review; the review of Task 4 is the next action,
+- **Next action:** **WP-4 and remediation Tasks 2-3 are complete. Remediation
+  Task 4 is implemented and validated locally (commit e0219b2); its owner-review
+  fix for cached Heatmap restoration is underway, followed by task review and
   then Task 5 (add the unmatched no-data surface).** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
@@ -99,7 +99,10 @@ See FINDINGS F-DOCSYNC-3.
   and Firefox; it merged as PR #224. Task 3 landed the final `3fr 4fr` split,
   `28rem` form base cap, raised `--shell-border` contrast to >= 3:1 in both
   themes, and applied the ruled header clamps (`--shell-height`,
-  `--shell-control-gap`, nav-link/theme-control sizing). Task 4 aligned visible
+  `--shell-control-gap`, nav-link/theme-control sizing). The header stays
+  independently sized from `--index-scale`. Review remediation pins that
+  composition across every reachable form state and uses one fast hero/page
+  fade timing (F-B21-41, F-B21-42). Task 4 aligned visible
   loading progress with pipeline phases across Top Albums and Heatmap,
   eliminated overlapping interval polls and stale responses (F-B21-33), decoupled
   received vs attempted Last.fm counts, corrected loading composition
@@ -536,6 +539,39 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Pin index state geometry and normalize its fades (side-task)
+
+- Scope: address owner review after Task 3. The state-sensitive height
+  denominator made a fixed 1920x945 window shrink the 481.6px form to 390.5px
+  for a release field, 357.8px for thresholds, and 325.2px when both were
+  open; the hero and every scale-authored dimension changed with it. Mode-copy
+  motion also ran sequential 110ms and 180ms animations while page entrance
+  took 1.2s after a 0.2s delay and Heatmap stage fades took 300ms.
+- Implementation: removed the three reachable-state height overrides. The
+  fixed window alone now selects `--index-scale`; opening rows adds natural
+  document height. A stable root scrollbar gutter prevents Firefox's first
+  scrollbar from shifting the 3fr/4fr columns. Both hero descriptions reserve
+  one overlaid grid track, expose the active copy with `aria-hidden`, and
+  crossfade concurrently. Index entrance, hero copy, and Heatmap stage opacity
+  changes now use one 180ms duration with an immediate reduced-motion state.
+- TDD evidence: the pre-fix browser run failed in both engines and reported
+  every changed form, hero, type, spacing, and control dimension plus the
+  expanded state's missing document scroll. The permanent gate now drives six
+  states at the realistic 1920x945 content box and compares representative
+  rendered dimensions. An adversarial unit test proves material and missing
+  measurements fail; a route test pins the stable hero-copy structure.
+- Review cleanup: replaced the one implicit string concatenation called out on
+  PR #225 and corrected Task 3's stale illustrative commit ID from `c1f10e6`
+  to the actual `8b37566`.
+- Findings: F-B21-41 records the state-dependent resize and F-B21-42 records
+  the inconsistent motion. F-B21-38 now identifies its state-sensitive
+  implementation as superseded.
+- Validation after stacking on the Task 4 branch: `pytest -q` -- **904 passed**,
+  5 warnings. The complete frontend gate reports `23 checks passed in 64 runs
+  across chromium, firefox`; hooks and final docsync follow before commit.
+- Forward guidance: correct the cached-Heatmap restoration flash on PR #226
+  with the loading-progress work, then complete Task 4 review.
+
 ### 2026-09-05 - Close out the Task 4 session and stack its PR (side-task)
 
 - Scope: session close-out after Task 4's implementation pass. Corrected the
@@ -655,57 +691,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: Task 3's remaining review rounds (3/5 through 5/5) and
   the seven parked Minor findings proceed separately; Task 4 remains the
   next batch-order item once Task 3's review is fully closed.
-
-### 2026-09-05 - Remediate Task 3 review finding, raise the index well divider (side-task)
-
-- Scope: fix round 1/5 for the Task 3 owner-review finding "the index
-  page's own dividers were not raised, and the new check cannot see them".
-  `.index-form`'s `border-left` drew from the shared, still-opaque
-  `--ss-border-default` (measured ~1.12:1 light, ~1.18:1 dark against its
-  adjoining surfaces), which Task 3's `--shell-border` fix never touched.
-  Owner ruling: add a dedicated index-only divider token rather than
-  restyling the other 14 `--ss-border-default` uses in `index.css`.
-- Plan vs implementation: added `--ss-border-divider` (`#858179` light,
-  `#6e6a75` dark) to both daisyUI theme blocks in
-  `static/css/tailwind.src.css`, applied only to `.index-form`'s
-  `border-left` in `static/css/index.css`, and regenerated
-  `static/css/tailwind.css` with the qualified `tailwind_build.py` (this
-  time producing a genuine 3-line diff, since the token is new -- unlike
-  Task 3, where the same build produced no drift). `check_divider_contrast`
-  in `scripts/dev/frontend_gate.py` now also reads `.index-form`'s real
-  rendered `border-left-color` against `--color-base-100` and
-  `--ss-surface-sunken` in both themes and engines, reusing the existing
-  minimum-across-surfaces helper. `_divider_contrast_failure` gained a
-  `token` parameter (default `--shell-border`, preserving every existing
-  call site) so the new failure message names `--ss-border-divider`
-  instead of misattributing it.
-- TDD evidence: a genuine RED run against the pre-fix CSS (extended gate
-  assertion in place, `.index-form` still on `--ss-border-default`)
-  produced exactly 4 failures -- index divider light/dark in both
-  Chromium and Firefox, reporting `1.12:1` and `1.18:1`, matching the
-  reviewer's hand-computed ratios exactly. Applying the CSS fix produced a
-  genuine GREEN run: `23 checks passed in 64 runs across chromium,
-  firefox` (check count unchanged; this extends an existing check rather
-  than adding a new one).
-- Measured divider contrast (both engines agreed): light vs page
-  3.65:1, vs sunken well 3.26:1 (binding); dark vs page 3.69:1, vs sunken
-  well 3.37:1 (binding). Both clear the 3:1 floor with comparable headroom
-  to Task 3's shell-border ratios.
-- Test additions: `--ss-border-divider` added to `INDEX_TOKENS` in
-  `tests/test_template_shell.py` (covered by the existing parametrized
-  token-build test, no new test function needed). One new adversarial unit
-  test in `tests/scripts/dev/test_frontend_gate.py` asserting
-  `_divider_contrast_failure`'s `token` parameter is honoured and that the
-  default stays `--shell-border` for existing callers. A new
-  `.docsync.toml` pair of `[[value]]` declarations pins the token's light
-  and dark values across `tailwind.src.css` (both theme blocks) and
-  `tests/test_template_shell.py`.
-- Validation: full-suite `pytest -q` -- **894 passed**, 5 warnings (892
-  baseline plus the 2 new tests above). The complete frontend gate passed
-  23 checks in 64 runs across Chromium and Firefox. All pre-commit hooks
-  and `doc_state_sync.py --check` passed on the final document state.
-- Forward guidance: FINDINGS.md F-B21-40 records this defect and its
-  resolution. Task 3's broader remaining review rounds (2/5 through 5/5)
-  and the seven parked Minor findings are unaffected and proceed
-  separately; Task 4 remains the next batch-order item once Task 3's
-  review is fully closed.

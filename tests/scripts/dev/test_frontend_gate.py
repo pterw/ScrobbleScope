@@ -26,6 +26,7 @@ from scripts.dev.frontend_gate import (
     _parse_matrix_scalex,
     _parse_rgb_string,
     _relative_luminance,
+    _state_dimension_failures,
     _touch_minimum_failures,
     _worst_divider_contrast,
     check_pipeline_state_machines,
@@ -481,6 +482,26 @@ def test_clamp_px_resolves_floor_preferred_and_ceiling() -> None:
     assert _clamp_px(4.25, 2.96875, 4.75, 2560) == pytest.approx(4.75 * 16)
     # A non-default root font size scales both bounds, not the vw term.
     assert _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20) == pytest.approx(4.25 * 20)
+
+
+def test_state_dimension_failures_reports_only_material_fixed_viewport_changes() -> (
+    None
+):
+    """Expanded controls may add height but cannot rescale the composition."""
+    baseline = {"form width": 481.6, "headline font": 45.2}
+    states = {
+        "decade filter": {"form width": 481.4, "headline font": 45.2},
+        "thresholds open": {"form width": 325.2, "headline font": 30.5},
+        "missing measurement": {"form width": 481.6},
+    }
+
+    assert _state_dimension_failures(baseline, states) == [
+        "/: form width changes from 481.6px to 325.2px in thresholds open "
+        "at a fixed viewport",
+        "/: headline font changes from 45.2px to 30.5px in thresholds open "
+        "at a fixed viewport",
+        "/: missing measurement did not measure headline font",
+    ]
 
 
 def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> None:

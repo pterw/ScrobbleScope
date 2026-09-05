@@ -4,7 +4,7 @@ Last updated: 2026-09-05
 Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
 Tasks 1-4 are complete; Task 5 is next. PLAYBOOK Section 3 owns
 the current work order.
-902 tests across 40 test modules.
+904 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -138,6 +138,41 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-42: index motion used three unrelated timings and blanked mode copy between animations
+
+The index composition entered over 1.2 seconds after a 0.2-second delay,
+Heatmap stage changes used 300ms, and `switchModeHero()` ran a sequential
+110ms exit followed by a 180ms entrance. Switching modes therefore removed
+the current heading before presenting its replacement and made the hero feel
+slower than the surrounding page states.
+
+Status: resolved, 2026-09-05. The two mode descriptions now share one grid
+track and crossfade concurrently over 180ms, so the taller copy reserves the
+same height in both states. Index entrance and Heatmap stage opacity changes
+use the same 180ms timing. The reduced-motion media query restores immediate,
+fully opaque states.
+Source: owner browser review, 2026-09-05.
+
+### F-B21-41: reachable form states rescaled the entire index composition
+
+Task 2's state-sensitive height bounds made the shared `--index-scale`
+depend on which form rows were open. At a fixed 1920x945 content box, both
+engines measured the 481.6px form shrinking to 390.5px for a decade or custom
+release field, 357.8px for open thresholds, and 325.2px when both were open.
+Hero padding, wordmark, headline type, card padding, inputs, and mode controls
+all changed with it. The gate required the expanded form to avoid document
+scrolling, so it enforced the defect.
+
+Status: resolved, 2026-09-05. Reachable states no longer replace the fixed
+window's natural-height reference. Additional rows extend the document while
+the composition keeps its initial dimensions. The Chromium and Firefox gate
+now compares representative dimensions across album, Heatmap, decade,
+custom-year, thresholds, and combined states, and requires the combined state
+to produce normal document scrolling at the realistic 1080p content box.
+`scrollbar-gutter: stable` prevents Firefox from shifting the columns when
+that scrollbar first becomes necessary.
+Source: owner browser review and two-engine rendered measurements, 2026-09-05.
 
 ### F-B21-40: Task 3's divider-contrast fix did not cover the index page's own well divider
 

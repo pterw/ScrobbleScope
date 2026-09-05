@@ -40,19 +40,23 @@
         {% include 'inline/scrobble_scope_lockup_inline.svg' ignore missing %}
       </div>
 
-      <div data-mode-hero="album"{% if initial_mode == 'heatmap' %} class="hidden"{% endif %}>
-        <h1 class="index-hero__headline">Your top albums, <em>any year or decade.</em></h1>
-        <p class="eyebrow">Album filtering</p>
-        <p class="index-hero__lede">Rank a single year, a whole decade, or your entire
-          history &#8212; by play count or by the hours you actually spent listening.
-          Built for AOTY lists with the nuance the official charts never give you.</p>
-      </div>
+      <div class="index-hero__copy">
+        <div data-mode-hero="album" class="index-hero__mode-copy{% if initial_mode != 'heatmap' %} is-active{% endif %}"
+             aria-hidden="{{ 'true' if initial_mode == 'heatmap' else 'false' }}">
+          <h1 class="index-hero__headline">Your top albums, <em>any year or decade.</em></h1>
+          <p class="eyebrow">Album filtering</p>
+          <p class="index-hero__lede">Rank a single year, a whole decade, or your entire
+            history &#8212; by play count or by the hours you actually spent listening.
+            Built for AOTY lists with the nuance the official charts never give you.</p>
+        </div>
 
-      <div data-mode-hero="heatmap"{% if initial_mode != 'heatmap' %} class="hidden"{% endif %}>
-        <h1 class="index-hero__headline">Your last 365 days, <em>one grid.</em></h1>
-        <p class="eyebrow">Listening heatmap</p>
-        <p class="index-hero__lede">Every scrobble from the last 365 days, coloured on
-          the rocket scale. Hover any day to see what you played.</p>
+        <div data-mode-hero="heatmap" class="index-hero__mode-copy{% if initial_mode == 'heatmap' %} is-active{% endif %}"
+             aria-hidden="{{ 'false' if initial_mode == 'heatmap' else 'true' }}">
+          <h1 class="index-hero__headline">Your last 365 days, <em>one grid.</em></h1>
+          <p class="eyebrow">Listening heatmap</p>
+          <p class="index-hero__lede">Every scrobble from the last 365 days, coloured on
+            the rocket scale. Hover any day to see what you played.</p>
+        </div>
       </div>
 
       <ul class="index-hero__marks">

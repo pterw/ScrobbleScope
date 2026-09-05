@@ -18,6 +18,13 @@
      proportional hero gutters and the configured Adobe Fonts loaded. */
   --index-scale-min: 0.70;
   --index-scale-cap: 2.15;
+  --index-fade-duration: 180ms;
+}
+
+/* Opening the taller form must not make Firefox add a late scrollbar gutter
+   and shift the fixed-window composition horizontally. */
+html {
+  scrollbar-gutter: stable;
 }
 
 /* ------------------------------------------------------------------ */
@@ -76,7 +83,7 @@
 @media (prefers-reduced-motion: no-preference) {
   .index-grid {
     opacity: 0;
-    animation: ss-index-page-enter 1.2s ease 0.2s forwards;
+    animation: ss-index-page-enter var(--index-fade-duration) ease-out forwards;
   }
 }
 
@@ -145,6 +152,27 @@
   display: block;
   width: 100%;
   height: auto;
+}
+
+/* Both mode descriptions occupy the same grid track. The taller copy reserves
+   the track in both states, so switching modes changes paint, not geometry. */
+.index-hero__copy {
+  display: grid;
+}
+
+.index-hero__mode-copy {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--index-fade-duration) ease-out,
+    visibility 0s linear var(--index-fade-duration);
+}
+
+.index-hero__mode-copy.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 .eyebrow {
@@ -976,7 +1004,6 @@
 @media (min-width: 1200px) {
   .index-grid {
     --index-form-gutters: 6.75rem;
-    --index-height-bound: var(--index-natural-height);
     --index-scale: var(--index-scale-base);
     --index-scale: clamp(
       var(--index-scale-min),
@@ -984,7 +1011,7 @@
         calc(var(--index-scale-base) * tan(atan2(100vw, var(--index-scale-width-ref)))),
         tan(atan2(
           calc(100vh - var(--shell-height)),
-          calc(var(--index-height-bound) + var(--index-form-gutters))
+          calc(var(--index-natural-height) + var(--index-form-gutters))
         ))
       ),
       var(--index-scale-cap)
@@ -1005,31 +1032,12 @@
     padding: calc(3.25rem * var(--index-scale)) calc(3.25rem * var(--index-scale)) calc(3.5rem * var(--index-scale));
   }
 
-  /* At the 0.70 floor, readable text wraps in the contracted card. These
-     conservative bounds are measured height / factor, not natural height
-     at factor 1. Chromium/Firefox, 2026-09-05: 628.4/.70 (extra release
-     field), 692.6/.70 (thresholds), 769.4/.70 (both). Round upward to rem.
-     Only the visible album mode contributes these rows. */
-  .index-grid:has(#album-form-section:not(.hidden)):has(#release_scope option:is([value="decade"], [value="custom"]):checked) {
-    --index-height-bound: 56.125rem;
-  }
-
-  .index-grid:has(#album-form-section:not(.hidden) .disclosure[open]) {
-    --index-height-bound: 61.875rem;
-  }
-
-  .index-grid:has(#album-form-section:not(.hidden) .disclosure[open]):has(#release_scope option:is([value="decade"], [value="custom"]):checked) {
-    --index-height-bound: 68.75rem;
-  }
-
   /* Owner ruling 2026-09-05 (fix round 2): fill the padded column edge in
-     every state, collapsed or expanded. The former `35rem * scale` basis
-     bound smaller than the padded column at every measured width (602px vs
-     a 702px column at 1080p) and, once the form's height guard drops the
-     factor on expansion, shrank to ~400px in a ~743px column -- the hero
-     visibly contracted when the form opened. `.index-hero__mark` mirrors
-     the same rule so wordmark width keeps tracking the inner exactly, as it
-     always has (both used the identical formula before this change too).
+     every state, collapsed or expanded. The hero and form retain the scale
+     set by the fixed window; additional form rows add natural page height.
+     `.index-hero__mark` mirrors the same rule so wordmark width keeps
+     tracking the inner exactly, as it always has (both used the identical
+     formula before this change too).
      The mark's own comment above still explains why an unconstrained mark
      would dwarf the headline; that constraint remains true below 1200px. */
   .index-hero__inner {
