@@ -9,6 +9,140 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-04 - Review three complexity extractions in PR #223 (side-task)
+
+- Scope: split loading progress error/poll/redirect handling, index filter-label
+  selection, and optional semaphore/retry timing into focused helpers.
+- Plan vs implementation: this is partial issue #222 remediation, not closure
+  of its full complexity inventory. Existing behavior and public contracts stay
+  unchanged. Added purpose comments to the extracted JavaScript helpers.
+- Deviations: the initial PR body described only loading.js and incorrectly
+  closed the broader issue. Correct the title/body before merge. The original
+  Copilot commits carry prohibited co-author trailers; use a clean squash
+  message at integration rather than rewrite the author's branch.
+- Validation: `pytest -q`: **872 passed**, 5 warnings. The complete Firefox
+  gate passed 22 checks in 31 runs locally; Chromium passed the same 22 checks
+  in 31 runs in PR CI. Final pre-commit and docsync checks run before commit.
+- Forward guidance: resume the owner-review scaling plan before WP-5. These
+  extractions do not implement its loading-count or layout corrections.
+
+### 2026-09-04 - Clear PR #221 plan-review follow-ups (side-task)
+
+- Scope: corrected the execution plan and repository-authored Markdown before
+  the owner-authorized PR merge. Production scaling remains Task 2.
+- Review dispositions: reaffirmed accurate visible phase counts after checking
+  the September 1 owner-remediation plan and obtaining the owner's ruling;
+  required
+  nested phase-copy isolation through both repository readers, and normalized
+  the batch definition, reconciliation and Graphify report to ASCII. Filed
+  F-B21-31 and F-B21-32 with the evidence and implementation boundary. The
+  polling audit reproduced stale heatmap responses and found received-page
+  counts sourced from attempts; F-B21-33 remains open for Task 4. Sharing a
+  renderer must preserve the different album and heatmap pipeline state.
+- Plan vs implementation: verified completed snapshot work is marked without
+  rerunning historical failing steps. The touch-declaration deadlock stays
+  deferred until its minimum changes. The header advisory confused 1440p with
+  a 1440px width: 2.96875vw reaches 76px at 2560px, as intended.
+- Deviations: no production scope added. The broad README refresh stays in
+  WP-8; Firefox setup documentation will change with Task 2. Preserve and query
+  the local Graphify data; no ignore rule, graph rebuild or plugin update is
+  part of this review fix. Older fixed-form and hero-only rulings remain dated
+  history and are superseded by the final complete-composition direction.
+- Validation: `pytest -q` -- **872 passed**, 5 warnings. The frontend gate
+  reports 22 checks passed in 31 runs. All 12 pre-commit hooks and docsync
+  pass; the snapshot remains byte-identical and WT000 confirms alignment.
+- Forward guidance: refresh the PR body, post one batched review disposition,
+  and resolve only addressed threads. The owner authorized merging once review
+  is clear, then continuing Task 2 in this same worktree before WP-5.
+
+### 2026-09-04 - Reconcile PR #221 review with final scale direction (side-task)
+
+- Scope: documentation and one provenance test. Audited all nine unresolved
+  inline threads on PR #221 plus Graphify's earlier review-body advisory against
+  the current files, the stashed scale checkpoints, and the owner's final
+  direction. No production CSS, JavaScript, template or browser-gate behavior
+  changed in this review-fix commit.
+- Owner direction: the earlier hero-only zoom and fixed 600px form rulings are
+  superseded. Hero, wordmark, form, type, controls and spacing grow together
+  through explicit layout values from 1080p through the 4K ceiling. CSS zoom,
+  browser zoom and visual scale transforms are forbidden; the header remains an
+  independently sized shell. The plan now treats its untracked predecessor as
+  outcome evidence, not executable mechanism.
+- Review remediation: Task 2 now retires zoom-property assertions in favor of
+  rendered rectangles and ratios, uses realistic window content boxes, runs the
+  complete gate in Chromium and Firefox locally and in CI, migrates the root
+  `.docsync.toml` declarations when the JavaScript constants disappear, and
+  keeps the generic docsync implementation repository-independent. Task 3 uses
+  the 3:4 split and a proportional 28rem base form cap, keeps controls in that
+  same scale relationship, implements the already-ruled header clamps, and
+  mutation-checks that zoom and transform scaling stay absent.
+- Snapshot and command guards: `tests/test_design_snapshot.py` now hashes one
+  deterministic manifest of all 61 imported design paths and bytes while
+  excluding repository-owned `RECONCILIATION.md`; edits, additions, deletions
+  and renames all invalidate it. Repository-relative POSIX path sorting keeps
+  the aggregate order identical on Windows and Linux. Its pytest assertion
+  carries an explicit B101 suppression. The historical restore instruction now
+  uses `git restore` instead of a PowerShell pipeline that could concatenate
+  lines.
+- Test-count check: the observed 871/872 discrepancy crossed two different
+  commits while another process advanced the branch. The current tree and all
+  live records agree on 872. Docsync validates the latest recorded `pytest -q`
+  result but deliberately does not execute pytest, so no same-revision docsync
+  defect was reproduced. A future generic control-plane hardening would guard
+  that HEAD did not change across a validation run, not encode a
+  ScrobbleScope-specific test-count rule.
+- Stash audit: `checkpoint/pr220-deferred-loading-progress-build` and
+  `checkpoint/pr220-scale-isolated-gates` confirm the complete-composition
+  relationship and a wider form, but both use the rejected CSS-zoom mechanism
+  and the old 1080px height denominator. Neither stash was applied or changed.
+- Validation: the focused snapshot test passes, and a temporary 62nd imported
+  file made it fail before removal and a clean rerun. `pytest -q` reports
+  **872 passed**, 5 warnings. The frontend gate reports 22 checks passed in 31
+  runs across desktop, mobile and wide touch. All 12 pre-commit hooks,
+  `doc_state_sync.py --check`, `git diff --check`, and the worktree guard pass;
+  WT010 is the expected dirty-tree warning and WT000 confirms branch alignment.
+
+### 2026-09-04 - Graphify knowledge-graph build and audit published (side-task)
+
+- Scope: built a graphify knowledge graph over the worktree corpus (301
+  files, ~375k words) and published the report at
+  `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md`. The graph reflects
+  `wip/batch-21` at `ee285ac`, not `origin/main` -- a provenance block in
+  the report head says so, so an agent bootstrapping from `origin/main`
+  knows the docs-layer nodes describe unmerged work. The graph itself
+  stays untracked in `graphify-out/`; the report is the tracked record.
+  Built so agents can understand the repository faster at bootstrap.
+- Build shape: 3,103 nodes, 5,896 edges, 248 communities (2,387 AST from
+  code + 739 semantic from docs). Semantic extraction ran as 18 subagent
+  chunks after two full-size chunks repeatedly failed on provider stream
+  errors; smaller chunks succeeded. Top 15 communities were named from
+  their top node labels; the long tail keeps default names.
+- Verification notes are in the report head. Two of its own suggestions
+  were traced and disproved as extraction artifacts: the `_reach_state()`
+  "bridge" rests on one INFERRED exception-as-callee edge, and the `patch`
+  node's 133 INFERRED edges are `unittest.mock.patch` test wiring. The
+  verified-genuine findings are the `create_app()` hub bridging factory,
+  gate, config and shell-test communities, and the Batch 11-13 log edges
+  into the `orchestrator.py` and `utils.py` functions those batches
+  shipped.
+- Corpus exclusion recorded in the report:
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` was excluded from
+  semantic extraction as too large to parse; its durable content is
+  represented by the batch definitions and per-batch logs, which were
+  extracted.
+- Plan vs implementation: no production code changed. This is a read-only
+  research artifact plus its publication commit. The pipeline integration
+  question (docsync declarations pinning graph facts, automated rebuilds)
+  is deferred to the future extraction batch described in `AGENT_NOTES.md`;
+  nothing was wired into any gate.
+- Deviations: none.
+- Validation: `pytest -q` -- **872 passed**. All 12 pre-commit hooks pass.
+  Worktree guard exits 0. `doc_state_sync.py --check` exits 0.
+- Forward guidance: future agents can query the graph with
+  `graphify query "<question>"` from the worktree; `graphify --update`
+  re-extracts only changed files. Read the report head before trusting any
+  "surprising connection" it suggests -- two of five were artifacts.
+
 ### 2026-09-02 - Remediate PR #221 review round one (side-task)
 
 - Scope: documentation and tests. Six bot findings on PR #221, from Codex, qlty

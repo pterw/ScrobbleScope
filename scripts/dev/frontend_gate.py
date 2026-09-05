@@ -6,7 +6,7 @@ stylesheet a page loads, what a token resolves to, whether the theme survives a
 reload, whether a font actually arrives -- have nothing enforcing them.
 
 This script closes that gap. It starts the real Flask app on a loopback port it
-owns, drives a real Chromium, and asserts those properties. It needs no
+owns, drives Chromium and Firefox, and asserts those properties. It needs no
 separately running server and no MCP service, so it runs the same way locally
 and in CI.
 
@@ -63,7 +63,9 @@ from scrobblescope.repositories import (  # noqa: E402
     set_job_stat,
 )
 
-SETUP_COMMAND = "python -m playwright install chromium"
+BROWSER_NAMES = ("chromium", "firefox")
+SETUP_COMMAND = "python -m playwright install chromium firefox"
+FONTS_READY_EXPRESSION = "document.fonts.ready"
 
 #: Cool-grey surfaces the warm themes replaced. Batch criterion 2 forbids them.
 FORBIDDEN_SURFACES = ("rgb(248, 249, 250)", "rgb(18, 18, 18)")
@@ -231,17 +233,17 @@ def _load_playwright():
     return sync_playwright
 
 
-def _launch_chromium(playwright, *, headless: bool = True):
-    """Launch Chromium, translating a missing browser build into guidance.
+def _launch_browser(playwright, browser_name: str, *, headless: bool = True):
+    """Launch the named engine, translating a missing build into guidance.
 
     Pinning the package does not fetch the browser. The two failures look
     completely different but have the same remedy.
     """
     try:
-        return playwright.chromium.launch(headless=headless)
+        return getattr(playwright, browser_name).launch(headless=headless)
     except Exception as exc:
         raise FrontendGateError(
-            f"Chromium is not available to Playwright. Run: {SETUP_COMMAND}"
+            f"{browser_name} is not available to Playwright. Run: {SETUP_COMMAND}"
         ) from exc
 
 
@@ -1489,25 +1491,51 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "wordmark": ".index-hero__mark",
         "headline": ".index-hero__headline",
         "form": ".ss-card",
+        "submit": ".ss-submit",
+        "field": ".field",
+        "label": ".field__label",
+        "theme control": ".site-header__theme-toggle",
         "input": ".ss-input",
         "mode tab": ".mode-pill",
         "page navigation": ".site-header__nav-link",
     }
     scalable_dimensions = {
-        "wordmark": ("width", "height"),
-        "input": ("height",),
-        "mode tab": ("height",),
+        "hero composition": ("width", "height"),
+        "form composition": ("width", "height"),
+        "wordmark": ("width", "height", "marginBottom"),
+        "headline": ("fontSize", "lineHeight", "marginBottom"),
+        "form": ("width", "height", "paddingTop"),
+        "input": ("height", "fontSize"),
+        "mode tab": ("height", "fontSize"),
+        "submit": ("height", "fontSize", "marginTop"),
+        "field": ("marginBottom",),
+        "label": ("fontSize",),
     }
     fixed_dimensions = {
-        # A heading inherits the shared composition scale through its parent;
-        # getComputedStyle reports its authored size, which stays relative.
-        "headline": ("fontSize",),
         "page navigation": ("width", "height", "fontSize"),
+        "theme control": ("width", "height", "fontSize"),
+        "form": ("borderTopWidth", "borderTopLeftRadius"),
+        "input": ("borderTopWidth", "borderTopLeftRadius"),
+    }
+    # Fresh installed Chrome, temporary profile, maximised, no_viewport=True,
+    # 100% page/OS scaling; measured 2026-09-04 on both owner panels:
+    # 1920x1200 -> inner 1920x1065 (outer 1920x1152),
+    # 2560x1440 -> inner 2560x1305 (outer 2560x1392).
+    # The 135px panel-to-content difference includes desktop chrome. 1080p
+    # and 4K below are DERIVED using that overhead, not measured panels.
+    # set_viewport_size consumes these content boxes in both renderers.
+    windows = {
+        "1080p": (1920, 945),
+        "1200p measured": (1920, 1065),
+        "1440p": (2560, 1305),
+        "4K": (3840, 2025),
     }
 
     def measure(width: int, height: int):
+        """Read real rectangles and computed authored dimensions after fonts load."""
         page.set_viewport_size({"width": width, "height": height})
         page.goto(f"{base_url}/", wait_until="load")
+        page.evaluate(FONTS_READY_EXPRESSION)
         return page.evaluate(
             """(targets) => Object.fromEntries(
                 Object.entries(targets).map(([name, selector]) => {
@@ -1519,7 +1547,12 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                         width: rect.width,
                         height: rect.height,
                         fontSize: parseFloat(style.fontSize),
-                        zoom: parseFloat(style.zoom),
+                        lineHeight: parseFloat(style.lineHeight),
+                        marginTop: parseFloat(style.marginTop),
+                        marginBottom: parseFloat(style.marginBottom),
+                        paddingTop: parseFloat(style.paddingTop),
+                        borderTopWidth: parseFloat(style.borderTopWidth),
+                        borderTopLeftRadius: parseFloat(style.borderTopLeftRadius),
                     }];
                 })
             )""",
@@ -1527,6 +1560,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         )
 
     def measure_wide_layout():
+        """Read the independent columns, centred card and fixed shell."""
         return page.evaluate(
             """() => {
                 const hero = document.querySelector('.index-hero');
@@ -1552,8 +1586,12 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         )
 
     def measure_compact_height():
+        """Exercise the tallest reachable album form in a short desktop window."""
         page.set_viewport_size({"width": 1920, "height": 900})
         page.goto(f"{base_url}/", wait_until="load")
+        page.locator("#release_scope").select_option("decade")
+        page.locator(".disclosure__summary").click()
+        page.evaluate(FONTS_READY_EXPRESSION)
         return page.evaluate(
             """() => {
                 const formColumn = document.querySelector('.index-form');
@@ -1572,43 +1610,80 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         )
 
     try:
-        at_1080p = measure(1920, 1080)
-        layout_1080p = measure_wide_layout()
-        at_1440p = measure(2560, 1440)
-        layout_1440p = measure_wide_layout()
-        at_4k = measure(3840, 2160)
-        layout_4k = measure_wide_layout()
+        measured_sizes = {}
+        layouts = {}
+        for label, (width, height) in windows.items():
+            measured_sizes[label] = measure(width, height)
+            layouts[label] = measure_wide_layout()
         at_mobile = measure(390, 844)
+        mobile_layout = page.evaluate(
+            """() => ({
+            factor: getComputedStyle(document.querySelector('.index-grid'))
+                .getPropertyValue('--index-scale').trim(),
+            columns: getComputedStyle(document.querySelector('.index-grid'))
+                .gridTemplateColumns.split(' ').length,
+        })"""
+        )
         compact_height = measure_compact_height()
+        # Reset the expanded state: this probe exercises the initial form's
+        # font-relative height denominator, with the root enlarged to 20px.
+        page.goto(f"{base_url}/", wait_until="load")
+        page.evaluate(FONTS_READY_EXPRESSION)
+        old_root = page.evaluate("document.documentElement.style.fontSize")
+        try:
+            root_measurement = page.evaluate(
+                """() => {
+                document.documentElement.style.fontSize = '20px';
+                return document.querySelector('.index-form__inner')
+                    .getBoundingClientRect().width;
+            }"""
+            )
+        finally:
+            page.evaluate(
+                "fontSize => { document.documentElement.style.fontSize = fontSize; }",
+                old_root,
+            )
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
 
     failures = []
-    expected_scales = {"1080p": 1.075, "1440p": 1.075 * (4 / 3), "4K": 2.15}
-    measured_sizes = {
-        "1080p": at_1080p,
-        "1440p": at_1440p,
-        "4K": at_4k,
+    expected_scales = {
+        label: min(
+            2.15, max(0.70, min(1.075 * width / 1920, (height - 76) / (673 + 108)))
+        )
+        for label, (width, height) in windows.items()
     }
+    at_1080p = measured_sizes["1080p"]
+    layout_1080p = layouts["1080p"]
     for label, measurements in measured_sizes.items():
         for name in selectors:
             if measurements.get(name) is None:
                 failures.append(f"/: {name} could not be measured at {label}")
-        for name in ("hero composition", "form composition"):
-            if abs(measurements[name]["zoom"] - expected_scales[label]) > 0.001:
-                failures.append(
-                    f"/: {name} has scale {measurements[name]['zoom']:.3f} at {label}, "
-                    f"expected {expected_scales[label]:.3f}"
-                )
+    if failures:
+        return failures
+    expected_root_width = 23.75 * 20 * ((900 - 4.75 * 20) / ((42.0625 + 4) * 20))
+    if abs(root_measurement - expected_root_width) > 1:
+        failures.append(
+            f"/: enlarged-root form width is {root_measurement:.1f}px, "
+            f"expected font-relative height guard {expected_root_width:.1f}px"
+        )
     baseline_scale = expected_scales["1080p"]
-    for label in ("1440p", "4K"):
+    for label in ("1200p measured", "1440p", "4K"):
         ratio = expected_scales[label] / baseline_scale
         for name, dimensions in scalable_dimensions.items():
             for dimension in dimensions:
-                expected = at_1080p[name][dimension] * ratio
+                # Only stacked, auto-height borders add fixed height: card
+                # (2), segment track (2), disclosure separator (1), plus
+                # mode track (2) and filter-tag row (2) in the outer wrapper.
+                fixed_height = {"form": 5, "form composition": 9}.get(name, 0)
+                fixed = fixed_height if dimension == "height" else 0
+                expected = (at_1080p[name][dimension] - fixed) * ratio + fixed
                 actual = measured_sizes[label][name][dimension]
-                if abs(actual - expected) > 1.0:
+                # Fine borders stay 1px: stacked border boxes can differ by
+                # a few pixels even when every content dimension scales.
+                tolerance = 4 if dimension == "height" else 1
+                if abs(actual - expected) > tolerance:
                     failures.append(
                         f"/: {name} {dimension} is {actual:.1f}px at {label}, "
                         f"expected proportional {expected:.1f}px"
@@ -1626,19 +1701,23 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                         f"/: {name} {dimension} changes outside the shared composition"
                     )
     for name in ("hero composition", "form composition"):
-        if abs(at_mobile[name]["zoom"] - 1) > 0.001:
-            failures.append(f"/: {name} desktop scale leaked into the mobile layout")
+        growth = measured_sizes["1440p"][name]["width"] / at_1080p[name]["width"]
+        if growth < 1.20:
+            failures.append(
+                f"/: {name} grows only {growth:.3f}x from a real 1080p "
+                "window to a real 1440p window; expected at least 1.20x"
+            )
+    if mobile_layout["factor"] or mobile_layout["columns"] != 1:
+        failures.append("/: desktop factor leaked into the mobile one-column layout")
+    if at_mobile["input"]["height"] < 44 or at_mobile["input"]["fontSize"] < 16:
+        failures.append("/: mobile input lost its touch or text minimum")
 
     split_ratio = layout_1080p["applicationWidth"] / layout_1080p["heroWidth"]
     if abs(split_ratio - (5 / 3)) > 0.02:
         failures.append(
             f"/: wide desktop split is {split_ratio:.3f}, expected 5:3 application-to-hero"
         )
-    for label, layout in (
-        ("1080p", layout_1080p),
-        ("1440p", layout_1440p),
-        ("4K", layout_4k),
-    ):
+    for label, layout in layouts.items():
         expected_form_width = 23.75 * 16 * expected_scales[label]
         left_gutter = layout["formInnerLeft"] - layout["formLeft"]
         right_gutter = layout["formRight"] - layout["formInnerRight"]
@@ -1662,11 +1741,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             )
 
     if (
-        abs(compact_height["paddingTop"] - 32) > 0.5
-        or abs(compact_height["paddingBottom"] - 32) > 0.5
+        abs(compact_height["paddingTop"] - 32 * (824 / 1164)) > 0.5
+        or abs(compact_height["paddingBottom"] - 32 * (824 / 1164)) > 0.5
     ):
         failures.append(
-            "/: compact desktop height did not reduce form-column padding to 2rem"
+            "/: compact desktop height lost proportional 2rem form-column padding"
         )
     if compact_height["submitBottom"] > compact_height["viewportHeight"] + 0.5:
         failures.append("/: compact-height form leaves the submit button below view")
@@ -1674,6 +1753,97 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         failures.append("/: compact-height form leaves filter tags below view")
     if compact_height["documentHeight"] > compact_height["viewportHeight"] + 1:
         failures.append("/: compact-height form requires document scrolling")
+    failures.extend(_check_desktop_scale_bounds(page, base_url))
+    return failures
+
+
+def _touch_minimum_failures(
+    width: int, rectangles: dict[str, dict[str, float]]
+) -> list[str]:
+    """Name every control whose rendered box falls below the touch minimum."""
+    return [
+        f"/: {selector} loses its touch minimum at {width}px"
+        for selector, rectangle in rectangles.items()
+        if min(rectangle.values()) < 43.9
+    ]
+
+
+def _headline_wrap_failures(probe) -> list[str]:
+    """Name each desktop mode whose headline wraps at the narrow boundary."""
+    failures = []
+    for mode in ("album", "heatmap"):
+        probe.locator(f"#mode-tab-{mode}").click()
+        headline = probe.locator(f'[data-mode-hero="{mode}"] h1')
+        headline.wait_for(state="visible")
+        dimensions = headline.evaluate(
+            """node => ({
+            height: node.getBoundingClientRect().height,
+            lineHeight: parseFloat(getComputedStyle(node).lineHeight),
+        })"""
+        )
+        if dimensions["height"] > dimensions["lineHeight"] * 1.2:
+            failures.append(f"/: {mode} headline wraps at the 1200px desktop boundary")
+    return failures
+
+
+def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
+    """Exercise readable narrow headlines, expanded states and wide touch growth.
+
+    These use an isolated context because touch capability is immutable per
+    context, and no diagnostic may leave its mode or viewport on the caller.
+    """
+    failures = []
+    context = page.context.browser.new_context(has_touch=True)
+    try:
+        probe = context.new_page()
+        probe.set_viewport_size({"width": 1200, "height": 900})
+        probe.goto(f"{base_url}/", wait_until="load")
+        probe.evaluate(FONTS_READY_EXPRESSION)
+        failures.extend(_headline_wrap_failures(probe))
+        widths = {}
+        for width, height in ((1920, 945), (2560, 1305)):
+            probe.set_viewport_size({"width": width, "height": height})
+            probe.goto(f"{base_url}/", wait_until="load")
+            probe.locator("#release_scope").select_option("decade")
+            probe.locator(".disclosure__summary").click()
+            probe.evaluate(FONTS_READY_EXPRESSION)
+            widths[width] = probe.evaluate(
+                """() => Object.fromEntries(
+                ['.mode-pill', '.seg__option', '.decade-pill', '.disclosure__summary',
+                 '.stepper__value', '.ss-input'].map(selector => {
+                    const rect = document.querySelector(selector).getBoundingClientRect();
+                    return [selector, {width: rect.width, height: rect.height}];
+                }))"""
+            )
+            failures.extend(_touch_minimum_failures(width, widths[width]))
+        # The open form may contract to fit its state. Compare controls at a
+        # tall window so that this check tests proportional touch dimensions.
+        for width in (1920, 2560):
+            probe.set_viewport_size({"width": width, "height": 2025})
+            probe.goto(f"{base_url}/", wait_until="load")
+            probe.locator("#release_scope").select_option("decade")
+            probe.locator(".disclosure__summary").click()
+            widths[width] = probe.evaluate(
+                """() => Object.fromEntries(
+                ['.mode-pill', '.seg__option', '.decade-pill', '.disclosure__summary'].map(selector =>
+                    [selector, document.querySelector(selector).getBoundingClientRect().height]))"""
+            )
+        authored_heights = {
+            ".mode-pill": 44,
+            ".seg__option": 38,
+            ".decade-pill": 30,
+            ".disclosure__summary": 32,
+        }
+        for width, controls in widths.items():
+            for selector, actual in controls.items():
+                expected = max(44, authored_heights[selector] * 1.075 * width / 1920)
+                if abs(actual - expected) > 1:
+                    failures.append(
+                        f"/: {selector} touch height is {actual:.1f}px at {width}px, "
+                        f"expected authored size with touch floor {expected:.1f}px"
+                    )
+    finally:
+        context.close()
     return failures
 
 
@@ -1887,7 +2057,7 @@ CHECKS = (
 
 #: How many check runs a clean pass performs. Printed so a check that silently
 #: stops running is visible as a smaller number.
-PLANNED_RUNS = sum(len(viewports) for _, _, viewports in CHECKS)
+PLANNED_RUNS = len(BROWSER_NAMES) * sum(len(viewports) for _, _, viewports in CHECKS)
 
 
 def run_checks(new_page, base_url: str) -> list[str]:
@@ -1950,15 +2120,33 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         sync_playwright = _load_playwright()
         with serve_app() as base_url, sync_playwright() as playwright:
-            browser = _launch_chromium(playwright, headless=not args.headed)
-            try:
-                # One context per profile, all closed with the browser.
-                failures = run_checks(
-                    lambda spec: browser.new_context(**spec).new_page(),
-                    base_url,
-                )
-            finally:
-                browser.close()
+            failures = []
+            for browser_name in BROWSER_NAMES:
+                browser = None
+                try:
+                    browser = _launch_browser(
+                        playwright, browser_name, headless=not args.headed
+                    )
+                    # One context per profile, all closed with this engine.
+                    results = run_checks(
+                        lambda spec, browser=browser: browser.new_context(
+                            **spec
+                        ).new_page(),
+                        base_url,
+                    )
+                    failures.extend(f"{browser_name}: {result}" for result in results)
+                except Exception as exc:  # noqa: BLE001 - continue with the next engine
+                    failures.append(
+                        f"{browser_name}: raised {type(exc).__name__}: {exc}"
+                    )
+                finally:
+                    if browser is not None:
+                        try:
+                            browser.close()
+                        except Exception as exc:  # noqa: BLE001 - report cleanup faults
+                            failures.append(
+                                f"{browser_name}: close raised {type(exc).__name__}: {exc}"
+                            )
     except FrontendGateError as exc:
         print(f"[frontend_gate] ERROR: {exc}", file=sys.stderr)
         return 1
@@ -1970,7 +2158,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(
         f"[frontend_gate] {len(CHECKS)} checks passed in {PLANNED_RUNS} runs "
-        f"across {', '.join(VIEWPORTS)}"
+        f"across {', '.join(BROWSER_NAMES)}; profiles: {', '.join(VIEWPORTS)}"
     )
     return 0
 

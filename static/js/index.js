@@ -1,28 +1,4 @@
 // static/js/index.js
-const WIDE_DESKTOP_BASE_SCALE = 1.075;
-const WIDE_DESKTOP_SCALE_CAP = 2.15;
-
-function syncWideDesktopScale() {
-  const viewportFactor = Math.max(
-    1,
-    Math.min(window.innerWidth / 1920, window.innerHeight / 1080)
-  );
-  const scale = Math.min(
-    WIDE_DESKTOP_SCALE_CAP,
-    WIDE_DESKTOP_BASE_SCALE * viewportFactor
-  );
-
-  document.documentElement.style.setProperty('--index-wide-scale', String(scale));
-}
-
-syncWideDesktopScale();
-
-let scaleAnimationFrame = 0;
-window.addEventListener('resize', () => {
-  cancelAnimationFrame(scaleAnimationFrame);
-  scaleAnimationFrame = requestAnimationFrame(syncWideDesktopScale);
-});
-
 document.addEventListener('DOMContentLoaded', () => {
   /* ---------- Release-scope dropdowns ---------- */
   const scope            = document.getElementById('release_scope');

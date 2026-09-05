@@ -27,9 +27,10 @@ v4 generated CSS, pytest, Playwright frontend gate.
 
 ## Why this plan supersedes the 2026-09-01 remediation plan
 
-`docs/superpowers/plans/2026-09-01-owner-review-remediation.md` is untracked and
-was written before the failure was diagnosed. Keep it for reference; do not
-execute it. Its Tasks 2 and 3 are sound and are carried forward here almost
+`docs/superpowers/plans/2026-09-01-owner-review-remediation.md` is a tracked
+historical plan written before the failure was diagnosed. This plan is the
+canonical execution plan, subject to later owner rulings and the active batch
+definition. Keep the earlier plan for reference; do not execute it. Its Tasks 2 and 3 are sound and are carried forward here almost
 unchanged. Its Task 1 rests on four claims that measurement disproved.
 
 | Claim in that plan | Measured reality |
@@ -473,7 +474,7 @@ snapshot manifest.
 Prove the new `expect` values are live rather than decorative: change one of
 them by a digit, re-run `--check`, confirm it fails, and change it back.
 
-Commit `eeaa1a8` hardened every snapshot site whose declaration pattern exposes
+Commit `eeaa1a8` began hardening snapshot sites whose declaration pattern exposes
 a captured value. The 44px touch-target sites remain presence-only and cannot
 bind an `expect`; keep that deadlock deferred unless the touch minimum changes.
 
@@ -504,6 +505,19 @@ Stop for owner review.
 
 ## Task 2: Make the gate model real windows, then fix the scale in pure CSS
 
+**Execution checkpoint 2026-09-05:** Task 2 is complete -- implemented,
+validated, committed as `ac6b1b1`, pushed, and opened as PR #224 with owner
+authorization. Its review-remediation passes restore the original authored
+geometry, add adversarial coverage for the boundary helpers, reduce the flagged
+orchestrator complexity, and reconcile live status documents. The remediation
+passed 881 tests and the complete frontend gate (22 checks, 62 runs, Chromium
+and Firefox). All nine steps are checked off below.
+Measurements and the expanded-state guard correction are recorded in
+`FINDINGS.md` F-B21-38. PLAYBOOK Sections 3-4 own current status and
+validation results. The original owner-review notes remain historical; this
+plan owns the superseding execution requirements. Task 3 is next, on its own
+commit and review cycle.
+
 The gate change and the CSS change ship together. The gate change alone turns
 the suite red, and a red commit must not be left standing.
 
@@ -526,7 +540,10 @@ the suite red, and a red commit must not be left standing.
   index composition with real window geometry, with no JavaScript, CSS
   `zoom`, or visual transform.
 
-- [ ] **Step 1: Replace the gate's viewport matrix with real window geometry**
+- [x] **Step 1: Replace the gate's viewport matrix with real window geometry --
+      complete in `ac6b1b1`.** Content boxes measured 2026-09-04 on both owner
+      panels (1920x1065 and 2560x1305); 1080p and 4K derived and labelled as
+      such in the gate comment.
 
 In `check_large_display_scale_parity`, replace the display-panel dimensions with
 window content-box dimensions, and document why.
@@ -603,7 +620,8 @@ number nobody measured.
     }
 ```
 
-- [ ] **Step 2: Run the complete visual matrix in Chromium and Firefox**
+- [x] **Step 2: Run the complete visual matrix in Chromium and Firefox --
+      complete in `ac6b1b1`.**
 
 The owner adopted Firefox for regression insurance, so changing only the scale
 check is incomplete. Make the browser lifecycle itself engine-aware:
@@ -635,7 +653,10 @@ profiles; Firefox is a second renderer, not a second geometry specification.
 Record in PLAYBOOK that the complete gate's wall time is expected to roughly
 double.
 
-- [ ] **Step 3: Make the gate assert rendered proportional relationships**
+- [x] **Step 3: Make the gate assert rendered proportional relationships --
+      complete in `ac6b1b1`.** The measured 1200px floor is 0.70, not the
+      estimated 0.85; see F-B21-38 for the boundary and expanded-state
+      corrections this measurement forced.
 
 `check_large_display_scale_parity` was written around the staged JavaScript
 plus CSS-`zoom` attempt. Step 5 removes that mechanism but preserves its
@@ -693,7 +714,8 @@ line; record the value, browser, and date. Expect roughly 0.85, but do not turn
 that estimate into source. Task 3 Step 6 makes the one-line relationship a
 permanent multi-width assertion.
 
-- [ ] **Step 4: Run the gate and confirm it fails**
+- [x] **Step 4: Run the gate and confirm it fails -- historical red run
+      recorded in `task-2-red-gate.log`.**
 
 ```powershell
 python scripts/dev/frontend_gate.py
@@ -703,7 +725,8 @@ Expected: FAIL. Both composition wrappers report growth well below the required
 relationship at the owner's real 1440p geometry, because the JavaScript formula
 is height-limited. A failure naming only the hero is incomplete.
 
-- [ ] **Step 5: Replace JavaScript and `zoom` with a CSS layout factor**
+- [x] **Step 5: Replace JavaScript and `zoom` with a CSS layout factor --
+      complete in `ac6b1b1`.**
 
 Delete lines 1-24 of `static/js/index.js` -- `WIDE_DESKTOP_BASE_SCALE`,
 `WIDE_DESKTOP_SCALE_CAP`, `syncWideDesktopScale`, its call,
@@ -776,7 +799,7 @@ Declare the tokens once, near the top of `static/css/index.css`:
   /* Measured 2026-09-01 at zoom 1: hero column 324px, form column 673px. The
      height guard uses the taller. Re-measure if the form gains or loses a row;
      an over-large value makes the guard bind too early and stops the growth. */
-  --index-natural-height: 673px;
+  --index-natural-height: 42.0625rem;
   --index-scale-width-ref: 1920px;
   --index-scale-base: 1.075;
   /* The floor sits below the base so the complete composition can contract at
@@ -789,12 +812,17 @@ Declare the tokens once, near the top of `static/css/index.css`:
 ```
 
 `--index-scale-base` stays the multiplier inside the calculation.
+The measured 673px height is 42.0625rem at the measured 16px root. Keep that
+denominator font-relative so it follows the content when a reader raises the
+default font size. Exercise a 20px root in both engines and restore page state
+after the check; an enlarged root must not be treated as a fixed-pixel panel.
 `--index-scale-min` governs contraction below the 1920px reference, and 2.15
 is the 4K ceiling from the owner remediation. If the CSS arithmetic is not
 supported in either engine, stop and choose another layout-aware mechanism;
 never fall back to `zoom` or `transform`.
 
-- [ ] **Step 6: Run the gate and confirm it passes**
+- [x] **Step 6: Run the gate and confirm it passes -- complete 2026-09-05.**
+      22 checks, 62 runs, Chromium and Firefox.
 
 ```powershell
 python scripts/dev/frontend_gate.py
@@ -807,7 +835,9 @@ the 1.20 growth floor and their representative type, controls and spacing keep
 the baseline ratios. Verify rendered geometry, never only the custom-property
 string.
 
-- [ ] **Step 7: Prove the guard still protects a short window**
+- [x] **Step 7: Prove the guard still protects a short window -- complete
+      2026-09-05.** Expanded decade-plus-threshold state fits 1920x900 in
+      both engines with no document scrolling.
 
 ```powershell
 python scripts/dev/frontend_gate.py
@@ -818,7 +848,8 @@ selector driven and thresholds open: the submit button's bottom edge at or above
 the viewport bottom, with no document scrolling at default zoom. If it fails,
 `--index-natural-height` is too small; re-measure rather than guessing.
 
-- [ ] **Step 8: Correct every live document that describes the old formula**
+- [x] **Step 8: Correct every live document that describes the old formula --
+      complete in `ac6b1b1`.** Repo-wide sweeps came back clean on 2026-09-05.
 
 The formula is quoted in more than one place. Grep before editing, per the
 Anti-Pattern Registry:
@@ -840,7 +871,8 @@ deleted JavaScript constants to `--index-scale-base` and
 the TOML names this repository's duplicated facts; no ScrobbleScope scale name
 belongs in `scripts/docsync/`.
 
-- [ ] **Step 9: Document, validate, commit**
+- [x] **Step 9: Document, validate, commit -- complete in `ac6b1b1`, pushed
+      and opened as PR #224 on 2026-09-05 with owner authorization.**
 
 ```powershell
 python scripts/doc_state_sync.py --fix
@@ -860,6 +892,10 @@ Stop for owner review.
 ---
 
 ## Task 3: Widen the composition and raise divider contrast
+
+**Owner clarification 2026-09-05:** The 28rem base cap is approved at 1080p
+too. Retain the Task 3 instructions below; Task 2 keeps its interim 23.75rem
+base until this task runs.
 
 **Files:**
 - Modify: `static/css/index.css` (grid split, form cap)
@@ -1068,6 +1104,13 @@ Stop for owner review.
 ---
 
 ## Task 4: Align visible loading progress with pipeline phases
+
+**Loading composition corrections (owner screenshot, 2026-09-04):** remove the
+secondary sentence that repeats the active phase, center the stat group when
+only Pages fetched is visible, and remove `rocket scale` from the loading
+parameter summary. Keep useful username and date-window context. Validate the
+one-stat and multi-stat states; hiding two children must not reserve empty
+columns. Counts remain subject to the accuracy contract below.
 
 **Accuracy prerequisite (owner, 2026-09-04).** Share presentation, not pipeline
 or polling state. Albums fetch Last.fm (overall 5-20%), search Spotify (20-40%)

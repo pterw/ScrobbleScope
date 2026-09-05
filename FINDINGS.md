@@ -1,23 +1,10 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-08-28
-Status: Batch 21 (UI overhaul -- Tailwind + daisyUI migration) is ACTIVE;
-WP-0 through WP-3 done. PR #171 merged 2026-08-19 (`bb187ae`). F-SWE-2 was
-resolved 2026-08-20, clearing the F-SWE-1 migration block. The root-hygiene
-side task closed 2026-08-20 and the design handoff imported 2026-08-21. Two
-WP-1 review items were filed as F-B21-6 and F-B21-7 on 2026-08-22, and
-F-B21-8 records the Tailwind source-scope defect PR #173 exposed. WP-2
-resolved F-B21-2, F-B21-7 and F-AUDIT-1 on 2026-08-23, and filed F-B21-10,
-F-B21-11 and F-B21-12. PR #216 review filed F-B21-13. WP-3 resolved F-B21-11
-and F-B18-12 and filed F-B21-14 through F-B21-20. The owner's review of the
-deployed merge then added F-B21-21 (resolved the same day), F-B21-22,
-F-B21-23 and F-B21-24, and the workflow review that followed it added
-F-B21-25. The production differential on 2026-08-28 added F-B21-26 and the
-private-profile submission defect F-B21-27. Recent owner review also filed
-F-B21-28 through F-B21-30. The canonical routing and navigation prerequisite
-and WP-4 unified loading rebuild are complete;
-**WP-5 is next.**
-872 tests across 40 test modules.
+Last updated: 2026-09-05
+Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
+Tasks 1-2 are complete; Task 3 is next before WP-5. PLAYBOOK Section 3 owns
+the current work order.
+881 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -151,6 +138,92 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-37: PR #223 understates its refactor scope and omits its execution log
+
+PR #223 describes a loading.js-only refactor, but head a38044b also changes
+index filter labels and the shared Python retry helper without a PLAYBOOK entry.
+
+Status: Resolved -- PR #223 merged as 123b127 with corrected scope, a side-task
+log, and documented helpers. Validation passed 872 tests and the complete
+22-check, 31-run frontend gate in Chromium and Firefox. This was a review and
+documentation defect; the inspected diff did not establish a functional
+regression. GitHub closed issue #222 on merge despite the partial-scope body;
+it was reopened because the remaining complexity targets are not addressed.
+Source: Owner-requested PR #223 merge-readiness review, 2026-09-04.
+
+### F-B21-34: one captured snapshot kit URL lacked an explicit expectation
+
+The reference design README's URL capture still participated in live-kit
+comparison although its prose capture was pinned as historical evidence.
+
+Added the same snapshot expectation to that URL site. This completes the
+capture isolation without changing the Adobe kit, its fonts, or provider.
+
+Status: resolved, 2026-09-04.
+Source: late PR #221 review thread 3938613706; owner provider clarification.
+
+### F-B21-38: Task 2's fixed gutters and collapsed height could not protect its boundary states
+
+The proposed minimum alone could not fit the longest headline at 1200px, and
+the 673px natural-height guard described the collapsed form rather than the
+required decade-plus-open-threshold state.
+
+With fixed hero gutters, both engines measured a one-line album headline at
+0.63 and wrapping at 0.64, but the width term already selected 0.671875, so a
+lower clamp minimum could not change the rendered result. Scaling the hero
+gutters with the composition supports both mode headlines at 0.70; 0.71 wraps
+the album headline. This is the largest passing tested hundredth, measured
+2026-09-04 in Chromium and Firefox with Adobe Fonts loaded. Readability stays
+bounded at 12px; coarse-pointer targets and inputs keep their 44px and 16px
+lower bounds. Proportional relationships remain required from 1920px upward.
+
+The 2026-09-05 state sweep measured natural form heights of 673.3px collapsed,
+776.8px with decades, 812.3px with thresholds, and 915.8px with both. At the
+0.70 lower bound, the fully expanded form measures 769.4px because readable
+text wraps in the narrower card. The guard must account for reachable state,
+header and gutter space, and the lower bounds; multiplying the available
+height by the base factor would overrun it again.
+
+Status: resolved, 2026-09-05. The complete two-engine frontend gate passed in
+isolation (22 checks, 62 runs, Chromium and Firefox) after the state-sensitive
+height bounds landed. An earlier isolated run failed once in Chromium's
+pipeline state-machine check (30s timeout waiting for the heatmap hand-off)
+and once in Firefox with NS_ERROR_SOCKET_ADDRESS_IN_USE while unrelated
+browser work ran concurrently; neither reproduced in the clean isolated run,
+and both are attributed to environment contention, not the scale mechanism.
+Source: Task 2 implementation measurements, 2026-09-04 and 2026-09-05.
+
+### F-B21-39: Task 2 review found base-geometry drift and an untested gate helper
+
+The explicit-dimension sweep changed three authored `0.25rem` gaps to
+`0.375rem` and removed the mode tabs' `9rem` minimum. Because the scale token
+falls back to one outside wide desktop, those edits changed the mobile and
+unscaled composition rather than only scaling its existing geometry. The new
+desktop-boundary helper also had no adversarial unit test, and current-state
+documents retained contradictory pre-implementation wording.
+
+The review remediation restores the original gap and minimum-width bases while
+applying the layout factor, adds a wrapped-headline failure-path test for the
+helper, and reconciles the live Task 2 and two-engine statements. Qlty's three
+production-code comments are addressed in the same pass. Its Bandit B101
+reports target pytest assertions and do not describe production code.
+
+Status: resolved, 2026-09-05.
+Source: Task 2 specification and standards review; PR #224 Qlty and Graphify
+review comments.
+
+### F-B21-35: the proposed scale height guard ignored root-font enlargement
+
+Task 2's fixed 673px natural-height denominator would not follow its rem-sized
+content when the reader enlarged the root font.
+
+The production replacement expresses the measured denominator as 42.0625rem.
+The complete Chromium and Firefox gate validates a 20px root and restores page
+state after the check.
+
+Status: resolved in Task 2, 2026-09-05.
+Source: late PR #221 review thread 3938613711; Task 2 implementation.
 
 ### F-B21-31: the remediation plan conflicted on counts and omitted a phase-copy reader
 
@@ -312,6 +385,15 @@ Source: SWE_PRINCIPLES_AUDIT.
 ---
 
 ## P1 -- Next batch candidates
+
+### F-B21-36: heatmap loading repeats context and reserves hidden stat columns
+
+The loading detail repeats the active phase, the lone page stat occupies the
+left third of a three-column grid, and the parameter summary adds rocket-scale
+copy that does not help the current wait.
+
+Status: open; owner screenshot corrections assigned to Task 4.
+Source: annotated owner heatmap-loading screenshot, 2026-09-04.
 
 ### F-B21-33: heatmap progress can apply stale responses and mislabel failed pages
 
@@ -1182,7 +1264,9 @@ Firefox evidence is not the acceptance condition. Realistic window geometry is.
 is the sole acceptance specification for the reopened work. It records the
 1080p comparison needed before any global header-density decision.
 
-Status: reopened; owner-review remediation is planned, not implemented.
+Status: reopened. Task 2's proportional scale is implemented and passed the
+complete two-engine gate; Task 3's final split/form cap and the later
+owner-review remediation tasks remain open.
 Source: owner large-display review, 2026-08-28; owner clarification and
 measurement, 2026-09-01.
 

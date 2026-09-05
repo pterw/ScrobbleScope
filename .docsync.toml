@@ -93,14 +93,14 @@ expect = "860"
 
 # Large desktop scaling has a fixed baseline and cap, but is otherwise driven
 # by the CSS viewport. The active definition and reconciliation record must
-# agree with the runtime constants; otherwise a visually plausible scale can
+# agree with the CSS tokens; otherwise a visually plausible scale can
 # drift away from the owner-approved monitor contract.
 [[value]]
 name = "the wide-desktop scale baseline"
 
 [[value.sites]]
-file = "static/js/index.js"
-pattern = 'WIDE_DESKTOP_BASE_SCALE = ([\d.]+)'
+file = "static/css/index.css"
+pattern = '--index-scale-base: ([\d.]+)'
 expect = "1.075"
 
 [[value.sites]]
@@ -117,8 +117,8 @@ expect = "1.075"
 name = "the wide-desktop scale cap"
 
 [[value.sites]]
-file = "static/js/index.js"
-pattern = 'WIDE_DESKTOP_SCALE_CAP = ([\d.]+)'
+file = "static/css/index.css"
+pattern = '--index-scale-cap: ([\d.]+)'
 expect = "2.15"
 
 [[value.sites]]
@@ -261,6 +261,7 @@ expect = "rwy8ghw"
 [[value.sites]]
 file = "docs/design/reference/design-system-readme.md"
 pattern = 'use\.typekit\.net/(\w+)\.css'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/tokens/typography.css"

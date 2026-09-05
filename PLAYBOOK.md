@@ -82,24 +82,20 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **PR #223 side-task:** three complexity extractions validated; integration
-  is ready for the owner-authorized merge. Remaining issue #222 targets stay open.
-- **Next action:** **WP-4 is complete. Owner-review remediation is planned,
-  not implemented; begin it before WP-5.** The index does not grow with the
-  window on large displays. Measurement on 2026-09-01 named the cause: the
-  scale formula divides window height by the 1080px design viewport instead of
-  by the composition's own height, and an unconditional `min()` then lets
-  browser chrome discard the width term on every real window. Chromium and
-  Firefox measured identically, so this is not engine-specific; the browser
-  gate missed it because it measures panel dimensions no window has. Work from
-  `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`,
-  which supersedes the earlier remediation plan. The owner clarified on
-  2026-09-04 that the complete index composition scales proportionally through
-  layout-aware values: no CSS or browser zoom, no visual scale transform, and
-  no fixed-form exception. Task 1's snapshot restoration is already complete;
-  the remaining tasks fix the real-window, two-engine gate and proportional
-  layout, then widen the base composition, then do progress, empty state and
-  accessibility. The header keeps its independent viewport sizing.
+- **PR #223 side-task:** merged as `123b127`; this worktree is synchronized.
+  Remaining issue #222 targets stay open.
+- **Planning follow-up:** the original owner-review plan remains historical
+  evidence; the superseding plan below is canonical. Task 2 now implements
+  the two-engine runner and explicit CSS composition dimensions. Its rendered
+  expanded-state guard, complete validation, and PR #224 review remediation
+  passed.
+- **Next action:** **WP-4 and remediation Task 2 are complete. Review Task 2
+  before Task 3 or WP-5.** Work from
+  `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
+  Task 1 is complete. Task 2 replaces the engine-independent height-denominator
+  defect with layout-aware CSS and a complete real-window gate in Chromium
+  and Firefox. It preserves the interim 3:5 split and 23.75rem form base;
+  Task 3 owns the final base layout. The header stays independently sized.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -530,136 +526,100 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-04 - Review three complexity extractions in PR #223 (side-task)
+### 2026-09-05 - Close PR #224 complexity follow-up (side-task)
 
-- Scope: split loading progress error/poll/redirect handling, index filter-label
-  selection, and optional semaphore/retry timing into focused helpers.
-- Plan vs implementation: this is partial issue #222 remediation, not closure
-  of its full complexity inventory. Existing behavior and public contracts stay
-  unchanged. Added purpose comments to the extracted JavaScript helpers.
-- Deviations: the initial PR body described only loading.js and incorrectly
-  closed the broader issue. Correct the title/body before merge. The original
-  Copilot commits carry prohibited co-author trailers; use a clean squash
-  message at integration rather than rewrite the author's branch.
-- Validation: `pytest -q`: **872 passed**, 5 warnings. The complete Firefox
-  gate passed 22 checks in 31 runs locally; Chromium passed the same 22 checks
-  in 31 runs in PR CI. Final pre-commit and docsync checks run before commit.
-- Forward guidance: resume the owner-review scaling plan before WP-5. These
-  extractions do not implement its loading-count or layout corrections.
+- Scope: address Qlty's fresh analysis of the first Task 2 review-fix commit.
+  The shared font expression and browser closure findings cleared, while the
+  desktop-boundary helper remained one point over its complexity threshold.
+- Review remediation: extracted the headline-wrap branch into a focused helper
+  and exercised that helper directly through the existing adversarial boundary
+  test. This removes nested control flow from the browser orchestration without
+  changing its rendered assertions.
+- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
+  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
+  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
+  final document state.
+- Forward guidance: await the refreshed Qlty and Quality Gate checks on PR
+  #224. Task 3 remains next after owner review.
 
-### 2026-09-04 - Clear PR #221 plan-review follow-ups (side-task)
+### 2026-09-05 - Remediate PR #224 Task 2 review (side-task)
 
-- Scope: corrected the execution plan and repository-authored Markdown before
-  the owner-authorized PR merge. Production scaling remains Task 2.
-- Review dispositions: reaffirmed accurate visible phase counts after checking
-  the September 1 owner-remediation plan and obtaining the owner's ruling;
-  required
-  nested phase-copy isolation through both repository readers, and normalized
-  the batch definition, reconciliation and Graphify report to ASCII. Filed
-  F-B21-31 and F-B21-32 with the evidence and implementation boundary. The
-  polling audit reproduced stale heatmap responses and found received-page
-  counts sourced from attempts; F-B21-33 remains open for Task 4. Sharing a
-  renderer must preserve the different album and heatmap pipeline state.
-- Plan vs implementation: verified completed snapshot work is marked without
-  rerunning historical failing steps. The touch-declaration deadlock stays
-  deferred until its minimum changes. The header advisory confused 1440p with
-  a 1440px width: 2.96875vw reaches 76px at 2560px, as intended.
-- Deviations: no production scope added. The broad README refresh stays in
-  WP-8; Firefox setup documentation will change with Task 2. Preserve and query
-  the local Graphify data; no ignore rule, graph rebuild or plugin update is
-  part of this review fix. Older fixed-form and hero-only rulings remain dated
-  history and are superseded by the final complete-composition direction.
-- Validation: `pytest -q` -- **872 passed**, 5 warnings. The frontend gate
-  reports 22 checks passed in 31 runs. All 12 pre-commit hooks and docsync
-  pass; the snapshot remains byte-identical and WT000 confirms alignment.
-- Forward guidance: refresh the PR body, post one batched review disposition,
-  and resolve only addressed threads. The owner authorized merging once review
-  is clear, then continuing Task 2 in this same worktree before WP-5.
+- Scope: restore Task 2's original authored form geometry, harden its browser
+  gate, and reconcile live status documents found during owner and bot review.
+  Task 3's `3fr 4fr` split and `28rem` base form cap remain untouched.
+- Review dispositions: restored the three `0.25rem` gap bases and scaled `9rem`
+  mode-tab minimum; added an adversarial wrapped-headline helper test; shared
+  the repeated font-ready expression; removed the late-bound browser closure;
+  reduced the flagged helper complexity; and repaired the DOCSYNC marker plus
+  stale Task 2/two-engine claims. F-B21-39 owns the defect record.
+- Declined bot findings: the sixteen Bandit B101 comments target pytest
+  assertions, where assertion rewriting is the test framework's contract.
+  Graphify's missing-selector and unscaled-headline claims do not match current
+  source, and failure when either required browser is unavailable is explicit
+  Task 2 acceptance behavior.
+- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
+  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
+  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
+  final document state.
+- Forward guidance: Task 2 awaits owner review on PR #224. Task 3 remains the
+  next implementation task and owns the final split and form cap.
 
-### 2026-09-04 - Reconcile PR #221 review with final scale direction (side-task)
+### 2026-09-05 - Implement layout-aware desktop scaling, Task 2 (side-task)
 
-- Scope: documentation and one provenance test. Audited all nine unresolved
-  inline threads on PR #221 plus Graphify's earlier review-body advisory against
-  the current files, the stashed scale checkpoints, and the owner's final
-  direction. No production CSS, JavaScript, template or browser-gate behavior
-  changed in this review-fix commit.
-- Owner direction: the earlier hero-only zoom and fixed 600px form rulings are
-  superseded. Hero, wordmark, form, type, controls and spacing grow together
-  through explicit layout values from 1080p through the 4K ceiling. CSS zoom,
-  browser zoom and visual scale transforms are forbidden; the header remains an
-  independently sized shell. The plan now treats its untracked predecessor as
-  outcome evidence, not executable mechanism.
-- Review remediation: Task 2 now retires zoom-property assertions in favor of
-  rendered rectangles and ratios, uses realistic window content boxes, runs the
-  complete gate in Chromium and Firefox locally and in CI, migrates the root
-  `.docsync.toml` declarations when the JavaScript constants disappear, and
-  keeps the generic docsync implementation repository-independent. Task 3 uses
-  the 3:4 split and a proportional 28rem base form cap, keeps controls in that
-  same scale relationship, implements the already-ruled header clamps, and
-  mutation-checks that zoom and transform scaling stay absent.
-- Snapshot and command guards: `tests/test_design_snapshot.py` now hashes one
-  deterministic manifest of all 61 imported design paths and bytes while
-  excluding repository-owned `RECONCILIATION.md`; edits, additions, deletions
-  and renames all invalidate it. Repository-relative POSIX path sorting keeps
-  the aggregate order identical on Windows and Linux. Its pytest assertion
-  carries an explicit B101 suppression. The historical restore instruction now
-  uses `git restore` instead of a PowerShell pipeline that could concatenate
-  lines.
-- Test-count check: the observed 871/872 discrepancy crossed two different
-  commits while another process advanced the branch. The current tree and all
-  live records agree on 872. Docsync validates the latest recorded `pytest -q`
-  result but deliberately does not execute pytest, so no same-revision docsync
-  defect was reproduced. A future generic control-plane hardening would guard
-  that HEAD did not change across a validation run, not encode a
-  ScrobbleScope-specific test-count rule.
-- Stash audit: `checkpoint/pr220-deferred-loading-progress-build` and
-  `checkpoint/pr220-scale-isolated-gates` confirm the complete-composition
-  relationship and a wider form, but both use the rejected CSS-zoom mechanism
-  and the old 1080px height denominator. Neither stash was applied or changed.
-- Validation: the focused snapshot test passes, and a temporary 62nd imported
-  file made it fail before removal and a clean rerun. `pytest -q` reports
-  **872 passed**, 5 warnings. The frontend gate reports 22 checks passed in 31
-  runs across desktop, mobile and wide touch. All 12 pre-commit hooks,
-  `doc_state_sync.py --check`, `git diff --check`, and the worktree guard pass;
-  WT010 is the expected dirty-tree warning and WT000 confirms branch alignment.
+- Scope: complete Chromium and Firefox gate lifecycle, realistic window
+  profiles, and explicit CSS composition dimensions. Task 3's final split and
+  base form width are unchanged. Adobe remains the font provider.
+- Plan vs implementation: the initial complete gate failed on the old scale
+  path in both engines. The first replacement run exposed contracted touch
+  inputs and an expanded form taller than the plan's 673px baseline.
+  F-B21-38 owns the measured boundary and expanded-state correction.
+- Deviations: scale hero gutters with the complete composition and retain
+  readable type and coarse-pointer lower bounds below the reference width.
+  The entire two-engine gate should take roughly twice its former wall time.
+- Validation: the complete two-engine gate passed in isolation -- 22 checks
+  in 62 runs across Chromium and Firefox -- after one Chromium pipeline
+  timeout and one Firefox socket-in-use failure that appeared only while
+  unrelated browser work ran concurrently and never reproduced cleanly.
+  Rendered geometry and screenshots were recaptured for both engines at
+  1080p, 1440p, the 1200px boundary, mobile, and the 1920x900 expanded fit;
+  wrappers compute `transform: none` and `zoom: 1` everywhere. The focused
+  runner suite passed 23 tests; full pytest was **880 passed**, 5 warnings.
+  All pre-commit hooks and docsync passed. The final gate and suite ran at
+  close of this entry.
+- Landing: committed as `ac6b1b1`, pushed to `origin/wip/batch-21`, and
+  opened as PR #224 with owner authorization on 2026-09-05. All nine Task 2
+  plan steps are checked off in the canonical plan.
+- Forward guidance: Task 2 awaits PR review and merge. Task 3 is next, as
+  its own commit and review cycle. Do not start WP-5 until Task 3 lands.
+- After any edit here, run `python scripts/doc_state_sync.py --fix`.
 
-### 2026-09-04 - Graphify knowledge-graph build and audit published (side-task)
+### 2026-09-04 - Preserve owner-plan provenance and late review decisions (side-task)
 
-- Scope: built a graphify knowledge graph over the worktree corpus (301
-  files, ~375k words) and published the report at
-  `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md`. The graph reflects
-  `wip/batch-21` at `ee285ac`, not `origin/main` -- a provenance block in
-  the report head says so, so an agent bootstrapping from `origin/main`
-  knows the docs-layer nodes describe unmerged work. The graph itself
-  stays untracked in `graphify-out/`; the report is the tracked record.
-  Built so agents can understand the repository faster at bootstrap.
-- Build shape: 3,103 nodes, 5,896 edges, 248 communities (2,387 AST from
-  code + 739 semantic from docs). Semantic extraction ran as 18 subagent
-  chunks after two full-size chunks repeatedly failed on provider stream
-  errors; smaller chunks succeeded. Top 15 communities were named from
-  their top node labels; the long tail keeps default names.
-- Verification notes are in the report head. Two of its own suggestions
-  were traced and disproved as extraction artifacts: the `_reach_state()`
-  "bridge" rests on one INFERRED exception-as-callee edge, and the `patch`
-  node's 133 INFERRED edges are `unittest.mock.patch` test wiring. The
-  verified-genuine findings are the `create_app()` hub bridging factory,
-  gate, config and shell-test communities, and the Batch 11-13 log edges
-  into the `orchestrator.py` and `utils.py` functions those batches
-  shipped.
-- Corpus exclusion recorded in the report:
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` was excluded from
-  semantic extraction as too large to parse; its durable content is
-  represented by the batch definitions and per-batch logs, which were
-  extracted.
-- Plan vs implementation: no production code changed. This is a read-only
-  research artifact plus its publication commit. The pipeline integration
-  question (docsync declarations pinning graph facts, automated rebuilds)
-  is deferred to the future extraction batch described in `AGENT_NOTES.md`;
-  nothing was wired into any gate.
-- Deviations: none.
-- Validation: `pytest -q` -- **872 passed**. All 12 pre-commit hooks pass.
-  Worktree guard exits 0. `doc_state_sync.py --check` exits 0.
-- Forward guidance: future agents can query the graph with
-  `graphify query "<question>"` from the worktree; `graphify --update`
-  re-extracts only changed files. Read the report head before trusting any
-  "surprising connection" it suggests -- two of five were artifacts.
+- Scope: track the original September 1 owner-review proposal with an explicit
+  historical/non-executable banner, and identify its superseding execution
+  plan. Ignore generated `graphify-out/` while preserving and querying it
+  locally. Planning documents remain tracked rather than ignored.
+- Review corrections: pin the remaining captured snapshot kit URL; express the
+  planned natural-height guard in rem and require enlarged-root browser checks;
+  record Adobe Fonts ownership and the loading screenshot corrections.
+  F-B21-34 and F-B21-35 record plan/config fixes; F-B21-36 remains implementation
+  work. F-B21-37 records PR #223's completed documentation repair.
+- Plan vs implementation: no production scaling or loading behavior changed.
+  The old proposal stays intact below its supersession notice, including old
+  instructions. The active plan owns execution and the owner rulings win.
+- Deviations: defer the unfinished Task 2 test-first changes from this commit;
+  preserve and restore them locally after validation. The owner approved this
+  documentation commit; no push is requested. `.impeccable/` and `PRODUCT.md`
+  remain untracked and preserved.
+- Validation: `pytest -q`: **872 passed**, 5 warnings on the commit candidate
+  with the unfinished tests shelved. Run hooks and docsync before commit.
+  No production UI changed; PR #223 already passed both browser gates.
+- Forward guidance: resume Task 2 of the canonical scaling/remediation plan
+  before WP-5. Query the local graph as navigation, then verify current source.
+  On 2026-09-04, headed Chrome at DPR 1 measured 2560x1305 content inside
+  2560x1392 outer bounds on the 2560x1440 monitor; the second 1920x1200 monitor
+  measured 1920x1065 content inside 1920x1152 outer bounds. Other panel profiles
+  remain derived rather than physically measured. Both browsers must execute
+  the full gate. Late PR #221 threads 3938613706 and 3938613711 have local fixes
+  recorded here; reply/resolve only after these fixes are published. PR #223
+  is merged; issue #222 stays open for its remaining complexity targets.

@@ -75,3 +75,6 @@ docs/agents/
 # Downloaded Tailwind standalone and daisyUI bundles; verified on every use.
 /scripts/bin/*
 !/scripts/bin/.gitkeep
+
+# Generated semantic index; retain locally and query as needed.
+/graphify-out/

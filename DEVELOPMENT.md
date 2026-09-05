@@ -325,6 +325,18 @@ CSS. CI runs the same one-shot path on Linux and rejects generated-file drift.
 
 ---
 
+## Frontend Browser Gate
+
+Run `python -m playwright install chromium firefox` once after installing the
+pinned development requirements, then `python scripts/dev/frontend_gate.py`.
+Use the qualified primary-checkout Python path in a linked worktree. The gate
+starts and stops its own loopback Flask server and runs the complete matrix
+in both engines. `--headed` shows the diagnostic browser windows.
+
+The active batch definition owns the validation criteria and CI setup.
+
+---
+
 ## Claude Code Skills (tightly scoped tooling)
 
 Two project-scoped Claude Code (CC) skills provide structured entry points for
