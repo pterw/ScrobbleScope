@@ -505,6 +505,15 @@ Stop for owner review.
 
 ## Task 2: Make the gate model real windows, then fix the scale in pure CSS
 
+**Execution checkpoint 2026-09-05:** Task 2 implementation is complete and
+validated; owner review is the remaining gate. The two-engine runner and CSS
+dimension inventory are implemented locally, and the complete frontend gate
+passed in isolation (22 checks, 62 runs, Chromium and Firefox). Measurements
+and the expanded-state guard correction are recorded in `FINDINGS.md`
+F-B21-38. PLAYBOOK Sections 3-4 own current status and validation results.
+The original owner-review notes remain historical; this plan owns the
+superseding execution requirements.
+
 The gate change and the CSS change ship together. The gate change alone turns
 the suite red, and a red commit must not be left standing.
 
@@ -865,6 +874,10 @@ Stop for owner review.
 ---
 
 ## Task 3: Widen the composition and raise divider contrast
+
+**Owner clarification 2026-09-05:** The 28rem base cap is approved at 1080p
+too. Retain the Task 3 instructions below; Task 2 keeps its interim 23.75rem
+base until this task runs.
 
 **Files:**
 - Modify: `static/css/index.css` (grid split, form cap)

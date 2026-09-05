@@ -14,7 +14,7 @@ from scripts.dev import frontend_gate
 from scripts.dev.frontend_gate import (
     SETUP_COMMAND,
     FrontendGateError,
-    _launch_chromium,
+    _launch_browser,
     _load_playwright,
     check_pipeline_state_machines,
     check_shell_scales_with_text,
@@ -36,17 +36,19 @@ def test_a_missing_playwright_package_names_the_setup_command() -> None:
     assert SETUP_COMMAND in str(error.value)
 
 
-def test_a_missing_browser_binary_names_the_setup_command() -> None:
+@pytest.mark.parametrize("browser_name", ("chromium", "firefox"))
+def test_a_missing_browser_binary_names_the_setup_command(browser_name) -> None:
     """A pinned package without its matching browser build fails the same way."""
     playwright = MagicMock()
-    playwright.chromium.launch.side_effect = RuntimeError(
+    getattr(playwright, browser_name).launch.side_effect = RuntimeError(
         "Executable doesn't exist at ...ms-playwright\\chromium-1234"
     )
 
     with pytest.raises(FrontendGateError) as error:
-        _launch_chromium(playwright)
+        _launch_browser(playwright, browser_name)
 
     assert SETUP_COMMAND in str(error.value)
+    assert browser_name in str(error.value)
 
 
 def test_the_server_shuts_down_when_a_check_raises() -> None:
@@ -154,25 +156,33 @@ def test_pipeline_state_machine_uses_a_disposable_page() -> None:
     probe.close.assert_called_once()
 
 
-def test_headed_reaches_the_browser_launch() -> None:
+@pytest.mark.parametrize("browser_name", ("chromium", "firefox"))
+def test_headed_reaches_the_browser_launch(browser_name) -> None:
     """--headed is the option you reach for when a reported failure looks wrong.
 
     Nothing asserted the flag reached launch, so it silently did nothing.
     """
     playwright = MagicMock()
 
-    _launch_chromium(playwright, headless=False)
+    _launch_browser(playwright, browser_name, headless=False)
 
-    assert playwright.chromium.launch.call_args.kwargs == {"headless": False}
+    assert getattr(playwright, browser_name).launch.call_args.kwargs == {
+        "headless": False
+    }
 
 
-def test_launch_is_headless_by_default() -> None:
+@pytest.mark.parametrize("browser_name", ("chromium", "firefox"))
+def test_launch_is_headless_by_default(browser_name) -> None:
     """CI has no display, so the default must stay headless."""
     playwright = MagicMock()
 
-    _launch_chromium(playwright)
+    _launch_browser(playwright, browser_name)
 
-    assert playwright.chromium.launch.call_args.kwargs == {"headless": True}
+    assert getattr(playwright, browser_name).launch.call_args.kwargs == {
+        "headless": True
+    }
+    other = "firefox" if browser_name == "chromium" else "chromium"
+    getattr(playwright, other).launch.assert_not_called()
 
 
 def test_text_scaling_check_restores_the_page_root() -> None:
@@ -352,3 +362,67 @@ def test_the_touch_profiles_really_carry_a_coarse_pointer() -> None:
     assert not desktop.get("has_touch"), "the mouse profile must stay a mouse"
     # Wide, so a width-scoped rule cannot be what satisfies the check.
     assert frontend_gate.VIEWPORTS[frontend_gate.TOUCH_WIDE]["viewport"]["width"] >= 860
+
+
+@pytest.mark.parametrize("raised", (False, True))
+def test_main_runs_and_closes_both_engines_with_named_failures(raised, capsys):
+    """A failed engine must not hide the other engine or leave browsers open."""
+    from contextlib import nullcontext
+
+    chromium, firefox = MagicMock(), MagicMock()
+    outcomes = [RuntimeError("broken check") if raised else ["bad geometry"], []]
+    with (
+        patch.object(
+            frontend_gate, "_load_playwright", return_value=lambda: nullcontext(Mock())
+        ),
+        patch.object(
+            frontend_gate, "serve_app", return_value=nullcontext("http://local")
+        ),
+        patch.object(
+            frontend_gate, "_launch_browser", side_effect=[chromium, firefox]
+        ) as launch,
+        patch.object(frontend_gate, "run_checks", side_effect=outcomes),
+    ):
+        assert frontend_gate.main([]) == 1
+    assert [call.args[1] for call in launch.call_args_list] == ["chromium", "firefox"]
+    assert chromium.close.call_count == firefox.close.call_count == 1
+    assert "chromium" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("fault", ("launch", "close", None))
+def test_main_isolates_lifecycle_faults_and_reports_complete_success(fault, capsys):
+    """The next engine still runs after a failed launch or cleanup; success names both."""
+    from contextlib import nullcontext
+
+    chromium, firefox = MagicMock(), MagicMock()
+    if fault == "close":
+        chromium.close.side_effect = RuntimeError("close failed")
+    launches = [
+        FrontendGateError("chromium missing") if fault == "launch" else chromium,
+        firefox,
+    ]
+    with (
+        patch.object(
+            frontend_gate, "_load_playwright", return_value=lambda: nullcontext(Mock())
+        ),
+        patch.object(
+            frontend_gate, "serve_app", return_value=nullcontext("http://local")
+        ),
+        patch.object(frontend_gate, "_launch_browser", side_effect=launches) as launch,
+        patch.object(frontend_gate, "run_checks", return_value=[]) as checks,
+    ):
+        assert frontend_gate.main(["--headed"]) == (1 if fault else 0)
+    assert [call.args[1] for call in launch.call_args_list] == ["chromium", "firefox"]
+    assert all(call.kwargs == {"headless": False} for call in launch.call_args_list)
+    assert checks.call_count == (1 if fault == "launch" else 2)
+    firefox.close.assert_called_once()
+    output = capsys.readouterr()
+    if fault:
+        assert "chromium" in output.err
+        assert "checks passed" not in output.out
+    else:
+        assert "chromium, firefox" in output.out
+        assert f"in {frontend_gate.PLANNED_RUNS} runs" in output.out
+        assert frontend_gate.PLANNED_RUNS == 2 * sum(
+            len(profiles) for _, _, profiles in frontend_gate.CHECKS
+        )

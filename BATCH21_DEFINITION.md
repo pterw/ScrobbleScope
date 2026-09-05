@@ -311,15 +311,14 @@ Moved in by the scope ruling:
 1. **F-B21-4 item 1 resolves to the canonical README.** The hero starts with
    the two-column `1.1fr 1fr` grid from `docs/design/README.md` screen 1, not
    the audit review's single column. Current source declares a 1200px-wide
-   `3fr 5fr` state and one shared factor of
-   `1.075 * max(1, min(viewportWidth / 1920, viewportHeight / 1080))`, capped
-   at `2.15`, while retaining a centred `23.75rem` form cap. That source
-   attempt does not produce the intended proportional composition, so scaling
-   remains unimplemented. Measurement on 2026-09-01 named the cause: the
-   formula divides window height by the 1080px design viewport rather than by
-   the composition's own height, and an unconditional `min()` then lets browser
-   chrome discard the width term on every real window. The defect reproduces
-   identically in Chromium and Firefox; it is not engine-specific.
+   `3fr 5fr` state and one shared factor of `1.075` times the width ratio,
+   bounded by the measured composition height and available window content,
+   capped at `2.15`. The centred form retains its `23.75rem` base cap in
+   Task 2. `static/css/index.css` owns the layout-aware factor, explicit
+   dimensions, narrow-window readability bounds and expanded-state guard.
+   The former 1080px height denominator was an engine-independent defect;
+   the complete Chromium and Firefox matrices now consume realistic content
+   boxes and assert rendered proportions instead of a zoom property.
 
    `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`
    is the sole acceptance source for proportional scaling and the remaining
@@ -523,14 +522,14 @@ dependency. The Playwright pin selects its matching browser build. Local
 setup uses the qualified-worktree form of:
 
 ```
-python -m playwright install chromium
+python -m playwright install chromium firefox
 ```
 
-The Quality Gate installs the Linux dependencies and the same browser after
+The Quality Gate installs the Linux dependencies and the same browsers after
 the Python dependency step, then runs the frontend gate:
 
 ```
-python -m playwright install --with-deps chromium
+python -m playwright install --with-deps chromium firefox
 python scripts/dev/frontend_gate.py
 ```
 
@@ -539,8 +538,9 @@ fails immediately with the exact setup command. It starts the Flask app on an
 ephemeral loopback port, owns that server's lifecycle, and shuts it down in a
 `finally` block, so the gate needs neither a separately running app nor an
 external MCP service. Unit tests cover missing-runtime diagnostics, assertion
-failure, and server cleanup; the real headless Chromium run is the integration
-gate. Owner Firefox review remains the cross-browser visual check.
+failure, engine isolation, and server cleanup. Both headless Chromium and
+Firefox run the entire integration matrix; owner review remains the visual
+acceptance step.
 
 `scripts/dev/frontend_gate.py` grows one migrated page at a time as the
 strangler migration proceeds, and it must be able to fail. Checks:

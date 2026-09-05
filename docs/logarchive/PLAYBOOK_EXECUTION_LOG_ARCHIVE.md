@@ -9,6 +9,53 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-04 - Reconcile PR #221 review with final scale direction (side-task)
+
+- Scope: documentation and one provenance test. Audited all nine unresolved
+  inline threads on PR #221 plus Graphify's earlier review-body advisory against
+  the current files, the stashed scale checkpoints, and the owner's final
+  direction. No production CSS, JavaScript, template or browser-gate behavior
+  changed in this review-fix commit.
+- Owner direction: the earlier hero-only zoom and fixed 600px form rulings are
+  superseded. Hero, wordmark, form, type, controls and spacing grow together
+  through explicit layout values from 1080p through the 4K ceiling. CSS zoom,
+  browser zoom and visual scale transforms are forbidden; the header remains an
+  independently sized shell. The plan now treats its untracked predecessor as
+  outcome evidence, not executable mechanism.
+- Review remediation: Task 2 now retires zoom-property assertions in favor of
+  rendered rectangles and ratios, uses realistic window content boxes, runs the
+  complete gate in Chromium and Firefox locally and in CI, migrates the root
+  `.docsync.toml` declarations when the JavaScript constants disappear, and
+  keeps the generic docsync implementation repository-independent. Task 3 uses
+  the 3:4 split and a proportional 28rem base form cap, keeps controls in that
+  same scale relationship, implements the already-ruled header clamps, and
+  mutation-checks that zoom and transform scaling stay absent.
+- Snapshot and command guards: `tests/test_design_snapshot.py` now hashes one
+  deterministic manifest of all 61 imported design paths and bytes while
+  excluding repository-owned `RECONCILIATION.md`; edits, additions, deletions
+  and renames all invalidate it. Repository-relative POSIX path sorting keeps
+  the aggregate order identical on Windows and Linux. Its pytest assertion
+  carries an explicit B101 suppression. The historical restore instruction now
+  uses `git restore` instead of a PowerShell pipeline that could concatenate
+  lines.
+- Test-count check: the observed 871/872 discrepancy crossed two different
+  commits while another process advanced the branch. The current tree and all
+  live records agree on 872. Docsync validates the latest recorded `pytest -q`
+  result but deliberately does not execute pytest, so no same-revision docsync
+  defect was reproduced. A future generic control-plane hardening would guard
+  that HEAD did not change across a validation run, not encode a
+  ScrobbleScope-specific test-count rule.
+- Stash audit: `checkpoint/pr220-deferred-loading-progress-build` and
+  `checkpoint/pr220-scale-isolated-gates` confirm the complete-composition
+  relationship and a wider form, but both use the rejected CSS-zoom mechanism
+  and the old 1080px height denominator. Neither stash was applied or changed.
+- Validation: the focused snapshot test passes, and a temporary 62nd imported
+  file made it fail before removal and a clean rerun. `pytest -q` reports
+  **872 passed**, 5 warnings. The frontend gate reports 22 checks passed in 31
+  runs across desktop, mobile and wide touch. All 12 pre-commit hooks,
+  `doc_state_sync.py --check`, `git diff --check`, and the worktree guard pass;
+  WT010 is the expected dirty-tree warning and WT000 confirms branch alignment.
+
 ### 2026-09-04 - Graphify knowledge-graph build and audit published (side-task)
 
 - Scope: built a graphify knowledge graph over the worktree corpus (301

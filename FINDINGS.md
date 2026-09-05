@@ -176,6 +176,37 @@ capture isolation without changing the Adobe kit, its fonts, or provider.
 Status: resolved, 2026-09-04.
 Source: late PR #221 review thread 3938613706; owner provider clarification.
 
+### F-B21-38: Task 2's fixed gutters and collapsed height could not protect its boundary states
+
+The proposed minimum alone could not fit the longest headline at 1200px, and
+the 673px natural-height guard described the collapsed form rather than the
+required decade-plus-open-threshold state.
+
+With fixed hero gutters, both engines measured a one-line album headline at
+0.63 and wrapping at 0.64, but the width term already selected 0.671875, so a
+lower clamp minimum could not change the rendered result. Scaling the hero
+gutters with the composition supports both mode headlines at 0.70; 0.71 wraps
+the album headline. This is the largest passing tested hundredth, measured
+2026-09-04 in Chromium and Firefox with Adobe Fonts loaded. Readability stays
+bounded at 12px; coarse-pointer targets and inputs keep their 44px and 16px
+lower bounds. Proportional relationships remain required from 1920px upward.
+
+The 2026-09-05 state sweep measured natural form heights of 673.3px collapsed,
+776.8px with decades, 812.3px with thresholds, and 915.8px with both. At the
+0.70 lower bound, the fully expanded form measures 769.4px because readable
+text wraps in the narrower card. The guard must account for reachable state,
+header and gutter space, and the lower bounds; multiplying the available
+height by the base factor would overrun it again.
+
+Status: resolved, 2026-09-05. The complete two-engine frontend gate passed in
+isolation (22 checks, 62 runs, Chromium and Firefox) after the state-sensitive
+height bounds landed. An earlier isolated run failed once in Chromium's
+pipeline state-machine check (30s timeout waiting for the heatmap hand-off)
+and once in Firefox with NS_ERROR_SOCKET_ADDRESS_IN_USE while unrelated
+browser work ran concurrently; neither reproduced in the clean isolated run,
+and both are attributed to environment contention, not the scale mechanism.
+Source: Task 2 implementation measurements, 2026-09-04 and 2026-09-05.
+
 ### F-B21-35: the proposed scale height guard ignored root-font enlargement
 
 Task 2's fixed 673px natural-height denominator would not follow its rem-sized

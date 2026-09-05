@@ -6,6 +6,20 @@
    static/css/tailwind.src.css are the only place a value is written down, so
    both themes follow from one edit. Nothing in this file hardcodes a hex. */
 
+
+:root {
+  /* Measured 2026-09-01 at a 16px root: hero 324px, form 673px.
+     Use the taller composition; re-measure when form rows change. */
+  --index-natural-height: 42.0625rem;
+  --index-scale-width-ref: 1920px;
+  --index-scale-base: 1.075;
+  /* At 1200px, both mode headlines retain one line at 0.70; 0.71 wraps
+     the album headline. Measured Chromium and Firefox, 2026-09-04, with
+     proportional hero gutters and the configured Adobe Fonts loaded. */
+  --index-scale-min: 0.70;
+  --index-scale-cap: 2.15;
+}
+
 /* ------------------------------------------------------------------ */
 /* Page frame                                                          */
 /* ------------------------------------------------------------------ */
@@ -115,22 +129,6 @@
   }
 }
 
-/* Scale each desktop composition as one unit. This preserves the exact type,
-   control and spacing relationships inside both columns instead of growing
-   selected pieces independently. The content-driven threshold leaves the
-   existing tablet and mobile composition untouched. */
-@media (min-width: 1200px) {
-  .index-grid {
-    grid-template-columns: 3fr 5fr;
-  }
-
-  .index-hero__inner,
-  .index-form__inner {
-    zoom: var(--index-wide-scale, 1.075);
-  }
-
-}
-
 /* The wrapper needs an explicit auto height. A fixed height with a fluid SVG
    inside makes the mark overflow its box and the h1 slides underneath it.
    The cap matters too: uncapped, the mark grows with the viewport until it
@@ -138,9 +136,9 @@
 .index-hero__mark {
   display: block;
   width: 100%;
-  max-width: 35rem;
+  max-width: calc(35rem * var(--index-scale, 1));
   height: auto;
-  margin-bottom: 1.25rem;
+  margin-bottom: calc(1.25rem * var(--index-scale, 1));
 }
 
 .index-hero__mark svg {
@@ -151,12 +149,12 @@
 
 .eyebrow {
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   font-weight: var(--font-weight-normal);
   letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--ss-text-muted);
-  margin: 0 0 1rem;
+  margin: 0 0 calc(1rem * var(--index-scale, 1));
 }
 
 .index-hero__headline {
@@ -166,7 +164,7 @@
   line-height: 1.05;
   letter-spacing: -0.01em;
   color: var(--color-base-content);
-  margin: 0 0 0.5rem;
+  margin: 0 0 calc(0.5rem * var(--index-scale, 1));
 }
 
 /* The one italic clause. Purple carries it; the serif carries the voice. */
@@ -177,10 +175,10 @@
 
 .index-hero__lede {
   max-width: 38ch;
-  font-size: var(--text-body-sm);
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   line-height: 1.5;
   color: var(--ss-text-body);
-  margin: 0 0 1.5rem;
+  margin: 0 0 calc(1.5rem * var(--index-scale, 1));
 }
 
 /* Three capability marks. The arrow is a Unicode character on a pseudo
@@ -191,19 +189,19 @@
   padding: 0;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1.5rem;
+  gap: calc(0.5rem * var(--index-scale, 1)) calc(1.5rem * var(--index-scale, 1));
 }
 
 .index-hero__marks li {
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   letter-spacing: 0.04em;
   color: var(--ss-text-muted);
 }
 
 .index-hero__marks li::before {
   content: "\2192";
-  margin-right: 0.5rem;
+  margin-right: calc(0.5rem * var(--index-scale, 1));
   color: var(--color-primary);
 }
 
@@ -229,7 +227,7 @@
    border leaves the card marooned beside a field of empty sunken colour. */
 .index-form__inner {
   width: 100%;
-  max-width: 23.75rem;
+  max-width: calc(23.75rem * var(--index-scale, 1));
   margin: 0 auto;
 }
 
@@ -247,9 +245,9 @@
    wider than the other, which is F-B18-12. */
 .mode-tabs {
   display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  margin-bottom: 0.875rem;
+  gap: calc(0.375rem * var(--index-scale, 1));
+  padding: calc(0.25rem * var(--index-scale, 1));
+  margin-bottom: calc(0.875rem * var(--index-scale, 1));
   border-radius: var(--radius-md);
   border: 1px solid var(--ss-border-default);
   background-color: var(--color-base-100);
@@ -257,19 +255,19 @@
 
 .mode-pill {
   flex: 1 1 0;
-  min-width: 9rem;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.75rem;
+  gap: calc(0.5rem * var(--index-scale, 1));
+  min-height: calc(2.75rem * var(--index-scale, 1));
+  padding: calc(0.5rem * var(--index-scale, 1)) calc(0.75rem * var(--index-scale, 1));
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background-color: transparent;
   color: var(--ss-text-muted);
   font-family: var(--font-sans);
-  font-size: var(--text-body-sm);
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   font-weight: var(--font-weight-normal);
   white-space: nowrap;
   cursor: pointer;
@@ -292,8 +290,8 @@
    takes the orange end of the rocket ramp, so the tab previews the data
    colour it leads to. */
 .mode-pill__mark {
-  width: 0.5625rem;
-  height: 0.5625rem;
+  width: calc(0.5625rem * var(--index-scale, 1));
+  height: calc(0.5625rem * var(--index-scale, 1));
   border-radius: 2px;
   background-color: var(--color-primary);
 }
@@ -309,7 +307,7 @@
    a warm surface, with no drop shadow at all. */
 .ss-card {
   display: block;
-  padding: 1.125rem;
+  padding: calc(1.125rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-lg);
   background-color: var(--ss-surface-card);
@@ -317,8 +315,8 @@
 }
 
 .ss-card__note {
-  margin: 0.25rem 0 0.75rem;
-  font-size: var(--text-body-sm);
+  margin: calc(0.25rem * var(--index-scale, 1)) 0 calc(0.75rem * var(--index-scale, 1));
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   line-height: 1.5;
   color: var(--ss-text-body);
 }
@@ -327,20 +325,20 @@
 /* Fields                                                              */
 /* ------------------------------------------------------------------ */
 .field {
-  margin-bottom: 0.75rem;
+  margin-bottom: calc(0.75rem * var(--index-scale, 1));
 }
 
 .field__label-row {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
+  gap: calc(0.5rem * var(--index-scale, 1));
+  margin-bottom: calc(0.25rem * var(--index-scale, 1));
 }
 
 .field__label {
   font-family: var(--font-sans);
-  font-size: var(--text-label);
+  font-size: max(0.75rem, calc(var(--text-label) * var(--index-scale, 1)));
   font-weight: var(--font-weight-normal);
   color: var(--color-base-content);
 }
@@ -350,15 +348,15 @@
    a hint into the label and clips it. */
 .field__hint {
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   letter-spacing: 0.04em;
   color: var(--ss-text-muted);
   text-align: right;
 }
 
 .field__help {
-  margin: 0.25rem 0 0;
-  font-size: var(--text-label-sm);
+  margin: calc(0.25rem * var(--index-scale, 1)) 0 0;
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   line-height: 1.4;
   color: var(--ss-text-muted);
 }
@@ -366,8 +364,8 @@
 /* Written into the page by static/js/index.js and static/js/heatmap.js. It
    replaces Bootstrap's .invalid-feedback, which left with Bootstrap. */
 .field__error {
-  margin-top: 0.25rem;
-  font-size: var(--text-label-sm);
+  margin-top: calc(0.25rem * var(--index-scale, 1));
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   line-height: 1.4;
   color: var(--ss-bad);
 }
@@ -383,15 +381,15 @@
 .ss-select {
   display: block;
   width: 100%;
-  height: 2.75rem;
-  padding: 0 0.75rem;
+  height: calc(2.75rem * var(--index-scale, 1));
+  padding: 0 calc(0.75rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
   /* The page colour, not the card colour: fields read as recessed. */
   background-color: var(--color-base-100);
   color: var(--color-base-content);
   font-family: var(--font-mono);
-  font-size: var(--text-body-sm);
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   line-height: 1.4;
   transition: border-color 0.2s ease, color 0.2s ease;
 }
@@ -409,14 +407,14 @@
    inherits the muted text colour in both themes. */
 .ss-select {
   appearance: none;
-  padding-right: 2.125rem;
+  padding-right: calc(2.125rem * var(--index-scale, 1));
   background-image:
     linear-gradient(45deg, transparent 50%, currentColor 50%),
     linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-position:
-    calc(100% - 17px) calc(50% + 2px),
-    calc(100% - 12px) calc(50% + 2px);
-  background-size: 5px 5px, 5px 5px;
+    calc(100% - 1.0625rem * var(--index-scale, 1)) calc(50% + 2px),
+    calc(100% - 0.75rem * var(--index-scale, 1)) calc(50% + 2px);
+  background-size: calc(0.3125rem * var(--index-scale, 1)) calc(0.3125rem * var(--index-scale, 1));
   background-repeat: no-repeat;
   color: var(--color-base-content);
 }
@@ -433,17 +431,17 @@
   content: "\2713";
   position: absolute;
   top: 50%;
-  right: 0.75rem;
+  right: calc(0.75rem * var(--index-scale, 1));
   transform: translateY(-50%);
   color: var(--ss-good);
-  font-size: var(--text-body-sm);
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   line-height: 1;
   pointer-events: none;
 }
 
 .ss-input.is-valid {
   border-color: var(--ss-good);
-  padding-right: 2.125rem;
+  padding-right: calc(2.125rem * var(--index-scale, 1));
 }
 
 .ss-input.is-invalid {
@@ -479,13 +477,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.125rem;
-  height: 1.125rem;
+  width: calc(1.125rem * var(--index-scale, 1));
+  height: calc(1.125rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-full);
   color: var(--ss-text-muted);
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   line-height: 1;
 }
 
@@ -497,18 +495,18 @@
 .hint__body {
   position: absolute;
   right: 0;
-  top: calc(100% + 0.375rem);
+  top: calc(100% + calc(0.375rem * var(--index-scale, 1)));
   z-index: 20;
   width: max-content;
-  max-width: 17rem;
+  max-width: calc(17rem * var(--index-scale, 1));
   margin: 0;
-  padding: 0.5rem 0.625rem;
+  padding: calc(0.5rem * var(--index-scale, 1)) calc(0.625rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
   background-color: var(--ss-surface-card);
   box-shadow: var(--ss-shadow-float);
   color: var(--ss-text-body);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   line-height: 1.45;
   text-align: left;
 }
@@ -523,11 +521,11 @@
    width the card can be. */
 .decade-pills {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 4.5rem));
-  width: min(100%, 19.5rem);
+  grid-template-columns: repeat(4, minmax(0, calc(4.5rem * var(--index-scale, 1))));
+  width: min(100%, calc(19.5rem * var(--index-scale, 1)));
   margin-inline: auto;
   justify-content: center;
-  gap: 0.5rem;
+  gap: calc(0.5rem * var(--index-scale, 1));
 }
 
 .decade-radio {
@@ -544,16 +542,16 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  max-width: 4.5rem;
-  min-height: 1.875rem;
+  max-width: calc(4.5rem * var(--index-scale, 1));
+  min-height: calc(1.875rem * var(--index-scale, 1));
   justify-self: center;
-  padding: 0 0.375rem;
+  padding: 0 calc(0.375rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-full);
   background-color: transparent;
   color: var(--ss-text-body);
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   letter-spacing: 0.06em;
   cursor: pointer;
   transition: color 0.2s ease, border-color 0.2s ease,
@@ -588,8 +586,8 @@
 /* ------------------------------------------------------------------ */
 .seg {
   display: flex;
-  gap: 0.25rem;
-  padding: 0.1875rem;
+  gap: calc(0.375rem * var(--index-scale, 1));
+  padding: calc(0.1875rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
   background-color: var(--color-base-100);
@@ -609,10 +607,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.375rem;
+  min-height: calc(2.375rem * var(--index-scale, 1));
   border-radius: var(--radius-sm);
   color: var(--ss-text-muted);
-  font-size: var(--text-body-sm);
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   font-weight: var(--font-weight-normal);
   white-space: nowrap;
   cursor: pointer;
@@ -640,8 +638,8 @@
 /* Dashed top border marks the boundary. It expands in place, so nothing
    below it jumps out of view on a phone. */
 .disclosure {
-  margin-top: 0.875rem;
-  padding-top: 0.75rem;
+  margin-top: calc(0.875rem * var(--index-scale, 1));
+  padding-top: calc(0.75rem * var(--index-scale, 1));
   border-top: 1px dashed var(--ss-border-default);
 }
 
@@ -649,8 +647,8 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem;
-  min-height: 2rem;
+  gap: calc(0.5rem * var(--index-scale, 1));
+  min-height: calc(2rem * var(--index-scale, 1));
   cursor: pointer;
   list-style: none;
 }
@@ -661,13 +659,13 @@
 
 /* The label is larger than its own summary, not smaller. */
 .disclosure__label {
-  font-size: var(--text-label);
+  font-size: max(0.75rem, calc(var(--text-label) * var(--index-scale, 1)));
   color: var(--color-base-content);
 }
 
 .disclosure__label::after {
   content: "\25BC";
-  margin-left: 0.375rem;
+  margin-left: calc(0.375rem * var(--index-scale, 1));
   font-size: 0.6em;
   color: var(--ss-text-muted);
 }
@@ -679,7 +677,7 @@
 /* The collapsed summary always states the active values. */
 .disclosure__values {
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   letter-spacing: 0.04em;
   color: var(--ss-text-muted);
   white-space: nowrap;
@@ -689,9 +687,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 0;
+  gap: calc(0.75rem * var(--index-scale, 1));
+  min-height: calc(2.75rem * var(--index-scale, 1));
+  padding: calc(0.5rem * var(--index-scale, 1)) 0;
 }
 
 .th-row + .th-row {
@@ -702,24 +700,24 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: var(--text-label);
+  font-size: max(0.75rem, calc(var(--text-label) * var(--index-scale, 1)));
   color: var(--color-base-content);
 }
 
 .th-label small {
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   color: var(--ss-text-muted);
 }
 
 .th-reset {
   display: block;
-  margin: 0.5rem 0 0;
+  margin: calc(0.5rem * var(--index-scale, 1)) 0 0;
   padding: 0;
   border: 0;
   background: none;
   color: var(--color-primary);
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   letter-spacing: 0.06em;
   text-align: left;
   cursor: pointer;
@@ -741,13 +739,13 @@
 }
 
 .stepper__btn {
-  width: 2.125rem;
-  height: 2.375rem;
+  width: calc(2.125rem * var(--index-scale, 1));
+  height: calc(2.375rem * var(--index-scale, 1));
   border: 0;
   background: none;
   color: var(--ss-text-body);
   font-family: var(--font-mono);
-  font-size: var(--text-body);
+  font-size: max(0.75rem, calc(var(--text-body) * var(--index-scale, 1)));
   line-height: 1;
   cursor: pointer;
 }
@@ -757,15 +755,15 @@
 }
 
 .stepper__value {
-  width: 3.25rem;
-  height: 2.375rem;
+  width: calc(3.25rem * var(--index-scale, 1));
+  height: calc(2.375rem * var(--index-scale, 1));
   border: 0;
   border-left: 1px solid var(--ss-border-default);
   border-right: 1px solid var(--ss-border-default);
   background: none;
   color: var(--color-base-content);
   font-family: var(--font-mono);
-  font-size: var(--text-body-sm);
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   text-align: center;
   /* The native spinners duplicate the two buttons beside them. */
   -moz-appearance: textfield;
@@ -787,17 +785,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: calc(0.5rem * var(--index-scale, 1));
   width: 100%;
-  min-height: 3rem;
-  margin-top: 0.875rem;
-  padding: 0 1rem;
+  min-height: calc(3rem * var(--index-scale, 1));
+  margin-top: calc(0.875rem * var(--index-scale, 1));
+  padding: 0 calc(1rem * var(--index-scale, 1));
   border: 0;
   border-radius: var(--radius-md);
   background-color: var(--color-primary);
   color: var(--color-primary-content);
   font-family: var(--font-sans);
-  font-size: var(--text-body-sm);
+  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   font-weight: var(--font-weight-normal);
   white-space: nowrap;
   cursor: pointer;
@@ -820,19 +818,19 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.25rem;
-  margin-top: 0.75rem;
+  gap: calc(0.375rem * var(--index-scale, 1));
+  margin-top: calc(0.75rem * var(--index-scale, 1));
 }
 
 .tag {
   display: inline-flex;
   align-items: center;
-  padding: 0.1875rem 0.5rem;
+  padding: calc(0.1875rem * var(--index-scale, 1)) calc(0.5rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-full);
   color: var(--ss-text-muted);
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
+  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
@@ -861,7 +859,7 @@
   .ss-input,
   .ss-select,
   .stepper__value {
-    font-size: 1rem;
+    font-size: max(1rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   }
 }
 
@@ -893,7 +891,7 @@
      iOS zooming, and the button stayed at 14px. The 48px height is the touch
      target and stays. */
   .ss-submit {
-    font-size: 1rem;
+    font-size: max(1rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
   }
 
   .th-row {
@@ -925,13 +923,20 @@
 @media (any-pointer: coarse), (max-width: 859.98px) {
   .seg__option,
   .stepper__btn,
-  .stepper__value,
-  .decade-pill,
-  .disclosure__summary {
-    min-height: 2.75rem;
+  .stepper__value {
+    min-height: max(2.75rem, calc(2.375rem * var(--index-scale, 1)));
   }
 
-  .stepper__btn {
+  .decade-pill {
+    min-height: max(2.75rem, calc(1.875rem * var(--index-scale, 1)));
+  }
+
+  .disclosure__summary {
+    min-height: max(2.75rem, calc(2rem * var(--index-scale, 1)));
+  }
+
+  .stepper__btn,
+  .stepper__value {
     min-width: 2.75rem;
   }
 
@@ -958,5 +963,95 @@
 
   .index-page * {
     transition-duration: 0ms;
+  }
+}
+
+/* Scale the composition through authored dimensions. The natural-height
+   denominator is content, not the 1080px display panel: using that panel
+   discarded width growth in real browser windows. tan(atan2()) yields a
+   dimensionless viewport/reference ratio in both supported renderers. */
+@media (min-width: 1200px) {
+  .index-grid {
+    --index-form-gutters: 6.75rem;
+    --index-height-bound: var(--index-natural-height);
+    --index-scale: var(--index-scale-base);
+    --index-scale: clamp(
+      var(--index-scale-min),
+      min(
+        calc(var(--index-scale-base) * tan(atan2(100vw, var(--index-scale-width-ref)))),
+        tan(atan2(
+          calc(100vh - var(--shell-height)),
+          calc(var(--index-height-bound) + var(--index-form-gutters))
+        ))
+      ),
+      var(--index-scale-cap)
+    );
+    grid-template-columns: 3fr 5fr;
+  }
+
+  .index-hero,
+  .index-form {
+    min-width: 0;
+  }
+
+  .index-hero {
+    padding: calc(3.5rem * var(--index-scale));
+  }
+
+  .index-form {
+    padding: calc(3.25rem * var(--index-scale)) calc(3.25rem * var(--index-scale)) calc(3.5rem * var(--index-scale));
+  }
+
+  /* At the 0.70 floor, readable text wraps in the contracted card. These
+     conservative bounds are measured height / factor, not natural height
+     at factor 1. Chromium/Firefox, 2026-09-05: 628.4/.70 (extra release
+     field), 692.6/.70 (thresholds), 769.4/.70 (both). Round upward to rem.
+     Only the visible album mode contributes these rows. */
+  .index-grid:has(#album-form-section:not(.hidden)):has(#release_scope option:is([value="decade"], [value="custom"]):checked) {
+    --index-height-bound: 56.125rem;
+  }
+
+  .index-grid:has(#album-form-section:not(.hidden) .disclosure[open]) {
+    --index-height-bound: 61.875rem;
+  }
+
+  .index-grid:has(#album-form-section:not(.hidden) .disclosure[open]):has(#release_scope option:is([value="decade"], [value="custom"]):checked) {
+    --index-height-bound: 68.75rem;
+  }
+
+  .index-hero__inner {
+    width: calc(35rem * var(--index-scale));
+    max-width: 100%;
+  }
+
+  .index-hero__headline {
+    font-size: calc(2.625rem * var(--index-scale));
+  }
+}
+
+/* Readability and touch lower bounds remain absolute at narrow desktops;
+   above the 1920px reference all authored proportions grow together. */
+@media (any-pointer: coarse) and (min-width: 1200px) {
+  .mode-pill,
+  .ss-input,
+  .ss-select {
+    min-height: max(2.75rem, calc(2.75rem * var(--index-scale)));
+  }
+
+  .ss-submit {
+    min-height: max(2.75rem, calc(3rem * var(--index-scale)));
+  }
+}
+
+/* The old fixed 2rem gutters prevented the expanded form from fitting even
+   at its readable scale floor. Include their authored sum in the guard so
+   scaling the composition has no self-referential factor calculation. */
+@media (min-width: 1200px) and (max-height: 900px) {
+  .index-grid {
+    --index-form-gutters: 4rem;
+  }
+
+  .index-form {
+    padding-block: calc(2rem * var(--index-scale));
   }
 }
