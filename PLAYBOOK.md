@@ -543,10 +543,14 @@ non-current operational logs. Older dated entries live in
   Rendered geometry and screenshots were recaptured for both engines at
   1080p, 1440p, the 1200px boundary, mobile, and the 1920x900 expanded fit;
   wrappers compute `transform: none` and `zoom: 1` everywhere. The focused
-  runner suite passed 20 tests. Full pytest and pre-commit run at close of
-  this entry.
-- Forward guidance: Task 2 is ready for owner review. Do not start Task 3
-  or WP-5 until the owner accepts the rendered result.
+  runner suite passed 23 tests; full pytest was **880 passed**, 5 warnings.
+  All pre-commit hooks and docsync passed. The final gate and suite ran at
+  close of this entry.
+- Landing: committed as `ac6b1b1`, pushed to `origin/wip/batch-21`, and
+  opened as PR #224 with owner authorization on 2026-09-05. All nine Task 2
+  plan steps are checked off in the canonical plan.
+- Forward guidance: Task 2 awaits PR review and merge. Task 3 is next, as
+  its own commit and review cycle. Do not start WP-5 until Task 3 lands.
 - After any edit here, run `python scripts/doc_state_sync.py --fix`.
 
 ### 2026-09-04 - Preserve owner-plan provenance and late review decisions (side-task)

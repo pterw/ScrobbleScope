@@ -505,14 +505,15 @@ Stop for owner review.
 
 ## Task 2: Make the gate model real windows, then fix the scale in pure CSS
 
-**Execution checkpoint 2026-09-05:** Task 2 implementation is complete and
-validated; owner review is the remaining gate. The two-engine runner and CSS
-dimension inventory are implemented locally, and the complete frontend gate
-passed in isolation (22 checks, 62 runs, Chromium and Firefox). Measurements
-and the expanded-state guard correction are recorded in `FINDINGS.md`
-F-B21-38. PLAYBOOK Sections 3-4 own current status and validation results.
-The original owner-review notes remain historical; this plan owns the
-superseding execution requirements.
+**Execution checkpoint 2026-09-05:** Task 2 is complete -- implemented,
+validated, committed as `ac6b1b1`, pushed, and opened as PR #224 with owner
+authorization. All nine steps are checked off below. The complete frontend
+gate passed in isolation (22 checks, 62 runs, Chromium and Firefox).
+Measurements and the expanded-state guard correction are recorded in
+`FINDINGS.md` F-B21-38. PLAYBOOK Sections 3-4 own current status and
+validation results. The original owner-review notes remain historical; this
+plan owns the superseding execution requirements. Task 3 is next, on its own
+commit and review cycle.
 
 The gate change and the CSS change ship together. The gate change alone turns
 the suite red, and a red commit must not be left standing.
@@ -536,7 +537,10 @@ the suite red, and a red commit must not be left standing.
   index composition with real window geometry, with no JavaScript, CSS
   `zoom`, or visual transform.
 
-- [ ] **Step 1: Replace the gate's viewport matrix with real window geometry**
+- [x] **Step 1: Replace the gate's viewport matrix with real window geometry --
+      complete in `ac6b1b1`.** Content boxes measured 2026-09-04 on both owner
+      panels (1920x1065 and 2560x1305); 1080p and 4K derived and labelled as
+      such in the gate comment.
 
 In `check_large_display_scale_parity`, replace the display-panel dimensions with
 window content-box dimensions, and document why.
@@ -613,7 +617,8 @@ number nobody measured.
     }
 ```
 
-- [ ] **Step 2: Run the complete visual matrix in Chromium and Firefox**
+- [x] **Step 2: Run the complete visual matrix in Chromium and Firefox --
+      complete in `ac6b1b1`.**
 
 The owner adopted Firefox for regression insurance, so changing only the scale
 check is incomplete. Make the browser lifecycle itself engine-aware:
@@ -645,7 +650,10 @@ profiles; Firefox is a second renderer, not a second geometry specification.
 Record in PLAYBOOK that the complete gate's wall time is expected to roughly
 double.
 
-- [ ] **Step 3: Make the gate assert rendered proportional relationships**
+- [x] **Step 3: Make the gate assert rendered proportional relationships --
+      complete in `ac6b1b1`.** The measured 1200px floor is 0.70, not the
+      estimated 0.85; see F-B21-38 for the boundary and expanded-state
+      corrections this measurement forced.
 
 `check_large_display_scale_parity` was written around the staged JavaScript
 plus CSS-`zoom` attempt. Step 5 removes that mechanism but preserves its
@@ -703,7 +711,8 @@ line; record the value, browser, and date. Expect roughly 0.85, but do not turn
 that estimate into source. Task 3 Step 6 makes the one-line relationship a
 permanent multi-width assertion.
 
-- [ ] **Step 4: Run the gate and confirm it fails**
+- [x] **Step 4: Run the gate and confirm it fails -- historical red run
+      recorded in `task-2-red-gate.log`.**
 
 ```powershell
 python scripts/dev/frontend_gate.py
@@ -713,7 +722,8 @@ Expected: FAIL. Both composition wrappers report growth well below the required
 relationship at the owner's real 1440p geometry, because the JavaScript formula
 is height-limited. A failure naming only the hero is incomplete.
 
-- [ ] **Step 5: Replace JavaScript and `zoom` with a CSS layout factor**
+- [x] **Step 5: Replace JavaScript and `zoom` with a CSS layout factor --
+      complete in `ac6b1b1`.**
 
 Delete lines 1-24 of `static/js/index.js` -- `WIDE_DESKTOP_BASE_SCALE`,
 `WIDE_DESKTOP_SCALE_CAP`, `syncWideDesktopScale`, its call,
@@ -808,7 +818,8 @@ is the 4K ceiling from the owner remediation. If the CSS arithmetic is not
 supported in either engine, stop and choose another layout-aware mechanism;
 never fall back to `zoom` or `transform`.
 
-- [ ] **Step 6: Run the gate and confirm it passes**
+- [x] **Step 6: Run the gate and confirm it passes -- complete 2026-09-05.**
+      22 checks, 62 runs, Chromium and Firefox.
 
 ```powershell
 python scripts/dev/frontend_gate.py
@@ -821,7 +832,9 @@ the 1.20 growth floor and their representative type, controls and spacing keep
 the baseline ratios. Verify rendered geometry, never only the custom-property
 string.
 
-- [ ] **Step 7: Prove the guard still protects a short window**
+- [x] **Step 7: Prove the guard still protects a short window -- complete
+      2026-09-05.** Expanded decade-plus-threshold state fits 1920x900 in
+      both engines with no document scrolling.
 
 ```powershell
 python scripts/dev/frontend_gate.py
@@ -832,7 +845,8 @@ selector driven and thresholds open: the submit button's bottom edge at or above
 the viewport bottom, with no document scrolling at default zoom. If it fails,
 `--index-natural-height` is too small; re-measure rather than guessing.
 
-- [ ] **Step 8: Correct every live document that describes the old formula**
+- [x] **Step 8: Correct every live document that describes the old formula --
+      complete in `ac6b1b1`.** Repo-wide sweeps came back clean on 2026-09-05.
 
 The formula is quoted in more than one place. Grep before editing, per the
 Anti-Pattern Registry:
@@ -854,7 +868,8 @@ deleted JavaScript constants to `--index-scale-base` and
 the TOML names this repository's duplicated facts; no ScrobbleScope scale name
 belongs in `scripts/docsync/`.
 
-- [ ] **Step 9: Document, validate, commit**
+- [x] **Step 9: Document, validate, commit -- complete in `ac6b1b1`, pushed
+      and opened as PR #224 on 2026-09-05 with owner authorization.**
 
 ```powershell
 python scripts/doc_state_sync.py --fix
