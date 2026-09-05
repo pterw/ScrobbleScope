@@ -91,6 +91,38 @@ function showFailure(message, source) {
   }
 }
 
+function scheduleResultsRedirect(message) {
+  if (stepDetails) stepDetails.textContent = message;
+  setTimeout(redirectToResults, 3000);
+}
+
+function handleProgressError(progressData) {
+  if (!progressData.error) return false;
+
+  showFailure(
+    progressData.message || 'The search could not be completed.',
+    progressData.error_source
+  );
+
+  if (progressData.retryable && retryButton) {
+    retryButton.classList.remove('hidden');
+    retryButton.onclick = function () {
+      retryButton.disabled = true;
+      retryButton.textContent = 'Retrying\u2026';
+      retryCurrentSearch();
+    };
+    if (stepDetails) stepDetails.textContent = 'Retry the search or return home.';
+    return true;
+  }
+
+  scheduleResultsRedirect('Opening the results page\u2026');
+  return true;
+}
+
+function shouldPollAgain(progress) {
+  return progress < 100 && !errorDetected;
+}
+
 async function fetchProgress() {
   try {
     const response = await fetch(`/progress?job_id=${encodeURIComponent(job_id)}`);
@@ -101,36 +133,14 @@ async function fetchProgress() {
     if (stepText && progressData.message) stepText.textContent = progressData.message;
     updateLiveStats(progressData.stats || {});
 
-    if (progressData.error) {
-      showFailure(
-        progressData.message || 'The search could not be completed.',
-        progressData.error_source
-      );
+    if (handleProgressError(progressData)) return;
 
-      if (progressData.retryable && retryButton) {
-        retryButton.classList.remove('hidden');
-        retryButton.onclick = function () {
-          retryButton.disabled = true;
-          retryButton.textContent = 'Retrying\u2026';
-          retryCurrentSearch();
-        };
-        if (stepDetails) stepDetails.textContent = 'Retry the search or return home.';
-      } else {
-        if (stepDetails) stepDetails.textContent = 'Opening the results page\u2026';
-        setTimeout(redirectToResults, 3000);
-      }
-      return;
-    }
-
-    if (progress < 100 && !errorDetected) {
+    if (shouldPollAgain(progress)) {
       setTimeout(fetchProgress, 1000);
       return;
     }
 
-    if (!errorDetected) {
-      if (stepDetails) stepDetails.textContent = 'Opening your results\u2026';
-      setTimeout(redirectToResults, 3000);
-    }
+    if (!errorDetected) scheduleResultsRedirect('Opening your results\u2026');
   } catch (error) {
     console.error('Error fetching progress:', error);
     showFailure('The progress service could not be reached.');
