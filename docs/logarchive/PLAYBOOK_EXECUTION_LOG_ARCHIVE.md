@@ -9,6 +9,37 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-04 - Preserve owner-plan provenance and late review decisions (side-task)
+
+- Scope: track the original September 1 owner-review proposal with an explicit
+  historical/non-executable banner, and identify its superseding execution
+  plan. Ignore generated `graphify-out/` while preserving and querying it
+  locally. Planning documents remain tracked rather than ignored.
+- Review corrections: pin the remaining captured snapshot kit URL; express the
+  planned natural-height guard in rem and require enlarged-root browser checks;
+  record Adobe Fonts ownership and the loading screenshot corrections.
+  F-B21-34 and F-B21-35 record plan/config fixes; F-B21-36 remains implementation
+  work. F-B21-37 records PR #223's completed documentation repair.
+- Plan vs implementation: no production scaling or loading behavior changed.
+  The old proposal stays intact below its supersession notice, including old
+  instructions. The active plan owns execution and the owner rulings win.
+- Deviations: defer the unfinished Task 2 test-first changes from this commit;
+  preserve and restore them locally after validation. The owner approved this
+  documentation commit; no push is requested. `.impeccable/` and `PRODUCT.md`
+  remain untracked and preserved.
+- Validation: `pytest -q`: **872 passed**, 5 warnings on the commit candidate
+  with the unfinished tests shelved. Run hooks and docsync before commit.
+  No production UI changed; PR #223 already passed both browser gates.
+- Forward guidance: resume Task 2 of the canonical scaling/remediation plan
+  before WP-5. Query the local graph as navigation, then verify current source.
+  On 2026-09-04, headed Chrome at DPR 1 measured 2560x1305 content inside
+  2560x1392 outer bounds on the 2560x1440 monitor; the second 1920x1200 monitor
+  measured 1920x1065 content inside 1920x1152 outer bounds. Other panel profiles
+  remain derived rather than physically measured. Both browsers must execute
+  the full gate. Late PR #221 threads 3938613706 and 3938613711 have local fixes
+  recorded here; reply/resolve only after these fixes are published. PR #223
+  is merged; issue #222 stays open for its remaining complexity targets.
+
 ### 2026-09-04 - Review three complexity extractions in PR #223 (side-task)
 
 - Scope: split loading progress error/poll/redirect handling, index filter-label

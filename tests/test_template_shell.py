@@ -203,6 +203,75 @@ def test_migrated_wordmarks_use_theme_ink_for_letterforms():
     assert "fill: var(--shell-ink)" in shell
 
 
+def test_header_and_nav_share_one_control_gap_token():
+    """The header row and its nav must use the same gap token, not two literals.
+
+    Task 3 replaces the pre-existing 1rem header gap and 0.75rem nav gap
+    (two numbers for one visual relationship) with a single shared token, so
+    a future re-tune only has one declaration to change.
+    """
+    shell = _without_comments((STATIC_CSS / "shell.css").read_text(encoding="utf-8"))
+
+    assert "--shell-control-gap: 0.75rem;" in shell
+    header_rule = re.search(r"\.site-header\s*\{([^}]+)\}", shell, re.S)
+    nav_rule = re.search(r"\.site-header__nav\s*\{([^}]+)\}", shell, re.S)
+    assert header_rule and nav_rule
+    assert "gap: var(--shell-control-gap)" in header_rule.group(1)
+    assert "gap: var(--shell-control-gap)" in nav_rule.group(1)
+
+
+def test_shell_height_is_a_clamp_with_a_4_25rem_floor():
+    """The header bar must be a ruled clamp, not the old fixed 4.75rem bar.
+
+    A fixed height at 76px was the whole reason the compact-height padding
+    and enlarged-root gate expectations needed re-deriving; asserting the
+    clamp shape in source (not just the gate's rendered-pixel check) catches
+    a regression to a literal before it ever reaches a browser.
+    """
+    shell = _without_comments((STATIC_CSS / "shell.css").read_text(encoding="utf-8"))
+
+    assert "--shell-height: clamp(4.25rem, 2.96875vw, 4.75rem);" in shell
+
+
+def test_nav_link_and_theme_controls_share_the_same_size_clamp():
+    """Nav links, the theme toggle, and the theme choice must use ruled clamps.
+
+    The nav-link and theme-toggle clamp to the identical (2.75rem, 1.875vw,
+    3.5rem) curve so their rendered heights line up in one row at every
+    desktop width; the theme choice uses its own smaller (2.25rem, 1.5625vw,
+    2.5rem) curve, matching owner ruling 4's ~44/48px target for its
+    slightly shorter rendered control.
+    """
+    shell = _without_comments((STATIC_CSS / "shell.css").read_text(encoding="utf-8"))
+
+    nav_rule = re.search(r"\.site-header__nav-link\s*\{([^}]+)\}", shell, re.S)
+    toggle_rule = re.search(r"\.site-header__theme-toggle\s*\{([^}]+)\}", shell, re.S)
+    choice_rule = re.search(r"\.site-header__theme-choice\s*\{([^}]+)\}", shell, re.S)
+    assert nav_rule and toggle_rule and choice_rule
+
+    assert "min-width: clamp(5.75rem, 4.53vw, 7.25rem)" in nav_rule.group(1)
+    assert "min-height: clamp(2.75rem, 1.875vw, 3.5rem)" in nav_rule.group(1)
+    assert "min-height: clamp(2.75rem, 1.875vw, 3.5rem)" in toggle_rule.group(1)
+    assert "min-height: clamp(2.25rem, 1.5625vw, 2.5rem)" in choice_rule.group(1)
+
+
+def test_divider_border_alphas_clear_3_to_1_by_source():
+    """--shell-border must carry the raised alphas, not the pre-fix values.
+
+    F-B21-24: 0.12 (light) and 0.14 (dark) measured 1.27:1 / 1.40:1, well
+    under WCAG's 3:1 non-text contrast minimum. The gate's `divider contrast`
+    check proves the rendered composite; this asserts the source values it
+    depends on so a future edit cannot silently drop the alpha back down
+    without both a source diff and a gate failure.
+    """
+    shell = _without_comments((STATIC_CSS / "shell.css").read_text(encoding="utf-8"))
+
+    assert "--shell-border: rgba(26, 24, 32, 0.5);" in shell
+    assert "--shell-border: rgba(241, 237, 228, 0.4);" in shell
+    assert "--shell-border: rgba(26, 24, 32, 0.12);" not in shell
+    assert "--shell-border: rgba(241, 237, 228, 0.14);" not in shell
+
+
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
 def test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads(
     app, template

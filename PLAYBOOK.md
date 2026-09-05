@@ -89,13 +89,18 @@ See FINDINGS F-DOCSYNC-3.
   the two-engine runner and explicit CSS composition dimensions. Its rendered
   expanded-state guard, complete validation, and PR #224 review remediation
   passed.
-- **Next action:** **WP-4 and remediation Task 2 are complete. Review Task 2
-  before Task 3 or WP-5.** Work from
+- **Next action:** **WP-4, remediation Task 2, and remediation Task 3 are
+  complete. Task 4 (align visible loading progress with pipeline phases) is
+  next.** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
   defect with layout-aware CSS and a complete real-window gate in Chromium
-  and Firefox. It preserves the interim 3:5 split and 23.75rem form base;
-  Task 3 owns the final base layout. The header stays independently sized.
+  and Firefox; it merged as PR #224. Task 3 landed the final `3fr 4fr` split,
+  `28rem` form base cap, raised `--shell-border` contrast to >= 3:1 in both
+  themes, and applied the ruled header clamps (`--shell-height`,
+  `--shell-control-gap`, nav-link/theme-control sizing). The header stays
+  independently sized from `--index-scale`. Tasks 4-6 (loading-progress
+  alignment, unmatched no-data surface, accessibility pass) remain open.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -526,6 +531,69 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Implement remediation Task 3, widen composition and raise divider contrast (side-task)
+
+- Scope: land the final desktop index composition and divider-contrast fix
+  from the canonical remediation plan. Widen `static/css/index.css`'s
+  `min-width: 1200px` split from `3fr 5fr` to `3fr 4fr` and raise the form's
+  unscaled base cap from `23.75rem` to `28rem` (both scaled by the shared
+  `--index-scale` factor). Raise `static/css/shell.css`'s `--shell-border`
+  alpha in both themes so the composited divider clears 3:1 against every
+  adjacent surface, and apply the recorded header ruling: a
+  `--shell-height: clamp(4.25rem, 2.96875vw, 4.75rem)` bar, a shared
+  `--shell-control-gap: 0.75rem` token on `.site-header` and
+  `.site-header__nav`, and matching size clamps on the nav link and theme
+  controls.
+- Plan vs implementation: `check_large_display_scale_parity` in
+  `scripts/dev/frontend_gate.py` gained a divider-contrast check (the
+  composited colour, not the token string), ruled header-geometry
+  assertions at real 1080p/1440p windows, and zoom/transform prohibitions on
+  the form wrapper; the retuned split and form-cap assertions replaced the
+  Task 2 originals in place, matching the plan's instruction not to leave
+  the old assertions standing. A genuine RED run against the pre-fix CSS
+  produced 28 failures (14 per engine, both Chromium and Firefox): divider
+  contrast (1.27:1 light, 1.40:1 dark), the 5:3 split, the 23.75rem-based
+  form cap at 1080p/1440p/4K, the unruled 76px header bar and 48px/116px
+  nav-link geometry, the 48.4px theme control, and mismatched header/nav
+  gap tokens. Applying the CSS produced a genuine GREEN run: `23 checks
+  passed in 64 runs across chromium, firefox`. Mutation-checks confirmed the
+  zoom and transform prohibitions are load-bearing: temporarily adding
+  `zoom: 1.1` and then `transform: scale(1.1)` to `.index-form__inner` each
+  reproduced the gate failure; both were reverted before commit.
+- Measured divider contrast: light `rgba(26, 24, 32, 0.5)` composites to
+  3.23:1 against the light surface token (worst adjacent case, up from
+  1.27:1); dark `rgba(241, 237, 228, 0.4)` composites to 3.42:1 (up from
+  1.40:1). Both clear the 3:1 floor with headroom.
+- Test additions: 7 adversarial unit tests in
+  `tests/scripts/dev/test_frontend_gate.py` for the new colour-math helpers
+  (`_parse_rgb_string`, `_composite_over`, `_relative_luminance`,
+  `_contrast_ratio`, `_worst_divider_contrast`, `_divider_contrast_failure`,
+  `_clamp_px`), including an exact-3.0-passes/2.9999-fails boundary case;
+  the existing wrapped-headline test was updated for the new per-width
+  `_headline_wrap_failures(probe, width)` signature (1200, 1500, 1920,
+  2560px, both modes). 4 source-level tests were added to
+  `tests/test_template_shell.py` for the shared control-gap token, the
+  `--shell-height` clamp, the nav-link/theme-control size clamps, and the
+  new divider alphas.
+- Deviations: a background gate run was started immediately after the CSS
+  was already in its final (GREEN) state, before any genuine RED evidence
+  had been captured -- a TDD-ordering slip. Corrected before proceeding:
+  `git stash push --keep-index` reverted only the two CSS files to their
+  pre-fix state while keeping the new gate assertions in the working tree,
+  the RED run above was captured against that state, then `git stash pop`
+  restored the GREEN CSS and the gate was re-run clean. No code was
+  rewritten; only the evidence-capture order was corrected.
+- Validation: `pytest -q tests/scripts/dev/test_frontend_gate.py` --
+  **31 passed**; `pytest -q tests/test_template_shell.py` -- **93 passed**;
+  full-suite `pytest -q` -- **892 passed**, 5 warnings (881 baseline plus
+  the 11 new tests above). The complete frontend gate passed 23 checks in
+  64 runs across Chromium and Firefox. All pre-commit hooks and
+  `doc_state_sync.py --check` passed on the final document state.
+- Forward guidance: Task 4 (align visible loading progress with pipeline
+  phases) is next per the canonical plan. Tasks 5 and 6 remain open. PR #224
+  (Task 2) merged; PLAYBOOK Section 3 corrected the stale "awaits owner
+  review" framing.
+
 ### 2026-09-05 - Close PR #224 complexity follow-up (side-task)
 
 - Scope: address Qlty's fresh analysis of the first Task 2 review-fix commit.
@@ -592,34 +660,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: Task 2 awaits PR review and merge. Task 3 is next, as
   its own commit and review cycle. Do not start WP-5 until Task 3 lands.
 - After any edit here, run `python scripts/doc_state_sync.py --fix`.
-
-### 2026-09-04 - Preserve owner-plan provenance and late review decisions (side-task)
-
-- Scope: track the original September 1 owner-review proposal with an explicit
-  historical/non-executable banner, and identify its superseding execution
-  plan. Ignore generated `graphify-out/` while preserving and querying it
-  locally. Planning documents remain tracked rather than ignored.
-- Review corrections: pin the remaining captured snapshot kit URL; express the
-  planned natural-height guard in rem and require enlarged-root browser checks;
-  record Adobe Fonts ownership and the loading screenshot corrections.
-  F-B21-34 and F-B21-35 record plan/config fixes; F-B21-36 remains implementation
-  work. F-B21-37 records PR #223's completed documentation repair.
-- Plan vs implementation: no production scaling or loading behavior changed.
-  The old proposal stays intact below its supersession notice, including old
-  instructions. The active plan owns execution and the owner rulings win.
-- Deviations: defer the unfinished Task 2 test-first changes from this commit;
-  preserve and restore them locally after validation. The owner approved this
-  documentation commit; no push is requested. `.impeccable/` and `PRODUCT.md`
-  remain untracked and preserved.
-- Validation: `pytest -q`: **872 passed**, 5 warnings on the commit candidate
-  with the unfinished tests shelved. Run hooks and docsync before commit.
-  No production UI changed; PR #223 already passed both browser gates.
-- Forward guidance: resume Task 2 of the canonical scaling/remediation plan
-  before WP-5. Query the local graph as navigation, then verify current source.
-  On 2026-09-04, headed Chrome at DPR 1 measured 2560x1305 content inside
-  2560x1392 outer bounds on the 2560x1440 monitor; the second 1920x1200 monitor
-  measured 1920x1065 content inside 1920x1152 outer bounds. Other panel profiles
-  remain derived rather than physically measured. Both browsers must execute
-  the full gate. Late PR #221 threads 3938613706 and 3938613711 have local fixes
-  recorded here; reply/resolve only after these fixes are published. PR #223
-  is merged; issue #222 stays open for its remaining complexity targets.

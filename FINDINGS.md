@@ -2,9 +2,9 @@
 
 Last updated: 2026-09-05
 Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
-Tasks 1-2 are complete; Task 3 is next before WP-5. PLAYBOOK Section 3 owns
+Tasks 1-3 are complete; Task 4 is next. PLAYBOOK Section 3 owns
 the current work order.
-881 tests across 40 test modules.
+892 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -1248,8 +1248,9 @@ rule, the 12px label floor, reduced capability-mark tracking, and the light
 muted-text contrast. The source path did not ship usable proportional
 composition scaling. The later owner-review layout, hierarchy, boundary,
 loading-progress, and unmatched-empty-state work also remains incomplete. In
-particular, the live source still uses the interim wide split and a centred
-`23.75rem` form cap.
+particular, the live source still used the interim wide split and a centred
+`23.75rem` form cap until Task 3 landed the final `3fr 4fr` split and
+`28rem` base cap.
 
 Measurement on 2026-09-01 named the cause. The formula divides window height by
 the 1080px design viewport instead of by the composition's own 673px height,
@@ -1265,8 +1266,10 @@ is the sole acceptance specification for the reopened work. It records the
 1080p comparison needed before any global header-density decision.
 
 Status: reopened. Task 2's proportional scale is implemented and passed the
-complete two-engine gate; Task 3's final split/form cap and the later
-owner-review remediation tasks remain open.
+complete two-engine gate; Task 3 landed the final `3fr 4fr` split, `28rem`
+form cap, raised divider contrast, and the ruled header clamps. The later
+owner-review remediation tasks (Task 4 loading-progress alignment, Task 5
+unmatched no-data surface, Task 6 accessibility pass) remain open.
 Source: owner large-display review, 2026-08-28; owner clarification and
 measurement, 2026-09-01.
 

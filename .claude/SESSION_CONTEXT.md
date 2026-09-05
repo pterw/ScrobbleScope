@@ -9,11 +9,11 @@ Last updated: 2026-09-05
 | Item | Value |
 |------|-------|
 | Branch | `wip/batch-21` |
-| Tests | **881 passing** across 40 test modules |
+| Tests | **892 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** WP-0 through WP-4 are done. Owner-review remediation Task 2 is implemented and gate-validated (complete Chromium+Firefox matrix passed in isolation) and awaits owner review before Task 3 or WP-5; explicit CSS dimensions replace the engine-independent height-denominator defect. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
+| Batch 21 status | **Active.** WP-0 through WP-4 are done. Owner-review remediation Task 2 merged as PR #224; Task 3 (final `3fr 4fr` split, `28rem` form cap, raised divider contrast, ruled header clamps) is implemented and gate-validated (complete Chromium+Firefox matrix). Tasks 4-6 (loading-progress alignment, unmatched no-data surface, accessibility pass) remain open. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -40,7 +40,7 @@ Last updated: 2026-09-05
 - Current-batch entries in active log block: 7.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
 - Next expected work package: WP-5.
-- Latest validated test count: **881 passed**.
+- Latest validated test count: **892 passed**.
 - Newest current-batch entry: 2026-08-27 - Unified loading and recent-result recovery completed (Batch 21 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -179,7 +179,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (881 tests)
+## 6. Test structure (892 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

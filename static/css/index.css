@@ -222,12 +222,12 @@
   }
 }
 
-/* Centred in the well, not pinned to its left edge. On a wide screen the
-   well is much wider than the 380px the form is capped at, and hugging the
-   border leaves the card marooned beside a field of empty sunken colour. */
+/* 28rem is the unscaled design cap. The complete form composition consumes
+   --index-scale through explicit layout values; this wrapper never uses zoom
+   or transform. */
 .index-form__inner {
   width: 100%;
-  max-width: calc(23.75rem * var(--index-scale, 1));
+  max-width: calc(28rem * var(--index-scale, 1));
   margin: 0 auto;
 }
 
@@ -986,7 +986,7 @@
       ),
       var(--index-scale-cap)
     );
-    grid-template-columns: 3fr 5fr;
+    grid-template-columns: 3fr 4fr;
   }
 
   .index-hero,
