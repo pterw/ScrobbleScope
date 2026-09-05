@@ -1970,6 +1970,9 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     const header = document.querySelector('.site-header');
                     const nav = document.querySelector('.site-header__nav');
                     const navRect = nav.getBoundingClientRect();
+                    const actions = document.querySelector('.site-header__actions');
+                    const actionsRect = actions.getBoundingClientRect();
+                    const mainRect = document.querySelector('main').getBoundingClientRect();
                     const links = [...nav.querySelectorAll('.site-header__nav-link')];
                     return {
                         headerHeight: header.getBoundingClientRect().height,
@@ -1979,6 +1982,14 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                         rows: new Set(links.map(link => Math.round(
                             link.getBoundingClientRect().top
                         ))).size,
+                        actionsInHeader: header.contains(actions),
+                        actionsInMobileSlot: Boolean(
+                            actions.closest('.site-theme-mobile-slot')
+                        ),
+                        actionsTop: actionsRect.top,
+                        contentBottom: mainRect.bottom,
+                        themeHeight: document.querySelector('.site-header__theme-toggle')
+                            .getBoundingClientRect().height,
                         linksInside: links.every(link => {
                             const rect = link.getBoundingClientRect();
                             return rect.left >= navRect.left - 0.5
@@ -2177,6 +2188,19 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             failures.append(
                 f"/: mobile navigation uses {header['rows']} row(s) at {width}px, "
                 "expected two directly visible rows"
+            )
+        if header["actionsInHeader"] or not header["actionsInMobileSlot"]:
+            failures.append(
+                f"/: mobile theme control remains in the header at {width}px"
+            )
+        if header["actionsTop"] < header["contentBottom"] - 0.5:
+            failures.append(
+                f"/: mobile theme control is not below the page content at {width}px"
+            )
+        if header["themeHeight"] < 44:
+            failures.append(
+                f"/: mobile theme control is only {header['themeHeight']:.1f}px high "
+                f"at {width}px, expected at least 44px"
             )
         if abs(header["headerHeight"] - header["bodyPaddingTop"]) > 0.5:
             failures.append(

@@ -109,9 +109,10 @@ See FINDINGS F-DOCSYNC-3.
   keeps the loader hidden when a saved Heatmap job is already cached and fades
   the result in directly (F-B21-43). Owner visual refinements vertically centre
   the desktop form composition, expose every mobile navigation destination in
-  two rows, widen the desktop Heatmap result, and return its username to the
-  neutral headline treatment (F-B21-44 through F-B21-46); task review is
-  pending next. Tasks 5-6 (unmatched no-data surface, accessibility pass)
+  two rows with the theme control below page content, widen the desktop Heatmap
+  result, and return its username to the neutral headline treatment (F-B21-44
+  through F-B21-46); task review is pending next. Tasks 5-6 (unmatched no-data
+  surface, accessibility pass)
   remain open.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
@@ -543,6 +544,31 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Move the mobile theme control below page content (side-task)
+
+- Scope: owner review found that the compact horizontal Light/Dark control sat
+  midway across the two navigation rows. Its boxes did not intersect, but the
+  control visually competed with both rows and made the header read as
+  overlapping.
+- Implementation: retain one checkbox and label, then move their actions
+  wrapper between the desktop header and a mobile slot after page content via
+  the existing `859.98px` breakpoint. The four-link grid now uses the full
+  mobile header width. Selector scope follows the wrapper so the hidden input,
+  selected state, and focus ring survive relocation on migrated and legacy
+  pages.
+- TDD evidence: the new rendered check failed in Chromium and Firefox at both
+  390px and 320px because the control remained in the header and above page
+  content. The focused gate passes after relocation and also checks the 44px
+  target, two-row navigation, overflow, and body offset.
+- Findings: F-B21-45 now records the owner correction and final placement.
+- Validation: `pytest -q` -- **904 passed**, 5 warnings. Focused shell and gate
+  tests -- **129 passed**. The complete frontend gate reports `23 checks passed
+  in 64 runs across chromium, firefox`; JavaScript syntax and diff checks pass.
+  All pre-commit hooks pass, including `doc-state-sync-check`; the alignment
+  hook reports the expected WT003/WT010 state on the owner-authorized stacked
+  Task 4 branch.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
 ### 2026-09-05 - Refine desktop scale and mobile navigation (side-task)
 
 - Scope: address the owner's final Task 3/4 visual comparison. The 28rem form
@@ -624,25 +650,3 @@ non-current operational logs. Older dated entries live in
   across chromium, firefox`; hooks and final docsync follow before commit.
 - Forward guidance: correct the cached-Heatmap restoration flash on PR #226
   with the loading-progress work, then complete Task 4 review.
-
-### 2026-09-05 - Close out the Task 4 session and stack its PR (side-task)
-
-- Scope: session close-out after Task 4's implementation pass. Corrected the
-  dangling pre-amend commit reference (`21b5198` -> `e0219b2`) in Section 3,
-  in the Task 4 entry's forward guidance, and in the plan's Task 4 checkpoint
-  -- a commit cannot contain its own SHA, so SHA references land after the
-  commit they name. Added the dated handoff document
-  `docs/superpowers/handoffs/2026-09-05-batch21-task-4-review-handoff.md`.
-- Plan vs implementation: as intended by the owner's close-out instruction.
-  Task 4's commit and this handoff are published on the stacked branch
-  `wip/batch-21-task-4` (base `wip/batch-21`) so PR #225 stays scoped to
-  Task 3; local `wip/batch-21` is intentionally ahead of its origin until
-  PR #225 merges and the WT004 realign ritual runs.
-- Deviations: none of record; the implementer's amend-within-its-own-pass
-  produced the dangling SHA this entry corrects.
-- Validation: `pytest -q` -- **902 passed** (unchanged by this docs-only
-  commit). `pre-commit run --all-files` -- all hooks pass.
-  `doc_state_sync.py --check` -- exit 0 (expected root-definition warning).
-- Forward guidance: the next session reviews Task 4 (SDD task review, then
-  fix loop if needed), then Tasks 5 and 6 per the plan; the handoff doc is
-  the map. PR #225 (Task 3) remains draft awaiting owner review.

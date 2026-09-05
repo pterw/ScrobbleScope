@@ -185,11 +185,14 @@ flex row. At 390px its navigation had a 203px visible width but a 345px scroll
 width; at 320px only 133px was visible. Results and Unmatched therefore sat
 offscreen unless the reader discovered horizontal scrolling.
 
-Status: resolved, 2026-09-05. The four destinations use a two-column,
-two-row grid beside the compact theme control. The mobile shell reserves the
-matching `6.5rem` header height, and the body offset uses the same token. The
-browser gate checks both 390px and 320px widths for two rows, contained links,
-no horizontal overflow, and a matching body offset.
+Status: resolved, 2026-09-05. The first correction put the four destinations
+in a two-column, two-row grid beside the compact theme control. Owner review
+then found that the control sat across both rows and visually competed with
+their buttons. The final mobile shell gives the grid the full header width and
+moves the same Light/Dark input below page content; it returns to the header at
+desktop widths without duplicating state. The browser gate checks both 390px
+and 320px widths for two rows, contained links, no horizontal overflow, a
+matching body offset, footer placement, and a retained 44px theme target.
 Source: owner mobile review and rendered Chromium/Firefox measurements,
 2026-09-05.
 
@@ -1596,17 +1599,17 @@ Status: open. Source: load testing 2026-03-04.
 
 ### F-AUDIT-1: dark-mode toggle placement on mobile
 
-Fixed-position footer toggle may overlap content on small screens.
-Batch 21 moves the toggle into the standing header bar; its acceptance
-criterion on tap-target size names this finding as closed by that work.
+Fixed-position footer toggle may overlap content on small screens. Batch 21
+first moved the toggle into the standing header bar; later mobile review found
+that this made it compete with the two-row navigation instead.
 
-**Resolved by WP-2 on 2026-08-23.** The footer bar is deleted and the toggle
-now sits in the standing header. Both it and the wordmark link carry
-`min-height: 44px` in `static/css/shell.css`, which is the floor the design
-system sets. The control is a visible label over a visually hidden checkbox,
-so it stays keyboard reachable and keeps its accessible name; on narrow
-screens the label text is hidden visually only, never with `display: none`.
-Status: resolved (Batch 21 WP-2, 2026-08-23). Source: AUDIT_2026-02-11.
+**Resolved by WP-2 and owner mobile review.** The fixed footer bar is deleted.
+The same theme control sits in the standing header on desktop and moves into
+normal flow after page content on mobile, where it cannot cover content or
+compete with navigation. It retains a 44px target, keyboard reachability, its
+accessible name, and one source of checked state in both positions.
+Status: resolved (Batch 21 WP-2, refined 2026-09-05). Source:
+AUDIT_2026-02-11 and owner mobile review.
 
 ### F-LOAD-2: no integration tests in CI
 

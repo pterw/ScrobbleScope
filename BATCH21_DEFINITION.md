@@ -121,10 +121,10 @@ stylesheet is in scope for this batch.
    wordmark render correctly in both modes on every page.
 4. Standing header bar on all pages: wordmark left (~64px), four functional
    Input Mono Narrow page-navigation pills (Home, Heatmap, Results,
-   Unmatched), segmented Light/Dark toggle top-right; footer toggle removed;
-   landing page keeps the large brand moment in the hero. At mobile widths,
-   all four destinations remain directly visible in a two-by-two grid beside
-   the compact theme control, with no horizontal navigation scrolling.
+   Unmatched), segmented Light/Dark toggle top-right; landing page keeps the
+   large brand moment in the hero. At mobile widths, all four destinations
+   remain directly visible in a two-by-two grid with no horizontal navigation
+   scrolling, and the same theme control follows the page content.
 5. CSV export, JPEG export (both modes, mobile + desktop), progress
    polling, username validation, decade pills, and thresholds disclosure
    all still work; the results list remains a semantic `<table>`.
@@ -218,8 +218,9 @@ kickoff log entry.
 ### WP-2 -- base.html shell + strangler enabler
 
 - Fonts (per decision 4) in `base.html`; body font-family finally set.
-- Standing header bar (wordmark ~64px + theme toggle); footer toggle
-  removed; `theme.js` dual-writes `data-theme` + `.dark-mode`.
+- Standing header bar (wordmark ~64px + desktop theme toggle); the old fixed
+  footer toggle is removed, while mobile uses a normal-flow theme control
+  after page content; `theme.js` dual-writes `data-theme` + `.dark-mode`.
 - Bootstrap CSS link moved from `base.html` into a per-page block;
   `error.html` (smallest page) migrates fully as the pilot.
 - Coexistence isolation: each template loads exactly one framework

@@ -14,6 +14,26 @@
     }
 
     const darkSwitch = document.getElementById('darkSwitch');
+    const themeActions = darkSwitch && darkSwitch.closest('.site-header__actions');
+    const siteHeader = document.querySelector('.site-header');
+    const mobileThemeSlot = document.querySelector('.site-theme-mobile-slot');
+    const mobileThemeQuery = window.matchMedia('(max-width: 859.98px)');
+
+    /**
+     * Keep one theme input while placing it beside desktop navigation and
+     * after page content on mobile. Moving the existing node preserves its
+     * checked state, label association, focus behaviour and change listener.
+     */
+    function positionThemeControl() {
+        if (!themeActions || !siteHeader || !mobileThemeSlot) return;
+        const destination = mobileThemeQuery.matches ? mobileThemeSlot : siteHeader;
+        if (themeActions.parentElement !== destination) {
+            destination.appendChild(themeActions);
+        }
+    }
+
+    positionThemeControl();
+    mobileThemeQuery.addEventListener('change', positionThemeControl);
 
     // An inline script in base.html already set data-theme before first paint,
     // so read the decision back from the element rather than recomputing it

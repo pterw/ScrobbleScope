@@ -9,6 +9,28 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Close out the Task 4 session and stack its PR (side-task)
+
+- Scope: session close-out after Task 4's implementation pass. Corrected the
+  dangling pre-amend commit reference (`21b5198` -> `e0219b2`) in Section 3,
+  in the Task 4 entry's forward guidance, and in the plan's Task 4 checkpoint
+  -- a commit cannot contain its own SHA, so SHA references land after the
+  commit they name. Added the dated handoff document
+  `docs/superpowers/handoffs/2026-09-05-batch21-task-4-review-handoff.md`.
+- Plan vs implementation: as intended by the owner's close-out instruction.
+  Task 4's commit and this handoff are published on the stacked branch
+  `wip/batch-21-task-4` (base `wip/batch-21`) so PR #225 stays scoped to
+  Task 3; local `wip/batch-21` is intentionally ahead of its origin until
+  PR #225 merges and the WT004 realign ritual runs.
+- Deviations: none of record; the implementer's amend-within-its-own-pass
+  produced the dangling SHA this entry corrects.
+- Validation: `pytest -q` -- **902 passed** (unchanged by this docs-only
+  commit). `pre-commit run --all-files` -- all hooks pass.
+  `doc_state_sync.py --check` -- exit 0 (expected root-definition warning).
+- Forward guidance: the next session reviews Task 4 (SDD task review, then
+  fix loop if needed), then Tasks 5 and 6 per the plan; the handoff doc is
+  the map. PR #225 (Task 3) remains draft awaiting owner review.
+
 ### 2026-09-05 - Align loading signals with pipeline phases (side-task)
 
 - Scope: Task 4 of the Batch 21 owner-review remediation plan. Align visible
