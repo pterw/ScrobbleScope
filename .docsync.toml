@@ -261,6 +261,7 @@ expect = "rwy8ghw"
 [[value.sites]]
 file = "docs/design/reference/design-system-readme.md"
 pattern = 'use\.typekit\.net/(\w+)\.css'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/tokens/typography.css"

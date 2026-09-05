@@ -82,8 +82,16 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
-- **PR #223 side-task:** three complexity extractions validated; integration
-  is ready for the owner-authorized merge. Remaining issue #222 targets stay open.
+- **PR #223 side-task:** merged as `123b127`; this worktree is synchronized.
+  Remaining issue #222 targets stay open.
+- **Planning follow-up:** the original owner-review plan is tracked as
+  historical evidence; the superseding plan below remains canonical. Late
+  review corrections and loading screenshot requirements are recorded. Task 2
+  browser-runner tests are unfinished local work, not part of this doc commit.
+  They import `_launch_browser`, which is not implemented yet; their collection
+  error is the expected test-first interruption point, not a merged regression.
+  Resume the two-engine runner implementation with cleanup/failure isolation,
+  then the layout-aware CSS and realistic-window geometry gate in Task 2.
 - **Next action:** **WP-4 is complete. Owner-review remediation is planned,
   not implemented; begin it before WP-5.** The index does not grow with the
   window on large displays. Measurement on 2026-09-01 named the cause: the
@@ -530,6 +538,37 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-04 - Preserve owner-plan provenance and late review decisions (side-task)
+
+- Scope: track the original September 1 owner-review proposal with an explicit
+  historical/non-executable banner, and identify its superseding execution
+  plan. Ignore generated `graphify-out/` while preserving and querying it
+  locally. Planning documents remain tracked rather than ignored.
+- Review corrections: pin the remaining captured snapshot kit URL; express the
+  planned natural-height guard in rem and require enlarged-root browser checks;
+  record Adobe Fonts ownership and the loading screenshot corrections.
+  F-B21-34 and F-B21-35 record plan/config fixes; F-B21-36 remains implementation
+  work. F-B21-37 records PR #223's completed documentation repair.
+- Plan vs implementation: no production scaling or loading behavior changed.
+  The old proposal stays intact below its supersession notice, including old
+  instructions. The active plan owns execution and the owner rulings win.
+- Deviations: defer the unfinished Task 2 test-first changes from this commit;
+  preserve and restore them locally after validation. The owner approved this
+  documentation commit; no push is requested. `.impeccable/` and `PRODUCT.md`
+  remain untracked and preserved.
+- Validation: `pytest -q`: **872 passed**, 5 warnings on the commit candidate
+  with the unfinished tests shelved. Run hooks and docsync before commit.
+  No production UI changed; PR #223 already passed both browser gates.
+- Forward guidance: resume Task 2 of the canonical scaling/remediation plan
+  before WP-5. Query the local graph as navigation, then verify current source.
+  On 2026-09-04, headed Chrome at DPR 1 measured 2560x1305 content inside
+  2560x1392 outer bounds on the 2560x1440 monitor; the second 1920x1200 monitor
+  measured 1920x1065 content inside 1920x1152 outer bounds. Other panel profiles
+  remain derived rather than physically measured. Both browsers must execute
+  the full gate. Late PR #221 threads 3938613706 and 3938613711 have local fixes
+  recorded here; reply/resolve only after these fixes are published. PR #223
+  is merged; issue #222 stays open for its remaining complexity targets.
+
 ### 2026-09-04 - Review three complexity extractions in PR #223 (side-task)
 
 - Scope: split loading progress error/poll/redirect handling, index filter-label
@@ -622,44 +661,3 @@ non-current operational logs. Older dated entries live in
   runs across desktop, mobile and wide touch. All 12 pre-commit hooks,
   `doc_state_sync.py --check`, `git diff --check`, and the worktree guard pass;
   WT010 is the expected dirty-tree warning and WT000 confirms branch alignment.
-
-### 2026-09-04 - Graphify knowledge-graph build and audit published (side-task)
-
-- Scope: built a graphify knowledge graph over the worktree corpus (301
-  files, ~375k words) and published the report at
-  `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md`. The graph reflects
-  `wip/batch-21` at `ee285ac`, not `origin/main` -- a provenance block in
-  the report head says so, so an agent bootstrapping from `origin/main`
-  knows the docs-layer nodes describe unmerged work. The graph itself
-  stays untracked in `graphify-out/`; the report is the tracked record.
-  Built so agents can understand the repository faster at bootstrap.
-- Build shape: 3,103 nodes, 5,896 edges, 248 communities (2,387 AST from
-  code + 739 semantic from docs). Semantic extraction ran as 18 subagent
-  chunks after two full-size chunks repeatedly failed on provider stream
-  errors; smaller chunks succeeded. Top 15 communities were named from
-  their top node labels; the long tail keeps default names.
-- Verification notes are in the report head. Two of its own suggestions
-  were traced and disproved as extraction artifacts: the `_reach_state()`
-  "bridge" rests on one INFERRED exception-as-callee edge, and the `patch`
-  node's 133 INFERRED edges are `unittest.mock.patch` test wiring. The
-  verified-genuine findings are the `create_app()` hub bridging factory,
-  gate, config and shell-test communities, and the Batch 11-13 log edges
-  into the `orchestrator.py` and `utils.py` functions those batches
-  shipped.
-- Corpus exclusion recorded in the report:
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` was excluded from
-  semantic extraction as too large to parse; its durable content is
-  represented by the batch definitions and per-batch logs, which were
-  extracted.
-- Plan vs implementation: no production code changed. This is a read-only
-  research artifact plus its publication commit. The pipeline integration
-  question (docsync declarations pinning graph facts, automated rebuilds)
-  is deferred to the future extraction batch described in `AGENT_NOTES.md`;
-  nothing was wired into any gate.
-- Deviations: none.
-- Validation: `pytest -q` -- **872 passed**. All 12 pre-commit hooks pass.
-  Worktree guard exits 0. `doc_state_sync.py --check` exits 0.
-- Forward guidance: future agents can query the graph with
-  `graphify query "<question>"` from the worktree; `graphify --update`
-  re-extracts only changed files. Read the report head before trusting any
-  "surprising connection" it suggests -- two of five were artifacts.

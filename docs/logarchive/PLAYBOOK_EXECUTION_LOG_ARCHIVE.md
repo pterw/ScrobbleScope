@@ -9,6 +9,47 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-04 - Graphify knowledge-graph build and audit published (side-task)
+
+- Scope: built a graphify knowledge graph over the worktree corpus (301
+  files, ~375k words) and published the report at
+  `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md`. The graph reflects
+  `wip/batch-21` at `ee285ac`, not `origin/main` -- a provenance block in
+  the report head says so, so an agent bootstrapping from `origin/main`
+  knows the docs-layer nodes describe unmerged work. The graph itself
+  stays untracked in `graphify-out/`; the report is the tracked record.
+  Built so agents can understand the repository faster at bootstrap.
+- Build shape: 3,103 nodes, 5,896 edges, 248 communities (2,387 AST from
+  code + 739 semantic from docs). Semantic extraction ran as 18 subagent
+  chunks after two full-size chunks repeatedly failed on provider stream
+  errors; smaller chunks succeeded. Top 15 communities were named from
+  their top node labels; the long tail keeps default names.
+- Verification notes are in the report head. Two of its own suggestions
+  were traced and disproved as extraction artifacts: the `_reach_state()`
+  "bridge" rests on one INFERRED exception-as-callee edge, and the `patch`
+  node's 133 INFERRED edges are `unittest.mock.patch` test wiring. The
+  verified-genuine findings are the `create_app()` hub bridging factory,
+  gate, config and shell-test communities, and the Batch 11-13 log edges
+  into the `orchestrator.py` and `utils.py` functions those batches
+  shipped.
+- Corpus exclusion recorded in the report:
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` was excluded from
+  semantic extraction as too large to parse; its durable content is
+  represented by the batch definitions and per-batch logs, which were
+  extracted.
+- Plan vs implementation: no production code changed. This is a read-only
+  research artifact plus its publication commit. The pipeline integration
+  question (docsync declarations pinning graph facts, automated rebuilds)
+  is deferred to the future extraction batch described in `AGENT_NOTES.md`;
+  nothing was wired into any gate.
+- Deviations: none.
+- Validation: `pytest -q` -- **872 passed**. All 12 pre-commit hooks pass.
+  Worktree guard exits 0. `doc_state_sync.py --check` exits 0.
+- Forward guidance: future agents can query the graph with
+  `graphify query "<question>"` from the worktree; `graphify --update`
+  re-extracts only changed files. Read the report head before trusting any
+  "surprising connection" it suggests -- two of five were artifacts.
+
 ### 2026-09-02 - Remediate PR #221 review round one (side-task)
 
 - Scope: documentation and tests. Six bot findings on PR #221, from Codex, qlty

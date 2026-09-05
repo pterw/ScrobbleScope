@@ -66,6 +66,17 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 
 ## Architectural Constraints
 
+- **Graphify output stays local (owner, 2026-09-04).** `graphify-out/` is
+  Git-ignored generated data, not disposable scratch. Query it for semantic
+  navigation when available, then verify current source and owner decisions;
+  its generation baseline can lag the checkout. Do not delete it as cleanup.
+
+- **Adobe Fonts is the standing web-font provider (owner, 2026-09-04).** The
+  owner manages the web project's families and can add or remove them as
+  needed. No provider migration or subscription-expiry contingency is planned.
+  A snapshot expectation pins historical evidence, not the owner's ability to
+  change the live web project's contents.
+
 - **"Wordmark" and "logo" mean the SVG logotype, not the UI type stack.** The
   owner uses the two words interchangeably for the ScrobbleScope mark, and
   counts only the letterforms as the logo -- the five bars beside them are a

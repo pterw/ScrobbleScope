@@ -27,9 +27,10 @@ v4 generated CSS, pytest, Playwright frontend gate.
 
 ## Why this plan supersedes the 2026-09-01 remediation plan
 
-`docs/superpowers/plans/2026-09-01-owner-review-remediation.md` is untracked and
-was written before the failure was diagnosed. Keep it for reference; do not
-execute it. Its Tasks 2 and 3 are sound and are carried forward here almost
+`docs/superpowers/plans/2026-09-01-owner-review-remediation.md` is a tracked
+historical plan written before the failure was diagnosed. This plan is the
+canonical execution plan, subject to later owner rulings and the active batch
+definition. Keep the earlier plan for reference; do not execute it. Its Tasks 2 and 3 are sound and are carried forward here almost
 unchanged. Its Task 1 rests on four claims that measurement disproved.
 
 | Claim in that plan | Measured reality |
@@ -473,7 +474,7 @@ snapshot manifest.
 Prove the new `expect` values are live rather than decorative: change one of
 them by a digit, re-run `--check`, confirm it fails, and change it back.
 
-Commit `eeaa1a8` hardened every snapshot site whose declaration pattern exposes
+Commit `eeaa1a8` began hardening snapshot sites whose declaration pattern exposes
 a captured value. The 44px touch-target sites remain presence-only and cannot
 bind an `expect`; keep that deadlock deferred unless the touch minimum changes.
 
@@ -776,7 +777,7 @@ Declare the tokens once, near the top of `static/css/index.css`:
   /* Measured 2026-09-01 at zoom 1: hero column 324px, form column 673px. The
      height guard uses the taller. Re-measure if the form gains or loses a row;
      an over-large value makes the guard bind too early and stops the growth. */
-  --index-natural-height: 673px;
+  --index-natural-height: 42.0625rem;
   --index-scale-width-ref: 1920px;
   --index-scale-base: 1.075;
   /* The floor sits below the base so the complete composition can contract at
@@ -789,6 +790,10 @@ Declare the tokens once, near the top of `static/css/index.css`:
 ```
 
 `--index-scale-base` stays the multiplier inside the calculation.
+The measured 673px height is 42.0625rem at the measured 16px root. Keep that
+denominator font-relative so it follows the content when a reader raises the
+default font size. Exercise a 20px root in both engines and restore page state
+after the check; an enlarged root must not be treated as a fixed-pixel panel.
 `--index-scale-min` governs contraction below the 1920px reference, and 2.15
 is the 4K ceiling from the owner remediation. If the CSS arithmetic is not
 supported in either engine, stop and choose another layout-aware mechanism;
@@ -1068,6 +1073,13 @@ Stop for owner review.
 ---
 
 ## Task 4: Align visible loading progress with pipeline phases
+
+**Loading composition corrections (owner screenshot, 2026-09-04):** remove the
+secondary sentence that repeats the active phase, center the stat group when
+only Pages fetched is visible, and remove `rocket scale` from the loading
+parameter summary. Keep useful username and date-window context. Validate the
+one-stat and multi-stat states; hiding two children must not reserve empty
+columns. Counts remain subject to the accuracy contract below.
 
 **Accuracy prerequisite (owner, 2026-09-04).** Share presentation, not pipeline
 or polling state. Albums fetch Last.fm (overall 5-20%), search Spotify (20-40%)

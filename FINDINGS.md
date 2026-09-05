@@ -152,6 +152,41 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 
 ## Resolved this batch
 
+### F-B21-37: PR #223 understates its refactor scope and omits its execution log
+
+PR #223 describes a loading.js-only refactor, but head a38044b also changes
+index filter labels and the shared Python retry helper without a PLAYBOOK entry.
+
+Status: Resolved -- PR #223 merged as 123b127 with corrected scope, a side-task
+log, and documented helpers. Validation passed 872 tests and the complete
+22-check, 31-run frontend gate in Chromium and Firefox. This was a review and
+documentation defect; the inspected diff did not establish a functional
+regression. GitHub closed issue #222 on merge despite the partial-scope body;
+it was reopened because the remaining complexity targets are not addressed.
+Source: Owner-requested PR #223 merge-readiness review, 2026-09-04.
+
+### F-B21-34: one captured snapshot kit URL lacked an explicit expectation
+
+The reference design README's URL capture still participated in live-kit
+comparison although its prose capture was pinned as historical evidence.
+
+Added the same snapshot expectation to that URL site. This completes the
+capture isolation without changing the Adobe kit, its fonts, or provider.
+
+Status: resolved, 2026-09-04.
+Source: late PR #221 review thread 3938613706; owner provider clarification.
+
+### F-B21-35: the proposed scale height guard ignored root-font enlargement
+
+Task 2's fixed 673px natural-height denominator would not follow its rem-sized
+content when the reader enlarged the root font.
+
+The plan now expresses the measured denominator as 42.0625rem and requires
+enlarged-root browser validation. Production replacement remains Task 2.
+
+Status: resolved in the plan, 2026-09-04.
+Source: late PR #221 review thread 3938613711.
+
 ### F-B21-31: the remediation plan conflicted on counts and omitted a phase-copy reader
 
 Task 4 prescribed counted phase labels while the batch still prescribed
@@ -312,6 +347,15 @@ Source: SWE_PRINCIPLES_AUDIT.
 ---
 
 ## P1 -- Next batch candidates
+
+### F-B21-36: heatmap loading repeats context and reserves hidden stat columns
+
+The loading detail repeats the active phase, the lone page stat occupies the
+left third of a three-column grid, and the parameter summary adds rocket-scale
+copy that does not help the current wait.
+
+Status: open; owner screenshot corrections assigned to Task 4.
+Source: annotated owner heatmap-loading screenshot, 2026-09-04.
 
 ### F-B21-33: heatmap progress can apply stale responses and mislabel failed pages
 
