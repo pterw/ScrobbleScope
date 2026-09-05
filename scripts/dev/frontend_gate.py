@@ -1768,6 +1768,24 @@ def _touch_minimum_failures(
     ]
 
 
+def _headline_wrap_failures(probe) -> list[str]:
+    """Name each desktop mode whose headline wraps at the narrow boundary."""
+    failures = []
+    for mode in ("album", "heatmap"):
+        probe.locator(f"#mode-tab-{mode}").click()
+        headline = probe.locator(f'[data-mode-hero="{mode}"] h1')
+        headline.wait_for(state="visible")
+        dimensions = headline.evaluate(
+            """node => ({
+            height: node.getBoundingClientRect().height,
+            lineHeight: parseFloat(getComputedStyle(node).lineHeight),
+        })"""
+        )
+        if dimensions["height"] > dimensions["lineHeight"] * 1.2:
+            failures.append(f"/: {mode} headline wraps at the 1200px desktop boundary")
+    return failures
+
+
 def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
     """Exercise readable narrow headlines, expanded states and wide touch growth.
 
@@ -1781,20 +1799,7 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
         probe.set_viewport_size({"width": 1200, "height": 900})
         probe.goto(f"{base_url}/", wait_until="load")
         probe.evaluate(FONTS_READY_EXPRESSION)
-        for mode in ("album", "heatmap"):
-            probe.locator(f"#mode-tab-{mode}").click()
-            headline = probe.locator(f'[data-mode-hero="{mode}"] h1')
-            headline.wait_for(state="visible")
-            dimensions = headline.evaluate(
-                """node => ({
-                height: node.getBoundingClientRect().height,
-                lineHeight: parseFloat(getComputedStyle(node).lineHeight),
-            })"""
-            )
-            if dimensions["height"] > dimensions["lineHeight"] * 1.2:
-                failures.append(
-                    f"/: {mode} headline wraps at the 1200px desktop boundary"
-                )
+        failures.extend(_headline_wrap_failures(probe))
         widths = {}
         for width, height in ((1920, 945), (2560, 1305)):
             probe.set_viewport_size({"width": width, "height": height})

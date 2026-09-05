@@ -15,6 +15,7 @@ from scripts.dev.frontend_gate import (
     SETUP_COMMAND,
     FrontendGateError,
     _check_desktop_scale_bounds,
+    _headline_wrap_failures,
     _launch_browser,
     _load_playwright,
     _touch_minimum_failures,
@@ -424,6 +425,10 @@ def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> 
     probe.locator.side_effect = locate
     probe.evaluate.side_effect = evaluate
 
+    assert _headline_wrap_failures(probe) == [
+        "/: album headline wraps at the 1200px desktop boundary",
+        "/: heatmap headline wraps at the 1200px desktop boundary",
+    ]
     assert _check_desktop_scale_bounds(page, "http://local") == [
         "/: album headline wraps at the 1200px desktop boundary",
         "/: heatmap headline wraps at the 1200px desktop boundary",

@@ -9,6 +9,23 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-04 - Review three complexity extractions in PR #223 (side-task)
+
+- Scope: split loading progress error/poll/redirect handling, index filter-label
+  selection, and optional semaphore/retry timing into focused helpers.
+- Plan vs implementation: this is partial issue #222 remediation, not closure
+  of its full complexity inventory. Existing behavior and public contracts stay
+  unchanged. Added purpose comments to the extracted JavaScript helpers.
+- Deviations: the initial PR body described only loading.js and incorrectly
+  closed the broader issue. Correct the title/body before merge. The original
+  Copilot commits carry prohibited co-author trailers; use a clean squash
+  message at integration rather than rewrite the author's branch.
+- Validation: `pytest -q`: **872 passed**, 5 warnings. The complete Firefox
+  gate passed 22 checks in 31 runs locally; Chromium passed the same 22 checks
+  in 31 runs in PR CI. Final pre-commit and docsync checks run before commit.
+- Forward guidance: resume the owner-review scaling plan before WP-5. These
+  extractions do not implement its loading-count or layout corrections.
+
 ### 2026-09-04 - Clear PR #221 plan-review follow-ups (side-task)
 
 - Scope: corrected the execution plan and repository-authored Markdown before

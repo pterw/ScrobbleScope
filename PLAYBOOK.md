@@ -87,8 +87,8 @@ See FINDINGS F-DOCSYNC-3.
 - **Planning follow-up:** the original owner-review plan remains historical
   evidence; the superseding plan below is canonical. Task 2 now implements
   the two-engine runner and explicit CSS composition dimensions. Its rendered
-  expanded-state guard, complete validation, and first PR #224 review
-  remediation passed.
+  expanded-state guard, complete validation, and PR #224 review remediation
+  passed.
 - **Next action:** **WP-4 and remediation Task 2 are complete. Review Task 2
   before Task 3 or WP-5.** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
@@ -526,6 +526,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Close PR #224 complexity follow-up (side-task)
+
+- Scope: address Qlty's fresh analysis of the first Task 2 review-fix commit.
+  The shared font expression and browser closure findings cleared, while the
+  desktop-boundary helper remained one point over its complexity threshold.
+- Review remediation: extracted the headline-wrap branch into a focused helper
+  and exercised that helper directly through the existing adversarial boundary
+  test. This removes nested control flow from the browser orchestration without
+  changing its rendered assertions.
+- Validation: focused frontend-gate tests passed **24 tests**; `pytest -q` --
+  **881 passed**, 5 warnings. The complete gate passed 22 checks in 62 runs
+  across Chromium and Firefox. All pre-commit hooks and docsync passed on the
+  final document state.
+- Forward guidance: await the refreshed Qlty and Quality Gate checks on PR
+  #224. Task 3 remains next after owner review.
+
 ### 2026-09-05 - Remediate PR #224 Task 2 review (side-task)
 
 - Scope: restore Task 2's original authored form geometry, harden its browser
@@ -607,20 +623,3 @@ non-current operational logs. Older dated entries live in
   the full gate. Late PR #221 threads 3938613706 and 3938613711 have local fixes
   recorded here; reply/resolve only after these fixes are published. PR #223
   is merged; issue #222 stays open for its remaining complexity targets.
-
-### 2026-09-04 - Review three complexity extractions in PR #223 (side-task)
-
-- Scope: split loading progress error/poll/redirect handling, index filter-label
-  selection, and optional semaphore/retry timing into focused helpers.
-- Plan vs implementation: this is partial issue #222 remediation, not closure
-  of its full complexity inventory. Existing behavior and public contracts stay
-  unchanged. Added purpose comments to the extracted JavaScript helpers.
-- Deviations: the initial PR body described only loading.js and incorrectly
-  closed the broader issue. Correct the title/body before merge. The original
-  Copilot commits carry prohibited co-author trailers; use a clean squash
-  message at integration rather than rewrite the author's branch.
-- Validation: `pytest -q`: **872 passed**, 5 warnings. The complete Firefox
-  gate passed 22 checks in 31 runs locally; Chromium passed the same 22 checks
-  in 31 runs in PR CI. Final pre-commit and docsync checks run before commit.
-- Forward guidance: resume the owner-review scaling plan before WP-5. These
-  extractions do not implement its loading-count or layout corrections.
