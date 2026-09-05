@@ -93,6 +93,25 @@ def _get_loop_limiter(cache, rate, period):
     return limiter
 
 
+async def _run_with_optional_semaphore(inner_fn, semaphore):
+    """Run ``inner_fn`` directly or under a semaphore when one is provided."""
+    if semaphore is None:
+        return await inner_fn()
+    async with semaphore:
+        return await inner_fn()
+
+
+def _resolve_backoff(backoff, attempt):
+    """Return sleep seconds from either a constant or a callable backoff."""
+    return backoff(attempt) if callable(backoff) else backoff
+
+
+async def _sleep_retry_after(retry_after, jitter, attempt):
+    """Sleep for Retry-After plus optional jitter."""
+    sleep_time = retry_after + (jitter(attempt) if jitter is not None else 0)
+    await asyncio.sleep(sleep_time)
+
+
 def get_lastfm_limiter():
     """Return a throttled rate limiter for Last.fm API calls.
 
@@ -319,28 +338,21 @@ async def retry_with_semaphore(
     """
     for attempt in range(retries):
         try:
-            if semaphore is None:
-                result_tuple = await inner_fn()
-            else:
-                async with semaphore:
-                    result_tuple = await inner_fn()
+            result_tuple = await _run_with_optional_semaphore(inner_fn, semaphore)
 
             if is_done(result_tuple):
                 return extract_result(result_tuple)
 
             retry_after = get_retry_after(result_tuple)
             if retry_after is not None:
-                sleep_time = retry_after
-                if jitter is not None:
-                    sleep_time += jitter(attempt)
-                await asyncio.sleep(sleep_time)
+                await _sleep_retry_after(retry_after, jitter, attempt)
                 continue
         except reraise:
             raise
         except Exception as e:
             logging.error(f"Error in {error_label}: {e}")
 
-        await asyncio.sleep(backoff(attempt) if callable(backoff) else backoff)
+        await asyncio.sleep(_resolve_backoff(backoff, attempt))
 
     logging.error(f"All {retries} retries failed for {error_label}")
     return default

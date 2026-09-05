@@ -469,28 +469,42 @@ document.addEventListener('DOMContentLoaded', () => {
   // saves reopening the disclosure to check what is set.
   const filterTags = document.getElementById('filter-tags');
 
+  function currentListeningYear() {
+    return parseInt(yearSelect.value, 10);
+  }
+
+  function yearTagText() {
+    const year = currentListeningYear();
+    return Number.isNaN(year) ? 'no year' : String(year);
+  }
+
+  function scopeTagText() {
+    const year = currentListeningYear();
+    if (scope.value === 'all') return 'all years';
+
+    if (scope.value === 'decade') {
+      const checked = document.querySelector('.decade-radio:checked');
+      return checked ? checked.value : 'no decade';
+    }
+
+    if (scope.value === 'custom') {
+      return releaseYearInput.value ? `release ${releaseYearInput.value}` : 'any release';
+    }
+
+    if (Number.isNaN(year)) return 'release year';
+    return `release ${scope.value === 'previous' ? year - 1 : year}`;
+  }
+
+  function sortTagText() {
+    const checked = document.querySelector('input[name="sort_by"]:checked');
+    return checked && checked.value === 'playtime' ? 'play time' : 'play count';
+  }
+
   /** Derive the reader-facing text for one active-filter tag. */
   function tagText(name) {
-    const year = parseInt(yearSelect.value, 10);
-    if (name === 'year') {
-      return Number.isNaN(year) ? 'no year' : String(year);
-    }
-    if (name === 'scope') {
-      if (scope.value === 'all') return 'all years';
-      if (scope.value === 'decade') {
-        const checked = document.querySelector('.decade-radio:checked');
-        return checked ? checked.value : 'no decade';
-      }
-      if (scope.value === 'custom') {
-        return releaseYearInput.value ? `release ${releaseYearInput.value}` : 'any release';
-      }
-      if (Number.isNaN(year)) return 'release year';
-      return `release ${scope.value === 'previous' ? year - 1 : year}`;
-    }
-    if (name === 'sort') {
-      const checked = document.querySelector('input[name="sort_by"]:checked');
-      return checked && checked.value === 'playtime' ? 'play time' : 'play count';
-    }
+    if (name === 'year') return yearTagText();
+    if (name === 'scope') return scopeTagText();
+    if (name === 'sort') return sortTagText();
     return countOf(clampToBounds(minPlays), 'play');
   }
 
