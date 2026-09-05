@@ -469,15 +469,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // saves reopening the disclosure to check what is set.
   const filterTags = document.getElementById('filter-tags');
 
+  /** Read the selected listening year, retaining NaN for an empty selection. */
   function currentListeningYear() {
     return parseInt(yearSelect.value, 10);
   }
 
+  /** Label the listening year or its unselected state. */
   function yearTagText() {
     const year = currentListeningYear();
     return Number.isNaN(year) ? 'no year' : String(year);
   }
 
+  /** Describe the release filter using its scope-specific selection. */
   function scopeTagText() {
     const year = currentListeningYear();
     if (scope.value === 'all') return 'all years';
@@ -495,6 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return `release ${scope.value === 'previous' ? year - 1 : year}`;
   }
 
+  /** Label the selected ranking metric, defaulting to play count. */
   function sortTagText() {
     const checked = document.querySelector('input[name="sort_by"]:checked');
     return checked && checked.value === 'playtime' ? 'play time' : 'play count';

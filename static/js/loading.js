@@ -91,11 +91,13 @@ function showFailure(message, source) {
   }
 }
 
+/** Explain the pending navigation and retain the three-second reading delay. */
 function scheduleResultsRedirect(message) {
   if (stepDetails) stepDetails.textContent = message;
   setTimeout(redirectToResults, 3000);
 }
 
+/** Render a job failure and choose retry or redirect; report whether handled. */
 function handleProgressError(progressData) {
   if (!progressData.error) return false;
 
@@ -119,6 +121,7 @@ function handleProgressError(progressData) {
   return true;
 }
 
+/** Continue only while the job is incomplete and no failure has stopped it. */
 function shouldPollAgain(progress) {
   return progress < 100 && !errorDetected;
 }

@@ -82,6 +82,8 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `wip/batch-21` (worktree off `main`).
+- **PR #223 side-task:** three complexity extractions validated; integration
+  is ready for the owner-authorized merge. Remaining issue #222 targets stay open.
 - **Next action:** **WP-4 is complete. Owner-review remediation is planned,
   not implemented; begin it before WP-5.** The index does not grow with the
   window on large displays. Measurement on 2026-09-01 named the cause: the
@@ -528,6 +530,23 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-04 - Review three complexity extractions in PR #223 (side-task)
+
+- Scope: split loading progress error/poll/redirect handling, index filter-label
+  selection, and optional semaphore/retry timing into focused helpers.
+- Plan vs implementation: this is partial issue #222 remediation, not closure
+  of its full complexity inventory. Existing behavior and public contracts stay
+  unchanged. Added purpose comments to the extracted JavaScript helpers.
+- Deviations: the initial PR body described only loading.js and incorrectly
+  closed the broader issue. Correct the title/body before merge. The original
+  Copilot commits carry prohibited co-author trailers; use a clean squash
+  message at integration rather than rewrite the author's branch.
+- Validation: `pytest -q`: **872 passed**, 5 warnings. The complete Firefox
+  gate passed 22 checks in 31 runs locally; Chromium passed the same 22 checks
+  in 31 runs in PR CI. Final pre-commit and docsync checks run before commit.
+- Forward guidance: resume the owner-review scaling plan before WP-5. These
+  extractions do not implement its loading-count or layout corrections.
+
 ### 2026-09-04 - Clear PR #221 plan-review follow-ups (side-task)
 
 - Scope: corrected the execution plan and repository-authored Markdown before
@@ -644,33 +663,3 @@ non-current operational logs. Older dated entries live in
   `graphify query "<question>"` from the worktree; `graphify --update`
   re-extracts only changed files. Read the report head before trusting any
   "surprising connection" it suggests -- two of five were artifacts.
-
-### 2026-09-02 - Remediate PR #221 review round one (side-task)
-
-- Scope: documentation and tests. Six bot findings on PR #221, from Codex, qlty
-  and Graphify. All six were verified against the code before any edit; none was
-  a hallucinated line range.
-- Gate assertions: the remediation plan told an executor to add gate checks
-  without retiring the ones they contradict, so its own Task 2 Step 5 could not
-  pass. `check_large_display_scale_parity` still required the form composition
-  to carry `zoom`, treated the input and mode-tab heights as scalable, and
-  derived the form width from the superseded `23.75rem` cap times a scale the
-  form no longer carries. Task 2 Step 2 now names all four assertions to retire
-  and why.
-- Sweep beyond the reported instance: the same defect class appeared twice more
-  in the plan and neither was reported. Task 3 Step 1 added a `3fr 4fr` split
-  check alongside the existing 5:3 assertion instead of retuning it, and did so
-  through `grid_left` and `grid_right` keys that `measure_wide_layout` does not
-  return. Both expected-FAIL messages also named stale figures. Fixed together,
-  per `AGENTS.md` Anti-Pattern 11.
-- Step numbering was left alone deliberately. This plan cites its own
-  "Task 2 Step 6", so the retirement instructions extend Step 2 in place rather
-  than inserting a step and breaking that citation.
-- Plan vs implementation: no implementation. No production code, CSS or gate
-  code changed in this commit; the plan describes the gate edits for Task 2.
-- Deviations: none.
-- Validation: **872 passed**. All 12 pre-commit hooks pass. Worktree guard
-  exits 0. `doc_state_sync.py --check` exits 0.
-- Forward guidance: three findings from the same round remain -- the `clamp()`
-  floor, the acceptance contradiction, and the snapshot digest set. They are
-  separate commits because each is independently revertable.
