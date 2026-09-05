@@ -182,8 +182,8 @@
    * The eyebrow above it states the range now, so the headline does not have
    * to, and a short serif line survives a long username without shrinking.
    *
-   * The accent is only ever the reader's own data. Never the year: the year
-   * is a filter, so a fixed one becomes a lie the moment someone changes it.
+   * Keep the username in the headline's neutral serif treatment. It is data,
+   * not a link or control, so accent colour and italics overstate its role.
    */
   function renderHeadline(username) {
     clearChildren(resultHeadline);

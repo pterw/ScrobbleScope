@@ -9,6 +9,53 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Align loading signals with pipeline phases (side-task)
+
+- Scope: Task 4 of the Batch 21 owner-review remediation plan. Align visible
+  loading progress with pipeline phases for both Top Albums and Heatmap clients,
+  eliminate overlapping interval polls and stale out-of-order response application
+  (F-B21-33), decouple received vs attempted Last.fm counts, and implement loading
+  composition corrections (F-B21-36).
+- Plan vs implementation:
+  - Repository layer: Added `_UNSET` sentinel to `set_job_progress` for `phase`,
+    allowing progress/message updates without clobbering an active phase; updated
+    `set_job_error` to clear `phase=None`; isolated phase dicts in
+    `get_job_progress` and `get_job_context` via `copy.deepcopy` to prevent caller
+    or internal mutations from leaking across boundaries.
+  - Route layer: `/progress` returns `phase` when present in progress dictionary.
+  - Orchestrator and services: Emitted explicit `lastfm_fetch`, `spotify_search`,
+    and `spotify_details` phases with unit, current, total counts in `orchestrator.py`
+    and `heatmap.py`. Updated `lastfm.py` to decouple received vs attempted pages via
+    `pages_received`. Cleared `phase=None` on uncounted states (initialization,
+    counting, filtering, error, 100% completion).
+  - Browser helper (`static/js/loading-progress.js`): Non-module global
+    `window.ScrobbleProgress` providing `displayPercent(payload)`, `label(payload)`,
+    and `update(options)`. Manages instant bar reset on phase change, ARIA attributes
+    (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`), and
+    formatted phase lines.
+  - Polling clients: Integrated `ScrobbleProgress` into `loading.js` and `heatmap.js`.
+    Added `pollInFlight`, `pollSeq`, and `latestAppliedPollSeq` to drop out-of-order or
+    stale responses and prevent overlapping interval fetches.
+  - Loading composition: Removed duplicate phase sentence `<p class="heatmap-loading__detail">`
+    and `<li>rocket scale</li>` in `_heatmap_loading_details.html`. Styled stat items in
+    flex container with centering, 18rem max-width, and divider rules
+    (`:not(.hidden) ~ :not(.hidden)`). Added `@keyframes wait-fade-in` (200ms ease-out)
+    with `@media (prefers-reduced-motion: reduce)` cancellation restoring `opacity: 1`.
+  - Frontend gate: Added unit tests for new gate helpers (`_parse_matrix_scalex`,
+    `_assert_loading_progress_state`) in `test_frontend_gate.py`. Implemented
+    `_exercise_loading_progress_phases` testing sequential frames, zero totals,
+    100% phase without result navigation, flex centering, and stale response rejection
+    across Chromium and Firefox.
+- Deviations: none. All requirements from the task brief implemented strictly.
+- Validation: `pytest -q` -- **902 passed**, 5 warnings (8 new tests across
+  test_repositories, test_routes, test_orchestrator, test_heatmap, test_lastfm_service,
+  test_frontend_gate). Frontend gate: `23 checks passed in 64 runs across chromium,
+  firefox`. Prohibited animation sweep (`rg -n 'transition:\s*(width|height|padding|margin|max-width)' static\css static\js`)
+  returned 0 matches.
+- Forward guidance: Task 4 implemented and validated locally in commit e0219b2;
+  awaiting task review (spec and quality review is pending as the next action,
+  followed by Task 5 per the plan order).
+
 ### 2026-09-05 - Remediate Task 3 review feedback, fill the hero to its column (side-task)
 
 - Scope: fix round 2/5 for Task 3 owner-review feedback (not a FINDINGS

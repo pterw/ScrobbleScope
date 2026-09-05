@@ -1584,14 +1584,14 @@ def check_shell_scales_with_text(page, base_url: str) -> list[str]:
                     // this DESKTOP profile's 1280px width matters: both
                     // preferred terms (38.0px / 24.0px) stay below their rem
                     // floors there, so the floor wins -- 4.25rem and
-                    // 2.75rem. Mobile keeps its own fixed 3.75rem literal
-                    // for the bar, untouched by the header ruling; its
-                    // 2.75rem nav-link floor happens to match the desktop
-                    // clamp's floor, which is why both branches converge on
-                    // the same 55px nav target.
-                    expected: (mobile ? 3.75 : 4.25) * 20,
+                    // 2.75rem. Mobile uses a fixed 6.5rem bar so all four
+                    // destinations remain directly visible in two rows;
+                    // its 2.75rem nav-link floor matches the desktop clamp's
+                    // floor, so both branches converge on the same 55px
+                    // nav target.
+                    expected: (mobile ? 6.5 : 4.25) * 20,
                     expectedTarget: 55,
-                    expectedGap: mobile ? 4.8 : 15,
+                    expectedGap: mobile ? 5 : 15,
                 };
             }"""
         )
@@ -1849,8 +1849,12 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     formInnerLeft: formRect.left,
                     formInnerRight: formRect.right,
                     formInnerWidth: formRect.width,
+                    formInnerTop: formRect.top,
+                    formInnerBottom: formRect.bottom,
                     cardLeft: card.getBoundingClientRect().left,
                     cardRight: card.getBoundingClientRect().right,
+                    wellTop: application.getBoundingClientRect().top,
+                    wellBottom: application.getBoundingClientRect().bottom,
                     paddingLeft: parseFloat(style.paddingLeft),
                     paddingRight: parseFloat(style.paddingRight),
                     headerGap: parseFloat(getComputedStyle(header).gap),
@@ -1957,6 +1961,32 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 .gridTemplateColumns.split(' ').length,
         })"""
         )
+        mobile_headers = {}
+        for width in (390, 320):
+            page.set_viewport_size({"width": width, "height": 844})
+            page.goto(f"{base_url}/", wait_until="load")
+            mobile_headers[width] = page.evaluate(
+                """() => {
+                    const header = document.querySelector('.site-header');
+                    const nav = document.querySelector('.site-header__nav');
+                    const navRect = nav.getBoundingClientRect();
+                    const links = [...nav.querySelectorAll('.site-header__nav-link')];
+                    return {
+                        headerHeight: header.getBoundingClientRect().height,
+                        bodyPaddingTop: parseFloat(getComputedStyle(document.body).paddingTop),
+                        clientWidth: nav.clientWidth,
+                        scrollWidth: nav.scrollWidth,
+                        rows: new Set(links.map(link => Math.round(
+                            link.getBoundingClientRect().top
+                        ))).size,
+                        linksInside: links.every(link => {
+                            const rect = link.getBoundingClientRect();
+                            return rect.left >= navRect.left - 0.5
+                                && rect.right <= navRect.right + 0.5;
+                        }),
+                    };
+                }"""
+            )
         fixed_states = {
             "as loaded": (),
             "heatmap mode": (("click", "#mode-tab-heatmap"),),
@@ -2030,7 +2060,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     # enlarged root, since vw does not scale with the root font.
     header_height_at_enlarged_root = _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20)
     expected_root_width = (
-        28 * 20 * ((900 - header_height_at_enlarged_root) / ((42.0625 + 4) * 20))
+        27.5 * 20 * ((900 - header_height_at_enlarged_root) / ((42.0625 + 4) * 20))
     )
     if abs(root_measurement - expected_root_width) > 1:
         failures.append(
@@ -2087,9 +2117,9 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         failures.append(
             f"/: wide desktop split is {split_ratio:.3f}, expected 4:3 application-to-hero"
         )
-    # 28rem is the remediation plan's base cap. The rendered card expands by
+    # 27.5rem is the owner-refined base cap. The rendered card expands by
     # the same layout factor as the rest of the composition.
-    expected_base_cap = 28 * 16
+    expected_base_cap = 27.5 * 16
     for label in ("1080p", "1440p", "4K"):
         expected = expected_base_cap * expected_scales[label]
         actual = measured_sizes[label]["form composition"]["width"]
@@ -2107,6 +2137,13 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             failures.append(f"/: form has unequal side gutters at {label}")
         if min(left_gutter, right_gutter) < layout["paddingLeft"] - 1:
             failures.append(f"/: form intrudes into its well padding at {label}")
+        top_gutter = layout["formInnerTop"] - layout["wellTop"]
+        bottom_gutter = layout["wellBottom"] - layout["formInnerBottom"]
+        if abs(top_gutter - bottom_gutter) > 2:
+            failures.append(
+                f"/: form composition is not vertically centred at {label}: "
+                f"{top_gutter:.1f}px top / {bottom_gutter:.1f}px bottom"
+            )
         if (
             abs(layout["cardLeft"] - layout["formInnerLeft"]) > 1
             or abs(layout["cardRight"] - layout["formInnerRight"]) > 1
@@ -2126,6 +2163,24 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             failures.append(
                 f"/: wordmark is {layout['heroMarkWidth']:.1f}px at {label}, "
                 f"expected to track the hero inner at {layout['heroInnerWidth']:.1f}px"
+            )
+
+    for width, header in mobile_headers.items():
+        if (
+            header["scrollWidth"] > header["clientWidth"] + 1
+            or not header["linksInside"]
+        ):
+            failures.append(
+                f"/: mobile navigation requires horizontal scrolling at {width}px"
+            )
+        if header["rows"] != 2:
+            failures.append(
+                f"/: mobile navigation uses {header['rows']} row(s) at {width}px, "
+                "expected two directly visible rows"
+            )
+        if abs(header["headerHeight"] - header["bodyPaddingTop"]) > 0.5:
+            failures.append(
+                f"/: mobile body offset does not match its header at {width}px"
             )
 
     # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
@@ -2874,13 +2929,17 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
         failures.append("album terminal failure did not reach its results error")
 
     heatmap_path = f"/heatmap?job_id={heatmap_job_id}"
+    # The owner's side-by-side report came from a realistic 1080p browser
+    # content box. The result should use that available width as confidently
+    # as the index composition measured by the large-display check.
+    page.set_viewport_size({"width": 1920, "height": 945})
     reset_job_state(heatmap_job_id)
     set_job_results(
         heatmap_job_id,
         {
             "username": "frontend-gate",
             "from_date": "2025-01-01",
-            "to_date": "2025-01-01",
+            "to_date": "2025-12-31",
             "total_scrobbles": 4,
             "daily_counts": {"2025-01-01": 4},
         },
@@ -2896,6 +2955,26 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
         })"""
     )
     page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+    result_scale = page.evaluate(
+        """() => {
+            const frame = document.querySelector('#heatmap-result-frame')
+                .getBoundingClientRect();
+            const stage = document.querySelector('#heatmap-result')
+                .getBoundingClientRect();
+            const cell = document.querySelector('.heatmap-cell').getBoundingClientRect();
+            const headline = document.querySelector('#heatmap-result-headline');
+            const username = headline.querySelector('.heatmap-headline-username');
+            return {
+                frameRatio: frame.width / innerWidth,
+                frameCenterOffset: (frame.left + frame.width / 2)
+                    - (stage.left + stage.width / 2),
+                cellWidth: cell.width,
+                usernameColor: getComputedStyle(username).color,
+                headlineColor: getComputedStyle(headline).color,
+                usernameStyle: getComputedStyle(username).fontStyle,
+            };
+        }"""
+    )
     loading_paints = page.evaluate("window.__scrobbleGateHeatmapLoadingPaints || 0")
     if loading_paints:
         failures.append(
@@ -2903,6 +2982,23 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
         )
     if handoff_state != {"root": True, "headline": False, "frame": False}:
         failures.append("cached heatmap result does not use one root handoff")
+    if result_scale["frameRatio"] < 0.70 or result_scale["cellWidth"] < 22:
+        failures.append(
+            "desktop heatmap result is too small for its available viewport: "
+            f"{result_scale['frameRatio']:.3f} wide with "
+            f"{result_scale['cellWidth']:.1f}px cells"
+        )
+    if result_scale["cellWidth"] > 32:
+        failures.append(
+            f"desktop heatmap cells are oversized at {result_scale['cellWidth']:.1f}px"
+        )
+    if abs(result_scale["frameCenterOffset"]) > 1:
+        failures.append("desktop heatmap frame is not centred in the viewport")
+    if (
+        result_scale["usernameStyle"] != "normal"
+        or result_scale["usernameColor"] != result_scale["headlineColor"]
+    ):
+        failures.append("heatmap username retains accent colour or italic styling")
     header_wordmark_display = page.locator(".site-header__home").evaluate(
         "element => getComputedStyle(element).display"
     )

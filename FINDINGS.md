@@ -160,6 +160,56 @@ result paints that panel.
 Source: owner browser review and two-engine rendered state observation,
 2026-09-05.
 
+### F-B21-46: the desktop index form stayed top-heavy as the window grew
+
+The fixed index scale correctly grew the form between realistic 1080p and
+1440p windows, but the form composition remained anchored to the well's top
+padding. At 1920x945, its outer top and bottom space measured 55.9px and
+98.2px; at 2560x1305, those values diverged to 74.5px and 193.6px. The 28rem
+base cap also left the card slightly wider than the owner's preferred measure.
+
+Status: resolved, 2026-09-05. The owner-refined base cap is `27.5rem`. The
+complete form composition uses block auto margins to centre within its desktop
+well when it fits. In an expanded state where the composition exceeds the
+available height, those margins collapse and the content keeps its top padding
+plus natural document scroll. The Chromium and Firefox gate verifies balanced
+outer gutters at realistic 1080p, 1440p, and 4K profiles while retaining the
+fixed-geometry checks across every reachable form state.
+Source: owner 1080p/1440p visual comparison and two-engine rendered
+measurements, 2026-09-05.
+
+### F-B21-45: mobile navigation hid report destinations behind scrolling
+
+The mobile header kept all four desktop navigation links in one horizontal
+flex row. At 390px its navigation had a 203px visible width but a 345px scroll
+width; at 320px only 133px was visible. Results and Unmatched therefore sat
+offscreen unless the reader discovered horizontal scrolling.
+
+Status: resolved, 2026-09-05. The four destinations use a two-column,
+two-row grid beside the compact theme control. The mobile shell reserves the
+matching `6.5rem` header height, and the body offset uses the same token. The
+browser gate checks both 390px and 320px widths for two rows, contained links,
+no horizontal overflow, and a matching body offset.
+Source: owner mobile review and rendered Chromium/Firefox measurements,
+2026-09-05.
+
+### F-B21-44: the desktop Heatmap result retained the prototype's small measure
+
+The result stage remained capped at about 1100px on a realistic 1920x945
+content box, occupying only 57.3% of the viewport. Its authored 14px SVG cells
+rendered at 16.6px, making the year grid visually slight beside the scaled
+index composition. The headline also singled out the username in purple
+italics even though it is data rather than an interactive accent.
+
+Status: resolved, 2026-09-05. At widths from 860px, the centred stage now uses
+`84vw` with a `120rem` ceiling; the same realistic 1080p content box renders a
+1544.8px frame and 23.7px cells. Mobile retains the bounded base measure. The
+username inherits the headline's neutral serif colour and normal style. The
+two-engine browser gate asserts the frame ratio, centring, rendered cell range,
+and headline treatment against a full-year fixture.
+Source: owner side-by-side visual review and two-engine rendered measurements,
+2026-09-05.
+
 ### F-B21-42: index motion used three unrelated timings and blanked mode copy between animations
 
 The index composition entered over 1.2 seconds after a 0.2-second delay,
@@ -1325,7 +1375,7 @@ composition scaling. The later owner-review layout, hierarchy, boundary,
 loading-progress, and unmatched-empty-state work also remains incomplete. In
 particular, the live source still used the interim wide split and a centred
 `23.75rem` form cap until Task 3 landed the final `3fr 4fr` split and
-`28rem` base cap.
+`27.5rem` owner-refined base cap.
 
 Measurement on 2026-09-01 named the cause. The formula divides window height by
 the 1080px design viewport instead of by the composition's own 673px height,
@@ -1341,10 +1391,10 @@ is the sole acceptance specification for the reopened work. It records the
 1080p comparison needed before any global header-density decision.
 
 Status: reopened. Task 2's proportional scale is implemented and passed the
-complete two-engine gate; Task 3 landed the final `3fr 4fr` split, `28rem`
-form cap, raised divider contrast, and the ruled header clamps. The later
-owner-review remediation tasks (Task 4 loading-progress alignment, Task 5
-unmatched no-data surface, Task 6 accessibility pass) remain open.
+complete two-engine gate; Task 3 landed the final `3fr 4fr` split, now refined
+to a `27.5rem` form cap, raised divider contrast, and the ruled header clamps.
+The later owner-review remediation tasks (Task 4 loading-progress alignment,
+Task 5 unmatched no-data surface, Task 6 accessibility pass) remain open.
 Source: owner large-display review, 2026-08-28; owner clarification and
 measurement, 2026-09-01.
 

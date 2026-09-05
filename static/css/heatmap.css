@@ -17,15 +17,21 @@
    grid is about 880px wide and cannot fit the 380px form column, so
    static/js/heatmap.js hides #index-grid while either of these is on screen.
 
-   Unlike the index the heatmap is capped and centred, at the README's
-   1100px. The padding is the page gutter, and the top of it is what keeps
-   the headline off the header bar. */
+   The padding is the page gutter, and the top of it is what keeps the
+   headline off the header bar. The desktop cap below supersedes the
+   snapshot's undersized 1100px result while retaining a centred measure. */
 .heatmap-stage {
   width: 100%;
   max-width: 73rem;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 2.5rem 2.125rem 3.5rem;
+}
+
+@media (min-width: 860px) {
+  .heatmap-stage {
+    max-width: min(84vw, 120rem);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -333,12 +339,6 @@
   line-height: 1.15;
   color: var(--color-base-content);
   overflow-wrap: anywhere;
-}
-
-/* The accent is only ever the reader's own data -- their username. */
-.heatmap-headline-username {
-  color: var(--color-primary);
-  font-style: italic;
 }
 
 /* ------------------------------------------------------------------ */

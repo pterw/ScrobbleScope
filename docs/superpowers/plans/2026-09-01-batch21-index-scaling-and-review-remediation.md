@@ -919,6 +919,14 @@ reserved grid track and standardizes index opacity motion at 180ms.
 too. Retain the Task 3 instructions below; Task 2 keeps its interim 23.75rem
 base until this task runs.
 
+**Owner refinement 2026-09-05:** After comparing realistic 1080p and 1440p
+windows, reduce the landed cap slightly to `27.5rem` and centre the complete
+form composition vertically in its desktop well when it fits. Expanded states
+must keep the same scale; block auto margins collapse when their natural height
+needs the well, so the content returns to the top padding and extends the
+document. The original 28rem instructions below remain Task 3's historical
+execution record.
+
 **Files:**
 - Modify: `static/css/index.css` (grid split, form cap)
 - Modify: `static/css/shell.css` (divider tokens and ruled header sizing)
@@ -1194,6 +1202,17 @@ directly. The browser gate observes mutations from before production
 `DOMContentLoaded` listeners and failed on the prior client in both Chromium
 and Firefox before passing on the correction. The combined branch validates at
 904 tests and `23 checks passed in 64 runs across chromium, firefox`.
+
+**Owner visual refinement 2026-09-05:** F-B21-44 through F-B21-46 supersede
+three remaining fixed-layout assumptions. At desktop widths the Heatmap stage
+uses `84vw` with a `120rem` ceiling, retaining the authored SVG geometry while
+raising a realistic 1920x945 result from 1100px/16.6px cells to about
+1545px/23.7px cells. Its username inherits the neutral headline style. The
+index form uses the `27.5rem` refinement and vertically balanced placement
+described under Task 3. At 390px and 320px, all four header destinations use a
+directly visible two-by-two grid beside the compact theme control. The extended
+two-engine gate covers these rendered outcomes and retains the distinct album
+and Heatmap polling lifecycles.
 
 Carried forward from the superseded plan's Task 2, whose baseline verified
 correct: `set_job_progress` has no `phase` keyword, `static/js/loading-progress.js`
@@ -1576,8 +1595,9 @@ without a separate explicit instruction.
   width the owner asked for and the contrast defect. Tasks 4 and 5 carry forward
   the two verified-unshipped items. Task 6 is the accessibility pass.
 - **Intentional exclusions:** no nested-card slider, no base-cap expansion
-  beyond 28rem, no cancellation, no navigation regrouping, no WP-5 leaderboard
-  work, no edits to dated archive history.
+  beyond the owner-refined 27.5rem, no cancellation, no WP-5 leaderboard work,
+  no edits to dated archive history. Mobile navigation regrouping is the
+  owner-approved exception recorded in F-B21-45.
 - **Known risk:** `--index-natural-height` is a measured constant that goes stale
   if the form gains or loses a row. Task 2 Step 7 is the check that catches it;
   if it proves fragile in practice, promote it to a `.docsync.toml` DOC009

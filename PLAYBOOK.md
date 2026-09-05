@@ -96,8 +96,8 @@ See FINDINGS F-DOCSYNC-3.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
   defect with layout-aware CSS and a complete real-window gate in Chromium
   and Firefox; it merged as PR #224. Task 3 landed the final `3fr 4fr` split,
-  `28rem` form base cap, raised `--shell-border` contrast to >= 3:1 in both
-  themes, and applied the ruled header clamps (`--shell-height`,
+  owner-refined `27.5rem` form base cap, raised `--shell-border` contrast to
+  >= 3:1 in both themes, and applied the ruled header clamps (`--shell-height`,
   `--shell-control-gap`, nav-link/theme-control sizing). The header stays
   independently sized from `--index-scale`. Review remediation pins that
   composition across every reachable form state and uses one fast hero/page
@@ -107,8 +107,12 @@ See FINDINGS F-DOCSYNC-3.
   received vs attempted Last.fm counts, corrected loading composition
   (F-B21-36), and added real-browser phase checks to the gate. Its review fix
   keeps the loader hidden when a saved Heatmap job is already cached and fades
-  the result in directly (F-B21-43); task review is pending next. Tasks 5-6
-  (unmatched no-data surface, accessibility pass) remain open.
+  the result in directly (F-B21-43). Owner visual refinements vertically centre
+  the desktop form composition, expose every mobile navigation destination in
+  two rows, widen the desktop Heatmap result, and return its username to the
+  neutral headline treatment (F-B21-44 through F-B21-46); task review is
+  pending next. Tasks 5-6 (unmatched no-data surface, accessibility pass)
+  remain open.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -539,6 +543,35 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Refine desktop scale and mobile navigation (side-task)
+
+- Scope: address the owner's final Task 3/4 visual comparison. The 28rem form
+  felt slightly too large, its top-anchored composition accumulated much more
+  space beneath the card on a realistic 1440p window than at 1080p, the mobile
+  header hid report destinations behind horizontal scrolling, and the desktop
+  Heatmap result remained at the snapshot's undersized 1100px measure. The
+  Heatmap username also carried an unwanted purple italic accent.
+- Implementation: refine the form base cap to `27.5rem` and centre its complete
+  composition vertically in the available desktop well. Auto margins collapse
+  when expanded rows need the space, preserving top padding and natural
+  document scroll without state-dependent scaling. Mobile navigation now uses
+  two directly visible rows beside a compact theme control. The desktop
+  Heatmap stage uses `84vw`, capped at `120rem`, while the username inherits
+  the headline's neutral serif treatment.
+- TDD evidence: before the CSS changes, both engines measured unequal form
+  composition gutters at every realistic desktop profile; 390px and 320px
+  headers required horizontal navigation scrolling and exposed only one row;
+  and a 1920x945 Heatmap result occupied 57.3% of the viewport with 16.6px
+  rendered cells. The extended gate now asserts balanced vertical gutters,
+  unchanged expanded-state geometry, two directly visible mobile nav rows,
+  a centred Heatmap frame occupying at least 70% of the viewport, 22px-32px
+  rendered cells, and a neutral username. The complete frontend gate passes
+  all 23 checks in 64 runs across Chromium and Firefox.
+- Findings: F-B21-44 records the desktop Heatmap scale and username treatment;
+  F-B21-45 records mobile navigation overflow; F-B21-46 records the desktop
+  form's top-heavy placement and cap refinement.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
 ### 2026-09-05 - Remove the cached Heatmap loading flash (side-task)
 
 - Scope: address the owner-observed flash when the Heatmap header link restores
@@ -613,50 +646,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the next session reviews Task 4 (SDD task review, then
   fix loop if needed), then Tasks 5 and 6 per the plan; the handoff doc is
   the map. PR #225 (Task 3) remains draft awaiting owner review.
-
-### 2026-09-05 - Align loading signals with pipeline phases (side-task)
-
-- Scope: Task 4 of the Batch 21 owner-review remediation plan. Align visible
-  loading progress with pipeline phases for both Top Albums and Heatmap clients,
-  eliminate overlapping interval polls and stale out-of-order response application
-  (F-B21-33), decouple received vs attempted Last.fm counts, and implement loading
-  composition corrections (F-B21-36).
-- Plan vs implementation:
-  - Repository layer: Added `_UNSET` sentinel to `set_job_progress` for `phase`,
-    allowing progress/message updates without clobbering an active phase; updated
-    `set_job_error` to clear `phase=None`; isolated phase dicts in
-    `get_job_progress` and `get_job_context` via `copy.deepcopy` to prevent caller
-    or internal mutations from leaking across boundaries.
-  - Route layer: `/progress` returns `phase` when present in progress dictionary.
-  - Orchestrator and services: Emitted explicit `lastfm_fetch`, `spotify_search`,
-    and `spotify_details` phases with unit, current, total counts in `orchestrator.py`
-    and `heatmap.py`. Updated `lastfm.py` to decouple received vs attempted pages via
-    `pages_received`. Cleared `phase=None` on uncounted states (initialization,
-    counting, filtering, error, 100% completion).
-  - Browser helper (`static/js/loading-progress.js`): Non-module global
-    `window.ScrobbleProgress` providing `displayPercent(payload)`, `label(payload)`,
-    and `update(options)`. Manages instant bar reset on phase change, ARIA attributes
-    (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`), and
-    formatted phase lines.
-  - Polling clients: Integrated `ScrobbleProgress` into `loading.js` and `heatmap.js`.
-    Added `pollInFlight`, `pollSeq`, and `latestAppliedPollSeq` to drop out-of-order or
-    stale responses and prevent overlapping interval fetches.
-  - Loading composition: Removed duplicate phase sentence `<p class="heatmap-loading__detail">`
-    and `<li>rocket scale</li>` in `_heatmap_loading_details.html`. Styled stat items in
-    flex container with centering, 18rem max-width, and divider rules
-    (`:not(.hidden) ~ :not(.hidden)`). Added `@keyframes wait-fade-in` (200ms ease-out)
-    with `@media (prefers-reduced-motion: reduce)` cancellation restoring `opacity: 1`.
-  - Frontend gate: Added unit tests for new gate helpers (`_parse_matrix_scalex`,
-    `_assert_loading_progress_state`) in `test_frontend_gate.py`. Implemented
-    `_exercise_loading_progress_phases` testing sequential frames, zero totals,
-    100% phase without result navigation, flex centering, and stale response rejection
-    across Chromium and Firefox.
-- Deviations: none. All requirements from the task brief implemented strictly.
-- Validation: `pytest -q` -- **902 passed**, 5 warnings (8 new tests across
-  test_repositories, test_routes, test_orchestrator, test_heatmap, test_lastfm_service,
-  test_frontend_gate). Frontend gate: `23 checks passed in 64 runs across chromium,
-  firefox`. Prohibited animation sweep (`rg -n 'transition:\s*(width|height|padding|margin|max-width)' static\css static\js`)
-  returned 0 matches.
-- Forward guidance: Task 4 implemented and validated locally in commit e0219b2;
-  awaiting task review (spec and quality review is pending as the next action,
-  followed by Task 5 per the plan order).

@@ -207,6 +207,66 @@ file = "AGENTS.md"
 pattern = 'script writes `(\d+)`'
 expect = "860"
 
+# Owner review refined the wide form after the original Task 3 checkpoint.
+# The active definition and reconciliation must track the live CSS cap while
+# the plan retains its explicitly labelled 28rem historical instructions.
+[[value]]
+name = "the owner-refined index form base cap"
+
+[[value.sites]]
+file = "static/css/index.css"
+pattern = '\.index-form__inner\s*\{[^}]*max-width: calc\(([\d.]+)rem \* var\(--index-scale'
+expect = "27.5"
+
+[[value.sites]]
+file = "BATCH21_DEFINITION.md"
+pattern = 'owner-refined `([\d.]+)rem`\s+base cap'
+expect = "27.5"
+
+[[value.sites]]
+file = "docs/design/RECONCILIATION.md"
+pattern = 'owner-refined form base cap is `([\d.]+)rem`'
+expect = "27.5"
+
+# The wide Heatmap measure overrides the fixed design snapshot. Declare both
+# terms independently so an edit cannot alter the viewport share or ceiling
+# in only one of the source-of-truth files.
+[[value]]
+name = "the wide Heatmap viewport measure"
+
+[[value.sites]]
+file = "static/css/heatmap.css"
+pattern = 'max-width: min\(([\d.]+)vw, [\d.]+rem\)'
+expect = "84"
+
+[[value.sites]]
+file = "BATCH21_DEFINITION.md"
+pattern = 'centred result frame uses `([\d.]+)vw`'
+expect = "84"
+
+[[value.sites]]
+file = "docs/design/RECONCILIATION.md"
+pattern = 'centred stage uses `([\d.]+)vw`'
+expect = "84"
+
+[[value]]
+name = "the wide Heatmap measure ceiling"
+
+[[value.sites]]
+file = "static/css/heatmap.css"
+pattern = 'max-width: min\([\d.]+vw, ([\d.]+)rem\)'
+expect = "120"
+
+[[value.sites]]
+file = "BATCH21_DEFINITION.md"
+pattern = 'capped at `([\d.]+)rem`'
+expect = "120"
+
+[[value.sites]]
+file = "docs/design/RECONCILIATION.md"
+pattern = 'capped at `([\d.]+)rem`'
+expect = "120"
+
 # The touch minimum is stated as a number in the gate and as a length in the
 # stylesheets. 2.75rem is 44px at a 16px root; the units rule in AGENTS.md
 # requires the stylesheet half to be rem.

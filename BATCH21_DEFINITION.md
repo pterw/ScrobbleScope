@@ -122,7 +122,9 @@ stylesheet is in scope for this batch.
 4. Standing header bar on all pages: wordmark left (~64px), four functional
    Input Mono Narrow page-navigation pills (Home, Heatmap, Results,
    Unmatched), segmented Light/Dark toggle top-right; footer toggle removed;
-   landing page keeps the large brand moment in the hero.
+   landing page keeps the large brand moment in the hero. At mobile widths,
+   all four destinations remain directly visible in a two-by-two grid beside
+   the compact theme control, with no horizontal navigation scrolling.
 5. CSV export, JPEG export (both modes, mobile + desktop), progress
    polling, username validation, decade pills, and thresholds disclosure
    all still work; the results list remains a semantic `<table>`.
@@ -314,11 +316,13 @@ Moved in by the scope ruling:
    the audit review's single column. Current source declares a 1200px-wide
    `3fr 4fr` state and one shared factor of `1.075` times the width ratio,
    bounded by the measured composition height and available window content,
-   capped at `2.15`. The centred form carries a `28rem` base cap, the final
-   remediation width landed in Task 3. `static/css/index.css` owns the
-   layout-aware factor, explicit dimensions, narrow-window readability
-   bounds, and fixed-viewport state invariance. Extra form rows add natural
-   document height without changing the hero, form, type, or control scale.
+   capped at `2.15`. The centred form carries the owner-refined `27.5rem`
+   base cap. Within the desktop well, the complete form composition centres
+   vertically when it fits; expanded states return to the top padding and add
+   natural document height without changing the hero, form, type, or control
+   scale. `static/css/index.css` owns the layout-aware factor, explicit
+   dimensions, narrow-window readability bounds, and fixed-viewport state
+   invariance.
    The former 1080px height denominator was an engine-independent defect;
    the complete Chromium and Firefox matrices now consume realistic content
    boxes and assert rendered proportions instead of a zoom property.
@@ -329,9 +333,11 @@ Moved in by the scope ruling:
    Items 2, 3 and 4 stay open for WP-4, WP-5 and WP-7; do not close the
    finding here.
 2. **Heatmap cell geometry resolves `docs/design/RECONCILIATION.md`
-   section 7.** Keep
-   the shipped 14px cell and its 2px radius; take the README's gap of 2px
-   desktop and 1px mobile. `--heatmap-empty` takes the README values,
+   section 7.** Keep the SVG's authored 14px cell and its 2px radius; take
+   the README's gap of 2px desktop and 1px mobile. On wide displays the
+   centred result frame uses `84vw`, capped at `120rem`, so the SVG scales
+   with the available content box instead of remaining at the snapshot's
+   undersized 1100px measure. `--heatmap-empty` takes the README values,
    `#e8e2d6` light and `#262230` dark.
 3. **The index accepts public listening histories only.** Before either the
    album or heatmap pipeline accepts a username, a one-track
