@@ -442,6 +442,12 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
 
         captured: list[tuple[str, str]] = []
         first_line: dict[str, int] = {}
+        declared_expects = {
+            site["expect"] for site in sites if site.get("expect") is not None
+        }
+        uniform_expect = (
+            next(iter(declared_expects)) if len(declared_expects) == 1 else None
+        )
         for site in sites:
             rel_path = site["file"]
             expect = site.get("expect")
@@ -531,6 +537,8 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
                             "itself has moved.",
                         )
                     )
+                elif uniform_expect is not None:
+                    captured.append((rel_path, expect))
                 continue
 
             if values:

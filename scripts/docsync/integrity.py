@@ -598,6 +598,28 @@ def _check_section3_next_wp(
     computed, all_planned_complete = _computed_next_wp(playbook_lines, definition_lines)
     claimed, claimed_line = _section3_next_wp_claim(playbook_lines)
     if claimed is None:
+        try:
+            s3_start, s3_end = _find_section(
+                playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
+            )
+        except SyncError:
+            return None
+        unlabelled = [
+            (int(match.group(1)), line_number + 1)
+            for line_number in range(s3_start + 1, s3_end)
+            for match in NEXT_WP_CLAIM_RE.finditer(playbook_lines[line_number])
+        ]
+        if unlabelled:
+            unlabelled_wp, line_no = unlabelled[-1]
+            return _issue(
+                "DOC007",
+                "PLAYBOOK.md",
+                line_no,
+                f"Section 3 mentions WP-{unlabelled_wp} is next, but lacks the "
+                f"required '- **Next action:**' bullet label.",
+                "Format the Section 3 next action claim under a bullet starting "
+                "with '- **Next action:**'.",
+            )
         return None
     if all_planned_complete:
         return _issue(

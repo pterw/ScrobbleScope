@@ -9,6 +9,31 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Move the mobile theme control below page content (side-task)
+
+- Scope: owner review found that the compact horizontal Light/Dark control sat
+  midway across the two navigation rows. Its boxes did not intersect, but the
+  control visually competed with both rows and made the header read as
+  overlapping.
+- Implementation: retain one checkbox and label, then move their actions
+  wrapper between the desktop header and a mobile slot after page content via
+  the existing `859.98px` breakpoint. The four-link grid now uses the full
+  mobile header width. Selector scope follows the wrapper so the hidden input,
+  selected state, and focus ring survive relocation on migrated and legacy
+  pages.
+- TDD evidence: the new rendered check failed in Chromium and Firefox at both
+  390px and 320px because the control remained in the header and above page
+  content. The focused gate passes after relocation and also checks the 44px
+  target, two-row navigation, overflow, and body offset.
+- Findings: F-B21-45 now records the owner correction and final placement.
+- Validation: `pytest -q` -- **904 passed**, 5 warnings. Focused shell and gate
+  tests -- **129 passed**. The complete frontend gate reports `23 checks passed
+  in 64 runs across chromium, firefox`; JavaScript syntax and diff checks pass.
+  All pre-commit hooks pass, including `doc-state-sync-check`; the alignment
+  hook reports the expected WT003/WT010 state on the owner-authorized stacked
+  Task 4 branch.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
 ### 2026-09-05 - Refine desktop scale and mobile navigation (side-task)
 
 - Scope: address the owner's final Task 3/4 visual comparison. The 28rem form

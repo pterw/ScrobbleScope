@@ -4,7 +4,7 @@ Last updated: 2026-09-06
 Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
 Tasks 1-5 are complete; Task 6 is next. PLAYBOOK Section 3 owns
 the current work order.
-915 tests across 40 test modules.
+918 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -450,6 +450,63 @@ root definitions, and sanitized Git discovery failures; `pytest -q` measured
 Approved design:
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
 Source: PR #168 pre-merge audit and follow-up root-cause investigation.
+
+### F-DOCSYNC-8: TOML array-of-tables scoping detached declaration sites into adjacent values
+
+In `.docsync.toml`, an intervening `[[value]]` table (`the wide-desktop scale cap`)
+inserted on 2026-08-28 after the 5th site of `the single 860px breakpoint`
+caused TOML's table-scoping rules to attach the remaining 9 breakpoint sites
+to the scale cap declaration instead of the breakpoint declaration. Because the
+scale cap lacked an `expect` assertion and those 9 sites did not match the
+scale cap's pattern, they silently went unvalidated for 9 days.
+
+Fixed by grouping all 14 breakpoint sites contiguously (including missing frontend
+files `loading.css`, `empty.css`, and `theme.js`), adding an explicit
+`expect` value to every site (`"860"` or `"859.98"`), separating the wide-desktop
+scale baseline and cap declarations, and adding a file-level architectural warning
+comment in `.docsync.toml` documenting TOML array-of-tables scoping hazards.
+Status: resolved 2026-09-06. Evidence: all 14 breakpoint sites validate under
+`the single 860px breakpoint` declaration and `pytest -q` is green.
+Source: docsync tooling audit, 2026-09-06.
+
+---
+
+### F-DOCSYNC-9: Mixed expect values in value declarations bypassed consistency checks
+
+In `scripts/docsync/declarations.py:check_values`, sites that declared an `expect`
+parameter executed `continue` without appending their values to `captured`. When
+a declaration had some sites declaring `expect` and other sites omitting `expect`,
+the unannotated sites were cross-checked only against each other, completely
+ignoring disagreements with the expected value sites.
+
+Fixed by determining whether all `expect` annotations in a declaration share a
+uniform value, and if so, registering `(rel_path, expect)` in `captured` so that
+any unannotated site that deviates from the uniform expectation triggers a DOC009
+mismatch. Covered by unit tests `test_a_captured_site_that_disagrees_with_a_uniform_expected_site_fails`
+and `test_a_captured_site_that_agrees_with_a_uniform_expected_site_passes`.
+Status: resolved 2026-09-06. Evidence: 2 new unit tests in `tests/test_docsync_declarations.py`
+and all 73 declaration tests pass.
+Source: docsync tooling audit, 2026-09-06.
+
+---
+
+### F-DOCSYNC-10: Unlabelled next-action claims bypassed Section 3 integrity enforcement
+
+In `scripts/docsync/integrity.py:_check_section3_next_wp`, if Section 3 did not
+contain a bullet matching `SECTION_3_NEXT_ACTION_RE` (`- **Next action:** ...`),
+`_section3_next_wp_claim()` returned `None`. The check treated this as absence of a
+claim and returned `None`, allowing unlabelled claims (e.g. `- Batch 21 WP status: ... WP-5 is next`)
+to silently bypass DOC007 next-action validation against Section 4 execution logs
+and the active batch definition.
+
+Fixed with a two-fold remediation:
+1. Hardened `_check_section3_next_wp` to inspect Section 3 for unlabelled `NEXT_WP_CLAIM_RE`
+   matches when `claimed is None`, raising a blocking DOC007 error requiring the
+   `- **Next action:**` bullet label. Covered by `test_doc007_section3_unlabelled_claim_blocks`.
+2. Restored the canonical `- **Next action:**` bullet label in `PLAYBOOK.md` Section 3.
+Status: resolved 2026-09-06. Evidence: `doc_state_sync.py --check` flagged the unlabelled
+claim on `PLAYBOOK.md:167` before remediation and passes cleanly after the label was restored.
+Source: docsync tooling audit, 2026-09-06.
 
 ---
 

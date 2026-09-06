@@ -271,6 +271,53 @@ def test_the_media_prefix_keeps_ordinary_widths_out(tmp_path: Path) -> None:
     assert check_values(_files(root), [declaration]) == []
 
 
+def test_a_captured_site_that_disagrees_with_a_uniform_expected_site_fails(
+    tmp_path: Path,
+) -> None:
+    """A site without expect must still agree with sites that declare expect."""
+    root = _repo(
+        tmp_path,
+        {
+            "a.txt": "WINDOW = 365\n",
+            "b.txt": "WINDOW = 180\n",
+        },
+    )
+    declaration = {
+        "name": "the window",
+        "sites": [
+            {"file": "a.txt", "pattern": r"WINDOW = (\d+)", "expect": "365"},
+            {"file": "b.txt", "pattern": r"WINDOW = (\d+)"},
+        ],
+    }
+
+    issues = check_values(_files(root), [declaration])
+
+    assert len(issues) == 1
+    assert "disagree: a.txt says 365, b.txt says 180" in issues[0].invariant
+
+
+def test_a_captured_site_that_agrees_with_a_uniform_expected_site_passes(
+    tmp_path: Path,
+) -> None:
+    """A site without expect passes when it matches the uniform expectation."""
+    root = _repo(
+        tmp_path,
+        {
+            "a.txt": "WINDOW = 365\n",
+            "b.txt": "WINDOW = 365\n",
+        },
+    )
+    declaration = {
+        "name": "the window",
+        "sites": [
+            {"file": "a.txt", "pattern": r"WINDOW = (\d+)", "expect": "365"},
+            {"file": "b.txt", "pattern": r"WINDOW = (\d+)"},
+        ],
+    }
+
+    assert check_values(_files(root), [declaration]) == []
+
+
 def test_a_file_that_contradicts_itself_is_caught_without_expect(
     tmp_path: Path,
 ) -> None:

@@ -1178,9 +1178,28 @@ def test_doc007_section3_without_claim_stays_silent(tmp_path: Path):
         6,
         "- **Next action:** continue per the batch definition.",
     )
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_section3_unlabelled_claim_blocks(tmp_path: Path):
+    """An unlabelled next-WP claim in Section 3 blocks and requires the label."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
+        "# BATCH21",
+        "**Status:** Active. **WP-1 is next.**",
+        "### WP-1: First",
+    ]
+    inputs["playbook_lines"].insert(
+        6,
+        "- Batch 21 WP status: WP-0 is done. WP-1 is next.",
+    )
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
 
-    assert collect_integrity_issues(**inputs) == []
+    issues = collect_integrity_issues(**inputs)
+
+    doc007 = [i for i in issues if i.code == "DOC007" and i.path == "PLAYBOOK.md"]
+    assert len(doc007) == 1
+    assert "lacks the required '- **Next action:**' bullet label" in doc007[0].invariant
 
 
 def test_doc007_stale_session_section1_claim_is_blocking(tmp_path: Path):

@@ -89,7 +89,7 @@ See FINDINGS F-DOCSYNC-3.
   the two-engine runner and explicit CSS composition dimensions. Its rendered
   expanded-state guard, complete validation, and PR #224 review remediation
   passed.
-- **Next action:** **Remediation Tasks 1-5 are complete and validated locally.
+- **Remediation plan:** **Tasks 1-5 are complete and validated locally.
   Task 6 (accessibility pass) is next.** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
@@ -163,7 +163,7 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0 through WP-4 are done. WP-6 is absorbed into WP-3
+- **Next action:** Begin WP-5 (results leaderboard) -- WP-0 through WP-4 are done. WP-6 is absorbed into WP-3
   and ships no commit of its own. WP-5 is next; WP-7 and WP-8 are not done.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
@@ -554,6 +554,17 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-06 - Audit docsync declarations, fix TOML array-of-tables scoping, and harden integrity checks (side-task)
+
+- Scope: audited docsync tooling files (`scripts/docsync/*.py`, `.docsync.toml`) to verify DOC001-DOC011 integrity checks fire appropriately; identified and remediated three control-plane defects (F-DOCSYNC-8, F-DOCSYNC-9, F-DOCSYNC-10).
+- Implementation:
+  - F-DOCSYNC-8: Fixed TOML array-of-tables scoping defect in `.docsync.toml` where inserting `[[value]]` for `the wide-desktop scale cap` on 2026-08-28 detached the remaining 9 sites of `the single 860px breakpoint`. Reordered all 14 breakpoint sites contiguously (including missing frontend files `loading.css`, `empty.css`, and `theme.js`), added explicit `expect` values (`"860"` or `"859.98"`) to every site, cleanly separated the scale baseline and cap declarations, and added an architectural warning comment. Completed `expect` attributes on all 11 Adobe Fonts kit sites (`"rwy8ghw"`) and all 15 heatmap window sites (`"365"`).
+  - F-DOCSYNC-9: Hardened `scripts/docsync/declarations.py:check_values` to retain `(rel_path, expect)` in `captured` when a declaration declares uniform expected values, eliminating the blind spot where partially annotated declarations skipped consistency checking between unannotated and expected sites. Added 2 regression unit tests in `tests/test_docsync_declarations.py`.
+  - F-DOCSYNC-10: Hardened `scripts/docsync/integrity.py:_check_section3_next_wp` to inspect Section 3 for unlabelled `NEXT_WP_CLAIM_RE` matches when `claimed is None`, preventing silent bypass of DOC007 next-action integrity checks. Enforced canonical `- **Next action:**` bullet label in `PLAYBOOK.md` Section 3. Added regression test `test_doc007_section3_unlabelled_claim_blocks` in `tests/test_docsync_integrity.py`.
+  - Updated `tests/scripts/dev/test_worktree_guard_playbook.py` `test_the_repository_playbook_parses` to reflect the active authorized worktree branch `test`.
+- Validation: `pytest -q` -- **918 passed**, 5 warnings. All 296 docsync tests pass. `python scripts/doc_state_sync.py --check` exits 0 with no integrity errors.
+- Forward guidance: resume owner-review remediation Task 6 (accessibility pass) per `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md` before WP-5 begins.
+
 ### 2026-09-05 - Add resilient Typekit fallback font stacks, consolidate single-row mobile navigation, and configure editor (side-task)
 
 - Scope: resolved unknown at-rule IDE lint warning on `@custom-variant` in `static/css/tailwind.src.css`, verified Typekit web font integration, reinforced design token font stacks with resilient Typekit fallbacks (`aktiv-grotesk`, `corporate-a`, `ff-din-paneuropean`, `orator-std`), and consolidated mobile header navigation to a unified single-row bar.
@@ -588,28 +599,3 @@ non-current operational logs. Older dated entries live in
   - Promoted heatmap result headline to semantic `<h1>` in `templates/partials/_heatmap_result.html` and elevated desktop font size to `clamp(1.625rem, 3.75vw, 2.5rem)` (40px) while preserving neutral weight and color for usernames.
   - Updated `scripts/dev/frontend_gate.py` scale parity calculations to reflect softened curve and column-tracking wordmark geometry.
 - Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox (desktop, mobile, wide touch). `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass.
-
-### 2026-09-05 - Move the mobile theme control below page content (side-task)
-
-- Scope: owner review found that the compact horizontal Light/Dark control sat
-  midway across the two navigation rows. Its boxes did not intersect, but the
-  control visually competed with both rows and made the header read as
-  overlapping.
-- Implementation: retain one checkbox and label, then move their actions
-  wrapper between the desktop header and a mobile slot after page content via
-  the existing `859.98px` breakpoint. The four-link grid now uses the full
-  mobile header width. Selector scope follows the wrapper so the hidden input,
-  selected state, and focus ring survive relocation on migrated and legacy
-  pages.
-- TDD evidence: the new rendered check failed in Chromium and Firefox at both
-  390px and 320px because the control remained in the header and above page
-  content. The focused gate passes after relocation and also checks the 44px
-  target, two-row navigation, overflow, and body offset.
-- Findings: F-B21-45 now records the owner correction and final placement.
-- Validation: `pytest -q` -- **904 passed**, 5 warnings. Focused shell and gate
-  tests -- **129 passed**. The complete frontend gate reports `23 checks passed
-  in 64 runs across chromium, firefox`; JavaScript syntax and diff checks pass.
-  All pre-commit hooks pass, including `doc-state-sync-check`; the alignment
-  hook reports the expected WT003/WT010 state on the owner-authorized stacked
-  Task 4 branch.
-- Forward guidance: complete Task 4 review, then proceed to Task 5.
