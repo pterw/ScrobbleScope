@@ -143,3 +143,56 @@ async def fetch_spotify_album_details_batch(
         jitter=lambda a: (abs(hash((tuple(album_ids), a))) % 200) / 1000.0,
         error_label="Spotify batch album details",
     )
+
+
+async def fetch_spotify_artist_spotlight(
+    session, artist_name=None, artist_id=None, token=None
+):
+    """Fetch Spotify artist details (photograph, Spotify URL) for the spotlight card."""
+    if not token or (not artist_name and not artist_id):
+        return None
+
+    headers = {"Authorization": f"Bearer {token}"}
+    limiter = get_spotify_limiter()
+
+    try:
+        async with limiter:
+            if artist_id:
+                url = f"https://api.spotify.com/v1/artists/{artist_id}"
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        artist = await response.json()
+                        images = artist.get("images", [])
+                        image_url = images[0].get("url") if images else None
+                        spotify_url = artist.get("external_urls", {}).get("spotify")
+                        return {
+                            "name": artist.get("name", artist_name),
+                            "artist_id": artist.get("id", artist_id),
+                            "image_url": image_url,
+                            "spotify_url": spotify_url,
+                        }
+
+            if artist_name:
+                url = "https://api.spotify.com/v1/search"
+                params = {"q": f"artist:{artist_name}", "type": "artist", "limit": 1}
+                async with session.get(url, params=params, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        items = data.get("artists", {}).get("items", [])
+                        if items:
+                            artist = items[0]
+                            images = artist.get("images", [])
+                            image_url = images[0].get("url") if images else None
+                            spotify_url = artist.get("external_urls", {}).get("spotify")
+                            return {
+                                "name": artist.get("name", artist_name),
+                                "artist_id": artist.get("id"),
+                                "image_url": image_url,
+                                "spotify_url": spotify_url,
+                            }
+    except Exception as e:
+        logging.warning(
+            f"Error querying Spotify artist spotlight for '{artist_name or artist_id}': {e}"
+        )
+
+    return None

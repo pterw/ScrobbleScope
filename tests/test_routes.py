@@ -1424,3 +1424,24 @@ def test_get_filter_description(
         _get_filter_description(release_scope, decade, release_year, listening_year)
         == expected
     )
+
+
+def test_artist_spotlight_api_requires_param(client):
+    """GET /api/artist_spotlight without artist or artist_id returns 400."""
+    response = client.get("/api/artist_spotlight")
+    assert response.status_code == 400
+    assert response.json == {"error": "Missing artist or artist_id"}
+
+
+def test_artist_spotlight_api_fallback_when_token_fails(client, monkeypatch):
+    """GET /api/artist_spotlight returns fallback JSON when Spotify token is unavailable."""
+    from scrobblescope import routes
+
+    async def _no_token():
+        return None
+
+    monkeypatch.setattr(routes, "fetch_spotify_access_token", _no_token)
+    response = client.get("/api/artist_spotlight?artist=ear")
+    assert response.status_code == 200
+    assert response.json["name"] == "ear"
+    assert response.json["image_url"] is None

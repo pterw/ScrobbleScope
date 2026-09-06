@@ -49,10 +49,7 @@
 /* Fixed, so the wordmark holds the same vertical position on every screen
    and does not jump as the user moves between them. */
 .site-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    position: relative;
     z-index: 1030;
     display: flex;
     align-items: center;
@@ -65,15 +62,7 @@
     transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
-/* The bar is fixed and therefore out of flow. Without this every page would
-   start underneath it.
-
-   The font-family sits here rather than in tailwind.src.css because every
-   page loads this file, migrated or not. Set only on tailwind.src.css it
-   would reach the one migrated page and leave the other four rendering the
-   Bootstrap system stack after downloading the kit. */
 body {
-    padding-top: var(--shell-height);
     font-family: var(--shell-font-sans);
 }
 
@@ -145,30 +134,42 @@ body {
     min-width: clamp(5.75rem, 4.53vw, 7.25rem);
     min-height: clamp(2.75rem, 1.875vw, 3.5rem);
     padding: 0 1.25rem;
-    border: 1px solid var(--shell-border);
+    border: 1px solid transparent;
     border-radius: 0.625rem;
     color: var(--shell-muted);
     font-family: var(--shell-font-mono-narrow);
     font-size: 0.75rem;
-    font-weight: 400;
+    font-weight: 500;
     line-height: 1;
     letter-spacing: 0.14em;
     text-decoration: none;
     text-transform: uppercase;
     white-space: nowrap;
+    position: relative;
     transition: color 160ms ease, border-color 160ms ease,
         background-color 160ms ease;
 }
 
 .site-header__nav-link:hover {
     color: var(--shell-ink);
-    border-color: var(--shell-accent);
 }
 
 .site-header__nav-link.active {
-    color: var(--shell-accent-ink);
-    border-color: var(--shell-accent);
+    color: var(--shell-ink);
+    border-color: transparent;
+    background-color: transparent;
+    position: relative;
+}
+
+.site-header__nav-link.active::after {
+    content: "";
+    position: absolute;
+    bottom: 0.375rem;
+    left: 1.25rem;
+    right: 1.25rem;
+    height: 2px;
     background-color: var(--shell-accent);
+    border-radius: 1px;
 }
 
 .site-header__nav-link:focus-visible {

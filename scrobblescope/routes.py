@@ -25,7 +25,11 @@ from scrobblescope.repositories import (
     reset_job_state,
     set_job_progress,
 )
-from scrobblescope.utils import run_async_in_thread
+from scrobblescope.spotify import (
+    fetch_spotify_access_token,
+    fetch_spotify_artist_spotlight,
+)
+from scrobblescope.utils import create_optimized_session, run_async_in_thread
 from scrobblescope.worker import acquire_job_slot, start_job_thread
 
 bp = Blueprint("main", __name__)
@@ -504,8 +508,10 @@ def _render_results_page():
 
     filtered_results = _filter_results_for_display(results_data, sort_mode)
 
+    unmatched_count = len(job_context.get("unmatched", {}))
+    has_durations = any(a.get("play_time_seconds", 0) > 0 for a in (results_data or []))
+
     if not filtered_results:
-        unmatched_count = len(job_context.get("unmatched", {}))
         filter_description = _get_filter_description(
             release_scope, decade, release_year, year
         )
@@ -522,6 +528,7 @@ def _render_results_page():
             min_tracks=min_tracks,
             no_matches=True,
             unmatched_count=unmatched_count,
+            has_durations=has_durations,
             filter_description=filter_description,
             job_id=job_id,
         )
@@ -538,6 +545,8 @@ def _render_results_page():
         min_plays=min_plays,
         min_tracks=min_tracks,
         no_matches=False,
+        unmatched_count=unmatched_count,
+        has_durations=has_durations,
         job_id=job_id,
     )
 
@@ -552,6 +561,42 @@ def results():
 def results_complete():
     """Keep the legacy completion POST working while callers move to GET."""
     return _render_results_page()
+
+
+@bp.route("/api/artist_spotlight", methods=["GET"])
+def artist_spotlight():
+    """Return spotlight photograph and metadata for the top artist."""
+    artist_name = (request.args.get("artist") or "").strip()
+    artist_id = (request.args.get("artist_id") or "").strip()
+    if not artist_name and not artist_id:
+        return jsonify({"error": "Missing artist or artist_id"}), 400
+
+    async def _fetch():
+        token = await fetch_spotify_access_token()
+        if not token:
+            return None
+        async with create_optimized_session() as s:
+            return await fetch_spotify_artist_spotlight(
+                s, artist_name=artist_name, artist_id=artist_id, token=token
+            )
+
+    try:
+        data = run_async_in_thread(_fetch)
+        if data:
+            return jsonify(data)
+    except Exception as e:
+        logging.warning(
+            f"Error fetching artist spotlight for '{artist_name or artist_id}': {e}"
+        )
+
+    return jsonify(
+        {
+            "name": artist_name,
+            "artist_id": artist_id,
+            "image_url": None,
+            "spotify_url": None,
+        }
+    )
 
 
 def _render_unmatched_page():

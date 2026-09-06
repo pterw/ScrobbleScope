@@ -41,7 +41,7 @@ Last updated: 2026-09-06
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
 - Next expected work package: WP-7.
 - Latest validated test count: **918 passed**.
-- Newest current-batch entry: 2026-09-06 - Results leaderboard rebuild completed (Batch 21 WP-5).
+- Newest current-batch entry: 2026-09-06 - Results leaderboard rebuild and interactive polish completed (Batch 21 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

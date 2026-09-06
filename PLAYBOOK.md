@@ -552,26 +552,29 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **915 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All pre-commit hooks and `doc_state_sync.py --check` pass.
 - Forward guidance: proceed to Task 6 (accessibility pass).
 
-### 2026-09-06 - Results leaderboard rebuild completed (Batch 21 WP-5)
+### 2026-09-06 - Results leaderboard rebuild and interactive polish completed (Batch 21 WP-5)
 
-- Scope: migrated `templates/results.html` and `static/js/results.js` to Tailwind CSS v4 and daisyUI, implementing the canonical Results Leaderboard with semantic table layout, high-density StatBlock KPI rail, Playtime Discovery CTA banner, Akzidenz-Grotesk artwork initials, and modal removal.
+- Scope: migrated `templates/results.html` and `static/js/results.js` to Tailwind CSS v4 and daisyUI, implementing the canonical Results Leaderboard with 2-column layout, sticky side-rail, Top Artist Spotlight with gradient scrim, Instrument Serif play counts, larger artwork, in-flow shell header, and modal removal.
 - Implementation:
   - Replaced legacy Bootstrap container/table markup in `templates/results.html` with responsive Tailwind semantic structure:
-    - Editorial headline with exactly one purple italic accent on `username` and min-height reserve; live mono query eyebrow (`TOP ALBUMS · {{ year }} · {{ sort_by|upper }}`) with no decorative numbering.
-    - Touch-accessible action buttons (>= 44px targets) with one primary "New search" and ghost secondaries ("Export CSV", "Save as Image").
-    - Active filter tags (`<Tag>` chips) for release scope, minimum plays, and minimum tracks.
-    - High-density `StatBlock` KPI rail ("Cards are lines, not shadows") displaying Total Albums, Top Artist (strengthening artist-listener connection), Scrobbles Counted, and Unmatched count with direct link to the report.
-    - Unobtrusive warm Playtime Discovery callout banner (`Alert` pattern with 3px accent rule, mono kicker, and immediate in-place re-sort action).
-    - Semantic `<table>` (`#results-table`) styled as an editorial grid with mono rank numerals, Akzidenz-Grotesk Next Pro initial tiles for missing artwork fallbacks, Spotify links, and `data-export` ISO date attributes preserving full day precision.
+    - Clean editorial headline with exactly one purple italic accent on `username` and min-height reserve; eliminated eyebrow kicker above `<h1>`, placing a clean subtitle descriptor below.
+    - Touch-accessible action buttons (>= 44px targets) with navbar-style rounded rectangles (`rounded-[var(--radius-field,8px)]`), normal sentence-case, sans-serif typography (`font-sans text-sm font-normal`), and subtle unified card fills. Single desktop flex row with masthead.
+    - Compact symmetrical `StatBlock` mini-table with structural hairline dividers, centered values, and micro-labels (`10px` uppercase).
+    - Active filter tags relocated below the stats card directly above the leaderboard grid with high-contrast borders and surfaces.
+    - Two-column desktop layout (`lg:grid lg:grid-cols-12 lg:gap-8`):
+      - Left column (`lg:col-span-8`): Semantic `<table>` (`#results-table`) styled as an editorial chart with transparent `<thead>`, clear mono rank numerals with hover glow (`--rocket-5`), enlarged artwork covers, Spotify links, and scaled Instrument Serif play counts / monospace durations. Full ISO date day precision preserved in `data-export`.
+      - Right column (`lg:col-span-4`): Sticky side rail with full runway alongside rows 01-14+; interactive segmented toggle (`[ Track Plays ] [ Listening Time ]`) for bidirectional client-side re-sorting with responsive duration strings (`.desktop-val` vs `.mobile-val`), Top Artist Spotlight card with ~16:10 photograph container, bottom gradient scrim overlay, artist name headline, and Spotify link; and Audit & Discovery card linking to `/unmatched`.
+    - Removed duplicate `#rail-back-to-top` button from sidebar, preserving the canonical centered `#back-to-top` footer button.
+    - Converted `.site-header` in `static/css/shell.css` from `position: fixed` to `position: relative` (in-flow) and removed `padding-top` on `body`, reclaiming vertical viewport height.
     - Removed `#unmatched-modal` and wired all unmatched actions to `/unmatched`.
-  - Rebuilt `static/js/results.js`:
-    - Preserved full ISO day precision (`YYYY-MM-DD`) in CSV export by prioritizing `data-export` cell attributes over rendered text.
-    - Implemented daisyUI toast notifications featuring 3px vertical tone bars and mono uppercase kickers (`EXPORTED`, `INFO`, `ERROR`).
-    - Upgraded `html2canvas` JPEG export `onclone` hook to force desktop table layout, hide mobile-only elements, and ensure high-contrast rendering across light and dark themes.
-    - Added in-place client-side reordering for the Playtime Discovery CTA.
-  - Cleaned up `static/css/results.css` to remove obsolete Bootstrap overrides while strictly conforming to declared design tokens.
+  - Backend & hydration:
+    - Added `fetch_spotify_artist_spotlight` in `scrobblescope/spotify.py` and exposed `GET /api/artist_spotlight` route in `scrobblescope/routes.py` with comprehensive unit and fallback tests in `tests/test_routes.py`.
+    - Added progressive client hydration in `static/js/results.js` (`loadArtistSpotlight`) to dynamically update the spotlight image.
+    - Computed and passed `has_durations` from `scrobblescope/routes.py` to enable the Listening Time sort toggle, with template fallback.
+    - Updated row `data-` attributes on leaderboard `<tr>` (`data-play-time`, `data-play-time-mobile`, `data-play-time-seconds`).
+  - Added interactive toggle, glow, and spotlight styles to `static/css/results.css`.
   - Added `results.html` to `MIGRATED` set in `tests/test_template_shell.py` and rebuilt `static/css/tailwind.css`.
-- Validation: `pytest -q` -- **920 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All 12 pre-commit hooks and `doc_state_sync.py --check` pass.
+- Validation: `pytest -q` -- **922 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All 12 pre-commit hooks and `doc_state_sync.py --check` pass.
 - Forward guidance: proceed to WP-7 (unmatched page + reason_code backend fix).
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
