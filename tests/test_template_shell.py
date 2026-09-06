@@ -89,6 +89,7 @@ MIGRATED = {
     "heatmap_empty.html",
     "index.html",
     "loading.html",
+    "results.html",
     "results_empty.html",
     "unmatched_empty.html",
 }

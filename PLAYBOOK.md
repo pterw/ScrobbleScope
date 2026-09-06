@@ -163,8 +163,8 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** Begin WP-5 (results leaderboard) -- WP-0 through WP-4 are done. WP-6 is absorbed into WP-3
-  and ships no commit of its own. WP-5 is next; WP-7 and WP-8 are not done.
+- **Next action:** Begin WP-7 (unmatched page + reason_code) -- WP-0 through WP-5 are done. WP-6 is absorbed into WP-3
+  and ships no commit of its own. WP-7 is next; WP-8 follows it.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -551,6 +551,28 @@ non-current operational logs. Older dated entries live in
   - Extended `scripts/dev/frontend_gate.py` `check_destination_empty_states` to assert `/unmatched` contains no `.card`, no box shadow on `.empty-state`, and a visible, usable Home action link.
 - Validation: `pytest -q` -- **915 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All pre-commit hooks and `doc_state_sync.py --check` pass.
 - Forward guidance: proceed to Task 6 (accessibility pass).
+
+### 2026-09-06 - Results leaderboard rebuild completed (Batch 21 WP-5)
+
+- Scope: migrated `templates/results.html` and `static/js/results.js` to Tailwind CSS v4 and daisyUI, implementing the canonical Results Leaderboard with semantic table layout, high-density StatBlock KPI rail, Playtime Discovery CTA banner, Akzidenz-Grotesk artwork initials, and modal removal.
+- Implementation:
+  - Replaced legacy Bootstrap container/table markup in `templates/results.html` with responsive Tailwind semantic structure:
+    - Editorial headline with exactly one purple italic accent on `username` and min-height reserve; live mono query eyebrow (`TOP ALBUMS · {{ year }} · {{ sort_by|upper }}`) with no decorative numbering.
+    - Touch-accessible action buttons (>= 44px targets) with one primary "New search" and ghost secondaries ("Export CSV", "Save as Image").
+    - Active filter tags (`<Tag>` chips) for release scope, minimum plays, and minimum tracks.
+    - High-density `StatBlock` KPI rail ("Cards are lines, not shadows") displaying Total Albums, Top Artist (strengthening artist-listener connection), Scrobbles Counted, and Unmatched count with direct link to the report.
+    - Unobtrusive warm Playtime Discovery callout banner (`Alert` pattern with 3px accent rule, mono kicker, and immediate in-place re-sort action).
+    - Semantic `<table>` (`#results-table`) styled as an editorial grid with mono rank numerals, Akzidenz-Grotesk Next Pro initial tiles for missing artwork fallbacks, Spotify links, and `data-export` ISO date attributes preserving full day precision.
+    - Removed `#unmatched-modal` and wired all unmatched actions to `/unmatched`.
+  - Rebuilt `static/js/results.js`:
+    - Preserved full ISO day precision (`YYYY-MM-DD`) in CSV export by prioritizing `data-export` cell attributes over rendered text.
+    - Implemented daisyUI toast notifications featuring 3px vertical tone bars and mono uppercase kickers (`EXPORTED`, `INFO`, `ERROR`).
+    - Upgraded `html2canvas` JPEG export `onclone` hook to force desktop table layout, hide mobile-only elements, and ensure high-contrast rendering across light and dark themes.
+    - Added in-place client-side reordering for the Playtime Discovery CTA.
+  - Cleaned up `static/css/results.css` to remove obsolete Bootstrap overrides while strictly conforming to declared design tokens.
+  - Added `results.html` to `MIGRATED` set in `tests/test_template_shell.py` and rebuilt `static/css/tailwind.css`.
+- Validation: `pytest -q` -- **920 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All 12 pre-commit hooks and `doc_state_sync.py --check` pass.
+- Forward guidance: proceed to WP-7 (unmatched page + reason_code backend fix).
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
