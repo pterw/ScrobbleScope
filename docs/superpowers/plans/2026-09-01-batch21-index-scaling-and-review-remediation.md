@@ -1418,7 +1418,7 @@ Carried forward from the superseded plan's Task 3, baseline verified:
 - Modify: `tests/test_routes.py`, `scripts/dev/frontend_gate.py`
 - Modify: `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`
 
-- [ ] **Step 1: Write failing route tests for absent and expired album jobs**
+- [x] **Step 1: Write failing route tests for absent and expired album jobs -- complete (2026-09-06)**
 
 ```python
 response = client.get("/unmatched")
@@ -1435,7 +1435,7 @@ Create an expired `latest_album_job_id` in the client session, request
 Keep the existing populated-unmatched and zero-row valid-job tests; they prove
 the report route did not change.
 
-- [ ] **Step 2: Run and confirm current behaviour fails**
+- [x] **Step 2: Run and confirm current behaviour fails -- complete (mutest verified RED on bypass)**
 
 ```powershell
 pytest tests/test_routes.py -q
@@ -1443,7 +1443,7 @@ pytest tests/test_routes.py -q
 
 Expected: the no-job route renders `error.html`.
 
-- [ ] **Step 3: Create the template and route to it**
+- [x] **Step 3: Create the template and route to it -- complete (2026-09-06)**
 
 Create `templates/unmatched_empty.html` following `results_empty.html`, loading
 only `tailwind.css` and `empty.css`:
@@ -1464,14 +1464,14 @@ this template instead of `_render_no_job_state`. Keep `unmatched.html` for valid
 album jobs, including a valid run with zero unmatched rows. Add no outline,
 shadow, icon, error status, or Bootstrap dependency.
 
-- [ ] **Step 4: Extend the browser gate**
+- [x] **Step 4: Extend the browser gate -- complete (23 checks passed in 64 runs)**
 
 Add `/unmatched` to `check_destination_empty_states`. Assert no `.card`, no box
 shadow on `.empty-state`, a usable Home action, and that the action target is
 `/`. Re-run the populated route checks to confirm report navigation still returns
 to `/results`.
 
-- [ ] **Step 5: Document, validate, commit**
+- [x] **Step 5: Document, validate, commit -- complete (2026-09-06)**
 
 The PLAYBOOK entry must say this is a normal no-data condition, not an error
 treatment, and that valid unmatched reports are unchanged.

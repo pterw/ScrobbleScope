@@ -1,10 +1,10 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-05
+Last updated: 2026-09-06
 Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
-Tasks 1-4 are complete; Task 5 is next. PLAYBOOK Section 3 owns
+Tasks 1-5 are complete; Task 6 is next. PLAYBOOK Section 3 owns
 the current work order.
-914 tests across 40 test modules.
+915 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during

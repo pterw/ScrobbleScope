@@ -829,7 +829,11 @@ def test_job_backed_navigation_pages_have_friendly_empty_states(client):
     unmatched_response = client.get("/unmatched")
     assert unmatched_response.status_code == 200
     assert b'data-empty-state="unmatched"' in unmatched_response.data
-    assert b"You haven&#39;t filtered your scrobbles yet." in unmatched_response.data
+    assert b"No unmatched albums yet" in unmatched_response.data
+    assert (
+        b"Run an album search to find albums that need a review."
+        in unmatched_response.data
+    )
     assert b'href="/"' in unmatched_response.data
     assert b"Search albums" in unmatched_response.data
     assert b'class="error-code"' not in unmatched_response.data
@@ -860,6 +864,24 @@ def test_expired_saved_heatmap_job_returns_to_dedicated_empty_state(client):
     assert b'href="/?mode=heatmap"' in response.data
     with client.session_transaction() as browser_session:
         assert "latest_heatmap_job_id" not in browser_session
+
+
+def test_expired_saved_album_job_unmatched_returns_to_friendly_empty_state(client):
+    """A stale browser-session pointer on /unmatched should clean up and show empty state."""
+    with client.session_transaction() as browser_session:
+        browser_session["latest_album_job_id"] = "expired-job"
+
+    response = client.get("/unmatched")
+
+    assert response.status_code == 200
+    assert b'data-empty-state="unmatched"' in response.data
+    assert b"No unmatched albums yet" in response.data
+    assert b"previous results have expired" in response.data
+    assert b'href="/"' in response.data
+    assert b"Search albums" in response.data
+    assert b'class="error-code"' not in response.data
+    with client.session_transaction() as browser_session:
+        assert "latest_album_job_id" not in browser_session
 
 
 def test_app_404_handler_renders_error_template(client):

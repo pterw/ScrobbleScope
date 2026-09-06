@@ -2455,6 +2455,31 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
             failures.append(
                 f"{path}: empty-state action is {href!r}, expected {action!r}"
             )
+        details = state.evaluate(
+            """node => {
+                const card = document.querySelector('.card');
+                const emptySection = node.matches('.empty-state') ? node : node.querySelector('.empty-state');
+                const style = emptySection ? getComputedStyle(emptySection) : null;
+                const actionLink = node.querySelector('a');
+                const actionRect = actionLink ? actionLink.getBoundingClientRect() : null;
+                return {
+                    hasCard: card !== null && getComputedStyle(card).display !== 'none',
+                    hasSection: emptySection !== null,
+                    boxShadow: style ? style.boxShadow : 'none',
+                    actionUsable: actionRect !== null && actionRect.width > 0 && actionRect.height > 0,
+                };
+            }"""
+        )
+        if details["hasCard"]:
+            failures.append(f"{path}: empty state contains an unexpected visible .card")
+        if not details["hasSection"]:
+            failures.append(f"{path}: .empty-state section element is missing")
+        if details["boxShadow"] not in ("none", "", "rgba(0, 0, 0, 0) 0px 0px 0px 0px"):
+            failures.append(
+                f"{path}: .empty-state has unexpected box shadow: {details['boxShadow']!r}"
+            )
+        if not details["actionUsable"]:
+            failures.append(f"{path}: empty-state action link is not usable/visible")
 
     page.goto(f"{base_url}/?mode=heatmap", wait_until="load")
     fresh_state = page.evaluate(
@@ -2566,18 +2591,39 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
         album_job_id, progress=20, message="Fetching scrobbles", phase=test_phase
     )
     test_phase["current"] = 99
-    if get_job_progress(album_job_id)["phase"]["current"] != 23:
+    prog_caller = get_job_progress(album_job_id)
+    ctx_caller = get_job_context(album_job_id)
+    if not prog_caller or prog_caller.get("phase", {}).get("current") != 23:
         failures.append("repository get_job_progress leaked caller phase mutation")
-    if get_job_context(album_job_id)["progress"]["phase"]["current"] != 23:
+    if (
+        not ctx_caller
+        or ctx_caller.get("progress", {}).get("phase", {}).get("current") != 23
+    ):
         failures.append("repository get_job_context leaked caller phase mutation")
 
     prog_view = get_job_progress(album_job_id)
     ctx_view = get_job_context(album_job_id)
-    prog_view["phase"]["current"] = 77
-    ctx_view["progress"]["phase"]["current"] = 88
-    if get_job_progress(album_job_id)["phase"]["current"] != 23:
+    if prog_view is not None and isinstance(prog_view.get("phase"), dict):
+        prog_view["phase"]["current"] = 77
+    else:
+        failures.append("repository get_job_progress returned invalid phase structure")
+    if (
+        ctx_view is not None
+        and isinstance(ctx_view.get("progress"), dict)
+        and isinstance(ctx_view["progress"].get("phase"), dict)
+    ):
+        ctx_view["progress"]["phase"]["current"] = 88
+    else:
+        failures.append("repository get_job_context returned invalid phase structure")
+
+    prog_returned = get_job_progress(album_job_id)
+    ctx_returned = get_job_context(album_job_id)
+    if not prog_returned or prog_returned.get("phase", {}).get("current") != 23:
         failures.append("repository get_job_progress leaked returned phase mutation")
-    if get_job_context(album_job_id)["progress"]["phase"]["current"] != 23:
+    if (
+        not ctx_returned
+        or ctx_returned.get("progress", {}).get("phase", {}).get("current") != 23
+    ):
         failures.append(
             "repository get_job_context leaked returned context phase mutation"
         )

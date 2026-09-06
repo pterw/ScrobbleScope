@@ -81,7 +81,7 @@ See FINDINGS F-DOCSYNC-3.
   CLI) + daisyUI v5, warm heatmap-derived themes propagated app-wide,
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
-  definition. Branch: `wip/batch-21` (worktree off `main`).
+  definition. Branch: `test` (worktree off `main`; remediated from `wip/batch-21` per owner authorization 2026-09-06).
 - **PR #223 side-task:** merged as `123b127`; this worktree is synchronized.
   Remaining issue #222 targets stay open.
 - **Planning follow-up:** the original owner-review plan remains historical
@@ -89,17 +89,15 @@ See FINDINGS F-DOCSYNC-3.
   the two-engine runner and explicit CSS composition dimensions. Its rendered
   expanded-state guard, complete validation, and PR #224 review remediation
   passed.
-- **Next action:** **WP-4 and remediation Tasks 2-4 are implemented and
-  validated locally. Task 4 review is next, then Task 5 (add the unmatched
-  no-data surface).** Work from
+- **Next action:** **Remediation Tasks 1-5 are complete and validated locally.
+  Task 6 (accessibility pass) is next.** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
   defect with layout-aware CSS and a complete real-window gate in Chromium
   and Firefox; it merged as PR #224. Task 3 landed the final `3fr 4fr` split,
   owner-refined `27.5rem` form base cap, raised `--shell-border` contrast to
   >= 3:1 in both themes, and applied the ruled header clamps (`--shell-height`,
-  `--shell-control-gap`, nav-link/theme-control sizing). The header stays
-  independently sized from `--index-scale`. Review remediation pins that
+  `--shell-control-gap`, nav-link/theme-control sizing). Review remediation pins that
   composition across every reachable form state and uses one fast hero/page
   fade timing (F-B21-41, F-B21-42). Task 4 aligned visible
   loading progress with pipeline phases across Top Albums and Heatmap,
@@ -107,13 +105,14 @@ See FINDINGS F-DOCSYNC-3.
   received vs attempted Last.fm counts, corrected loading composition
   (F-B21-36), and added real-browser phase checks to the gate. Its review fix
   keeps the loader hidden when a saved Heatmap job is already cached and fades
-  the result in directly (F-B21-43). Owner visual refinements vertically centre
-  the desktop form composition, expose every mobile navigation destination in
-  two rows with the theme control below page content, widen the desktop Heatmap
-  result, and return its username to the neutral headline treatment (F-B21-44
-  through F-B21-46); task review is pending next. Tasks 5-6 (unmatched no-data
-  surface, accessibility pass)
-  remain open.
+  the result in directly (F-B21-43). Task 5 added the dedicated unmatched
+  no-data surface (`templates/unmatched_empty.html`), wired clean session
+  recovery and eviction on `/unmatched`, mutest-verified failure paths, and
+  extended `frontend_gate.py` with card, shadow, and action assertions.
+  Owner visual refinements vertically centre the desktop form composition,
+  unify single-row mobile navigation with the theme control below page content,
+  widen the desktop Heatmap result, and return its username to the neutral headline
+  treatment (F-B21-44 through F-B21-46). Task 6 (accessibility pass) is next.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
   latest album and heatmap jobs at clean destination routes. The owner
@@ -541,6 +540,17 @@ non-current operational logs. Older dated entries live in
   before WP-5. Keep the latest-run session contract when the Results and
   Unmatched templates migrate; do not reintroduce query strings into the
   header pills.
+
+### 2026-09-06 - Dedicated unmatched empty state unified and verified (Batch 21 WP-4)
+
+- Scope: completed Task 5 of `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`, routing `/unmatched` with absent or expired jobs to a dedicated borderless empty state matching Results and Heatmap.
+- Implementation:
+  - Created `templates/unmatched_empty.html` using the shared `.empty-page` and `.empty-state` structure, purple indicator bar, Task 5 Step 3 spec copy ("Run an album search to find albums that need a review."), and action link to `/`.
+  - In `scrobblescope/routes.py` `_render_unmatched_page`, routed absent and expired saved jobs to `unmatched_empty.html` (with expired message and session pointer eviction via `_get_validated_job_context`) instead of the generic `_render_no_job_state` error card. Valid populated runs and valid 0-row runs remain on `unmatched.html`.
+  - Added route test in `tests/test_routes.py` verifying that an expired `latest_album_job_id` returns 200, `data-empty-state="unmatched"`, pops the session key, and renders no error code. Mutest verified: bypassing the handler caused immediate RED (`AssertionError`), confirmed GREEN on restoration.
+  - Extended `scripts/dev/frontend_gate.py` `check_destination_empty_states` to assert `/unmatched` contains no `.card`, no box shadow on `.empty-state`, and a visible, usable Home action link.
+- Validation: `pytest -q` -- **915 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All pre-commit hooks and `doc_state_sync.py --check` pass.
+- Forward guidance: proceed to Task 6 (accessibility pass).
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
