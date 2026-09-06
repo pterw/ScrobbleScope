@@ -26,6 +26,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const releaseYearInput = document.getElementById('release_year');
   const yearHint         = document.getElementById('year-hint');
   const usernameError    = document.createElement('div');
+  usernameError.id = 'username-error';
+  usernameError.setAttribute('role', 'alert');
   // field__error is ours. The Bootstrap classes this used to carry
   // (invalid-feedback, form-text, text-danger) left the page with Bootstrap.
   usernameError.className = 'field__error';
@@ -33,12 +35,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Year inline warning (no green/checkmark — only shows on error)
   const yearWarning = document.createElement('div');
+  yearWarning.id = 'year-warning';
+  yearWarning.setAttribute('role', 'alert');
   yearWarning.className = 'field__error';
   yearWarning.style.display = 'none';
   if (yearSelect) yearSelect.parentNode.appendChild(yearWarning);
 
   // Custom Release Year inline warning
   const releaseYearWarning = document.createElement('div');
+  releaseYearWarning.id = 'release-year-warning';
+  releaseYearWarning.setAttribute('role', 'alert');
   releaseYearWarning.className = 'field__error';
   releaseYearWarning.style.display = 'none';
   if (releaseYearInput) releaseYearInput.parentNode.appendChild(releaseYearWarning);
@@ -83,6 +89,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function clearYearValidation() {
     if (!yearSelect) return;
     yearSelect.classList.remove('is-invalid', 'is-valid');
+    yearSelect.removeAttribute('aria-invalid');
+    yearSelect.setAttribute('aria-describedby', 'year-hint');
     yearWarning.textContent = '';
     yearWarning.style.display = 'none';
   }
@@ -94,6 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Non-numeric input: warn immediately
     if (raw && hasNonNumeric(raw)) {
       yearSelect.classList.add('is-invalid');
+      yearSelect.setAttribute('aria-invalid', 'true');
+      yearSelect.setAttribute('aria-describedby', 'year-hint year-warning');
       yearWarning.textContent = 'Please enter a valid year (numbers only).';
       yearWarning.style.display = 'block';
       return;
@@ -112,6 +122,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (val < min) {
       yearSelect.classList.add('is-invalid');
+      yearSelect.setAttribute('aria-invalid', 'true');
+      yearSelect.setAttribute('aria-describedby', 'year-hint year-warning');
       if (registeredYear) {
         yearWarning.textContent = `This user joined Last.fm in ${registeredYear}. Year must be ${registeredYear} or later.`;
       } else {
@@ -120,6 +132,8 @@ document.addEventListener('DOMContentLoaded', () => {
       yearWarning.style.display = 'block';
     } else if (val > max) {
       yearSelect.classList.add('is-invalid');
+      yearSelect.setAttribute('aria-invalid', 'true');
+      yearSelect.setAttribute('aria-describedby', 'year-hint year-warning');
       yearWarning.textContent = 'Year cannot be in the future.';
       yearWarning.style.display = 'block';
     } else {
@@ -246,6 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
     validationGeneration += 1;
     usernameInput.setCustomValidity('');
     usernameInput.classList.remove('is-valid', 'is-invalid');
+    usernameInput.removeAttribute('aria-invalid');
+    usernameInput.removeAttribute('aria-describedby');
     // Bootstrap's .invalid-feedback was hidden unless a sibling carried
     // .is-invalid, so dropping the class hid stale text for free. The
     // replacement is hidden only while it is empty, so it has to be emptied.
@@ -280,6 +296,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // below already treats a network failure this way.
         if (res.status >= 500) {
           usernameInput.classList.remove('is-valid', 'is-invalid');
+          usernameInput.removeAttribute('aria-invalid');
+          usernameInput.removeAttribute('aria-describedby');
           usernameInput.setCustomValidity('');
           usernameError.textContent =
             data.message || 'Validation service unavailable. Try again.';
@@ -293,6 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.valid) {
           usernameInput.classList.remove('is-invalid');
           usernameInput.classList.add('is-valid');
+          usernameInput.removeAttribute('aria-invalid');
+          usernameInput.removeAttribute('aria-describedby');
           usernameInput.setCustomValidity('');
           usernameError.textContent = '';
 
@@ -319,6 +339,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           usernameInput.classList.remove('is-valid');
           usernameInput.classList.add('is-invalid');
+          usernameInput.setAttribute('aria-invalid', 'true');
+          usernameInput.setAttribute('aria-describedby', 'username-error');
           usernameError.textContent = data.message || 'Username not found on Last.fm';
           usernameInput.setCustomValidity(data.message || 'Username not found on Last.fm');
         }
@@ -326,6 +348,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // A network failure is an outage, not the previous name's verdict.
         if (!isCurrent()) return;
         usernameInput.classList.remove('is-valid', 'is-invalid');
+        usernameInput.removeAttribute('aria-invalid');
+        usernameInput.removeAttribute('aria-describedby');
         usernameInput.setCustomValidity('');
         usernameError.textContent = 'Validation service unavailable. Try again.';
       }
@@ -433,6 +457,7 @@ document.addEventListener('DOMContentLoaded', () => {
   //
   // Capture phase, because the invalid event does not bubble.
   const albumForm = document.querySelector('#album-form-section form');
+  const submitBtn = document.getElementById('submit-btn');
   if (albumForm) {
     albumForm.addEventListener(
       'invalid',
@@ -442,6 +467,26 @@ document.addEventListener('DOMContentLoaded', () => {
       },
       true
     );
+
+    if (submitBtn) {
+      albumForm.addEventListener('submit', (e) => {
+        if (usernameInput) {
+          usernameInput.value = usernameInput.value.trim();
+        }
+        if (submitBtn.disabled) {
+          e.preventDefault();
+          return;
+        }
+        if (albumForm.checkValidity()) {
+          submitBtn.disabled = true;
+          albumForm.setAttribute('aria-busy', 'true');
+          window.addEventListener('pageshow', () => {
+            submitBtn.disabled = false;
+            albumForm.removeAttribute('aria-busy');
+          }, { once: true });
+        }
+      });
+    }
   }
 
   /* ---------- Filter tags ---------- */

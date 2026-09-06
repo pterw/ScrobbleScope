@@ -9,6 +9,55 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Refine desktop scale and mobile navigation (side-task)
+
+- Scope: address the owner's final Task 3/4 visual comparison. The 28rem form
+  felt slightly too large, its top-anchored composition accumulated much more
+  space beneath the card on a realistic 1440p window than at 1080p, the mobile
+  header hid report destinations behind horizontal scrolling, and the desktop
+  Heatmap result remained at the snapshot's undersized 1100px measure. The
+  Heatmap username also carried an unwanted purple italic accent.
+- Implementation: refine the form base cap to `27.5rem` and centre its complete
+  composition vertically in the available desktop well. Auto margins collapse
+  when expanded rows need the space, preserving top padding and natural
+  document scroll without state-dependent scaling. Mobile navigation now uses
+  two directly visible rows beside a compact theme control. The desktop
+  Heatmap stage uses `84vw`, capped at `120rem`, while the username inherits
+  the headline's neutral serif treatment.
+- TDD evidence: before the CSS changes, both engines measured unequal form
+  composition gutters at every realistic desktop profile; 390px and 320px
+  headers required horizontal navigation scrolling and exposed only one row;
+  and a 1920x945 Heatmap result occupied 57.3% of the viewport with 16.6px
+  rendered cells. The extended gate now asserts balanced vertical gutters,
+  unchanged expanded-state geometry, two directly visible mobile nav rows,
+  a centred Heatmap frame occupying at least 70% of the viewport, 22px-32px
+  rendered cells, and a neutral username. The complete frontend gate passes
+  all 23 checks in 64 runs across Chromium and Firefox.
+- Findings: F-B21-44 records the desktop Heatmap scale and username treatment;
+  F-B21-45 records mobile navigation overflow; F-B21-46 records the desktop
+  form's top-heavy placement and cap refinement.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
+### 2026-09-05 - Remove the cached Heatmap loading flash (side-task)
+
+- Scope: address the owner-observed flash when the Heatmap header link restores
+  an already-complete saved job. The client exposed the loading panel before
+  its first progress response, then immediately replaced it with cached data.
+- Implementation: keep saved-job loading hidden through the first progress and
+  data requests. Reveal it only when the response shows ongoing work, a retry,
+  or an error; otherwise fade the complete result in directly. Normal Heatmap
+  submissions and their polling lifecycle remain distinct and unchanged.
+- TDD evidence: the new mutation observer failed against the prior client in
+  Chromium and Firefox even though the final result DOM was correct. It starts
+  before production `DOMContentLoaded` handlers, so it records the transient
+  loading paint rather than sampling only the settled page.
+- Findings: F-B21-43 records the defect and its resolution.
+- Validation: `pytest -q` -- **904 passed**, 5 warnings. Focused frontend and
+  route tests -- **120 passed**. The complete frontend gate reports `23 checks
+  passed in 64 runs across chromium, firefox`; JavaScript syntax and diff checks
+  pass. Final hooks and docsync follow before commit.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
 ### 2026-09-05 - Pin index state geometry and normalize its fades (side-task)
 
 - Scope: address owner review after Task 3. The state-sensitive height

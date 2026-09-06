@@ -5,27 +5,256 @@
 /* CSS custom properties                                               */
 /* ------------------------------------------------------------------ */
 :root {
+    /* Brand. On the legacy pages --bars-color IS the theme primary; the
+       Tailwind side defines it as var(--color-primary) in tailwind.src.css.
+       Keep the two equal -- Batch 21's acceptance gate compares --bars-color
+       with the theme primary. --bars-color-rgb is the same colour as an RGB
+       triple for rgba() uses; --info-bg and Bootstrap's tokens read these
+       two, so nothing can drift. */
     --bars-color: #6a4baf;
-    --text-color: #333333;
-    --bg-color: #f8f9fa;
-    --info-bg: rgba(106, 75, 175, 0.1);
-    --surface-color: #ffffff;
-    --surface-elevated: #ffffff;
-    --border-color: #ccc;
-    --input-bg: #ffffff;
+    --bars-color-rgb: 106, 75, 175;
+
+    /* Text and background. Values come from the migrated index theme
+       (static/css/tailwind.src.css): body ink --color-base-content,
+       page --color-base-100. */
+    --text-color: #1a1820;
+    --bg-color: #faf8f3;
+
+    /* Surfaces -- same mapping as the index: card --ss-surface-card,
+       page --color-base-100. */
+    --surface-color: #fcfbf8;
+    --surface-elevated: #fcfbf8;
+
+    /* Lines and inputs. Border = index --ss-border-default; inputs use
+       the page colour so fields read as recessed, as on the index. */
+    --border-color: #e5dfd1;
+    --input-bg: #faf8f3;
+
+    /* Type -- Adobe Typekit families, byte-for-byte the four font tokens
+       from tailwind.src.css @theme static. base.html already links
+       use.typekit.net/rwy8ghw.css on every page, so the families load;
+       a legacy page just needs them assigned. They repeat here because
+       the Bootstrap pages never load tailwind.css -- the same reason
+       shell.css carries its own --shell-font-* copies. WP-8 deletes
+       this block. The kit serves 300/400/700 only; nothing here may
+       request 500/600 or the browser synthesizes them. */
+    --font-sans: "akzidenz-grotesk-next-pro", "aktiv-grotesk", ui-sans-serif, system-ui, sans-serif;
+    --font-serif: "instrument-serif", "corporate-a", Georgia, serif;
+    --font-mono: "input-mono", "orator-std", ui-monospace, monospace;
+    --font-mono-narrow: "input-mono-narrow", "input-mono", "orator-std", ui-monospace, monospace;
+
+    /* State colors */
     --error-accent: #dc3545;
+
+    /* Derived tokens. Their var() references resolve on the element that
+       uses them, not on :root, so they are declared once only: inside
+       <body class="dark-mode"> they pick up the dark literals from
+       .dark-mode below automatically. */
+    --info-bg: rgba(var(--bars-color-rgb), 0.1);
+
+    /* Bootstrap 5 custom-property overrides. This block exists only to push
+       the brand palette into Bootstrap components on the legacy pages, and
+       dies with this file once every page migrates (planned WP-8).
+       Bootstrap reads these at cascade time; none is written into any
+       component. --bs-primary-rgb is required alongside --bs-primary:
+       Bootstrap interpolates the RGB form into rgba() focus rings. Every
+       entry is a leaf on a brand token above, so the shim cannot drift
+       from the page theme. */
+    --bs-primary: var(--bars-color);
+    --bs-primary-rgb: var(--bars-color-rgb);
+    --bs-body-bg: var(--bg-color);
+    --bs-body-color: var(--text-color);
+    --bs-card-bg: var(--surface-color);
+    --bs-card-border-color: var(--border-color);
 }
 
 .dark-mode {
-    --bars-color: #9370DB;
-    --text-color: #f8f9fa;
-    --bg-color: #121212;
-    --info-bg: rgba(147, 112, 219, 0.1);
-    --surface-color: #1e1e1e;
-    --surface-elevated: #2a2a2a;
-    --border-color: #444;
-    --input-bg: #333;
-    --error-accent: #dc3545;
+    /* Only literals override :root here. Tokens that do not change between
+       themes (--error-accent) or that derive from one that does (--info-bg,
+       the whole --bs-* map) live on :root once and reach the dark values
+       through the var() chain. daisyUI-provenance notes mark values shared
+       with the migrated theme. */
+    --bars-color: #9370db;
+    --bars-color-rgb: 147, 112, 219;
+    --text-color: #f1ede4;
+    /* #0e0c12 = daisyUI dark base-100. Matches the Tailwind-migrated index
+       page body so all pages share one dark background. */
+    --bg-color: #0e0c12;
+    /* #181520 = daisyUI dark base-200 (card surface). */
+    --surface-color: #181520;
+    --surface-elevated: #1f1b29;
+    --border-color: #2a2434;
+    --input-bg: #1a1622;
+}
+
+/* ------------------------------------------------------------------ */
+/* Legacy Bootstrap buttons: navbar look                               */
+/* ------------------------------------------------------------------ */
+/* The two remaining Bootstrap pages (results, unmatched) still carry
+   Bootstrap .btn classes. Style them from the header nav (shell.css) so
+   they speak the same language as the migrated interface: uppercase
+   letterspaced mono-narrow label, hairline border, 10px radius. All
+   colours come via var() from the shell tokens -- shell.css loads on
+   every page in base.html, both themes -- so these match the navbar by
+   construction and duplicate no palette here. The :hover/:active/
+   :disabled rules are written out per variant because Bootstrap 5.1.3
+   paints those states with plain hardcoded values, not the --bs-btn-*
+   variables (that indirection landed in 5.2); the explicit rules, being
+   equal-specificity and later in the cascade, win. WP-8 deletes this
+   block together with global.css. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: clamp(2.75rem, 1.875vw, 3.5rem);
+  padding: 0 1.25rem;
+  border: 1px solid var(--shell-border);
+  border-radius: 0.625rem;
+  background-color: transparent;
+  box-shadow: none;
+  color: var(--shell-muted);
+  font-family: var(--shell-font-mono-narrow);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 160ms ease, border-color 160ms ease,
+      background-color 160ms ease;
+}
+
+.btn:hover,
+.btn:focus,
+.btn:active {
+  box-shadow: none;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--shell-accent);
+  outline-offset: 2px;
+}
+
+/* Secondary and outline-secondary: the default nav-link state. */
+.btn-secondary {
+  color: var(--shell-muted);
+  background-color: transparent;
+  border-color: var(--shell-border);
+}
+
+.btn-secondary:hover,
+.btn-secondary:active {
+  color: var(--shell-ink);
+  background-color: transparent;
+  border-color: var(--shell-accent);
+}
+
+.btn-secondary.disabled,
+.btn-secondary:disabled {
+  color: var(--shell-muted);
+  background-color: transparent;
+  border-color: var(--shell-border);
+}
+
+/* Primary: the filled nav-link.active state. */
+.btn-primary {
+  color: var(--shell-accent-ink);
+  background-color: var(--shell-accent);
+  border-color: var(--shell-accent);
+}
+
+.btn-primary:hover,
+.btn-primary:active {
+  color: var(--shell-accent-ink);
+  background-color: var(--shell-accent);
+  border-color: var(--shell-accent);
+}
+
+.btn-primary.disabled,
+.btn-primary:disabled {
+  color: var(--shell-accent-ink);
+  background-color: var(--shell-accent);
+  border-color: var(--shell-accent);
+}
+
+/* Outline-primary: an accent hairline that fills on hover. */
+.btn-outline-primary {
+  color: var(--shell-accent);
+  background-color: transparent;
+  border-color: var(--shell-accent);
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:active {
+  color: var(--shell-accent-ink);
+  background-color: var(--shell-accent);
+  border-color: var(--shell-accent);
+}
+
+.btn-outline-primary.disabled,
+.btn-outline-primary:disabled {
+  color: var(--shell-accent);
+  background-color: transparent;
+  border-color: var(--shell-accent);
+}
+
+/* Outline-secondary (also the back-to-top compact variant). */
+.btn-outline-secondary {
+  color: var(--shell-muted);
+  background-color: transparent;
+  border-color: var(--shell-border);
+}
+
+.btn-outline-secondary:hover,
+.btn-outline-secondary:active {
+  color: var(--shell-ink);
+  background-color: transparent;
+  border-color: var(--shell-accent);
+}
+
+.btn-outline-secondary.disabled,
+.btn-outline-secondary:disabled {
+  color: var(--shell-muted);
+  background-color: transparent;
+  border-color: var(--shell-border);
+}
+
+/* Compact variant (back-to-top). */
+.btn-sm {
+  min-height: 2.1rem;
+  padding: 0 0.9rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+}
+
+/* ------------------------------------------------------------------ */
+/* Typography -- Adobe Typekit on the remaining Bootstrap pages        */
+/* ------------------------------------------------------------------ */
+/* Body text already renders Akzidenz through shell.css (its body rule
+   sets --shell-font-sans on every page). The two legacy pages still
+   lacked the rest of the ramp: their headings fell back to the system
+   stack. This section assigns the design-system roles -- serif for
+   display headings, mono-narrow for letterspaced cap labels -- the same
+   mapping tailwind.css gives migrated pages. */
+h1,
+h2 {
+    font-family: var(--font-serif);
+    /* The kit carries serif at 400 plus italic only. Bootstrap defaults
+       these headings to 500, which the kit has no glyph for. */
+    font-weight: 400;
+}
+
+/* Card/box headings (h3-h6, e.g. .modal-title) stay sans -- the serif
+   is for display headings only -- but drop Bootstrap's 500 for the same
+   reason: the kit has no 500, and Tailwind preflight already renders
+   migrated-page headings at 400, so a faux bold would diverge from the
+   interface the migration is converging on. */
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 400;
 }
 
 /* ------------------------------------------------------------------ */
@@ -200,7 +429,9 @@ body {
 }
 
 @keyframes fadeInCard {
-    to { opacity: 1; }
+    to {
+        opacity: 1;
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -215,5 +446,39 @@ body {
 }
 
 @keyframes fadeIn {
-    to { opacity: 1; }
+    to {
+        opacity: 1;
+    }
 }
+
+/* ------------------------------------------------------------------ */
+/* Reduced-motion overrides (a11y)                                    */
+/* ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .card,
+    #logo-wrapper svg {
+        opacity: 1 !important;
+        animation: none !important;
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* Browser surface theming (selection, caret, scrollbars)             */
+/* ------------------------------------------------------------------ */
+::selection {
+    background-color: var(--info-bg);
+    color: var(--text-color);
+}
+
+* {
+    scrollbar-color: var(--border-color) transparent;
+}
+

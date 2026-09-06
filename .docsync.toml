@@ -60,12 +60,12 @@ name = "the index divider token, light value"
 [[value.sites]]
 file = "static/css/tailwind.src.css"
 pattern = 'name: "light";[^}]*--ss-border-divider: (#[0-9a-f]{6});'
-expect = "#858179"
+expect = "#8a867e"
 
 [[value.sites]]
 file = "tests/test_template_shell.py"
 pattern = '"--ss-border-divider": \("(#[0-9a-f]{6})"'
-expect = "#858179"
+expect = "#8a867e"
 
 [[value]]
 name = "the index divider token, dark value"
@@ -73,12 +73,12 @@ name = "the index divider token, dark value"
 [[value.sites]]
 file = "static/css/tailwind.src.css"
 pattern = 'name: "dark";[^}]*--ss-border-divider: (#[0-9a-f]{6});'
-expect = "#6e6a75"
+expect = "#68646f"
 
 [[value.sites]]
 file = "tests/test_template_shell.py"
 pattern = '"--ss-border-divider": \("#[0-9a-f]{6}", "(#[0-9a-f]{6})"'
-expect = "#6e6a75"
+expect = "#68646f"
 
 [[value]]
 name = "the 12px small-label floor"

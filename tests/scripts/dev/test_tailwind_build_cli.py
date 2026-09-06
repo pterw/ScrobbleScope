@@ -159,11 +159,11 @@ def test_theme_source_locks_the_batch_21_design_tokens() -> None:
     """The source owns exact palette, type, spacing, radius, and bar aliases."""
     source = SOURCE_CSS.read_text(encoding="utf-8")
     required_lines = {
-        '--font-sans: "akzidenz-grotesk-next-pro", ui-sans-serif, system-ui, sans-serif;',
-        '--font-serif: "instrument-serif", Georgia, serif;',
-        '--font-figure: "gotham", ui-sans-serif, sans-serif;',
-        '--font-mono: "input-mono", ui-monospace, monospace;',
-        '--font-mono-narrow: "input-mono-narrow", "input-mono", ui-monospace, monospace;',
+        '--font-sans: "akzidenz-grotesk-next-pro", "aktiv-grotesk", ui-sans-serif, system-ui, sans-serif;',
+        '--font-serif: "instrument-serif", "corporate-a", Georgia, serif;',
+        '--font-figure: "gotham", "ff-din-paneuropean", ui-sans-serif, sans-serif;',
+        '--font-mono: "input-mono", "orator-std", ui-monospace, monospace;',
+        '--font-mono-narrow: "input-mono-narrow", "input-mono", "orator-std", ui-monospace, monospace;',
         "--text-label-sm: 0.75rem;",
         "--text-label: 0.8125rem;",
         "--text-body-sm: 0.875rem;",

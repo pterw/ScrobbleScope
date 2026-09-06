@@ -544,6 +544,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-05 - Add resilient Typekit fallback font stacks, consolidate single-row mobile navigation, and configure editor (side-task)
+
+- Scope: resolved unknown at-rule IDE lint warning on `@custom-variant` in `static/css/tailwind.src.css`, verified Typekit web font integration, reinforced design token font stacks with resilient Typekit fallbacks (`aktiv-grotesk`, `corporate-a`, `ff-din-paneuropean`, `orator-std`), and consolidated mobile header navigation to a unified single-row bar.
+- Implementation:
+  - Added `.vscode/settings.json` configuring `"css.lint.unknownAtRules": "ignore"` and created `.vscode/tailwind-css-data.json` declaring Tailwind v4 at-rules (`@custom-variant`, `@theme`, `@source`, `@utility`, `@plugin`). Kept git status clean as `.vscode/` is in `.gitignore`.
+  - Verified live Adobe Typekit kit (`rwy8ghw`) served by `templates/base.html` and expanded font stacks in `static/css/tailwind.src.css` and `static/css/global.css`: `--font-sans` now includes `"aktiv-grotesk"`, `--font-serif` includes `"corporate-a"`, `--font-figure` includes `"ff-din-paneuropean"` (FF DIN), and `--font-mono` / `--font-mono-narrow` include `"orator-std"`.
+  - Consolidated mobile header navigation in `static/css/shell.css` from a dual-row 2x2 grid (`--shell-height: 6.5rem`) to a unified single-row 4-column stack (`--shell-height: 4.25rem`, `grid-template-columns: repeat(4, minmax(0, 1fr))`). Provenance & design rationale: opting for a one-stack bar rather than dual-row saves ~36px of vertical fold space on compact mobile viewports (320px–390px), avoids visual crowding now that the theme toggle sits below page content (F-B21-45), comfortably fits all 4 short route labels ("Index", "Heatmap", "Results", "Unmatched") at compliant >=44px tap targets, and unifies the shell height floor with desktop (`4.25rem`).
+  - Synchronized `scripts/dev/frontend_gate.py` (`check_shell_scales_with_text` and `check_large_display_scale_parity` row count assertion to 1 row), updated design token regression lock in `tests/scripts/dev/test_tailwind_build_cli.py`, and rebuilt `static/css/tailwind.css` cleanly.
+- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `pre-commit run --all-files` passed cleanly with 0 drift and all hooks green.
+
+### 2026-09-05 - Harden and polish frontend interfaces, align legacy Bootstrap styles, and mute index divider seam (side-task)
+
+- Scope: executed comprehensive frontend hardening (/harden) and polish (/polish) passes across the application, aligned legacy Bootstrap pages (`results.html`, `unmatched.html`) with the Tailwind design system, and muted the index vertical dividing seam.
+- Implementation:
+  - Added `@media (prefers-reduced-motion: reduce)` overrides to `static/css/global.css` for card and SVG entrance animations (`opacity: 1 !important`, `animation: none !important`) and collapsed button transitions (`0.01ms !important`).
+  - Added form submission resilience and double-submit guards to `static/js/index.js` (disabling `#submit-btn` and setting `aria-busy="true"`, with `pageshow` restoration) and `static/js/heatmap.js` (disabling `#heatmap-submit-btn` during active jobs).
+  - Wired accessibility and defensive attributes: added `maxlength="100"` to Last.fm username inputs on both modes, bound `aria-describedby="year-hint"` to `#year`, and dynamically synchronized `role="alert"`, `aria-invalid="true"`, and `aria-describedby` across inline error and warning states in `static/js/index.js`.
+  - Hardened layout against text overflow in `static/css/results.css` (`flex-shrink: 0` on `.album-cover`, `min-width: 0` and `overflow-wrap: break-word` on `.album-title` and `.album-info`), `templates/results.html` (descriptive `alt="{{ album.album }} cover"` on cover art), and `static/css/unmatched.css` (`overflow-wrap: break-word` on table cells).
+  - Reskinned Bootstrap pages in `static/css/global.css`, `static/css/results.css`, and `static/css/unmatched.css`: styled `.btn` variants with mono-narrow typography, uppercase tracking, 0.625rem radius, and brand purple accents (`--shell-accent`); applied Adobe Typekit serif to display headings (`h1`, `h2`); aligned dark palette variables to authentic warm obsidian (`#0e0c12`, `#181520`, `#1f1b29`, `#2a2434`, `#1a1622`).
+  - Polished design system tokens and anti-patterns: eliminated resting drop shadows on `.album-cover`, `.reason-section`, and `.action-buttons` in favor of structural hairline borders; enforced the No-Medium Rule on `.album-link` (`font-weight: 400`); replaced inline style on cover placeholder with `.album-cover-placeholder`; promoted results heading to semantic `<h1>`; aligned `.reason-count` to pill radius and 0.75rem mono label.
+  - Themed browser surfaces: added custom `::selection` background (`--info-bg` / `--ss-accent-soft`) and subtle hairline `scrollbar-color` across stylesheets.
+  - Muted the index vertical dividing seam (`--ss-border-divider`) by ~8% towards adjoining surfaces (`#8a867e` light, `#68646f` dark) while strictly maintaining >= 3.0:1 WCAG non-text contrast against both adjoining surfaces (`check_divider_contrast`); synchronized `static/css/tailwind.src.css`, `static/css/tailwind.css`, `.docsync.toml`, and `tests/test_template_shell.py`.
+- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass. Live browser execution verified in Chromium and Firefox with 0 console errors and clean contrast checks.
+
 ### 2026-09-05 - Soften high-res desktop scale slope, standardize unmatched empty state, and polish warm light surface
 
 - Scope: owner review of 1440p desktop render identified excessive vertical growth in the index card composition. Standardized the `/unmatched` empty state to match `/results` and `/heatmap`, unified the light-mode surface on warm `#fcfbf8`, and elevated the semantic heatmap headline.
@@ -578,53 +602,4 @@ non-current operational logs. Older dated entries live in
   All pre-commit hooks pass, including `doc-state-sync-check`; the alignment
   hook reports the expected WT003/WT010 state on the owner-authorized stacked
   Task 4 branch.
-- Forward guidance: complete Task 4 review, then proceed to Task 5.
-
-### 2026-09-05 - Refine desktop scale and mobile navigation (side-task)
-
-- Scope: address the owner's final Task 3/4 visual comparison. The 28rem form
-  felt slightly too large, its top-anchored composition accumulated much more
-  space beneath the card on a realistic 1440p window than at 1080p, the mobile
-  header hid report destinations behind horizontal scrolling, and the desktop
-  Heatmap result remained at the snapshot's undersized 1100px measure. The
-  Heatmap username also carried an unwanted purple italic accent.
-- Implementation: refine the form base cap to `27.5rem` and centre its complete
-  composition vertically in the available desktop well. Auto margins collapse
-  when expanded rows need the space, preserving top padding and natural
-  document scroll without state-dependent scaling. Mobile navigation now uses
-  two directly visible rows beside a compact theme control. The desktop
-  Heatmap stage uses `84vw`, capped at `120rem`, while the username inherits
-  the headline's neutral serif treatment.
-- TDD evidence: before the CSS changes, both engines measured unequal form
-  composition gutters at every realistic desktop profile; 390px and 320px
-  headers required horizontal navigation scrolling and exposed only one row;
-  and a 1920x945 Heatmap result occupied 57.3% of the viewport with 16.6px
-  rendered cells. The extended gate now asserts balanced vertical gutters,
-  unchanged expanded-state geometry, two directly visible mobile nav rows,
-  a centred Heatmap frame occupying at least 70% of the viewport, 22px-32px
-  rendered cells, and a neutral username. The complete frontend gate passes
-  all 23 checks in 64 runs across Chromium and Firefox.
-- Findings: F-B21-44 records the desktop Heatmap scale and username treatment;
-  F-B21-45 records mobile navigation overflow; F-B21-46 records the desktop
-  form's top-heavy placement and cap refinement.
-- Forward guidance: complete Task 4 review, then proceed to Task 5.
-
-### 2026-09-05 - Remove the cached Heatmap loading flash (side-task)
-
-- Scope: address the owner-observed flash when the Heatmap header link restores
-  an already-complete saved job. The client exposed the loading panel before
-  its first progress response, then immediately replaced it with cached data.
-- Implementation: keep saved-job loading hidden through the first progress and
-  data requests. Reveal it only when the response shows ongoing work, a retry,
-  or an error; otherwise fade the complete result in directly. Normal Heatmap
-  submissions and their polling lifecycle remain distinct and unchanged.
-- TDD evidence: the new mutation observer failed against the prior client in
-  Chromium and Firefox even though the final result DOM was correct. It starts
-  before production `DOMContentLoaded` handlers, so it records the transient
-  loading paint rather than sampling only the settled page.
-- Findings: F-B21-43 records the defect and its resolution.
-- Validation: `pytest -q` -- **904 passed**, 5 warnings. Focused frontend and
-  route tests -- **120 passed**. The complete frontend gate reports `23 checks
-  passed in 64 runs across chromium, firefox`; JavaScript syntax and diff checks
-  pass. Final hooks and docsync follow before commit.
 - Forward guidance: complete Task 4 review, then proceed to Task 5.

@@ -37,28 +37,49 @@
 .album-cover {
     height: 60px;
     width: 60px;
+    flex-shrink: 0;
     object-fit: cover;
-    border-radius: 4px;
-    margin-right: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-radius: var(--radius-xs, 4px);
+    margin-right: 0.625rem;
+    border: 1px solid var(--border-color);
+}
+
+.album-cover-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    opacity: 0.7;
+    font-family: var(--font-mono-narrow);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 .album-title {
     display: flex;
     align-items: center;
+    min-width: 0;
 }
 
 .album-info {
     display: flex;
     flex-direction: column;
     justify-content: center;
+    min-width: 0;
+    overflow-wrap: break-word;
+    word-break: break-word;
 }
 
 .album-link {
     color: var(--bars-color);
     text-decoration: none;
-    font-weight: 500;
-    transition: all 0.2s ease;
+    font-weight: 400;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    transition: color 0.2s ease, opacity 0.2s ease;
 }
 
 .album-link:hover {
@@ -76,7 +97,11 @@
 }
 
 .release-badge {
+    font-family: var(--font-mono-narrow);
     font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     padding: 0.25rem 0.5rem;
     border-radius: 999px;
     background-color: var(--bars-color);
@@ -88,13 +113,14 @@
 
 .summary-box {
     background-color: var(--info-bg);
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm, 8px);
+    padding: 1rem;
+    margin-bottom: 1.25rem;
 }
 
 .table-responsive {
-    border-radius: 8px;
+    border-radius: var(--radius-sm, 8px);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
@@ -122,12 +148,12 @@
 
 .dark-mode .toast {
     background-color: var(--surface-elevated);
-    color: #f8f9fa;
+    color: var(--text-color);
 }
 
 .dark-mode .toast-header {
     background-color: var(--surface-elevated);
-    color: #f8f9fa;
+    color: var(--text-color);
     border-bottom-color: var(--border-color);
 }
 
@@ -151,29 +177,30 @@
         padding: 0.85rem;
     }
 
+    .card-body h1,
     .card-body h2 {
-        font-size: 1.06rem;
+        font-size: 1.125rem;
         line-height: 1.25;
     }
 
     .summary-box {
         padding: 0.75rem;
-        margin-bottom: 0.8rem;
+        margin-bottom: 0.75rem;
     }
 
     .summary-box h5 {
-        font-size: 0.88rem;
-        margin-bottom: 0.35rem;
+        font-size: 0.875rem;
+        margin-bottom: 0.25rem;
     }
 
     .summary-box p {
-        font-size: 0.78rem;
-        margin-bottom: 0.28rem;
+        font-size: 0.75rem;
+        margin-bottom: 0.25rem;
         word-break: break-word;
     }
 
     .table {
-        font-size: 0.82rem;
+        font-size: 0.8125rem;
     }
 
     /* Allow table to shrink to fit mobile viewport */
@@ -196,18 +223,18 @@
     .album-cover {
         width: 40px;
         height: 40px;
-        margin-right: 7px;
+        margin-right: 0.5rem;
     }
 
     .album-link {
-        font-size: 0.85rem;
+        font-size: 0.875rem;
         line-height: 1.15;
         word-break: break-word;
     }
 
     .release-badge {
-        font-size: 0.63rem;
-        padding: 0.18rem 0.35rem;
+        font-size: 0.75rem;
+        padding: 0.1875rem 0.375rem;
         margin-top: 2px;
     }
 
@@ -218,10 +245,10 @@
     }
 
     .text-center.mb-4 .btn {
+        /* Full width on mobile only; the navbar look (type, padding,
+           min-height) stays as styled in global.css. */
         margin-left: 0 !important;
         width: 100%;
-        font-size: 0.85rem;
-        padding: 0.35rem 0.6rem;
     }
 
     #view-unmatched-quick {

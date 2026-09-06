@@ -1583,13 +1583,10 @@ def check_shell_scales_with_text(page, base_url: str) -> list[str]:
                     // (2.96875vw / 1.875vw) as well as the root font, so
                     // this DESKTOP profile's 1280px width matters: both
                     // preferred terms (38.0px / 24.0px) stay below their rem
-                    // floors there, so the floor wins -- 4.25rem and
-                    // 2.75rem. Mobile uses a fixed 6.5rem bar so all four
-                    // destinations remain directly visible in two rows;
-                    // its 2.75rem nav-link floor matches the desktop clamp's
-                    // floor, so both branches converge on the same 55px
-                    // nav target.
-                    expected: (mobile ? 6.5 : 4.25) * 20,
+                    // Both desktop and mobile use a 4.25rem floor bar;
+                    // their 2.75rem nav-link floor matches, so both branches
+                    // converge on the same 55px nav target.
+                    expected: 4.25 * 20,
                     expectedTarget: 55,
                     expectedGap: mobile ? 5 : 15,
                 };
@@ -2201,10 +2198,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             failures.append(
                 f"/: mobile navigation requires horizontal scrolling at {width}px"
             )
-        if header["rows"] != 2:
+        if header["rows"] != 1:
             failures.append(
                 f"/: mobile navigation uses {header['rows']} row(s) at {width}px, "
-                "expected two directly visible rows"
+                "expected one directly visible row"
             )
         if header["actionsInHeader"] or not header["actionsInMobileSlot"]:
             failures.append(

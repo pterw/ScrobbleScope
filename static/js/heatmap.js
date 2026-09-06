@@ -548,8 +548,8 @@
   // DOM references (set on DOMContentLoaded)
   // ----------------------------------------------------------------
   var pills, albumSection, heatmapSection, heatmapLoading, indexGrid,
-      heroBlocks,
-      heatmapResult, heatmapForm, heatmapUsernameInput,
+      heroBlocks, marksBlocks,
+      heatmapResult, heatmapForm, heatmapUsernameInput, heatmapSubmitBtn,
       progressText, progressBar, progressTrack, errorContainer, errorMessage,
       loadingDetail, loadingStats, loadingUsername,
       loadingStatPages, loadingStatScrobbles, loadingStatDays,
@@ -597,6 +597,10 @@
     heatmapSection = document.getElementById('heatmap-form-section');
     indexGrid      = document.getElementById('index-grid');
     heroBlocks     = document.querySelectorAll('[data-mode-hero]');
+    // [data-mode-marks] holds the two § mark lists that crossfade alongside
+    // the hero copy. Both sets live in the same grid track; only the active
+    // one is visible at a time -- same mechanism as heroBlocks.
+    marksBlocks    = document.querySelectorAll('[data-mode-marks]');
 
     pills.forEach(function (pill) {
       pill.addEventListener('click', function () {
@@ -616,6 +620,7 @@
         setHeatmapStageActive(false);
         hideElement(mode === 'heatmap' ? albumSection : heatmapSection);
         showElement(mode === 'heatmap' ? heatmapSection : albumSection);
+        if (heatmapSubmitBtn) heatmapSubmitBtn.disabled = false;
         hideElement(heatmapLoading);
         hideElement(heatmapResult);
         restoringSavedHeatmap = false;
@@ -628,6 +633,31 @@
   // activate them. The keydown handler that stood in for that on
   // span[role="button"] is gone with the spans -- F-B18-12 and one of the
   // three items in F-B21-5.
+  //
+  // WCAG 2.1 SC 2.1.1 also requires left/right arrow-key navigation for a
+  // role="tablist". Both pills are already in the natural Tab order; the
+  // roving handler below adds the arrow shortcut so keyboard users can switch
+  // modes without a second Tab press.
+  (function addTablistArrowKeys() {
+    var tablist = document.querySelector('[role="tablist"]');
+    if (!tablist) return;
+    tablist.addEventListener('keydown', function (event) {
+      var pillArray = Array.from(pills);
+      var focused   = pillArray.indexOf(document.activeElement);
+      if (focused === -1) return;
+      var next = -1;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+        next = (focused + 1) % pillArray.length;
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+        next = (focused - 1 + pillArray.length) % pillArray.length;
+      }
+      if (next !== -1) {
+        event.preventDefault();
+        pillArray[next].focus();
+        pillArray[next].click();
+      }
+    });
+  }());
 
   // ----------------------------------------------------------------
   // Show/hide helpers with optional fade
@@ -650,6 +680,14 @@
       hero.classList.toggle('is-active', isActive);
       hero.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
+    // The § marks lists crossfade in lock-step with the hero copy.
+    if (marksBlocks) {
+      marksBlocks.forEach(function (marks) {
+        var isActive = marks.getAttribute('data-mode-marks') === mode;
+        marks.classList.toggle('is-active', isActive);
+        marks.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+      });
+    }
   }
 
   function readSavedHeatmap() {
@@ -827,9 +865,11 @@
     legendBar      = document.getElementById('heatmap-legend-bar');
 
     if (!heatmapForm) return;
+    heatmapSubmitBtn = document.getElementById('heatmap-submit-btn');
 
     heatmapForm.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (heatmapSubmitBtn && heatmapSubmitBtn.disabled) return;
       var username = heatmapUsernameInput.value.trim();
       if (!username) {
         heatmapUsernameInput.classList.add('is-invalid');
@@ -845,6 +885,7 @@
         heatmapUsernameInput.focus();
         return;
       }
+      if (heatmapSubmitBtn) heatmapSubmitBtn.disabled = true;
       lastUsername = username;
       submitHeatmap(username);
     });
@@ -1111,6 +1152,7 @@
 
     errorMessage.textContent = message;
     showElement(errorContainer);
+    if (heatmapSubmitBtn) heatmapSubmitBtn.disabled = false;
     retryBtn.style.display = retryable ? '' : 'none';
   }
 

@@ -33,7 +33,7 @@
                 
                 <div class="card shadow">
                     <div class="card-body">
-                        <h2 class="text-center mb-3">
+                        <h1 class="text-center mb-3">
                             {% if release_scope == "same" %}
                                 {{ username }}'s Top Albums Played in {{ year }}
                             {% elif release_scope == "previous" %}
@@ -49,7 +49,7 @@
                             {% else %}
                                 {{ username }}'s Top Albums Played in {{ year }}
                             {% endif %}
-                        </h2>
+                        </h1>
                         
                         <div class="text-center mb-4">
                             <a href="/" class="btn btn-primary">New Search</a>
@@ -127,9 +127,9 @@
                                                 <th scope="row">{{ loop.index }}</th>
                                                 <td class="album-title">
                                                     {% if album.album_image %}
-                                                        <img src="{{ album.album_image }}" alt="Album cover" class="album-cover">
+                                                        <img src="{{ album.album_image }}" alt="{{ album.album }} cover" class="album-cover">
                                                     {% else %}
-                                                        <div class="album-cover" style="background-color: #ddd; display: flex; align-items: center; justify-content: center;">
+                                                        <div class="album-cover album-cover-placeholder" aria-label="No album cover available">
                                                             <span>N/A</span>
                                                         </div>
                                                     {% endif %}

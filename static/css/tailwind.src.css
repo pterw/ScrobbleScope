@@ -16,56 +16,56 @@
    the whole declaration, which silently dropped the card rounding and the page
    padding. tests/test_template_shell.py holds the line. */
 @theme static {
-  /* Adobe Fonts, loaded by the use.typekit.net link in
+   /* Adobe Fonts, loaded by the use.typekit.net link in
      base.html. Each family owns one job: sans for all UI chrome, serif for
      display words, figure for display numbers, mono for inputs and tabular
      numbers, mono-narrow for letterspaced caps at 9-11px. */
-  --font-sans: "akzidenz-grotesk-next-pro", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "instrument-serif", Georgia, serif;
-  --font-figure: "gotham", ui-sans-serif, sans-serif;
-  --font-mono: "input-mono", ui-monospace, monospace;
-  --font-mono-narrow: "input-mono-narrow", "input-mono", ui-monospace, monospace;
+   --font-sans: "akzidenz-grotesk-next-pro", "aktiv-grotesk", ui-sans-serif, system-ui, sans-serif;
+   --font-serif: "instrument-serif", "corporate-a", Georgia, serif;
+   --font-figure: "gotham", "ff-din-paneuropean", ui-sans-serif, sans-serif;
+   --font-mono: "input-mono", "orator-std", ui-monospace, monospace;
+   --font-mono-narrow: "input-mono-narrow", "input-mono", "orator-std", ui-monospace, monospace;
 
-  /* The kit serves 300, 400 and 700 only. There is no 500 and no 600, so
+   /* The kit serves 300, 400 and 700 only. There is no 500 and no 600, so
      those two tokens could only ever produce a synthesized fake weight.
      Hierarchy comes from size, colour and letterspacing instead. */
-  --font-weight-light: 300;
-  --font-weight-normal: 400;
-  --font-weight-bold: 700;
+   --font-weight-light: 300;
+   --font-weight-normal: 400;
+   --font-weight-bold: 700;
 
-  --text-label-sm: 0.75rem;
-  --text-label-sm--line-height: 1rem;
-  --text-label: 0.8125rem;
-  --text-label--line-height: 1rem;
-  --text-body-sm: 0.875rem;
-  --text-body-sm--line-height: 1.25rem;
-  --text-body: 1rem;
-  --text-body--line-height: 1.5rem;
-  --text-display: 1.5rem;
-  --text-display--line-height: 1.75rem;
-  --text-display-lg: 2rem;
-  --text-display-lg--line-height: 2.25rem;
-  --text-display-xl: 3rem;
-  --text-display-xl--line-height: 1;
+   --text-label-sm: 0.75rem;
+   --text-label-sm--line-height: 1rem;
+   --text-label: 0.8125rem;
+   --text-label--line-height: 1rem;
+   --text-body-sm: 0.875rem;
+   --text-body-sm--line-height: 1.25rem;
+   --text-body: 1rem;
+   --text-body--line-height: 1.5rem;
+   --text-display: 1.5rem;
+   --text-display--line-height: 1.75rem;
+   --text-display-lg: 2rem;
+   --text-display-lg--line-height: 2.25rem;
+   --text-display-xl: 3rem;
+   --text-display-xl--line-height: 1;
 
-  --spacing: initial;
-  --spacing-*: initial;
-  --spacing-1: 0.25rem;
-  --spacing-2: 0.5rem;
-  --spacing-3: 0.75rem;
-  --spacing-4: 1rem;
-  --spacing-6: 1.5rem;
-  --spacing-8: 2rem;
-  --spacing-12: 3rem;
+   --spacing: initial;
+   --spacing-*: initial;
+   --spacing-1: 0.25rem;
+   --spacing-2: 0.5rem;
+   --spacing-3: 0.75rem;
+   --spacing-4: 1rem;
+   --spacing-6: 1.5rem;
+   --spacing-8: 2rem;
+   --spacing-12: 3rem;
 
-  --radius-*: initial;
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-full: 999px;
+   --radius-*: initial;
+   --radius-xs: 4px;
+   --radius-sm: 8px;
+   --radius-md: 10px;
+   --radius-lg: 14px;
+   --radius-full: 999px;
 
-  /* One stop out of the rocket_r ramp, for the Heatmap mode tab's square
+   /* One stop out of the rocket_r ramp, for the Heatmap mode tab's square
      mark that components/navigation/ModeTabs.prompt.md specifies.
 
      static/js/heatmap.js ROCKET_STOPS owns all seven stops and stays the
@@ -74,60 +74,60 @@
      the page UI, and one accent needs one stop. Do not grow this into a
      second copy of the ramp: two copies drift and the grid would then
      disagree with its own legend. */
-  --rocket-5: #f0903a;
+   --rocket-5: #f0903a;
 }
 
 @theme inline {
-  --color-canvas: var(--color-base-100);
-  --color-surface: var(--color-base-200);
-  --color-ink: var(--color-base-content);
-  --color-brand: var(--color-primary);
+   --color-canvas: var(--color-base-100);
+   --color-surface: var(--color-base-200);
+   --color-ink: var(--color-base-content);
+   --color-brand: var(--color-primary);
 }
 
 @plugin "../../scripts/bin/daisyui.mjs" {
-  themes: false;
-  include: button, card, modal, toggle, input, select, tab, toast, alert;
-  logs: false;
+   themes: false;
+   include: button, card, modal, toggle, input, select, tab, toast, alert;
+   logs: false;
 }
 
 @plugin "../../scripts/bin/daisyui-theme.mjs" {
-  name: "light";
-  default: true;
-  prefersdark: false;
-  color-scheme: light;
+   name: "light";
+   default: true;
+   prefersdark: false;
+   color-scheme: light;
 
-  --color-base-100: #faf8f3;
-  --color-base-200: #f0ebe0;
-  --color-base-300: color-mix(in srgb, #f0ebe0 86%, #1a1820);
-  --color-base-content: #1a1820;
-  --color-primary: #6a4baf;
-  --color-primary-content: #faf8f3;
-  --color-secondary: var(--color-primary);
-  --color-secondary-content: var(--color-primary-content);
-  --color-accent: var(--color-primary);
-  --color-accent-content: var(--color-primary-content);
-  --color-neutral: #1a1820;
-  --color-neutral-content: #faf8f3;
-  --color-info: var(--color-primary);
-  --color-info-content: var(--color-primary-content);
-  --color-success: #198754;
-  --color-success-content: #faf8f3;
-  --color-warning: #ffc107;
-  --color-warning-content: #1a1820;
-  --color-error: #dc3545;
-  --color-error-content: #faf8f3;
+   --color-base-100: #faf8f3;
+   --color-base-200: #f0ebe0;
+   --color-base-300: color-mix(in srgb, #f0ebe0 86%, #1a1820);
+   --color-base-content: #1a1820;
+   --color-primary: #6a4baf;
+   --color-primary-content: #faf8f3;
+   --color-secondary: var(--color-primary);
+   --color-secondary-content: var(--color-primary-content);
+   --color-accent: var(--color-primary);
+   --color-accent-content: var(--color-primary-content);
+   --color-neutral: #1a1820;
+   --color-neutral-content: #faf8f3;
+   --color-info: var(--color-primary);
+   --color-info-content: var(--color-primary-content);
+   --color-success: #198754;
+   --color-success-content: #faf8f3;
+   --color-warning: #ffc107;
+   --color-warning-content: #1a1820;
+   --color-error: #dc3545;
+   --color-error-content: #faf8f3;
 
-  --radius-selector: 999px;
-  --radius-field: 8px;
-  --radius-box: 14px;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 1;
-  --noise: 0;
-  --bars-color: var(--color-primary);
+   --radius-selector: 999px;
+   --radius-field: 8px;
+   --radius-box: 14px;
+   --size-selector: 0.25rem;
+   --size-field: 0.25rem;
+   --border: 1px;
+   --depth: 1;
+   --noise: 0;
+   --bars-color: var(--color-primary);
 
-  /* The four colours docs/design/RECONCILIATION.md section 3 records as
+   /* The four colours docs/design/RECONCILIATION.md section 3 records as
      absent from the theme. daisyUI has no semantic slot for body text,
      muted text, a hairline or an accent tint, so they land here, in the WP
      that first needs them.
@@ -143,12 +143,12 @@
      fine in these blocks.
 
      Values are docs/design/README.md "Colour -- light". */
-  --ss-text-body: #4a4456;
-  --ss-text-muted: #6c6676;
-  --ss-border-default: #e5dfd1;
-  --ss-accent-soft: #efe9fa;
+   --ss-text-body: #4a4456;
+   --ss-text-muted: #6c6676;
+   --ss-border-default: #e5dfd1;
+   --ss-accent-soft: #efe9fa;
 
-  /* F-B21-40: --ss-border-default is opaque and measures well under 3:1
+   /* F-B21-40: --ss-border-default is opaque and measures well under 3:1
      against every surface it sits beside (~1.1-1.3:1, both themes). Task 3
      raised --shell-border with an alpha composite, but that token only
      draws the header/nav hairlines; index.css's own 15 form dividers all
@@ -159,91 +159,91 @@
      --ss-border-default until a future batch decides they need raising
      too. Values measured against both adjoining surfaces (the page and
      --ss-surface-sunken); see .docsync.toml for the pinned pair. */
-  --ss-border-divider: #858179;
+   --ss-border-divider: #8a867e;
 
-  /* The design has three surfaces -- page, sunken and card -- and daisyUI's
+   /* The design has three surfaces -- page, sunken and card -- and daisyUI's
      base ramp only lines up with two of them, differently in each theme.
      Light: page and sunken are base-100 and base-200, and the card is white.
      Dark: page is base-100, the card is base-200, and the sunken tone has no
      slot at all. Two named tokens are cheaper than a per-theme override on
      every panel. The heatmap frame gets its own because it is page-coloured
      in light and card-coloured in dark. */
-  --ss-surface-card: #fcfbf8;
-  --ss-surface-sunken: #f0ebe0;
-  --heatmap-surface: #faf8f3;
+   --ss-surface-card: #fcfbf8;
+   --ss-surface-sunken: #f0ebe0;
+   --heatmap-surface: #faf8f3;
 
-  /* The error accent. daisyUI still carries Bootstrap's #dc3545 in
+   /* The error accent. daisyUI still carries Bootstrap's #dc3545 in
      --color-error, which is the cool red the whole batch is moving away
      from. docs/design/README.md names this one. */
-  --ss-bad: #b03434;
-  --ss-good: #2f7a4a;
+   --ss-bad: #b03434;
+   --ss-good: #2f7a4a;
 
-  /* The two elevations used on the index. Dark raises both alphas, so these
+   /* The two elevations used on the index. Dark raises both alphas, so these
      are theme tokens rather than light-only literals in the page sheet. */
-  --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.06);
-  --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.15);
+   --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.06);
+   --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.15);
 
-  /* The empty heatmap cell. README wins over the #e0e0e0 in the unimported
+   /* The empty heatmap cell. README wins over the #e0e0e0 in the unimported
      guidelines/colors-rocket.prompt.md, which predates the warm revision --
      RECONCILIATION.md section 7. */
-  --heatmap-empty: #e8e2d6;
+   --heatmap-empty: #e8e2d6;
 }
 
 @plugin "../../scripts/bin/daisyui-theme.mjs" {
-  name: "dark";
-  default: false;
-  prefersdark: true;
-  color-scheme: dark;
+   name: "dark";
+   default: false;
+   prefersdark: true;
+   color-scheme: dark;
 
-  --color-base-100: #0e0c12;
-  --color-base-200: #181520;
-  --color-base-300: color-mix(in srgb, #181520 88%, #f1ede4);
-  --color-base-content: #f1ede4;
-  --color-primary: #b39dde;
-  --color-primary-content: #0e0c12;
-  --color-secondary: var(--color-primary);
-  --color-secondary-content: var(--color-primary-content);
-  --color-accent: var(--color-primary);
-  --color-accent-content: var(--color-primary-content);
-  --color-neutral: #f1ede4;
-  --color-neutral-content: #0e0c12;
-  --color-info: var(--color-primary);
-  --color-info-content: var(--color-primary-content);
-  --color-success: #198754;
-  --color-success-content: #f1ede4;
-  --color-warning: #ffc107;
-  --color-warning-content: #0e0c12;
-  --color-error: #dc3545;
-  --color-error-content: #f1ede4;
+   --color-base-100: #0e0c12;
+   --color-base-200: #181520;
+   --color-base-300: color-mix(in srgb, #181520 88%, #f1ede4);
+   --color-base-content: #f1ede4;
+   --color-primary: #b39dde;
+   --color-primary-content: #0e0c12;
+   --color-secondary: var(--color-primary);
+   --color-secondary-content: var(--color-primary-content);
+   --color-accent: var(--color-primary);
+   --color-accent-content: var(--color-primary-content);
+   --color-neutral: #f1ede4;
+   --color-neutral-content: #0e0c12;
+   --color-info: var(--color-primary);
+   --color-info-content: var(--color-primary-content);
+   --color-success: #198754;
+   --color-success-content: #f1ede4;
+   --color-warning: #ffc107;
+   --color-warning-content: #0e0c12;
+   --color-error: #dc3545;
+   --color-error-content: #f1ede4;
 
-  --radius-selector: 999px;
-  --radius-field: 8px;
-  --radius-box: 14px;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 1;
-  --noise: 0;
-  --bars-color: var(--color-primary);
+   --radius-selector: 999px;
+   --radius-field: 8px;
+   --radius-box: 14px;
+   --size-selector: 0.25rem;
+   --size-field: 0.25rem;
+   --border: 1px;
+   --depth: 1;
+   --noise: 0;
+   --bars-color: var(--color-primary);
 
-  /* Same four, dark values, from README "Colour -- dark". See the light
+   /* Same four, dark values, from README "Colour -- dark". See the light
      block above for why the ss- prefix is load-bearing. */
-  --ss-text-body: #c5bfb1;
-  --ss-text-muted: #908a9a;
-  --ss-border-default: #2a2434;
-  --ss-accent-soft: #2a1f44;
-  /* Dark value for the index well divider; see the light block above for
+   --ss-text-body: #c5bfb1;
+   --ss-text-muted: #908a9a;
+   --ss-border-default: #2a2434;
+   --ss-accent-soft: #2a1f44;
+   /* Dark value for the index well divider; see the light block above for
      why this token exists apart from --ss-border-default. */
-  --ss-border-divider: #6e6a75;
-  --ss-surface-card: #181520;
-  --ss-surface-sunken: #1a1622;
-  --heatmap-surface: #181520;
-  --ss-bad: #e07070;
-  --ss-good: #6fcf97;
-  --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.4);
-  --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.4);
+   --ss-border-divider: #68646f;
+   --ss-surface-card: #181520;
+   --ss-surface-sunken: #1a1622;
+   --heatmap-surface: #181520;
+   --ss-bad: #e07070;
+   --ss-good: #6fcf97;
+   --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.4);
+   --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.4);
 
-  --heatmap-empty: #262230;
+   --heatmap-empty: #262230;
 }
 
 /* Paint the page from the theme, not from the browser.
@@ -263,6 +263,11 @@
 @layer base {
   body {
     background-color: var(--color-base-100);
+    color: var(--color-base-content);
+  }
+
+  ::selection {
+    background-color: var(--ss-accent-soft);
     color: var(--color-base-content);
   }
 }

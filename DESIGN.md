@@ -22,8 +22,8 @@ colors:
   text-muted-dark: "#908a9a"
   border-default: "#e5dfd1"
   border-default-dark: "#2a2434"
-  border-divider: "#858179"
-  border-divider-dark: "#6e6a75"
+  border-divider: "#8a867e"
+  border-divider-dark: "#68646f"
   rocket-5: "#f0903a"
   heatmap-empty: "#e8e2d6"
   heatmap-empty-dark: "#262230"
@@ -127,7 +127,7 @@ The palette draws from classic printing inks and warm archival paper, accented b
 - **Ink Body** (`#4a4456` light / `#c5bfb1` dark): Readable secondary text color for descriptive paragraphs and form field descriptions.
 - **Ink Muted** (`#6c6676` light / `#908a9a` dark): Muted metadata, field hint copy, and timestamps; tuned to maintain 4.5:1 contrast against light and dark surfaces.
 - **Hairline Border** (`#e5dfd1` light / `#2a2434` dark): The universal 1px structural dividing line for cards, inputs, and segment dividers.
-- **Well Divider** (`#858179` light / `#6e6a75` dark): Higher-contrast vertical boundary separating the hero stage from the configuration well.
+- **Well Divider** (`#8a867e` light / `#68646f` dark): Higher-contrast vertical boundary separating the hero stage from the configuration well.
 
 ### Heatmap & Status
 - **Rocket Stop 5 (Tangerine)** (`#f0903a`): The single warm accent drawn from seaborn's `rocket_r` ramp, used exclusively for the Heatmap mode indicator mark.
@@ -173,7 +173,7 @@ The spatial model uses a 4px baseline grid expressed strictly in `rem` units (at
 - **Desktop Index Stage:** Asymmetric two-column composition (`3fr 4fr`). The left hero stage hosts the editorial title and brand lockup with generous padding (`3.5rem`). The right sunken well hosts the configuration form (capped at `27.5rem` base, centering vertically when fitting).
 - **Breakpoint Stacking:** Collapses to a single vertical column below `860px` (`53.75rem`).
 - **Heatmap Stage:** Centered frame using `84vw` (capped at `120rem`) for wide viewports, scaling down to a minimum `73rem` scrollable canvas on mobile.
-- **Mobile Navigation:** At mobile viewports, destination pills organize in a 2x2 grid with zero horizontal scrollbars; the theme toggle sits below page content.
+- **Mobile Navigation:** At mobile viewports, destination pills organize in a single line across the header width with zero horizontal scrollbars, preserving the 44px minimum touch target height; the theme toggle sits below page content.
 
 ### Named Rules
 **The Fixed Composition Rule.** The desktop index composition anchors to the top and retains natural height without shifting baseline when form disclosure panels open.

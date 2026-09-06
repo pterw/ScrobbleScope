@@ -180,20 +180,30 @@
 
 .hm-preview__key {
   display: block;
-  margin-bottom: 0.375rem;
+  margin-bottom: 0.25rem;
   font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ss-text-muted);
+  /* Sentence case — not a label, more of a heading sentence. */
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  color: var(--ss-text-body);
+}
+
+.hm-preview__arrow {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1.4em;
+  /* Body colour — not purple. Arrow is a structural signal, not emphasis. */
+  color: var(--ss-text-body);
+  line-height: 1;
 }
 
 .hm-preview__list {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--text-label);
-  line-height: 1.6;
+  font-size: var(--text-body-sm);
+  line-height: 1.8;
   color: var(--ss-text-body);
 }
 
@@ -205,6 +215,13 @@
   /* The gradient is set by static/js/heatmap.js from ROCKET_STOPS, the one
      place the seven-stop ramp is defined. Writing the stops here as well
      would give the preview and the legend separate copies to drift apart. */
+}
+
+/* At 1920px+ the form card scales up; the preview panel joins it so
+   text proportions feel consistent across all wide breakpoints. */
+@media (min-width: 1920px) {
+  .hm-preview__key  { font-size: calc(var(--text-body-sm) * 1.15); }
+  .hm-preview__list { font-size: calc(var(--text-body-sm) * 1.15); }
 }
 
 /* ------------------------------------------------------------------ */
