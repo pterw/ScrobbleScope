@@ -579,7 +579,16 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-06 - Audit docsync declarations, fix TOML array-of-tables scoping, and harden integrity checks (side-task)
+### 2026-09-06 - UI copy clarity, heatmap eyebrow, and graceful page-load fade (side-task)
+
+- Scope: applied /clarify and /audit workflows to the home → results flow; fixed heatmap partial eyebrow; added universal graceful page-load fade.
+- Implementation:
+  - Updated `templates/partials/_heatmap_result.html`: eyebrow changed from `"Listening heatmap"` to `"Last.fm scrobble heatmap"` to match the index hero copy style.
+  - Updated `templates/index.html`: album mode lede rewritten to cut "specialized data visualization", "Enrich your scrobbles with Spotify metadata", and "isolate custom release eras" — replaced with a plain workflow description ("Choose a listening year and a release window…"). Heatmap lede: removed unexplained "rocket scale" jargon; replaced with a direct description of colour = intensity and tap-to-see interaction.
+  - Added universal page-load fade to `static/css/shell.css` (`body { opacity: 0 }` + `body.is-ready { opacity: 1; transition: 220ms ease }`) and added the matching `DOMContentLoaded` trigger in `templates/base.html` (sequenced after the existing theme-before-paint inline script so dark/light theme commits before opacity resolves).
+- Validation: `pytest -q` -- **924 passed**, 5 warnings.
+
+
 
 - Scope: audited docsync tooling files (`scripts/docsync/*.py`, `.docsync.toml`) to verify DOC001-DOC011 integrity checks fire appropriately; identified and remediated three control-plane defects (F-DOCSYNC-8, F-DOCSYNC-9, F-DOCSYNC-10).
 - Implementation:

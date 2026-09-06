@@ -1445,3 +1445,106 @@ def test_artist_spotlight_api_fallback_when_token_fails(client, monkeypatch):
     assert response.status_code == 200
     assert response.json["name"] == "ear"
     assert response.json["image_url"] is None
+
+
+def test_results_page_passes_top_artist_aggregate_stats(client, monkeypatch):
+    """Results page context includes top_artist_name, top_artist_scrobbles, top_artist_album_count, top_artist_image."""
+    from scrobblescope import routes
+
+    results_data = [
+        {
+            "album": "OK Computer",
+            "artist": "Radiohead",
+            "play_count": 200,
+            "spotify_id": "sp-1",
+            "album_image": "https://example.com/okcomputer.jpg",
+        },
+        {
+            "album": "Kid A",
+            "artist": "Radiohead",
+            "play_count": 150,
+            "spotify_id": "sp-2",
+        },
+        {
+            "album": "Currents",
+            "artist": "Tame Impala",
+            "play_count": 100,
+            "spotify_id": "sp-3",
+        },
+    ]
+
+    monkeypatch.setattr(
+        routes,
+        "get_job_context",
+        lambda job_id: {
+            "progress": {},
+            "results": results_data,
+            "params": {
+                "username": "tester",
+                "year": "2024",
+                "release_scope": "any",
+                "decade": "",
+                "release_year": "",
+                "sort_mode": "plays",
+                "min_plays": 1,
+                "min_tracks": 1,
+                "mode": "album",
+            },
+            "unmatched": {},
+        },
+    )
+
+    response = client.get("/results?job_id=test-job")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'data-artist="Radiohead"' in html
+    assert "350 scrobbles across 2 albums in 2024" in html
+    assert 'src="https://example.com/okcomputer.jpg"' in html
+
+
+def test_results_page_top_artist_image_from_first_available_album(client, monkeypatch):
+    """If top artist's first album lacks an image, top_artist_image resolves from their next album."""
+    from scrobblescope import routes
+
+    results_data = [
+        {
+            "album": "Pablo Honey",
+            "artist": "Radiohead",
+            "play_count": 200,
+            "spotify_id": "sp-1",
+            # No album_image
+        },
+        {
+            "album": "The Bends",
+            "artist": "Radiohead",
+            "play_count": 150,
+            "spotify_id": "sp-2",
+            "album_image": "https://example.com/thebends.jpg",
+        },
+    ]
+
+    monkeypatch.setattr(
+        routes,
+        "get_job_context",
+        lambda job_id: {
+            "progress": {},
+            "results": results_data,
+            "params": {
+                "username": "tester",
+                "year": "2024",
+                "release_scope": "any",
+                "decade": "",
+                "release_year": "",
+                "sort_mode": "plays",
+                "min_plays": 1,
+                "min_tracks": 1,
+                "mode": "album",
+            },
+            "unmatched": {},
+        },
+    )
+
+    response = client.get("/results?job_id=test-job")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'src="https://example.com/thebends.jpg"' in html

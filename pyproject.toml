@@ -4,6 +4,7 @@ profile = "black"
 
 [tool.pytest.ini_options]
 pythonpath = "."
+testpaths = ["tests"]
 
 [tool.pyright]
 extraPaths = ["scripts"]

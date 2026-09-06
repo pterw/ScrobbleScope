@@ -51,6 +51,15 @@
         })();
     </script>
 
+    {# Graceful page-load: shell.css hides body at opacity:0; this resolves
+       it after the first paint so content fades in rather than popping. Fires
+       on DOMContentLoaded so the theme (above) is already committed. #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.body.classList.add('is-ready');
+        });
+    </script>
+
     {# Adobe Fonts: the five families the design system uses. #}
     <link rel="stylesheet" href="https://use.typekit.net/rwy8ghw.css">
 

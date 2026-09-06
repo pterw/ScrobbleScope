@@ -11,6 +11,24 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/'/g, '&#39;');
     }
 
+    function formatDurationMobile(seconds) {
+        seconds = Math.ceil(seconds);
+        if (seconds < 60) return `${seconds}s`;
+        const minutes = Math.floor(seconds / 60);
+        const secRem = seconds % 60;
+        if (minutes < 60) {
+            return secRem > 0 ? `${minutes}m ${secRem}s` : `${minutes}m`;
+        }
+        const hours = Math.floor(minutes / 60);
+        const minRem = minutes % 60;
+        if (hours < 24) {
+            return minRem > 0 ? `${hours}h ${minRem}m` : `${hours}h`;
+        }
+        const days = Math.floor(hours / 24);
+        const hourRem = hours % 24;
+        return hourRem > 0 ? `${days}d ${hourRem}h` : `${days}d`;
+    }
+
     // Toast Notification (daisyUI stack + 3px tone rule and mono kicker)
     function showToast(message, type = 'info', duration = 3000) {
         const container = document.getElementById('toastContainer');
@@ -184,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         rows.forEach((row, idx) => {
             tbody.appendChild(row);
-            const rankNumEl = row.querySelector('.rank-num');
+            const rankNumEl = row.querySelector('.rank-num, .rank-link, td:first-child a, td:first-child span');
             if (rankNumEl) {
                 const newRank = idx + 1;
                 rankNumEl.textContent = newRank < 100 ? String(newRank).padStart(2, '0') : String(newRank);
@@ -192,22 +210,135 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const metricCell = row.querySelector('.metric-value-cell');
             if (metricCell) {
+                metricCell.className = 'py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap metric-value-cell';
                 if (mode === 'playtime') {
-                    metricCell.classList.remove('font-serif', 'text-lg', 'text-xl', 'text-2xl', 'md:text-3xl', 'font-bold');
-                    metricCell.classList.add('font-mono', 'text-xs', 'md:text-sm');
                     const playTime = row.dataset.playTime || '';
                     const playTimeMobile = row.dataset.playTimeMobile || playTime;
                     metricCell.innerHTML = `
-                        <span class="desktop-val hidden md:inline">${escapeHtml(playTime)}</span>
-                        <span class="mobile-val inline md:hidden">${escapeHtml(playTimeMobile)}</span>
+                        <span class="metric-value metric-val-playtime">
+                            <span class="desktop-val hidden md:inline">${escapeHtml(playTime)}</span>
+                            <span class="mobile-val inline md:hidden">${escapeHtml(playTimeMobile)}</span>
+                        </span>
                     `;
                 } else {
-                    metricCell.classList.remove('font-mono', 'text-xs', 'md:text-sm');
-                    metricCell.classList.add('font-serif', 'text-lg', 'md:text-xl');
-                    metricCell.textContent = row.dataset.playCount || '0';
+                    const playCount = row.dataset.playCount || '0';
+                    metricCell.innerHTML = `
+                        <span class="metric-value metric-val-plays">
+                            ${escapeHtml(playCount)}
+                        </span>
+                    `;
                 }
             }
         });
+
+        // Refresh the Artist Spotlight card to reflect the leading artist of the active ranking
+        if (rows.length > 0) {
+            const topRow = rows[0];
+            const topArtist = topRow.dataset.artist || '';
+            if (topArtist) {
+                let artistScrobbles = 0;
+                let artistPlayTimeSec = 0;
+                let artistAlbumCount = 0;
+                let artistFirstImg = '';
+                for (const r of rows) {
+                    if (r.dataset.artist === topArtist && r.dataset.albumImage) {
+                        artistFirstImg = r.dataset.albumImage;
+                        break;
+                    }
+                }
+                const artistSpotifyId = topRow.dataset.spotifyId || '';
+
+                rows.forEach(r => {
+                    if (r.dataset.artist === topArtist) {
+                        artistScrobbles += parseInt(r.dataset.playCount || 0, 10);
+                        artistPlayTimeSec += parseInt(r.dataset.playTimeSeconds || 0, 10);
+                        artistAlbumCount += 1;
+                    }
+                });
+
+                const card = document.getElementById('artist-spotlight-card');
+                const contentEl = document.getElementById('spotlight-card-content');
+                const nameEl = document.getElementById('spotlight-artist-name');
+                const imgEl = document.getElementById('spotlight-artist-img');
+                const linkEl = document.getElementById('spotlight-spotify-link');
+                const playtimeBadge = document.getElementById('spotlight-playtime-badge');
+                const playtimeSep = document.getElementById('spotlight-playtime-sep');
+                const scrobbleText = document.getElementById('spotlight-scrobble-text');
+                const year = window.APP_DATA?.year || '';
+
+                if (card && nameEl) {
+                    const previousArtist = card.dataset.artist;
+                    const prefersReducedMotion = window.matchMedia
+                        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+                    const updateCardData = () => {
+                        card.dataset.artist = topArtist;
+                        nameEl.textContent = topArtist;
+                        nameEl.title = topArtist;
+
+                        if (linkEl && artistSpotifyId) {
+                            linkEl.href = `https://open.spotify.com/album/${artistSpotifyId}`;
+                            linkEl.setAttribute('aria-label', `View ${topArtist} on Spotify (opens in new tab)`);
+                        }
+
+                        const albumWord = artistAlbumCount === 1 ? 'album' : 'albums';
+                        const scrobbleStr = `${artistScrobbles.toLocaleString()} scrobbles across ${artistAlbumCount} ${albumWord} in ${year}`;
+
+                        if (scrobbleText) {
+                            scrobbleText.textContent = scrobbleStr;
+                        }
+
+                        if (playtimeBadge && playtimeSep) {
+                            if (artistPlayTimeSec > 0) {
+                                playtimeBadge.textContent = formatDurationMobile(artistPlayTimeSec);
+                                playtimeBadge.classList.remove('hidden');
+                                playtimeSep.classList.remove('hidden');
+                            } else {
+                                playtimeBadge.classList.add('hidden');
+                                playtimeSep.classList.add('hidden');
+                            }
+                        }
+
+                        if (imgEl) {
+                            if (artistFirstImg) {
+                                imgEl.dataset.spotifyLoaded = '';
+                                imgEl.src = artistFirstImg;
+                                imgEl.alt = `Photograph of ${topArtist}`;
+                                card.style.display = '';
+                            } else {
+                                imgEl.dataset.spotifyLoaded = '';
+                                imgEl.src = '';
+                                card.style.display = 'none';
+                            }
+                        }
+                        loadArtistSpotlight();
+                    };
+
+                    if (previousArtist !== topArtist) {
+                        if (prefersReducedMotion || !contentEl) {
+                            updateCardData();
+                        } else {
+                            // Phase 1 (0 - 150ms): gentle fade down of card content
+                            contentEl.style.opacity = '0.15';
+
+                            setTimeout(() => {
+                                // Phase 2 (150ms): swap content while dimmed & trigger image load
+                                updateCardData();
+                                // Phase 3 (150 - 400ms): smoothly fade new content back in
+                                contentEl.style.opacity = '1';
+                            }, 150);
+                        }
+                    } else {
+                        // Same artist, keep both playtime and scrobbles undisturbed
+                        if (playtimeBadge && playtimeSep && artistPlayTimeSec > 0) {
+                            playtimeBadge.textContent = formatDurationMobile(artistPlayTimeSec);
+                            playtimeBadge.classList.remove('hidden');
+                            playtimeSep.classList.remove('hidden');
+                        }
+                    }
+                }
+            }
+        }
 
         const headerLabel = document.getElementById('metric-header-label');
         if (headerLabel) {
@@ -237,7 +368,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnPlays.classList.add(...inactiveClasses);
             }
             if (showNotification) {
-                showToast('Leaderboard re-ranked by actual listening time.', 'info');
+                showToast('Leaderboard ranked by Spotify listening time.', 'info');
             }
         } else {
             if (btnPlays) {
@@ -288,28 +419,72 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch(`/api/artist_spotlight?${query}`);
             if (res.ok) {
                 const data = await res.json();
+                // Prevent race conditions if user re-sorted while fetch was in-flight
+                if (card.dataset.artist !== artistName) return;
+
                 if (data && data.image_url) {
                     const img = document.getElementById('spotlight-artist-img');
                     if (img) {
                         const preloader = new Image();
                         preloader.onload = () => {
-                            img.src = data.image_url;
-                            img.classList.remove('hidden');
+                            if (card.dataset.artist !== artistName) return;
+                            img.dataset.spotifyLoaded = 'true';
+                            card.style.display = '';
+                            const prefersReducedMotion = window.matchMedia
+                                && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                            if (prefersReducedMotion) {
+                                img.src = data.image_url;
+                                img.classList.remove('hidden', 'opacity-0');
+                                img.style.opacity = '1';
+                            } else {
+                                img.style.opacity = '0';
+                                setTimeout(() => {
+                                    if (card.dataset.artist !== artistName) return;
+                                    img.src = data.image_url;
+                                    img.classList.remove('hidden', 'opacity-0');
+                                    img.style.opacity = '1';
+                                }, 100);
+                            }
+                        };
+                        preloader.onerror = () => {
+                            if (card.dataset.artist !== artistName) return;
+                            // If pipeline image is also missing or broken, hide card
+                            if (!img.src || img.naturalWidth === 0) {
+                                card.style.display = 'none';
+                            }
                         };
                         preloader.src = data.image_url;
+                    }
+                } else {
+                    // Spotify has no image: fallback to pipeline image if present, else hide card
+                    const img = document.getElementById('spotlight-artist-img');
+                    if (!img || !img.src || img.naturalWidth === 0) {
+                        card.style.display = 'none';
                     }
                 }
                 if (data && data.spotify_url) {
                     const topLink = document.getElementById('spotlight-spotify-link');
+                    if (topLink) {
+                        topLink.href = data.spotify_url;
+                        const labelName = data.name || artistName;
+                        topLink.setAttribute('aria-label', `View ${labelName} on Spotify (opens in new tab)`);
+                    }
                     const footerLink = document.getElementById('spotlight-footer-link');
-                    if (topLink) topLink.href = data.spotify_url;
                     if (footerLink) footerLink.href = data.spotify_url;
+                }
+            } else {
+                const img = document.getElementById('spotlight-artist-img');
+                if (!img || !img.src || img.naturalWidth === 0) {
+                    card.style.display = 'none';
                 }
             }
         } catch (err) {
             console.warn('Could not load artist spotlight photograph:', err);
+            const img = document.getElementById('spotlight-artist-img');
+            if (!img || !img.src || img.naturalWidth === 0) {
+                card.style.display = 'none';
+            }
         }
     }
-
     loadArtistSpotlight();
 });

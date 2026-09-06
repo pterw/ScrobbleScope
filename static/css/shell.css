@@ -13,6 +13,7 @@
 /* Tokens. Keyed on data-theme, which sits on <html> on every page.     */
 /* ------------------------------------------------------------------ */
 :root {
+    color-scheme: light;
     --shell-bg: #faf8f3;
     --shell-surface: #f0ebe0;
     --shell-ink: #1a1820;
@@ -33,6 +34,7 @@
 }
 
 :root[data-theme="dark"] {
+    color-scheme: dark;
     --shell-bg: #0e0c12;
     --shell-surface: #181520;
     --shell-ink: #f1ede4;
@@ -43,11 +45,23 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Graceful page-load fade-in (universal, driven by base.html script)  */
+/* body starts invisible; JS adds .is-ready on DOMContentLoaded.      */
+/* ------------------------------------------------------------------ */
+body {
+    opacity: 0;
+}
+
+body.is-ready {
+    opacity: 1;
+    transition: opacity 220ms ease;
+}
+
+/* ------------------------------------------------------------------ */
 /* The bar itself                                                      */
 /* ------------------------------------------------------------------ */
 
-/* Fixed, so the wordmark holds the same vertical position on every screen
-   and does not jump as the user moves between them. */
+/* In-flow stationary masthead. Scrolls with the document flow. */
 .site-header {
     position: relative;
     z-index: 1030;
@@ -58,8 +72,12 @@
     height: var(--shell-height);
     padding: 0 1.5rem;
     background-color: var(--shell-bg);
-    border-bottom: 1px solid var(--shell-border);
+    border-bottom: 1px solid var(--ss-border-default, #e5dfd1);
     transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+:root[data-theme="dark"] .site-header {
+    border-bottom-color: var(--ss-border-default, #2a2434);
 }
 
 body {
@@ -138,10 +156,10 @@ body {
     border-radius: 0.625rem;
     color: var(--shell-muted);
     font-family: var(--shell-font-mono-narrow);
-    font-size: 0.75rem;
-    font-weight: 500;
+    font-size: clamp(0.9375rem, 0.75vw + 0.5rem, 1.0625rem);
+    font-weight: 400;
     line-height: 1;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     text-decoration: none;
     text-transform: uppercase;
     white-space: nowrap;
@@ -152,6 +170,18 @@ body {
 
 .site-header__nav-link:hover {
     color: var(--shell-ink);
+    background-color: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] .site-header__nav-link {
+    color: rgba(241, 237, 228, 0.72);
+}
+
+:root[data-theme="dark"] .site-header__nav-link:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.14);
 }
 
 .site-header__nav-link.active {
@@ -209,6 +239,7 @@ body {
    on the bar baseline. It is geometry, not motion. Never animate that group
    and never move these rules up to cover it. */
 @keyframes ss-bar-pulse {
+
     0%,
     100% {
         transform: scaleY(1);
@@ -432,20 +463,27 @@ body {
 .site-header__theme-toggle {
     display: inline-flex;
     align-items: center;
-    padding: 0.2rem;
-    border: 1px solid var(--shell-border);
+    padding: 0.25rem;
+    border: 1px solid var(--ss-border-default, #e5dfd1);
     border-radius: 999px;
     background-color: var(--shell-surface);
     color: var(--shell-muted);
     font-family: var(--shell-font-mono-narrow);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     line-height: 1;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     min-height: clamp(2.75rem, 1.875vw, 3.5rem);
     margin: 0;
     cursor: pointer;
     user-select: none;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme="dark"] .site-header__theme-toggle {
+    border-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .site-header__theme-choice {
@@ -453,27 +491,64 @@ body {
     align-items: center;
     justify-content: center;
     min-height: clamp(2.25rem, 1.5625vw, 2.5rem);
-    padding: 0 0.8rem;
+    padding: 0 0.95rem;
     border-radius: 999px;
-    transition: color 160ms ease, background-color 160ms ease;
-}
-
-.site-header__theme-choice--light {
-    color: var(--shell-accent-ink);
-    background-color: var(--shell-accent);
-}
-
-.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--light {
     color: var(--shell-muted);
     background-color: transparent;
+    border: 1px solid transparent;
+    transition: color 160ms ease, background-color 160ms ease,
+        border-color 160ms ease, box-shadow 160ms ease;
+    cursor: pointer;
 }
 
-.site-header__actions
-    #darkSwitch:checked
-    + .site-header__theme-toggle
-    .site-header__theme-choice--dark {
-    color: var(--shell-accent-ink);
-    background-color: var(--shell-accent);
+/* Light choice active in Light mode: calm, crisp white elevated pill */
+.site-header__theme-choice--light {
+    color: var(--shell-ink, #1a1820);
+    background-color: #ffffff;
+    border-color: rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(26, 24, 32, 0.08);
+    font-weight: 500;
+}
+
+/* Inactive Dark choice in Light mode: hover state */
+.site-header__theme-choice--dark:hover,
+.site-header__actions #darkSwitch:not(:checked) + .site-header__theme-toggle .site-header__theme-choice--dark:hover {
+    color: var(--shell-ink, #1a1820);
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+/* In Dark mode, Light choice becomes inactive */
+:root[data-theme="dark"] .site-header__theme-choice--light,
+.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--light {
+    color: rgba(241, 237, 228, 0.65);
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    font-weight: 400;
+}
+
+/* Hover on inactive Light choice in Dark mode: clear luminous feedback */
+:root[data-theme="dark"] .site-header__theme-choice--light:hover,
+.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--light:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Dark choice active in Dark mode: refined luminous neutral pill */
+:root[data-theme="dark"] .site-header__theme-choice--dark,
+.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--dark {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    font-weight: 500;
+}
+
+/* Hover on active Dark choice in Dark mode */
+:root[data-theme="dark"] .site-header__theme-choice--dark:hover,
+.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--dark:hover {
+    background-color: rgba(255, 255, 255, 0.18);
 }
 
 /* The input is visually hidden, so its focus ring would be invisible. Move
@@ -585,6 +660,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
     .site-header,
     .site-header__nav-link,
     .site-header__theme-choice {

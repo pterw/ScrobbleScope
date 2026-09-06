@@ -29,7 +29,11 @@ from scrobblescope.spotify import (
     fetch_spotify_access_token,
     fetch_spotify_artist_spotlight,
 )
-from scrobblescope.utils import create_optimized_session, run_async_in_thread
+from scrobblescope.utils import (
+    create_optimized_session,
+    format_seconds_mobile,
+    run_async_in_thread,
+)
 from scrobblescope.worker import acquire_job_slot, start_job_thread
 
 bp = Blueprint("main", __name__)
@@ -533,6 +537,33 @@ def _render_results_page():
             job_id=job_id,
         )
 
+    top_artist_name = ""
+    top_artist_scrobbles = 0
+    top_artist_album_count = 0
+    top_artist_play_time = ""
+    top_artist_image = ""
+    if filtered_results:
+        top_artist_name = filtered_results[0].get("artist", "")
+        top_artist_scrobbles = sum(
+            a.get("play_count", 0)
+            for a in filtered_results
+            if a.get("artist") == top_artist_name
+        )
+        top_artist_album_count = sum(
+            1 for a in filtered_results if a.get("artist") == top_artist_name
+        )
+        top_artist_play_time_seconds = sum(
+            a.get("play_time_seconds", 0)
+            for a in filtered_results
+            if a.get("artist") == top_artist_name
+        )
+        if top_artist_play_time_seconds > 0:
+            top_artist_play_time = format_seconds_mobile(top_artist_play_time_seconds)
+        for a in filtered_results:
+            if a.get("artist") == top_artist_name and a.get("album_image"):
+                top_artist_image = a["album_image"]
+                break
+
     return render_template(
         "results.html",
         username=username,
@@ -548,6 +579,11 @@ def _render_results_page():
         unmatched_count=unmatched_count,
         has_durations=has_durations,
         job_id=job_id,
+        top_artist_name=top_artist_name,
+        top_artist_scrobbles=top_artist_scrobbles,
+        top_artist_album_count=top_artist_album_count,
+        top_artist_play_time=top_artist_play_time,
+        top_artist_image=top_artist_image,
     )
 
 

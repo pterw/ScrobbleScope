@@ -32,21 +32,21 @@
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
         <div>
             <h1 class="font-serif text-3xl md:text-5xl text-[var(--color-base-content)] mb-1 leading-tight">
-                Top albums for <span class="italic text-[var(--color-primary)] break-all">{{ username }}</span>
+                Top Last.fm albums for <span class="italic text-[var(--color-primary)] break-all">{{ username }}</span>
             </h1>
             <h2 id="results-ranking-subtitle" class="font-sans text-base md:text-lg font-normal text-[var(--ss-text-muted)] pl-0.5 md:pl-1">
                 {{ year }} · {% if sort_by == "playtime" %}Ranked by listening time{% else %}Ranked by play count{% endif %}
             </h2>
         </div>
-        <!-- Action Group (Touch targets >= 44px, hairline peers with light-mode shadow, Save image filled) -->
-        <div class="flex flex-wrap items-center gap-2.5 flex-shrink-0">
-            <a href="/" class="btn btn-sm min-h-[40px] px-3.5 rounded-[var(--radius-field,8px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] hover:bg-[var(--ss-surface-sunken)] hover:border-[var(--color-primary)] text-[var(--color-base-content)] font-sans text-xs md:text-sm font-normal shadow-sm">
+        <!-- Action Group (Touch targets >= 44px, hairline peers with light-mode shadow, New search filled primary) -->
+        <div class="flex flex-wrap items-center gap-2 flex-shrink-0 max-w-full">
+            <a href="/" class="btn btn-primary btn-sm min-h-[40px] px-3.5 rounded-[var(--radius-field,8px)] font-sans text-xs md:text-sm font-normal shadow-sm border border-transparent">
                 New search
             </a>
             <button id="export-csv" class="btn btn-sm min-h-[40px] px-3.5 rounded-[var(--radius-field,8px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] hover:bg-[var(--ss-surface-sunken)] hover:border-[var(--color-primary)] text-[var(--color-base-content)] font-sans text-xs md:text-sm font-normal shadow-sm">
                 Export CSV
             </button>
-            <button id="save-image" class="btn btn-sm min-h-[40px] px-3.5 rounded-[var(--radius-field,8px)] bg-[var(--color-base-content)] text-[var(--color-base-100)] border border-transparent hover:opacity-90 font-sans text-xs md:text-sm font-normal shadow-sm">
+            <button id="save-image" class="btn btn-sm min-h-[40px] px-3.5 rounded-[var(--radius-field,8px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] hover:bg-[var(--ss-surface-sunken)] hover:border-[var(--color-primary)] text-[var(--color-base-content)] font-sans text-xs md:text-sm font-normal shadow-sm">
                 Save image
             </button>
         </div>
@@ -66,53 +66,47 @@
     <!-- StatBlock Mini-Table (Compact, structural hairlines, center-aligned) -->
     <div class="grid grid-cols-2 md:grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] divide-y md:divide-y-0 md:divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
         <div class="p-3 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1.5 min-w-0">
-            <span class="font-mono text-[10px] uppercase tracking-wider text-[var(--ss-text-muted)]">Total Albums</span>
+            <span class="font-mono text-[11px] uppercase tracking-wider text-[var(--ss-text-muted)]">Total Albums</span>
             <div class="py-0.5 flex items-center justify-center overflow-visible">
-                <span class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight">{{ album_list|length }}</span>
+                <span class="font-serif text-[25px] md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ album_list|length }}</span>
             </div>
-            <span class="font-sans text-[11px] text-[var(--ss-text-muted)]">matched</span>
+            <span class="font-sans text-xs text-[var(--ss-text-muted)]">matched</span>
         </div>
         <div class="p-3 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1.5 min-w-0">
-            <span class="font-mono text-[10px] uppercase tracking-wider text-[var(--ss-text-muted)]">Top Artist</span>
+            <span class="font-mono text-[11px] uppercase tracking-wider text-[var(--ss-text-muted)]">Top Artist</span>
             <div class="py-0.5 flex items-center justify-center w-full min-w-0 overflow-visible">
-                <span class="font-serif text-xl md:text-2xl text-[var(--color-base-content)] leading-tight truncate block px-1 overflow-visible" title="{{ album_list[0].artist if album_list else '—' }}">
+                <span class="font-serif text-[21px] md:text-[25px] text-[var(--color-base-content)] leading-tight truncate block px-1 overflow-visible" title="{{ album_list[0].artist if album_list else '—' }}">
                     {{ album_list[0].artist if album_list else '—' }}
                 </span>
             </div>
-            <span class="font-sans text-[11px] text-[var(--ss-text-muted)]">leading chart</span>
+            <span class="font-sans text-xs text-[var(--ss-text-muted)]">leading chart</span>
         </div>
         <div class="p-3 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1.5 min-w-0">
-            <span class="font-mono text-[10px] uppercase tracking-wider text-[var(--ss-text-muted)]">Scrobbles</span>
+            <span class="font-mono text-[11px] uppercase tracking-wider text-[var(--ss-text-muted)]">Scrobbles</span>
             <div class="py-0.5 flex items-center justify-center overflow-visible">
-                <span class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(total_scrobbles) if total_scrobbles else '0' }}</span>
+                <span class="font-serif text-[25px] md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(total_scrobbles) if total_scrobbles else '0' }}</span>
             </div>
-            <span class="font-sans text-[11px] text-[var(--ss-text-muted)]">counted</span>
+            <span class="font-sans text-xs text-[var(--ss-text-muted)]">counted</span>
         </div>
         <div class="p-3 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1.5 min-w-0">
-            <span class="font-mono text-[10px] uppercase tracking-wider text-[var(--ss-text-muted)]">Unmatched</span>
+            <span class="font-mono text-[11px] uppercase tracking-wider text-[var(--ss-text-muted)]">Unmatched</span>
             <div class="py-0.5 flex items-center justify-center overflow-visible">
-                <span class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight">{{ unmatched_count|default(0) }}</span>
+                <span class="font-serif text-[25px] md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ unmatched_count|default(0) }}</span>
             </div>
-            <a href="{{ url_for('main.unmatched_page') }}" class="font-sans text-[11px] text-[var(--color-primary)] hover:underline font-medium inline-block">
+            <a href="{{ url_for('main.unmatched_page') }}" class="font-sans text-xs text-[var(--color-primary)] hover:underline font-medium inline-block">
                 view breakdown →
             </a>
         </div>
     </div>
 
-    <!-- Filter Context Badges (Micro-data bar) -->
-    <div class="flex flex-wrap items-center gap-2 mb-4 font-mono text-xs text-[var(--ss-text-muted)]">
-        <span class="font-normal text-[var(--color-primary)] tracking-wide uppercase">Album Filters:</span>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-[var(--radius-xs,4px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)]">
-            Release: {{ release_year if release_year else (decade if decade else (year if release_scope == 'same' else 'All')) }}
-        </span>
-        <span class="text-[var(--ss-border-default)]">•</span>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-[var(--radius-xs,4px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)]">
-            Total Plays: ≥{{ min_plays|default(10) }}
-        </span>
-        <span class="text-[var(--ss-border-default)]">•</span>
-        <span class="inline-flex items-center px-2 py-0.5 rounded-[var(--radius-xs,4px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)]">
-            Min Tracks: ≥{{ min_tracks|default(3) }}
-        </span>
+    <!-- Filter Context (Micro-data bar: tucked left, text in mono-narrow, no bold, no pills) -->
+    <div class="results-filter-bar">
+        <span class="text-[var(--color-primary)]">Released:</span>
+        <span class="text-[var(--color-base-content)]">{{ release_year if release_year else (decade if decade else (year if release_scope == 'same' else ('Previous year (' ~ (year|int - 1) ~ ')' if release_scope == 'previous' else 'All releases'))) }}</span>
+        <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+        <span class="text-[var(--color-base-content)]">≥{{ min_plays|default(10) }} plays per album</span>
+        <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+        <span class="text-[var(--color-base-content)]">≥{{ min_tracks|default(3) }} unique tracks played</span>
     </div>
 
     {% if not album_list %}
@@ -155,15 +149,16 @@
                             data-play-time="{{ album.play_time|default('') }}"
                             data-play-time-mobile="{{ album.play_time_mobile|default(album.play_time|default('')) }}"
                             data-play-time-seconds="{{ album.play_time_seconds|default(0) }}"
+                            data-album-image="{{ album.album_image|default('') }}"
                             data-spotify-id="{{ album.spotify_id|default('') }}">
                             <!-- Semantic Rank with glow hover -->
                             <td class="py-3 px-3 md:px-4 text-center align-middle">
                                 {% if album.spotify_id %}
-                                <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="rank-link font-mono text-sm font-normal" title="Open {{ album.album }} on Spotify">
+                                <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num font-mono text-sm font-normal" title="Open {{ album.album }} on Spotify">
                                     {{ "%02d" % loop.index }}
                                 </a>
                                 {% else %}
-                                <span class="font-mono text-sm text-[var(--color-base-content)] font-normal">
+                                <span class="rank-num font-mono text-sm text-[var(--color-base-content)] font-normal">
                                     {{ "%02d" % loop.index }}
                                 </span>
                                 {% endif %}
@@ -204,19 +199,19 @@
                             <!-- Primary Metric: Plays or Duration (shrunk) -->
                             <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap metric-value-cell">
                                 {% if sort_by == "playtime" %}
-                                <span class="metric-value font-mono text-xs md:text-sm text-[var(--color-base-content)] tracking-normal">
+                                <span class="metric-value metric-val-playtime">
                                     <span class="desktop-val hidden md:inline">{{ album.play_time if album.play_time else '—' }}</span>
                                     <span class="mobile-val inline md:hidden">{{ album.play_time_mobile if album.play_time_mobile else (album.play_time if album.play_time else '—') }}</span>
                                 </span>
                                 {% else %}
-                                <span class="metric-value font-serif text-lg md:text-xl text-[var(--color-base-content)] tracking-normal">
+                                <span class="metric-value metric-val-plays">
                                     {{ album.play_count }}
                                 </span>
                                 {% endif %}
                             </td>
-                            <!-- Release Date Context (shrunk to 11px) -->
-                            <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[11px] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ album.release_date|default(year) }}">
-                                <span class="desktop-date hidden md:inline">{{ album.release_date if album.release_date else year }}</span>
+                            <!-- Release Date Context (YYYY-MM only, no DD) -->
+                            <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[11px] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ (album.release_date or '')[:7] if album.release_date else year }}">
+                                <span class="desktop-date hidden md:inline">{{ (album.release_date or '')[:7] if album.release_date else year }}</span>
                                 <span class="mobile-date inline md:hidden">{{ (album.release_date or '')[:7] if album.release_date else year }}</span>
                             </td>
                         </tr>
@@ -243,59 +238,51 @@
                             Listening Time
                         </button>
                     </div>
-                    <p class="text-xs font-sans text-[var(--ss-text-muted)] leading-relaxed">
-                        {% if has_durations %}
+                    <p class="font-sans text-xs text-[var(--ss-text-muted)] leading-normal font-normal">
                         Switch between raw scrobble counts and Spotify-resolved playback duration.
-                        {% else %}
-                        Spotify track playback duration is not available for this set.
-                        {% endif %}
                     </p>
                 </div>
 
-                <!-- Top Artist Spotlight Card (Gradient Scrim matching mock) -->
+                <!-- Top Artist Spotlight Card (Full-Bleed Editorial Monograph) -->
+                {% set spotlight_fallback_img = top_artist_image if top_artist_image else (album_list[0].album_image if album_list and album_list[0].album_image else '') %}
                 {% if album_list %}
-                <div id="artist-spotlight-card" data-artist="{{ album_list[0].artist }}" class="rounded-[var(--radius-sm)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] overflow-hidden">
-                    <div class="px-4 py-3 md:px-5 md:py-3.5">
-                        <h3 class="font-sans text-sm font-normal text-[var(--color-base-content)]">
-                            Your Artist Spotlight
-                        </h3>
-                    </div>
-                    <!-- Artist Photo Container (~16:10 aspect ratio with gradient scrim) -->
-                    <div id="spotlight-image-container" class="spotlight-image-container border-t border-[var(--ss-border-default)]">
+                <div id="artist-spotlight-card"
+                     data-artist="{{ top_artist_name|default(album_list[0].artist) }}"
+                     class="spotlight-card-bleed rounded-[var(--radius-sm)] border border-[var(--ss-border-default)]"
+                     {% if not spotlight_fallback_img %}style="display: none;"{% endif %}>
+                    <div id="spotlight-card-content" class="spotlight-card-content">
                         <img id="spotlight-artist-img"
-                             src="{{ album_list[0].album_image if album_list[0].album_image else '' }}"
-                             alt="{{ album_list[0].artist }}"
-                             class="w-full h-full object-cover transition-opacity duration-300 {% if not album_list[0].album_image %}hidden{% endif %}"
-                             loading="lazy">
-                        <div class="spotlight-scrim-overlay">
+                             src="{{ spotlight_fallback_img }}"
+                             alt="Photograph of {{ top_artist_name|default(album_list[0].artist) }}"
+                             class="absolute inset-0 w-full h-full object-cover transition-opacity duration-400 ease-out opacity-100"
+                             loading="lazy" decoding="async"
+                             onerror="if (!this.dataset.spotifyLoaded) { const c = document.getElementById('artist-spotlight-card'); if (c) c.style.display = 'none'; }">
+                        <!-- Top subtle scrim with monograph tags (Capital SANS 2px bigger) -->
+                        <div class="spotlight-scrim-top">
+                            <span class="font-sans text-base md:text-lg uppercase tracking-wider text-white/95 drop-shadow-sm font-semibold">Artist Spotlight</span>
+                            <span id="spotlight-artist-rank" class="font-serif italic text-xs md:text-sm text-[var(--primary-dark,#b39dde)] drop-shadow-sm font-normal">No. 1</span>
+                        </div>
+                        <!-- Bottom 50% scrim with artist details -->
+                        <div class="spotlight-scrim-bottom">
                             <div class="flex items-baseline justify-between gap-2 pointer-events-auto">
-                                <h4 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-white leading-tight drop-shadow-md truncate" title="{{ album_list[0].artist }}">
-                                    {{ album_list[0].artist }}
-                                </h4>
+                                <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-white leading-tight drop-shadow-sm truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
+                                    {{ top_artist_name|default(album_list[0].artist) }}
+                                </h3>
                                 <a id="spotlight-spotify-link"
                                    href="{% if album_list[0].spotify_id %}https://open.spotify.com/album/{{ album_list[0].spotify_id }}{% else %}#{% endif %}"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="text-white/80 hover:text-white text-base font-normal transition-colors flex-shrink-0"
-                                   title="Open on Spotify">
-                                    ↗
+                                   class="text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 p-1.5 -mr-1.5 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
+                                   aria-label="View {{ top_artist_name|default(album_list[0].artist) }} on Spotify (opens in new tab)"
+                                   title="View on Spotify">
+                                    <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M6 3h7v7M13 3L6 10" />
+                                    </svg>
                                 </a>
                             </div>
-                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-white/90 drop-shadow-sm font-normal">
-                                Your leading artist of {{ year }}
+                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-white/90 drop-shadow-sm font-normal pt-0.5">
+                                <span id="spotlight-playtime-badge" class="font-mono text-[11px] tracking-tight text-white/95 {% if not top_artist_play_time %}hidden{% endif %}">{{ top_artist_play_time if top_artist_play_time else '' }}</span><span id="spotlight-playtime-sep" class="{% if not top_artist_play_time %}hidden{% endif %}"> · </span><span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
                             </p>
                         </div>
-                    </div>
-                    <!-- Card Footer -->
-                    <div class="py-2.5 px-4 md:px-5 flex items-center justify-between gap-3 border-t border-[var(--ss-border-default)] bg-[var(--ss-surface-card)]">
-                        <span class="font-sans text-xs text-[var(--ss-text-muted)] truncate min-w-0 flex-1 font-normal" title="{{ album_list[0].play_count }} plays on {{ album_list[0].album }}">
-                            {{ album_list[0].play_count }} plays on <span class="text-[var(--color-base-content)] font-normal">{{ album_list[0].album }}</span>
-                        </span>
-                        <a id="spotlight-footer-link"
-                           href="{% if album_list[0].spotify_id %}https://open.spotify.com/album/{{ album_list[0].spotify_id }}{% else %}#{% endif %}"
-                           target="_blank" rel="noopener noreferrer"
-                           class="font-sans text-xs text-[var(--color-primary)] hover:underline font-normal whitespace-nowrap flex-shrink-0">
-                            Artist spotlight →
-                        </a>
                     </div>
                 </div>
                 {% endif %}
@@ -312,6 +299,15 @@
                         Open unmatched report →
                     </a>
                 </div>
+
+                <!-- Back to Top (Full width matching cards) -->
+                <button id="rail-back-to-top"
+                        type="button"
+                        class="w-full min-h-[44px] py-2.5 px-4 rounded-[var(--radius-sm)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] hover:bg-[var(--ss-surface-sunken)] hover:border-[var(--color-primary)] text-[var(--ss-text-muted)] hover:text-[var(--color-base-content)] font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-none"
+                        title="Scroll to top of leaderboard">
+                    <span aria-hidden="true">↑</span>
+                    <span>Top</span>
+                </button>
             </div>
         </div>
     </div>
