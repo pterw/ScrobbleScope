@@ -1,4 +1,5 @@
 import logging
+import random
 from datetime import datetime
 
 from flask import (
@@ -92,6 +93,50 @@ def _filter_results_for_display(results_data, sort_mode):
         for album in results_data
         if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
     ]
+
+
+def _select_spotlight_artists(results, job_id):
+    """Return a stable random sample of five aggregate artists from the top ten."""
+    by_artist = {}
+    for album in results:
+        artist_name = (album.get("artist") or "").strip()
+        if not artist_name:
+            continue
+
+        key = artist_name.casefold()
+        artist = by_artist.setdefault(
+            key,
+            {
+                "name": artist_name,
+                "scrobbles": 0,
+                "album_count": 0,
+                "play_time_seconds": 0,
+                "play_time": "",
+                "image_url": "",
+                "spotify_url": "",
+            },
+        )
+        artist["scrobbles"] += album.get("play_count", 0) or 0
+        artist["album_count"] += 1
+        artist["play_time_seconds"] += album.get("play_time_seconds", 0) or 0
+        if not artist["image_url"] and album.get("album_image"):
+            artist["image_url"] = album["album_image"]
+
+    ranked = sorted(
+        by_artist.values(),
+        key=lambda artist: (
+            -artist["scrobbles"],
+            -artist["play_time_seconds"],
+            artist["name"].casefold(),
+        ),
+    )[:10]
+    for artist in ranked:
+        if artist["play_time_seconds"]:
+            artist["play_time"] = format_seconds_mobile(artist["play_time_seconds"])
+
+    if len(ranked) <= 5:
+        return ranked
+    return random.Random(str(job_id)).sample(ranked, 5)
 
 
 def _group_unmatched_by_reason(unmatched_data):
@@ -537,32 +582,13 @@ def _render_results_page():
             job_id=job_id,
         )
 
-    top_artist_name = ""
-    top_artist_scrobbles = 0
-    top_artist_album_count = 0
-    top_artist_play_time = ""
-    top_artist_image = ""
-    if filtered_results:
-        top_artist_name = filtered_results[0].get("artist", "")
-        top_artist_scrobbles = sum(
-            a.get("play_count", 0)
-            for a in filtered_results
-            if a.get("artist") == top_artist_name
-        )
-        top_artist_album_count = sum(
-            1 for a in filtered_results if a.get("artist") == top_artist_name
-        )
-        top_artist_play_time_seconds = sum(
-            a.get("play_time_seconds", 0)
-            for a in filtered_results
-            if a.get("artist") == top_artist_name
-        )
-        if top_artist_play_time_seconds > 0:
-            top_artist_play_time = format_seconds_mobile(top_artist_play_time_seconds)
-        for a in filtered_results:
-            if a.get("artist") == top_artist_name and a.get("album_image"):
-                top_artist_image = a["album_image"]
-                break
+    spotlight_artists = _select_spotlight_artists(filtered_results, job_id)
+    spotlight_artist = spotlight_artists[0] if spotlight_artists else {}
+    top_artist_name = spotlight_artist.get("name", "")
+    top_artist_scrobbles = spotlight_artist.get("scrobbles", 0)
+    top_artist_album_count = spotlight_artist.get("album_count", 0)
+    top_artist_play_time = spotlight_artist.get("play_time", "")
+    top_artist_image = spotlight_artist.get("image_url", "")
 
     return render_template(
         "results.html",
@@ -584,6 +610,7 @@ def _render_results_page():
         top_artist_album_count=top_artist_album_count,
         top_artist_play_time=top_artist_play_time,
         top_artist_image=top_artist_image,
+        spotlight_artists=spotlight_artists,
     )
 
 

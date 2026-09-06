@@ -246,16 +246,15 @@ html {
   align-items: center;
 }
 
+/* Tinted primary — 70% primary mixed against the card surface so the
+   number reads at mid-weight without a synthesised bold. Both themes
+   follow from the token; no separate dark-mode rule needed. */
 .index-hero__mark-num {
   display: inline-block;
   font-family: var(--font-mono-narrow);
   font-weight: var(--font-weight-bold);
-  color: #8c74be;
+  color: color-mix(in srgb, var(--color-primary) 70%, var(--ss-surface-card));
   margin-right: calc(0.45rem * var(--index-scale, 1));
-}
-
-[data-theme="dark"] .index-hero__mark-num {
-  color: var(--color-primary);
 }
 
 /* ------------------------------------------------------------------ */
@@ -289,6 +288,8 @@ html {
 @media (min-width: 860px) {
   .index-form__inner {
     margin-block: auto;
+    position: relative;
+    top: -2.5rem;
   }
 }
 

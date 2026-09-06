@@ -1,4 +1,5 @@
 # tests/test_routes.py
+import json
 import re
 from unittest.mock import patch
 
@@ -1548,3 +1549,71 @@ def test_results_page_top_artist_image_from_first_available_album(client, monkey
     assert response.status_code == 200
     html = response.get_data(as_text=True)
     assert 'src="https://example.com/thebends.jpg"' in html
+
+
+def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
+    client, monkeypatch
+):
+    """A completed job exposes one stable five-artist spotlight rotation."""
+    from scrobblescope import routes
+
+    results_data = [
+        {
+            "album": f"Album {index}",
+            "artist": f"Artist {index}",
+            "play_count": 120 - (index * 10),
+            "play_time_seconds": (120 - (index * 10)) * 60,
+            "album_image": f"https://example.com/{index}.jpg",
+            "spotify_id": f"album-{index}",
+        }
+        for index in range(12)
+    ]
+    # Aggregate Artist 9 into the top ten even though neither album does so alone.
+    results_data[9]["play_count"] = 12
+    results_data.append(
+        {
+            "album": "Album 9B",
+            "artist": "Artist 9",
+            "play_count": 19,
+            "play_time_seconds": 1140,
+            "album_image": "https://example.com/9b.jpg",
+            "spotify_id": "album-9b",
+        }
+    )
+
+    monkeypatch.setattr(
+        routes,
+        "get_job_context",
+        lambda job_id: {
+            "progress": {},
+            "results": results_data,
+            "params": {
+                "username": "tester",
+                "year": "2024",
+                "release_scope": "any",
+                "sort_mode": "plays",
+                "min_plays": 1,
+                "min_tracks": 1,
+                "mode": "album",
+            },
+            "unmatched": {},
+        },
+    )
+
+    def spotlight_payload():
+        response = client.get("/results?job_id=stable-job")
+        assert response.status_code == 200
+        match = re.search(
+            r'<script id="app-data-config" type="application/json">(.*?)</script>',
+            response.get_data(as_text=True),
+            re.DOTALL,
+        )
+        assert match is not None
+        return json.loads(match.group(1))["spotlight_artists"]
+
+    first = spotlight_payload()
+    second = spotlight_payload()
+    names = [artist["name"] for artist in first]
+
+    assert first == second
+    assert names == ["Artist 9", "Artist 7", "Artist 3", "Artist 1", "Artist 0"]

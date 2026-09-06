@@ -17,7 +17,8 @@
     "username": username|default(""),
     "year": year|default(""),
     "job_id": job_id|default(""),
-    "sort_by": sort_by|default("playcount")
+    "sort_by": sort_by|default("playcount"),
+    "spotlight_artists": spotlight_artists|default([])
 } | tojson }}</script>
 <script>
     window.APP_DATA = JSON.parse(document.getElementById('app-data-config').textContent);
@@ -102,11 +103,11 @@
     <!-- Filter Context (Micro-data bar: tucked left, text in mono-narrow, no bold, no pills) -->
     <div class="results-filter-bar">
         <span class="text-[var(--color-primary)]">Released:</span>
-        <span class="text-[var(--color-base-content)]">{{ release_year if release_year else (decade if decade else (year if release_scope == 'same' else ('Previous year (' ~ (year|int - 1) ~ ')' if release_scope == 'previous' else 'All releases'))) }}</span>
+        <span class="text-[var(--color-base-content)]">{{ release_year if release_year else (decade if decade else ('Same as listening year' if release_scope == 'same' else ('Previous year (' ~ (year|int - 1) ~ ')' if release_scope == 'previous' else 'All releases'))) }}</span>
         <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
-        <span class="text-[var(--color-base-content)]">≥{{ min_plays|default(10) }} plays per album</span>
+        <span class="text-[var(--color-base-content)]">≥{{ min_plays|default(10) }} plays</span>
         <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
-        <span class="text-[var(--color-base-content)]">≥{{ min_tracks|default(3) }} unique tracks played</span>
+        <span class="text-[var(--color-base-content)]">≥{{ min_tracks|default(3) }} unique tracks</span>
     </div>
 
     {% if not album_list %}
@@ -211,8 +212,7 @@
                             </td>
                             <!-- Release Date Context (YYYY-MM only, no DD) -->
                             <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[11px] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ (album.release_date or '')[:7] if album.release_date else year }}">
-                                <span class="desktop-date hidden md:inline">{{ (album.release_date or '')[:7] if album.release_date else year }}</span>
-                                <span class="mobile-date inline md:hidden">{{ (album.release_date or '')[:7] if album.release_date else year }}</span>
+                                {{ (album.release_date or '')[:7] if album.release_date else year }}
                             </td>
                         </tr>
                         {% endfor %}
@@ -238,9 +238,7 @@
                             Listening Time
                         </button>
                     </div>
-                    <p class="font-sans text-xs text-[var(--ss-text-muted)] leading-normal font-normal">
-                        Switch between raw scrobble counts and Spotify-resolved playback duration.
-                    </p>
+
                 </div>
 
                 <!-- Top Artist Spotlight Card (Full-Bleed Editorial Monograph) -->
@@ -248,19 +246,18 @@
                 {% if album_list %}
                 <div id="artist-spotlight-card"
                      data-artist="{{ top_artist_name|default(album_list[0].artist) }}"
-                     class="spotlight-card-bleed rounded-[var(--radius-sm)] border border-[var(--ss-border-default)]"
-                     {% if not spotlight_fallback_img %}style="display: none;"{% endif %}>
+                     class="spotlight-card-bleed rounded-[var(--radius-sm)] border border-[var(--ss-border-default)]">
+                    {% if spotlight_fallback_img %}
                     <div id="spotlight-card-content" class="spotlight-card-content">
                         <img id="spotlight-artist-img"
                              src="{{ spotlight_fallback_img }}"
                              alt="Photograph of {{ top_artist_name|default(album_list[0].artist) }}"
                              class="absolute inset-0 w-full h-full object-cover transition-opacity duration-400 ease-out opacity-100"
-                             loading="lazy" decoding="async"
-                             onerror="if (!this.dataset.spotifyLoaded) { const c = document.getElementById('artist-spotlight-card'); if (c) c.style.display = 'none'; }">
-                        <!-- Top subtle scrim with monograph tags (Capital SANS 2px bigger) -->
+                             loading="lazy" decoding="async">
+                        <!-- Top subtle scrim with monograph tags -->
                         <div class="spotlight-scrim-top">
-                            <span class="font-sans text-base md:text-lg uppercase tracking-wider text-white/95 drop-shadow-sm font-semibold">Artist Spotlight</span>
-                            <span id="spotlight-artist-rank" class="font-serif italic text-xs md:text-sm text-[var(--primary-dark,#b39dde)] drop-shadow-sm font-normal">No. 1</span>
+                            <span class="font-sans text-base md:text-lg uppercase tracking-wider text-white/95 drop-shadow-sm font-normal">Artist Spotlight</span>
+                            <span id="spotlight-artist-rank" class="font-serif italic text-xs md:text-sm text-[var(--color-primary)] drop-shadow-sm font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
                         </div>
                         <!-- Bottom 50% scrim with artist details -->
                         <div class="spotlight-scrim-bottom">
@@ -269,9 +266,8 @@
                                     {{ top_artist_name|default(album_list[0].artist) }}
                                 </h3>
                                 <a id="spotlight-spotify-link"
-                                   href="{% if album_list[0].spotify_id %}https://open.spotify.com/album/{{ album_list[0].spotify_id }}{% else %}#{% endif %}"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 p-1.5 -mr-1.5 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
+                                   class="hidden text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 p-1.5 -mr-1.5 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
                                    aria-label="View {{ top_artist_name|default(album_list[0].artist) }} on Spotify (opens in new tab)"
                                    title="View on Spotify">
                                     <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -284,16 +280,29 @@
                             </p>
                         </div>
                     </div>
+                    {% else %}
+                    <!-- Fallback: no Spotify image -- text-only spotlight -->
+                    <div id="spotlight-card-content" class="spotlight-no-image p-5 flex flex-col gap-1">
+                        <span class="font-sans text-[10px] uppercase tracking-widest text-[var(--ss-text-muted)] font-normal">Artist Spotlight</span>
+                        <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
+                            {{ top_artist_name|default(album_list[0].artist) }}
+                        </h3>
+                        <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal pt-0.5">
+                            <span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
+                        </p>
+                        <span id="spotlight-artist-rank" class="font-serif italic text-xs text-[var(--color-primary)] font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
 
-                <!-- Audit & Unmatched Albums Card -->
+                <!-- Albums outside filters card -->
                 <div class="p-4 md:p-5 rounded-[var(--radius-sm)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] space-y-2">
                     <h3 class="font-sans text-sm font-normal text-[var(--color-base-content)]">
-                        What Albums Didn't Make It?
+                        Albums outside your filters
                     </h3>
                     <p class="text-xs font-sans text-[var(--ss-text-muted)] leading-relaxed font-normal">
-                        ...and why? Review what fell short of your filter.
+                        Review what fell short and why.
                     </p>
                     <a href="{{ url_for('main.unmatched_page') }}" class="inline-flex items-center text-xs font-sans text-[var(--color-primary)] hover:underline pt-1 font-normal">
                         Open unmatched report →

@@ -139,9 +139,26 @@
     transition: opacity 0.25s ease-out;
 }
 
+/* Text-only fallback: no photo available. Overrides the absolute geometry
+   so the card grows to fit the artist name and scrobble count. The card
+   background (--ss-surface-sunken) provides the surface. */
+.spotlight-no-image {
+    position: relative;
+    height: auto;
+    min-height: 5rem;
+}
+
+.spotlight-card-bleed:has(.spotlight-no-image) {
+    height: auto;
+}
+
 @media (min-width: 768px) {
     .spotlight-card-bleed {
         height: 205px;
+    }
+
+    .spotlight-card-bleed:has(.spotlight-no-image) {
+        height: auto;
     }
 }
 

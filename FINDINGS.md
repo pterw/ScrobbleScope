@@ -4,7 +4,7 @@ Last updated: 2026-09-06
 Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
 Tasks 1-5 are complete; Task 6 is next. PLAYBOOK Section 3 owns
 the current work order.
-918 tests across 40 test modules.
+925 tests across 40 test modules.
 
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
@@ -142,6 +142,25 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-47: Artist Spotlight rendered one top-album artist and never rotated
+
+The Results side rail described an Artist Spotlight but built no rotation
+collection or timer. Both Flask and the metric-toggle client treated the artist
+on the highest-ranked single album as the leading artist, so repeated albums by
+one artist were not ranked by their aggregate scrobbles. The fallback Spotify
+link also labelled an album ID as an artist destination, and its unguarded image
+failure handler could apply after a newer portrait request had started.
+
+Status: resolved locally, 2026-09-06. The server aggregates artists by
+scrobbles, takes the top ten, and uses the job ID to choose a stable random five
+without changing the album or Heatmap pipelines. Results renders the first
+fallback immediately, hydrates the five artist records concurrently afterward,
+and rotates them every seven seconds. Candidate-slot, active-index, and image
+revision checks discard late responses; reduced-motion readers keep one static
+spotlight. The browser gate verifies five unique requests and a rendered card
+change in Chromium and Firefox.
+Source: owner Results review and source/request-flow audit, 2026-09-06.
 
 ### F-B21-43: cached Heatmap restoration painted an obsolete loading state
 
@@ -570,6 +589,25 @@ Source: SWE_PRINCIPLES_AUDIT.
 ---
 
 ## P1 -- Next batch candidates
+
+### F-B21-48: Last.fm history is re-fetched because only page responses are cached
+
+Every album and Heatmap job calls `user.getrecenttracks` for its requested
+range. `scrobblescope.utils.REQUEST_CACHE` retains an exact URL-and-parameter
+page response for one hour, in process memory only. A restart clears it, and
+different `from`/`to` ranges cannot reuse their overlapping listening history.
+PostgreSQL stores Spotify album metadata but no Last.fm scrobble events.
+
+A persistent cache should store normalized scrobble events by user and played
+timestamp, with explicit coverage ranges and a short refresh window for recent
+history. That model lets album-year and rolling Heatmap requests reuse overlap
+without treating Last.fm page numbers as stable storage. Its definition must
+also set retention and invalidation behavior for edited or deleted scrobbles.
+
+Status: open. Keep this out of F-B21-47: it changes shared pipeline data and
+needs its own schema, completeness rules, and parity tests.
+Source: owner pipeline-performance observation and source cache audit,
+2026-09-06.
 
 ### F-B21-36: heatmap loading repeats context and reserves hidden stat columns
 

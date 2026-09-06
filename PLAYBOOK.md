@@ -165,6 +165,10 @@ See FINDINGS F-DOCSYNC-3.
   docsync sources the audit reads.
 - **Next action:** Begin WP-7 (unmatched page + reason_code) -- WP-0 through WP-5 are done. WP-6 is absorbed into WP-3
   and ships no commit of its own. WP-7 is next; WP-8 follows it.
+- **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
+  and focused frontend-gate unit coverage pass. F-B21-48 records the separate
+  persistent Last.fm scrobble-cache candidate; it does not expand this
+  frontend change.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -579,6 +583,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-06 - Rotate five Artist Spotlight candidates from the aggregate top ten (side-task)
+
+- Scope: corrected the Results Artist Spotlight contract without changing
+  album enrichment, Heatmap polling, the database schema, or CSS rules.
+- Implementation:
+  - Aggregate filtered albums by artist scrobbles, take the top ten, and select
+    five unique candidates with a stable job-ID seed.
+  - Render the first fallback immediately, hydrate the five artist profiles
+    concurrently through the existing endpoint, and rotate locally every seven
+    seconds. Reduced-motion readers keep one static candidate.
+  - Removed metric sorting's competing top-album mutation and the album-ID
+    fallback link. Candidate-slot, active-index, and image-revision guards keep
+    late requests from replacing the active card.
+  - Added a real-browser gate for five unique post-render requests and a card
+    index change. The check failed when the production interval was disabled
+    and passed after restoration in Chromium and Firefox.
+- Follow-up: F-B21-48 records the separately scoped persistent Last.fm event
+  cache. Current page-response caching is process-local, exact-range, and one
+  hour only.
+- Validation: `pytest -q` -- **925 passed**, 5 warnings. The latest route regression and
+  frontend-gate unit subset passes 36 tests. Python/JavaScript syntax and
+  docsync checks pass. The revised late-response browser harness still needs a
+  clean full frontend-gate run.
+
 ### 2026-09-06 - UI copy clarity, heatmap eyebrow, and graceful page-load fade (side-task)
 
 - Scope: applied /clarify and /audit workflows to the home → results flow; fixed heatmap partial eyebrow; added universal graceful page-load fade.
@@ -622,14 +650,3 @@ non-current operational logs. Older dated entries live in
   - Themed browser surfaces: added custom `::selection` background (`--info-bg` / `--ss-accent-soft`) and subtle hairline `scrollbar-color` across stylesheets.
   - Muted the index vertical dividing seam (`--ss-border-divider`) by ~8% towards adjoining surfaces (`#8a867e` light, `#68646f` dark) while strictly maintaining >= 3.0:1 WCAG non-text contrast against both adjoining surfaces (`check_divider_contrast`); synchronized `static/css/tailwind.src.css`, `static/css/tailwind.css`, `.docsync.toml`, and `tests/test_template_shell.py`.
 - Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass. Live browser execution verified in Chromium and Firefox with 0 console errors and clean contrast checks.
-
-### 2026-09-05 - Soften high-res desktop scale slope, standardize unmatched empty state, and polish warm light surface
-
-- Scope: owner review of 1440p desktop render identified excessive vertical growth in the index card composition. Standardized the `/unmatched` empty state to match `/results` and `/heatmap`, unified the light-mode surface on warm `#fcfbf8`, and elevated the semantic heatmap headline.
-- Plan vs implementation:
-  - Added `@media (min-width: 1920px)` in `static/css/index.css` applying a softened slope curve `0.35 + 0.65 * (W / 1920)` above 1080p, reducing 1440p card height from 907px to 828px and 4K card height from 1358px to 1121px while strictly maintaining 1080p scale at 1.075.
-  - Standardized `/unmatched` empty state via `templates/unmatched_empty.html` with `.empty-page` and `.empty-state` centered typography, purple signal bar, and primary action button; updated `scrobblescope/routes.py` and test suites.
-  - Replaced stark `#ffffff` with warm `#fcfbf8` across `--ss-surface-card` in `static/css/tailwind.src.css` and rebuilt `static/css/tailwind.css`.
-  - Promoted heatmap result headline to semantic `<h1>` in `templates/partials/_heatmap_result.html` and elevated desktop font size to `clamp(1.625rem, 3.75vw, 2.5rem)` (40px) while preserving neutral weight and color for usernames.
-  - Updated `scripts/dev/frontend_gate.py` scale parity calculations to reflect softened curve and column-tracking wordmark geometry.
-- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox (desktop, mobile, wide touch). `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass.

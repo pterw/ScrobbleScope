@@ -231,115 +231,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Refresh the Artist Spotlight card to reflect the leading artist of the active ranking
-        if (rows.length > 0) {
-            const topRow = rows[0];
-            const topArtist = topRow.dataset.artist || '';
-            if (topArtist) {
-                let artistScrobbles = 0;
-                let artistPlayTimeSec = 0;
-                let artistAlbumCount = 0;
-                let artistFirstImg = '';
-                for (const r of rows) {
-                    if (r.dataset.artist === topArtist && r.dataset.albumImage) {
-                        artistFirstImg = r.dataset.albumImage;
-                        break;
-                    }
-                }
-                const artistSpotifyId = topRow.dataset.spotifyId || '';
-
-                rows.forEach(r => {
-                    if (r.dataset.artist === topArtist) {
-                        artistScrobbles += parseInt(r.dataset.playCount || 0, 10);
-                        artistPlayTimeSec += parseInt(r.dataset.playTimeSeconds || 0, 10);
-                        artistAlbumCount += 1;
-                    }
-                });
-
-                const card = document.getElementById('artist-spotlight-card');
-                const contentEl = document.getElementById('spotlight-card-content');
-                const nameEl = document.getElementById('spotlight-artist-name');
-                const imgEl = document.getElementById('spotlight-artist-img');
-                const linkEl = document.getElementById('spotlight-spotify-link');
-                const playtimeBadge = document.getElementById('spotlight-playtime-badge');
-                const playtimeSep = document.getElementById('spotlight-playtime-sep');
-                const scrobbleText = document.getElementById('spotlight-scrobble-text');
-                const year = window.APP_DATA?.year || '';
-
-                if (card && nameEl) {
-                    const previousArtist = card.dataset.artist;
-                    const prefersReducedMotion = window.matchMedia
-                        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-                    const updateCardData = () => {
-                        card.dataset.artist = topArtist;
-                        nameEl.textContent = topArtist;
-                        nameEl.title = topArtist;
-
-                        if (linkEl && artistSpotifyId) {
-                            linkEl.href = `https://open.spotify.com/album/${artistSpotifyId}`;
-                            linkEl.setAttribute('aria-label', `View ${topArtist} on Spotify (opens in new tab)`);
-                        }
-
-                        const albumWord = artistAlbumCount === 1 ? 'album' : 'albums';
-                        const scrobbleStr = `${artistScrobbles.toLocaleString()} scrobbles across ${artistAlbumCount} ${albumWord} in ${year}`;
-
-                        if (scrobbleText) {
-                            scrobbleText.textContent = scrobbleStr;
-                        }
-
-                        if (playtimeBadge && playtimeSep) {
-                            if (artistPlayTimeSec > 0) {
-                                playtimeBadge.textContent = formatDurationMobile(artistPlayTimeSec);
-                                playtimeBadge.classList.remove('hidden');
-                                playtimeSep.classList.remove('hidden');
-                            } else {
-                                playtimeBadge.classList.add('hidden');
-                                playtimeSep.classList.add('hidden');
-                            }
-                        }
-
-                        if (imgEl) {
-                            if (artistFirstImg) {
-                                imgEl.dataset.spotifyLoaded = '';
-                                imgEl.src = artistFirstImg;
-                                imgEl.alt = `Photograph of ${topArtist}`;
-                                card.style.display = '';
-                            } else {
-                                imgEl.dataset.spotifyLoaded = '';
-                                imgEl.src = '';
-                                card.style.display = 'none';
-                            }
-                        }
-                        loadArtistSpotlight();
-                    };
-
-                    if (previousArtist !== topArtist) {
-                        if (prefersReducedMotion || !contentEl) {
-                            updateCardData();
-                        } else {
-                            // Phase 1 (0 - 150ms): gentle fade down of card content
-                            contentEl.style.opacity = '0.15';
-
-                            setTimeout(() => {
-                                // Phase 2 (150ms): swap content while dimmed & trigger image load
-                                updateCardData();
-                                // Phase 3 (150 - 400ms): smoothly fade new content back in
-                                contentEl.style.opacity = '1';
-                            }, 150);
-                        }
-                    } else {
-                        // Same artist, keep both playtime and scrobbles undisturbed
-                        if (playtimeBadge && playtimeSep && artistPlayTimeSec > 0) {
-                            playtimeBadge.textContent = formatDurationMobile(artistPlayTimeSec);
-                            playtimeBadge.classList.remove('hidden');
-                            playtimeSep.classList.remove('hidden');
-                        }
-                    }
-                }
-            }
-        }
-
         const headerLabel = document.getElementById('metric-header-label');
         if (headerLabel) {
             headerLabel.textContent = mode === 'playtime' ? 'Listening Time' : 'Track Plays';
@@ -403,88 +294,143 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Progressive Artist Spotlight: Fetch high-res artist photograph from Spotify
-    async function loadArtistSpotlight() {
+    // Rotate a stable five-artist sample while Spotify portraits hydrate in parallel.
+    function startArtistSpotlightRotation() {
         const card = document.getElementById('artist-spotlight-card');
         if (!card) return;
-        const artistName = card.dataset.artist;
-        const artistId = card.dataset.artistId;
-        if (!artistName && !artistId) return;
+        const candidates = Array.isArray(window.APP_DATA?.spotlight_artists)
+            ? window.APP_DATA.spotlight_artists.map(artist => ({ ...artist }))
+            : [];
+        if (candidates.length === 0) return;
 
-        const query = artistId
-            ? `artist_id=${encodeURIComponent(artistId)}`
-            : `artist=${encodeURIComponent(artistName)}`;
+        const contentEl = document.getElementById('spotlight-card-content');
+        const nameEl = document.getElementById('spotlight-artist-name');
+        const imgEl = document.getElementById('spotlight-artist-img');
+        const linkEl = document.getElementById('spotlight-spotify-link');
+        const playtimeBadge = document.getElementById('spotlight-playtime-badge');
+        const playtimeSep = document.getElementById('spotlight-playtime-sep');
+        const scrobbleText = document.getElementById('spotlight-scrobble-text');
+        const positionEl = document.getElementById('spotlight-artist-rank');
+        const prefersReducedMotion = window.matchMedia
+            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const year = window.APP_DATA?.year || '';
+        let currentIndex = 0;
+        let imageLoadRevision = 0;
 
-        try {
-            const res = await fetch(`/api/artist_spotlight?${query}`);
-            if (res.ok) {
-                const data = await res.json();
-                // Prevent race conditions if user re-sorted while fetch was in-flight
-                if (card.dataset.artist !== artistName) return;
+        const renderCandidate = (index, animate = true) => {
+            const candidate = candidates[index];
+            if (!candidate) return;
 
-                if (data && data.image_url) {
-                    const img = document.getElementById('spotlight-artist-img');
-                    if (img) {
+            const applyCandidate = () => {
+                card.dataset.artist = candidate.name;
+                card.dataset.spotlightIndex = String(index);
+                card.style.display = '';
+
+                if (nameEl) {
+                    nameEl.textContent = candidate.name;
+                    nameEl.title = candidate.name;
+                }
+                if (positionEl) {
+                    positionEl.textContent = `${String(index + 1).padStart(2, '0')} / ${String(candidates.length).padStart(2, '0')}`;
+                }
+                if (scrobbleText) {
+                    const albumWord = candidate.album_count === 1 ? 'album' : 'albums';
+                    scrobbleText.textContent = `${Number(candidate.scrobbles).toLocaleString()} scrobbles across ${candidate.album_count} ${albumWord} in ${year}`;
+                }
+                if (playtimeBadge && playtimeSep) {
+                    if (candidate.play_time_seconds > 0) {
+                        playtimeBadge.textContent = candidate.play_time
+                            || formatDurationMobile(candidate.play_time_seconds);
+                        playtimeBadge.classList.remove('hidden');
+                        playtimeSep.classList.remove('hidden');
+                    } else {
+                        playtimeBadge.classList.add('hidden');
+                        playtimeSep.classList.add('hidden');
+                    }
+                }
+                if (imgEl) {
+                    const revision = ++imageLoadRevision;
+                    if (candidate.image_url) {
                         const preloader = new Image();
                         preloader.onload = () => {
-                            if (card.dataset.artist !== artistName) return;
-                            img.dataset.spotifyLoaded = 'true';
-                            card.style.display = '';
-                            const prefersReducedMotion = window.matchMedia
-                                && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                            if (prefersReducedMotion) {
-                                img.src = data.image_url;
-                                img.classList.remove('hidden', 'opacity-0');
-                                img.style.opacity = '1';
-                            } else {
-                                img.style.opacity = '0';
-                                setTimeout(() => {
-                                    if (card.dataset.artist !== artistName) return;
-                                    img.src = data.image_url;
-                                    img.classList.remove('hidden', 'opacity-0');
-                                    img.style.opacity = '1';
-                                }, 100);
-                            }
+                            if (revision !== imageLoadRevision || currentIndex !== index) return;
+                            imgEl.src = candidate.image_url;
+                            imgEl.alt = `Photograph of ${candidate.name}`;
+                            imgEl.classList.remove('hidden', 'opacity-0');
+                            imgEl.style.opacity = '1';
+                            contentEl?.classList.remove('spotlight-no-image');
                         };
                         preloader.onerror = () => {
-                            if (card.dataset.artist !== artistName) return;
-                            // If pipeline image is also missing or broken, hide card
-                            if (!img.src || img.naturalWidth === 0) {
-                                card.style.display = 'none';
-                            }
+                            if (revision !== imageLoadRevision || currentIndex !== index) return;
+                            imgEl.removeAttribute('src');
+                            imgEl.classList.add('hidden');
+                            contentEl?.classList.add('spotlight-no-image');
                         };
-                        preloader.src = data.image_url;
-                    }
-                } else {
-                    // Spotify has no image: fallback to pipeline image if present, else hide card
-                    const img = document.getElementById('spotlight-artist-img');
-                    if (!img || !img.src || img.naturalWidth === 0) {
-                        card.style.display = 'none';
+                        preloader.src = candidate.image_url;
+                    } else {
+                        imgEl.removeAttribute('src');
+                        imgEl.classList.add('hidden');
+                        contentEl?.classList.add('spotlight-no-image');
                     }
                 }
-                if (data && data.spotify_url) {
-                    const topLink = document.getElementById('spotlight-spotify-link');
-                    if (topLink) {
-                        topLink.href = data.spotify_url;
-                        const labelName = data.name || artistName;
-                        topLink.setAttribute('aria-label', `View ${labelName} on Spotify (opens in new tab)`);
+                if (linkEl) {
+                    if (candidate.spotify_url) {
+                        linkEl.href = candidate.spotify_url;
+                        linkEl.classList.remove('hidden');
+                        linkEl.setAttribute(
+                            'aria-label',
+                            `View ${candidate.name} on Spotify (opens in new tab)`,
+                        );
+                    } else {
+                        linkEl.removeAttribute('href');
+                        linkEl.classList.add('hidden');
                     }
-                    const footerLink = document.getElementById('spotlight-footer-link');
-                    if (footerLink) footerLink.href = data.spotify_url;
                 }
-            } else {
-                const img = document.getElementById('spotlight-artist-img');
-                if (!img || !img.src || img.naturalWidth === 0) {
-                    card.style.display = 'none';
-                }
+            };
+
+            if (!animate || prefersReducedMotion || !contentEl) {
+                applyCandidate();
+                return;
             }
-        } catch (err) {
-            console.warn('Could not load artist spotlight photograph:', err);
-            const img = document.getElementById('spotlight-artist-img');
-            if (!img || !img.src || img.naturalWidth === 0) {
-                card.style.display = 'none';
+            contentEl.style.opacity = '0.15';
+            setTimeout(() => {
+                applyCandidate();
+                contentEl.style.opacity = '1';
+            }, 150);
+        };
+
+        const hydrateCandidate = async (candidate, index) => {
+            const expectedName = candidate.name;
+            try {
+                const response = await fetch(
+                    `/api/artist_spotlight?artist=${encodeURIComponent(expectedName)}`,
+                );
+                if (!response.ok || candidates[index].name !== expectedName) return;
+                const data = await response.json();
+                if (candidates[index].name !== expectedName) return;
+                candidates[index] = {
+                    ...candidate,
+                    image_url: data.image_url || candidate.image_url,
+                    spotify_url: data.spotify_url || '',
+                };
+                if (currentIndex === index) renderCandidate(index, false);
+            } catch (error) {
+                console.warn(`Could not hydrate artist spotlight for ${expectedName}:`, error);
             }
+        };
+
+        renderCandidate(currentIndex, false);
+        candidates.forEach((candidate, index) => {
+            hydrateCandidate(candidate, index);
+        });
+
+        if (!prefersReducedMotion && candidates.length > 1) {
+            setInterval(() => {
+                if (document.hidden) return;
+                currentIndex = (currentIndex + 1) % candidates.length;
+                renderCandidate(currentIndex);
+            }, 7000);
         }
     }
-    loadArtistSpotlight();
+    startArtistSpotlightRotation();
 });

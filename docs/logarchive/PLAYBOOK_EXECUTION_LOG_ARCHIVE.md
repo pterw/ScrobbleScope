@@ -9,6 +9,17 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Soften high-res desktop scale slope, standardize unmatched empty state, and polish warm light surface
+
+- Scope: owner review of 1440p desktop render identified excessive vertical growth in the index card composition. Standardized the `/unmatched` empty state to match `/results` and `/heatmap`, unified the light-mode surface on warm `#fcfbf8`, and elevated the semantic heatmap headline.
+- Plan vs implementation:
+  - Added `@media (min-width: 1920px)` in `static/css/index.css` applying a softened slope curve `0.35 + 0.65 * (W / 1920)` above 1080p, reducing 1440p card height from 907px to 828px and 4K card height from 1358px to 1121px while strictly maintaining 1080p scale at 1.075.
+  - Standardized `/unmatched` empty state via `templates/unmatched_empty.html` with `.empty-page` and `.empty-state` centered typography, purple signal bar, and primary action button; updated `scrobblescope/routes.py` and test suites.
+  - Replaced stark `#ffffff` with warm `#fcfbf8` across `--ss-surface-card` in `static/css/tailwind.src.css` and rebuilt `static/css/tailwind.css`.
+  - Promoted heatmap result headline to semantic `<h1>` in `templates/partials/_heatmap_result.html` and elevated desktop font size to `clamp(1.625rem, 3.75vw, 2.5rem)` (40px) while preserving neutral weight and color for usernames.
+  - Updated `scripts/dev/frontend_gate.py` scale parity calculations to reflect softened curve and column-tracking wordmark geometry.
+- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox (desktop, mobile, wide touch). `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass.
+
 ### 2026-09-05 - Move the mobile theme control below page content (side-task)
 
 - Scope: owner review found that the compact horizontal Light/Dark control sat

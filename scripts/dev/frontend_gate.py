@@ -3134,6 +3134,130 @@ def check_pipeline_state_machines(page, base_url: str) -> list[str]:
         reset_job_state(GATE_JOB_IDS["heatmap"])
 
 
+def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
+    """Render five sampled artists, hydrate them once, and observe rotation."""
+    job_id = create_job(
+        {
+            "username": "frontend-gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "all",
+            "min_plays": 1,
+            "min_tracks": 1,
+            "limit_results": "all",
+            "mode": "album",
+        }
+    )
+    failures = []
+    try:
+        set_job_results(
+            job_id,
+            [
+                {
+                    "artist": f"Rotation Artist {index}",
+                    "album": f"Rotation Album {index}",
+                    "play_count": 20 - index,
+                    "play_time": "42m",
+                    "play_time_seconds": 2520 - index,
+                    "release_date": "2025-01-01",
+                    "album_image": "",
+                    "spotify_id": f"rotation-album-{index}",
+                }
+                for index in range(10)
+            ],
+        )
+        set_job_progress(job_id, progress=100, message="Done", error=False)
+        page.add_init_script(
+            """(() => {
+                const nativeInterval = window.setInterval;
+                const nativeFetch = window.fetch.bind(window);
+                window.__spotlightRequests = [];
+                window.__spotlightFirstResolved = false;
+                window.setInterval = (callback, delay, ...args) => {
+                    if (delay === 7000) return window.setTimeout(callback, 500, ...args);
+                    return nativeInterval(callback, delay, ...args);
+                };
+                window.fetch = (resource, options) => {
+                    const url = String(resource);
+                    if (!url.includes('/api/artist_spotlight?')) {
+                        return nativeFetch(resource, options);
+                    }
+                    const requestIndex = window.__spotlightRequests.push(url) - 1;
+                    const response = {
+                        ok: true,
+                        json: async () => requestIndex === 0
+                            ? {
+                                image_url: 'data:image/svg+xml,<svg/>',
+                                spotify_url: 'https://open.spotify.com/artist/stale',
+                            }
+                            : {image_url: null, spotify_url: null},
+                    };
+                    if (requestIndex !== 0) return Promise.resolve(response);
+                    return new Promise((resolve) => {
+                        window.setTimeout(() => {
+                            window.__spotlightFirstResolved = true;
+                            resolve(response);
+                        }, 900);
+                    });
+                };
+            })();"""
+        )
+        page.goto(
+            f"{base_url}/results?job_id={job_id}",
+            wait_until="domcontentloaded",
+            timeout=10_000,
+        )
+
+        candidates = page.evaluate("window.APP_DATA.spotlight_artists")
+        if len(candidates) != 5 or len({item["name"] for item in candidates}) != 5:
+            failures.append("results did not expose five unique spotlight artists")
+
+        for _ in range(20):
+            spotlight_requests = page.evaluate("window.__spotlightRequests")
+            if len(spotlight_requests) >= 5:
+                break
+            page.wait_for_timeout(50)
+        if len(spotlight_requests) != 5:
+            failures.append(
+                f"spotlight hydrated {len(spotlight_requests)} artists instead of 5"
+            )
+
+        initial_index = page.locator("#artist-spotlight-card").get_attribute(
+            "data-spotlight-index"
+        )
+        try:
+            page.wait_for_function(
+                "initial => document.querySelector('#artist-spotlight-card')?.dataset.spotlightIndex !== initial",
+                arg=initial_index,
+                timeout=2000,
+            )
+        except Exception:  # noqa: BLE001 - converted to an actionable gate failure
+            failures.append("artist spotlight did not rotate through its sample")
+        else:
+            active_state = page.evaluate(
+                """() => {
+                    const card = document.querySelector('#artist-spotlight-card');
+                    return {index: card?.dataset.spotlightIndex, artist: card?.dataset.artist};
+                }"""
+            )
+            page.wait_for_function(
+                "() => window.__spotlightFirstResolved",
+                timeout=2_000,
+            )
+            if page.evaluate(
+                """expected => {
+                    const card = document.querySelector('#artist-spotlight-card');
+                    return card?.dataset.spotlightIndex !== expected.index
+                        || card?.dataset.artist !== expected.artist;
+                }""",
+                active_state,
+            ):
+                failures.append("late spotlight hydration replaced the active artist")
+    finally:
+        delete_job(job_id)
+    return failures
+
+
 #: Every check the gate runs, with the viewports each one runs at.
 #:
 #: Width changes nothing for stylesheet links, font downloads or the
@@ -3176,6 +3300,7 @@ CHECKS = (
         (DESKTOP, MOBILE),
     ),
     ("pipeline state machines", check_pipeline_state_machines, (DESKTOP,)),
+    ("artist spotlight rotation", check_artist_spotlight_rotation, (DESKTOP,)),
     ("large display scale parity", check_large_display_scale_parity, (DESKTOP,)),
 )
 
