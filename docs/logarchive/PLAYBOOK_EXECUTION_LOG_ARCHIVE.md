@@ -9,6 +9,39 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-07 - Upgrade vulnerable packages; audit now reports zero (side-task)
+
+- Scope: executed the upgrade half of F-B21-3's recorded shape, plus the
+  owner's two rulings from the removal entry: ipinfo and cachetools are
+  removed (both dead -- ipinfo Required-by nothing, cachetools required
+  only by ipinfo, zero imports), and pip-audit is pinned in
+  requirements-dev.txt so the audit is repeatable locally.
+- Plan vs implementation: no plan -- owner-directed side-task. Fix
+  versions from the audit's own fix_versions, not guesses: aiohttp
+  3.11.10 -> 3.14.3, requests 2.32.3 -> 2.33.0, urllib3 2.2.3 -> 2.7.0,
+  werkzeug 3.1.3 -> 3.1.6, flask 3.1.0 -> 3.1.3, python-dotenv
+  1.1.0 -> 1.2.2, idna 3.10 -> 3.15, click 8.1.8 -> 8.3.3, pytest
+  9.0.2 -> 9.0.3, virtualenv 20.28.0 -> 20.36.1, filelock
+  3.16.1 -> 3.20.3.
+- Deviations: aiohttp 3.14.3 requires aiohappyeyeballs>=2.5.0, so its
+  whole dependency family moved with it (aiohappyeyeballs 2.4.4 ->
+  2.7.1, aiosignal 1.3.2 -> 1.4.0, frozenlist 1.5.0 -> 1.8.0, multidict
+  6.1.0 -> 6.7.1, propcache 0.2.1 -> 0.5.2, yarl 1.18.3 -> 1.24.5) --
+  the first install attempt failed with ResolutionImpossible until the
+  family was upgraded together. The pinned-requirements discipline
+  (AGENTS.md: all ==) is preserved; every new pin is exact.
+- Validation: `pytest -q` -- **938 passed**, 7 warnings (two new
+  warnings are aiohttp 3.14 deprecation notices, cosmetic). All
+  pre-commit hooks pass. Full frontend gate -- **24 checks passed in 43
+  runs**, exit 0, zero failures: the aiohttp jump is clean in a live
+  browser. `pip-audit` re-run: **0 packages with vulnerabilities, 0
+  advisories** (was 13 packages / 120).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+  F-B21-3's remaining suggestion -- splitting runtime from developer
+  requirements -- is still open and unruled. The two new aiohttp
+  deprecation warnings are cosmetic; a future sweep could silence them
+  at the call sites.
+
 ### 2026-09-07 - Fix the B023 route-handler regression the ruff migration introduced (side-task)
 
 - Scope: repaired the two validator checks the ruff migration broke in
