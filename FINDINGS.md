@@ -4,8 +4,7 @@ Last updated: 2026-09-07
 Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
 Tasks 1-5 are complete; Task 6 is next. PLAYBOOK Section 3 owns
 the current work order.
-932 tests across 40 test modules.
-
+938 tests across 40 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an

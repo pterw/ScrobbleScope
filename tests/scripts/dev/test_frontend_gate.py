@@ -508,8 +508,8 @@ def _healthy_mobile_header() -> dict:
         "actionsTop": 900.0,
         "contentBottom": 800.0,
         "themeHeight": 46.0,
-        "contentTop": 80.0,
-        "headerBottom": 76.0,
+        "headerHeight": 68.0,
+        "bodyPaddingTop": 68.0,
     }
 
 
@@ -578,20 +578,25 @@ def test_mobile_header_failures_reports_sub_touch_minimum_theme_control() -> Non
     assert frontend_gate._mobile_header_failures(390, exact) == []
 
 
-def test_mobile_header_failures_reports_content_under_the_header() -> None:
-    """Content starting above the header's bottom edge means overlap.
+def test_mobile_header_failures_reports_mismatched_body_offset() -> None:
+    """Body padding-top must equal the fixed header's height exactly.
 
-    This is the in-flow-header invariant that replaced the fixed-header
-    bodyPaddingTop == headerHeight equality: with the header in flow,
-    nothing can start underneath it, and the check proves that directly.
+    The header is fixed (owner ruling 2026-09-07): too small a padding puts
+    content under the bar, too large leaves a dead gap above the content.
     """
-    overlapped = _healthy_mobile_header() | {"contentTop": 75.0, "headerBottom": 76.0}
+    small = _healthy_mobile_header() | {
+        "headerHeight": 68.0,
+        "bodyPaddingTop": 67.2,
+    }
     assert (
-        "/: mobile content starts under the header at 390px"
-        in frontend_gate._mobile_header_failures(390, overlapped)
+        "/: mobile body offset does not match its header at 390px"
+        in frontend_gate._mobile_header_failures(390, small)
     )
-    # Exactly at the header's bottom edge is compliant (0.5px tolerance).
-    touching = _healthy_mobile_header() | {"contentTop": 75.6, "headerBottom": 76.0}
+    # Within half a pixel is compliant.
+    touching = _healthy_mobile_header() | {
+        "headerHeight": 68.0,
+        "bodyPaddingTop": 67.7,
+    }
     assert frontend_gate._mobile_header_failures(390, touching) == []
 
 
@@ -870,24 +875,13 @@ def test_assert_loading_progress_state_reports_mismatches() -> None:
     assert "scaleX was 0.5" in failures[0]
 
 
-def test_typekit_fixture_declares_every_required_family() -> None:
-    """The fixture loader validates family coverage, not just file presence."""
-    css = frontend_gate.load_typekit_fixture_css()
-    for family in frontend_gate.REQUIRED_FONT_FAMILIES:
-        assert f'font-family: "{family}"' in css
+def test_install_cdn_routes_fulfills_bootstrap_and_passes_the_kit() -> None:
+    """The blocker serves the generic CDN; the licensed kit passes through.
 
-
-def test_typekit_fixture_loader_rejects_incomplete_file(tmp_path, monkeypatch) -> None:
-    """A fixture missing a family is a prerequisite failure, not a silent fallback."""
-    bad = tmp_path / "typekit_fixture.css"
-    bad.write_text("/* missing families */", encoding="utf-8")
-    monkeypatch.setattr(frontend_gate, "FIXTURE_DIR", tmp_path)
-    with pytest.raises(FrontendGateError, match="instrument-serif"):
-        frontend_gate.load_typekit_fixture_css()
-
-
-def test_install_cdn_routes_fulfills_typekit_and_bootstrap() -> None:
-    """The blocker fulfils both CDN origins and passes everything else through."""
+    The Adobe families are licensed web fonts (owner ruling 2026-09-07):
+    none may be served from a repo fixture, so use.typekit.net must reach
+    the real origin. Only cdnjs Bootstrap is route-served.
+    """
     page = MagicMock()
     handlers = {}
     page.route.side_effect = lambda pattern, handler: handlers.__setitem__(
@@ -908,9 +902,11 @@ def test_install_cdn_routes_fulfills_typekit_and_bootstrap() -> None:
     cdn_handler(typekit_route)
     cdn_handler(bootstrap_route)
     cdn_handler(other_route)
-    typekit_route.fulfill.assert_called_once()
-    assert "font-family" in typekit_route.fulfill.call_args.kwargs["body"]
+
+    typekit_route.continue_.assert_called_once()
+    typekit_route.fulfill.assert_not_called()
     bootstrap_route.fulfill.assert_called_once()
+    bootstrap_route.continue_.assert_not_called()
     other_route.continue_.assert_called_once()
     other_route.fulfill.assert_not_called()
 

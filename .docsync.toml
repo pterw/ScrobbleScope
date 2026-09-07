@@ -221,17 +221,17 @@ name = "the wide-desktop scale cap"
 [[value.sites]]
 file = "static/css/index.css"
 pattern = '--index-scale-cap: ([\d.]+)'
-expect = "2.15"
+expect = "1.75"
 
 [[value.sites]]
 file = "BATCH21_DEFINITION.md"
 pattern = 'capped at `([\d.]+)`'
-expect = "2.15"
+expect = "1.75"
 
 [[value.sites]]
 file = "docs/design/RECONCILIATION.md"
 pattern = 'capped at `([\d.]+)`'
-expect = "2.15"
+expect = "1.75"
 
 # Owner review refined the wide form after the original Task 3 checkpoint.
 # The active definition and reconciliation must track the live CSS cap while

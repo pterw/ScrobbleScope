@@ -12,7 +12,7 @@ colors:
   surface-page-dark: "#0e0c12"
   surface-sunken: "#f0ebe0"
   surface-sunken-dark: "#1a1622"
-  surface-card: "#fcfbf8"
+  surface-card: "#f9f7f1"
   surface-card-dark: "#181520"
   text-strong: "#1a1820"
   text-strong-dark: "#f1ede4"

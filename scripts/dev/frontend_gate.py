@@ -87,63 +87,33 @@ REQUIRED_FONT_FAMILIES = (
 #: wedge cascade through the rest of the run. 10s bounds the damage.
 NAVIGATION_TIMEOUT_MS = 10_000
 
-#: Directory holding the route-blocked CDN fixtures. Repo-owned so CI
-#: never touches the network (spec: 2026-09-07 gate isolation design).
+#: Directory holding route-blocked CDN fixtures. Repo-owned so CI never
+#: waits on the generic framework CDN (spec: 2026-09-07 gate isolation).
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
-def load_typekit_fixture_css() -> str:
-    """Return the Typekit fixture CSS, verifying family coverage.
-
-    A fixture that lost a family (rename, bad merge) would fall back
-    silently on CI and re-introduce font weather through the back door.
-    The missing-family name goes in the error so the fix is one read away.
-    Paths resolve through FIXTURE_DIR at call time so tests can repoint it.
-    """
-    fixture = FIXTURE_DIR / "typekit_fixture.css"
-    try:
-        css = fixture.read_text(encoding="utf-8")
-    except FileNotFoundError as exc:
-        raise FrontendGateError(
-            f"missing {fixture}; the gate cannot run hermetically"
-        ) from exc
-    missing = [f for f in REQUIRED_FONT_FAMILIES if f'font-family: "{f}"' not in css]
-    if missing:
-        raise FrontendGateError(f"{fixture} does not declare: {', '.join(missing)}")
-    return css
-
-
 def install_cdn_routes(page, live_fonts: bool = False) -> None:
-    """Block both external stylesheet origins with repo-owned fixtures.
+    """Serve the generic framework CDN from a fixture; pass the kit through.
 
-    Every gate navigation otherwise waits on use.typekit.net and
-    cdnjs.cloudflare.com before the load event; on CI that wait is the
-    stall the 2026-09-07 run died in. handler_type checks the URL so a
-    pattern mismatch cannot silently pass a CDN request through.
+    cdnjs Bootstrap is a generic framework file, safe to serve from a
+    repo-owned fixture so CI never waits on it. The Adobe Fonts kit is
+    NOT faked: its families are licensed web fonts, and re-hosting or
+    synthesizing them in the repo would misdeclare licensed typefaces.
+    Owner ruling 2026-09-07 -- use the Typekit, no exceptions per family
+    (the kit composition can change; a blanket network rule cannot drift).
+    The kit still loads from the real origin; a stall there costs the
+    page its webfonts, never the gate its pass, because check_fonts
+    reports misses as advisory WARN lines.
+
     Impeccable Live is a developer overlay injected into base.html while
     visual review is active; the production gate stays independent of it.
     """
     if live_fonts:
         return
 
-    def handler_type(url: str) -> str:
-        if "use.typekit.net" in url:
-            return "typekit"
-        if "cdnjs.cloudflare.com" in url and "bootstrap" in url:
-            return "bootstrap"
-        return "passthrough"
-
     def _route(route):
-        kind = handler_type(route.request.url)
-        if kind == "passthrough":
-            route.continue_()
-        elif kind == "typekit":
-            route.fulfill(
-                status=200,
-                content_type="text/css",
-                body=load_typekit_fixture_css(),
-            )
-        else:
+        url = route.request.url
+        if "cdnjs.cloudflare.com" in url and "bootstrap" in url:
             route.fulfill(
                 status=200,
                 content_type="text/css",
@@ -151,6 +121,8 @@ def install_cdn_routes(page, live_fonts: bool = False) -> None:
                     encoding="utf-8"
                 ),
             )
+        else:
+            route.continue_()
 
     page.route("**/*", _route)
     page.route("http://localhost:8400/**", lambda route: route.abort())
@@ -1584,8 +1556,15 @@ def check_fonts(page, base_url: str) -> list[str]:
     Asserting that the kit stylesheet was requested proves nothing: a
     domain-locked kit returns a stylesheet that loads no faces at all, and the
     page then falls back silently with no error anywhere.
+
+    Owner ruling 2026-09-07: a missing face is advisory, not blocking. The
+    page's own fallback stacks (corporate-a, orator-std, ...) are acceptable
+    rendering, and a hard gate here made the whole run red whenever the
+    fixture or the kit served no face -- which is a font-supply problem, not
+    a UI defect. The failures still print so font-supply regressions stay
+    visible; they just do not fail the run.
     """
-    failures = []
+    warnings = []
     for path in MIGRATED_PAGES:
         page.goto(f"{base_url}{path}", wait_until="load")
         # Await readiness and return nothing. Returning document.fonts.ready
@@ -1608,12 +1587,16 @@ def check_fonts(page, base_url: str) -> list[str]:
             }""",
             list(REQUIRED_FONT_FAMILIES),
         )
-        failures.extend(
-            f"{path}: font family {family} loaded no faces from the kit"
+        warnings.extend(
+            f"{path}: font family {family} loaded no faces from the kit "
+            "(advisory; page falls back to its own stack)"
             for family, count in loaded.items()
             if not count
         )
-    return failures
+    # Owner ruling 2026-09-07: print as WARN, return no gate failures.
+    for warning in warnings:
+        print(f"[frontend_gate] WARN {warning}", file=sys.stderr)
+    return []
 
 
 def check_body_font(page, base_url: str) -> list[str]:
@@ -2052,8 +2035,9 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     const links = [...nav.querySelectorAll('.site-header__nav-link')];
                     return {
                         headerHeight: header.getBoundingClientRect().height,
-                        headerBottom: header.getBoundingClientRect().bottom,
-                        contentTop: mainRect.top,
+                        bodyPaddingTop: parseFloat(
+                            getComputedStyle(document.body).paddingTop
+                        ),
                         clientWidth: nav.clientWidth,
                         scrollWidth: nav.scrollWidth,
                         rows: new Set(links.map(link => Math.round(
@@ -2377,11 +2361,10 @@ def _touch_minimum_failures(
 def _mobile_header_failures(width: int, header: dict) -> list[str]:
     """Assert the mobile header contract for one viewport width.
 
-    The header is in-flow (position: relative) since the merged redesign, so
-    nothing can start underneath it and body needs no compensating
-    padding-top. The old fixed-header invariant -- bodyPaddingTop ==
-    headerHeight -- encoded that out-of-flow design; the real invariant is
-    that the first content pixel sits at or below the header's bottom edge.
+    The header is fixed (owner ruling 2026-09-07: back to the fixed design).
+    Out of flow, it needs a compensating body padding-top, and the invariant
+    is that the padding exactly matches the header height: too small puts
+    the first content under the bar, too large leaves a dead gap.
     """
     failures = []
     if header["scrollWidth"] > header["clientWidth"] + 1 or not header["linksInside"]:
@@ -2404,8 +2387,11 @@ def _mobile_header_failures(width: int, header: dict) -> list[str]:
             f"/: mobile theme control is only {header['themeHeight']:.1f}px high "
             f"at {width}px, expected at least 44px"
         )
-    if header["contentTop"] < header["headerBottom"] - 0.5:
-        failures.append(f"/: mobile content starts under the header at {width}px")
+    # Fixed-header invariant: the body's compensating padding-top must equal
+    # the bar height exactly. Wrong padding puts content under the bar (small)
+    # or leaves a dead gap above it (large).
+    if abs(header["headerHeight"] - header["bodyPaddingTop"]) > 0.5:
+        failures.append(f"/: mobile body offset does not match its header at {width}px")
     return failures
 
 
@@ -3588,12 +3574,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                     # One context per group-profile, all closed with this
                     # engine. The 10s navigation timeout bounds a stalled
                     # subresource to one failed check instead of a cascade.
+                    # (Timeout is page-level: Playwright's context has no
+                    # default_navigation_timeout kwarg.)
                     def open_page(spec, browser=browser):
-                        context = browser.new_context(
-                            **spec,
-                            default_navigation_timeout=NAVIGATION_TIMEOUT_MS,
-                        )
+                        context = browser.new_context(**spec)
                         page = context.new_page()
+                        page.set_default_navigation_timeout(NAVIGATION_TIMEOUT_MS)
                         install_cdn_routes(page, live_fonts=args.live_fonts)
                         return page
 

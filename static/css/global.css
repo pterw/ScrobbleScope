@@ -21,9 +21,11 @@
     --bg-color: #faf8f3;
 
     /* Surfaces -- same mapping as the index: card --ss-surface-card,
-       page --color-base-100. */
-    --surface-color: #fcfbf8;
-    --surface-elevated: #fcfbf8;
+       page --color-base-100. Values follow the index token (slightly warm;
+       the owner split the surfaces 2026-09-07 -- general cards warm,
+       the index card alone pure white). */
+    --surface-color: #f9f7f1;
+    --surface-elevated: #f9f7f1;
 
     /* Lines and inputs. Border = index --ss-border-default; inputs use
        the page colour so fields read as recessed, as on the index. */
@@ -481,4 +483,4 @@ body {
 * {
     scrollbar-color: var(--border-color) transparent;
 }
-
+

@@ -57,13 +57,27 @@ body.is-ready {
     transition: opacity 220ms ease;
 }
 
+/* The fixed header is out of flow; without this every page starts under it. */
+body {
+    padding-top: var(--shell-height);
+}
+
 /* ------------------------------------------------------------------ */
 /* The bar itself                                                      */
 /* ------------------------------------------------------------------ */
 
-/* In-flow stationary masthead. Scrolls with the document flow. */
+/* Fixed masthead. The bar holds the same vertical position on every page
+   and never scrolls away. This was the shipped design through Batch 20;
+   the WP-5 rebuild briefly made it position:relative, which the owner
+   caught as a regression (the nav scrolled off-screen). Fixed is out of
+   flow, so body carries a compensating padding-top: without it every page
+   starts underneath the bar. That invariant is what the frontend gate's
+   mobile header check asserts. */
 .site-header {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
     z-index: 1030;
     display: flex;
     align-items: center;
@@ -504,12 +518,15 @@ body {
     cursor: pointer;
 }
 
-/* Light choice active in Light mode: calm, crisp white elevated pill */
+/* Light choice active in Light mode: an elevated paper pill. Never pure
+   white -- the same paper-cream the card token moved to (owner ruling
+   2026-09-07: no #fff anywhere a surface is meant to read warm). The
+   stronger shadow keeps the elevation cue without the harshness. */
 .site-header__theme-choice--light {
     color: var(--shell-ink, #1a1820);
-    background-color: #ffffff;
-    border-color: rgba(0, 0, 0, 0.06);
-    box-shadow: 0 1px 3px rgba(26, 24, 32, 0.08);
+    background-color: var(--shell-surface);
+    border-color: rgba(0, 0, 0, 0.14);
+    box-shadow: 0 1px 3px rgba(26, 24, 32, 0.12);
     font-weight: 500;
 }
 

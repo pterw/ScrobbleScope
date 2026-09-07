@@ -38,6 +38,11 @@
 .metric-toggle-btn {
     user-select: none;
     cursor: pointer;
+    /* Owner note 2026-09-07: the inactive option read too faint at body
+       weight. The buttons set Tailwind's font-normal inline, so bump via
+       the CSS variable-free property here; specificity (class) wins over
+       the utility because this sheet loads after the compiled utilities. */
+    font-weight: 500;
 }
 
 .metric-toggle-btn:focus-visible {
@@ -71,11 +76,13 @@
     }
 }
 
-/* Sticky side rail on desktop */
+/* Sticky side rail on desktop. Sits below the fixed header: the header is
+   out of flow at --shell-height, so the rail's top offset must clear it or
+   the first scroll overlaps the two (owner report 2026-09-07). */
 @media (min-width: 1024px) {
     .results-side-rail {
         position: sticky;
-        top: 1.5rem;
+        top: calc(var(--shell-height, 4.25rem) + 1.5rem);
         align-self: flex-start;
     }
 }

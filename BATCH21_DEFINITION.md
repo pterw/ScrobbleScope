@@ -317,7 +317,7 @@ Moved in by the scope ruling:
    the audit review's single column. Current source declares a 1200px-wide
    `3fr 4fr` state and one shared factor of `1.075` times the width ratio,
    bounded by the measured composition height and available window content,
-   capped at `2.15`. The centred form carries the owner-refined `27.5rem`
+   capped at `1.75`. The centred form carries the owner-refined `27.5rem`
    base cap. Within the desktop well, the complete form composition centres
    vertically when it fits; expanded states return to the top padding and add
    natural document height without changing the hero, form, type, or control

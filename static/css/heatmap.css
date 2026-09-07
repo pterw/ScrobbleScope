@@ -204,7 +204,11 @@
   list-style: none;
   font-size: var(--text-body-sm);
   line-height: 1.8;
-  color: var(--ss-text-body);
+  /* Between body and muted (owner ruling 2026-09-07): the bullets are
+     supporting detail, quieter than the key line above them, but the old
+     full-strength body colour competed with it. Token-derived so both
+     themes follow automatically. */
+  color: color-mix(in srgb, var(--ss-text-body) 55%, var(--ss-text-muted));
 }
 
 .hm-preview__ramp {

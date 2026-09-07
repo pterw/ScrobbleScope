@@ -52,7 +52,12 @@ INDEX_TOKENS = {
     "--heatmap-empty": ("#e8e2d6", "#262230"),
     # Added during commit 4 rather than commit 3, because the rebuild found
     # the page needed them. They live in the two daisyUI theme blocks.
-    "--ss-surface-card": ("#fcfbf8", "#181520"),
+    # Surface history: a paper-cream trial (#f7f3ea, 2026-09-07) was reverted
+    # the same day, then the owner split the surfaces -- general cards took
+    # the slightly warm midpoint #f9f7f1 and the index card alone went pure
+    # white via --ss-surface-card-standout.
+    "--ss-surface-card": ("#f9f7f1", "#181520"),
+    "--ss-surface-card-standout": ("#ffffff", "#181520"),
     "--ss-surface-sunken": ("#f0ebe0", "#1a1622"),
     "--heatmap-surface": ("#faf8f3", "#181520"),
     "--ss-bad": ("#b03434", "#e07070"),

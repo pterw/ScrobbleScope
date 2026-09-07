@@ -167,10 +167,20 @@
      Dark: page is base-100, the card is base-200, and the sunken tone has no
      slot at all. Two named tokens are cheaper than a per-theme override on
      every panel. The heatmap frame gets its own because it is page-coloured
-     in light and card-coloured in dark. */
-   --ss-surface-card: #fcfbf8;
+     in light and card-coloured in dark. (Owner revisited the paper-cream
+     experiment on 2026-09-07: general cards take the slightly warm
+     #f9f7f1 -- a composition between #fcfbf8 and the rejected #f7f3ea --
+     while the index card goes pure white as a standout via the companion
+     token below; RECONCILIATION.md section 12 records the ruling.) */
+   --ss-surface-card: #f9f7f1;
    --ss-surface-sunken: #f0ebe0;
    --heatmap-surface: #faf8f3;
+
+   /* The index card alone. The owner wants the one card a visitor sees
+     first to read as pure white against the warm page -- a standout --
+     while every other surface in the app carries --ss-surface-card.
+     Dark has no standout to make; both themes' cards are #181520 there. */
+   --ss-surface-card-standout: #ffffff;
 
    /* The error accent. daisyUI still carries Bootstrap's #dc3545 in
      --color-error, which is the cool red the whole batch is moving away
@@ -236,6 +246,7 @@
      why this token exists apart from --ss-border-default. */
    --ss-border-divider: #68646f;
    --ss-surface-card: #181520;
+   --ss-surface-card-standout: #181520;
    --ss-surface-sunken: #1a1622;
    --heatmap-surface: #181520;
    --ss-bad: #e07070;

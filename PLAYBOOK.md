@@ -557,7 +557,7 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: proceed to Task 6 (accessibility pass).
 
 ### 2026-09-06 - Results leaderboard rebuild and interactive polish completed (Batch 21 WP-5)
-- Scope: migrated `templates/results.html` and `static/js/results.js` to Tailwind CSS v4 and daisyUI, implementing the canonical Results Leaderboard with 2-column layout, sticky side-rail, Top Artist Spotlight with gradient scrim, Instrument Serif play counts, larger artwork, in-flow shell header, and modal removal.
+- Scope: migrated `templates/results.html` and `static/js/results.js` to Tailwind CSS v4 and daisyUI, implementing the canonical Results Leaderboard with single column layout, sticky side-rail, Top Artist Spotlight with gradient scrim, Instrument Serif play counts, larger artwork, in-flow shell header, and modal removal.
 - Implementation:
   - Replaced legacy Bootstrap container/table markup in `templates/results.html` with responsive Tailwind semantic structure:
     - Clean editorial headline with exactly one purple italic accent on `username` and min-height reserve; eliminated eyebrow kicker above `<h1>`, placing a clean subtitle descriptor below.
@@ -581,6 +581,88 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: proceed to WP-7 (unmatched page + reason_code backend fix).
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-07 - Gate isolation, license-safe CDN routing, paper-cream tokens, and results polish (side-task)
+
+- Scope: made the frontend gate stall-tolerant (grouped checks, fresh
+  contexts, fail-fast navigation), resolved the PR #227 Quality Gate
+  failures, applied the owner's paper-cream surface palette, and landed
+  the owner-annotated results-page polish.
+- Plan vs implementation: followed
+  `docs/superpowers/plans/2026-09-07-frontend-gate-isolation.md` with one
+  fundamental amendment. The metric-pinned font fixture (plan Tasks 1 and
+  5) was abandoned at the owner's licensing ruling: the kit families
+  (Gotham, Akzidenz-Grotesk Next Pro) are commercial web fonts and must
+  never be re-hosted, embedded, or synthesized in the repo. The kit loads
+  from the real Typekit origin on every gate run; only the generic cdnjs
+  Bootstrap stylesheet is served from a repo fixture. The gate is
+  therefore not fully hermetic -- accepted trade-off for license safety,
+  recorded in `scripts/dev/fixtures/README.md`.
+- Implementation:
+  - Gate grouping: `CHECKS` entries gained a group field; groups derive
+    from the tuple at call time (no second declared copy, no group
+    integrity test per the owner's "redundant to test a test" ruling).
+    Each group opens a fresh browser context, so a wedged page poisons
+    only its group -- the 2026-09-07 CI run had cascaded one navigation
+    timeout through every later check on a shared page.
+  - Firefox is a canary: it runs only the static-assets group (the
+    2026-09-01 remediation plan measured engine agreement within 0.1px,
+    so a full second pass doubles the stall surface for near-zero
+    signal). Chromium runs everything.
+  - Fail-fast navigation: 10s page-level timeout (the context-level
+    kwarg does not exist in Playwright -- caught by a local run, not by
+    unit tests).
+  - Fonts advisory: `check_fonts` reports missing faces as WARN lines
+    and returns no failures (owner ruling: a font-supply problem is not
+    a UI defect).
+  - License posture: no Adobe family is copied, embedded, synthesized,
+    or re-hosted anywhere; a synthetic TTF generator briefly existed in
+    untracked scratch and was destroyed before any commit.
+  - Paper-cream surfaces: `--ss-surface-card` #fcfbf8 -> #f7f3ea
+    (halfway to the sunken tone; cards had become indiscernible from
+    the page and pure white read as harsh). `global.css` mirrors follow.
+    The imported design snapshot keeps `#ffffff` by contract; the
+    override is recorded in `docs/design/RECONCILIATION.md` section 12.
+  - Theme pill: the active Light choice dropped its #ffffff background
+    (introduced in `14215d6`) for `--shell-surface` elevation with a
+    stronger border/shadow.
+  - Heatmap preview: bullets at color-mix(body 55%, muted); copy
+    rewritten (7x52 grid, totals/streak, best-day highlight).
+  - Index: `--index-scale-cap` 2.15 -> 1.75 (owner ruling: the lockup
+    dominated beyond 1440p and the right-hanging void grew faster than
+    content).
+  - Card surfaces, final ruling (revising the paper-cream line above,
+    same day): #f7f3ea was too warm and #fcfbf8 read cold, so the owner
+    split the surfaces. `--ss-surface-card` -> #f9f7f1 (midpoint of the
+    two; general cards), mirrored in `global.css`, and a new
+    `--ss-surface-card-standout` (#ffffff light / #181520 dark) paints
+    the index card alone pure white as a standout; `.ss-card` and
+    `.hint__body` in `index.css` read the standout token. DESIGN.md
+    header and the token test follow. RECONCILIATION.md section 12
+    records the full trial -> reversal -> split sequence.
+  - Results StatBlock typography (owner ruling): numerals and labels
+    back to Instrument Serif with labels at 11px/xs serif in
+    `--ss-text-body` (not muted); the sans-numeral line below is
+    superseded by this.
+  - Results polish (owner-annotated screenshot): action-row gap 8 -> 12px;
+    filter-bar values to input-mono; row hover at full sunken strength;
+    sort-toggle weight 500.
+- Deviations: the two large-display-scale-parity checks still fail at
+  1440p/4K because the real kit's tall Instrument Serif metrics are not
+  present when a kit fetch fails under the fixture-less design; the
+  owner accepts this for the landing page and it is worth revisiting
+  when all Bootstrap pages are gone. Owner confirmed the form card does
+  not scroll the page at 1080p/92dpi with bookmarks extended.
+- Validation: `pytest -q` -- **938 passed**, 5 warnings (final
+  consolidated run for this entry; the standout token added one
+  parametrized test to the shell suite). Full suite green before commit;
+  pre-commit hooks (black auto-fix included) enforced on every commit in
+  the series. The gate itself was exercised repeatedly during
+  development; the remaining parity pair is recorded above rather than
+  hidden.
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next;
+  the heatmap form lacks validation-on-blur and private-account gating
+  (owner-noted), candidate for WP-7 or a scoped side-task.
 
 ### 2026-09-07 - Fix the three CI Quality Gate failures left by the Task-3/4 merge (side-task)
 
@@ -679,13 +761,3 @@ non-current operational logs. Older dated entries live in
   - Updated `tests/scripts/dev/test_worktree_guard_playbook.py` `test_the_repository_playbook_parses` to reflect the active authorized worktree branch `test`.
 - Validation: `pytest -q` -- **918 passed**, 5 warnings. All 296 docsync tests pass. `python scripts/doc_state_sync.py --check` exits 0 with no integrity errors.
 - Forward guidance: resume owner-review remediation Task 6 (accessibility pass) per `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md` before WP-5 begins.
-
-### 2026-09-05 - Add resilient Typekit fallback font stacks, consolidate single-row mobile navigation, and configure editor (side-task)
-
-- Scope: resolved unknown at-rule IDE lint warning on `@custom-variant` in `static/css/tailwind.src.css`, verified Typekit web font integration, reinforced design token font stacks with resilient Typekit fallbacks (`aktiv-grotesk`, `corporate-a`, `ff-din-paneuropean`, `orator-std`), and consolidated mobile header navigation to a unified single-row bar.
-- Implementation:
-  - Added `.vscode/settings.json` configuring `"css.lint.unknownAtRules": "ignore"` and created `.vscode/tailwind-css-data.json` declaring Tailwind v4 at-rules (`@custom-variant`, `@theme`, `@source`, `@utility`, `@plugin`). Kept git status clean as `.vscode/` is in `.gitignore`.
-  - Verified live Adobe Typekit kit (`rwy8ghw`) served by `templates/base.html` and expanded font stacks in `static/css/tailwind.src.css` and `static/css/global.css`: `--font-sans` now includes `"aktiv-grotesk"`, `--font-serif` includes `"corporate-a"`, `--font-figure` includes `"ff-din-paneuropean"` (FF DIN), and `--font-mono` / `--font-mono-narrow` include `"orator-std"`.
-  - Consolidated mobile header navigation in `static/css/shell.css` from a dual-row 2x2 grid (`--shell-height: 6.5rem`) to a unified single-row 4-column stack (`--shell-height: 4.25rem`, `grid-template-columns: repeat(4, minmax(0, 1fr))`). Provenance & design rationale: opting for a one-stack bar rather than dual-row saves ~36px of vertical fold space on compact mobile viewports (320px–390px), avoids visual crowding now that the theme toggle sits below page content (F-B21-45), comfortably fits all 4 short route labels ("Index", "Heatmap", "Results", "Unmatched") at compliant >=44px tap targets, and unifies the shell height floor with desktop (`4.25rem`).
-  - Synchronized `scripts/dev/frontend_gate.py` (`check_shell_scales_with_text` and `check_large_display_scale_parity` row count assertion to 1 row), updated design token regression lock in `tests/scripts/dev/test_tailwind_build_cli.py`, and rebuilt `static/css/tailwind.css` cleanly.
-- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `pre-commit run --all-files` passed cleanly with 0 drift and all hooks green.

@@ -14,7 +14,8 @@
          aria-labelledby="mode-tab-heatmap">
   <form id="heatmap-form" class="ss-card" novalidate>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="field">
+
+    <div class="field">
       <div class="field__label-row">
         <label class="field__label" for="heatmap-username">Last.fm username</label>
         <span class="field__hint">public profile</span>
@@ -33,15 +34,14 @@
     </button>
   </form>
 
-  {# Replaces the album mode filter tags. Says what the run produces, then
-     shows the ramp it will be drawn on. #}
+  <!-- Replaces the album mode filter tags. Says what the run produces, then
+     shows the ramp it will be drawn on. -->
   <div class="hm-preview">
-    <span class="hm-preview__key">Your last 365 days include:</span>
-    <span class="hm-preview__arrow" aria-hidden="true">↓</span>
+    <span class="hm-preview__key">Your last 365 days, mapped day by day <span class="hm-preview__arrow" aria-hidden="true">↓</span></span>
     <ul class="hm-preview__list">
-      <li>Daily scrobbles on the rocket scale</li>
-      <li>Total scrobbles and daily average</li>
-      <li>Your best day and current streak</li>
+      <li>Scrobbles per day on a 7x52 grid -- darker means more</li>
+      <li>Total plays, daily average, and your longest streak</li>
+      <li>Your best listening day, highlighted</li>
     </ul>
     <span class="hm-preview__ramp" aria-hidden="true"></span>
   </div>

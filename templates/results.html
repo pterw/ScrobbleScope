@@ -40,7 +40,7 @@
             </h2>
         </div>
         <!-- Action Group (Touch targets >= 44px, hairline peers with light-mode shadow, New search filled primary) -->
-        <div class="flex flex-wrap items-center gap-2 flex-shrink-0 max-w-full">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-shrink-0 w-full max-w-full sm:w-auto">
             <a href="/" class="btn btn-primary btn-sm min-h-[40px] px-3.5 rounded-[var(--radius-field,8px)] font-sans text-xs md:text-sm font-normal shadow-sm border border-transparent">
                 New search
             </a>
@@ -64,50 +64,47 @@
         {% endfor %}
         {% set has_durations = ns.has %}
     {% endif %}
-    <!-- StatBlock Mini-Table (Compact, structural hairlines, center-aligned) -->
-    <div class="grid grid-cols-2 md:grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] divide-y md:divide-y-0 md:divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
-        <div class="p-3 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1.5 min-w-0">
-            <span class="font-mono text-[11px] uppercase tracking-wider text-[var(--ss-text-muted)]">Total Albums</span>
+    <!-- StatBlock Mini-Table (one row at every width; numerals sized below
+        the page header so the hierarchy stays with the h1) -->
+    <div class="grid grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
+        <div class="px-1.5 py-2.5 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1 min-w-0">
+            <span class="font-serif text-[11px] md:text-xs uppercase tracking-wider text-[var(--ss-text-body)]">Total Albums</span>
             <div class="py-0.5 flex items-center justify-center overflow-visible">
-                <span class="font-serif text-[25px] md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ album_list|length }}</span>
+                <span class="font-serif text-xl md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ album_list|length }}</span>
             </div>
-            <span class="font-sans text-xs text-[var(--ss-text-muted)]">matched</span>
+            <span class="font-serif text-[11px] md:text-xs text-[var(--ss-text-body)]">matched</span>
         </div>
-        <div class="p-3 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1.5 min-w-0">
-            <span class="font-mono text-[11px] uppercase tracking-wider text-[var(--ss-text-muted)]">Top Artist</span>
+        <div class="px-1.5 py-2.5 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1 min-w-0">
+            <span class="font-serif text-[11px] md:text-xs uppercase tracking-wider text-[var(--ss-text-body)]">Top Artist</span>
             <div class="py-0.5 flex items-center justify-center w-full min-w-0 overflow-visible">
-                <span class="font-serif text-[21px] md:text-[25px] text-[var(--color-base-content)] leading-tight truncate block px-1 overflow-visible" title="{{ album_list[0].artist if album_list else '—' }}">
-                    {{ album_list[0].artist if album_list else '—' }}
-                </span>
+                <span class="font-serif text-lg md:text-[25px] text-[var(--color-base-content)] leading-tight truncate block px-1 overflow-visible" title="{{ album_list[0].artist if album_list else '—' }}">{{ album_list[0].artist if album_list else '—' }}</span>
             </div>
-            <span class="font-sans text-xs text-[var(--ss-text-muted)]">leading chart</span>
+            <span class="font-serif text-[11px] md:text-xs text-[var(--ss-text-body)]">leading chart</span>
         </div>
-        <div class="p-3 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1.5 min-w-0">
-            <span class="font-mono text-[11px] uppercase tracking-wider text-[var(--ss-text-muted)]">Scrobbles</span>
+        <div class="px-1.5 py-2.5 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1 min-w-0">
+            <span class="font-serif text-[11px] md:text-xs uppercase tracking-wider text-[var(--ss-text-body)]">Scrobbles</span>
             <div class="py-0.5 flex items-center justify-center overflow-visible">
-                <span class="font-serif text-[25px] md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(total_scrobbles) if total_scrobbles else '0' }}</span>
+                <span class="font-serif text-xl md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(total_scrobbles) if total_scrobbles else '0' }}</span>
             </div>
-            <span class="font-sans text-xs text-[var(--ss-text-muted)]">counted</span>
+            <span class="font-serif text-[11px] md:text-xs text-[var(--ss-text-body)]">counted</span>
         </div>
-        <div class="p-3 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1.5 min-w-0">
-            <span class="font-mono text-[11px] uppercase tracking-wider text-[var(--ss-text-muted)]">Unmatched</span>
+        <div class="px-1.5 py-2.5 md:py-3.5 md:px-4 flex flex-col items-center justify-between text-center gap-1 min-w-0">
+            <span class="font-serif text-[11px] md:text-xs uppercase tracking-wider text-[var(--ss-text-body)]">Unmatched</span>
             <div class="py-0.5 flex items-center justify-center overflow-visible">
-                <span class="font-serif text-[25px] md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ unmatched_count|default(0) }}</span>
+                <span class="font-serif text-xl md:text-[31px] text-[var(--color-base-content)] leading-tight">{{ unmatched_count|default(0) }}</span>
             </div>
-            <a href="{{ url_for('main.unmatched_page') }}" class="font-sans text-xs text-[var(--color-primary)] hover:underline font-medium inline-block">
-                view breakdown →
-            </a>
+            <a href="{{ url_for('main.unmatched_page') }}" class="font-serif text-[11px] md:text-xs text-[var(--color-primary)] hover:underline font-normal inline-block whitespace-nowrap">view breakdown →</a>
         </div>
     </div>
 
     <!-- Filter Context (Micro-data bar: tucked left, text in mono-narrow, no bold, no pills) -->
     <div class="results-filter-bar">
         <span class="text-[var(--color-primary)]">Released:</span>
-        <span class="text-[var(--color-base-content)]">{{ release_year if release_year else (decade if decade else ('Same as listening year' if release_scope == 'same' else ('Previous year (' ~ (year|int - 1) ~ ')' if release_scope == 'previous' else 'All releases'))) }}</span>
+        <span class="font-mono text-[var(--color-base-content)]">{{ release_year if release_year else (decade if decade else ('Same as listening year' if release_scope == 'same' else ('Previous year (' ~ (year|int - 1) ~ ')' if release_scope == 'previous' else 'All releases'))) }}</span>
         <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
-        <span class="text-[var(--color-base-content)]">≥{{ min_plays|default(10) }} plays</span>
+        <span class="font-mono text-[var(--color-base-content)]">≥{{ min_plays|default(10) }} plays</span>
         <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
-        <span class="text-[var(--color-base-content)]">≥{{ min_tracks|default(3) }} unique tracks</span>
+        <span class="font-mono text-[var(--color-base-content)]">≥{{ min_tracks|default(3) }} unique tracks</span>
     </div>
 
     {% if not album_list %}
@@ -142,7 +139,7 @@
                     </thead>
                     <tbody class="divide-y divide-[var(--ss-border-default)]">
                         {% for album in album_list %}
-                        <tr class="hover:bg-[var(--ss-surface-sunken)]/50 transition-colors"
+                        <tr class="hover:bg-[var(--ss-surface-sunken)] transition-colors"
                             data-rank="{{ loop.index }}"
                             data-album="{{ album.album }}"
                             data-artist="{{ album.artist }}"

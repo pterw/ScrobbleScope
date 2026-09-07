@@ -17,7 +17,13 @@
      the album headline. Measured Chromium and Firefox, 2026-09-04, with
      proportional hero gutters and the configured Adobe Fonts loaded. */
   --index-scale-min: 0.70;
-  --index-scale-cap: 2.15;
+  /* Composition ceiling. 2.15 tracks the window exactly to 4K; beyond
+     1440p the hero lockup dominated the page and the right-hanging void
+     grew faster than any content (owner ruling 2026-09-07: cap harder).
+     1.75 lands the lockup near its 1440p size at 4K instead of 2.15x.
+     Revisit with the macro/micro whitespace audit if the page ever
+     gains a fourth column. */
+  --index-scale-cap: 1.75;
   --index-fade-duration: 180ms;
 }
 
@@ -364,13 +370,19 @@ html {
 /* Card                                                                */
 /* ------------------------------------------------------------------ */
 /* Border-defined, never shadow-defined. Cards in this system are an edge on
-   a warm surface, with no drop shadow at all. */
+   a warm surface, with no drop shadow at all.
+
+   The index card is the standout surface: pure white in light while every
+   other card in the app carries the slightly warm --ss-surface-card
+   (owner ruling 2026-09-07). It reads the companion token rather than the
+   shared one, and dark keeps the ordinary card tone. The hint popover
+   floats over this card, so it matches. */
 .ss-card {
   display: block;
   padding: calc(1.125rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-lg);
-  background-color: var(--ss-surface-card);
+  background-color: var(--ss-surface-card-standout);
   box-shadow: none;
 }
 
@@ -563,7 +575,7 @@ html {
   padding: calc(0.5rem * var(--index-scale, 1)) calc(0.625rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
-  background-color: var(--ss-surface-card);
+  background-color: var(--ss-surface-card-standout);
   box-shadow: var(--ss-shadow-float);
   color: var(--ss-text-body);
   font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));

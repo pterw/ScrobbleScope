@@ -23,7 +23,7 @@ The owner-approved overrides currently recorded are:
 | Point | README says | This repo does | Why |
 | --- | --- | --- | --- |
 | Theme marker | `.dark` class on `<html>` | `data-theme="dark"` on `<html>` | Section 5, below |
-| Wide index composition | `1.1fr 1fr`, form capped at 380px | Current source declares `3fr 4fr`; hero and form use `1.075` times the width ratio, limited by the fixed window and capped at `2.15`. The owner-refined form base cap is `27.5rem`. Explicit CSS dimensions own scaling; `static/css/index.css` owns the natural-height reference and lower bounds. The complete form composition centres vertically in its desktop well when it fits. Reachable expanded states keep that window-derived scale, return to the well's top padding when needed, and add document height. | The active remediation plan is the acceptance source. Both engines run realistic window profiles; the old 1080px denominator and later state-dependent denominator were defects. Task 3 also raised `--shell-border` alpha for 3:1 divider contrast and applied the ruled header clamps. The later cap and centring refinement follows owner comparison at realistic 1080p and 1440p content boxes. |
+| Wide index composition | `1.1fr 1fr`, form capped at 380px | Current source declares `3fr 4fr`; hero and form use `1.075` times the width ratio, limited by the fixed window and capped at `1.75`. The owner-refined form base cap is `27.5rem`. Explicit CSS dimensions own scaling; `static/css/index.css` owns the natural-height reference and lower bounds. The complete form composition centres vertically in its desktop well when it fits. Reachable expanded states keep that window-derived scale, return to the well's top padding when needed, and add document height. | The active remediation plan is the acceptance source. Both engines run realistic window profiles; the old 1080px denominator and later state-dependent denominator were defects. Task 3 also raised `--shell-border` alpha for 3:1 divider contrast and applied the ruled header clamps. The later cap and centring refinement follows owner comparison at realistic 1080p and 1440p content boxes. |
 | Small label size | 11.5px | 12px | Owner review readability floor; touch and mobile sizing remain unchanged |
 | Light muted text | `#6f6a7a` | `#6c6676` | Keeps small muted copy at 4.5:1 or better on every shipped light surface |
 | Lockup viewBox | `0 0 453 69` | `0 0 453 74` | Section 10, below |
@@ -385,3 +385,23 @@ rewrites -- WP-4, WP-5, WP-7 -- so converting them now would churn a file
 about to be replaced, for pages whose type is not rem yet either. Convert
 each one with the rewrite that owns it. `error.css` keeps px in the rules
 WP-2 wrote; only its touch-target rule moved, with the rule that changed it.
+
+
+---
+
+## 12. Card surface trial, reversal, and split, 2026-09-07
+
+A paper-cream card (#f7f3ea) was trialled during Batch 21 -- halfway
+between the old near-white (#fcfbf8) and the sunken tone (#f0ebe0) --
+after the owner read the card as harsh white against the warm page. Seen
+rendered, the owner reversed the ruling the same day: #f7f3ea was too
+warm and "felt a bit cold" was the verdict on pure #fcfbf8. The settled
+ruling is a split. General cards carry the slightly warm #f9f7f1 (the
+midpoint of #fcfbf8 and #f7f3ea) in --ss-surface-card, mirrored in the
+Bootstrap-era values in static/css/global.css. The index card alone is
+pure white as a standout: .ss-card and .hint__body in
+static/css/index.css read --ss-surface-card-standout, #ffffff in light
+and #181520 in dark (dark has no standout to make). The imported
+--ss-card: #ffffff is unchanged in the snapshot. Recorded so the trial
+is not silently re-proposed; treat the white index card and the warm
+general card as settled unless the owner reopens them.
