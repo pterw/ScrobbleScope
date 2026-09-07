@@ -716,56 +716,48 @@ non-current operational logs. Older dated entries live in
   sweep could have the gate read the value, but no further work is
   scheduled now.
 
-### 2026-09-07 - Fix the three CI Quality Gate failures left by the Task-3/4 merge (side-task)
+### 2026-09-07 - CI action bumps and ruff lint/format migration (side-task)
 
-- Scope: diagnosed and fixed the three assertion families failing the
-  `quality-gate` run on PR #227 (form centring, theme-toggle height, mobile
-  body offset), all of them inherited from the `ebc5145` merge that took
-  `test`'s pre-remediation CSS while keeping main's post-remediation gate.
-- Plan vs implementation: as planned, after measurement overruled the
-  owner's initial 0.5rem-shift hypothesis. The gate reported a constant
-  80.0px top/bottom gutter imbalance at every window size, which is
-  2 x 40px: the stale `top: -2.5rem` nudge (introduced in `f0acf4d`)
-  fighting the `margin-block: auto` centre. Deleting the nudge shifts the
-  form down 2.5rem, not 0.5rem, and lets the auto margins centre it -- the
-  direction the owner pointed at, with the magnitude measurement dictates.
+- Scope: cleared the Node.js 20 deprecation warning on the Quality Gate
+  (the run on `d41db1f` flagged checkout/cache/setup-python/upload-artifact
+  as forced onto Node 24) and modernized the Python toolchain by replacing
+  black + isort + autoflake + flake8 with ruff, per owner request.
+- Plan vs implementation: no plan -- owner-directed side-task. Action
+  versions were fetched from each repo's latest release, not guessed:
+  checkout v4 -> v7, setup-python v5 -> v7, cache v4 -> v6,
+  upload-artifact v4 -> v7. Ruff pinned to 0.16.6 (latest at adoption),
+  wired through `astral-sh/ruff-pre-commit` v0.16.6 with `ruff-check
+  --fix` and `ruff-format` hooks.
 - Implementation:
-  - `static/css/index.css`: removed the `position: relative; top: -2.5rem`
-    nudge from the desktop `.index-form__inner` rule; `margin-block: auto`
-    now does the centring alone. The nudge contradicted the F-B21-44
-    "vertically centre the desktop form composition" owner refinement it
-    sat next to -- it predates the flex-centring rule and was superseded,
-    not removed, when that rule landed on main.
-  - `static/css/shell.css`: reverted the theme-toggle padding from
-    `0.25rem` (introduced in `14215d6`) to the ruled `0.2rem`, restoring
-    the 8.4px chrome the gate's toggle-height curve adds to the
-    theme-choice clamp (46.0 -> 44.4px at 1080p; 50.0 -> 48.4px at 1440p).
-    Added a comment pinning the coupling so the next padding tweak does
-    not silently break the gate.
-  - `scripts/dev/frontend_gate.py`: the `bodyPaddingTop == headerHeight`
-    mobile check encoded the fixed-header design that main's CSS still
-    has; the merged redesign moved the header in-flow (`position:
-    relative`) and dropped body padding, so the equality was false by
-    construction. Replaced it with the invariant that design actually
-    promises -- the first content pixel sits at or below the header's
-    bottom edge -- measured as `contentTop >= headerBottom - 0.5`.
-    Extracted the whole mobile-header assertion set into
-    `_mobile_header_failures(width, header)` so each invariant has a
-    unit-level seam, per the AGENTS.md helper-testing rules.
-  - `static/css/tailwind.css`: rebuilt via `scripts/dev/tailwind_build.py`.
-  - `tests/scripts/dev/test_frontend_gate.py`: added 7 unit tests for
-    `_mobile_header_failures`, one per invariant, each with boundary
-    cases (43.9 vs 44.0, 799.0 vs 799.6, 75.0 vs 75.6). Mutation-verified:
-    all 6 guard-block removals are killed by the suite (no vacuous tests).
-- Deviations: no clean uninterrupted `frontend_gate.py` run was achieved
-  locally -- run 2 failed on a firefox theme-click timeout, run 3 on a
-  pipeline state-machine timeout, run 4 on a port collision, and run 5
-  was interrupted mid-flight. Runs 2-4 each failed on exactly one flaky
-  timeout with the three CI families gone, but a single fully green run
-  is still owed to the gate; CI's Linux runner provides the authoritative
-  verdict for this push.
-- Validation: `pytest -q` -- **932 passed**, 5 warnings (was 925; +7
-  helper unit tests). `python scripts/doc_state_sync.py --check` exits 0
-  (expected root BATCH warning). `pre-commit run --all-files` -- all 12
-  hooks pass, including `tailwind-css-drift` on the rebuilt stylesheet.
+  - `.github/workflows/test.yml`: the four action bumps. No other step
+    changed.
+  - `pyproject.toml`: `[tool.ruff]` config replaces `[tool.isort]`.
+    select = E,W,F,I,UP,B (pycodestyle, pyflakes, isort, pyupgrade,
+    bugbear). Ignored: E203/E501 (black-compatible formatter artifacts
+    flake8's default ignores already excluded) and E741 (same default
+    ignore set). E402 exempted per-file for `app.py` only -- it must call
+    `load_dotenv()` before imports that read env at import time. The
+    pre-commit exclude list is mirrored in `extend-exclude` (plus
+    `scratch/`, untracked).
+  - `.pre-commit-config.yaml`: four tool repos replaced by one ruff repo.
+  - `requirements-dev.txt`: `flake8==7.3.0` -> `ruff==0.16.6`.
+  - Code fixes ruff surfaced (all real, none cosmetic-only): B904
+    exception chaining in `dev_start.py` (3) and `docsync/declarations.py`
+    (3); B023 loop-variable binding in two `frontend_gate.py` route
+    lambdas; B007 unused loop variables renamed in `orchestrator.py` and
+    `docsync/declarations.py`; B905 `zip(strict=True)` in
+    `docsync/logic.py` and `test_template_shell.py`; E402 mid-file import
+    moved to the top of `test_routes.py`; plus 66 safe autofixes (unused
+    imports, import sorting, pyupgrade rewrites) and 9 files reformatted
+    by ruff-format (black-equivalent; the visible deltas are implicit
+    string-concat joins and assert-message placement).
+  - Docs: README (Code Quality row, structure comments), CONTRIBUTING
+    (code-style section), SESSION_CONTEXT pre-commit line.
+- Deviations: none. No tolerance, test, or behaviour changed; the 938
+  count is unchanged because ruff's fixes touch no tested path.
+- Validation: `ruff check .` -- all checks passed. `ruff format --check`
+  -- clean. `pytest -q` -- **938 passed**, 5 warnings. All pre-commit
+  hooks pass (ruff check, ruff format, and the 8 surviving hooks).
+  `doc_state_sync.py --check` exits 0 (expected root BATCH warning).
 - Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+  The Quality Gate run on this push should show no Node 20 warning.

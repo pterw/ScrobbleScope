@@ -57,7 +57,7 @@ For development, you might want to set `DEBUG_MODE="1"` in your `.env` file for 
 
 ## Code Style (Python)
 
-Please try to follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) guidelines for Python code. Most modern Python linters (like Flake8) can help check for this.
+Please try to follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) guidelines for Python code. The repository enforces style with [ruff](https://docs.astral.sh/ruff/) (lint + format) via pre-commit; run `pre-commit run --all-files` before pushing.
 
 ## CONDUCT Code of Conduct
 

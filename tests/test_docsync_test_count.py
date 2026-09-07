@@ -28,8 +28,7 @@ def _playbook(side_entries: str = "") -> list[str]:
 
 
 NEWEST_SIDE_ENTRY = (
-    "### 2026-08-05 - Later side task\n\n"
-    "- Validation: `pytest -q` -- **521 passed**.\n"
+    "### 2026-08-05 - Later side task\n\n- Validation: `pytest -q` -- **521 passed**.\n"
 )
 
 

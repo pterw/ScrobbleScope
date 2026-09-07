@@ -3,6 +3,8 @@ import json
 import re
 from unittest.mock import patch
 
+import pytest
+
 from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
     JOBS,
@@ -1396,9 +1398,6 @@ def test_group_unmatched_by_reason_uses_fallback_for_missing_reason_key():
 
 
 # --- _get_filter_description branch tests ---
-
-
-import pytest
 
 
 @pytest.mark.parametrize(

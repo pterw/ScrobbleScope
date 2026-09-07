@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import sys
-import threading
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -236,9 +235,7 @@ async def _run_spotify_search_phase(
         set_job_progress(
             job_id,
             progress=pct,
-            message=(
-                f"Searching Spotify: {searches_done}/" f"{total_searches} albums..."
-            ),
+            message=(f"Searching Spotify: {searches_done}/{total_searches} albums..."),
             phase={
                 "key": "spotify_search",
                 "label": "Searching Spotify",
@@ -425,10 +422,11 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     new_metadata_rows = []
     async with create_optimized_session() as session:
         search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
-        spotify_id_to_key, spotify_id_to_original_data = (
-            await _run_spotify_search_phase(
-                job_id, session, cache_misses, token, search_semaphore
-            )
+        (
+            spotify_id_to_key,
+            spotify_id_to_original_data,
+        ) = await _run_spotify_search_phase(
+            job_id, session, cache_misses, token, search_semaphore
         )
         valid_spotify_ids = list(spotify_id_to_original_data.keys())
         if valid_spotify_ids:
@@ -458,7 +456,7 @@ def _build_results(
     fetch pipeline.
     """
     results = []
-    for key, entry in cache_hits.items():
+    for _key, entry in cache_hits.items():
         cached = entry["cached"]
         original_data = entry["original"]
 
@@ -607,8 +605,7 @@ async def process_albums(
                 await _batch_persist_metadata(conn, new_metadata_rows)
                 set_job_stat(job_id, "db_cache_persisted", len(new_metadata_rows))
                 logging.info(
-                    f"Persisted {len(new_metadata_rows)} new metadata "
-                    f"rows to DB cache"
+                    f"Persisted {len(new_metadata_rows)} new metadata rows to DB cache"
                 )
             except Exception as exc:
                 logging.warning(f"DB persist failed (non-fatal): {exc}")

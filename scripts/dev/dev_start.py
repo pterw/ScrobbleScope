@@ -83,16 +83,16 @@ def check_container_status(container_name: str) -> str | None:
             # docker inspect is normally instant (<100ms); 10s is generous.
             timeout=10,
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
         raise RuntimeError(
             f"docker inspect timed out after 10 seconds while checking "
             f"container '{container_name}'. Is the Docker daemon healthy?"
-        )
-    except FileNotFoundError:
+        ) from exc
+    except FileNotFoundError as exc:
         raise RuntimeError(
             "docker executable not found on PATH. "
             "Install Docker Desktop and ensure it is running."
-        )
+        ) from exc
 
     if result.returncode != 0:
         stderr_lower = (result.stderr or "").lower()
@@ -118,8 +118,7 @@ def check_container_status(container_name: str) -> str | None:
         # Any other unexpected docker error.
         details = (result.stderr or result.stdout or "").strip()
         raise RuntimeError(
-            f"Unexpected error while inspecting container "
-            f"'{container_name}': {details}"
+            f"Unexpected error while inspecting container '{container_name}': {details}"
         )
 
     return result.stdout.strip()
@@ -151,14 +150,14 @@ def start_container(container_name: str) -> None:
             # docker start typically completes in 1-3s; 30s covers slow disks.
             timeout=30,
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as exc:
         raise RuntimeError(
             f"docker start timed out after 30 seconds for container "
             f"'{container_name}'. The Docker daemon may be unhealthy."
-        )
+        ) from exc
     if result.returncode != 0:
         raise RuntimeError(
-            f"Failed to start container '{container_name}': " f"{result.stderr.strip()}"
+            f"Failed to start container '{container_name}': {result.stderr.strip()}"
         )
 
 

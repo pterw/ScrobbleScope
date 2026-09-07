@@ -1,5 +1,5 @@
 -r requirements.txt
-flake8==7.3.0
+ruff==0.16.6
 pre-commit==4.5.1
 playwright==1.62.0
 pytest==9.0.2

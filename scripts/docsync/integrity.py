@@ -16,7 +16,6 @@ from docsync.parser import (
     SECTION_3_RE,
     SECTION_4_RE,
     TEST_COUNT_RE,
-    _extract_entry_batch,
     _find_marker_pair,
     _find_section,
     _parse_active_batch_state,

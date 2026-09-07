@@ -592,8 +592,7 @@ def check_theme_tokens(page, base_url: str) -> list[str]:
         for theme in ("light", "dark"):
             page.goto(f"{base_url}{path}", wait_until="load")
             page.evaluate(
-                "(theme) => document.documentElement"
-                ".setAttribute('data-theme', theme)",
+                "(theme) => document.documentElement.setAttribute('data-theme', theme)",
                 theme,
             )
             bars = _computed_colour(page, "var(--bars-color)")
@@ -752,8 +751,7 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
             toggled = page.evaluate("() => document.documentElement.dataset.theme")
             if toggled == before:
                 failures.append(
-                    f"{path}: toggling did not change data-theme "
-                    f"(stayed {before!r})"
+                    f"{path}: toggling did not change data-theme (stayed {before!r})"
                 )
                 continue
 
@@ -804,8 +802,7 @@ def check_touch_targets(page, base_url: str) -> list[str]:
                 _reach_state(page, actions)
             except Exception as exc:  # noqa: BLE001 - unreachable is a failure
                 failures.append(
-                    f"{path}: could not reach the {state!r} state: "
-                    f"{type(exc).__name__}"
+                    f"{path}: could not reach the {state!r} state: {type(exc).__name__}"
                 )
                 continue
             failures.extend(_small_targets(page, path, state))
@@ -1346,7 +1343,10 @@ def check_stale_validator_failure_is_discarded(page, base_url: str) -> list[str]
     for path, selector, actions in fields:
         pending = []
         handled = []
-        page.route("**/validate_user*", lambda route: pending.append(route))
+        page.route(
+            "**/validate_user*",
+            lambda route, pending=pending: pending.append(route),
+        )
         try:
             page.goto(f"{base_url}{path}", wait_until="load")
             _reach_state(page, actions)
@@ -1405,7 +1405,10 @@ def check_current_validator_failure_replaces_old_verdict(
     for path, selector, actions in fields:
         pending = []
         handled = []
-        page.route("**/validate_user*", lambda route: pending.append(route))
+        page.route(
+            "**/validate_user*",
+            lambda route, pending=pending: pending.append(route),
+        )
         try:
             page.goto(f"{base_url}{path}", wait_until="load")
             _reach_state(page, actions)

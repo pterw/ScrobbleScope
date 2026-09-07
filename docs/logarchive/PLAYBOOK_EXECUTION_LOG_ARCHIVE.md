@@ -9,6 +9,60 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-07 - Fix the three CI Quality Gate failures left by the Task-3/4 merge (side-task)
+
+- Scope: diagnosed and fixed the three assertion families failing the
+  `quality-gate` run on PR #227 (form centring, theme-toggle height, mobile
+  body offset), all of them inherited from the `ebc5145` merge that took
+  `test`'s pre-remediation CSS while keeping main's post-remediation gate.
+- Plan vs implementation: as planned, after measurement overruled the
+  owner's initial 0.5rem-shift hypothesis. The gate reported a constant
+  80.0px top/bottom gutter imbalance at every window size, which is
+  2 x 40px: the stale `top: -2.5rem` nudge (introduced in `f0acf4d`)
+  fighting the `margin-block: auto` centre. Deleting the nudge shifts the
+  form down 2.5rem, not 0.5rem, and lets the auto margins centre it -- the
+  direction the owner pointed at, with the magnitude measurement dictates.
+- Implementation:
+  - `static/css/index.css`: removed the `position: relative; top: -2.5rem`
+    nudge from the desktop `.index-form__inner` rule; `margin-block: auto`
+    now does the centring alone. The nudge contradicted the F-B21-44
+    "vertically centre the desktop form composition" owner refinement it
+    sat next to -- it predates the flex-centring rule and was superseded,
+    not removed, when that rule landed on main.
+  - `static/css/shell.css`: reverted the theme-toggle padding from
+    `0.25rem` (introduced in `14215d6`) to the ruled `0.2rem`, restoring
+    the 8.4px chrome the gate's toggle-height curve adds to the
+    theme-choice clamp (46.0 -> 44.4px at 1080p; 50.0 -> 48.4px at 1440p).
+    Added a comment pinning the coupling so the next padding tweak does
+    not silently break the gate.
+  - `scripts/dev/frontend_gate.py`: the `bodyPaddingTop == headerHeight`
+    mobile check encoded the fixed-header design that main's CSS still
+    has; the merged redesign moved the header in-flow (`position:
+    relative`) and dropped body padding, so the equality was false by
+    construction. Replaced it with the invariant that design actually
+    promises -- the first content pixel sits at or below the header's
+    bottom edge -- measured as `contentTop >= headerBottom - 0.5`.
+    Extracted the whole mobile-header assertion set into
+    `_mobile_header_failures(width, header)` so each invariant has a
+    unit-level seam, per the AGENTS.md helper-testing rules.
+  - `static/css/tailwind.css`: rebuilt via `scripts/dev/tailwind_build.py`.
+  - `tests/scripts/dev/test_frontend_gate.py`: added 7 unit tests for
+    `_mobile_header_failures`, one per invariant, each with boundary
+    cases (43.9 vs 44.0, 799.0 vs 799.6, 75.0 vs 75.6). Mutation-verified:
+    all 6 guard-block removals are killed by the suite (no vacuous tests).
+- Deviations: no clean uninterrupted `frontend_gate.py` run was achieved
+  locally -- run 2 failed on a firefox theme-click timeout, run 3 on a
+  pipeline state-machine timeout, run 4 on a port collision, and run 5
+  was interrupted mid-flight. Runs 2-4 each failed on exactly one flaky
+  timeout with the three CI families gone, but a single fully green run
+  is still owed to the gate; CI's Linux runner provides the authoritative
+  verdict for this push.
+- Validation: `pytest -q` -- **932 passed**, 5 warnings (was 925; +7
+  helper unit tests). `python scripts/doc_state_sync.py --check` exits 0
+  (expected root BATCH warning). `pre-commit run --all-files` -- all 12
+  hooks pass, including `tailwind-css-drift` on the rebuilt stylesheet.
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+
 ### 2026-09-06 - Rotate five Artist Spotlight candidates from the aggregate top ten (side-task)
 
 - Scope: corrected the Results Artist Spotlight contract without changing

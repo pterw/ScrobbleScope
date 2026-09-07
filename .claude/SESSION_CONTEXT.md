@@ -201,7 +201,7 @@ developer tooling and `tests/services/` the Last.fm and Spotify paths.
 ## 7. Environment notes
 
 - Python 3.13.3, Windows 11, venv.
-- Pre-commit: black, isort, autoflake, flake8, trailing whitespace, end-of-file, check yaml, check-merge-conflict, detect-private-key, doc-state-sync-check, tailwind-css-drift.
+- Pre-commit: ruff check + ruff format, trailing whitespace, end-of-file, check yaml, check-merge-conflict, detect-private-key, doc-state-sync-check, tailwind-css-drift.
 - pytest in `pyproject.toml` sets only `pythonpath = "."`; no `asyncio_mode` key is
   configured anywhere, so pytest-asyncio's own default applies.
 - API keys in `.env` (git-ignored); template: `.env.example`.

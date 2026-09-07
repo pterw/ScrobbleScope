@@ -18,9 +18,8 @@ import logging
 import sys
 import time
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from datetime import time as dt_time
-from datetime import timedelta, timezone
 
 from scrobblescope.lastfm import fetch_all_recent_tracks_async
 from scrobblescope.repositories import (

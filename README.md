@@ -84,7 +84,7 @@ This project was initially built to identify top albums released in a specific y
 | Testing | pytest (633 tests across 37 files), 89% coverage |
 | CI/CD | GitHub Actions Quality Gate (pinned Tailwind rebuild, pre-commit, pytest + coverage gate, pip-audit) |
 | Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
-| Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
+| Code Quality | pre-commit (ruff check + ruff format, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
 
 ## Architecture
 
@@ -350,7 +350,7 @@ owns the sole build and watch procedure.
 |-- Dockerfile                     # Fly resolves this by co-location; see DEPLOY.md
 |-- requirements.txt               # Runtime dependencies
 |-- requirements-dev.txt           # Dev/test/tooling (includes requirements.txt)
-|-- pyproject.toml                 # Tool config (isort, pytest, pyright)
+|-- pyproject.toml                 # Tool config (ruff, pytest, pyright)
 |                                  # -- agent orchestration / docs --
 |-- AGENTS.md                      # AI agent bootstrap and contribution rules
 |-- PLAYBOOK.md                    # Active handoff playbook (work order + log)
@@ -486,7 +486,7 @@ owns the sole build and watch procedure.
 |   |-- copilot-instructions.md    # Pointer to the instructions/ pack
 |   |-- instructions/              # Agent-facing authoring instructions
 |   `-- workflows/
-|       `-- test.yml               # CI: pre-commit + flake8 + pytest/coverage
+|       `-- test.yml               # CI: pre-commit (ruff) + pytest/coverage
 |-- CONTRIBUTING.md
 |-- CODE_OF_CONDUCT.md
 |-- LICENSE

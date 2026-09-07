@@ -11,10 +11,9 @@ Covers:
 - no_scrobbles_in_range error code existence.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from datetime import time as dt_time
-from datetime import timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 

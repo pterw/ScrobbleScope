@@ -225,7 +225,7 @@ class _StubResponse:
     def read(self, size: int) -> bytes:
         return self._reader(size)
 
-    def __enter__(self) -> "_StubResponse":
+    def __enter__(self) -> _StubResponse:
         return self
 
     def __exit__(self, *_exc_info: object) -> bool:

@@ -1,6 +1,65 @@
-# In pyproject.toml
-[tool.isort]
-profile = "black"
+# Ruff configuration. One tool replaces black + isort + autoflake + flake8:
+# same enforcement surface, one binary, one config block. Each section
+# records which predecessor rule it preserves so the mapping is auditable.
+[tool.ruff]
+line-length = 88
+# Mirrors the pre-commit top-level exclude: generated, vendored and
+# non-Python trees never contained lintable code, so ruff must not discover
+# any either.
+extend-exclude = [
+    "venv",
+    ".venv",
+    "env",
+    ".env",
+    "node_modules",
+    "dist",
+    "build",
+    ".vscode",
+    "docs",
+    "logs",
+    "oldlogs",
+    "static",
+    "templates",
+    "scratch",
+]
+
+[tool.ruff.lint]
+# E/W: pycodestyle subset flake8 enforced. F: pyflakes -- the unused imports
+# and variables autoflake removed, now reported instead of silently fixed.
+# I: isort. UP: pyupgrade -- the modernizing half, flags syntax that predates
+# the supported Python. B: flake8-bugbear, real-bug patterns flake8 missed.
+select = ["E", "W", "F", "I", "UP", "B"]
+
+# Semantics preserved from the replaced tools. E203 (whitespace before ':')
+# and E501 (line length) are produced by the black-compatible formatter by
+# design, and flake8's default ignore set already excluded them; E741 was in
+# that same default ignore set. Keeping them ignored here preserves the
+# previous behaviour rather than inventing new failures.
+#
+# E402 is exempted per-file, not globally: app.py must call load_dotenv()
+# before importing anything that reads environment variables at import time,
+# so its imports legitimately sit below executable code. Every other module
+# keeps the rule.
+ignore = ["E203", "E501", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+# Equivalent of the removed [tool.isort] profile = "black".
+known-first-party = ["scrobblescope", "scripts", "tests"]
+
+[tool.ruff.lint.pyupgrade]
+# The runtime floor is Python 3.13, so pyupgrade may suggest current syntax.
+keep-runtime-typing = false
+
+[tool.ruff.format]
+# black-equivalent formatter: same 88 columns, double quotes, and
+# magic-trailing-comma behaviour that drove black's formatting here.
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 [tool.pytest.ini_options]
 pythonpath = "."
