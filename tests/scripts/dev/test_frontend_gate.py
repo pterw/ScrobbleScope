@@ -279,8 +279,8 @@ def test_a_raising_check_is_reported_and_the_run_continues() -> None:
     with patch(
         "scripts.dev.frontend_gate.CHECKS",
         (
-            ("exploding", _explodes, (frontend_gate.DESKTOP,)),
-            ("later", _reports, (frontend_gate.DESKTOP,)),
+            ("exploding", _explodes, (frontend_gate.DESKTOP,), "g1"),
+            ("later", _reports, (frontend_gate.DESKTOP,), "g1"),
         ),
     ):
         failures = run_checks(
@@ -308,8 +308,13 @@ def test_a_check_runs_once_per_profile_it_claims() -> None:
     with patch(
         "scripts.dev.frontend_gate.CHECKS",
         (
-            ("both", _record, (frontend_gate.DESKTOP, frontend_gate.MOBILE)),
-            ("touch only", _record, (frontend_gate.TOUCH_WIDE,)),
+            (
+                "both",
+                _record,
+                (frontend_gate.DESKTOP, frontend_gate.MOBILE),
+                "g1",
+            ),
+            ("touch only", _record, (frontend_gate.TOUCH_WIDE,), "g1"),
         ),
     ):
         failures = run_checks(
@@ -347,12 +352,19 @@ def test_a_profile_that_cannot_be_opened_is_reported_not_raised() -> None:
 
     with patch(
         "scripts.dev.frontend_gate.CHECKS",
-        (("later", _reports, (frontend_gate.DESKTOP, frontend_gate.MOBILE)),),
+        (
+            (
+                "later",
+                _reports,
+                (frontend_gate.DESKTOP, frontend_gate.MOBILE),
+                "g1",
+            ),
+        ),
     ):
         failures = run_checks(new_page=_new_page, base_url="http://127.0.0.1:0")
 
     assert failures == [
-        "the desktop profile could not be opened: RuntimeError: no context",
+        "g1 [desktop]: context could not be opened: RuntimeError: no context",
         "later [mobile]: a real finding",
     ]
 
@@ -749,8 +761,14 @@ def test_main_isolates_lifecycle_faults_and_reports_complete_success(fault, caps
     else:
         assert "chromium, firefox" in output.out
         assert f"in {frontend_gate.PLANNED_RUNS} runs" in output.out
-        assert frontend_gate.PLANNED_RUNS == 2 * sum(
-            len(profiles) for _, _, profiles in frontend_gate.CHECKS
+        assert frontend_gate.PLANNED_RUNS == sum(
+            sum(
+                1
+                for entry in frontend_gate.CHECKS
+                if profile in entry[2] and entry[3] in frontend_gate.groups_for(browser)
+            )
+            for browser in frontend_gate.BROWSER_NAMES
+            for profile in frontend_gate.VIEWPORTS
         )
 
 
@@ -902,3 +920,42 @@ def test_install_cdn_routes_respects_live_fonts_flag() -> None:
     page = MagicMock()
     frontend_gate.install_cdn_routes(page, live_fonts=True)
     page.route.assert_not_called()
+
+
+def test_a_stalled_group_gets_a_fresh_page_for_the_next_group() -> None:
+    """A wedged page must not leak into the next group's checks.
+
+    The 2026-09-07 CI run cascaded one navigation timeout through every
+    later check on the same shared page object; one fresh page per group
+    is what bounds that damage to the group that caused it.
+    """
+    pages = []
+
+    def _new_page(spec):
+        page = Mock()
+        pages.append(page)
+        return page
+
+    with patch(
+        "scripts.dev.frontend_gate.CHECKS",
+        (
+            ("first", lambda p, b: [], (frontend_gate.DESKTOP,), "g1"),
+            ("second", lambda p, b: [], (frontend_gate.DESKTOP,), "g2"),
+        ),
+    ):
+        run_checks(new_page=_new_page, base_url="http://127.0.0.1:0")
+
+    assert len(pages) == 2
+    assert pages[0] is not pages[1]
+
+
+def test_firefox_scope_runs_only_the_canary_group() -> None:
+    """Firefox is a canary: it runs the fastest, fixture-served group only.
+
+    The 2026-09-01 remediation plan measured both engines agreeing within
+    0.1px at four window profiles, so a full second pass doubles the stall
+    surface for near-zero signal. Chromium runs every group.
+    """
+    scope = frontend_gate.groups_for("firefox")
+    assert scope == ("static assets & tokens",)
+    assert len(frontend_gate.groups_for("chromium")) == len(frontend_gate.CHECK_GROUPS)

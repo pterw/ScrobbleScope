@@ -3344,7 +3344,20 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
     return failures
 
 
-#: Every check the gate runs, with the viewports each one runs at.
+#: Group names for the check grouping below. A stalled check can leave
+#: its page wedged (a half-loaded stylesheet, a leaked poller); the
+#: 2026-09-07 CI run cascaded one navigation timeout through every later
+#: check on the same page object. Each group therefore runs on a fresh
+#: browser context so the damage ends with the group that caused it.
+STATIC_ASSETS = "static assets & tokens"
+THEME_MOTION = "theme & motion"
+FORMS_VALIDATION = "forms & validation"
+LAYOUT_PIPELINE = "layout & pipeline"
+
+#: Every check the gate runs, with the viewports each one runs at and the
+#: group that owns it. Groups are derived from this tuple -- there is no
+#: second declared copy to fall out of sync (owner ruling: testing the
+#: grouping would be testing a test).
 #:
 #: Width changes nothing for stylesheet links, font downloads or the
 #: validation request state machines, so those use the smallest useful set.
@@ -3352,55 +3365,147 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
 #: targets run on a narrow phone and a wide coarse-pointer device, because
 #: pointer capability rather than window width is the contract.
 CHECKS = (
-    ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,)),
-    ("fonts", check_fonts, (DESKTOP,)),
-    ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE)),
-    ("divider contrast", check_divider_contrast, (DESKTOP,)),
-    ("index design tokens", check_index_design_tokens, (DESKTOP, MOBILE)),
-    ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE)),
-    ("body font", check_body_font, (DESKTOP, MOBILE)),
-    ("shell text scaling", check_shell_scales_with_text, (DESKTOP, MOBILE)),
-    ("loading composition", check_loading_composition, (DESKTOP, MOBILE)),
-    ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
-    ("validation feedback", check_validation_feedback, (DESKTOP,)),
-    ("private profiles", check_private_profile_is_blocked, (DESKTOP,)),
-    ("index entrance motion", check_index_entrance_motion, (DESKTOP,)),
-    ("true warning survives", check_true_warning_survives, (DESKTOP,)),
-    ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
-    ("mark follows theme", check_mark_follows_theme, (DESKTOP,)),
+    ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,), STATIC_ASSETS),
+    ("fonts", check_fonts, (DESKTOP,), STATIC_ASSETS),
+    ("body font", check_body_font, (DESKTOP, MOBILE), STATIC_ASSETS),
+    ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE), STATIC_ASSETS),
+    ("divider contrast", check_divider_contrast, (DESKTOP,), STATIC_ASSETS),
+    (
+        "index design tokens",
+        check_index_design_tokens,
+        (DESKTOP, MOBILE),
+        STATIC_ASSETS,
+    ),
+    ("mark follows theme", check_mark_follows_theme, (DESKTOP,), STATIC_ASSETS),
+    ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE), THEME_MOTION),
+    ("true warning survives", check_true_warning_survives, (DESKTOP,), THEME_MOTION),
     (
         "theme survives blocked storage",
         check_theme_survives_blocked_storage,
         (DESKTOP,),
+        THEME_MOTION,
     ),
-    ("validator race", check_stale_validator_failure_is_discarded, (DESKTOP,)),
+    ("index entrance motion", check_index_entrance_motion, (DESKTOP,), THEME_MOTION),
+    ("validation feedback", check_validation_feedback, (DESKTOP,), FORMS_VALIDATION),
+    (
+        "private profiles",
+        check_private_profile_is_blocked,
+        (DESKTOP,),
+        FORMS_VALIDATION,
+    ),
+    (
+        "validator outage",
+        check_validator_outage_is_recoverable,
+        (DESKTOP,),
+        FORMS_VALIDATION,
+    ),
+    (
+        "validator race",
+        check_stale_validator_failure_is_discarded,
+        (DESKTOP,),
+        FORMS_VALIDATION,
+    ),
     (
         "validator network failure",
         check_current_validator_failure_replaces_old_verdict,
         (DESKTOP,),
+        FORMS_VALIDATION,
     ),
-    ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE)),
+    (
+        "initial visibility",
+        check_initial_visibility,
+        (DESKTOP, MOBILE),
+        FORMS_VALIDATION,
+    ),
+    (
+        "shell text scaling",
+        check_shell_scales_with_text,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "loading composition",
+        check_loading_composition,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE), LAYOUT_PIPELINE),
     (
         "destination empty states",
         check_destination_empty_states,
         (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
     ),
-    ("pipeline state machines", check_pipeline_state_machines, (DESKTOP,)),
-    ("artist spotlight rotation", check_artist_spotlight_rotation, (DESKTOP,)),
-    ("large display scale parity", check_large_display_scale_parity, (DESKTOP,)),
+    (
+        "pipeline state machines",
+        check_pipeline_state_machines,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight rotation",
+        check_artist_spotlight_rotation,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "large display scale parity",
+        check_large_display_scale_parity,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
 )
+
+#: Groups in execution order, derived from CHECKS. dict preserves insertion
+#: order, so the first occurrence of a group fixes its position.
+CHECK_GROUPS: dict[str, tuple[str, ...]] = {}
+for _entry in CHECKS:
+    CHECK_GROUPS.setdefault(_entry[3], [])
+for _group, _members in CHECK_GROUPS.items():
+    CHECK_GROUPS[_group] = tuple(entry[0] for entry in CHECKS if entry[3] == _group)
+CHECK_GROUPS = dict(CHECK_GROUPS)
+
+#: Firefox is a regression canary, not a second acceptance gate: the
+#: 2026-09-01 remediation plan measured both engines agreeing within 0.1px
+#: at four window profiles, so a full second pass doubles the stall surface
+#: for near-zero signal. Group A (STATIC_ASSETS) is the fastest set and the
+#: one the CDN fixtures serve, so it is the canary's scope. Chromium runs
+#: everything (None means all groups).
+BROWSER_SCOPES: dict[str, tuple[str, ...] | None] = {
+    "chromium": None,
+    "firefox": (STATIC_ASSETS,),
+}
+
+
+def groups_for(browser_name: str) -> tuple[str, ...]:
+    """Groups this engine runs, in execution order."""
+    scope = BROWSER_SCOPES.get(browser_name)
+    if scope is None:
+        return tuple(CHECK_GROUPS)
+    return tuple(group for group in CHECK_GROUPS if group in scope)
+
 
 #: How many check runs a clean pass performs. Printed so a check that silently
 #: stops running is visible as a smaller number.
-PLANNED_RUNS = len(BROWSER_NAMES) * sum(len(viewports) for _, _, viewports in CHECKS)
+PLANNED_RUNS = sum(
+    1
+    for _b in BROWSER_NAMES
+    for _e in CHECKS
+    for _v in _e[2]
+    if groups_for(_b) and _e[3] in groups_for(_b)
+)
 
 
-def run_checks(new_page, base_url: str) -> list[str]:
-    """Run every check against every profile it claims, collecting failures.
+def run_checks(
+    new_page, base_url: str, group_order: Sequence[str] | None = None
+) -> list[str]:
+    """Run every check group against every profile it claims, in order.
 
     Takes a factory rather than a page, because a coarse pointer cannot be
     switched on mid-session: touch emulation belongs to a browser context, so
-    each profile needs its own page.
+    each profile needs its own page. Each group opens a fresh page through the
+    factory, so a check that wedges its page (a stalled navigation, a leaked
+    poller) cannot poison the groups that follow it.
 
     A check that raises is reported as a failure and the run continues. A bare
     call would let one TypeError skip every later check and surface as a
@@ -3411,30 +3516,39 @@ def run_checks(new_page, base_url: str) -> list[str]:
     actionable until you know which device produced it.
     """
     failures = []
-    for viewport, spec in VIEWPORTS.items():
-        try:
-            page = new_page(spec)
-            # Impeccable Live is a developer overlay injected into base.html
-            # while visual review is active. Keep the production UI gate
-            # independent from that local instrumentation.
-            page.route("http://localhost:8400/**", lambda route: route.abort())
-        except Exception as exc:  # noqa: BLE001 - same rule as a check fault
-            failures.append(
-                f"the {viewport} profile could not be opened: "
-                f"{type(exc).__name__}: {exc}"
-            )
-            continue
-        for name, check, viewports in CHECKS:
-            if viewport not in viewports:
+    # Derive the order from the live CHECKS, not the import-time
+    # CHECK_GROUPS snapshot: tests substitute CHECKS with their own
+    # entries, and a stale group list would silently run nothing.
+    live_groups: list[str] = []
+    for entry in CHECKS:
+        if entry[3] not in live_groups:
+            live_groups.append(entry[3])
+    for group in group_order or tuple(live_groups):
+        claimed_in_group = [e for e in CHECKS if e[3] == group]
+        for viewport, spec in VIEWPORTS.items():
+            claimed = [e for e in claimed_in_group if viewport in e[2]]
+            if not claimed:
                 continue
             try:
-                results = check(page, base_url)
-            except Exception as exc:  # noqa: BLE001 - any check fault is a failure
+                page = new_page(spec)
+                install_cdn_routes(page)
+            except Exception as exc:  # noqa: BLE001 - same rule as a check fault
                 failures.append(
-                    f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"
+                    f"{group} [{viewport}]: context could not be opened: "
+                    f"{type(exc).__name__}: {exc}"
                 )
                 continue
-            failures.extend(f"{name} [{viewport}]: {failure}" for failure in results)
+            for name, check, _viewports, _group in claimed:
+                try:
+                    results = check(page, base_url)
+                except Exception as exc:  # noqa: BLE001 - any check fault is a failure
+                    failures.append(
+                        f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"
+                    )
+                    continue
+                failures.extend(
+                    f"{name} [{viewport}]: {failure}" for failure in results
+                )
     return failures
 
 
@@ -3445,6 +3559,14 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--headed",
         action="store_true",
         help="show the browser window while the checks run",
+    )
+    parser.add_argument(
+        "--live-fonts",
+        action="store_true",
+        help=(
+            "navigate to the real Typekit and cdnjs origins (local font "
+            "calibration; requires network)"
+        ),
     )
     return parser.parse_args(argv)
 
@@ -3462,12 +3584,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                     browser = _launch_browser(
                         playwright, browser_name, headless=not args.headed
                     )
-                    # One context per profile, all closed with this engine.
+
+                    # One context per group-profile, all closed with this
+                    # engine. The 10s navigation timeout bounds a stalled
+                    # subresource to one failed check instead of a cascade.
+                    def open_page(spec, browser=browser):
+                        context = browser.new_context(
+                            **spec,
+                            default_navigation_timeout=NAVIGATION_TIMEOUT_MS,
+                        )
+                        page = context.new_page()
+                        install_cdn_routes(page, live_fonts=args.live_fonts)
+                        return page
+
                     results = run_checks(
-                        lambda spec, browser=browser: browser.new_context(
-                            **spec
-                        ).new_page(),
+                        open_page,
                         base_url,
+                        group_order=groups_for(browser_name),
                     )
                     failures.extend(f"{browser_name}: {result}" for result in results)
                 except Exception as exc:  # noqa: BLE001 - continue with the next engine
@@ -3493,7 +3626,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(
         f"[frontend_gate] {len(CHECKS)} checks passed in {PLANNED_RUNS} runs "
-        f"across {', '.join(BROWSER_NAMES)}; profiles: {', '.join(VIEWPORTS)}"
+        f"across {', '.join(BROWSER_NAMES)} "
+        f"({BROWSER_SCOPES['firefox'][0]} canary on firefox); "
+        f"profiles: {', '.join(VIEWPORTS)}"
     )
     return 0
 
