@@ -557,7 +557,6 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: proceed to Task 6 (accessibility pass).
 
 ### 2026-09-06 - Results leaderboard rebuild and interactive polish completed (Batch 21 WP-5)
-
 - Scope: migrated `templates/results.html` and `static/js/results.js` to Tailwind CSS v4 and daisyUI, implementing the canonical Results Leaderboard with 2-column layout, sticky side-rail, Top Artist Spotlight with gradient scrim, Instrument Serif play counts, larger artwork, in-flow shell header, and modal removal.
 - Implementation:
   - Replaced legacy Bootstrap container/table markup in `templates/results.html` with responsive Tailwind semantic structure:
@@ -582,6 +581,60 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: proceed to WP-7 (unmatched page + reason_code backend fix).
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-07 - Fix the three CI Quality Gate failures left by the Task-3/4 merge (side-task)
+
+- Scope: diagnosed and fixed the three assertion families failing the
+  `quality-gate` run on PR #227 (form centring, theme-toggle height, mobile
+  body offset), all of them inherited from the `ebc5145` merge that took
+  `test`'s pre-remediation CSS while keeping main's post-remediation gate.
+- Plan vs implementation: as planned, after measurement overruled the
+  owner's initial 0.5rem-shift hypothesis. The gate reported a constant
+  80.0px top/bottom gutter imbalance at every window size, which is
+  2 x 40px: the stale `top: -2.5rem` nudge (introduced in `f0acf4d`)
+  fighting the `margin-block: auto` centre. Deleting the nudge shifts the
+  form down 2.5rem, not 0.5rem, and lets the auto margins centre it -- the
+  direction the owner pointed at, with the magnitude measurement dictates.
+- Implementation:
+  - `static/css/index.css`: removed the `position: relative; top: -2.5rem`
+    nudge from the desktop `.index-form__inner` rule; `margin-block: auto`
+    now does the centring alone. The nudge contradicted the F-B21-44
+    "vertically centre the desktop form composition" owner refinement it
+    sat next to -- it predates the flex-centring rule and was superseded,
+    not removed, when that rule landed on main.
+  - `static/css/shell.css`: reverted the theme-toggle padding from
+    `0.25rem` (introduced in `14215d6`) to the ruled `0.2rem`, restoring
+    the 8.4px chrome the gate's toggle-height curve adds to the
+    theme-choice clamp (46.0 -> 44.4px at 1080p; 50.0 -> 48.4px at 1440p).
+    Added a comment pinning the coupling so the next padding tweak does
+    not silently break the gate.
+  - `scripts/dev/frontend_gate.py`: the `bodyPaddingTop == headerHeight`
+    mobile check encoded the fixed-header design that main's CSS still
+    has; the merged redesign moved the header in-flow (`position:
+    relative`) and dropped body padding, so the equality was false by
+    construction. Replaced it with the invariant that design actually
+    promises -- the first content pixel sits at or below the header's
+    bottom edge -- measured as `contentTop >= headerBottom - 0.5`.
+    Extracted the whole mobile-header assertion set into
+    `_mobile_header_failures(width, header)` so each invariant has a
+    unit-level seam, per the AGENTS.md helper-testing rules.
+  - `static/css/tailwind.css`: rebuilt via `scripts/dev/tailwind_build.py`.
+  - `tests/scripts/dev/test_frontend_gate.py`: added 7 unit tests for
+    `_mobile_header_failures`, one per invariant, each with boundary
+    cases (43.9 vs 44.0, 799.0 vs 799.6, 75.0 vs 75.6). Mutation-verified:
+    all 6 guard-block removals are killed by the suite (no vacuous tests).
+- Deviations: no clean uninterrupted `frontend_gate.py` run was achieved
+  locally -- run 2 failed on a firefox theme-click timeout, run 3 on a
+  pipeline state-machine timeout, run 4 on a port collision, and run 5
+  was interrupted mid-flight. Runs 2-4 each failed on exactly one flaky
+  timeout with the three CI families gone, but a single fully green run
+  is still owed to the gate; CI's Linux runner provides the authoritative
+  verdict for this push.
+- Validation: `pytest -q` -- **932 passed**, 5 warnings (was 925; +7
+  helper unit tests). `python scripts/doc_state_sync.py --check` exits 0
+  (expected root BATCH warning). `pre-commit run --all-files` -- all 12
+  hooks pass, including `tailwind-css-drift` on the rebuilt stylesheet.
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
 
 ### 2026-09-06 - Rotate five Artist Spotlight candidates from the aggregate top ten (side-task)
 
@@ -636,17 +689,3 @@ non-current operational logs. Older dated entries live in
   - Consolidated mobile header navigation in `static/css/shell.css` from a dual-row 2x2 grid (`--shell-height: 6.5rem`) to a unified single-row 4-column stack (`--shell-height: 4.25rem`, `grid-template-columns: repeat(4, minmax(0, 1fr))`). Provenance & design rationale: opting for a one-stack bar rather than dual-row saves ~36px of vertical fold space on compact mobile viewports (320px–390px), avoids visual crowding now that the theme toggle sits below page content (F-B21-45), comfortably fits all 4 short route labels ("Index", "Heatmap", "Results", "Unmatched") at compliant >=44px tap targets, and unifies the shell height floor with desktop (`4.25rem`).
   - Synchronized `scripts/dev/frontend_gate.py` (`check_shell_scales_with_text` and `check_large_display_scale_parity` row count assertion to 1 row), updated design token regression lock in `tests/scripts/dev/test_tailwind_build_cli.py`, and rebuilt `static/css/tailwind.css` cleanly.
 - Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `pre-commit run --all-files` passed cleanly with 0 drift and all hooks green.
-
-### 2026-09-05 - Harden and polish frontend interfaces, align legacy Bootstrap styles, and mute index divider seam (side-task)
-
-- Scope: executed comprehensive frontend hardening (/harden) and polish (/polish) passes across the application, aligned legacy Bootstrap pages (`results.html`, `unmatched.html`) with the Tailwind design system, and muted the index vertical dividing seam.
-- Implementation:
-  - Added `@media (prefers-reduced-motion: reduce)` overrides to `static/css/global.css` for card and SVG entrance animations (`opacity: 1 !important`, `animation: none !important`) and collapsed button transitions (`0.01ms !important`).
-  - Added form submission resilience and double-submit guards to `static/js/index.js` (disabling `#submit-btn` and setting `aria-busy="true"`, with `pageshow` restoration) and `static/js/heatmap.js` (disabling `#heatmap-submit-btn` during active jobs).
-  - Wired accessibility and defensive attributes: added `maxlength="100"` to Last.fm username inputs on both modes, bound `aria-describedby="year-hint"` to `#year`, and dynamically synchronized `role="alert"`, `aria-invalid="true"`, and `aria-describedby` across inline error and warning states in `static/js/index.js`.
-  - Hardened layout against text overflow in `static/css/results.css` (`flex-shrink: 0` on `.album-cover`, `min-width: 0` and `overflow-wrap: break-word` on `.album-title` and `.album-info`), `templates/results.html` (descriptive `alt="{{ album.album }} cover"` on cover art), and `static/css/unmatched.css` (`overflow-wrap: break-word` on table cells).
-  - Reskinned Bootstrap pages in `static/css/global.css`, `static/css/results.css`, and `static/css/unmatched.css`: styled `.btn` variants with mono-narrow typography, uppercase tracking, 0.625rem radius, and brand purple accents (`--shell-accent`); applied Adobe Typekit serif to display headings (`h1`, `h2`); aligned dark palette variables to authentic warm obsidian (`#0e0c12`, `#181520`, `#1f1b29`, `#2a2434`, `#1a1622`).
-  - Polished design system tokens and anti-patterns: eliminated resting drop shadows on `.album-cover`, `.reason-section`, and `.action-buttons` in favor of structural hairline borders; enforced the No-Medium Rule on `.album-link` (`font-weight: 400`); replaced inline style on cover placeholder with `.album-cover-placeholder`; promoted results heading to semantic `<h1>`; aligned `.reason-count` to pill radius and 0.75rem mono label.
-  - Themed browser surfaces: added custom `::selection` background (`--info-bg` / `--ss-accent-soft`) and subtle hairline `scrollbar-color` across stylesheets.
-  - Muted the index vertical dividing seam (`--ss-border-divider`) by ~8% towards adjoining surfaces (`#8a867e` light, `#68646f` dark) while strictly maintaining >= 3.0:1 WCAG non-text contrast against both adjoining surfaces (`check_divider_contrast`); synchronized `static/css/tailwind.src.css`, `static/css/tailwind.css`, `.docsync.toml`, and `tests/test_template_shell.py`.
-- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass. Live browser execution verified in Chromium and Firefox with 0 console errors and clean contrast checks.

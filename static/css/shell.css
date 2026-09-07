@@ -463,7 +463,10 @@ body {
 .site-header__theme-toggle {
     display: inline-flex;
     align-items: center;
-    padding: 0.25rem;
+    /* 0.2rem x2 padding + 1px x2 border = the 8.4px chrome the frontend
+       gate's toggle-height curve adds to the theme-choice clamp. Changing
+       the padding moves the ruled curve and fails the gate. */
+    padding: 0.2rem;
     border: 1px solid var(--ss-border-default, #e5dfd1);
     border-radius: 999px;
     background-color: var(--shell-surface);

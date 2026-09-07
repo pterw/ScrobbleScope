@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-05 - Harden and polish frontend interfaces, align legacy Bootstrap styles, and mute index divider seam (side-task)
+
+- Scope: executed comprehensive frontend hardening (/harden) and polish (/polish) passes across the application, aligned legacy Bootstrap pages (`results.html`, `unmatched.html`) with the Tailwind design system, and muted the index vertical dividing seam.
+- Implementation:
+  - Added `@media (prefers-reduced-motion: reduce)` overrides to `static/css/global.css` for card and SVG entrance animations (`opacity: 1 !important`, `animation: none !important`) and collapsed button transitions (`0.01ms !important`).
+  - Added form submission resilience and double-submit guards to `static/js/index.js` (disabling `#submit-btn` and setting `aria-busy="true"`, with `pageshow` restoration) and `static/js/heatmap.js` (disabling `#heatmap-submit-btn` during active jobs).
+  - Wired accessibility and defensive attributes: added `maxlength="100"` to Last.fm username inputs on both modes, bound `aria-describedby="year-hint"` to `#year`, and dynamically synchronized `role="alert"`, `aria-invalid="true"`, and `aria-describedby` across inline error and warning states in `static/js/index.js`.
+  - Hardened layout against text overflow in `static/css/results.css` (`flex-shrink: 0` on `.album-cover`, `min-width: 0` and `overflow-wrap: break-word` on `.album-title` and `.album-info`), `templates/results.html` (descriptive `alt="{{ album.album }} cover"` on cover art), and `static/css/unmatched.css` (`overflow-wrap: break-word` on table cells).
+  - Reskinned Bootstrap pages in `static/css/global.css`, `static/css/results.css`, and `static/css/unmatched.css`: styled `.btn` variants with mono-narrow typography, uppercase tracking, 0.625rem radius, and brand purple accents (`--shell-accent`); applied Adobe Typekit serif to display headings (`h1`, `h2`); aligned dark palette variables to authentic warm obsidian (`#0e0c12`, `#181520`, `#1f1b29`, `#2a2434`, `#1a1622`).
+  - Polished design system tokens and anti-patterns: eliminated resting drop shadows on `.album-cover`, `.reason-section`, and `.action-buttons` in favor of structural hairline borders; enforced the No-Medium Rule on `.album-link` (`font-weight: 400`); replaced inline style on cover placeholder with `.album-cover-placeholder`; promoted results heading to semantic `<h1>`; aligned `.reason-count` to pill radius and 0.75rem mono label.
+  - Themed browser surfaces: added custom `::selection` background (`--info-bg` / `--ss-accent-soft`) and subtle hairline `scrollbar-color` across stylesheets.
+  - Muted the index vertical dividing seam (`--ss-border-divider`) by ~8% towards adjoining surfaces (`#8a867e` light, `#68646f` dark) while strictly maintaining >= 3.0:1 WCAG non-text contrast against both adjoining surfaces (`check_divider_contrast`); synchronized `static/css/tailwind.src.css`, `static/css/tailwind.css`, `.docsync.toml`, and `tests/test_template_shell.py`.
+- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass. Live browser execution verified in Chromium and Firefox with 0 console errors and clean contrast checks.
+
 ### 2026-09-05 - Soften high-res desktop scale slope, standardize unmatched empty state, and polish warm light surface
 
 - Scope: owner review of 1440p desktop render identified excessive vertical growth in the index card composition. Standardized the `/unmatched` empty state to match `/results` and `/heatmap`, unified the light-mode surface on warm `#fcfbf8`, and elevated the semantic heatmap headline.

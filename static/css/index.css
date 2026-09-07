@@ -288,8 +288,6 @@ html {
 @media (min-width: 860px) {
   .index-form__inner {
     margin-block: auto;
-    position: relative;
-    top: -2.5rem;
   }
 }
 

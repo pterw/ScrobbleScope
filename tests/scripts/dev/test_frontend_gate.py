@@ -484,6 +484,105 @@ def test_clamp_px_resolves_floor_preferred_and_ceiling() -> None:
     assert _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20) == pytest.approx(4.25 * 20)
 
 
+def _healthy_mobile_header() -> dict:
+    """A header measurement that satisfies every mobile-header invariant."""
+    return {
+        "scrollWidth": 300,
+        "clientWidth": 390,
+        "linksInside": True,
+        "rows": 1,
+        "actionsInHeader": False,
+        "actionsInMobileSlot": True,
+        "actionsTop": 900.0,
+        "contentBottom": 800.0,
+        "themeHeight": 46.0,
+        "contentTop": 80.0,
+        "headerBottom": 76.0,
+    }
+
+
+def test_mobile_header_failures_accepts_a_compliant_header() -> None:
+    """A header meeting every invariant produces no failures."""
+    assert frontend_gate._mobile_header_failures(390, _healthy_mobile_header()) == []
+
+
+def test_mobile_header_failures_reports_scrolling_navigation() -> None:
+    """Nav content wider than its box, or links outside it, must be reported."""
+    overflowing = _healthy_mobile_header() | {"scrollWidth": 500}
+    assert (
+        "/: mobile navigation requires horizontal scrolling at 390px"
+        in frontend_gate._mobile_header_failures(390, overflowing)
+    )
+    escaped = _healthy_mobile_header() | {"linksInside": False}
+    assert (
+        "/: mobile navigation requires horizontal scrolling at 390px"
+        in frontend_gate._mobile_header_failures(390, escaped)
+    )
+
+
+def test_mobile_header_failures_reports_multi_row_navigation() -> None:
+    """Two distinct link tops mean a wrapped second row."""
+    wrapped = _healthy_mobile_header() | {"rows": 2}
+    assert (
+        "/: mobile navigation uses 2 row(s) at 320px, expected one directly "
+        "visible row" in frontend_gate._mobile_header_failures(320, wrapped)
+    )
+
+
+def test_mobile_header_failures_reports_theme_control_in_the_header() -> None:
+    """The theme control must live in the mobile slot, not the header bar."""
+    in_header = _healthy_mobile_header() | {"actionsInHeader": True}
+    assert (
+        "/: mobile theme control remains in the header at 390px"
+        in frontend_gate._mobile_header_failures(390, in_header)
+    )
+    no_slot = _healthy_mobile_header() | {"actionsInMobileSlot": False}
+    assert (
+        "/: mobile theme control remains in the header at 390px"
+        in frontend_gate._mobile_header_failures(390, no_slot)
+    )
+
+
+def test_mobile_header_failures_reports_theme_control_above_content() -> None:
+    """The control must sit below the page content, within half a pixel."""
+    above = _healthy_mobile_header() | {"actionsTop": 799.0, "contentBottom": 800.0}
+    assert (
+        "/: mobile theme control is not below the page content at 390px"
+        in frontend_gate._mobile_header_failures(390, above)
+    )
+    # Exactly at the boundary is compliant: the tolerance is inclusive.
+    touching = _healthy_mobile_header() | {"actionsTop": 799.6, "contentBottom": 800.0}
+    assert frontend_gate._mobile_header_failures(390, touching) == []
+
+
+def test_mobile_header_failures_reports_sub_touch_minimum_theme_control() -> None:
+    """A control under 44px fails; exactly 44px passes."""
+    small = _healthy_mobile_header() | {"themeHeight": 43.9}
+    assert (
+        "/: mobile theme control is only 43.9px high at 390px, expected at "
+        "least 44px" in frontend_gate._mobile_header_failures(390, small)
+    )
+    exact = _healthy_mobile_header() | {"themeHeight": 44.0}
+    assert frontend_gate._mobile_header_failures(390, exact) == []
+
+
+def test_mobile_header_failures_reports_content_under_the_header() -> None:
+    """Content starting above the header's bottom edge means overlap.
+
+    This is the in-flow-header invariant that replaced the fixed-header
+    bodyPaddingTop == headerHeight equality: with the header in flow,
+    nothing can start underneath it, and the check proves that directly.
+    """
+    overlapped = _healthy_mobile_header() | {"contentTop": 75.0, "headerBottom": 76.0}
+    assert (
+        "/: mobile content starts under the header at 390px"
+        in frontend_gate._mobile_header_failures(390, overlapped)
+    )
+    # Exactly at the header's bottom edge is compliant (0.5px tolerance).
+    touching = _healthy_mobile_header() | {"contentTop": 75.6, "headerBottom": 76.0}
+    assert frontend_gate._mobile_header_failures(390, touching) == []
+
+
 def test_state_dimension_failures_reports_only_material_fixed_viewport_changes() -> (
     None
 ):

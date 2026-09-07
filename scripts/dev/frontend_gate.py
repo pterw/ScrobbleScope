@@ -1978,7 +1978,8 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     const links = [...nav.querySelectorAll('.site-header__nav-link')];
                     return {
                         headerHeight: header.getBoundingClientRect().height,
-                        bodyPaddingTop: parseFloat(getComputedStyle(document.body).paddingTop),
+                        headerBottom: header.getBoundingClientRect().bottom,
+                        contentTop: mainRect.top,
                         clientWidth: nav.clientWidth,
                         scrollWidth: nav.scrollWidth,
                         rows: new Set(links.map(link => Math.round(
@@ -2196,36 +2197,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             )
 
     for width, header in mobile_headers.items():
-        if (
-            header["scrollWidth"] > header["clientWidth"] + 1
-            or not header["linksInside"]
-        ):
-            failures.append(
-                f"/: mobile navigation requires horizontal scrolling at {width}px"
-            )
-        if header["rows"] != 1:
-            failures.append(
-                f"/: mobile navigation uses {header['rows']} row(s) at {width}px, "
-                "expected one directly visible row"
-            )
-        if header["actionsInHeader"] or not header["actionsInMobileSlot"]:
-            failures.append(
-                f"/: mobile theme control remains in the header at {width}px"
-            )
-        if header["actionsTop"] < header["contentBottom"] - 0.5:
-            failures.append(
-                f"/: mobile theme control is not below the page content at {width}px"
-            )
-        if header["themeHeight"] < 44:
-            failures.append(
-                f"/: mobile theme control is only {header['themeHeight']:.1f}px high "
-                f"at {width}px, expected at least 44px"
-            )
-        if abs(header["headerHeight"] - header["bodyPaddingTop"]) > 0.5:
-            failures.append(
-                f"/: mobile body offset does not match its header at {width}px"
-            )
-
+        failures.extend(_mobile_header_failures(width, header))
     # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
     # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
     # clamp(5.75rem, 4.53vw, 7.25rem), theme-choice height
@@ -2326,6 +2298,41 @@ def _touch_minimum_failures(
         for selector, rectangle in rectangles.items()
         if min(rectangle.values()) < 43.9
     ]
+
+
+def _mobile_header_failures(width: int, header: dict) -> list[str]:
+    """Assert the mobile header contract for one viewport width.
+
+    The header is in-flow (position: relative) since the merged redesign, so
+    nothing can start underneath it and body needs no compensating
+    padding-top. The old fixed-header invariant -- bodyPaddingTop ==
+    headerHeight -- encoded that out-of-flow design; the real invariant is
+    that the first content pixel sits at or below the header's bottom edge.
+    """
+    failures = []
+    if header["scrollWidth"] > header["clientWidth"] + 1 or not header["linksInside"]:
+        failures.append(
+            f"/: mobile navigation requires horizontal scrolling at {width}px"
+        )
+    if header["rows"] != 1:
+        failures.append(
+            f"/: mobile navigation uses {header['rows']} row(s) at {width}px, "
+            "expected one directly visible row"
+        )
+    if header["actionsInHeader"] or not header["actionsInMobileSlot"]:
+        failures.append(f"/: mobile theme control remains in the header at {width}px")
+    if header["actionsTop"] < header["contentBottom"] - 0.5:
+        failures.append(
+            f"/: mobile theme control is not below the page content at {width}px"
+        )
+    if header["themeHeight"] < 44:
+        failures.append(
+            f"/: mobile theme control is only {header['themeHeight']:.1f}px high "
+            f"at {width}px, expected at least 44px"
+        )
+    if header["contentTop"] < header["headerBottom"] - 0.5:
+        failures.append(f"/: mobile content starts under the header at {width}px")
+    return failures
 
 
 def _state_dimension_failures(
