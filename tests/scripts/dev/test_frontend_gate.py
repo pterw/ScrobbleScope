@@ -959,3 +959,12 @@ def test_firefox_scope_runs_only_the_canary_group() -> None:
     scope = frontend_gate.groups_for("firefox")
     assert scope == ("static assets & tokens",)
     assert len(frontend_gate.groups_for("chromium")) == len(frontend_gate.CHECK_GROUPS)
+
+
+def test_fail_fast_navigation_timeout_is_configured() -> None:
+    """Contexts get the 10s navigation timeout, not Playwright's 30s default.
+
+    The 30s default turned one stalled subresource into a 30s wait per
+    check; the timeout is what bounds the damage to one failed check.
+    """
+    assert frontend_gate.NAVIGATION_TIMEOUT_MS == 10_000
