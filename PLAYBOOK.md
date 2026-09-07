@@ -582,6 +582,28 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-07 - Clean uninterrupted frontend gate run achieved (side-task)
+
+- Scope: closed the deviation recorded in the two 2026-09-07 entries above
+  -- no clean uninterrupted `frontend_gate.py` run had been achieved
+  locally -- and updated the spec status line for the implemented design.
+- Plan vs implementation: Task 6 Step 3 of
+  `docs/superpowers/plans/2026-09-07-frontend-gate-isolation.md`. One run,
+  qualified venv path, no interference.
+- Result: the run completed all four groups across both engines with 261
+  page loads, zero timeouts, zero errors, and zero font warnings (the kit
+  served live). The only failures were the 7 large-display-scale-parity
+  assertions at 4K (deltas ~1 percent: 770.0 vs 780.4px form width,
+  774.4 vs 781.6px hero height, 77.2 vs 78.2px headline line-height, and
+  related), which are the same failure family the owner already accepted
+  in the gate-isolation entry above. The isolation mechanics work as
+  designed: every check ran and reported; nothing cascaded.
+- Deviations: none beyond the already-recorded 4K parity pair.
+- Validation: `pytest -q` -- **938 passed**, 5 warnings (unchanged; no
+  code changed in this entry). Spec status line updated to record the
+  owner-ruled licensing amendment (Typekit fixture withdrawn).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+
 ### 2026-09-07 - Gate isolation, license-safe CDN routing, paper-cream tokens, and results polish (side-task)
 
 - Scope: made the frontend gate stall-tolerant (grouped checks, fresh
@@ -741,23 +763,3 @@ non-current operational logs. Older dated entries live in
   frontend-gate unit subset passes 36 tests. Python/JavaScript syntax and
   docsync checks pass. The revised late-response browser harness still needs a
   clean full frontend-gate run.
-
-### 2026-09-06 - UI copy clarity, heatmap eyebrow, and graceful page-load fade (side-task)
-
-- Scope: applied /clarify and /audit workflows to the home → results flow; fixed heatmap partial eyebrow; added universal graceful page-load fade.
-- Implementation:
-  - Updated `templates/partials/_heatmap_result.html`: eyebrow changed from `"Listening heatmap"` to `"Last.fm scrobble heatmap"` to match the index hero copy style.
-  - Updated `templates/index.html`: album mode lede rewritten to cut "specialized data visualization", "Enrich your scrobbles with Spotify metadata", and "isolate custom release eras" — replaced with a plain workflow description ("Choose a listening year and a release window…"). Heatmap lede: removed unexplained "rocket scale" jargon; replaced with a direct description of colour = intensity and tap-to-see interaction.
-  - Added universal page-load fade to `static/css/shell.css` (`body { opacity: 0 }` + `body.is-ready { opacity: 1; transition: 220ms ease }`) and added the matching `DOMContentLoaded` trigger in `templates/base.html` (sequenced after the existing theme-before-paint inline script so dark/light theme commits before opacity resolves).
-- Validation: `pytest -q` -- **924 passed**, 5 warnings.
-
-
-
-- Scope: audited docsync tooling files (`scripts/docsync/*.py`, `.docsync.toml`) to verify DOC001-DOC011 integrity checks fire appropriately; identified and remediated three control-plane defects (F-DOCSYNC-8, F-DOCSYNC-9, F-DOCSYNC-10).
-- Implementation:
-  - F-DOCSYNC-8: Fixed TOML array-of-tables scoping defect in `.docsync.toml` where inserting `[[value]]` for `the wide-desktop scale cap` on 2026-08-28 detached the remaining 9 sites of `the single 860px breakpoint`. Reordered all 14 breakpoint sites contiguously (including missing frontend files `loading.css`, `empty.css`, and `theme.js`), added explicit `expect` values (`"860"` or `"859.98"`) to every site, cleanly separated the scale baseline and cap declarations, and added an architectural warning comment. Completed `expect` attributes on all 11 Adobe Fonts kit sites (`"rwy8ghw"`) and all 15 heatmap window sites (`"365"`).
-  - F-DOCSYNC-9: Hardened `scripts/docsync/declarations.py:check_values` to retain `(rel_path, expect)` in `captured` when a declaration declares uniform expected values, eliminating the blind spot where partially annotated declarations skipped consistency checking between unannotated and expected sites. Added 2 regression unit tests in `tests/test_docsync_declarations.py`.
-  - F-DOCSYNC-10: Hardened `scripts/docsync/integrity.py:_check_section3_next_wp` to inspect Section 3 for unlabelled `NEXT_WP_CLAIM_RE` matches when `claimed is None`, preventing silent bypass of DOC007 next-action integrity checks. Enforced canonical `- **Next action:**` bullet label in `PLAYBOOK.md` Section 3. Added regression test `test_doc007_section3_unlabelled_claim_blocks` in `tests/test_docsync_integrity.py`.
-  - Updated `tests/scripts/dev/test_worktree_guard_playbook.py` `test_the_repository_playbook_parses` to reflect the active authorized worktree branch `test`.
-- Validation: `pytest -q` -- **918 passed**, 5 warnings. All 296 docsync tests pass. `python scripts/doc_state_sync.py --check` exits 0 with no integrity errors.
-- Forward guidance: resume owner-review remediation Task 6 (accessibility pass) per `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md` before WP-5 begins.

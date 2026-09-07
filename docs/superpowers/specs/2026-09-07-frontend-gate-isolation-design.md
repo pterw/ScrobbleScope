@@ -1,7 +1,10 @@
 # Frontend Gate Isolation and Determinism -- Design
 
 Date: 2026-09-07
-Status: Approved by owner (design conversation 2026-09-07)
+Status: Approved by owner (design conversation 2026-09-07). Implemented
+with one owner-ruled amendment: decision 6 (metric-pinned font fixture)
+was withdrawn on licensing grounds -- see `scripts/dev/fixtures/README.md`
+and the PLAYBOOK Section 4 entry of the same date.
 Context: PR #227 Quality Gate failed twice with distinct signatures. The
 first failure (form centring, toggle height, mobile body offset) was fixed
 in `582c5a7`. The second failure is a stall: the gate's own server logged
