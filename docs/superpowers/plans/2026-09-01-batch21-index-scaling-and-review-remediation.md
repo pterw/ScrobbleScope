@@ -1209,8 +1209,9 @@ uses `84vw` with a `120rem` ceiling, retaining the authored SVG geometry while
 raising a realistic 1920x945 result from 1100px/16.6px cells to about
 1545px/23.7px cells. Its username inherits the neutral headline style. The
 index form uses the `27.5rem` refinement and vertically balanced placement
-described under Task 3. At 390px and 320px, all four header destinations use a
-directly visible two-by-two grid. The single Light/Dark control moves below
+described under Task 3. At 390px and 320px, all four header destinations use
+directly visible navigation (current refinement: FINDINGS.md F-B21-45).
+The single Light/Dark control moves below
 page content on mobile and returns to the header above the breakpoint. The
 extended two-engine gate covers these rendered outcomes and retains the
 distinct album and Heatmap polling lifecycles.

@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-06
+Last updated: 2026-09-07
 
 ---
 
@@ -8,8 +8,8 @@ Last updated: 2026-09-06
 
 | Item | Value |
 |------|-------|
-| Branch | `wip/batch-21` |
-| Tests | **938 passing** across 40 test modules |
+| Branch | See PLAYBOOK Section 3 for the active worktree branch. |
+| Tests | **962 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | All hooks pass |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -40,7 +40,7 @@ Last updated: 2026-09-06
 - Current-batch entries in active log block: 9.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
 - Next expected work package: WP-7.
-- Latest validated test count: **938 passed**.
+- Latest validated test count: **962 passed**.
 - Newest current-batch entry: 2026-09-06 - Results leaderboard rebuild and interactive polish completed (Batch 21 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -62,20 +62,22 @@ scrobblescope/
   spotify.py                # fetch_spotify_access_token, search, batch details
   orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
+  spotlight.py              # pure artist aggregation and stable sample selection
   routes.py                 # Flask Blueprint, all route + error handlers
 templates/                  # base, index, loading, results, unmatched, error
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_result.html
 static/
   css/                      # global, index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (11 files)
-  js/                       # theme, index, loading, results, unmatched, heatmap (6 files)
+  js/                       # theme, index, loading, loading-progress, results, results-spotlight, unmatched, heatmap
 scripts/
   bin/                       # gitignored verified Tailwind/daisyUI artifact cache
   doc_state_sync.py         # thin entry point for deterministic documentation sync
   dev/
     dev_start.py            # Postgres container check plus Flask launch
     tailwind_build.py       # verified standalone Tailwind + daisyUI frontend builder
-    frontend_gate.py        # browser checks Chromium and Firefox run against the live app
+    frontend_gate.py        # full Chromium checks and Firefox static-assets canary
+    _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
     _worktree_guard_lineage.py # PLAYBOOK parsing and pure classification
@@ -115,7 +117,8 @@ lastfm.py        <- config, utils
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
 heatmap.py       <- lastfm, repositories, utils, worker
-routes.py        <- heatmap, lastfm, orchestrator, repositories, utils, worker
+spotlight.py     <- utils
+routes.py        <- heatmap, lastfm, orchestrator, repositories, spotify, spotlight, utils, worker
 app.py           <- routes (Blueprint); config (ensure_api_keys, __main__ only)
 
 docsync/__init__.py  <- (leaf)
@@ -137,7 +140,8 @@ dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_in
 dev/check_worktree_alignment.py <- dev/worktree_guard
 dev/dev_start.py <- (leaf; standard library only)
 dev/tailwind_build.py <- (leaf; standard library only)
-dev/frontend_gate.py <- app.py (create_app); werkzeug.serving; playwright (imported late)
+dev/_frontend_gate_results.py <- repositories
+dev/frontend_gate.py <- dev/_frontend_gate_results; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 ```
 
 ---
@@ -179,7 +183,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (938 tests)
+## 6. Test structure (962 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

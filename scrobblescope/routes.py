@@ -1,5 +1,4 @@
 import logging
-import random
 from datetime import datetime
 
 from flask import (
@@ -30,9 +29,9 @@ from scrobblescope.spotify import (
     fetch_spotify_access_token,
     fetch_spotify_artist_spotlight,
 )
+from scrobblescope.spotlight import select_spotlight_artists
 from scrobblescope.utils import (
     create_optimized_session,
-    format_seconds_mobile,
     run_async_in_thread,
 )
 from scrobblescope.worker import acquire_job_slot, start_job_thread
@@ -93,56 +92,6 @@ def _filter_results_for_display(results_data, sort_mode):
         for album in results_data
         if album.get("play_time_seconds", 0) > 0 or sort_mode != "playtime"
     ]
-
-
-def _select_spotlight_artists(results, job_id):
-    """Return a stable random sample of five aggregate artists from the top ten."""
-    by_artist = {}
-    for album in results:
-        artist_name = (album.get("artist") or "").strip()
-        if not artist_name:
-            continue
-
-        key = artist_name.casefold()
-        artist = by_artist.setdefault(
-            key,
-            {
-                "name": artist_name,
-                "scrobbles": 0,
-                "album_count": 0,
-                "play_time_seconds": 0,
-                "play_time": "",
-                "image_url": "",
-                "spotify_url": "",
-            },
-        )
-        artist["scrobbles"] += album.get("play_count", 0) or 0
-        artist["album_count"] += 1
-        artist["play_time_seconds"] += album.get("play_time_seconds", 0) or 0
-        if not artist["image_url"] and album.get("album_image"):
-            artist["image_url"] = album["album_image"]
-
-    ranked = sorted(
-        by_artist.values(),
-        key=lambda artist: (
-            -artist["scrobbles"],
-            -artist["play_time_seconds"],
-            artist["name"].casefold(),
-        ),
-    )[:10]
-    for artist in ranked:
-        if artist["play_time_seconds"]:
-            artist["play_time"] = format_seconds_mobile(artist["play_time_seconds"])
-
-    if len(ranked) <= 5:
-        return ranked
-    # random is a deterministic shuffler here, not a secret source: seeding
-    # on the job ID makes the same job always show the same five spotlight
-    # artists (asserted by
-    # test_results_page_samples_five_unique_artists_from_aggregate_top_ten).
-    # Cryptographic unpredictability would defeat the intent, so bandit's
-    # B311 warning does not apply.
-    return random.Random(str(job_id)).sample(ranked, 5)  # nosec B311
 
 
 def _group_unmatched_by_reason(unmatched_data):
@@ -477,6 +426,7 @@ def page_not_found(e):
         render_template(
             "error.html",
             error="Page not found",
+            status_code=404,
             message="The page you're looking for doesn't exist.",
         ),
         404,
@@ -490,13 +440,13 @@ def internal_error(e):
         render_template(
             "error.html",
             error="Server Error",
+            status_code=500,
             message="Something went wrong on our end. Please try again later.",
         ),
-        500,  # todo: Consider user friendly retry and error logging the detais
+        500,
     )
 
 
-# todo: Implement proper handling for results page rendering, including error states and empty results.
 def _render_results_page():
     """Render the results page for a completed job, or an error page on failure."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
@@ -589,7 +539,7 @@ def _render_results_page():
             job_id=job_id,
         )
 
-    spotlight_artists = _select_spotlight_artists(filtered_results, job_id)
+    spotlight_artists = select_spotlight_artists(filtered_results, job_id)
     spotlight_artist = spotlight_artists[0] if spotlight_artists else {}
     top_artist_name = spotlight_artist.get("name", "")
     top_artist_scrobbles = spotlight_artist.get("scrobbles", 0)
@@ -669,7 +619,6 @@ def artist_spotlight():
     )
 
 
-# todo: Implement proper handling for unmatched albums, including GET support and improved client-side experience.
 def _render_unmatched_page():
     """Render the unmatched-album report for an existing job."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
@@ -734,16 +683,10 @@ def unmatched_page():
     return _render_unmatched_page()
 
 
-# todo: refactor unmatched album handling to improve client-side experience
-
-
 @bp.route("/unmatched_view", methods=["POST"])
 def unmatched_view():
     """Keep the legacy unmatched POST working while callers move to GET."""
     return _render_unmatched_page()
-
-    # todo: Legacy support for POST unmatched view; consider deprecating in favor of GET
-    # todo: refactor to support GET requests as well
 
 
 @bp.route("/results_loading", methods=["POST"])
@@ -871,9 +814,21 @@ def heatmap_loading():
     if not username:
         return (
             jsonify({"error": True, "message": "Username is required."}),
-            400,  # todo: Consider adding client-side validation for username presence
+            400,
         )
 
+    error = _validate_heatmap_user(username)
+    if error is not None:
+        return error
+    return _dispatch_heatmap_job(username)
+
+
+def _validate_heatmap_user(username):
+    """Return a JSON validation error, or None for an existing public user.
+
+    Keep lookup and privacy service failures retryable without reserving a
+    worker slot or changing this browser's saved heatmap job.
+    """
     try:
         user_info = _check_user_exists(username)
     except Exception:
@@ -886,7 +841,7 @@ def heatmap_loading():
                     "retryable": True,
                 }
             ),
-            503,  # todo: Consider adding client-side handling for service unavailability
+            503,
         )
 
     if not user_info["exists"]:
@@ -899,7 +854,7 @@ def heatmap_loading():
                     "retryable": False,
                 }
             ),
-            404,  # todo: Consider adding client-side handling for user not found
+            404,
         )
 
     try:
@@ -913,7 +868,7 @@ def heatmap_loading():
                         "retryable": False,
                     }
                 ),
-                403,  # todo: Consider adding client-side handling for private profiles
+                403,
             )
     except Exception:
         logging.exception("Profile privacy check failed for %s", username)
@@ -925,9 +880,17 @@ def heatmap_loading():
                     "retryable": True,
                 }
             ),
-            503,  # todo: Consider adding client-side handling for service unavailability
+            503,
         )
+    return None
 
+
+def _dispatch_heatmap_job(username):
+    """Reserve and launch a heatmap job, saving its ID only after startup.
+
+    Remove orphan job state if thread startup fails; the worker launcher
+    owns releasing the reserved slot on that failure path.
+    """
     cleanup_expired_jobs()
 
     if not acquire_job_slot():
@@ -939,7 +902,7 @@ def heatmap_loading():
                     "retryable": True,
                 }
             ),
-            429,  # todo: Consider adding client-side handling for too many requests
+            429,
         )
 
     job_id = create_job({"username": username, "mode": "heatmap"})
@@ -957,7 +920,7 @@ def heatmap_loading():
                     "retryable": True,
                 }
             ),
-            500,  # todo: Consider adding client-side handling for failed processing
+            500,
         )
 
     session[_LATEST_HEATMAP_JOB] = job_id
@@ -976,14 +939,14 @@ def heatmap_data():
     if not job_id:
         return (
             jsonify({"error": True, "message": "Missing job identifier."}),
-            400,  # todo: Consider adding client-side handling for missing job identifier
+            400,
         )
 
     ctx = get_job_context(job_id)
     if ctx is None:
         return (
             jsonify({"error": True, "message": "Job not found or expired."}),
-            404,  # todo: Consider adding client-side handling for job not found or expired
+            404,
         )
 
     progress = ctx["progress"]

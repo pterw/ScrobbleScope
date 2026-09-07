@@ -1,10 +1,10 @@
 # ScrobbleScope Findings & Open Issues
 
 Last updated: 2026-09-07
-Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
+Status: Batch 21 is active. WP-0 through WP-5 and owner-review remediation
 Tasks 1-5 are complete; Task 6 is next. PLAYBOOK Section 3 owns
 the current work order.
-938 tests across 40 test modules.
+962 tests across 40 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -206,11 +206,12 @@ offscreen unless the reader discovered horizontal scrolling.
 Status: resolved, 2026-09-05. The first correction put the four destinations
 in a two-column, two-row grid beside the compact theme control. Owner review
 then found that the control sat across both rows and visually competed with
-their buttons. The final mobile shell gives the grid the full header width and
-moves the same Light/Dark input below page content; it returns to the header at
-desktop widths without duplicating state. The browser gate checks both 390px
-and 320px widths for two rows, contained links, no horizontal overflow, a
-matching body offset, footer placement, and a retained 44px theme target.
+their buttons. The subsequent owner refinement uses one contained row across
+the header width and moves the same Light/Dark input below page content; it
+returns to the header at desktop widths without duplicating state. The browser
+gate checks both 390px and 320px widths for contained links, no horizontal
+overflow, a matching body offset, footer placement, and a retained 44px theme
+target. PR #227 review reconciled this description with the current source.
 Source: owner mobile review and rendered Chromium/Firefox measurements,
 2026-09-05.
 
@@ -979,26 +980,19 @@ Status: open, deferred on purpose. The owner accepted the drift on
 2026-08-22 and asked that the work be recorded rather than done now.
 Source: findings mirror, 2026-08-22.
 
-### F-B21-10: every error page reports 400, whatever the real status
+### F-B21-10: error-page fallback can report 400 for other statuses
 
-`templates/error.html` renders `{{ status_code|default('400') }}`, and not
-one of the seven `render_template("error.html", ...)` call sites passes
-`status_code`. Six are in `scrobblescope/routes.py` and the seventh is the
-CSRF handler in `app.py`. So a 404 renders the literal text "400", a 500
-renders "400", and the number is decorative rather than informative.
+`templates/error.html` still defaults a missing `status_code` to 400.
+The WP-2 audit found that callers did not supply their actual status, so
+404 and 500 pages displayed a misleading badge.
 
-The two `app_errorhandler` registrations that would supply it live in
-`routes.py`, which the batch contract reserves for WP-7. WP-2 migrated this
-template's markup and deliberately did not change the default or the call
-sites: doing so means editing a reserved file for a defect that predates the
-migration.
+PR #227 review remediation on 2026-09-07 supplies explicit 404 and 500 values
+in the registered error handlers, with route regressions checking the rendered
+badge. Other error-page callers and the template fallback still need the
+scheduled call-site audit; this partial fix does not close that work.
 
-The fix is to pass the real status at each call site, or to have the error
-handlers supply it, and then to drop the `default('400')` so a missing value
-fails loudly instead of lying quietly.
-
-Status: open. WP-7 candidate, because it owns `routes.py`.
-Source: WP-2 template migration, 2026-08-23.
+Status: partially resolved. Remaining call-site audit is a WP-7 candidate.
+Source: WP-2 template migration, 2026-08-23; PR #227 review, 2026-09-07.
 
 ### F-B21-11: the welcome modal covers the new header theme toggle
 

@@ -6,6 +6,7 @@ covered by running the gate itself, which is what the Quality Gate does.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -964,3 +965,364 @@ def test_fail_fast_navigation_timeout_is_configured() -> None:
     check; the timeout is what bounds the damage to one failed check.
     """
     assert frontend_gate.NAVIGATION_TIMEOUT_MS == 10_000
+
+
+@pytest.mark.parametrize("live_fonts", (False, True))
+def test_main_preserves_route_policy_through_real_runner(live_fonts) -> None:
+    """The runner must preserve the factory's live-CDN policy on every engine."""
+    from contextlib import nullcontext
+
+    browser = MagicMock()
+    page = browser.new_context.return_value.new_page.return_value
+    with (
+        patch.object(
+            frontend_gate, "_load_playwright", return_value=lambda: nullcontext(Mock())
+        ),
+        patch.object(
+            frontend_gate, "serve_app", return_value=nullcontext("http://local")
+        ),
+        patch.object(frontend_gate, "_launch_browser", return_value=browser),
+        patch.object(
+            frontend_gate,
+            "CHECKS",
+            (
+                (
+                    "probe",
+                    lambda p, b: [],
+                    (frontend_gate.DESKTOP,),
+                    frontend_gate.STATIC_ASSETS,
+                ),
+            ),
+        ),
+    ):
+        assert frontend_gate.main(["--live-fonts"] if live_fonts else []) == 0
+    assert page.route.call_count == (0 if live_fonts else 4)
+    assert page.set_default_navigation_timeout.call_args.args == (10_000,)
+
+
+def test_bootstrap_fixture_is_lazy_cached_and_retries_failed_reads(tmp_path) -> None:
+    """A missing fixture fails only when requested and can recover without reimport."""
+    frontend_gate._bootstrap_fixture.cache_clear()
+    try:
+        with patch.object(frontend_gate, "FIXTURE_DIR", tmp_path):
+            frontend_gate.install_cdn_routes(MagicMock())
+            with pytest.raises(FileNotFoundError):
+                frontend_gate._bootstrap_fixture()
+            fixture = tmp_path / "bootstrap_fixture.css"
+            fixture.write_text("body { color: red; }", encoding="utf-8")
+            assert frontend_gate._bootstrap_fixture() == "body { color: red; }"
+            fixture.write_text("changed", encoding="utf-8")
+            assert frontend_gate._bootstrap_fixture() == "body { color: red; }"
+    finally:
+        frontend_gate._bootstrap_fixture.cache_clear()
+
+
+def test_scaled_dimensions_preserve_mark_column_ratio_and_fixed_borders() -> None:
+    """A twofold content scale does not double fixed chrome or a column-sized mark."""
+    baseline = {
+        "wordmark": {"height": 100},
+        "hero composition": {"height": 300},
+        "form": {"height": 105, "width": 200},
+        "form composition": {"height": 207},
+    }
+    expected = frontend_gate._expected_scaled_dimension
+    assert expected("wordmark", "height", baseline, 2, 150, 100) == 150
+    assert expected("hero composition", "height", baseline, 2, 150, 100) == 550
+    assert expected("form", "height", baseline, 2, 150, 100) == 205
+    assert expected("form composition", "height", baseline, 2, 150, 100) == 407
+    assert expected("form", "width", baseline, 2, 150, 100) == 400
+
+    measurements = {
+        label: {"form": {"height": height, "width": 200}}
+        for label, height in (
+            ("1080p", 105),
+            ("1200p measured", 205),
+            ("1440p", 210),
+            ("4K", 205),
+        )
+    }
+    scales = {"1080p": 1, "1200p measured": 2, "1440p": 2, "4K": 2}
+    layouts = {label: {"heroInnerWidth": 100} for label in scales}
+    failures = frontend_gate._scale_dimension_failures(
+        measurements, layouts, scales, {"form": ("height",)}, {"form": ("width",)}
+    )
+    assert failures == [
+        "/: form height is 210.0px at 1440p, expected proportional 205.0px"
+    ]
+    measurements["4K"]["form"]["width"] += 1
+    assert (
+        frontend_gate._scale_dimension_failures(
+            measurements, layouts, scales, {"form": ("height",)}, {"form": ("width",)}
+        )[-1]
+        == "/: form width changes outside the shared composition"
+    )
+
+
+def test_wide_layout_reports_gutter_card_and_mark_regressions() -> None:
+    """Balanced columns pass; independently broken geometry remains diagnosable."""
+    layout = {
+        "formInnerLeft": 20,
+        "formLeft": 0,
+        "formRight": 140,
+        "formInnerRight": 120,
+        "paddingLeft": 10,
+        "paddingRight": 10,
+        "formInnerTop": 20,
+        "wellTop": 0,
+        "wellBottom": 140,
+        "formInnerBottom": 120,
+        "cardLeft": 20,
+        "cardRight": 120,
+        "heroWidth": 120,
+        "heroPaddingLeft": 10,
+        "heroPaddingRight": 10,
+        "heroInnerWidth": 100,
+        "heroMarkWidth": 100,
+    }
+    assert frontend_gate._wide_layout_failures({"window": layout}) == []
+    broken = dict(
+        layout,
+        paddingRight=12,
+        formInnerLeft=5,
+        formInnerTop=30,
+        cardRight=115,
+        heroInnerWidth=90,
+    )
+    failures = frontend_gate._wide_layout_failures({"window": broken})
+    assert len(failures) == 7
+    assert all("window" in failure for failure in failures)
+    assert any("well padding" in failure for failure in failures)
+    assert any("wordmark" in failure for failure in failures)
+
+
+def test_header_geometry_retains_clamps_gaps_and_wrap_thresholds() -> None:
+    """Measured floors and ceilings pass; every header contract still reports drift."""
+    sizes = {
+        "1080p": {
+            "header bar": {"height": 68},
+            "page navigation": {"height": 44, "width": 92},
+            "theme control": {"height": 44.4},
+        },
+        "1440p": {
+            "header bar": {"height": 76},
+            "page navigation": {"height": 48, "width": 115.968},
+            "theme control": {"height": 48.4},
+        },
+    }
+    layouts = {label: {"headerGap": 8, "navGap": 8, "rowSpread": 1} for label in sizes}
+    assert frontend_gate._header_geometry_failures(sizes, layouts) == []
+    sizes["1080p"]["header bar"]["height"] += 1
+    sizes["1080p"]["page navigation"] = {"height": 40, "width": 80}
+    sizes["1080p"]["theme control"]["height"] += 2
+    layouts["1080p"] = {"headerGap": 9, "navGap": 8, "rowSpread": 2}
+    failures = frontend_gate._header_geometry_failures(sizes, layouts)
+    assert len(failures) == 6
+    assert all("1080p" in failure for failure in failures)
+
+
+def test_scale_mechanism_rejects_zoom_and_transform_independently() -> None:
+    """Both visible and hidden cards must keep native layout scaling."""
+    assert (
+        frontend_gate._scale_mechanism_failures(
+            [
+                {"label": "visible", "zoom": "1", "transform": "none"},
+                {"label": "hidden", "zoom": "normal", "transform": "none"},
+            ]
+        )
+        == []
+    )
+    assert (
+        len(
+            frontend_gate._scale_mechanism_failures(
+                [
+                    {
+                        "label": "hidden",
+                        "zoom": "1.5",
+                        "transform": "matrix(1,0,0,1,0,0)",
+                    },
+                ]
+            )
+        )
+        == 2
+    )
+
+
+def test_phase_repository_probe_checks_real_isolation_and_invalid_views() -> None:
+    """The extracted diagnostic exercises real storage and detects missing snapshots."""
+    job = frontend_gate.create_job({"username": "probe"})
+    try:
+        assert frontend_gate._check_phase_repository_isolation(job) == []
+        assert frontend_gate.get_job_progress(job)["phase"]["current"] == 23
+        with (
+            patch.object(frontend_gate, "get_job_progress", return_value=None),
+            patch.object(frontend_gate, "get_job_context", return_value=None),
+        ):
+            failures = frontend_gate._check_phase_repository_isolation(job)
+        assert len(failures) == 6
+    finally:
+        frontend_gate.delete_job(job)
+
+
+def test_single_stat_probe_reports_reserved_space_and_offcentre_content() -> None:
+    """Hidden stats and centering failures remain independently visible."""
+    page = MagicMock()
+    page.evaluate.side_effect = [
+        None,
+        {"scrobblesWidth": 0, "daysWidth": 0, "pagesCenter": 3},
+    ]
+    assert frontend_gate._check_single_stat_layout(page) == []
+    page.evaluate.side_effect = [
+        None,
+        {"scrobblesWidth": 1, "daysWidth": 0, "pagesCenter": 4},
+    ]
+    assert len(frontend_gate._check_single_stat_layout(page)) == 2
+
+
+def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:
+    """Late old-job data is checked and temporary job/routes are removed on faults."""
+    page = MagicMock()
+    held = MagicMock()
+    held.request.url = "http://local/progress?job_id=old-job"
+    page.route.side_effect = lambda pattern, handler: handler(held)
+    page.locator.return_value.get_attribute.return_value = "20"
+    page.locator.return_value.inner_text.return_value = "PAGE 20 / 100"
+    with (
+        patch.object(frontend_gate, "create_job", return_value="replacement"),
+        patch.object(frontend_gate, "set_job_progress"),
+        patch.object(frontend_gate, "delete_job") as delete,
+    ):
+        failures = frontend_gate._exercise_replaced_job_progress(
+            page, "http://local", "old-job", "/heatmap?job_id=old-job"
+        )
+        assert failures == [
+            "stale out-of-order progress response regressed aria-valuenow",
+            "stale out-of-order progress response regressed visible text",
+        ]
+        assert held.fulfill.call_args.kwargs["status"] == 200
+        response = held.fulfill.call_args.kwargs
+        payload = response.get("json") or json.loads(response["body"])
+        assert payload == {
+            "progress": 20,
+            "phase": {
+                "key": "lastfm_fetch",
+                "label": "Fetching scrobbles",
+                "unit": "page",
+                "current": 20,
+                "total": 100,
+            },
+        }
+        delete.assert_called_once_with("replacement")
+        page.unroute.assert_called_once_with("**/progress?job_id=*")
+        page.goto.side_effect = RuntimeError("navigation broke")
+        with pytest.raises(RuntimeError, match="navigation broke"):
+            frontend_gate._exercise_replaced_job_progress(
+                page, "http://local", "old-job", "/heatmap?job_id=old-job"
+            )
+        assert delete.call_count == 2
+        assert page.unroute.call_count == 2
+
+
+@pytest.mark.parametrize("client", ("album", "heatmap"))
+def test_counted_sequence_updates_real_storage_and_detects_stale_text(client) -> None:
+    """Both clients receive the same phase transitions and report an uncleared fraction."""
+    job = frontend_gate.create_job({"username": "probe"})
+    page = MagicMock()
+    snapshots = []
+    expected = [
+        (
+            "23",
+            "FETCHING SCROBBLES \u00b7 PAGE 23 / 102",
+            "matrix(0.2255, 0, 0, 1, 0, 0)",
+        ),
+        ("90", "FETCHING SCROBBLES \u00b7 PAGE 90 / 100", "matrix(0.9, 0, 0, 1, 0, 0)"),
+        ("92", "Counting daily scrobbles", "matrix(0.92, 0, 0, 1, 0, 0)"),
+    ]
+
+    def read_state(script, selectors):
+        """Capture the producer state before returning the simulated browser frame."""
+        snapshots.append(frontend_gate.get_job_progress(job))
+        value, text, transform = expected[len(snapshots) - 1]
+        return {
+            "valuenow": value,
+            "valuetext": text,
+            "phaseText": text,
+            "transform": transform,
+        }
+
+    page.evaluate.side_effect = read_state
+    page.locator.return_value.inner_text.return_value = "PAGE 90 / 100"
+    try:
+        failures = frontend_gate._exercise_counted_progress(
+            page, "http://local", job, "/loading", ("#track", "#bar", "#text"), client
+        )
+        assert failures == [f"{client} uncounted frame retained stale phase fraction"]
+        assert [snapshot["progress"] for snapshot in snapshots] == [20, 90, 92]
+        assert [snapshot.get("phase") for snapshot in snapshots] == [
+            {
+                "key": "lastfm_fetch",
+                "label": "Fetching scrobbles",
+                "unit": "page",
+                "current": 23,
+                "total": 102,
+            },
+            {
+                "key": "lastfm_fetch",
+                "label": "Fetching scrobbles",
+                "unit": "page",
+                "current": 90,
+                "total": 100,
+            },
+            None,
+        ]
+    finally:
+        frontend_gate.delete_job(job)
+
+
+def test_enlarged_root_probe_restores_sizing_when_measurement_raises() -> None:
+    """A failing geometry read cannot leave the next check at a larger root font."""
+    page = MagicMock()
+    page.evaluate.side_effect = [None, "18px", RuntimeError("missing form"), None]
+    with pytest.raises(RuntimeError, match="missing form"):
+        frontend_gate._measure_enlarged_root(page, "http://local")
+    assert page.evaluate.call_args.args == (
+        "fontSize => { document.documentElement.style.fontSize = fontSize; }",
+        "18px",
+    )
+
+
+def test_composition_bounds_detects_mobile_and_cap_drift() -> None:
+    """A plausible wide split must not hide mobile regressions or a stale form cap."""
+    sizes = {
+        "1080p": {
+            "hero composition": {"width": 300},
+            "form composition": {"width": 440},
+        },
+        "1440p": {
+            "hero composition": {"width": 450},
+            "form composition": {"width": 660},
+        },
+        "4K": {"form composition": {"width": 770}},
+    }
+    scales = {"1080p": 1, "1440p": 1.5, "4K": 1.75}
+    layouts = {"1080p": {"applicationWidth": 400, "heroWidth": 300}}
+    mobile = {"factor": "", "columns": 1}
+    inputs = {"input": {"height": 44, "fontSize": 16}}
+    assert (
+        frontend_gate._composition_bounds_failures(
+            sizes, layouts, scales, mobile, inputs
+        )
+        == []
+    )
+    sizes["4K"]["form composition"]["width"] = 946
+    failures = frontend_gate._composition_bounds_failures(
+        sizes,
+        layouts,
+        scales,
+        {"factor": "1.75", "columns": 2},
+        {"input": {"height": 43, "fontSize": 15}},
+    )
+    assert failures == [
+        "/: desktop factor leaked into the mobile one-column layout",
+        "/: mobile input lost its touch or text minimum",
+        "/: form cap is 946px at a real 4K window, expected proportional 770px",
+    ]

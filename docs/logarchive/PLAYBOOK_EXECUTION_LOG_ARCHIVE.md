@@ -9,6 +9,37 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-07 - Stale gate scale-cap corrected; 4K parity failures resolved (side-task)
+
+- Scope: root-caused and fixed the 7 large-display-scale-parity failures
+  at 4K recorded in the two 2026-09-07 entries above.
+- Plan vs implementation: no plan -- a defect found while reviewing the
+  gate's measurement model with the owner. Verification first: the CSS
+  computes scale `clamp(min, slope, 1.75)` from the owner's 1.75 ruling
+  in `static/css/index.css` line 26, giving 440px x 1.75 = 770.0px form
+  width at 4K -- exactly what the gate measured. The gate's
+  `expected_scales` formula still capped at the old 2.15, expecting
+  780.4px. The 0.9866 ratio reproduces every width/height/cap delta;
+  1440p is unaffected because its slope term (1.308) sits below the cap.
+  The `headline lineHeight` delta is the only member of the old
+  attribution that font metrics could explain; the rest were this cap.
+- Implementation: `scripts/dev/frontend_gate.py` outer scale cap
+  2.15 -> 1.75 with a comment pinning it to `--index-scale-cap` so the
+  next cap change does not repeat the drift. No tolerance changed.
+- Deviations: the original attribution ("real kit's tall Instrument
+  Serif metrics are not present") was wrong for 6 of the 7 failures and
+  is corrected in that entry. The gate's measurement model was the
+  question the owner asked; the answer exposed the defect.
+- Validation: gate unit module 47 passed. Full gate run: **24 checks
+  passed in 43 runs**, exit 0, zero failures, zero timeouts, zero font
+  warnings. `pytest -q` -- **938 passed**, 5 warnings. All pre-commit
+  hooks pass; `doc_state_sync.py --check` exits 0 (expected root BATCH
+  warning).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+  The gate cap and the CSS token are one fact in two places; a future
+  sweep could have the gate read the value, but no further work is
+  scheduled now.
+
 ### 2026-09-07 - Remove the dead pypdf/pdf2image/pillow cluster (side-task)
 
 - Scope: executed the removal half of F-B21-3's recorded shape. The

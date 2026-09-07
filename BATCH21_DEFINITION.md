@@ -1,8 +1,8 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
 **Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page), WP-4 (unified loading and recent-result recovery), and WP-5 (results leaderboard) are complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. **WP-7 (unmatched page + reason_code) is the next batch work package.** WP-6 is absorbed into WP-3; see its stub below.
-**Branch:** `wip/batch-21` (linked worktree; lineage changes are recorded
-in PLAYBOOK Section 4 rather than pinned here).
+**Branch:** See PLAYBOOK Section 3 for the current linked-worktree branch;
+lineage changes are recorded in Section 4.
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
 
 ---
@@ -123,7 +123,7 @@ stylesheet is in scope for this batch.
    Input Mono Narrow page-navigation pills (Home, Heatmap, Results,
    Unmatched), segmented Light/Dark toggle top-right; landing page keeps the
    large brand moment in the hero. At mobile widths, all four destinations
-   remain directly visible in a two-by-two grid with no horizontal navigation
+   remain directly visible in a single row with no horizontal navigation
    scrolling, and the same theme control follows the page content.
 5. CSV export, JPEG export (both modes, mobile + desktop), progress
    polling, username validation, decade pills, and thresholds disclosure

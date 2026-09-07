@@ -38,11 +38,8 @@
 .metric-toggle-btn {
     user-select: none;
     cursor: pointer;
-    /* Owner note 2026-09-07: the inactive option read too faint at body
-       weight. The buttons set Tailwind's font-normal inline, so bump via
-       the CSS variable-free property here; specificity (class) wins over
-       the utility because this sheet loads after the compiled utilities. */
-    font-weight: 500;
+    /* The kit supplies 400 and 700; use its real bold face for both options. */
+    font-weight: 700;
 }
 
 .metric-toggle-btn:focus-visible {

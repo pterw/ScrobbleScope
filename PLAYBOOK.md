@@ -82,6 +82,10 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `test` (worktree off `main`; remediated from `wip/batch-21` per owner authorization 2026-09-06).
+- **PR #227 review remediation:** the owner-requested package is implemented
+  and validated. Audit and remaining scope:
+  `docs/history/reports/PR227_REVIEW_2026-09-07.md`. Deployed-header comparison
+  and optional card-shadow polish remain the next owner-design follow-up.
 - **PR #223 side-task:** merged as `123b127`; this worktree is synchronized.
   Remaining issue #222 targets stay open.
 - **Planning follow-up:** the original owner-review plan remains historical
@@ -582,6 +586,32 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-07 - Remediate PR 227 and simplify frontend checks
+
+- Owner requested one review-remediation package. The full comment inventory,
+  body exclusions, repeated claims and individual dispositions are in
+  `docs/history/reports/PR227_REVIEW_2026-09-07.md`.
+- Extracted gate measurement/comparison/profile responsibilities, shared phase
+  probes and lazy generic CDN fixture loading; preserved the live-fonts option.
+  Existing thresholds and the Chromium matrix / Firefox static canary remain.
+- Separated spotlight aggregation from routes, shared Spotify payload parsing,
+  separated heatmap validation/dispatch, and extracted the Last.fm job stage.
+  Existing job-state, empty/error, fallback and sampling behavior stays covered.
+- Split results spotlight hydration/rotation from exports; use DOM text nodes
+  for metrics/toasts and supported metric-toggle font weights. CSV follows the
+  current rank/metric with full ISO dates while display stays month precision.
+  JPEG background comes from the active theme; browser checks decode actual
+  downloads in both themes at mobile and desktop widths.
+- Reconciled implemented route TODOs, corrected explicit 404/500 badges (the
+  remainder of F-B21-10 stays open), and disabled checkout credential persistence.
+- Review caught invalid JSON in the extracted stale-response fixture. A failing
+  regression test proved it; structured JSON serialization restored the check.
+- Validation: `pytest -q` -- **962 passed**, zero warnings. The frontend gate
+  passed 25 checks in 45 runs across Chromium and the Firefox static canary.
+  Both theme exports decode to nonblank 3600px-wide JPEGs. All pre-commit
+  hooks and `doc_state_sync.py --check` pass. No push or deployment. Header
+  alignment and optional white-card shadow remain a separate design follow-up.
+
 ### 2026-09-07 - Qlty adopted; first triage closes the workflow-permission gap (side-task)
 
 - Scope: the owner added qlty (`.qlty/qlty.toml`, uncommitted by owner
@@ -734,34 +764,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: WP-7 (unmatched page + reason_code) remains next;
   the heatmap form lacks validation-on-blur and private-account gating
   (owner-noted), candidate for WP-7 or a scoped side-task.
-
-### 2026-09-07 - Stale gate scale-cap corrected; 4K parity failures resolved (side-task)
-
-- Scope: root-caused and fixed the 7 large-display-scale-parity failures
-  at 4K recorded in the two 2026-09-07 entries above.
-- Plan vs implementation: no plan -- a defect found while reviewing the
-  gate's measurement model with the owner. Verification first: the CSS
-  computes scale `clamp(min, slope, 1.75)` from the owner's 1.75 ruling
-  in `static/css/index.css` line 26, giving 440px x 1.75 = 770.0px form
-  width at 4K -- exactly what the gate measured. The gate's
-  `expected_scales` formula still capped at the old 2.15, expecting
-  780.4px. The 0.9866 ratio reproduces every width/height/cap delta;
-  1440p is unaffected because its slope term (1.308) sits below the cap.
-  The `headline lineHeight` delta is the only member of the old
-  attribution that font metrics could explain; the rest were this cap.
-- Implementation: `scripts/dev/frontend_gate.py` outer scale cap
-  2.15 -> 1.75 with a comment pinning it to `--index-scale-cap` so the
-  next cap change does not repeat the drift. No tolerance changed.
-- Deviations: the original attribution ("real kit's tall Instrument
-  Serif metrics are not present") was wrong for 6 of the 7 failures and
-  is corrected in that entry. The gate's measurement model was the
-  question the owner asked; the answer exposed the defect.
-- Validation: gate unit module 47 passed. Full gate run: **24 checks
-  passed in 43 runs**, exit 0, zero failures, zero timeouts, zero font
-  warnings. `pytest -q` -- **938 passed**, 5 warnings. All pre-commit
-  hooks pass; `doc_state_sync.py --check` exits 0 (expected root BATCH
-  warning).
-- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
-  The gate cap and the CSS token are one fact in two places; a future
-  sweep could have the gate read the value, but no further work is
-  scheduled now.

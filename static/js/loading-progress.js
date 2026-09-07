@@ -42,6 +42,44 @@
       : prefix;
   }
 
+  /** Update equivalent ARIA range metadata on the track and visual bar. */
+  function updateRange(element, roundedPct, currentLabel) {
+    element.setAttribute('aria-valuenow', String(roundedPct));
+    element.setAttribute('aria-valuemin', '0');
+    element.setAttribute('aria-valuemax', '100');
+    element.setAttribute('aria-valuetext', currentLabel);
+  }
+
+  /** Reset a new phase instantly before animating to its first measured value. */
+  function updateBar(bar, payload, previousPhaseKey, pct) {
+    var currentPhaseKey =
+      (payload.phase && payload.phase.key) || null;
+    var phaseChanged =
+      previousPhaseKey !== undefined &&
+      previousPhaseKey !== null &&
+      currentPhaseKey !== previousPhaseKey;
+
+    if (phaseChanged) {
+      bar.style.transition = 'none';
+      bar.style.transform = 'scaleX(0)';
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            if (bar) {
+              bar.style.transition = '';
+              bar.style.transform = 'scaleX(' + pct / 100 + ')';
+            }
+          });
+        });
+      } else {
+        bar.style.transform = 'scaleX(' + pct / 100 + ')';
+      }
+    } else {
+      bar.style.transform = 'scaleX(' + pct / 100 + ')';
+    }
+  }
+
+  /** Render one payload while preserving the public percentage and label result. */
   function update(options) {
     if (!options) return { percent: 0, label: 'Initializing...' };
     var track = options.track;
@@ -60,43 +98,13 @@
 
     if (track) {
       track.classList.remove('hidden');
-      track.setAttribute('aria-valuenow', String(roundedPct));
-      track.setAttribute('aria-valuemin', '0');
-      track.setAttribute('aria-valuemax', '100');
-      track.setAttribute('aria-valuetext', currentLabel);
+      updateRange(track, roundedPct, currentLabel);
     }
 
     if (bar) {
-      bar.setAttribute('aria-valuenow', String(roundedPct));
-      bar.setAttribute('aria-valuemin', '0');
-      bar.setAttribute('aria-valuemax', '100');
-      bar.setAttribute('aria-valuetext', currentLabel);
+      updateRange(bar, roundedPct, currentLabel);
 
-      var currentPhaseKey =
-        (payload && payload.phase && payload.phase.key) || null;
-      var phaseChanged =
-        previousPhaseKey !== undefined &&
-        previousPhaseKey !== null &&
-        currentPhaseKey !== previousPhaseKey;
-
-      if (phaseChanged) {
-        bar.style.transition = 'none';
-        bar.style.transform = 'scaleX(0)';
-        if (typeof requestAnimationFrame === 'function') {
-          requestAnimationFrame(function () {
-            requestAnimationFrame(function () {
-              if (bar) {
-                bar.style.transition = '';
-                bar.style.transform = 'scaleX(' + pct / 100 + ')';
-              }
-            });
-          });
-        } else {
-          bar.style.transform = 'scaleX(' + pct / 100 + ')';
-        }
-      } else {
-        bar.style.transform = 'scaleX(' + pct / 100 + ')';
-      }
+      updateBar(bar, payload, previousPhaseKey, pct);
     }
 
     return {

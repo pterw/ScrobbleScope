@@ -1616,3 +1616,34 @@ def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
 
     assert first == second
     assert names == ["Artist 9", "Artist 7", "Artist 3", "Artist 1", "Artist 0"]
+
+
+@pytest.mark.parametrize("status", [404, 500])
+def test_error_handler_badge_matches_http_status(client, status):
+    """The rendered badge reports the handler's actual HTTP error status."""
+    from scrobblescope.routes import internal_error, page_not_found
+
+    with client.application.test_request_context():
+        html, code = (page_not_found if status == 404 else internal_error)(None)
+    assert code == status
+    assert f">{status}</span>" in html
+
+
+def test_heatmap_privacy_service_failure_preserves_saved_job(client):
+    """Failed privacy preflight neither creates a job nor replaces saved results."""
+    previous_jobs = set(JOBS)
+    with client.session_transaction() as saved:
+        saved["latest_heatmap_job_id"] = "previous-job"
+    with (
+        patch("scrobblescope.routes._check_user_exists", return_value={"exists": True}),
+        patch(
+            "scrobblescope.routes._check_profile_is_public",
+            side_effect=RuntimeError("unavailable"),
+        ),
+    ):
+        response = client.post("/heatmap_loading", data={"username": "testuser"})
+    assert response.status_code == 503
+    assert response.json["retryable"] is True
+    assert set(JOBS) == previous_jobs
+    with client.session_transaction() as saved:
+        assert saved["latest_heatmap_job_id"] == "previous-job"

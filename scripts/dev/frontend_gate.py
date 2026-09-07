@@ -26,6 +26,7 @@ import sys
 import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from functools import cache
 from pathlib import Path
 
 from werkzeug.serving import make_server
@@ -54,6 +55,7 @@ if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = GATE_SECRET_KEY
 
 from app import create_app  # noqa: E402
+from scripts.dev._frontend_gate_results import check_results_interactions  # noqa: E402
 from scrobblescope.repositories import (  # noqa: E402
     create_job,
     delete_job,
@@ -69,6 +71,21 @@ from scrobblescope.repositories import (  # noqa: E402
 BROWSER_NAMES = ("chromium", "firefox")
 SETUP_COMMAND = "python -m playwright install chromium firefox"
 FONTS_READY_EXPRESSION = "document.fonts.ready"
+THEME_EXPRESSION = "() => document.documentElement.dataset.theme"
+SET_THEME_EXPRESSION = (
+    "(theme) => document.documentElement.setAttribute('data-theme', theme)"
+)
+
+ALBUM_PROGRESS_TRACK = "#progress-track"
+ALBUM_PROGRESS_BAR = "#progress-bar"
+ALBUM_PROGRESS_TEXT = "#step-text"
+HEATMAP_PROGRESS_TRACK = "#heatmap-progress-track"
+HEATMAP_PROGRESS_BAR = "#heatmap-progress-bar"
+HEATMAP_PROGRESS_TEXT = "#heatmap-progress-text"
+FETCHING_SCROBBLES = "Fetching scrobbles"
+COUNTING_SCROBBLES = "Counting daily scrobbles"
+PAGE_23_OF_102 = "PAGE 23 / 102"
+PAGE_90_OF_100 = "PAGE 90 / 100"
 
 #: Cool-grey surfaces the warm themes replaced. Batch criterion 2 forbids them.
 FORBIDDEN_SURFACES = ("rgb(248, 249, 250)", "rgb(18, 18, 18)")
@@ -90,6 +107,16 @@ NAVIGATION_TIMEOUT_MS = 10_000
 #: Directory holding route-blocked CDN fixtures. Repo-owned so CI never
 #: waits on the generic framework CDN (spec: 2026-09-07 gate isolation).
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
+
+
+@cache
+def _bootstrap_fixture() -> str:
+    """Read the generic CDN fixture on first use and share it across pages.
+
+    Deferring the read lets imports and live-CDN runs work without fixtures.
+    Failed reads are not cached, so a corrected installation can retry.
+    """
+    return (FIXTURE_DIR / "bootstrap_fixture.css").read_text(encoding="utf-8")
 
 
 def install_cdn_routes(page, live_fonts: bool = False) -> None:
@@ -117,9 +144,7 @@ def install_cdn_routes(page, live_fonts: bool = False) -> None:
             route.fulfill(
                 status=200,
                 content_type="text/css",
-                body=(FIXTURE_DIR / "bootstrap_fixture.css").read_text(
-                    encoding="utf-8"
-                ),
+                body=_bootstrap_fixture(),
             )
         else:
             route.continue_()
@@ -549,7 +574,7 @@ def check_divider_contrast(page, base_url: str) -> list[str]:
     for theme in ("light", "dark"):
         page.goto(f"{base_url}/", wait_until="load")
         page.evaluate(
-            "(theme) => document.documentElement.setAttribute('data-theme', theme)",
+            SET_THEME_EXPRESSION,
             theme,
         )
         border = _computed_colour(page, "var(--shell-border)")
@@ -592,7 +617,7 @@ def check_theme_tokens(page, base_url: str) -> list[str]:
         for theme in ("light", "dark"):
             page.goto(f"{base_url}{path}", wait_until="load")
             page.evaluate(
-                "(theme) => document.documentElement.setAttribute('data-theme', theme)",
+                SET_THEME_EXPRESSION,
                 theme,
             )
             bars = _computed_colour(page, "var(--bars-color)")
@@ -637,7 +662,7 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
     for theme, wanted in expected.items():
         page.goto(f"{base_url}/", wait_until="load")
         page.evaluate(
-            "(theme) => document.documentElement.setAttribute('data-theme', theme)",
+            SET_THEME_EXPRESSION,
             theme,
         )
         page.evaluate("document.querySelector('#username').classList.add('is-valid')")
@@ -738,7 +763,7 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
                 failures.append(f"{path}: no [data-theme-toggle] control found")
                 continue
 
-            before = page.evaluate("() => document.documentElement.dataset.theme")
+            before = page.evaluate(THEME_EXPRESSION)
             try:
                 toggle.first.click(timeout=TOGGLE_TIMEOUT_MS)
             except Exception as exc:  # noqa: BLE001 - any click fault is a failure
@@ -748,7 +773,7 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
                 )
                 continue
 
-            toggled = page.evaluate("() => document.documentElement.dataset.theme")
+            toggled = page.evaluate(THEME_EXPRESSION)
             if toggled == before:
                 failures.append(
                     f"{path}: toggling did not change data-theme (stayed {before!r})"
@@ -756,7 +781,7 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
                 continue
 
             page.reload(wait_until="load")
-            after = page.evaluate("() => document.documentElement.dataset.theme")
+            after = page.evaluate(THEME_EXPRESSION)
             if after != toggled:
                 failures.append(
                     f"{path}: theme did not survive reload: "
@@ -1794,6 +1819,242 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     return failures
 
 
+def _measure_scale_dimensions(page, base_url, selectors, width: int, height: int):
+    """Read real rectangles and computed authored dimensions after fonts load."""
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    return page.evaluate(
+        """(targets) => Object.fromEntries(
+            Object.entries(targets).map(([name, selector]) => {
+                const node = document.querySelector(selector);
+                if (!node) return [name, null];
+                const rect = node.getBoundingClientRect();
+                const style = getComputedStyle(node);
+                return [name, {
+                    width: rect.width,
+                    height: rect.height,
+                    fontSize: parseFloat(style.fontSize),
+                    lineHeight: parseFloat(style.lineHeight),
+                    marginTop: parseFloat(style.marginTop),
+                    marginBottom: parseFloat(style.marginBottom),
+                    paddingTop: parseFloat(style.paddingTop),
+                    borderTopWidth: parseFloat(style.borderTopWidth),
+                    borderTopLeftRadius: parseFloat(style.borderTopLeftRadius),
+                }];
+            })
+        )""",
+        selectors,
+    )
+
+
+def _measure_wide_layout(page):
+    """Read the independent columns, centred card and fixed shell."""
+    return page.evaluate(
+        """() => {
+            const hero = document.querySelector('.index-hero');
+            const heroInner = document.querySelector('.index-hero__inner');
+            const heroMark = document.querySelector('.index-hero__mark');
+            const application = document.querySelector('.index-form');
+            const form = document.querySelector('.index-form__inner');
+            const card = document.querySelector('.ss-card');
+            const style = getComputedStyle(application);
+            const heroStyle = getComputedStyle(hero);
+            const formRect = form.getBoundingClientRect();
+            const header = document.querySelector('.site-header');
+            const nav = document.querySelector('.site-header__nav');
+            const rowNodes = [
+                ...document.querySelectorAll(
+                    '.site-header__nav-link, .site-header__theme-toggle'
+                ),
+            ];
+            const tops = rowNodes.map(
+                (node) => node.getBoundingClientRect().top
+            );
+            return {
+                heroWidth: hero.getBoundingClientRect().width,
+                heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                heroInnerWidth: heroInner.getBoundingClientRect().width,
+                heroMarkWidth: heroMark.getBoundingClientRect().width,
+                applicationWidth: application.getBoundingClientRect().width,
+                formLeft: application.getBoundingClientRect().left,
+                formRight: application.getBoundingClientRect().right,
+                formInnerLeft: formRect.left,
+                formInnerRight: formRect.right,
+                formInnerWidth: formRect.width,
+                formInnerTop: formRect.top,
+                formInnerBottom: formRect.bottom,
+                cardLeft: card.getBoundingClientRect().left,
+                cardRight: card.getBoundingClientRect().right,
+                wellTop: application.getBoundingClientRect().top,
+                wellBottom: application.getBoundingClientRect().bottom,
+                paddingLeft: parseFloat(style.paddingLeft),
+                paddingRight: parseFloat(style.paddingRight),
+                headerGap: parseFloat(getComputedStyle(header).gap),
+                navGap: parseFloat(getComputedStyle(nav).gap),
+                rowSpread: Math.max(...tops) - Math.min(...tops),
+            };
+        }"""
+    )
+
+
+def _measure_zoom_and_transform(page):
+    """Confirm the scale mechanism never resolves to zoom or a transform.
+
+    Both `.ss-card` mode panels are already present in the DOM on a
+    single page load -- only one is toggled `hidden` per the active
+    mode, the other is never removed. This reads both without switching
+    modes: computed `zoom` and `transform` still resolve on a hidden
+    element (owner ruling 2026-09-05 #5), unlike a bounding rectangle,
+    which would not.
+    """
+    return page.evaluate(
+        """() => {
+            const targets = [
+                ['.index-hero__inner', document.querySelector('.index-hero__inner')],
+                ['.index-form__inner', document.querySelector('.index-form__inner')],
+                ['.mode-pill', document.querySelector('.mode-pill')],
+                ['.ss-input', document.querySelector('.ss-input')],
+                ['.ss-submit', document.querySelector('.ss-submit')],
+            ];
+            [...document.querySelectorAll('.ss-card')].forEach((node, index) => {
+                targets.push([`.ss-card[${index}]`, node]);
+            });
+            return targets
+                .filter(([, node]) => node)
+                .map(([label, node]) => {
+                    const style = getComputedStyle(node);
+                    return { label, zoom: style.zoom, transform: style.transform };
+                });
+        }"""
+    )
+
+
+def _measure_fixed_state(page, base_url, actions):
+    """Measure scale-controlled dimensions after one reachable state change."""
+    page.set_viewport_size({"width": 1920, "height": 945})
+    page.goto(f"{base_url}/", wait_until="load")
+    _reach_state(page, actions)
+    page.evaluate(FONTS_READY_EXPRESSION)
+    page.wait_for_timeout(350)
+    return page.evaluate(
+        """() => {
+            const visible = selector => [...document.querySelectorAll(selector)]
+                .find(node => node.getClientRects().length > 0);
+            const activeHero = document.querySelector('[data-mode-hero].is-active')
+                || [...document.querySelectorAll('[data-mode-hero]')]
+                    .find(node => !node.classList.contains('hidden'));
+            const formColumn = document.querySelector('.index-form');
+            const hero = document.querySelector('.index-hero');
+            const heroInner = document.querySelector('.index-hero__inner');
+            const heroMark = document.querySelector('.index-hero__mark');
+            const formInner = document.querySelector('.index-form__inner');
+            const card = visible('.ss-card');
+            const input = visible('.ss-input');
+            const headline = activeHero && activeHero.querySelector('.index-hero__headline');
+            const formStyle = getComputedStyle(formColumn);
+            const heroStyle = getComputedStyle(hero);
+            const cardStyle = getComputedStyle(card);
+            const inputStyle = getComputedStyle(input);
+            const headlineStyle = getComputedStyle(headline);
+            const modeStyle = getComputedStyle(document.querySelector('.mode-pill'));
+            return {
+                dimensions: {
+                    formWidth: formInner.getBoundingClientRect().width,
+                    formPaddingTop: parseFloat(formStyle.paddingTop),
+                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                    heroInnerWidth: heroInner.getBoundingClientRect().width,
+                    heroMarkWidth: heroMark.getBoundingClientRect().width,
+                    headlineFont: parseFloat(headlineStyle.fontSize),
+                    headlineLineHeight: parseFloat(headlineStyle.lineHeight),
+                    cardPaddingTop: parseFloat(cardStyle.paddingTop),
+                    inputHeight: input.getBoundingClientRect().height,
+                    inputFont: parseFloat(inputStyle.fontSize),
+                    modeHeight: document.querySelector('.mode-pill')
+                        .getBoundingClientRect().height,
+                    modeFont: parseFloat(modeStyle.fontSize),
+                },
+                viewportHeight: window.innerHeight,
+                documentHeight: document.documentElement.scrollHeight,
+                heroWidth: hero.getBoundingClientRect().width,
+                heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                heroInnerWidth: heroInner.getBoundingClientRect().width,
+                heroMarkWidth: heroMark.getBoundingClientRect().width,
+            };
+        }"""
+    )
+
+
+def _measure_mobile_headers(page, base_url) -> dict:
+    """Measure navigation containment and relocated theme controls at both widths."""
+    mobile_headers = {}
+    for width in (390, 320):
+        page.set_viewport_size({"width": width, "height": 844})
+        page.goto(f"{base_url}/", wait_until="load")
+        mobile_headers[width] = page.evaluate(
+            """() => {
+                const header = document.querySelector('.site-header');
+                const nav = document.querySelector('.site-header__nav');
+                const navRect = nav.getBoundingClientRect();
+                const actions = document.querySelector('.site-header__actions');
+                const actionsRect = actions.getBoundingClientRect();
+                const mainRect = document.querySelector('main').getBoundingClientRect();
+                const links = [...nav.querySelectorAll('.site-header__nav-link')];
+                return {
+                    headerHeight: header.getBoundingClientRect().height,
+                    bodyPaddingTop: parseFloat(
+                        getComputedStyle(document.body).paddingTop
+                    ),
+                    clientWidth: nav.clientWidth,
+                    scrollWidth: nav.scrollWidth,
+                    rows: new Set(links.map(link => Math.round(
+                        link.getBoundingClientRect().top
+                    ))).size,
+                    actionsInHeader: header.contains(actions),
+                    actionsInMobileSlot: Boolean(
+                        actions.closest('.site-theme-mobile-slot')
+                    ),
+                    actionsTop: actionsRect.top,
+                    contentBottom: mainRect.bottom,
+                    themeHeight: document.querySelector('.site-header__theme-toggle')
+                        .getBoundingClientRect().height,
+                    linksInside: links.every(link => {
+                        const rect = link.getBoundingClientRect();
+                        return rect.left >= navRect.left - 0.5
+                            && rect.right <= navRect.right + 0.5;
+                    }),
+                };
+            }"""
+        )
+    return mobile_headers
+
+
+def _measure_enlarged_root(page, base_url) -> float:
+    """Measure the form's font-relative guard and restore root sizing on failure."""
+    # Reset the expanded state: this probe exercises the initial form's
+    # font-relative height denominator, with the root enlarged to 20px.
+    page.set_viewport_size({"width": 1920, "height": 900})
+    page.goto(f"{base_url}/", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    old_root = page.evaluate("document.documentElement.style.fontSize")
+    try:
+        root_measurement = page.evaluate(
+            """() => {
+            document.documentElement.style.fontSize = '20px';
+            return document.querySelector('.index-form__inner')
+                .getBoundingClientRect().width;
+        }"""
+        )
+    finally:
+        page.evaluate(
+            "fontSize => { document.documentElement.style.fontSize = fontSize; }",
+            old_root,
+        )
+    return root_measurement
+
+
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     """Prove the shared wide-desktop scale, capped form, and equal gutters.
 
@@ -1855,178 +2116,16 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "4K": (3840, 2025),
     }
 
-    def measure(width: int, height: int):
-        """Read real rectangles and computed authored dimensions after fonts load."""
-        page.set_viewport_size({"width": width, "height": height})
-        page.goto(f"{base_url}/", wait_until="load")
-        page.evaluate(FONTS_READY_EXPRESSION)
-        return page.evaluate(
-            """(targets) => Object.fromEntries(
-                Object.entries(targets).map(([name, selector]) => {
-                    const node = document.querySelector(selector);
-                    if (!node) return [name, null];
-                    const rect = node.getBoundingClientRect();
-                    const style = getComputedStyle(node);
-                    return [name, {
-                        width: rect.width,
-                        height: rect.height,
-                        fontSize: parseFloat(style.fontSize),
-                        lineHeight: parseFloat(style.lineHeight),
-                        marginTop: parseFloat(style.marginTop),
-                        marginBottom: parseFloat(style.marginBottom),
-                        paddingTop: parseFloat(style.paddingTop),
-                        borderTopWidth: parseFloat(style.borderTopWidth),
-                        borderTopLeftRadius: parseFloat(style.borderTopLeftRadius),
-                    }];
-                })
-            )""",
-            selectors,
-        )
-
-    def measure_wide_layout():
-        """Read the independent columns, centred card and fixed shell."""
-        return page.evaluate(
-            """() => {
-                const hero = document.querySelector('.index-hero');
-                const heroInner = document.querySelector('.index-hero__inner');
-                const heroMark = document.querySelector('.index-hero__mark');
-                const application = document.querySelector('.index-form');
-                const form = document.querySelector('.index-form__inner');
-                const card = document.querySelector('.ss-card');
-                const style = getComputedStyle(application);
-                const heroStyle = getComputedStyle(hero);
-                const formRect = form.getBoundingClientRect();
-                const header = document.querySelector('.site-header');
-                const nav = document.querySelector('.site-header__nav');
-                const rowNodes = [
-                    ...document.querySelectorAll(
-                        '.site-header__nav-link, .site-header__theme-toggle'
-                    ),
-                ];
-                const tops = rowNodes.map(
-                    (node) => node.getBoundingClientRect().top
-                );
-                return {
-                    heroWidth: hero.getBoundingClientRect().width,
-                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
-                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
-                    heroInnerWidth: heroInner.getBoundingClientRect().width,
-                    heroMarkWidth: heroMark.getBoundingClientRect().width,
-                    applicationWidth: application.getBoundingClientRect().width,
-                    formLeft: application.getBoundingClientRect().left,
-                    formRight: application.getBoundingClientRect().right,
-                    formInnerLeft: formRect.left,
-                    formInnerRight: formRect.right,
-                    formInnerWidth: formRect.width,
-                    formInnerTop: formRect.top,
-                    formInnerBottom: formRect.bottom,
-                    cardLeft: card.getBoundingClientRect().left,
-                    cardRight: card.getBoundingClientRect().right,
-                    wellTop: application.getBoundingClientRect().top,
-                    wellBottom: application.getBoundingClientRect().bottom,
-                    paddingLeft: parseFloat(style.paddingLeft),
-                    paddingRight: parseFloat(style.paddingRight),
-                    headerGap: parseFloat(getComputedStyle(header).gap),
-                    navGap: parseFloat(getComputedStyle(nav).gap),
-                    rowSpread: Math.max(...tops) - Math.min(...tops),
-                };
-            }"""
-        )
-
-    def measure_zoom_and_transform():
-        """Confirm the scale mechanism never resolves to zoom or a transform.
-
-        Both `.ss-card` mode panels are already present in the DOM on a
-        single page load -- only one is toggled `hidden` per the active
-        mode, the other is never removed. This reads both without switching
-        modes: computed `zoom` and `transform` still resolve on a hidden
-        element (owner ruling 2026-09-05 #5), unlike a bounding rectangle,
-        which would not.
-        """
-        return page.evaluate(
-            """() => {
-                const targets = [
-                    ['.index-hero__inner', document.querySelector('.index-hero__inner')],
-                    ['.index-form__inner', document.querySelector('.index-form__inner')],
-                    ['.mode-pill', document.querySelector('.mode-pill')],
-                    ['.ss-input', document.querySelector('.ss-input')],
-                    ['.ss-submit', document.querySelector('.ss-submit')],
-                ];
-                [...document.querySelectorAll('.ss-card')].forEach((node, index) => {
-                    targets.push([`.ss-card[${index}]`, node]);
-                });
-                return targets
-                    .filter(([, node]) => node)
-                    .map(([label, node]) => {
-                        const style = getComputedStyle(node);
-                        return { label, zoom: style.zoom, transform: style.transform };
-                    });
-            }"""
-        )
-
-    def measure_fixed_state(actions):
-        """Measure scale-controlled dimensions after one reachable state change."""
-        page.set_viewport_size({"width": 1920, "height": 945})
-        page.goto(f"{base_url}/", wait_until="load")
-        _reach_state(page, actions)
-        page.evaluate(FONTS_READY_EXPRESSION)
-        page.wait_for_timeout(350)
-        return page.evaluate(
-            """() => {
-                const visible = selector => [...document.querySelectorAll(selector)]
-                    .find(node => node.getClientRects().length > 0);
-                const activeHero = document.querySelector('[data-mode-hero].is-active')
-                    || [...document.querySelectorAll('[data-mode-hero]')]
-                        .find(node => !node.classList.contains('hidden'));
-                const formColumn = document.querySelector('.index-form');
-                const hero = document.querySelector('.index-hero');
-                const heroInner = document.querySelector('.index-hero__inner');
-                const heroMark = document.querySelector('.index-hero__mark');
-                const formInner = document.querySelector('.index-form__inner');
-                const card = visible('.ss-card');
-                const input = visible('.ss-input');
-                const headline = activeHero && activeHero.querySelector('.index-hero__headline');
-                const formStyle = getComputedStyle(formColumn);
-                const heroStyle = getComputedStyle(hero);
-                const cardStyle = getComputedStyle(card);
-                const inputStyle = getComputedStyle(input);
-                const headlineStyle = getComputedStyle(headline);
-                const modeStyle = getComputedStyle(document.querySelector('.mode-pill'));
-                return {
-                    dimensions: {
-                        formWidth: formInner.getBoundingClientRect().width,
-                        formPaddingTop: parseFloat(formStyle.paddingTop),
-                        heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
-                        heroInnerWidth: heroInner.getBoundingClientRect().width,
-                        heroMarkWidth: heroMark.getBoundingClientRect().width,
-                        headlineFont: parseFloat(headlineStyle.fontSize),
-                        headlineLineHeight: parseFloat(headlineStyle.lineHeight),
-                        cardPaddingTop: parseFloat(cardStyle.paddingTop),
-                        inputHeight: input.getBoundingClientRect().height,
-                        inputFont: parseFloat(inputStyle.fontSize),
-                        modeHeight: document.querySelector('.mode-pill')
-                            .getBoundingClientRect().height,
-                        modeFont: parseFloat(modeStyle.fontSize),
-                    },
-                    viewportHeight: window.innerHeight,
-                    documentHeight: document.documentElement.scrollHeight,
-                    heroWidth: hero.getBoundingClientRect().width,
-                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
-                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
-                    heroInnerWidth: heroInner.getBoundingClientRect().width,
-                    heroMarkWidth: heroMark.getBoundingClientRect().width,
-                };
-            }"""
-        )
-
     try:
         measured_sizes = {}
         layouts = {}
         for label, (width, height) in windows.items():
-            measured_sizes[label] = measure(width, height)
-            layouts[label] = measure_wide_layout()
-        zoom_transform = measure_zoom_and_transform()
-        at_mobile = measure(390, 844)
+            measured_sizes[label] = _measure_scale_dimensions(
+                page, base_url, selectors, width, height
+            )
+            layouts[label] = _measure_wide_layout(page)
+        zoom_transform = _measure_zoom_and_transform(page)
+        at_mobile = _measure_scale_dimensions(page, base_url, selectors, 390, 844)
         mobile_layout = page.evaluate(
             """() => ({
             factor: getComputedStyle(document.querySelector('.index-grid'))
@@ -2035,45 +2134,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 .gridTemplateColumns.split(' ').length,
         })"""
         )
-        mobile_headers = {}
-        for width in (390, 320):
-            page.set_viewport_size({"width": width, "height": 844})
-            page.goto(f"{base_url}/", wait_until="load")
-            mobile_headers[width] = page.evaluate(
-                """() => {
-                    const header = document.querySelector('.site-header');
-                    const nav = document.querySelector('.site-header__nav');
-                    const navRect = nav.getBoundingClientRect();
-                    const actions = document.querySelector('.site-header__actions');
-                    const actionsRect = actions.getBoundingClientRect();
-                    const mainRect = document.querySelector('main').getBoundingClientRect();
-                    const links = [...nav.querySelectorAll('.site-header__nav-link')];
-                    return {
-                        headerHeight: header.getBoundingClientRect().height,
-                        bodyPaddingTop: parseFloat(
-                            getComputedStyle(document.body).paddingTop
-                        ),
-                        clientWidth: nav.clientWidth,
-                        scrollWidth: nav.scrollWidth,
-                        rows: new Set(links.map(link => Math.round(
-                            link.getBoundingClientRect().top
-                        ))).size,
-                        actionsInHeader: header.contains(actions),
-                        actionsInMobileSlot: Boolean(
-                            actions.closest('.site-theme-mobile-slot')
-                        ),
-                        actionsTop: actionsRect.top,
-                        contentBottom: mainRect.bottom,
-                        themeHeight: document.querySelector('.site-header__theme-toggle')
-                            .getBoundingClientRect().height,
-                        linksInside: links.every(link => {
-                            const rect = link.getBoundingClientRect();
-                            return rect.left >= navRect.left - 0.5
-                                && rect.right <= navRect.right + 0.5;
-                        }),
-                    };
-                }"""
-            )
+        mobile_headers = _measure_mobile_headers(page, base_url)
         fixed_states = {
             "as loaded": (),
             "heatmap mode": (("click", "#mode-tab-heatmap"),),
@@ -2086,28 +2147,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             ),
         }
         state_measurements = {
-            state: measure_fixed_state(actions)
+            state: _measure_fixed_state(page, base_url, actions)
             for state, actions in fixed_states.items()
         }
-        # Reset the expanded state: this probe exercises the initial form's
-        # font-relative height denominator, with the root enlarged to 20px.
-        page.set_viewport_size({"width": 1920, "height": 900})
-        page.goto(f"{base_url}/", wait_until="load")
-        page.evaluate(FONTS_READY_EXPRESSION)
-        old_root = page.evaluate("document.documentElement.style.fontSize")
-        try:
-            root_measurement = page.evaluate(
-                """() => {
-                document.documentElement.style.fontSize = '20px';
-                return document.querySelector('.index-form__inner')
-                    .getBoundingClientRect().width;
-            }"""
-            )
-        finally:
-            page.evaluate(
-                "fontSize => { document.documentElement.style.fontSize = fontSize; }",
-                old_root,
-            )
+        root_measurement = _measure_enlarged_root(page, base_url)
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
@@ -2139,8 +2182,6 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         )
         for label, (width, height) in windows.items()
     }
-    at_1080p = measured_sizes["1080p"]
-    layout_1080p = layouts["1080p"]
     for label, measurements in measured_sizes.items():
         for name in selectors:
             if measurements.get(name) is None:
@@ -2160,54 +2201,63 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             f"/: enlarged-root form width is {root_measurement:.1f}px, "
             f"expected font-relative height guard {expected_root_width:.1f}px"
         )
-    baseline_scale = expected_scales["1080p"]
-    for label in ("1200p measured", "1440p", "4K"):
-        ratio = expected_scales[label] / baseline_scale
-        for name, dimensions in scalable_dimensions.items():
-            for dimension in dimensions:
-                if name == "wordmark" and dimension == "height":
-                    expected = at_1080p["wordmark"]["height"] * (
-                        layouts[label]["heroInnerWidth"]
-                        / layouts["1080p"]["heroInnerWidth"]
-                    )
-                elif name == "hero composition" and dimension == "height":
-                    expected_mark = at_1080p["wordmark"]["height"] * (
-                        layouts[label]["heroInnerWidth"]
-                        / layouts["1080p"]["heroInnerWidth"]
-                    )
-                    expected = (
-                        expected_mark
-                        + (
-                            at_1080p["hero composition"]["height"]
-                            - at_1080p["wordmark"]["height"]
-                        )
-                        * ratio
-                    )
-                else:
-                    fixed_height = {"form": 5, "form composition": 7}.get(name, 0)
-                    fixed = fixed_height if dimension == "height" else 0
-                    expected = (at_1080p[name][dimension] - fixed) * ratio + fixed
-                actual = measured_sizes[label][name][dimension]
-                # Fine borders stay 1px: stacked border boxes can differ by
-                # a few pixels even when every content dimension scales.
-                tolerance = 4 if dimension == "height" else 1
-                if abs(actual - expected) > tolerance:
-                    failures.append(
-                        f"/: {name} {dimension} is {actual:.1f}px at {label}, "
-                        f"expected proportional {expected:.1f}px"
-                    )
-        for name, dimensions in fixed_dimensions.items():
-            for dimension in dimensions:
-                if (
-                    abs(
-                        at_1080p[name][dimension]
-                        - measured_sizes[label][name][dimension]
-                    )
-                    > 0.5
-                ):
-                    failures.append(
-                        f"/: {name} {dimension} changes outside the shared composition"
-                    )
+    failures.extend(
+        _scale_dimension_failures(
+            measured_sizes,
+            layouts,
+            expected_scales,
+            scalable_dimensions,
+            fixed_dimensions,
+        )
+    )
+    failures.extend(
+        _composition_bounds_failures(
+            measured_sizes, layouts, expected_scales, mobile_layout, at_mobile
+        )
+    )
+    failures.extend(_wide_layout_failures(layouts))
+    for width, header in mobile_headers.items():
+        failures.extend(_mobile_header_failures(width, header))
+    # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
+    # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
+    # clamp(5.75rem, 4.53vw, 7.25rem), theme-choice height
+    # clamp(2.25rem, 1.5625vw, 2.5rem). At 1920px width (1080p) every
+    # preferred vw term stays below its rem floor, so the floor wins; at
+    # 2560px width (1440p) each preferred term lands at or above its rem
+    # ceiling, so the ceiling wins (the bar exactly reproduces its current
+    # 76px reference there). The theme toggle's own rendered height is the
+    # choice clamp plus the toggle's fixed chrome (0.2rem padding x2 +
+    # 1px border x2 = 8.4px), so it is asserted as a tolerance-bound curve,
+    # not exact equality (owner ruling 2026-09-05 #4).
+    failures.extend(_header_geometry_failures(measured_sizes, layouts))
+    failures.extend(_scale_mechanism_failures(zoom_transform))
+    baseline_state = state_measurements["as loaded"]
+    failures.extend(
+        _state_dimension_failures(
+            baseline_state["dimensions"],
+            {
+                state: measurement["dimensions"]
+                for state, measurement in state_measurements.items()
+                if state != "as loaded"
+            },
+        )
+    )
+    expanded_state = state_measurements["decade + thresholds"]
+    if expanded_state["documentHeight"] <= expanded_state["viewportHeight"] + 1:
+        failures.append(
+            "/: expanded decade + thresholds state shrinks to avoid document scrolling"
+        )
+    failures.extend(_check_desktop_scale_bounds(page, base_url))
+    return failures
+
+
+def _composition_bounds_failures(
+    measured_sizes, layouts, expected_scales, mobile_layout, at_mobile
+) -> list[str]:
+    """Validate minimum growth, mobile sizing, column ratio and the ruled form cap."""
+    failures = []
+    at_1080p = measured_sizes["1080p"]
+    layout_1080p = layouts["1080p"]
     for name in ("hero composition", "form composition"):
         growth = measured_sizes["1440p"][name]["width"] / at_1080p[name]["width"]
         if growth < 1.20:
@@ -2237,6 +2287,76 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 f"/: form cap is {actual:.0f}px at a real {label} window, "
                 f"expected proportional {expected:.0f}px"
             )
+    return failures
+
+
+def _expected_scaled_dimension(
+    name, dimension, at_1080p, ratio, hero_width, baseline_hero_width
+):
+    """Keep fixed border chrome and column-filling marks out of content scaling."""
+    hero_width_ratio = hero_width / baseline_hero_width
+    if name == "wordmark" and dimension == "height":
+        expected = at_1080p["wordmark"]["height"] * hero_width_ratio
+    elif name == "hero composition" and dimension == "height":
+        expected_mark = at_1080p["wordmark"]["height"] * hero_width_ratio
+        expected = (
+            expected_mark
+            + (at_1080p["hero composition"]["height"] - at_1080p["wordmark"]["height"])
+            * ratio
+        )
+    else:
+        fixed_height = {"form": 5, "form composition": 7}.get(name, 0)
+        fixed = fixed_height if dimension == "height" else 0
+        expected = (at_1080p[name][dimension] - fixed) * ratio + fixed
+    return expected
+
+
+def _scale_dimension_failures(
+    measured_sizes, layouts, expected_scales, scalable_dimensions, fixed_dimensions
+) -> list[str]:
+    """Report scale dimension failures from rendered measurements."""
+    failures = []
+    at_1080p = measured_sizes["1080p"]
+    baseline_scale = expected_scales["1080p"]
+    for label in ("1200p measured", "1440p", "4K"):
+        ratio = expected_scales[label] / baseline_scale
+        for name, dimensions in scalable_dimensions.items():
+            for dimension in dimensions:
+                expected = _expected_scaled_dimension(
+                    name,
+                    dimension,
+                    at_1080p,
+                    ratio,
+                    layouts[label]["heroInnerWidth"],
+                    layouts["1080p"]["heroInnerWidth"],
+                )
+                actual = measured_sizes[label][name][dimension]
+                # Fine borders stay 1px: stacked border boxes can differ by
+                # a few pixels even when every content dimension scales.
+                tolerance = 4 if dimension == "height" else 1
+                if abs(actual - expected) > tolerance:
+                    failures.append(
+                        f"/: {name} {dimension} is {actual:.1f}px at {label}, "
+                        f"expected proportional {expected:.1f}px"
+                    )
+        for name, dimensions in fixed_dimensions.items():
+            for dimension in dimensions:
+                if (
+                    abs(
+                        at_1080p[name][dimension]
+                        - measured_sizes[label][name][dimension]
+                    )
+                    > 0.5
+                ):
+                    failures.append(
+                        f"/: {name} {dimension} changes outside the shared composition"
+                    )
+    return failures
+
+
+def _wide_layout_failures(layouts) -> list[str]:
+    """Report wide layout failures from rendered measurements."""
+    failures = []
     for label, layout in layouts.items():
         left_gutter = layout["formInnerLeft"] - layout["formLeft"]
         right_gutter = layout["formRight"] - layout["formInnerRight"]
@@ -2274,32 +2394,20 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 f"expected to track the hero inner at {layout['heroInnerWidth']:.1f}px"
             )
 
-    for width, header in mobile_headers.items():
-        failures.extend(_mobile_header_failures(width, header))
-    # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
-    # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
-    # clamp(5.75rem, 4.53vw, 7.25rem), theme-choice height
-    # clamp(2.25rem, 1.5625vw, 2.5rem). At 1920px width (1080p) every
-    # preferred vw term stays below its rem floor, so the floor wins; at
-    # 2560px width (1440p) each preferred term lands at or above its rem
-    # ceiling, so the ceiling wins (the bar exactly reproduces its current
-    # 76px reference there). The theme toggle's own rendered height is the
-    # choice clamp plus the toggle's fixed chrome (0.2rem padding x2 +
-    # 1px border x2 = 8.4px), so it is asserted as a tolerance-bound curve,
-    # not exact equality (owner ruling 2026-09-05 #4).
+    return failures
+
+
+def _header_geometry_failures(measured_sizes, layouts) -> list[str]:
+    """Report header geometry failures from rendered measurements."""
+    failures = []
     header_geometry = {
-        "1080p": {
-            "bar": _clamp_px(4.25, 2.96875, 4.75, 1920),
-            "nav height": _clamp_px(2.75, 1.875, 3.5, 1920),
-            "nav width": _clamp_px(5.75, 4.53, 7.25, 1920),
-            "toggle height": _clamp_px(2.25, 1.5625, 2.5, 1920) + 8.4,
-        },
-        "1440p": {
-            "bar": _clamp_px(4.25, 2.96875, 4.75, 2560),
-            "nav height": _clamp_px(2.75, 1.875, 3.5, 2560),
-            "nav width": _clamp_px(5.75, 4.53, 7.25, 2560),
-            "toggle height": _clamp_px(2.25, 1.5625, 2.5, 2560) + 8.4,
-        },
+        label: {
+            "bar": _clamp_px(4.25, 2.96875, 4.75, width),
+            "nav height": _clamp_px(2.75, 1.875, 3.5, width),
+            "nav width": _clamp_px(5.75, 4.53, 7.25, width),
+            "toggle height": _clamp_px(2.25, 1.5625, 2.5, width) + 8.4,
+        }
+        for label, width in (("1080p", 1920), ("1440p", 2560))
     }
     for label, expected_geometry in header_geometry.items():
         bar = measured_sizes[label]["header bar"]["height"]
@@ -2336,6 +2444,12 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 f"row at {label}"
             )
 
+    return failures
+
+
+def _scale_mechanism_failures(zoom_transform) -> list[str]:
+    """Report scale mechanism failures from rendered measurements."""
+    failures = []
     for entry in zoom_transform:
         if entry["zoom"] not in ("1", "normal"):
             failures.append(
@@ -2347,23 +2461,6 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 "expected none"
             )
 
-    baseline_state = state_measurements["as loaded"]
-    failures.extend(
-        _state_dimension_failures(
-            baseline_state["dimensions"],
-            {
-                state: measurement["dimensions"]
-                for state, measurement in state_measurements.items()
-                if state != "as loaded"
-            },
-        )
-    )
-    expanded_state = state_measurements["decade + thresholds"]
-    if expanded_state["documentHeight"] <= expanded_state["viewportHeight"] + 1:
-        failures.append(
-            "/: expanded decade + thresholds state shrinks to avoid document scrolling"
-        )
-    failures.extend(_check_desktop_scale_bounds(page, base_url))
     return failures
 
 
@@ -2671,16 +2768,33 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     heatmap_path = f"/heatmap?job_id={heatmap_job_id}"
     failures = []
 
+    failures.extend(_check_phase_repository_isolation(album_job_id))
+    failures.extend(
+        _exercise_album_progress(page, base_url, album_job_id, loading_path)
+    )
+    failures.extend(
+        _exercise_heatmap_progress(page, base_url, heatmap_job_id, heatmap_path)
+    )
+    failures.extend(_check_single_stat_layout(page))
+    failures.extend(
+        _exercise_replaced_job_progress(page, base_url, heatmap_job_id, heatmap_path)
+    )
+    return failures
+
+
+def _check_phase_repository_isolation(album_job_id) -> list[str]:
+    """Verify caller and returned phase objects cannot mutate stored progress."""
+    failures = []
     # 1. Repository mutation isolation
     test_phase = {
         "key": "lastfm_fetch",
-        "label": "Fetching scrobbles",
+        "label": FETCHING_SCROBBLES,
         "unit": "page",
         "current": 23,
         "total": 102,
     }
     set_job_progress(
-        album_job_id, progress=20, message="Fetching scrobbles", phase=test_phase
+        album_job_id, progress=20, message=FETCHING_SCROBBLES, phase=test_phase
     )
     test_phase["current"] = 99
     prog_caller = get_job_progress(album_job_id)
@@ -2720,29 +2834,35 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
             "repository get_job_context leaked returned context phase mutation"
         )
 
-    # 2. Sequential payloads on Album client (/loading)
+    return failures
+
+
+def _exercise_counted_progress(
+    page, base_url, job_id, path, selectors, client
+) -> list[str]:
+    """Exercise the shared counted-to-uncounted transition on either client."""
+    track, bar, text = selectors
+    failures = []
     set_job_progress(
-        album_job_id,
+        job_id,
         progress=20,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 23,
             "total": 102,
         },
     )
-    page.goto(f"{base_url}{loading_path}", wait_until="load")
-    page.locator("#step-text").filter(has_text="PAGE 23 / 102").wait_for(
-        state="visible"
-    )
+    page.goto(f"{base_url}{path}", wait_until="load")
+    page.locator(text).filter(has_text=PAGE_23_OF_102).wait_for(state="visible")
     failures.extend(
         _assert_loading_progress_state(
             page,
-            "#progress-track",
-            "#progress-bar",
-            "#step-text",
+            track,
+            bar,
+            text,
             expected_valuenow=23,
             expected_scalex=23 / 102,
             expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
@@ -2750,26 +2870,24 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     )
 
     set_job_progress(
-        album_job_id,
+        job_id,
         progress=90,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 90,
             "total": 100,
         },
     )
-    page.locator("#step-text").filter(has_text="PAGE 90 / 100").wait_for(
-        state="visible"
-    )
+    page.locator(text).filter(has_text=PAGE_90_OF_100).wait_for(state="visible")
     failures.extend(
         _assert_loading_progress_state(
             page,
-            "#progress-track",
-            "#progress-bar",
-            "#step-text",
+            track,
+            bar,
+            text,
             expected_valuenow=90,
             expected_scalex=0.9,
             expected_text="FETCHING SCROBBLES · PAGE 90 / 100",
@@ -2777,35 +2895,49 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     )
 
     set_job_progress(
-        album_job_id,
+        job_id,
         progress=92,
-        message="Counting daily scrobbles",
+        message=COUNTING_SCROBBLES,
         phase=None,
     )
-    page.locator("#step-text").filter(has_text="Counting daily scrobbles").wait_for(
-        state="visible"
-    )
+    page.locator(text).filter(has_text=COUNTING_SCROBBLES).wait_for(state="visible")
     failures.extend(
         _assert_loading_progress_state(
             page,
-            "#progress-track",
-            "#progress-bar",
-            "#step-text",
+            track,
+            bar,
+            text,
             expected_valuenow=92,
             expected_scalex=0.92,
-            expected_text="Counting daily scrobbles",
+            expected_text=COUNTING_SCROBBLES,
         )
     )
-    if "PAGE" in page.locator("#step-text").inner_text():
-        failures.append("album uncounted frame retained stale phase fraction")
+    if "PAGE" in page.locator(text).inner_text():
+        failures.append(f"{client} uncounted frame retained stale phase fraction")
 
+    return failures
+
+
+def _exercise_album_progress(page, base_url, album_job_id, loading_path) -> list[str]:
+    """Drive counted, uncounted and complete phases on the album page."""
+    failures = []
+    failures.extend(
+        _exercise_counted_progress(
+            page,
+            base_url,
+            album_job_id,
+            loading_path,
+            (ALBUM_PROGRESS_TRACK, ALBUM_PROGRESS_BAR, ALBUM_PROGRESS_TEXT),
+            "album",
+        )
+    )
     set_job_progress(
         album_job_id,
         progress=20,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 102,
             "total": 102,
@@ -2815,113 +2947,58 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     if not page.url.startswith(f"{base_url}/loading"):
         failures.append("album phase at 100% prematurely triggered navigation")
 
-    # 3. Sequential payloads on Heatmap client
+    return failures
+
+
+def _exercise_heatmap_progress(
+    page, base_url, heatmap_job_id, heatmap_path
+) -> list[str]:
+    """Drive counted, uncounted and zero-total phases on the heatmap page."""
+    failures = []
     reset_job_state(heatmap_job_id)
-    set_job_progress(
-        heatmap_job_id,
-        progress=20,
-        message="Fetching scrobbles",
-        phase={
-            "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
-            "unit": "page",
-            "current": 23,
-            "total": 102,
-        },
-    )
-    page.goto(f"{base_url}{heatmap_path}", wait_until="load")
-    page.locator("#heatmap-progress-text").filter(has_text="PAGE 23 / 102").wait_for(
-        state="visible"
-    )
     failures.extend(
-        _assert_loading_progress_state(
+        _exercise_counted_progress(
             page,
-            "#heatmap-progress-track",
-            "#heatmap-progress-bar",
-            "#heatmap-progress-text",
-            expected_valuenow=23,
-            expected_scalex=23 / 102,
-            expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+            base_url,
+            heatmap_job_id,
+            heatmap_path,
+            (HEATMAP_PROGRESS_TRACK, HEATMAP_PROGRESS_BAR, HEATMAP_PROGRESS_TEXT),
+            "heatmap",
         )
     )
-
-    set_job_progress(
-        heatmap_job_id,
-        progress=90,
-        message="Fetching scrobbles",
-        phase={
-            "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
-            "unit": "page",
-            "current": 90,
-            "total": 100,
-        },
-    )
-    page.locator("#heatmap-progress-text").filter(has_text="PAGE 90 / 100").wait_for(
-        state="visible"
-    )
-    failures.extend(
-        _assert_loading_progress_state(
-            page,
-            "#heatmap-progress-track",
-            "#heatmap-progress-bar",
-            "#heatmap-progress-text",
-            expected_valuenow=90,
-            expected_scalex=0.9,
-            expected_text="FETCHING SCROBBLES · PAGE 90 / 100",
-        )
-    )
-
-    set_job_progress(
-        heatmap_job_id,
-        progress=92,
-        message="Counting daily scrobbles",
-        phase=None,
-    )
-    page.locator("#heatmap-progress-text").filter(
-        has_text="Counting daily scrobbles"
-    ).wait_for(state="visible")
-    failures.extend(
-        _assert_loading_progress_state(
-            page,
-            "#heatmap-progress-track",
-            "#heatmap-progress-bar",
-            "#heatmap-progress-text",
-            expected_valuenow=92,
-            expected_scalex=0.92,
-            expected_text="Counting daily scrobbles",
-        )
-    )
-    if "PAGE" in page.locator("#heatmap-progress-text").inner_text():
-        failures.append("heatmap uncounted frame retained stale phase fraction")
-
     set_job_progress(
         heatmap_job_id,
         progress=15,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 0,
             "total": 0,
         },
     )
-    page.locator("#heatmap-progress-text").filter(
-        has_text="FETCHING SCROBBLES"
-    ).wait_for(state="visible")
+    page.locator(HEATMAP_PROGRESS_TEXT).filter(has_text="FETCHING SCROBBLES").wait_for(
+        state="visible"
+    )
     failures.extend(
         _assert_loading_progress_state(
             page,
-            "#heatmap-progress-track",
-            "#heatmap-progress-bar",
-            "#heatmap-progress-text",
+            HEATMAP_PROGRESS_TRACK,
+            HEATMAP_PROGRESS_BAR,
+            HEATMAP_PROGRESS_TEXT,
             expected_valuenow=15,
             expected_scalex=0.15,
             expected_text="FETCHING SCROBBLES",
         )
     )
 
+    return failures
+
+
+def _check_single_stat_layout(page) -> list[str]:
+    """Verify hidden statistics reserve no width and the remaining stat is centred."""
+    failures = []
     # 4. Composition check: single stat is centered and hidden stats reserve 0 width
     page.evaluate(
         """() => {
@@ -2961,15 +3038,23 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
             f"heatmap single stat is not centered: offset {stat_layout['pagesCenter']:.1f}px"
         )
 
+    return failures
+
+
+def _exercise_replaced_job_progress(
+    page, base_url, heatmap_job_id, heatmap_path
+) -> list[str]:
+    """Hold an old poll while replacing the job, then check stale rejection."""
+    failures = []
     # 5. Out-of-order response rejection and job replacement
     replacement_job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
     set_job_progress(
         replacement_job_id,
         progress=80,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 80,
             "total": 100,
@@ -2990,30 +3075,34 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
         page.wait_for_timeout(100)
         # Navigate to replacement job while old job poll is held
         page.goto(f"{base_url}/heatmap?job_id={replacement_job_id}", wait_until="load")
-        page.locator("#heatmap-progress-text").filter(
-            has_text="PAGE 80 / 100"
-        ).wait_for(state="visible")
+        page.locator(HEATMAP_PROGRESS_TEXT).filter(has_text="PAGE 80 / 100").wait_for(
+            state="visible"
+        )
 
         # Fulfill held response for the replaced job with stale 20%
         if held_routes:
             held_routes[0].fulfill(
                 status=200,
-                content_type="application/json",
-                body=(
-                    '{"progress": 20, "phase": {"key": "lastfm_fetch", '
-                    '"label": "Fetching scrobbles", "unit": "page", '
-                    '"current": 20, "total": 100}}'
-                ),
+                json={
+                    "progress": 20,
+                    "phase": {
+                        "key": "lastfm_fetch",
+                        "label": FETCHING_SCROBBLES,
+                        "unit": "page",
+                        "current": 20,
+                        "total": 100,
+                    },
+                },
             )
             page.wait_for_timeout(150)
-            current_valuenow = page.locator("#heatmap-progress-track").get_attribute(
+            current_valuenow = page.locator(HEATMAP_PROGRESS_TRACK).get_attribute(
                 "aria-valuenow"
             )
             if current_valuenow == "20":
                 failures.append(
                     "stale out-of-order progress response regressed aria-valuenow"
                 )
-            if "PAGE 20" in page.locator("#heatmap-progress-text").inner_text():
+            if "PAGE 20" in page.locator(HEATMAP_PROGRESS_TEXT).inner_text():
                 failures.append(
                     "stale out-of-order progress response regressed visible text"
                 )
@@ -3442,6 +3531,12 @@ CHECKS = (
     ),
     ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE), LAYOUT_PIPELINE),
     (
+        "results interactions",
+        check_results_interactions,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
         "destination empty states",
         check_destination_empty_states,
         (DESKTOP, MOBILE),
@@ -3529,41 +3624,45 @@ def run_checks(
     Every failure carries its profile. "the submit button is 38px" is not
     actionable until you know which device produced it.
     """
+    live_groups = tuple(dict.fromkeys(entry[3] for entry in CHECKS))
     failures = []
-    # Derive the order from the live CHECKS, not the import-time
-    # CHECK_GROUPS snapshot: tests substitute CHECKS with their own
-    # entries, and a stale group list would silently run nothing.
-    live_groups: list[str] = []
-    for entry in CHECKS:
-        if entry[3] not in live_groups:
-            live_groups.append(entry[3])
-    for group in group_order or tuple(live_groups):
-        claimed_in_group = [e for e in CHECKS if e[3] == group]
+    for group in group_order or live_groups:
+        claimed_in_group = [entry for entry in CHECKS if entry[3] == group]
         for viewport, spec in VIEWPORTS.items():
-            claimed = [e for e in claimed_in_group if viewport in e[2]]
-            if not claimed:
-                continue
-            try:
-                page = new_page(spec)
-                install_cdn_routes(page)
-            except Exception as exc:  # noqa: BLE001 - same rule as a check fault
-                failures.append(
-                    f"{group} [{viewport}]: context could not be opened: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-                continue
-            for name, check, _viewports, _group in claimed:
-                try:
-                    results = check(page, base_url)
-                except Exception as exc:  # noqa: BLE001 - any check fault is a failure
-                    failures.append(
-                        f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"
-                    )
-                    continue
+            claimed = [entry for entry in claimed_in_group if viewport in entry[2]]
+            if claimed:
                 failures.extend(
-                    f"{name} [{viewport}]: {failure}" for failure in results
+                    _run_profile_checks(
+                        new_page, base_url, group, viewport, spec, claimed
+                    )
                 )
     return failures
+
+
+def _run_profile_checks(
+    new_page, base_url, group, viewport, spec, claimed
+) -> list[str]:
+    """Open one isolated group/profile and report setup faults without aborting."""
+    try:
+        page = new_page(spec)
+    except Exception as exc:  # noqa: BLE001 - any factory fault is a gate failure
+        return [
+            f"{group} [{viewport}]: context could not be opened: "
+            f"{type(exc).__name__}: {exc}"
+        ]
+    failures = []
+    for name, check, _viewports, _group in claimed:
+        failures.extend(_run_check(page, base_url, name, viewport, check))
+    return failures
+
+
+def _run_check(page, base_url, name, viewport, check) -> list[str]:
+    """Keep one failed diagnostic from hiding later checks on the same profile."""
+    try:
+        results = check(page, base_url)
+    except Exception as exc:  # noqa: BLE001 - any check fault is a failure
+        return [f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"]
+    return [f"{name} [{viewport}]: {failure}" for failure in results]
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

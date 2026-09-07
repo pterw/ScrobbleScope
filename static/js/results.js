@@ -1,32 +1,12 @@
 // static/js/results.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    function escapeHtml(value) {
-        if (value === null || value === undefined) return '';
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function formatDurationMobile(seconds) {
-        seconds = Math.ceil(seconds);
-        if (seconds < 60) return `${seconds}s`;
-        const minutes = Math.floor(seconds / 60);
-        const secRem = seconds % 60;
-        if (minutes < 60) {
-            return secRem > 0 ? `${minutes}m ${secRem}s` : `${minutes}m`;
-        }
-        const hours = Math.floor(minutes / 60);
-        const minRem = minutes % 60;
-        if (hours < 24) {
-            return minRem > 0 ? `${hours}h ${minRem}m` : `${hours}h`;
-        }
-        const days = Math.floor(hours / 24);
-        const hourRem = hours % 24;
-        return hourRem > 0 ? `${days}d ${hourRem}h` : `${days}d`;
+    /** Build text-bearing nodes without interpreting API or dataset values as HTML. */
+    function textNode(tag, className, text) {
+        const node = document.createElement(tag);
+        node.className = className;
+        node.textContent = text;
+        return node;
     }
 
     // Toast Notification (daisyUI stack + 3px tone rule and mono kicker)
@@ -46,10 +26,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         toast.className = `alert shadow-lg bg-[var(--ss-surface-card,#ffffff)] border border-[var(--ss-border-default,#e5dfd1)] ${borderClass} rounded-[var(--radius-sm,8px)] p-3 flex flex-col items-start gap-1 min-w-[260px] max-w-sm transition-all duration-300 transform translate-y-2 opacity-0 z-50`;
-        toast.innerHTML = `
-            <div class="font-mono text-xs uppercase tracking-wider text-[var(--ss-text-muted,#6c6676)] font-bold">${kicker}</div>
-            <div class="font-sans text-xs text-[var(--color-base-content,#1a1820)]">${escapeHtml(message)}</div>
-        `;
+        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        toast.append(
+            textNode('div', 'font-mono text-xs uppercase tracking-wider text-[var(--ss-text-muted,#6c6676)] font-bold', kicker),
+            textNode('div', 'font-sans text-xs text-[var(--color-base-content,#1a1820)]', message),
+        );
         container.appendChild(toast);
 
         requestAnimationFrame(() => {
@@ -84,14 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const album = tr.dataset.album || tr.querySelector('.album-link, .album-info span')?.textContent.trim() || '';
                     const artist = tr.dataset.artist || tr.querySelector('.artist-name')?.textContent.trim() || '';
 
-                    let metric = '';
-                    const desktopVal = tr.querySelector('.desktop-val');
-                    if (desktopVal && desktopVal.offsetParent !== null) {
-                        metric = desktopVal.textContent.trim();
-                    } else {
-                        const metricCell = tr.querySelector('.metric-value-cell');
-                        metric = metricCell ? metricCell.textContent.trim() : (tr.dataset.playCount || '');
-                    }
+                    const metric = table.dataset.metric === 'playtime'
+                        ? (tr.dataset.playTime || '')
+                        : (tr.dataset.playCount || '0');
 
                     const releaseCell = tr.querySelector('.release-date-cell');
                     const release = releaseCell?.getAttribute('data-export') || releaseCell?.textContent.trim() || '';
@@ -122,16 +98,15 @@ document.addEventListener('DOMContentLoaded', () => {
         saveImageBtn.addEventListener('click', function() {
             showToast('Creating leaderboard image... please wait.');
             const targetElement = document.getElementById('results-table-wrapper');
-            if (!targetElement || typeof html2canvas === 'undefined') {
+            if (!targetElement || typeof window.html2canvas !== 'function') {
                 showToast('Could not save image.', 'error');
                 return;
             }
 
             const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
-            const isDark = currentTheme === 'dark';
-            const bgColor = isDark ? '#0e0c12' : '#faf8f3';
+            const bgColor = getComputedStyle(document.body).backgroundColor;
 
-            html2canvas(targetElement, {
+            window.html2canvas(targetElement, {
                 scale: 3,
                 useCORS: true,
                 backgroundColor: bgColor,
@@ -179,101 +154,72 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Leaderboard Metric Segmented Toggle: Bidirectional In-Place Reordering
+    /** Render one metric from the row's canonical export data. */
+    function renderMetric(row, mode) {
+        const cell = row.querySelector('.metric-value-cell');
+        if (!cell) return;
+        const value = textNode('span', 'metric-value', '');
+        value.classList.add(mode === 'playtime' ? 'metric-val-playtime' : 'metric-val-plays');
+        if (mode === 'playtime') {
+            const duration = row.dataset.playTime || '';
+            value.append(
+                textNode('span', 'desktop-val hidden md:inline', duration),
+                textNode('span', 'mobile-val inline md:hidden', row.dataset.playTimeMobile || duration),
+            );
+        } else {
+            value.textContent = row.dataset.playCount || '0';
+        }
+        cell.replaceChildren(value);
+    }
+
+    /** Keep selection styling and accessible state in sync with the sort mode. */
+    function updateMetricButtons(mode) {
+        for (const [buttonMode, id] of [['plays', 'toggle-sort-plays'], ['playtime', 'toggle-sort-playtime']]) {
+            const button = document.getElementById(id);
+            if (!button) continue;
+            const active = mode === buttonMode;
+            button.classList.toggle('bg-[var(--ss-accent-soft)]', active);
+            button.classList.toggle('text-[var(--color-primary)]', active);
+            button.classList.toggle('text-[var(--ss-text-muted)]', !active);
+            button.setAttribute('aria-pressed', String(active));
+        }
+    }
+
+    /** Reorder existing rows and update their visible and exported ranks together. */
     function setLeaderboardMetric(mode, showNotification = true) {
         const table = document.getElementById('results-table');
-        const tbody = table ? table.querySelector('tbody') : null;
+        const tbody = table?.querySelector('tbody');
         if (!tbody) return;
-
+        table.dataset.metric = mode;
+        const key = mode === 'playtime' ? 'playTimeSeconds' : 'playCount';
         const rows = Array.from(tbody.querySelectorAll('tr'));
-        if (mode === 'playtime') {
-            rows.sort((a, b) => {
-                const secA = parseFloat(a.dataset.playTimeSeconds || 0);
-                const secB = parseFloat(b.dataset.playTimeSeconds || 0);
-                return secB - secA;
-            });
-        } else {
-            rows.sort((a, b) => {
-                const countA = parseInt(a.dataset.playCount || 0, 10);
-                const countB = parseInt(b.dataset.playCount || 0, 10);
-                return countB - countA;
-            });
-        }
-
-        rows.forEach((row, idx) => {
+        rows.sort((a, b) => Number(b.dataset[key] || 0) - Number(a.dataset[key] || 0));
+        rows.forEach((row, index) => {
             tbody.appendChild(row);
-            const rankNumEl = row.querySelector('.rank-num, .rank-link, td:first-child a, td:first-child span');
-            if (rankNumEl) {
-                const newRank = idx + 1;
-                rankNumEl.textContent = newRank < 100 ? String(newRank).padStart(2, '0') : String(newRank);
-            }
-
-            const metricCell = row.querySelector('.metric-value-cell');
-            if (metricCell) {
-                metricCell.className = 'py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap metric-value-cell';
-                if (mode === 'playtime') {
-                    const playTime = row.dataset.playTime || '';
-                    const playTimeMobile = row.dataset.playTimeMobile || playTime;
-                    metricCell.innerHTML = `
-                        <span class="metric-value metric-val-playtime">
-                            <span class="desktop-val hidden md:inline">${escapeHtml(playTime)}</span>
-                            <span class="mobile-val inline md:hidden">${escapeHtml(playTimeMobile)}</span>
-                        </span>
-                    `;
-                } else {
-                    const playCount = row.dataset.playCount || '0';
-                    metricCell.innerHTML = `
-                        <span class="metric-value metric-val-plays">
-                            ${escapeHtml(playCount)}
-                        </span>
-                    `;
-                }
-            }
+            row.dataset.rank = String(index + 1);
+            const rank = row.querySelector('.rank-num, .rank-link, td:first-child a, td:first-child span');
+            if (rank) rank.textContent = String(index + 1).padStart(2, '0');
+            renderMetric(row, mode);
         });
-
-        const headerLabel = document.getElementById('metric-header-label');
-        if (headerLabel) {
-            headerLabel.textContent = mode === 'playtime' ? 'Listening Time' : 'Track Plays';
+        const label = document.getElementById('metric-header-label');
+        if (label) label.textContent = mode === 'playtime' ? 'Listening Time' : 'Track Plays';
+        const subtitle = document.getElementById('results-ranking-subtitle');
+        if (subtitle) {
+            const ranking = mode === 'playtime' ? 'listening time' : 'play count';
+            subtitle.textContent = `${window.APP_DATA?.year || ''} \u00b7 Ranked by ${ranking}`;
         }
-
-        const rankingSubtitle = document.getElementById('results-ranking-subtitle');
-        if (rankingSubtitle) {
-            const year = window.APP_DATA?.year || '';
-            rankingSubtitle.textContent = mode === 'playtime'
-                ? `${year} · Ranked by listening time`
-                : `${year} · Ranked by play count`;
+        updateMetricButtons(mode);
+        if (showNotification) {
+            showToast(mode === 'playtime'
+                ? 'Leaderboard ranked by Spotify listening time.'
+                : 'Leaderboard ranked by track play count.');
         }
+    }
 
-        const btnPlays = document.getElementById('toggle-sort-plays');
-        const btnPlaytime = document.getElementById('toggle-sort-playtime');
-        const activeClasses = ['bg-[var(--ss-accent-soft)]', 'text-[var(--color-primary)]', 'font-normal'];
-        const inactiveClasses = ['text-[var(--ss-text-muted)]'];
-
-        if (mode === 'playtime') {
-            if (btnPlaytime) {
-                btnPlaytime.classList.add(...activeClasses);
-                btnPlaytime.classList.remove(...inactiveClasses);
-            }
-            if (btnPlays) {
-                btnPlays.classList.remove(...activeClasses);
-                btnPlays.classList.add(...inactiveClasses);
-            }
-            if (showNotification) {
-                showToast('Leaderboard ranked by Spotify listening time.', 'info');
-            }
-        } else {
-            if (btnPlays) {
-                btnPlays.classList.add(...activeClasses);
-                btnPlays.classList.remove(...inactiveClasses);
-            }
-            if (btnPlaytime) {
-                btnPlaytime.classList.remove(...activeClasses);
-                btnPlaytime.classList.add(...inactiveClasses);
-            }
-            if (showNotification) {
-                showToast('Leaderboard ranked by track play count.', 'info');
-            }
-        }
+    const resultsTable = document.getElementById('results-table');
+    if (resultsTable) {
+        resultsTable.dataset.metric = window.APP_DATA?.sort_by === 'playtime' ? 'playtime' : 'plays';
+        updateMetricButtons(resultsTable.dataset.metric);
     }
 
     const togglePlaysBtn = document.getElementById('toggle-sort-plays');
@@ -294,143 +240,4 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Rotate a stable five-artist sample while Spotify portraits hydrate in parallel.
-    function startArtistSpotlightRotation() {
-        const card = document.getElementById('artist-spotlight-card');
-        if (!card) return;
-        const candidates = Array.isArray(window.APP_DATA?.spotlight_artists)
-            ? window.APP_DATA.spotlight_artists.map(artist => ({ ...artist }))
-            : [];
-        if (candidates.length === 0) return;
-
-        const contentEl = document.getElementById('spotlight-card-content');
-        const nameEl = document.getElementById('spotlight-artist-name');
-        const imgEl = document.getElementById('spotlight-artist-img');
-        const linkEl = document.getElementById('spotlight-spotify-link');
-        const playtimeBadge = document.getElementById('spotlight-playtime-badge');
-        const playtimeSep = document.getElementById('spotlight-playtime-sep');
-        const scrobbleText = document.getElementById('spotlight-scrobble-text');
-        const positionEl = document.getElementById('spotlight-artist-rank');
-        const prefersReducedMotion = window.matchMedia
-            && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const year = window.APP_DATA?.year || '';
-        let currentIndex = 0;
-        let imageLoadRevision = 0;
-
-        const renderCandidate = (index, animate = true) => {
-            const candidate = candidates[index];
-            if (!candidate) return;
-
-            const applyCandidate = () => {
-                card.dataset.artist = candidate.name;
-                card.dataset.spotlightIndex = String(index);
-                card.style.display = '';
-
-                if (nameEl) {
-                    nameEl.textContent = candidate.name;
-                    nameEl.title = candidate.name;
-                }
-                if (positionEl) {
-                    positionEl.textContent = `${String(index + 1).padStart(2, '0')} / ${String(candidates.length).padStart(2, '0')}`;
-                }
-                if (scrobbleText) {
-                    const albumWord = candidate.album_count === 1 ? 'album' : 'albums';
-                    scrobbleText.textContent = `${Number(candidate.scrobbles).toLocaleString()} scrobbles across ${candidate.album_count} ${albumWord} in ${year}`;
-                }
-                if (playtimeBadge && playtimeSep) {
-                    if (candidate.play_time_seconds > 0) {
-                        playtimeBadge.textContent = candidate.play_time
-                            || formatDurationMobile(candidate.play_time_seconds);
-                        playtimeBadge.classList.remove('hidden');
-                        playtimeSep.classList.remove('hidden');
-                    } else {
-                        playtimeBadge.classList.add('hidden');
-                        playtimeSep.classList.add('hidden');
-                    }
-                }
-                if (imgEl) {
-                    const revision = ++imageLoadRevision;
-                    if (candidate.image_url) {
-                        const preloader = new Image();
-                        preloader.onload = () => {
-                            if (revision !== imageLoadRevision || currentIndex !== index) return;
-                            imgEl.src = candidate.image_url;
-                            imgEl.alt = `Photograph of ${candidate.name}`;
-                            imgEl.classList.remove('hidden', 'opacity-0');
-                            imgEl.style.opacity = '1';
-                            contentEl?.classList.remove('spotlight-no-image');
-                        };
-                        preloader.onerror = () => {
-                            if (revision !== imageLoadRevision || currentIndex !== index) return;
-                            imgEl.removeAttribute('src');
-                            imgEl.classList.add('hidden');
-                            contentEl?.classList.add('spotlight-no-image');
-                        };
-                        preloader.src = candidate.image_url;
-                    } else {
-                        imgEl.removeAttribute('src');
-                        imgEl.classList.add('hidden');
-                        contentEl?.classList.add('spotlight-no-image');
-                    }
-                }
-                if (linkEl) {
-                    if (candidate.spotify_url) {
-                        linkEl.href = candidate.spotify_url;
-                        linkEl.classList.remove('hidden');
-                        linkEl.setAttribute(
-                            'aria-label',
-                            `View ${candidate.name} on Spotify (opens in new tab)`,
-                        );
-                    } else {
-                        linkEl.removeAttribute('href');
-                        linkEl.classList.add('hidden');
-                    }
-                }
-            };
-
-            if (!animate || prefersReducedMotion || !contentEl) {
-                applyCandidate();
-                return;
-            }
-            contentEl.style.opacity = '0.15';
-            setTimeout(() => {
-                applyCandidate();
-                contentEl.style.opacity = '1';
-            }, 150);
-        };
-
-        const hydrateCandidate = async (candidate, index) => {
-            const expectedName = candidate.name;
-            try {
-                const response = await fetch(
-                    `/api/artist_spotlight?artist=${encodeURIComponent(expectedName)}`,
-                );
-                if (!response.ok || candidates[index].name !== expectedName) return;
-                const data = await response.json();
-                if (candidates[index].name !== expectedName) return;
-                candidates[index] = {
-                    ...candidate,
-                    image_url: data.image_url || candidate.image_url,
-                    spotify_url: data.spotify_url || '',
-                };
-                if (currentIndex === index) renderCandidate(index, false);
-            } catch (error) {
-                console.warn(`Could not hydrate artist spotlight for ${expectedName}:`, error);
-            }
-        };
-
-        renderCandidate(currentIndex, false);
-        candidates.forEach((candidate, index) => {
-            hydrateCandidate(candidate, index);
-        });
-
-        if (!prefersReducedMotion && candidates.length > 1) {
-            setInterval(() => {
-                if (document.hidden) return;
-                currentIndex = (currentIndex + 1) % candidates.length;
-                renderCandidate(currentIndex);
-            }, 7000);
-        }
-    }
-    startArtistSpotlightRotation();
 });

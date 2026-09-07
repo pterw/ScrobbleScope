@@ -208,7 +208,7 @@
                                 {% endif %}
                             </td>
                             <!-- Release Date Context (YYYY-MM only, no DD) -->
-                            <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[11px] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ (album.release_date or '')[:7] if album.release_date else year }}">
+                            <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[11px] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ album.release_date or year }}">
                                 {{ (album.release_date or '')[:7] if album.release_date else year }}
                             </td>
                         </tr>
@@ -327,4 +327,5 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/results.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/results-spotlight.js') }}" defer></script>
 {% endblock %}
