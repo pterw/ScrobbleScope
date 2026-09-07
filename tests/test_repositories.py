@@ -394,6 +394,41 @@ def test_get_job_context_nested_daily_counts_is_isolated():
     assert "2026-05-03" not in ctx2["results"]["daily_counts"]
 
 
+def test_set_job_progress_phase_isolation_and_update_modes():
+    """set_job_progress copies phase, isolates nested mutation, and supports three modes.
+
+    1. phase=dict copies input dict and isolates both get_job_progress and get_job_context.
+    2. Omitted phase preserves existing phase across progress updates.
+    3. phase=None explicitly clears the phase.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    phase = {
+        "key": "lastfm_fetch",
+        "label": "Fetching scrobbles",
+        "unit": "page",
+        "current": 23,
+        "total": 102,
+    }
+    set_job_progress(job_id, progress=20, message="Fetching scrobbles", phase=phase)
+    phase["current"] = 99
+    assert get_job_progress(job_id)["phase"]["current"] == 23
+    assert get_job_context(job_id)["progress"]["phase"]["current"] == 23
+
+    progress_view = get_job_progress(job_id)
+    context_view = get_job_context(job_id)
+    progress_view["phase"]["current"] = 77
+    context_view["progress"]["phase"]["current"] = 88
+    assert get_job_progress(job_id)["phase"]["current"] == 23
+    assert get_job_context(job_id)["progress"]["phase"]["current"] == 23
+
+    set_job_progress(job_id, message="Still fetching")
+    assert get_job_progress(job_id)["phase"]["key"] == "lastfm_fetch"
+
+    set_job_progress(job_id, phase=None)
+    assert "phase" not in get_job_progress(job_id)
+    assert "phase" not in get_job_context(job_id)["progress"]
+
+
 @pytest.mark.asyncio
 async def test_batch_persist_metadata_upsert_call_shape():
     """

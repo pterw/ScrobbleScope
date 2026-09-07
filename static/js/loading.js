@@ -30,6 +30,10 @@ const statCache = document.getElementById('stat-cache');
 const statSpotify = document.getElementById('stat-spotify');
 
 let errorDetected = false;
+let latestAppliedPollSeq = 0;
+let pollSeq = 0;
+let pollInFlight = false;
+let previousPhaseKey = null;
 
 function createHiddenInput(name, value) {
   const input = document.createElement('input');
@@ -71,12 +75,26 @@ function updateLiveStats(stats) {
   }
 }
 
-function updateProgress(value) {
-  if (typeof value !== 'number' || !progressBar || !progressTrack) return;
-  const progress = Math.max(0, Math.min(100, value));
-  progressBar.style.transform = `scaleX(${progress / 100})`;
-  progressTrack.setAttribute('aria-valuenow', String(progress));
-  progressTrack.classList.remove('hidden');
+function updateProgress(progressData) {
+  if (window.ScrobbleProgress) {
+    window.ScrobbleProgress.update({
+      track: progressTrack,
+      bar: progressBar,
+      phaseText: stepText,
+      payload: progressData,
+      previousPhaseKey: previousPhaseKey,
+    });
+    previousPhaseKey =
+      (progressData && progressData.phase && progressData.phase.key) || null;
+  } else {
+    const value = Number(progressData && progressData.progress);
+    if (typeof value !== 'number' || !progressBar || !progressTrack) return;
+    const progress = Math.max(0, Math.min(100, value));
+    progressBar.style.transform = `scaleX(${progress / 100})`;
+    progressTrack.setAttribute('aria-valuenow', String(progress));
+    progressTrack.classList.remove('hidden');
+    if (stepText && progressData.message) stepText.textContent = progressData.message;
+  }
 }
 
 function showFailure(message, source) {
@@ -127,17 +145,25 @@ function shouldPollAgain(progress) {
 }
 
 async function fetchProgress() {
+  if (pollInFlight || errorDetected) return;
+
+  const currentSeq = ++pollSeq;
+  pollInFlight = true;
+
   try {
     const response = await fetch(`/progress?job_id=${encodeURIComponent(job_id)}`);
     const progressData = await response.json();
-    const progress = Number(progressData.progress);
+    pollInFlight = false;
 
-    if (Number.isFinite(progress)) updateProgress(progress);
-    if (stepText && progressData.message) stepText.textContent = progressData.message;
+    if (currentSeq < latestAppliedPollSeq || errorDetected) return;
+    latestAppliedPollSeq = currentSeq;
+
+    updateProgress(progressData);
     updateLiveStats(progressData.stats || {});
 
     if (handleProgressError(progressData)) return;
 
+    const progress = Number(progressData.progress);
     if (shouldPollAgain(progress)) {
       setTimeout(fetchProgress, 1000);
       return;
@@ -145,6 +171,7 @@ async function fetchProgress() {
 
     if (!errorDetected) scheduleResultsRedirect('Opening your results\u2026');
   } catch (error) {
+    pollInFlight = false;
     console.error('Error fetching progress:', error);
     showFailure('The progress service could not be reached.');
     if (stepText) stepText.textContent = 'Progress connection interrupted';

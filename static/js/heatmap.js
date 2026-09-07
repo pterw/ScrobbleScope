@@ -558,6 +558,10 @@
   var savedHeatmapJobId = null;
   var savedHeatmapUsername = '';
   var lastHeatmapData = null;
+  var latestAppliedPollSeq = 0;
+  var pollSeq = 0;
+  var pollInFlight = false;
+  var previousPhaseKey = null;
   var lastRenderMobile = null;
   var resizeTimer = null;
   var heroTransitionToken = 0;
@@ -1008,25 +1012,49 @@
       clearInterval(pollTimer);
       pollTimer = null;
     }
+    latestAppliedPollSeq = ++pollSeq;
+    pollInFlight = false;
   }
 
   function pollProgress() {
-    if (!currentJobId) return;
+    if (!currentJobId || pollInFlight) return;
 
-    fetch('/progress?job_id=' + encodeURIComponent(currentJobId))
+    var expectedJobId = currentJobId;
+    var thisSeq = ++pollSeq;
+    pollInFlight = true;
+
+    fetch('/progress?job_id=' + encodeURIComponent(expectedJobId))
       .then(function (res) { return res.json(); })
       .then(function (data) {
-        // Update progress text
-        if (data.message) {
-          progressText.textContent = data.message;
+        pollInFlight = false;
+        if (currentJobId !== expectedJobId || thisSeq < latestAppliedPollSeq) {
+          return;
         }
+        latestAppliedPollSeq = thisSeq;
+
+        if (window.ScrobbleProgress) {
+          window.ScrobbleProgress.update({
+            track: progressTrack,
+            bar: progressBar,
+            phaseText: progressText,
+            payload: data,
+            previousPhaseKey: previousPhaseKey,
+          });
+          previousPhaseKey =
+            (data && data.phase && data.phase.key) || null;
+        } else {
+          if (data.message) {
+            progressText.textContent = data.message;
+          }
+          if (typeof data.progress === 'number' && progressBar && progressTrack) {
+            var progress = Math.max(0, Math.min(100, data.progress));
+            progressBar.style.transform = 'scaleX(' + (progress / 100) + ')';
+            progressTrack.setAttribute('aria-valuenow', String(progress));
+            showElement(progressTrack);
+          }
+        }
+
         updateLoadingDetails(data.stats || {});
-        if (typeof data.progress === 'number' && progressBar && progressTrack) {
-          var progress = Math.max(0, Math.min(100, data.progress));
-          progressBar.style.transform = 'scaleX(' + (progress / 100) + ')';
-          progressTrack.setAttribute('aria-valuenow', String(progress));
-          showElement(progressTrack);
-        }
 
         if (data.error) {
           stopPolling();
@@ -1040,13 +1068,14 @@
         }
       })
       .catch(function () {
+        pollInFlight = false;
         // Transient network error; keep polling
       });
   }
 
   function resetLoadingDetails(username) {
     if (loadingDetail) {
-      loadingDetail.textContent = 'Preparing the last 365 days of listening.';
+      loadingDetail.textContent = '';
     }
     if (loadingUsername) loadingUsername.textContent = username || 'Last.fm profile';
     if (loadingStats) loadingStats.classList.add('hidden');
@@ -1075,14 +1104,12 @@
         loadingStatPages,
         Number(received).toLocaleString() + ' / ' + Number(expected).toLocaleString()
       ) || shown;
-      if (loadingDetail) loadingDetail.textContent = 'Reading your Last.fm history.';
     }
     if (stats.total_scrobbles !== undefined) {
       shown = revealLoadingStat(
         loadingStatScrobbles,
         Number(stats.total_scrobbles).toLocaleString()
       ) || shown;
-      if (loadingDetail) loadingDetail.textContent = 'Preparing your heatmap.';
     }
     if (stats.active_days !== undefined) {
       shown = revealLoadingStat(

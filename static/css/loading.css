@@ -19,6 +19,22 @@
   align-items: center;
 }
 
+@keyframes wait-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.wait-panel__mark,
+.wait-panel__progress,
+.wait-panel__phase,
+.loading-stat {
+  animation: wait-fade-in 200ms ease-out;
+}
+
 .wait-panel__mark {
   display: flex;
   align-items: center;
@@ -77,19 +93,32 @@
 }
 
 .loading-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 2.75rem 0 0;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: wrap;
+  max-width: 72rem;
+  margin: 2.75rem auto 0;
   border-top: 1px solid var(--ss-border-default);
   border-bottom: 1px solid var(--ss-border-default);
 }
 
+.loading-stats.hidden {
+  display: none;
+}
+
 .loading-stat {
+  flex: 1 1 0;
+  max-width: 18rem;
   min-width: 0;
   padding: 1rem 0.75rem;
 }
 
-.loading-stat + .loading-stat {
+.loading-stat.hidden {
+  display: none;
+}
+
+.loading-stat:not(.hidden) ~ .loading-stat:not(.hidden) {
   border-left: 1px solid var(--ss-border-default);
 }
 
@@ -219,6 +248,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .wait-panel__mark,
+  .wait-panel__progress,
+  .wait-panel__phase,
+  .loading-stat {
+    animation: none;
+    opacity: 1;
+  }
+
   .wait-panel__progress-value {
     transition-duration: 0ms;
   }

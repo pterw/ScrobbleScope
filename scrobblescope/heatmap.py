@@ -134,15 +134,23 @@ async def _fetch_and_process_heatmap(job_id, username):
     to_ts = int(now.timestamp())
 
     # Phase 5-80%: fetch Last.fm pages ----------------------------------------
-    def _heatmap_progress(pages_done, total_pages):
+    def _heatmap_progress(pages_done, total_pages, pages_received=None):
         """Map page-fetching progress into the 5%-80% range."""
         pct = 5 + int(75 * pages_done / max(total_pages, 1))
-        set_job_stat(job_id, "pages_received", pages_done)
+        received = pages_received if pages_received is not None else pages_done
+        set_job_stat(job_id, "pages_received", received)
         set_job_stat(job_id, "pages_expected", total_pages)
         set_job_progress(
             job_id,
             progress=pct,
             message="Reading your Last.fm history...",
+            phase={
+                "key": "lastfm_fetch",
+                "label": "Fetching scrobbles",
+                "unit": "page",
+                "current": pages_done,
+                "total": total_pages,
+            },
         )
 
     set_job_progress(
@@ -150,6 +158,7 @@ async def _fetch_and_process_heatmap(job_id, username):
         progress=5,
         message="Fetching your scrobble history from Last.fm...",
         error=False,
+        phase=None,
     )
 
     fetch_start = time.time()
@@ -185,7 +194,12 @@ async def _fetch_and_process_heatmap(job_id, username):
         )
 
     # Phase 80-90%: aggregate daily counts ------------------------------------
-    set_job_progress(job_id, progress=80, message="Counting your daily scrobbles...")
+    set_job_progress(
+        job_id,
+        progress=80,
+        message="Counting your daily scrobbles...",
+        phase=None,
+    )
     daily_counts = _aggregate_daily_counts(pages, from_date, to_date)
 
     total = sum(daily_counts.values())
@@ -214,7 +228,13 @@ async def _fetch_and_process_heatmap(job_id, username):
             "daily_counts": daily_counts,
         },
     )
-    set_job_progress(job_id, progress=100, message="Heatmap ready!", error=False)
+    set_job_progress(
+        job_id,
+        progress=100,
+        message="Heatmap ready!",
+        error=False,
+        phase=None,
+    )
     logging.info("Heatmap ready for %s: %s scrobbles", username, total)
 
 

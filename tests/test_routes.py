@@ -254,6 +254,53 @@ def test_progress_endpoint_no_error_metadata_on_success(client):
     assert "retryable" not in data
 
 
+def test_progress_endpoint_returns_phase_payload(client):
+    """
+    GIVEN a job with a phase set
+    WHEN the /progress endpoint is queried
+    THEN the exact JSON phase payload should survive the route.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    phase = {
+        "key": "lastfm_fetch",
+        "label": "Fetching scrobbles",
+        "unit": "page",
+        "current": 23,
+        "total": 102,
+    }
+    set_job_progress(job_id, progress=20, message="Fetching scrobbles", phase=phase)
+    response = client.get(f"/progress?job_id={job_id}")
+    data = response.get_json()
+    assert data["phase"] == {
+        "key": "lastfm_fetch",
+        "label": "Fetching scrobbles",
+        "unit": "page",
+        "current": 23,
+        "total": 102,
+    }
+
+
+def test_progress_endpoint_no_phase_when_unset_or_error(client):
+    """
+    GIVEN a missing job, error job, or job with phase cleared
+    WHEN GET /progress is requested
+    THEN the response payload must not have a 'phase' key.
+    """
+    # 1. Missing job ID (400)
+    res_400 = client.get("/progress")
+    assert "phase" not in res_400.get_json()
+
+    # 2. Nonexistent job ID (404)
+    res_404 = client.get("/progress?job_id=does_not_exist")
+    assert "phase" not in res_404.get_json()
+
+    # 3. Classified error on existing job
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_error(job_id, "lastfm_unavailable")
+    res_err = client.get(f"/progress?job_id={job_id}")
+    assert "phase" not in res_err.get_json()
+
+
 # --- Route coverage tests ---
 
 

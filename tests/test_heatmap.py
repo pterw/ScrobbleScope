@@ -529,15 +529,18 @@ class TestFetchAndProcessHeatmap:
             "progress": 5,
             "message": "Fetching your scrobble history from Last.fm...",
             "error": False,
+            "phase": None,
         } in progress_calls
         assert {
             "progress": 80,
             "message": "Counting your daily scrobbles...",
+            "phase": None,
         } in progress_calls
         assert {
             "progress": 100,
             "message": "Heatmap ready!",
             "error": False,
+            "phase": None,
         } in progress_calls
         page_calls = [
             update
@@ -545,7 +548,17 @@ class TestFetchAndProcessHeatmap:
             if update.get("message") == "Reading your Last.fm history..."
         ]
         assert page_calls == [
-            {"progress": 80, "message": "Reading your Last.fm history..."}
+            {
+                "progress": 80,
+                "message": "Reading your Last.fm history...",
+                "phase": {
+                    "key": "lastfm_fetch",
+                    "label": "Fetching scrobbles",
+                    "unit": "page",
+                    "current": 1,
+                    "total": 1,
+                },
+            }
         ]
 
 
@@ -611,3 +624,46 @@ class TestErrorCode:
         formatted = msg.format(username="testuser")
         assert "testuser" in formatted
         assert "365" in formatted
+
+
+class TestHeatmapPhaseProgress:
+    """Verify phase reporting during heatmap fetch and clear at completion."""
+
+    @pytest.mark.asyncio
+    async def test_heatmap_lastfm_phase_and_cleared_at_completion(self):
+        """Heatmap pipeline reports exact Last.fm phase and clears phase at completion."""
+        from scrobblescope.repositories import create_job, get_job_progress
+
+        job_id = create_job({"username": "user", "mode": "heatmap"})
+        observed_phase = None
+
+        today = datetime.now(timezone.utc).date()
+        page = _wrap_tracks([_make_track(today)])
+        meta = {"status": "ok", "pages_expected": 102, "pages_received": 23}
+
+        async def fake_fetch(username, from_ts, to_ts, progress_cb=None):
+            nonlocal observed_phase
+            if progress_cb:
+                progress_cb(23, 102, 23)
+                observed_phase = get_job_progress(job_id).get("phase")
+            return [page], meta
+
+        with (
+            patch("scrobblescope.heatmap.cleanup_expired_cache"),
+            patch("scrobblescope.heatmap.cleanup_expired_jobs"),
+            patch(
+                "scrobblescope.heatmap.fetch_all_recent_tracks_async",
+                side_effect=fake_fetch,
+            ),
+        ):
+            await _fetch_and_process_heatmap(job_id, "user")
+
+        assert observed_phase == {
+            "key": "lastfm_fetch",
+            "label": "Fetching scrobbles",
+            "unit": "page",
+            "current": 23,
+            "total": 102,
+        }
+        final_progress = get_job_progress(job_id)
+        assert "phase" not in final_progress
