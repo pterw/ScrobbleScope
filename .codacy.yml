@@ -1,0 +1,34 @@
+---
+# Codacy repository configuration.
+#
+# Codacy is already integrated with this repository (webhook active) and
+# runs Bandit among its tools. Bandit's B101 ("use of assert") fires on
+# every assert in the test suite -- asserts are the point of tests, so
+# those findings are noise. The tests/ tree is excluded from analysis
+# rather than each assert being annotated, because the exclusion also
+# keeps Codacy's duplication and complexity metrics from measuring test
+# scaffolding against production thresholds.
+#
+# Notes on this file's authority (docs.codacy.com, "Codacy configuration
+# file"): once this file exists, the Ignored-files settings defined in
+# the Codacy UI no longer apply -- this file owns exclusions. Codacy
+# always reads the copy on the default branch; settings changed by a
+# pull request apply to that PR's analysis but take effect repo-wide
+# only when merged.
+#
+# The production tree stays fully analyzed: scrobblescope/, scripts/,
+# app.py, and the workflow files are not excluded, so Bandit's real
+# findings (B105 hardcoded strings, B311 random, zizmor's workflow
+# checks) keep reporting. The one production B311 is annotated in
+# source with a justified nosec (scrobblescope/routes.py, spotlight
+# sampling), which Bandit honours on its own.
+exclude_paths:
+  # Test suite: B101 assert findings are noise, and test scaffolding
+  # should not count against production complexity/duplication goals.
+  - "tests/**"
+  # Gitignored throwaway analysis scripts; not part of the product.
+  - "scratch/**"
+  # Gitignored generated data and artifact caches.
+  - "graphify-out/**"
+  - "scripts/bin/**"
+  - "static/css/tailwind.css"
