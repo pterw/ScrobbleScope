@@ -261,6 +261,15 @@
    migrated page. static/css/error.css paints its own .error-page and is
    unaffected. */
 @layer base {
+  html {
+    /* Prevents iOS Safari from inflating text on orientation change:
+       without an explicit value, Mobile Safari rescales font sizes in
+       landscape whenever it judges the type too small. True of every
+       migrated page, so it lives in the compiled base layer. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
   body {
     background-color: var(--color-base-100);
     color: var(--color-base-content);

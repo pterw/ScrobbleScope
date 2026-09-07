@@ -850,3 +850,55 @@ def test_assert_loading_progress_state_reports_mismatches() -> None:
     )
     assert len(failures) == 1
     assert "scaleX was 0.5" in failures[0]
+
+
+def test_typekit_fixture_declares_every_required_family() -> None:
+    """The fixture loader validates family coverage, not just file presence."""
+    css = frontend_gate.load_typekit_fixture_css()
+    for family in frontend_gate.REQUIRED_FONT_FAMILIES:
+        assert f'font-family: "{family}"' in css
+
+
+def test_typekit_fixture_loader_rejects_incomplete_file(tmp_path, monkeypatch) -> None:
+    """A fixture missing a family is a prerequisite failure, not a silent fallback."""
+    bad = tmp_path / "typekit_fixture.css"
+    bad.write_text("/* missing families */", encoding="utf-8")
+    monkeypatch.setattr(frontend_gate, "FIXTURE_DIR", tmp_path)
+    with pytest.raises(FrontendGateError, match="instrument-serif"):
+        frontend_gate.load_typekit_fixture_css()
+
+
+def test_install_cdn_routes_fulfills_typekit_and_bootstrap() -> None:
+    """The blocker fulfils both CDN origins and passes everything else through."""
+    page = MagicMock()
+    handlers = {}
+    page.route.side_effect = lambda pattern, handler: handlers.__setitem__(
+        pattern, handler
+    )
+    frontend_gate.install_cdn_routes(page)
+
+    assert len(handlers) == 2  # CDN blocker + the Impeccable Live abort
+    cdn_handler = handlers["**/*"]
+
+    typekit_route, bootstrap_route, other_route = MagicMock(), MagicMock(), MagicMock()
+    typekit_route.request.url = "https://use.typekit.net/rwy8ghw.css"
+    bootstrap_route.request.url = (
+        "https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css"
+    )
+    other_route.request.url = "http://127.0.0.1:1/static/css/shell.css"
+
+    cdn_handler(typekit_route)
+    cdn_handler(bootstrap_route)
+    cdn_handler(other_route)
+    typekit_route.fulfill.assert_called_once()
+    assert "font-family" in typekit_route.fulfill.call_args.kwargs["body"]
+    bootstrap_route.fulfill.assert_called_once()
+    other_route.continue_.assert_called_once()
+    other_route.fulfill.assert_not_called()
+
+
+def test_install_cdn_routes_respects_live_fonts_flag() -> None:
+    """--live-fonts restores real-CDN navigation for local calibration."""
+    page = MagicMock()
+    frontend_gate.install_cdn_routes(page, live_fonts=True)
+    page.route.assert_not_called()

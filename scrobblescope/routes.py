@@ -486,10 +486,11 @@ def internal_error(e):
             error="Server Error",
             message="Something went wrong on our end. Please try again later.",
         ),
-        500,
+        500,  # todo: Consider user friendly retry and error logging the detais
     )
 
 
+# todo: Implement proper handling for results page rendering, including error states and empty results.
 def _render_results_page():
     """Render the results page for a completed job, or an error page on failure."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
@@ -662,6 +663,7 @@ def artist_spotlight():
     )
 
 
+# todo: Implement proper handling for unmatched albums, including GET support and improved client-side experience.
 def _render_unmatched_page():
     """Render the unmatched-album report for an existing job."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
@@ -726,10 +728,16 @@ def unmatched_page():
     return _render_unmatched_page()
 
 
+# todo: refactor unmatched album handling to improve client-side experience
+
+
 @bp.route("/unmatched_view", methods=["POST"])
 def unmatched_view():
     """Keep the legacy unmatched POST working while callers move to GET."""
     return _render_unmatched_page()
+
+    # todo: Legacy support for POST unmatched view; consider deprecating in favor of GET
+    # todo: refactor to support GET requests as well
 
 
 @bp.route("/results_loading", methods=["POST"])
@@ -857,7 +865,7 @@ def heatmap_loading():
     if not username:
         return (
             jsonify({"error": True, "message": "Username is required."}),
-            400,
+            400,  # todo: Consider adding client-side validation for username presence
         )
 
     try:
@@ -872,7 +880,7 @@ def heatmap_loading():
                     "retryable": True,
                 }
             ),
-            503,
+            503,  # todo: Consider adding client-side handling for service unavailability
         )
 
     if not user_info["exists"]:
@@ -885,7 +893,7 @@ def heatmap_loading():
                     "retryable": False,
                 }
             ),
-            404,
+            404,  # todo: Consider adding client-side handling for user not found
         )
 
     try:
@@ -899,7 +907,7 @@ def heatmap_loading():
                         "retryable": False,
                     }
                 ),
-                403,
+                403,  # todo: Consider adding client-side handling for private profiles
             )
     except Exception:
         logging.exception("Profile privacy check failed for %s", username)
@@ -911,7 +919,7 @@ def heatmap_loading():
                     "retryable": True,
                 }
             ),
-            503,
+            503,  # todo: Consider adding client-side handling for service unavailability
         )
 
     cleanup_expired_jobs()
@@ -925,7 +933,7 @@ def heatmap_loading():
                     "retryable": True,
                 }
             ),
-            429,
+            429,  # todo: Consider adding client-side handling for too many requests
         )
 
     job_id = create_job({"username": username, "mode": "heatmap"})
@@ -943,7 +951,7 @@ def heatmap_loading():
                     "retryable": True,
                 }
             ),
-            500,
+            500,  # todo: Consider adding client-side handling for failed processing
         )
 
     session[_LATEST_HEATMAP_JOB] = job_id
@@ -962,14 +970,14 @@ def heatmap_data():
     if not job_id:
         return (
             jsonify({"error": True, "message": "Missing job identifier."}),
-            400,
+            400,  # todo: Consider adding client-side handling for missing job identifier
         )
 
     ctx = get_job_context(job_id)
     if ctx is None:
         return (
             jsonify({"error": True, "message": "Job not found or expired."}),
-            404,
+            404,  # todo: Consider adding client-side handling for job not found or expired
         )
 
     progress = ctx["progress"]

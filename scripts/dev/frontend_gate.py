@@ -82,6 +82,80 @@ REQUIRED_FONT_FAMILIES = (
     "input-mono-narrow",
 )
 
+#: Fail-fast navigation. Playwright's 30s default turned one stalled
+#: subresource into a 30s wait per check, and the shared page let one
+#: wedge cascade through the rest of the run. 10s bounds the damage.
+NAVIGATION_TIMEOUT_MS = 10_000
+
+#: Directory holding the route-blocked CDN fixtures. Repo-owned so CI
+#: never touches the network (spec: 2026-09-07 gate isolation design).
+FIXTURE_DIR = Path(__file__).parent / "fixtures"
+
+
+def load_typekit_fixture_css() -> str:
+    """Return the Typekit fixture CSS, verifying family coverage.
+
+    A fixture that lost a family (rename, bad merge) would fall back
+    silently on CI and re-introduce font weather through the back door.
+    The missing-family name goes in the error so the fix is one read away.
+    Paths resolve through FIXTURE_DIR at call time so tests can repoint it.
+    """
+    fixture = FIXTURE_DIR / "typekit_fixture.css"
+    try:
+        css = fixture.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
+        raise FrontendGateError(
+            f"missing {fixture}; the gate cannot run hermetically"
+        ) from exc
+    missing = [f for f in REQUIRED_FONT_FAMILIES if f'font-family: "{f}"' not in css]
+    if missing:
+        raise FrontendGateError(f"{fixture} does not declare: {', '.join(missing)}")
+    return css
+
+
+def install_cdn_routes(page, live_fonts: bool = False) -> None:
+    """Block both external stylesheet origins with repo-owned fixtures.
+
+    Every gate navigation otherwise waits on use.typekit.net and
+    cdnjs.cloudflare.com before the load event; on CI that wait is the
+    stall the 2026-09-07 run died in. handler_type checks the URL so a
+    pattern mismatch cannot silently pass a CDN request through.
+    Impeccable Live is a developer overlay injected into base.html while
+    visual review is active; the production gate stays independent of it.
+    """
+    if live_fonts:
+        return
+
+    def handler_type(url: str) -> str:
+        if "use.typekit.net" in url:
+            return "typekit"
+        if "cdnjs.cloudflare.com" in url and "bootstrap" in url:
+            return "bootstrap"
+        return "passthrough"
+
+    def _route(route):
+        kind = handler_type(route.request.url)
+        if kind == "passthrough":
+            route.continue_()
+        elif kind == "typekit":
+            route.fulfill(
+                status=200,
+                content_type="text/css",
+                body=load_typekit_fixture_css(),
+            )
+        else:
+            route.fulfill(
+                status=200,
+                content_type="text/css",
+                body=(FIXTURE_DIR / "bootstrap_fixture.css").read_text(
+                    encoding="utf-8"
+                ),
+            )
+
+    page.route("**/*", _route)
+    page.route("http://localhost:8400/**", lambda route: route.abort())
+
+
 #: Clicking budget for the theme toggle. Short, because a miss means the
 #: control is absent or unclickable, and waiting 30s does not change that.
 TOGGLE_TIMEOUT_MS = 5000
