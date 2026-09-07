@@ -669,12 +669,11 @@ non-current operational logs. Older dated entries live in
   - Results polish (owner-annotated screenshot): action-row gap 8 -> 12px;
     filter-bar values to input-mono; row hover at full sunken strength;
     sort-toggle weight 500.
-- Deviations: the two large-display-scale-parity checks still fail at
-  1440p/4K because the real kit's tall Instrument Serif metrics are not
-  present when a kit fetch fails under the fixture-less design; the
-  owner accepts this for the landing page and it is worth revisiting
-  when all Bootstrap pages are gone. Owner confirmed the form card does
-  not scroll the page at 1080p/92dpi with bookmarks extended.
+- Deviations: superseded by the 2026-09-07 stale-gate-cap entry below.
+  The 4K parity failures recorded here were later root-caused to the
+  gate's expected-scale cap lagging the CSS `--index-scale-cap` change
+  in this same entry, not to font metrics. Owner confirmed the form card
+  does not scroll the page at 1080p/92dpi with bookmarks extended.
 - Validation: `pytest -q` -- **938 passed**, 5 warnings (final
   consolidated run for this entry; the standout token added one
   parametrized test to the shell suite). Full suite green before commit;
@@ -685,6 +684,37 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: WP-7 (unmatched page + reason_code) remains next;
   the heatmap form lacks validation-on-blur and private-account gating
   (owner-noted), candidate for WP-7 or a scoped side-task.
+
+### 2026-09-07 - Stale gate scale-cap corrected; 4K parity failures resolved (side-task)
+
+- Scope: root-caused and fixed the 7 large-display-scale-parity failures
+  at 4K recorded in the two 2026-09-07 entries above.
+- Plan vs implementation: no plan -- a defect found while reviewing the
+  gate's measurement model with the owner. Verification first: the CSS
+  computes scale `clamp(min, slope, 1.75)` from the owner's 1.75 ruling
+  in `static/css/index.css` line 26, giving 440px x 1.75 = 770.0px form
+  width at 4K -- exactly what the gate measured. The gate's
+  `expected_scales` formula still capped at the old 2.15, expecting
+  780.4px. The 0.9866 ratio reproduces every width/height/cap delta;
+  1440p is unaffected because its slope term (1.308) sits below the cap.
+  The `headline lineHeight` delta is the only member of the old
+  attribution that font metrics could explain; the rest were this cap.
+- Implementation: `scripts/dev/frontend_gate.py` outer scale cap
+  2.15 -> 1.75 with a comment pinning it to `--index-scale-cap` so the
+  next cap change does not repeat the drift. No tolerance changed.
+- Deviations: the original attribution ("real kit's tall Instrument
+  Serif metrics are not present") was wrong for 6 of the 7 failures and
+  is corrected in that entry. The gate's measurement model was the
+  question the owner asked; the answer exposed the defect.
+- Validation: gate unit module 47 passed. Full gate run: **24 checks
+  passed in 43 runs**, exit 0, zero failures, zero timeouts, zero font
+  warnings. `pytest -q` -- **938 passed**, 5 warnings. All pre-commit
+  hooks pass; `doc_state_sync.py --check` exits 0 (expected root BATCH
+  warning).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+  The gate cap and the CSS token are one fact in two places; a future
+  sweep could have the gate read the value, but no further work is
+  scheduled now.
 
 ### 2026-09-07 - Fix the three CI Quality Gate failures left by the Task-3/4 merge (side-task)
 
@@ -739,27 +769,3 @@ non-current operational logs. Older dated entries live in
   (expected root BATCH warning). `pre-commit run --all-files` -- all 12
   hooks pass, including `tailwind-css-drift` on the rebuilt stylesheet.
 - Forward guidance: WP-7 (unmatched page + reason_code) remains next.
-
-### 2026-09-06 - Rotate five Artist Spotlight candidates from the aggregate top ten (side-task)
-
-- Scope: corrected the Results Artist Spotlight contract without changing
-  album enrichment, Heatmap polling, the database schema, or CSS rules.
-- Implementation:
-  - Aggregate filtered albums by artist scrobbles, take the top ten, and select
-    five unique candidates with a stable job-ID seed.
-  - Render the first fallback immediately, hydrate the five artist profiles
-    concurrently through the existing endpoint, and rotate locally every seven
-    seconds. Reduced-motion readers keep one static candidate.
-  - Removed metric sorting's competing top-album mutation and the album-ID
-    fallback link. Candidate-slot, active-index, and image-revision guards keep
-    late requests from replacing the active card.
-  - Added a real-browser gate for five unique post-render requests and a card
-    index change. The check failed when the production interval was disabled
-    and passed after restoration in Chromium and Firefox.
-- Follow-up: F-B21-48 records the separately scoped persistent Last.fm event
-  cache. Current page-response caching is process-local, exact-range, and one
-  hour only.
-- Validation: `pytest -q` -- **925 passed**, 5 warnings. The latest route regression and
-  frontend-gate unit subset passes 36 tests. Python/JavaScript syntax and
-  docsync checks pass. The revised late-response browser harness still needs a
-  clean full frontend-gate run.

@@ -2099,6 +2099,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
 
     failures = []
     expected_scales = {
+        # The outer cap mirrors --index-scale-cap in static/css/index.css
+        # (1.75 since the owner's 2026-09-07 "1.75" ruling; it was 2.15).
+        # A stale cap here made the gate expect a scale the CSS can no
+        # longer reach at 4K, which produced ~1.4 percent proportional
+        # failures on every width/height at that profile only.
         # The old literal 76 was the fixed --shell-height in px; Step 5
         # replaces it with clamp(4.25rem, 2.96875vw, 4.75rem), so the bar
         # height that a real window subtracts from is now width-dependent
@@ -2107,7 +2112,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         # height term either way), and the bar clamps to its 76px ceiling
         # by 2560px width regardless (1440p, 4K), matching the old literal.
         label: min(
-            2.15,
+            1.75,
             max(
                 0.70,
                 min(

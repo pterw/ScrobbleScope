@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-06 - Rotate five Artist Spotlight candidates from the aggregate top ten (side-task)
+
+- Scope: corrected the Results Artist Spotlight contract without changing
+  album enrichment, Heatmap polling, the database schema, or CSS rules.
+- Implementation:
+  - Aggregate filtered albums by artist scrobbles, take the top ten, and select
+    five unique candidates with a stable job-ID seed.
+  - Render the first fallback immediately, hydrate the five artist profiles
+    concurrently through the existing endpoint, and rotate locally every seven
+    seconds. Reduced-motion readers keep one static candidate.
+  - Removed metric sorting's competing top-album mutation and the album-ID
+    fallback link. Candidate-slot, active-index, and image-revision guards keep
+    late requests from replacing the active card.
+  - Added a real-browser gate for five unique post-render requests and a card
+    index change. The check failed when the production interval was disabled
+    and passed after restoration in Chromium and Firefox.
+- Follow-up: F-B21-48 records the separately scoped persistent Last.fm event
+  cache. Current page-response caching is process-local, exact-range, and one
+  hour only.
+- Validation: `pytest -q` -- **925 passed**, 5 warnings. The latest route regression and
+  frontend-gate unit subset passes 36 tests. Python/JavaScript syntax and
+  docsync checks pass. The revised late-response browser harness still needs a
+  clean full frontend-gate run.
+
 ### 2026-09-06 - UI copy clarity, heatmap eyebrow, and graceful page-load fade (side-task)
 
 - Scope: applied /clarify and /audit workflows to the home → results flow; fixed heatmap partial eyebrow; added universal graceful page-load fade.
