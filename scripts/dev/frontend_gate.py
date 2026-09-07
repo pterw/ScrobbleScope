@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 import threading
 from collections.abc import Iterator, Sequence
@@ -385,6 +386,156 @@ def _computed_shadow(page, value: str) -> str:
         }""",
         value,
     )
+
+
+def _parse_rgb_string(value: str) -> tuple[float, float, float, float]:
+    """Parse a computed ``rgb()``/``rgba()`` string into an (r, g, b, a) tuple."""
+    numbers = [float(part) for part in re.findall(r"[\d.]+", value)]
+    red, green, blue = numbers[:3]
+    alpha = numbers[3] if len(numbers) > 3 else 1.0
+    return red, green, blue, alpha
+
+
+def _composite_over(
+    foreground: tuple[float, float, float, float],
+    background: tuple[float, float, float],
+) -> tuple[float, float, float]:
+    """Alpha-composite a translucent foreground colour over an opaque one."""
+    fg_red, fg_green, fg_blue, alpha = foreground
+    bg_red, bg_green, bg_blue = background
+    return (
+        fg_red * alpha + bg_red * (1 - alpha),
+        fg_green * alpha + bg_green * (1 - alpha),
+        fg_blue * alpha + bg_blue * (1 - alpha),
+    )
+
+
+def _relative_luminance(rgb: tuple[float, float, float]) -> float:
+    """WCAG relative luminance of an sRGB colour given as 0-255 channels."""
+
+    def channel(value: float) -> float:
+        normalised = value / 255
+        if normalised <= 0.03928:
+            return normalised / 12.92
+        return ((normalised + 0.055) / 1.055) ** 2.4
+
+    red, green, blue = rgb
+    return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
+
+
+def _contrast_ratio(
+    rgb_a: tuple[float, float, float], rgb_b: tuple[float, float, float]
+) -> float:
+    """WCAG contrast ratio between two opaque sRGB colours."""
+    luminance_a = _relative_luminance(rgb_a) + 0.05
+    luminance_b = _relative_luminance(rgb_b) + 0.05
+    return max(luminance_a, luminance_b) / min(luminance_a, luminance_b)
+
+
+def _clamp_px(
+    min_rem: float,
+    vw_percent: float,
+    max_rem: float,
+    width_px: float,
+    root_px: float = 16,
+) -> float:
+    """Mirror a CSS ``clamp(<min_rem>rem, <vw_percent>vw, <max_rem>rem)``.
+
+    ``vw`` is a percentage of the viewport width in CSS pixels; it never
+    scales with the root font size, only the rem bounds do. Python has to
+    keep those two independent to reproduce the browser's resolved value.
+    """
+    preferred = vw_percent * width_px / 100
+    return min(max_rem * root_px, max(min_rem * root_px, preferred))
+
+
+def _worst_divider_contrast(border: str, *surfaces: str) -> float:
+    """The lowest contrast a translucent divider reaches against its surfaces.
+
+    A divider is painted over whatever sits beside it, not over one known
+    background, so an alpha that clears 3:1 against one surface can still
+    fail against another. Compositing every candidate surface and keeping
+    the minimum is what "adjacent surface" has to mean for a token shared
+    across the header and the rest of the shell.
+    """
+    border_rgba = _parse_rgb_string(border)
+    ratios = []
+    for surface in surfaces:
+        surface_rgb = _parse_rgb_string(surface)[:3]
+        composited = _composite_over(border_rgba, surface_rgb)
+        ratios.append(_contrast_ratio(composited, surface_rgb))
+    return min(ratios)
+
+
+def _divider_contrast_failure(
+    label: str, ratio: float, token: str = "--shell-border"
+) -> str | None:
+    """Name a divider-contrast failure, or None once the ratio clears 3:1.
+
+    ``token`` names which custom property the message blames. F-B21-40 made
+    this a parameter rather than a literal: the same helper now checks both
+    the shared ``--shell-border`` and the index page's own
+    ``--ss-border-divider``, and a message that always said "--shell-border"
+    would misattribute a failing index divider to the wrong token.
+    """
+    if ratio >= 3.0:
+        return None
+    return (
+        f"/ {label}: {token} composites to {ratio:.2f}:1 against its "
+        "adjacent surface, expected at least 3:1"
+    )
+
+
+def check_divider_contrast(page, base_url: str) -> list[str]:
+    """Every divider token must clear 3:1 against every surface it sits beside.
+
+    The tokens carry alpha or a fixed hue -- either way, alpha is not the
+    only way contrast drifts, so the composite (or, for an opaque token, the
+    colour itself) is what is measured, not the token string. F-B21-24 found
+    ``--shell-border`` under 3:1; F-B21-40 found the index page's own well
+    divider under 3:1 too, on a *different* token (``--ss-border-default``,
+    since renamed for this purpose to ``--ss-border-divider``) that this
+    check did not previously read at all. Both are measured here so the gate
+    cannot go green while either divider is unreadable.
+    """
+    failures = []
+    for theme in ("light", "dark"):
+        page.goto(f"{base_url}/", wait_until="load")
+        page.evaluate(
+            "(theme) => document.documentElement" ".setAttribute('data-theme', theme)",
+            theme,
+        )
+        border = _computed_colour(page, "var(--shell-border)")
+        bg = _computed_colour(page, "var(--shell-bg)")
+        surface = _computed_colour(page, "var(--shell-surface)")
+        ratio = _worst_divider_contrast(border, bg, surface)
+        failure = _divider_contrast_failure(theme, ratio)
+        if failure:
+            failures.append(failure)
+
+        # The index well divider sits between the page (the hero column,
+        # which paints no background of its own) and the sunken form well.
+        # Read the rendered border directly off .index-form rather than
+        # only the token, so a selector that stopped applying the token
+        # would also be caught.
+        index_border = page.evaluate(
+            """() => {
+                const form = document.querySelector('.index-form');
+                return form ? getComputedStyle(form).borderLeftColor : null;
+            }"""
+        )
+        if index_border is None:
+            failures.append(f"/ index divider {theme}: .index-form could not be found")
+            continue
+        page_surface = _computed_colour(page, "var(--color-base-100)")
+        well_surface = _computed_colour(page, "var(--ss-surface-sunken)")
+        index_ratio = _worst_divider_contrast(index_border, page_surface, well_surface)
+        index_failure = _divider_contrast_failure(
+            f"index divider {theme}", index_ratio, token="--ss-border-divider"
+        )
+        if index_failure:
+            failures.append(index_failure)
+    return failures
 
 
 def check_theme_tokens(page, base_url: str) -> list[str]:
@@ -1341,8 +1492,18 @@ def check_shell_scales_with_text(page, base_url: str) -> list[str]:
                     navGap: parseFloat(getComputedStyle(document.querySelector('.site-header__nav')).gap),
                     navTarget: document.querySelector('.site-header__nav-link')
                         .getBoundingClientRect().height,
-                    expected: (mobile ? 3.75 : 4.75) * 20,
-                    expectedTarget: mobile ? 55 : 60,
+                    // The desktop bar and nav-link clamp on viewport width
+                    // (2.96875vw / 1.875vw) as well as the root font, so
+                    // this DESKTOP profile's 1280px width matters: both
+                    // preferred terms (38.0px / 24.0px) stay below their rem
+                    // floors there, so the floor wins -- 4.25rem and
+                    // 2.75rem. Mobile keeps its own fixed 3.75rem literal
+                    // for the bar, untouched by the header ruling; its
+                    // 2.75rem nav-link floor happens to match the desktop
+                    // clamp's floor, which is why both branches converge on
+                    // the same 55px nav target.
+                    expected: (mobile ? 3.75 : 4.25) * 20,
+                    expectedTarget: 55,
                     expectedGap: mobile ? 4.8 : 15,
                 };
             }"""
@@ -1498,6 +1659,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "input": ".ss-input",
         "mode tab": ".mode-pill",
         "page navigation": ".site-header__nav-link",
+        "header bar": ".site-header",
     }
     scalable_dimensions = {
         "hero composition": ("width", "height"),
@@ -1512,8 +1674,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "label": ("fontSize",),
     }
     fixed_dimensions = {
-        "page navigation": ("width", "height", "fontSize"),
-        "theme control": ("width", "height", "fontSize"),
+        # Width and height now follow the ruled header clamps (Step 5) and
+        # vary by window profile; only the font size stays a fixed rem.
+        "page navigation": ("fontSize",),
+        "theme control": ("width", "fontSize"),
         "form": ("borderTopWidth", "borderTopLeftRadius"),
         "input": ("borderTopWidth", "borderTopLeftRadius"),
     }
@@ -1564,13 +1728,30 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         return page.evaluate(
             """() => {
                 const hero = document.querySelector('.index-hero');
+                const heroInner = document.querySelector('.index-hero__inner');
+                const heroMark = document.querySelector('.index-hero__mark');
                 const application = document.querySelector('.index-form');
                 const form = document.querySelector('.index-form__inner');
                 const card = document.querySelector('.ss-card');
                 const style = getComputedStyle(application);
+                const heroStyle = getComputedStyle(hero);
                 const formRect = form.getBoundingClientRect();
+                const header = document.querySelector('.site-header');
+                const nav = document.querySelector('.site-header__nav');
+                const rowNodes = [
+                    ...document.querySelectorAll(
+                        '.site-header__nav-link, .site-header__theme-toggle'
+                    ),
+                ];
+                const tops = rowNodes.map(
+                    (node) => node.getBoundingClientRect().top
+                );
                 return {
                     heroWidth: hero.getBoundingClientRect().width,
+                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                    heroInnerWidth: heroInner.getBoundingClientRect().width,
+                    heroMarkWidth: heroMark.getBoundingClientRect().width,
                     applicationWidth: application.getBoundingClientRect().width,
                     formLeft: application.getBoundingClientRect().left,
                     formRight: application.getBoundingClientRect().right,
@@ -1581,7 +1762,41 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     cardRight: card.getBoundingClientRect().right,
                     paddingLeft: parseFloat(style.paddingLeft),
                     paddingRight: parseFloat(style.paddingRight),
+                    headerGap: parseFloat(getComputedStyle(header).gap),
+                    navGap: parseFloat(getComputedStyle(nav).gap),
+                    rowSpread: Math.max(...tops) - Math.min(...tops),
                 };
+            }"""
+        )
+
+    def measure_zoom_and_transform():
+        """Confirm the scale mechanism never resolves to zoom or a transform.
+
+        Both `.ss-card` mode panels are already present in the DOM on a
+        single page load -- only one is toggled `hidden` per the active
+        mode, the other is never removed. This reads both without switching
+        modes: computed `zoom` and `transform` still resolve on a hidden
+        element (owner ruling 2026-09-05 #5), unlike a bounding rectangle,
+        which would not.
+        """
+        return page.evaluate(
+            """() => {
+                const targets = [
+                    ['.index-hero__inner', document.querySelector('.index-hero__inner')],
+                    ['.index-form__inner', document.querySelector('.index-form__inner')],
+                    ['.mode-pill', document.querySelector('.mode-pill')],
+                    ['.ss-input', document.querySelector('.ss-input')],
+                    ['.ss-submit', document.querySelector('.ss-submit')],
+                ];
+                [...document.querySelectorAll('.ss-card')].forEach((node, index) => {
+                    targets.push([`.ss-card[${index}]`, node]);
+                });
+                return targets
+                    .filter(([, node]) => node)
+                    .map(([label, node]) => {
+                        const style = getComputedStyle(node);
+                        return { label, zoom: style.zoom, transform: style.transform };
+                    });
             }"""
         )
 
@@ -1598,6 +1813,10 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 const submit = document.querySelector('.ss-submit');
                 const tags = document.querySelector('#filter-tags');
                 const style = getComputedStyle(formColumn);
+                const hero = document.querySelector('.index-hero');
+                const heroInner = document.querySelector('.index-hero__inner');
+                const heroMark = document.querySelector('.index-hero__mark');
+                const heroStyle = getComputedStyle(hero);
                 return {
                     paddingTop: parseFloat(style.paddingTop),
                     paddingBottom: parseFloat(style.paddingBottom),
@@ -1605,6 +1824,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     tagsBottom: tags.getBoundingClientRect().bottom,
                     viewportHeight: window.innerHeight,
                     documentHeight: document.documentElement.scrollHeight,
+                    heroWidth: hero.getBoundingClientRect().width,
+                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                    heroInnerWidth: heroInner.getBoundingClientRect().width,
+                    heroMarkWidth: heroMark.getBoundingClientRect().width,
                 };
             }"""
         )
@@ -1615,6 +1839,7 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         for label, (width, height) in windows.items():
             measured_sizes[label] = measure(width, height)
             layouts[label] = measure_wide_layout()
+        zoom_transform = measure_zoom_and_transform()
         at_mobile = measure(390, 844)
         mobile_layout = page.evaluate(
             """() => ({
@@ -1649,8 +1874,22 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
 
     failures = []
     expected_scales = {
+        # The old literal 76 was the fixed --shell-height in px; Step 5
+        # replaces it with clamp(4.25rem, 2.96875vw, 4.75rem), so the bar
+        # height that a real window subtracts from is now width-dependent
+        # too. This does not change any of the four resulting scales below:
+        # the width term already wins at 1080p/1200p-measured (1.075 <
+        # height term either way), and the bar clamps to its 76px ceiling
+        # by 2560px width regardless (1440p, 4K), matching the old literal.
         label: min(
-            2.15, max(0.70, min(1.075 * width / 1920, (height - 76) / (673 + 108)))
+            2.15,
+            max(
+                0.70,
+                min(
+                    1.075 * width / 1920,
+                    (height - _clamp_px(4.25, 2.96875, 4.75, width)) / (673 + 108),
+                ),
+            ),
         )
         for label, (width, height) in windows.items()
     }
@@ -1662,7 +1901,14 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 failures.append(f"/: {name} could not be measured at {label}")
     if failures:
         return failures
-    expected_root_width = 23.75 * 20 * ((900 - 4.75 * 20) / ((42.0625 + 4) * 20))
+    # This probe forces the root font to 20px at a 1920px-wide viewport, so
+    # the bar clamps to its 4.25rem floor (85px = clamp(85, 57, 95)): the
+    # 57px vw term stays below the floor at this width even with the
+    # enlarged root, since vw does not scale with the root font.
+    header_height_at_enlarged_root = _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20)
+    expected_root_width = (
+        28 * 20 * ((900 - header_height_at_enlarged_root) / ((42.0625 + 4) * 20))
+    )
     if abs(root_measurement - expected_root_width) > 1:
         failures.append(
             f"/: enlarged-root form width is {root_measurement:.1f}px, "
@@ -1712,22 +1958,28 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     if at_mobile["input"]["height"] < 44 or at_mobile["input"]["fontSize"] < 16:
         failures.append("/: mobile input lost its touch or text minimum")
 
+    # Was 5 / 3. Task 3 narrows the application column to 3fr 4fr.
     split_ratio = layout_1080p["applicationWidth"] / layout_1080p["heroWidth"]
-    if abs(split_ratio - (5 / 3)) > 0.02:
+    if abs(split_ratio - (4 / 3)) > 0.02:
         failures.append(
-            f"/: wide desktop split is {split_ratio:.3f}, expected 5:3 application-to-hero"
+            f"/: wide desktop split is {split_ratio:.3f}, expected 4:3 application-to-hero"
         )
+    # 28rem is the remediation plan's base cap. The rendered card expands by
+    # the same layout factor as the rest of the composition.
+    expected_base_cap = 28 * 16
+    for label in ("1080p", "1440p", "4K"):
+        expected = expected_base_cap * expected_scales[label]
+        actual = measured_sizes[label]["form composition"]["width"]
+        if abs(actual - expected) > 2:
+            failures.append(
+                f"/: form cap is {actual:.0f}px at a real {label} window, "
+                f"expected proportional {expected:.0f}px"
+            )
     for label, layout in layouts.items():
-        expected_form_width = 23.75 * 16 * expected_scales[label]
         left_gutter = layout["formInnerLeft"] - layout["formLeft"]
         right_gutter = layout["formRight"] - layout["formInnerRight"]
         if abs(layout["paddingLeft"] - layout["paddingRight"]) > 0.1:
             failures.append(f"/: form well has asymmetric inline padding at {label}")
-        if abs(layout["formInnerWidth"] - expected_form_width) > 1:
-            failures.append(
-                f"/: form width is {layout['formInnerWidth']:.1f}px at {label}, "
-                f"expected shared-scale cap {expected_form_width:.1f}px"
-            )
         if abs(left_gutter - right_gutter) > 1:
             failures.append(f"/: form has unequal side gutters at {label}")
         if min(left_gutter, right_gutter) < layout["paddingLeft"] - 1:
@@ -1739,10 +1991,100 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
             failures.append(
                 f"/: form card does not fill the composed form width at {label}"
             )
+        hero_column_fill = (
+            layout["heroWidth"] - layout["heroPaddingLeft"] - layout["heroPaddingRight"]
+        )
+        if abs(layout["heroInnerWidth"] - hero_column_fill) > 1:
+            failures.append(
+                f"/: hero inner is {layout['heroInnerWidth']:.1f}px at {label}, "
+                f"expected to fill its padded column at {hero_column_fill:.1f}px"
+            )
+        if abs(layout["heroMarkWidth"] - layout["heroInnerWidth"]) > 1:
+            failures.append(
+                f"/: wordmark is {layout['heroMarkWidth']:.1f}px at {label}, "
+                f"expected to track the hero inner at {layout['heroInnerWidth']:.1f}px"
+            )
 
+    # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
+    # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
+    # clamp(5.75rem, 4.53vw, 7.25rem), theme-choice height
+    # clamp(2.25rem, 1.5625vw, 2.5rem). At 1920px width (1080p) every
+    # preferred vw term stays below its rem floor, so the floor wins; at
+    # 2560px width (1440p) each preferred term lands at or above its rem
+    # ceiling, so the ceiling wins (the bar exactly reproduces its current
+    # 76px reference there). The theme toggle's own rendered height is the
+    # choice clamp plus the toggle's fixed chrome (0.2rem padding x2 +
+    # 1px border x2 = 8.4px), so it is asserted as a tolerance-bound curve,
+    # not exact equality (owner ruling 2026-09-05 #4).
+    header_geometry = {
+        "1080p": {
+            "bar": _clamp_px(4.25, 2.96875, 4.75, 1920),
+            "nav height": _clamp_px(2.75, 1.875, 3.5, 1920),
+            "nav width": _clamp_px(5.75, 4.53, 7.25, 1920),
+            "toggle height": _clamp_px(2.25, 1.5625, 2.5, 1920) + 8.4,
+        },
+        "1440p": {
+            "bar": _clamp_px(4.25, 2.96875, 4.75, 2560),
+            "nav height": _clamp_px(2.75, 1.875, 3.5, 2560),
+            "nav width": _clamp_px(5.75, 4.53, 7.25, 2560),
+            "toggle height": _clamp_px(2.25, 1.5625, 2.5, 2560) + 8.4,
+        },
+    }
+    for label, expected_geometry in header_geometry.items():
+        bar = measured_sizes[label]["header bar"]["height"]
+        nav = measured_sizes[label]["page navigation"]
+        toggle = measured_sizes[label]["theme control"]["height"]
+        if abs(bar - expected_geometry["bar"]) > 0.5:
+            failures.append(
+                f"/: header bar is {bar:.1f}px at {label}, "
+                f"expected ruled {expected_geometry['bar']:.1f}px"
+            )
+        if abs(nav["height"] - expected_geometry["nav height"]) > 0.5:
+            failures.append(
+                f"/: page navigation height is {nav['height']:.1f}px at {label}, "
+                f"expected ruled {expected_geometry['nav height']:.1f}px"
+            )
+        if abs(nav["width"] - expected_geometry["nav width"]) > 0.5:
+            failures.append(
+                f"/: page navigation width is {nav['width']:.1f}px at {label}, "
+                f"expected ruled {expected_geometry['nav width']:.1f}px"
+            )
+        if abs(toggle - expected_geometry["toggle height"]) > 1:
+            failures.append(
+                f"/: theme control height is {toggle:.1f}px at {label}, "
+                f"expected the ruled ~{expected_geometry['toggle height']:.1f}px curve"
+            )
+        layout = layouts[label]
+        if abs(layout["headerGap"] - layout["navGap"]) > 0.1:
+            failures.append(
+                f"/: header and nav use different sibling-gap tokens at {label}"
+            )
+        if layout["rowSpread"] > 1:
+            failures.append(
+                f"/: nav links and the theme control wrap onto more than one "
+                f"row at {label}"
+            )
+
+    for entry in zoom_transform:
+        if entry["zoom"] not in ("1", "normal"):
+            failures.append(
+                f"/: {entry['label']} sets zoom to {entry['zoom']!r}, expected 1"
+            )
+        if entry["transform"] != "none":
+            failures.append(
+                f"/: {entry['label']} sets transform to {entry['transform']!r}, "
+                "expected none"
+            )
+
+    header_height_at_1920 = _clamp_px(4.25, 2.96875, 4.75, 1920)
     if (
-        abs(compact_height["paddingTop"] - 32 * (824 / 1164)) > 0.5
-        or abs(compact_height["paddingBottom"] - 32 * (824 / 1164)) > 0.5
+        abs(compact_height["paddingTop"] - 32 * ((900 - header_height_at_1920) / 1164))
+        > 0.5
+        or abs(
+            compact_height["paddingBottom"]
+            - 32 * ((900 - header_height_at_1920) / 1164)
+        )
+        > 0.5
     ):
         failures.append(
             "/: compact desktop height lost proportional 2rem form-column padding"
@@ -1753,6 +2095,28 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         failures.append("/: compact-height form leaves filter tags below view")
     if compact_height["documentHeight"] > compact_height["viewportHeight"] + 1:
         failures.append("/: compact-height form requires document scrolling")
+    # The height guard drops the shared factor in this driven decade+thresholds
+    # state (0.726 at 1080p, measured 2026-09-05), which used to leave the
+    # hero's own content trapped in a `35rem * scale` box far narrower than
+    # its padded column. The hero must still fill the padding edge here, not
+    # just in the width-driven collapsed state above.
+    expanded_hero_fill = (
+        compact_height["heroWidth"]
+        - compact_height["heroPaddingLeft"]
+        - compact_height["heroPaddingRight"]
+    )
+    if abs(compact_height["heroInnerWidth"] - expanded_hero_fill) > 1:
+        failures.append(
+            f"/: hero inner is {compact_height['heroInnerWidth']:.1f}px in the "
+            f"expanded decade+thresholds state, expected to fill its padded "
+            f"column at {expanded_hero_fill:.1f}px"
+        )
+    if abs(compact_height["heroMarkWidth"] - compact_height["heroInnerWidth"]) > 1:
+        failures.append(
+            f"/: wordmark is {compact_height['heroMarkWidth']:.1f}px in the "
+            f"expanded decade+thresholds state, expected to track the hero "
+            f"inner at {compact_height['heroInnerWidth']:.1f}px"
+        )
     failures.extend(_check_desktop_scale_bounds(page, base_url))
     return failures
 
@@ -1768,8 +2132,8 @@ def _touch_minimum_failures(
     ]
 
 
-def _headline_wrap_failures(probe) -> list[str]:
-    """Name each desktop mode whose headline wraps at the narrow boundary."""
+def _headline_wrap_failures(probe, width: int) -> list[str]:
+    """Name each desktop mode whose headline wraps at the given width."""
     failures = []
     for mode in ("album", "heatmap"):
         probe.locator(f"#mode-tab-{mode}").click()
@@ -1782,7 +2146,7 @@ def _headline_wrap_failures(probe) -> list[str]:
         })"""
         )
         if dimensions["height"] > dimensions["lineHeight"] * 1.2:
-            failures.append(f"/: {mode} headline wraps at the 1200px desktop boundary")
+            failures.append(f"/: {mode} headline wraps at {width}px")
     return failures
 
 
@@ -1796,10 +2160,17 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
     context = page.context.browser.new_context(has_touch=True)
     try:
         probe = context.new_page()
-        probe.set_viewport_size({"width": 1200, "height": 900})
-        probe.goto(f"{base_url}/", wait_until="load")
-        probe.evaluate(FONTS_READY_EXPRESSION)
-        failures.extend(_headline_wrap_failures(probe))
+        # The H1 must hold one line across the whole desktop range, not only
+        # when maximised (owner report 2026-09-02): the 1200px breakpoint, an
+        # intermediate windowed width, and both real profiles above it.
+        # F-B21-38's --index-scale-min floor is what buys this; a failure
+        # here means the floor is too high, not that the H1 needs its own
+        # rule.
+        for width in (1200, 1500, 1920, 2560):
+            probe.set_viewport_size({"width": width, "height": 900})
+            probe.goto(f"{base_url}/", wait_until="load")
+            probe.evaluate(FONTS_READY_EXPRESSION)
+            failures.extend(_headline_wrap_failures(probe, width))
         widths = {}
         for width, height in ((1920, 945), (2560, 1305)):
             probe.set_viewport_size({"width": width, "height": height})
@@ -2022,6 +2393,7 @@ CHECKS = (
     ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,)),
     ("fonts", check_fonts, (DESKTOP,)),
     ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE)),
+    ("divider contrast", check_divider_contrast, (DESKTOP,)),
     ("index design tokens", check_index_design_tokens, (DESKTOP, MOBILE)),
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE)),
     ("body font", check_body_font, (DESKTOP, MOBILE)),

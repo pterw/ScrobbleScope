@@ -148,6 +148,19 @@
   --ss-border-default: #e5dfd1;
   --ss-accent-soft: #efe9fa;
 
+  /* F-B21-40: --ss-border-default is opaque and measures well under 3:1
+     against every surface it sits beside (~1.1-1.3:1, both themes). Task 3
+     raised --shell-border with an alpha composite, but that token only
+     draws the header/nav hairlines; index.css's own 15 form dividers all
+     use --ss-border-default, and restyling every one of them was out of
+     scope for that review finding. This token is scoped to exactly the one
+     divider the finding named -- .index-form's border-left, the seam
+     between the hero column and the sunken well -- so the other 14 stay on
+     --ss-border-default until a future batch decides they need raising
+     too. Values measured against both adjoining surfaces (the page and
+     --ss-surface-sunken); see .docsync.toml for the pinned pair. */
+  --ss-border-divider: #858179;
+
   /* The design has three surfaces -- page, sunken and card -- and daisyUI's
      base ramp only lines up with two of them, differently in each theme.
      Light: page and sunken are base-100 and base-200, and the card is white.
@@ -219,6 +232,9 @@
   --ss-text-muted: #908a9a;
   --ss-border-default: #2a2434;
   --ss-accent-soft: #2a1f44;
+  /* Dark value for the index well divider; see the light block above for
+     why this token exists apart from --ss-border-default. */
+  --ss-border-divider: #6e6a75;
   --ss-surface-card: #181520;
   --ss-surface-sunken: #1a1622;
   --heatmap-surface: #181520;

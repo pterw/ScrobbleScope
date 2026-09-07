@@ -311,11 +311,12 @@ Moved in by the scope ruling:
 1. **F-B21-4 item 1 resolves to the canonical README.** The hero starts with
    the two-column `1.1fr 1fr` grid from `docs/design/README.md` screen 1, not
    the audit review's single column. Current source declares a 1200px-wide
-   `3fr 5fr` state and one shared factor of `1.075` times the width ratio,
+   `3fr 4fr` state and one shared factor of `1.075` times the width ratio,
    bounded by the measured composition height and available window content,
-   capped at `2.15`. The centred form retains its `23.75rem` base cap in
-   Task 2. `static/css/index.css` owns the layout-aware factor, explicit
-   dimensions, narrow-window readability bounds and expanded-state guard.
+   capped at `2.15`. The centred form carries a `28rem` base cap, the final
+   remediation width landed in Task 3. `static/css/index.css` owns the
+   layout-aware factor, explicit dimensions, narrow-window readability
+   bounds and expanded-state guard.
    The former 1080px height denominator was an engine-independent defect;
    the complete Chromium and Firefox matrices now consume realistic content
    boxes and assert rendered proportions instead of a zoom property.

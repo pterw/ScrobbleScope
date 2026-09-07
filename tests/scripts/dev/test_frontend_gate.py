@@ -15,10 +15,17 @@ from scripts.dev.frontend_gate import (
     SETUP_COMMAND,
     FrontendGateError,
     _check_desktop_scale_bounds,
+    _clamp_px,
+    _composite_over,
+    _contrast_ratio,
+    _divider_contrast_failure,
     _headline_wrap_failures,
     _launch_browser,
     _load_playwright,
+    _parse_rgb_string,
+    _relative_luminance,
     _touch_minimum_failures,
+    _worst_divider_contrast,
     check_pipeline_state_machines,
     check_shell_scales_with_text,
     check_theme_persistence,
@@ -367,6 +374,113 @@ def test_the_touch_profiles_really_carry_a_coarse_pointer() -> None:
     assert frontend_gate.VIEWPORTS[frontend_gate.TOUCH_WIDE]["viewport"]["width"] >= 860
 
 
+def test_parse_rgb_string_reads_rgb_and_rgba_forms() -> None:
+    """The parser must recover alpha when present and default it to opaque."""
+    assert _parse_rgb_string("rgb(26, 24, 32)") == (26.0, 24.0, 32.0, 1.0)
+    assert _parse_rgb_string("rgba(26, 24, 32, 0.5)") == (26.0, 24.0, 32.0, 0.5)
+
+
+def test_composite_over_blends_by_alpha() -> None:
+    """A translucent foreground must blend proportionally with its backdrop."""
+    # Half-alpha white over black must land exactly halfway, per channel.
+    assert _composite_over((255.0, 255.0, 255.0, 0.5), (0.0, 0.0, 0.0)) == (
+        127.5,
+        127.5,
+        127.5,
+    )
+    # An opaque foreground must pass through unchanged regardless of backdrop.
+    assert _composite_over((10.0, 20.0, 30.0, 1.0), (200.0, 200.0, 200.0)) == (
+        10.0,
+        20.0,
+        30.0,
+    )
+
+
+def test_relative_luminance_orders_black_grey_white() -> None:
+    """Luminance must be 0 for black, 1 for white, and monotonic between."""
+    black = _relative_luminance((0.0, 0.0, 0.0))
+    grey = _relative_luminance((128.0, 128.0, 128.0))
+    white = _relative_luminance((255.0, 255.0, 255.0))
+    assert black == 0.0
+    assert white == 1.0
+    assert black < grey < white
+
+
+def test_contrast_ratio_is_symmetric_and_maximal_for_black_on_white() -> None:
+    """Contrast ratio must not depend on argument order and must cap at 21:1."""
+    black = (0.0, 0.0, 0.0)
+    white = (255.0, 255.0, 255.0)
+    assert _contrast_ratio(black, white) == pytest.approx(21.0, abs=0.01)
+    assert _contrast_ratio(black, white) == _contrast_ratio(white, black)
+    # Identical colours never separate, so the ratio floors at 1:1.
+    assert _contrast_ratio(black, black) == 1.0
+
+
+def test_worst_divider_contrast_is_the_minimum_across_surfaces() -> None:
+    """A divider painted over several surfaces is only as good as the worst one."""
+    border = "rgba(26, 24, 32, 0.5)"
+    high_contrast_surface = "rgb(255, 255, 255)"
+    low_contrast_surface = "rgb(40, 38, 46)"
+    worst = _worst_divider_contrast(border, high_contrast_surface, low_contrast_surface)
+    against_low_only = _worst_divider_contrast(border, low_contrast_surface)
+    assert worst == pytest.approx(against_low_only)
+    assert worst < _worst_divider_contrast(border, high_contrast_surface)
+
+
+def test_divider_contrast_failure_boundary_is_exactly_3_to_1() -> None:
+    """The 3:1 boundary must pass at 3.0 and fail just below it.
+
+    Repo rule: this must fail if `_divider_contrast_failure` is deleted or its
+    comparison is loosened (e.g. `> 3.0` instead of `>= 3.0`), so both sides of
+    the boundary are asserted rather than only the failing side.
+    """
+    assert _divider_contrast_failure("light", 3.0) is None
+    assert _divider_contrast_failure("light", 4.5) is None
+    assert _divider_contrast_failure("light", 2.9999) is not None
+    failure = _divider_contrast_failure("light", 1.27)
+    assert failure == (
+        "/ light: --shell-border composites to 1.27:1 against its "
+        "adjacent surface, expected at least 3:1"
+    )
+
+
+def test_divider_contrast_failure_names_the_token_it_checks() -> None:
+    """A caller must be able to attribute a failure to a specific token.
+
+    F-B21-40: the same helper now checks both the shared --shell-border and
+    the index page's own --ss-border-divider. This must fail if the `token`
+    parameter is removed or its default silently changes, since a message
+    that always says "--shell-border" would misattribute a failing index
+    divider to the wrong token.
+    """
+    failure = _divider_contrast_failure(
+        "index divider light", 1.12, token="--ss-border-divider"
+    )
+    assert failure == (
+        "/ index divider light: --ss-border-divider composites to 1.12:1 "
+        "against its adjacent surface, expected at least 3:1"
+    )
+    # The default stays --shell-border for every existing caller.
+    assert _divider_contrast_failure("light", 1.27) == (
+        "/ light: --shell-border composites to 1.27:1 against its "
+        "adjacent surface, expected at least 3:1"
+    )
+
+
+def test_clamp_px_resolves_floor_preferred_and_ceiling() -> None:
+    """`_clamp_px` must mirror CSS clamp(): floor, vw-scaled middle, ceiling."""
+    # Below the point where 2.96875vw reaches the 4.25rem floor.
+    assert _clamp_px(4.25, 2.96875, 4.75, 1000) == pytest.approx(4.25 * 16)
+    # At 1920px, 2.96875vw is still under the 4.75rem ceiling and over the
+    # 4.25rem floor at root 16px, so the floor still wins (matches the header
+    # bar's ruled 68px at a real 1080p window).
+    assert _clamp_px(4.25, 2.96875, 4.75, 1920) == pytest.approx(4.25 * 16)
+    # Above the point where the preferred value exceeds the ceiling.
+    assert _clamp_px(4.25, 2.96875, 4.75, 2560) == pytest.approx(4.75 * 16)
+    # A non-default root font size scales both bounds, not the vw term.
+    assert _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20) == pytest.approx(4.25 * 20)
+
+
 def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> None:
     """The boundary probe must report real wrapping and release its context."""
     assert _touch_minimum_failures(
@@ -388,10 +502,19 @@ def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> 
         current_width["value"] = viewport["width"]
 
     def locate(selector: str) -> MagicMock:
-        """Return a wrapped headline and inert controls for all other selectors."""
+        """Wrap the headline only at 1200px; every other desktop width is clean.
+
+        This proves the widened one-line assertion (1200/1500/1920/2560) reports
+        a real per-width failure instead of a single hard-coded boundary check.
+        """
         locator = MagicMock()
         if selector.endswith(" h1"):
-            locator.evaluate.return_value = {"height": 50, "lineHeight": 20}
+            wraps = current_width["value"] == 1200
+            locator.evaluate.return_value = (
+                {"height": 50, "lineHeight": 20}
+                if wraps
+                else {"height": 20, "lineHeight": 20}
+            )
         return locator
 
     def evaluate(script: str):
@@ -425,13 +548,17 @@ def test_desktop_scale_bounds_reports_wrapped_headlines_and_closes_context() -> 
     probe.locator.side_effect = locate
     probe.evaluate.side_effect = evaluate
 
-    assert _headline_wrap_failures(probe) == [
-        "/: album headline wraps at the 1200px desktop boundary",
-        "/: heatmap headline wraps at the 1200px desktop boundary",
+    assert _headline_wrap_failures(probe, 1200) == [
+        "/: album headline wraps at 1200px",
+        "/: heatmap headline wraps at 1200px",
     ]
+    # The full sweep covers the breakpoint (1200), an intermediate windowed
+    # width (1500), and both real profiles above it (1920, 2560); only the
+    # 1200px case wraps here, so the aggregate below proves the loop reports
+    # per-width, not just the first width it tries.
     assert _check_desktop_scale_bounds(page, "http://local") == [
-        "/: album headline wraps at the 1200px desktop boundary",
-        "/: heatmap headline wraps at the 1200px desktop boundary",
+        "/: album headline wraps at 1200px",
+        "/: heatmap headline wraps at 1200px",
     ]
     page.context.browser.new_context.assert_called_once_with(has_touch=True)
     context.close.assert_called_once()

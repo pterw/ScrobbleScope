@@ -19,8 +19,9 @@
     --shell-muted: #6c6676;
     --shell-accent: #6a4baf;
     --shell-accent-ink: #ffffff;
-    --shell-border: rgba(26, 24, 32, 0.12);
-    --shell-height: 4.75rem;
+    --shell-border: rgba(26, 24, 32, 0.5);
+    --shell-height: clamp(4.25rem, 2.96875vw, 4.75rem);
+    --shell-control-gap: 0.75rem;
     /* The same stack as --font-sans in tailwind.src.css, repeated because an
        unmigrated page never loads the compiled sheet and would resolve
        var(--font-sans) to nothing. This file already duplicates the palette
@@ -38,7 +39,7 @@
     --shell-muted: #908a9a;
     --shell-accent: #b39dde;
     --shell-accent-ink: #0e0c12;
-    --shell-border: rgba(241, 237, 228, 0.14);
+    --shell-border: rgba(241, 237, 228, 0.4);
 }
 
 /* ------------------------------------------------------------------ */
@@ -56,7 +57,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--shell-control-gap);
     height: var(--shell-height);
     padding: 0 1.5rem;
     background-color: var(--shell-bg);
@@ -133,7 +134,7 @@ body {
 .site-header__nav {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: var(--shell-control-gap);
     margin-left: auto;
 }
 
@@ -141,8 +142,8 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: clamp(5.75rem, 7.25vw, 7.25rem);
-    min-height: 3rem;
+    min-width: clamp(5.75rem, 4.53vw, 7.25rem);
+    min-height: clamp(2.75rem, 1.875vw, 3.5rem);
     padding: 0 1.25rem;
     border: 1px solid var(--shell-border);
     border-radius: 0.625rem;
@@ -435,7 +436,7 @@ body {
     line-height: 1;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    min-height: 3rem;
+    min-height: clamp(2.75rem, 1.875vw, 3.5rem);
     margin: 0;
     cursor: pointer;
     user-select: none;
@@ -445,7 +446,7 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 2.5rem;
+    min-height: clamp(2.25rem, 1.5625vw, 2.5rem);
     padding: 0 0.8rem;
     border-radius: 999px;
     transition: color 160ms ease, background-color 160ms ease;

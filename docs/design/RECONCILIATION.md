@@ -23,7 +23,7 @@ The owner-approved overrides currently recorded are:
 | Point | README says | This repo does | Why |
 | --- | --- | --- | --- |
 | Theme marker | `.dark` class on `<html>` | `data-theme="dark"` on `<html>` | Section 5, below |
-| Wide index composition | `1.1fr 1fr`, form capped at 380px | Current source declares `3fr 5fr`; hero and form use `1.075` times the width ratio, limited by available height and capped at `2.15`. The form base cap remains `23.75rem` through Task 2. Explicit CSS dimensions own scaling; `static/css/index.css` owns measured natural heights and lower bounds. | The active remediation plan is the acceptance source. Both engines run realistic window profiles; the old 1080px denominator was an engine-independent defect. Remaining base-layout changes belong to Task 3. |
+| Wide index composition | `1.1fr 1fr`, form capped at 380px | Current source declares `3fr 4fr`; hero and form use `1.075` times the width ratio, limited by available height and capped at `2.15`. The form base cap is `28rem`, the final remediation width landed in Task 3. Explicit CSS dimensions own scaling; `static/css/index.css` owns measured natural heights and lower bounds. | The active remediation plan is the acceptance source. Both engines run realistic window profiles; the old 1080px denominator was an engine-independent defect. Task 3 also raised `--shell-border` alpha for 3:1 divider contrast and applied the ruled header clamps. |
 | Small label size | 11.5px | 12px | Owner review readability floor; touch and mobile sizing remain unchanged |
 | Light muted text | `#6f6a7a` | `#6c6676` | Keeps small muted copy at 4.5:1 or better on every shipped light surface |
 | Lockup viewBox | `0 0 453 69` | `0 0 453 74` | Section 10, below |

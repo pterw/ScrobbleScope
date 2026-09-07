@@ -49,6 +49,37 @@ file = "tests/test_template_shell.py"
 pattern = '"--ss-text-muted": \("(#[0-9a-f]{6})"'
 expect = "#6c6676"
 
+# F-B21-40: --ss-border-divider is the index well's own divider token,
+# raised above --ss-border-default so .index-form's border-left clears 3:1.
+# Its value now lives in the two theme blocks and in the token-build test,
+# which is exactly the "starts living in two places" moment this file's
+# header calls for a declaration.
+[[value]]
+name = "the index divider token, light value"
+
+[[value.sites]]
+file = "static/css/tailwind.src.css"
+pattern = 'name: "light";[^}]*--ss-border-divider: (#[0-9a-f]{6});'
+expect = "#858179"
+
+[[value.sites]]
+file = "tests/test_template_shell.py"
+pattern = '"--ss-border-divider": \("(#[0-9a-f]{6})"'
+expect = "#858179"
+
+[[value]]
+name = "the index divider token, dark value"
+
+[[value.sites]]
+file = "static/css/tailwind.src.css"
+pattern = 'name: "dark";[^}]*--ss-border-divider: (#[0-9a-f]{6});'
+expect = "#6e6a75"
+
+[[value.sites]]
+file = "tests/test_template_shell.py"
+pattern = '"--ss-border-divider": \("#[0-9a-f]{6}", "(#[0-9a-f]{6})"'
+expect = "#6e6a75"
+
 [[value]]
 name = "the 12px small-label floor"
 
