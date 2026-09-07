@@ -1938,6 +1938,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     },
                     viewportHeight: window.innerHeight,
                     documentHeight: document.documentElement.scrollHeight,
+                    heroWidth: hero.getBoundingClientRect().width,
+                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                    heroInnerWidth: heroInner.getBoundingClientRect().width,
+                    heroMarkWidth: heroMark.getBoundingClientRect().width,
                 };
             }"""
         )
