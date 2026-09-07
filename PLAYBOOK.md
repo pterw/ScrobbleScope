@@ -716,48 +716,38 @@ non-current operational logs. Older dated entries live in
   sweep could have the gate read the value, but no further work is
   scheduled now.
 
-### 2026-09-07 - CI action bumps and ruff lint/format migration (side-task)
+### 2026-09-07 - Fix the B023 route-handler regression the ruff migration introduced (side-task)
 
-- Scope: cleared the Node.js 20 deprecation warning on the Quality Gate
-  (the run on `d41db1f` flagged checkout/cache/setup-python/upload-artifact
-  as forced onto Node 24) and modernized the Python toolchain by replacing
-  black + isort + autoflake + flake8 with ruff, per owner request.
-- Plan vs implementation: no plan -- owner-directed side-task. Action
-  versions were fetched from each repo's latest release, not guessed:
-  checkout v4 -> v7, setup-python v5 -> v7, cache v4 -> v6,
-  upload-artifact v4 -> v7. Ruff pinned to 0.16.6 (latest at adoption),
-  wired through `astral-sh/ruff-pre-commit` v0.16.6 with `ruff-check
-  --fix` and `ruff-format` hooks.
+- Scope: repaired the two validator checks the ruff migration broke in
+  CI (run on `c7bfaec`: "validator race" and "validator network failure"
+  both raised `AttributeError: 'Request' object has no attribute
+  'append'`), plus three Pylance type errors the owner surfaced while
+  reviewing the same file.
+- Plan vs implementation: no plan -- regression repair on the open PR.
+  Root cause of the CI failures: the B023 fix used a default-argument
+  binding (`lambda route, pending=pending: ...`), but Playwright inspects
+  the handler's parameter count -- two parameters means it is called with
+  (route, request), so the request object overrode the `pending` default
+  at call time. The fix is a handler factory (`_collecting_handler`)
+  whose closure binds the list with a single visible parameter,
+  satisfying both Playwright's contract and bugbear B023. Lesson
+  recorded: a lint-driven rewrite of a framework callback must be
+  validated against the framework's calling convention, not only the
+  linter.
 - Implementation:
-  - `.github/workflows/test.yml`: the four action bumps. No other step
-    changed.
-  - `pyproject.toml`: `[tool.ruff]` config replaces `[tool.isort]`.
-    select = E,W,F,I,UP,B (pycodestyle, pyflakes, isort, pyupgrade,
-    bugbear). Ignored: E203/E501 (black-compatible formatter artifacts
-    flake8's default ignores already excluded) and E741 (same default
-    ignore set). E402 exempted per-file for `app.py` only -- it must call
-    `load_dotenv()` before imports that read env at import time. The
-    pre-commit exclude list is mirrored in `extend-exclude` (plus
-    `scratch/`, untracked).
-  - `.pre-commit-config.yaml`: four tool repos replaced by one ruff repo.
-  - `requirements-dev.txt`: `flake8==7.3.0` -> `ruff==0.16.6`.
-  - Code fixes ruff surfaced (all real, none cosmetic-only): B904
-    exception chaining in `dev_start.py` (3) and `docsync/declarations.py`
-    (3); B023 loop-variable binding in two `frontend_gate.py` route
-    lambdas; B007 unused loop variables renamed in `orchestrator.py` and
-    `docsync/declarations.py`; B905 `zip(strict=True)` in
-    `docsync/logic.py` and `test_template_shell.py`; E402 mid-file import
-    moved to the top of `test_routes.py`; plus 66 safe autofixes (unused
-    imports, import sorting, pyupgrade rewrites) and 9 files reformatted
-    by ruff-format (black-equivalent; the visible deltas are implicit
-    string-concat joins and assert-message placement).
-  - Docs: README (Code Quality row, structure comments), CONTRIBUTING
-    (code-style section), SESSION_CONTEXT pre-commit line.
-- Deviations: none. No tolerance, test, or behaviour changed; the 938
-  count is unchanged because ruff's fixes touch no tested path.
-- Validation: `ruff check .` -- all checks passed. `ruff format --check`
-  -- clean. `pytest -q` -- **938 passed**, 5 warnings. All pre-commit
-  hooks pass (ruff check, ruff format, and the 8 surviving hooks).
-  `doc_state_sync.py --check` exits 0 (expected root BATCH warning).
+  - `scripts/dev/frontend_gate.py`: `_collecting_handler` factory used by
+    both validator checks; `spotlight_requests` bound before its poll
+    loop (possibly-unbound read after a possibly-zero-iteration loop);
+    `CHECK_GROUPS` built through an honestly-typed list accumulator with
+    a final comprehension producing the declared tuple shape; the
+    summary line reads the firefox canary through `groups_for()` instead
+    of subscripting `BROWSER_SCOPES` values, whose `None` sentinel for
+    chromium's full pass makes direct subscripting a type error. The
+    chromium-full-pass / firefox-canary design is unchanged.
+- Deviations: none. No check semantics, tolerance, or grouping changed.
+- Validation: full gate run -- **24 checks passed in 43 runs**, exit 0,
+  zero failures (the two validator checks pass in a live browser), zero
+  timeouts, zero font warnings. `pytest -q` -- **938 passed**, 5
+  warnings. All pre-commit hooks pass. `doc_state_sync.py --check`
+  exits 0 (expected root BATCH warning).
 - Forward guidance: WP-7 (unmatched page + reason_code) remains next.
-  The Quality Gate run on this push should show no Node 20 warning.

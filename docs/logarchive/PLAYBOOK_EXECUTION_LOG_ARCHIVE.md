@@ -9,6 +9,52 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-07 - CI action bumps and ruff lint/format migration (side-task)
+
+- Scope: cleared the Node.js 20 deprecation warning on the Quality Gate
+  (the run on `d41db1f` flagged checkout/cache/setup-python/upload-artifact
+  as forced onto Node 24) and modernized the Python toolchain by replacing
+  black + isort + autoflake + flake8 with ruff, per owner request.
+- Plan vs implementation: no plan -- owner-directed side-task. Action
+  versions were fetched from each repo's latest release, not guessed:
+  checkout v4 -> v7, setup-python v5 -> v7, cache v4 -> v6,
+  upload-artifact v4 -> v7. Ruff pinned to 0.16.6 (latest at adoption),
+  wired through `astral-sh/ruff-pre-commit` v0.16.6 with `ruff-check
+  --fix` and `ruff-format` hooks.
+- Implementation:
+  - `.github/workflows/test.yml`: the four action bumps. No other step
+    changed.
+  - `pyproject.toml`: `[tool.ruff]` config replaces `[tool.isort]`.
+    select = E,W,F,I,UP,B (pycodestyle, pyflakes, isort, pyupgrade,
+    bugbear). Ignored: E203/E501 (black-compatible formatter artifacts
+    flake8's default ignores already excluded) and E741 (same default
+    ignore set). E402 exempted per-file for `app.py` only -- it must call
+    `load_dotenv()` before imports that read env at import time. The
+    pre-commit exclude list is mirrored in `extend-exclude` (plus
+    `scratch/`, untracked).
+  - `.pre-commit-config.yaml`: four tool repos replaced by one ruff repo.
+  - `requirements-dev.txt`: `flake8==7.3.0` -> `ruff==0.16.6`.
+  - Code fixes ruff surfaced (all real, none cosmetic-only): B904
+    exception chaining in `dev_start.py` (3) and `docsync/declarations.py`
+    (3); B023 loop-variable binding in two `frontend_gate.py` route
+    lambdas; B007 unused loop variables renamed in `orchestrator.py` and
+    `docsync/declarations.py`; B905 `zip(strict=True)` in
+    `docsync/logic.py` and `test_template_shell.py`; E402 mid-file import
+    moved to the top of `test_routes.py`; plus 66 safe autofixes (unused
+    imports, import sorting, pyupgrade rewrites) and 9 files reformatted
+    by ruff-format (black-equivalent; the visible deltas are implicit
+    string-concat joins and assert-message placement).
+  - Docs: README (Code Quality row, structure comments), CONTRIBUTING
+    (code-style section), SESSION_CONTEXT pre-commit line.
+- Deviations: none. No tolerance, test, or behaviour changed; the 938
+  count is unchanged because ruff's fixes touch no tested path.
+- Validation: `ruff check .` -- all checks passed. `ruff format --check`
+  -- clean. `pytest -q` -- **938 passed**, 5 warnings. All pre-commit
+  hooks pass (ruff check, ruff format, and the 8 surviving hooks).
+  `doc_state_sync.py --check` exits 0 (expected root BATCH warning).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+  The Quality Gate run on this push should show no Node 20 warning.
+
 ### 2026-09-07 - Fix the three CI Quality Gate failures left by the Task-3/4 merge (side-task)
 
 - Scope: diagnosed and fixed the three assertion families failing the

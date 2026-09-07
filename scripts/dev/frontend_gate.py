@@ -1326,6 +1326,24 @@ def check_validator_outage_is_recoverable(page, base_url: str) -> list[str]:
     return failures
 
 
+def _collecting_handler(sink: list) -> callable:
+    """Return a one-parameter route handler that appends into ``sink``.
+
+    Playwright inspects the handler's parameter count: one parameter means
+    it is called with the route alone, two means (route, request). A
+    ``lambda route, pending=pending: ...`` therefore has its ``pending``
+    default overridden by the request object at call time -- the CI failure
+    ``'Request' object has no attribute 'append'``. A factory closure binds
+    the list without a second parameter, which also satisfies bugbear B023
+    (no loop-variable capture) without that breakage.
+    """
+
+    def handler(route):
+        sink.append(route)
+
+    return handler
+
+
 def check_stale_validator_failure_is_discarded(page, base_url: str) -> list[str]:
     """An older failed request cannot clear a newer same-name verdict.
 
@@ -1343,10 +1361,7 @@ def check_stale_validator_failure_is_discarded(page, base_url: str) -> list[str]
     for path, selector, actions in fields:
         pending = []
         handled = []
-        page.route(
-            "**/validate_user*",
-            lambda route, pending=pending: pending.append(route),
-        )
+        page.route("**/validate_user*", _collecting_handler(pending))
         try:
             page.goto(f"{base_url}{path}", wait_until="load")
             _reach_state(page, actions)
@@ -1405,10 +1420,7 @@ def check_current_validator_failure_replaces_old_verdict(
     for path, selector, actions in fields:
         pending = []
         handled = []
-        page.route(
-            "**/validate_user*",
-            lambda route, pending=pending: pending.append(route),
-        )
+        page.route("**/validate_user*", _collecting_handler(pending))
         try:
             page.goto(f"{base_url}{path}", wait_until="load")
             _reach_state(page, actions)
@@ -3292,6 +3304,11 @@ def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
         if len(candidates) != 5 or len({item["name"] for item in candidates}) != 5:
             failures.append("results did not expose five unique spotlight artists")
 
+        # Bound before the poll loop so the post-loop read is never unbound:
+        # a static analyzer treats a loop body as possibly-zero-iteration,
+        # and an init-script failure would otherwise surface as NameError
+        # instead of the hydration-count failure below.
+        spotlight_requests: list = []
         for _ in range(20):
             spotlight_requests = page.evaluate("window.__spotlightRequests")
             if len(spotlight_requests) >= 5:
@@ -3451,13 +3468,16 @@ CHECKS = (
 )
 
 #: Groups in execution order, derived from CHECKS. dict preserves insertion
-#: order, so the first occurrence of a group fixes its position.
-CHECK_GROUPS: dict[str, tuple[str, ...]] = {}
+#: order, so the first occurrence of a group fixes its position. The
+#: accumulator is honestly a list dict; only the final comprehension produces
+#: the promised tuple shape, so the annotation is true at every read site.
+_GROUP_MEMBERS: dict[str, list[str]] = {}
 for _entry in CHECKS:
-    CHECK_GROUPS.setdefault(_entry[3], [])
-for _group, _members in CHECK_GROUPS.items():
-    CHECK_GROUPS[_group] = tuple(entry[0] for entry in CHECKS if entry[3] == _group)
-CHECK_GROUPS = dict(CHECK_GROUPS)
+    _GROUP_MEMBERS.setdefault(_entry[3], []).append(_entry[0])
+CHECK_GROUPS: dict[str, tuple[str, ...]] = {
+    _group: tuple(members) for _group, members in _GROUP_MEMBERS.items()
+}
+del _GROUP_MEMBERS
 
 #: Firefox is a regression canary, not a second acceptance gate: the
 #: 2026-09-01 remediation plan measured both engines agreeing within 0.1px
@@ -3618,10 +3638,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"[frontend_gate] FAIL {failure}", file=sys.stderr)
         return 1
 
+    # Read the canary through groups_for, whose return type is a plain
+    # tuple: BROWSER_SCOPES carries a None sentinel for "run everything"
+    # (chromium's full pass), so subscripting its values directly is a
+    # type error. Firefox always declares an explicit canary scope.
+    canary_groups = groups_for("firefox")
+    canary = canary_groups[0] if canary_groups else "no groups"
     print(
         f"[frontend_gate] {len(CHECKS)} checks passed in {PLANNED_RUNS} runs "
         f"across {', '.join(BROWSER_NAMES)} "
-        f"({BROWSER_SCOPES['firefox'][0]} canary on firefox); "
+        f"({canary} canary on firefox); "
         f"profiles: {', '.join(VIEWPORTS)}"
     )
     return 0
