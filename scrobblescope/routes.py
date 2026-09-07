@@ -136,7 +136,13 @@ def _select_spotlight_artists(results, job_id):
 
     if len(ranked) <= 5:
         return ranked
-    return random.Random(str(job_id)).sample(ranked, 5)
+    # random is a deterministic shuffler here, not a secret source: seeding
+    # on the job ID makes the same job always show the same five spotlight
+    # artists (asserted by
+    # test_results_page_samples_five_unique_artists_from_aggregate_top_ten).
+    # Cryptographic unpredictability would defeat the intent, so bandit's
+    # B311 warning does not apply.
+    return random.Random(str(job_id)).sample(ranked, 5)  # nosec B311
 
 
 def _group_unmatched_by_reason(unmatched_data):

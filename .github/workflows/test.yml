@@ -16,6 +16,13 @@ jobs:
   quality-gate:
     runs-on: ubuntu-latest
 
+    # Least privilege (zizmor: excessive-permissions / artipacked). The job
+    # only reads the checkout and uploads a coverage artifact; without this
+    # block the runner's default GITHUB_TOKEN permissions are broader than
+    # anything the steps need, and every third-party action inherits them.
+    permissions:
+      contents: read
+
     env:
       LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
       SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}

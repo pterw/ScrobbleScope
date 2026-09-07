@@ -9,6 +9,36 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-07 - Remove the dead pypdf/pdf2image/pillow cluster (side-task)
+
+- Scope: executed the removal half of F-B21-3's recorded shape. The
+  2026-09-07 pip-audit run found 120 advisories in 13 packages; these
+  three carried ~65 of them and nothing imports any of them.
+- Plan vs implementation: no plan -- owner-directed side-task executing
+  F-B21-3's suggestion. Verification before removal: `pip show` metadata
+  (pypdf Required-by: nothing; pdf2image Required-by: nothing; pillow
+  Required-by: pdf2image only) plus a repo-wide grep for imports across
+  scrobblescope/, scripts/, tests/, app.py, templates/, static/js/, the
+  Dockerfile and the deployment docs -- zero hits. The JPEG export is
+  client-side html2canvas (static/js/results.js), as F-B21-3 already
+  recorded; the prior archive log confirms the owner was asked about
+  this cluster before and confirmed it serves nothing.
+- Deviations: none for the approved scope. Two further dead packages
+  were found during verification -- `ipinfo` (Required-by: nothing) and
+  `cachetools` (Required-by: ipinfo only) -- but they were not in the
+  approved removal list, so they stay pending an owner ruling. The
+  owner's correction on `virtualenv` was accepted: it is a real
+  dependency of pre-commit (pip show pre-commit: Requires ... virtualenv)
+  and stays; `filelock` stays with it. The stdlib `venv` module, not the
+  virtualenv package, creates .venv -- the two were conflated in the
+  first proposal.
+- Validation: `pytest -q` -- **938 passed**, 5 warnings (unchanged; the
+  packages were unimported). All pre-commit hooks pass.
+- Forward guidance: commit 2 upgrades the vulnerable runtime packages
+  (aiohttp, requests, urllib3, werkzeug, flask, python-dotenv, idna,
+  click, pytest, virtualenv, filelock). Owner ruling pending on
+  ipinfo/cachetools.
+
 ### 2026-09-07 - Upgrade vulnerable packages; audit now reports zero (side-task)
 
 - Scope: executed the upgrade half of F-B21-3's recorded shape, plus the
