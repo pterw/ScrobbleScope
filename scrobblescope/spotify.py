@@ -1,7 +1,6 @@
+import base64
 import logging
 import time
-
-import aiohttp
 
 from scrobblescope.config import (
     SPOTIFY_BATCH_RETRIES,
@@ -24,10 +23,15 @@ async def fetch_spotify_access_token():
     url = "https://accounts.spotify.com/api/token"
     assert SPOTIFY_CLIENT_ID is not None, "SPOTIFY_CLIENT_ID not set"
     assert SPOTIFY_CLIENT_SECRET is not None, "SPOTIFY_CLIENT_SECRET not set"
-    auth = aiohttp.BasicAuth(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
+    # aiohttp 3.14 deprecates BasicAuth for removal in 4.0; the documented
+    # replacement is a pre-encoded Authorization header. base64 is stdlib,
+    # so no new dependency.
+    credentials = f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
+    encoded = base64.b64encode(credentials.encode("utf-8")).decode("ascii")
+    headers = {"Authorization": f"Basic {encoded}"}
     data = {"grant_type": "client_credentials"}
     async with create_optimized_session() as s:
-        async with s.post(url, data=data, auth=auth) as r:
+        async with s.post(url, data=data, headers=headers) as r:
             if r.status == 200:
                 token_data = await r.json()
                 spotify_token_cache.update(
