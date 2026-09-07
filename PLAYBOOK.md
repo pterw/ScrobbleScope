@@ -716,38 +716,32 @@ non-current operational logs. Older dated entries live in
   sweep could have the gate read the value, but no further work is
   scheduled now.
 
-### 2026-09-07 - Fix the B023 route-handler regression the ruff migration introduced (side-task)
+### 2026-09-07 - Remove the dead pypdf/pdf2image/pillow cluster (side-task)
 
-- Scope: repaired the two validator checks the ruff migration broke in
-  CI (run on `c7bfaec`: "validator race" and "validator network failure"
-  both raised `AttributeError: 'Request' object has no attribute
-  'append'`), plus three Pylance type errors the owner surfaced while
-  reviewing the same file.
-- Plan vs implementation: no plan -- regression repair on the open PR.
-  Root cause of the CI failures: the B023 fix used a default-argument
-  binding (`lambda route, pending=pending: ...`), but Playwright inspects
-  the handler's parameter count -- two parameters means it is called with
-  (route, request), so the request object overrode the `pending` default
-  at call time. The fix is a handler factory (`_collecting_handler`)
-  whose closure binds the list with a single visible parameter,
-  satisfying both Playwright's contract and bugbear B023. Lesson
-  recorded: a lint-driven rewrite of a framework callback must be
-  validated against the framework's calling convention, not only the
-  linter.
-- Implementation:
-  - `scripts/dev/frontend_gate.py`: `_collecting_handler` factory used by
-    both validator checks; `spotlight_requests` bound before its poll
-    loop (possibly-unbound read after a possibly-zero-iteration loop);
-    `CHECK_GROUPS` built through an honestly-typed list accumulator with
-    a final comprehension producing the declared tuple shape; the
-    summary line reads the firefox canary through `groups_for()` instead
-    of subscripting `BROWSER_SCOPES` values, whose `None` sentinel for
-    chromium's full pass makes direct subscripting a type error. The
-    chromium-full-pass / firefox-canary design is unchanged.
-- Deviations: none. No check semantics, tolerance, or grouping changed.
-- Validation: full gate run -- **24 checks passed in 43 runs**, exit 0,
-  zero failures (the two validator checks pass in a live browser), zero
-  timeouts, zero font warnings. `pytest -q` -- **938 passed**, 5
-  warnings. All pre-commit hooks pass. `doc_state_sync.py --check`
-  exits 0 (expected root BATCH warning).
-- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+- Scope: executed the removal half of F-B21-3's recorded shape. The
+  2026-09-07 pip-audit run found 120 advisories in 13 packages; these
+  three carried ~65 of them and nothing imports any of them.
+- Plan vs implementation: no plan -- owner-directed side-task executing
+  F-B21-3's suggestion. Verification before removal: `pip show` metadata
+  (pypdf Required-by: nothing; pdf2image Required-by: nothing; pillow
+  Required-by: pdf2image only) plus a repo-wide grep for imports across
+  scrobblescope/, scripts/, tests/, app.py, templates/, static/js/, the
+  Dockerfile and the deployment docs -- zero hits. The JPEG export is
+  client-side html2canvas (static/js/results.js), as F-B21-3 already
+  recorded; the prior archive log confirms the owner was asked about
+  this cluster before and confirmed it serves nothing.
+- Deviations: none for the approved scope. Two further dead packages
+  were found during verification -- `ipinfo` (Required-by: nothing) and
+  `cachetools` (Required-by: ipinfo only) -- but they were not in the
+  approved removal list, so they stay pending an owner ruling. The
+  owner's correction on `virtualenv` was accepted: it is a real
+  dependency of pre-commit (pip show pre-commit: Requires ... virtualenv)
+  and stays; `filelock` stays with it. The stdlib `venv` module, not the
+  virtualenv package, creates .venv -- the two were conflated in the
+  first proposal.
+- Validation: `pytest -q` -- **938 passed**, 5 warnings (unchanged; the
+  packages were unimported). All pre-commit hooks pass.
+- Forward guidance: commit 2 upgrades the vulnerable runtime packages
+  (aiohttp, requests, urllib3, werkzeug, flask, python-dotenv, idna,
+  click, pytest, virtualenv, filelock). Owner ruling pending on
+  ipinfo/cachetools.

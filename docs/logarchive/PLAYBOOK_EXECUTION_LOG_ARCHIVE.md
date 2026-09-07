@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-07 - Fix the B023 route-handler regression the ruff migration introduced (side-task)
+
+- Scope: repaired the two validator checks the ruff migration broke in
+  CI (run on `c7bfaec`: "validator race" and "validator network failure"
+  both raised `AttributeError: 'Request' object has no attribute
+  'append'`), plus three Pylance type errors the owner surfaced while
+  reviewing the same file.
+- Plan vs implementation: no plan -- regression repair on the open PR.
+  Root cause of the CI failures: the B023 fix used a default-argument
+  binding (`lambda route, pending=pending: ...`), but Playwright inspects
+  the handler's parameter count -- two parameters means it is called with
+  (route, request), so the request object overrode the `pending` default
+  at call time. The fix is a handler factory (`_collecting_handler`)
+  whose closure binds the list with a single visible parameter,
+  satisfying both Playwright's contract and bugbear B023. Lesson
+  recorded: a lint-driven rewrite of a framework callback must be
+  validated against the framework's calling convention, not only the
+  linter.
+- Implementation:
+  - `scripts/dev/frontend_gate.py`: `_collecting_handler` factory used by
+    both validator checks; `spotlight_requests` bound before its poll
+    loop (possibly-unbound read after a possibly-zero-iteration loop);
+    `CHECK_GROUPS` built through an honestly-typed list accumulator with
+    a final comprehension producing the declared tuple shape; the
+    summary line reads the firefox canary through `groups_for()` instead
+    of subscripting `BROWSER_SCOPES` values, whose `None` sentinel for
+    chromium's full pass makes direct subscripting a type error. The
+    chromium-full-pass / firefox-canary design is unchanged.
+- Deviations: none. No check semantics, tolerance, or grouping changed.
+- Validation: full gate run -- **24 checks passed in 43 runs**, exit 0,
+  zero failures (the two validator checks pass in a live browser), zero
+  timeouts, zero font warnings. `pytest -q` -- **938 passed**, 5
+  warnings. All pre-commit hooks pass. `doc_state_sync.py --check`
+  exits 0 (expected root BATCH warning).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+
 ### 2026-09-07 - CI action bumps and ruff lint/format migration (side-task)
 
 - Scope: cleared the Node.js 20 deprecation warning on the Quality Gate
