@@ -1487,7 +1487,9 @@ Stop for owner review.
 
 ## Task 6: Accessibility pass
 
-Runs after the visual work is accepted, as the owner specified.
+Owner decision 2026-09-09: defer this pass until Bootstrap is fully removed.
+Run it with the WP-8 frontend audit after removal is verified; it is deferred,
+not waived.
 
 - [ ] **Step 1: Contrast**
 

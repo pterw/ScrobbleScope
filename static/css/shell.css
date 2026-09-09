@@ -14,7 +14,7 @@
 /* ------------------------------------------------------------------ */
 :root {
     color-scheme: light;
-    --shell-bg: #faf8f3;
+    --shell-bg: #faf7f0;
     --shell-surface: #f0ebe0;
     --shell-ink: #1a1820;
     --shell-muted: #6c6676;
@@ -46,33 +46,27 @@
 
 /* ------------------------------------------------------------------ */
 /* Graceful page-load fade-in (universal, driven by base.html script)  */
-/* body starts invisible; JS adds .is-ready on DOMContentLoaded.      */
+/* Page starts invisible; JS adds .is-ready on DOMContentLoaded.       */
 /* ------------------------------------------------------------------ */
-body {
+
+/* Fade each visible child independently, keeping the page root opaque.
+   Header positioning is owned by the desktop/mobile rules below; opacity
+   creates a stacking context, not a containing block for fixed elements. */
+body > * {
     opacity: 0;
 }
 
-body.is-ready {
+body.is-ready > * {
     opacity: 1;
     transition: opacity 220ms ease;
 }
 
-/* The fixed header is out of flow; without this every page starts under it. */
+/* Fixed on every screen size (owner direction, 2026-09-09).
+   Reserve the bar's height once so page content starts below it. */
 body {
     padding-top: var(--shell-height);
 }
 
-/* ------------------------------------------------------------------ */
-/* The bar itself                                                      */
-/* ------------------------------------------------------------------ */
-
-/* Fixed masthead. The bar holds the same vertical position on every page
-   and never scrolls away. This was the shipped design through Batch 20;
-   the WP-5 rebuild briefly made it position:relative, which the owner
-   caught as a regression (the nav scrolled off-screen). Fixed is out of
-   flow, so body carries a compensating padding-top: without it every page
-   starts underneath the bar. That invariant is what the frontend gate's
-   mobile header check asserts. */
 .site-header {
     position: fixed;
     top: 0;
@@ -88,6 +82,17 @@ body {
     background-color: var(--shell-bg);
     border-bottom: 1px solid var(--ss-border-default, #e5dfd1);
     transition: background-color 0.3s ease, border-color 0.3s ease;
+    /* The bar is one row at every width (owner ruling 2026-09-09: the header
+       never newlines). nowrap is the default, but it is stated because the
+       mobile block below sets a two-value `gap` whose row component would
+       otherwise imply wrapping was intended. min-width: 0 on the children is
+       what lets them actually shrink; without it a flex item refuses to go
+       below its content width and pushes the row wider than the bar. */
+    flex-wrap: nowrap;
+}
+
+.site-header > * {
+    min-width: 0;
 }
 
 :root[data-theme="dark"] .site-header {
@@ -111,8 +116,27 @@ body {
 .site-header__mark {
     display: block;
     /* The lockup is about 6.1:1, so 40px tall lands near 245px wide and
-       leaves breathing room inside a 68px bar at the default root size. */
-    height: 2.5rem;
+       leaves breathing room inside a 68px bar at the default root size.
+
+       Between the 860px breakpoint and about 965px the bar could not fit its
+       three children: a 245px lockup, a 489px nav at its min-width floor and
+       a 159px theme control need 965px including gaps and padding, so the
+       content overflowed for that whole 105px band. The lockup is the part
+       with slack -- the nav links are touch targets and the toggle is a ruled
+       control -- so it scales down with the viewport there and returns to its
+       ruled 2.5rem once the bar is wide enough to hold everything. Height
+       drives width through the fixed aspect ratio, so one clamp is enough.
+
+       Keep the upper bound at 2.5rem: the gate's header-geometry curve reads
+       the ruled bar, nav and toggle sizes at 1920px and 2560px, and this must
+       not introduce a second scale up there. */
+    height: clamp(1.75rem, 3.9vw, 2.5rem);
+}
+
+@media (min-width: 60.3125rem) {
+    .site-header__mark {
+        height: 2.5rem;
+    }
 }
 
 .site-header__mark svg {
@@ -163,6 +187,11 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* The 5.75rem floor is load-bearing above the breakpoint: at 1920px the
+       4.53vw term is only 87px, so the ruled 92px the gate asserts comes from
+       this floor, not the curve. It must not be lowered globally -- doing so
+       measured 88.4px at 1080p and would fail _header_geometry_failures. The
+       narrow-band relief is scoped to that band instead, below. */
     min-width: clamp(5.75rem, 4.53vw, 7.25rem);
     min-height: clamp(2.75rem, 1.875vw, 3.5rem);
     padding: 0 1.25rem;
@@ -508,11 +537,20 @@ body {
     align-items: center;
     justify-content: center;
     min-height: clamp(2.25rem, 1.5625vw, 2.5rem);
-    padding: 0 0.95rem;
+    /* The inline padding scales so the pair of pills can give width back in the
+       narrow desktop band; a fixed 0.95rem each side made the toggle a rigid
+       159px and pushed the row past the bar. The vertical value stays 0 -- the
+       ruled chrome the gate measures is min-height plus the toggle's own
+       0.2rem padding and 1px border, and adding block padding here would move
+       that curve. */
+    padding: 0 clamp(0.55rem, 0.9vw, 0.95rem);
     border-radius: 999px;
     color: var(--shell-muted);
     background-color: transparent;
     border: 1px solid transparent;
+    /* One line, always: the label is two short words and wrapping one of them
+       is what made the pill outgrow its bounds. */
+    white-space: nowrap;
     transition: color 160ms ease, background-color 160ms ease,
         border-color 160ms ease, box-shadow 160ms ease;
     cursor: pointer;

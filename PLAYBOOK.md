@@ -82,10 +82,19 @@ See FINDINGS F-DOCSYNC-3.
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
   definition. Branch: `test` (worktree off `main`; remediated from `wip/batch-21` per owner authorization 2026-09-06).
+- **Results refinement:** proportional scaling and the warm shared canvas are
+  included in the review follow-up; F-B21-55 and Section 4 record evidence.
+- **PR #227 priority triage:** F-B21-49 is resolved in the review follow-up.
+  Review comments including assertions and all 15 deleted route TODOs were
+  checked; F-B21-54 records remaining scanner noise. Evidence:
+  `docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md`.
+  The owner authorized publishing the pending review commits and approved
+  refinements on `test`. WP-7 retains scope; Task 6 timing follows the
+  canonical remediation plan.
 - **PR #227 review remediation:** the owner-requested package is implemented
   and validated. Audit and remaining scope:
-  `docs/history/reports/PR227_REVIEW_2026-09-07.md`. Deployed-header comparison
-  and optional card-shadow polish remain the next owner-design follow-up.
+  `docs/history/reports/PR227_REVIEW_2026-09-07.md`. The latest Section 4 entry
+  records subsequent owner-approved header and surface refinements.
 - **PR #223 side-task:** merged as `123b127`; this worktree is synchronized.
   Remaining issue #222 targets stay open.
 - **Planning follow-up:** the original owner-review plan remains historical
@@ -94,7 +103,7 @@ See FINDINGS F-DOCSYNC-3.
   expanded-state guard, complete validation, and PR #224 review remediation
   passed.
 - **Remediation plan:** **Tasks 1-5 are complete and validated locally.
-  Task 6 (accessibility pass) is next.** Work from
+  Task 6 (accessibility pass) is deferred until Bootstrap is fully removed.** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
   defect with layout-aware CSS and a complete real-window gate in Chromium
@@ -116,12 +125,10 @@ See FINDINGS F-DOCSYNC-3.
   Owner visual refinements vertically centre the desktop form composition,
   unify single-row mobile navigation with the theme control below page content,
   widen the desktop Heatmap result, and return its username to the neutral headline
-  treatment (F-B21-44 through F-B21-46). Task 6 (accessibility pass) is next.
+  treatment (F-B21-44 through F-B21-46). Task 6 follows Bootstrap removal; see the canonical remediation plan.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
-  latest album and heatmap jobs at clean destination routes. The owner
-  completed the first Impeccable Live annotation pass and paused for the day;
-  resume that review before WP-5 begins.
+  latest album and heatmap jobs at clean destination routes.
   The original twelve-round Codex review closed at `77bb001`: all thirty threads
   were resolved, both Quality Gate runs passed, and the Codex connector
   recorded a thumbs-up. Three later Graphify passes produced advisory findings.
@@ -198,8 +205,7 @@ non-current operational logs. Older dated entries live in
 - Batch scope/acceptance criteria: definitions under `docs/history/definitions/`.
 - Current-batch boundaries are machine-managed (do not move entries manually):
   - `<!-- DOCSYNC:CURRENT-BATCH-START -->`
-  - `<!-- DOCSYNC:CURRENT-BATCH-END -->`
-- After any edit here, run `python scripts/doc_state_sync.py --fix`.
+  - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
@@ -586,6 +592,67 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-09 - Complete Results scaling and warm the shared canvas
+
+- Owner direction: keep the deployed Results aesthetic, warm the page/navbar
+  subtly, keep the header fixed on every screen size, and defer
+  Task 6 until Bootstrap is fully removed. The canonical remediation plan
+  records the timing; WP-7's backend-first contract and final page migration
+  remain unchanged.
+- Owner typography refinement: Track Plays table numerals are 25% larger;
+  Listening Time retains its existing size, including after switching modes.
+- Owner follow-up: Results stat rail, table, empty-state panel and sidebar
+  cards use `--ss-surface-sunken`; table hover uses the card token for a
+  visible state change. Buttons retain their control surfaces.
+- Implementation: shared light canvas is `#faf7f0`; DOC009 guards the Tailwind,
+  legacy-page and navbar copies. Results uses measured numeric scaling across
+  named spacing tokens, typography, artwork and controls. F-B21-55 records the
+  fixed Firefox arithmetic failure and incomplete geometry scaling. Mobile
+  table headings wrap within their columns. The mobile gate verifies both fixed positioning and matching body padding.
+- Evidence: `scratch/fixed-results-measurements.json` and paired Chromium /
+  Firefox screenshots. Both engines agree on 20% growth between 1200px and
+  1920px. Fourteen viewport samples (320-2560px) have no horizontal overflow;
+  the shared header remains at top 0 after scrolling at every width. Index, Results and
+  Unmatched bodies and navbars all compute to the warm canvas. Dark token values are unchanged; Results panels now consume the sunken token. The Results gate checks growth ratios and
+  mobile recovery using rendered values.
+- Publication validation: fresh `pytest -q` -- **975 passed**. Full frontend
+  gate: 25 checks passed in 45 runs across Chromium and the Firefox canary.
+  The prior loading-pipeline navigation race did not reproduce. The separate
+  Results probe covered both engines at seven widths; the final surface and
+  metric-toggle checks covered both themes and desktop/mobile respectively.
+  All pre-commit hooks pass, including generated-CSS drift; docsync and
+  whitespace checks pass. Read-only review found no material code issue and
+  corrected active document contradictions; exhaustive historical-document
+  coverage was interrupted by reviewer usage limits. Owner authorized commit
+  and push; local tool artifacts remain outside the published changes.
+
+### 2026-09-09 - Triage PR 227 assertions and deleted TODOs; fix job-page statuses
+
+- Scope: owner requested top-priority fixes only and logging of other review
+  comments. Read live review threads, complete review bodies including the
+  low-confidence block, current source, and the TODO add/remove commits.
+- Plan vs implementation: fixed F-B21-49 with explicit HTTP/badge pairs at
+  its four source branches. Missing IDs return 400; unavailable jobs 404;
+  pending results 202; processing failures use their classified status.
+  Saved empty-state recovery stays 200. Strengthened five existing tests and
+  added thirteen route cases. The tests failed before the source fix.
+- Disposition: F-B21-54 records test-scanner noise. F-B21-50 now distinguishes
+  implemented notes from deferred unmatched redesign / POST retirement.
+  F-B21-51 no longer incorrectly claims there are no gate infrastructure tests.
+  Detailed evidence and remaining finding owners:
+  `docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md`.
+- Validation: `pytest -q` -- **975 passed**. Route suite: 18 failed / 89 passed
+  before, 107 passed after. Focused read-only review found no regression.
+  Docsync and `git diff --check` pass. Hooks pass after formatting except the
+  existing `tailwind-css-drift` failure described below.
+- Deviations: the pre-work hooks rebuilt already-dirty `tailwind.css` for the
+  owner's existing results markup; its index comparison fails until that
+  separate styling work is staged. No source CSS/template changes were made
+  here. The known Windows log-rotation lock appeared in red-test diagnostics.
+- Forward guidance: keep this status fix separate from existing styling.
+  Published PR `a53e412` lacks the earlier local remediation; no commit,
+  push or review reply was made. Task 6 and WP-7 remain next.
+
 ### 2026-09-09 - Audit PR 227 for regression and bloat; ignore gate artifacts (side-task)
 
 - Scope: the owner asked which commits after `b987e48` carry value and which
@@ -679,75 +746,3 @@ non-current operational logs. Older dated entries live in
   Both theme exports decode to nonblank 3600px-wide JPEGs. All pre-commit
   hooks and `doc_state_sync.py --check` pass. No push or deployment. Header
   alignment and optional white-card shadow remain a separate design follow-up.
-
-### 2026-09-07 - Qlty adopted; first triage closes the workflow-permission gap (side-task)
-
-- Scope: the owner added qlty (`.qlty/qlty.toml`, uncommitted by owner
-  choice) as a fourth static-analysis layer alongside ruff, bandit-class
-  SAST, and the existing gates. This entry records the config tuning,
-  the first triage, and the two fixes it produced.
-- Plan vs implementation: no plan -- owner-directed tooling adoption and
-  triage. Config tuning: scratch/, scripts/bin/, generated tailwind.css,
-  and graphify-out/ excluded (metrics went from 68 to 18 files); the
-  flake8 plugin removed (ruff replaced it; two plugins would report one
-  rule surface in two vocabularies); tests/ added to test_patterns.
-- Triage of the first `qlty check` (88 findings): ~60 are bandit B101
-  "use of assert" in tests -- noise, asserts are the point of tests;
-  2 are real (zizmor on the workflow, fixed here); 1 is a false positive
-  recorded with a nosec (bandit B311, fixed here); the cognitive-
-  complexity pair (frontend_gate.py check_large_display_scale_parity,
-  spotify.py fetch_spotify_artist_spotlight) is known owned debt that
-  matches F-B20-2/F-SWE-7/issue #222 and stays batch-scoped, not
-  gate-blocking.
-- Implementation:
-  - `.github/workflows/test.yml`: added a job-level `permissions:
-    contents: read` block. The job only reads the checkout and uploads a
-    coverage artifact; without the block the runner's default token
-    permissions are broader than any step needs and every third-party
-    action inherits them (zizmor excessive-permissions and artipacked).
-  - `scrobblescope/routes.py`: `# nosec B311` with justification on the
-    `random.Random(str(job_id)).sample(...)` spotlight selection. The
-    seed makes the sample deterministic per job (asserted by
-    test_results_page_samples_five_unique_artists_from_aggregate_top_ten);
-    cryptographic unpredictability would defeat the intent.
-- Deviations: none.
-- Validation: `qlty check` -- 88 -> 86 findings. The excessive-permissions
-  finding is gone; the B311 finding is suppressed (the nosec must sit on
-  the same line as the call -- a preceding comment line is ignored by
-  bandit, which the first attempt got wrong and the re-run caught).
-  Remaining: one zizmor artipacked medium on the checkout step (line 34)
-  -- zizmor flags any cache/artifact-adjacent job; with the permissions
-  block in place the token is already contents-read only, so the
-  practical exposure is closed and the residual finding is a
-  scanner-pattern advisory, not an open hole. The rest are the recorded
-  noise classes. `pytest -q` -- **938 passed**, zero warnings. All
-  pre-commit hooks pass.
-- Forward guidance: the meta-lesson is recorded here because it
-  generalizes -- each gate only checks what it was built to check, and
-  no gate checked the checkers' blind spots. Workflow files had no
-  linter, the codebase had no SAST, structure had no complexity metric;
-  qlty closes exactly those three. The complexity refactor and the
-  bandit B101 test-path suppression are future-batch candidates, not
-  scheduled work. WP-7 (unmatched page + reason_code) remains next.
-
-### 2026-09-07 - Clean uninterrupted frontend gate run achieved (side-task)
-
-- Scope: closed the deviation recorded in the two 2026-09-07 entries above
-  -- no clean uninterrupted `frontend_gate.py` run had been achieved
-  locally -- and updated the spec status line for the implemented design.
-- Plan vs implementation: Task 6 Step 3 of
-  `docs/superpowers/plans/2026-09-07-frontend-gate-isolation.md`. One run,
-  qualified venv path, no interference.
-- Result: the run completed all four groups across both engines with 261
-  page loads, zero timeouts, zero errors, and zero font warnings (the kit
-  served live). The only failures were the 7 large-display-scale-parity
-  assertions at 4K (deltas ~1 percent: 770.0 vs 780.4px form width,
-  774.4 vs 781.6px hero height, 77.2 vs 78.2px headline line-height, and
-  related), which are the same failure family the owner already accepted
-  in the gate-isolation entry above. The isolation mechanics work as
-  designed: every check ran and reported; nothing cascaded.
-- Deviations: none beyond the already-recorded 4K parity pair.
-- Validation: `pytest -q` -- **938 passed**, 5 warnings (unchanged; no
-  code changed in this entry). Spec status line updated to record the
-  owner-ruled licensing amendment (Typekit fixture withdrawn).
-- Forward guidance: WP-7 (unmatched page + reason_code) remains next.

@@ -240,7 +240,8 @@ def test_results_complete_error_with_error_code(client):
     job_id = create_job(TEST_JOB_PARAMS)
     set_job_error(job_id, "spotify_unavailable")
     response = client.post("/results_complete", data={"job_id": job_id})
-    assert response.status_code == 200
+    assert response.status_code == 503
+    assert b">503</span>" in response.data
     assert b"Processing Error" in response.data
     assert b"temporary issue" in response.data
 
@@ -491,7 +492,8 @@ def test_results_complete_missing_job_id(client):
     THEN it should render the error page with a missing-job message.
     """
     response = client.post("/results_complete", data={})
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert b">400</span>" in response.data
     assert b"Missing Job Identifier" in response.data
 
 
@@ -502,7 +504,8 @@ def test_results_complete_expired_job(client):
     THEN it should render the error page indicating results not found.
     """
     response = client.post("/results_complete", data={"job_id": "expired_or_fake"})
-    assert response.status_code == 200
+    assert response.status_code == 404
+    assert b">404</span>" in response.data
     assert b"Results Not Found" in response.data
 
 
@@ -683,7 +686,8 @@ def test_unmatched_view_missing_job_id_renders_error_page(client):
     THEN it should render the error page with a missing-job message.
     """
     response = client.post("/unmatched_view", data={})
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert b">400</span>" in response.data
     assert b"Missing Job Identifier" in response.data
 
 
@@ -694,7 +698,8 @@ def test_unmatched_view_job_not_found_renders_error_page(client):
     THEN it should render the expired-job error page.
     """
     response = client.post("/unmatched_view", data={"job_id": "no_such_job"})
-    assert response.status_code == 200
+    assert response.status_code == 404
+    assert b">404</span>" in response.data
     assert b"Job Not Found" in response.data
     assert b"expired" in response.data
 
@@ -1647,3 +1652,47 @@ def test_heatmap_privacy_service_failure_preserves_saved_job(client):
     assert set(JOBS) == previous_jobs
     with client.session_transaction() as saved:
         assert saved["latest_heatmap_job_id"] == "previous-job"
+
+
+@pytest.mark.parametrize("path", ["/results", "/loading", "/unmatched"])
+@pytest.mark.parametrize("wrong_mode", [False, True], ids=["missing", "wrong-mode"])
+def test_explicit_unavailable_album_job_returns_matching_404(client, path, wrong_mode):
+    """Missing and wrong-mode IDs fail without retaining a stale saved pointer."""
+    job_id = create_job(HEATMAP_JOB_PARAMS) if wrong_mode else "expired-job"
+    with client.session_transaction() as saved:
+        saved["latest_album_job_id"] = job_id
+    response = client.get(path, query_string={"job_id": job_id})
+    assert response.status_code == 404
+    assert b">404</span>" in response.data
+    with client.session_transaction() as saved:
+        assert "latest_album_job_id" not in saved
+
+
+def test_loading_page_missing_identifier_returns_matching_400(client):
+    """A loading URL needs a job, unlike the empty report landing pages."""
+    response = client.get("/loading")
+    assert response.status_code == 400
+    assert b">400</span>" in response.data
+    assert b"Missing Job Identifier" in response.data
+
+
+@pytest.mark.parametrize(
+    "method, path", [("GET", "/results"), ("POST", "/results_complete")]
+)
+@pytest.mark.parametrize(
+    "error_code, expected_status",
+    [(None, 202), ("internal_failure", 500), ("user_not_found", 404)],
+)
+def test_results_job_state_matches_http_status(
+    client, method, path, error_code, expected_status
+):
+    """Pending and terminal jobs expose their state through both status and badge."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    if error_code:
+        set_job_error(job_id, error_code, username="testuser")
+    response = client.open(path, method=method, query_string={"job_id": job_id})
+    assert response.status_code == expected_status
+    assert f">{expected_status}</span>".encode() in response.data
+    assert (
+        b"Processing Error" if error_code else b"Results Still Processing"
+    ) in response.data

@@ -2004,6 +2004,7 @@ def _measure_mobile_headers(page, base_url) -> dict:
                 const links = [...nav.querySelectorAll('.site-header__nav-link')];
                 return {
                     headerHeight: header.getBoundingClientRect().height,
+                    headerPosition: getComputedStyle(header).position,
                     bodyPaddingTop: parseFloat(
                         getComputedStyle(document.body).paddingTop
                     ),
@@ -2504,11 +2505,14 @@ def _mobile_header_failures(width: int, header: dict) -> list[str]:
             f"/: mobile theme control is only {header['themeHeight']:.1f}px high "
             f"at {width}px, expected at least 44px"
         )
-    # Fixed-header invariant: the body's compensating padding-top must equal
-    # the bar height exactly. Wrong padding puts content under the bar (small)
-    # or leaves a dead gap above it (large).
-    if abs(header["headerHeight"] - header["bodyPaddingTop"]) > 0.5:
-        failures.append(f"/: mobile body offset does not match its header at {width}px")
+    # Fixed on mobile too: reserve the actual header height exactly once.
+    if (
+        header["headerPosition"] != "fixed"
+        or abs(header["headerHeight"] - header["bodyPaddingTop"]) > 0.5
+    ):
+        failures.append(
+            f"/: mobile fixed header needs a matching body offset at {width}px"
+        )
     return failures
 
 

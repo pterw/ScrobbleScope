@@ -120,11 +120,11 @@ theme. That is false, and the PR #173 review caught it. What actually holds:
 
 | README token | Light | Dark | In the theme? |
 | --- | --- | --- | --- |
-| `--surface-page` | `#faf8f3` | `#0e0c12` | Yes -- `--color-base-100` |
+| `--surface-page` | `#faf8f3` | `#0e0c12` | Owner warmed the light canvas/navbar to `#faf7f0` on 2026-09-09; `--color-base-100` owns the migrated value. |
 | `--text-strong` | `#1a1820` | `#f1ede4` | Yes -- `--color-base-content` |
 | `--accent` | `#6a4baf` | `#b39dde` | Yes -- `--color-primary` |
 | `--surface-sunken` | `#f0ebe0` | `#1a1622` | Yes -- `--ss-surface-sunken` |
-| `--surface-card` | `#ffffff` | `#181520` | Yes -- `--ss-surface-card` |
+| `--surface-card` | `#ffffff` | `#181520` | Light token split: see section 12. Results panels/table now use `--ss-surface-sunken`. |
 | `--accent-contrast` | `#ffffff` | `#0e0c12` | Dark only. Light `--color-primary-content` is `#faf8f3` |
 | `--text-body`, `--text-muted`, `--border-default`, `--accent-soft` | -- | -- | Yes -- the `--ss-*` theme tokens |
 

@@ -18,7 +18,7 @@
        (static/css/tailwind.src.css): body ink --color-base-content,
        page --color-base-100. */
     --text-color: #1a1820;
-    --bg-color: #faf8f3;
+    --bg-color: #faf7f0;
 
     /* Surfaces -- same mapping as the index: card --ss-surface-card,
        page --color-base-100. Values follow the index token (slightly warm;

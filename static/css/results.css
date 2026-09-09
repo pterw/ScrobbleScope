@@ -2,18 +2,159 @@
    Framework styles are compiled in tailwind.css; shared chrome is in shell.css. */
 
 .results-page {
+    /* Grow the current composition through native layout; mobile keeps its
+       original measure and desktop uses more of the available gutters. */
+    --results-scale: 1;
+    --results-base-rem: 75;
+    --spacing: calc(0.25rem * var(--results-scale));
+    /* This theme emits named spacing tokens, so overriding --spacing alone
+       does not resize its utilities. Keep geometry on the same content scale. */
+    --spacing-1: calc(0.25rem * var(--results-scale));
+    --spacing-2: calc(0.5rem * var(--results-scale));
+    --spacing-3: calc(0.75rem * var(--results-scale));
+    --spacing-4: calc(1rem * var(--results-scale));
+    --spacing-6: calc(1.5rem * var(--results-scale));
+    --spacing-8: calc(2rem * var(--results-scale));
+    --spacing-12: calc(3rem * var(--results-scale));
+    --text-xs: calc(0.75rem * var(--results-scale));
+    --text-sm: calc(0.875rem * var(--results-scale));
+    --text-base: calc(1rem * var(--results-scale));
+    --text-lg: calc(1.125rem * var(--results-scale));
+    --text-xl: calc(1.25rem * var(--results-scale));
+    --text-2xl: calc(1.5rem * var(--results-scale));
+    --text-3xl: calc(1.875rem * var(--results-scale));
+    --text-4xl: calc(2.25rem * var(--results-scale));
+    --text-5xl: calc(3rem * var(--results-scale));
     width: 100%;
+    max-width: 90rem;
 }
 
+@media (min-width: 1024px) {
+    .results-page {
+        /* results.js derives a numeric scale from this bounded layout width.
+           CSS length division invalidates dependent sizes in older Firefox. */
+        width: 94%;
+    }
+}
+
+/* Results cards and the table use --ss-surface-sunken in the template,
+   per owner refinement. The shared page/navbar canvas remains separate. */
+
+/* Stat-cell padding, restored to the geometry that shipped to Fly.io.
+
+   Why this is authored here rather than as utilities in the template:
+   tailwind.src.css sets `--spacing: initial` and then declares only whole
+   steps (1, 2, 3, 4, 6, 8, 12), which switches Tailwind's dynamic spacing
+   scale off. A fractional step is therefore not a smaller value -- it is an
+   unknown token that compiles to no rule at all. `py-2.5`, `md:py-3.5`,
+   `px-1.5`, `gap-1.5` and `py-0.5` are all absent from the compiled CSS, in
+   the deployed build as well as this one.
+
+   That is why the WP-5 rebuild lost the padding: it replaced the deployed
+   `p-3` -- a real step, 0.75rem on all four sides -- with `px-1.5 py-2.5`,
+   and both of those evaporate. The cells rendered with zero vertical padding
+   and the label sat 1px from the rule. The deployed look came from `p-3`
+   plus `md:px-4`, so those are the values reproduced here, now multiplied by
+   --results-scale so they track the type on wide displays. The row gap is
+   part of the same loss: `gap-1.5` was dead, so the deployed 0.375rem
+   collapsed to whatever `gap-1` supplies. */
+.results-stat-cell {
+    padding: calc(0.75rem * var(--results-scale));
+    row-gap: calc(0.375rem * var(--results-scale));
+}
+
+@media (min-width: 768px) {
+    .results-stat-cell {
+        padding: calc(0.75rem * var(--results-scale)) calc(1rem * var(--results-scale));
+    }
+}
+
+/* The numeral row asked for py-0.5, which never compiled either. Its job is
+   to stop tall serif numerals from touching the label above them.
+
+   max-width is the containment half. The Top Artist cell holds an
+   ellipsis-truncating span, and truncation only works when an ancestor
+   actually bounds the width; the row is a flex child of a `min-w-0` column, so
+   without this the span reported its full text width and the name spilled past
+   the cell's divider instead of clipping. */
+.results-stat-value {
+    padding-block: calc(0.125rem * var(--results-scale));
+    /* A flex item's default `min-width: auto` refuses to shrink below its
+       content, which is why the long artist name pushed the row wider than the
+       cell. Zero lets the bound below take effect. */
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* The truncating span needs a bounded parent AND a bound of its own, or
+   `text-overflow: ellipsis` has no width to ellipsise against. The template
+   marks the artist span `overflow-visible`, which defeats truncation, so the
+   clipping is owned here where the containment is. */
+.results-stat-value > span {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Match the deployed stat roles: mono labels, sans captions, serif values. */
+.results-stat-label {
+    font-family: var(--font-mono);
+    font-size: calc(0.6875rem * var(--results-scale));
+    font-weight: 400;
+}
+
+.results-stat-caption {
+    font-family: var(--font-sans);
+    font-size: calc(0.75rem * var(--results-scale));
+    font-weight: 400;
+}
+
+@media (max-width: 767.98px) {
+    .results-table th {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        font-size: 0.625rem;
+        letter-spacing: 0.03em;
+    }
+
+    .results-stat-label,
+    .results-stat-caption {
+        font-size: 0.625rem;
+        overflow-wrap: anywhere;
+    }
+
+    /* The Unmatched caption is a link carrying `whitespace-nowrap`, so at 320px
+       its 78px of text could not fit a 67px cell and widened the whole rail.
+       Allow it to wrap on the narrowest screens; `overflow-wrap: anywhere`
+       above then keeps even the arrow inside the cell. */
+    .results-stat-caption {
+        white-space: normal;
+        max-width: 100%;
+    }
+}
+
+/* No horizontal scroll, at any width (owner ruling 2026-09-09). The wrapper
+   previously carried `overflow-x-auto`, so on a narrow phone the four columns
+   kept their natural widths and the reader got a sideways scrollbar -- content
+   hidden off-screen with no affordance saying so. The table now fits the
+   viewport and the album cell wraps instead. */
 .results-table-wrapper {
     position: relative;
     width: 100%;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
 }
 
 .results-table {
     width: 100%;
     border-collapse: collapse;
+    /* Honour the authored column widths instead of letting content dictate
+       them; without this, `table-layout: auto` widens the album column to fit
+       the longest title and reintroduces the overflow. */
+    table-layout: fixed;
 }
 
 .results-table th,
@@ -32,6 +173,38 @@
     .results-table td {
         padding-top: 0.75rem;
         padding-bottom: 0.75rem;
+        /* Tighter gutters buy the album column room, so nothing has to leave
+           the viewport to be read. */
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    /* Give the fixed layout an explicit budget for the narrow columns and let
+       the album cell take the remainder. Ranks are two digits, the metric is a
+       short number or duration, and the release column is YYYY-MM. */
+    .results-table th:nth-child(1),
+    .results-table td:nth-child(1) {
+        width: 2.25rem;
+    }
+
+    .results-table th:nth-child(3),
+    .results-table td:nth-child(3) {
+        width: 3.75rem;
+    }
+
+    .results-table th:nth-child(4),
+    .results-table td:nth-child(4) {
+        width: 4.25rem;
+    }
+
+    /* The artist line truncates by default, which hides information on the one
+       viewport with least room. Wrapping keeps it readable, and the album title
+       already wraps via .album-link. */
+    .results-table td:nth-child(2) .truncate {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
 }
 
@@ -50,12 +223,12 @@
 /* Album Cover geometry: explicit fixed sizing prevents blowout */
 .album-cover-img,
 .album-cover-placeholder {
-    width: 4rem;
-    height: 4rem;
-    min-width: 4rem;
-    min-height: 4rem;
-    max-width: 4rem;
-    max-height: 4rem;
+    width: calc(4rem * var(--results-scale));
+    height: calc(4rem * var(--results-scale));
+    min-width: calc(4rem * var(--results-scale));
+    min-height: calc(4rem * var(--results-scale));
+    max-width: calc(4rem * var(--results-scale));
+    max-height: calc(4rem * var(--results-scale));
     aspect-ratio: 1 / 1;
     object-fit: cover;
     flex-shrink: 0;
@@ -64,22 +237,20 @@
 @media (min-width: 768px) {
     .album-cover-img,
     .album-cover-placeholder {
-        width: 4.5rem;
-        height: 4.5rem;
-        min-width: 4.5rem;
-        min-height: 4.5rem;
-        max-width: 4.5rem;
-        max-height: 4.5rem;
+        width: calc(4.5rem * var(--results-scale));
+        height: calc(4.5rem * var(--results-scale));
+        min-width: calc(4.5rem * var(--results-scale));
+        min-height: calc(4.5rem * var(--results-scale));
+        max-width: calc(4.5rem * var(--results-scale));
+        max-height: calc(4.5rem * var(--results-scale));
     }
 }
 
-/* Sticky side rail on desktop. Sits below the fixed header: the header is
-   out of flow at --shell-height, so the rail's top offset must clear it or
-   the first scroll overlaps the two (owner report 2026-09-07). */
+/* Keep the sidebar below the fixed shared header while scrolling. */
 @media (min-width: 1024px) {
     .results-side-rail {
         position: sticky;
-        top: calc(var(--shell-height, 4.25rem) + 1.5rem);
+        top: calc(var(--shell-height) + 1.5rem * var(--results-scale));
         align-self: flex-start;
     }
 }
@@ -102,7 +273,7 @@
 
 .rank-num {
     font-family: var(--font-mono, "input-mono", ui-monospace, monospace);
-    font-size: 0.8125rem;
+    font-size: calc(0.8125rem * var(--results-scale));
     letter-spacing: 0.05em;
     color: var(--color-base-content);
     opacity: 0.8;
@@ -112,7 +283,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 2px 6px;
+    padding: 2px calc(0.375rem * var(--results-scale));
     border-radius: var(--radius-xs, 4px);
     color: var(--color-base-content);
     text-decoration: none;
@@ -132,7 +303,7 @@
 .spotlight-card-bleed {
     position: relative;
     width: 100%;
-    height: 190px;
+    height: calc(11.875rem * var(--results-scale));
     background-color: var(--ss-surface-sunken);
     overflow: hidden;
 }
@@ -149,7 +320,7 @@
 .spotlight-no-image {
     position: relative;
     height: auto;
-    min-height: 5rem;
+    min-height: calc(5rem * var(--results-scale));
 }
 
 .spotlight-card-bleed:has(.spotlight-no-image) {
@@ -158,7 +329,7 @@
 
 @media (min-width: 768px) {
     .spotlight-card-bleed {
-        height: 205px;
+        height: calc(12.8125rem * var(--results-scale));
     }
 
     .spotlight-card-bleed:has(.spotlight-no-image) {
@@ -181,7 +352,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.625rem 1rem;
+    padding: calc(0.625rem * var(--results-scale)) calc(1rem * var(--results-scale));
     pointer-events: none;
 }
 
@@ -200,7 +371,7 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    padding: 0.75rem 1rem;
+    padding: calc(0.75rem * var(--results-scale)) calc(1rem * var(--results-scale));
     pointer-events: none;
 }
 
@@ -226,7 +397,7 @@
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    padding: 1rem 1.25rem;
+    padding: calc(1rem * var(--results-scale)) calc(1.25rem * var(--results-scale));
     pointer-events: none;
 }
 
@@ -236,10 +407,10 @@
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-start;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+    gap: calc(0.5rem * var(--results-scale));
+    margin-bottom: calc(1rem * var(--results-scale));
     font-family: var(--font-mono-narrow);
-    font-size: 0.75rem;
+    font-size: calc(0.75rem * var(--results-scale));
     font-weight: 400;
     letter-spacing: 0.03em;
     color: var(--ss-text-muted);
@@ -248,7 +419,7 @@
 /* Table metric values: plays (serif) vs playtime (mono-narrow) */
 .metric-val-plays {
     font-family: var(--font-serif);
-    font-size: 1.125rem;
+    font-size: calc(1.40625rem * var(--results-scale));
     line-height: 1.25;
     color: var(--color-base-content);
     letter-spacing: normal;
@@ -256,7 +427,7 @@
 
 .metric-val-playtime {
     font-family: var(--font-mono-narrow);
-    font-size: 0.8125rem;
+    font-size: calc(0.8125rem * var(--results-scale));
     line-height: 1.25;
     color: var(--color-base-content);
     letter-spacing: 0.01em;
@@ -264,10 +435,10 @@
 
 @media (min-width: 768px) {
     .metric-val-plays {
-        font-size: 1.25rem;
+        font-size: calc(1.5625rem * var(--results-scale));
     }
     .metric-val-playtime {
-        font-size: 0.875rem;
+        font-size: calc(0.875rem * var(--results-scale));
     }
 }
 

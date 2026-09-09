@@ -28,6 +28,24 @@ strikethrough_exempt = true
 # Values
 # ----------------------------------------------------------------------
 
+[[value]]
+name = "the shared light page and navbar background"
+
+[[value.sites]]
+file = "static/css/tailwind.src.css"
+pattern = 'name: "light";[^}]*--color-base-100: (#[0-9a-f]{6});'
+expect = "#faf7f0"
+
+[[value.sites]]
+file = "static/css/shell.css"
+pattern = ':root \{[^}]*--shell-bg: (#[0-9a-f]{6});'
+expect = "#faf7f0"
+
+[[value.sites]]
+file = "static/css/global.css"
+pattern = ':root \{[^}]*--bg-color: (#[0-9a-f]{6});'
+expect = "#faf7f0"
+
 # Owner review raised the small-text floor and strengthened the light muted
 # token. These values straddle source CSS, the legacy shell bridge, and exact
 # tests, so a later one-sided edit would reintroduce the contrast drift.

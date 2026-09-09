@@ -44,6 +44,7 @@ def check_results_interactions(page, base_url: str) -> list[str]:
         )
         probe.route("**/api/artist_spotlight?*", empty_spotlight)
         probe.goto(f"{base_url}/results?job_id={job_id}", wait_until="domcontentloaded")
+        failures.extend(_check_results_scale(probe))
         probe.locator("#toggle-sort-playtime").click()
         rows = probe.locator("#results-table tbody tr")
         if rows.first.get_attribute("data-album") != "Time winner":
@@ -82,6 +83,76 @@ def check_results_interactions(page, base_url: str) -> list[str]:
             probe.unroute("**/api/artist_spotlight?*", empty_spotlight)
         finally:
             delete_job(job_id)
+    return failures
+
+
+def _check_results_scale(page) -> list[str]:
+    """Check proportional geometry on resize and recovery to narrow layout.
+
+    Compare rendered ratios, not custom-property formulas: unsupported CSS
+    arithmetic and unscaled named spacing tokens must both fail this check.
+    Preserve the caller's viewport for sorting and export checks afterward.
+    """
+    viewport = page.viewport_size
+    measurements = []
+    failures = []
+    try:
+        for width in (1200, 1920, 390):
+            page.set_viewport_size({"width": width, "height": 800})
+            page.wait_for_function(
+                """() => {
+                    const main = document.querySelector('.results-page');
+                    const style = getComputedStyle(main);
+                    return parseFloat(style.getPropertyValue('--results-scale')) >= 1;
+                }"""
+            )
+            page.evaluate(
+                "() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
+            )
+            measurements.append(
+                page.evaluate(
+                    """() => {
+                    const size = (selector, property) => parseFloat(
+                        getComputedStyle(document.querySelector(selector))[property]);
+                    window.scrollTo(0, 300);
+                    const headerTop = document.querySelector('.site-header').getBoundingClientRect().top;
+                    window.scrollTo(0, 0);
+                    return {
+                        title: size('.results-headline', 'fontSize'),
+                        padding: size('#results-table td', 'paddingTop'),
+                        artwork: size('#results-table td:nth-child(2) > div > div', 'width'),
+                        header: size('.site-header', 'height'),
+                        headerTop,
+                        headerPosition: getComputedStyle(document.querySelector('.site-header')).position,
+                        bodyOffset: size('body', 'paddingTop'),
+                        overflow: document.documentElement.scrollWidth > innerWidth,
+                    };
+                }"""
+                )
+            )
+        base, wide, mobile = measurements
+        ratio = wide["title"] / base["title"]
+        if ratio < 1.1:
+            failures.append("Results title did not grow on the wider viewport")
+        for key in ("padding", "artwork"):
+            if base[key] <= 0 or abs(wide[key] / base[key] - ratio) > 0.02:
+                failures.append(f"Results {key} did not scale with its typography")
+        if abs(wide["header"] - base["header"]) > 1:
+            failures.append("Results content scale changed the shared header")
+        if any(
+            m["headerPosition"] != "fixed"
+            or abs(m["headerTop"]) > 0.5
+            or abs(m["bodyOffset"] - m["header"]) > 0.5
+            for m in measurements
+        ):
+            failures.append(
+                "Results header is not fixed with matching content clearance"
+            )
+        if mobile["title"] >= base["title"] or any(m["overflow"] for m in measurements):
+            failures.append("Results did not recover a contained mobile layout")
+    finally:
+        if viewport is not None:
+            page.set_viewport_size(viewport)
     return failures
 
 

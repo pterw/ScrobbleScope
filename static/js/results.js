@@ -1,6 +1,29 @@
 // static/js/results.js
 
 document.addEventListener('DOMContentLoaded', () => {
+    const resultsPage = document.querySelector('.results-page');
+
+    /** Scale the bounded Results composition from its authored rem baseline.
+     * A numeric custom property works in both browser engines. Native layout
+     * still owns wrapping and document height; the shared header is outside
+     * this scope. Small screens retain scale 1, including without JavaScript.
+     */
+    function syncResultsScale() {
+        if (!resultsPage) return;
+        const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const baseRem = parseFloat(getComputedStyle(resultsPage).getPropertyValue('--results-base-rem'));
+        const baseWidth = rootSize * baseRem;
+        if (!(baseWidth > 0)) return;
+        const scale = Math.max(1, resultsPage.getBoundingClientRect().width / baseWidth);
+        resultsPage.style.setProperty('--results-scale', String(scale));
+    }
+
+    if (resultsPage) {
+        syncResultsScale();
+        new ResizeObserver(syncResultsScale).observe(resultsPage);
+        window.addEventListener('resize', syncResultsScale);
+    }
+
     /** Build text-bearing nodes without interpreting API or dataset values as HTML. */
     function textNode(tag, className, text) {
         const node = document.createElement(tag);

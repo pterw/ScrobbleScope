@@ -143,7 +143,8 @@ def _get_validated_job_context(
     """Validate ``job_id`` from the current request query or form data.
 
     Returns ``(job_id, job_context, None)`` on success, or
-    ``(None, None, error_response)`` when validation fails.
+    ``(None, None, (html, status))`` when validation fails. Missing IDs
+    return 400; unavailable or wrong-mode jobs return 404, matching the APIs.
     """
     cleanup_expired_jobs()
     job_id = _request_or_session_job_id(session_key)
@@ -151,11 +152,15 @@ def _get_validated_job_context(
         return (
             None,
             None,
-            render_template(
-                "error.html",
-                error="Missing Job Identifier",
-                message=missing_id_message,
-                details="Please start a new search.",
+            (
+                render_template(
+                    "error.html",
+                    status_code=400,
+                    error="Missing Job Identifier",
+                    message=missing_id_message,
+                    details="Please start a new search.",
+                ),
+                400,
             ),
         )
 
@@ -170,11 +175,15 @@ def _get_validated_job_context(
         return (
             None,
             None,
-            render_template(
-                "error.html",
-                error=expired_error,
-                message=expired_message,
-                details=expired_details,
+            (
+                render_template(
+                    "error.html",
+                    status_code=404,
+                    error=expired_error,
+                    message=expired_message,
+                    details=expired_details,
+                ),
+                404,
             ),
         )
 
@@ -480,15 +489,22 @@ def _render_results_page():
         error_code = progress_payload.get("error_code")
         retryable = progress_payload.get("retryable", False)
         details = "Please try again or use different parameters."
+        status_code = 500
         if retryable:
             details = "This appears to be a temporary issue. Please try again."
+            status_code = 503
         if error_code == "user_not_found":
             details = "Please check the username and try again."
-        return render_template(
-            "error.html",
-            error="Processing Error",
-            message=progress_payload.get("message", "An unknown error occurred"),
-            details=details,
+            status_code = 404
+        return (
+            render_template(
+                "error.html",
+                error="Processing Error",
+                status_code=status_code,
+                message=progress_payload.get("message", "An unknown error occurred"),
+                details=details,
+            ),
+            status_code,
         )
 
     p = _extract_job_params(job_context)
@@ -505,11 +521,15 @@ def _render_results_page():
 
     results_data = job_context.get("results")
     if results_data is None:
-        return render_template(
-            "error.html",
-            error="Results Still Processing",
-            message="Your results are not ready yet.",
-            details="Please wait on the loading page and try again.",
+        return (
+            render_template(
+                "error.html",
+                error="Results Still Processing",
+                status_code=202,
+                message="Your results are not ready yet.",
+                details="Please wait on the loading page and try again.",
+            ),
+            202,
         )
 
     filtered_results = _filter_results_for_display(results_data, sort_mode)

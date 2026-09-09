@@ -1418,11 +1418,11 @@
   .h-full {
     height: 100%;
   }
-  .min-h-\[40px\] {
-    min-height: 40px;
-  }
   .min-h-\[44px\] {
     min-height: 44px;
+  }
+  .min-h-\[calc\(2\.5rem\*var\(--results-scale\)\)\] {
+    min-height: calc(2.5rem * var(--results-scale));
   }
   .w-4 {
     width: var(--spacing-4);
@@ -1430,11 +1430,11 @@
   .w-12 {
     width: var(--spacing-12);
   }
+  .w-\[calc\(6rem\*var\(--results-scale\)\)\] {
+    width: calc(6rem * var(--results-scale));
+  }
   .w-full {
     width: 100%;
-  }
-  .max-w-\[73rem\] {
-    max-width: 73rem;
   }
   .max-w-full {
     max-width: 100%;
@@ -1515,6 +1515,9 @@
   .gap-8 {
     gap: var(--spacing-8);
   }
+  .gap-\[calc\(0\.125rem\*var\(--results-scale\)\)\] {
+    gap: calc(0.125rem * var(--results-scale));
+  }
   :where(.space-y-2 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
     margin-block-start: calc(var(--spacing-2) * var(--tw-space-y-reverse));
@@ -1556,9 +1559,6 @@
   }
   .overflow-visible {
     overflow: visible;
-  }
-  .overflow-x-auto {
-    overflow-x: auto;
   }
   .rounded-\[calc\(var\(--radius-sm\)-2px\)\] {
     border-radius: calc(var(--radius-sm) - 2px);
@@ -1666,6 +1666,12 @@
   .px-4 {
     padding-inline: var(--spacing-4);
   }
+  .px-\[calc\(0\.875rem\*var\(--results-scale\)\)\] {
+    padding-inline: calc(0.875rem * var(--results-scale));
+  }
+  .px-\[calc\(1\.25rem\*var\(--results-scale\)\)\] {
+    padding-inline: calc(1.25rem * var(--results-scale));
+  }
   .py-2 {
     padding-block: var(--spacing-2);
   }
@@ -1680,6 +1686,9 @@
   }
   .pb-8 {
     padding-bottom: var(--spacing-8);
+  }
+  .pl-\[calc\(0\.125rem\*var\(--results-scale\)\)\] {
+    padding-left: calc(0.125rem * var(--results-scale));
   }
   .text-center {
     text-align: center;
@@ -1750,11 +1759,11 @@
     font-size: var(--text-xs);
     line-height: var(--tw-leading, var(--text-xs--line-height));
   }
-  .text-\[10px\] {
-    font-size: 10px;
+  .text-\[calc\(0\.625rem\*var\(--results-scale\)\)\] {
+    font-size: calc(0.625rem * var(--results-scale));
   }
-  .text-\[11px\] {
-    font-size: 11px;
+  .text-\[calc\(0\.6875rem\*var\(--results-scale\)\)\] {
+    font-size: calc(0.6875rem * var(--results-scale));
   }
   .leading-relaxed {
     --tw-leading: var(--leading-relaxed);
@@ -1790,9 +1799,6 @@
   }
   .break-words {
     overflow-wrap: break-word;
-  }
-  .break-all {
-    word-break: break-all;
   }
   .whitespace-nowrap {
     white-space: nowrap;
@@ -1926,6 +1932,9 @@
     .hover\:border-\[var\(--color-primary\)\]:hover {
       border-color: var(--color-primary);
     }
+    .hover\:bg-\[var\(--ss-surface-card\)\]:hover {
+      background-color: var(--ss-surface-card);
+    }
     .hover\:bg-\[var\(--ss-surface-sunken\)\]:hover {
       background-color: var(--ss-surface-sunken);
     }
@@ -1967,6 +1976,15 @@
     .md\:inline {
       display: inline;
     }
+    .md\:h-\[calc\(3\.5rem\*var\(--results-scale\)\)\] {
+      height: calc(3.5rem * var(--results-scale));
+    }
+    .md\:w-\[calc\(3\.5rem\*var\(--results-scale\)\)\] {
+      width: calc(3.5rem * var(--results-scale));
+    }
+    .md\:w-\[calc\(7rem\*var\(--results-scale\)\)\] {
+      width: calc(7rem * var(--results-scale));
+    }
     .md\:flex-row {
       flex-direction: row;
     }
@@ -1978,6 +1996,9 @@
     }
     .md\:p-12 {
       padding: var(--spacing-12);
+    }
+    .md\:p-\[calc\(1\.25rem\*var\(--results-scale\)\)\] {
+      padding: calc(1.25rem * var(--results-scale));
     }
     .md\:px-4 {
       padding-inline: var(--spacing-4);
@@ -2011,15 +2032,11 @@
       font-size: var(--text-sm);
       line-height: var(--tw-leading, var(--text-sm--line-height));
     }
-    .md\:text-xs {
-      font-size: var(--text-xs);
-      line-height: var(--tw-leading, var(--text-xs--line-height));
+    .md\:text-\[calc\(1\.5625rem\*var\(--results-scale\)\)\] {
+      font-size: calc(1.5625rem * var(--results-scale));
     }
-    .md\:text-\[25px\] {
-      font-size: 25px;
-    }
-    .md\:text-\[31px\] {
-      font-size: 31px;
+    .md\:text-\[calc\(1\.9375rem\*var\(--results-scale\)\)\] {
+      font-size: calc(1.9375rem * var(--results-scale));
     }
   }
   @media (width >= 64rem) {
@@ -2061,7 +2078,7 @@
 @layer base {
   :where(:root),:root:has(input.theme-controller[value="light"]:checked),[data-theme="light"] {
     color-scheme: light;
-    --color-base-100: #faf8f3;
+    --color-base-100: #faf7f0;
     --color-base-200: #f0ebe0;
     --color-base-300: color-mix(in srgb, #f0ebe0 86%, #1a1820);
     --color-base-content: #1a1820;

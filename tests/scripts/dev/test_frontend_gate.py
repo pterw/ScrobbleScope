@@ -511,6 +511,7 @@ def _healthy_mobile_header() -> dict:
         "themeHeight": 46.0,
         "headerHeight": 68.0,
         "bodyPaddingTop": 68.0,
+        "headerPosition": "fixed",
     }
 
 
@@ -580,25 +581,20 @@ def test_mobile_header_failures_reports_sub_touch_minimum_theme_control() -> Non
 
 
 def test_mobile_header_failures_reports_mismatched_body_offset() -> None:
-    """Body padding-top must equal the fixed header's height exactly.
-
-    The header is fixed (owner ruling 2026-09-07): too small a padding puts
-    content under the bar, too large leaves a dead gap above the content.
-    """
-    small = _healthy_mobile_header() | {
-        "headerHeight": 68.0,
-        "bodyPaddingTop": 67.2,
-    }
+    """Reject missing compensation and a header that scrolls with content."""
+    for deviation in ({"bodyPaddingTop": 0.0}, {"headerPosition": "static"}):
+        assert (
+            "/: mobile fixed header needs a matching body offset at 390px"
+            in frontend_gate._mobile_header_failures(
+                390, _healthy_mobile_header() | deviation
+            )
+        )
     assert (
-        "/: mobile body offset does not match its header at 390px"
-        in frontend_gate._mobile_header_failures(390, small)
+        frontend_gate._mobile_header_failures(
+            390, _healthy_mobile_header() | {"bodyPaddingTop": 67.7}
+        )
+        == []
     )
-    # Within half a pixel is compliant.
-    touching = _healthy_mobile_header() | {
-        "headerHeight": 68.0,
-        "bodyPaddingTop": 67.7,
-    }
-    assert frontend_gate._mobile_header_failures(390, touching) == []
 
 
 def test_state_dimension_failures_reports_only_material_fixed_viewport_changes() -> (

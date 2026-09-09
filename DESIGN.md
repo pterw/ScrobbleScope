@@ -8,7 +8,7 @@ colors:
   primary-content-dark: "#0e0c12"
   accent-soft: "#efe9fa"
   accent-soft-dark: "#2a1f44"
-  surface-page: "#faf8f3"
+  surface-page: "#faf7f0"
   surface-page-dark: "#0e0c12"
   surface-sunken: "#f0ebe0"
   surface-sunken-dark: "#1a1622"
@@ -105,7 +105,7 @@ ScrobbleScope is an archival field notebook for listening histories: analytical,
 The visual language rejects cool, clinical SaaS greys, loud neon gradients, bouncy physics animations, and vacuous decorative charts. Instead, it relies on warm parchment and deep ink grounds, razor-sharp hairlines, disciplined typographical role-assignment, and high-density tabular presentation. Brand presence is expressed through craft and typographic hierarchy rather than omnipresent logos or saturated accent washes.
 
 **Key Characteristics:**
-- **Warm Archival Ground:** Cream paper (`#faf8f3`) in light mode; deep purple-tinged obsidian (`#0e0c12`) in dark mode.
+- **Warm Archival Ground:** Cream paper (`#faf7f0`) in light mode; deep purple-tinged obsidian (`#0e0c12`) in dark mode.
 - **Strict Typographic Role Separation:** Literary serif for editorial words, geometric sans for structural chrome, tabular mono for parameters, and sculpted figures for numeric magnitude.
 - **Hairline Architecture:** Structural containment achieved through 1px borders and tonal ground shifts rather than drop shadows.
 - **Restrained Velvet Accent:** Royal velvet purple (`#6a4baf` / `#b39dde`) applied with extreme parsimony to direct attention.
@@ -120,9 +120,9 @@ The palette draws from classic printing inks and warm archival paper, accented b
 - **Accent Soft** (`#efe9fa` light / `#2a1f44` dark): Gentle tint used for selected radio chips, active table row highlights, and subtle keyboard-focus halos.
 
 ### Neutral
-- **Page Canvas** (`#faf8f3` light / `#0e0c12` dark): The root background canvas. Warmed off pure white to evoke rag paper; dark mode uses an obsidian ground with faint violet warmth rather than neutral computer grey.
-- **Sunken Well** (`#f0ebe0` light / `#1a1622` dark): Recessed ground used for the index form column and secondary structural wells.
-- **Card Surface** (`#ffffff` light / `#181520` dark): Crisp elevated ground for interactive cards, data tables, and input containers.
+- **Page Canvas** (`#faf7f0` light / `#0e0c12` dark): The root background canvas. Warmed off pure white to evoke rag paper; dark mode uses an obsidian ground with faint violet warmth rather than neutral computer grey.
+- **Sunken Well** (`#f0ebe0` light / `#1a1622` dark): Ground for the index form column, Results panels and table, and secondary structural wells.
+- **Card Surface** (`--ss-surface-card`): The general control surface. Results panels and table use Sunken Well; the index uses its separate standout-card token.
 - **Ink Strong** (`#1a1820` light / `#f1ede4` dark): Maximum-contrast text color for page titles, section headings, values, and primary labels.
 - **Ink Body** (`#4a4456` light / `#c5bfb1` dark): Readable secondary text color for descriptive paragraphs and form field descriptions.
 - **Ink Muted** (`#6c6676` light / `#908a9a` dark): Muted metadata, field hint copy, and timestamps; tuned to maintain 4.5:1 contrast against light and dark surfaces.
@@ -136,7 +136,7 @@ The palette draws from classic printing inks and warm archival paper, accented b
 - **Bad / Error** (`#b03434` light / `#e07070` dark): Terracotta crimson for validation errors, private profile alerts, and failed jobs.
 
 ### Named Rules
-**The Ink-and-Parchment Rule.** Surfaces must never default to cold `#ffffff` or browser-default dark `#121212`. Light mode is cream paper (`#faf8f3`); dark mode is deep obsidian ink (`#0e0c12`).
+**The Ink-and-Parchment Rule.** Surfaces must never default to cold `#ffffff` or browser-default dark `#121212`. Light mode is cream paper (`#faf7f0`); dark mode is deep obsidian ink (`#0e0c12`).
 **The Accent Restraint Rule.** Primary violet is used on ≤10% of any screen surface. Its rarity is what gives it authority.
 **The Status Hairline Rule.** Status colors appear exclusively as 3px indicator rules, icon strokes, or monospace kickers—never as saturated full-bleed background fills.
 
@@ -210,7 +210,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 
 ### Buttons
 - **Primary:** Velvet Royal Violet fill (`#6a4baf` / `#b39dde`), cream text (`#faf8f3` / `#0e0c12`), 10px radius, padding `0.625rem 1.25rem`. Subtle `translateY(-1px)` on hover with crisp color shift.
-- **Secondary / Card:** Card surface fill (`#ffffff` / `#181520`), 1px hairline border (`#e5dfd1` / `#2a2434`), strong ink text, 8px radius.
+- **Secondary / Card:** Card surface fill (`--ss-surface-card`), 1px hairline border (`#e5dfd1` / `#2a2434`), strong ink text, 8px radius.
 - **Ghost:** Transparent fill, muted ink text, transitions to soft accent on hover.
 
 ### Inputs & Form Fields

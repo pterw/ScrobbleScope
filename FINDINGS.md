@@ -2,9 +2,8 @@
 
 Last updated: 2026-09-09
 Status: Batch 21 is active. WP-0 through WP-5 and owner-review remediation
-Tasks 1-5 are complete; Task 6 is next. PLAYBOOK Section 3 owns
-the current work order.
-962 tests across 40 test modules.
+Tasks 1-5 are complete. PLAYBOOK Section 3 owns the current work order.
+975 tests across 40 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -590,46 +589,113 @@ Source: SWE_PRINCIPLES_AUDIT.
 
 ## P1 -- Next batch candidates
 
-### F-B21-49: four error-page callers still paint a 400 badge on a 200 response
+### F-B21-55: Results scaling left geometry fixed and collapsed in Firefox
 
-`templates/error.html` renders `{{ status_code|default('400') }}`, so a caller
-that omits the value claims the request was a bad request. F-B21-10 recorded
-that fallback and PR #227 supplied explicit values in the two registered
-handlers. Four callers in `scrobblescope/routes.py` still omit it: both
-`render_template("error.html", ...)` calls inside
-`_get_validated_job_context` (the missing-identifier and expired-job
-branches), and both inside `_render_results_page` (the expired-job branch
-that is not a saved job, and the processing-error branch). Sites are named
-rather than numbered because line numbers go stale. To relocate them, grep
-`routes.py` for `"error.html"` and keep the calls that pass neither
-`status_code` nor `show_status_code=False`.
+The unfinished local Results scale changed text tokens but left Tailwind's
+named spacing tokens unchanged. At 1200px and 1920px Chromium viewports,
+row padding remained 12px and artwork remained 48px while the heading grew.
+The CSS length-division expression was also invalid in the installed Firefox:
+the desktop heading fell back to 16px and row padding to zero.
 
-These four are worse than a wrong number, because none of them returns an
-error status at all. Each consumer returns the rendered string bare, so Flask
-sends **200**. Measured on 2026-09-09 across every route that consumes the
-`_get_validated_job_context` error branch:
+Resolved locally on 2026-09-09: a ResizeObserver supplies a numeric scale from
+the actual Results width and its 75rem baseline. Named spacing, artwork,
+controls and handwritten geometry share that scale; the existing 90rem page
+cap bounds growth at 1.2. Narrow layouts retain scale 1. No zoom or visual
+transform is used. The header remains independently sized.
 
-```
-GET /results?job_id=expired-job-id     -> HTTP 200, badge 400
-GET /loading?job_id=expired-job-id     -> HTTP 200, badge 400
-GET /unmatched?job_id=expired-job-id   -> HTTP 200, badge 400
-```
+Chromium and Firefox now agree: at 1200/1920px, title 48/57.6px, row padding
+12/14.4px and artwork 56/67.2px (subpixel rounding allowed). Fourteen browser
+samples from 320px through 2560px show no document or table overflow. The
+Results interaction gate now compares rendered ratios and mobile recovery.
 
-A reader is told the page failed, the badge names a status the response does
-not carry, and any cache or crawler is told the page succeeded.
+Status: resolved in the review follow-up. Source: owner scaling request and
+browser measurements, 2026-09-09. Evidence: PLAYBOOK Section 4.
 
-Fix per call site rather than by changing the template default: the default is
-what makes an omission survive review. Give each site the status it means, and
-return that status alongside the body so the badge and the response agree. The
-expired-job paths are the interesting ones -- a resource that has expired is
-not a bad request, so 404 or 410 is the honest answer, and the owner should
-rule on which. Add a route regression per site asserting the pair together;
-`test_error_handler_badge_matches_http_status` is the shape to copy, but it
-checks the handlers directly and so cannot catch a wrong HTTP status.
+### F-B21-52: fractional Tailwind spacing steps compile to nothing, silently
 
-Status: open. Supersedes the "remaining call-site audit" half of F-B21-10 with
-located sites and a measured consequence.
-Source: PR #227 TODO-implementation verification, 2026-09-09.
+`static/css/tailwind.src.css` sets `--spacing: initial` and `--spacing-*:
+initial`, then declares only whole steps: 1, 2, 3, 4, 6, 8, 12. That switches
+off Tailwind v4's dynamic spacing scale, so a fractional utility is not a
+smaller value -- it is an unknown token that emits no rule at all. `py-2.5`,
+`md:py-3.5`, `px-1.5`, `gap-1.5` and `py-0.5` are all absent from the compiled
+stylesheet, including in the build deployed to Fly.io.
+
+The failure is silent in every direction. The class stays in the markup, the
+Tailwind build reports success, and the drift check passes because the
+committed CSS does match a rebuild -- a rebuild that also omits the rule. Only
+a computed-style read finds it.
+
+This is what cost the Results KPI rail its padding. The deployed markup used
+`p-3` (a real step, 0.75rem on all sides) plus `md:px-4`; the WP-5 rebuild
+replaced it with `px-1.5 py-2.5`, and both evaporated, leaving the cells with
+**zero vertical padding** and the label 1px from the outline. Restored
+2026-09-09 by authoring the deployed geometry in `static/css/results.css`
+against the declared scale, which also recovered the dead `gap-1.5` row gap
+and `py-0.5` numeral padding.
+
+Two candidate fixes, and the choice is the owner's:
+
+1. Restore Tailwind's dynamic scale by setting `--spacing: 0.25rem` instead of
+   `initial`, keeping the named steps as aliases. Fractional utilities then
+   work everywhere and the theme keeps its vocabulary.
+2. Keep the restricted scale deliberately -- it is a real design constraint --
+   and add a check that fails when a template requests a spacing step the
+   theme does not declare. This is the option that prevents recurrence rather
+   than permitting the syntax.
+
+Until one lands, the same trap is live for every future template edit. A grep
+for `-\d+\.5` across `templates/` finds current instances.
+
+Status: open. The Results instance is fixed; the class of defect is not.
+Source: owner-reported stat-bar padding regression, 2026-09-09.
+
+### F-B21-53: the surface-card token now sits darker than the page it lifts off
+
+The owner's 2026-09-07 surface split (`d41db1f`) moved `--ss-surface-card`
+from `#fcfbf8` to `#f9f7f1` and added `--ss-surface-card-standout: #ffffff`
+for the index card alone. Against the `#faf8f3` page, that reverses the sign
+of the intended lift: the deployed card was 2 channel steps lighter than the
+page (contrast 1.026:1), and the current one is 1 step darker (1.009:1).
+
+Neither value reads as a raised surface unaided -- at these ratios the 1px
+`--ss-border-default` rule (1.25:1 against the page) is doing all the
+separating work. But the deployed direction was at least upward, and the owner
+reports the deployed aesthetic as the better one. At the initial measurement, the Results KPI rail still consumed this token.
+The later owner refinement moved Results panels and the table to the shared
+sunken token; the general card token itself was not changed.
+
+Decide at the token: either return the light-theme card to a value above the
+page, or accept that cards are delineated by rule rather than by fill and stop
+describing them as elevated. The dark theme is unaffected (`#181520` card on
+`#0e0c12` page is a clear lift).
+
+Status: open for the general card token. The owner warmed the page/navbar
+canvas and selected sunken surfaces for Results; PLAYBOOK Section 4 records
+that refinement. The comparisons above describe the previous canvas.
+Source: owner-reported stat-bar background regression, 2026-09-09.
+
+### F-B21-49: four error-page callers painted a 400 badge on a 200 response
+
+The missing-ID and unavailable-job branches in `_get_validated_job_context`,
+plus the failed and still-processing branches in `_render_results_page`,
+omitted both an explicit badge and an HTTP status. Flask returned 200 while
+the template displayed its default 400. The earlier description incorrectly
+called the fourth site an expired-results branch; it was pending results.
+
+The owner-authorized priority pass now returns matching HTML/status pairs:
+400 for a missing identifier, 404 for unavailable or wrong-mode jobs, 202 for
+pending results, 503 for retryable processing failure, 404 for an unknown
+Last.fm user, and 500 for an unclassified processing failure. The 404 choice
+matches the existing JSON APIs: no tombstone distinguishes an expired job
+from one that never existed. Saved Results and Unmatched empty states retain
+HTTP 200 and clear stale session pointers.
+
+Validation and comment provenance:
+[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
+
+Status: resolved in the review follow-up; closes the remaining call-site
+half of F-B21-10.
+Source: PR #227 TODO verification and owner-authorized priority fix, 2026-09-09.
 
 ### F-B21-50: reconnaissance TODOs in production code generated eight review rounds
 
@@ -644,12 +710,14 @@ audit records `radarlint-pythonS1135` ("Complete the task associated to this
 TODO") on 15 rows, at 15 distinct `routes.py` line numbers, each carrying an
 occurrence count of 8 -- 120 comment bodies for one batch of notes.
 
-Verification on 2026-09-09 found 13 of the 15 described work that was already
-implemented: `/unmatched` already had its GET route, `unmatched_empty.html`
-was already wired, `index.js` already validated the username on blur, and
-`heatmap.js` already branched on the `retryable` flag. They were
-reconnaissance notes written while reading unfamiliar code, not defect
-markers. Two are genuine and are now F-B21-49.
+The later priority pass corrected the first verification's "13 implemented /
+two genuine" tally: twelve notes described existing behavior, two retain
+deferred work (unmatched redesign and possible retirement of legacy POST),
+and the results note exposed the remaining F-B21-49 status defect. Removing a
+note did not implement the deferred work. The per-note evidence and refreshed
+review counts are in
+[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
+The eight-round count above remains the original audit's snapshot.
 
 The lesson is about where such notes live, not whether to take them. A scratch
 file or a findings entry costs one reader; a TODO in a linted production module
@@ -693,9 +761,13 @@ validation, layout and pipeline. `_frontend_gate_results.py` is the precedent
 for the module shape, and `worktree_guard.py` is the precedent for keeping a
 stable public facade over split internals.
 
-Status: open, deferred. Gate infrastructure has no parity tests of its own, so
-AGENTS.md "Proposal and Design Rules" item 4 applies: any split needs its
-coverage checked first. Sizing work order candidate for a hygiene batch.
+Status: open, deferred to a hygiene batch, including the remaining repeated
+geometry-label literals and the owner's issue #228 constants request. The
+earlier claim that infrastructure has no parity tests was incorrect:
+`tests/scripts/dev/test_frontend_gate.py` covers server teardown, setup
+failure, browser lifecycle, group isolation and CDN route policy. Verify the
+affected coverage before a further split, per AGENTS.md Refactor requires
+parity tests; existing tests are not evidence that every proposed split is safe.
 Source: PR #227 commit-range audit, 2026-09-09.
 
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached
@@ -1094,17 +1166,15 @@ Source: findings mirror, 2026-08-22.
 The WP-2 audit found that callers did not supply their actual status, so
 404 and 500 pages displayed a misleading badge.
 
-PR #227 review remediation on 2026-09-07 supplies explicit 404 and 500 values
-in the registered error handlers, with route regressions checking the rendered
-badge. Other error-page callers and the template fallback still need the
-scheduled call-site audit; this partial fix does not close that work.
+PR #227 review remediation on 2026-09-07 supplied explicit 404 and 500 values
+in the registered error handlers. The 2026-09-09 priority pass completed the
+remaining routes.py call-site fix in F-B21-49: those callers now supply their
+actual status or explicitly hide the badge for a normal empty state. The
+template fallback remains for compatibility; app.py's CSRF handler uses that
+400 default and also returns HTTP 400, so its badge already agrees.
 
-The 2026-09-09 audit located the remaining callers and measured what they
-serve: four sites return HTTP 200 while painting a 400 badge. That half now
-has its own entry, F-B21-49, which carries the line numbers and the fix
-guidance. This finding keeps the template-fallback half.
-
-Status: partially resolved. Remaining call-site audit is F-B21-49.
+Status: resolved locally. F-B21-49 closes the remaining call sites; its
+priority-fix commit and publication are pending.
 Source: WP-2 template migration, 2026-08-23; PR #227 review, 2026-09-07;
 call-site measurement, 2026-09-09.
 
@@ -1598,8 +1668,8 @@ is the sole acceptance specification for the reopened work. It records the
 Status: reopened. Task 2's proportional scale is implemented and passed the
 complete two-engine gate; Task 3 landed the final `3fr 4fr` split, now refined
 to a `27.5rem` form cap, raised divider contrast, and the ruled header clamps.
-The later owner-review remediation tasks (Task 4 loading-progress alignment,
-Task 5 unmatched no-data surface, Task 6 accessibility pass) remain open.
+Tasks 4 and 5 are complete. Task 6 remains deferred until Bootstrap removal;
+the canonical plan and PLAYBOOK Section 3 own its timing.
 Source: owner large-display review, 2026-08-28; owner clarification and
 measurement, 2026-09-01.
 
@@ -1959,6 +2029,26 @@ Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 ---
 
 ## P2 -- Scaling roadmap
+
+### F-B21-54: PR 227 still reports test assertions through a separate scanner
+
+The 2026-09-09 PR snapshot contains 268 inline Bandit B101-bearing comments
+across seven pytest files. The published `.codacy.yml` excludes `tests/**`
+from Codacy, but those B101 comments are from Qlty. The local
+`.qlty/qlty.toml` is untracked and names test patterns without a targeted
+B101 exclusion. Changing Codacy does not configure the other reviewer.
+
+This is P2 review-tooling debt, not 268 production vulnerabilities. Keep
+test assertions and preserve production analysis. A future tooling change
+should scope only the noisy rule to test paths and validate the actual
+review provider; do not hide whole production modules or suppress other
+findings bundled in the same comment. The float and callback-comparison
+claims were checked separately in
+[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
+
+Status: open, deferred. No scanner configuration changed in this priority pass.
+Source: PR #227 live comments and local scanner configuration, 2026-09-09.
+
 
 ### F-DATA-1: reissue editions collapse onto the original's cache row
 
