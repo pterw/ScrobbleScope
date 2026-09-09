@@ -9,6 +9,87 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-07 - Gate isolation, license-safe CDN routing, paper-cream tokens, and results polish (side-task)
+
+- Scope: made the frontend gate stall-tolerant (grouped checks, fresh
+  contexts, fail-fast navigation), resolved the PR #227 Quality Gate
+  failures, applied the owner's paper-cream surface palette, and landed
+  the owner-annotated results-page polish.
+- Plan vs implementation: followed
+  `docs/superpowers/plans/2026-09-07-frontend-gate-isolation.md` with one
+  fundamental amendment. The metric-pinned font fixture (plan Tasks 1 and
+  5) was abandoned at the owner's licensing ruling: the kit families
+  (Gotham, Akzidenz-Grotesk Next Pro) are commercial web fonts and must
+  never be re-hosted, embedded, or synthesized in the repo. The kit loads
+  from the real Typekit origin on every gate run; only the generic cdnjs
+  Bootstrap stylesheet is served from a repo fixture. The gate is
+  therefore not fully hermetic -- accepted trade-off for license safety,
+  recorded in `scripts/dev/fixtures/README.md`.
+- Implementation:
+  - Gate grouping: `CHECKS` entries gained a group field; groups derive
+    from the tuple at call time (no second declared copy, no group
+    integrity test per the owner's "redundant to test a test" ruling).
+    Each group opens a fresh browser context, so a wedged page poisons
+    only its group -- the 2026-09-07 CI run had cascaded one navigation
+    timeout through every later check on a shared page.
+  - Firefox is a canary: it runs only the static-assets group (the
+    2026-09-01 remediation plan measured engine agreement within 0.1px,
+    so a full second pass doubles the stall surface for near-zero
+    signal). Chromium runs everything.
+  - Fail-fast navigation: 10s page-level timeout (the context-level
+    kwarg does not exist in Playwright -- caught by a local run, not by
+    unit tests).
+  - Fonts advisory: `check_fonts` reports missing faces as WARN lines
+    and returns no failures (owner ruling: a font-supply problem is not
+    a UI defect).
+  - License posture: no Adobe family is copied, embedded, synthesized,
+    or re-hosted anywhere; a synthetic TTF generator briefly existed in
+    untracked scratch and was destroyed before any commit.
+  - Paper-cream surfaces: `--ss-surface-card` #fcfbf8 -> #f7f3ea
+    (halfway to the sunken tone; cards had become indiscernible from
+    the page and pure white read as harsh). `global.css` mirrors follow.
+    The imported design snapshot keeps `#ffffff` by contract; the
+    override is recorded in `docs/design/RECONCILIATION.md` section 12.
+  - Theme pill: the active Light choice dropped its #ffffff background
+    (introduced in `14215d6`) for `--shell-surface` elevation with a
+    stronger border/shadow.
+  - Heatmap preview: bullets at color-mix(body 55%, muted); copy
+    rewritten (7x52 grid, totals/streak, best-day highlight).
+  - Index: `--index-scale-cap` 2.15 -> 1.75 (owner ruling: the lockup
+    dominated beyond 1440p and the right-hanging void grew faster than
+    content).
+  - Card surfaces, final ruling (revising the paper-cream line above,
+    same day): #f7f3ea was too warm and #fcfbf8 read cold, so the owner
+    split the surfaces. `--ss-surface-card` -> #f9f7f1 (midpoint of the
+    two; general cards), mirrored in `global.css`, and a new
+    `--ss-surface-card-standout` (#ffffff light / #181520 dark) paints
+    the index card alone pure white as a standout; `.ss-card` and
+    `.hint__body` in `index.css` read the standout token. DESIGN.md
+    header and the token test follow. RECONCILIATION.md section 12
+    records the full trial -> reversal -> split sequence.
+  - Results StatBlock typography (owner ruling): numerals and labels
+    back to Instrument Serif with labels at 11px/xs serif in
+    `--ss-text-body` (not muted); the sans-numeral line below is
+    superseded by this.
+  - Results polish (owner-annotated screenshot): action-row gap 8 -> 12px;
+    filter-bar values to input-mono; row hover at full sunken strength;
+    sort-toggle weight 500.
+- Deviations: superseded by the 2026-09-07 stale-gate-cap entry below.
+  The 4K parity failures recorded here were later root-caused to the
+  gate's expected-scale cap lagging the CSS `--index-scale-cap` change
+  in this same entry, not to font metrics. Owner confirmed the form card
+  does not scroll the page at 1080p/92dpi with bookmarks extended.
+- Validation: `pytest -q` -- **938 passed**, 5 warnings (final
+  consolidated run for this entry; the standout token added one
+  parametrized test to the shell suite). Full suite green before commit;
+  pre-commit hooks (black auto-fix included) enforced on every commit in
+  the series. The gate itself was exercised repeatedly during
+  development; the remaining parity pair is recorded above rather than
+  hidden.
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next;
+  the heatmap form lacks validation-on-blur and private-account gating
+  (owner-noted), candidate for WP-7 or a scoped side-task.
+
 ### 2026-09-07 - Stale gate scale-cap corrected; 4K parity failures resolved (side-task)
 
 - Scope: root-caused and fixed the 7 large-display-scale-parity failures

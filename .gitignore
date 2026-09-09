@@ -35,6 +35,21 @@ env/
 .pytest_cache/
 .coverage
 
+# Frontend-gate console captures. A single run writes ~600 KB, and diagnosing
+# one CI stall takes several, so these accumulated to ~3 MB of untracked root
+# noise during Batch 21. The gate prints its verdict to the terminal and the
+# workflow uploads what CI needs; a transcript kept for local reading is not
+# repository state. Anchored to the root so a future scripts/ output of the
+# same name is not silently hidden.
+/gate_out*.txt
+/gate_summary.txt
+
+# Editor and migration scaffolding: a half-written config or a hand-made
+# backup of a tracked file. Git already holds every previous revision, so a
+# committed backup is a second copy free to drift.
+*.new
+*_backup.toml
+
 # VS Code Local History
 .vscode/History/
 

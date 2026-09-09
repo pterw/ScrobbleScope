@@ -1,6 +1,6 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-07
+Last updated: 2026-09-09
 Status: Batch 21 is active. WP-0 through WP-5 and owner-review remediation
 Tasks 1-5 are complete; Task 6 is next. PLAYBOOK Section 3 owns
 the current work order.
@@ -590,6 +590,114 @@ Source: SWE_PRINCIPLES_AUDIT.
 
 ## P1 -- Next batch candidates
 
+### F-B21-49: four error-page callers still paint a 400 badge on a 200 response
+
+`templates/error.html` renders `{{ status_code|default('400') }}`, so a caller
+that omits the value claims the request was a bad request. F-B21-10 recorded
+that fallback and PR #227 supplied explicit values in the two registered
+handlers. Four callers in `scrobblescope/routes.py` still omit it: both
+`render_template("error.html", ...)` calls inside
+`_get_validated_job_context` (the missing-identifier and expired-job
+branches), and both inside `_render_results_page` (the expired-job branch
+that is not a saved job, and the processing-error branch). Sites are named
+rather than numbered because line numbers go stale. To relocate them, grep
+`routes.py` for `"error.html"` and keep the calls that pass neither
+`status_code` nor `show_status_code=False`.
+
+These four are worse than a wrong number, because none of them returns an
+error status at all. Each consumer returns the rendered string bare, so Flask
+sends **200**. Measured on 2026-09-09 across every route that consumes the
+`_get_validated_job_context` error branch:
+
+```
+GET /results?job_id=expired-job-id     -> HTTP 200, badge 400
+GET /loading?job_id=expired-job-id     -> HTTP 200, badge 400
+GET /unmatched?job_id=expired-job-id   -> HTTP 200, badge 400
+```
+
+A reader is told the page failed, the badge names a status the response does
+not carry, and any cache or crawler is told the page succeeded.
+
+Fix per call site rather than by changing the template default: the default is
+what makes an omission survive review. Give each site the status it means, and
+return that status alongside the body so the badge and the response agree. The
+expired-job paths are the interesting ones -- a resource that has expired is
+not a bad request, so 404 or 410 is the honest answer, and the owner should
+rule on which. Add a route regression per site asserting the pair together;
+`test_error_handler_badge_matches_http_status` is the shape to copy, but it
+checks the handlers directly and so cannot catch a wrong HTTP status.
+
+Status: open. Supersedes the "remaining call-site audit" half of F-B21-10 with
+located sites and a measured consequence.
+Source: PR #227 TODO-implementation verification, 2026-09-09.
+
+### F-B21-50: reconnaissance TODOs in production code generated eight review rounds
+
+Commit `769f0aa` added 15 `# todo:` comments to `scrobblescope/routes.py`,
+mostly appended to bare HTTP status literals (`400,  # todo: Consider adding
+client-side validation`). Commit `16fbf92` removed all 15. Net change to
+`routes.py` is zero: the TODO count runs 0 at `b987e48`, 15 at `a53e412`, 0 at
+HEAD.
+
+Between those commits the notes cost eight repeated Qlty rounds. The PR #227
+audit records `radarlint-pythonS1135` ("Complete the task associated to this
+TODO") on 15 rows, at 15 distinct `routes.py` line numbers, each carrying an
+occurrence count of 8 -- 120 comment bodies for one batch of notes.
+
+Verification on 2026-09-09 found 13 of the 15 described work that was already
+implemented: `/unmatched` already had its GET route, `unmatched_empty.html`
+was already wired, `index.js` already validated the username on blur, and
+`heatmap.js` already branched on the `retryable` flag. They were
+reconnaissance notes written while reading unfamiliar code, not defect
+markers. Two are genuine and are now F-B21-49.
+
+The lesson is about where such notes live, not whether to take them. A scratch
+file or a findings entry costs one reader; a TODO in a linted production module
+is a standing finding that every scanner republishes on every run, and a
+reviewer cannot tell an orientation note from a real defect. Keep reading notes
+out of production source.
+
+Status: open as guidance; the code half is already clean at HEAD. No revert is
+proposed -- the churn is in history, and rewriting it needs owner
+authorization for a net-zero gain.
+Source: PR #227 commit-range audit, 2026-09-09.
+
+### F-B21-51: frontend_gate.py is nine times its largest sibling
+
+`scripts/dev/frontend_gate.py` is 3,756 lines. The largest other module in
+`scripts/dev/` is `tailwind_build.py` at 404. AGENTS.md "Proposal and Design
+Rules" item 3 asks for a comparison against the largest peer in the directory
+rather than a line threshold, and this is 9x it.
+
+The file is not disorganized, and its internal structure improved during the
+review. Measured across the branch, the gate plus its helper went from 2,965
+lines in 49 functions on `main` to 3,879 lines in 78 functions at HEAD, while
+the longest single function fell from 485 lines to 271. The review commit's
+subject calls this "simplify frontend checks", but the module grew by about
+222 lines and its test file grew from 966 to 1,328: the work was
+decomposition, not reduction. Smaller units are the real gain.
+
+`CHECKS` is a single source of truth with groups derived from it, and PR #227
+extracted `_frontend_gate_results.py` (123 lines) during review remediation.
+The concern is that one module still owns the server fixture, CDN route
+policy, browser and context lifecycle, 25 check implementations, measurement
+helpers, and the CLI. The PR #227 review received
+`qlty:function-complexity` and `radarlint-pythonS3776` reports against
+`run_checks`, `_exercise_loading_progress_phases`, and
+`check_large_display_scale_parity` -- symptoms of that breadth rather than of
+any single function.
+
+A split should follow the existing group boundaries, which already partition
+the checks by shared fixture: static assets, theme and motion, forms and
+validation, layout and pipeline. `_frontend_gate_results.py` is the precedent
+for the module shape, and `worktree_guard.py` is the precedent for keeping a
+stable public facade over split internals.
+
+Status: open, deferred. Gate infrastructure has no parity tests of its own, so
+AGENTS.md "Proposal and Design Rules" item 4 applies: any split needs its
+coverage checked first. Sizing work order candidate for a hygiene batch.
+Source: PR #227 commit-range audit, 2026-09-09.
+
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached
 
 Every album and Heatmap job calls `user.getrecenttracks` for its requested
@@ -991,8 +1099,14 @@ in the registered error handlers, with route regressions checking the rendered
 badge. Other error-page callers and the template fallback still need the
 scheduled call-site audit; this partial fix does not close that work.
 
-Status: partially resolved. Remaining call-site audit is a WP-7 candidate.
-Source: WP-2 template migration, 2026-08-23; PR #227 review, 2026-09-07.
+The 2026-09-09 audit located the remaining callers and measured what they
+serve: four sites return HTTP 200 while painting a 400 badge. That half now
+has its own entry, F-B21-49, which carries the line numbers and the fix
+guidance. This finding keeps the template-fallback half.
+
+Status: partially resolved. Remaining call-site audit is F-B21-49.
+Source: WP-2 template migration, 2026-08-23; PR #227 review, 2026-09-07;
+call-site measurement, 2026-09-09.
 
 ### F-B21-11: the welcome modal covers the new header theme toggle
 

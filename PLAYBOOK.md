@@ -586,6 +586,74 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-09 - Audit PR 227 for regression and bloat; ignore gate artifacts (side-task)
+
+- Scope: the owner asked which commits after `b987e48` carry value and which
+  are bloat, and whether the 15 route TODOs were implemented. Owner chose the
+  hygiene-only remedy: no history rewrite and no gate split.
+- Premise correction recorded before any change: `b987e48` is not a baseline
+  to restore toward. `main` merged into this branch at `ebc5145`, *after*
+  `b987e48`, so reverting toward it would discard PRs #225 and #226. PR content
+  was therefore measured against `origin/main`.
+- Size of the PR, since three different questions give three different answers
+  and the first is the one that misleads. `b987e48..HEAD` is +4524/-1848 over
+  62 files, but it hides everything that arrived through the `ebc5145` merge
+  and must not be quoted. `origin/main..HEAD` is +8458/-2293 over 76 files.
+  Summing each of the 34 non-merge commits' own diffs gives the real churn:
+  **+13802/-5450 over 86 distinct files**, so netting the endpoints conceals
+  8,501 touched lines. The largest single contributor is `frontend_gate.py`:
+  20 commits and 3,158 gross lines to land a net +791 while chasing the CI
+  stall. Quote the churn figure when judging review effort and the endpoint
+  diff when judging the delivered change.
+- Three bloat suspicions were tested and **disproved**, so nothing was
+  reverted: (1) the 486/484-line `global.css` diff is a whole-file CRLF-to-LF
+  conversion in `d41db1f` with about five semantic lines, and `global.css` was
+  the only CRLF outlier in `static/**` and `templates/**`, so the conversion
+  normalized it; (2) `typekit_fixture.css` was added then deleted under the
+  owner's 2026-09-07 font-licensing ruling, recorded in
+  `scripts/dev/fixtures/README.md`; (3) the ruff migration touched about
+  fifteen test files but only reflowed `assert` formatting, weakening no
+  assertion. `ipinfo` and `cachetools` removal was confirmed against zero
+  imports repo-wide.
+- Security and hardening in the range were confirmed genuine and kept:
+  `innerHTML` sinks in `static/js` fall 5 (main) to 4 (`b987e48`) to 1 (HEAD,
+  `heatmap.js` only); least-privilege `contents: read`;
+  `persist-credentials: false`; 18 vulnerable pins upgraded to a zero-finding
+  `pip-audit`; aiohttp 3.14 deprecations replaced with stdlib `base64`; CI
+  actions moved off the deprecated Node 20 runtime.
+- TODO verification: 13 of 15 described already-implemented behaviour
+  (`/unmatched` GET route, `unmatched_empty.html`, `index.js` blur validation,
+  `heatmap.js` `retryable` branching), so removing them was correct. Two were
+  genuine and are now **F-B21-49**.
+- Implementation: added root-anchored `.gitignore` entries for
+  `/gate_out*.txt` and `/gate_summary.txt` (about 3 MB of untracked console
+  captures) plus `*.new` and `*_backup.toml` migration scaffolding, verified
+  against `git ls-files` so no tracked file became hidden; deleted the
+  untracked zero-byte `.github/workflows/workflow1`, which would have been an
+  invalid workflow had it ever been committed.
+- Deviations: three findings were filed rather than fixed, because each needs
+  an owner ruling or parity tests this side-task does not carry. **F-B21-49**
+  (four `error.html` callers return HTTP 200 while painting a 400 badge;
+  measured, not read) needs the owner to choose 404 or 410 for expired jobs.
+  **F-B21-50** records the net-zero TODO churn that cost eight Qlty rounds
+  (15 distinct `routes.py` line numbers, each republished 8 times: 120 comment
+  bodies). **F-B21-51** sizes `frontend_gate.py` at 3,756 lines against its
+  largest sibling's 404, and defers the split because gate infrastructure has
+  no parity tests (AGENTS.md Proposal and Design Rules item 4). F-B21-10's
+  status line now points at F-B21-49 for its call-site half.
+- One claim in the review commit's own subject was checked and does not hold as
+  written: "simplify frontend checks". The gate plus helper grew from 2,965
+  lines in 49 functions on `main` to 3,879 in 78 at HEAD, about 222 of those
+  lines added by that very commit, with its test file going 966 to 1,328. What
+  did improve is unit size -- the longest function fell 485 to 271. Recorded in
+  F-B21-51 so a later reader does not inherit "simplified" as fact.
+- Validation: `pytest -q` -- **962 passed**. All pre-commit hooks and
+  `doc_state_sync.py --check` pass. The committed tree was verified clean by
+  stashing the unrelated results-scaling work in progress; the earlier
+  `tailwind-css-drift` failure belonged to that work, not to any PR commit.
+- Forward guidance: the PR #227 body still needs writing before merge. Task 6
+  (accessibility pass) and WP-7 remain the next batch work.
+
 ### 2026-09-07 - Remediate PR 227 and simplify frontend checks
 
 - Owner requested one review-remediation package. The full comment inventory,
@@ -683,84 +751,3 @@ non-current operational logs. Older dated entries live in
   code changed in this entry). Spec status line updated to record the
   owner-ruled licensing amendment (Typekit fixture withdrawn).
 - Forward guidance: WP-7 (unmatched page + reason_code) remains next.
-
-### 2026-09-07 - Gate isolation, license-safe CDN routing, paper-cream tokens, and results polish (side-task)
-
-- Scope: made the frontend gate stall-tolerant (grouped checks, fresh
-  contexts, fail-fast navigation), resolved the PR #227 Quality Gate
-  failures, applied the owner's paper-cream surface palette, and landed
-  the owner-annotated results-page polish.
-- Plan vs implementation: followed
-  `docs/superpowers/plans/2026-09-07-frontend-gate-isolation.md` with one
-  fundamental amendment. The metric-pinned font fixture (plan Tasks 1 and
-  5) was abandoned at the owner's licensing ruling: the kit families
-  (Gotham, Akzidenz-Grotesk Next Pro) are commercial web fonts and must
-  never be re-hosted, embedded, or synthesized in the repo. The kit loads
-  from the real Typekit origin on every gate run; only the generic cdnjs
-  Bootstrap stylesheet is served from a repo fixture. The gate is
-  therefore not fully hermetic -- accepted trade-off for license safety,
-  recorded in `scripts/dev/fixtures/README.md`.
-- Implementation:
-  - Gate grouping: `CHECKS` entries gained a group field; groups derive
-    from the tuple at call time (no second declared copy, no group
-    integrity test per the owner's "redundant to test a test" ruling).
-    Each group opens a fresh browser context, so a wedged page poisons
-    only its group -- the 2026-09-07 CI run had cascaded one navigation
-    timeout through every later check on a shared page.
-  - Firefox is a canary: it runs only the static-assets group (the
-    2026-09-01 remediation plan measured engine agreement within 0.1px,
-    so a full second pass doubles the stall surface for near-zero
-    signal). Chromium runs everything.
-  - Fail-fast navigation: 10s page-level timeout (the context-level
-    kwarg does not exist in Playwright -- caught by a local run, not by
-    unit tests).
-  - Fonts advisory: `check_fonts` reports missing faces as WARN lines
-    and returns no failures (owner ruling: a font-supply problem is not
-    a UI defect).
-  - License posture: no Adobe family is copied, embedded, synthesized,
-    or re-hosted anywhere; a synthetic TTF generator briefly existed in
-    untracked scratch and was destroyed before any commit.
-  - Paper-cream surfaces: `--ss-surface-card` #fcfbf8 -> #f7f3ea
-    (halfway to the sunken tone; cards had become indiscernible from
-    the page and pure white read as harsh). `global.css` mirrors follow.
-    The imported design snapshot keeps `#ffffff` by contract; the
-    override is recorded in `docs/design/RECONCILIATION.md` section 12.
-  - Theme pill: the active Light choice dropped its #ffffff background
-    (introduced in `14215d6`) for `--shell-surface` elevation with a
-    stronger border/shadow.
-  - Heatmap preview: bullets at color-mix(body 55%, muted); copy
-    rewritten (7x52 grid, totals/streak, best-day highlight).
-  - Index: `--index-scale-cap` 2.15 -> 1.75 (owner ruling: the lockup
-    dominated beyond 1440p and the right-hanging void grew faster than
-    content).
-  - Card surfaces, final ruling (revising the paper-cream line above,
-    same day): #f7f3ea was too warm and #fcfbf8 read cold, so the owner
-    split the surfaces. `--ss-surface-card` -> #f9f7f1 (midpoint of the
-    two; general cards), mirrored in `global.css`, and a new
-    `--ss-surface-card-standout` (#ffffff light / #181520 dark) paints
-    the index card alone pure white as a standout; `.ss-card` and
-    `.hint__body` in `index.css` read the standout token. DESIGN.md
-    header and the token test follow. RECONCILIATION.md section 12
-    records the full trial -> reversal -> split sequence.
-  - Results StatBlock typography (owner ruling): numerals and labels
-    back to Instrument Serif with labels at 11px/xs serif in
-    `--ss-text-body` (not muted); the sans-numeral line below is
-    superseded by this.
-  - Results polish (owner-annotated screenshot): action-row gap 8 -> 12px;
-    filter-bar values to input-mono; row hover at full sunken strength;
-    sort-toggle weight 500.
-- Deviations: superseded by the 2026-09-07 stale-gate-cap entry below.
-  The 4K parity failures recorded here were later root-caused to the
-  gate's expected-scale cap lagging the CSS `--index-scale-cap` change
-  in this same entry, not to font metrics. Owner confirmed the form card
-  does not scroll the page at 1080p/92dpi with bookmarks extended.
-- Validation: `pytest -q` -- **938 passed**, 5 warnings (final
-  consolidated run for this entry; the standout token added one
-  parametrized test to the shell suite). Full suite green before commit;
-  pre-commit hooks (black auto-fix included) enforced on every commit in
-  the series. The gate itself was exercised repeatedly during
-  development; the remaining parity pair is recorded above rather than
-  hidden.
-- Forward guidance: WP-7 (unmatched page + reason_code) remains next;
-  the heatmap form lacks validation-on-blur and private-account gating
-  (owner-noted), candidate for WP-7 or a scoped side-task.
