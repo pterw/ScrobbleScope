@@ -183,10 +183,10 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** WP-7 is complete locally: backend contract `b3e3e96`,
-  owner-authorized non-rewrite finding fix `ba5f9fe`, and the independently
-  revertible UI commit. No push is authorized. WP-6 is absorbed into WP-3;
-  proceed to WP-8 only on owner direction.
+- **Next action:** WP-7 is complete locally, including the owner-approved
+  cover-containment follow-up to UI commit `968eaa0`. Publish the authorized
+  commits to `origin/test`, verify the remote ref, and stop. Do not begin WP-8
+  without owner direction.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -603,9 +603,10 @@ non-current operational logs. Older dated entries live in
 
 ### 2026-09-10 - Unmatched page reconciled after review (Batch 21 WP-7)
 
-- Scope: completed and committed the local WP-7 implementation and review
-  reconciliation. The backend contract, separate non-rewrite finding fix, and
-  independently revertible frontend are distinct rollback units.
+- Scope: completed the local WP-7 implementation, review reconciliation, and
+  owner-approved post-commit cover-containment follow-up. The backend contract,
+  backend finding fix, UI rebuild, and final rendering fix remain distinct
+  rollback units.
 - Implementation:
   - Backend contract (`feat(unmatched): Add stable reason_code to the unmatched contract`, committed as `b3e3e96`):
     - Added `scrobblescope/unmatched.py` defining canonical reason constants
@@ -632,6 +633,10 @@ non-current operational logs. Older dated entries live in
       Spotify destination, and Last.fm play count. Rows without cached album
       artwork progressively reuse `/api/artist_spotlight`; intersection-based
       loading and a per-artist request cache avoid eager or duplicate calls.
+    - Post-commit rendering review replaced undeclared `w-10`/`h-10` and
+      `md:w-11`/`md:h-11` utilities with the explicit fixed-size containment
+      pattern used by `results.css`. Covers, portraits, and fallbacks now hold
+      the design-prescribed 40px mobile / 44px desktop square at 4px radius.
     - Replaced `static/css/unmatched.css` with token-based rules for min-height,
       surface cards (`--ss-surface-card`), borders, and coarse pointer touch targets.
     - Implemented keyboard-accessible expander toggle and lazy artist-portrait
@@ -664,14 +669,23 @@ non-current operational logs. Older dated entries live in
     the backend commit. The owner authorized staging and committing on
     2026-09-10; the non-rewrite path keeps them in a separate fix commit before
     the independently revertible UI commit. The fix is `ba5f9fe`.
+  - **Rendered cover containment:** visual review after `968eaa0` showed album
+    art expanding to the table's intrinsic width. `tailwind.src.css` disables
+    dynamic spacing and declares no steps 10 or 11, so those template utilities
+    emitted no rules. A computed-style regression check reproduced 302x152px,
+    and the Results-pattern fixed geometry restores 44x44px on desktop.
 - Validation: `pytest -q` -- **986 passed**, 2 warnings across 41 test modules.
   `scripts/dev/frontend_gate.py` passed all 26 checks in 46 runs
   across Chromium and the Firefox static-assets canary. The populated-report
-  check covers both expander states and computed type roles. Targeted WP-7
-  coverage passed 345 tests; `node --check static/js/unmatched.js` passed.
-  All 10 pre-commit hooks and `doc_state_sync.py --check` pass.
-- Forward guidance: WP-7 is complete locally. Do not push or begin WP-8 without
-  owner direction.
+  check covers both expander states, 44px cover containment, and computed type
+  roles. Its focused Chromium loop failed at 302x152px before the remedy and
+  passed afterward; a 2000x1000 rendered capture confirms the repaired page.
+  Targeted WP-7 coverage passed 345 tests; `node --check
+  static/js/unmatched.js` passed. All 10 pre-commit hooks and
+  `doc_state_sync.py --check` pass.
+- Forward guidance: the owner approved the rendering remedy and authorized
+  publication on 2026-09-10. Push to
+  `origin/test`, verify the remote ref, and do not begin WP-8 without direction.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

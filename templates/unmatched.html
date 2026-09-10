@@ -121,20 +121,20 @@
                                         {% if item.album_image %}
                                         <img src="{{ item.album_image }}"
                                              alt="{{ item.album }} cover"
-                                             class="w-10 h-10 md:w-11 md:h-11 rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] object-cover flex-shrink-0"
+                                             class="unmatched-artwork border border-[var(--ss-border-default)]"
                                              loading="lazy"
                                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                        <div class="w-10 h-10 md:w-11 md:h-11 rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0 hidden" aria-hidden="true">
+                                        <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] hidden" aria-hidden="true">
                                             {{ item.album[:2]|upper }}
                                         </div>
                                         {% else %}
-                                        <div class="w-10 h-10 md:w-11 md:h-11 rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] overflow-hidden flex-shrink-0"
+                                        <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] overflow-hidden"
                                              data-artist-image
                                              data-artist-name="{{ item.artist }}">
                                             <img alt=""
-                                                 class="unmatched-artist-image hidden h-full w-full object-cover"
+                                                 class="unmatched-artist-image hidden"
                                                  loading="lazy">
-                                            <span class="unmatched-artwork-fallback h-full w-full flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
+                                            <span class="unmatched-artwork-fallback flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
                                                 {{ item.album[:2]|upper }}
                                             </span>
                                         </div>

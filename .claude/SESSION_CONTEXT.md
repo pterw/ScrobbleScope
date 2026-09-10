@@ -13,7 +13,7 @@ Last updated: 2026-09-10
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** WP-7 is complete locally: backend contract `b3e3e96`, owner-authorized non-rewrite finding fix `ba5f9fe`, and the independently revertible UI commit. WP-8 is next. Task 6 timing follows the canonical remediation plan linked in PLAYBOOK Section 3. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
+| Batch 21 status | **Active.** WP-7 is complete locally: backend contract `b3e3e96`, owner-authorized non-rewrite finding fix `ba5f9fe`, UI rebuild `968eaa0`, and the approved Results-pattern cover-containment follow-up. The owner authorized publication to `origin/test` on 2026-09-10. WP-8 follows only on owner direction. Task 6 timing follows the canonical remediation plan linked in PLAYBOOK Section 3. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**

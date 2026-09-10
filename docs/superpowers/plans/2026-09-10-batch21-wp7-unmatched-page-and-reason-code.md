@@ -782,6 +782,17 @@ git commit -m "feat(ui): rebuild unmatched page on tailwind"
 The non-rewrite deviation fix committed as `ba5f9fe`; the UI commit completes
 this step.
 
+- [x] **Step 6: Review and commit post-commit cover containment**
+
+Owner review of UI commit `968eaa0` exposed album covers expanding to intrinsic
+table dimensions. The Tailwind theme declares no spacing steps 10 or 11, so the
+template's `w-10`/`h-10` and desktop step-11 utilities emitted no CSS. Follow
+the proven `results.css` pattern with explicit width, height, min/max bounds,
+square aspect ratio, and `object-fit: cover`; retain the design's 40px mobile /
+44px desktop list artwork and 4px radius. The populated-report browser check is
+the regression seam. The owner approved the remedy and authorized publication
+to `origin/test` on 2026-09-10.
+
 ---
 
 ## Plan Self-Review

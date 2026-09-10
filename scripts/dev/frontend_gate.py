@@ -2828,6 +2828,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 const page = document.querySelector('.unmatched-page');
                 const grid = node.parentElement;
                 const fixHint = node.querySelector('.unmatched-fix-hint');
+                const cover = rows[0]?.querySelector('img');
                 const root = getComputedStyle(document.documentElement);
                 const normalizeFont = value => value.replaceAll('"', '').replaceAll(' ', '');
                 return {
@@ -2845,6 +2846,8 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     groupColumnEnd: getComputedStyle(node).gridColumnEnd,
                     fixHint: fixHint?.textContent.trim(),
                     fixHintSize: getComputedStyle(fixHint).fontSize,
+                    coverWidth: getComputedStyle(cover).width,
+                    coverHeight: getComputedStyle(cover).height,
                     unsupportedWeights: [...node.querySelectorAll('*')]
                         .map(element => getComputedStyle(element).fontWeight)
                         .filter(weight => weight === '500' || weight === '600'),
@@ -2863,6 +2866,8 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
             "groupColumnEnd": "span 2",
             "fixHint": 'Choose "All years (no filter)" on a new search to include these releases.',
             "fixHintSize": "9px",
+            "coverWidth": "44px",
+            "coverHeight": "44px",
         }
         for claim, wanted in expected.items():
             if state[claim] != wanted:
