@@ -6,7 +6,6 @@ import pytest
 
 from scrobblescope.cache import _cleanup_stale_metadata
 from scrobblescope.orchestrator import (
-    _run_spotify_batch_detail_phase,
     _run_spotify_search_phase,
 )
 from scrobblescope.repositories import create_job

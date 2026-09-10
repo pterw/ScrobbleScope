@@ -190,7 +190,10 @@ def create_optimized_session():
         limit=40,  # Max total connections across all hosts
         limit_per_host=25,  # Max connections per host (Spotify/Last.fm)
         ttl_dns_cache=300,  # Cache DNS for 5 minutes
-        enable_cleanup_closed=True,
+        # enable_cleanup_closed was dropped: aiohttp 3.14 deprecates it on
+        # Python >= 3.13.3, where the CPython bug it worked around
+        # (python/cpython#118960) is fixed. The flag is ignored there, so
+        # passing it only produced a DeprecationWarning per session.
         force_close=False,  # Allow connection reuse
     )
 

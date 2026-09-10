@@ -1,0 +1,8 @@
+/* Fixture for cdnjs Bootstrap 5.1.3. The stylesheet-isolation check
+   reads link hrefs, not contents; the body-font check reads the
+   cascade where shell.css wins. One rule keeps the file valid CSS.
+
+   Only the generic framework CDN is served from a fixture. The Adobe
+   Fonts kit is licensed type -- it always loads from the real origin
+   (owner ruling 2026-09-07). See README.md in this directory. */
+.bootstrap-fixture { display: block; }

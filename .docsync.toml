@@ -28,6 +28,24 @@ strikethrough_exempt = true
 # Values
 # ----------------------------------------------------------------------
 
+[[value]]
+name = "the shared light page and navbar background"
+
+[[value.sites]]
+file = "static/css/tailwind.src.css"
+pattern = 'name: "light";[^}]*--color-base-100: (#[0-9a-f]{6});'
+expect = "#faf7f0"
+
+[[value.sites]]
+file = "static/css/shell.css"
+pattern = ':root \{[^}]*--shell-bg: (#[0-9a-f]{6});'
+expect = "#faf7f0"
+
+[[value.sites]]
+file = "static/css/global.css"
+pattern = ':root \{[^}]*--bg-color: (#[0-9a-f]{6});'
+expect = "#faf7f0"
+
 # Owner review raised the small-text floor and strengthened the light muted
 # token. These values straddle source CSS, the legacy shell bridge, and exact
 # tests, so a later one-sided edit would reintroduce the contrast drift.
@@ -60,12 +78,12 @@ name = "the index divider token, light value"
 [[value.sites]]
 file = "static/css/tailwind.src.css"
 pattern = 'name: "light";[^}]*--ss-border-divider: (#[0-9a-f]{6});'
-expect = "#858179"
+expect = "#8a867e"
 
 [[value.sites]]
 file = "tests/test_template_shell.py"
 pattern = '"--ss-border-divider": \("(#[0-9a-f]{6})"'
-expect = "#858179"
+expect = "#8a867e"
 
 [[value]]
 name = "the index divider token, dark value"
@@ -73,12 +91,12 @@ name = "the index divider token, dark value"
 [[value.sites]]
 file = "static/css/tailwind.src.css"
 pattern = 'name: "dark";[^}]*--ss-border-divider: (#[0-9a-f]{6});'
-expect = "#6e6a75"
+expect = "#68646f"
 
 [[value.sites]]
 file = "tests/test_template_shell.py"
 pattern = '"--ss-border-divider": \("#[0-9a-f]{6}", "(#[0-9a-f]{6})"'
-expect = "#6e6a75"
+expect = "#68646f"
 
 [[value]]
 name = "the 12px small-label floor"
@@ -109,6 +127,17 @@ expect = "0.75"
 #
 # The @media prefix matters. index.css also has ordinary max-width properties,
 # and those are widths, not breakpoints.
+#
+# TOML ARRAY-OF-TABLES SCOPING NOTICE (Discovered 2026-09-06, F-DOCSYNC-8):
+# On 2026-08-28 (commit 4dd1ac09), declarations for wide-desktop scale baseline
+# and cap were accidentally inserted into the middle of this table's sites.
+# Because TOML binds subsequent [[value.sites]] to the nearest preceding [[value]],
+# all breakpoint sites below that insertion (heatmap.css, shell.css, error.css,
+# heatmap.js, frontend_gate.py, README.md, AGENTS.md) were silently orphaned
+# into "the wide-desktop scale cap", leaving the breakpoint with only 2 sites
+# and misattributing any breakpoint failure to the scale cap.
+# Rule: NEVER interleave top-level [[value]] tables inside another declaration's
+# [[value.sites]]. Keep all sites of a declaration contiguous.
 [[value]]
 name = "the single 860px breakpoint"
 
@@ -120,6 +149,66 @@ expect = "859.98"
 [[value.sites]]
 file = "static/css/index.css"
 pattern = '@media \(min-width: ([\d.]+)px\) \{ [^}]*\.(?:index-page|index-hero|index-form) \{'
+expect = "860"
+
+[[value.sites]]
+file = "static/css/heatmap.css"
+pattern = '@media[^{]*max-width: ([\d.]+)px'
+expect = "859.98"
+
+[[value.sites]]
+file = "static/css/heatmap.css"
+pattern = '@media \(min-width: ([\d.]+)px\) \{ #heatmap-grid \{'
+expect = "860"
+
+[[value.sites]]
+file = "static/css/shell.css"
+pattern = '@media[^{]*max-width: ([\d.]+)px'
+expect = "859.98"
+
+[[value.sites]]
+file = "static/css/loading.css"
+pattern = '@media[^{]*max-width: ([\d.]+)px'
+expect = "859.98"
+
+[[value.sites]]
+file = "static/css/empty.css"
+pattern = '@media[^{]*max-width: ([\d.]+)px'
+expect = "859.98"
+
+[[value.sites]]
+file = "static/css/error.css"
+pattern = 'any-pointer: coarse\), \(max-width: ([\d.]+)px'
+expect = "859.98"
+
+[[value.sites]]
+file = "static/js/heatmap.js"
+pattern = 'MOBILE_MAX_WIDTH = (\d+)'
+expect = "860"
+
+[[value.sites]]
+file = "static/js/theme.js"
+pattern = 'max-width: ([\d.]+)px'
+expect = "859.98"
+
+[[value.sites]]
+file = "scripts/dev/frontend_gate.py"
+pattern = '''matchMedia\('[^']*max-width: ([\d.]+)px'''
+expect = "859.98"
+
+[[value.sites]]
+file = "docs/design/README.md"
+pattern = '(?:under |breakpoint at )(\d+)px'
+expect = "860"
+
+[[value.sites]]
+file = "AGENTS.md"
+pattern = 'query writes `([\d.]+)px`'
+expect = "859.98"
+
+[[value.sites]]
+file = "AGENTS.md"
+pattern = 'script writes `(\d+)`'
 expect = "860"
 
 # Large desktop scaling has a fixed baseline and cap, but is otherwise driven
@@ -150,62 +239,77 @@ name = "the wide-desktop scale cap"
 [[value.sites]]
 file = "static/css/index.css"
 pattern = '--index-scale-cap: ([\d.]+)'
-expect = "2.15"
+expect = "1.75"
 
 [[value.sites]]
 file = "BATCH21_DEFINITION.md"
 pattern = 'capped at `([\d.]+)`'
-expect = "2.15"
+expect = "1.75"
 
 [[value.sites]]
 file = "docs/design/RECONCILIATION.md"
 pattern = 'capped at `([\d.]+)`'
-expect = "2.15"
+expect = "1.75"
+
+# Owner review refined the wide form after the original Task 3 checkpoint.
+# The active definition and reconciliation must track the live CSS cap while
+# the plan retains its explicitly labelled 28rem historical instructions.
+[[value]]
+name = "the owner-refined index form base cap"
+
+[[value.sites]]
+file = "static/css/index.css"
+pattern = '\.index-form__inner\s*\{[^}]*max-width: calc\(([\d.]+)rem \* var\(--index-scale'
+expect = "27.5"
+
+[[value.sites]]
+file = "BATCH21_DEFINITION.md"
+pattern = 'owner-refined `([\d.]+)rem`\s+base cap'
+expect = "27.5"
+
+[[value.sites]]
+file = "docs/design/RECONCILIATION.md"
+pattern = 'owner-refined form base cap is `([\d.]+)rem`'
+expect = "27.5"
+
+# The wide Heatmap measure overrides the fixed design snapshot. Declare both
+# terms independently so an edit cannot alter the viewport share or ceiling
+# in only one of the source-of-truth files.
+[[value]]
+name = "the wide Heatmap viewport measure"
 
 [[value.sites]]
 file = "static/css/heatmap.css"
-pattern = '@media[^{]*max-width: ([\d.]+)px'
-expect = "859.98"
+pattern = 'max-width: min\(([\d.]+)vw, [\d.]+rem\)'
+expect = "84"
+
+[[value.sites]]
+file = "BATCH21_DEFINITION.md"
+pattern = 'centred result frame uses `([\d.]+)vw`'
+expect = "84"
+
+[[value.sites]]
+file = "docs/design/RECONCILIATION.md"
+pattern = 'centred stage uses `([\d.]+)vw`'
+expect = "84"
+
+[[value]]
+name = "the wide Heatmap measure ceiling"
 
 [[value.sites]]
 file = "static/css/heatmap.css"
-pattern = '@media \(min-width: ([\d.]+)px\) \{ #heatmap-grid \{'
-expect = "860"
+pattern = 'max-width: min\([\d.]+vw, ([\d.]+)rem\)'
+expect = "120"
 
 [[value.sites]]
-file = "static/css/shell.css"
-pattern = '@media[^{]*max-width: ([\d.]+)px'
-expect = "859.98"
+file = "BATCH21_DEFINITION.md"
+pattern = 'capped at `([\d.]+)rem`'
+expect = "120"
 
 [[value.sites]]
-file = "static/css/error.css"
-pattern = 'any-pointer: coarse\), \(max-width: ([\d.]+)px'
-expect = "859.98"
-
-[[value.sites]]
-file = "static/js/heatmap.js"
-pattern = 'MOBILE_MAX_WIDTH = (\d+)'
-expect = "860"
-
-[[value.sites]]
-file = "scripts/dev/frontend_gate.py"
-pattern = '''matchMedia\('[^']*max-width: ([\d.]+)px'''
-expect = "859.98"
-
-[[value.sites]]
-file = "docs/design/README.md"
-pattern = '(?:under |breakpoint at )(\d+)px'
-expect = "860"
-
-[[value.sites]]
-file = "AGENTS.md"
-pattern = 'query writes `([\d.]+)px`'
-expect = "859.98"
-
-[[value.sites]]
-file = "AGENTS.md"
-pattern = 'script writes `(\d+)`'
-expect = "860"
+file = "docs/design/RECONCILIATION.md"
+pattern = 'capped at `([\d.]+)rem`'
+expect = "120"
 
 # The touch minimum is stated as a number in the gate and as a length in the
 # stylesheets. 2.75rem is 44px at a 16px root; the units rule in AGENTS.md
@@ -261,6 +365,7 @@ name = "the Adobe Fonts kit id"
 [[value.sites]]
 file = "templates/base.html"
 pattern = 'use\.typekit\.net/(\w+)\.css'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/README.md"
@@ -275,14 +380,17 @@ expect = "rwy8ghw"
 [[value.sites]]
 file = "BATCH21_DEFINITION.md"
 pattern = 'Kit `(\w+)`'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = ".claude/SESSION_CONTEXT.md"
 pattern = 'Adobe Fonts kit `(\w+)`'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/RECONCILIATION.md"
 pattern = '`(\w+)` is adopted'
+expect = "rwy8ghw"
 
 [[value.sites]]
 file = "docs/design/reference/design-system-readme.md"
@@ -326,52 +434,64 @@ name = "the heatmap window length"
 [[value.sites]]
 file = "scrobblescope/heatmap.py"
 pattern = 'HEATMAP_WINDOW_DAYS = (\d+)'
+expect = "365"
 
 [[value.sites]]
 file = "scrobblescope/heatmap.py"
 pattern = '(?:last |the )(\d+)(?: days|-day window)'
+expect = "365"
 
 [[value.sites]]
 file = "scrobblescope/errors.py"
 pattern = 'last (\d+) days'
+expect = "365"
 
 [[value.sites]]
 file = "static/js/heatmap.js"
 pattern = 'WINDOW_DAYS = (\d+)'
+expect = "365"
 
 # The caption burned into the exported JPEG. Upper case, so it matches the
 # export and not prose comments in the same file that mention the window.
 [[value.sites]]
 file = "static/js/heatmap.js"
 pattern = 'LAST (\d+) DAYS'
+expect = "365"
 
 [[value.sites]]
 file = "static/js/heatmap.js"
 pattern = 'whole (\d+)-day window'
+expect = "365"
 
 [[value.sites]]
 file = "templates/index.html"
 pattern = 'last (\d+) days'
+expect = "365"
 
 [[value.sites]]
 file = "templates/partials/_heatmap_form.html"
 pattern = 'last (\d+) days'
+expect = "365"
 
 [[value.sites]]
 file = "templates/partials/_heatmap_result.html"
 pattern = '(?:window is |Last )(\d+) days'
+expect = "365"
 
 [[value.sites]]
 file = "README.md"
 pattern = 'last (\d+) days'
+expect = "365"
 
 [[value.sites]]
 file = "AGENT_NOTES.md"
 pattern = 'last (\d+) days'
+expect = "365"
 
 [[value.sites]]
 file = "docs/architecture/heatmap-sequence.md"
 pattern = 'last (\d+) days'
+expect = "365"
 
 [[value.sites]]
 file = "docs/design/README.md"

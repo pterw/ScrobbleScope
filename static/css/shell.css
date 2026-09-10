@@ -13,7 +13,8 @@
 /* Tokens. Keyed on data-theme, which sits on <html> on every page.     */
 /* ------------------------------------------------------------------ */
 :root {
-    --shell-bg: #faf8f3;
+    color-scheme: light;
+    --shell-bg: #faf7f0;
     --shell-surface: #f0ebe0;
     --shell-ink: #1a1820;
     --shell-muted: #6c6676;
@@ -33,6 +34,7 @@
 }
 
 :root[data-theme="dark"] {
+    color-scheme: dark;
     --shell-bg: #0e0c12;
     --shell-surface: #181520;
     --shell-ink: #f1ede4;
@@ -43,16 +45,40 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* The bar itself                                                      */
+/* Graceful page-load fade-in, starting with the first styled paint.   */
 /* ------------------------------------------------------------------ */
 
-/* Fixed, so the wordmark holds the same vertical position on every screen
-   and does not jump as the user moves between them. */
+/* Do not wait for DOMContentLoaded: a slow deferred script would let the
+   content paint at full opacity before restarting it from zero. CSS owns
+   arrival, including without JavaScript; the header does not fade. */
+@keyframes ss-page-enter {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes ss-page-exit {
+    to { opacity: 0; }
+}
+
+body > main,
+body > .container {
+    animation: ss-page-enter 220ms ease-out both;
+}
+
+body.is-leaving > main,
+body.is-leaving > .container {
+    animation: ss-page-exit 140ms ease-in both;
+    pointer-events: none;
+}
+
+/* The header belongs to the document and scrolls away with it. Its own
+   height reserves the space; a body offset would count that space twice. */
+body {
+    padding-top: 0;
+}
+
 .site-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    position: relative;
     z-index: 1030;
     display: flex;
     align-items: center;
@@ -61,19 +87,26 @@
     height: var(--shell-height);
     padding: 0 1.5rem;
     background-color: var(--shell-bg);
-    border-bottom: 1px solid var(--shell-border);
+    border-bottom: 1px solid var(--ss-border-default, #e5dfd1);
     transition: background-color 0.3s ease, border-color 0.3s ease;
+    /* The bar is one row at every width (owner ruling 2026-09-09: the header
+       never newlines). nowrap is the default, but it is stated because the
+       mobile block below sets a two-value `gap` whose row component would
+       otherwise imply wrapping was intended. min-width: 0 on the children is
+       what lets them actually shrink; without it a flex item refuses to go
+       below its content width and pushes the row wider than the bar. */
+    flex-wrap: nowrap;
 }
 
-/* The bar is fixed and therefore out of flow. Without this every page would
-   start underneath it.
+.site-header > * {
+    min-width: 0;
+}
 
-   The font-family sits here rather than in tailwind.src.css because every
-   page loads this file, migrated or not. Set only on tailwind.src.css it
-   would reach the one migrated page and leave the other four rendering the
-   Bootstrap system stack after downloading the kit. */
+:root[data-theme="dark"] .site-header {
+    border-bottom-color: var(--ss-border-default, #2a2434);
+}
+
 body {
-    padding-top: var(--shell-height);
     font-family: var(--shell-font-sans);
 }
 
@@ -90,8 +123,27 @@ body {
 .site-header__mark {
     display: block;
     /* The lockup is about 6.1:1, so 40px tall lands near 245px wide and
-       leaves breathing room inside a 68px bar at the default root size. */
-    height: 2.5rem;
+       leaves breathing room inside a 68px bar at the default root size.
+
+       Between the 860px breakpoint and about 965px the bar could not fit its
+       three children: a 245px lockup, a 489px nav at its min-width floor and
+       a 159px theme control need 965px including gaps and padding, so the
+       content overflowed for that whole 105px band. The lockup is the part
+       with slack -- the nav links are touch targets and the toggle is a ruled
+       control -- so it scales down with the viewport there and returns to its
+       ruled 2.5rem once the bar is wide enough to hold everything. Height
+       drives width through the fixed aspect ratio, so one clamp is enough.
+
+       Keep the upper bound at 2.5rem: the gate's header-geometry curve reads
+       the ruled bar, nav and toggle sizes at 1920px and 2560px, and this must
+       not introduce a second scale up there. */
+    height: clamp(1.75rem, 3.9vw, 2.5rem);
+}
+
+@media (min-width: 60.3125rem) {
+    .site-header__mark {
+        height: 2.5rem;
+    }
 }
 
 .site-header__mark svg {
@@ -142,33 +194,62 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    /* The 5.75rem floor is load-bearing above the breakpoint: at 1920px the
+       4.53vw term is only 87px, so the ruled 92px the gate asserts comes from
+       this floor, not the curve. It must not be lowered globally -- doing so
+       measured 88.4px at 1080p and would fail _header_geometry_failures. The
+       narrow-band relief is scoped to that band instead, below. */
     min-width: clamp(5.75rem, 4.53vw, 7.25rem);
     min-height: clamp(2.75rem, 1.875vw, 3.5rem);
     padding: 0 1.25rem;
-    border: 1px solid var(--shell-border);
+    border: 1px solid transparent;
     border-radius: 0.625rem;
     color: var(--shell-muted);
     font-family: var(--shell-font-mono-narrow);
-    font-size: 0.75rem;
+    font-size: clamp(0.9375rem, 0.75vw + 0.5rem, 1.0625rem);
     font-weight: 400;
     line-height: 1;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     text-decoration: none;
     text-transform: uppercase;
     white-space: nowrap;
+    position: relative;
     transition: color 160ms ease, border-color 160ms ease,
         background-color 160ms ease;
 }
 
 .site-header__nav-link:hover {
     color: var(--shell-ink);
-    border-color: var(--shell-accent);
+    background-color: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] .site-header__nav-link {
+    color: rgba(241, 237, 228, 0.72);
+}
+
+:root[data-theme="dark"] .site-header__nav-link:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.14);
 }
 
 .site-header__nav-link.active {
-    color: var(--shell-accent-ink);
-    border-color: var(--shell-accent);
+    color: var(--shell-ink);
+    border-color: transparent;
+    background-color: transparent;
+    position: relative;
+}
+
+.site-header__nav-link.active::after {
+    content: "";
+    position: absolute;
+    bottom: 0.375rem;
+    left: 1.25rem;
+    right: 1.25rem;
+    height: 2px;
     background-color: var(--shell-accent);
+    border-radius: 1px;
 }
 
 .site-header__nav-link:focus-visible {
@@ -181,7 +262,7 @@ body {
    The asset used to carry SMIL <animate> elements with repeatCount
    indefinite. CSS cannot pause SMIL, so prefers-reduced-motion did not
    reach it, and WP-2 made that far worse by moving the mark into a fixed
-   header that is on every page and never scrolls away. The SMIL is stripped
+   header that is on every page. The SMIL is stripped
    and the motion is CSS, which is the route
    docs/design/README.md "Wordmark animation" specifies. F-B21-5 still
    covers the pinwheel and the index hero wordmark.
@@ -208,6 +289,7 @@ body {
    on the bar baseline. It is geometry, not motion. Never animate that group
    and never move these rules up to cover it. */
 @keyframes ss-bar-pulse {
+
     0%,
     100% {
         transform: scaleY(1);
@@ -402,11 +484,16 @@ body {
     flex: none;
 }
 
+.site-theme-mobile-slot {
+    display: none;
+}
+
 /* Visually hidden, never display:none -- the input stays in the accessibility
    tree and stays keyboard reachable, and the label drives it natively.
-   Scoped as .site-header #darkSwitch so it outranks the plain #darkSwitch
-   slider rules global.css still serves to unmigrated pages. */
-.site-header #darkSwitch {
+   Scoped through the actions wrapper so it outranks the plain #darkSwitch
+   slider rules global.css still serves to unmigrated pages, including after
+   the wrapper moves below page content on mobile. */
+.site-header__actions #darkSwitch {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -426,20 +513,30 @@ body {
 .site-header__theme-toggle {
     display: inline-flex;
     align-items: center;
+    /* 0.2rem x2 padding + 1px x2 border = the 8.4px chrome the frontend
+       gate's toggle-height curve adds to the theme-choice clamp. Changing
+       the padding moves the ruled curve and fails the gate. */
     padding: 0.2rem;
-    border: 1px solid var(--shell-border);
+    border: 1px solid var(--ss-border-default, #e5dfd1);
     border-radius: 999px;
     background-color: var(--shell-surface);
     color: var(--shell-muted);
     font-family: var(--shell-font-mono-narrow);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     line-height: 1;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     min-height: clamp(2.75rem, 1.875vw, 3.5rem);
     margin: 0;
     cursor: pointer;
     user-select: none;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme="dark"] .site-header__theme-toggle {
+    border-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(255, 255, 255, 0.04);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .site-header__theme-choice {
@@ -447,32 +544,81 @@ body {
     align-items: center;
     justify-content: center;
     min-height: clamp(2.25rem, 1.5625vw, 2.5rem);
-    padding: 0 0.8rem;
+    /* The inline padding scales so the pair of pills can give width back in the
+       narrow desktop band; a fixed 0.95rem each side made the toggle a rigid
+       159px and pushed the row past the bar. The vertical value stays 0 -- the
+       ruled chrome the gate measures is min-height plus the toggle's own
+       0.2rem padding and 1px border, and adding block padding here would move
+       that curve. */
+    padding: 0 clamp(0.55rem, 0.9vw, 0.95rem);
     border-radius: 999px;
-    transition: color 160ms ease, background-color 160ms ease;
-}
-
-.site-header__theme-choice--light {
-    color: var(--shell-accent-ink);
-    background-color: var(--shell-accent);
-}
-
-.site-header #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--light {
     color: var(--shell-muted);
     background-color: transparent;
+    border: 1px solid transparent;
+    /* One line, always: the label is two short words and wrapping one of them
+       is what made the pill outgrow its bounds. */
+    white-space: nowrap;
+    transition: color 160ms ease, background-color 160ms ease,
+        border-color 160ms ease, box-shadow 160ms ease;
+    cursor: pointer;
 }
 
-.site-header
-    #darkSwitch:checked
-    + .site-header__theme-toggle
-    .site-header__theme-choice--dark {
-    color: var(--shell-accent-ink);
-    background-color: var(--shell-accent);
+/* Light choice active in Light mode: an elevated paper pill. Never pure
+   white -- the same paper-cream the card token moved to (owner ruling
+   2026-09-07: no #fff anywhere a surface is meant to read warm). The
+   stronger shadow keeps the elevation cue without the harshness. */
+.site-header__theme-choice--light {
+    color: var(--shell-ink, #1a1820);
+    background-color: var(--shell-surface);
+    border-color: rgba(0, 0, 0, 0.14);
+    box-shadow: 0 1px 3px rgba(26, 24, 32, 0.12);
+    font-weight: 500;
+}
+
+/* Inactive Dark choice in Light mode: hover state */
+.site-header__theme-choice--dark:hover,
+.site-header__actions #darkSwitch:not(:checked) + .site-header__theme-toggle .site-header__theme-choice--dark:hover {
+    color: var(--shell-ink, #1a1820);
+    background-color: rgba(0, 0, 0, 0.06);
+}
+
+/* In Dark mode, Light choice becomes inactive */
+:root[data-theme="dark"] .site-header__theme-choice--light,
+.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--light {
+    color: rgba(241, 237, 228, 0.65);
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    font-weight: 400;
+}
+
+/* Hover on inactive Light choice in Dark mode: clear luminous feedback */
+:root[data-theme="dark"] .site-header__theme-choice--light:hover,
+.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--light:hover {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* Dark choice active in Dark mode: refined luminous neutral pill */
+:root[data-theme="dark"] .site-header__theme-choice--dark,
+.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--dark {
+    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+    font-weight: 500;
+}
+
+/* Hover on active Dark choice in Dark mode */
+:root[data-theme="dark"] .site-header__theme-choice--dark:hover,
+.site-header__actions #darkSwitch:checked + .site-header__theme-toggle .site-header__theme-choice--dark:hover {
+    background-color: rgba(255, 255, 255, 0.18);
 }
 
 /* The input is visually hidden, so its focus ring would be invisible. Move
    the ring onto the label the user can actually see. */
-.site-header #darkSwitch:focus-visible + .site-header__theme-toggle {
+.site-header__actions #darkSwitch:focus-visible + .site-header__theme-toggle {
     outline: 2px solid var(--shell-accent);
     outline-offset: 2px;
 }
@@ -481,14 +627,7 @@ body {
 /* Page footer extras                                                  */
 /* ------------------------------------------------------------------ */
 
-/* WP-2 moved the theme toggle into the header and removed the
-   .page-footer-bar wrapper with it, but results.html still fills
-   page_footer_extra with its back-to-top control. That left the control
-   bare: left-aligned, unpadded, no entrance.
-
-   The rules live here rather than in global.css because that file only
-   reaches unmigrated pages, and results.html moves in WP-5. Same reason the
-   fade is redefined instead of reusing global.css's fadeInCard. */
+/* Optional page extras share one framework-neutral wrapper. */
 .page-footer-extras {
     display: flex;
     justify-content: center;
@@ -520,12 +659,12 @@ body {
    heatmap.css, so both sides never apply at the boundary. Found by DOC009. */
 @media (max-width: 859.98px) {
     :root {
-        --shell-height: 3.75rem;
+        --shell-height: 4.25rem;
     }
 
     .site-header {
-        gap: 0.75rem;
-        padding: 0 1rem;
+        gap: 0.25rem 0.75rem;
+        padding: 0 0.5rem;
     }
 
     .site-header__home {
@@ -536,38 +675,59 @@ body {
         margin-left: 0;
     }
 
+    .site-header > .site-header__actions {
+        display: none;
+    }
+
+    .site-theme-mobile-slot {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem 1rem 1.5rem;
+    }
+
     .site-header__theme-toggle {
         min-height: 2.75rem;
+        padding: 0.15rem;
+        font-size: 0.6875rem;
     }
 
     .site-header__theme-choice {
         min-height: 2rem;
-        padding: 0 0.65rem;
+        padding: 0 0.3rem;
     }
 
     .site-header__nav {
         flex: 1 1 0;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         min-width: 0;
-        gap: 0.3rem;
+        gap: 0.25rem;
         margin: 0;
-        overflow-x: auto;
-        scrollbar-width: none;
-    }
-
-    .site-header__nav::-webkit-scrollbar {
-        display: none;
+        overflow: visible;
     }
 
     .site-header__nav-link {
-        min-width: auto;
+        width: 100%;
+        min-width: 0;
         min-height: 2.75rem;
-        padding: 0 0.8rem;
-        font-size: 0.6875rem;
+        padding: 0 0.2rem;
+        font-size: 0.625rem;
+        letter-spacing: 0.05em;
     }
 
 }
 
 @media (prefers-reduced-motion: reduce) {
+
+    body > main,
+    body > .container,
+    body.is-leaving > main,
+    body.is-leaving > .container {
+        animation: none;
+        opacity: 1;
+    }
+
     .site-header,
     .site-header__nav-link,
     .site-header__theme-choice {

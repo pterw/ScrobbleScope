@@ -1,15 +1,15 @@
 /* unmatched.css -- page-specific styles for the unmatched report (unmatched.html).
    Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
 
-/* Page-specific custom properties */
+/* Page-specific custom properties.
+   --info-bg used to be duplicated here; global.css owns it now, derived
+   from the brand tokens. Only the report-header color stays local. */
 :root {
-    --info-bg: rgba(106, 75, 175, 0.1);
     --header-bg: #6a4baf;
 }
 
 .dark-mode {
-    --info-bg: rgba(147, 112, 219, 0.1);
-    --header-bg: #9370DB;
+    --header-bg: #9370db;
 }
 
 body {
@@ -27,23 +27,23 @@ body {
 }
 
 .dark-mode .table-striped > tbody > tr:nth-of-type(odd) {
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: rgba(255, 255, 255, 0.04);
     color: var(--text-color);
 }
 
 .dark-mode .table-striped > tbody > tr:nth-of-type(even) {
-    background-color: rgba(30, 30, 30, 0.7);
+    background-color: transparent;
     color: var(--text-color);
 }
 
 .dark-mode .table-hover > tbody > tr:hover {
-    background-color: rgba(147, 112, 219, 0.2);
+    background-color: rgba(var(--bars-color-rgb), 0.2);
     color: var(--text-color);
 }
 
 .dark-mode .alert-info {
     background-color: var(--info-bg);
-    border-color: rgba(147, 112, 219, 0.2);
+    border-color: rgba(var(--bars-color-rgb), 0.2);
     color: var(--text-color);
 }
 
@@ -62,27 +62,30 @@ body {
 .reason-section {
     margin-bottom: 2rem;
     border-radius: 8px;
+    border: 1px solid var(--border-color);
     overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.dark-mode .reason-section {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 .reason-header {
     background-color: var(--header-bg);
     color: white;
     padding: 0.75rem 1rem;
-    font-weight: 500;
+    font-family: var(--font-mono-narrow);
+    /* 400, not the old 500: the kit has no 500 and the browser would
+       synthesize it. */
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 
 .reason-count {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 20px;
-    padding: 0.1rem 0.75rem;
+    background-color: color-mix(in srgb, currentColor 20%, transparent);
+    border-radius: 999px;
+    padding: 0.125rem 0.5rem;
     margin-left: 0.5rem;
-    font-size: 0.9rem;
+    font-size: 0.75rem;
+    font-family: var(--font-mono-narrow);
+    letter-spacing: 0.05em;
 }
 
 @keyframes fadeIn {
@@ -106,23 +109,23 @@ body {
     position: sticky;
     top: 1rem;
     z-index: 100;
-    background-color: rgba(248, 249, 250, 0.9);
+    /* The page colour at 90% so scrolled content blurs through it.
+       Theme-reactive via var(--bg-color): tracks the warm index palette
+       in both themes instead of a hardcoded cool grey. */
+    background-color: color-mix(in srgb, var(--bg-color) 90%, transparent);
     border-radius: 8px;
+    border: 1px solid var(--border-color);
     padding: 1rem;
     margin-bottom: 1.5rem;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     text-align: center;
     backdrop-filter: blur(5px);
 }
 
-.dark-mode .action-buttons {
-    background-color: rgba(30, 30, 30, 0.9);
-}
-
 .info-card {
     background-color: var(--info-bg);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 20px;
+    padding: 1.25rem;
     margin-bottom: 1.5rem;
     transition: background-color 0.3s ease, color 0.3s ease;
 }
@@ -134,7 +137,7 @@ body {
 /* Fix for table header in dark mode */
 .dark-mode .table thead th {
     background-color: var(--surface-elevated) !important;
-    color: white !important;
+    color: var(--text-color) !important;
     border-color: var(--border-color);
 }
 
@@ -143,3 +146,10 @@ body {
 .dark-mode .table tbody th {
     color: var(--text-color) !important;
 }
+
+/* Prevent long unbroken artist/album titles from blowing out table widths */
+.table td,
+.table th {
+    overflow-wrap: break-word;
+}
+

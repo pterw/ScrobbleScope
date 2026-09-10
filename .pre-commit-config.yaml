@@ -2,29 +2,18 @@ default_stages: [pre-commit]
 exclude: ^(venv|\.venv|env|\.env|node_modules|dist|build|\.vscode|docs|logs|oldlogs|static|templates)/
 
 repos:
-  - repo: https://github.com/psf/black
-    rev: 24.3.0
+  # Ruff replaces black + isort + autoflake + flake8: one binary, one config
+  # block in pyproject.toml, same enforcement surface. ruff-check reports
+  # (pycodestyle, pyflakes, isort, pyupgrade, bugbear); ruff-format applies
+  # the black-equivalent formatting. The mapping of every preserved rule is
+  # recorded in pyproject.toml [tool.ruff.lint].
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.6
     hooks:
-      - id: black
+      - id: ruff-check
+        args: [--fix]
         files: ^.*\.py$
-
-  - repo: https://github.com/pycqa/isort
-    rev: 6.0.1
-    hooks:
-      - id: isort
-        files: ^.*\.py$
-
-  - repo: https://github.com/PyCQA/autoflake
-    rev: v2.2.1
-    hooks:
-      - id: autoflake
-        files: ^.*\.py$
-        args: [--remove-unused-variables, --remove-all-unused-imports]
-
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.3.0
-    hooks:
-      - id: flake8
+      - id: ruff-format
         files: ^.*\.py$
 
   - repo: https://github.com/pre-commit/pre-commit-hooks

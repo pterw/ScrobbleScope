@@ -17,15 +17,31 @@
    grid is about 880px wide and cannot fit the 380px form column, so
    static/js/heatmap.js hides #index-grid while either of these is on screen.
 
-   Unlike the index the heatmap is capped and centred, at the README's
-   1100px. The padding is the page gutter, and the top of it is what keeps
-   the headline off the header bar. */
+   The padding is the page gutter, and the top of it is what keeps the
+   headline off the header bar. The desktop cap below supersedes the
+   snapshot's undersized 1100px result while retaining a centred measure. */
 .heatmap-stage {
   width: 100%;
   max-width: 73rem;
   box-sizing: border-box;
   margin: 0 auto;
   padding: 2.5rem 2.125rem 3.5rem;
+}
+
+/* Keep the outgoing loader and incoming result in the same slot until the
+   crossfade completes, rather than stacking them and jumping upward. */
+.index-page:has(.is-handing-off) {
+  display: grid;
+}
+
+.index-page:has(.is-handing-off) > .heatmap-stage {
+  grid-area: 1 / 1;
+}
+
+@media (min-width: 860px) {
+  .heatmap-stage {
+    max-width: min(84vw, 120rem);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -110,6 +126,7 @@
 }
 
 .wait-panel__error-message {
+  font-family: var(--font-mono-narrow);
   margin-bottom: 0.75rem;
   color: var(--ss-bad);
   font-size: var(--text-body-sm);
@@ -125,8 +142,7 @@
 /* ------------------------------------------------------------------ */
 /* Hairline button                                                     */
 /* ------------------------------------------------------------------ */
-/* Peers in a hairline treatment, never a solid fill: a solid brand fill on
-   one of several equal actions reads as an unearned hierarchy. The name is
+/* Peer actions share the same quiet control surface. The name is
    ours, not daisyUI's .btn, because templates/partials/_loading.html has to
    render on a Bootstrap page too and both frameworks claim .btn. */
 .ss-btn {
@@ -137,7 +153,7 @@
   padding: 0 1rem;
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
-  background-color: transparent;
+  background-color: var(--ss-surface-card);
   color: var(--color-base-content);
   font-family: var(--font-sans);
   font-size: var(--text-body-sm);
@@ -145,10 +161,11 @@
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
-  transition: color 0.2s ease, border-color 0.2s ease;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .ss-btn:hover {
+  background-color: var(--ss-surface-sunken);
   border-color: var(--color-primary);
   color: var(--color-primary);
 }
@@ -167,27 +184,42 @@
   margin-top: 0.75rem;
   padding: 0.75rem 0.875rem;
   border: 1px solid var(--ss-border-default);
-  border-radius: var(--radius-md);
-  background-color: var(--ss-surface-sunken);
+  border-radius: var(--radius-lg);
+  background-color: var(--ss-surface-card);
+  box-shadow: var(--ss-shadow-card, none);
 }
 
 .hm-preview__key {
   display: block;
-  margin-bottom: 0.375rem;
-  font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ss-text-muted);
+  margin-bottom: 0.25rem;
+  font-family: var(--font-sans);
+  /* Sentence case — not a label, more of a heading sentence. */
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.04em;
+  color: var(--ss-text-body);
+}
+
+.hm-preview__arrow {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1.4em;
+  /* Body colour — not purple. Arrow is a structural signal, not emphasis. */
+  color: var(--ss-text-body);
+  line-height: 1;
 }
 
 .hm-preview__list {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--text-label);
-  line-height: 1.6;
-  color: var(--ss-text-body);
+  font-size: var(--text-body-sm);
+  line-height: 1.8;
+  /* Between body and muted (owner ruling 2026-09-07): the bullets are
+     supporting detail, quieter than the key line above them, but the old
+     full-strength body colour competed with it. Token-derived so both
+     themes follow automatically. */
+  color: color-mix(in srgb, var(--ss-text-body) 55%, var(--ss-text-muted));
 }
 
 .hm-preview__ramp {
@@ -200,12 +232,17 @@
      would give the preview and the legend separate copies to drift apart. */
 }
 
+/* At 1920px+ the form card scales up; the preview panel joins it so
+   text proportions feel consistent across all wide breakpoints. */
+@media (min-width: 1920px) {
+  .hm-preview__key  { font-size: calc(var(--text-body-sm) * 1.15); }
+  .hm-preview__list { font-size: calc(var(--text-body-sm) * 1.15); }
+}
+
 /* ------------------------------------------------------------------ */
 /* Result head: eyebrow, headline, actions                             */
 /* ------------------------------------------------------------------ */
-/* The actions sit beside the title rather than under the frame. They are
-   hairline peers: a solid fill on one of two equal actions would read as an
-   unearned hierarchy. */
+/* Match the Results toolbar's typography and primary search action. */
 .heatmap-head {
   display: flex;
   align-items: flex-end;
@@ -214,74 +251,15 @@
   margin-bottom: 1.25rem;
 }
 
-/* Heatmap loading carries the same hierarchy as the album loader: live
-   measurements, the request being processed, and a quiet escape route. */
-.heatmap-loading__detail {
-  min-height: 1.5rem;
-  margin: 0.5rem 0 0;
-  text-align: center;
-  color: var(--ss-text-body);
-  font-size: var(--text-body-sm);
-}
-
-.heatmap-loading__stats {
-  display: flex;
-  justify-content: center;
-  align-items: stretch;
-  flex-wrap: wrap;
-  max-width: 54rem;
-  margin: 2.75rem auto 0;
-  border-top: 1px solid var(--ss-border-default);
-  border-bottom: 1px solid var(--ss-border-default);
-}
-
-.heatmap-loading__stats.hidden {
-  display: none;
-}
-
-.heatmap-loading__stat {
-  flex: 1 1 0;
-  max-width: 18rem;
-  min-width: 0;
-  padding: 1rem 0.75rem;
-  text-align: center;
-  animation: wait-fade-in 200ms ease-out;
-}
-
-.heatmap-loading__stat.hidden {
-  display: none;
-}
-
-.heatmap-loading__stat:not(.hidden) ~ .heatmap-loading__stat:not(.hidden) {
-  border-left: 1px solid var(--ss-border-default);
-}
-
-.heatmap-loading__stat-label {
-  display: block;
-  margin-bottom: 0.35rem;
-  font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ss-text-muted);
-}
-
-.heatmap-loading__stat-value {
-  display: block;
-  font-family: var(--font-figure);
-  font-size: 1.375rem;
-  font-weight: var(--font-weight-normal);
-  color: var(--color-base-content);
-}
-
+/* Request context remains below the phase; no duplicate counter rail. */
 .heatmap-loading__params {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.5rem 1.25rem;
+  gap: 0.5rem;
   max-width: 54rem;
-  margin: 2rem auto 0;
-  padding: 1.25rem 0 0;
+  margin: 1rem auto 0;
+  padding: 0.25rem 0 0;
   border-top: 1px dashed var(--ss-border-default);
   list-style: none;
 }
@@ -317,34 +295,52 @@
 
 .heatmap-head__titles .eyebrow {
   margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  letter-spacing: 0.06em;
 }
 
 .heatmap-head__actions {
   display: flex;
   flex-shrink: 0;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.heatmap-head__actions .ss-btn {
+  font-family: var(--font-mono-narrow);
+  font-size: 0.875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.875rem;
+}
+
+.heatmap-head__actions .ss-btn--primary {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-content);
+}
+
+.heatmap-head__actions .ss-btn--primary:hover {
+  background-color: color-mix(in srgb, var(--color-primary) 90%, var(--color-base-content));
 }
 
 .heatmap-headline {
+  margin-top: 0;
   margin-bottom: 0;
   font-family: var(--font-serif);
-  font-size: clamp(1.375rem, 4vw, 1.875rem);
+  font-size: clamp(1.625rem, 3.75vw, 3rem);
   font-weight: var(--font-weight-normal);
   line-height: 1.15;
   color: var(--color-base-content);
   overflow-wrap: anywhere;
 }
 
-/* The accent is only ever the reader's own data -- their username. */
-.heatmap-headline-username {
-  color: var(--color-primary);
-  font-style: italic;
-}
-
 /* ------------------------------------------------------------------ */
 /* Result frame                                                        */
 /* ------------------------------------------------------------------ */
-/* The warm ground the whole palette came from. Edge, not elevation. */
+/* The sunken ground in light mode; the dark card tone at night. */
 .heatmap-frame {
   width: 100%;
   box-sizing: border-box;
@@ -389,8 +385,8 @@
    at 700. The kit ships no 500 or 600 either, so 400 is the weight. */
 .heatmap-kpi-value {
   font-family: var(--font-figure);
-  font-size: var(--text-display);
   font-weight: var(--font-weight-normal);
+  font-size: var(--text-display);
   line-height: 1.1;
   color: var(--color-base-content);
 }
@@ -447,9 +443,9 @@
 }
 
 .heatmap-legend__cap {
-  font-family: var(--font-mono-narrow);
-  font-size: var(--text-label-sm);
-  letter-spacing: 0.12em;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--ss-text-muted);
 }
@@ -494,7 +490,7 @@
 /* Fade transitions for state changes                                  */
 /* ------------------------------------------------------------------ */
 .heatmap-fade {
-  transition: opacity 0.3s ease;
+  transition: opacity var(--index-fade-duration) ease-out;
 }
 
 .heatmap-fade.fading-out {
@@ -581,8 +577,7 @@
 @media (prefers-reduced-motion: reduce) {
   .wait-panel__mark,
   .wait-panel__progress,
-  .wait-panel__phase,
-  .heatmap-loading__stat {
+  .wait-panel__phase {
     animation: none;
     opacity: 1;
   }

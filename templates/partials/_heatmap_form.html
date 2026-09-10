@@ -23,25 +23,25 @@
       <div class="field__control">
         <input type="text" id="heatmap-username" name="username" class="ss-input"
                placeholder="your last.fm handle" autocomplete="username"
-               autocapitalize="none" spellcheck="false" required>
+               autocapitalize="none" spellcheck="false" maxlength="100" required>
       </div>
     </div>
 
     <p class="ss-card__note">Your listening heatmap covers the last 365 days.</p>
 
-    <button type="submit" class="ss-submit">
+    <button type="submit" id="heatmap-submit-btn" class="ss-submit">
       Generate heatmap<span class="ss-submit__trail" aria-hidden="true">&#8594;</span>
     </button>
   </form>
 
-  {# Replaces the album mode filter tags. Says what the run produces, then
-     shows the ramp it will be drawn on. #}
+  <!-- Replaces the album mode filter tags. Says what the run produces, then
+     shows the ramp it will be drawn on. -->
   <div class="hm-preview">
-    <span class="hm-preview__key">Your last 365 days</span>
+    <span class="hm-preview__key">Your last 365 days, mapped day by day <span class="hm-preview__arrow" aria-hidden="true">↓</span></span>
     <ul class="hm-preview__list">
-      <li>Daily scrobbles on the rocket scale</li>
-      <li>Total scrobbles and daily average</li>
-      <li>Your best day and current streak</li>
+      <li>Scrobbles per day on a 7x52 grid -- darker means more</li>
+      <li>Total plays, daily average, and your longest streak</li>
+      <li>Your best listening day, highlighted</li>
     </ul>
     <span class="hm-preview__ramp" aria-hidden="true"></span>
   </div>

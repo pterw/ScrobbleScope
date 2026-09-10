@@ -142,4 +142,4 @@ def test_a_branch_value_cannot_repaint_the_diagnostic_line(forged):
 def test_the_repository_playbook_parses():
     """The live document must never be one ordinary edit from blocking work."""
     playbook = (REPOSITORY_ROOT / "PLAYBOOK.md").read_text(encoding="utf-8")
-    assert parse_batch_branch(playbook).expected_branch == "wip/batch-21"
+    assert parse_batch_branch(playbook).expected_branch == "test"

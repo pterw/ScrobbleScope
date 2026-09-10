@@ -512,8 +512,9 @@ geometry, add adversarial coverage for the boundary helpers, reduce the flagged
 orchestrator complexity, and reconcile live status documents. The remediation
 passed 881 tests and the complete frontend gate (22 checks, 62 runs, Chromium
 and Firefox). All nine steps are checked off below.
-Measurements and the expanded-state guard correction are recorded in
-`FINDINGS.md` F-B21-38. PLAYBOOK Sections 3-4 own current status and
+Measurements and the original expanded-state guard are recorded in
+`FINDINGS.md` F-B21-38. The later owner correction in F-B21-41 replaces that
+state-dependent contraction with a fixed-window scale. PLAYBOOK Sections 3-4 own current status and
 validation results. The original owner-review notes remain historical; this
 plan owns the superseding execution requirements. Task 3 is next, on its own
 commit and review cycle.
@@ -835,18 +836,19 @@ the 1.20 growth floor and their representative type, controls and spacing keep
 the baseline ratios. Verify rendered geometry, never only the custom-property
 string.
 
-- [x] **Step 7: Prove the guard still protects a short window -- complete
-      2026-09-05.** Expanded decade-plus-threshold state fits 1920x900 in
-      both engines with no document scrolling.
+- [x] **Step 7: Prove the guard still protects a short window -- completed
+      2026-09-05, then superseded by the F-B21-41 owner correction.**
 
 ```powershell
 python scripts/dev/frontend_gate.py
 ```
 
-The existing compact-height check at 1920x900 must still pass with the decade
-selector driven and thresholds open: the submit button's bottom edge at or above
-the viewport bottom, with no document scrolling at default zoom. If it fails,
-`--index-natural-height` is too small; re-measure rather than guessing.
+The original compact-height check required the decade-plus-threshold form to
+fit without document scrolling. That requirement made a fixed browser window
+rescale the entire composition when a reader opened fields. Current acceptance
+keeps every scale-controlled dimension fixed across album, heatmap, decade,
+custom-year, thresholds, and combined states; additional rows extend the
+document and remain reachable by normal scrolling.
 
 - [x] **Step 8: Correct every live document that describes the old formula --
       complete in `ac6b1b1`.** Repo-wide sweeps came back clean on 2026-09-05.
@@ -894,7 +896,7 @@ Stop for owner review.
 ## Task 3: Widen the composition and raise divider contrast
 
 **Execution checkpoint 2026-09-05:** Task 3 is complete -- implemented,
-validated, and committed as `c1f10e6`. RED evidence (genuine, captured
+validated, and committed as `8b37566`. RED evidence (genuine, captured
 against the pre-fix CSS after a stash-based ordering correction) showed 28
 failures across both engines: divider contrast (1.27:1 light, 1.40:1 dark),
 the 5:3 split, the 23.75rem-based form cap, the unruled 76px header bar and
@@ -905,11 +907,32 @@ chromium, firefox`. Measured divider contrast after the fix: light
 3.42:1, both against the worst adjacent surface. `pytest -q` -- 892 passed
 (881 baseline plus 11 new tests: 7 in `tests/scripts/dev/test_frontend_gate.py`,
 4 in `tests/test_template_shell.py`). All seven steps are checked off below.
-Task 4 is next.
+Task 4 follows below.
+
+**Owner correction 2026-09-05:** F-B21-41 supersedes the state-dependent
+height bounds inherited from Task 2. A fixed window must keep the hero, form,
+type, spacing, and controls at one scale across all reachable states; added
+rows extend the document. F-B21-42 overlays both mode descriptions in one
+reserved grid track with 180ms state transitions. The 2026-09-09 owner
+refinement uses shared 220ms page arrivals and 140ms navigation departures.
 
 **Owner clarification 2026-09-05:** The 28rem base cap is approved at 1080p
 too. Retain the Task 3 instructions below; Task 2 keeps its interim 23.75rem
 base until this task runs.
+
+**Owner refinement 2026-09-05:** After comparing realistic 1080p and 1440p
+windows, reduce the landed cap slightly to `27.5rem` and centre the complete
+form composition vertically in its desktop well when it fits. Expanded states
+must keep the same scale; block auto margins collapse when their natural height
+needs the well, so the content returns to the top padding and extends the
+document. The original 28rem instructions below remain Task 3's historical
+execution record.
+
+**Owner refinement 2026-09-09:** Lift the desktop form up to 2.5rem above
+centre, retaining 0.25rem of header clearance. Measure the current form so
+decade controls with collapsed thresholds fit shorter browser windows without
+excess well padding creating a scrollbar. Preserve content scale; genuinely
+taller expanded forms retain natural document scrolling. Mobile is unchanged.
 
 **Files:**
 - Modify: `static/css/index.css` (grid split, form cap)
@@ -1112,7 +1135,7 @@ at 1920 and 2560 -- not only at the wide profiles. Below the 860px breakpoint
 normal wrapping stays available. This is what `--index-scale-min` buys, so a
 failure here means the floor is too high, not that the H1 needs its own rule.
 
-- [x] **Step 7: Document, validate, commit -- complete in `c1f10e6`**
+- [x] **Step 7: Document, validate, commit -- complete in `8b37566`**
 
 Run the full gate sequence, then:
 
@@ -1177,6 +1200,28 @@ uncentered stat layout. GREEN evidence: `pytest -q` -- 902 passed across 40 test
 `test_frontend_gate.py`). Full frontend gate passed: `23 checks passed in 64 runs
 across chromium, firefox`. Prohibited animation sweep returned 0 matches.
 Task 4 review is the next action, then Task 5.
+
+**Owner review remediation 2026-09-05:** F-B21-43 removes the cached-result
+flash from saved Heatmap restoration. The loading panel stays hidden through
+the first progress and data requests; it appears only if the job is still
+running or fails, while an already-ready result uses the short opacity entrance
+directly. The browser gate observes mutations from before production
+`DOMContentLoaded` listeners and failed on the prior client in both Chromium
+and Firefox before passing on the correction. The combined branch validates at
+904 tests and `23 checks passed in 64 runs across chromium, firefox`.
+
+**Owner visual refinement 2026-09-05:** F-B21-44 through F-B21-46 supersede
+three remaining fixed-layout assumptions. At desktop widths the Heatmap stage
+uses `84vw` with a `120rem` ceiling, retaining the authored SVG geometry while
+raising a realistic 1920x945 result from 1100px/16.6px cells to about
+1545px/23.7px cells. Its username inherits the neutral headline style. The
+index form uses the `27.5rem` refinement and vertically balanced placement
+described under Task 3. At 390px and 320px, all four header destinations use
+directly visible navigation (current refinement: FINDINGS.md F-B21-45).
+The single Light/Dark control moves below
+page content on mobile and returns to the header above the breakpoint. The
+extended two-engine gate covers these rendered outcomes and retains the
+distinct album and Heatmap polling lifecycles.
 
 Carried forward from the superseded plan's Task 2, whose baseline verified
 correct: `set_job_progress` has no `phase` keyword, `static/js/loading-progress.js`
@@ -1321,12 +1366,16 @@ Both clients call this helper. Do not animate `width`, `height`, `padding`,
 - [x] **Step 6: Add one opacity-only entrance and reduced-motion behaviour**
 
 Apply the same short entrance to the shared loading composition in `loading.css`
-and `heatmap.css`: pinwheel, track, phase line and visible stats animate through
+and `heatmap.css`: pinwheel, track, phase line and album stats animate through
 opacity only. The final state must be visible under
 `@media (prefers-reduced-motion: reduce)` -- cancelling an animation that fades
 in from zero also requires restoring `opacity: 1`. Keep the existing heatmap
 cached-result handoff. Do not add a heading, a navigation pill, cancellation, or
 a second percentage.
+
+**Owner refinement 2026-09-09:** Heatmap omits the separate counter rail;
+the phase line already displays the current count. Its parameters and Home
+action remain. The outgoing loader and incoming result overlap during handoff.
 
 - [x] **Step 7: Add real-browser progress checks**
 
@@ -1381,7 +1430,7 @@ Carried forward from the superseded plan's Task 3, baseline verified:
 - Modify: `tests/test_routes.py`, `scripts/dev/frontend_gate.py`
 - Modify: `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`
 
-- [ ] **Step 1: Write failing route tests for absent and expired album jobs**
+- [x] **Step 1: Write failing route tests for absent and expired album jobs -- complete (2026-09-06)**
 
 ```python
 response = client.get("/unmatched")
@@ -1398,7 +1447,7 @@ Create an expired `latest_album_job_id` in the client session, request
 Keep the existing populated-unmatched and zero-row valid-job tests; they prove
 the report route did not change.
 
-- [ ] **Step 2: Run and confirm current behaviour fails**
+- [x] **Step 2: Run and confirm current behaviour fails -- complete (mutest verified RED on bypass)**
 
 ```powershell
 pytest tests/test_routes.py -q
@@ -1406,7 +1455,7 @@ pytest tests/test_routes.py -q
 
 Expected: the no-job route renders `error.html`.
 
-- [ ] **Step 3: Create the template and route to it**
+- [x] **Step 3: Create the template and route to it -- complete (2026-09-06)**
 
 Create `templates/unmatched_empty.html` following `results_empty.html`, loading
 only `tailwind.css` and `empty.css`:
@@ -1427,14 +1476,14 @@ this template instead of `_render_no_job_state`. Keep `unmatched.html` for valid
 album jobs, including a valid run with zero unmatched rows. Add no outline,
 shadow, icon, error status, or Bootstrap dependency.
 
-- [ ] **Step 4: Extend the browser gate**
+- [x] **Step 4: Extend the browser gate -- complete (23 checks passed in 64 runs)**
 
 Add `/unmatched` to `check_destination_empty_states`. Assert no `.card`, no box
 shadow on `.empty-state`, a usable Home action, and that the action target is
 `/`. Re-run the populated route checks to confirm report navigation still returns
 to `/results`.
 
-- [ ] **Step 5: Document, validate, commit**
+- [x] **Step 5: Document, validate, commit -- complete (2026-09-06)**
 
 The PLAYBOOK entry must say this is a normal no-data condition, not an error
 treatment, and that valid unmatched reports are unchanged.
@@ -1449,7 +1498,9 @@ Stop for owner review.
 
 ## Task 6: Accessibility pass
 
-Runs after the visual work is accepted, as the owner specified.
+Owner decision 2026-09-09: defer this pass until Bootstrap is fully removed.
+Run it with the WP-8 frontend audit after removal is verified; it is deferred,
+not waived.
 
 - [ ] **Step 1: Contrast**
 
@@ -1533,8 +1584,9 @@ profile in both engines:
    `zoom: 1`/`normal` and `transform: none`; their growth comes from layout
    dimensions, not page or visual magnification.
 5. Both dividers read clearly in dark mode without shadows.
-6. With decade selection and thresholds open at roughly 1920x900, submit and the
-   filter tags stay reachable without document scrolling.
+6. With decade selection and thresholds open at roughly 1920x900, the hero,
+   form, type, and controls retain their collapsed-state dimensions; submit and
+   filter tags stay reachable through normal document scrolling.
 7. Both loaders show one pinwheel, one accurate counted phase label, one hairline
    matching `23 / 102` and `90 / 100`, matching ARIA,
    no backward animation at a phase switch, and a
@@ -1558,8 +1610,9 @@ without a separate explicit instruction.
   width the owner asked for and the contrast defect. Tasks 4 and 5 carry forward
   the two verified-unshipped items. Task 6 is the accessibility pass.
 - **Intentional exclusions:** no nested-card slider, no base-cap expansion
-  beyond 28rem, no cancellation, no navigation regrouping, no WP-5 leaderboard
-  work, no edits to dated archive history.
+  beyond the owner-refined 27.5rem, no cancellation, no WP-5 leaderboard work,
+  no edits to dated archive history. Mobile navigation regrouping is the
+  owner-approved exception recorded in F-B21-45.
 - **Known risk:** `--index-natural-height` is a measured constant that goes stale
   if the form gains or loses a row. Task 2 Step 7 is the check that catches it;
   if it proves fragile in practice, promote it to a `.docsync.toml` DOC009

@@ -1,166 +1,113 @@
 // static/js/results.js
 
 document.addEventListener('DOMContentLoaded', () => {
-    const jobId = window.APP_DATA?.job_id;
+    const resultsPage = document.querySelector('.results-page');
 
-    function escapeHtml(value) {
-        if (value === null || value === undefined) return '';
-        return String(value)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\"/g, '&quot;')
-            .replace(/'/g, '&#39;');
+    /** Scale the bounded Results composition from its authored rem baseline.
+     * A numeric custom property works in both browser engines. Native layout
+     * still owns wrapping and document height; the shared header is outside
+     * this scope. Small screens retain scale 1, including without JavaScript.
+     */
+    function syncResultsScale() {
+        if (!resultsPage) return;
+        const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize);
+        const baseRem = parseFloat(getComputedStyle(resultsPage).getPropertyValue('--results-base-rem'));
+        const baseWidth = rootSize * baseRem;
+        if (!(baseWidth > 0)) return;
+        const scale = Math.max(1, resultsPage.getBoundingClientRect().width / baseWidth);
+        resultsPage.style.setProperty('--results-scale', String(scale));
     }
 
-    // Toast Notification Helper
+    if (resultsPage) {
+        syncResultsScale();
+        new ResizeObserver(syncResultsScale).observe(resultsPage);
+        window.addEventListener('resize', syncResultsScale);
+    }
+
+    /** Build text-bearing nodes without interpreting API or dataset values as HTML. */
+    function textNode(tag, className, text) {
+        const node = document.createElement(tag);
+        node.className = className;
+        node.textContent = text;
+        return node;
+    }
+
+    // Toast Notification (daisyUI stack + 3px tone rule and mono kicker)
     function showToast(message, type = 'info', duration = 3000) {
-        const toastContainer = document.getElementById('toastContainer');
-        if (!toastContainer) return;
+        const container = document.getElementById('toastContainer');
+        if (!container) return;
 
         const toast = document.createElement('div');
-        toast.className = 'toast show';
-        toast.setAttribute('role', 'alert');
-        toast.setAttribute('aria-live', 'assertive');
-        toast.setAttribute('aria-atomic', 'true');
+        let borderClass = 'border-l-[3px] border-l-[var(--color-primary)]';
+        let kicker = 'INFO';
+        if (type === 'error') {
+            borderClass = 'border-l-[3px] border-l-[var(--ss-bad,#b03434)]';
+            kicker = 'ERROR';
+        } else if (type === 'success') {
+            borderClass = 'border-l-[3px] border-l-[var(--ss-good,#2f7a4a)]';
+            kicker = 'EXPORTED';
+        }
 
-        const header = document.createElement('div');
-        header.className = 'toast-header' + (type === 'error' ? ' bg-danger text-white' : '');
-        const title = document.createElement('strong');
-        title.className = 'me-auto';
-        title.textContent = 'ScrobbleScope';
-        const closeBtn = document.createElement('button');
-        closeBtn.type = 'button';
-        closeBtn.className = 'btn-close';
-        closeBtn.setAttribute('data-bs-dismiss', 'toast');
-        closeBtn.setAttribute('aria-label', 'Close');
-        header.appendChild(title);
-        header.appendChild(closeBtn);
+        toast.className = `alert shadow-lg bg-[var(--ss-surface-card,#ffffff)] border border-[var(--ss-border-default,#e5dfd1)] ${borderClass} rounded-[var(--radius-sm,8px)] p-3 flex flex-col items-start gap-1 min-w-[260px] max-w-sm transition-all duration-300 transform translate-y-2 opacity-0 z-50`;
+        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+        toast.append(
+            textNode('div', 'font-mono text-xs uppercase tracking-wider text-[var(--ss-text-muted,#6c6676)] font-bold', kicker),
+            textNode('div', 'font-sans text-xs text-[var(--color-base-content,#1a1820)]', message),
+        );
+        container.appendChild(toast);
 
-        const body = document.createElement('div');
-        body.className = 'toast-body';
-        body.textContent = message;
-
-        toast.appendChild(header);
-        toast.appendChild(body);
-        toastContainer.appendChild(toast);
+        requestAnimationFrame(() => {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+        });
 
         setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 500);
+            toast.classList.remove('translate-y-0', 'opacity-100');
+            toast.classList.add('translate-y-2', 'opacity-0');
+            setTimeout(() => toast.remove(), 300);
         }, duration);
     }
 
-    // Fetch Unmathced Albums
-    function fetchUnmatchedAlbums() {
-        const unmatchedList = document.getElementById('unmatched-list');
-        if (!unmatchedList) return;
-        
-        // Show a spinner while loading
-        unmatchedList.innerHTML = `
-            <div class="d-flex justify-content-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-            </div>`;
-
-        if (!jobId) {
-            unmatchedList.innerHTML = '<div class="alert alert-warning">Missing job identifier.</div>';
-            return;
-        }
-
-        fetch(`/api/unmatched?job_id=${encodeURIComponent(jobId)}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(unmatchedData => {
-                let html = '';
-                const data = unmatchedData.data || {};
-                const count = unmatchedData.count || Object.keys(data).length;
-
-                if (count === 0) {
-                    html = '<p>No unmatched albums found.</p>';
-                } else {
-                    html = `<p>Found ${count} unmatched albums:</p>
-                            <div class="table-responsive">
-                                <table class="table table-sm">
-                                    <thead><tr><th>Artist</th><th>Album</th><th>Reason</th></tr></thead>
-                                    <tbody>`;
-                    for (const key in data) {
-                        const item = data[key];
-                        html += `<tr><td>${escapeHtml(item.artist)}</td><td>${escapeHtml(item.album)}</td><td>${escapeHtml(item.reason)}</td></tr>`;
-                    }
-                    html += `</tbody></table></div>`;
-                }
-                unmatchedList.innerHTML = html;
-            })
-            .catch(error => {
-                const safeError = escapeHtml(error && error.message ? error.message : String(error));
-                unmatchedList.innerHTML = `<div class="alert alert-danger">Error loading unmatched albums: ${safeError}</div>`;
-            });
-    }
-
-    const quickViewBtn = document.getElementById('view-unmatched-quick');
-    const noMatchesLink = document.getElementById('view-unmatched');
-
-    if(quickViewBtn) quickViewBtn.addEventListener('click', fetchUnmatchedAlbums);
-    if(noMatchesLink) noMatchesLink.addEventListener('click', fetchUnmatchedAlbums);
-
-
-    // CSV
+    // CSV Export Logic (preserving day precision via data-export attribute)
     const exportCsvBtn = document.getElementById('export-csv');
     if (exportCsvBtn) {
         exportCsvBtn.addEventListener('click', function() {
             try {
-                const table = document.querySelector('.table');
+                const table = document.querySelector('#results-table') || document.querySelector('.results-table') || document.querySelector('.table');
                 if (!table) {
                     showToast('No data available to export.', 'error');
                     return;
                 }
-                
-                let csvContent = [];
-                const headers = Array.from(table.querySelectorAll('thead th')).map(header => 
-                    '"' + header.textContent.trim().replace(/"/g, '""') + '"'
-                );
-                csvContent.push(headers.join(','));
-                
+
+                const csvContent = [];
+                csvContent.push('"#","Album","Artist","Track Plays / Listening Time","Release Date"');
+
                 const rows = table.querySelectorAll('tbody tr');
                 rows.forEach(tr => {
-                    const rowData = [];
-                    const cells = Array.from(tr.querySelectorAll('th, td'));
-                    cells.forEach((cell, index) => {
-                        let content = '';
-                        if (index === 1 && cell.classList.contains('album-title')) {
-                            const albumInfo = cell.querySelector('.album-info');
-                            content = albumInfo ? albumInfo.textContent.trim() : '';
-                        } else {
-                            // When a cell has responsive spans, extract only
-                            // the desktop (.d-md-inline) text to avoid
-                            // concatenating both spans (e.g. "2024-03-152024-03").
-                            const desktopSpan = cell.querySelector('.d-md-inline');
-                            if (desktopSpan) {
-                                content = desktopSpan.textContent.trim();
-                            } else {
-                                content = cell.textContent.trim();
-                            }
-                        }
-                        content = content.replace(/\s+/g, ' ').replace(/"/g, '""');
-                        rowData.push(`"${content}"`);
-                    });
-                    csvContent.push(rowData.join(','));
+                    const rank = tr.dataset.rank || tr.querySelector('.rank-num')?.textContent.trim() || '';
+                    const album = tr.dataset.album || tr.querySelector('.album-link, .album-info span')?.textContent.trim() || '';
+                    const artist = tr.dataset.artist || tr.querySelector('.artist-name')?.textContent.trim() || '';
+
+                    const metric = table.dataset.metric === 'playtime'
+                        ? (tr.dataset.playTime || '')
+                        : (tr.dataset.playCount || '0');
+
+                    const releaseCell = tr.querySelector('.release-date-cell');
+                    const release = releaseCell?.getAttribute('data-export') || releaseCell?.textContent.trim() || '';
+
+                    const clean = (val) => '"' + String(val).replace(/\s+/g, ' ').replace(/"/g, '""').trim() + '"';
+                    csvContent.push([clean(rank), clean(album), clean(artist), clean(metric), clean(release)].join(','));
                 });
-                
+
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(new Blob([csvContent.join('\n')], { type: 'text/csv;charset=utf-8;' }));
-                // Read username and year from the global APP_DATA object
-                link.download = `scrobblescope_${APP_DATA.username}_${APP_DATA.year}_albums.csv`;
+                const username = window.APP_DATA?.username || 'user';
+                const year = window.APP_DATA?.year || 'all';
+                link.download = `scrobblescope_${username}_${year}_albums.csv`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                showToast('CSV file downloaded successfully!');
+                showToast('CSV file downloaded successfully!', 'success');
             } catch (error) {
                 console.error('Error exporting CSV:', error);
                 showToast('Error creating CSV file.', 'error');
@@ -168,110 +115,230 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-
-    // Save as JPEG Image Logic
+    // JPEG Image Export Logic (mobile desktop-forcing via onclone)
     const saveImageBtn = document.getElementById('save-image');
     if (saveImageBtn) {
         saveImageBtn.addEventListener('click', function() {
-            showToast('Creating image... please wait.');
+            showToast('Creating leaderboard image... please wait.');
             const targetElement = document.getElementById('results-table-wrapper');
-            if (!targetElement || typeof html2canvas === 'undefined') {
+            if (!targetElement || typeof window.html2canvas !== 'function') {
                 showToast('Could not save image.', 'error');
                 return;
             }
-            
-            const el = targetElement;
-            const isDark = document.body.classList.contains('dark-mode');
-            // windowWidth:1200 forces desktop CSS layout (hides mobile media queries),
-            // scale:3 produces a high-resolution image regardless of device pixel ratio.
-            // Read --bg-color from <body> (not <html>) so the dark-mode override
-            // (#121212) is picked up; :root still holds the light-mode fallback.
-            html2canvas(el, {
+
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const bgColor = getComputedStyle(document.body).backgroundColor;
+            // html2canvas 1.4 cannot parse color() emitted by color-mix(). Let
+            // the browser resolve the live surface, then give only the clone RGB.
+            const swatch = document.createElement('canvas');
+            swatch.width = swatch.height = 1;
+            const paint = swatch.getContext('2d');
+            paint.fillStyle = getComputedStyle(targetElement).backgroundColor;
+            paint.fillRect(0, 0, 1, 1);
+            const [red, green, blue] = paint.getImageData(0, 0, 1, 1).data;
+            const exportSurface = `rgb(${red}, ${green}, ${blue})`;
+
+            window.html2canvas(targetElement, {
                 scale: 3,
                 useCORS: true,
-                backgroundColor: getComputedStyle(document.body).getPropertyValue('--bg-color').trim() || '#ffffff',
+                backgroundColor: bgColor,
                 windowWidth: 1200,
                 scrollX: 0,
                 scrollY: 0,
                 onclone: (clonedDoc) => {
-                    // Remove overflow clip in the clone so the full table renders
-                    const w = clonedDoc.getElementById('results-table-wrapper');
-                    if (w) { w.style.overflow = 'visible'; }
-
-                    // Ensure dark-mode class transfers to cloned body
-                    if (isDark) {
-                        clonedDoc.body.classList.add('dark-mode');
+                    const clonedPage = clonedDoc.querySelector('.results-page');
+                    if (clonedPage) {
+                        clonedPage.style.setProperty('--results-surface', exportSurface);
+                        clonedPage.style.animation = 'none';
+                    }
+                    const clonedWrapper = clonedDoc.getElementById('results-table-wrapper');
+                    if (clonedWrapper) {
+                        clonedWrapper.querySelectorAll('.is-reordering').forEach(row => {
+                            row.classList.remove('is-reordering');
+                        });
+                        clonedWrapper.style.overflow = 'visible';
+                        clonedWrapper.style.width = '1200px';
+                        clonedWrapper.style.maxWidth = '1200px';
                     }
 
-                    // Force desktop layout in the clone: show desktop spans,
-                    // hide mobile spans, and unhide rank columns. html2canvas
-                    // captures computed styles at clone time -- on mobile
-                    // viewports, d-none d-md-inline elements are already
-                    // display:none and windowWidth cannot override that.
-                    w?.querySelectorAll('.d-md-inline').forEach(el => {
+                    // Preserve theme attribute
+                    clonedDoc.documentElement.setAttribute('data-theme', currentTheme);
+
+                    // Force desktop text elements
+                    clonedWrapper?.querySelectorAll('.desktop-val, .desktop-date, .d-md-inline').forEach(el => {
                         el.style.display = 'inline';
                     });
-                    w?.querySelectorAll('.d-md-none').forEach(el => {
+                    clonedWrapper?.querySelectorAll('.mobile-val, .mobile-date, .d-md-none').forEach(el => {
                         el.style.display = 'none';
                     });
-                    // Unhide rank column (hidden on mobile via CSS)
-                    const table = w?.querySelector('.results-table');
-                    if (table) {
-                        table.querySelectorAll('th:first-child, td:first-child').forEach(el => {
-                            el.style.display = '';
-                        });
-                    }
 
-                    // Dark-mode: inline resolved colours so html2canvas
-                    // renders them correctly.  html2canvas 1.x mishandles
-                    // Bootstrap's --bs-table-accent-bg on striped odd rows,
-                    // causing light text on a near-white composited background.
-                    if (isDark && table) {
-                        const txt = '#f8f9fa';
-                        const accent = '#9370DB';
-
-                        table.style.color = txt;
-                        table.style.borderColor = 'transparent';
-
-                        // Force text colour on every cell and neutralise
-                        // Bootstrap's --bs-table-accent-bg variable.
-                        table.querySelectorAll('th, td').forEach(c => {
-                            c.style.setProperty('color', txt, 'important');
-                            c.style.setProperty('--bs-table-accent-bg', 'transparent');
-                            c.style.borderLeftColor = 'transparent';
-                            c.style.borderRightColor = 'transparent';
-                        });
-
-                        // Alternate row backgrounds (mirrors results.css)
-                        table.querySelectorAll('tbody > tr').forEach((row, i) => {
-                            row.style.backgroundColor = (i % 2 === 0)
-                                ? 'rgba(255,255,255,0.1)'
-                                : 'rgba(30,30,30,0.7)';
-                        });
-
-                        // Accent elements
-                        w?.querySelectorAll('.album-link').forEach(a => {
-                            a.style.color = accent;
-                        });
-                        w?.querySelectorAll('.release-badge').forEach(b => {
-                            b.style.backgroundColor = accent;
-                            b.style.color = 'white';
-                        });
-                    }
+                    // Force unhide rank numbers
+                    clonedWrapper?.querySelectorAll('.rank-num').forEach(el => {
+                        el.style.display = 'inline-block';
+                    });
                 },
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.href = canvas.toDataURL('image/jpeg', 0.95);
-                // Read username and year from the global APP_DATA object
-                link.download = `scrobblescope_${APP_DATA.username}_${APP_DATA.year}.jpg`;
+                const username = window.APP_DATA?.username || 'user';
+                const year = window.APP_DATA?.year || 'all';
+                link.download = `scrobblescope_${username}_${year}.jpg`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                showToast('Image saved successfully!');
+                showToast('Image saved successfully!', 'success');
             }).catch(err => {
                 console.error('Error creating image:', err);
                 showToast('Failed to create image.', 'error');
             });
+        });
+    }
+
+    /** Render one metric from the row's canonical export data. */
+    function renderMetric(row, mode) {
+        const cell = row.querySelector('.metric-value-cell');
+        if (!cell) return;
+        const value = textNode('span', 'metric-value', '');
+        value.classList.add(mode === 'playtime' ? 'metric-val-playtime' : 'metric-val-plays');
+        if (mode === 'playtime') {
+            const duration = row.dataset.playTime || '';
+            value.append(
+                textNode('span', 'desktop-val hidden md:inline', duration),
+                textNode('span', 'mobile-val inline md:hidden', row.dataset.playTimeMobile || duration),
+            );
+        } else {
+            value.textContent = row.dataset.playCount || '0';
+        }
+        cell.replaceChildren(value);
+    }
+
+    /** Keep selection styling and accessible state in sync with the sort mode. */
+    function updateMetricButtons(mode) {
+        for (const [buttonMode, id] of [['plays', 'toggle-sort-plays'], ['playtime', 'toggle-sort-playtime']]) {
+            const button = document.getElementById(id);
+            if (!button) continue;
+            const active = mode === buttonMode;
+            button.classList.toggle('bg-[var(--ss-accent-soft)]', active);
+            button.classList.toggle('text-[var(--color-primary)]', active);
+            button.classList.toggle('text-[var(--ss-text-muted)]', !active);
+            button.setAttribute('aria-pressed', String(active));
+        }
+    }
+
+    /** Reorder existing rows and update their visible and exported ranks together. */
+    function setLeaderboardMetric(mode, showNotification = true) {
+        const table = document.getElementById('results-table');
+        const tbody = table?.querySelector('tbody');
+        if (!tbody || table.dataset.metric === mode) return;
+        const animate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        // Read the current visual positions before changing layout. This also
+        // lets a rapid second click continue from an interrupted transition.
+        const positions = new Map(rows.map(row => [row, row.getBoundingClientRect()]));
+        rows.forEach(row => row.classList.remove('is-reordering'));
+        table.dataset.metric = mode;
+        const key = mode === 'playtime' ? 'playTimeSeconds' : 'playCount';
+        rows.sort((a, b) => Number(b.dataset[key] || 0) - Number(a.dataset[key] || 0));
+        rows.forEach((row, index) => {
+            tbody.appendChild(row);
+            row.dataset.rank = String(index + 1);
+            const rank = row.querySelector('.rank-num, .rank-link, td:first-child a, td:first-child span');
+            if (rank) rank.textContent = String(index + 1).padStart(2, '0');
+            renderMetric(row, mode);
+        });
+        const label = document.getElementById('metric-header-label');
+        if (label) label.textContent = mode === 'playtime' ? 'Listening Time' : 'Track Plays';
+        const subtitle = document.getElementById('results-ranking-subtitle');
+        if (subtitle) {
+            const ranking = mode === 'playtime' ? 'listening time' : 'play count';
+            subtitle.textContent = `${window.APP_DATA?.year || ''} \u00b7 Ranked by ${ranking}`;
+        }
+        updateMetricButtons(mode);
+        const moves = rows.map(row => ({ row, before: positions.get(row), after: row.getBoundingClientRect() }));
+        if (animate) {
+            moves.forEach(({ row, before, after }) => {
+                const delta = before.top - after.top;
+                if (!delta || (before.top > innerHeight && after.top > innerHeight)
+                    || (before.bottom < 0 && after.bottom < 0)) return;
+                row.style.setProperty('--rank-offset', `${delta}px`);
+                row.classList.add('is-reordering');
+            });
+        }
+        if (showNotification) {
+            showToast(mode === 'playtime'
+                ? 'Leaderboard ranked by Spotify listening time.'
+                : 'Leaderboard ranked by track play count.');
+        }
+    }
+
+    const resultsTable = document.getElementById('results-table');
+    if (resultsTable) {
+        resultsTable.dataset.metric = window.APP_DATA?.sort_by === 'playtime' ? 'playtime' : 'plays';
+        updateMetricButtons(resultsTable.dataset.metric);
+    }
+
+    // One tooltip outside the clipped table serves every Spotify album link.
+    const albumLinks = document.querySelectorAll('.album-link');
+    if (albumLinks.length) {
+        const tooltip = textNode('div', 'album-link-tooltip', 'Open this album on Spotify (new tab)');
+        tooltip.id = 'album-link-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        document.body.appendChild(tooltip);
+        let tooltipTimer;
+
+        /** Dismiss both a pending hover and the currently displayed hint. */
+        function hideAlbumTooltip() {
+            window.clearTimeout(tooltipTimer);
+            tooltip.classList.remove('is-visible');
+        }
+
+        /** Position the shared hint below its link, keeping it on screen. */
+        function showAlbumTooltip(link) {
+            const box = link.getBoundingClientRect();
+            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            tooltip.style.left = `${Math.max(rem, Math.min(box.left, innerWidth - tooltip.offsetWidth - rem))}px`;
+            tooltip.style.top = `${Math.min(box.bottom + rem / 2, innerHeight - tooltip.offsetHeight - rem)}px`;
+            tooltip.classList.add('is-visible');
+        }
+
+        albumLinks.forEach(link => {
+            link.setAttribute('aria-describedby', tooltip.id);
+            link.addEventListener('mouseenter', () => {
+                hideAlbumTooltip();
+                tooltipTimer = window.setTimeout(() => showAlbumTooltip(link), 450);
+            });
+            link.addEventListener('mouseleave', () => {
+                window.clearTimeout(tooltipTimer);
+                tooltipTimer = window.setTimeout(hideAlbumTooltip, 120);
+            });
+            link.addEventListener('focus', () => { hideAlbumTooltip(); showAlbumTooltip(link); });
+            link.addEventListener('blur', hideAlbumTooltip);
+            link.addEventListener('click', hideAlbumTooltip);
+        });
+        tooltip.addEventListener('mouseenter', () => window.clearTimeout(tooltipTimer));
+        tooltip.addEventListener('mouseleave', hideAlbumTooltip);
+        window.addEventListener('scroll', hideAlbumTooltip, { passive: true });
+        window.addEventListener('resize', hideAlbumTooltip);
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') hideAlbumTooltip();
+        });
+    }
+
+    const togglePlaysBtn = document.getElementById('toggle-sort-plays');
+    if (togglePlaysBtn) {
+        togglePlaysBtn.addEventListener('click', () => setLeaderboardMetric('plays', true));
+    }
+
+    const togglePlaytimeBtn = document.getElementById('toggle-sort-playtime');
+    if (togglePlaytimeBtn) {
+        togglePlaytimeBtn.addEventListener('click', () => setLeaderboardMetric('playtime', true));
+    }
+
+    const railBackToTopBtn = document.getElementById('rail-back-to-top');
+    if (railBackToTopBtn) {
+        railBackToTopBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     }
 

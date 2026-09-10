@@ -2,7 +2,11 @@
 
 {% block title %}Results | ScrobbleScope{% endblock %}
 
+{# Migrated to Tailwind, so this page opts out of the legacy Bootstrap stack. #}
+{% block legacy_css %}{% endblock %}
+
 {% block stylesheets %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}">
 {% endblock %}
 
@@ -10,9 +14,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <!--Bridge data: Jinja2 values injected as JSON; read by results.js via window.APP_DATA-->
 <script id="app-data-config" type="application/json">{{ {
-    "username": username,
-    "year": year,
-    "job_id": job_id
+    "username": username|default(""),
+    "year": year|default(""),
+    "job_id": job_id|default(""),
+    "sort_by": sort_by|default("playcount"),
+    "spotlight_artists": spotlight_artists|default([])
 } | tojson }}</script>
 <script>
     window.APP_DATA = JSON.parse(document.getElementById('app-data-config').textContent);
@@ -20,196 +26,302 @@
 {% endblock %}
 
 {% block content %}
-<div class="toast-container" id="toastContainer"></div>
+<div class="toast toast-end toast-bottom z-50 p-4 gap-2" id="toastContainer"></div>
 
-<div class="container mt-5 mb-5">
-        <div class="row justify-content-center">
-            <div class="col-md-10">
-                <div class="col-md-8 text-center mx-auto mb-4" id="logo-wrapper">
-                    <div class="ss-mark" aria-label="ScrobbleScope logo visualization" role="img">
-                        {% include 'inline/scrobble_scope_inline.svg' ignore missing %}
-                    </div>
-                </div>
-                
-                <div class="card shadow">
-                    <div class="card-body">
-                        <h2 class="text-center mb-3">
-                            {% if release_scope == "same" %}
-                                {{ username }}'s Top Albums Played in {{ year }}
-                            {% elif release_scope == "previous" %}
-                                {{ username }}'s Top Albums From {{ year - 1 }} Played in {{ year }}
-                            {% elif release_scope == "decade" %}
-                                {{ username }}'s Top Albums from the {{ decade }} Played in {{ year }}
-                            {% elif release_scope == "custom" %}
-                                {% if release_year == year %}
-                                    {{ username }}'s Top Albums Played in {{ year }}
+<main class="results-page mx-auto px-4 pt-4 pb-8 md:pt-6 md:pb-12">
+    <!-- Header: Editorial Headline + Action Group in one balanced masthead row -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-4">
+        <div>
+            <h1 class="results-headline font-serif text-3xl md:text-5xl text-[var(--color-base-content)] mb-1 leading-tight">
+                Top Last.fm albums for <span class="results-headline__user italic text-[var(--color-primary)]">{{ username }}</span>
+            </h1>
+            <h2 id="results-ranking-subtitle" class="font-sans text-base md:text-lg font-normal text-[var(--ss-text-muted)] pl-[calc(0.125rem*var(--results-scale))] md:pl-1">
+                {{ year }} · {% if sort_by == "playtime" %}Ranked by listening time{% else %}Ranked by play count{% endif %}
+            </h2>
+        </div>
+        <!-- Toolbar actions share type; New search carries the theme accent. -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-shrink-0 w-full max-w-full sm:w-auto">
+            <a href="/" class="btn btn-primary results-action results-toolbar-action">
+                New search
+            </a>
+            <button id="export-csv" class="btn results-action results-toolbar-action">
+                Export CSV
+            </button>
+            <button id="save-image" class="btn results-action results-toolbar-action">
+                Save image
+            </button>
+        </div>
+    </div>
+
+    {% set album_list = data|default([]) %}
+    {% set total_scrobbles = album_list | sum(attribute='play_count') %}
+    {% if has_durations is not defined %}
+        {% set ns = namespace(has=false) %}
+        {% for a in album_list %}
+            {% if a.play_time_seconds and a.play_time_seconds > 0 %}
+                {% set ns.has = true %}
+            {% endif %}
+        {% endfor %}
+        {% set has_durations = ns.has %}
+    {% endif %}
+    <!-- StatBlock Mini-Table (one row at every width; numerals sized below
+        the page header so the hierarchy stays with the h1) -->
+    <div class="grid grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+            <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Total Albums</span>
+            <div class="results-stat-value flex items-center justify-center overflow-visible">
+                <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ album_list|length }}</span>
+            </div>
+            <span class="results-stat-caption text-[var(--ss-text-muted)]">matched</span>
+        </div>
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+            <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Top Artist</span>
+            <div class="results-stat-value flex items-center justify-center w-full min-w-0 overflow-visible">
+                <span class="font-serif text-lg md:text-[calc(1.5625rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight truncate block px-1 overflow-visible" title="{{ album_list[0].artist if album_list else '—' }}">{{ album_list[0].artist if album_list else '—' }}</span>
+            </div>
+            <span class="results-stat-caption text-[var(--ss-text-muted)]">leading chart</span>
+        </div>
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+            <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Scrobbles</span>
+            <div class="results-stat-value flex items-center justify-center overflow-visible">
+                <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(total_scrobbles) if total_scrobbles else '0' }}</span>
+            </div>
+            <span class="results-stat-caption text-[var(--ss-text-muted)]">counted</span>
+        </div>
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+            <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Unmatched</span>
+            <div class="results-stat-value flex items-center justify-center overflow-visible">
+                <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ unmatched_count|default(0) }}</span>
+            </div>
+            <a href="{{ url_for('main.unmatched_page') }}" class="results-stat-caption text-[var(--color-primary)] hover:underline font-normal inline-block whitespace-nowrap">view breakdown →</a>
+        </div>
+    </div>
+
+    <!-- Filter Context (Micro-data bar: tucked left, text in mono-narrow, no bold, no pills) -->
+    <div class="results-filter-bar">
+        <span class="text-[var(--color-primary)]">Released:</span>
+        <span class="font-mono text-[var(--color-base-content)]">{{ release_year if release_year else (decade if decade else ('Same as listening year' if release_scope == 'same' else ('Previous year (' ~ (year|int - 1) ~ ')' if release_scope == 'previous' else 'All releases'))) }}</span>
+        <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+        <span class="font-mono text-[var(--color-base-content)]">≥{{ min_plays|default(10) }} plays</span>
+        <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+        <span class="font-mono text-[var(--color-base-content)]">≥{{ min_tracks|default(3) }} unique tracks</span>
+    </div>
+
+    {% if not album_list %}
+    <!-- Empty State Container -->
+    <div class="rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] p-8 md:p-12 text-center my-8 shadow-sm">
+        <div class="font-mono text-sm tracking-widest text-[var(--color-primary)] uppercase mb-2">No Matching Releases</div>
+        <h2 class="font-serif text-3xl md:text-4xl text-[var(--color-base-content)] mb-3">No Albums Found</h2>
+        <p class="text-sm text-[var(--ss-text-body)] max-w-md mx-auto mb-6">
+            We couldn't find any {{ filter_description|default('albums') }} that you listened to in {{ year }}.
+        </p>
+        <a href="{{ url_for('main.unmatched_page') }}" class="btn results-action">
+            View albums that didn't match your filters
+        </a>
+    </div>
+    {% else %}
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+        <!-- Main Column: Semantic Leaderboard Table -->
+        <div class="lg:col-span-8 min-w-0">
+            <div class="results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)]" id="results-table-wrapper">
+                <table class="w-full text-left border-collapse results-table" id="results-table">
+                    <thead>
+                        <tr class="border-b border-[var(--ss-border-default)] bg-transparent text-xs font-mono font-normal uppercase tracking-wider text-[var(--ss-text-muted)]">
+                            <th scope="col" class="py-3 px-3 md:px-4 w-12 md:w-[calc(3.5rem*var(--results-scale))] text-center whitespace-nowrap font-normal">#</th>
+                            <th scope="col" class="py-3 px-3 md:px-4 font-normal">Album & Artist</th>
+                            <th scope="col" class="py-3 px-3 md:px-4 text-right whitespace-nowrap font-normal">
+                                <span id="metric-header-label">
+                                {% if sort_by == "playtime" %}Listening Time{% else %}Track Plays{% endif %}
+                                </span>
+                            </th>
+                            <th scope="col" class="py-3 px-3 md:px-4 text-right whitespace-nowrap w-[calc(6rem*var(--results-scale))] md:w-[calc(7rem*var(--results-scale))] font-normal">Release</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[var(--ss-border-default)]">
+                        {% for album in album_list %}
+                        <tr class="hover:bg-[var(--ss-surface-card)] transition-colors"
+                            data-rank="{{ loop.index }}"
+                            data-album="{{ album.album }}"
+                            data-artist="{{ album.artist }}"
+                            data-play-count="{{ album.play_count }}"
+                            data-play-time="{{ album.play_time|default('') }}"
+                            data-play-time-mobile="{{ album.play_time_mobile|default(album.play_time|default('')) }}"
+                            data-play-time-seconds="{{ album.play_time_seconds|default(0) }}"
+                            data-album-image="{{ album.album_image|default('') }}"
+                            data-spotify-id="{{ album.spotify_id|default('') }}">
+                            <!-- Semantic Rank with glow hover -->
+                            <td class="py-3 px-3 md:px-4 text-center align-middle">
+                                {% if album.spotify_id %}
+                                <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num font-mono text-sm font-normal" title="Open {{ album.album }} on Spotify">
+                                    {{ "%02d" % loop.index }}
+                                </a>
                                 {% else %}
-                                    {{ username }}'s Top Albums from {{ release_year }} Played in {{ year }}
+                                <span class="rank-num font-mono text-sm text-[var(--color-base-content)] font-normal">
+                                    {{ "%02d" % loop.index }}
+                                </span>
                                 {% endif %}
-                            {% else %}
-                                {{ username }}'s Top Albums Played in {{ year }}
-                            {% endif %}
-                        </h2>
-                        
-                        <div class="text-center mb-4">
-                            <a href="/" class="btn btn-primary">New Search</a>
-                            <button id="export-csv" class="btn btn-outline-secondary ms-2">Export to CSV</button>
-                            <button id="save-image" class="btn btn-outline-secondary ms-2">Save as Image</button>
-                        </div>
-                        
-                        <div class="summary-box">
-                            <div class="row">
-                                <div class="col-6">
-                                    <h5>Listening Summary</h5>
-                                    <p><strong>Username:</strong> {{ username }}</p>
-                                    <p><strong>Year:</strong> {{ year }}</p>
-                                    <p><strong>Total Albums:</strong> {{ data|length }}</p>
-                                </div>
-                                <div class="col-6">
-                                    <h5>Filter Applied</h5>
-                                    <p><strong>Release:</strong>
-                                    {% if release_scope == "same" %}
-                                        {{ year }} only
-                                    {% elif release_scope == "previous" %}
-                                        {{ year - 1 }}
-                                    {% elif release_scope == "decade" %}
-                                        {{ decade }}
-                                    {% elif release_scope == "custom" %}
-                                        {{ release_year }}
+                            </td>
+                            <!-- Album Artwork & Metadata -->
+                            <td class="py-3 px-3 md:px-4 align-middle">
+                                <div class="flex items-center gap-3 md:gap-4 min-w-0">
+                                    {% if album.album_image %}
+                                    <img src="{{ album.album_image }}"
+                                         alt="{{ album.album }} cover"
+                                         class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] object-cover flex-shrink-0"
+                                         loading="lazy"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0 hidden" aria-hidden="true">
+                                        {{ album.album[:2]|upper }}
+                                    </div>
                                     {% else %}
-                                        All Years
+                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0" aria-hidden="true">
+                                        {{ album.album[:2]|upper }}
+                                    </div>
                                     {% endif %}
-                                    </p>
-                                    <p><strong>Sort:</strong>
-                                    {% if sort_by == "playtime" %}
-                                        Listening Time
-                                    {% else %}
-                                        Play Count
-                                    {% endif %}
-                                    </p>
-                                    <p class="d-none d-md-block"><strong>Thresholds:</strong> ≥{{ min_plays|default('10') }} plays, ≥{{ min_tracks|default('3') }} tracks</p>
+                                    <div class="album-info min-w-0 flex flex-col gap-[calc(0.125rem*var(--results-scale))]">
+                                        {% if album.spotify_id %}
+                                        <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug break-words">
+                                            {{ album.album }}
+                                        </a>
+                                        {% else %}
+                                        <span class="font-sans font-normal text-base md:text-lg text-[var(--color-base-content)] leading-snug break-words">
+                                            {{ album.album }}
+                                        </span>
+                                        {% endif %}
+                                        <span class="font-sans text-xs md:text-sm text-[var(--ss-text-muted)] truncate font-normal">
+                                            {{ album.artist }}
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
+                            </td>
+                            <!-- Primary Metric: Plays or Duration (shrunk) -->
+                            <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap metric-value-cell">
+                                {% if sort_by == "playtime" %}
+                                <span class="metric-value metric-val-playtime">
+                                    <span class="desktop-val hidden md:inline">{{ album.play_time if album.play_time else '—' }}</span>
+                                    <span class="mobile-val inline md:hidden">{{ album.play_time_mobile if album.play_time_mobile else (album.play_time if album.play_time else '—') }}</span>
+                                </span>
+                                {% else %}
+                                <span class="metric-value metric-val-plays">
+                                    {{ album.play_count }}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <!-- Release Date Context (YYYY-MM only, no DD) -->
+                            <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[calc(0.6875rem*var(--results-scale))] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ album.release_date or year }}">
+                                {{ (album.release_date or '')[:7] if album.release_date else year }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Side Rail Column: Stretches full table height for smooth sticky runway -->
+        <div class="lg:col-span-4 min-w-0">
+            <!-- Sticky Sidebar: Modern Controls & Supporting Insights -->
+            <div class="results-side-rail sticky top-6 space-y-4">
+                <!-- Sort Leaderboard Control -->
+                <div class="p-4 md:p-[calc(1.25rem*var(--results-scale))] rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] space-y-3">
+                    <h3 class="results-rail-title text-[var(--color-base-content)]">
+                        Sort leaderboard
+                    </h3>
+                    <div class="seg p-1 bg-[var(--color-base-100)] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] flex gap-1" role="group" aria-label="Sort your leaderboard">
+                        <button id="toggle-sort-plays" type="button" class="metric-toggle-btn flex-1 py-2 px-3 text-center font-sans text-xs md:text-sm rounded-[calc(var(--radius-sm)-2px)] transition-all cursor-pointer {% if sort_by != 'playtime' %}bg-[var(--ss-accent-soft)] text-[var(--color-primary)] font-normal{% else %}text-[var(--ss-text-muted)] hover:text-[var(--color-primary)]{% endif %}">
+                            Track Plays
+                        </button>
+                        <button id="toggle-sort-playtime" type="button" {% if not has_durations %}disabled title="Spotify track durations not available"{% endif %} class="metric-toggle-btn flex-1 py-2 px-3 text-center font-sans text-xs md:text-sm rounded-[calc(var(--radius-sm)-2px)] transition-all cursor-pointer {% if sort_by == 'playtime' %}bg-[var(--ss-accent-soft)] text-[var(--color-primary)] font-normal{% else %}text-[var(--ss-text-muted)] hover:text-[var(--color-primary)]{% endif %} {% if not has_durations %}opacity-50 cursor-not-allowed{% endif %}">
+                            Listening Time
+                        </button>
+                    </div>
+
+                </div>
+
+                <!-- Top Artist Spotlight Card (Full-Bleed Editorial Monograph) -->
+                {% set spotlight_fallback_img = top_artist_image if top_artist_image else (album_list[0].album_image if album_list and album_list[0].album_image else '') %}
+                {% if album_list %}
+                <div id="artist-spotlight-card"
+                     data-artist="{{ top_artist_name|default(album_list[0].artist) }}"
+                     class="spotlight-card-bleed rounded-[var(--radius-sm)] border border-[var(--ss-border-default)]">
+                    {% if spotlight_fallback_img %}
+                    <div id="spotlight-card-content" class="spotlight-card-content">
+                        <img id="spotlight-artist-img"
+                             src="{{ spotlight_fallback_img }}"
+                             alt="Photograph of {{ top_artist_name|default(album_list[0].artist) }}"
+                             class="absolute inset-0 w-full h-full object-cover transition-opacity duration-400 ease-out opacity-100"
+                             loading="lazy" decoding="async">
+                        <!-- Top subtle scrim with monograph tags -->
+                        <div class="spotlight-scrim-top">
+                            <span class="results-rail-title text-white/95 drop-shadow-sm">Artist Spotlight</span>
+                            <span id="spotlight-artist-rank" class="font-serif italic text-xs md:text-sm text-[var(--color-primary)] drop-shadow-sm font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
                         </div>
-
-                        {% if no_matches %}
-                            <div class="alert alert-info text-center" role="alert">
-                                <h4 class="alert-heading">No Albums Found</h4>
-                                <p>We couldn't find any {{ filter_description }} that you listened to in {{ year }}.</p>
-                                <hr>
-                                <p class="mb-0">
-                                    <a href="#" id="view-unmatched" data-bs-toggle="modal" data-bs-target="#unmatched-modal">
-                                        Click here to see albums that didn't match your filters.
-                                    </a>
-                                </p>
+                        <!-- Bottom 50% scrim with artist details -->
+                        <div class="spotlight-scrim-bottom">
+                            <div class="flex items-baseline justify-between gap-2 pointer-events-auto">
+                                <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-white leading-tight drop-shadow-sm truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
+                                    {{ top_artist_name|default(album_list[0].artist) }}
+                                </h3>
+                                <a id="spotlight-spotify-link"
+                                   target="_blank" rel="noopener noreferrer"
+                                   class="hidden text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 p-1.5 -mr-1.5 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
+                                   aria-label="View {{ top_artist_name|default(album_list[0].artist) }} on Spotify (opens in new tab)"
+                                   title="View on Spotify">
+                                    <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M6 3h7v7M13 3L6 10" />
+                                    </svg>
+                                </a>
                             </div>
-                        {% elif data and data|length > 0 %}
-                            <div class="table-responsive" id="results-table-wrapper">
-                                <table class="table table-striped results-table">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th scope="col">#</th>
-                                            <th scope="col">Album</th>
-                                            <th scope="col">Artist</th>
-                                            <th scope="col">
-                                                {% if sort_by == "playtime" %}
-                                                Listening Time
-                                                {% else %}
-                                                Track Plays
-                                                {% endif %}
-                                            </th>
-                                            <th scope="col">Release</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for album in data %}
-                                            <tr>
-                                                <th scope="row">{{ loop.index }}</th>
-                                                <td class="album-title">
-                                                    {% if album.album_image %}
-                                                        <img src="{{ album.album_image }}" alt="Album cover" class="album-cover">
-                                                    {% else %}
-                                                        <div class="album-cover" style="background-color: #ddd; display: flex; align-items: center; justify-content: center;">
-                                                            <span>N/A</span>
-                                                        </div>
-                                                    {% endif %}
-                                                    <div class="album-info">
-                                                        {% if album.spotify_id %}
-                                                            <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="album-link">
-                                                                {{ album.album }}
-                                                            </a>
-                                                        {% else %}
-                                                            {{ album.album }}
-                                                        {% endif %}
-                                                    </div>
-                                                </td>
-                                                <td>{{ album.artist }}</td>
-                                                <td>
-                                                    {% if sort_by == "playtime" %}
-                                                    <span class="d-none d-md-inline">{{ album.play_time }}</span>
-                                                    <span class="d-inline d-md-none">{{ album.play_time_mobile }}</span>
-                                                    {% else %}
-                                                    {{ album.play_count }}
-                                                    {% endif %}
-                                                </td>
-                                                <td>
-                                                    <span class="release-badge">
-                                                        <span class="d-none d-md-inline">{{ album.release_date }}</span>
-                                                        <span class="d-md-none">{{ (album.release_date or '')[:7] }}</span>
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        {% else %}
-                            <div class="alert alert-warning text-center" role="alert">
-                                An unexpected issue occurred. No data is available.
-                            </div>
-                        {% endif %}
-
-                        <div class="d-flex flex-column align-items-center mt-4 mb-3">
-                            <button id="view-unmatched-quick" class="btn btn-outline-secondary mb-2 w-auto" data-bs-toggle="modal" data-bs-target="#unmatched-modal">
-                                Quick View of Unmatched Albums
-                            </button>
-                            
-                            <a href="{{ url_for('main.unmatched_page') }}" class="btn btn-outline-primary mb-2">
-                                View Detailed Unmatched Albums Report
-                            </a>
+                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-white/90 drop-shadow-sm font-normal pt-0.5">
+                                <span id="spotlight-playtime-badge" class="font-mono text-[calc(0.6875rem*var(--results-scale))] tracking-tight text-white/95 {% if not top_artist_play_time %}hidden{% endif %}">{{ top_artist_play_time if top_artist_play_time else '' }}</span><span id="spotlight-playtime-sep" class="{% if not top_artist_play_time %}hidden{% endif %}"> · </span><span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
+                            </p>
                         </div>
                     </div>
+                    {% else %}
+                    <!-- Fallback: no Spotify image -- text-only spotlight -->
+                    <div id="spotlight-card-content" class="spotlight-no-image p-4 md:p-[calc(1.25rem*var(--results-scale))] flex flex-col gap-1">
+                        <span class="results-rail-title text-[var(--ss-text-muted)]">Artist Spotlight</span>
+                        <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
+                            {{ top_artist_name|default(album_list[0].artist) }}
+                        </h3>
+                        <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal pt-0.5">
+                            <span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
+                        </p>
+                        <span id="spotlight-artist-rank" class="font-serif italic text-xs text-[var(--color-primary)] font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
+                    </div>
+                    {% endif %}
                 </div>
+                {% endif %}
+
+                <!-- Albums outside filters card -->
+                <div class="p-4 md:p-[calc(1.25rem*var(--results-scale))] rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] space-y-2">
+                    <h3 class="results-rail-title text-[var(--color-base-content)]">
+                        Albums outside your filters
+                    </h3>
+                    <p class="text-xs font-sans text-[var(--ss-text-muted)] leading-relaxed font-normal">
+                        Review what fell short and why.
+                    </p>
+                    <a href="{{ url_for('main.unmatched_page') }}" class="inline-flex items-center text-xs font-sans text-[var(--color-primary)] hover:underline pt-1 font-normal">
+                        Open unmatched report →
+                    </a>
+                </div>
+
+                <!-- Back to Top (Full width matching cards) -->
+                <button id="rail-back-to-top"
+                        type="button"
+                        class="btn results-action w-full flex items-center justify-center gap-2"
+                        title="Scroll to top of leaderboard">
+                    <span aria-hidden="true">↑</span>
+                    <span>Top</span>
+                </button>
             </div>
         </div>
     </div>
-
-    <div class="modal fade" id="unmatched-modal" tabindex="-1" aria-labelledby="unmatched-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="unmatched-modal-label">Albums That Didn't Match Your Filter</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="unmatched-list">
-                    </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-{% endblock %}
-
-{% block page_footer_extra %}
-<a id="back-to-top" href="#" class="btn btn-sm btn-outline-secondary">&#8593; Top</a>
-{% endblock %}
-
-{% block bootstrap_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    {% endif %}
+</main>
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/results.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/results-spotlight.js') }}" defer></script>
 {% endblock %}

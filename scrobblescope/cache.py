@@ -59,8 +59,7 @@ async def _get_db_connection():
                 return None
             delay = base_delay_seconds * (2 ** (attempt - 1))
             logging.warning(
-                "DB connection attempt %s/%s failed (db-down): %s. "
-                "Retrying in %.2fs.",
+                "DB connection attempt %s/%s failed (db-down): %s. Retrying in %.2fs.",
                 attempt,
                 max_attempts,
                 exc,

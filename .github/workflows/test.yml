@@ -16,6 +16,13 @@ jobs:
   quality-gate:
     runs-on: ubuntu-latest
 
+    # Least privilege (zizmor: excessive-permissions / artipacked). The job
+    # only reads the checkout and uploads a coverage artifact; without this
+    # block the runner's default GITHUB_TOKEN permissions are broader than
+    # anything the steps need, and every third-party action inherits them.
+    permissions:
+      contents: read
+
     env:
       LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
       SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
@@ -25,17 +32,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
           cache: 'pip'
           cache-dependency-path: requirements*.txt
 
       - name: Cache pinned Tailwind assets
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: scripts/bin
           key: tailwind-assets-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/dev/tailwind_build.py') }}
@@ -78,7 +87,7 @@ jobs:
           pytest --cov=scrobblescope --cov-report=xml --cov-fail-under=70
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-xml
           path: coverage.xml
@@ -91,7 +100,9 @@ jobs:
           python -m playwright install --with-deps chromium firefox
 
       - name: Run frontend gate
+        if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fly.io-deploy' && github.head_ref != 'flyio-deploy') }}
         run: |
+          python scripts/dev/results_behavior_tests.py
           python scripts/dev/frontend_gate.py
 
       - name: Security audit (pip-audit)

@@ -51,6 +51,9 @@
         })();
     </script>
 
+    {# Shared arrival/departure motion applies to page content. #}
+    <script src="{{ url_for('static', filename='js/page_motion.js') }}" defer></script>
+
     {# Adobe Fonts: the five families the design system uses. #}
     <link rel="stylesheet" href="https://use.typekit.net/rwy8ghw.css">
 
@@ -87,7 +90,8 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 <body>
-    {# Standing header bar: wordmark, canonical page navigation and theme. #}
+    {# Standing header bar: wordmark, canonical page navigation and the
+       desktop position of the theme control. #}
     <header class="site-header">
         <a class="site-header__home" href="/" aria-label="ScrobbleScope home">
             <span class="site-header__mark ss-mark">
@@ -112,16 +116,17 @@
     {# Main content area #}
     {% block content %}{% endblock %}
 
+    {# On mobile, theme.js moves the one real theme control here so it follows
+       the page card instead of competing with the mobile navigation. #}
+    <div class="site-theme-mobile-slot"></div>
+
     {# Bootstrap JS (only included if needed) #}
     {% block bootstrap_js %}{% endblock %}
 
     {# Page-specific JavaScript #}
     {% block scripts %}{% endblock %}
 
-    {# The toggle moved to the header bar, but the wrapper stays. It centres
-       and spaces whatever a page puts here, and results.html still injects
-       its back-to-top control. Emitted on every page so a page cannot forget
-       it; kept on one line so :empty collapses it where nothing is added. #}
+    {# Optional page extras; keep one line so :empty collapses the wrapper. #}
     <div class="page-footer-extras">{% block page_footer_extra %}{% endblock %}</div>
 
     {# Shared theme logic -- loads after the header toggle is in the DOM #}

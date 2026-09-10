@@ -81,7 +81,29 @@ See FINDINGS F-DOCSYNC-3.
   CLI) + daisyUI v5, warm heatmap-derived themes propagated app-wide,
   page-by-page strangler migration. Expanded from the owner's Claude
   Design audit (UI Audit v3); four owner decisions locked in the
-  definition. Branch: `wip/batch-21` (worktree off `main`).
+  definition. Branch: `test` (worktree off `main`; remediated from `wip/batch-21` per owner authorization 2026-09-06).
+- **Results refinement:** proportional scaling and the warm shared canvas are
+  included in the review follow-up; F-B21-55 and Section 4 record evidence.
+  The current owner consistency pass adds midpoint surfaces, matched sidebar
+  headings and action buttons, removes redundant Heatmap loading counters,
+  and repairs page/handoff motion. The index form sits up to 2.5rem higher;
+  the decade-filter state fits shorter desktop windows without changing scale.
+  The 2026-09-10 follow-up refines Heatmap contrast and toolbar type, adds
+  delayed Spotify link hints and animated ranking changes, and fixes a
+  reproduced first-paint flash. The header now scrolls out of view in document
+  flow, following the owner's screenshot clarification. Final validation passed;
+  owner visual review is approved and the reviewed changes are authorized for PR #227.
+- **PR #227 priority triage:** F-B21-49 is resolved in the review follow-up.
+  Review comments including assertions and all 15 deleted route TODOs were
+  checked; F-B21-54 records remaining scanner noise. Evidence:
+  `docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md`.
+  The owner authorized publishing the pending review commits and approved
+  refinements on `test`. WP-7 retains scope; Task 6 timing follows the
+  canonical remediation plan.
+- **PR #227 review remediation:** the owner-requested package is implemented
+  and validated. Audit and remaining scope:
+  `docs/history/reports/PR227_REVIEW_2026-09-07.md`. The latest Section 4 entry
+  records subsequent owner-approved header and surface refinements.
 - **PR #223 side-task:** merged as `123b127`; this worktree is synchronized.
   Remaining issue #222 targets stay open.
 - **Planning follow-up:** the original owner-review plan remains historical
@@ -89,28 +111,33 @@ See FINDINGS F-DOCSYNC-3.
   the two-engine runner and explicit CSS composition dimensions. Its rendered
   expanded-state guard, complete validation, and PR #224 review remediation
   passed.
-- **Next action:** **WP-4, remediation Task 2, and remediation Task 3 are
-  complete. Remediation Task 4 is implemented and validated locally (commit
-  e0219b2), awaiting task review; the review of Task 4 is the next action,
-  then Task 5 (add the unmatched no-data surface).** Work from
+- **Remediation plan:** **Tasks 1-5 are complete and validated locally.
+  Task 6 (accessibility pass) is deferred until Bootstrap is fully removed.** Work from
   `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`.
   Task 1 is complete. Task 2 replaces the engine-independent height-denominator
   defect with layout-aware CSS and a complete real-window gate in Chromium
   and Firefox; it merged as PR #224. Task 3 landed the final `3fr 4fr` split,
-  `28rem` form base cap, raised `--shell-border` contrast to >= 3:1 in both
-  themes, and applied the ruled header clamps (`--shell-height`,
-  `--shell-control-gap`, nav-link/theme-control sizing). Task 4 aligned visible
+  owner-refined `27.5rem` form base cap, raised `--shell-border` contrast to
+  >= 3:1 in both themes, and applied the ruled header clamps (`--shell-height`,
+  `--shell-control-gap`, nav-link/theme-control sizing). Review remediation pins that
+  composition across every reachable form state and uses one fast hero/page
+  fade timing (F-B21-41, F-B21-42). Task 4 aligned visible
   loading progress with pipeline phases across Top Albums and Heatmap,
   eliminated overlapping interval polls and stale responses (F-B21-33), decoupled
   received vs attempted Last.fm counts, corrected loading composition
-  (F-B21-36), and added real-browser phase checks to the gate; its task review
-  is pending next. Tasks 5-6 (unmatched no-data surface, accessibility pass)
-  remain open.
+  (F-B21-36), and added real-browser phase checks to the gate. Its review fix
+  keeps the loader hidden when a saved Heatmap job is already cached and fades
+  the result in directly (F-B21-43). Task 5 added the dedicated unmatched
+  no-data surface (`templates/unmatched_empty.html`), wired clean session
+  recovery and eviction on `/unmatched`, mutest-verified failure paths, and
+  extended `frontend_gate.py` with card, shadow, and action assertions.
+  Owner visual refinements bias the desktop form above centre,
+  unify single-row mobile navigation with the theme control below page content,
+  widen the desktop Heatmap result, and return its username to the neutral headline
+  treatment (F-B21-44 through F-B21-46). Task 6 follows Bootstrap removal; see the canonical remediation plan.
   WP-4 migrated `loading.html` to the shared determinate wait panel, completed
   both polling state machines, and added browser-session recovery for the
-  latest album and heatmap jobs at clean destination routes. The owner
-  completed the first Impeccable Live annotation pass and paused for the day;
-  resume that review before WP-5 begins.
+  latest album and heatmap jobs at clean destination routes.
   The original twelve-round Codex review closed at `77bb001`: all thirty threads
   were resolved, both Quality Gate runs passed, and the Codex connector
   recorded a thumbs-up. Three later Graphify passes produced advisory findings.
@@ -156,8 +183,12 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- Batch 21 WP status: WP-0 through WP-4 are done. WP-6 is absorbed into WP-3
-  and ships no commit of its own. WP-5 is next; WP-7 and WP-8 are not done.
+- **Next action:** Begin WP-7 (unmatched page + reason_code) -- WP-0 through WP-5 are done. WP-6 is absorbed into WP-3
+  and ships no commit of its own. WP-7 is next; WP-8 follows it.
+- **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
+  and focused frontend-gate unit coverage pass. F-B21-48 records the separate
+  persistent Last.fm scrobble-cache candidate; it does not expand this
+  frontend change.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
   rationale live in FINDINGS.md F-B18-11 (single source).
 - **Last.timer note (checked 2026-05-19):** the referenced project uses
@@ -183,8 +214,7 @@ non-current operational logs. Older dated entries live in
 - Batch scope/acceptance criteria: definitions under `docs/history/definitions/`.
 - Current-batch boundaries are machine-managed (do not move entries manually):
   - `<!-- DOCSYNC:CURRENT-BATCH-START -->`
-  - `<!-- DOCSYNC:CURRENT-BATCH-END -->`
-- After any edit here, run `python scripts/doc_state_sync.py --fix`.
+  - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
@@ -534,178 +564,148 @@ non-current operational logs. Older dated entries live in
   Unmatched templates migrate; do not reintroduce query strings into the
   header pills.
 
+### 2026-09-06 - Dedicated unmatched empty state unified and verified (Batch 21 WP-4)
+
+- Scope: completed Task 5 of `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md`, routing `/unmatched` with absent or expired jobs to a dedicated borderless empty state matching Results and Heatmap.
+- Implementation:
+  - Created `templates/unmatched_empty.html` using the shared `.empty-page` and `.empty-state` structure, purple indicator bar, Task 5 Step 3 spec copy ("Run an album search to find albums that need a review."), and action link to `/`.
+  - In `scrobblescope/routes.py` `_render_unmatched_page`, routed absent and expired saved jobs to `unmatched_empty.html` (with expired message and session pointer eviction via `_get_validated_job_context`) instead of the generic `_render_no_job_state` error card. Valid populated runs and valid 0-row runs remain on `unmatched.html`.
+  - Added route test in `tests/test_routes.py` verifying that an expired `latest_album_job_id` returns 200, `data-empty-state="unmatched"`, pops the session key, and renders no error code. Mutest verified: bypassing the handler caused immediate RED (`AssertionError`), confirmed GREEN on restoration.
+  - Extended `scripts/dev/frontend_gate.py` `check_destination_empty_states` to assert `/unmatched` contains no `.card`, no box shadow on `.empty-state`, and a visible, usable Home action link.
+- Validation: `pytest -q` -- **915 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All pre-commit hooks and `doc_state_sync.py --check` pass.
+- Forward guidance: proceed to Task 6 (accessibility pass).
+
+### 2026-09-06 - Results leaderboard rebuild and interactive polish completed (Batch 21 WP-5)
+- Scope: migrated `templates/results.html` and `static/js/results.js` to Tailwind CSS v4 and daisyUI, implementing the canonical Results Leaderboard with single column layout, sticky side-rail, Top Artist Spotlight with gradient scrim, Instrument Serif play counts, larger artwork, in-flow shell header, and modal removal.
+- Implementation:
+  - Replaced legacy Bootstrap container/table markup in `templates/results.html` with responsive Tailwind semantic structure:
+    - Clean editorial headline with exactly one purple italic accent on `username` and min-height reserve; eliminated eyebrow kicker above `<h1>`, placing a clean subtitle descriptor below.
+    - Touch-accessible action buttons (>= 44px targets) with navbar-style rounded rectangles (`rounded-[var(--radius-field,8px)]`), normal sentence-case, sans-serif typography (`font-sans text-sm font-normal`), and subtle unified card fills. Single desktop flex row with masthead.
+    - Compact symmetrical `StatBlock` mini-table with structural hairline dividers, centered values, and micro-labels (`10px` uppercase).
+    - Active filter tags relocated below the stats card directly above the leaderboard grid with high-contrast borders and surfaces.
+    - Two-column desktop layout (`lg:grid lg:grid-cols-12 lg:gap-8`):
+      - Left column (`lg:col-span-8`): Semantic `<table>` (`#results-table`) styled as an editorial chart with transparent `<thead>`, clear mono rank numerals with hover glow (`--rocket-5`), enlarged artwork covers, Spotify links, and scaled Instrument Serif play counts / monospace durations. Full ISO date day precision preserved in `data-export`.
+      - Right column (`lg:col-span-4`): Sticky side rail with full runway alongside rows 01-14+; interactive segmented toggle (`[ Track Plays ] [ Listening Time ]`) for bidirectional client-side re-sorting with responsive duration strings (`.desktop-val` vs `.mobile-val`), Top Artist Spotlight card with ~16:10 photograph container, bottom gradient scrim overlay, artist name headline, and Spotify link; and Audit & Discovery card linking to `/unmatched`.
+    - Removed duplicate `#rail-back-to-top` button from sidebar, preserving the canonical centered `#back-to-top` footer button.
+    - Converted `.site-header` in `static/css/shell.css` from `position: fixed` to `position: relative` (in-flow) and removed `padding-top` on `body`, reclaiming vertical viewport height.
+    - Removed `#unmatched-modal` and wired all unmatched actions to `/unmatched`.
+  - Backend & hydration:
+    - Added `fetch_spotify_artist_spotlight` in `scrobblescope/spotify.py` and exposed `GET /api/artist_spotlight` route in `scrobblescope/routes.py` with comprehensive unit and fallback tests in `tests/test_routes.py`.
+    - Added progressive client hydration in `static/js/results.js` (`loadArtistSpotlight`) to dynamically update the spotlight image.
+    - Computed and passed `has_durations` from `scrobblescope/routes.py` to enable the Listening Time sort toggle, with template fallback.
+    - Updated row `data-` attributes on leaderboard `<tr>` (`data-play-time`, `data-play-time-mobile`, `data-play-time-seconds`).
+  - Added interactive toggle, glow, and spotlight styles to `static/css/results.css`.
+  - Added `results.html` to `MIGRATED` set in `tests/test_template_shell.py` and rebuilt `static/css/tailwind.css`.
+- Validation: `pytest -q` -- **922 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All 12 pre-commit hooks and `doc_state_sync.py --check` pass.
+- Forward guidance: proceed to WP-7 (unmatched page + reason_code backend fix).
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-05 - Close out the Task 4 session and stack its PR (side-task)
+### 2026-09-10 - Add isolated Results script regression coverage
 
-- Scope: session close-out after Task 4's implementation pass. Corrected the
-  dangling pre-amend commit reference (`21b5198` -> `e0219b2`) in Section 3,
-  in the Task 4 entry's forward guidance, and in the plan's Task 4 checkpoint
-  -- a commit cannot contain its own SHA, so SHA references land after the
-  commit they name. Added the dated handoff document
-  `docs/superpowers/handoffs/2026-09-05-batch21-task-4-review-handoff.md`.
-- Plan vs implementation: as intended by the owner's close-out instruction.
-  Task 4's commit and this handoff are published on the stacked branch
-  `wip/batch-21-task-4` (base `wip/batch-21`) so PR #225 stays scoped to
-  Task 3; local `wip/batch-21` is intentionally ahead of its origin until
-  PR #225 merges and the WT004 realign ritual runs.
-- Deviations: none of record; the implementer's amend-within-its-own-pass
-  produced the dangling SHA this entry corrects.
-- Validation: `pytest -q` -- **902 passed** (unchanged by this docs-only
-  commit). `pre-commit run --all-files` -- all hooks pass.
-  `doc_state_sync.py --check` -- exit 0 (expected root-definition warning).
-- Forward guidance: the next session reviews Task 4 (SDD task review, then
-  fix loop if needed), then Tasks 5 and 6 per the plan; the handoff doc is
-  the map. PR #225 (Task 3) remains draft awaiting owner review.
+- Scope: owner-requested coverage review and tests for Spotlight and leaderboard
+  interactions. Sampling is server-owned and already covered by the route test.
+- Implementation: six isolated Chromium tests run unmodified production scripts
+  with a controlled clock. Cover rotation wraparound, late and failed hydration,
+  reduced motion, numeric sorting with absent metrics, ranks and accessible
+  selection, and hover delay/cancellation plus keyboard tooltip dismissal.
+  CI runs this suite after installing browsers and before the frontend gate.
+- Validation: six browser tests passed; `pytest -q`: **974 passed**;
+  all pre-commit hooks passed. Documentation integrity and whitespace checks
+  passed after the final log update.
+  No application changes or dependency additions. Owner authorized committing
+  this coverage and the README refresh together; pushing is not part of this step.
 
-### 2026-09-05 - Align loading signals with pipeline phases (side-task)
+### 2026-09-10 - Refresh the product README against the current implementation
 
-- Scope: Task 4 of the Batch 21 owner-review remediation plan. Align visible
-  loading progress with pipeline phases for both Top Albums and Heatmap clients,
-  eliminate overlapping interval polls and stale out-of-order response application
-  (F-B21-33), decouple received vs attempted Last.fm counts, and implement loading
-  composition corrections (F-B21-36).
-- Plan vs implementation:
-  - Repository layer: Added `_UNSET` sentinel to `set_job_progress` for `phase`,
-    allowing progress/message updates without clobbering an active phase; updated
-    `set_job_error` to clear `phase=None`; isolated phase dicts in
-    `get_job_progress` and `get_job_context` via `copy.deepcopy` to prevent caller
-    or internal mutations from leaking across boundaries.
-  - Route layer: `/progress` returns `phase` when present in progress dictionary.
-  - Orchestrator and services: Emitted explicit `lastfm_fetch`, `spotify_search`,
-    and `spotify_details` phases with unit, current, total counts in `orchestrator.py`
-    and `heatmap.py`. Updated `lastfm.py` to decouple received vs attempted pages via
-    `pages_received`. Cleared `phase=None` on uncounted states (initialization,
-    counting, filtering, error, 100% completion).
-  - Browser helper (`static/js/loading-progress.js`): Non-module global
-    `window.ScrobbleProgress` providing `displayPercent(payload)`, `label(payload)`,
-    and `update(options)`. Manages instant bar reset on phase change, ARIA attributes
-    (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`), and
-    formatted phase lines.
-  - Polling clients: Integrated `ScrobbleProgress` into `loading.js` and `heatmap.js`.
-    Added `pollInFlight`, `pollSeq`, and `latestAppliedPollSeq` to drop out-of-order or
-    stale responses and prevent overlapping interval fetches.
-  - Loading composition: Removed duplicate phase sentence `<p class="heatmap-loading__detail">`
-    and `<li>rocket scale</li>` in `_heatmap_loading_details.html`. Styled stat items in
-    flex container with centering, 18rem max-width, and divider rules
-    (`:not(.hidden) ~ :not(.hidden)`). Added `@keyframes wait-fade-in` (200ms ease-out)
-    with `@media (prefers-reduced-motion: reduce)` cancellation restoring `opacity: 1`.
-  - Frontend gate: Added unit tests for new gate helpers (`_parse_matrix_scalex`,
-    `_assert_loading_progress_state`) in `test_frontend_gate.py`. Implemented
-    `_exercise_loading_progress_phases` testing sequential frames, zero totals,
-    100% phase without result navigation, flex centering, and stale response rejection
-    across Chromium and Firefox.
-- Deviations: none. All requirements from the task brief implemented strictly.
-- Validation: `pytest -q` -- **902 passed**, 5 warnings (8 new tests across
-  test_repositories, test_routes, test_orchestrator, test_heatmap, test_lastfm_service,
-  test_frontend_gate). Frontend gate: `23 checks passed in 64 runs across chromium,
-  firefox`. Prohibited animation sweep (`rg -n 'transition:\s*(width|height|padding|margin|max-width)' static\css static\js`)
-  returned 0 matches.
-- Forward guidance: Task 4 implemented and validated locally in commit e0219b2;
-  awaiting task review (spec and quality review is pending as the next action,
-  followed by Task 5 per the plan order).
+- Scope: owner-requested README refresh while the owner handles PR #227
+  integration. No application changes or Git history operations.
+- Implementation: describe current navigation, Results/Spotlight, Heatmap
+  statistics and export limits, progress UI, and the remaining Bootstrap
+  Unmatched report. Replace stale test/coverage figures with the live CI badge;
+  shorten the file inventory and link to maintained architecture and work orders.
+  Correct virtualenv installs and the init_db.py environment requirement.
+- Related pointers: DEVELOPMENT now accurately distinguishes the Chromium
+  matrix from the Firefox canary; CONTRIBUTING delegates setup to README.
+- Validation: source-checked against templates, routes, frontend scripts,
+  dependency pins, workflow configuration and deployment files. All 42 local
+  Markdown links and anchors, pre-commit hooks, documentation integrity and
+  whitespace checks passed.
+  Owner subsequently authorized committing this refresh with the Results tests.
 
-### 2026-09-05 - Remediate Task 3 review feedback, fill the hero to its column (side-task)
+### 2026-09-10 - Refine Heatmap contrast and Results interaction motion
 
-- Scope: fix round 2/5 for Task 3 owner-review feedback (not a FINDINGS
-  entry -- rendered-evidence feedback, not a review finding): "scale the
-  wordmark and hero up to the edge". `.index-hero__inner`'s width (and the
-  matching `.index-hero__mark` cap) were bound to `calc(35rem *
-  var(--index-scale))`, which the owner's measured evidence showed
-  rendering narrower than the padded hero column in every state -- most
-  visibly in the height-guard-driven expanded state (decade selected,
-  thresholds open), where the hero visibly shrank as the form grew.
-- Plan vs implementation: replaced the `35rem * scale` basis on both
-  `.index-hero__inner` (`width: 100%`) and `.index-hero__mark` (`max-width:
-  100%`) inside the existing `@media (min-width: 1200px)` block, so hero
-  content (wordmark, headline, lede, capability marks) fills to the
-  padding edge in every state. The two rules stay identical twins, as they
-  were before this change (both previously read the same `35rem * scale`
-  value), so wordmark width keeps tracking hero-inner width exactly with no
-  separate rule needed. Nothing below 1200px, the hero's own padding
-  (`3.5rem * scale`), the lede's `38ch` measure, the form side (3fr 4fr
-  split, 28rem cap, height bounds), the header clamps, or either divider
-  token was touched, per the owner's explicit "do not touch" list.
-- TDD evidence: extended `check_large_display_scale_parity` in
-  `scripts/dev/frontend_gate.py` (`measure_wide_layout` and
-  `measure_compact_height`) to read the hero's own padding, its column
-  width, `.index-hero__inner`'s rendered width, and `.index-hero__mark`'s
-  rendered width, then assert hero-inner fills its padded column (within
-  1px) and mark tracks inner (within 1px), across all four real windows
-  (1080p, 1200p measured, 1440p, 4K) plus the driven decade+thresholds
-  expanded state. A genuine RED run against the pre-fix CSS produced
-  exactly 5 failures: hero inner at 602.0px against a 702.4px column
-  (1080p and 1200p measured, same viewport width), 802.7px against 936.6px
-  (1440p), 1204.0px against 1404.9px (4K), and 400.3px against 742.8px in
-  the expanded state -- confirming the owner's diagnosis empirically (my
-  own hand-derivation independently produced the same 602.0px and 702.4px
-  figures before the browser run). No "mark not tracking inner" failures
-  appeared even pre-fix, because the two rules were already numerically
-  identical. Applying the CSS fix produced GREEN in both engines
-  individually, then a full gate GREEN: `23 checks passed in 64 runs across
-  chromium, firefox` (check count unchanged; this extends two existing
-  measurement helpers rather than adding a new check).
-- Validation: full-suite `pytest -q` -- **894 passed**, 5 warnings
-  (unchanged; this is a gate-level browser-measurement change with no new
-  pytest-collected unit test, since no new Python helper function was
-  introduced -- the assertions read directly from browser-measured
-  rectangles already exposed by the existing helpers). All pre-commit
-  hooks and `doc_state_sync.py --check` passed on the final document
-  state.
-- Forward guidance: Task 3's remaining review rounds (3/5 through 5/5) and
-  the seven parked Minor findings proceed separately; Task 4 remains the
-  next batch-order item once Task 3's review is fully closed.
+- Scope: owner follow-up on Heatmap styling, duplicate Results Top control,
+  delayed Spotify hints, sorting motion and page-loading jank.
+- Implementation: owner-refined sunken light-mode Heatmap frame with darker
+  warm-neutral empty cells (`#c8bfad`); uppercase Input Mono
+  Narrow toolbar with primary New search; supporting label grows from 12px
+  to 15px in Input Mono. Results retains only the side-rail Top control.
+  Spotify links reveal a shared hint after 450ms hover, immediately on focus,
+  and dismiss on Escape, blur or scrolling. Ranking changes interpolate row
+  positions for 280ms, with immediate reduced-motion updates. Export clones
+  clear transient row animations.
+- Diagnosis: delayed page_motion.js reproduced a visible-to-transparent flash
+  in Chromium and Firefox before DOM readiness. CSS now starts entry at first
+  styled paint; the delayed-script probe no longer reproduces the opacity dip.
+  The initial header clarification was interpreted as viewport-fixed. The
+  owner's later screenshot identified that persistent visibility as the
+  unwanted behavior. The header now occupies document flow and scrolls out of
+  view; duplicate body clearance is removed and the sticky rail uses its own gap.
+- Export inspection: Heatmap uses a separate hand-drawn canvas with older
+  headline/layout rules. That visual mismatch remains; the working export is
+  preserved in this pass. Results export is unchanged apart from suppressing
+  temporary row motion in its clone.
+- Validation: `pytest -q` -- **974 passed**. The full frontend gate passed
+  25 checks in 45 runs. Additional Chromium and Firefox probes covered hover
+  delay, dismissal, rapid sorting, reduced motion, scroll stability, header
+  scroll-away, both-theme empty-cell fills and responsive Heatmap geometry.
+  Firefox CSV/JPEG checks passed at desktop and mobile widths in both themes.
+  Evidence: `scratch/pressure-verify-final.txt`, `scratch/pressure-extra-final.txt`
+  and screenshots. Final staged validation passes every hook, including
+  generated-CSS drift and documentation sync. Owner visual
+  review approved the result and authorized a safe push to PR #227. The pre-push
+  sweep reconciled stale design overrides with the shipped composition. This
+  remains an owner-directed side-task, not a new work package.
 
-### 2026-09-05 - Remediate Task 3 review finding, raise the index well divider (side-task)
+### 2026-09-09 - Refine Results consistency and restore navigation continuity
 
-- Scope: fix round 1/5 for the Task 3 owner-review finding "the index
-  page's own dividers were not raised, and the new check cannot see them".
-  `.index-form`'s `border-left` drew from the shared, still-opaque
-  `--ss-border-default` (measured ~1.12:1 light, ~1.18:1 dark against its
-  adjoining surfaces), which Task 3's `--shell-border` fix never touched.
-  Owner ruling: add a dedicated index-only divider token rather than
-  restyling the other 14 `--ss-border-default` uses in `index.css`.
-- Plan vs implementation: added `--ss-border-divider` (`#858179` light,
-  `#6e6a75` dark) to both daisyUI theme blocks in
-  `static/css/tailwind.src.css`, applied only to `.index-form`'s
-  `border-left` in `static/css/index.css`, and regenerated
-  `static/css/tailwind.css` with the qualified `tailwind_build.py` (this
-  time producing a genuine 3-line diff, since the token is new -- unlike
-  Task 3, where the same build produced no drift). `check_divider_contrast`
-  in `scripts/dev/frontend_gate.py` now also reads `.index-form`'s real
-  rendered `border-left-color` against `--color-base-100` and
-  `--ss-surface-sunken` in both themes and engines, reusing the existing
-  minimum-across-surfaces helper. `_divider_contrast_failure` gained a
-  `token` parameter (default `--shell-border`, preserving every existing
-  call site) so the new failure message names `--ss-border-divider`
-  instead of misattributing it.
-- TDD evidence: a genuine RED run against the pre-fix CSS (extended gate
-  assertion in place, `.index-form` still on `--ss-border-default`)
-  produced exactly 4 failures -- index divider light/dark in both
-  Chromium and Firefox, reporting `1.12:1` and `1.18:1`, matching the
-  reviewer's hand-computed ratios exactly. Applying the CSS fix produced a
-  genuine GREEN run: `23 checks passed in 64 runs across chromium,
-  firefox` (check count unchanged; this extends an existing check rather
-  than adding a new one).
-- Measured divider contrast (both engines agreed): light vs page
-  3.65:1, vs sunken well 3.26:1 (binding); dark vs page 3.69:1, vs sunken
-  well 3.37:1 (binding). Both clear the 3:1 floor with comparable headroom
-  to Task 3's shell-border ratios.
-- Test additions: `--ss-border-divider` added to `INDEX_TOKENS` in
-  `tests/test_template_shell.py` (covered by the existing parametrized
-  token-build test, no new test function needed). One new adversarial unit
-  test in `tests/scripts/dev/test_frontend_gate.py` asserting
-  `_divider_contrast_failure`'s `token` parameter is honoured and that the
-  default stays `--shell-border` for existing callers. A new
-  `.docsync.toml` pair of `[[value]]` declarations pins the token's light
-  and dark values across `tailwind.src.css` (both theme blocks) and
-  `tests/test_template_shell.py`.
-- Validation: full-suite `pytest -q` -- **894 passed**, 5 warnings (892
-  baseline plus the 2 new tests above). The complete frontend gate passed
-  23 checks in 64 runs across Chromium and Firefox. All pre-commit hooks
-  and `doc_state_sync.py --check` passed on the final document state.
-- Forward guidance: FINDINGS.md F-B21-40 records this defect and its
-  resolution. Task 3's broader remaining review rounds (2/5 through 5/5)
-  and the seven parked Minor findings are unaffected and proceed
-  separately; Task 4 remains the next batch-order item once Task 3's
-  review is fully closed.
+- Scope: owner-requested UI consistency and remediation of local Heatmap
+  edits. Preserve the larger headline, sans preview labels and tighter loading
+  parameters; correct the undefined legend font token. Remove the intentional
+  duplicate Heatmap counter rail and its unused hydration and layout checks.
+- Implementation: Results panels use an equal sRGB page/sunken mix. Sort and
+  outside-filter headings use smaller uppercase sans type than Spotlight,
+  centred without changing text colours. Sort labels use weight 400. The
+  three toolbar actions use uppercase Input Mono Narrow with one larger gap
+  step; New search retains the theme primary fill. Secondary Results actions
+  and Heatmap result buttons share sans type and control fill, retaining
+  proportional Results dimensions.
+- Index follow-up: measured form placement lifts the composition up to 2.5rem
+  from centre, bounded by 0.25rem of header clearance. Reclaiming excess
+  vertical well padding removes the decade-state scrollbar at 1920x900 and
+  1536x730 in both engines, with thresholds collapsed and scale unchanged.
+  Mobile retains its existing padding. `scratch/index-offset-evidence.json`
+  records five desktop window sizes per engine.
+- Motion: browser samples confirmed existing entrances and a fixed header.
+  Shared keyframes make page entry independent of first-paint timing; normal
+  internal links fade content out before navigation, and Back restores it.
+  Reduced motion remains immediate. Heatmap loader/result stages overlap
+  during their existing opacity handoff. The header remains independently fixed.
+- Export: the browser resolves the mixed surface to RGB in the JPEG clone
+  because html2canvas cannot parse modern computed colour functions. The live
+  page retains its theme-derived mix. Export clones suppress entry animation.
+- Validation: `pytest -q` -- **974 passed**. Focused Chromium and Firefox
+  probes cover desktop/mobile, both themes, scaling, header scroll position,
+  button and heading consistency, navigation, Back and Heatmap completion.
+  Evidence: `scratch/ui-consistency-evidence.json` and accompanying screenshots.
+  Full frontend gate: 25 checks passed in 45 runs. Additional Firefox checks
+  pass for both-theme desktop/mobile exports and the complete layout/state
+  matrix. All hooks pass except committed-CSS drift: the regenerated file
+  intentionally differs from the index while this work remains unstaged.
+  A second build produces identical bytes. Docsync and whitespace checks
+  pass. No commit or push.
+- Deviation: an editing helper briefly misdecoded existing UTF-8 punctuation.
+  Tests caught it; original bytes were restored before the passing suite.
+- Forward guidance: owner visual review before publication. WP-7 remains
+  next batch work; Task 6 stays deferred until Bootstrap removal.

@@ -27,10 +27,11 @@ from __future__ import annotations
 
 import fnmatch
 import re
-import tomllib
 from collections import namedtuple
 from collections.abc import Iterable, Mapping
 from pathlib import Path
+
+import tomllib
 
 from docsync.models import IntegrityIssue, SyncError
 
@@ -137,8 +138,7 @@ def _mismatch(spec: object, value: object) -> str | None:
         for key, held in value.items():
             if not isinstance(key, spec.key):
                 return (
-                    f"a table with a {type(key).__name__} key, "
-                    f"not {spec.key.__name__}"
+                    f"a table with a {type(key).__name__} key, not {spec.key.__name__}"
                 )
             if not isinstance(held, spec.value):
                 return (
@@ -305,7 +305,9 @@ def load_declarations(repo_root: Path) -> dict:
     try:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
-        raise DeclarationError(f"{DECLARATIONS_FILENAME} is not valid TOML: {exc}")
+        raise DeclarationError(
+            f"{DECLARATIONS_FILENAME} is not valid TOML: {exc}"
+        ) from exc
 
 
 class _Files:
@@ -367,7 +369,9 @@ def _compile(pattern: str, where: str) -> re.Pattern[str]:
     try:
         return re.compile(pattern)
     except re.error as exc:
-        raise DeclarationError(f"{where}: {pattern!r} is not a valid regex: {exc}")
+        raise DeclarationError(
+            f"{where}: {pattern!r} is not a valid regex: {exc}"
+        ) from exc
 
 
 def _compile_value(pattern: str, expect: str | None, where: str) -> re.Pattern[str]:
@@ -442,6 +446,12 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
 
         captured: list[tuple[str, str]] = []
         first_line: dict[str, int] = {}
+        declared_expects = {
+            site["expect"] for site in sites if site.get("expect") is not None
+        }
+        uniform_expect = (
+            next(iter(declared_expects)) if len(declared_expects) == 1 else None
+        )
         for site in sites:
             rel_path = site["file"]
             expect = site.get("expect")
@@ -531,6 +541,8 @@ def check_values(files: _Files, declarations: Iterable[dict]) -> list[IntegrityI
                             "itself has moved.",
                         )
                     )
+                elif uniform_expect is not None:
+                    captured.append((rel_path, expect))
                 continue
 
             if values:
@@ -758,7 +770,9 @@ def check_retired(
             # and "inside the thresholds disclosure" starting the next -- can
             # never match a per-line search, while replacing that search loses
             # line anchors. Newlines become spaces only for the cross-line pass.
-            for match, line_number, text, position in _declared_matches(pattern, lines):
+            for _match, line_number, text, position in _declared_matches(
+                pattern, lines
+            ):
                 if exempt_from is not None and line_number >= exempt_from:
                     continue
                 if skip_struck and _is_struck_through(text, position):

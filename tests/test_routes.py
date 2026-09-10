@@ -1,6 +1,9 @@
 # tests/test_routes.py
+import json
 import re
 from unittest.mock import patch
+
+import pytest
 
 from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
@@ -65,6 +68,25 @@ def test_home_page_mode_tabs_are_real_buttons(client):
     assert 'role="button"' not in html
     assert "Top Albums" not in html
     assert 'role="button"' not in html
+
+
+def test_home_page_mode_copy_reserves_one_stable_crossfade_track(client):
+    """Both hero descriptions stay in layout while only one is exposed."""
+    response = client.get("/")
+
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'class="index-hero__copy"' in html
+    assert re.search(
+        r'data-mode-hero="album" class="index-hero__mode-copy is-active"\s+'
+        r'aria-hidden="false"',
+        html,
+    )
+    assert re.search(
+        r'data-mode-hero="heatmap" class="index-hero__mode-copy"\s+'
+        r'aria-hidden="true"',
+        html,
+    )
 
 
 def test_heatmap_page_without_saved_job_uses_dedicated_empty_state(client):
@@ -218,7 +240,8 @@ def test_results_complete_error_with_error_code(client):
     job_id = create_job(TEST_JOB_PARAMS)
     set_job_error(job_id, "spotify_unavailable")
     response = client.post("/results_complete", data={"job_id": job_id})
-    assert response.status_code == 200
+    assert response.status_code == 503
+    assert b">503</span>" in response.data
     assert b"Processing Error" in response.data
     assert b"temporary issue" in response.data
 
@@ -469,7 +492,8 @@ def test_results_complete_missing_job_id(client):
     THEN it should render the error page with a missing-job message.
     """
     response = client.post("/results_complete", data={})
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert b">400</span>" in response.data
     assert b"Missing Job Identifier" in response.data
 
 
@@ -480,7 +504,8 @@ def test_results_complete_expired_job(client):
     THEN it should render the error page indicating results not found.
     """
     response = client.post("/results_complete", data={"job_id": "expired_or_fake"})
-    assert response.status_code == 200
+    assert response.status_code == 404
+    assert b">404</span>" in response.data
     assert b"Results Not Found" in response.data
 
 
@@ -661,7 +686,8 @@ def test_unmatched_view_missing_job_id_renders_error_page(client):
     THEN it should render the error page with a missing-job message.
     """
     response = client.post("/unmatched_view", data={})
-    assert response.status_code == 200
+    assert response.status_code == 400
+    assert b">400</span>" in response.data
     assert b"Missing Job Identifier" in response.data
 
 
@@ -672,7 +698,8 @@ def test_unmatched_view_job_not_found_renders_error_page(client):
     THEN it should render the expired-job error page.
     """
     response = client.post("/unmatched_view", data={"job_id": "no_such_job"})
-    assert response.status_code == 200
+    assert response.status_code == 404
+    assert b">404</span>" in response.data
     assert b"Job Not Found" in response.data
     assert b"expired" in response.data
 
@@ -809,11 +836,14 @@ def test_job_backed_navigation_pages_have_friendly_empty_states(client):
 
     unmatched_response = client.get("/unmatched")
     assert unmatched_response.status_code == 200
-    assert b"You haven&#39;t filtered your scrobbles yet." in unmatched_response.data
+    assert b'data-empty-state="unmatched"' in unmatched_response.data
+    assert b"No unmatched albums yet" in unmatched_response.data
     assert (
-        b' href="/" class="btn btn-primary">Start from Home</a>'
+        b"Run an album search to find albums that need a review."
         in unmatched_response.data
     )
+    assert b'href="/"' in unmatched_response.data
+    assert b"Search albums" in unmatched_response.data
     assert b'class="error-code"' not in unmatched_response.data
 
 
@@ -842,6 +872,24 @@ def test_expired_saved_heatmap_job_returns_to_dedicated_empty_state(client):
     assert b'href="/?mode=heatmap"' in response.data
     with client.session_transaction() as browser_session:
         assert "latest_heatmap_job_id" not in browser_session
+
+
+def test_expired_saved_album_job_unmatched_returns_to_friendly_empty_state(client):
+    """A stale browser-session pointer on /unmatched should clean up and show empty state."""
+    with client.session_transaction() as browser_session:
+        browser_session["latest_album_job_id"] = "expired-job"
+
+    response = client.get("/unmatched")
+
+    assert response.status_code == 200
+    assert b'data-empty-state="unmatched"' in response.data
+    assert b"No unmatched albums yet" in response.data
+    assert b"previous results have expired" in response.data
+    assert b'href="/"' in response.data
+    assert b"Search albums" in response.data
+    assert b'class="error-code"' not in response.data
+    with client.session_transaction() as browser_session:
+        assert "latest_album_job_id" not in browser_session
 
 
 def test_app_404_handler_renders_error_template(client):
@@ -1357,9 +1405,6 @@ def test_group_unmatched_by_reason_uses_fallback_for_missing_reason_key():
 # --- _get_filter_description branch tests ---
 
 
-import pytest
-
-
 @pytest.mark.parametrize(
     "release_scope, decade, release_year, listening_year, expected",
     [
@@ -1384,3 +1429,270 @@ def test_get_filter_description(
         _get_filter_description(release_scope, decade, release_year, listening_year)
         == expected
     )
+
+
+def test_artist_spotlight_api_requires_param(client):
+    """GET /api/artist_spotlight without artist or artist_id returns 400."""
+    response = client.get("/api/artist_spotlight")
+    assert response.status_code == 400
+    assert response.json == {"error": "Missing artist or artist_id"}
+
+
+def test_artist_spotlight_api_fallback_when_token_fails(client, monkeypatch):
+    """GET /api/artist_spotlight returns fallback JSON when Spotify token is unavailable."""
+    from scrobblescope import routes
+
+    async def _no_token():
+        return None
+
+    monkeypatch.setattr(routes, "fetch_spotify_access_token", _no_token)
+    response = client.get("/api/artist_spotlight?artist=ear")
+    assert response.status_code == 200
+    assert response.json["name"] == "ear"
+    assert response.json["image_url"] is None
+
+
+def test_results_page_passes_top_artist_aggregate_stats(client, monkeypatch):
+    """Results page context includes top_artist_name, top_artist_scrobbles, top_artist_album_count, top_artist_image."""
+    from scrobblescope import routes
+
+    results_data = [
+        {
+            "album": "OK Computer",
+            "artist": "Radiohead",
+            "play_count": 200,
+            "spotify_id": "sp-1",
+            "album_image": "https://example.com/okcomputer.jpg",
+        },
+        {
+            "album": "Kid A",
+            "artist": "Radiohead",
+            "play_count": 150,
+            "spotify_id": "sp-2",
+        },
+        {
+            "album": "Currents",
+            "artist": "Tame Impala",
+            "play_count": 100,
+            "spotify_id": "sp-3",
+        },
+    ]
+
+    monkeypatch.setattr(
+        routes,
+        "get_job_context",
+        lambda job_id: {
+            "progress": {},
+            "results": results_data,
+            "params": {
+                "username": "tester",
+                "year": "2024",
+                "release_scope": "any",
+                "decade": "",
+                "release_year": "",
+                "sort_mode": "plays",
+                "min_plays": 1,
+                "min_tracks": 1,
+                "mode": "album",
+            },
+            "unmatched": {},
+        },
+    )
+
+    response = client.get("/results?job_id=test-job")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'data-artist="Radiohead"' in html
+    assert "350 scrobbles across 2 albums in 2024" in html
+    assert 'src="https://example.com/okcomputer.jpg"' in html
+
+
+def test_results_page_top_artist_image_from_first_available_album(client, monkeypatch):
+    """If top artist's first album lacks an image, top_artist_image resolves from their next album."""
+    from scrobblescope import routes
+
+    results_data = [
+        {
+            "album": "Pablo Honey",
+            "artist": "Radiohead",
+            "play_count": 200,
+            "spotify_id": "sp-1",
+            # No album_image
+        },
+        {
+            "album": "The Bends",
+            "artist": "Radiohead",
+            "play_count": 150,
+            "spotify_id": "sp-2",
+            "album_image": "https://example.com/thebends.jpg",
+        },
+    ]
+
+    monkeypatch.setattr(
+        routes,
+        "get_job_context",
+        lambda job_id: {
+            "progress": {},
+            "results": results_data,
+            "params": {
+                "username": "tester",
+                "year": "2024",
+                "release_scope": "any",
+                "decade": "",
+                "release_year": "",
+                "sort_mode": "plays",
+                "min_plays": 1,
+                "min_tracks": 1,
+                "mode": "album",
+            },
+            "unmatched": {},
+        },
+    )
+
+    response = client.get("/results?job_id=test-job")
+    assert response.status_code == 200
+    html = response.get_data(as_text=True)
+    assert 'src="https://example.com/thebends.jpg"' in html
+
+
+def test_results_page_samples_five_unique_artists_from_aggregate_top_ten(
+    client, monkeypatch
+):
+    """A completed job exposes one stable five-artist spotlight rotation."""
+    from scrobblescope import routes
+
+    results_data = [
+        {
+            "album": f"Album {index}",
+            "artist": f"Artist {index}",
+            "play_count": 120 - (index * 10),
+            "play_time_seconds": (120 - (index * 10)) * 60,
+            "album_image": f"https://example.com/{index}.jpg",
+            "spotify_id": f"album-{index}",
+        }
+        for index in range(12)
+    ]
+    # Aggregate Artist 9 into the top ten even though neither album does so alone.
+    results_data[9]["play_count"] = 12
+    results_data.append(
+        {
+            "album": "Album 9B",
+            "artist": "Artist 9",
+            "play_count": 19,
+            "play_time_seconds": 1140,
+            "album_image": "https://example.com/9b.jpg",
+            "spotify_id": "album-9b",
+        }
+    )
+
+    monkeypatch.setattr(
+        routes,
+        "get_job_context",
+        lambda job_id: {
+            "progress": {},
+            "results": results_data,
+            "params": {
+                "username": "tester",
+                "year": "2024",
+                "release_scope": "any",
+                "sort_mode": "plays",
+                "min_plays": 1,
+                "min_tracks": 1,
+                "mode": "album",
+            },
+            "unmatched": {},
+        },
+    )
+
+    def spotlight_payload():
+        response = client.get("/results?job_id=stable-job")
+        assert response.status_code == 200
+        match = re.search(
+            r'<script id="app-data-config" type="application/json">(.*?)</script>',
+            response.get_data(as_text=True),
+            re.DOTALL,
+        )
+        assert match is not None
+        return json.loads(match.group(1))["spotlight_artists"]
+
+    first = spotlight_payload()
+    second = spotlight_payload()
+    names = [artist["name"] for artist in first]
+
+    assert first == second
+    assert names == ["Artist 9", "Artist 7", "Artist 3", "Artist 1", "Artist 0"]
+
+
+@pytest.mark.parametrize("status", [404, 500])
+def test_error_handler_badge_matches_http_status(client, status):
+    """The rendered badge reports the handler's actual HTTP error status."""
+    from scrobblescope.routes import internal_error, page_not_found
+
+    with client.application.test_request_context():
+        html, code = (page_not_found if status == 404 else internal_error)(None)
+    assert code == status
+    assert f">{status}</span>" in html
+
+
+def test_heatmap_privacy_service_failure_preserves_saved_job(client):
+    """Failed privacy preflight neither creates a job nor replaces saved results."""
+    previous_jobs = set(JOBS)
+    with client.session_transaction() as saved:
+        saved["latest_heatmap_job_id"] = "previous-job"
+    with (
+        patch("scrobblescope.routes._check_user_exists", return_value={"exists": True}),
+        patch(
+            "scrobblescope.routes._check_profile_is_public",
+            side_effect=RuntimeError("unavailable"),
+        ),
+    ):
+        response = client.post("/heatmap_loading", data={"username": "testuser"})
+    assert response.status_code == 503
+    assert response.json["retryable"] is True
+    assert set(JOBS) == previous_jobs
+    with client.session_transaction() as saved:
+        assert saved["latest_heatmap_job_id"] == "previous-job"
+
+
+@pytest.mark.parametrize("path", ["/results", "/loading", "/unmatched"])
+@pytest.mark.parametrize("wrong_mode", [False, True], ids=["missing", "wrong-mode"])
+def test_explicit_unavailable_album_job_returns_matching_404(client, path, wrong_mode):
+    """Missing and wrong-mode IDs fail without retaining a stale saved pointer."""
+    job_id = create_job(HEATMAP_JOB_PARAMS) if wrong_mode else "expired-job"
+    with client.session_transaction() as saved:
+        saved["latest_album_job_id"] = job_id
+    response = client.get(path, query_string={"job_id": job_id})
+    assert response.status_code == 404
+    assert b">404</span>" in response.data
+    with client.session_transaction() as saved:
+        assert "latest_album_job_id" not in saved
+
+
+def test_loading_page_missing_identifier_returns_matching_400(client):
+    """A loading URL needs a job, unlike the empty report landing pages."""
+    response = client.get("/loading")
+    assert response.status_code == 400
+    assert b">400</span>" in response.data
+    assert b"Missing Job Identifier" in response.data
+
+
+@pytest.mark.parametrize(
+    "method, path", [("GET", "/results"), ("POST", "/results_complete")]
+)
+@pytest.mark.parametrize(
+    "error_code, expected_status",
+    [(None, 202), ("internal_failure", 500), ("user_not_found", 404)],
+)
+def test_results_job_state_matches_http_status(
+    client, method, path, error_code, expected_status
+):
+    """Pending and terminal jobs expose their state through both status and badge."""
+    job_id = create_job(TEST_JOB_PARAMS)
+    if error_code:
+        set_job_error(job_id, error_code, username="testuser")
+    response = client.open(path, method=method, query_string={"job_id": job_id})
+    assert response.status_code == expected_status
+    assert f">{expected_status}</span>".encode() in response.data
+    assert (
+        b"Processing Error" if error_code else b"Results Still Processing"
+    ) in response.data

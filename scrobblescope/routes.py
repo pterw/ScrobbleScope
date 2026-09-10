@@ -25,7 +25,15 @@ from scrobblescope.repositories import (
     reset_job_state,
     set_job_progress,
 )
-from scrobblescope.utils import run_async_in_thread
+from scrobblescope.spotify import (
+    fetch_spotify_access_token,
+    fetch_spotify_artist_spotlight,
+)
+from scrobblescope.spotlight import select_spotlight_artists
+from scrobblescope.utils import (
+    create_optimized_session,
+    run_async_in_thread,
+)
 from scrobblescope.worker import acquire_job_slot, start_job_thread
 
 bp = Blueprint("main", __name__)
@@ -135,7 +143,8 @@ def _get_validated_job_context(
     """Validate ``job_id`` from the current request query or form data.
 
     Returns ``(job_id, job_context, None)`` on success, or
-    ``(None, None, error_response)`` when validation fails.
+    ``(None, None, (html, status))`` when validation fails. Missing IDs
+    return 400; unavailable or wrong-mode jobs return 404, matching the APIs.
     """
     cleanup_expired_jobs()
     job_id = _request_or_session_job_id(session_key)
@@ -143,11 +152,15 @@ def _get_validated_job_context(
         return (
             None,
             None,
-            render_template(
-                "error.html",
-                error="Missing Job Identifier",
-                message=missing_id_message,
-                details="Please start a new search.",
+            (
+                render_template(
+                    "error.html",
+                    status_code=400,
+                    error="Missing Job Identifier",
+                    message=missing_id_message,
+                    details="Please start a new search.",
+                ),
+                400,
             ),
         )
 
@@ -162,11 +175,15 @@ def _get_validated_job_context(
         return (
             None,
             None,
-            render_template(
-                "error.html",
-                error=expired_error,
-                message=expired_message,
-                details=expired_details,
+            (
+                render_template(
+                    "error.html",
+                    status_code=404,
+                    error=expired_error,
+                    message=expired_message,
+                    details=expired_details,
+                ),
+                404,
             ),
         )
 
@@ -418,6 +435,7 @@ def page_not_found(e):
         render_template(
             "error.html",
             error="Page not found",
+            status_code=404,
             message="The page you're looking for doesn't exist.",
         ),
         404,
@@ -431,6 +449,7 @@ def internal_error(e):
         render_template(
             "error.html",
             error="Server Error",
+            status_code=500,
             message="Something went wrong on our end. Please try again later.",
         ),
         500,
@@ -470,15 +489,22 @@ def _render_results_page():
         error_code = progress_payload.get("error_code")
         retryable = progress_payload.get("retryable", False)
         details = "Please try again or use different parameters."
+        status_code = 500
         if retryable:
             details = "This appears to be a temporary issue. Please try again."
+            status_code = 503
         if error_code == "user_not_found":
             details = "Please check the username and try again."
-        return render_template(
-            "error.html",
-            error="Processing Error",
-            message=progress_payload.get("message", "An unknown error occurred"),
-            details=details,
+            status_code = 404
+        return (
+            render_template(
+                "error.html",
+                error="Processing Error",
+                status_code=status_code,
+                message=progress_payload.get("message", "An unknown error occurred"),
+                details=details,
+            ),
+            status_code,
         )
 
     p = _extract_job_params(job_context)
@@ -495,17 +521,23 @@ def _render_results_page():
 
     results_data = job_context.get("results")
     if results_data is None:
-        return render_template(
-            "error.html",
-            error="Results Still Processing",
-            message="Your results are not ready yet.",
-            details="Please wait on the loading page and try again.",
+        return (
+            render_template(
+                "error.html",
+                error="Results Still Processing",
+                status_code=202,
+                message="Your results are not ready yet.",
+                details="Please wait on the loading page and try again.",
+            ),
+            202,
         )
 
     filtered_results = _filter_results_for_display(results_data, sort_mode)
 
+    unmatched_count = len(job_context.get("unmatched", {}))
+    has_durations = any(a.get("play_time_seconds", 0) > 0 for a in (results_data or []))
+
     if not filtered_results:
-        unmatched_count = len(job_context.get("unmatched", {}))
         filter_description = _get_filter_description(
             release_scope, decade, release_year, year
         )
@@ -522,9 +554,18 @@ def _render_results_page():
             min_tracks=min_tracks,
             no_matches=True,
             unmatched_count=unmatched_count,
+            has_durations=has_durations,
             filter_description=filter_description,
             job_id=job_id,
         )
+
+    spotlight_artists = select_spotlight_artists(filtered_results, job_id)
+    spotlight_artist = spotlight_artists[0] if spotlight_artists else {}
+    top_artist_name = spotlight_artist.get("name", "")
+    top_artist_scrobbles = spotlight_artist.get("scrobbles", 0)
+    top_artist_album_count = spotlight_artist.get("album_count", 0)
+    top_artist_play_time = spotlight_artist.get("play_time", "")
+    top_artist_image = spotlight_artist.get("image_url", "")
 
     return render_template(
         "results.html",
@@ -538,7 +579,15 @@ def _render_results_page():
         min_plays=min_plays,
         min_tracks=min_tracks,
         no_matches=False,
+        unmatched_count=unmatched_count,
+        has_durations=has_durations,
         job_id=job_id,
+        top_artist_name=top_artist_name,
+        top_artist_scrobbles=top_artist_scrobbles,
+        top_artist_album_count=top_artist_album_count,
+        top_artist_play_time=top_artist_play_time,
+        top_artist_image=top_artist_image,
+        spotlight_artists=spotlight_artists,
     )
 
 
@@ -554,14 +603,47 @@ def results_complete():
     return _render_results_page()
 
 
+@bp.route("/api/artist_spotlight", methods=["GET"])
+def artist_spotlight():
+    """Return spotlight photograph and metadata for the top artist."""
+    artist_name = (request.args.get("artist") or "").strip()
+    artist_id = (request.args.get("artist_id") or "").strip()
+    if not artist_name and not artist_id:
+        return jsonify({"error": "Missing artist or artist_id"}), 400
+
+    async def _fetch():
+        token = await fetch_spotify_access_token()
+        if not token:
+            return None
+        async with create_optimized_session() as s:
+            return await fetch_spotify_artist_spotlight(
+                s, artist_name=artist_name, artist_id=artist_id, token=token
+            )
+
+    try:
+        data = run_async_in_thread(_fetch)
+        if data:
+            return jsonify(data)
+    except Exception as e:
+        logging.warning(
+            f"Error fetching artist spotlight for '{artist_name or artist_id}': {e}"
+        )
+
+    return jsonify(
+        {
+            "name": artist_name,
+            "artist_id": artist_id,
+            "image_url": None,
+            "spotify_url": None,
+        }
+    )
+
+
 def _render_unmatched_page():
     """Render the unmatched-album report for an existing job."""
     used_saved_job = request.method == "GET" and not request.values.get("job_id")
     if request.method == "GET" and not _request_or_session_job_id(_LATEST_ALBUM_JOB):
-        return _render_no_job_state(
-            "No unmatched albums yet",
-            "You haven't filtered your scrobbles yet.",
-        )
+        return render_template("unmatched_empty.html")
 
     job_id, job_context, err = _get_validated_job_context(
         missing_id_message="We could not find unmatched albums without a valid job ID.",
@@ -573,9 +655,11 @@ def _render_unmatched_page():
     )
     if err:
         if used_saved_job:
-            return _render_no_job_state(
-                "No unmatched albums yet",
-                "Your previous results have expired. Run a new album search.",
+            return render_template(
+                "unmatched_empty.html",
+                empty_message=(
+                    "Your previous results have expired. Run a new album search."
+                ),
             )
         return err
 
@@ -753,6 +837,18 @@ def heatmap_loading():
             400,
         )
 
+    error = _validate_heatmap_user(username)
+    if error is not None:
+        return error
+    return _dispatch_heatmap_job(username)
+
+
+def _validate_heatmap_user(username):
+    """Return a JSON validation error, or None for an existing public user.
+
+    Keep lookup and privacy service failures retryable without reserving a
+    worker slot or changing this browser's saved heatmap job.
+    """
     try:
         user_info = _check_user_exists(username)
     except Exception:
@@ -806,7 +902,15 @@ def heatmap_loading():
             ),
             503,
         )
+    return None
 
+
+def _dispatch_heatmap_job(username):
+    """Reserve and launch a heatmap job, saving its ID only after startup.
+
+    Remove orphan job state if thread startup fails; the worker launcher
+    owns releasing the reserved slot on that failure path.
+    """
     cleanup_expired_jobs()
 
     if not acquire_job_slot():

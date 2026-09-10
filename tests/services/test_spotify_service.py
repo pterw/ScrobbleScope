@@ -6,6 +6,7 @@ import pytest
 from scrobblescope.spotify import (
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
+    fetch_spotify_artist_spotlight,
     search_for_spotify_album_id,
 )
 from tests.helpers import NoopAsyncContext, make_response_context
@@ -299,3 +300,83 @@ async def test_search_succeeds_on_first_try():
     assert result == "direct_hit_123"
     assert session.get.call_count == 1
     assert mock_sleep.await_count == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("by_id", [True, False])
+@pytest.mark.parametrize(
+    "artist",
+    [
+        {},
+        {
+            "id": "found",
+            "name": "Found",
+            "images": [{"url": "photo"}],
+            "external_urls": {"spotify": "link"},
+        },
+    ],
+)
+async def test_artist_spotlight_parses_details_and_missing_fields(by_id, artist):
+    """Both lookup paths preserve sparse-field fallbacks and image metadata."""
+    response = AsyncMock(status=200)
+    response.json.return_value = artist if by_id else {"artists": {"items": [artist]}}
+    session = MagicMock()
+    session.get.return_value = make_response_context(response)
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_spotify_artist_spotlight(
+            session, "Requested", "requested-id" if by_id else None, "token"
+        )
+    assert result == {
+        "name": artist.get("name", "Requested"),
+        "artist_id": artist.get("id", "requested-id" if by_id else None),
+        "image_url": "photo" if artist else None,
+        "spotify_url": "link" if artist else None,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("items", [[], [{"name": "Search match"}]])
+async def test_artist_spotlight_falls_back_from_failed_id_lookup(items):
+    """An unsuccessful ID lookup searches by name, including no-match results."""
+    failed = AsyncMock(status=404)
+    found = AsyncMock(status=200)
+    found.json.return_value = {"artists": {"items": items}}
+    session = MagicMock()
+    session.get.side_effect = [
+        make_response_context(failed),
+        make_response_context(found),
+    ]
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_spotify_artist_spotlight(
+            session, "Requested", "missing", "token"
+        )
+    assert result == (
+        {
+            "name": "Search match",
+            "artist_id": None,
+            "image_url": None,
+            "spotify_url": None,
+        }
+        if items
+        else None
+    )
+    assert session.get.call_args.kwargs["params"]["q"] == "artist:Requested"
+
+
+@pytest.mark.asyncio
+async def test_artist_spotlight_network_error_preserves_fallback(caplog):
+    """Transport failures log a warning and let the route retain album art."""
+    session = MagicMock()
+    session.get.side_effect = RuntimeError("transport unavailable")
+    with patch(
+        "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+    ):
+        result = await fetch_spotify_artist_spotlight(
+            session, "Requested", token="token"
+        )
+    assert result is None
+    assert "transport unavailable" in caplog.text

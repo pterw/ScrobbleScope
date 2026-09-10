@@ -327,11 +327,22 @@ CSS. CI runs the same one-shot path on Linux and rejects generated-file drift.
 
 ## Frontend Browser Gate
 
+`python scripts/dev/results_behavior_tests.py` runs six isolated Chromium
+tests against the production Results scripts, using a controlled clock and
+no Flask server or external services. They cover Spotlight rotation and late
+hydration, reduced motion, leaderboard state, and tooltip timing and keyboard
+access. These browser tests run in CI after browser installation and before
+the full-page gate; they are separate from the Python `pytest` test count.
+Sampling itself lives in `scrobblescope/spotlight.py` and is covered by the
+Results route regression in `tests/test_routes.py`.
+
 Run `python -m playwright install chromium firefox` once after installing the
 pinned development requirements, then `python scripts/dev/frontend_gate.py`.
 Use the qualified primary-checkout Python path in a linked worktree. The gate
-starts and stops its own loopback Flask server and runs the complete matrix
-in both engines. `--headed` shows the diagnostic browser windows.
+starts and stops its own loopback Flask server. Chromium runs the complete
+matrix; Firefox runs the static-assets and theme-token canary. UI changes
+also receive focused Firefox checks and owner visual review. `--headed`
+shows the diagnostic browser windows.
 
 The active batch definition owns the validation criteria and CI setup.
 

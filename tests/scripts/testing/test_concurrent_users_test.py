@@ -11,14 +11,11 @@ import sys
 import threading
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from scripts.testing.concurrent_users_test import (
     ConcurrentResult,
     build_parser,
     main,
     print_aggregate,
-    print_thread_result,
     run_thread,
 )
 

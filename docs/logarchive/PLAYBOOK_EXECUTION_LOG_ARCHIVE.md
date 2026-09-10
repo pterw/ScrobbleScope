@@ -9,6 +9,904 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-09 - Complete Results scaling and warm the shared canvas
+
+- Owner direction: keep the deployed Results aesthetic, warm the page/navbar
+  subtly, keep the header fixed on every screen size, and defer
+  Task 6 until Bootstrap is fully removed. The canonical remediation plan
+  records the timing; WP-7's backend-first contract and final page migration
+  remain unchanged.
+- Owner typography refinement: Track Plays table numerals are 25% larger;
+  Listening Time retains its existing size, including after switching modes.
+- Owner follow-up: Results stat rail, table, empty-state panel and sidebar
+  cards use `--ss-surface-sunken`; table hover uses the card token for a
+  visible state change. Buttons retain their control surfaces.
+- Implementation: shared light canvas is `#faf7f0`; DOC009 guards the Tailwind,
+  legacy-page and navbar copies. Results uses measured numeric scaling across
+  named spacing tokens, typography, artwork and controls. F-B21-55 records the
+  fixed Firefox arithmetic failure and incomplete geometry scaling. Mobile
+  table headings wrap within their columns. The mobile gate verifies both fixed positioning and matching body padding.
+- Evidence: `scratch/fixed-results-measurements.json` and paired Chromium /
+  Firefox screenshots. Both engines agree on 20% growth between 1200px and
+  1920px. Fourteen viewport samples (320-2560px) have no horizontal overflow;
+  the shared header remains at top 0 after scrolling at every width. Index, Results and
+  Unmatched bodies and navbars all compute to the warm canvas. Dark token values are unchanged; Results panels now consume the sunken token. The Results gate checks growth ratios and
+  mobile recovery using rendered values.
+- Publication validation: fresh `pytest -q` -- **975 passed**. Full frontend
+  gate: 25 checks passed in 45 runs across Chromium and the Firefox canary.
+  The prior loading-pipeline navigation race did not reproduce. The separate
+  Results probe covered both engines at seven widths; the final surface and
+  metric-toggle checks covered both themes and desktop/mobile respectively.
+  All pre-commit hooks pass, including generated-CSS drift; docsync and
+  whitespace checks pass. Read-only review found no material code issue and
+  corrected active document contradictions; exhaustive historical-document
+  coverage was interrupted by reviewer usage limits. Owner authorized commit
+  and push; local tool artifacts remain outside the published changes.
+
+### 2026-09-09 - Triage PR 227 assertions and deleted TODOs; fix job-page statuses
+
+- Scope: owner requested top-priority fixes only and logging of other review
+  comments. Read live review threads, complete review bodies including the
+  low-confidence block, current source, and the TODO add/remove commits.
+- Plan vs implementation: fixed F-B21-49 with explicit HTTP/badge pairs at
+  its four source branches. Missing IDs return 400; unavailable jobs 404;
+  pending results 202; processing failures use their classified status.
+  Saved empty-state recovery stays 200. Strengthened five existing tests and
+  added thirteen route cases. The tests failed before the source fix.
+- Disposition: F-B21-54 records test-scanner noise. F-B21-50 now distinguishes
+  implemented notes from deferred unmatched redesign / POST retirement.
+  F-B21-51 no longer incorrectly claims there are no gate infrastructure tests.
+  Detailed evidence and remaining finding owners:
+  `docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md`.
+- Validation: `pytest -q` -- **975 passed**. Route suite: 18 failed / 89 passed
+  before, 107 passed after. Focused read-only review found no regression.
+  Docsync and `git diff --check` pass. Hooks pass after formatting except the
+  existing `tailwind-css-drift` failure described below.
+- Deviations: the pre-work hooks rebuilt already-dirty `tailwind.css` for the
+  owner's existing results markup; its index comparison fails until that
+  separate styling work is staged. No source CSS/template changes were made
+  here. The known Windows log-rotation lock appeared in red-test diagnostics.
+- Forward guidance: keep this status fix separate from existing styling.
+  Published PR `a53e412` lacks the earlier local remediation; no commit,
+  push or review reply was made. Task 6 and WP-7 remain next.
+
+### 2026-09-09 - Audit PR 227 for regression and bloat; ignore gate artifacts (side-task)
+
+- Scope: the owner asked which commits after `b987e48` carry value and which
+  are bloat, and whether the 15 route TODOs were implemented. Owner chose the
+  hygiene-only remedy: no history rewrite and no gate split.
+- Premise correction recorded before any change: `b987e48` is not a baseline
+  to restore toward. `main` merged into this branch at `ebc5145`, *after*
+  `b987e48`, so reverting toward it would discard PRs #225 and #226. PR content
+  was therefore measured against `origin/main`.
+- Size of the PR, since three different questions give three different answers
+  and the first is the one that misleads. `b987e48..HEAD` is +4524/-1848 over
+  62 files, but it hides everything that arrived through the `ebc5145` merge
+  and must not be quoted. `origin/main..HEAD` is +8458/-2293 over 76 files.
+  Summing each of the 34 non-merge commits' own diffs gives the real churn:
+  **+13802/-5450 over 86 distinct files**, so netting the endpoints conceals
+  8,501 touched lines. The largest single contributor is `frontend_gate.py`:
+  20 commits and 3,158 gross lines to land a net +791 while chasing the CI
+  stall. Quote the churn figure when judging review effort and the endpoint
+  diff when judging the delivered change.
+- Three bloat suspicions were tested and **disproved**, so nothing was
+  reverted: (1) the 486/484-line `global.css` diff is a whole-file CRLF-to-LF
+  conversion in `d41db1f` with about five semantic lines, and `global.css` was
+  the only CRLF outlier in `static/**` and `templates/**`, so the conversion
+  normalized it; (2) `typekit_fixture.css` was added then deleted under the
+  owner's 2026-09-07 font-licensing ruling, recorded in
+  `scripts/dev/fixtures/README.md`; (3) the ruff migration touched about
+  fifteen test files but only reflowed `assert` formatting, weakening no
+  assertion. `ipinfo` and `cachetools` removal was confirmed against zero
+  imports repo-wide.
+- Security and hardening in the range were confirmed genuine and kept:
+  `innerHTML` sinks in `static/js` fall 5 (main) to 4 (`b987e48`) to 1 (HEAD,
+  `heatmap.js` only); least-privilege `contents: read`;
+  `persist-credentials: false`; 18 vulnerable pins upgraded to a zero-finding
+  `pip-audit`; aiohttp 3.14 deprecations replaced with stdlib `base64`; CI
+  actions moved off the deprecated Node 20 runtime.
+- TODO verification: 13 of 15 described already-implemented behaviour
+  (`/unmatched` GET route, `unmatched_empty.html`, `index.js` blur validation,
+  `heatmap.js` `retryable` branching), so removing them was correct. Two were
+  genuine and are now **F-B21-49**.
+- Implementation: added root-anchored `.gitignore` entries for
+  `/gate_out*.txt` and `/gate_summary.txt` (about 3 MB of untracked console
+  captures) plus `*.new` and `*_backup.toml` migration scaffolding, verified
+  against `git ls-files` so no tracked file became hidden; deleted the
+  untracked zero-byte `.github/workflows/workflow1`, which would have been an
+  invalid workflow had it ever been committed.
+- Deviations: three findings were filed rather than fixed, because each needs
+  an owner ruling or parity tests this side-task does not carry. **F-B21-49**
+  (four `error.html` callers return HTTP 200 while painting a 400 badge;
+  measured, not read) needs the owner to choose 404 or 410 for expired jobs.
+  **F-B21-50** records the net-zero TODO churn that cost eight Qlty rounds
+  (15 distinct `routes.py` line numbers, each republished 8 times: 120 comment
+  bodies). **F-B21-51** sizes `frontend_gate.py` at 3,756 lines against its
+  largest sibling's 404, and defers the split because gate infrastructure has
+  no parity tests (AGENTS.md Proposal and Design Rules item 4). F-B21-10's
+  status line now points at F-B21-49 for its call-site half.
+- One claim in the review commit's own subject was checked and does not hold as
+  written: "simplify frontend checks". The gate plus helper grew from 2,965
+  lines in 49 functions on `main` to 3,879 in 78 at HEAD, about 222 of those
+  lines added by that very commit, with its test file going 966 to 1,328. What
+  did improve is unit size -- the longest function fell 485 to 271. Recorded in
+  F-B21-51 so a later reader does not inherit "simplified" as fact.
+- Validation: `pytest -q` -- **962 passed**. All pre-commit hooks and
+  `doc_state_sync.py --check` pass. The committed tree was verified clean by
+  stashing the unrelated results-scaling work in progress; the earlier
+  `tailwind-css-drift` failure belonged to that work, not to any PR commit.
+- Forward guidance: the PR #227 body still needs writing before merge. Task 6
+  (accessibility pass) and WP-7 remain the next batch work.
+
+### 2026-09-07 - Remediate PR 227 and simplify frontend checks
+
+- Owner requested one review-remediation package. The full comment inventory,
+  body exclusions, repeated claims and individual dispositions are in
+  `docs/history/reports/PR227_REVIEW_2026-09-07.md`.
+- Extracted gate measurement/comparison/profile responsibilities, shared phase
+  probes and lazy generic CDN fixture loading; preserved the live-fonts option.
+  Existing thresholds and the Chromium matrix / Firefox static canary remain.
+- Separated spotlight aggregation from routes, shared Spotify payload parsing,
+  separated heatmap validation/dispatch, and extracted the Last.fm job stage.
+  Existing job-state, empty/error, fallback and sampling behavior stays covered.
+- Split results spotlight hydration/rotation from exports; use DOM text nodes
+  for metrics/toasts and supported metric-toggle font weights. CSV follows the
+  current rank/metric with full ISO dates while display stays month precision.
+  JPEG background comes from the active theme; browser checks decode actual
+  downloads in both themes at mobile and desktop widths.
+- Reconciled implemented route TODOs, corrected explicit 404/500 badges (the
+  remainder of F-B21-10 stays open), and disabled checkout credential persistence.
+- Review caught invalid JSON in the extracted stale-response fixture. A failing
+  regression test proved it; structured JSON serialization restored the check.
+- Validation: `pytest -q` -- **962 passed**, zero warnings. The frontend gate
+  passed 25 checks in 45 runs across Chromium and the Firefox static canary.
+  Both theme exports decode to nonblank 3600px-wide JPEGs. All pre-commit
+  hooks and `doc_state_sync.py --check` pass. No push or deployment. Header
+  alignment and optional white-card shadow remain a separate design follow-up.
+
+### 2026-09-07 - Qlty adopted; first triage closes the workflow-permission gap (side-task)
+
+- Scope: the owner added qlty (`.qlty/qlty.toml`, uncommitted by owner
+  choice) as a fourth static-analysis layer alongside ruff, bandit-class
+  SAST, and the existing gates. This entry records the config tuning,
+  the first triage, and the two fixes it produced.
+- Plan vs implementation: no plan -- owner-directed tooling adoption and
+  triage. Config tuning: scratch/, scripts/bin/, generated tailwind.css,
+  and graphify-out/ excluded (metrics went from 68 to 18 files); the
+  flake8 plugin removed (ruff replaced it; two plugins would report one
+  rule surface in two vocabularies); tests/ added to test_patterns.
+- Triage of the first `qlty check` (88 findings): ~60 are bandit B101
+  "use of assert" in tests -- noise, asserts are the point of tests;
+  2 are real (zizmor on the workflow, fixed here); 1 is a false positive
+  recorded with a nosec (bandit B311, fixed here); the cognitive-
+  complexity pair (frontend_gate.py check_large_display_scale_parity,
+  spotify.py fetch_spotify_artist_spotlight) is known owned debt that
+  matches F-B20-2/F-SWE-7/issue #222 and stays batch-scoped, not
+  gate-blocking.
+- Implementation:
+  - `.github/workflows/test.yml`: added a job-level `permissions:
+    contents: read` block. The job only reads the checkout and uploads a
+    coverage artifact; without the block the runner's default token
+    permissions are broader than any step needs and every third-party
+    action inherits them (zizmor excessive-permissions and artipacked).
+  - `scrobblescope/routes.py`: `# nosec B311` with justification on the
+    `random.Random(str(job_id)).sample(...)` spotlight selection. The
+    seed makes the sample deterministic per job (asserted by
+    test_results_page_samples_five_unique_artists_from_aggregate_top_ten);
+    cryptographic unpredictability would defeat the intent.
+- Deviations: none.
+- Validation: `qlty check` -- 88 -> 86 findings. The excessive-permissions
+  finding is gone; the B311 finding is suppressed (the nosec must sit on
+  the same line as the call -- a preceding comment line is ignored by
+  bandit, which the first attempt got wrong and the re-run caught).
+  Remaining: one zizmor artipacked medium on the checkout step (line 34)
+  -- zizmor flags any cache/artifact-adjacent job; with the permissions
+  block in place the token is already contents-read only, so the
+  practical exposure is closed and the residual finding is a
+  scanner-pattern advisory, not an open hole. The rest are the recorded
+  noise classes. `pytest -q` -- **938 passed**, zero warnings. All
+  pre-commit hooks pass.
+- Forward guidance: the meta-lesson is recorded here because it
+  generalizes -- each gate only checks what it was built to check, and
+  no gate checked the checkers' blind spots. Workflow files had no
+  linter, the codebase had no SAST, structure had no complexity metric;
+  qlty closes exactly those three. The complexity refactor and the
+  bandit B101 test-path suppression are future-batch candidates, not
+  scheduled work. WP-7 (unmatched page + reason_code) remains next.
+
+### 2026-09-07 - Clean uninterrupted frontend gate run achieved (side-task)
+
+- Scope: closed the deviation recorded in the two 2026-09-07 entries above
+  -- no clean uninterrupted `frontend_gate.py` run had been achieved
+  locally -- and updated the spec status line for the implemented design.
+- Plan vs implementation: Task 6 Step 3 of
+  `docs/superpowers/plans/2026-09-07-frontend-gate-isolation.md`. One run,
+  qualified venv path, no interference.
+- Result: the run completed all four groups across both engines with 261
+  page loads, zero timeouts, zero errors, and zero font warnings (the kit
+  served live). The only failures were the 7 large-display-scale-parity
+  assertions at 4K (deltas ~1 percent: 770.0 vs 780.4px form width,
+  774.4 vs 781.6px hero height, 77.2 vs 78.2px headline line-height, and
+  related), which are the same failure family the owner already accepted
+  in the gate-isolation entry above. The isolation mechanics work as
+  designed: every check ran and reported; nothing cascaded.
+- Deviations: none beyond the already-recorded 4K parity pair.
+- Validation: `pytest -q` -- **938 passed**, 5 warnings (unchanged; no
+  code changed in this entry). Spec status line updated to record the
+  owner-ruled licensing amendment (Typekit fixture withdrawn).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+
+### 2026-09-07 - Gate isolation, license-safe CDN routing, paper-cream tokens, and results polish (side-task)
+
+- Scope: made the frontend gate stall-tolerant (grouped checks, fresh
+  contexts, fail-fast navigation), resolved the PR #227 Quality Gate
+  failures, applied the owner's paper-cream surface palette, and landed
+  the owner-annotated results-page polish.
+- Plan vs implementation: followed
+  `docs/superpowers/plans/2026-09-07-frontend-gate-isolation.md` with one
+  fundamental amendment. The metric-pinned font fixture (plan Tasks 1 and
+  5) was abandoned at the owner's licensing ruling: the kit families
+  (Gotham, Akzidenz-Grotesk Next Pro) are commercial web fonts and must
+  never be re-hosted, embedded, or synthesized in the repo. The kit loads
+  from the real Typekit origin on every gate run; only the generic cdnjs
+  Bootstrap stylesheet is served from a repo fixture. The gate is
+  therefore not fully hermetic -- accepted trade-off for license safety,
+  recorded in `scripts/dev/fixtures/README.md`.
+- Implementation:
+  - Gate grouping: `CHECKS` entries gained a group field; groups derive
+    from the tuple at call time (no second declared copy, no group
+    integrity test per the owner's "redundant to test a test" ruling).
+    Each group opens a fresh browser context, so a wedged page poisons
+    only its group -- the 2026-09-07 CI run had cascaded one navigation
+    timeout through every later check on a shared page.
+  - Firefox is a canary: it runs only the static-assets group (the
+    2026-09-01 remediation plan measured engine agreement within 0.1px,
+    so a full second pass doubles the stall surface for near-zero
+    signal). Chromium runs everything.
+  - Fail-fast navigation: 10s page-level timeout (the context-level
+    kwarg does not exist in Playwright -- caught by a local run, not by
+    unit tests).
+  - Fonts advisory: `check_fonts` reports missing faces as WARN lines
+    and returns no failures (owner ruling: a font-supply problem is not
+    a UI defect).
+  - License posture: no Adobe family is copied, embedded, synthesized,
+    or re-hosted anywhere; a synthetic TTF generator briefly existed in
+    untracked scratch and was destroyed before any commit.
+  - Paper-cream surfaces: `--ss-surface-card` #fcfbf8 -> #f7f3ea
+    (halfway to the sunken tone; cards had become indiscernible from
+    the page and pure white read as harsh). `global.css` mirrors follow.
+    The imported design snapshot keeps `#ffffff` by contract; the
+    override is recorded in `docs/design/RECONCILIATION.md` section 12.
+  - Theme pill: the active Light choice dropped its #ffffff background
+    (introduced in `14215d6`) for `--shell-surface` elevation with a
+    stronger border/shadow.
+  - Heatmap preview: bullets at color-mix(body 55%, muted); copy
+    rewritten (7x52 grid, totals/streak, best-day highlight).
+  - Index: `--index-scale-cap` 2.15 -> 1.75 (owner ruling: the lockup
+    dominated beyond 1440p and the right-hanging void grew faster than
+    content).
+  - Card surfaces, final ruling (revising the paper-cream line above,
+    same day): #f7f3ea was too warm and #fcfbf8 read cold, so the owner
+    split the surfaces. `--ss-surface-card` -> #f9f7f1 (midpoint of the
+    two; general cards), mirrored in `global.css`, and a new
+    `--ss-surface-card-standout` (#ffffff light / #181520 dark) paints
+    the index card alone pure white as a standout; `.ss-card` and
+    `.hint__body` in `index.css` read the standout token. DESIGN.md
+    header and the token test follow. RECONCILIATION.md section 12
+    records the full trial -> reversal -> split sequence.
+  - Results StatBlock typography (owner ruling): numerals and labels
+    back to Instrument Serif with labels at 11px/xs serif in
+    `--ss-text-body` (not muted); the sans-numeral line below is
+    superseded by this.
+  - Results polish (owner-annotated screenshot): action-row gap 8 -> 12px;
+    filter-bar values to input-mono; row hover at full sunken strength;
+    sort-toggle weight 500.
+- Deviations: superseded by the 2026-09-07 stale-gate-cap entry below.
+  The 4K parity failures recorded here were later root-caused to the
+  gate's expected-scale cap lagging the CSS `--index-scale-cap` change
+  in this same entry, not to font metrics. Owner confirmed the form card
+  does not scroll the page at 1080p/92dpi with bookmarks extended.
+- Validation: `pytest -q` -- **938 passed**, 5 warnings (final
+  consolidated run for this entry; the standout token added one
+  parametrized test to the shell suite). Full suite green before commit;
+  pre-commit hooks (black auto-fix included) enforced on every commit in
+  the series. The gate itself was exercised repeatedly during
+  development; the remaining parity pair is recorded above rather than
+  hidden.
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next;
+  the heatmap form lacks validation-on-blur and private-account gating
+  (owner-noted), candidate for WP-7 or a scoped side-task.
+
+### 2026-09-07 - Stale gate scale-cap corrected; 4K parity failures resolved (side-task)
+
+- Scope: root-caused and fixed the 7 large-display-scale-parity failures
+  at 4K recorded in the two 2026-09-07 entries above.
+- Plan vs implementation: no plan -- a defect found while reviewing the
+  gate's measurement model with the owner. Verification first: the CSS
+  computes scale `clamp(min, slope, 1.75)` from the owner's 1.75 ruling
+  in `static/css/index.css` line 26, giving 440px x 1.75 = 770.0px form
+  width at 4K -- exactly what the gate measured. The gate's
+  `expected_scales` formula still capped at the old 2.15, expecting
+  780.4px. The 0.9866 ratio reproduces every width/height/cap delta;
+  1440p is unaffected because its slope term (1.308) sits below the cap.
+  The `headline lineHeight` delta is the only member of the old
+  attribution that font metrics could explain; the rest were this cap.
+- Implementation: `scripts/dev/frontend_gate.py` outer scale cap
+  2.15 -> 1.75 with a comment pinning it to `--index-scale-cap` so the
+  next cap change does not repeat the drift. No tolerance changed.
+- Deviations: the original attribution ("real kit's tall Instrument
+  Serif metrics are not present") was wrong for 6 of the 7 failures and
+  is corrected in that entry. The gate's measurement model was the
+  question the owner asked; the answer exposed the defect.
+- Validation: gate unit module 47 passed. Full gate run: **24 checks
+  passed in 43 runs**, exit 0, zero failures, zero timeouts, zero font
+  warnings. `pytest -q` -- **938 passed**, 5 warnings. All pre-commit
+  hooks pass; `doc_state_sync.py --check` exits 0 (expected root BATCH
+  warning).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+  The gate cap and the CSS token are one fact in two places; a future
+  sweep could have the gate read the value, but no further work is
+  scheduled now.
+
+### 2026-09-07 - Remove the dead pypdf/pdf2image/pillow cluster (side-task)
+
+- Scope: executed the removal half of F-B21-3's recorded shape. The
+  2026-09-07 pip-audit run found 120 advisories in 13 packages; these
+  three carried ~65 of them and nothing imports any of them.
+- Plan vs implementation: no plan -- owner-directed side-task executing
+  F-B21-3's suggestion. Verification before removal: `pip show` metadata
+  (pypdf Required-by: nothing; pdf2image Required-by: nothing; pillow
+  Required-by: pdf2image only) plus a repo-wide grep for imports across
+  scrobblescope/, scripts/, tests/, app.py, templates/, static/js/, the
+  Dockerfile and the deployment docs -- zero hits. The JPEG export is
+  client-side html2canvas (static/js/results.js), as F-B21-3 already
+  recorded; the prior archive log confirms the owner was asked about
+  this cluster before and confirmed it serves nothing.
+- Deviations: none for the approved scope. Two further dead packages
+  were found during verification -- `ipinfo` (Required-by: nothing) and
+  `cachetools` (Required-by: ipinfo only) -- but they were not in the
+  approved removal list, so they stay pending an owner ruling. The
+  owner's correction on `virtualenv` was accepted: it is a real
+  dependency of pre-commit (pip show pre-commit: Requires ... virtualenv)
+  and stays; `filelock` stays with it. The stdlib `venv` module, not the
+  virtualenv package, creates .venv -- the two were conflated in the
+  first proposal.
+- Validation: `pytest -q` -- **938 passed**, 5 warnings (unchanged; the
+  packages were unimported). All pre-commit hooks pass.
+- Forward guidance: commit 2 upgrades the vulnerable runtime packages
+  (aiohttp, requests, urllib3, werkzeug, flask, python-dotenv, idna,
+  click, pytest, virtualenv, filelock). Owner ruling pending on
+  ipinfo/cachetools.
+
+### 2026-09-07 - Upgrade vulnerable packages; audit now reports zero (side-task)
+
+- Scope: executed the upgrade half of F-B21-3's recorded shape, plus the
+  owner's two rulings from the removal entry: ipinfo and cachetools are
+  removed (both dead -- ipinfo Required-by nothing, cachetools required
+  only by ipinfo, zero imports), and pip-audit is pinned in
+  requirements-dev.txt so the audit is repeatable locally.
+- Plan vs implementation: no plan -- owner-directed side-task. Fix
+  versions from the audit's own fix_versions, not guesses: aiohttp
+  3.11.10 -> 3.14.3, requests 2.32.3 -> 2.33.0, urllib3 2.2.3 -> 2.7.0,
+  werkzeug 3.1.3 -> 3.1.6, flask 3.1.0 -> 3.1.3, python-dotenv
+  1.1.0 -> 1.2.2, idna 3.10 -> 3.15, click 8.1.8 -> 8.3.3, pytest
+  9.0.2 -> 9.0.3, virtualenv 20.28.0 -> 20.36.1, filelock
+  3.16.1 -> 3.20.3.
+- Deviations: aiohttp 3.14.3 requires aiohappyeyeballs>=2.5.0, so its
+  whole dependency family moved with it (aiohappyeyeballs 2.4.4 ->
+  2.7.1, aiosignal 1.3.2 -> 1.4.0, frozenlist 1.5.0 -> 1.8.0, multidict
+  6.1.0 -> 6.7.1, propcache 0.2.1 -> 0.5.2, yarl 1.18.3 -> 1.24.5) --
+  the first install attempt failed with ResolutionImpossible until the
+  family was upgraded together. The pinned-requirements discipline
+  (AGENTS.md: all ==) is preserved; every new pin is exact.
+- Validation: `pytest -q` -- **938 passed**, 7 warnings (two new
+  warnings are aiohttp 3.14 deprecation notices, cosmetic). All
+  pre-commit hooks pass. Full frontend gate -- **24 checks passed in 43
+  runs**, exit 0, zero failures: the aiohttp jump is clean in a live
+  browser. `pip-audit` re-run: **0 packages with vulnerabilities, 0
+  advisories** (was 13 packages / 120).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+  F-B21-3's remaining suggestion -- splitting runtime from developer
+  requirements -- is still open and unruled. The two new aiohttp
+  deprecation warnings are cosmetic; a future sweep could silence them
+  at the call sites.
+
+### 2026-09-07 - Fix the B023 route-handler regression the ruff migration introduced (side-task)
+
+- Scope: repaired the two validator checks the ruff migration broke in
+  CI (run on `c7bfaec`: "validator race" and "validator network failure"
+  both raised `AttributeError: 'Request' object has no attribute
+  'append'`), plus three Pylance type errors the owner surfaced while
+  reviewing the same file.
+- Plan vs implementation: no plan -- regression repair on the open PR.
+  Root cause of the CI failures: the B023 fix used a default-argument
+  binding (`lambda route, pending=pending: ...`), but Playwright inspects
+  the handler's parameter count -- two parameters means it is called with
+  (route, request), so the request object overrode the `pending` default
+  at call time. The fix is a handler factory (`_collecting_handler`)
+  whose closure binds the list with a single visible parameter,
+  satisfying both Playwright's contract and bugbear B023. Lesson
+  recorded: a lint-driven rewrite of a framework callback must be
+  validated against the framework's calling convention, not only the
+  linter.
+- Implementation:
+  - `scripts/dev/frontend_gate.py`: `_collecting_handler` factory used by
+    both validator checks; `spotlight_requests` bound before its poll
+    loop (possibly-unbound read after a possibly-zero-iteration loop);
+    `CHECK_GROUPS` built through an honestly-typed list accumulator with
+    a final comprehension producing the declared tuple shape; the
+    summary line reads the firefox canary through `groups_for()` instead
+    of subscripting `BROWSER_SCOPES` values, whose `None` sentinel for
+    chromium's full pass makes direct subscripting a type error. The
+    chromium-full-pass / firefox-canary design is unchanged.
+- Deviations: none. No check semantics, tolerance, or grouping changed.
+- Validation: full gate run -- **24 checks passed in 43 runs**, exit 0,
+  zero failures (the two validator checks pass in a live browser), zero
+  timeouts, zero font warnings. `pytest -q` -- **938 passed**, 5
+  warnings. All pre-commit hooks pass. `doc_state_sync.py --check`
+  exits 0 (expected root BATCH warning).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+
+### 2026-09-07 - CI action bumps and ruff lint/format migration (side-task)
+
+- Scope: cleared the Node.js 20 deprecation warning on the Quality Gate
+  (the run on `d41db1f` flagged checkout/cache/setup-python/upload-artifact
+  as forced onto Node 24) and modernized the Python toolchain by replacing
+  black + isort + autoflake + flake8 with ruff, per owner request.
+- Plan vs implementation: no plan -- owner-directed side-task. Action
+  versions were fetched from each repo's latest release, not guessed:
+  checkout v4 -> v7, setup-python v5 -> v7, cache v4 -> v6,
+  upload-artifact v4 -> v7. Ruff pinned to 0.16.6 (latest at adoption),
+  wired through `astral-sh/ruff-pre-commit` v0.16.6 with `ruff-check
+  --fix` and `ruff-format` hooks.
+- Implementation:
+  - `.github/workflows/test.yml`: the four action bumps. No other step
+    changed.
+  - `pyproject.toml`: `[tool.ruff]` config replaces `[tool.isort]`.
+    select = E,W,F,I,UP,B (pycodestyle, pyflakes, isort, pyupgrade,
+    bugbear). Ignored: E203/E501 (black-compatible formatter artifacts
+    flake8's default ignores already excluded) and E741 (same default
+    ignore set). E402 exempted per-file for `app.py` only -- it must call
+    `load_dotenv()` before imports that read env at import time. The
+    pre-commit exclude list is mirrored in `extend-exclude` (plus
+    `scratch/`, untracked).
+  - `.pre-commit-config.yaml`: four tool repos replaced by one ruff repo.
+  - `requirements-dev.txt`: `flake8==7.3.0` -> `ruff==0.16.6`.
+  - Code fixes ruff surfaced (all real, none cosmetic-only): B904
+    exception chaining in `dev_start.py` (3) and `docsync/declarations.py`
+    (3); B023 loop-variable binding in two `frontend_gate.py` route
+    lambdas; B007 unused loop variables renamed in `orchestrator.py` and
+    `docsync/declarations.py`; B905 `zip(strict=True)` in
+    `docsync/logic.py` and `test_template_shell.py`; E402 mid-file import
+    moved to the top of `test_routes.py`; plus 66 safe autofixes (unused
+    imports, import sorting, pyupgrade rewrites) and 9 files reformatted
+    by ruff-format (black-equivalent; the visible deltas are implicit
+    string-concat joins and assert-message placement).
+  - Docs: README (Code Quality row, structure comments), CONTRIBUTING
+    (code-style section), SESSION_CONTEXT pre-commit line.
+- Deviations: none. No tolerance, test, or behaviour changed; the 938
+  count is unchanged because ruff's fixes touch no tested path.
+- Validation: `ruff check .` -- all checks passed. `ruff format --check`
+  -- clean. `pytest -q` -- **938 passed**, 5 warnings. All pre-commit
+  hooks pass (ruff check, ruff format, and the 8 surviving hooks).
+  `doc_state_sync.py --check` exits 0 (expected root BATCH warning).
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+  The Quality Gate run on this push should show no Node 20 warning.
+
+### 2026-09-07 - Fix the three CI Quality Gate failures left by the Task-3/4 merge (side-task)
+
+- Scope: diagnosed and fixed the three assertion families failing the
+  `quality-gate` run on PR #227 (form centring, theme-toggle height, mobile
+  body offset), all of them inherited from the `ebc5145` merge that took
+  `test`'s pre-remediation CSS while keeping main's post-remediation gate.
+- Plan vs implementation: as planned, after measurement overruled the
+  owner's initial 0.5rem-shift hypothesis. The gate reported a constant
+  80.0px top/bottom gutter imbalance at every window size, which is
+  2 x 40px: the stale `top: -2.5rem` nudge (introduced in `f0acf4d`)
+  fighting the `margin-block: auto` centre. Deleting the nudge shifts the
+  form down 2.5rem, not 0.5rem, and lets the auto margins centre it -- the
+  direction the owner pointed at, with the magnitude measurement dictates.
+- Implementation:
+  - `static/css/index.css`: removed the `position: relative; top: -2.5rem`
+    nudge from the desktop `.index-form__inner` rule; `margin-block: auto`
+    now does the centring alone. The nudge contradicted the F-B21-44
+    "vertically centre the desktop form composition" owner refinement it
+    sat next to -- it predates the flex-centring rule and was superseded,
+    not removed, when that rule landed on main.
+  - `static/css/shell.css`: reverted the theme-toggle padding from
+    `0.25rem` (introduced in `14215d6`) to the ruled `0.2rem`, restoring
+    the 8.4px chrome the gate's toggle-height curve adds to the
+    theme-choice clamp (46.0 -> 44.4px at 1080p; 50.0 -> 48.4px at 1440p).
+    Added a comment pinning the coupling so the next padding tweak does
+    not silently break the gate.
+  - `scripts/dev/frontend_gate.py`: the `bodyPaddingTop == headerHeight`
+    mobile check encoded the fixed-header design that main's CSS still
+    has; the merged redesign moved the header in-flow (`position:
+    relative`) and dropped body padding, so the equality was false by
+    construction. Replaced it with the invariant that design actually
+    promises -- the first content pixel sits at or below the header's
+    bottom edge -- measured as `contentTop >= headerBottom - 0.5`.
+    Extracted the whole mobile-header assertion set into
+    `_mobile_header_failures(width, header)` so each invariant has a
+    unit-level seam, per the AGENTS.md helper-testing rules.
+  - `static/css/tailwind.css`: rebuilt via `scripts/dev/tailwind_build.py`.
+  - `tests/scripts/dev/test_frontend_gate.py`: added 7 unit tests for
+    `_mobile_header_failures`, one per invariant, each with boundary
+    cases (43.9 vs 44.0, 799.0 vs 799.6, 75.0 vs 75.6). Mutation-verified:
+    all 6 guard-block removals are killed by the suite (no vacuous tests).
+- Deviations: no clean uninterrupted `frontend_gate.py` run was achieved
+  locally -- run 2 failed on a firefox theme-click timeout, run 3 on a
+  pipeline state-machine timeout, run 4 on a port collision, and run 5
+  was interrupted mid-flight. Runs 2-4 each failed on exactly one flaky
+  timeout with the three CI families gone, but a single fully green run
+  is still owed to the gate; CI's Linux runner provides the authoritative
+  verdict for this push.
+- Validation: `pytest -q` -- **932 passed**, 5 warnings (was 925; +7
+  helper unit tests). `python scripts/doc_state_sync.py --check` exits 0
+  (expected root BATCH warning). `pre-commit run --all-files` -- all 12
+  hooks pass, including `tailwind-css-drift` on the rebuilt stylesheet.
+- Forward guidance: WP-7 (unmatched page + reason_code) remains next.
+
+### 2026-09-06 - Rotate five Artist Spotlight candidates from the aggregate top ten (side-task)
+
+- Scope: corrected the Results Artist Spotlight contract without changing
+  album enrichment, Heatmap polling, the database schema, or CSS rules.
+- Implementation:
+  - Aggregate filtered albums by artist scrobbles, take the top ten, and select
+    five unique candidates with a stable job-ID seed.
+  - Render the first fallback immediately, hydrate the five artist profiles
+    concurrently through the existing endpoint, and rotate locally every seven
+    seconds. Reduced-motion readers keep one static candidate.
+  - Removed metric sorting's competing top-album mutation and the album-ID
+    fallback link. Candidate-slot, active-index, and image-revision guards keep
+    late requests from replacing the active card.
+  - Added a real-browser gate for five unique post-render requests and a card
+    index change. The check failed when the production interval was disabled
+    and passed after restoration in Chromium and Firefox.
+- Follow-up: F-B21-48 records the separately scoped persistent Last.fm event
+  cache. Current page-response caching is process-local, exact-range, and one
+  hour only.
+- Validation: `pytest -q` -- **925 passed**, 5 warnings. The latest route regression and
+  frontend-gate unit subset passes 36 tests. Python/JavaScript syntax and
+  docsync checks pass. The revised late-response browser harness still needs a
+  clean full frontend-gate run.
+
+### 2026-09-06 - UI copy clarity, heatmap eyebrow, and graceful page-load fade (side-task)
+
+- Scope: applied /clarify and /audit workflows to the home → results flow; fixed heatmap partial eyebrow; added universal graceful page-load fade.
+- Implementation:
+  - Updated `templates/partials/_heatmap_result.html`: eyebrow changed from `"Listening heatmap"` to `"Last.fm scrobble heatmap"` to match the index hero copy style.
+  - Updated `templates/index.html`: album mode lede rewritten to cut "specialized data visualization", "Enrich your scrobbles with Spotify metadata", and "isolate custom release eras" — replaced with a plain workflow description ("Choose a listening year and a release window…"). Heatmap lede: removed unexplained "rocket scale" jargon; replaced with a direct description of colour = intensity and tap-to-see interaction.
+  - Added universal page-load fade to `static/css/shell.css` (`body { opacity: 0 }` + `body.is-ready { opacity: 1; transition: 220ms ease }`) and added the matching `DOMContentLoaded` trigger in `templates/base.html` (sequenced after the existing theme-before-paint inline script so dark/light theme commits before opacity resolves).
+- Validation: `pytest -q` -- **924 passed**, 5 warnings.
+
+
+
+- Scope: audited docsync tooling files (`scripts/docsync/*.py`, `.docsync.toml`) to verify DOC001-DOC011 integrity checks fire appropriately; identified and remediated three control-plane defects (F-DOCSYNC-8, F-DOCSYNC-9, F-DOCSYNC-10).
+- Implementation:
+  - F-DOCSYNC-8: Fixed TOML array-of-tables scoping defect in `.docsync.toml` where inserting `[[value]]` for `the wide-desktop scale cap` on 2026-08-28 detached the remaining 9 sites of `the single 860px breakpoint`. Reordered all 14 breakpoint sites contiguously (including missing frontend files `loading.css`, `empty.css`, and `theme.js`), added explicit `expect` values (`"860"` or `"859.98"`) to every site, cleanly separated the scale baseline and cap declarations, and added an architectural warning comment. Completed `expect` attributes on all 11 Adobe Fonts kit sites (`"rwy8ghw"`) and all 15 heatmap window sites (`"365"`).
+  - F-DOCSYNC-9: Hardened `scripts/docsync/declarations.py:check_values` to retain `(rel_path, expect)` in `captured` when a declaration declares uniform expected values, eliminating the blind spot where partially annotated declarations skipped consistency checking between unannotated and expected sites. Added 2 regression unit tests in `tests/test_docsync_declarations.py`.
+  - F-DOCSYNC-10: Hardened `scripts/docsync/integrity.py:_check_section3_next_wp` to inspect Section 3 for unlabelled `NEXT_WP_CLAIM_RE` matches when `claimed is None`, preventing silent bypass of DOC007 next-action integrity checks. Enforced canonical `- **Next action:**` bullet label in `PLAYBOOK.md` Section 3. Added regression test `test_doc007_section3_unlabelled_claim_blocks` in `tests/test_docsync_integrity.py`.
+  - Updated `tests/scripts/dev/test_worktree_guard_playbook.py` `test_the_repository_playbook_parses` to reflect the active authorized worktree branch `test`.
+- Validation: `pytest -q` -- **918 passed**, 5 warnings. All 296 docsync tests pass. `python scripts/doc_state_sync.py --check` exits 0 with no integrity errors.
+- Forward guidance: resume owner-review remediation Task 6 (accessibility pass) per `docs/superpowers/plans/2026-09-01-batch21-index-scaling-and-review-remediation.md` before WP-5 begins.
+
+### 2026-09-05 - Add resilient Typekit fallback font stacks, consolidate single-row mobile navigation, and configure editor (side-task)
+
+- Scope: resolved unknown at-rule IDE lint warning on `@custom-variant` in `static/css/tailwind.src.css`, verified Typekit web font integration, reinforced design token font stacks with resilient Typekit fallbacks (`aktiv-grotesk`, `corporate-a`, `ff-din-paneuropean`, `orator-std`), and consolidated mobile header navigation to a unified single-row bar.
+- Implementation:
+  - Added `.vscode/settings.json` configuring `"css.lint.unknownAtRules": "ignore"` and created `.vscode/tailwind-css-data.json` declaring Tailwind v4 at-rules (`@custom-variant`, `@theme`, `@source`, `@utility`, `@plugin`). Kept git status clean as `.vscode/` is in `.gitignore`.
+  - Verified live Adobe Typekit kit (`rwy8ghw`) served by `templates/base.html` and expanded font stacks in `static/css/tailwind.src.css` and `static/css/global.css`: `--font-sans` now includes `"aktiv-grotesk"`, `--font-serif` includes `"corporate-a"`, `--font-figure` includes `"ff-din-paneuropean"` (FF DIN), and `--font-mono` / `--font-mono-narrow` include `"orator-std"`.
+  - Consolidated mobile header navigation in `static/css/shell.css` from a dual-row 2x2 grid (`--shell-height: 6.5rem`) to a unified single-row 4-column stack (`--shell-height: 4.25rem`, `grid-template-columns: repeat(4, minmax(0, 1fr))`). Provenance & design rationale: opting for a one-stack bar rather than dual-row saves ~36px of vertical fold space on compact mobile viewports (320px–390px), avoids visual crowding now that the theme toggle sits below page content (F-B21-45), comfortably fits all 4 short route labels ("Index", "Heatmap", "Results", "Unmatched") at compliant >=44px tap targets, and unifies the shell height floor with desktop (`4.25rem`).
+  - Synchronized `scripts/dev/frontend_gate.py` (`check_shell_scales_with_text` and `check_large_display_scale_parity` row count assertion to 1 row), updated design token regression lock in `tests/scripts/dev/test_tailwind_build_cli.py`, and rebuilt `static/css/tailwind.css` cleanly.
+- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `pre-commit run --all-files` passed cleanly with 0 drift and all hooks green.
+
+### 2026-09-05 - Harden and polish frontend interfaces, align legacy Bootstrap styles, and mute index divider seam (side-task)
+
+- Scope: executed comprehensive frontend hardening (/harden) and polish (/polish) passes across the application, aligned legacy Bootstrap pages (`results.html`, `unmatched.html`) with the Tailwind design system, and muted the index vertical dividing seam.
+- Implementation:
+  - Added `@media (prefers-reduced-motion: reduce)` overrides to `static/css/global.css` for card and SVG entrance animations (`opacity: 1 !important`, `animation: none !important`) and collapsed button transitions (`0.01ms !important`).
+  - Added form submission resilience and double-submit guards to `static/js/index.js` (disabling `#submit-btn` and setting `aria-busy="true"`, with `pageshow` restoration) and `static/js/heatmap.js` (disabling `#heatmap-submit-btn` during active jobs).
+  - Wired accessibility and defensive attributes: added `maxlength="100"` to Last.fm username inputs on both modes, bound `aria-describedby="year-hint"` to `#year`, and dynamically synchronized `role="alert"`, `aria-invalid="true"`, and `aria-describedby` across inline error and warning states in `static/js/index.js`.
+  - Hardened layout against text overflow in `static/css/results.css` (`flex-shrink: 0` on `.album-cover`, `min-width: 0` and `overflow-wrap: break-word` on `.album-title` and `.album-info`), `templates/results.html` (descriptive `alt="{{ album.album }} cover"` on cover art), and `static/css/unmatched.css` (`overflow-wrap: break-word` on table cells).
+  - Reskinned Bootstrap pages in `static/css/global.css`, `static/css/results.css`, and `static/css/unmatched.css`: styled `.btn` variants with mono-narrow typography, uppercase tracking, 0.625rem radius, and brand purple accents (`--shell-accent`); applied Adobe Typekit serif to display headings (`h1`, `h2`); aligned dark palette variables to authentic warm obsidian (`#0e0c12`, `#181520`, `#1f1b29`, `#2a2434`, `#1a1622`).
+  - Polished design system tokens and anti-patterns: eliminated resting drop shadows on `.album-cover`, `.reason-section`, and `.action-buttons` in favor of structural hairline borders; enforced the No-Medium Rule on `.album-link` (`font-weight: 400`); replaced inline style on cover placeholder with `.album-cover-placeholder`; promoted results heading to semantic `<h1>`; aligned `.reason-count` to pill radius and 0.75rem mono label.
+  - Themed browser surfaces: added custom `::selection` background (`--info-bg` / `--ss-accent-soft`) and subtle hairline `scrollbar-color` across stylesheets.
+  - Muted the index vertical dividing seam (`--ss-border-divider`) by ~8% towards adjoining surfaces (`#8a867e` light, `#68646f` dark) while strictly maintaining >= 3.0:1 WCAG non-text contrast against both adjoining surfaces (`check_divider_contrast`); synchronized `static/css/tailwind.src.css`, `static/css/tailwind.css`, `.docsync.toml`, and `tests/test_template_shell.py`.
+- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass. Live browser execution verified in Chromium and Firefox with 0 console errors and clean contrast checks.
+
+### 2026-09-05 - Soften high-res desktop scale slope, standardize unmatched empty state, and polish warm light surface
+
+- Scope: owner review of 1440p desktop render identified excessive vertical growth in the index card composition. Standardized the `/unmatched` empty state to match `/results` and `/heatmap`, unified the light-mode surface on warm `#fcfbf8`, and elevated the semantic heatmap headline.
+- Plan vs implementation:
+  - Added `@media (min-width: 1920px)` in `static/css/index.css` applying a softened slope curve `0.35 + 0.65 * (W / 1920)` above 1080p, reducing 1440p card height from 907px to 828px and 4K card height from 1358px to 1121px while strictly maintaining 1080p scale at 1.075.
+  - Standardized `/unmatched` empty state via `templates/unmatched_empty.html` with `.empty-page` and `.empty-state` centered typography, purple signal bar, and primary action button; updated `scrobblescope/routes.py` and test suites.
+  - Replaced stark `#ffffff` with warm `#fcfbf8` across `--ss-surface-card` in `static/css/tailwind.src.css` and rebuilt `static/css/tailwind.css`.
+  - Promoted heatmap result headline to semantic `<h1>` in `templates/partials/_heatmap_result.html` and elevated desktop font size to `clamp(1.625rem, 3.75vw, 2.5rem)` (40px) while preserving neutral weight and color for usernames.
+  - Updated `scripts/dev/frontend_gate.py` scale parity calculations to reflect softened curve and column-tracking wordmark geometry.
+- Validation: `pytest -q` -- **914 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox (desktop, mobile, wide touch). `python scripts/dev/tailwind_build.py --check` and `python scripts/doc_state_sync.py --check` pass.
+
+### 2026-09-05 - Move the mobile theme control below page content (side-task)
+
+- Scope: owner review found that the compact horizontal Light/Dark control sat
+  midway across the two navigation rows. Its boxes did not intersect, but the
+  control visually competed with both rows and made the header read as
+  overlapping.
+- Implementation: retain one checkbox and label, then move their actions
+  wrapper between the desktop header and a mobile slot after page content via
+  the existing `859.98px` breakpoint. The four-link grid now uses the full
+  mobile header width. Selector scope follows the wrapper so the hidden input,
+  selected state, and focus ring survive relocation on migrated and legacy
+  pages.
+- TDD evidence: the new rendered check failed in Chromium and Firefox at both
+  390px and 320px because the control remained in the header and above page
+  content. The focused gate passes after relocation and also checks the 44px
+  target, two-row navigation, overflow, and body offset.
+- Findings: F-B21-45 now records the owner correction and final placement.
+- Validation: `pytest -q` -- **904 passed**, 5 warnings. Focused shell and gate
+  tests -- **129 passed**. The complete frontend gate reports `23 checks passed
+  in 64 runs across chromium, firefox`; JavaScript syntax and diff checks pass.
+  All pre-commit hooks pass, including `doc-state-sync-check`; the alignment
+  hook reports the expected WT003/WT010 state on the owner-authorized stacked
+  Task 4 branch.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
+### 2026-09-05 - Refine desktop scale and mobile navigation (side-task)
+
+- Scope: address the owner's final Task 3/4 visual comparison. The 28rem form
+  felt slightly too large, its top-anchored composition accumulated much more
+  space beneath the card on a realistic 1440p window than at 1080p, the mobile
+  header hid report destinations behind horizontal scrolling, and the desktop
+  Heatmap result remained at the snapshot's undersized 1100px measure. The
+  Heatmap username also carried an unwanted purple italic accent.
+- Implementation: refine the form base cap to `27.5rem` and centre its complete
+  composition vertically in the available desktop well. Auto margins collapse
+  when expanded rows need the space, preserving top padding and natural
+  document scroll without state-dependent scaling. Mobile navigation now uses
+  two directly visible rows beside a compact theme control. The desktop
+  Heatmap stage uses `84vw`, capped at `120rem`, while the username inherits
+  the headline's neutral serif treatment.
+- TDD evidence: before the CSS changes, both engines measured unequal form
+  composition gutters at every realistic desktop profile; 390px and 320px
+  headers required horizontal navigation scrolling and exposed only one row;
+  and a 1920x945 Heatmap result occupied 57.3% of the viewport with 16.6px
+  rendered cells. The extended gate now asserts balanced vertical gutters,
+  unchanged expanded-state geometry, two directly visible mobile nav rows,
+  a centred Heatmap frame occupying at least 70% of the viewport, 22px-32px
+  rendered cells, and a neutral username. The complete frontend gate passes
+  all 23 checks in 64 runs across Chromium and Firefox.
+- Findings: F-B21-44 records the desktop Heatmap scale and username treatment;
+  F-B21-45 records mobile navigation overflow; F-B21-46 records the desktop
+  form's top-heavy placement and cap refinement.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
+### 2026-09-05 - Remove the cached Heatmap loading flash (side-task)
+
+- Scope: address the owner-observed flash when the Heatmap header link restores
+  an already-complete saved job. The client exposed the loading panel before
+  its first progress response, then immediately replaced it with cached data.
+- Implementation: keep saved-job loading hidden through the first progress and
+  data requests. Reveal it only when the response shows ongoing work, a retry,
+  or an error; otherwise fade the complete result in directly. Normal Heatmap
+  submissions and their polling lifecycle remain distinct and unchanged.
+- TDD evidence: the new mutation observer failed against the prior client in
+  Chromium and Firefox even though the final result DOM was correct. It starts
+  before production `DOMContentLoaded` handlers, so it records the transient
+  loading paint rather than sampling only the settled page.
+- Findings: F-B21-43 records the defect and its resolution.
+- Validation: `pytest -q` -- **904 passed**, 5 warnings. Focused frontend and
+  route tests -- **120 passed**. The complete frontend gate reports `23 checks
+  passed in 64 runs across chromium, firefox`; JavaScript syntax and diff checks
+  pass. Final hooks and docsync follow before commit.
+- Forward guidance: complete Task 4 review, then proceed to Task 5.
+
+### 2026-09-05 - Pin index state geometry and normalize its fades (side-task)
+
+- Scope: address owner review after Task 3. The state-sensitive height
+  denominator made a fixed 1920x945 window shrink the 481.6px form to 390.5px
+  for a release field, 357.8px for thresholds, and 325.2px when both were
+  open; the hero and every scale-authored dimension changed with it. Mode-copy
+  motion also ran sequential 110ms and 180ms animations while page entrance
+  took 1.2s after a 0.2s delay and Heatmap stage fades took 300ms.
+- Implementation: removed the three reachable-state height overrides. The
+  fixed window alone now selects `--index-scale`; opening rows adds natural
+  document height. A stable root scrollbar gutter prevents Firefox's first
+  scrollbar from shifting the 3fr/4fr columns. Both hero descriptions reserve
+  one overlaid grid track, expose the active copy with `aria-hidden`, and
+  crossfade concurrently. Index entrance, hero copy, and Heatmap stage opacity
+  changes now use one 180ms duration with an immediate reduced-motion state.
+- TDD evidence: the pre-fix browser run failed in both engines and reported
+  every changed form, hero, type, spacing, and control dimension plus the
+  expanded state's missing document scroll. The permanent gate now drives six
+  states at the realistic 1920x945 content box and compares representative
+  rendered dimensions. An adversarial unit test proves material and missing
+  measurements fail; a route test pins the stable hero-copy structure.
+- Review cleanup: replaced the one implicit string concatenation called out on
+  PR #225 and corrected Task 3's stale illustrative commit ID from `c1f10e6`
+  to the actual `8b37566`.
+- Findings: F-B21-41 records the state-dependent resize and F-B21-42 records
+  the inconsistent motion. F-B21-38 now identifies its state-sensitive
+  implementation as superseded.
+- Validation after stacking on the Task 4 branch: `pytest -q` -- **904 passed**,
+  5 warnings. The complete frontend gate reports `23 checks passed in 64 runs
+  across chromium, firefox`; hooks and final docsync follow before commit.
+- Forward guidance: correct the cached-Heatmap restoration flash on PR #226
+  with the loading-progress work, then complete Task 4 review.
+
+### 2026-09-05 - Close out the Task 4 session and stack its PR (side-task)
+
+- Scope: session close-out after Task 4's implementation pass. Corrected the
+  dangling pre-amend commit reference (`21b5198` -> `e0219b2`) in Section 3,
+  in the Task 4 entry's forward guidance, and in the plan's Task 4 checkpoint
+  -- a commit cannot contain its own SHA, so SHA references land after the
+  commit they name. Added the dated handoff document
+  `docs/superpowers/handoffs/2026-09-05-batch21-task-4-review-handoff.md`.
+- Plan vs implementation: as intended by the owner's close-out instruction.
+  Task 4's commit and this handoff are published on the stacked branch
+  `wip/batch-21-task-4` (base `wip/batch-21`) so PR #225 stays scoped to
+  Task 3; local `wip/batch-21` is intentionally ahead of its origin until
+  PR #225 merges and the WT004 realign ritual runs.
+- Deviations: none of record; the implementer's amend-within-its-own-pass
+  produced the dangling SHA this entry corrects.
+- Validation: `pytest -q` -- **902 passed** (unchanged by this docs-only
+  commit). `pre-commit run --all-files` -- all hooks pass.
+  `doc_state_sync.py --check` -- exit 0 (expected root-definition warning).
+- Forward guidance: the next session reviews Task 4 (SDD task review, then
+  fix loop if needed), then Tasks 5 and 6 per the plan; the handoff doc is
+  the map. PR #225 (Task 3) remains draft awaiting owner review.
+
+### 2026-09-05 - Align loading signals with pipeline phases (side-task)
+
+- Scope: Task 4 of the Batch 21 owner-review remediation plan. Align visible
+  loading progress with pipeline phases for both Top Albums and Heatmap clients,
+  eliminate overlapping interval polls and stale out-of-order response application
+  (F-B21-33), decouple received vs attempted Last.fm counts, and implement loading
+  composition corrections (F-B21-36).
+- Plan vs implementation:
+  - Repository layer: Added `_UNSET` sentinel to `set_job_progress` for `phase`,
+    allowing progress/message updates without clobbering an active phase; updated
+    `set_job_error` to clear `phase=None`; isolated phase dicts in
+    `get_job_progress` and `get_job_context` via `copy.deepcopy` to prevent caller
+    or internal mutations from leaking across boundaries.
+  - Route layer: `/progress` returns `phase` when present in progress dictionary.
+  - Orchestrator and services: Emitted explicit `lastfm_fetch`, `spotify_search`,
+    and `spotify_details` phases with unit, current, total counts in `orchestrator.py`
+    and `heatmap.py`. Updated `lastfm.py` to decouple received vs attempted pages via
+    `pages_received`. Cleared `phase=None` on uncounted states (initialization,
+    counting, filtering, error, 100% completion).
+  - Browser helper (`static/js/loading-progress.js`): Non-module global
+    `window.ScrobbleProgress` providing `displayPercent(payload)`, `label(payload)`,
+    and `update(options)`. Manages instant bar reset on phase change, ARIA attributes
+    (`aria-valuenow`, `aria-valuemin`, `aria-valuemax`, `aria-valuetext`), and
+    formatted phase lines.
+  - Polling clients: Integrated `ScrobbleProgress` into `loading.js` and `heatmap.js`.
+    Added `pollInFlight`, `pollSeq`, and `latestAppliedPollSeq` to drop out-of-order or
+    stale responses and prevent overlapping interval fetches.
+  - Loading composition: Removed duplicate phase sentence `<p class="heatmap-loading__detail">`
+    and `<li>rocket scale</li>` in `_heatmap_loading_details.html`. Styled stat items in
+    flex container with centering, 18rem max-width, and divider rules
+    (`:not(.hidden) ~ :not(.hidden)`). Added `@keyframes wait-fade-in` (200ms ease-out)
+    with `@media (prefers-reduced-motion: reduce)` cancellation restoring `opacity: 1`.
+  - Frontend gate: Added unit tests for new gate helpers (`_parse_matrix_scalex`,
+    `_assert_loading_progress_state`) in `test_frontend_gate.py`. Implemented
+    `_exercise_loading_progress_phases` testing sequential frames, zero totals,
+    100% phase without result navigation, flex centering, and stale response rejection
+    across Chromium and Firefox.
+- Deviations: none. All requirements from the task brief implemented strictly.
+- Validation: `pytest -q` -- **902 passed**, 5 warnings (8 new tests across
+  test_repositories, test_routes, test_orchestrator, test_heatmap, test_lastfm_service,
+  test_frontend_gate). Frontend gate: `23 checks passed in 64 runs across chromium,
+  firefox`. Prohibited animation sweep (`rg -n 'transition:\s*(width|height|padding|margin|max-width)' static\css static\js`)
+  returned 0 matches.
+- Forward guidance: Task 4 implemented and validated locally in commit e0219b2;
+  awaiting task review (spec and quality review is pending as the next action,
+  followed by Task 5 per the plan order).
+
+### 2026-09-05 - Remediate Task 3 review feedback, fill the hero to its column (side-task)
+
+- Scope: fix round 2/5 for Task 3 owner-review feedback (not a FINDINGS
+  entry -- rendered-evidence feedback, not a review finding): "scale the
+  wordmark and hero up to the edge". `.index-hero__inner`'s width (and the
+  matching `.index-hero__mark` cap) were bound to `calc(35rem *
+  var(--index-scale))`, which the owner's measured evidence showed
+  rendering narrower than the padded hero column in every state -- most
+  visibly in the height-guard-driven expanded state (decade selected,
+  thresholds open), where the hero visibly shrank as the form grew.
+- Plan vs implementation: replaced the `35rem * scale` basis on both
+  `.index-hero__inner` (`width: 100%`) and `.index-hero__mark` (`max-width:
+  100%`) inside the existing `@media (min-width: 1200px)` block, so hero
+  content (wordmark, headline, lede, capability marks) fills to the
+  padding edge in every state. The two rules stay identical twins, as they
+  were before this change (both previously read the same `35rem * scale`
+  value), so wordmark width keeps tracking hero-inner width exactly with no
+  separate rule needed. Nothing below 1200px, the hero's own padding
+  (`3.5rem * scale`), the lede's `38ch` measure, the form side (3fr 4fr
+  split, 28rem cap, height bounds), the header clamps, or either divider
+  token was touched, per the owner's explicit "do not touch" list.
+- TDD evidence: extended `check_large_display_scale_parity` in
+  `scripts/dev/frontend_gate.py` (`measure_wide_layout` and
+  `measure_compact_height`) to read the hero's own padding, its column
+  width, `.index-hero__inner`'s rendered width, and `.index-hero__mark`'s
+  rendered width, then assert hero-inner fills its padded column (within
+  1px) and mark tracks inner (within 1px), across all four real windows
+  (1080p, 1200p measured, 1440p, 4K) plus the driven decade+thresholds
+  expanded state. A genuine RED run against the pre-fix CSS produced
+  exactly 5 failures: hero inner at 602.0px against a 702.4px column
+  (1080p and 1200p measured, same viewport width), 802.7px against 936.6px
+  (1440p), 1204.0px against 1404.9px (4K), and 400.3px against 742.8px in
+  the expanded state -- confirming the owner's diagnosis empirically (my
+  own hand-derivation independently produced the same 602.0px and 702.4px
+  figures before the browser run). No "mark not tracking inner" failures
+  appeared even pre-fix, because the two rules were already numerically
+  identical. Applying the CSS fix produced GREEN in both engines
+  individually, then a full gate GREEN: `23 checks passed in 64 runs across
+  chromium, firefox` (check count unchanged; this extends two existing
+  measurement helpers rather than adding a new check).
+- Validation: full-suite `pytest -q` -- **894 passed**, 5 warnings
+  (unchanged; this is a gate-level browser-measurement change with no new
+  pytest-collected unit test, since no new Python helper function was
+  introduced -- the assertions read directly from browser-measured
+  rectangles already exposed by the existing helpers). All pre-commit
+  hooks and `doc_state_sync.py --check` passed on the final document
+  state.
+- Forward guidance: Task 3's remaining review rounds (3/5 through 5/5) and
+  the seven parked Minor findings proceed separately; Task 4 remains the
+  next batch-order item once Task 3's review is fully closed.
+
+### 2026-09-05 - Remediate Task 3 review finding, raise the index well divider (side-task)
+
+- Scope: fix round 1/5 for the Task 3 owner-review finding "the index
+  page's own dividers were not raised, and the new check cannot see them".
+  `.index-form`'s `border-left` drew from the shared, still-opaque
+  `--ss-border-default` (measured ~1.12:1 light, ~1.18:1 dark against its
+  adjoining surfaces), which Task 3's `--shell-border` fix never touched.
+  Owner ruling: add a dedicated index-only divider token rather than
+  restyling the other 14 `--ss-border-default` uses in `index.css`.
+- Plan vs implementation: added `--ss-border-divider` (`#858179` light,
+  `#6e6a75` dark) to both daisyUI theme blocks in
+  `static/css/tailwind.src.css`, applied only to `.index-form`'s
+  `border-left` in `static/css/index.css`, and regenerated
+  `static/css/tailwind.css` with the qualified `tailwind_build.py` (this
+  time producing a genuine 3-line diff, since the token is new -- unlike
+  Task 3, where the same build produced no drift). `check_divider_contrast`
+  in `scripts/dev/frontend_gate.py` now also reads `.index-form`'s real
+  rendered `border-left-color` against `--color-base-100` and
+  `--ss-surface-sunken` in both themes and engines, reusing the existing
+  minimum-across-surfaces helper. `_divider_contrast_failure` gained a
+  `token` parameter (default `--shell-border`, preserving every existing
+  call site) so the new failure message names `--ss-border-divider`
+  instead of misattributing it.
+- TDD evidence: a genuine RED run against the pre-fix CSS (extended gate
+  assertion in place, `.index-form` still on `--ss-border-default`)
+  produced exactly 4 failures -- index divider light/dark in both
+  Chromium and Firefox, reporting `1.12:1` and `1.18:1`, matching the
+  reviewer's hand-computed ratios exactly. Applying the CSS fix produced a
+  genuine GREEN run: `23 checks passed in 64 runs across chromium,
+  firefox` (check count unchanged; this extends an existing check rather
+  than adding a new one).
+- Measured divider contrast (both engines agreed): light vs page
+  3.65:1, vs sunken well 3.26:1 (binding); dark vs page 3.69:1, vs sunken
+  well 3.37:1 (binding). Both clear the 3:1 floor with comparable headroom
+  to Task 3's shell-border ratios.
+- Test additions: `--ss-border-divider` added to `INDEX_TOKENS` in
+  `tests/test_template_shell.py` (covered by the existing parametrized
+  token-build test, no new test function needed). One new adversarial unit
+  test in `tests/scripts/dev/test_frontend_gate.py` asserting
+  `_divider_contrast_failure`'s `token` parameter is honoured and that the
+  default stays `--shell-border` for existing callers. A new
+  `.docsync.toml` pair of `[[value]]` declarations pins the token's light
+  and dark values across `tailwind.src.css` (both theme blocks) and
+  `tests/test_template_shell.py`.
+- Validation: full-suite `pytest -q` -- **894 passed**, 5 warnings (892
+  baseline plus the 2 new tests above). The complete frontend gate passed
+  23 checks in 64 runs across Chromium and Firefox. All pre-commit hooks
+  and `doc_state_sync.py --check` passed on the final document state.
+- Forward guidance: FINDINGS.md F-B21-40 records this defect and its
+  resolution. Task 3's broader remaining review rounds (2/5 through 5/5)
+  and the seven parked Minor findings are unaffected and proceed
+  separately; Task 4 remains the next batch-order item once Task 3's
+  review is fully closed.
+
 ### 2026-09-05 - Implement remediation Task 3, widen composition and raise divider contrast (side-task)
 
 - Scope: land the final desktop index composition and divider-contrast fix

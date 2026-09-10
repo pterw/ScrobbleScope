@@ -13,7 +13,7 @@ from docsync.logic import (
     _split_archive,
     _sync,
 )
-from docsync.models import ActiveBatchState, Entry, SyncError
+from docsync.models import Entry, SyncError
 from docsync.parser import _collect_wp_numbers, _fingerprint, _parse_active_batch_state
 
 # ---------------------------------------------------------------------------

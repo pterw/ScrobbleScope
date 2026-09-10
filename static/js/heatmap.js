@@ -8,7 +8,7 @@
   // Constants
   // ----------------------------------------------------------------
   const POLL_INTERVAL_MS = 1000;
-  const HEATMAP_HANDOFF_MS = 300;
+  const HEATMAP_HANDOFF_MS = 180;
 
   //: The heatmap window. Named because the daily average divides by it.
   const WINDOW_DAYS = 365;
@@ -126,18 +126,12 @@
   }
 
   /**
-   * Zero-scrobble cell fill based on dark mode.
-   *
-   * The two values are --heatmap-empty from the theme. They are repeated as
-   * literals because this fill goes on an SVG attribute, where var() does not
-   * resolve. static/css/tailwind.src.css stays the definition; change both.
-   *
-   * The marker read here is body.dark-mode, not the data-theme attribute on
-   * html. static/js/theme.js still writes both, and WP-8 owns retiring the
-   * older one -- do not switch this ahead of it.
+   * Read the active theme's zero-scrobble colour for standalone SVG fills.
+   * Resolve the token before assigning the attribute so the downloaded grid
+   * carries the same colour without needing the page stylesheet.
    */
   function zeroFill() {
-    return document.body.classList.contains('dark-mode') ? '#262230' : '#e8e2d6';
+    return getComputedStyle(document.documentElement).getPropertyValue('--heatmap-empty').trim();
   }
 
   /** Build the rocket_r CSS gradient string for the legend bar. */
@@ -182,8 +176,8 @@
    * The eyebrow above it states the range now, so the headline does not have
    * to, and a short serif line survives a long username without shrinking.
    *
-   * The accent is only ever the reader's own data. Never the year: the year
-   * is a filter, so a fixed one becomes a lie the moment someone changes it.
+   * Keep the username in the headline's neutral serif treatment. It is data,
+   * not a link or control, so accent colour and italics overstate its role.
    */
   function renderHeadline(username) {
     clearChildren(resultHeadline);
@@ -201,6 +195,10 @@
   }
 
   function revealHeatmapResult() {
+    var loadingIsVisible =
+      !heatmapLoading.classList.contains('hidden') &&
+      getComputedStyle(heatmapLoading).display !== 'none';
+    restoringSavedHeatmap = false;
     setHeatmapStageActive(true);
     resultHeadline.classList.remove('hidden', 'heatmap-fade', 'fading-out');
     resultFrame.classList.remove('hidden', 'heatmap-fade', 'fading-out');
@@ -212,13 +210,16 @@
       return;
     }
 
-    // The result DOM is complete before this runs. Two frames give the browser
-    // a real loader paint before one root crossfade begins; no fake delay.
+    // The result DOM is complete before this runs. A newly completed job
+    // crossfades from its painted loader; a cached job fades the result in
+    // directly because restoration deliberately kept that loader hidden.
     heatmapResult.classList.add('heatmap-fade', 'fading-out', 'is-handing-off');
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         heatmapResult.classList.remove('fading-out');
-        heatmapLoading.classList.add('heatmap-fade', 'fading-out');
+        if (loadingIsVisible) {
+          heatmapLoading.classList.add('heatmap-fade', 'fading-out');
+        }
         window.setTimeout(function () {
           hideElement(heatmapLoading);
           heatmapLoading.classList.remove('heatmap-fade', 'fading-out');
@@ -541,12 +542,11 @@
   // DOM references (set on DOMContentLoaded)
   // ----------------------------------------------------------------
   var pills, albumSection, heatmapSection, heatmapLoading, indexGrid,
-      heroBlocks,
-      heatmapResult, heatmapForm, heatmapUsernameInput,
+      heroBlocks, marksBlocks,
+      heatmapResult, heatmapForm, heatmapUsernameInput, heatmapSubmitBtn,
       progressText, progressBar, progressTrack, errorContainer, errorMessage,
-      loadingDetail, loadingStats, loadingUsername,
-      loadingStatPages, loadingStatScrobbles, loadingStatDays,
-      retryBtn, searchAgainBtn, saveImageBtn, resultHeadline, resultFrame,
+      loadingUsername,
+      retryBtn, saveImageBtn, resultHeadline, resultFrame,
       kpiRow, gridContainer, legendBar, tooltip;
 
   // ----------------------------------------------------------------
@@ -562,10 +562,9 @@
   var pollSeq = 0;
   var pollInFlight = false;
   var previousPhaseKey = null;
+  var restoringSavedHeatmap = false;
   var lastRenderMobile = null;
   var resizeTimer = null;
-  var heroTransitionToken = 0;
-  var heroAnimations = [];
 
   // ----------------------------------------------------------------
   // Pill switching
@@ -591,6 +590,10 @@
     heatmapSection = document.getElementById('heatmap-form-section');
     indexGrid      = document.getElementById('index-grid');
     heroBlocks     = document.querySelectorAll('[data-mode-hero]');
+    // [data-mode-marks] holds the two § mark lists that crossfade alongside
+    // the hero copy. Both sets live in the same grid track; only the active
+    // one is visible at a time -- same mechanism as heroBlocks.
+    marksBlocks    = document.querySelectorAll('[data-mode-marks]');
 
     pills.forEach(function (pill) {
       pill.addEventListener('click', function () {
@@ -603,15 +606,17 @@
           p.setAttribute('aria-selected', p === self ? 'true' : 'false');
         });
 
-        // The hero names the mode in its eyebrow and its headline, so it
-        // switches with the form. Both blocks are in the page; one is hidden.
+        // The hero names the mode in its eyebrow and headline. Both blocks
+        // reserve one grid track, and CSS crossfades the active description.
         switchModeHero(mode);
 
         setHeatmapStageActive(false);
         hideElement(mode === 'heatmap' ? albumSection : heatmapSection);
         showElement(mode === 'heatmap' ? heatmapSection : albumSection);
+        if (heatmapSubmitBtn) heatmapSubmitBtn.disabled = false;
         hideElement(heatmapLoading);
         hideElement(heatmapResult);
+        restoringSavedHeatmap = false;
         showElement(indexGrid);
       });
     });
@@ -621,6 +626,31 @@
   // activate them. The keydown handler that stood in for that on
   // span[role="button"] is gone with the spans -- F-B18-12 and one of the
   // three items in F-B21-5.
+  //
+  // WCAG 2.1 SC 2.1.1 also requires left/right arrow-key navigation for a
+  // role="tablist". Both pills are already in the natural Tab order; the
+  // roving handler below adds the arrow shortcut so keyboard users can switch
+  // modes without a second Tab press.
+  (function addTablistArrowKeys() {
+    var tablist = document.querySelector('[role="tablist"]');
+    if (!tablist) return;
+    tablist.addEventListener('keydown', function (event) {
+      var pillArray = Array.from(pills);
+      var focused   = pillArray.indexOf(document.activeElement);
+      if (focused === -1) return;
+      var next = -1;
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+        next = (focused + 1) % pillArray.length;
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+        next = (focused - 1 + pillArray.length) % pillArray.length;
+      }
+      if (next !== -1) {
+        event.preventDefault();
+        pillArray[next].focus();
+        pillArray[next].click();
+      }
+    });
+  }());
 
   // ----------------------------------------------------------------
   // Show/hide helpers with optional fade
@@ -638,72 +668,19 @@
   }
 
   function switchModeHero(mode) {
-    var nextHero = null;
-    var currentHero = null;
-    heroTransitionToken += 1;
-    var transitionToken = heroTransitionToken;
-
-    heroAnimations.forEach(function (animation) {
-      animation.cancel();
-    });
-    heroAnimations = [];
-
     heroBlocks.forEach(function (hero) {
-      hero.style.opacity = '';
-      if (hero.getAttribute('data-mode-hero') === mode) nextHero = hero;
-      if (!hero.classList.contains('hidden')) currentHero = hero;
+      var isActive = hero.getAttribute('data-mode-hero') === mode;
+      hero.classList.toggle('is-active', isActive);
+      hero.setAttribute('aria-hidden', isActive ? 'false' : 'true');
     });
-    if (!nextHero) return;
-
-    if (nextHero === currentHero) {
-      heroBlocks.forEach(function (hero) {
-        if (hero !== nextHero) hideElement(hero);
+    // The § marks lists crossfade in lock-step with the hero copy.
+    if (marksBlocks) {
+      marksBlocks.forEach(function (marks) {
+        var isActive = marks.getAttribute('data-mode-marks') === mode;
+        marks.classList.toggle('is-active', isActive);
+        marks.setAttribute('aria-hidden', isActive ? 'false' : 'true');
       });
-      return;
     }
-
-    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (
-      reducedMotion ||
-      !currentHero ||
-      typeof currentHero.animate !== 'function'
-    ) {
-      if (currentHero) hideElement(currentHero);
-      showElement(nextHero);
-      return;
-    }
-
-    var exitAnimation = currentHero.animate(
-      [{ opacity: 1 }, { opacity: 0 }],
-      {
-        duration: 110,
-        easing: 'cubic-bezier(0.4, 0, 1, 1)',
-        fill: 'forwards'
-      }
-    );
-    heroAnimations = [exitAnimation];
-
-    exitAnimation.onfinish = function () {
-      if (transitionToken !== heroTransitionToken) return;
-      hideElement(currentHero);
-      exitAnimation.cancel();
-      showElement(nextHero);
-
-      var enterAnimation = nextHero.animate(
-        [{ opacity: 0 }, { opacity: 1 }],
-        {
-          duration: 180,
-          easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
-          fill: 'forwards'
-        }
-      );
-      heroAnimations = [enterAnimation];
-      enterAnimation.onfinish = function () {
-        if (transitionToken !== heroTransitionToken) return;
-        enterAnimation.cancel();
-        heroAnimations = [];
-      };
-    };
   }
 
   function readSavedHeatmap() {
@@ -737,7 +714,9 @@
     if (progressTrack) hideElement(progressTrack);
     progressText.textContent = 'Restoring your latest heatmap...';
     resetLoadingDetails(lastUsername);
-    fadeIn(heatmapLoading);
+    restoringSavedHeatmap = true;
+    hideElement(heatmapLoading);
+    heatmapLoading.classList.remove('heatmap-fade', 'fading-out');
     pollProgress();
     startPolling();
     return true;
@@ -749,6 +728,12 @@
     // Force reflow then remove fading-out
     void el.offsetWidth;
     el.classList.remove('fading-out');
+  }
+
+  function revealRestoredLoading() {
+    if (!restoringSavedHeatmap) return;
+    restoringSavedHeatmap = false;
+    fadeIn(heatmapLoading);
   }
 
   // ----------------------------------------------------------------
@@ -857,14 +842,8 @@
     progressTrack  = document.getElementById('heatmap-progress-track');
     errorContainer = document.getElementById('heatmap-error');
     errorMessage   = document.getElementById('heatmap-error-message');
-    loadingDetail  = document.getElementById('heatmap-loading-detail');
-    loadingStats   = document.getElementById('heatmap-loading-stats');
     loadingUsername = document.getElementById('heatmap-loading-username');
-    loadingStatPages = document.getElementById('heatmap-stat-pages');
-    loadingStatScrobbles = document.getElementById('heatmap-stat-scrobbles');
-    loadingStatDays = document.getElementById('heatmap-stat-days');
     retryBtn       = document.getElementById('heatmap-retry-btn');
-    searchAgainBtn = document.getElementById('heatmap-search-again');
     saveImageBtn   = document.getElementById('heatmap-save-image');
     resultHeadline = document.getElementById('heatmap-result-headline');
     resultFrame    = document.getElementById('heatmap-result-frame');
@@ -873,9 +852,11 @@
     legendBar      = document.getElementById('heatmap-legend-bar');
 
     if (!heatmapForm) return;
+    heatmapSubmitBtn = document.getElementById('heatmap-submit-btn');
 
     heatmapForm.addEventListener('submit', function (e) {
       e.preventDefault();
+      if (heatmapSubmitBtn && heatmapSubmitBtn.disabled) return;
       var username = heatmapUsernameInput.value.trim();
       if (!username) {
         heatmapUsernameInput.classList.add('is-invalid');
@@ -891,6 +872,7 @@
         heatmapUsernameInput.focus();
         return;
       }
+      if (heatmapSubmitBtn) heatmapSubmitBtn.disabled = true;
       lastUsername = username;
       submitHeatmap(username);
     });
@@ -905,14 +887,12 @@
       saveImageBtn.addEventListener('click', saveHeatmapImage);
     }
 
-    searchAgainBtn.addEventListener('click', function () {
-      window.location.assign('/?mode=heatmap');
-    });
   }
 
   function submitHeatmap(username) {
     // Reset UI: show loading, hide form + result + error
     stopPolling();
+    restoringSavedHeatmap = false;
     setHeatmapStageActive(true);
     // The grid is 53 weeks wide and cannot fit the form column, so the whole
     // two-column hero steps aside while the heatmap is on screen.
@@ -1054,10 +1034,9 @@
           }
         }
 
-        updateLoadingDetails(data.stats || {});
-
         if (data.error) {
           stopPolling();
+          revealRestoredLoading();
           showError(data.message || 'An error occurred.', data.retryable);
           return;
         }
@@ -1065,59 +1044,20 @@
         if (data.progress >= 100) {
           stopPolling();
           fetchHeatmapData();
+        } else {
+          revealRestoredLoading();
         }
       })
       .catch(function () {
         pollInFlight = false;
+        revealRestoredLoading();
         // Transient network error; keep polling
       });
   }
 
+  /** Keep request context while the phase line owns live progress counts. */
   function resetLoadingDetails(username) {
-    if (loadingDetail) {
-      loadingDetail.textContent = '';
-    }
     if (loadingUsername) loadingUsername.textContent = username || 'Last.fm profile';
-    if (loadingStats) loadingStats.classList.add('hidden');
-    [loadingStatPages, loadingStatScrobbles, loadingStatDays].forEach(function (node) {
-      if (node && node.closest('.heatmap-loading__stat')) {
-        node.closest('.heatmap-loading__stat').classList.add('hidden');
-      }
-    });
-  }
-
-  function revealLoadingStat(node, text) {
-    if (!node || text === null || text === undefined) return false;
-    node.textContent = text;
-    var item = node.closest('.heatmap-loading__stat');
-    if (item) item.classList.remove('hidden');
-    return true;
-  }
-
-  function updateLoadingDetails(stats) {
-    if (!stats) return;
-    var shown = false;
-    var received = stats.pages_received;
-    var expected = stats.pages_expected;
-    if (received !== undefined && expected !== undefined) {
-      shown = revealLoadingStat(
-        loadingStatPages,
-        Number(received).toLocaleString() + ' / ' + Number(expected).toLocaleString()
-      ) || shown;
-    }
-    if (stats.total_scrobbles !== undefined) {
-      shown = revealLoadingStat(
-        loadingStatScrobbles,
-        Number(stats.total_scrobbles).toLocaleString()
-      ) || shown;
-    }
-    if (stats.active_days !== undefined) {
-      shown = revealLoadingStat(
-        loadingStatDays,
-        Number(stats.active_days).toLocaleString()
-      ) || shown;
-    }
-    if (shown && loadingStats) loadingStats.classList.remove('hidden');
   }
 
   function fetchHeatmapData() {
@@ -1134,6 +1074,7 @@
           renderHeatmap(data);
         } else {
           // Still processing -- restart polling briefly
+          revealRestoredLoading();
           startPolling();
         }
       })
@@ -1143,6 +1084,7 @@
   }
 
   function showError(message, retryable) {
+    revealRestoredLoading();
     // Hide spinner
     var spinnerWrapper = heatmapLoading.querySelector('.wait-panel__mark');
     if (spinnerWrapper) spinnerWrapper.style.display = 'none';
@@ -1150,6 +1092,7 @@
 
     errorMessage.textContent = message;
     showElement(errorContainer);
+    if (heatmapSubmitBtn) heatmapSubmitBtn.disabled = false;
     retryBtn.style.display = retryable ? '' : 'none';
   }
 
@@ -1167,6 +1110,7 @@
   }
 
   function renderHeatmapDesktop(data) {
+    var emptyFill = zeroFill();
     var fromDate    = parseLocalDate(data.from_date);
     var toDate      = parseLocalDate(data.to_date);
     var dailyCounts = data.daily_counts;
@@ -1259,7 +1203,7 @@
 
       var fill = count > 0
         ? rocketColor(countToNorm(count, maxCount))
-        : zeroFill();
+        : emptyFill;
       rect.setAttribute('fill', fill);
 
       // Store data for tooltip
@@ -1283,6 +1227,7 @@
   }
 
   function renderHeatmapMobile(data) {
+    var emptyFill = zeroFill();
     var fromDate    = parseLocalDate(data.from_date);
     var toDate      = parseLocalDate(data.to_date);
     var dailyCounts = data.daily_counts;
@@ -1340,7 +1285,7 @@
 
       var fill = count > 0
         ? rocketColor(countToNorm(count, maxCount))
-        : zeroFill();
+        : emptyFill;
       rect.setAttribute('fill', fill);
 
       rect.setAttribute('data-date', key);

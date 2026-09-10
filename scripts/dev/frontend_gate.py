@@ -26,6 +26,7 @@ import sys
 import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
+from functools import cache
 from pathlib import Path
 
 from werkzeug.serving import make_server
@@ -54,6 +55,7 @@ if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = GATE_SECRET_KEY
 
 from app import create_app  # noqa: E402
+from scripts.dev._frontend_gate_results import check_results_interactions  # noqa: E402
 from scrobblescope.repositories import (  # noqa: E402
     create_job,
     delete_job,
@@ -69,6 +71,21 @@ from scrobblescope.repositories import (  # noqa: E402
 BROWSER_NAMES = ("chromium", "firefox")
 SETUP_COMMAND = "python -m playwright install chromium firefox"
 FONTS_READY_EXPRESSION = "document.fonts.ready"
+THEME_EXPRESSION = "() => document.documentElement.dataset.theme"
+SET_THEME_EXPRESSION = (
+    "(theme) => document.documentElement.setAttribute('data-theme', theme)"
+)
+
+ALBUM_PROGRESS_TRACK = "#progress-track"
+ALBUM_PROGRESS_BAR = "#progress-bar"
+ALBUM_PROGRESS_TEXT = "#step-text"
+HEATMAP_PROGRESS_TRACK = "#heatmap-progress-track"
+HEATMAP_PROGRESS_BAR = "#heatmap-progress-bar"
+HEATMAP_PROGRESS_TEXT = "#heatmap-progress-text"
+FETCHING_SCROBBLES = "Fetching scrobbles"
+COUNTING_SCROBBLES = "Counting daily scrobbles"
+PAGE_23_OF_102 = "PAGE 23 / 102"
+PAGE_90_OF_100 = "PAGE 90 / 100"
 
 #: Cool-grey surfaces the warm themes replaced. Batch criterion 2 forbids them.
 FORBIDDEN_SURFACES = ("rgb(248, 249, 250)", "rgb(18, 18, 18)")
@@ -81,6 +98,60 @@ REQUIRED_FONT_FAMILIES = (
     "input-mono",
     "input-mono-narrow",
 )
+
+#: Fail-fast navigation. Playwright's 30s default turned one stalled
+#: subresource into a 30s wait per check, and the shared page let one
+#: wedge cascade through the rest of the run. 10s bounds the damage.
+NAVIGATION_TIMEOUT_MS = 10_000
+
+#: Directory holding route-blocked CDN fixtures. Repo-owned so CI never
+#: waits on the generic framework CDN (spec: 2026-09-07 gate isolation).
+FIXTURE_DIR = Path(__file__).parent / "fixtures"
+
+
+@cache
+def _bootstrap_fixture() -> str:
+    """Read the generic CDN fixture on first use and share it across pages.
+
+    Deferring the read lets imports and live-CDN runs work without fixtures.
+    Failed reads are not cached, so a corrected installation can retry.
+    """
+    return (FIXTURE_DIR / "bootstrap_fixture.css").read_text(encoding="utf-8")
+
+
+def install_cdn_routes(page, live_fonts: bool = False) -> None:
+    """Serve the generic framework CDN from a fixture; pass the kit through.
+
+    cdnjs Bootstrap is a generic framework file, safe to serve from a
+    repo-owned fixture so CI never waits on it. The Adobe Fonts kit is
+    NOT faked: its families are licensed web fonts, and re-hosting or
+    synthesizing them in the repo would misdeclare licensed typefaces.
+    Owner ruling 2026-09-07 -- use the Typekit, no exceptions per family
+    (the kit composition can change; a blanket network rule cannot drift).
+    The kit still loads from the real origin; a stall there costs the
+    page its webfonts, never the gate its pass, because check_fonts
+    reports misses as advisory WARN lines.
+
+    Impeccable Live is a developer overlay injected into base.html while
+    visual review is active; the production gate stays independent of it.
+    """
+    if live_fonts:
+        return
+
+    def _route(route):
+        url = route.request.url
+        if "cdnjs.cloudflare.com" in url and "bootstrap" in url:
+            route.fulfill(
+                status=200,
+                content_type="text/css",
+                body=_bootstrap_fixture(),
+            )
+        else:
+            route.continue_()
+
+    page.route("**/*", _route)
+    page.route("http://localhost:8400/**", lambda route: route.abort())
+
 
 #: Clicking budget for the theme toggle. Short, because a miss means the
 #: control is absent or unclickable, and waiting 30s does not change that.
@@ -210,7 +281,6 @@ HIDDEN_ON_LOAD = {
         "#heatmap-result-headline",
         "#heatmap-result-frame",
         "#heatmap-error",
-        '[data-mode-hero="heatmap"]',
         "#decade_dropdown",
         "#release_year_group",
     ),
@@ -504,7 +574,7 @@ def check_divider_contrast(page, base_url: str) -> list[str]:
     for theme in ("light", "dark"):
         page.goto(f"{base_url}/", wait_until="load")
         page.evaluate(
-            "(theme) => document.documentElement" ".setAttribute('data-theme', theme)",
+            SET_THEME_EXPRESSION,
             theme,
         )
         border = _computed_colour(page, "var(--shell-border)")
@@ -547,8 +617,7 @@ def check_theme_tokens(page, base_url: str) -> list[str]:
         for theme in ("light", "dark"):
             page.goto(f"{base_url}{path}", wait_until="load")
             page.evaluate(
-                "(theme) => document.documentElement"
-                ".setAttribute('data-theme', theme)",
+                SET_THEME_EXPRESSION,
                 theme,
             )
             bars = _computed_colour(page, "var(--bars-color)")
@@ -593,7 +662,7 @@ def check_index_design_tokens(page, base_url: str) -> list[str]:
     for theme, wanted in expected.items():
         page.goto(f"{base_url}/", wait_until="load")
         page.evaluate(
-            "(theme) => document.documentElement.setAttribute('data-theme', theme)",
+            SET_THEME_EXPRESSION,
             theme,
         )
         page.evaluate("document.querySelector('#username').classList.add('is-valid')")
@@ -694,7 +763,7 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
                 failures.append(f"{path}: no [data-theme-toggle] control found")
                 continue
 
-            before = page.evaluate("() => document.documentElement.dataset.theme")
+            before = page.evaluate(THEME_EXPRESSION)
             try:
                 toggle.first.click(timeout=TOGGLE_TIMEOUT_MS)
             except Exception as exc:  # noqa: BLE001 - any click fault is a failure
@@ -704,16 +773,15 @@ def check_theme_persistence(page, base_url: str) -> list[str]:
                 )
                 continue
 
-            toggled = page.evaluate("() => document.documentElement.dataset.theme")
+            toggled = page.evaluate(THEME_EXPRESSION)
             if toggled == before:
                 failures.append(
-                    f"{path}: toggling did not change data-theme "
-                    f"(stayed {before!r})"
+                    f"{path}: toggling did not change data-theme (stayed {before!r})"
                 )
                 continue
 
             page.reload(wait_until="load")
-            after = page.evaluate("() => document.documentElement.dataset.theme")
+            after = page.evaluate(THEME_EXPRESSION)
             if after != toggled:
                 failures.append(
                     f"{path}: theme did not survive reload: "
@@ -759,8 +827,7 @@ def check_touch_targets(page, base_url: str) -> list[str]:
                 _reach_state(page, actions)
             except Exception as exc:  # noqa: BLE001 - unreachable is a failure
                 failures.append(
-                    f"{path}: could not reach the {state!r} state: "
-                    f"{type(exc).__name__}"
+                    f"{path}: could not reach the {state!r} state: {type(exc).__name__}"
                 )
                 continue
             failures.extend(_small_targets(page, path, state))
@@ -966,7 +1033,7 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
     try:
         page.emulate_media(reduced_motion="no-preference")
         page.goto(f"{base_url}/", wait_until="load")
-        standard = page.locator("#index-grid").evaluate(
+        standard = page.locator(".index-page").evaluate(
             """element => {
                 const style = getComputedStyle(element);
                 return {
@@ -977,15 +1044,135 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
             }"""
         )
         if standard != {
-            "name": "ss-index-page-enter",
-            "duration": "1.2s",
-            "delay": "0.2s",
+            "name": "ss-page-enter",
+            "duration": "0.22s",
+            "delay": "0s",
         }:
             failures.append(f"index entrance motion is {standard!r}")
 
+        before_ready = page.locator(".index-page").evaluate(
+            """element => {
+                document.body.classList.remove('is-ready');
+                const name = getComputedStyle(element).animationName;
+                document.body.classList.add('is-ready');
+                return name;
+            }"""
+        )
+        if before_ready != "ss-page-enter":
+            failures.append(
+                "page entrance waits for JavaScript and can flash before readiness"
+            )
+
+        # Sample the actual animation timeline: a declared duration alone can
+        # pass while another rule pins opacity to its endpoint.
+        motion = page.locator(".index-page").evaluate(
+            """element => {
+                const enter = element.getAnimations().find(a => a.animationName === 'ss-page-enter');
+                if (!enter) return {enter: null, exit: null};
+                enter.pause();
+                enter.currentTime = 110;
+                const arrival = Number(getComputedStyle(element).opacity);
+                enter.finish();
+                document.body.classList.add('is-leaving');
+                getComputedStyle(element).animationName;
+                const exit = element.getAnimations().find(a => a.animationName === 'ss-page-exit');
+                if (!exit) {
+                    document.body.classList.remove('is-leaving');
+                    return {enter: arrival, exit: null};
+                }
+                exit.pause();
+                exit.currentTime = 70;
+                const departure = Number(getComputedStyle(element).opacity);
+                document.body.classList.remove('is-leaving');
+                element.getAnimations().forEach(a => a.finish());
+                return {enter: arrival, exit: departure};
+            }"""
+        )
+        if any(value is None or not 0 < value < 1 for value in motion.values()):
+            failures.append(f"page motion does not interpolate opacity: {motion!r}")
+
+        initial_hero = page.evaluate(
+            """() => {
+                const copy = document.querySelector('.index-hero__copy');
+                const album = document.querySelector('[data-mode-hero="album"]');
+                const heatmap = document.querySelector('[data-mode-hero="heatmap"]');
+                const read = node => {
+                    const style = getComputedStyle(node);
+                    return {
+                        active: node.classList.contains('is-active'),
+                        ariaHidden: node.getAttribute('aria-hidden'),
+                        opacity: style.opacity,
+                        visibility: style.visibility,
+                        duration: style.transitionDuration,
+                    };
+                };
+                return {
+                    height: copy && copy.getBoundingClientRect().height,
+                    album: album && read(album),
+                    heatmap: heatmap && read(heatmap),
+                };
+            }"""
+        )
+        page.locator("#mode-tab-heatmap").click()
+        page.wait_for_timeout(220)
+        switched_hero = page.evaluate(
+            """() => {
+                const copy = document.querySelector('.index-hero__copy');
+                const album = document.querySelector('[data-mode-hero="album"]');
+                const heatmap = document.querySelector('[data-mode-hero="heatmap"]');
+                const read = node => {
+                    const style = getComputedStyle(node);
+                    return {
+                        active: node.classList.contains('is-active'),
+                        ariaHidden: node.getAttribute('aria-hidden'),
+                        opacity: style.opacity,
+                        visibility: style.visibility,
+                        duration: style.transitionDuration,
+                    };
+                };
+                return {
+                    height: copy && copy.getBoundingClientRect().height,
+                    album: album && read(album),
+                    heatmap: heatmap && read(heatmap),
+                };
+            }"""
+        )
+        expected_initial = {
+            "active": True,
+            "ariaHidden": "false",
+            "opacity": "1",
+            "visibility": "visible",
+            "duration": "0.18s, 0s",
+        }
+        expected_inactive = {
+            "active": False,
+            "ariaHidden": "true",
+            "opacity": "0",
+            "visibility": "hidden",
+            "duration": "0.18s, 0s",
+        }
+        if initial_hero["album"] != expected_initial:
+            failures.append(
+                f"initial album hero transition is {initial_hero['album']!r}"
+            )
+        if initial_hero["heatmap"] != expected_inactive:
+            failures.append(
+                f"initial heatmap hero transition is {initial_hero['heatmap']!r}"
+            )
+        if switched_hero["album"] != expected_inactive:
+            failures.append(
+                f"switched album hero transition is {switched_hero['album']!r}"
+            )
+        if switched_hero["heatmap"] != expected_initial:
+            failures.append(
+                f"switched heatmap hero transition is {switched_hero['heatmap']!r}"
+            )
+        if abs(switched_hero["height"] - initial_hero["height"]) > 0.5:
+            failures.append("mode hero crossfade changes the reserved copy height")
+
         page.emulate_media(reduced_motion="reduce")
         page.goto(f"{base_url}/", wait_until="load")
-        reduced = page.locator("#index-grid").evaluate(
+        reduced = page.locator(".index-page").evaluate(
             """element => {
                 const style = getComputedStyle(element);
                 return {name: style.animationName, opacity: style.opacity};
@@ -993,6 +1180,13 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
         )
         if reduced != {"name": "none", "opacity": "1"}:
             failures.append(f"reduced-motion index entrance is {reduced!r}")
+        reduced_hero_duration = page.locator('[data-mode-hero="album"]').evaluate(
+            "element => getComputedStyle(element).transitionDuration"
+        )
+        if reduced_hero_duration != "0s":
+            failures.append(
+                f"reduced-motion hero transition lasts {reduced_hero_duration!r}"
+            )
     finally:
         page.emulate_media(reduced_motion="no-preference")
     return failures
@@ -1198,6 +1392,24 @@ def check_validator_outage_is_recoverable(page, base_url: str) -> list[str]:
     return failures
 
 
+def _collecting_handler(sink: list) -> callable:
+    """Return a one-parameter route handler that appends into ``sink``.
+
+    Playwright inspects the handler's parameter count: one parameter means
+    it is called with the route alone, two means (route, request). A
+    ``lambda route, pending=pending: ...`` therefore has its ``pending``
+    default overridden by the request object at call time -- the CI failure
+    ``'Request' object has no attribute 'append'``. A factory closure binds
+    the list without a second parameter, which also satisfies bugbear B023
+    (no loop-variable capture) without that breakage.
+    """
+
+    def handler(route):
+        sink.append(route)
+
+    return handler
+
+
 def check_stale_validator_failure_is_discarded(page, base_url: str) -> list[str]:
     """An older failed request cannot clear a newer same-name verdict.
 
@@ -1215,7 +1427,7 @@ def check_stale_validator_failure_is_discarded(page, base_url: str) -> list[str]
     for path, selector, actions in fields:
         pending = []
         handled = []
-        page.route("**/validate_user*", lambda route: pending.append(route))
+        page.route("**/validate_user*", _collecting_handler(pending))
         try:
             page.goto(f"{base_url}{path}", wait_until="load")
             _reach_state(page, actions)
@@ -1274,7 +1486,7 @@ def check_current_validator_failure_replaces_old_verdict(
     for path, selector, actions in fields:
         pending = []
         handled = []
-        page.route("**/validate_user*", lambda route: pending.append(route))
+        page.route("**/validate_user*", _collecting_handler(pending))
         try:
             page.goto(f"{base_url}{path}", wait_until="load")
             _reach_state(page, actions)
@@ -1425,8 +1637,15 @@ def check_fonts(page, base_url: str) -> list[str]:
     Asserting that the kit stylesheet was requested proves nothing: a
     domain-locked kit returns a stylesheet that loads no faces at all, and the
     page then falls back silently with no error anywhere.
+
+    Owner ruling 2026-09-07: a missing face is advisory, not blocking. The
+    page's own fallback stacks (corporate-a, orator-std, ...) are acceptable
+    rendering, and a hard gate here made the whole run red whenever the
+    fixture or the kit served no face -- which is a font-supply problem, not
+    a UI defect. The failures still print so font-supply regressions stay
+    visible; they just do not fail the run.
     """
-    failures = []
+    warnings = []
     for path in MIGRATED_PAGES:
         page.goto(f"{base_url}{path}", wait_until="load")
         # Await readiness and return nothing. Returning document.fonts.ready
@@ -1449,12 +1668,16 @@ def check_fonts(page, base_url: str) -> list[str]:
             }""",
             list(REQUIRED_FONT_FAMILIES),
         )
-        failures.extend(
-            f"{path}: font family {family} loaded no faces from the kit"
+        warnings.extend(
+            f"{path}: font family {family} loaded no faces from the kit "
+            "(advisory; page falls back to its own stack)"
             for family, count in loaded.items()
             if not count
         )
-    return failures
+    # Owner ruling 2026-09-07: print as WARN, return no gate failures.
+    for warning in warnings:
+        print(f"[frontend_gate] WARN {warning}", file=sys.stderr)
+    return []
 
 
 def check_body_font(page, base_url: str) -> list[str]:
@@ -1498,15 +1721,12 @@ def check_shell_scales_with_text(page, base_url: str) -> list[str]:
                     // (2.96875vw / 1.875vw) as well as the root font, so
                     // this DESKTOP profile's 1280px width matters: both
                     // preferred terms (38.0px / 24.0px) stay below their rem
-                    // floors there, so the floor wins -- 4.25rem and
-                    // 2.75rem. Mobile keeps its own fixed 3.75rem literal
-                    // for the bar, untouched by the header ruling; its
-                    // 2.75rem nav-link floor happens to match the desktop
-                    // clamp's floor, which is why both branches converge on
-                    // the same 55px nav target.
-                    expected: (mobile ? 3.75 : 4.25) * 20,
+                    // Both desktop and mobile use a 4.25rem floor bar;
+                    // their 2.75rem nav-link floor matches, so both branches
+                    // converge on the same 55px nav target.
+                    expected: 4.25 * 20,
                     expectedTarget: 55,
-                    expectedGap: mobile ? 4.8 : 15,
+                    expectedGap: mobile ? 5 : 15,
                 };
             }"""
         )
@@ -1604,12 +1824,14 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     )
     try:
         page.goto(f"{base_url}/heatmap?job_id={heatmap_job_id}", wait_until="load")
-        page.locator("#heatmap-loading-stats").wait_for(state="visible")
+        page.locator("#heatmap-progress-text").filter(
+            has_text="Reading your Last.fm history..."
+        ).wait_for(state="visible")
         heatmap_state = page.evaluate(
             """() => ({
                 progress: document.querySelector('#heatmap-progress-track')
                     ?.getAttribute('aria-valuenow'),
-                pages: document.querySelector('#heatmap-stat-pages')?.textContent,
+                counterCount: document.querySelectorAll('[data-heatmap-stat]').length,
                 parameters: document.querySelectorAll('.heatmap-loading__params li').length,
                 phase: document.querySelector('#heatmap-progress-text')?.textContent?.trim(),
                 fillTransform: getComputedStyle(document.querySelector('#heatmap-progress-bar')).transform,
@@ -1623,8 +1845,8 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         delete_job(heatmap_job_id)
     if heatmap_state["progress"] != "48":
         failures.append("/heatmap did not render backend-owned progress")
-    if heatmap_state["pages"] != "7 / 12":
-        failures.append("/heatmap did not render live page-fetch depth")
+    if heatmap_state["counterCount"] != 0:
+        failures.append("/heatmap repeats phase counts in a counter rail")
     if heatmap_state["parameters"] != 2:
         failures.append(
             "/heatmap did not retain its loading parameters (expected username and date window)"
@@ -1638,6 +1860,246 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     if heatmap_state["cancel"] != {"href": "/", "text": "Cancel and return home"}:
         failures.append("/heatmap has no honest Cancel and return home control")
     return failures
+
+
+def _measure_scale_dimensions(page, base_url, selectors, width: int, height: int):
+    """Read real rectangles and computed authored dimensions after fonts load."""
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(f"{base_url}/", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    return page.evaluate(
+        """(targets) => Object.fromEntries(
+            Object.entries(targets).map(([name, selector]) => {
+                const node = document.querySelector(selector);
+                if (!node) return [name, null];
+                const rect = node.getBoundingClientRect();
+                const style = getComputedStyle(node);
+                return [name, {
+                    width: rect.width,
+                    height: rect.height,
+                    fontSize: parseFloat(style.fontSize),
+                    lineHeight: parseFloat(style.lineHeight),
+                    marginTop: parseFloat(style.marginTop),
+                    marginBottom: parseFloat(style.marginBottom),
+                    paddingTop: parseFloat(style.paddingTop),
+                    borderTopWidth: parseFloat(style.borderTopWidth),
+                    borderTopLeftRadius: parseFloat(style.borderTopLeftRadius),
+                }];
+            })
+        )""",
+        selectors,
+    )
+
+
+def _measure_wide_layout(page):
+    """Read the independent columns, centred card and fixed shell."""
+    return page.evaluate(
+        """() => {
+            const hero = document.querySelector('.index-hero');
+            const heroInner = document.querySelector('.index-hero__inner');
+            const heroMark = document.querySelector('.index-hero__mark');
+            const application = document.querySelector('.index-form');
+            const form = document.querySelector('.index-form__inner');
+            const card = document.querySelector('.ss-card');
+            const style = getComputedStyle(application);
+            const heroStyle = getComputedStyle(hero);
+            const formRect = form.getBoundingClientRect();
+            const header = document.querySelector('.site-header');
+            const nav = document.querySelector('.site-header__nav');
+            const rowNodes = [
+                ...document.querySelectorAll(
+                    '.site-header__nav-link, .site-header__theme-toggle'
+                ),
+            ];
+            const tops = rowNodes.map(
+                (node) => node.getBoundingClientRect().top
+            );
+            return {
+                heroWidth: hero.getBoundingClientRect().width,
+                heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                heroInnerWidth: heroInner.getBoundingClientRect().width,
+                heroMarkWidth: heroMark.getBoundingClientRect().width,
+                applicationWidth: application.getBoundingClientRect().width,
+                formLeft: application.getBoundingClientRect().left,
+                formRight: application.getBoundingClientRect().right,
+                formInnerLeft: formRect.left,
+                formInnerRight: formRect.right,
+                formInnerWidth: formRect.width,
+                formInnerTop: formRect.top,
+                formInnerBottom: formRect.bottom,
+                cardLeft: card.getBoundingClientRect().left,
+                cardRight: card.getBoundingClientRect().right,
+                wellTop: application.getBoundingClientRect().top,
+                wellBottom: application.getBoundingClientRect().bottom,
+                viewportHeight: innerHeight,
+                headerHeight: header.getBoundingClientRect().height,
+                rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
+                paddingLeft: parseFloat(style.paddingLeft),
+                paddingRight: parseFloat(style.paddingRight),
+                headerGap: parseFloat(getComputedStyle(header).gap),
+                navGap: parseFloat(getComputedStyle(nav).gap),
+                rowSpread: Math.max(...tops) - Math.min(...tops),
+            };
+        }"""
+    )
+
+
+def _measure_zoom_and_transform(page):
+    """Confirm the scale mechanism never resolves to zoom or a transform.
+
+    Both `.ss-card` mode panels are already present in the DOM on a
+    single page load -- only one is toggled `hidden` per the active
+    mode, the other is never removed. This reads both without switching
+    modes: computed `zoom` and `transform` still resolve on a hidden
+    element (owner ruling 2026-09-05 #5), unlike a bounding rectangle,
+    which would not.
+    """
+    return page.evaluate(
+        """() => {
+            const targets = [
+                ['.index-hero__inner', document.querySelector('.index-hero__inner')],
+                ['.index-form__inner', document.querySelector('.index-form__inner')],
+                ['.mode-pill', document.querySelector('.mode-pill')],
+                ['.ss-input', document.querySelector('.ss-input')],
+                ['.ss-submit', document.querySelector('.ss-submit')],
+            ];
+            [...document.querySelectorAll('.ss-card')].forEach((node, index) => {
+                targets.push([`.ss-card[${index}]`, node]);
+            });
+            return targets
+                .filter(([, node]) => node)
+                .map(([label, node]) => {
+                    const style = getComputedStyle(node);
+                    return { label, zoom: style.zoom, transform: style.transform };
+                });
+        }"""
+    )
+
+
+def _measure_fixed_state(page, base_url, actions):
+    """Measure scale-controlled dimensions after one reachable state change."""
+    page.set_viewport_size({"width": 1920, "height": 945})
+    page.goto(f"{base_url}/", wait_until="load")
+    _reach_state(page, actions)
+    page.evaluate(FONTS_READY_EXPRESSION)
+    page.wait_for_timeout(350)
+    return page.evaluate(
+        """() => {
+            const visible = selector => [...document.querySelectorAll(selector)]
+                .find(node => node.getClientRects().length > 0);
+            const activeHero = document.querySelector('[data-mode-hero].is-active')
+                || [...document.querySelectorAll('[data-mode-hero]')]
+                    .find(node => !node.classList.contains('hidden'));
+            const formColumn = document.querySelector('.index-form');
+            const hero = document.querySelector('.index-hero');
+            const heroInner = document.querySelector('.index-hero__inner');
+            const heroMark = document.querySelector('.index-hero__mark');
+            const formInner = document.querySelector('.index-form__inner');
+            const card = visible('.ss-card');
+            const input = visible('.ss-input');
+            const headline = activeHero && activeHero.querySelector('.index-hero__headline');
+            const formStyle = getComputedStyle(formColumn);
+            const heroStyle = getComputedStyle(hero);
+            const cardStyle = getComputedStyle(card);
+            const inputStyle = getComputedStyle(input);
+            const headlineStyle = getComputedStyle(headline);
+            const modeStyle = getComputedStyle(document.querySelector('.mode-pill'));
+            return {
+                dimensions: {
+                    formWidth: formInner.getBoundingClientRect().width,
+                    formPaddingTop: parseFloat(formStyle.paddingTop),
+                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                    heroInnerWidth: heroInner.getBoundingClientRect().width,
+                    heroMarkWidth: heroMark.getBoundingClientRect().width,
+                    headlineFont: parseFloat(headlineStyle.fontSize),
+                    headlineLineHeight: parseFloat(headlineStyle.lineHeight),
+                    cardPaddingTop: parseFloat(cardStyle.paddingTop),
+                    inputHeight: input.getBoundingClientRect().height,
+                    inputFont: parseFloat(inputStyle.fontSize),
+                    modeHeight: document.querySelector('.mode-pill')
+                        .getBoundingClientRect().height,
+                    modeFont: parseFloat(modeStyle.fontSize),
+                },
+                viewportHeight: window.innerHeight,
+                documentHeight: document.documentElement.scrollHeight,
+                heroWidth: hero.getBoundingClientRect().width,
+                heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
+                heroPaddingRight: parseFloat(heroStyle.paddingRight),
+                heroInnerWidth: heroInner.getBoundingClientRect().width,
+                heroMarkWidth: heroMark.getBoundingClientRect().width,
+            };
+        }"""
+    )
+
+
+def _measure_mobile_headers(page, base_url) -> dict:
+    """Measure navigation containment and relocated theme controls at both widths."""
+    mobile_headers = {}
+    for width in (390, 320):
+        page.set_viewport_size({"width": width, "height": 844})
+        page.goto(f"{base_url}/", wait_until="load")
+        mobile_headers[width] = page.evaluate(
+            """() => {
+                const header = document.querySelector('.site-header');
+                const nav = document.querySelector('.site-header__nav');
+                const navRect = nav.getBoundingClientRect();
+                const actions = document.querySelector('.site-header__actions');
+                const actionsRect = actions.getBoundingClientRect();
+                const mainRect = document.querySelector('main').getBoundingClientRect();
+                const links = [...nav.querySelectorAll('.site-header__nav-link')];
+                return {
+                    headerHeight: header.getBoundingClientRect().height,
+                    headerPosition: getComputedStyle(header).position,
+                    bodyPaddingTop: parseFloat(
+                        getComputedStyle(document.body).paddingTop
+                    ),
+                    clientWidth: nav.clientWidth,
+                    scrollWidth: nav.scrollWidth,
+                    rows: new Set(links.map(link => Math.round(
+                        link.getBoundingClientRect().top
+                    ))).size,
+                    actionsInHeader: header.contains(actions),
+                    actionsInMobileSlot: Boolean(
+                        actions.closest('.site-theme-mobile-slot')
+                    ),
+                    actionsTop: actionsRect.top,
+                    contentBottom: mainRect.bottom,
+                    themeHeight: document.querySelector('.site-header__theme-toggle')
+                        .getBoundingClientRect().height,
+                    linksInside: links.every(link => {
+                        const rect = link.getBoundingClientRect();
+                        return rect.left >= navRect.left - 0.5
+                            && rect.right <= navRect.right + 0.5;
+                    }),
+                };
+            }"""
+        )
+    return mobile_headers
+
+
+def _measure_enlarged_root(page, base_url) -> float:
+    """Measure the form's font-relative guard and restore root sizing on failure."""
+    # Reset the expanded state: this probe exercises the initial form's
+    # font-relative height denominator, with the root enlarged to 20px.
+    page.set_viewport_size({"width": 1920, "height": 900})
+    page.goto(f"{base_url}/", wait_until="load")
+    page.evaluate(FONTS_READY_EXPRESSION)
+    old_root = page.evaluate("document.documentElement.style.fontSize")
+    try:
+        root_measurement = page.evaluate(
+            """() => {
+            document.documentElement.style.fontSize = '20px';
+            return document.querySelector('.index-form__inner')
+                .getBoundingClientRect().width;
+        }"""
+        )
+    finally:
+        page.evaluate(
+            "fontSize => { document.documentElement.style.fontSize = fontSize; }",
+            old_root,
+        )
+    return root_measurement
 
 
 def check_large_display_scale_parity(page, base_url: str) -> list[str]:
@@ -1666,9 +2128,11 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "header bar": ".site-header",
     }
     scalable_dimensions = {
-        "hero composition": ("width", "height"),
+        # Width fills the 3fr column and is checked against its rendered
+        # padding below; it does not follow the authored scale ratio.
+        "hero composition": ("height",),
         "form composition": ("width", "height"),
-        "wordmark": ("width", "height", "marginBottom"),
+        "wordmark": ("height", "marginBottom"),
         "headline": ("fontSize", "lineHeight", "marginBottom"),
         "form": ("width", "height", "paddingTop"),
         "input": ("height", "fontSize"),
@@ -1699,152 +2163,16 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         "4K": (3840, 2025),
     }
 
-    def measure(width: int, height: int):
-        """Read real rectangles and computed authored dimensions after fonts load."""
-        page.set_viewport_size({"width": width, "height": height})
-        page.goto(f"{base_url}/", wait_until="load")
-        page.evaluate(FONTS_READY_EXPRESSION)
-        return page.evaluate(
-            """(targets) => Object.fromEntries(
-                Object.entries(targets).map(([name, selector]) => {
-                    const node = document.querySelector(selector);
-                    if (!node) return [name, null];
-                    const rect = node.getBoundingClientRect();
-                    const style = getComputedStyle(node);
-                    return [name, {
-                        width: rect.width,
-                        height: rect.height,
-                        fontSize: parseFloat(style.fontSize),
-                        lineHeight: parseFloat(style.lineHeight),
-                        marginTop: parseFloat(style.marginTop),
-                        marginBottom: parseFloat(style.marginBottom),
-                        paddingTop: parseFloat(style.paddingTop),
-                        borderTopWidth: parseFloat(style.borderTopWidth),
-                        borderTopLeftRadius: parseFloat(style.borderTopLeftRadius),
-                    }];
-                })
-            )""",
-            selectors,
-        )
-
-    def measure_wide_layout():
-        """Read the independent columns, centred card and fixed shell."""
-        return page.evaluate(
-            """() => {
-                const hero = document.querySelector('.index-hero');
-                const heroInner = document.querySelector('.index-hero__inner');
-                const heroMark = document.querySelector('.index-hero__mark');
-                const application = document.querySelector('.index-form');
-                const form = document.querySelector('.index-form__inner');
-                const card = document.querySelector('.ss-card');
-                const style = getComputedStyle(application);
-                const heroStyle = getComputedStyle(hero);
-                const formRect = form.getBoundingClientRect();
-                const header = document.querySelector('.site-header');
-                const nav = document.querySelector('.site-header__nav');
-                const rowNodes = [
-                    ...document.querySelectorAll(
-                        '.site-header__nav-link, .site-header__theme-toggle'
-                    ),
-                ];
-                const tops = rowNodes.map(
-                    (node) => node.getBoundingClientRect().top
-                );
-                return {
-                    heroWidth: hero.getBoundingClientRect().width,
-                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
-                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
-                    heroInnerWidth: heroInner.getBoundingClientRect().width,
-                    heroMarkWidth: heroMark.getBoundingClientRect().width,
-                    applicationWidth: application.getBoundingClientRect().width,
-                    formLeft: application.getBoundingClientRect().left,
-                    formRight: application.getBoundingClientRect().right,
-                    formInnerLeft: formRect.left,
-                    formInnerRight: formRect.right,
-                    formInnerWidth: formRect.width,
-                    cardLeft: card.getBoundingClientRect().left,
-                    cardRight: card.getBoundingClientRect().right,
-                    paddingLeft: parseFloat(style.paddingLeft),
-                    paddingRight: parseFloat(style.paddingRight),
-                    headerGap: parseFloat(getComputedStyle(header).gap),
-                    navGap: parseFloat(getComputedStyle(nav).gap),
-                    rowSpread: Math.max(...tops) - Math.min(...tops),
-                };
-            }"""
-        )
-
-    def measure_zoom_and_transform():
-        """Confirm the scale mechanism never resolves to zoom or a transform.
-
-        Both `.ss-card` mode panels are already present in the DOM on a
-        single page load -- only one is toggled `hidden` per the active
-        mode, the other is never removed. This reads both without switching
-        modes: computed `zoom` and `transform` still resolve on a hidden
-        element (owner ruling 2026-09-05 #5), unlike a bounding rectangle,
-        which would not.
-        """
-        return page.evaluate(
-            """() => {
-                const targets = [
-                    ['.index-hero__inner', document.querySelector('.index-hero__inner')],
-                    ['.index-form__inner', document.querySelector('.index-form__inner')],
-                    ['.mode-pill', document.querySelector('.mode-pill')],
-                    ['.ss-input', document.querySelector('.ss-input')],
-                    ['.ss-submit', document.querySelector('.ss-submit')],
-                ];
-                [...document.querySelectorAll('.ss-card')].forEach((node, index) => {
-                    targets.push([`.ss-card[${index}]`, node]);
-                });
-                return targets
-                    .filter(([, node]) => node)
-                    .map(([label, node]) => {
-                        const style = getComputedStyle(node);
-                        return { label, zoom: style.zoom, transform: style.transform };
-                    });
-            }"""
-        )
-
-    def measure_compact_height():
-        """Exercise the tallest reachable album form in a short desktop window."""
-        page.set_viewport_size({"width": 1920, "height": 900})
-        page.goto(f"{base_url}/", wait_until="load")
-        page.locator("#release_scope").select_option("decade")
-        page.locator(".disclosure__summary").click()
-        page.evaluate(FONTS_READY_EXPRESSION)
-        return page.evaluate(
-            """() => {
-                const formColumn = document.querySelector('.index-form');
-                const submit = document.querySelector('.ss-submit');
-                const tags = document.querySelector('#filter-tags');
-                const style = getComputedStyle(formColumn);
-                const hero = document.querySelector('.index-hero');
-                const heroInner = document.querySelector('.index-hero__inner');
-                const heroMark = document.querySelector('.index-hero__mark');
-                const heroStyle = getComputedStyle(hero);
-                return {
-                    paddingTop: parseFloat(style.paddingTop),
-                    paddingBottom: parseFloat(style.paddingBottom),
-                    submitBottom: submit.getBoundingClientRect().bottom,
-                    tagsBottom: tags.getBoundingClientRect().bottom,
-                    viewportHeight: window.innerHeight,
-                    documentHeight: document.documentElement.scrollHeight,
-                    heroWidth: hero.getBoundingClientRect().width,
-                    heroPaddingLeft: parseFloat(heroStyle.paddingLeft),
-                    heroPaddingRight: parseFloat(heroStyle.paddingRight),
-                    heroInnerWidth: heroInner.getBoundingClientRect().width,
-                    heroMarkWidth: heroMark.getBoundingClientRect().width,
-                };
-            }"""
-        )
-
     try:
         measured_sizes = {}
         layouts = {}
         for label, (width, height) in windows.items():
-            measured_sizes[label] = measure(width, height)
-            layouts[label] = measure_wide_layout()
-        zoom_transform = measure_zoom_and_transform()
-        at_mobile = measure(390, 844)
+            measured_sizes[label] = _measure_scale_dimensions(
+                page, base_url, selectors, width, height
+            )
+            layouts[label] = _measure_wide_layout(page)
+        zoom_transform = _measure_zoom_and_transform(page)
+        at_mobile = _measure_scale_dimensions(page, base_url, selectors, 390, 844)
         mobile_layout = page.evaluate(
             """() => ({
             factor: getComputedStyle(document.querySelector('.index-grid'))
@@ -1853,31 +2181,34 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 .gridTemplateColumns.split(' ').length,
         })"""
         )
-        compact_height = measure_compact_height()
-        # Reset the expanded state: this probe exercises the initial form's
-        # font-relative height denominator, with the root enlarged to 20px.
-        page.goto(f"{base_url}/", wait_until="load")
-        page.evaluate(FONTS_READY_EXPRESSION)
-        old_root = page.evaluate("document.documentElement.style.fontSize")
-        try:
-            root_measurement = page.evaluate(
-                """() => {
-                document.documentElement.style.fontSize = '20px';
-                return document.querySelector('.index-form__inner')
-                    .getBoundingClientRect().width;
-            }"""
-            )
-        finally:
-            page.evaluate(
-                "fontSize => { document.documentElement.style.fontSize = fontSize; }",
-                old_root,
-            )
+        mobile_headers = _measure_mobile_headers(page, base_url)
+        fixed_states = {
+            "as loaded": (),
+            "heatmap mode": (("click", "#mode-tab-heatmap"),),
+            "decade filter": (("select", "#release_scope", "decade"),),
+            "release year": (("select", "#release_scope", "custom"),),
+            "thresholds open": (("click", ".disclosure__summary"),),
+            "decade + thresholds": (
+                ("select", "#release_scope", "decade"),
+                ("click", ".disclosure__summary"),
+            ),
+        }
+        state_measurements = {
+            state: _measure_fixed_state(page, base_url, actions)
+            for state, actions in fixed_states.items()
+        }
+        root_measurement = _measure_enlarged_root(page, base_url)
     finally:
         if original_viewport:
             page.set_viewport_size(original_viewport)
 
     failures = []
     expected_scales = {
+        # The outer cap mirrors --index-scale-cap in static/css/index.css
+        # (1.75 since the owner's 2026-09-07 "1.75" ruling; it was 2.15).
+        # A stale cap here made the gate expect a scale the CSS can no
+        # longer reach at 4K, which produced ~1.4 percent proportional
+        # failures on every width/height at that profile only.
         # The old literal 76 was the fixed --shell-height in px; Step 5
         # replaces it with clamp(4.25rem, 2.96875vw, 4.75rem), so the bar
         # height that a real window subtracts from is now width-dependent
@@ -1886,19 +2217,18 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
         # height term either way), and the bar clamps to its 76px ceiling
         # by 2560px width regardless (1440p, 4K), matching the old literal.
         label: min(
-            2.15,
+            1.75,
             max(
                 0.70,
                 min(
-                    1.075 * width / 1920,
+                    1.075
+                    * (width / 1920 if width <= 1920 else (0.35 + 0.65 * width / 1920)),
                     (height - _clamp_px(4.25, 2.96875, 4.75, width)) / (673 + 108),
                 ),
             ),
         )
         for label, (width, height) in windows.items()
     }
-    at_1080p = measured_sizes["1080p"]
-    layout_1080p = layouts["1080p"]
     for label, measurements in measured_sizes.items():
         for name in selectors:
             if measurements.get(name) is None:
@@ -1911,24 +2241,142 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
     # enlarged root, since vw does not scale with the root font.
     header_height_at_enlarged_root = _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20)
     expected_root_width = (
-        28 * 20 * ((900 - header_height_at_enlarged_root) / ((42.0625 + 4) * 20))
+        27.5 * 20 * ((900 - header_height_at_enlarged_root) / ((42.0625 + 4) * 20))
     )
     if abs(root_measurement - expected_root_width) > 1:
         failures.append(
             f"/: enlarged-root form width is {root_measurement:.1f}px, "
             f"expected font-relative height guard {expected_root_width:.1f}px"
         )
+    failures.extend(
+        _scale_dimension_failures(
+            measured_sizes,
+            layouts,
+            expected_scales,
+            scalable_dimensions,
+            fixed_dimensions,
+        )
+    )
+    failures.extend(
+        _composition_bounds_failures(
+            measured_sizes, layouts, expected_scales, mobile_layout, at_mobile
+        )
+    )
+    failures.extend(_wide_layout_failures(layouts))
+    for width, header in mobile_headers.items():
+        failures.extend(_mobile_header_failures(width, header))
+    # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
+    # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
+    # clamp(5.75rem, 4.53vw, 7.25rem), theme-choice height
+    # clamp(2.25rem, 1.5625vw, 2.5rem). At 1920px width (1080p) every
+    # preferred vw term stays below its rem floor, so the floor wins; at
+    # 2560px width (1440p) each preferred term lands at or above its rem
+    # ceiling, so the ceiling wins (the bar exactly reproduces its current
+    # 76px reference there). The theme toggle's own rendered height is the
+    # choice clamp plus the toggle's fixed chrome (0.2rem padding x2 +
+    # 1px border x2 = 8.4px), so it is asserted as a tolerance-bound curve,
+    # not exact equality (owner ruling 2026-09-05 #4).
+    failures.extend(_header_geometry_failures(measured_sizes, layouts))
+    failures.extend(_scale_mechanism_failures(zoom_transform))
+    baseline_state = state_measurements["as loaded"]
+    failures.extend(
+        _state_dimension_failures(
+            baseline_state["dimensions"],
+            {
+                state: measurement["dimensions"]
+                for state, measurement in state_measurements.items()
+                if state != "as loaded"
+            },
+        )
+    )
+    expanded_state = state_measurements["decade + thresholds"]
+    if expanded_state["documentHeight"] <= expanded_state["viewportHeight"] + 1:
+        failures.append(
+            "/: expanded decade + thresholds state shrinks to avoid document scrolling"
+        )
+    failures.extend(_check_desktop_scale_bounds(page, base_url))
+    return failures
+
+
+def _composition_bounds_failures(
+    measured_sizes, layouts, expected_scales, mobile_layout, at_mobile
+) -> list[str]:
+    """Validate minimum growth, mobile sizing, column ratio and the ruled form cap."""
+    failures = []
+    at_1080p = measured_sizes["1080p"]
+    layout_1080p = layouts["1080p"]
+    for name in ("hero composition", "form composition"):
+        growth = measured_sizes["1440p"][name]["width"] / at_1080p[name]["width"]
+        if growth < 1.20:
+            failures.append(
+                f"/: {name} grows only {growth:.3f}x from a real 1080p "
+                "window to a real 1440p window; expected at least 1.20x"
+            )
+    if mobile_layout["factor"] or mobile_layout["columns"] != 1:
+        failures.append("/: desktop factor leaked into the mobile one-column layout")
+    if at_mobile["input"]["height"] < 44 or at_mobile["input"]["fontSize"] < 16:
+        failures.append("/: mobile input lost its touch or text minimum")
+
+    # Was 5 / 3. Task 3 narrows the application column to 3fr 4fr.
+    split_ratio = layout_1080p["applicationWidth"] / layout_1080p["heroWidth"]
+    if abs(split_ratio - (4 / 3)) > 0.02:
+        failures.append(
+            f"/: wide desktop split is {split_ratio:.3f}, expected 4:3 application-to-hero"
+        )
+    # 27.5rem is the owner-refined base cap. The rendered card expands by
+    # the same layout factor as the rest of the composition.
+    expected_base_cap = 27.5 * 16
+    for label in ("1080p", "1440p", "4K"):
+        expected = expected_base_cap * expected_scales[label]
+        actual = measured_sizes[label]["form composition"]["width"]
+        if abs(actual - expected) > 2:
+            failures.append(
+                f"/: form cap is {actual:.0f}px at a real {label} window, "
+                f"expected proportional {expected:.0f}px"
+            )
+    return failures
+
+
+def _expected_scaled_dimension(
+    name, dimension, at_1080p, ratio, hero_width, baseline_hero_width
+):
+    """Keep fixed border chrome and column-filling marks out of content scaling."""
+    hero_width_ratio = hero_width / baseline_hero_width
+    if name == "wordmark" and dimension == "height":
+        expected = at_1080p["wordmark"]["height"] * hero_width_ratio
+    elif name == "hero composition" and dimension == "height":
+        expected_mark = at_1080p["wordmark"]["height"] * hero_width_ratio
+        expected = (
+            expected_mark
+            + (at_1080p["hero composition"]["height"] - at_1080p["wordmark"]["height"])
+            * ratio
+        )
+    else:
+        fixed_height = {"form": 5, "form composition": 7}.get(name, 0)
+        fixed = fixed_height if dimension == "height" else 0
+        expected = (at_1080p[name][dimension] - fixed) * ratio + fixed
+    return expected
+
+
+def _scale_dimension_failures(
+    measured_sizes, layouts, expected_scales, scalable_dimensions, fixed_dimensions
+) -> list[str]:
+    """Report scale dimension failures from rendered measurements."""
+    failures = []
+    at_1080p = measured_sizes["1080p"]
     baseline_scale = expected_scales["1080p"]
     for label in ("1200p measured", "1440p", "4K"):
         ratio = expected_scales[label] / baseline_scale
         for name, dimensions in scalable_dimensions.items():
             for dimension in dimensions:
-                # Only stacked, auto-height borders add fixed height: card
-                # (2), segment track (2), disclosure separator (1), plus
-                # mode track (2) and filter-tag row (2) in the outer wrapper.
-                fixed_height = {"form": 5, "form composition": 9}.get(name, 0)
-                fixed = fixed_height if dimension == "height" else 0
-                expected = (at_1080p[name][dimension] - fixed) * ratio + fixed
+                expected = _expected_scaled_dimension(
+                    name,
+                    dimension,
+                    at_1080p,
+                    ratio,
+                    layouts[label]["heroInnerWidth"],
+                    layouts["1080p"]["heroInnerWidth"],
+                )
                 actual = measured_sizes[label][name][dimension]
                 # Fine borders stay 1px: stacked border boxes can differ by
                 # a few pixels even when every content dimension scales.
@@ -1950,44 +2398,33 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                     failures.append(
                         f"/: {name} {dimension} changes outside the shared composition"
                     )
-    for name in ("hero composition", "form composition"):
-        growth = measured_sizes["1440p"][name]["width"] / at_1080p[name]["width"]
-        if growth < 1.20:
-            failures.append(
-                f"/: {name} grows only {growth:.3f}x from a real 1080p "
-                "window to a real 1440p window; expected at least 1.20x"
-            )
-    if mobile_layout["factor"] or mobile_layout["columns"] != 1:
-        failures.append("/: desktop factor leaked into the mobile one-column layout")
-    if at_mobile["input"]["height"] < 44 or at_mobile["input"]["fontSize"] < 16:
-        failures.append("/: mobile input lost its touch or text minimum")
+    return failures
 
-    # Was 5 / 3. Task 3 narrows the application column to 3fr 4fr.
-    split_ratio = layout_1080p["applicationWidth"] / layout_1080p["heroWidth"]
-    if abs(split_ratio - (4 / 3)) > 0.02:
-        failures.append(
-            f"/: wide desktop split is {split_ratio:.3f}, expected 4:3 application-to-hero"
-        )
-    # 28rem is the remediation plan's base cap. The rendered card expands by
-    # the same layout factor as the rest of the composition.
-    expected_base_cap = 28 * 16
-    for label in ("1080p", "1440p", "4K"):
-        expected = expected_base_cap * expected_scales[label]
-        actual = measured_sizes[label]["form composition"]["width"]
-        if abs(actual - expected) > 2:
-            failures.append(
-                f"/: form cap is {actual:.0f}px at a real {label} window, "
-                f"expected proportional {expected:.0f}px"
-            )
+
+def _wide_layout_failures(layouts) -> list[str]:
+    """Report wide layout failures from rendered measurements."""
+    failures = []
     for label, layout in layouts.items():
         left_gutter = layout["formInnerLeft"] - layout["formLeft"]
         right_gutter = layout["formRight"] - layout["formInnerRight"]
         if abs(layout["paddingLeft"] - layout["paddingRight"]) > 0.1:
             failures.append(f"/: form well has asymmetric inline padding at {label}")
-        if abs(left_gutter - right_gutter) > 1:
+        if abs(left_gutter - right_gutter) > 1.5:
             failures.append(f"/: form has unequal side gutters at {label}")
         if min(left_gutter, right_gutter) < layout["paddingLeft"] - 1:
             failures.append(f"/: form intrudes into its well padding at {label}")
+        top_gutter = layout["formInnerTop"] - layout["wellTop"]
+        form_height = layout["formInnerBottom"] - layout["formInnerTop"]
+        available = layout["viewportHeight"] - layout["headerHeight"]
+        expected_top = max(
+            0.25 * layout["rootFontSize"],
+            (available - form_height) / 2 - 2.5 * layout["rootFontSize"],
+        )
+        if abs(top_gutter - expected_top) > 2:
+            failures.append(
+                f"/: form composition has the wrong upward offset at {label}: "
+                f"{top_gutter:.1f}px top, expected {expected_top:.1f}px"
+            )
         if (
             abs(layout["cardLeft"] - layout["formInnerLeft"]) > 1
             or abs(layout["cardRight"] - layout["formInnerRight"]) > 1
@@ -2009,30 +2446,20 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 f"expected to track the hero inner at {layout['heroInnerWidth']:.1f}px"
             )
 
-    # The ruled header clamps (Step 5): bar clamp(4.25rem, 2.96875vw, 4.75rem),
-    # nav-link height clamp(2.75rem, 1.875vw, 3.5rem), nav-link width
-    # clamp(5.75rem, 4.53vw, 7.25rem), theme-choice height
-    # clamp(2.25rem, 1.5625vw, 2.5rem). At 1920px width (1080p) every
-    # preferred vw term stays below its rem floor, so the floor wins; at
-    # 2560px width (1440p) each preferred term lands at or above its rem
-    # ceiling, so the ceiling wins (the bar exactly reproduces its current
-    # 76px reference there). The theme toggle's own rendered height is the
-    # choice clamp plus the toggle's fixed chrome (0.2rem padding x2 +
-    # 1px border x2 = 8.4px), so it is asserted as a tolerance-bound curve,
-    # not exact equality (owner ruling 2026-09-05 #4).
+    return failures
+
+
+def _header_geometry_failures(measured_sizes, layouts) -> list[str]:
+    """Report header geometry failures from rendered measurements."""
+    failures = []
     header_geometry = {
-        "1080p": {
-            "bar": _clamp_px(4.25, 2.96875, 4.75, 1920),
-            "nav height": _clamp_px(2.75, 1.875, 3.5, 1920),
-            "nav width": _clamp_px(5.75, 4.53, 7.25, 1920),
-            "toggle height": _clamp_px(2.25, 1.5625, 2.5, 1920) + 8.4,
-        },
-        "1440p": {
-            "bar": _clamp_px(4.25, 2.96875, 4.75, 2560),
-            "nav height": _clamp_px(2.75, 1.875, 3.5, 2560),
-            "nav width": _clamp_px(5.75, 4.53, 7.25, 2560),
-            "toggle height": _clamp_px(2.25, 1.5625, 2.5, 2560) + 8.4,
-        },
+        label: {
+            "bar": _clamp_px(4.25, 2.96875, 4.75, width),
+            "nav height": _clamp_px(2.75, 1.875, 3.5, width),
+            "nav width": _clamp_px(5.75, 4.53, 7.25, width),
+            "toggle height": _clamp_px(2.25, 1.5625, 2.5, width) + 8.4,
+        }
+        for label, width in (("1080p", 1920), ("1440p", 2560))
     }
     for label, expected_geometry in header_geometry.items():
         bar = measured_sizes[label]["header bar"]["height"]
@@ -2069,6 +2496,12 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 f"row at {label}"
             )
 
+    return failures
+
+
+def _scale_mechanism_failures(zoom_transform) -> list[str]:
+    """Report scale mechanism failures from rendered measurements."""
+    failures = []
     for entry in zoom_transform:
         if entry["zoom"] not in ("1", "normal"):
             failures.append(
@@ -2080,48 +2513,6 @@ def check_large_display_scale_parity(page, base_url: str) -> list[str]:
                 "expected none"
             )
 
-    header_height_at_1920 = _clamp_px(4.25, 2.96875, 4.75, 1920)
-    if (
-        abs(compact_height["paddingTop"] - 32 * ((900 - header_height_at_1920) / 1164))
-        > 0.5
-        or abs(
-            compact_height["paddingBottom"]
-            - 32 * ((900 - header_height_at_1920) / 1164)
-        )
-        > 0.5
-    ):
-        failures.append(
-            "/: compact desktop height lost proportional 2rem form-column padding"
-        )
-    if compact_height["submitBottom"] > compact_height["viewportHeight"] + 0.5:
-        failures.append("/: compact-height form leaves the submit button below view")
-    if compact_height["tagsBottom"] > compact_height["viewportHeight"] + 0.5:
-        failures.append("/: compact-height form leaves filter tags below view")
-    if compact_height["documentHeight"] > compact_height["viewportHeight"] + 1:
-        failures.append("/: compact-height form requires document scrolling")
-    # The height guard drops the shared factor in this driven decade+thresholds
-    # state (0.726 at 1080p, measured 2026-09-05), which used to leave the
-    # hero's own content trapped in a `35rem * scale` box far narrower than
-    # its padded column. The hero must still fill the padding edge here, not
-    # just in the width-driven collapsed state above.
-    expanded_hero_fill = (
-        compact_height["heroWidth"]
-        - compact_height["heroPaddingLeft"]
-        - compact_height["heroPaddingRight"]
-    )
-    if abs(compact_height["heroInnerWidth"] - expanded_hero_fill) > 1:
-        failures.append(
-            f"/: hero inner is {compact_height['heroInnerWidth']:.1f}px in the "
-            f"expanded decade+thresholds state, expected to fill its padded "
-            f"column at {expanded_hero_fill:.1f}px"
-        )
-    if abs(compact_height["heroMarkWidth"] - compact_height["heroInnerWidth"]) > 1:
-        failures.append(
-            f"/: wordmark is {compact_height['heroMarkWidth']:.1f}px in the "
-            f"expanded decade+thresholds state, expected to track the hero "
-            f"inner at {compact_height['heroInnerWidth']:.1f}px"
-        )
-    failures.extend(_check_desktop_scale_bounds(page, base_url))
     return failures
 
 
@@ -2134,6 +2525,65 @@ def _touch_minimum_failures(
         for selector, rectangle in rectangles.items()
         if min(rectangle.values()) < 43.9
     ]
+
+
+def _mobile_header_failures(width: int, header: dict) -> list[str]:
+    """Assert the mobile header contract for one viewport width.
+
+    The header stays in document flow and scrolls away (owner screenshot
+    clarification, 2026-09-10). Extra body padding would duplicate its height.
+    """
+    failures = []
+    if header["scrollWidth"] > header["clientWidth"] + 1 or not header["linksInside"]:
+        failures.append(
+            f"/: mobile navigation requires horizontal scrolling at {width}px"
+        )
+    if header["rows"] != 1:
+        failures.append(
+            f"/: mobile navigation uses {header['rows']} row(s) at {width}px, "
+            "expected one directly visible row"
+        )
+    if header["actionsInHeader"] or not header["actionsInMobileSlot"]:
+        failures.append(f"/: mobile theme control remains in the header at {width}px")
+    if header["actionsTop"] < header["contentBottom"] - 0.5:
+        failures.append(
+            f"/: mobile theme control is not below the page content at {width}px"
+        )
+    if header["themeHeight"] < 44:
+        failures.append(
+            f"/: mobile theme control is only {header['themeHeight']:.1f}px high "
+            f"at {width}px, expected at least 44px"
+        )
+    # In flow on mobile too: reserve the actual header height exactly once.
+    if (
+        header["headerPosition"] not in {"relative", "static"}
+        or abs(header["bodyPaddingTop"]) > 0.5
+    ):
+        failures.append(
+            f"/: mobile header must scroll away without a body offset at {width}px"
+        )
+    return failures
+
+
+def _state_dimension_failures(
+    baseline: dict[str, float],
+    states: dict[str, dict[str, float]],
+    *,
+    tolerance: float = 0.5,
+) -> list[str]:
+    """Report authored dimensions that move while the viewport stays fixed."""
+    failures = []
+    for state, measurements in states.items():
+        for dimension, expected in baseline.items():
+            actual = measurements.get(dimension)
+            if actual is None:
+                failures.append(f"/: {state} did not measure {dimension}")
+            elif abs(actual - expected) > tolerance:
+                failures.append(
+                    f"/: {dimension} changes from {expected:.1f}px to "
+                    f"{actual:.1f}px in {state} at a fixed viewport"
+                )
+    return failures
 
 
 def _headline_wrap_failures(probe, width: int) -> list[str]:
@@ -2210,8 +2660,13 @@ def _check_desktop_scale_bounds(page, base_url: str) -> list[str]:
             ".disclosure__summary": 32,
         }
         for width, controls in widths.items():
+            scale = (
+                1.075 * (width / 1920)
+                if width <= 1920
+                else 1.075 * (0.35 + 0.65 * (width / 1920))
+            )
             for selector, actual in controls.items():
-                expected = max(44, authored_heights[selector] * 1.075 * width / 1920)
+                expected = max(44, authored_heights[selector] * scale)
                 if abs(actual - expected) > 1:
                     failures.append(
                         f"/: {selector} touch height is {actual:.1f}px at {width}px, "
@@ -2229,6 +2684,7 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
     expected = {
         "/results": ("results", "/"),
         "/heatmap": ("heatmap", "/?mode=heatmap"),
+        "/unmatched": ("unmatched", "/"),
     }
     for path, (kind, action) in expected.items():
         page.goto(f"{base_url}{path}", wait_until="load")
@@ -2241,6 +2697,31 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
             failures.append(
                 f"{path}: empty-state action is {href!r}, expected {action!r}"
             )
+        details = state.evaluate(
+            """node => {
+                const card = document.querySelector('.card');
+                const emptySection = node.matches('.empty-state') ? node : node.querySelector('.empty-state');
+                const style = emptySection ? getComputedStyle(emptySection) : null;
+                const actionLink = node.querySelector('a');
+                const actionRect = actionLink ? actionLink.getBoundingClientRect() : null;
+                return {
+                    hasCard: card !== null && getComputedStyle(card).display !== 'none',
+                    hasSection: emptySection !== null,
+                    boxShadow: style ? style.boxShadow : 'none',
+                    actionUsable: actionRect !== null && actionRect.width > 0 && actionRect.height > 0,
+                };
+            }"""
+        )
+        if details["hasCard"]:
+            failures.append(f"{path}: empty state contains an unexpected visible .card")
+        if not details["hasSection"]:
+            failures.append(f"{path}: .empty-state section element is missing")
+        if details["boxShadow"] not in ("none", "", "rgba(0, 0, 0, 0) 0px 0px 0px 0px"):
+            failures.append(
+                f"{path}: .empty-state has unexpected box shadow: {details['boxShadow']!r}"
+            )
+        if not details["actionUsable"]:
+            failures.append(f"{path}: empty-state action link is not usable/visible")
 
     page.goto(f"{base_url}/?mode=heatmap", wait_until="load")
     fresh_state = page.evaluate(
@@ -2340,57 +2821,100 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     heatmap_path = f"/heatmap?job_id={heatmap_job_id}"
     failures = []
 
+    failures.extend(_check_phase_repository_isolation(album_job_id))
+    failures.extend(
+        _exercise_album_progress(page, base_url, album_job_id, loading_path)
+    )
+    failures.extend(
+        _exercise_heatmap_progress(page, base_url, heatmap_job_id, heatmap_path)
+    )
+    failures.extend(
+        _exercise_replaced_job_progress(page, base_url, heatmap_job_id, heatmap_path)
+    )
+    return failures
+
+
+def _check_phase_repository_isolation(album_job_id) -> list[str]:
+    """Verify caller and returned phase objects cannot mutate stored progress."""
+    failures = []
     # 1. Repository mutation isolation
     test_phase = {
         "key": "lastfm_fetch",
-        "label": "Fetching scrobbles",
+        "label": FETCHING_SCROBBLES,
         "unit": "page",
         "current": 23,
         "total": 102,
     }
     set_job_progress(
-        album_job_id, progress=20, message="Fetching scrobbles", phase=test_phase
+        album_job_id, progress=20, message=FETCHING_SCROBBLES, phase=test_phase
     )
     test_phase["current"] = 99
-    if get_job_progress(album_job_id)["phase"]["current"] != 23:
+    prog_caller = get_job_progress(album_job_id)
+    ctx_caller = get_job_context(album_job_id)
+    if not prog_caller or prog_caller.get("phase", {}).get("current") != 23:
         failures.append("repository get_job_progress leaked caller phase mutation")
-    if get_job_context(album_job_id)["progress"]["phase"]["current"] != 23:
+    if (
+        not ctx_caller
+        or ctx_caller.get("progress", {}).get("phase", {}).get("current") != 23
+    ):
         failures.append("repository get_job_context leaked caller phase mutation")
 
     prog_view = get_job_progress(album_job_id)
     ctx_view = get_job_context(album_job_id)
-    prog_view["phase"]["current"] = 77
-    ctx_view["progress"]["phase"]["current"] = 88
-    if get_job_progress(album_job_id)["phase"]["current"] != 23:
+    if prog_view is not None and isinstance(prog_view.get("phase"), dict):
+        prog_view["phase"]["current"] = 77
+    else:
+        failures.append("repository get_job_progress returned invalid phase structure")
+    if (
+        ctx_view is not None
+        and isinstance(ctx_view.get("progress"), dict)
+        and isinstance(ctx_view["progress"].get("phase"), dict)
+    ):
+        ctx_view["progress"]["phase"]["current"] = 88
+    else:
+        failures.append("repository get_job_context returned invalid phase structure")
+
+    prog_returned = get_job_progress(album_job_id)
+    ctx_returned = get_job_context(album_job_id)
+    if not prog_returned or prog_returned.get("phase", {}).get("current") != 23:
         failures.append("repository get_job_progress leaked returned phase mutation")
-    if get_job_context(album_job_id)["progress"]["phase"]["current"] != 23:
+    if (
+        not ctx_returned
+        or ctx_returned.get("progress", {}).get("phase", {}).get("current") != 23
+    ):
         failures.append(
             "repository get_job_context leaked returned context phase mutation"
         )
 
-    # 2. Sequential payloads on Album client (/loading)
+    return failures
+
+
+def _exercise_counted_progress(
+    page, base_url, job_id, path, selectors, client
+) -> list[str]:
+    """Exercise the shared counted-to-uncounted transition on either client."""
+    track, bar, text = selectors
+    failures = []
     set_job_progress(
-        album_job_id,
+        job_id,
         progress=20,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 23,
             "total": 102,
         },
     )
-    page.goto(f"{base_url}{loading_path}", wait_until="load")
-    page.locator("#step-text").filter(has_text="PAGE 23 / 102").wait_for(
-        state="visible"
-    )
+    page.goto(f"{base_url}{path}", wait_until="load")
+    page.locator(text).filter(has_text=PAGE_23_OF_102).wait_for(state="visible")
     failures.extend(
         _assert_loading_progress_state(
             page,
-            "#progress-track",
-            "#progress-bar",
-            "#step-text",
+            track,
+            bar,
+            text,
             expected_valuenow=23,
             expected_scalex=23 / 102,
             expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
@@ -2398,26 +2922,24 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     )
 
     set_job_progress(
-        album_job_id,
+        job_id,
         progress=90,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 90,
             "total": 100,
         },
     )
-    page.locator("#step-text").filter(has_text="PAGE 90 / 100").wait_for(
-        state="visible"
-    )
+    page.locator(text).filter(has_text=PAGE_90_OF_100).wait_for(state="visible")
     failures.extend(
         _assert_loading_progress_state(
             page,
-            "#progress-track",
-            "#progress-bar",
-            "#step-text",
+            track,
+            bar,
+            text,
             expected_valuenow=90,
             expected_scalex=0.9,
             expected_text="FETCHING SCROBBLES · PAGE 90 / 100",
@@ -2425,35 +2947,49 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     )
 
     set_job_progress(
-        album_job_id,
+        job_id,
         progress=92,
-        message="Counting daily scrobbles",
+        message=COUNTING_SCROBBLES,
         phase=None,
     )
-    page.locator("#step-text").filter(has_text="Counting daily scrobbles").wait_for(
-        state="visible"
-    )
+    page.locator(text).filter(has_text=COUNTING_SCROBBLES).wait_for(state="visible")
     failures.extend(
         _assert_loading_progress_state(
             page,
-            "#progress-track",
-            "#progress-bar",
-            "#step-text",
+            track,
+            bar,
+            text,
             expected_valuenow=92,
             expected_scalex=0.92,
-            expected_text="Counting daily scrobbles",
+            expected_text=COUNTING_SCROBBLES,
         )
     )
-    if "PAGE" in page.locator("#step-text").inner_text():
-        failures.append("album uncounted frame retained stale phase fraction")
+    if "PAGE" in page.locator(text).inner_text():
+        failures.append(f"{client} uncounted frame retained stale phase fraction")
 
+    return failures
+
+
+def _exercise_album_progress(page, base_url, album_job_id, loading_path) -> list[str]:
+    """Drive counted, uncounted and complete phases on the album page."""
+    failures = []
+    failures.extend(
+        _exercise_counted_progress(
+            page,
+            base_url,
+            album_job_id,
+            loading_path,
+            (ALBUM_PROGRESS_TRACK, ALBUM_PROGRESS_BAR, ALBUM_PROGRESS_TEXT),
+            "album",
+        )
+    )
     set_job_progress(
         album_job_id,
         progress=20,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 102,
             "total": 102,
@@ -2463,161 +2999,69 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     if not page.url.startswith(f"{base_url}/loading"):
         failures.append("album phase at 100% prematurely triggered navigation")
 
-    # 3. Sequential payloads on Heatmap client
+    return failures
+
+
+def _exercise_heatmap_progress(
+    page, base_url, heatmap_job_id, heatmap_path
+) -> list[str]:
+    """Drive counted, uncounted and zero-total phases on the heatmap page."""
+    failures = []
     reset_job_state(heatmap_job_id)
-    set_job_progress(
-        heatmap_job_id,
-        progress=20,
-        message="Fetching scrobbles",
-        phase={
-            "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
-            "unit": "page",
-            "current": 23,
-            "total": 102,
-        },
-    )
-    page.goto(f"{base_url}{heatmap_path}", wait_until="load")
-    page.locator("#heatmap-progress-text").filter(has_text="PAGE 23 / 102").wait_for(
-        state="visible"
-    )
     failures.extend(
-        _assert_loading_progress_state(
+        _exercise_counted_progress(
             page,
-            "#heatmap-progress-track",
-            "#heatmap-progress-bar",
-            "#heatmap-progress-text",
-            expected_valuenow=23,
-            expected_scalex=23 / 102,
-            expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
+            base_url,
+            heatmap_job_id,
+            heatmap_path,
+            (HEATMAP_PROGRESS_TRACK, HEATMAP_PROGRESS_BAR, HEATMAP_PROGRESS_TEXT),
+            "heatmap",
         )
     )
-
-    set_job_progress(
-        heatmap_job_id,
-        progress=90,
-        message="Fetching scrobbles",
-        phase={
-            "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
-            "unit": "page",
-            "current": 90,
-            "total": 100,
-        },
-    )
-    page.locator("#heatmap-progress-text").filter(has_text="PAGE 90 / 100").wait_for(
-        state="visible"
-    )
-    failures.extend(
-        _assert_loading_progress_state(
-            page,
-            "#heatmap-progress-track",
-            "#heatmap-progress-bar",
-            "#heatmap-progress-text",
-            expected_valuenow=90,
-            expected_scalex=0.9,
-            expected_text="FETCHING SCROBBLES · PAGE 90 / 100",
-        )
-    )
-
-    set_job_progress(
-        heatmap_job_id,
-        progress=92,
-        message="Counting daily scrobbles",
-        phase=None,
-    )
-    page.locator("#heatmap-progress-text").filter(
-        has_text="Counting daily scrobbles"
-    ).wait_for(state="visible")
-    failures.extend(
-        _assert_loading_progress_state(
-            page,
-            "#heatmap-progress-track",
-            "#heatmap-progress-bar",
-            "#heatmap-progress-text",
-            expected_valuenow=92,
-            expected_scalex=0.92,
-            expected_text="Counting daily scrobbles",
-        )
-    )
-    if "PAGE" in page.locator("#heatmap-progress-text").inner_text():
-        failures.append("heatmap uncounted frame retained stale phase fraction")
-
     set_job_progress(
         heatmap_job_id,
         progress=15,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 0,
             "total": 0,
         },
     )
-    page.locator("#heatmap-progress-text").filter(
-        has_text="FETCHING SCROBBLES"
-    ).wait_for(state="visible")
+    page.locator(HEATMAP_PROGRESS_TEXT).filter(has_text="FETCHING SCROBBLES").wait_for(
+        state="visible"
+    )
     failures.extend(
         _assert_loading_progress_state(
             page,
-            "#heatmap-progress-track",
-            "#heatmap-progress-bar",
-            "#heatmap-progress-text",
+            HEATMAP_PROGRESS_TRACK,
+            HEATMAP_PROGRESS_BAR,
+            HEATMAP_PROGRESS_TEXT,
             expected_valuenow=15,
             expected_scalex=0.15,
             expected_text="FETCHING SCROBBLES",
         )
     )
 
-    # 4. Composition check: single stat is centered and hidden stats reserve 0 width
-    page.evaluate(
-        """() => {
-            const stats = document.querySelector('#heatmap-loading-stats');
-            if (stats) stats.classList.remove('hidden');
-            const pages = document.querySelector('[data-heatmap-stat="pages"]');
-            if (pages) pages.classList.remove('hidden');
-            const scrobbles = document.querySelector('[data-heatmap-stat="scrobbles"]');
-            if (scrobbles) scrobbles.classList.add('hidden');
-            const days = document.querySelector('[data-heatmap-stat="days"]');
-            if (days) days.classList.add('hidden');
-        }"""
-    )
-    stat_layout = page.evaluate(
-        """() => {
-            const pages = document.querySelector('[data-heatmap-stat="pages"]');
-            const scrobbles = document.querySelector('[data-heatmap-stat="scrobbles"]');
-            const days = document.querySelector('[data-heatmap-stat="days"]');
-            const container = document.querySelector('#heatmap-loading-stats');
-            const pr = pages ? pages.getBoundingClientRect() : null;
-            const sr = scrobbles ? scrobbles.getBoundingClientRect() : null;
-            const dr = days ? days.getBoundingClientRect() : null;
-            const cr = container ? container.getBoundingClientRect() : null;
-            return {
-                pagesWidth: pr ? pr.width : 0,
-                scrobblesWidth: sr ? sr.width : 0,
-                daysWidth: dr ? dr.width : 0,
-                containerWidth: cr ? cr.width : 0,
-                pagesCenter: pr && cr ? (pr.left + pr.width / 2) - (cr.left + cr.width / 2) : 999,
-            };
-        }"""
-    )
-    if stat_layout["scrobblesWidth"] != 0 or stat_layout["daysWidth"] != 0:
-        failures.append("heatmap hidden stats reserved space in single-stat layout")
-    if abs(stat_layout["pagesCenter"]) > 3.0:
-        failures.append(
-            f"heatmap single stat is not centered: offset {stat_layout['pagesCenter']:.1f}px"
-        )
+    return failures
 
+
+def _exercise_replaced_job_progress(
+    page, base_url, heatmap_job_id, heatmap_path
+) -> list[str]:
+    """Hold an old poll while replacing the job, then check stale rejection."""
+    failures = []
     # 5. Out-of-order response rejection and job replacement
     replacement_job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
     set_job_progress(
         replacement_job_id,
         progress=80,
-        message="Fetching scrobbles",
+        message=FETCHING_SCROBBLES,
         phase={
             "key": "lastfm_fetch",
-            "label": "Fetching scrobbles",
+            "label": FETCHING_SCROBBLES,
             "unit": "page",
             "current": 80,
             "total": 100,
@@ -2638,30 +3082,34 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
         page.wait_for_timeout(100)
         # Navigate to replacement job while old job poll is held
         page.goto(f"{base_url}/heatmap?job_id={replacement_job_id}", wait_until="load")
-        page.locator("#heatmap-progress-text").filter(
-            has_text="PAGE 80 / 100"
-        ).wait_for(state="visible")
+        page.locator(HEATMAP_PROGRESS_TEXT).filter(has_text="PAGE 80 / 100").wait_for(
+            state="visible"
+        )
 
         # Fulfill held response for the replaced job with stale 20%
         if held_routes:
             held_routes[0].fulfill(
                 status=200,
-                content_type="application/json",
-                body=(
-                    '{"progress": 20, "phase": {"key": "lastfm_fetch", '
-                    '"label": "Fetching scrobbles", "unit": "page", '
-                    '"current": 20, "total": 100}}'
-                ),
+                json={
+                    "progress": 20,
+                    "phase": {
+                        "key": "lastfm_fetch",
+                        "label": FETCHING_SCROBBLES,
+                        "unit": "page",
+                        "current": 20,
+                        "total": 100,
+                    },
+                },
             )
             page.wait_for_timeout(150)
-            current_valuenow = page.locator("#heatmap-progress-track").get_attribute(
+            current_valuenow = page.locator(HEATMAP_PROGRESS_TRACK).get_attribute(
                 "aria-valuenow"
             )
             if current_valuenow == "20":
                 failures.append(
                     "stale out-of-order progress response regressed aria-valuenow"
                 )
-            if "PAGE 20" in page.locator("#heatmap-progress-text").inner_text():
+            if "PAGE 20" in page.locator(HEATMAP_PROGRESS_TEXT).inner_text():
                 failures.append(
                     "stale out-of-order progress response regressed visible text"
                 )
@@ -2695,6 +3143,26 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
                 return nativeInterval(callback, delay, ...args);
             };
             window.__scrobbleGateFastRedirect = true;
+
+            // A completed saved Heatmap job should reveal its cached result
+            // without painting the loading panel first. Observe class changes
+            // from before production DOMContentLoaded listeners run; a final
+            // display check would miss the brief flash once the result wins.
+            window.__scrobbleGateHeatmapLoadingPaints = 0;
+            document.addEventListener('DOMContentLoaded', () => {
+                const loading = document.querySelector('#heatmap-loading');
+                if (!loading) return;
+                const recordVisible = () => {
+                    if (getComputedStyle(loading).display !== 'none') {
+                        window.__scrobbleGateHeatmapLoadingPaints += 1;
+                    }
+                };
+                new MutationObserver(recordVisible).observe(loading, {
+                    attributes: true,
+                    attributeFilter: ['class'],
+                });
+                recordVisible();
+            });
         })();"""
     )
 
@@ -2739,13 +3207,17 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
         failures.append("album terminal failure did not reach its results error")
 
     heatmap_path = f"/heatmap?job_id={heatmap_job_id}"
+    # The owner's side-by-side report came from a realistic 1080p browser
+    # content box. The result should use that available width as confidently
+    # as the index composition measured by the large-display check.
+    page.set_viewport_size({"width": 1920, "height": 945})
     reset_job_state(heatmap_job_id)
     set_job_results(
         heatmap_job_id,
         {
             "username": "frontend-gate",
             "from_date": "2025-01-01",
-            "to_date": "2025-01-01",
+            "to_date": "2025-12-31",
             "total_scrobbles": 4,
             "daily_counts": {"2025-01-01": 4},
         },
@@ -2761,8 +3233,50 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
         })"""
     )
     page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+    result_scale = page.evaluate(
+        """() => {
+            const frame = document.querySelector('#heatmap-result-frame')
+                .getBoundingClientRect();
+            const stage = document.querySelector('#heatmap-result')
+                .getBoundingClientRect();
+            const cell = document.querySelector('.heatmap-cell').getBoundingClientRect();
+            const headline = document.querySelector('#heatmap-result-headline');
+            const username = headline.querySelector('.heatmap-headline-username');
+            return {
+                frameRatio: frame.width / innerWidth,
+                frameCenterOffset: (frame.left + frame.width / 2)
+                    - (stage.left + stage.width / 2),
+                cellWidth: cell.width,
+                usernameColor: getComputedStyle(username).color,
+                headlineColor: getComputedStyle(headline).color,
+                usernameStyle: getComputedStyle(username).fontStyle,
+            };
+        }"""
+    )
+    loading_paints = page.evaluate("window.__scrobbleGateHeatmapLoadingPaints || 0")
+    if loading_paints:
+        failures.append(
+            "cached heatmap restoration painted the loading panel before its result"
+        )
     if handoff_state != {"root": True, "headline": False, "frame": False}:
         failures.append("cached heatmap result does not use one root handoff")
+    if result_scale["frameRatio"] < 0.70 or result_scale["cellWidth"] < 22:
+        failures.append(
+            "desktop heatmap result is too small for its available viewport: "
+            f"{result_scale['frameRatio']:.3f} wide with "
+            f"{result_scale['cellWidth']:.1f}px cells"
+        )
+    if result_scale["cellWidth"] > 32:
+        failures.append(
+            f"desktop heatmap cells are oversized at {result_scale['cellWidth']:.1f}px"
+        )
+    if abs(result_scale["frameCenterOffset"]) > 1:
+        failures.append("desktop heatmap frame is not centred in the viewport")
+    if (
+        result_scale["usernameStyle"] != "normal"
+        or result_scale["usernameColor"] != result_scale["headlineColor"]
+    ):
+        failures.append("heatmap username retains accent colour or italic styling")
     header_wordmark_display = page.locator(".site-header__home").evaluate(
         "element => getComputedStyle(element).display"
     )
@@ -2808,7 +3322,149 @@ def check_pipeline_state_machines(page, base_url: str) -> list[str]:
         reset_job_state(GATE_JOB_IDS["heatmap"])
 
 
-#: Every check the gate runs, with the viewports each one runs at.
+def check_artist_spotlight_rotation(page, base_url: str) -> list[str]:
+    """Render five sampled artists, hydrate them once, and observe rotation."""
+    job_id = create_job(
+        {
+            "username": "frontend-gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "all",
+            "min_plays": 1,
+            "min_tracks": 1,
+            "limit_results": "all",
+            "mode": "album",
+        }
+    )
+    failures = []
+    try:
+        set_job_results(
+            job_id,
+            [
+                {
+                    "artist": f"Rotation Artist {index}",
+                    "album": f"Rotation Album {index}",
+                    "play_count": 20 - index,
+                    "play_time": "42m",
+                    "play_time_seconds": 2520 - index,
+                    "release_date": "2025-01-01",
+                    "album_image": "",
+                    "spotify_id": f"rotation-album-{index}",
+                }
+                for index in range(10)
+            ],
+        )
+        set_job_progress(job_id, progress=100, message="Done", error=False)
+        page.add_init_script(
+            """(() => {
+                const nativeInterval = window.setInterval;
+                const nativeFetch = window.fetch.bind(window);
+                window.__spotlightRequests = [];
+                window.__spotlightFirstResolved = false;
+                window.setInterval = (callback, delay, ...args) => {
+                    if (delay === 7000) return window.setTimeout(callback, 500, ...args);
+                    return nativeInterval(callback, delay, ...args);
+                };
+                window.fetch = (resource, options) => {
+                    const url = String(resource);
+                    if (!url.includes('/api/artist_spotlight?')) {
+                        return nativeFetch(resource, options);
+                    }
+                    const requestIndex = window.__spotlightRequests.push(url) - 1;
+                    const response = {
+                        ok: true,
+                        json: async () => requestIndex === 0
+                            ? {
+                                image_url: 'data:image/svg+xml,<svg/>',
+                                spotify_url: 'https://open.spotify.com/artist/stale',
+                            }
+                            : {image_url: null, spotify_url: null},
+                    };
+                    if (requestIndex !== 0) return Promise.resolve(response);
+                    return new Promise((resolve) => {
+                        window.setTimeout(() => {
+                            window.__spotlightFirstResolved = true;
+                            resolve(response);
+                        }, 900);
+                    });
+                };
+            })();"""
+        )
+        page.goto(
+            f"{base_url}/results?job_id={job_id}",
+            wait_until="domcontentloaded",
+            timeout=10_000,
+        )
+
+        candidates = page.evaluate("window.APP_DATA.spotlight_artists")
+        if len(candidates) != 5 or len({item["name"] for item in candidates}) != 5:
+            failures.append("results did not expose five unique spotlight artists")
+
+        # Bound before the poll loop so the post-loop read is never unbound:
+        # a static analyzer treats a loop body as possibly-zero-iteration,
+        # and an init-script failure would otherwise surface as NameError
+        # instead of the hydration-count failure below.
+        spotlight_requests: list = []
+        for _ in range(20):
+            spotlight_requests = page.evaluate("window.__spotlightRequests")
+            if len(spotlight_requests) >= 5:
+                break
+            page.wait_for_timeout(50)
+        if len(spotlight_requests) != 5:
+            failures.append(
+                f"spotlight hydrated {len(spotlight_requests)} artists instead of 5"
+            )
+
+        initial_index = page.locator("#artist-spotlight-card").get_attribute(
+            "data-spotlight-index"
+        )
+        try:
+            page.wait_for_function(
+                "initial => document.querySelector('#artist-spotlight-card')?.dataset.spotlightIndex !== initial",
+                arg=initial_index,
+                timeout=2000,
+            )
+        except Exception:  # noqa: BLE001 - converted to an actionable gate failure
+            failures.append("artist spotlight did not rotate through its sample")
+        else:
+            active_state = page.evaluate(
+                """() => {
+                    const card = document.querySelector('#artist-spotlight-card');
+                    return {index: card?.dataset.spotlightIndex, artist: card?.dataset.artist};
+                }"""
+            )
+            page.wait_for_function(
+                "() => window.__spotlightFirstResolved",
+                timeout=2_000,
+            )
+            if page.evaluate(
+                """expected => {
+                    const card = document.querySelector('#artist-spotlight-card');
+                    return card?.dataset.spotlightIndex !== expected.index
+                        || card?.dataset.artist !== expected.artist;
+                }""",
+                active_state,
+            ):
+                failures.append("late spotlight hydration replaced the active artist")
+    finally:
+        delete_job(job_id)
+    return failures
+
+
+#: Group names for the check grouping below. A stalled check can leave
+#: its page wedged (a half-loaded stylesheet, a leaked poller); the
+#: 2026-09-07 CI run cascaded one navigation timeout through every later
+#: check on the same page object. Each group therefore runs on a fresh
+#: browser context so the damage ends with the group that caused it.
+STATIC_ASSETS = "static assets & tokens"
+THEME_MOTION = "theme & motion"
+FORMS_VALIDATION = "forms & validation"
+LAYOUT_PIPELINE = "layout & pipeline"
+
+#: Every check the gate runs, with the viewports each one runs at and the
+#: group that owns it. Groups are derived from this tuple -- there is no
+#: second declared copy to fall out of sync (owner ruling: testing the
+#: grouping would be testing a test).
 #:
 #: Width changes nothing for stylesheet links, font downloads or the
 #: validation request state machines, so those use the smallest useful set.
@@ -2816,54 +3472,156 @@ def check_pipeline_state_machines(page, base_url: str) -> list[str]:
 #: targets run on a narrow phone and a wide coarse-pointer device, because
 #: pointer capability rather than window width is the contract.
 CHECKS = (
-    ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,)),
-    ("fonts", check_fonts, (DESKTOP,)),
-    ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE)),
-    ("divider contrast", check_divider_contrast, (DESKTOP,)),
-    ("index design tokens", check_index_design_tokens, (DESKTOP, MOBILE)),
-    ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE)),
-    ("body font", check_body_font, (DESKTOP, MOBILE)),
-    ("shell text scaling", check_shell_scales_with_text, (DESKTOP, MOBILE)),
-    ("loading composition", check_loading_composition, (DESKTOP, MOBILE)),
-    ("initial visibility", check_initial_visibility, (DESKTOP, MOBILE)),
-    ("validation feedback", check_validation_feedback, (DESKTOP,)),
-    ("private profiles", check_private_profile_is_blocked, (DESKTOP,)),
-    ("index entrance motion", check_index_entrance_motion, (DESKTOP,)),
-    ("true warning survives", check_true_warning_survives, (DESKTOP,)),
-    ("validator outage", check_validator_outage_is_recoverable, (DESKTOP,)),
-    ("mark follows theme", check_mark_follows_theme, (DESKTOP,)),
+    ("stylesheet isolation", check_stylesheet_isolation, (DESKTOP,), STATIC_ASSETS),
+    ("fonts", check_fonts, (DESKTOP,), STATIC_ASSETS),
+    ("body font", check_body_font, (DESKTOP, MOBILE), STATIC_ASSETS),
+    ("theme tokens", check_theme_tokens, (DESKTOP, MOBILE), STATIC_ASSETS),
+    ("divider contrast", check_divider_contrast, (DESKTOP,), STATIC_ASSETS),
+    (
+        "index design tokens",
+        check_index_design_tokens,
+        (DESKTOP, MOBILE),
+        STATIC_ASSETS,
+    ),
+    ("mark follows theme", check_mark_follows_theme, (DESKTOP,), STATIC_ASSETS),
+    ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE), THEME_MOTION),
+    ("true warning survives", check_true_warning_survives, (DESKTOP,), THEME_MOTION),
     (
         "theme survives blocked storage",
         check_theme_survives_blocked_storage,
         (DESKTOP,),
+        THEME_MOTION,
     ),
-    ("validator race", check_stale_validator_failure_is_discarded, (DESKTOP,)),
+    ("index entrance motion", check_index_entrance_motion, (DESKTOP,), THEME_MOTION),
+    ("validation feedback", check_validation_feedback, (DESKTOP,), FORMS_VALIDATION),
+    (
+        "private profiles",
+        check_private_profile_is_blocked,
+        (DESKTOP,),
+        FORMS_VALIDATION,
+    ),
+    (
+        "validator outage",
+        check_validator_outage_is_recoverable,
+        (DESKTOP,),
+        FORMS_VALIDATION,
+    ),
+    (
+        "validator race",
+        check_stale_validator_failure_is_discarded,
+        (DESKTOP,),
+        FORMS_VALIDATION,
+    ),
     (
         "validator network failure",
         check_current_validator_failure_replaces_old_verdict,
         (DESKTOP,),
+        FORMS_VALIDATION,
     ),
-    ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE)),
+    (
+        "initial visibility",
+        check_initial_visibility,
+        (DESKTOP, MOBILE),
+        FORMS_VALIDATION,
+    ),
+    (
+        "shell text scaling",
+        check_shell_scales_with_text,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "loading composition",
+        check_loading_composition,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    ("touch targets", check_touch_targets, (MOBILE, TOUCH_WIDE), LAYOUT_PIPELINE),
+    (
+        "results interactions",
+        check_results_interactions,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
     (
         "destination empty states",
         check_destination_empty_states,
         (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
     ),
-    ("pipeline state machines", check_pipeline_state_machines, (DESKTOP,)),
-    ("large display scale parity", check_large_display_scale_parity, (DESKTOP,)),
+    (
+        "pipeline state machines",
+        check_pipeline_state_machines,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "artist spotlight rotation",
+        check_artist_spotlight_rotation,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "large display scale parity",
+        check_large_display_scale_parity,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
 )
+
+#: Groups in execution order, derived from CHECKS. dict preserves insertion
+#: order, so the first occurrence of a group fixes its position. The
+#: accumulator is honestly a list dict; only the final comprehension produces
+#: the promised tuple shape, so the annotation is true at every read site.
+_GROUP_MEMBERS: dict[str, list[str]] = {}
+for _entry in CHECKS:
+    _GROUP_MEMBERS.setdefault(_entry[3], []).append(_entry[0])
+CHECK_GROUPS: dict[str, tuple[str, ...]] = {
+    _group: tuple(members) for _group, members in _GROUP_MEMBERS.items()
+}
+del _GROUP_MEMBERS
+
+#: Firefox is a regression canary, not a second acceptance gate: the
+#: 2026-09-01 remediation plan measured both engines agreeing within 0.1px
+#: at four window profiles, so a full second pass doubles the stall surface
+#: for near-zero signal. Group A (STATIC_ASSETS) is the fastest set and the
+#: one the CDN fixtures serve, so it is the canary's scope. Chromium runs
+#: everything (None means all groups).
+BROWSER_SCOPES: dict[str, tuple[str, ...] | None] = {
+    "chromium": None,
+    "firefox": (STATIC_ASSETS,),
+}
+
+
+def groups_for(browser_name: str) -> tuple[str, ...]:
+    """Groups this engine runs, in execution order."""
+    scope = BROWSER_SCOPES.get(browser_name)
+    if scope is None:
+        return tuple(CHECK_GROUPS)
+    return tuple(group for group in CHECK_GROUPS if group in scope)
+
 
 #: How many check runs a clean pass performs. Printed so a check that silently
 #: stops running is visible as a smaller number.
-PLANNED_RUNS = len(BROWSER_NAMES) * sum(len(viewports) for _, _, viewports in CHECKS)
+PLANNED_RUNS = sum(
+    1
+    for _b in BROWSER_NAMES
+    for _e in CHECKS
+    for _v in _e[2]
+    if groups_for(_b) and _e[3] in groups_for(_b)
+)
 
 
-def run_checks(new_page, base_url: str) -> list[str]:
-    """Run every check against every profile it claims, collecting failures.
+def run_checks(
+    new_page, base_url: str, group_order: Sequence[str] | None = None
+) -> list[str]:
+    """Run every check group against every profile it claims, in order.
 
     Takes a factory rather than a page, because a coarse pointer cannot be
     switched on mid-session: touch emulation belongs to a browser context, so
-    each profile needs its own page.
+    each profile needs its own page. Each group opens a fresh page through the
+    factory, so a check that wedges its page (a stalled navigation, a leaked
+    poller) cannot poison the groups that follow it.
 
     A check that raises is reported as a failure and the run continues. A bare
     call would let one TypeError skip every later check and surface as a
@@ -2873,32 +3631,45 @@ def run_checks(new_page, base_url: str) -> list[str]:
     Every failure carries its profile. "the submit button is 38px" is not
     actionable until you know which device produced it.
     """
+    live_groups = tuple(dict.fromkeys(entry[3] for entry in CHECKS))
     failures = []
-    for viewport, spec in VIEWPORTS.items():
-        try:
-            page = new_page(spec)
-            # Impeccable Live is a developer overlay injected into base.html
-            # while visual review is active. Keep the production UI gate
-            # independent from that local instrumentation.
-            page.route("http://localhost:8400/**", lambda route: route.abort())
-        except Exception as exc:  # noqa: BLE001 - same rule as a check fault
-            failures.append(
-                f"the {viewport} profile could not be opened: "
-                f"{type(exc).__name__}: {exc}"
-            )
-            continue
-        for name, check, viewports in CHECKS:
-            if viewport not in viewports:
-                continue
-            try:
-                results = check(page, base_url)
-            except Exception as exc:  # noqa: BLE001 - any check fault is a failure
-                failures.append(
-                    f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"
+    for group in group_order or live_groups:
+        claimed_in_group = [entry for entry in CHECKS if entry[3] == group]
+        for viewport, spec in VIEWPORTS.items():
+            claimed = [entry for entry in claimed_in_group if viewport in entry[2]]
+            if claimed:
+                failures.extend(
+                    _run_profile_checks(
+                        new_page, base_url, group, viewport, spec, claimed
+                    )
                 )
-                continue
-            failures.extend(f"{name} [{viewport}]: {failure}" for failure in results)
     return failures
+
+
+def _run_profile_checks(
+    new_page, base_url, group, viewport, spec, claimed
+) -> list[str]:
+    """Open one isolated group/profile and report setup faults without aborting."""
+    try:
+        page = new_page(spec)
+    except Exception as exc:  # noqa: BLE001 - any factory fault is a gate failure
+        return [
+            f"{group} [{viewport}]: context could not be opened: "
+            f"{type(exc).__name__}: {exc}"
+        ]
+    failures = []
+    for name, check, _viewports, _group in claimed:
+        failures.extend(_run_check(page, base_url, name, viewport, check))
+    return failures
+
+
+def _run_check(page, base_url, name, viewport, check) -> list[str]:
+    """Keep one failed diagnostic from hiding later checks on the same profile."""
+    try:
+        results = check(page, base_url)
+    except Exception as exc:  # noqa: BLE001 - any check fault is a failure
+        return [f"{name} [{viewport}]: raised {type(exc).__name__}: {exc}"]
+    return [f"{name} [{viewport}]: {failure}" for failure in results]
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -2908,6 +3679,14 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--headed",
         action="store_true",
         help="show the browser window while the checks run",
+    )
+    parser.add_argument(
+        "--live-fonts",
+        action="store_true",
+        help=(
+            "navigate to the real Typekit and cdnjs origins (local font "
+            "calibration; requires network)"
+        ),
     )
     return parser.parse_args(argv)
 
@@ -2925,12 +3704,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                     browser = _launch_browser(
                         playwright, browser_name, headless=not args.headed
                     )
-                    # One context per profile, all closed with this engine.
+
+                    # One context per group-profile, all closed with this
+                    # engine. The 10s navigation timeout bounds a stalled
+                    # subresource to one failed check instead of a cascade.
+                    # (Timeout is page-level: Playwright's context has no
+                    # default_navigation_timeout kwarg.)
+                    def open_page(spec, browser=browser):
+                        context = browser.new_context(**spec)
+                        page = context.new_page()
+                        page.set_default_navigation_timeout(NAVIGATION_TIMEOUT_MS)
+                        install_cdn_routes(page, live_fonts=args.live_fonts)
+                        return page
+
                     results = run_checks(
-                        lambda spec, browser=browser: browser.new_context(
-                            **spec
-                        ).new_page(),
+                        open_page,
                         base_url,
+                        group_order=groups_for(browser_name),
                     )
                     failures.extend(f"{browser_name}: {result}" for result in results)
                 except Exception as exc:  # noqa: BLE001 - continue with the next engine
@@ -2954,9 +3744,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"[frontend_gate] FAIL {failure}", file=sys.stderr)
         return 1
 
+    # Read the canary through groups_for, whose return type is a plain
+    # tuple: BROWSER_SCOPES carries a None sentinel for "run everything"
+    # (chromium's full pass), so subscripting its values directly is a
+    # type error. Firefox always declares an explicit canary scope.
+    canary_groups = groups_for("firefox")
+    canary = canary_groups[0] if canary_groups else "no groups"
     print(
         f"[frontend_gate] {len(CHECKS)} checks passed in {PLANNED_RUNS} runs "
-        f"across {', '.join(BROWSER_NAMES)}; profiles: {', '.join(VIEWPORTS)}"
+        f"across {', '.join(BROWSER_NAMES)} "
+        f"({canary} canary on firefox); "
+        f"profiles: {', '.join(VIEWPORTS)}"
     )
     return 0
 

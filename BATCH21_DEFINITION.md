@@ -1,8 +1,8 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page) and WP-4 (unified loading and recent-result recovery) are complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. **WP-5 (results leaderboard) is the next batch work package.** WP-6 is absorbed into WP-3; see its stub below.
-**Branch:** `wip/batch-21` (linked worktree; lineage changes are recorded
-in PLAYBOOK Section 4 rather than pinned here).
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page), WP-4 (unified loading and recent-result recovery), and WP-5 (results leaderboard) are complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. **WP-7 (unmatched page + reason_code) is the next batch work package.** WP-6 is absorbed into WP-3; see its stub below.
+**Branch:** See PLAYBOOK Section 3 for the current linked-worktree branch;
+lineage changes are recorded in Section 4.
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
 
 ---
@@ -81,9 +81,10 @@ stylesheet is in scope for this batch.
    counts from overall progress. The remediation plan's Task 4 owns the
    accuracy checks and phase contract. The normal-state `Cancel and return home`
    control navigates home; it does not claim to stop the server job. When a
-   cached heatmap is ready, render its DOM first and use one short
-   opacity-only handoff from loading to result rather than a snap or nested
-   fades.
+   heatmap finishes after its loading panel has painted, render its DOM first
+   and use one short opacity-only handoff from loading to result rather than a
+   snap or nested fades. A saved job that is already cached must keep the
+   loading panel hidden and fade its result in directly.
 2. **Welcome modal (WP-3): DELETE.** The hero replaces it; Info button
    becomes a small about panel.
 3. **`limit_results` control (WP-3): KEEP**, as a visible field in the
@@ -120,8 +121,10 @@ stylesheet is in scope for this batch.
    wordmark render correctly in both modes on every page.
 4. Standing header bar on all pages: wordmark left (~64px), four functional
    Input Mono Narrow page-navigation pills (Home, Heatmap, Results,
-   Unmatched), segmented Light/Dark toggle top-right; footer toggle removed;
-   landing page keeps the large brand moment in the hero.
+   Unmatched), segmented Light/Dark toggle top-right; landing page keeps the
+   large brand moment in the hero. At mobile widths, all four destinations
+   remain directly visible in a single row with no horizontal navigation
+   scrolling, and the same theme control follows the page content.
 5. CSV export, JPEG export (both modes, mobile + desktop), progress
    polling, username validation, decade pills, and thresholds disclosure
    all still work; the results list remains a semantic `<table>`.
@@ -215,8 +218,9 @@ kickoff log entry.
 ### WP-2 -- base.html shell + strangler enabler
 
 - Fonts (per decision 4) in `base.html`; body font-family finally set.
-- Standing header bar (wordmark ~64px + theme toggle); footer toggle
-  removed; `theme.js` dual-writes `data-theme` + `.dark-mode`.
+- Standing header bar (wordmark ~64px + desktop theme toggle); the old fixed
+  footer toggle is removed, while mobile uses a normal-flow theme control
+  after page content; `theme.js` dual-writes `data-theme` + `.dark-mode`.
 - Bootstrap CSS link moved from `base.html` into a per-page block;
   `error.html` (smallest page) migrates fully as the pilot.
 - Coexistence isolation: each template loads exactly one framework
@@ -313,10 +317,14 @@ Moved in by the scope ruling:
    the audit review's single column. Current source declares a 1200px-wide
    `3fr 4fr` state and one shared factor of `1.075` times the width ratio,
    bounded by the measured composition height and available window content,
-   capped at `2.15`. The centred form carries a `28rem` base cap, the final
-   remediation width landed in Task 3. `static/css/index.css` owns the
-   layout-aware factor, explicit dimensions, narrow-window readability
-   bounds and expanded-state guard.
+   capped at `1.75`. The centred form carries the owner-refined `27.5rem`
+   base cap. Within the desktop well, the complete form composition sits up to
+   2.5rem above vertical centre, bounded by 0.25rem of header clearance
+   (owner refinement, 2026-09-09). Expanded states add
+   natural document height only when content cannot fit, without changing the hero, form, type, or control
+   scale. `static/css/index.css` owns the layout-aware factor, explicit
+   dimensions, narrow-window readability bounds, and fixed-viewport state
+   invariance.
    The former 1080px height denominator was an engine-independent defect;
    the complete Chromium and Firefox matrices now consume realistic content
    boxes and assert rendered proportions instead of a zoom property.
@@ -327,10 +335,13 @@ Moved in by the scope ruling:
    Items 2, 3 and 4 stay open for WP-4, WP-5 and WP-7; do not close the
    finding here.
 2. **Heatmap cell geometry resolves `docs/design/RECONCILIATION.md`
-   section 7.** Keep
-   the shipped 14px cell and its 2px radius; take the README's gap of 2px
-   desktop and 1px mobile. `--heatmap-empty` takes the README values,
-   `#e8e2d6` light and `#262230` dark.
+   section 7.** Keep the SVG's authored 14px cell and its 2px radius; take
+   the README's gap of 2px desktop and 1px mobile. On wide displays the
+   centred result frame uses `84vw`, capped at `120rem`, so the SVG scales
+   with the available content box instead of remaining at the snapshot's
+   undersized 1100px measure. The 2026-09-10 owner refinement uses the sunken
+   surface for the light frame and `#c8bfad` for empty cells so the grid remains
+   distinct. Dark empty cells retain `#262230`.
 3. **The index accepts public listening histories only.** Before either the
    album or heatmap pipeline accepts a username, a one-track
    `user.getrecenttracks` preflight must identify Last.fm error `17` / HTTP
@@ -367,8 +378,8 @@ Moved in by the scope ruling:
   line and drive the hairline; uncounted work clears phase and uses overall progress.
   Both clients poll `/progress` during execution; the heatmap client requests
   `/heatmap_data` only after progress reaches 100% completion. Album loading has
-  its four pipeline KPIs; Heatmap uses its three relevant facts: pages fetched,
-  scrobbles counted, and days with listening. Both retain request parameters
+  its four pipeline KPIs; Heatmap keeps live counts in the phase line without
+  a second counter rail (owner refinement, 2026-09-09). Both retain request parameters
   and a Home escape.
 - Decision 1 lands here (rotating messages).
 - Leaving the page: a quiet "Back home" link only -- no

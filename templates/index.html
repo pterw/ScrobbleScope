@@ -40,26 +40,41 @@
         {% include 'inline/scrobble_scope_lockup_inline.svg' ignore missing %}
       </div>
 
-      <div data-mode-hero="album"{% if initial_mode == 'heatmap' %} class="hidden"{% endif %}>
-        <h1 class="index-hero__headline">Your top albums, <em>any year or decade.</em></h1>
-        <p class="eyebrow">Album filtering</p>
-        <p class="index-hero__lede">Rank a single year, a whole decade, or your entire
-          history &#8212; by play count or by the hours you actually spent listening.
-          Built for AOTY lists with the nuance the official charts never give you.</p>
+      <div class="index-hero__copy">
+        <div data-mode-hero="album" class="index-hero__mode-copy{% if initial_mode != 'heatmap' %} is-active{% endif %}"
+             aria-hidden="{{ 'true' if initial_mode == 'heatmap' else 'false' }}">
+          <h1 class="index-hero__headline">Your top albums, <em>any year or decade.</em></h1>
+          <p class="eyebrow">Last.fm album filtering</p>
+          <p class="index-hero__lede">Choose a listening year and a release window, and ScrobbleScope
+            ranks your most-played albums for that era — with real listening time from Spotify
+            alongside play counts.</p>
+        </div>
+
+        <div data-mode-hero="heatmap" class="index-hero__mode-copy{% if initial_mode == 'heatmap' %} is-active{% endif %}"
+             aria-hidden="{{ 'false' if initial_mode == 'heatmap' else 'true' }}">
+          <h1 class="index-hero__headline">Your last 365 days, <em>one grid.</em></h1>
+          <p class="eyebrow">Listening heatmap</p>
+          <p class="index-hero__lede">Every day you scrobbled, one tile. The darker the square,
+            the more you played. Hover or tap any cell to see what was on.</p>
+        </div>
       </div>
 
-      <div data-mode-hero="heatmap"{% if initial_mode != 'heatmap' %} class="hidden"{% endif %}>
-        <h1 class="index-hero__headline">Your last 365 days, <em>one grid.</em></h1>
-        <p class="eyebrow">Listening heatmap</p>
-        <p class="index-hero__lede">Every scrobble from the last 365 days, coloured on
-          the rocket scale. Hover any day to see what you played.</p>
+      <div class="index-hero__marks-wrap">
+        <ul data-mode-marks="album"
+            class="index-hero__marks{% if initial_mode != 'heatmap' %} is-active{% endif %}"
+            aria-hidden="{{ 'true' if initial_mode == 'heatmap' else 'false' }}">
+          <li><span class="index-hero__mark-num">§ 01</span>Release era &amp; decade filters</li>
+          <li><span class="index-hero__mark-num">§ 02</span>Play count &amp; duration sorting</li>
+          <li><span class="index-hero__mark-num">§ 03</span>Leaderboard image &amp; CSV export</li>
+        </ul>
+        <ul data-mode-marks="heatmap"
+            class="index-hero__marks{% if initial_mode == 'heatmap' %} is-active{% endif %}"
+            aria-hidden="{{ 'false' if initial_mode == 'heatmap' else 'true' }}">
+          <li><span class="index-hero__mark-num">§ 01</span>Personalized scrobble stats</li>
+          <li><span class="index-hero__mark-num">§ 02</span>Plays by week and month</li>
+          <li><span class="index-hero__mark-num">§ 03</span>Export as JPEG</li>
+        </ul>
       </div>
-
-      <ul class="index-hero__marks">
-        <li>Any year or decade</li>
-        <li>Count or listening time</li>
-        <li>CSV + JPEG export</li>
-      </ul>
       </div>
     </div>
 
@@ -96,7 +111,7 @@
               <div class="field__control">
                 <input type="text" id="username" name="username" class="ss-input"
                        placeholder="your last.fm handle" autocomplete="username"
-                       autocapitalize="none" spellcheck="false" required>
+                       autocapitalize="none" spellcheck="false" maxlength="100" required>
               </div>
             </div>
 
@@ -111,7 +126,8 @@
               <div class="field__control">
                 <input type="number" id="year" name="year" class="ss-input"
                        inputmode="numeric" min="2002" max="{{ current_year }}"
-                       value="{{ current_year }}" placeholder="{{ current_year }}" required>
+                       value="{{ current_year }}" placeholder="{{ current_year }}"
+                       aria-describedby="year-hint" required>
               </div>
               <p class="field__help">Only plays inside this calendar year are counted.</p>
             </div>
@@ -227,18 +243,10 @@
 
             </details>
 
-            <button type="submit" class="ss-submit">
+            <button type="submit" id="submit-btn" class="ss-submit">
               Search albums<span class="ss-submit__trail" aria-hidden="true">&#8594;</span>
             </button>
           </form>
-
-          {# Echoes the active filters. static/js/index.js keeps them current. #}
-          <div class="filter-tags" id="filter-tags" aria-live="polite">
-            <span class="tag" data-tag="year">{{ current_year }}</span>
-            <span class="tag" data-tag="scope">release {{ current_year }}</span>
-            <span class="tag" data-tag="sort">play count</span>
-            <span class="tag" data-tag="plays">&#8805;10 plays</span>
-          </div>
         </section>
 
         {% include 'partials/_heatmap_form.html' %}

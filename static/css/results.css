@@ -1,230 +1,544 @@
-/* results.css -- page-specific styles for the results page (results.html).
-   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
+/* results.css -- page-specific styles for the results leaderboard (results.html).
+   Framework styles are compiled in tailwind.css; shared chrome is in shell.css. */
 
-/* Dark-mode overrides for results-page components */
-.dark-mode .table {
-    color: var(--text-color);
-    border-color: transparent;
+.results-page {
+    /* Grow the current composition through native layout; mobile keeps its
+       original measure and desktop uses more of the available gutters. */
+    --results-scale: 1;
+    --results-surface: color-mix(in srgb, var(--color-base-100) 50%, var(--ss-surface-sunken));
+    --results-base-rem: 75;
+    --spacing: calc(0.25rem * var(--results-scale));
+    /* This theme emits named spacing tokens, so overriding --spacing alone
+       does not resize its utilities. Keep geometry on the same content scale. */
+    --spacing-1: calc(0.25rem * var(--results-scale));
+    --spacing-2: calc(0.5rem * var(--results-scale));
+    --spacing-3: calc(0.75rem * var(--results-scale));
+    --spacing-4: calc(1rem * var(--results-scale));
+    --spacing-6: calc(1.5rem * var(--results-scale));
+    --spacing-8: calc(2rem * var(--results-scale));
+    --spacing-12: calc(3rem * var(--results-scale));
+    --text-xs: calc(0.75rem * var(--results-scale));
+    --text-sm: calc(0.875rem * var(--results-scale));
+    --text-base: calc(1rem * var(--results-scale));
+    --text-lg: calc(1.125rem * var(--results-scale));
+    --text-xl: calc(1.25rem * var(--results-scale));
+    --text-2xl: calc(1.5rem * var(--results-scale));
+    --text-3xl: calc(1.875rem * var(--results-scale));
+    --text-4xl: calc(2.25rem * var(--results-scale));
+    --text-5xl: calc(3rem * var(--results-scale));
+    width: 100%;
+    max-width: 90rem;
 }
 
-.dark-mode .table th,
-.dark-mode .table td {
-    color: var(--text-color) !important;
-    border-color: rgba(255, 255, 255, 0.1);
+@media (min-width: 1024px) {
+    .results-page {
+        /* results.js derives a numeric scale from this bounded layout width.
+           CSS length division invalidates dependent sizes in older Firefox. */
+        width: 94%;
+    }
 }
 
-.dark-mode .table-striped > tbody > tr:nth-of-type(odd) {
-    background-color: rgba(255, 255, 255, 0.1);
+/* One midway surface follows the active theme without changing control fills. */
+.results-rail-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.4;
 }
 
-.dark-mode .table-striped > tbody > tr:nth-of-type(even) {
-    background-color: rgba(30, 30, 30, 0.7);
+.results-side-rail h3.results-rail-title {
+    text-align: center;
+    font-size: var(--text-sm);
 }
 
-/* Neutralise Bootstrap's cell-level --bs-table-accent-bg so our
-   row-level dark-mode backgrounds are the ones that show through. */
-.dark-mode .table-striped > tbody > tr > * {
-    --bs-table-accent-bg: transparent;
+@media (min-width: 768px) {
+    .results-rail-title {
+        font-size: var(--text-lg);
+    }
 }
 
-/* Remove vertical separating lines */
-.dark-mode .table td,
-.dark-mode .table th {
-    border-left: none;
-    border-right: none;
+/* Shared control geometry; toolbar typography and primary fill refine it below. */
+.results-action {
+    min-height: max(2.75rem, calc(2.5rem * var(--results-scale, 1)));
+    padding: calc(0.5rem * var(--results-scale, 1)) calc(0.875rem * var(--results-scale, 1));
+    border: 1px solid var(--ss-border-default);
+    border-radius: var(--radius-sm);
+    background-color: var(--ss-surface-card);
+    color: var(--color-base-content);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+    box-shadow: none;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
-.album-cover {
-    height: 60px;
-    width: 60px;
-    object-fit: cover;
-    border-radius: 4px;
-    margin-right: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+.results-action:hover {
+    background-color: var(--ss-surface-sunken);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
 }
 
-.album-title {
-    display: flex;
-    align-items: center;
+.results-action:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
-.album-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+.results-toolbar-action {
+    font-family: var(--font-mono-narrow);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 
-.album-link {
-    color: var(--bars-color);
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.2s ease;
+.results-action.btn-primary {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary-content);
 }
 
-.album-link:hover {
-    color: var(--bars-color);
-    text-decoration: underline;
-    opacity: 0.8;
+.results-action.btn-primary:hover {
+    background-color: color-mix(in srgb, var(--color-primary) 90%, var(--color-base-content));
+    border-color: var(--color-primary);
+    color: var(--color-primary-content);
 }
 
-.dark-mode .album-link {
-    color: var(--bars-color);
+/* Stat-cell padding, restored to the geometry that shipped to Fly.io.
+
+   Why this is authored here rather than as utilities in the template:
+   tailwind.src.css sets `--spacing: initial` and then declares only whole
+   steps (1, 2, 3, 4, 6, 8, 12), which switches Tailwind's dynamic spacing
+   scale off. A fractional step is therefore not a smaller value -- it is an
+   unknown token that compiles to no rule at all. `py-2.5`, `md:py-3.5`,
+   `px-1.5`, `gap-1.5` and `py-0.5` are all absent from the compiled CSS, in
+   the deployed build as well as this one.
+
+   That is why the WP-5 rebuild lost the padding: it replaced the deployed
+   `p-3` -- a real step, 0.75rem on all four sides -- with `px-1.5 py-2.5`,
+   and both of those evaporate. The cells rendered with zero vertical padding
+   and the label sat 1px from the rule. The deployed look came from `p-3`
+   plus `md:px-4`, so those are the values reproduced here, now multiplied by
+   --results-scale so they track the type on wide displays. The row gap is
+   part of the same loss: `gap-1.5` was dead, so the deployed 0.375rem
+   collapsed to whatever `gap-1` supplies. */
+.results-stat-cell {
+    padding: calc(0.75rem * var(--results-scale));
+    row-gap: calc(0.375rem * var(--results-scale));
 }
 
-.dark-mode .album-link:hover {
-    color: #b19cd9;
+@media (min-width: 768px) {
+    .results-stat-cell {
+        padding: calc(0.75rem * var(--results-scale)) calc(1rem * var(--results-scale));
+    }
 }
 
-.release-badge {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
-    border-radius: 999px;
-    background-color: var(--bars-color);
-    color: white;
-    display: inline-block;
-    margin-top: 4px;
+/* The numeral row asked for py-0.5, which never compiled either. Its job is
+   to stop tall serif numerals from touching the label above them.
+
+   max-width is the containment half. The Top Artist cell holds an
+   ellipsis-truncating span, and truncation only works when an ancestor
+   actually bounds the width; the row is a flex child of a `min-w-0` column, so
+   without this the span reported its full text width and the name spilled past
+   the cell's divider instead of clipping. */
+.results-stat-value {
+    padding-block: calc(0.125rem * var(--results-scale));
+    /* A flex item's default `min-width: auto` refuses to shrink below its
+       content, which is why the long artist name pushed the row wider than the
+       cell. Zero lets the bound below take effect. */
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+/* The truncating span needs a bounded parent AND a bound of its own, or
+   `text-overflow: ellipsis` has no width to ellipsise against. The template
+   marks the artist span `overflow-visible`, which defeats truncation, so the
+   clipping is owned here where the containment is. */
+.results-stat-value > span {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.summary-box {
-    background-color: var(--info-bg);
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 20px;
+/* Match the deployed stat roles: mono labels, sans captions, serif values. */
+.results-stat-label {
+    font-family: var(--font-mono);
+    font-size: calc(0.6875rem * var(--results-scale));
+    font-weight: 400;
 }
 
-.table-responsive {
-    border-radius: 8px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-}
-
-.results-table {
-    min-width: 620px;
-}
-
-.results-table th {
-    white-space: nowrap;
-}
-
-#unmatched-modal .modal-body {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-/* Toast styling */
-.toast-container {
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    z-index: 1050;
-}
-
-.dark-mode .toast {
-    background-color: var(--surface-elevated);
-    color: #f8f9fa;
-}
-
-.dark-mode .toast-header {
-    background-color: var(--surface-elevated);
-    color: #f8f9fa;
-    border-bottom-color: var(--border-color);
+.results-stat-caption {
+    font-family: var(--font-sans);
+    font-size: calc(0.75rem * var(--results-scale));
+    font-weight: 400;
 }
 
 @media (max-width: 767.98px) {
-    .container.mt-5.mb-5 {
-        margin-top: 0.85rem !important;
-        margin-bottom: 1rem !important;
-        padding-left: 0.6rem;
-        padding-right: 0.6rem;
+    .results-table th {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        font-size: 0.625rem;
+        letter-spacing: 0.03em;
     }
 
-    #logo-wrapper {
-        margin-bottom: 0.75rem !important;
+    .results-stat-label,
+    .results-stat-caption {
+        font-size: 0.625rem;
+        overflow-wrap: anywhere;
     }
 
-    #logo-wrapper svg {
-        max-height: 92px;
-    }
-
-    .card-body {
-        padding: 0.85rem;
-    }
-
-    .card-body h2 {
-        font-size: 1.06rem;
-        line-height: 1.25;
-    }
-
-    .summary-box {
-        padding: 0.75rem;
-        margin-bottom: 0.8rem;
-    }
-
-    .summary-box h5 {
-        font-size: 0.88rem;
-        margin-bottom: 0.35rem;
-    }
-
-    .summary-box p {
-        font-size: 0.78rem;
-        margin-bottom: 0.28rem;
-        word-break: break-word;
-    }
-
-    .table {
-        font-size: 0.82rem;
-    }
-
-    /* Allow table to shrink to fit mobile viewport */
-    .results-table {
-        min-width: 0;
-    }
-
-    .table th,
-    .table td {
-        padding: 0.45rem 0.32rem;
-        vertical-align: middle;
-    }
-
-    /* Hide rank column to recover width */
-    .results-table th:first-child,
-    .results-table td:first-child {
-        display: none;
-    }
-
-    .album-cover {
-        width: 40px;
-        height: 40px;
-        margin-right: 7px;
-    }
-
-    .album-link {
-        font-size: 0.85rem;
-        line-height: 1.15;
-        word-break: break-word;
-    }
-
-    .release-badge {
-        font-size: 0.63rem;
-        padding: 0.18rem 0.35rem;
-        margin-top: 2px;
-    }
-
-    .text-center.mb-4 {
-        display: grid;
-        gap: 0.45rem;
-        margin-bottom: 0.9rem !important;
-    }
-
-    .text-center.mb-4 .btn {
-        margin-left: 0 !important;
-        width: 100%;
-        font-size: 0.85rem;
-        padding: 0.35rem 0.6rem;
-    }
-
-    #view-unmatched-quick {
-        width: 100% !important;
+    /* The Unmatched caption is a link carrying `whitespace-nowrap`, so at 320px
+       its 78px of text could not fit a 67px cell and widened the whole rail.
+       Allow it to wrap on the narrowest screens; `overflow-wrap: anywhere`
+       above then keeps even the arrow inside the cell. */
+    .results-stat-caption {
+        white-space: normal;
+        max-width: 100%;
     }
 }
+
+/* No horizontal scroll, at any width (owner ruling 2026-09-09). The wrapper
+   previously carried `overflow-x-auto`, so on a narrow phone the four columns
+   kept their natural widths and the reader got a sideways scrollbar -- content
+   hidden off-screen with no affordance saying so. The table now fits the
+   viewport and the album cell wraps instead. */
+.results-table-wrapper {
+    position: relative;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.results-table {
+    width: 100%;
+    border-collapse: collapse;
+    /* Honour the authored column widths instead of letting content dictate
+       them; without this, `table-layout: auto` widens the album column to fit
+       the longest title and reintroduces the overflow. */
+    table-layout: fixed;
+}
+
+.results-table th,
+.results-table td {
+    vertical-align: middle;
+}
+
+.album-link {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* On mobile viewports, keep touch targets accessible and allow fluid scanning */
+@media (max-width: 767.98px) {
+    .results-table th,
+    .results-table td {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+        /* Tighter gutters buy the album column room, so nothing has to leave
+           the viewport to be read. */
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    /* Give the fixed layout an explicit budget for the narrow columns and let
+       the album cell take the remainder. Ranks are two digits, the metric is a
+       short number or duration, and the release column is YYYY-MM. */
+    .results-table th:nth-child(1),
+    .results-table td:nth-child(1) {
+        width: 2.25rem;
+    }
+
+    .results-table th:nth-child(3),
+    .results-table td:nth-child(3) {
+        width: 3.75rem;
+    }
+
+    .results-table th:nth-child(4),
+    .results-table td:nth-child(4) {
+        width: 4.25rem;
+    }
+
+    /* The artist line truncates by default, which hides information on the one
+       viewport with least room. Wrapping keeps it readable, and the album title
+       already wraps via .album-link. */
+    .results-table td:nth-child(2) .truncate {
+        overflow: visible;
+        text-overflow: clip;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+}
+
+.metric-toggle-btn {
+    user-select: none;
+    cursor: pointer;
+    font-weight: 400;
+}
+
+.metric-toggle-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+/* Album Cover geometry: explicit fixed sizing prevents blowout */
+.album-cover-img,
+.album-cover-placeholder {
+    width: calc(4rem * var(--results-scale));
+    height: calc(4rem * var(--results-scale));
+    min-width: calc(4rem * var(--results-scale));
+    min-height: calc(4rem * var(--results-scale));
+    max-width: calc(4rem * var(--results-scale));
+    max-height: calc(4rem * var(--results-scale));
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .album-cover-img,
+    .album-cover-placeholder {
+        width: calc(4.5rem * var(--results-scale));
+        height: calc(4.5rem * var(--results-scale));
+        min-width: calc(4.5rem * var(--results-scale));
+        min-height: calc(4.5rem * var(--results-scale));
+        max-width: calc(4.5rem * var(--results-scale));
+        max-height: calc(4.5rem * var(--results-scale));
+    }
+}
+
+/* The rail remains available after the document header scrolls away. */
+@media (min-width: 1024px) {
+    .results-side-rail {
+        position: sticky;
+        top: calc(1.5rem * var(--results-scale));
+        align-self: flex-start;
+    }
+}
+
+.album-link {
+    color: var(--color-base-content);
+    text-decoration: none;
+    transition: color 150ms ease;
+}
+
+.album-link:hover,
+.album-link:focus-visible {
+    color: var(--rocket-5, #f0903a);
+    text-decoration: underline;
+}
+
+.album-link-tooltip {
+    position: fixed;
+    z-index: 1040;
+    max-width: calc(100vw - 2rem);
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--ss-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--ss-surface-card);
+    color: var(--color-base-content);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease, visibility 120ms;
+}
+
+.album-link-tooltip.is-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+@keyframes leaderboard-reorder {
+    from { transform: translateY(var(--rank-offset, 0)); }
+    to { transform: translateY(0); }
+}
+
+.is-reordering {
+    animation: leaderboard-reorder 280ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .is-reordering { animation: none; }
+    .album-link-tooltip { transition: none; }
+}
+
+.results-page .btn {
+    box-shadow: none !important;
+}
+
+.rank-num {
+    font-family: var(--font-mono, "input-mono", ui-monospace, monospace);
+    font-size: calc(0.8125rem * var(--results-scale));
+    letter-spacing: 0.05em;
+    color: var(--color-base-content);
+    opacity: 0.8;
+}
+
+.rank-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px calc(0.375rem * var(--results-scale));
+    border-radius: var(--radius-xs, 4px);
+    color: var(--color-base-content);
+    text-decoration: none;
+    transition: color 150ms ease, background-color 150ms ease, text-shadow 150ms ease, opacity 150ms ease;
+}
+
+.rank-link:hover,
+.rank-link:focus-visible {
+    color: var(--rocket-5, #f0903a);
+    opacity: 1;
+    text-shadow: 0 0 8px rgba(240, 144, 58, 0.45);
+    background-color: rgba(240, 144, 58, 0.1);
+    text-decoration: none;
+}
+
+/* Artist Spotlight full-bleed card & gradient scrim overlays */
+.spotlight-card-bleed {
+    position: relative;
+    width: 100%;
+    height: calc(11.875rem * var(--results-scale));
+    background-color: var(--results-surface);
+    overflow: hidden;
+}
+
+.spotlight-card-content {
+    position: absolute;
+    inset: 0;
+    transition: opacity 0.25s ease-out;
+}
+
+/* Text-only fallback: no photo available. Overrides the absolute geometry
+   so the card grows to fit the artist name and scrobble count. The card
+   background (--results-surface) provides the surface. */
+.spotlight-no-image {
+    position: relative;
+    height: auto;
+    min-height: calc(5rem * var(--results-scale));
+}
+
+.spotlight-card-bleed:has(.spotlight-no-image) {
+    height: auto;
+}
+
+@media (min-width: 768px) {
+    .spotlight-card-bleed {
+        height: calc(12.8125rem * var(--results-scale));
+    }
+
+    .spotlight-card-bleed:has(.spotlight-no-image) {
+        height: auto;
+    }
+}
+
+.spotlight-scrim-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: linear-gradient(
+        to bottom,
+        rgba(14, 12, 18, 0.75) 0%,
+        rgba(14, 12, 18, 0.35) 60%,
+        rgba(14, 12, 18, 0) 100%
+    );
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(0.625rem * var(--results-scale)) calc(1rem * var(--results-scale));
+    pointer-events: none;
+}
+
+.spotlight-scrim-bottom {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background: linear-gradient(
+        to top,
+        rgba(14, 12, 18, 0.9) 0%,
+        rgba(14, 12, 18, 0.5) 45%,
+        rgba(14, 12, 18, 0) 100%
+    );
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: calc(0.75rem * var(--results-scale)) calc(1rem * var(--results-scale));
+    pointer-events: none;
+}
+
+/* Backward compatibility aliases */
+.spotlight-image-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background-color: var(--results-surface);
+    overflow: hidden;
+}
+
+.spotlight-scrim-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: linear-gradient(
+        to top,
+        rgba(14, 12, 18, 0.88) 0%,
+        rgba(14, 12, 18, 0.45) 25%,
+        rgba(14, 12, 18, 0) 50%
+    );
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: calc(1rem * var(--results-scale)) calc(1.25rem * var(--results-scale));
+    pointer-events: none;
+}
+
+/* Micro-data filter bar: tucked left, text in mono-narrow, no bold, no pills */
+.results-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: calc(0.5rem * var(--results-scale));
+    margin-bottom: calc(1rem * var(--results-scale));
+    font-family: var(--font-mono-narrow);
+    font-size: calc(0.75rem * var(--results-scale));
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    color: var(--ss-text-muted);
+}
+
+/* Table metric values: plays (serif) vs playtime (mono-narrow) */
+.metric-val-plays {
+    font-family: var(--font-serif);
+    font-size: calc(1.40625rem * var(--results-scale));
+    line-height: 1.25;
+    color: var(--color-base-content);
+    letter-spacing: normal;
+}
+
+.metric-val-playtime {
+    font-family: var(--font-mono-narrow);
+    font-size: calc(0.8125rem * var(--results-scale));
+    line-height: 1.25;
+    color: var(--color-base-content);
+    letter-spacing: 0.01em;
+}
+
+@media (min-width: 768px) {
+    .metric-val-plays {
+        font-size: calc(1.5625rem * var(--results-scale));
+    }
+    .metric-val-playtime {
+        font-size: calc(0.875rem * var(--results-scale));
+    }
+}
+

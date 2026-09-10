@@ -17,7 +17,20 @@
      the album headline. Measured Chromium and Firefox, 2026-09-04, with
      proportional hero gutters and the configured Adobe Fonts loaded. */
   --index-scale-min: 0.70;
-  --index-scale-cap: 2.15;
+  /* Composition ceiling. 2.15 tracks the window exactly to 4K; beyond
+     1440p the hero lockup dominated the page and the right-hanging void
+     grew faster than any content (owner ruling 2026-09-07: cap harder).
+     1.75 lands the lockup near its 1440p size at 4K instead of 2.15x.
+     Revisit with the macro/micro whitespace audit if the page ever
+     gains a fourth column. */
+  --index-scale-cap: 1.75;
+  --index-fade-duration: 180ms;
+}
+
+/* Opening the taller form must not make Firefox add a late scrollbar gutter
+   and shift the fixed-window composition horizontally. */
+html {
+  scrollbar-gutter: stable;
 }
 
 /* ------------------------------------------------------------------ */
@@ -64,27 +77,11 @@
   display: none;
 }
 
-/* Page navigation lands on a composed destination, not a new card snapping
-   into place. Keep that entrance opacity-only so it does not fight the
-   wide-screen scale or shift either column's measured geometry. */
-@keyframes ss-index-page-enter {
-  to {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .index-grid {
-    opacity: 0;
-    animation: ss-index-page-enter 1.2s ease 0.2s forwards;
-  }
-}
-
 @media (min-width: 860px) {
   /* Full bleed. The columns carry the gutter, so the sunken well on the
-     right runs to the edge of the window. docs/design/README.md caps results
-     at 1180px and the heatmap at 1100px, and deliberately caps neither the
-     index nor its form well -- screen 1 is an edge-to-edge split. */
+     right runs to the edge of the window. The docs/design/README.md snapshot
+     caps results at 1180px and the heatmap at 1100px, and deliberately caps
+     neither the index nor its form well -- screen 1 is an edge-to-edge split. */
   .index-page {
     padding: 0;
   }
@@ -147,6 +144,27 @@
   height: auto;
 }
 
+/* Both mode descriptions occupy the same grid track. The taller copy reserves
+   the track in both states, so switching modes changes paint, not geometry. */
+.index-hero__copy {
+  display: grid;
+}
+
+.index-hero__mode-copy {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--index-fade-duration) ease-out,
+    visibility 0s linear var(--index-fade-duration);
+}
+
+.index-hero__mode-copy.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
 .eyebrow {
   font-family: var(--font-mono-narrow);
   font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
@@ -174,35 +192,59 @@
 }
 
 .index-hero__lede {
-  max-width: 38ch;
-  font-size: max(0.75rem, calc(var(--text-body-sm) * var(--index-scale, 1)));
-  line-height: 1.5;
+  max-width: 40ch;
+  font-size: max(0.875rem, calc(var(--text-body) * var(--index-scale, 1)));
+  line-height: 1.55;
   color: var(--ss-text-body);
   margin: 0 0 calc(1.5rem * var(--index-scale, 1));
 }
 
-/* Three capability marks. The arrow is a Unicode character on a pseudo
-   element, not an icon: the design system has no icon set and says so. */
+/* The wrapper holds both marks lists in the same grid track. Neither list
+   shifts layout when switching modes; only opacity and visibility change. */
+.index-hero__marks-wrap {
+  display: grid;
+}
+
+/* Three capability marks. Styled as numbered specification pointers. */
 .index-hero__marks {
+  grid-area: 1 / 1;
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: calc(0.5rem * var(--index-scale, 1)) calc(1.5rem * var(--index-scale, 1));
+  flex-direction: column;
+  gap: calc(0.625rem * var(--index-scale, 1));
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--index-fade-duration) ease-out,
+    visibility 0s linear var(--index-fade-duration);
+}
+
+.index-hero__marks.is-active {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
 }
 
 .index-hero__marks li {
   font-family: var(--font-mono-narrow);
-  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
+  font-size: max(0.75rem, calc(var(--text-label) * var(--index-scale, 1)));
   letter-spacing: 0.04em;
   color: var(--ss-text-muted);
+  display: inline-flex;
+  align-items: center;
 }
 
-.index-hero__marks li::before {
-  content: "\2192";
-  margin-right: calc(0.5rem * var(--index-scale, 1));
-  color: var(--color-primary);
+/* Tinted primary — 70% primary mixed against the card surface so the
+   number reads at mid-weight without a synthesised bold. Both themes
+   follow from the token; no separate dark-mode rule needed. */
+.index-hero__mark-num {
+  display: inline-block;
+  font-family: var(--font-mono-narrow);
+  font-weight: var(--font-weight-bold);
+  color: color-mix(in srgb, var(--color-primary) 70%, var(--ss-surface-card));
+  margin-right: calc(0.45rem * var(--index-scale, 1));
 }
 
 /* ------------------------------------------------------------------ */
@@ -214,24 +256,39 @@
 
 @media (min-width: 860px) {
   .index-form {
-    padding: 3.25rem 3.25rem 3.5rem;
+    display: flex;
+    flex-direction: column;
+    padding: 3.25rem;
     background-color: var(--ss-surface-sunken);
-    /* F-B21-40: --ss-border-default measures ~1.1-1.3:1 here and does not
-       clear 3:1 against either adjoining surface. --ss-border-divider is a
-       dedicated token, raised for this seam only -- see tailwind.src.css. */
-    border-left: 1px solid var(--ss-border-divider);
+    border-left: none;
     /* The well runs the height of the page, not the height of the form. */
     min-height: 100%;
   }
 }
 
-/* 28rem is the unscaled design cap. The complete form composition consumes
-   --index-scale through explicit layout values; this wrapper never uses zoom
-   or transform. */
+/* 27.5rem is the owner-refined unscaled cap. The complete form composition
+   consumes --index-scale through explicit layout values; this wrapper never
+   uses zoom or transform. */
 .index-form__inner {
   width: 100%;
-  max-width: calc(28rem * var(--index-scale, 1));
+  max-width: calc(27.5rem * var(--index-scale, 1));
   margin: 0 auto;
+}
+
+@media (min-width: 860px) {
+  .index-form__inner {
+    margin-block: auto;
+  }
+
+  /* Measured placement keeps the requested upward bias without carrying
+     unused bottom padding into document overflow on shorter windows. */
+  .index-form.is-positioned {
+    padding-block: 0.25rem;
+  }
+
+  .index-form.is-positioned .index-form__inner {
+    margin-block: max(0rem, calc(var(--index-form-top, 0.25rem) - 0.25rem)) auto;
+  }
 }
 
 @media (min-width: 1200px) and (max-height: 900px) {
@@ -307,13 +364,19 @@
 /* Card                                                                */
 /* ------------------------------------------------------------------ */
 /* Border-defined, never shadow-defined. Cards in this system are an edge on
-   a warm surface, with no drop shadow at all. */
+   a warm surface, with no drop shadow at all.
+
+   The index card is the standout surface: pure white in light while every
+   other card in the app carries the slightly warm --ss-surface-card
+   (owner ruling 2026-09-07). It reads the companion token rather than the
+   shared one, and dark keeps the ordinary card tone. The hint popover
+   floats over this card, so it matches. */
 .ss-card {
   display: block;
   padding: calc(1.125rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-lg);
-  background-color: var(--ss-surface-card);
+  background-color: var(--ss-surface-card-standout);
   box-shadow: none;
 }
 
@@ -506,12 +569,29 @@
   padding: calc(0.5rem * var(--index-scale, 1)) calc(0.625rem * var(--index-scale, 1));
   border: 1px solid var(--ss-border-default);
   border-radius: var(--radius-sm);
-  background-color: var(--ss-surface-card);
+  background-color: var(--ss-surface-card-standout);
   box-shadow: var(--ss-shadow-float);
   color: var(--ss-text-body);
   font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
   line-height: 1.45;
   text-align: left;
+}
+
+/* Dynamic field reveals */
+#decade_dropdown,
+#release_year_group {
+  animation: ss-field-reveal 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ss-field-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -814,29 +894,6 @@
   font-family: var(--font-mono);
 }
 
-/* ------------------------------------------------------------------ */
-/* Filter tags                                                         */
-/* ------------------------------------------------------------------ */
-.filter-tags {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: calc(0.25rem * var(--index-scale, 1));
-  margin-top: calc(0.75rem * var(--index-scale, 1));
-}
-
-.tag {
-  display: inline-flex;
-  align-items: center;
-  padding: calc(0.1875rem * var(--index-scale, 1)) calc(0.5rem * var(--index-scale, 1));
-  border: 1px solid var(--ss-border-default);
-  border-radius: var(--radius-full);
-  color: var(--ss-text-muted);
-  font-family: var(--font-mono-narrow);
-  font-size: max(0.75rem, calc(var(--text-label-sm) * var(--index-scale, 1)));
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-}
 
 /* ------------------------------------------------------------------ */
 /* Focus                                                               */
@@ -867,7 +924,61 @@
 }
 
 @media (max-width: 859.98px) {
+  .index-hero,
+  .index-form {
+    min-width: 0;
+  }
+
   .index-form__inner {
+    max-width: none;
+    width: 100%;
+  }
+
+  .ss-card {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  .mode-pill {
+    min-width: 0;
+  }
+
+  /* Fluid typography and wordmark scaling for mobile/tablet viewports */
+  .index-hero__inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem 2.25rem;
+  }
+
+  .index-hero__mark.ss-mark {
+    flex: 0 1 210px;
+    min-width: 180px;
+    max-width: 240px;
+    margin-bottom: 0;
+  }
+
+  .index-hero__copy {
+    flex: 1 1 280px;
+    min-width: 0;
+  }
+
+  .eyebrow {
+    font-size: clamp(0.5625rem, 2.3vw, 0.6875rem);
+    letter-spacing: 0.16em;
+    margin-bottom: 0.25rem;
+  }
+
+  .index-hero__headline {
+    font-size: clamp(1.25rem, 4.5vw, 1.55rem);
+    line-height: 1.15;
+    margin-bottom: 0.25rem;
+  }
+
+  .index-hero__lede {
+    font-size: clamp(0.8125rem, 2.5vw, 0.9375rem);
+    line-height: 1.45;
+    margin-bottom: 0;
     max-width: none;
   }
 
@@ -882,11 +993,11 @@
   }
 
   .index-hero {
-    padding-bottom: 1.5rem;
+    padding: 1.25rem 0 0.75rem;
   }
 
   .index-form {
-    padding-top: 1rem;
+    padding-top: 0.5rem;
   }
 
   /* The submit read as oversized because its type was too small for its box,
@@ -976,7 +1087,6 @@
 @media (min-width: 1200px) {
   .index-grid {
     --index-form-gutters: 6.75rem;
-    --index-height-bound: var(--index-natural-height);
     --index-scale: var(--index-scale-base);
     --index-scale: clamp(
       var(--index-scale-min),
@@ -984,7 +1094,7 @@
         calc(var(--index-scale-base) * tan(atan2(100vw, var(--index-scale-width-ref)))),
         tan(atan2(
           calc(100vh - var(--shell-height)),
-          calc(var(--index-height-bound) + var(--index-form-gutters))
+          calc(var(--index-natural-height) + var(--index-form-gutters))
         ))
       ),
       var(--index-scale-cap)
@@ -1002,34 +1112,15 @@
   }
 
   .index-form {
-    padding: calc(3.25rem * var(--index-scale)) calc(3.25rem * var(--index-scale)) calc(3.5rem * var(--index-scale));
-  }
-
-  /* At the 0.70 floor, readable text wraps in the contracted card. These
-     conservative bounds are measured height / factor, not natural height
-     at factor 1. Chromium/Firefox, 2026-09-05: 628.4/.70 (extra release
-     field), 692.6/.70 (thresholds), 769.4/.70 (both). Round upward to rem.
-     Only the visible album mode contributes these rows. */
-  .index-grid:has(#album-form-section:not(.hidden)):has(#release_scope option:is([value="decade"], [value="custom"]):checked) {
-    --index-height-bound: 56.125rem;
-  }
-
-  .index-grid:has(#album-form-section:not(.hidden) .disclosure[open]) {
-    --index-height-bound: 61.875rem;
-  }
-
-  .index-grid:has(#album-form-section:not(.hidden) .disclosure[open]):has(#release_scope option:is([value="decade"], [value="custom"]):checked) {
-    --index-height-bound: 68.75rem;
+    padding: calc(2.25rem * var(--index-scale)) calc(3.25rem * var(--index-scale));
   }
 
   /* Owner ruling 2026-09-05 (fix round 2): fill the padded column edge in
-     every state, collapsed or expanded. The former `35rem * scale` basis
-     bound smaller than the padded column at every measured width (602px vs
-     a 702px column at 1080p) and, once the form's height guard drops the
-     factor on expansion, shrank to ~400px in a ~743px column -- the hero
-     visibly contracted when the form opened. `.index-hero__mark` mirrors
-     the same rule so wordmark width keeps tracking the inner exactly, as it
-     always has (both used the identical formula before this change too).
+     every state, collapsed or expanded. The hero and form retain the scale
+     set by the fixed window; additional form rows add natural page height.
+     `.index-hero__mark` mirrors the same rule so wordmark width keeps
+     tracking the inner exactly, as it always has (both used the identical
+     formula before this change too).
      The mark's own comment above still explains why an unconstrained mark
      would dwarf the headline; that constraint remains true below 1200px. */
   .index-hero__inner {
@@ -1042,6 +1133,24 @@
 
   .index-hero__headline {
     font-size: calc(2.625rem * var(--index-scale));
+  }
+}
+
+/* At large displays (1920px+), soften the scaling slope so 1440p and 4K
+   expand with a gentle, dignified growth curve rather than ballooning. */
+@media (min-width: 1920px) {
+  .index-grid {
+    --index-scale: clamp(
+      var(--index-scale-min),
+      min(
+        calc(var(--index-scale-base) * (0.35 + 0.65 * tan(atan2(100vw, var(--index-scale-width-ref))))),
+        tan(atan2(
+          calc(100vh - var(--shell-height)),
+          calc(var(--index-natural-height) + var(--index-form-gutters))
+        ))
+      ),
+      var(--index-scale-cap)
+    );
   }
 }
 

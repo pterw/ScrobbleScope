@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import sys
-import threading
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -236,9 +235,7 @@ async def _run_spotify_search_phase(
         set_job_progress(
             job_id,
             progress=pct,
-            message=(
-                f"Searching Spotify: {searches_done}/" f"{total_searches} albums..."
-            ),
+            message=(f"Searching Spotify: {searches_done}/{total_searches} albums..."),
             phase={
                 "key": "spotify_search",
                 "label": "Searching Spotify",
@@ -425,10 +422,11 @@ async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
     new_metadata_rows = []
     async with create_optimized_session() as session:
         search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
-        spotify_id_to_key, spotify_id_to_original_data = (
-            await _run_spotify_search_phase(
-                job_id, session, cache_misses, token, search_semaphore
-            )
+        (
+            spotify_id_to_key,
+            spotify_id_to_original_data,
+        ) = await _run_spotify_search_phase(
+            job_id, session, cache_misses, token, search_semaphore
         )
         valid_spotify_ids = list(spotify_id_to_original_data.keys())
         if valid_spotify_ids:
@@ -458,7 +456,7 @@ def _build_results(
     fetch pipeline.
     """
     results = []
-    for key, entry in cache_hits.items():
+    for _key, entry in cache_hits.items():
         cached = entry["cached"]
         original_data = entry["original"]
 
@@ -607,8 +605,7 @@ async def process_albums(
                 await _batch_persist_metadata(conn, new_metadata_rows)
                 set_job_stat(job_id, "db_cache_persisted", len(new_metadata_rows))
                 logging.info(
-                    f"Persisted {len(new_metadata_rows)} new metadata "
-                    f"rows to DB cache"
+                    f"Persisted {len(new_metadata_rows)} new metadata rows to DB cache"
                 )
             except Exception as exc:
                 logging.warning(f"DB persist failed (non-fatal): {exc}")
@@ -730,6 +727,72 @@ def _classify_exception_to_error_code(error_message):
     return None
 
 
+async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
+    """Fetch Last.fm albums and finish upstream-error or empty jobs in place.
+
+    None means this stage has already written terminal job state. A nonempty
+    album mapping proceeds to Spotify; exceptions retain the outer classifier.
+    """
+    step_start_time = time.time()
+    set_job_progress(
+        job_id,
+        progress=5,
+        message="Fetching your data from Last.fm...",
+        error=False,
+        phase=None,
+    )
+
+    def _lastfm_progress(pages_done, total_pages):
+        """Map page-fetching progress into the 5%-20% range."""
+        pct = 5 + int(15 * pages_done / max(total_pages, 1))
+        set_job_progress(
+            job_id,
+            progress=pct,
+            message="Reading your Last.fm history...",
+            phase={
+                "key": "lastfm_fetch",
+                "label": "Fetching scrobbles",
+                "unit": "page",
+                "current": pages_done,
+                "total": total_pages,
+            },
+        )
+
+    filtered_albums, fetch_metadata = await fetch_top_albums_async(
+        username,
+        year,
+        min_plays=min_plays,
+        min_tracks=min_tracks,
+        progress_cb=_lastfm_progress,
+    )
+    step_elapsed = time.time() - step_start_time
+    logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
+
+    _record_lastfm_stats(job_id, fetch_metadata)
+
+    # Upstream failure: Last.fm was unreachable
+    if fetch_metadata.get("status") == "error":
+        set_job_error(
+            job_id,
+            fetch_metadata.get("reason", "lastfm_unavailable"),
+            username=username,
+        )
+        return None
+
+    # Legitimate empty result: user has scrobbles but none pass filters
+    if not filtered_albums:
+        set_job_results(job_id, [])
+        set_job_progress(
+            job_id,
+            progress=100,
+            message="No albums found for the specified criteria.",
+            error=False,
+            phase=None,
+        )
+        return None
+    return filtered_albums
+
+
 async def _fetch_and_process(
     job_id,
     username,
@@ -757,62 +820,10 @@ async def _fetch_and_process(
             phase=None,
         )
 
-        step_start_time = time.time()
-        set_job_progress(
-            job_id,
-            progress=5,
-            message="Fetching your data from Last.fm...",
-            error=False,
-            phase=None,
+        filtered_albums = await _fetch_job_albums(
+            job_id, username, year, min_plays, min_tracks
         )
-
-        def _lastfm_progress(pages_done, total_pages):
-            """Map page-fetching progress into the 5%-20% range."""
-            pct = 5 + int(15 * pages_done / max(total_pages, 1))
-            set_job_progress(
-                job_id,
-                progress=pct,
-                message="Reading your Last.fm history...",
-                phase={
-                    "key": "lastfm_fetch",
-                    "label": "Fetching scrobbles",
-                    "unit": "page",
-                    "current": pages_done,
-                    "total": total_pages,
-                },
-            )
-
-        filtered_albums, fetch_metadata = await fetch_top_albums_async(
-            username,
-            year,
-            min_plays=min_plays,
-            min_tracks=min_tracks,
-            progress_cb=_lastfm_progress,
-        )
-        step_elapsed = time.time() - step_start_time
-        logging.info(f"Time elapsed (Last.fm data fetch): {step_elapsed:.1f}s")
-
-        _record_lastfm_stats(job_id, fetch_metadata)
-
-        # Upstream failure: Last.fm was unreachable
-        if fetch_metadata.get("status") == "error":
-            set_job_error(
-                job_id,
-                fetch_metadata.get("reason", "lastfm_unavailable"),
-                username=username,
-            )
-            return []
-
-        # Legitimate empty result: user has scrobbles but none pass filters
-        if not filtered_albums:
-            set_job_results(job_id, [])
-            set_job_progress(
-                job_id,
-                progress=100,
-                message="No albums found for the specified criteria.",
-                error=False,
-                phase=None,
-            )
+        if filtered_albums is None:
             return []
 
         set_job_progress(

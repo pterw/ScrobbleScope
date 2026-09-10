@@ -23,12 +23,17 @@ The owner-approved overrides currently recorded are:
 | Point | README says | This repo does | Why |
 | --- | --- | --- | --- |
 | Theme marker | `.dark` class on `<html>` | `data-theme="dark"` on `<html>` | Section 5, below |
-| Wide index composition | `1.1fr 1fr`, form capped at 380px | Current source declares `3fr 4fr`; hero and form use `1.075` times the width ratio, limited by available height and capped at `2.15`. The form base cap is `28rem`, the final remediation width landed in Task 3. Explicit CSS dimensions own scaling; `static/css/index.css` owns measured natural heights and lower bounds. | The active remediation plan is the acceptance source. Both engines run realistic window profiles; the old 1080px denominator was an engine-independent defect. Task 3 also raised `--shell-border` alpha for 3:1 divider contrast and applied the ruled header clamps. |
+| Wide index composition | `1.1fr 1fr`, form capped at 380px | Current source declares `3fr 4fr`; hero and form use `1.075` times the width ratio, limited by the fixed window and capped at `1.75`. The owner-refined form base cap is `27.5rem`. Explicit CSS dimensions own scaling; `static/css/index.css` owns the natural-height reference and lower bounds. The complete form composition sits up to 2.5rem above vertical centre, bounded by 0.25rem of header clearance. Expanded states retain the window-derived scale and add document height only when they cannot fit. | The active remediation plan is the acceptance source. Both engines run realistic window profiles; the old 1080px denominator and later state-dependent denominator were defects. Task 3 also raised `--shell-border` alpha for 3:1 divider contrast and applied the ruled header clamps. The later cap and upward-placement refinement follows owner comparison at realistic 1080p and 1440p content boxes. |
 | Small label size | 11.5px | 12px | Owner review readability floor; touch and mobile sizing remain unchanged |
 | Light muted text | `#6f6a7a` | `#6c6676` | Keeps small muted copy at 4.5:1 or better on every shipped light surface |
 | Lockup viewBox | `0 0 453 69` | `0 0 453 74` | Section 10, below |
 | Type and spacing units | px | equivalent rem at the default root size | Section 11, below |
-| Header pills | Prototype scaffolding, do not build | Production navigation: Home, Heatmap, Results, Unmatched | Owner decision, `624ebb9` |
+| Header pills | Prototype scaffolding, do not build | Production navigation: Home, Heatmap, Results, Unmatched. At mobile widths the destinations use a directly visible single row with no horizontal scrolling; the single theme control follows page content. | Owner decision, `624ebb9`, refined after owner mobile review |
+| Header position | Fixed to the browser | In document flow; scrolls out of view. Results side rail retains its own sticky gap. | Owner screenshot clarification, 2026-09-10 |
+| Heatmap surface and empty cells | Light frame `#faf8f3`, empty cells `#e8e2d6` | Theme tokens in `static/css/tailwind.src.css` own the sunken light frame and darker neutral empty cells. | Owner contrast refinement, 2026-09-10 |
+| Results and Heatmap actions | Hairline peers | Uppercase Input Mono Narrow; New search uses the theme primary fill, secondary actions use the card surface. | Owner consistency refinement, 2026-09-10 |
+| Heatmap result measure | Centred, capped at 1100px | The base/mobile measure remains `73rem`; from 860px upward the centred stage uses `84vw`, capped at `120rem`. The authored SVG geometry stays unchanged and scales with the frame. | The fixed snapshot cap produced only a 1100px frame and 16.6px rendered cells in a realistic 1920x945 content box. Owner review selected the wider result while retaining a finite measure. |
+| Heatmap headline username | Purple italic accent | The username inherits the headline's neutral serif colour and normal style. | It is result data rather than a link or control; owner review found the accent treatment distracting. |
 | Loading progress signal | A progress bar | One slim determinate hairline; the pinwheel is status motion only | Owner decision, `17ca9eb`; the "exactly one progress signal" rule is preserved, the hairline is that signal |
 | Heatmap H1 copy | "A year of listening, *one grid.*" | "Your last 365 days, *one grid.*" | Owner copy change, `17ca9eb` |
 | Heatmap mode card copy | "The heatmap always covers the last 365 days. No other settings." | "Your listening heatmap covers the last 365 days." | Owner copy change, `17ca9eb` |
@@ -118,11 +123,11 @@ theme. That is false, and the PR #173 review caught it. What actually holds:
 
 | README token | Light | Dark | In the theme? |
 | --- | --- | --- | --- |
-| `--surface-page` | `#faf8f3` | `#0e0c12` | Yes -- `--color-base-100` |
+| `--surface-page` | `#faf8f3` | `#0e0c12` | Owner warmed the light canvas/navbar to `#faf7f0` on 2026-09-09; `--color-base-100` owns the migrated value. |
 | `--text-strong` | `#1a1820` | `#f1ede4` | Yes -- `--color-base-content` |
 | `--accent` | `#6a4baf` | `#b39dde` | Yes -- `--color-primary` |
 | `--surface-sunken` | `#f0ebe0` | `#1a1622` | Yes -- `--ss-surface-sunken` |
-| `--surface-card` | `#ffffff` | `#181520` | Yes -- `--ss-surface-card` |
+| `--surface-card` | `#ffffff` | `#181520` | Light token split: see section 12. Results panels/table use the midpoint `--results-surface` documented in `DESIGN.md`. |
 | `--accent-contrast` | `#ffffff` | `#0e0c12` | Dark only. Light `--color-primary-content` is `#faf8f3` |
 | `--text-body`, `--text-muted`, `--border-default`, `--accent-soft` | -- | -- | Yes -- the `--ss-*` theme tokens |
 
@@ -383,3 +388,23 @@ rewrites -- WP-4, WP-5, WP-7 -- so converting them now would churn a file
 about to be replaced, for pages whose type is not rem yet either. Convert
 each one with the rewrite that owns it. `error.css` keeps px in the rules
 WP-2 wrote; only its touch-target rule moved, with the rule that changed it.
+
+
+---
+
+## 12. Card surface trial, reversal, and split, 2026-09-07
+
+A paper-cream card (#f7f3ea) was trialled during Batch 21 -- halfway
+between the old near-white (#fcfbf8) and the sunken tone (#f0ebe0) --
+after the owner read the card as harsh white against the warm page. Seen
+rendered, the owner reversed the ruling the same day: #f7f3ea was too
+warm and "felt a bit cold" was the verdict on pure #fcfbf8. The settled
+ruling is a split. General cards carry the slightly warm #f9f7f1 (the
+midpoint of #fcfbf8 and #f7f3ea) in --ss-surface-card, mirrored in the
+Bootstrap-era values in static/css/global.css. The index card alone is
+pure white as a standout: .ss-card and .hint__body in
+static/css/index.css read --ss-surface-card-standout, #ffffff in light
+and #181520 in dark (dark has no standout to make). The imported
+--ss-card: #ffffff is unchanged in the snapshot. Recorded so the trial
+is not silently re-proposed; treat the white index card and the warm
+general card as settled unless the owner reopens them.

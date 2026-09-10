@@ -1,111 +1,122 @@
 # ScrobbleScope -- Your Last.fm Listening Habits Visualized
 
-[![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/pterw/ScrobbleScope)
-[![Python Version](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-633_passing-brightgreen.svg)](tests/)
+[![Quality Gate](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml/badge.svg)](https://github.com/pterw/ScrobbleScope/actions/workflows/test.yml)
+[![Python](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
 
-ScrobbleScope is a web application for Last.fm users who want deeper insight into their listening habits. It offers two features on a single page, switchable via pill tabs:
+ScrobbleScope turns your public Last.fm listening history into album rankings
+and a daily listening heatmap. Use it to build an Album of the Year list,
+compare albums by listening time, or explore your listening patterns.
 
-* **Top Albums** -- fetches your scrobble history for a chosen year, filters and ranks albums by play count or total listening time, and enriches each album with Spotify metadata (release dates, artwork, track runtimes). The primary use case is building Album of the Year (AOTY) lists.
-* **Scrobble Heatmap** -- renders a calendar-style grid of your daily listening density for the last 365 days. On desktop it reads as a GitHub-style 7x52 weeks-by-days calendar; on narrow viewports it falls back to a sequential activity strip with larger tap targets. No year picker needed; the grid is always current.
-
-This project was initially built to identify top albums released in a specific year that were also listened to in that same year but has since been refactored into a more feature-rich web app.
+Choose **Top Albums** or **Heatmap** on Home. The shared navigation provides
+Home, Heatmap, Results, and Unmatched; report destinations recover your latest
+available run in the same browser session.
 
 ## Table of Contents
 
-* [Features](#features)
-* [Tech Stack](#tech-stack)
-* [Architecture](#architecture)
-* [Key Implementation Highlights](#key-implementation-highlights)
-* [Getting Started](#getting-started)
-    * [Prerequisites](#prerequisites)
-    * [Setup](#setup)
-    * [Running the App](#running-the-app)
-    * [Running Tests](#running-tests)
-* [Project Structure](#project-structure)
-* [Deployment](#deployment)
-* [Current Status & Roadmap](#current-status--roadmap)
-* [Contributing](#contributing)
-* [Development Methodology](#development-methodology)
-* [License](#license)
-* [Acknowledgements](#acknowledgements)
-* [Author & Contact](#author--contact)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Key Implementation Highlights](#key-implementation-highlights)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
+  - [Running the App](#running-the-app)
+  - [Local Development with DB Cache](#local-development-with-db-cache)
+  - [Running Tests](#running-tests)
+- [Project Structure](#project-structure)
+- [Deployment](#deployment)
+- [Current Status & Roadmap](#current-status--roadmap)
+- [Contributing](#contributing)
+- [Development Methodology](#development-methodology)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+- [Author & Contact](#author--contact)
 
 ## Features
 
-* **Last.fm Integration:** Fetches your full listening history for a specified year via paginated `user.getrecenttracks` calls with granular per-page progress feedback.
-* **Spotify Enrichment:** Searches each album on Spotify and fetches release dates, cover art, and individual track runtimes for playtime sorting.
-* **Flexible Filtering:**
-    * Filter albums by listening year.
-    * Filter by release date: same year, previous year, specific decade, or a custom release year.
-    * Configurable album thresholds (minimum track plays and minimum unique tracks per album). Set your own values -- defaults are 10 plays and 3 unique tracks if you don't specify.
-* **Dual Sort Modes:**
-    * Sort by **total track play count**.
-    * Sort by **total listening time** (computed from Spotify track runtimes).
-* **Responsive UI:**
-    * Dynamic form -- options appear based on your selections.
-    * Light / Dark mode toggle (persisted via `localStorage`), available on every page.
-    * Responsive layout with mobile-optimized playtime abbreviations and table formatting.
-    * Back-to-top button on results page.
-* **Data Export:**
-    * Export filtered album list to `.csv`.
-    * Save a full-width snapshot of the results table as a `.jpeg` image (correct in both light and dark mode, full table captured even on mobile viewports).
-* **Unmatched Album Insights:**
-    * Quick modal listing albums that did not match your filters.
-    * Dedicated detail page categorizing exclusion reasons with sticky navigation.
-* **Username Pre-Validation:** Real-time Last.fm username check on blur, with personalized minimum listening year derived from the user's registration date.
-* **Live Progress Feedback:**
-    * Per-page Last.fm fetch progress (5--20%), per-album Spotify search progress (20--40%), per-batch enrichment progress (40--60%), and result-building phase (60--100%).
-    * Rotating messages and live stats (scrobble count, albums found, Spotify matches) during processing.
-    * Clear error classification with retry UX for transient upstream failures.
-* **Onboarding:** First-visit welcome modal with an "Info" button for returning users; contextual tooltip icons on form fields.
-* **Scrobble Heatmap:**
-    * GitHub/Last.fm-Labs-style 7x52 calendar grid on desktop (one cell per day, last 365 days); sequential activity strip on narrow viewports (cells scale to viewport width with tap-friendly targets).
-    * Result rendered as a self-contained artifact: warm cream / inky purple-dark frame, accent-coloured headline, four KPI stats (Total Scrobbles, Best Day, Active Days, Current Streak), top-right legend.
-    * rocket_r colour palette (near-black -> deep purple -> red -> orange -> cream); log-adjusted intensity so sparse and heavy listeners both get readable gradients.
-    * Zero-scrobble days rendered as muted cells so grid structure stays visible.
-    * Hover/tap tooltip: day label + scrobble count ("Sunday 1 March 2026 -- 34 scrobbles").
-    * Dark mode aware; responsive SVG scales to any viewport width and re-renders on breakpoint crossing.
-    * Animated breathing/expanding pinwheel spinner + live page-fetch progress during data load.
+### Top Albums
+
+- Fetch scrobbles for a listening year and enrich albums with Spotify release
+  dates, artwork, and track runtimes.
+- Include all release years, the listening year, the previous year, a decade,
+  or a specific release year.
+- Choose minimum track plays and unique tracks per album; the defaults are
+  10 plays and 3 unique tracks. Limit the number of albums returned.
+- Switch the leaderboard between track plays and estimated listening time
+  without submitting another search. Listening time depends on available
+  Spotify track durations.
+- Explore Artist Spotlight, which samples up to five artists from the ten
+  highest-scrobbled artists across your filtered results.
+- Open an album on Spotify from its title; a delayed tooltip explains the link.
+- Export CSV with the current ordering and full release dates, or save the
+  complete leaderboard as a JPEG, including from a mobile viewport.
+- Open the Unmatched report to inspect available exclusion reasons, such as
+  release filters and missing Spotify matches. Albums dropped by the minimum
+  listening thresholds are not retained as a separate near-miss list.
+
+### Scrobble Heatmap
+
+- Display the last 365 days of daily scrobbles, aggregated in UTC. Heatmap uses
+  Last.fm only and needs no listening-year selection.
+- Read a seven-row weekly calendar on desktop or a sequential grid with larger
+  cells on narrow screens. Hover or tap a cell for its date and play count.
+- See total scrobbles, daily average, best day, and current streak.
+- Compare activity through the seven-stop `rocket_r` palette. Empty days remain
+  distinct from the surrounding frame in both themes.
+- Save the heatmap as a JPEG. This export uses a separate canvas layout rather
+  than an exact screenshot of the page.
+
+### Shared experience
+
+- Light and dark themes, with the selection stored in the browser.
+- Responsive typography and layouts, keyboard-accessible controls, and
+  reduced-motion support for the page transitions and animated marks.
+- A navbar that scrolls with the document; Results keeps its sorting controls
+  and Top shortcut in the desktop side rail.
+- Username validation, registration-year hints, and a public-listening-history
+  check before processing starts.
+- An animated pinwheel, a slim progress bar, and live operation labels with
+  counts when the pipeline provides them. Album processing also shows pipeline
+  statistics; Heatmap avoids repeating the same counts in a second panel.
+- Recovery of recent results through the clean report routes. In-memory runs
+  expire after two idle hours and do not survive an application restart.
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Backend | Python 3.13, Flask 3.1, Gunicorn |
-| Frontend | HTML5, CSS3, JavaScript (ES6+), Bootstrap 5 (served UI), Tailwind CSS 4 + daisyUI 5 migration toolchain |
-| APIs | Last.fm (`user.getrecenttracks`, `user.getinfo`), Spotify (search, album details) -- heatmap uses Last.fm only |
-| Async HTTP | `aiohttp`, `aiolimiter` (per-loop rate limiters with jitter retry) |
-| Database | PostgreSQL via `asyncpg` (optional -- Spotify metadata cache) |
-| Security | Flask-WTF `CSRFProtect`, `\|tojson` XSS bridge, `escapeHtml()`, startup secret guard |
-| Testing | pytest (633 tests across 37 files), 89% coverage |
-| CI/CD | GitHub Actions Quality Gate (pinned Tailwind rebuild, pre-commit, pytest + coverage gate, pip-audit) |
-| Deployment | Fly.io (shared-cpu-2x @ 512 MB, Postgres add-on) |
-| Code Quality | pre-commit (black, isort, autoflake, flake8, trailing whitespace, fix end-of-files, check yaml, check-merge-conflict, detect-private-key, doc-state-sync) |
+| --- | --- |
+| Backend | Python 3.13, Flask, Gunicorn |
+| Frontend | Jinja templates, CSS, JavaScript, Tailwind CSS 4 and daisyUI 5; the populated Unmatched report still uses Bootstrap during migration |
+| Typography | Adobe Fonts: Akzidenz Grotesk, Instrument Serif, Gotham, Input Mono, Input Mono Narrow |
+| APIs | Last.fm history and profile data; Spotify album and artist metadata |
+| Async HTTP | `aiohttp`, `aiolimiter`, shared throttling and retry helpers |
+| Database | Optional PostgreSQL cache through `asyncpg` |
+| Validation | pytest, Playwright browser checks, Ruff, pre-commit, documentation and generated-CSS checks |
+| CI | GitHub Actions Quality Gate, coverage threshold, and an advisory dependency audit |
+| Hosting | Fly.io configuration in [fly.toml](fly.toml) and [Dockerfile](Dockerfile) |
+
+Exact dependency versions live in [requirements.txt](requirements.txt) and
+[requirements-dev.txt](requirements-dev.txt). The CI badge links to current
+results rather than a manually maintained test or coverage count.
 
 ## Architecture
 
-High-level request flow. **Solid arrows are requests and calls. Dotted arrows
-are non-import runtime edges, including polls and injected dispatch.** The
-`worker.py -> orchestrator.py / heatmap.py` edges are dispatches: `worker.py`
-runs a callable that `routes.py` injects and imports neither module. For the
-full picture, including the import-direction dependency graph and both
-pipeline sequences, see
-[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Flask starts a bounded background job for each accepted search. The browser
+polls progress; completed results stay in job-scoped memory. Album processing
+can reuse Spotify metadata from PostgreSQL, while Heatmap aggregates Last.fm
+history directly.
 
 ```mermaid
 graph LR
-    A[Browser] -->|POST /results_loading| B[routes.py]
-    A -->|POST /heatmap_loading| B
+    A[Browser] -->|POST /results_loading or /heatmap_loading| B[routes.py]
     A -.->|GET /progress| B
-    A -.->|GET /heatmap_data| B
     B --> C[repositories.py]
     B --> D[worker.py]
-    D -.->|dispatch| E[orchestrator.py]
-    D -.->|dispatch| F[heatmap.py]
+    D -.->|injected task| E[orchestrator.py]
+    D -.->|injected task| F[heatmap.py]
     E --> G[lastfm.py]
     E --> H[spotify.py]
     E --> I[cache.py]
@@ -113,220 +124,141 @@ graph LR
     I --> J[(PostgreSQL)]
 ```
 
-<details>
-<summary>Detailed request flow</summary>
-
-```text
-Top Albums
-  index.html
-    -> POST /results_loading
-    -> acquire worker slot + create job
-    -> start background_task(...) in a daemon thread
-    -> 303 GET /loading?job_id=...; loading.html polls GET /progress
-    -> GET /results?job_id=... renders results.html
-    -> optional GET /unmatched?job_id=... renders unmatched.html
-    -> GET /api/unmatched?job_id=... supplies the quick-view JSON
-
-  orchestrator.background_task
-    -> fetch Last.fm pages
-    -> group + threshold albums
-    -> enrich misses from Spotify
-    -> optionally read/write Postgres cache
-    -> persist results into JOBS
-
-Heatmap
-  index.html
-    -> POST /heatmap_loading
-    -> acquire worker slot + create job
-    -> start heatmap_task(...) in a daemon thread
-    -> heatmap.js polls GET /progress while the task runs
-    -> completion triggers GET /heatmap_data
-    -> render SVG heatmap from stored daily_counts
-
-  heatmap.heatmap_task
-    -> fetch Last.fm pages for the last 365 days
-    -> aggregate daily counts in UTC
-    -> persist totals, max_count, and daily_counts into JOBS
-```
-
-</details>
-
-**Key design decisions:**
-
-* **Per-job state isolation:** UUID-keyed `JOBS` dict with `threading.Lock`. Progress, results, and unmatched data are scoped per job. Jobs expire after 2 hours.
-* **Bounded concurrency:** `MAX_ACTIVE_JOBS` (default 5) caps background jobs via `BoundedSemaphore`. Excess requests are rejected before job creation.
-* **Data normalization:** Artist and album names are cleaned of punctuation and common suffixes ("deluxe edition", "remastered") for robust Last.fm-to-Spotify matching.
-* **Global rate limiting:** `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
-* **Acyclic module graph:** Leaf modules (`config`, `domain`, `errors`) have no internal imports. `routes.py` is the highest-level `scrobblescope` module, and `app.py` imports its Blueprint. See `.claude/SESSION_CONTEXT.md` Section 4 for the full dependency graph.
+Dotted task edges represent runtime dispatch, not imports: `worker.py` runs
+callables supplied by the routes. See [the architecture guide](docs/ARCHITECTURE.md)
+for the dependency graph and detailed pipeline sequences.
 
 ## Key Implementation Highlights
 
-* **Configuration:** API credentials and an optional `DEBUG_MODE` are controlled via a `.env` file. Concurrency, rate-limit defaults, and DB wake-up tolerance can be tuned via environment variables (`MAX_CONCURRENT_LASTFM`, `SPOTIFY_SEARCH_CONCURRENCY`, `SPOTIFY_REQUESTS_PER_SECOND`, `DB_CONNECT_MAX_ATTEMPTS`, `DB_CONNECT_BASE_DELAY_SECONDS`, etc.).
-* **Caching:**
-    * In-memory request cache (`REQUEST_CACHE` in `utils.py`, 1-hour TTL) to reduce repeated Last.fm fetches during active sessions.
-    * Persistent Postgres metadata cache (`spotify_cache`) for Spotify album metadata across deploys/restarts, with configurable TTL via `METADATA_CACHE_TTL_DAYS` (default 30 days).
-* **Security:** Template variables are injected into JavaScript via Jinja2's `|tojson` filter to prevent XSS. Dynamic content in the unmatched album modal is escaped with `escapeHtml()` before rendering.
-* **CSRF Protection:** All mutating POST routes (`/results_loading`, `/heatmap_loading`, the compatibility routes `/results_complete` and `/unmatched_view`, and `/reset_progress`) are protected via Flask-WTF `CSRFProtect`. Canonical result and report pages use safe GET routes with only `job_id`; fetch-based POST routes read a `<meta name="csrf-token">` tag.
-* **Startup Secret Guard:** `create_app()` refuses to start in production when `SECRET_KEY` is absent, shorter than 16 characters, or set to a known-weak placeholder. `DEBUG_MODE=1` downgrades the failure to a logged warning for local development.
-* **Route Helpers (SoC):** Business logic and data transforms are extracted from Flask route handlers into named module-level helpers (`_check_user_exists`, `_extract_job_params`, `_filter_results_for_display`, `_group_unmatched_by_reason`) so route handlers stay thin and helpers can be unit-tested independently.
-<details>
-<summary><strong>Styling &amp; UX</strong></summary>
-
-   * **Navigation and Dark Mode:** Five shared page pills expose the canonical UI routes. A segmented Light/Dark control persists the theme via `localStorage`; CSS custom properties provide the theme colours.
-   * **Animations:** Subtle fade-in animations are used for the logo, progress bar elements, and result cards to enhance visual feedback. The header logo features an animated SVG waveform, and the heatmap feature uses a custom breathing SVG pinwheel animation while loading.
-   * **Accessibility:** `aria-labels` on SVGs and interactive elements; semantic form markup.
-   * **Favicon:** Multi-format icon (SVG with PNG & ICO fallbacks) ensures consistent branding.
-   * **Static Assets:** CSS and JavaScript served from `/static` for cacheability and clean separation.
-   * **Clickable Album Links:** Album names in results link directly to their Spotify page.
-
-</details>
+- **Job isolation:** UUID-keyed state and a lock keep searches separate. A
+  bounded semaphore limits active jobs; configuration lives in
+  [scrobblescope/config.py](scrobblescope/config.py).
+- **Caching:** In-memory request caching reduces repeated HTTP work.
+  PostgreSQL optionally stores Spotify album metadata between runs and
+  application restarts; it does not persist the browser's result jobs.
+- **Matching:** Artist, album, and track names are normalized before matching
+  Last.fm scrobbles to Spotify metadata.
+- **Request protection:** Flask-WTF protects POST requests, Jinja's `tojson`
+  filter carries template data into JavaScript, and Results renders dynamic
+  text with DOM text nodes.
+- **Secret validation:** Production startup rejects missing, short, or known
+  placeholder `SECRET_KEY` values. Development mode logs a warning instead.
+- **Canonical navigation:** `/heatmap`, `/results`, and `/unmatched` recover
+  session-associated runs. Explicit job IDs and legacy completion routes
+  remain supported; `/api/unmatched` is the separate JSON endpoint.
 
 ## Getting Started
 
 ### Prerequisites
 
-* Python 3.13+
-* pip
-* Git
-* A [Last.fm API account](https://www.last.fm/api/account/create) (for `LASTFM_API_KEY`)
-* A [Spotify Developer app](https://developer.spotify.com/dashboard) (for `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`)
+- Python 3.13 and Git.
+- A [Last.fm API key](https://www.last.fm/api/account/create).
+- A [Spotify Developer app](https://developer.spotify.com/dashboard) for album
+  and artist enrichment.
+- Docker only if you want the optional local PostgreSQL cache.
 
 ### Setup
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/pterw/ScrobbleScope.git
-    cd ScrobbleScope
-    ```
+1. Clone the repository:
 
-2.  **Create and activate a virtual environment:**
-    ```bash
-    python -m venv .venv
-    ```
-    * Windows (PowerShell): `.\.venv\Scripts\Activate.ps1`
-    * Windows (Command Prompt): `.venv\Scripts\activate`
-    * macOS/Linux: `source .venv/bin/activate`
+   ```bash
+   git clone https://github.com/pterw/ScrobbleScope.git
+   cd ScrobbleScope
+   ```
 
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements-dev.txt
-    ```
-    Runtime-only install (no dev tools):
-    ```bash
-    pip install -r requirements.txt
-    ```
+2. Create the primary checkout's virtual environment:
 
-4.  **Configure environment variables:**
+   ```bash
+   python -m venv .venv
+   ```
 
-    Create a `.env` file in the project root (git-ignored). See `.env.example` for the template.
+   Activate it with `.\.venv\Scripts\Activate.ps1` in PowerShell,
+   `.venv\Scripts\activate` in Command Prompt, or
+   `source .venv/bin/activate` on macOS/Linux.
 
-    ```env
-    LASTFM_API_KEY="your_lastfm_api_key_here"
-    SPOTIFY_CLIENT_ID="your_spotify_client_id_here"
-    SPOTIFY_CLIENT_SECRET="your_spotify_client_secret_here"
-    SECRET_KEY="local-development-only-key"
-    DEBUG_MODE="1"
-    # DEBUG_MODE=1 downgrades weak-secret validation to a warning; this
-    # development-only key must never be used in production.
+   Linked Git worktrees reuse this primary environment. Follow the worktree
+   check in [AGENTS.md](AGENTS.md#session-bootstrap-in-order) to locate it;
+   do not create a second environment in a linked worktree.
 
-    # For production, replace the local key above with a generated strong value:
-    # python -c "import os; print(os.urandom(32).hex())"
+3. Install dependencies using the environment's pip:
 
-    # Optional local Postgres cache
-    # DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
+   ```powershell
+   # Windows
+   .\.venv\Scripts\pip.exe install -r requirements-dev.txt
+   ```
 
-    # Optional tuning (see scrobblescope/config.py and scrobblescope/cache.py for the full list)
-    # MAX_CONCURRENT_LASTFM="10"
-    # MAX_ACTIVE_JOBS="5"
-    ```
+   ```bash
+   # macOS/Linux
+   .venv/bin/pip install -r requirements-dev.txt
+   ```
+
+   For a runtime-only installation, substitute `requirements.txt`.
+
+4. Copy [.env.example](.env.example) to `.env`, fill in your API credentials,
+   and replace the placeholder secret. Generate a secret in the activated
+   environment with:
+
+   ```bash
+   python -c "import secrets; print(secrets.token_hex(32))"
+   ```
+
+   Set `DEBUG_MODE=1` for local development. Leave `DATABASE_URL` blank to run
+   without PostgreSQL. Never commit `.env` or reuse its secret in a public
+   example.
 
 ### Running the App
 
-Quick start:
+Commands below assume the primary environment is activated. In a linked
+worktree, use its qualified Python and tool paths as described in `AGENTS.md`.
 
 ```bash
 python app.py
 ```
 
-Browser-launching wrapper:
+Open `http://127.0.0.1:5000/`. Alternatively, `python run.py` starts the app
+and opens the browser.
 
-```bash
-python run.py
-```
-
-The app will be available at `http://127.0.0.1:5000/`.
-
-**Optional -- initialize Postgres schema** (only if using `DATABASE_URL` locally):
-
-```bash
-python init_db.py
-```
+The compiled stylesheet is already committed, so running the app requires no
+Node project or frontend build. For CSS or template changes, use the
+[frontend asset build procedure](DEVELOPMENT.md#frontend-asset-build).
 
 ### Local Development with DB Cache
 
-To run the app locally with the persistent Postgres metadata cache enabled:
+Start Docker and create the local container once:
 
-* Docker must be installed and running.
-* The `ss-postgres` container must exist. Create it once with:
-  ```bash
-  docker run -d --name ss-postgres \
-      -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres \
-      -e POSTGRES_DB=scrobblescope \
-      -p 5432:5432 \
-      -v ss-postgres-data:/var/lib/postgresql/data \
-      postgres:17
-  ```
-* `DATABASE_URL` should point at your local Postgres instance, for example:
-  ```env
-  DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope"
-  ```
-* Initialize the schema once by setting `DATABASE_URL` in the same shell:
-  * macOS/Linux:
-    ```bash
-    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope" python init_db.py
-    ```
-  * Windows PowerShell:
-    ```powershell
-    $env:DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/scrobblescope"
-    python init_db.py
-    ```
-  * Windows Command Prompt:
-    ```bat
-    set DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scrobblescope
-    python init_db.py
-    ```
+```bash
+docker run -d --name ss-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=scrobblescope -p 5432:5432 -v ss-postgres-data:/var/lib/postgresql/data postgres:17
+```
 
-**One-command startup:**
+Set this value in `.env`:
+
+```env
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/scrobblescope
+```
+
+Initialize the schema once. `init_db.py` does not load `.env`, so pass the
+connection string through the shell as well:
+
+```powershell
+# Windows PowerShell
+$env:DATABASE_URL = "postgresql://postgres:postgres@localhost:5432/scrobblescope"
+python init_db.py
+```
+
+```bash
+# macOS/Linux
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/scrobblescope" python init_db.py
+```
+
+For subsequent starts:
 
 ```bash
 python scripts/dev/dev_start.py
 ```
 
-This checks whether `ss-postgres` is running, starts it if needed, then launches Flask.
-
-**Cache smoke test** (verify Postgres cache on your local instance):
-
-```bash
-python scripts/testing/smoke_cache_check.py --base-url http://localhost:5000/ \
-    --username YOUR_USERNAME --year 2025 --runs 2
-```
-
-What to look for:
-* `db_cache_enabled=True` indicates the app connected to Postgres for this run.
-* `Run 2` should report `db_cache_lookup_hits > 0` once metadata has been persisted.
-* `db_cache_persisted` should be non-zero on initial misses; `db_cache_lookup_hits` should grow on repeat runs.
-* `Run 2` elapsed time should usually be lower than `Run 1`.
-* The script prints `verdict=PASS` when the second run observes DB cache hits.
-
-**Observe concurrent-user behavior** (fires N simultaneous job submissions):
-
-```bash
-python scripts/testing/concurrent_users_test.py \
-    --concurrency 3 --base-url http://localhost:5000/ --username YOUR_USERNAME --year 2024
-```
-
-Reports per-thread outcome and aggregate statistics.
-Set `--concurrency` above `MAX_ACTIVE_JOBS` (default 5) to observe semaphore-capacity rejections.
+The helper starts the existing `ss-postgres` container if needed and then
+launches Flask. [scripts/testing](scripts/testing) contains cache smoke checks
+and concurrent-request probes for a running local instance.
 
 ### Running Tests
 
@@ -334,233 +266,91 @@ Set `--concurrency` above `MAX_ACTIVE_JOBS` (default 5) to observe semaphore-cap
 pytest -q
 pytest --cov=scrobblescope --cov-report=term
 pre-commit run --all-files
+python scripts/doc_state_sync.py --check
 ```
 
-Generated Tailwind CSS is committed; [DEVELOPMENT.md](DEVELOPMENT.md#frontend-asset-build)
-owns the sole build and watch procedure.
+Browser setup and execution are documented in the
+[frontend browser gate procedure](DEVELOPMENT.md#frontend-browser-gate).
+The automated gate runs the complete Chromium matrix and a Firefox static
+asset canary. Cross-browser visual review remains part of UI acceptance.
 
 ## Project Structure
 
-```
-.
-|-- app.py                         # Flask app factory, logging, secret validation
-|-- run.py                         # Convenience launcher (opens browser)
-|-- init_db.py                     # Postgres schema init (Fly.io release_command)
-|-- fly.toml                       # Fly.io deploy config (paired with Dockerfile)
-|-- Dockerfile                     # Fly resolves this by co-location; see DEPLOY.md
-|-- requirements.txt               # Runtime dependencies
-|-- requirements-dev.txt           # Dev/test/tooling (includes requirements.txt)
-|-- pyproject.toml                 # Tool config (isort, pytest, pyright)
-|                                  # -- agent orchestration / docs --
-|-- AGENTS.md                      # AI agent bootstrap and contribution rules
-|-- PLAYBOOK.md                    # Active handoff playbook (work order + log)
-|-- HANDOFF_PROMPT.md              # Session bootstrap procedure for AI agents
-|-- AGENT_NOTES.md                 # Owner context and local development setup
-|-- FINDINGS.md                    # Active findings and notes for current work
-|-- DEVELOPMENT.md                 # Development methodology and doc-state process
-|-- DEPLOY.md                      # Deployment workflow and production checklist
-|-- scrobblescope/
-|   |-- __init__.py
-|   |-- config.py                  # Env var reads, API keys, concurrency constants
-|   |-- errors.py                  # SpotifyUnavailableError, ERROR_CODES
-|   |-- domain.py                  # normalize_name, normalize_track_name
-|   |-- utils.py                   # Rate limiters, session pooling, request cache
-|   |-- repositories.py            # JOBS dict, jobs_lock, job state CRUD
-|   |-- worker.py                  # BoundedSemaphore, job slot management
-|   |-- cache.py                   # asyncpg helpers (retry/backoff, batch ops)
-|   |-- lastfm.py                  # Last.fm HTTP client (pure I/O, no state)
-|   |-- spotify.py                 # Spotify HTTP client (search, batch details)
-|   |-- orchestrator.py            # Album pipeline: fetch -> process -> results
-|   |-- heatmap.py                 # Heatmap pipeline: fetch -> aggregate daily counts
-|   `-- routes.py                  # Flask Blueprint, route + error handlers
-|-- templates/
-|   |-- base.html                  # Master template (nav, dark-mode toggle)
-|   |-- index.html                 # Input form
-|   |-- loading.html               # Progress polling page
-|   |-- results.html               # Filtered album results
-|   |-- unmatched.html             # Detailed exclusion report
-|   |-- error.html                 # Error display
-|   `-- inline/
-|       |-- scrobble_scope_inline.svg  # Animated logo
-|       `-- scrobblescope_pinwheel.svg # Animated heatmap loading spinner
-|-- static/
-|   |-- css/
-|   |   |-- global.css             # Shared variables, dark-mode, toggle
-|   |   |-- index.css
-|   |   |-- loading.css
-|   |   |-- results.css
-|   |   |-- error.css
-|   |   |-- unmatched.css
-|   |   |-- heatmap.css            # Pill tabs, heatmap form, loading, result, tooltips
-|   |   |-- tailwind.src.css       # Tailwind + daisyUI source and Batch 21 theme tokens
-|   |   `-- tailwind.css           # Committed generated Tailwind CSS
-|   |-- js/
-|   |   |-- theme.js               # Dark-mode init + toggle logic
-|   |   |-- index.js               # Form validation, dynamic options
-|   |   |-- loading.js             # Progress polling, rotating messages
-|   |   |-- results.js             # CSV/JPEG export, modal, back-to-top
-|   |   |-- error.js               # (stub -- logic moved to theme.js)
-|   |   |-- unmatched.js           # (stub -- logic moved to theme.js)
-|   |   `-- heatmap.js             # Pill switching, AJAX, polling, SVG grid, tooltips
-|   `-- images/                    # Favicons (SVG, PNG, ICO)
-|-- scripts/
-|   |-- bin/
-|   |   `-- .gitkeep               # Track the otherwise gitignored Tailwind cache directory
-|   |-- doc_state_sync.py          # PLAYBOOK/SESSION_CONTEXT sync (entry point)
-|   |-- docsync/                   # Docsync package (parser, renderer, logic, CLI)
-|   |   |-- cli.py                 # --check / --fix / --split-archive modes
-|   |   |-- parser.py              # Section 4 entry parser + heading validation
-|   |   |-- renderer.py            # STATUS block + archive rendering
-|   |   |-- logic.py               # Rotation, dedup, status derivation
-|   |   |-- integrity.py           # Blocking live-document semantic checks
-|   |   `-- models.py              # Entry + BatchState dataclasses
-|   |-- dev/
-|   |   |-- dev_start.py           # One-command local dev startup (Postgres + Flask)
-|   |   |-- tailwind_build.py      # Verified standalone Tailwind + daisyUI builder
-|   |   |-- worktree_guard.py      # Stable worktree-diagnostic facade
-|   |   |-- _worktree_guard_diagnostics.py  # Diagnostic construction, offline/WT014
-|   |   |-- _worktree_guard_inspection.py   # Read-only Git state collection
-|   |   |-- _worktree_guard_lineage.py      # PLAYBOOK parse + classification
-|   |   |-- _worktree_guard_runner.py       # Sanitized list-argument Git runner
-|   |   |-- _worktree_guard_types.py        # Immutable public value types
-|   |   |-- _worktree_guard_venv.py         # Primary virtualenv topology
-|   |   `-- check_worktree_alignment.py     # Thin bootstrap CLI
-|   `-- testing/
-|       |-- _http_client.py        # Shared HTTP transport (CSRF, submit, poll)
-|       |-- smoke_cache_check.py   # Cache correctness smoke test (2-run DB hit check)
-|       `-- concurrent_users_test.py  # Concurrent load observation (N threads, semaphore)
-|-- tests/
-|   |-- conftest.py                # Shared fixtures
-|   |-- helpers.py                 # Test utilities
-|   |-- test_app_factory.py        # App creation, secret validation (6)
-|   |-- test_docsync_cli.py        # Docsync CLI + --fix/--check modes (23)
-|   |-- test_docsync_integrity.py  # Live-document semantic checks (61)
-|   |-- test_docsync_logic.py      # Docsync archive rotation + dedup (32)
-|   |-- test_docsync_parser.py     # Docsync PLAYBOOK parser (35)
-|   |-- test_docsync_renderer.py   # Docsync status block renderer (25)
-|   |-- test_docsync_test_count.py  # Count authority across retention (8)
-|   |-- test_domain.py             # Name normalization (13)
-|   |-- test_heatmap.py             # Heatmap aggregation + task lifecycle (20)
-|   |-- test_repositories.py       # Job state CRUD (20)
-|   |-- test_retry_with_semaphore.py  # Retry + semaphore logic (8)
-|   |-- test_routes.py             # Route handlers + helpers (67)
-|   |-- test_utils.py              # Rate limiters, caching, formatting (34)
-|   |-- test_worker.py             # Job slot + thread management (6)
-|   |-- scripts/dev/
-|   |   |-- test_dev_start.py              # Docker startup helper unit tests (11)
-|   |   |-- test_tailwind_build.py         # Pinned asset and cache contracts (28)
-|   |   |-- test_tailwind_build_cli.py     # Build CLI and source contracts (7)
-|   |   |-- test_worktree_guard.py         # PLAYBOOK + lineage decisions (23)
-|   |   |-- test_worktree_guard_base_ref.py  # Selected-ref guidance (6)
-|   |   |-- test_worktree_guard_cli.py     # CLI rendering + boundary (5)
-|   |   |-- test_worktree_guard_cli_e2e.py  # Real inspection through CLI (11)
-|   |   |-- test_worktree_guard_inspection.py  # Git collection order (14)
-|   |   |-- test_worktree_guard_playbook.py  # Section 3 batch/branch parsing (15)
-|   |   |-- test_worktree_guard_runner.py  # Runner sanitization (4)
-|   |   |-- test_worktree_guard_severity.py  # WT000-WT014 severity table (15)
-|   |   |-- test_worktree_guard_subject.py  # Diagnostic subject attribution (20)
-|   |   |-- test_worktree_guard_topology.py  # Detached/linked/POSIX states (7)
-|   |   |-- test_worktree_guard_venv.py    # Virtualenv topology (13)
-|   |   `-- worktree_guard_fakes.py        # Shared Git + filesystem doubles
-|   |-- scripts/testing/
-|   |   |-- test_smoke_cache_check.py       # HTTP client + smoke test unit tests (13)
-|   |   `-- test_concurrent_users_test.py   # Concurrency script unit tests (6)
-|   `-- services/
-|       |-- test_lastfm_logic.py       # Album aggregation logic (8)
-|       |-- test_lastfm_service.py     # Last.fm client + progress (9)
-|       |-- test_orchestrator_fetch_and_process.py  # Fetch pipeline (10)
-|       |-- test_orchestrator_fetch_spotify.py      # Spotify fetch (8)
-|       |-- test_orchestrator_helpers.py            # Result helpers (18)
-|       |-- test_orchestrator_process_albums.py     # Album processing (7)
-|       `-- test_spotify_service.py    # Spotify client + token mgmt (10)
-|-- docs/
-|   |-- AGENT_DOC_MAP.md           # Which document owns what, for AI agents
-|   |-- ARCHITECTURE.md            # Canonical architecture index
-|   |-- architecture/              # One canonical detailed diagram per file
-|   |-- SWE_AUDIT_CHARTER.md       # Retired 2026-08-20; record of audit scope
-|   |-- images/                    # Screenshots for README
-|   |-- history/                   # Archived batch defs, audits, changelogs
-|   |-- logarchive/                # Rotated PLAYBOOK Section 4 entries
-|   `-- superpowers/               # Design specs and implementation plans
-|-- .github/
-|   |-- copilot-instructions.md    # Pointer to the instructions/ pack
-|   |-- instructions/              # Agent-facing authoring instructions
-|   `-- workflows/
-|       `-- test.yml               # CI: pre-commit + flake8 + pytest/coverage
-|-- CONTRIBUTING.md
-|-- CODE_OF_CONDUCT.md
-|-- LICENSE
-`-- README.md
+```text
+app.py                  Flask application factory and startup configuration
+run.py                  Browser-launching development wrapper
+init_db.py              PostgreSQL schema initialization
+scrobblescope/          Routes, jobs, pipelines, API clients, cache and Spotlight
+templates/              Page templates, empty states, shared partials and SVGs
+static/css/             Theme source, generated Tailwind CSS and page styles
+static/js/              Forms, progress, navigation, results, Spotlight and Heatmap
+scripts/dev/            Local startup, asset builds, browser gate and worktree checks
+scripts/testing/        Cache and concurrency probes
+scripts/docsync/        Documentation synchronization and integrity checks
+tests/                  Unit, service, route and tooling regression tests
+docs/architecture/      Detailed request and dependency diagrams
+docs/design/            Design snapshot and recorded implementation overrides
+.github/workflows/      CI configuration
 ```
 
-While a batch of work is active, its definition file (`BATCHN_DEFINITION.md`) sits at the repository root and is moved to `docs/history/definitions/` at close-out, so the tree above intentionally omits it.
+Use [the architecture guide](docs/ARCHITECTURE.md) for module relationships and
+[the development guide](DEVELOPMENT.md) for tooling. This overview deliberately
+omits per-file test counts and generated or machine-local files.
 
 ## Deployment
 
-ScrobbleScope is deployed on [Fly.io](https://fly.io) with a PostgreSQL add-on for persistent Spotify metadata caching.
+The repository includes a Fly.io configuration and Dockerfile. The configured
+release command runs `init_db.py` before deployment to initialize the cache
+schema. Credentials are supplied through deployment secrets.
 
-```bash
-fly auth login
-fly launch --internal-port 8080
-fly secrets set LASTFM_API_KEY=... SPOTIFY_CLIENT_ID=... SPOTIFY_CLIENT_SECRET=... SECRET_KEY=...
-fly deploy
-```
-
-`init_db.py` runs automatically as a `release_command` before each deploy to ensure the schema is up to date (idempotent). See [DEPLOY.md](DEPLOY.md) for details.
+See [DEPLOY.md](DEPLOY.md) for the deployment procedure, configuration location,
+and validation checklist. Changes to the repository are not automatically a
+release of the live site.
 
 ## Current Status & Roadmap
 
-ScrobbleScope is post-refactor and actively maintained. Core architecture and infra work are complete; the current focus is feature expansion and QA hardening.
+The UI migration is in progress. Home, Heatmap, loading, Results, error, and
+empty-state pages use the new Tailwind/daisyUI presentation. The populated
+Unmatched report still uses Bootstrap; its rebuild and stable exclusion-reason
+codes remain planned work, followed by the final migration and accessibility
+sweep.
 
-**Planned Upcoming Work:**
-
-* [ ] **Top songs:** Rank a user's most-played tracks for a given year (Last.fm + optional Spotify enrichment). Separate background task type with its own loading/results flow.
-* [ ] Decompose `scrobblescope/orchestrator.py` into smaller pipeline-focused modules.
-* [ ] Add an integration test that exercises `/results_loading -> /progress -> /results_complete`.
-* [ ] Retire Bootstrap entirely in the Batch 21 migration, which resolves the CDN provider split by elimination (F-B20-3).
-* [ ] Improve the unmatched albums page (`unmatched.html`).
-* [ ] Tighten `ENTRY_BATCH_RE` in `scripts/docsync/parser.py` to prevent misrouting entries whose titles contain "Batch N" substrings.
-* [ ] Replace the top header logo with the updated SVG.
-* [x] Scope the Batch 21 UI overhaul from the owner audit; Tailwind v4 + daisyUI v5 migration now in progress (see `BATCH21_DEFINITION.md`).
-
-*Things to keep in mind: continue reviewing separation of concerns across
-front-end JS and back-end route/service layers, DRY violations across
-templates/JS/Python, data integrity edge cases in aggregation/filtering/
-normalization, silent failure modes and incorrect assumptions, performance
-bottlenecks under realistic load, and best-practices fixes surfaced by
-static analysis or audit tooling.*
+[PLAYBOOK.md](PLAYBOOK.md#3-active-batch--next-action) owns the current work
+order. [FINDINGS.md](FINDINGS.md) records known limitations and deferred work;
+[GitHub issues](https://github.com/pterw/ScrobbleScope/issues) are the public
+place to propose or discuss changes.
 
 ## Contributing
 
-Feedback and suggestions are welcome! If you encounter bugs or have ideas, please [open an issue](https://github.com/pterw/ScrobbleScope/issues).
-
-For code contributions, see [CONTRIBUTING.md](CONTRIBUTING.md). All participants are expected to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+Bug reports and suggestions are welcome through
+[GitHub issues](https://github.com/pterw/ScrobbleScope/issues).
+For code contributions, see [CONTRIBUTING.md](CONTRIBUTING.md), and follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Development Methodology
 
-ScrobbleScope was built with a shared-document, multi-agent workflow. The short version: repository rules live in `AGENTS.md`, active work lives in `PLAYBOOK.md`, current runtime state lives in `.claude/SESSION_CONTEXT.md`.
-
-[DEVELOPMENT.md](DEVELOPMENT.md) explains the full approach: why external memory files exist, how `doc_state_sync.py` works and why it had to be a deterministic script rather than a prompt, the batch/work-package planning system, how code review suggestions were evaluated and rejected, and what failed before the current system stabilized.
+ScrobbleScope uses a shared-document workflow for human and AI-assisted
+contributions. [DEVELOPMENT.md](DEVELOPMENT.md) explains the approach and its
+tradeoffs. Repository rules live in [AGENTS.md](AGENTS.md); the README remains
+a guide to the product and local setup.
 
 ## License
 
-MIT License -- see [LICENSE](LICENSE) for details.
+MIT License -- see [LICENSE](LICENSE).
 
 ## Acknowledgements
 
-* [Last.fm](https://www.last.fm/) for tracking all the music we listen to
-* [Spotify](https://developer.spotify.com/) for the metadata API
-* [Bootstrap](https://getbootstrap.com/) for responsive UI components
-* [Flask](https://flask.palletsprojects.com/) and the Flask community
-* The maintainers of the Python libraries used in this project
-
----
+- [Last.fm](https://www.last.fm/) for listening history.
+- [Spotify](https://developer.spotify.com/) for music metadata.
+- [Flask](https://flask.palletsprojects.com/), [Tailwind CSS](https://tailwindcss.com/),
+  [daisyUI](https://daisyui.com/), and Bootstrap for the application UI foundations.
+- The maintainers of the Python libraries and developer tools used here.
 
 ## Author & Contact
 
 **Peter Wiercioch** (pterw)
 
-* **GitHub:** [pterw](https://github.com/pterw)
-* **Portfolio:** [peterwiercioch.com](https://peterwiercioch.com/)
-* **LinkedIn:** [pter-w](https://www.linkedin.com/in/pter-w/)
-* **Email:** hello@peterwiercioch.com
+- **GitHub:** [pterw](https://github.com/pterw)
+- **Portfolio:** [peterwiercioch.com](https://peterwiercioch.com/)
+- **LinkedIn:** [pter-w](https://www.linkedin.com/in/pter-w/)
+- **Email:** hello@peterwiercioch.com

@@ -1,8 +1,6 @@
-import asyncio
+import base64
 import logging
 import time
-
-import aiohttp
 
 from scrobblescope.config import (
     SPOTIFY_BATCH_RETRIES,
@@ -25,10 +23,15 @@ async def fetch_spotify_access_token():
     url = "https://accounts.spotify.com/api/token"
     assert SPOTIFY_CLIENT_ID is not None, "SPOTIFY_CLIENT_ID not set"
     assert SPOTIFY_CLIENT_SECRET is not None, "SPOTIFY_CLIENT_SECRET not set"
-    auth = aiohttp.BasicAuth(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET)
+    # aiohttp 3.14 deprecates BasicAuth for removal in 4.0; the documented
+    # replacement is a pre-encoded Authorization header. base64 is stdlib,
+    # so no new dependency.
+    credentials = f"{SPOTIFY_CLIENT_ID}:{SPOTIFY_CLIENT_SECRET}"
+    encoded = base64.b64encode(credentials.encode("utf-8")).decode("ascii")
+    headers = {"Authorization": f"Basic {encoded}"}
     data = {"grant_type": "client_credentials"}
     async with create_optimized_session() as s:
-        async with s.post(url, data=data, auth=auth) as r:
+        async with s.post(url, data=data, headers=headers) as r:
             if r.status == 200:
                 token_data = await r.json()
                 spotify_token_cache.update(
@@ -143,3 +146,65 @@ async def fetch_spotify_album_details_batch(
         jitter=lambda a: (abs(hash((tuple(album_ids), a))) % 200) / 1000.0,
         error_label="Spotify batch album details",
     )
+
+
+def _artist_spotlight_details(artist, artist_name=None, artist_id=None):
+    """Normalize artist payloads while preserving missing-field defaults."""
+    images = artist.get("images", [])
+    return {
+        "name": artist.get("name", artist_name),
+        "artist_id": artist.get("id", artist_id),
+        "image_url": images[0].get("url") if images else None,
+        "spotify_url": artist.get("external_urls", {}).get("spotify"),
+    }
+
+
+async def _request_spotlight_artist(session, headers, artist_name, artist_id):
+    """Look up by ID, falling back to name after an unsuccessful HTTP response.
+
+    Return None for unsuccessful or empty searches. Transport and decoding
+    exceptions propagate to the caller's shared logging and fallback boundary.
+    """
+    if artist_id:
+        url = f"https://api.spotify.com/v1/artists/{artist_id}"
+        async with session.get(url, headers=headers) as response:
+            if response.status == 200:
+                return _artist_spotlight_details(
+                    await response.json(), artist_name, artist_id
+                )
+    if artist_name:
+        params = {"q": f"artist:{artist_name}", "type": "artist", "limit": 1}
+        async with session.get(
+            "https://api.spotify.com/v1/search", params=params, headers=headers
+        ) as response:
+            if response.status == 200:
+                data = await response.json()
+                items = data.get("artists", {}).get("items", [])
+                if items:
+                    return _artist_spotlight_details(items[0], artist_name)
+    return None
+
+
+async def fetch_spotify_artist_spotlight(
+    session, artist_name=None, artist_id=None, token=None
+):
+    """Fetch optional spotlight metadata within the limiter, logging failures.
+
+    Missing credentials or identifiers and failed lookups return None so
+    callers can retain the album artwork already displayed on the card.
+    """
+    if not token or (not artist_name and not artist_id):
+        return None
+
+    headers = {"Authorization": f"Bearer {token}"}
+    limiter = get_spotify_limiter()
+    try:
+        async with limiter:
+            return await _request_spotlight_artist(
+                session, headers, artist_name, artist_id
+            )
+    except Exception as e:
+        logging.warning(
+            f"Error querying Spotify artist spotlight for '{artist_name or artist_id}': {e}"
+        )
+    return None

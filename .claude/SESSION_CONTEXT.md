@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-05
+Last updated: 2026-09-09
 
 ---
 
@@ -8,12 +8,12 @@ Last updated: 2026-09-05
 
 | Item | Value |
 |------|-------|
-| Branch | `wip/batch-21` |
-| Tests | **902 passing** across 40 test modules |
+| Branch | See PLAYBOOK Section 3 for the active worktree branch. |
+| Tests | **974 passing** across 40 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
-| Pre-commit | All hooks pass |
+| Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** WP-0 through WP-4 are done. Owner-review remediation Task 2 merged as PR #224; Task 3 (final `3fr 4fr` split, `28rem` form cap, raised divider contrast, ruled header clamps) is implemented and gate-validated (complete Chromium+Firefox matrix). Task 3 review fix rounds 1/5 and 2/5 landed. Task 4 (align visible loading progress with pipeline phases, eliminate overlapping polls / stale responses, decouple received vs attempted counts, loading composition corrections) is implemented and gate-validated. Tasks 5-6 (unmatched no-data surface, accessibility pass) remain open. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
+| Batch 21 status | **Active.** WP-0 through WP-5 are done. Owner-review remediation Task 2 merged as PR #224; Task 3 (final `3fr 4fr` split, owner-refined `27.5rem` form cap, raised divider contrast, ruled header clamps) is implemented and gate-validated (complete Chromium+Firefox matrix). Task 3 review fixes cover the index well divider (F-B21-40), full-column hero, fixed geometry across reachable states (F-B21-41), consistent fast index fades (F-B21-42), owner-refined desktop placement, and directly visible mobile navigation. Task 4 (align visible loading progress with pipeline phases, eliminate overlapping polls / stale responses, decouple received vs attempted counts, loading composition corrections) is implemented and gate-validated; cached Heatmap restoration no longer paints an obsolete loading state (F-B21-43), and the desktop result now uses the available display width with a neutral username treatment. Task 5 (unmatched no-data surface) is complete and gate-verified. WP-5 (results leaderboard) rebuilt templates/results.html on Tailwind with high-density StatBlock KPI rail, semantic table grid, Playtime Discovery CTA banner, and modal removal. WP-7 is next; Task 6 timing follows the canonical remediation plan linked in PLAYBOOK Section 3. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -37,11 +37,11 @@ Last updated: 2026-09-05
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 21.
-- Current-batch entries in active log block: 7.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
-- Next expected work package: WP-5.
-- Latest validated test count: **902 passed**.
-- Newest current-batch entry: 2026-08-27 - Unified loading and recent-result recovery completed (Batch 21 WP-4).
+- Current-batch entries in active log block: 9.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5.
+- Next expected work package: WP-7.
+- Latest validated test count: **974 passed**.
+- Newest current-batch entry: 2026-09-06 - Results leaderboard rebuild and interactive polish completed (Batch 21 WP-5).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -62,20 +62,22 @@ scrobblescope/
   spotify.py                # fetch_spotify_access_token, search, batch details
   orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
+  spotlight.py              # pure artist aggregation and stable sample selection
   routes.py                 # Flask Blueprint, all route + error handlers
 templates/                  # base, index, loading, results, unmatched, error
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_result.html
 static/
   css/                      # global, index, loading, results, unmatched, error, empty, heatmap, shell, tailwind.src.css, tailwind.css (11 files)
-  js/                       # theme, index, loading, results, unmatched, heatmap (6 files)
+  js/                       # theme, page_motion, index, loading, loading-progress, results, results-spotlight, unmatched, heatmap
 scripts/
   bin/                       # gitignored verified Tailwind/daisyUI artifact cache
   doc_state_sync.py         # thin entry point for deterministic documentation sync
   dev/
     dev_start.py            # Postgres container check plus Flask launch
     tailwind_build.py       # verified standalone Tailwind + daisyUI frontend builder
-    frontend_gate.py        # browser checks Chromium and Firefox run against the live app
+    frontend_gate.py        # full Chromium checks and Firefox static-assets canary
+    _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
     _worktree_guard_lineage.py # PLAYBOOK parsing and pure classification
@@ -115,7 +117,8 @@ lastfm.py        <- config, utils
 spotify.py       <- config, utils
 orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, utils, worker
 heatmap.py       <- lastfm, repositories, utils, worker
-routes.py        <- heatmap, lastfm, orchestrator, repositories, utils, worker
+spotlight.py     <- utils
+routes.py        <- heatmap, lastfm, orchestrator, repositories, spotify, spotlight, utils, worker
 app.py           <- routes (Blueprint); config (ensure_api_keys, __main__ only)
 
 docsync/__init__.py  <- (leaf)
@@ -137,7 +140,8 @@ dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_in
 dev/check_worktree_alignment.py <- dev/worktree_guard
 dev/dev_start.py <- (leaf; standard library only)
 dev/tailwind_build.py <- (leaf; standard library only)
-dev/frontend_gate.py <- app.py (create_app); werkzeug.serving; playwright (imported late)
+dev/_frontend_gate_results.py <- repositories
+dev/frontend_gate.py <- dev/_frontend_gate_results; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 ```
 
 ---
@@ -179,7 +183,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (902 tests)
+## 6. Test structure (974 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
@@ -201,7 +205,7 @@ developer tooling and `tests/services/` the Last.fm and Spotify paths.
 ## 7. Environment notes
 
 - Python 3.13.3, Windows 11, venv.
-- Pre-commit: black, isort, autoflake, flake8, trailing whitespace, end-of-file, check yaml, check-merge-conflict, detect-private-key, doc-state-sync-check, tailwind-css-drift.
+- Pre-commit: ruff check + ruff format, trailing whitespace, end-of-file, check yaml, check-merge-conflict, detect-private-key, doc-state-sync-check, tailwind-css-drift.
 - pytest in `pyproject.toml` sets only `pythonpath = "."`; no `asyncio_mode` key is
   configured anywhere, so pytest-asyncio's own default applies.
 - API keys in `.env` (git-ignored); template: `.env.example`.

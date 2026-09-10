@@ -47,14 +47,19 @@ INDEX_TOKENS = {
     "--ss-border-default": ("#e5dfd1", "#2a2434"),
     # F-B21-40: a dedicated divider token for .index-form's border-left only.
     # --ss-border-default stays on the other 14 form borders; see .docsync.toml.
-    "--ss-border-divider": ("#858179", "#6e6a75"),
+    "--ss-border-divider": ("#8a867e", "#68646f"),
     "--ss-accent-soft": ("#efe9fa", "#2a1f44"),
-    "--heatmap-empty": ("#e8e2d6", "#262230"),
+    "--heatmap-empty": ("#c8bfad", "#262230"),
     # Added during commit 4 rather than commit 3, because the rebuild found
     # the page needed them. They live in the two daisyUI theme blocks.
-    "--ss-surface-card": ("#ffffff", "#181520"),
+    # Surface history: a paper-cream trial (#f7f3ea, 2026-09-07) was reverted
+    # the same day, then the owner split the surfaces -- general cards took
+    # the slightly warm midpoint #f9f7f1 and the index card alone went pure
+    # white via --ss-surface-card-standout.
+    "--ss-surface-card": ("#f9f7f1", "#181520"),
+    "--ss-surface-card-standout": ("#ffffff", "#181520"),
     "--ss-surface-sunken": ("#f0ebe0", "#1a1622"),
-    "--heatmap-surface": ("#faf8f3", "#181520"),
+    "--heatmap-surface": ("var(--ss-surface-sunken)", "#181520"),
     "--ss-bad": ("#b03434", "#e07070"),
 }
 
@@ -80,6 +85,7 @@ TEMPLATE_CONTEXT = {
     },
     "results_empty.html": {},
     "unmatched.html": {"reasons": {}},
+    "unmatched_empty.html": {},
 }
 
 #: Pages migrated to Tailwind. Every other page must still carry Bootstrap.
@@ -88,7 +94,9 @@ MIGRATED = {
     "heatmap_empty.html",
     "index.html",
     "loading.html",
+    "results.html",
     "results_empty.html",
+    "unmatched_empty.html",
 }
 
 
@@ -307,7 +315,7 @@ def test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads(
     texts = [_without_comments(sheet.read_text(encoding="utf-8")) for sheet in sheets]
     defined = set().union(*(_declared(text) for text in texts))
 
-    for sheet, text in zip(sheets, texts):
+    for sheet, text in zip(sheets, texts, strict=True):
         if sheet.name == TAILWIND:
             continue
         undefined = sorted(_read_without_fallback(text) - defined)
@@ -399,9 +407,9 @@ def test_no_page_carries_smil_animation(app, template):
     with app.test_request_context("/"):
         html = render_template(template, **TEMPLATE_CONTEXT[template])
 
-    assert (
-        "<animate" not in html
-    ), f"{template} ships SMIL, which no CSS media query can pause"
+    assert "<animate" not in html, (
+        f"{template} ships SMIL, which no CSS media query can pause"
+    )
 
 
 @pytest.mark.parametrize("template", sorted(TEMPLATE_CONTEXT))
@@ -450,12 +458,12 @@ def test_shell_animates_the_pinwheel_and_reduced_motion_stops_it():
     # the blade rule alone and never fail for a missing rotor rule.
     cancelled = _selectors_that_cancel_animation(reduced)
 
-    assert (
-        ".ss-pinwheel svg > g" in cancelled
-    ), f"reduced motion does not stop the pinwheel rotor; cancels {cancelled}"
-    assert (
-        ".ss-pinwheel svg > g > g" in cancelled
-    ), f"reduced motion does not stop the pinwheel blades; cancels {cancelled}"
+    assert ".ss-pinwheel svg > g" in cancelled, (
+        f"reduced motion does not stop the pinwheel rotor; cancels {cancelled}"
+    )
+    assert ".ss-pinwheel svg > g > g" in cancelled, (
+        f"reduced motion does not stop the pinwheel blades; cancels {cancelled}"
+    )
 
 
 @pytest.mark.parametrize("token", sorted(INDEX_TOKENS))
@@ -486,9 +494,9 @@ def test_the_index_tokens_survive_the_tailwind_build(token):
 
     assert emitted, f"{token} was pruned out of the compiled stylesheet"
     for expected in INDEX_TOKENS[token]:
-        assert any(
-            expected.lower() == value.lower() for value in emitted
-        ), f"{token} should carry {expected}; the build emitted {emitted}"
+        assert any(expected.lower() == value.lower() for value in emitted), (
+            f"{token} should carry {expected}; the build emitted {emitted}"
+        )
 
 
 def test_the_font_size_scale_is_not_shadowed_by_a_colour():
@@ -525,9 +533,9 @@ def test_the_pinwheel_keeps_the_shape_its_selectors_assume():
     """
     svg = (INLINE_SVG / "scrobblescope_pinwheel.svg").read_text(encoding="utf-8")
 
-    assert (
-        svg.count("<g>") == 5
-    ), f"expected one rotor and four blade groups, found {svg.count('<g>')}"
+    assert svg.count("<g>") == 5, (
+        f"expected one rotor and four blade groups, found {svg.count('<g>')}"
+    )
     # Counted as an attribute: the bare name also appears in the <style>
     # rule that colours them, so a plain substring count returns five.
     assert svg.count('class="pinwheel-blade"') == 4, "expected exactly four blades"
@@ -546,11 +554,9 @@ def test_every_page_wraps_its_footer_extras(app, template):
     with app.test_request_context("/"):
         html = render_template(template, **TEMPLATE_CONTEXT[template])
 
+    assert '<div class="page-footer-extras"></div>' in html
     if template == "results.html":
-        wrapper = html.split('<div class="page-footer-extras">', 1)[1]
-        assert 'id="back-to-top"' in wrapper.split("</div>", 1)[0]
-    else:
-        assert '<div class="page-footer-extras"></div>' in html
+        assert 'id="back-to-top"' not in html
 
 
 def test_shell_stops_both_animations_under_reduced_motion():
@@ -623,9 +629,9 @@ def test_the_lockup_seats_its_letterforms_on_the_bar_baseline():
     group = re.search(r'<g id="logo-text"[^>]*>', _lockup())
 
     assert group is not None, "the lockup has no #logo-text group"
-    assert "transform=" in group.group(
-        0
-    ), "#logo-text lost its transform, so the word floats above the bars"
+    assert "transform=" in group.group(0), (
+        "#logo-text lost its transform, so the word floats above the bars"
+    )
     assert "scale(1.1)" in group.group(0)
 
 

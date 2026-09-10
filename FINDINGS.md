@@ -1,11 +1,9 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-05
-Status: Batch 21 is active. WP-0 through WP-4 and owner-review remediation
-Tasks 1-4 are complete; Task 5 is next. PLAYBOOK Section 3 owns
-the current work order.
-902 tests across 40 test modules.
-
+Last updated: 2026-09-09
+Status: Batch 21 is active. WP-0 through WP-5 and owner-review remediation
+Tasks 1-5 are complete. PLAYBOOK Section 3 owns the current work order.
+974 tests across 40 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -78,6 +76,10 @@ control on both workflows. It returns home and does not cancel the background
 job.
 
 Status: resolved locally; deploy before the next production release.
+F-B21-43 supersedes the cached-ready part of this transition: the one-root
+crossfade remains for an active job whose loader has painted, while an
+already-complete saved job keeps that obsolete loader hidden and fades the
+prepared result in directly.
 Source: owner visual review and Impeccable performance finding, 2026-08-28.
 
 ---
@@ -138,6 +140,135 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-47: Artist Spotlight rendered one top-album artist and never rotated
+
+The Results side rail described an Artist Spotlight but built no rotation
+collection or timer. Both Flask and the metric-toggle client treated the artist
+on the highest-ranked single album as the leading artist, so repeated albums by
+one artist were not ranked by their aggregate scrobbles. The fallback Spotify
+link also labelled an album ID as an artist destination, and its unguarded image
+failure handler could apply after a newer portrait request had started.
+
+Status: resolved locally, 2026-09-06. The server aggregates artists by
+scrobbles, takes the top ten, and uses the job ID to choose a stable random five
+without changing the album or Heatmap pipelines. Results renders the first
+fallback immediately, hydrates the five artist records concurrently afterward,
+and rotates them every seven seconds. Candidate-slot, active-index, and image
+revision checks discard late responses; reduced-motion readers keep one static
+spotlight. The browser gate verifies five unique requests and a rendered card
+change in Chromium and Firefox.
+Source: owner Results review and source/request-flow audit, 2026-09-06.
+
+### F-B21-43: cached Heatmap restoration painted an obsolete loading state
+
+Opening Heatmap from the header after a result was cached called
+`fadeIn(heatmapLoading)` before the first progress request. A completed job
+therefore painted the loading panel for a fraction of a second, then replaced
+it with the cached result. A final DOM assertion could not detect the flash.
+
+Status: resolved, 2026-09-05. Saved-job restoration keeps the loading panel
+hidden until the first response proves that work is still running or reports
+an error. A ready result fades in directly; a still-running result preserves
+the existing Heatmap polling lifecycle and reveals the accurate progress
+state. The Chromium and Firefox gate observes loading-panel class mutations
+from before production `DOMContentLoaded` listeners run and fails if a cached
+result paints that panel.
+Source: owner browser review and two-engine rendered state observation,
+2026-09-05.
+
+### F-B21-46: the desktop index form stayed top-heavy as the window grew
+
+The fixed index scale correctly grew the form between realistic 1080p and
+1440p windows, but the form composition remained anchored to the well's top
+padding. At 1920x945, its outer top and bottom space measured 55.9px and
+98.2px; at 2560x1305, those values diverged to 74.5px and 193.6px. The 28rem
+base cap also left the card slightly wider than the owner's preferred measure.
+
+Status: resolved, 2026-09-05. The owner-refined base cap is `27.5rem`. The
+2026-09-09 refinement places the composition up to 2.5rem above centre,
+bounded by 0.25rem of header clearance. Expanded content retains natural
+scrolling only when it cannot fit. The gate verifies this upward bias
+at realistic 1080p, 1440p, and 4K profiles while retaining the
+fixed-geometry checks across every reachable form state.
+Source: owner 1080p/1440p visual comparison and two-engine rendered
+measurements, 2026-09-05.
+
+### F-B21-45: mobile navigation hid report destinations behind scrolling
+
+The mobile header kept all four desktop navigation links in one horizontal
+flex row. At 390px its navigation had a 203px visible width but a 345px scroll
+width; at 320px only 133px was visible. Results and Unmatched therefore sat
+offscreen unless the reader discovered horizontal scrolling.
+
+Status: resolved, 2026-09-05. The first correction put the four destinations
+in a two-column, two-row grid beside the compact theme control. Owner review
+then found that the control sat across both rows and visually competed with
+their buttons. The subsequent owner refinement uses one contained row across
+the header width and moves the same Light/Dark input below page content; it
+returns to the header at desktop widths without duplicating state. The browser
+gate checks both 390px and 320px widths for contained links, no horizontal
+overflow, a matching body offset, footer placement, and a retained 44px theme
+target. PR #227 review reconciled this description with the current source.
+Source: owner mobile review and rendered Chromium/Firefox measurements,
+2026-09-05.
+
+### F-B21-44: the desktop Heatmap result retained the prototype's small measure
+
+The result stage remained capped at about 1100px on a realistic 1920x945
+content box, occupying only 57.3% of the viewport. Its authored 14px SVG cells
+rendered at 16.6px, making the year grid visually slight beside the scaled
+index composition. The headline also singled out the username in purple
+italics even though it is data rather than an interactive accent.
+
+Status: resolved, 2026-09-05. At widths from 860px, the centred stage now uses
+`84vw` with a `120rem` ceiling; the same realistic 1080p content box renders a
+1544.8px frame and 23.7px cells. Mobile retains the bounded base measure. The
+username inherits the headline's neutral serif colour and normal style. The
+two-engine browser gate asserts the frame ratio, centring, rendered cell range,
+and headline treatment against a full-year fixture.
+Source: owner side-by-side visual review and two-engine rendered measurements,
+2026-09-05.
+
+### F-B21-42: index motion used three unrelated timings and blanked mode copy between animations
+
+The index composition entered over 1.2 seconds after a 0.2-second delay,
+Heatmap stage changes used 300ms, and `switchModeHero()` ran a sequential
+110ms exit followed by a 180ms entrance. Switching modes therefore removed
+the current heading before presenting its replacement and made the hero feel
+slower than the surrounding page states.
+
+Status: resolved, 2026-09-05. The two mode descriptions now share one grid
+track and crossfade concurrently over 180ms, so the taller copy reserves the
+same height in both states. Heatmap stage changes retain 180ms; the 2026-09-09
+owner refinement gives page navigation a shared 220ms entry and 140ms exit.
+The 2026-09-10 delayed-script probe reproduced a first-paint flash in both
+engines: DOM readiness restarted already-visible content from zero opacity.
+Entry now starts in CSS without waiting for JavaScript; the regression probe
+confirms no visible-to-transparent dip.
+The reduced-motion media query restores immediate,
+fully opaque states.
+Source: owner browser review, 2026-09-05.
+
+### F-B21-41: reachable form states rescaled the entire index composition
+
+Task 2's state-sensitive height bounds made the shared `--index-scale`
+depend on which form rows were open. At a fixed 1920x945 content box, both
+engines measured the 481.6px form shrinking to 390.5px for a decade or custom
+release field, 357.8px for open thresholds, and 325.2px when both were open.
+Hero padding, wordmark, headline type, card padding, inputs, and mode controls
+all changed with it. The gate required the expanded form to avoid document
+scrolling, so it enforced the defect.
+
+Status: resolved, 2026-09-05. Reachable states no longer replace the fixed
+window's natural-height reference. Additional rows extend the document while
+the composition keeps its initial dimensions. The Chromium and Firefox gate
+now compares representative dimensions across album, Heatmap, decade,
+custom-year, thresholds, and combined states, and requires the combined state
+to produce normal document scrolling at the realistic 1080p content box.
+`scrollbar-gutter: stable` prevents Firefox from shifting the columns when
+that scrollbar first becomes necessary.
+Source: owner browser review and two-engine rendered measurements, 2026-09-05.
 
 ### F-B21-40: Task 3's divider-contrast fix did not cover the index page's own well divider
 
@@ -342,6 +473,63 @@ Approved design:
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
 Source: PR #168 pre-merge audit and follow-up root-cause investigation.
 
+### F-DOCSYNC-8: TOML array-of-tables scoping detached declaration sites into adjacent values
+
+In `.docsync.toml`, an intervening `[[value]]` table (`the wide-desktop scale cap`)
+inserted on 2026-08-28 after the 5th site of `the single 860px breakpoint`
+caused TOML's table-scoping rules to attach the remaining 9 breakpoint sites
+to the scale cap declaration instead of the breakpoint declaration. Because the
+scale cap lacked an `expect` assertion and those 9 sites did not match the
+scale cap's pattern, they silently went unvalidated for 9 days.
+
+Fixed by grouping all 14 breakpoint sites contiguously (including missing frontend
+files `loading.css`, `empty.css`, and `theme.js`), adding an explicit
+`expect` value to every site (`"860"` or `"859.98"`), separating the wide-desktop
+scale baseline and cap declarations, and adding a file-level architectural warning
+comment in `.docsync.toml` documenting TOML array-of-tables scoping hazards.
+Status: resolved 2026-09-06. Evidence: all 14 breakpoint sites validate under
+`the single 860px breakpoint` declaration and `pytest -q` is green.
+Source: docsync tooling audit, 2026-09-06.
+
+---
+
+### F-DOCSYNC-9: Mixed expect values in value declarations bypassed consistency checks
+
+In `scripts/docsync/declarations.py:check_values`, sites that declared an `expect`
+parameter executed `continue` without appending their values to `captured`. When
+a declaration had some sites declaring `expect` and other sites omitting `expect`,
+the unannotated sites were cross-checked only against each other, completely
+ignoring disagreements with the expected value sites.
+
+Fixed by determining whether all `expect` annotations in a declaration share a
+uniform value, and if so, registering `(rel_path, expect)` in `captured` so that
+any unannotated site that deviates from the uniform expectation triggers a DOC009
+mismatch. Covered by unit tests `test_a_captured_site_that_disagrees_with_a_uniform_expected_site_fails`
+and `test_a_captured_site_that_agrees_with_a_uniform_expected_site_passes`.
+Status: resolved 2026-09-06. Evidence: 2 new unit tests in `tests/test_docsync_declarations.py`
+and all 73 declaration tests pass.
+Source: docsync tooling audit, 2026-09-06.
+
+---
+
+### F-DOCSYNC-10: Unlabelled next-action claims bypassed Section 3 integrity enforcement
+
+In `scripts/docsync/integrity.py:_check_section3_next_wp`, if Section 3 did not
+contain a bullet matching `SECTION_3_NEXT_ACTION_RE` (`- **Next action:** ...`),
+`_section3_next_wp_claim()` returned `None`. The check treated this as absence of a
+claim and returned `None`, allowing unlabelled claims (e.g. `- Batch 21 WP status: ... WP-5 is next`)
+to silently bypass DOC007 next-action validation against Section 4 execution logs
+and the active batch definition.
+
+Fixed with a two-fold remediation:
+1. Hardened `_check_section3_next_wp` to inspect Section 3 for unlabelled `NEXT_WP_CLAIM_RE`
+   matches when `claimed is None`, raising a blocking DOC007 error requiring the
+   `- **Next action:**` bullet label. Covered by `test_doc007_section3_unlabelled_claim_blocks`.
+2. Restored the canonical `- **Next action:**` bullet label in `PLAYBOOK.md` Section 3.
+Status: resolved 2026-09-06. Evidence: `doc_state_sync.py --check` flagged the unlabelled
+claim on `PLAYBOOK.md:167` before remediation and passes cleanly after the label was restored.
+Source: docsync tooling audit, 2026-09-06.
+
 ---
 
 ### F-DOCSYNC-4: per-batch logs were undiscoverable; tombstones retained
@@ -404,6 +592,206 @@ Source: SWE_PRINCIPLES_AUDIT.
 ---
 
 ## P1 -- Next batch candidates
+
+### F-B21-55: Results scaling left geometry fixed and collapsed in Firefox
+
+The unfinished local Results scale changed text tokens but left Tailwind's
+named spacing tokens unchanged. At 1200px and 1920px Chromium viewports,
+row padding remained 12px and artwork remained 48px while the heading grew.
+The CSS length-division expression was also invalid in the installed Firefox:
+the desktop heading fell back to 16px and row padding to zero.
+
+Resolved locally on 2026-09-09: a ResizeObserver supplies a numeric scale from
+the actual Results width and its 75rem baseline. Named spacing, artwork,
+controls and handwritten geometry share that scale; the existing 90rem page
+cap bounds growth at 1.2. Narrow layouts retain scale 1. No zoom or visual
+transform is used. The header remains independently sized.
+
+Chromium and Firefox now agree: at 1200/1920px, title 48/57.6px, row padding
+12/14.4px and artwork 56/67.2px (subpixel rounding allowed). Fourteen browser
+samples from 320px through 2560px show no document or table overflow. The
+Results interaction gate now compares rendered ratios and mobile recovery.
+
+Status: resolved in the review follow-up. Source: owner scaling request and
+browser measurements, 2026-09-09. Evidence: PLAYBOOK Section 4.
+
+### F-B21-52: fractional Tailwind spacing steps compile to nothing, silently
+
+`static/css/tailwind.src.css` sets `--spacing: initial` and `--spacing-*:
+initial`, then declares only whole steps: 1, 2, 3, 4, 6, 8, 12. That switches
+off Tailwind v4's dynamic spacing scale, so a fractional utility is not a
+smaller value -- it is an unknown token that emits no rule at all. `py-2.5`,
+`md:py-3.5`, `px-1.5`, `gap-1.5` and `py-0.5` are all absent from the compiled
+stylesheet, including in the build deployed to Fly.io.
+
+The failure is silent in every direction. The class stays in the markup, the
+Tailwind build reports success, and the drift check passes because the
+committed CSS does match a rebuild -- a rebuild that also omits the rule. Only
+a computed-style read finds it.
+
+This is what cost the Results KPI rail its padding. The deployed markup used
+`p-3` (a real step, 0.75rem on all sides) plus `md:px-4`; the WP-5 rebuild
+replaced it with `px-1.5 py-2.5`, and both evaporated, leaving the cells with
+**zero vertical padding** and the label 1px from the outline. Restored
+2026-09-09 by authoring the deployed geometry in `static/css/results.css`
+against the declared scale, which also recovered the dead `gap-1.5` row gap
+and `py-0.5` numeral padding.
+
+Two candidate fixes, and the choice is the owner's:
+
+1. Restore Tailwind's dynamic scale by setting `--spacing: 0.25rem` instead of
+   `initial`, keeping the named steps as aliases. Fractional utilities then
+   work everywhere and the theme keeps its vocabulary.
+2. Keep the restricted scale deliberately -- it is a real design constraint --
+   and add a check that fails when a template requests a spacing step the
+   theme does not declare. This is the option that prevents recurrence rather
+   than permitting the syntax.
+
+Until one lands, the same trap is live for every future template edit. A grep
+for `-\d+\.5` across `templates/` finds current instances.
+
+Status: open. The Results instance is fixed; the class of defect is not.
+Source: owner-reported stat-bar padding regression, 2026-09-09.
+
+### F-B21-53: the surface-card token now sits darker than the page it lifts off
+
+The owner's 2026-09-07 surface split (`d41db1f`) moved `--ss-surface-card`
+from `#fcfbf8` to `#f9f7f1` and added `--ss-surface-card-standout: #ffffff`
+for the index card alone. Against the `#faf8f3` page, that reverses the sign
+of the intended lift: the deployed card was 2 channel steps lighter than the
+page (contrast 1.026:1), and the current one is 1 step darker (1.009:1).
+
+Neither value reads as a raised surface unaided -- at these ratios the 1px
+`--ss-border-default` rule (1.25:1 against the page) is doing all the
+separating work. But the deployed direction was at least upward, and the owner
+reports the deployed aesthetic as the better one. At the initial measurement, the Results KPI rail still consumed this token.
+The later owner refinement moved Results panels and the table to a midpoint
+between page and sunken; the general card token itself was not changed.
+
+Decide at the token: either return the light-theme card to a value above the
+page, or accept that cards are delineated by rule rather than by fill and stop
+describing them as elevated. The dark theme is unaffected (`#181520` card on
+`#0e0c12` page is a clear lift).
+
+Status: open for the general card token. The owner warmed the page/navbar
+canvas and selected midpoint surfaces for Results; PLAYBOOK Section 4 records
+that refinement. The comparisons above describe the previous canvas.
+Source: owner-reported stat-bar background regression, 2026-09-09.
+
+### F-B21-49: four error-page callers painted a 400 badge on a 200 response
+
+The missing-ID and unavailable-job branches in `_get_validated_job_context`,
+plus the failed and still-processing branches in `_render_results_page`,
+omitted both an explicit badge and an HTTP status. Flask returned 200 while
+the template displayed its default 400. The earlier description incorrectly
+called the fourth site an expired-results branch; it was pending results.
+
+The owner-authorized priority pass now returns matching HTML/status pairs:
+400 for a missing identifier, 404 for unavailable or wrong-mode jobs, 202 for
+pending results, 503 for retryable processing failure, 404 for an unknown
+Last.fm user, and 500 for an unclassified processing failure. The 404 choice
+matches the existing JSON APIs: no tombstone distinguishes an expired job
+from one that never existed. Saved Results and Unmatched empty states retain
+HTTP 200 and clear stale session pointers.
+
+Validation and comment provenance:
+[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
+
+Status: resolved in the review follow-up; closes the remaining call-site
+half of F-B21-10.
+Source: PR #227 TODO verification and owner-authorized priority fix, 2026-09-09.
+
+### F-B21-50: reconnaissance TODOs in production code generated eight review rounds
+
+Commit `769f0aa` added 15 `# todo:` comments to `scrobblescope/routes.py`,
+mostly appended to bare HTTP status literals (`400,  # todo: Consider adding
+client-side validation`). Commit `16fbf92` removed all 15. Net change to
+`routes.py` is zero: the TODO count runs 0 at `b987e48`, 15 at `a53e412`, 0 at
+HEAD.
+
+Between those commits the notes cost eight repeated Qlty rounds. The PR #227
+audit records `radarlint-pythonS1135` ("Complete the task associated to this
+TODO") on 15 rows, at 15 distinct `routes.py` line numbers, each carrying an
+occurrence count of 8 -- 120 comment bodies for one batch of notes.
+
+The later priority pass corrected the first verification's "13 implemented /
+two genuine" tally: twelve notes described existing behavior, two retain
+deferred work (unmatched redesign and possible retirement of legacy POST),
+and the results note exposed the remaining F-B21-49 status defect. Removing a
+note did not implement the deferred work. The per-note evidence and refreshed
+review counts are in
+[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
+The eight-round count above remains the original audit's snapshot.
+
+The lesson is about where such notes live, not whether to take them. A scratch
+file or a findings entry costs one reader; a TODO in a linted production module
+is a standing finding that every scanner republishes on every run, and a
+reviewer cannot tell an orientation note from a real defect. Keep reading notes
+out of production source.
+
+Status: open as guidance; the code half is already clean at HEAD. No revert is
+proposed -- the churn is in history, and rewriting it needs owner
+authorization for a net-zero gain.
+Source: PR #227 commit-range audit, 2026-09-09.
+
+### F-B21-51: frontend_gate.py is nine times its largest sibling
+
+`scripts/dev/frontend_gate.py` is 3,756 lines. The largest other module in
+`scripts/dev/` is `tailwind_build.py` at 404. AGENTS.md "Proposal and Design
+Rules" item 3 asks for a comparison against the largest peer in the directory
+rather than a line threshold, and this is 9x it.
+
+The file is not disorganized, and its internal structure improved during the
+review. Measured across the branch, the gate plus its helper went from 2,965
+lines in 49 functions on `main` to 3,879 lines in 78 functions at HEAD, while
+the longest single function fell from 485 lines to 271. The review commit's
+subject calls this "simplify frontend checks", but the module grew by about
+222 lines and its test file grew from 966 to 1,328: the work was
+decomposition, not reduction. Smaller units are the real gain.
+
+`CHECKS` is a single source of truth with groups derived from it, and PR #227
+extracted `_frontend_gate_results.py` (123 lines) during review remediation.
+The concern is that one module still owns the server fixture, CDN route
+policy, browser and context lifecycle, 25 check implementations, measurement
+helpers, and the CLI. The PR #227 review received
+`qlty:function-complexity` and `radarlint-pythonS3776` reports against
+`run_checks`, `_exercise_loading_progress_phases`, and
+`check_large_display_scale_parity` -- symptoms of that breadth rather than of
+any single function.
+
+A split should follow the existing group boundaries, which already partition
+the checks by shared fixture: static assets, theme and motion, forms and
+validation, layout and pipeline. `_frontend_gate_results.py` is the precedent
+for the module shape, and `worktree_guard.py` is the precedent for keeping a
+stable public facade over split internals.
+
+Status: open, deferred to a hygiene batch, including the remaining repeated
+geometry-label literals and the owner's issue #228 constants request. The
+earlier claim that infrastructure has no parity tests was incorrect:
+`tests/scripts/dev/test_frontend_gate.py` covers server teardown, setup
+failure, browser lifecycle, group isolation and CDN route policy. Verify the
+affected coverage before a further split, per AGENTS.md Refactor requires
+parity tests; existing tests are not evidence that every proposed split is safe.
+Source: PR #227 commit-range audit, 2026-09-09.
+
+### F-B21-48: Last.fm history is re-fetched because only page responses are cached
+
+Every album and Heatmap job calls `user.getrecenttracks` for its requested
+range. `scrobblescope.utils.REQUEST_CACHE` retains an exact URL-and-parameter
+page response for one hour, in process memory only. A restart clears it, and
+different `from`/`to` ranges cannot reuse their overlapping listening history.
+PostgreSQL stores Spotify album metadata but no Last.fm scrobble events.
+
+A persistent cache should store normalized scrobble events by user and played
+timestamp, with explicit coverage ranges and a short refresh window for recent
+history. That model lets album-year and rolling Heatmap requests reuse overlap
+without treating Last.fm page numbers as stable storage. Its definition must
+also set retention and invalidation behavior for edited or deleted scrobbles.
+
+Status: open. Keep this out of F-B21-47: it changes shared pipeline data and
+needs its own schema, completeness rules, and parity tests.
+Source: owner pipeline-performance observation and source cache audit,
+2026-09-06.
 
 ### F-B21-36: heatmap loading repeats context and reserves hidden stat columns
 
@@ -776,26 +1164,23 @@ Status: open, deferred on purpose. The owner accepted the drift on
 2026-08-22 and asked that the work be recorded rather than done now.
 Source: findings mirror, 2026-08-22.
 
-### F-B21-10: every error page reports 400, whatever the real status
+### F-B21-10: error-page fallback can report 400 for other statuses
 
-`templates/error.html` renders `{{ status_code|default('400') }}`, and not
-one of the seven `render_template("error.html", ...)` call sites passes
-`status_code`. Six are in `scrobblescope/routes.py` and the seventh is the
-CSRF handler in `app.py`. So a 404 renders the literal text "400", a 500
-renders "400", and the number is decorative rather than informative.
+`templates/error.html` still defaults a missing `status_code` to 400.
+The WP-2 audit found that callers did not supply their actual status, so
+404 and 500 pages displayed a misleading badge.
 
-The two `app_errorhandler` registrations that would supply it live in
-`routes.py`, which the batch contract reserves for WP-7. WP-2 migrated this
-template's markup and deliberately did not change the default or the call
-sites: doing so means editing a reserved file for a defect that predates the
-migration.
+PR #227 review remediation on 2026-09-07 supplied explicit 404 and 500 values
+in the registered error handlers. The 2026-09-09 priority pass completed the
+remaining routes.py call-site fix in F-B21-49: those callers now supply their
+actual status or explicitly hide the badge for a normal empty state. The
+template fallback remains for compatibility; app.py's CSRF handler uses that
+400 default and also returns HTTP 400, so its badge already agrees.
 
-The fix is to pass the real status at each call site, or to have the error
-handlers supply it, and then to drop the `default('400')` so a missing value
-fails loudly instead of lying quietly.
-
-Status: open. WP-7 candidate, because it owns `routes.py`.
-Source: WP-2 template migration, 2026-08-23.
+Status: resolved locally. F-B21-49 closes the remaining call sites; its
+priority-fix commit and publication are pending.
+Source: WP-2 template migration, 2026-08-23; PR #227 review, 2026-09-07;
+call-site measurement, 2026-09-09.
 
 ### F-B21-11: the welcome modal covers the new header theme toggle
 
@@ -1269,7 +1654,7 @@ composition scaling. The later owner-review layout, hierarchy, boundary,
 loading-progress, and unmatched-empty-state work also remains incomplete. In
 particular, the live source still used the interim wide split and a centred
 `23.75rem` form cap until Task 3 landed the final `3fr 4fr` split and
-`28rem` base cap.
+`27.5rem` owner-refined base cap.
 
 Measurement on 2026-09-01 named the cause. The formula divides window height by
 the 1080px design viewport instead of by the composition's own 673px height,
@@ -1285,10 +1670,10 @@ is the sole acceptance specification for the reopened work. It records the
 1080p comparison needed before any global header-density decision.
 
 Status: reopened. Task 2's proportional scale is implemented and passed the
-complete two-engine gate; Task 3 landed the final `3fr 4fr` split, `28rem`
-form cap, raised divider contrast, and the ruled header clamps. The later
-owner-review remediation tasks (Task 4 loading-progress alignment, Task 5
-unmatched no-data surface, Task 6 accessibility pass) remain open.
+complete two-engine gate; Task 3 landed the final `3fr 4fr` split, now refined
+to a `27.5rem` form cap, raised divider contrast, and the ruled header clamps.
+Tasks 4 and 5 are complete. Task 6 remains deferred until Bootstrap removal;
+the canonical plan and PLAYBOOK Section 3 own its timing.
 Source: owner large-display review, 2026-08-28; owner clarification and
 measurement, 2026-09-01.
 
@@ -1490,17 +1875,17 @@ Status: open. Source: load testing 2026-03-04.
 
 ### F-AUDIT-1: dark-mode toggle placement on mobile
 
-Fixed-position footer toggle may overlap content on small screens.
-Batch 21 moves the toggle into the standing header bar; its acceptance
-criterion on tap-target size names this finding as closed by that work.
+Fixed-position footer toggle may overlap content on small screens. Batch 21
+first moved the toggle into the standing header bar; later mobile review found
+that this made it compete with the two-row navigation instead.
 
-**Resolved by WP-2 on 2026-08-23.** The footer bar is deleted and the toggle
-now sits in the standing header. Both it and the wordmark link carry
-`min-height: 44px` in `static/css/shell.css`, which is the floor the design
-system sets. The control is a visible label over a visually hidden checkbox,
-so it stays keyboard reachable and keeps its accessible name; on narrow
-screens the label text is hidden visually only, never with `display: none`.
-Status: resolved (Batch 21 WP-2, 2026-08-23). Source: AUDIT_2026-02-11.
+**Resolved by WP-2 and owner mobile review.** The fixed footer bar is deleted.
+The same theme control sits in the standing header on desktop and moves into
+normal flow after page content on mobile, where it cannot cover content or
+compete with navigation. It retains a 44px target, keyboard reachability, its
+accessible name, and one source of checked state in both positions.
+Status: resolved (Batch 21 WP-2, refined 2026-09-05). Source:
+AUDIT_2026-02-11 and owner mobile review.
 
 ### F-LOAD-2: no integration tests in CI
 
@@ -1648,6 +2033,26 @@ Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 ---
 
 ## P2 -- Scaling roadmap
+
+### F-B21-54: PR 227 still reports test assertions through a separate scanner
+
+The 2026-09-09 PR snapshot contains 268 inline Bandit B101-bearing comments
+across seven pytest files. The published `.codacy.yml` excludes `tests/**`
+from Codacy, but those B101 comments are from Qlty. The local
+`.qlty/qlty.toml` is untracked and names test patterns without a targeted
+B101 exclusion. Changing Codacy does not configure the other reviewer.
+
+This is P2 review-tooling debt, not 268 production vulnerabilities. Keep
+test assertions and preserve production analysis. A future tooling change
+should scope only the noisy rule to test paths and validate the actual
+review provider; do not hide whole production modules or suppress other
+findings bundled in the same comment. The float and callback-comparison
+claims were checked separately in
+[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
+
+Status: open, deferred. No scanner configuration changed in this priority pass.
+Source: PR #227 live comments and local scanner configuration, 2026-09-09.
+
 
 ### F-DATA-1: reissue editions collapse onto the original's cache row
 

@@ -281,9 +281,9 @@ def test_collect_tracked_paths_sanitizes_git_invocation_oserror(tmp_path: Path):
 
     assert str(exc_info.value) == "Repository tracked-file discovery failed"
     assert exc_info.value.__cause__ is None
-    assert (
-        exc_info.value.__suppress_context__
-    ), "the original OSError carries the host path and must not be chained"
+    assert exc_info.value.__suppress_context__, (
+        "the original OSError carries the host path and must not be chained"
+    )
 
 
 def test_active_definition_sha_is_blocking(tmp_path: Path):
@@ -403,9 +403,9 @@ def test_pending_batch_log_path_is_not_a_dead_link(tmp_path: Path):
 def test_active_definition_reference_must_match_batch(tmp_path: Path):
     """The current batch cannot point at a previous batch definition."""
     inputs = _valid_inputs(tmp_path)
-    inputs["playbook_lines"][
-        4
-    ] = "- **Batch 21 is active.** Definition: `BATCH20_DEFINITION.md`."
+    inputs["playbook_lines"][4] = (
+        "- **Batch 21 is active.** Definition: `BATCH20_DEFINITION.md`."
+    )
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
 
     issues = collect_integrity_issues(**inputs)
@@ -417,9 +417,9 @@ def test_active_definition_reference_requires_complete_batch_token(tmp_path: Pat
     """Batch 21 must not accept a Batch 210 definition via prefix matching."""
     inputs = _valid_inputs(tmp_path)
     wrong_path = "BATCH210_DEFINITION.md"
-    inputs["playbook_lines"][
-        4
-    ] = f"- **Batch 21 is active.** Definition: `{wrong_path}`."
+    inputs["playbook_lines"][4] = (
+        f"- **Batch 21 is active.** Definition: `{wrong_path}`."
+    )
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
     inputs["live_documents"][wrong_path] = [
         "# BATCH210",
@@ -823,7 +823,7 @@ def test_doc007_disagreeing_next_wp_claim_is_blocking(tmp_path: Path):
     # The fixture's only current-batch entry is tagged WP-0, so PLAYBOOK
     # computes WP-1; a definition still claiming WP-2 must be caught.
     inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
-        "**Status:** Active. **WP-2 (shell) is the next batch work " "package.**"
+        "**Status:** Active. **WP-2 (shell) is the next batch work package.**"
     )
 
     issues = collect_integrity_issues(**inputs)
@@ -894,7 +894,7 @@ def test_doc007_between_batches_never_reports(tmp_path: Path):
     ]
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
     inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
-        "**Status:** Complete. **WP-9 (sweep) is the next batch work " "package.**"
+        "**Status:** Complete. **WP-9 (sweep) is the next batch work package.**"
     )
 
     assert collect_integrity_issues(**inputs) == []
@@ -914,7 +914,7 @@ def test_doc007_gap_in_completed_wps_picks_lowest_missing(tmp_path: Path):
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
     # WP-0 and WP-2 are tagged, so the lowest missing number is WP-1.
     inputs["live_documents"]["BATCH21_DEFINITION.md"] = _definition_with_status(
-        "**Status:** Active. **WP-3 (index) is the next batch work " "package.**"
+        "**Status:** Active. **WP-3 (index) is the next batch work package.**"
     )
 
     issues = collect_integrity_issues(**inputs)
@@ -1178,9 +1178,28 @@ def test_doc007_section3_without_claim_stays_silent(tmp_path: Path):
         6,
         "- **Next action:** continue per the batch definition.",
     )
+    assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc007_section3_unlabelled_claim_blocks(tmp_path: Path):
+    """An unlabelled next-WP claim in Section 3 blocks and requires the label."""
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
+        "# BATCH21",
+        "**Status:** Active. **WP-1 is next.**",
+        "### WP-1: First",
+    ]
+    inputs["playbook_lines"].insert(
+        6,
+        "- Batch 21 WP status: WP-0 is done. WP-1 is next.",
+    )
     inputs["live_documents"]["PLAYBOOK.md"] = inputs["playbook_lines"]
 
-    assert collect_integrity_issues(**inputs) == []
+    issues = collect_integrity_issues(**inputs)
+
+    doc007 = [i for i in issues if i.code == "DOC007" and i.path == "PLAYBOOK.md"]
+    assert len(doc007) == 1
+    assert "lacks the required '- **Next action:**' bullet label" in doc007[0].invariant
 
 
 def test_doc007_stale_session_section1_claim_is_blocking(tmp_path: Path):
@@ -1276,7 +1295,7 @@ def test_doc007_absorbed_wp_is_not_demanded(tmp_path: Path):
     inputs["live_documents"]["BATCH21_DEFINITION.md"] = [
         "# BATCH21",
         "",
-        "**Status:** Active. **WP-7 (unmatched) is the next batch work " "package.**",
+        "**Status:** Active. **WP-7 (unmatched) is the next batch work package.**",
         "",
         "**Branch:** `wip/batch-21` (lineage lives in PLAYBOOK Section 4).",
         "",

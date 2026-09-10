@@ -8,10 +8,8 @@ validation by docsync.integrity.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from docsync.models import (
-    ActiveBatchState,
     Entry,
     SyncError,
     SyncResult,
@@ -489,7 +487,7 @@ def latest_test_count_authority(
             (batch_log_candidates, _PRECEDENCE_BATCH_LOG),
             (side_entries, _PRECEDENCE_LIVE_SIDE),
         )
-        for entry, date_key in zip(source, _monotonic_dates(source))
+        for entry, date_key in zip(source, _monotonic_dates(source), strict=True)
     ]
     ordered_candidates.sort(key=lambda item: (item[2], item[1]), reverse=True)
 
