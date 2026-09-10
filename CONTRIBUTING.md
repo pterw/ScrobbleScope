@@ -45,15 +45,9 @@ Please note that as the project evolves, these guidelines for pull requests migh
 
 ## Setting Up Your Development Environment
 
-To get ScrobbleScope running locally for development, please refer to the "Getting Started" section in the [README.md](README.md). Key steps include:
-
-1.  Cloning the repository.
-2.  Setting up a Python virtual environment.
-3.  Installing dependencies from `requirements.txt`.
-4.  Creating a `.env` file with your API keys.
-5.  Running `python app.py`.
-
-For development, you might want to set `DEBUG_MODE="1"` in your `.env` file for more verbose logging and Flask's debug mode.
+Follow [Getting Started in the README](README.md#getting-started) for the
+virtual environment, development dependencies, API credentials, and local
+startup. Keep setup instructions there so the two guides do not drift apart.
 
 ## Code Style (Python)
 

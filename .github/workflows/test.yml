@@ -102,6 +102,7 @@ jobs:
       - name: Run frontend gate
         if: ${{ github.event_name != 'pull_request' || (github.head_ref != 'fly.io-deploy' && github.head_ref != 'flyio-deploy') }}
         run: |
+          python scripts/dev/results_behavior_tests.py
           python scripts/dev/frontend_gate.py
 
       - name: Security audit (pip-audit)

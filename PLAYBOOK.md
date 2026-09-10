@@ -601,6 +601,38 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-10 - Add isolated Results script regression coverage
+
+- Scope: owner-requested coverage review and tests for Spotlight and leaderboard
+  interactions. Sampling is server-owned and already covered by the route test.
+- Implementation: six isolated Chromium tests run unmodified production scripts
+  with a controlled clock. Cover rotation wraparound, late and failed hydration,
+  reduced motion, numeric sorting with absent metrics, ranks and accessible
+  selection, and hover delay/cancellation plus keyboard tooltip dismissal.
+  CI runs this suite after installing browsers and before the frontend gate.
+- Validation: six browser tests passed; `pytest -q`: **974 passed**;
+  all pre-commit hooks passed. Documentation integrity and whitespace checks
+  passed after the final log update.
+  No application changes or dependency additions. Owner authorized committing
+  this coverage and the README refresh together; pushing is not part of this step.
+
+### 2026-09-10 - Refresh the product README against the current implementation
+
+- Scope: owner-requested README refresh while the owner handles PR #227
+  integration. No application changes or Git history operations.
+- Implementation: describe current navigation, Results/Spotlight, Heatmap
+  statistics and export limits, progress UI, and the remaining Bootstrap
+  Unmatched report. Replace stale test/coverage figures with the live CI badge;
+  shorten the file inventory and link to maintained architecture and work orders.
+  Correct virtualenv installs and the init_db.py environment requirement.
+- Related pointers: DEVELOPMENT now accurately distinguishes the Chromium
+  matrix from the Firefox canary; CONTRIBUTING delegates setup to README.
+- Validation: source-checked against templates, routes, frontend scripts,
+  dependency pins, workflow configuration and deployment files. All 42 local
+  Markdown links and anchors, pre-commit hooks, documentation integrity and
+  whitespace checks passed.
+  Owner subsequently authorized committing this refresh with the Results tests.
+
 ### 2026-09-10 - Refine Heatmap contrast and Results interaction motion
 
 - Scope: owner follow-up on Heatmap styling, duplicate Results Top control,
@@ -677,64 +709,3 @@ non-current operational logs. Older dated entries live in
   Tests caught it; original bytes were restored before the passing suite.
 - Forward guidance: owner visual review before publication. WP-7 remains
   next batch work; Task 6 stays deferred until Bootstrap removal.
-
-### 2026-09-09 - Complete Results scaling and warm the shared canvas
-
-- Owner direction: keep the deployed Results aesthetic, warm the page/navbar
-  subtly, keep the header fixed on every screen size, and defer
-  Task 6 until Bootstrap is fully removed. The canonical remediation plan
-  records the timing; WP-7's backend-first contract and final page migration
-  remain unchanged.
-- Owner typography refinement: Track Plays table numerals are 25% larger;
-  Listening Time retains its existing size, including after switching modes.
-- Owner follow-up: Results stat rail, table, empty-state panel and sidebar
-  cards use `--ss-surface-sunken`; table hover uses the card token for a
-  visible state change. Buttons retain their control surfaces.
-- Implementation: shared light canvas is `#faf7f0`; DOC009 guards the Tailwind,
-  legacy-page and navbar copies. Results uses measured numeric scaling across
-  named spacing tokens, typography, artwork and controls. F-B21-55 records the
-  fixed Firefox arithmetic failure and incomplete geometry scaling. Mobile
-  table headings wrap within their columns. The mobile gate verifies both fixed positioning and matching body padding.
-- Evidence: `scratch/fixed-results-measurements.json` and paired Chromium /
-  Firefox screenshots. Both engines agree on 20% growth between 1200px and
-  1920px. Fourteen viewport samples (320-2560px) have no horizontal overflow;
-  the shared header remains at top 0 after scrolling at every width. Index, Results and
-  Unmatched bodies and navbars all compute to the warm canvas. Dark token values are unchanged; Results panels now consume the sunken token. The Results gate checks growth ratios and
-  mobile recovery using rendered values.
-- Publication validation: fresh `pytest -q` -- **975 passed**. Full frontend
-  gate: 25 checks passed in 45 runs across Chromium and the Firefox canary.
-  The prior loading-pipeline navigation race did not reproduce. The separate
-  Results probe covered both engines at seven widths; the final surface and
-  metric-toggle checks covered both themes and desktop/mobile respectively.
-  All pre-commit hooks pass, including generated-CSS drift; docsync and
-  whitespace checks pass. Read-only review found no material code issue and
-  corrected active document contradictions; exhaustive historical-document
-  coverage was interrupted by reviewer usage limits. Owner authorized commit
-  and push; local tool artifacts remain outside the published changes.
-
-### 2026-09-09 - Triage PR 227 assertions and deleted TODOs; fix job-page statuses
-
-- Scope: owner requested top-priority fixes only and logging of other review
-  comments. Read live review threads, complete review bodies including the
-  low-confidence block, current source, and the TODO add/remove commits.
-- Plan vs implementation: fixed F-B21-49 with explicit HTTP/badge pairs at
-  its four source branches. Missing IDs return 400; unavailable jobs 404;
-  pending results 202; processing failures use their classified status.
-  Saved empty-state recovery stays 200. Strengthened five existing tests and
-  added thirteen route cases. The tests failed before the source fix.
-- Disposition: F-B21-54 records test-scanner noise. F-B21-50 now distinguishes
-  implemented notes from deferred unmatched redesign / POST retirement.
-  F-B21-51 no longer incorrectly claims there are no gate infrastructure tests.
-  Detailed evidence and remaining finding owners:
-  `docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md`.
-- Validation: `pytest -q` -- **975 passed**. Route suite: 18 failed / 89 passed
-  before, 107 passed after. Focused read-only review found no regression.
-  Docsync and `git diff --check` pass. Hooks pass after formatting except the
-  existing `tailwind-css-drift` failure described below.
-- Deviations: the pre-work hooks rebuilt already-dirty `tailwind.css` for the
-  owner's existing results markup; its index comparison fails until that
-  separate styling work is staged. No source CSS/template changes were made
-  here. The known Windows log-rotation lock appeared in red-test diagnostics.
-- Forward guidance: keep this status fix separate from existing styling.
-  Published PR `a53e412` lacks the earlier local remediation; no commit,
-  push or review reply was made. Task 6 and WP-7 remain next.
