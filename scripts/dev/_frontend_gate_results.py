@@ -116,6 +116,7 @@ def _check_results_scale(page) -> list[str]:
                         getComputedStyle(document.querySelector(selector))[property]);
                     window.scrollTo(0, 300);
                     const headerTop = document.querySelector('.site-header').getBoundingClientRect().top;
+                    const scrollOffset = window.scrollY;
                     window.scrollTo(0, 0);
                     return {
                         title: size('.results-headline', 'fontSize'),
@@ -123,6 +124,7 @@ def _check_results_scale(page) -> list[str]:
                         artwork: size('#results-table td:nth-child(2) > div > div', 'width'),
                         header: size('.site-header', 'height'),
                         headerTop,
+                        scrollOffset,
                         headerPosition: getComputedStyle(document.querySelector('.site-header')).position,
                         bodyOffset: size('body', 'paddingTop'),
                         overflow: document.documentElement.scrollWidth > innerWidth,
@@ -140,14 +142,12 @@ def _check_results_scale(page) -> list[str]:
         if abs(wide["header"] - base["header"]) > 1:
             failures.append("Results content scale changed the shared header")
         if any(
-            m["headerPosition"] != "fixed"
-            or abs(m["headerTop"]) > 0.5
-            or abs(m["bodyOffset"] - m["header"]) > 0.5
+            m["headerPosition"] not in {"relative", "static"}
+            or abs(m["headerTop"] + m["scrollOffset"]) > 0.5
+            or abs(m["bodyOffset"]) > 0.5
             for m in measurements
         ):
-            failures.append(
-                "Results header is not fixed with matching content clearance"
-            )
+            failures.append("Results header does not scroll away in document flow")
         if mobile["title"] >= base["title"] or any(m["overflow"] for m in measurements):
             failures.append("Results did not recover a contained mobile layout")
     finally:

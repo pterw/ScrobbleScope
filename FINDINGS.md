@@ -3,7 +3,7 @@
 Last updated: 2026-09-09
 Status: Batch 21 is active. WP-0 through WP-5 and owner-review remediation
 Tasks 1-5 are complete. PLAYBOOK Section 3 owns the current work order.
-975 tests across 40 test modules.
+974 tests across 40 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -186,11 +186,10 @@ padding. At 1920x945, its outer top and bottom space measured 55.9px and
 base cap also left the card slightly wider than the owner's preferred measure.
 
 Status: resolved, 2026-09-05. The owner-refined base cap is `27.5rem`. The
-complete form composition uses block auto margins to centre within its desktop
-well when it fits. In an expanded state where the composition exceeds the
-available height, those margins collapse and the content keeps its top padding
-plus natural document scroll. The Chromium and Firefox gate verifies balanced
-outer gutters at realistic 1080p, 1440p, and 4K profiles while retaining the
+2026-09-09 refinement places the composition up to 2.5rem above centre,
+bounded by 0.25rem of header clearance. Expanded content retains natural
+scrolling only when it cannot fit. The gate verifies this upward bias
+at realistic 1080p, 1440p, and 4K profiles while retaining the
 fixed-geometry checks across every reachable form state.
 Source: owner 1080p/1440p visual comparison and two-engine rendered
 measurements, 2026-09-05.
@@ -241,8 +240,13 @@ slower than the surrounding page states.
 
 Status: resolved, 2026-09-05. The two mode descriptions now share one grid
 track and crossfade concurrently over 180ms, so the taller copy reserves the
-same height in both states. Index entrance and Heatmap stage opacity changes
-use the same 180ms timing. The reduced-motion media query restores immediate,
+same height in both states. Heatmap stage changes retain 180ms; the 2026-09-09
+owner refinement gives page navigation a shared 220ms entry and 140ms exit.
+The 2026-09-10 delayed-script probe reproduced a first-paint flash in both
+engines: DOM readiness restarted already-visible content from zero opacity.
+Entry now starts in CSS without waiting for JavaScript; the regression probe
+confirms no visible-to-transparent dip.
+The reduced-motion media query restores immediate,
 fully opaque states.
 Source: owner browser review, 2026-09-05.
 
@@ -661,8 +665,8 @@ Neither value reads as a raised surface unaided -- at these ratios the 1px
 `--ss-border-default` rule (1.25:1 against the page) is doing all the
 separating work. But the deployed direction was at least upward, and the owner
 reports the deployed aesthetic as the better one. At the initial measurement, the Results KPI rail still consumed this token.
-The later owner refinement moved Results panels and the table to the shared
-sunken token; the general card token itself was not changed.
+The later owner refinement moved Results panels and the table to a midpoint
+between page and sunken; the general card token itself was not changed.
 
 Decide at the token: either return the light-theme card to a value above the
 page, or accept that cards are delineated by rule rather than by fill and stop
@@ -670,7 +674,7 @@ describing them as elevated. The dark theme is unaffected (`#181520` card on
 `#0e0c12` page is a clear lift).
 
 Status: open for the general card token. The owner warmed the page/navbar
-canvas and selected sunken surfaces for Results; PLAYBOOK Section 4 records
+canvas and selected midpoint surfaces for Results; PLAYBOOK Section 4 records
 that refinement. The comparisons above describe the previous canvas.
 Source: owner-reported stat-bar background regression, 2026-09-09.
 

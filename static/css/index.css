@@ -77,22 +77,6 @@ html {
   display: none;
 }
 
-/* Page navigation lands on a composed destination, not a new card snapping
-   into place. Keep that entrance opacity-only so it does not fight the
-   wide-screen scale or shift either column's measured geometry. */
-@keyframes ss-index-page-enter {
-  to {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .index-grid {
-    opacity: 0;
-    animation: ss-index-page-enter var(--index-fade-duration) ease-out forwards;
-  }
-}
-
 @media (min-width: 860px) {
   /* Full bleed. The columns carry the gutter, so the sunken well on the
      right runs to the edge of the window. The docs/design/README.md snapshot
@@ -294,6 +278,16 @@ html {
 @media (min-width: 860px) {
   .index-form__inner {
     margin-block: auto;
+  }
+
+  /* Measured placement keeps the requested upward bias without carrying
+     unused bottom padding into document overflow on shorter windows. */
+  .index-form.is-positioned {
+    padding-block: 0.25rem;
+  }
+
+  .index-form.is-positioned .index-form__inner {
+    margin-block: max(0rem, calc(var(--index-form-top, 0.25rem) - 0.25rem)) auto;
   }
 }
 

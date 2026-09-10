@@ -84,6 +84,15 @@ See FINDINGS F-DOCSYNC-3.
   definition. Branch: `test` (worktree off `main`; remediated from `wip/batch-21` per owner authorization 2026-09-06).
 - **Results refinement:** proportional scaling and the warm shared canvas are
   included in the review follow-up; F-B21-55 and Section 4 record evidence.
+  The current owner consistency pass adds midpoint surfaces, matched sidebar
+  headings and action buttons, removes redundant Heatmap loading counters,
+  and repairs page/handoff motion. The index form sits up to 2.5rem higher;
+  the decade-filter state fits shorter desktop windows without changing scale.
+  The 2026-09-10 follow-up refines Heatmap contrast and toolbar type, adds
+  delayed Spotify link hints and animated ranking changes, and fixes a
+  reproduced first-paint flash. The header now scrolls out of view in document
+  flow, following the owner's screenshot clarification. Final validation passed;
+  owner visual review is approved and the reviewed changes are authorized for PR #227.
 - **PR #227 priority triage:** F-B21-49 is resolved in the review follow-up.
   Review comments including assertions and all 15 deleted route TODOs were
   checked; F-B21-54 records remaining scanner noise. Evidence:
@@ -122,7 +131,7 @@ See FINDINGS F-DOCSYNC-3.
   no-data surface (`templates/unmatched_empty.html`), wired clean session
   recovery and eviction on `/unmatched`, mutest-verified failure paths, and
   extended `frontend_gate.py` with card, shadow, and action assertions.
-  Owner visual refinements vertically centre the desktop form composition,
+  Owner visual refinements bias the desktop form above centre,
   unify single-row mobile navigation with the theme control below page content,
   widen the desktop Heatmap result, and return its username to the neutral headline
   treatment (F-B21-44 through F-B21-46). Task 6 follows Bootstrap removal; see the canonical remediation plan.
@@ -592,6 +601,83 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-10 - Refine Heatmap contrast and Results interaction motion
+
+- Scope: owner follow-up on Heatmap styling, duplicate Results Top control,
+  delayed Spotify hints, sorting motion and page-loading jank.
+- Implementation: owner-refined sunken light-mode Heatmap frame with darker
+  warm-neutral empty cells (`#c8bfad`); uppercase Input Mono
+  Narrow toolbar with primary New search; supporting label grows from 12px
+  to 15px in Input Mono. Results retains only the side-rail Top control.
+  Spotify links reveal a shared hint after 450ms hover, immediately on focus,
+  and dismiss on Escape, blur or scrolling. Ranking changes interpolate row
+  positions for 280ms, with immediate reduced-motion updates. Export clones
+  clear transient row animations.
+- Diagnosis: delayed page_motion.js reproduced a visible-to-transparent flash
+  in Chromium and Firefox before DOM readiness. CSS now starts entry at first
+  styled paint; the delayed-script probe no longer reproduces the opacity dip.
+  The initial header clarification was interpreted as viewport-fixed. The
+  owner's later screenshot identified that persistent visibility as the
+  unwanted behavior. The header now occupies document flow and scrolls out of
+  view; duplicate body clearance is removed and the sticky rail uses its own gap.
+- Export inspection: Heatmap uses a separate hand-drawn canvas with older
+  headline/layout rules. That visual mismatch remains; the working export is
+  preserved in this pass. Results export is unchanged apart from suppressing
+  temporary row motion in its clone.
+- Validation: `pytest -q` -- **974 passed**. The full frontend gate passed
+  25 checks in 45 runs. Additional Chromium and Firefox probes covered hover
+  delay, dismissal, rapid sorting, reduced motion, scroll stability, header
+  scroll-away, both-theme empty-cell fills and responsive Heatmap geometry.
+  Firefox CSV/JPEG checks passed at desktop and mobile widths in both themes.
+  Evidence: `scratch/pressure-verify-final.txt`, `scratch/pressure-extra-final.txt`
+  and screenshots. Final staged validation passes every hook, including
+  generated-CSS drift and documentation sync. Owner visual
+  review approved the result and authorized a safe push to PR #227. The pre-push
+  sweep reconciled stale design overrides with the shipped composition. This
+  remains an owner-directed side-task, not a new work package.
+
+### 2026-09-09 - Refine Results consistency and restore navigation continuity
+
+- Scope: owner-requested UI consistency and remediation of local Heatmap
+  edits. Preserve the larger headline, sans preview labels and tighter loading
+  parameters; correct the undefined legend font token. Remove the intentional
+  duplicate Heatmap counter rail and its unused hydration and layout checks.
+- Implementation: Results panels use an equal sRGB page/sunken mix. Sort and
+  outside-filter headings use smaller uppercase sans type than Spotlight,
+  centred without changing text colours. Sort labels use weight 400. The
+  three toolbar actions use uppercase Input Mono Narrow with one larger gap
+  step; New search retains the theme primary fill. Secondary Results actions
+  and Heatmap result buttons share sans type and control fill, retaining
+  proportional Results dimensions.
+- Index follow-up: measured form placement lifts the composition up to 2.5rem
+  from centre, bounded by 0.25rem of header clearance. Reclaiming excess
+  vertical well padding removes the decade-state scrollbar at 1920x900 and
+  1536x730 in both engines, with thresholds collapsed and scale unchanged.
+  Mobile retains its existing padding. `scratch/index-offset-evidence.json`
+  records five desktop window sizes per engine.
+- Motion: browser samples confirmed existing entrances and a fixed header.
+  Shared keyframes make page entry independent of first-paint timing; normal
+  internal links fade content out before navigation, and Back restores it.
+  Reduced motion remains immediate. Heatmap loader/result stages overlap
+  during their existing opacity handoff. The header remains independently fixed.
+- Export: the browser resolves the mixed surface to RGB in the JPEG clone
+  because html2canvas cannot parse modern computed colour functions. The live
+  page retains its theme-derived mix. Export clones suppress entry animation.
+- Validation: `pytest -q` -- **974 passed**. Focused Chromium and Firefox
+  probes cover desktop/mobile, both themes, scaling, header scroll position,
+  button and heading consistency, navigation, Back and Heatmap completion.
+  Evidence: `scratch/ui-consistency-evidence.json` and accompanying screenshots.
+  Full frontend gate: 25 checks passed in 45 runs. Additional Firefox checks
+  pass for both-theme desktop/mobile exports and the complete layout/state
+  matrix. All hooks pass except committed-CSS drift: the regenerated file
+  intentionally differs from the index while this work remains unstaged.
+  A second build produces identical bytes. Docsync and whitespace checks
+  pass. No commit or push.
+- Deviation: an editing helper briefly misdecoded existing UTF-8 punctuation.
+  Tests caught it; original bytes were restored before the passing suite.
+- Forward guidance: owner visual review before publication. WP-7 remains
+  next batch work; Task 6 stays deferred until Bootstrap removal.
+
 ### 2026-09-09 - Complete Results scaling and warm the shared canvas
 
 - Owner direction: keep the deployed Results aesthetic, warm the page/navbar
@@ -652,97 +738,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: keep this status fix separate from existing styling.
   Published PR `a53e412` lacks the earlier local remediation; no commit,
   push or review reply was made. Task 6 and WP-7 remain next.
-
-### 2026-09-09 - Audit PR 227 for regression and bloat; ignore gate artifacts (side-task)
-
-- Scope: the owner asked which commits after `b987e48` carry value and which
-  are bloat, and whether the 15 route TODOs were implemented. Owner chose the
-  hygiene-only remedy: no history rewrite and no gate split.
-- Premise correction recorded before any change: `b987e48` is not a baseline
-  to restore toward. `main` merged into this branch at `ebc5145`, *after*
-  `b987e48`, so reverting toward it would discard PRs #225 and #226. PR content
-  was therefore measured against `origin/main`.
-- Size of the PR, since three different questions give three different answers
-  and the first is the one that misleads. `b987e48..HEAD` is +4524/-1848 over
-  62 files, but it hides everything that arrived through the `ebc5145` merge
-  and must not be quoted. `origin/main..HEAD` is +8458/-2293 over 76 files.
-  Summing each of the 34 non-merge commits' own diffs gives the real churn:
-  **+13802/-5450 over 86 distinct files**, so netting the endpoints conceals
-  8,501 touched lines. The largest single contributor is `frontend_gate.py`:
-  20 commits and 3,158 gross lines to land a net +791 while chasing the CI
-  stall. Quote the churn figure when judging review effort and the endpoint
-  diff when judging the delivered change.
-- Three bloat suspicions were tested and **disproved**, so nothing was
-  reverted: (1) the 486/484-line `global.css` diff is a whole-file CRLF-to-LF
-  conversion in `d41db1f` with about five semantic lines, and `global.css` was
-  the only CRLF outlier in `static/**` and `templates/**`, so the conversion
-  normalized it; (2) `typekit_fixture.css` was added then deleted under the
-  owner's 2026-09-07 font-licensing ruling, recorded in
-  `scripts/dev/fixtures/README.md`; (3) the ruff migration touched about
-  fifteen test files but only reflowed `assert` formatting, weakening no
-  assertion. `ipinfo` and `cachetools` removal was confirmed against zero
-  imports repo-wide.
-- Security and hardening in the range were confirmed genuine and kept:
-  `innerHTML` sinks in `static/js` fall 5 (main) to 4 (`b987e48`) to 1 (HEAD,
-  `heatmap.js` only); least-privilege `contents: read`;
-  `persist-credentials: false`; 18 vulnerable pins upgraded to a zero-finding
-  `pip-audit`; aiohttp 3.14 deprecations replaced with stdlib `base64`; CI
-  actions moved off the deprecated Node 20 runtime.
-- TODO verification: 13 of 15 described already-implemented behaviour
-  (`/unmatched` GET route, `unmatched_empty.html`, `index.js` blur validation,
-  `heatmap.js` `retryable` branching), so removing them was correct. Two were
-  genuine and are now **F-B21-49**.
-- Implementation: added root-anchored `.gitignore` entries for
-  `/gate_out*.txt` and `/gate_summary.txt` (about 3 MB of untracked console
-  captures) plus `*.new` and `*_backup.toml` migration scaffolding, verified
-  against `git ls-files` so no tracked file became hidden; deleted the
-  untracked zero-byte `.github/workflows/workflow1`, which would have been an
-  invalid workflow had it ever been committed.
-- Deviations: three findings were filed rather than fixed, because each needs
-  an owner ruling or parity tests this side-task does not carry. **F-B21-49**
-  (four `error.html` callers return HTTP 200 while painting a 400 badge;
-  measured, not read) needs the owner to choose 404 or 410 for expired jobs.
-  **F-B21-50** records the net-zero TODO churn that cost eight Qlty rounds
-  (15 distinct `routes.py` line numbers, each republished 8 times: 120 comment
-  bodies). **F-B21-51** sizes `frontend_gate.py` at 3,756 lines against its
-  largest sibling's 404, and defers the split because gate infrastructure has
-  no parity tests (AGENTS.md Proposal and Design Rules item 4). F-B21-10's
-  status line now points at F-B21-49 for its call-site half.
-- One claim in the review commit's own subject was checked and does not hold as
-  written: "simplify frontend checks". The gate plus helper grew from 2,965
-  lines in 49 functions on `main` to 3,879 in 78 at HEAD, about 222 of those
-  lines added by that very commit, with its test file going 966 to 1,328. What
-  did improve is unit size -- the longest function fell 485 to 271. Recorded in
-  F-B21-51 so a later reader does not inherit "simplified" as fact.
-- Validation: `pytest -q` -- **962 passed**. All pre-commit hooks and
-  `doc_state_sync.py --check` pass. The committed tree was verified clean by
-  stashing the unrelated results-scaling work in progress; the earlier
-  `tailwind-css-drift` failure belonged to that work, not to any PR commit.
-- Forward guidance: the PR #227 body still needs writing before merge. Task 6
-  (accessibility pass) and WP-7 remain the next batch work.
-
-### 2026-09-07 - Remediate PR 227 and simplify frontend checks
-
-- Owner requested one review-remediation package. The full comment inventory,
-  body exclusions, repeated claims and individual dispositions are in
-  `docs/history/reports/PR227_REVIEW_2026-09-07.md`.
-- Extracted gate measurement/comparison/profile responsibilities, shared phase
-  probes and lazy generic CDN fixture loading; preserved the live-fonts option.
-  Existing thresholds and the Chromium matrix / Firefox static canary remain.
-- Separated spotlight aggregation from routes, shared Spotify payload parsing,
-  separated heatmap validation/dispatch, and extracted the Last.fm job stage.
-  Existing job-state, empty/error, fallback and sampling behavior stays covered.
-- Split results spotlight hydration/rotation from exports; use DOM text nodes
-  for metrics/toasts and supported metric-toggle font weights. CSV follows the
-  current rank/metric with full ISO dates while display stays month precision.
-  JPEG background comes from the active theme; browser checks decode actual
-  downloads in both themes at mobile and desktop widths.
-- Reconciled implemented route TODOs, corrected explicit 404/500 badges (the
-  remainder of F-B21-10 stays open), and disabled checkout credential persistence.
-- Review caught invalid JSON in the extracted stale-response fixture. A failing
-  regression test proved it; structured JSON serialization restored the check.
-- Validation: `pytest -q` -- **962 passed**, zero warnings. The frontend gate
-  passed 25 checks in 45 runs across Chromium and the Firefox static canary.
-  Both theme exports decode to nonblank 3600px-wide JPEGs. All pre-commit
-  hooks and `doc_state_sync.py --check` pass. No push or deployment. Header
-  alignment and optional white-card shadow remain a separate design follow-up.

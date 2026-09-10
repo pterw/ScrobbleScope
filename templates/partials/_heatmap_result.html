@@ -5,9 +5,8 @@
   class on the section, the headline and the frame. Do not rename an id; the
   script reads all seven by id.
 
-  The frame carries its own surface and radius so the grid sits on the warm
-  heatmap ground rather than the page. docs/design/README.md screen 4 owns
-  those values. The visible result covers the Last 365 days.
+  The frame carries its own theme surface and radius. The owner's light-mode
+  sunken refinement lives in tailwind.src.css. The result covers the Last 365 days.
 #}
 <section id="heatmap-result" class="heatmap-stage hidden">
   {# The short result headline leads; the range becomes its quiet label. #}
@@ -17,8 +16,8 @@
       <p class="eyebrow">Last.fm scrobble heatmap</p>
     </div>
     <div class="heatmap-head__actions">
+      <a class="ss-btn ss-btn--primary" id="heatmap-search-again" href="/?mode=heatmap">New search</a>
       <button type="button" class="ss-btn" id="heatmap-save-image">Save image</button>
-      <button type="button" class="ss-btn" id="heatmap-search-again">Search again</button>
     </div>
   </div>
 

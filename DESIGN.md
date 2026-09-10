@@ -25,7 +25,7 @@ colors:
   border-divider: "#8a867e"
   border-divider-dark: "#68646f"
   rocket-5: "#f0903a"
-  heatmap-empty: "#e8e2d6"
+  heatmap-empty: "#c8bfad"
   heatmap-empty-dark: "#262230"
   good: "#2f7a4a"
   good-dark: "#6fcf97"
@@ -121,8 +121,8 @@ The palette draws from classic printing inks and warm archival paper, accented b
 
 ### Neutral
 - **Page Canvas** (`#faf7f0` light / `#0e0c12` dark): The root background canvas. Warmed off pure white to evoke rag paper; dark mode uses an obsidian ground with faint violet warmth rather than neutral computer grey.
-- **Sunken Well** (`#f0ebe0` light / `#1a1622` dark): Ground for the index form column, Results panels and table, and secondary structural wells.
-- **Card Surface** (`--ss-surface-card`): The general control surface. Results panels and table use Sunken Well; the index uses its separate standout-card token.
+- **Sunken Well** (`#f0ebe0` light / `#1a1622` dark): Ground for the index form column and secondary structural wells. Results panels and table use `--results-surface`, an equal sRGB mix of the page canvas and Sunken Well.
+- **Card Surface** (`--ss-surface-card`): The general control surface for secondary actions. Results and Heatmap New search use the theme primary; the index uses its separate standout-card token.
 - **Ink Strong** (`#1a1820` light / `#f1ede4` dark): Maximum-contrast text color for page titles, section headings, values, and primary labels.
 - **Ink Body** (`#4a4456` light / `#c5bfb1` dark): Readable secondary text color for descriptive paragraphs and form field descriptions.
 - **Ink Muted** (`#6c6676` light / `#908a9a` dark): Muted metadata, field hint copy, and timestamps; tuned to maintain 4.5:1 contrast against light and dark surfaces.
@@ -130,8 +130,9 @@ The palette draws from classic printing inks and warm archival paper, accented b
 - **Well Divider** (`#8a867e` light / `#68646f` dark): Higher-contrast vertical boundary separating the hero stage from the configuration well.
 
 ### Heatmap & Status
+- **Heatmap Surface** (`--heatmap-surface`): The sunken well in light mode and the dark card tone in dark mode (owner refinement, 2026-09-10).
 - **Rocket Stop 5 (Tangerine)** (`#f0903a`): The single warm accent drawn from seaborn's `rocket_r` ramp, used exclusively for the Heatmap mode indicator mark.
-- **Heatmap Empty** (`#e8e2d6` light / `#262230` dark): Resting color of days with zero scrobbles, warmed to match the parchment ground.
+- **Heatmap Empty** (`#c8bfad` light / `#262230` dark): A warm neutral for zero-scrobble days, darker than the light frame so empty cells remain visible.
 - **Good / Success** (`#2f7a4a` light / `#6fcf97` dark): Forest pine for successful cache hits and validated inputs.
 - **Bad / Error** (`#b03434` light / `#e07070` dark): Terracotta crimson for validation errors, private profile alerts, and failed jobs.
 
@@ -170,13 +171,14 @@ Type is served by Adobe Fonts kit `rwy8ghw`. Five distinct families each perform
 The spatial model uses a 4px baseline grid expressed strictly in `rem` units (at a 16px root: 4px = `0.25rem`, 8px = `0.5rem`, 12px = `0.75rem`, 16px = `1rem`, 24px = `1.5rem`, 32px = `2rem`, 48px = `3rem`).
 
 ### Desktop & Mobile Grid
-- **Desktop Index Stage:** Asymmetric two-column composition (`3fr 4fr`). The left hero stage hosts the editorial title and brand lockup with generous padding (`3.5rem`). The right sunken well hosts the configuration form (capped at `27.5rem` base, centering vertically when fitting).
+- **Desktop Index Stage:** Asymmetric two-column composition (`3fr 4fr`). The left hero stage hosts the editorial title and brand lockup with generous padding (`3.5rem`). The right sunken well hosts the configuration form (capped at `27.5rem` base, positioned up to `2.5rem` above centre with header clearance).
 - **Breakpoint Stacking:** Collapses to a single vertical column below `860px` (`53.75rem`).
 - **Heatmap Stage:** Centered frame using `84vw` (capped at `120rem`) for wide viewports, scaling down to a minimum `73rem` scrollable canvas on mobile.
 - **Mobile Navigation:** At mobile viewports, destination pills organize in a single line across the header width with zero horizontal scrollbars, preserving the 44px minimum touch target height; the theme toggle sits below page content.
+- **Document Header:** The navbar scrolls out of view with the document. The Results side rail remains sticky with its own top gap (owner screenshot clarification, 2026-09-10).
 
 ### Named Rules
-**The Fixed Composition Rule.** The desktop index composition anchors to the top and retains natural height without shifting baseline when form disclosure panels open.
+**The Fixed Composition Rule.** The desktop index retains its window-derived scale as disclosures open. The complete form sits up to 2.5rem above centre with 0.25rem header clearance, adding natural document height when it cannot fit.
 **The Relative Unit Rule.** All typographic and spacing dimensions are authored in `rem` so that user browser zoom and font-scaling preserve proportional layout harmony.
 
 ## Elevation & Depth
@@ -224,7 +226,7 @@ Geometry is crisp, rational, and restrained. Rounded corners scale strictly acco
 - **Active Segment:** Card surface background, `--ss-shadow-chip` elevation, strong ink text.
 
 ### Heatmap Grid
-- **Frame:** 14px rounded card surface with 1px border.
+- **Frame:** 14px radius, `--heatmap-surface` fill and 1px border.
 - **Cells:** 2px corner radius, 2px grid gap on desktop (1px on mobile), mapped across the 7-stop `rocket_r` ramp.
 
 ## Do's and Don'ts

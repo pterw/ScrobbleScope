@@ -126,18 +126,12 @@
   }
 
   /**
-   * Zero-scrobble cell fill based on dark mode.
-   *
-   * The two values are --heatmap-empty from the theme. They are repeated as
-   * literals because this fill goes on an SVG attribute, where var() does not
-   * resolve. static/css/tailwind.src.css stays the definition; change both.
-   *
-   * The marker read here is body.dark-mode, not the data-theme attribute on
-   * html. static/js/theme.js still writes both, and WP-8 owns retiring the
-   * older one -- do not switch this ahead of it.
+   * Read the active theme's zero-scrobble colour for standalone SVG fills.
+   * Resolve the token before assigning the attribute so the downloaded grid
+   * carries the same colour without needing the page stylesheet.
    */
   function zeroFill() {
-    return document.body.classList.contains('dark-mode') ? '#262230' : '#e8e2d6';
+    return getComputedStyle(document.documentElement).getPropertyValue('--heatmap-empty').trim();
   }
 
   /** Build the rocket_r CSS gradient string for the legend bar. */
@@ -551,9 +545,8 @@
       heroBlocks, marksBlocks,
       heatmapResult, heatmapForm, heatmapUsernameInput, heatmapSubmitBtn,
       progressText, progressBar, progressTrack, errorContainer, errorMessage,
-      loadingDetail, loadingStats, loadingUsername,
-      loadingStatPages, loadingStatScrobbles, loadingStatDays,
-      retryBtn, searchAgainBtn, saveImageBtn, resultHeadline, resultFrame,
+      loadingUsername,
+      retryBtn, saveImageBtn, resultHeadline, resultFrame,
       kpiRow, gridContainer, legendBar, tooltip;
 
   // ----------------------------------------------------------------
@@ -849,14 +842,8 @@
     progressTrack  = document.getElementById('heatmap-progress-track');
     errorContainer = document.getElementById('heatmap-error');
     errorMessage   = document.getElementById('heatmap-error-message');
-    loadingDetail  = document.getElementById('heatmap-loading-detail');
-    loadingStats   = document.getElementById('heatmap-loading-stats');
     loadingUsername = document.getElementById('heatmap-loading-username');
-    loadingStatPages = document.getElementById('heatmap-stat-pages');
-    loadingStatScrobbles = document.getElementById('heatmap-stat-scrobbles');
-    loadingStatDays = document.getElementById('heatmap-stat-days');
     retryBtn       = document.getElementById('heatmap-retry-btn');
-    searchAgainBtn = document.getElementById('heatmap-search-again');
     saveImageBtn   = document.getElementById('heatmap-save-image');
     resultHeadline = document.getElementById('heatmap-result-headline');
     resultFrame    = document.getElementById('heatmap-result-frame');
@@ -900,9 +887,6 @@
       saveImageBtn.addEventListener('click', saveHeatmapImage);
     }
 
-    searchAgainBtn.addEventListener('click', function () {
-      window.location.assign('/?mode=heatmap');
-    });
   }
 
   function submitHeatmap(username) {
@@ -1050,8 +1034,6 @@
           }
         }
 
-        updateLoadingDetails(data.stats || {});
-
         if (data.error) {
           stopPolling();
           revealRestoredLoading();
@@ -1073,51 +1055,9 @@
       });
   }
 
+  /** Keep request context while the phase line owns live progress counts. */
   function resetLoadingDetails(username) {
-    if (loadingDetail) {
-      loadingDetail.textContent = '';
-    }
     if (loadingUsername) loadingUsername.textContent = username || 'Last.fm profile';
-    if (loadingStats) loadingStats.classList.add('hidden');
-    [loadingStatPages, loadingStatScrobbles, loadingStatDays].forEach(function (node) {
-      if (node && node.closest('.heatmap-loading__stat')) {
-        node.closest('.heatmap-loading__stat').classList.add('hidden');
-      }
-    });
-  }
-
-  function revealLoadingStat(node, text) {
-    if (!node || text === null || text === undefined) return false;
-    node.textContent = text;
-    var item = node.closest('.heatmap-loading__stat');
-    if (item) item.classList.remove('hidden');
-    return true;
-  }
-
-  function updateLoadingDetails(stats) {
-    if (!stats) return;
-    var shown = false;
-    var received = stats.pages_received;
-    var expected = stats.pages_expected;
-    if (received !== undefined && expected !== undefined) {
-      shown = revealLoadingStat(
-        loadingStatPages,
-        Number(received).toLocaleString() + ' / ' + Number(expected).toLocaleString()
-      ) || shown;
-    }
-    if (stats.total_scrobbles !== undefined) {
-      shown = revealLoadingStat(
-        loadingStatScrobbles,
-        Number(stats.total_scrobbles).toLocaleString()
-      ) || shown;
-    }
-    if (stats.active_days !== undefined) {
-      shown = revealLoadingStat(
-        loadingStatDays,
-        Number(stats.active_days).toLocaleString()
-      ) || shown;
-    }
-    if (shown && loadingStats) loadingStats.classList.remove('hidden');
   }
 
   function fetchHeatmapData() {
@@ -1170,6 +1110,7 @@
   }
 
   function renderHeatmapDesktop(data) {
+    var emptyFill = zeroFill();
     var fromDate    = parseLocalDate(data.from_date);
     var toDate      = parseLocalDate(data.to_date);
     var dailyCounts = data.daily_counts;
@@ -1262,7 +1203,7 @@
 
       var fill = count > 0
         ? rocketColor(countToNorm(count, maxCount))
-        : zeroFill();
+        : emptyFill;
       rect.setAttribute('fill', fill);
 
       // Store data for tooltip
@@ -1286,6 +1227,7 @@
   }
 
   function renderHeatmapMobile(data) {
+    var emptyFill = zeroFill();
     var fromDate    = parseLocalDate(data.from_date);
     var toDate      = parseLocalDate(data.to_date);
     var dailyCounts = data.daily_counts;
@@ -1343,7 +1285,7 @@
 
       var fill = count > 0
         ? rocketColor(countToNorm(count, maxCount))
-        : zeroFill();
+        : emptyFill;
       rect.setAttribute('fill', fill);
 
       rect.setAttribute('data-date', key);

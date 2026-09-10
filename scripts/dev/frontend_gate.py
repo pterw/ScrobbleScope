@@ -1033,7 +1033,7 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
     try:
         page.emulate_media(reduced_motion="no-preference")
         page.goto(f"{base_url}/", wait_until="load")
-        standard = page.locator("#index-grid").evaluate(
+        standard = page.locator(".index-page").evaluate(
             """element => {
                 const style = getComputedStyle(element);
                 return {
@@ -1044,11 +1044,52 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
             }"""
         )
         if standard != {
-            "name": "ss-index-page-enter",
-            "duration": "0.18s",
+            "name": "ss-page-enter",
+            "duration": "0.22s",
             "delay": "0s",
         }:
             failures.append(f"index entrance motion is {standard!r}")
+
+        before_ready = page.locator(".index-page").evaluate(
+            """element => {
+                document.body.classList.remove('is-ready');
+                const name = getComputedStyle(element).animationName;
+                document.body.classList.add('is-ready');
+                return name;
+            }"""
+        )
+        if before_ready != "ss-page-enter":
+            failures.append(
+                "page entrance waits for JavaScript and can flash before readiness"
+            )
+
+        # Sample the actual animation timeline: a declared duration alone can
+        # pass while another rule pins opacity to its endpoint.
+        motion = page.locator(".index-page").evaluate(
+            """element => {
+                const enter = element.getAnimations().find(a => a.animationName === 'ss-page-enter');
+                if (!enter) return {enter: null, exit: null};
+                enter.pause();
+                enter.currentTime = 110;
+                const arrival = Number(getComputedStyle(element).opacity);
+                enter.finish();
+                document.body.classList.add('is-leaving');
+                getComputedStyle(element).animationName;
+                const exit = element.getAnimations().find(a => a.animationName === 'ss-page-exit');
+                if (!exit) {
+                    document.body.classList.remove('is-leaving');
+                    return {enter: arrival, exit: null};
+                }
+                exit.pause();
+                exit.currentTime = 70;
+                const departure = Number(getComputedStyle(element).opacity);
+                document.body.classList.remove('is-leaving');
+                element.getAnimations().forEach(a => a.finish());
+                return {enter: arrival, exit: departure};
+            }"""
+        )
+        if any(value is None or not 0 < value < 1 for value in motion.values()):
+            failures.append(f"page motion does not interpolate opacity: {motion!r}")
 
         initial_hero = page.evaluate(
             """() => {
@@ -1131,7 +1172,7 @@ def check_index_entrance_motion(page, base_url: str) -> list[str]:
 
         page.emulate_media(reduced_motion="reduce")
         page.goto(f"{base_url}/", wait_until="load")
-        reduced = page.locator("#index-grid").evaluate(
+        reduced = page.locator(".index-page").evaluate(
             """element => {
                 const style = getComputedStyle(element);
                 return {name: style.animationName, opacity: style.opacity};
@@ -1783,12 +1824,14 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     )
     try:
         page.goto(f"{base_url}/heatmap?job_id={heatmap_job_id}", wait_until="load")
-        page.locator("#heatmap-loading-stats").wait_for(state="visible")
+        page.locator("#heatmap-progress-text").filter(
+            has_text="Reading your Last.fm history..."
+        ).wait_for(state="visible")
         heatmap_state = page.evaluate(
             """() => ({
                 progress: document.querySelector('#heatmap-progress-track')
                     ?.getAttribute('aria-valuenow'),
-                pages: document.querySelector('#heatmap-stat-pages')?.textContent,
+                counterCount: document.querySelectorAll('[data-heatmap-stat]').length,
                 parameters: document.querySelectorAll('.heatmap-loading__params li').length,
                 phase: document.querySelector('#heatmap-progress-text')?.textContent?.trim(),
                 fillTransform: getComputedStyle(document.querySelector('#heatmap-progress-bar')).transform,
@@ -1802,8 +1845,8 @@ def check_loading_composition(page, base_url: str) -> list[str]:
         delete_job(heatmap_job_id)
     if heatmap_state["progress"] != "48":
         failures.append("/heatmap did not render backend-owned progress")
-    if heatmap_state["pages"] != "7 / 12":
-        failures.append("/heatmap did not render live page-fetch depth")
+    if heatmap_state["counterCount"] != 0:
+        failures.append("/heatmap repeats phase counts in a counter rail")
     if heatmap_state["parameters"] != 2:
         failures.append(
             "/heatmap did not retain its loading parameters (expected username and date window)"
@@ -1889,6 +1932,9 @@ def _measure_wide_layout(page):
                 cardRight: card.getBoundingClientRect().right,
                 wellTop: application.getBoundingClientRect().top,
                 wellBottom: application.getBoundingClientRect().bottom,
+                viewportHeight: innerHeight,
+                headerHeight: header.getBoundingClientRect().height,
+                rootFontSize: parseFloat(getComputedStyle(document.documentElement).fontSize),
                 paddingLeft: parseFloat(style.paddingLeft),
                 paddingRight: parseFloat(style.paddingRight),
                 headerGap: parseFloat(getComputedStyle(header).gap),
@@ -2368,11 +2414,16 @@ def _wide_layout_failures(layouts) -> list[str]:
         if min(left_gutter, right_gutter) < layout["paddingLeft"] - 1:
             failures.append(f"/: form intrudes into its well padding at {label}")
         top_gutter = layout["formInnerTop"] - layout["wellTop"]
-        bottom_gutter = layout["wellBottom"] - layout["formInnerBottom"]
-        if abs(top_gutter - bottom_gutter) > 2:
+        form_height = layout["formInnerBottom"] - layout["formInnerTop"]
+        available = layout["viewportHeight"] - layout["headerHeight"]
+        expected_top = max(
+            0.25 * layout["rootFontSize"],
+            (available - form_height) / 2 - 2.5 * layout["rootFontSize"],
+        )
+        if abs(top_gutter - expected_top) > 2:
             failures.append(
-                f"/: form composition is not vertically centred at {label}: "
-                f"{top_gutter:.1f}px top / {bottom_gutter:.1f}px bottom"
+                f"/: form composition has the wrong upward offset at {label}: "
+                f"{top_gutter:.1f}px top, expected {expected_top:.1f}px"
             )
         if (
             abs(layout["cardLeft"] - layout["formInnerLeft"]) > 1
@@ -2479,10 +2530,8 @@ def _touch_minimum_failures(
 def _mobile_header_failures(width: int, header: dict) -> list[str]:
     """Assert the mobile header contract for one viewport width.
 
-    The header is fixed (owner ruling 2026-09-07: back to the fixed design).
-    Out of flow, it needs a compensating body padding-top, and the invariant
-    is that the padding exactly matches the header height: too small puts
-    the first content under the bar, too large leaves a dead gap.
+    The header stays in document flow and scrolls away (owner screenshot
+    clarification, 2026-09-10). Extra body padding would duplicate its height.
     """
     failures = []
     if header["scrollWidth"] > header["clientWidth"] + 1 or not header["linksInside"]:
@@ -2505,13 +2554,13 @@ def _mobile_header_failures(width: int, header: dict) -> list[str]:
             f"/: mobile theme control is only {header['themeHeight']:.1f}px high "
             f"at {width}px, expected at least 44px"
         )
-    # Fixed on mobile too: reserve the actual header height exactly once.
+    # In flow on mobile too: reserve the actual header height exactly once.
     if (
-        header["headerPosition"] != "fixed"
-        or abs(header["headerHeight"] - header["bodyPaddingTop"]) > 0.5
+        header["headerPosition"] not in {"relative", "static"}
+        or abs(header["bodyPaddingTop"]) > 0.5
     ):
         failures.append(
-            f"/: mobile fixed header needs a matching body offset at {width}px"
+            f"/: mobile header must scroll away without a body offset at {width}px"
         )
     return failures
 
@@ -2779,7 +2828,6 @@ def _exercise_loading_progress_phases(page, base_url: str) -> list[str]:
     failures.extend(
         _exercise_heatmap_progress(page, base_url, heatmap_job_id, heatmap_path)
     )
-    failures.extend(_check_single_stat_layout(page))
     failures.extend(
         _exercise_replaced_job_progress(page, base_url, heatmap_job_id, heatmap_path)
     )
@@ -2996,51 +3044,6 @@ def _exercise_heatmap_progress(
             expected_text="FETCHING SCROBBLES",
         )
     )
-
-    return failures
-
-
-def _check_single_stat_layout(page) -> list[str]:
-    """Verify hidden statistics reserve no width and the remaining stat is centred."""
-    failures = []
-    # 4. Composition check: single stat is centered and hidden stats reserve 0 width
-    page.evaluate(
-        """() => {
-            const stats = document.querySelector('#heatmap-loading-stats');
-            if (stats) stats.classList.remove('hidden');
-            const pages = document.querySelector('[data-heatmap-stat="pages"]');
-            if (pages) pages.classList.remove('hidden');
-            const scrobbles = document.querySelector('[data-heatmap-stat="scrobbles"]');
-            if (scrobbles) scrobbles.classList.add('hidden');
-            const days = document.querySelector('[data-heatmap-stat="days"]');
-            if (days) days.classList.add('hidden');
-        }"""
-    )
-    stat_layout = page.evaluate(
-        """() => {
-            const pages = document.querySelector('[data-heatmap-stat="pages"]');
-            const scrobbles = document.querySelector('[data-heatmap-stat="scrobbles"]');
-            const days = document.querySelector('[data-heatmap-stat="days"]');
-            const container = document.querySelector('#heatmap-loading-stats');
-            const pr = pages ? pages.getBoundingClientRect() : null;
-            const sr = scrobbles ? scrobbles.getBoundingClientRect() : null;
-            const dr = days ? days.getBoundingClientRect() : null;
-            const cr = container ? container.getBoundingClientRect() : null;
-            return {
-                pagesWidth: pr ? pr.width : 0,
-                scrobblesWidth: sr ? sr.width : 0,
-                daysWidth: dr ? dr.width : 0,
-                containerWidth: cr ? cr.width : 0,
-                pagesCenter: pr && cr ? (pr.left + pr.width / 2) - (cr.left + cr.width / 2) : 999,
-            };
-        }"""
-    )
-    if stat_layout["scrobblesWidth"] != 0 or stat_layout["daysWidth"] != 0:
-        failures.append("heatmap hidden stats reserved space in single-stat layout")
-    if abs(stat_layout["pagesCenter"]) > 3.0:
-        failures.append(
-            f"heatmap single stat is not centered: offset {stat_layout['pagesCenter']:.1f}px"
-        )
 
     return failures
 

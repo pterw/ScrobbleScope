@@ -510,8 +510,8 @@ def _healthy_mobile_header() -> dict:
         "contentBottom": 800.0,
         "themeHeight": 46.0,
         "headerHeight": 68.0,
-        "bodyPaddingTop": 68.0,
-        "headerPosition": "fixed",
+        "bodyPaddingTop": 0.0,
+        "headerPosition": "relative",
     }
 
 
@@ -581,17 +581,21 @@ def test_mobile_header_failures_reports_sub_touch_minimum_theme_control() -> Non
 
 
 def test_mobile_header_failures_reports_mismatched_body_offset() -> None:
-    """Reject missing compensation and a header that scrolls with content."""
-    for deviation in ({"bodyPaddingTop": 0.0}, {"headerPosition": "static"}):
+    """Reject duplicate spacing and viewport-attached headers."""
+    for deviation in (
+        {"bodyPaddingTop": 68.0},
+        {"headerPosition": "fixed"},
+        {"headerPosition": "sticky"},
+    ):
         assert (
-            "/: mobile fixed header needs a matching body offset at 390px"
+            "/: mobile header must scroll away without a body offset at 390px"
             in frontend_gate._mobile_header_failures(
                 390, _healthy_mobile_header() | deviation
             )
         )
     assert (
         frontend_gate._mobile_header_failures(
-            390, _healthy_mobile_header() | {"bodyPaddingTop": 67.7}
+            390, _healthy_mobile_header() | {"bodyPaddingTop": 0.3}
         )
         == []
     )
@@ -1063,10 +1067,13 @@ def test_wide_layout_reports_gutter_card_and_mark_regressions() -> None:
         "formInnerRight": 120,
         "paddingLeft": 10,
         "paddingRight": 10,
-        "formInnerTop": 20,
+        "formInnerTop": 4,
         "wellTop": 0,
         "wellBottom": 140,
-        "formInnerBottom": 120,
+        "formInnerBottom": 104,
+        "viewportHeight": 140,
+        "headerHeight": 0,
+        "rootFontSize": 16,
         "cardLeft": 20,
         "cardRight": 120,
         "heroWidth": 120,
@@ -1157,21 +1164,6 @@ def test_phase_repository_probe_checks_real_isolation_and_invalid_views() -> Non
         assert len(failures) == 6
     finally:
         frontend_gate.delete_job(job)
-
-
-def test_single_stat_probe_reports_reserved_space_and_offcentre_content() -> None:
-    """Hidden stats and centering failures remain independently visible."""
-    page = MagicMock()
-    page.evaluate.side_effect = [
-        None,
-        {"scrobblesWidth": 0, "daysWidth": 0, "pagesCenter": 3},
-    ]
-    assert frontend_gate._check_single_stat_layout(page) == []
-    page.evaluate.side_effect = [
-        None,
-        {"scrobblesWidth": 1, "daysWidth": 0, "pagesCenter": 4},
-    ]
-    assert len(frontend_gate._check_single_stat_layout(page)) == 2
 
 
 def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:

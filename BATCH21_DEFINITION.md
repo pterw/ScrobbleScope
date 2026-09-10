@@ -318,9 +318,10 @@ Moved in by the scope ruling:
    `3fr 4fr` state and one shared factor of `1.075` times the width ratio,
    bounded by the measured composition height and available window content,
    capped at `1.75`. The centred form carries the owner-refined `27.5rem`
-   base cap. Within the desktop well, the complete form composition centres
-   vertically when it fits; expanded states return to the top padding and add
-   natural document height without changing the hero, form, type, or control
+   base cap. Within the desktop well, the complete form composition sits up to
+   2.5rem above vertical centre, bounded by 0.25rem of header clearance
+   (owner refinement, 2026-09-09). Expanded states add
+   natural document height only when content cannot fit, without changing the hero, form, type, or control
    scale. `static/css/index.css` owns the layout-aware factor, explicit
    dimensions, narrow-window readability bounds, and fixed-viewport state
    invariance.
@@ -338,8 +339,9 @@ Moved in by the scope ruling:
    the README's gap of 2px desktop and 1px mobile. On wide displays the
    centred result frame uses `84vw`, capped at `120rem`, so the SVG scales
    with the available content box instead of remaining at the snapshot's
-   undersized 1100px measure. `--heatmap-empty` takes the README values,
-   `#e8e2d6` light and `#262230` dark.
+   undersized 1100px measure. The 2026-09-10 owner refinement uses the sunken
+   surface for the light frame and `#c8bfad` for empty cells so the grid remains
+   distinct. Dark empty cells retain `#262230`.
 3. **The index accepts public listening histories only.** Before either the
    album or heatmap pipeline accepts a username, a one-track
    `user.getrecenttracks` preflight must identify Last.fm error `17` / HTTP
@@ -376,8 +378,8 @@ Moved in by the scope ruling:
   line and drive the hairline; uncounted work clears phase and uses overall progress.
   Both clients poll `/progress` during execution; the heatmap client requests
   `/heatmap_data` only after progress reaches 100% completion. Album loading has
-  its four pipeline KPIs; Heatmap uses its three relevant facts: pages fetched,
-  scrobbles counted, and days with listening. Both retain request parameters
+  its four pipeline KPIs; Heatmap keeps live counts in the phase line without
+  a second counter rail (owner refinement, 2026-09-09). Both retain request parameters
   and a Home escape.
 - Decision 1 lands here (rotating messages).
 - Leaving the page: a quiet "Back home" link only -- no

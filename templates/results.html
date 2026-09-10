@@ -39,15 +39,15 @@
                 {{ year }} · {% if sort_by == "playtime" %}Ranked by listening time{% else %}Ranked by play count{% endif %}
             </h2>
         </div>
-        <!-- Action Group (Touch targets >= 44px, hairline peers with light-mode shadow, New search filled primary) -->
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-shrink-0 w-full max-w-full sm:w-auto">
-            <a href="/" class="btn btn-primary btn-sm min-h-[calc(2.5rem*var(--results-scale))] px-[calc(0.875rem*var(--results-scale))] rounded-[var(--radius-field,8px)] font-sans text-xs md:text-sm font-normal shadow-sm border border-transparent">
+        <!-- Toolbar actions share type; New search carries the theme accent. -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-shrink-0 w-full max-w-full sm:w-auto">
+            <a href="/" class="btn btn-primary results-action results-toolbar-action">
                 New search
             </a>
-            <button id="export-csv" class="btn btn-sm min-h-[calc(2.5rem*var(--results-scale))] px-[calc(0.875rem*var(--results-scale))] rounded-[var(--radius-field,8px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] hover:bg-[var(--ss-surface-sunken)] hover:border-[var(--color-primary)] text-[var(--color-base-content)] font-sans text-xs md:text-sm font-normal shadow-sm">
+            <button id="export-csv" class="btn results-action results-toolbar-action">
                 Export CSV
             </button>
-            <button id="save-image" class="btn btn-sm min-h-[calc(2.5rem*var(--results-scale))] px-[calc(0.875rem*var(--results-scale))] rounded-[var(--radius-field,8px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] hover:bg-[var(--ss-surface-sunken)] hover:border-[var(--color-primary)] text-[var(--color-base-content)] font-sans text-xs md:text-sm font-normal shadow-sm">
+            <button id="save-image" class="btn results-action results-toolbar-action">
                 Save image
             </button>
         </div>
@@ -66,7 +66,7 @@
     {% endif %}
     <!-- StatBlock Mini-Table (one row at every width; numerals sized below
         the page header so the hierarchy stays with the h1) -->
-    <div class="grid grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--ss-surface-sunken)] border border-[var(--ss-border-default)] divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
+    <div class="grid grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
         <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Total Albums</span>
             <div class="results-stat-value flex items-center justify-center overflow-visible">
@@ -109,13 +109,13 @@
 
     {% if not album_list %}
     <!-- Empty State Container -->
-    <div class="rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] p-8 md:p-12 text-center my-8 shadow-sm">
+    <div class="rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] p-8 md:p-12 text-center my-8 shadow-sm">
         <div class="font-mono text-sm tracking-widest text-[var(--color-primary)] uppercase mb-2">No Matching Releases</div>
         <h2 class="font-serif text-3xl md:text-4xl text-[var(--color-base-content)] mb-3">No Albums Found</h2>
         <p class="text-sm text-[var(--ss-text-body)] max-w-md mx-auto mb-6">
             We couldn't find any {{ filter_description|default('albums') }} that you listened to in {{ year }}.
         </p>
-        <a href="{{ url_for('main.unmatched_page') }}" class="btn btn-sm min-h-[44px] px-[calc(1.25rem*var(--results-scale))] rounded-[var(--radius-field,8px)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] hover:bg-[var(--ss-surface-sunken)] hover:border-[var(--color-primary)] text-[var(--color-base-content)] font-sans text-sm font-normal shadow-none">
+        <a href="{{ url_for('main.unmatched_page') }}" class="btn results-action">
             View albums that didn't match your filters
         </a>
     </div>
@@ -123,7 +123,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
         <!-- Main Column: Semantic Leaderboard Table -->
         <div class="lg:col-span-8 min-w-0">
-            <div class="results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)]" id="results-table-wrapper">
+            <div class="results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)]" id="results-table-wrapper">
                 <table class="w-full text-left border-collapse results-table" id="results-table">
                     <thead>
                         <tr class="border-b border-[var(--ss-border-default)] bg-transparent text-xs font-mono font-normal uppercase tracking-wider text-[var(--ss-text-muted)]">
@@ -170,11 +170,11 @@
                                          class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] object-cover flex-shrink-0"
                                          loading="lazy"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0 hidden" aria-hidden="true">
+                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0 hidden" aria-hidden="true">
                                         {{ album.album[:2]|upper }}
                                     </div>
                                     {% else %}
-                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0" aria-hidden="true">
+                                    <div class="w-12 h-12 md:w-[calc(3.5rem*var(--results-scale))] md:h-[calc(3.5rem*var(--results-scale))] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] flex-shrink-0" aria-hidden="true">
                                         {{ album.album[:2]|upper }}
                                     </div>
                                     {% endif %}
@@ -223,8 +223,8 @@
             <!-- Sticky Sidebar: Modern Controls & Supporting Insights -->
             <div class="results-side-rail sticky top-6 space-y-4">
                 <!-- Sort Leaderboard Control -->
-                <div class="p-4 md:p-[calc(1.25rem*var(--results-scale))] rounded-[var(--radius-sm)] bg-[var(--ss-surface-sunken)] border border-[var(--ss-border-default)] space-y-3">
-                    <h3 class="font-sans text-sm font-normal text-[var(--color-base-content)]">
+                <div class="p-4 md:p-[calc(1.25rem*var(--results-scale))] rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] space-y-3">
+                    <h3 class="results-rail-title text-[var(--color-base-content)]">
                         Sort leaderboard
                     </h3>
                     <div class="seg p-1 bg-[var(--color-base-100)] rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] flex gap-1" role="group" aria-label="Sort your leaderboard">
@@ -253,7 +253,7 @@
                              loading="lazy" decoding="async">
                         <!-- Top subtle scrim with monograph tags -->
                         <div class="spotlight-scrim-top">
-                            <span class="font-sans text-base md:text-lg uppercase tracking-wider text-white/95 drop-shadow-sm font-normal">Artist Spotlight</span>
+                            <span class="results-rail-title text-white/95 drop-shadow-sm">Artist Spotlight</span>
                             <span id="spotlight-artist-rank" class="font-serif italic text-xs md:text-sm text-[var(--color-primary)] drop-shadow-sm font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
                         </div>
                         <!-- Bottom 50% scrim with artist details -->
@@ -279,8 +279,8 @@
                     </div>
                     {% else %}
                     <!-- Fallback: no Spotify image -- text-only spotlight -->
-                    <div id="spotlight-card-content" class="spotlight-no-image p-5 flex flex-col gap-1">
-                        <span class="font-sans text-[calc(0.625rem*var(--results-scale))] uppercase tracking-widest text-[var(--ss-text-muted)] font-normal">Artist Spotlight</span>
+                    <div id="spotlight-card-content" class="spotlight-no-image p-4 md:p-[calc(1.25rem*var(--results-scale))] flex flex-col gap-1">
+                        <span class="results-rail-title text-[var(--ss-text-muted)]">Artist Spotlight</span>
                         <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
                             {{ top_artist_name|default(album_list[0].artist) }}
                         </h3>
@@ -294,8 +294,8 @@
                 {% endif %}
 
                 <!-- Albums outside filters card -->
-                <div class="p-4 md:p-[calc(1.25rem*var(--results-scale))] rounded-[var(--radius-sm)] bg-[var(--ss-surface-sunken)] border border-[var(--ss-border-default)] space-y-2">
-                    <h3 class="font-sans text-sm font-normal text-[var(--color-base-content)]">
+                <div class="p-4 md:p-[calc(1.25rem*var(--results-scale))] rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] space-y-2">
+                    <h3 class="results-rail-title text-[var(--color-base-content)]">
                         Albums outside your filters
                     </h3>
                     <p class="text-xs font-sans text-[var(--ss-text-muted)] leading-relaxed font-normal">
@@ -309,7 +309,7 @@
                 <!-- Back to Top (Full width matching cards) -->
                 <button id="rail-back-to-top"
                         type="button"
-                        class="w-full min-h-[44px] py-2.5 px-4 rounded-[var(--radius-sm)] bg-[var(--ss-surface-card)] border border-[var(--ss-border-default)] hover:bg-[var(--ss-surface-sunken)] hover:border-[var(--color-primary)] text-[var(--ss-text-muted)] hover:text-[var(--color-base-content)] font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-none"
+                        class="btn results-action w-full flex items-center justify-center gap-2"
                         title="Scroll to top of leaderboard">
                     <span aria-hidden="true">↑</span>
                     <span>Top</span>
@@ -319,10 +319,6 @@
     </div>
     {% endif %}
 </main>
-{% endblock %}
-
-{% block page_footer_extra %}
-<a id="back-to-top" href="#" class="btn btn-sm btn-ghost border border-[var(--ss-border-default)] font-mono text-xs">↑ Top</a>
 {% endblock %}
 
 {% block scripts %}

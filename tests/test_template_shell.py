@@ -49,7 +49,7 @@ INDEX_TOKENS = {
     # --ss-border-default stays on the other 14 form borders; see .docsync.toml.
     "--ss-border-divider": ("#8a867e", "#68646f"),
     "--ss-accent-soft": ("#efe9fa", "#2a1f44"),
-    "--heatmap-empty": ("#e8e2d6", "#262230"),
+    "--heatmap-empty": ("#c8bfad", "#262230"),
     # Added during commit 4 rather than commit 3, because the rebuild found
     # the page needed them. They live in the two daisyUI theme blocks.
     # Surface history: a paper-cream trial (#f7f3ea, 2026-09-07) was reverted
@@ -59,7 +59,7 @@ INDEX_TOKENS = {
     "--ss-surface-card": ("#f9f7f1", "#181520"),
     "--ss-surface-card-standout": ("#ffffff", "#181520"),
     "--ss-surface-sunken": ("#f0ebe0", "#1a1622"),
-    "--heatmap-surface": ("#faf8f3", "#181520"),
+    "--heatmap-surface": ("var(--ss-surface-sunken)", "#181520"),
     "--ss-bad": ("#b03434", "#e07070"),
 }
 
@@ -554,11 +554,9 @@ def test_every_page_wraps_its_footer_extras(app, template):
     with app.test_request_context("/"):
         html = render_template(template, **TEMPLATE_CONTEXT[template])
 
+    assert '<div class="page-footer-extras"></div>' in html
     if template == "results.html":
-        wrapper = html.split('<div class="page-footer-extras">', 1)[1]
-        assert 'id="back-to-top"' in wrapper.split("</div>", 1)[0]
-    else:
-        assert '<div class="page-footer-extras"></div>' in html
+        assert 'id="back-to-top"' not in html
 
 
 def test_shell_stops_both_animations_under_reduced_motion():

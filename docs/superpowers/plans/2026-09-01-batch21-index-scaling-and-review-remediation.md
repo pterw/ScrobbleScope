@@ -913,7 +913,8 @@ Task 4 follows below.
 height bounds inherited from Task 2. A fixed window must keep the hero, form,
 type, spacing, and controls at one scale across all reachable states; added
 rows extend the document. F-B21-42 overlays both mode descriptions in one
-reserved grid track and standardizes index opacity motion at 180ms.
+reserved grid track with 180ms state transitions. The 2026-09-09 owner
+refinement uses shared 220ms page arrivals and 140ms navigation departures.
 
 **Owner clarification 2026-09-05:** The 28rem base cap is approved at 1080p
 too. Retain the Task 3 instructions below; Task 2 keeps its interim 23.75rem
@@ -926,6 +927,12 @@ must keep the same scale; block auto margins collapse when their natural height
 needs the well, so the content returns to the top padding and extends the
 document. The original 28rem instructions below remain Task 3's historical
 execution record.
+
+**Owner refinement 2026-09-09:** Lift the desktop form up to 2.5rem above
+centre, retaining 0.25rem of header clearance. Measure the current form so
+decade controls with collapsed thresholds fit shorter browser windows without
+excess well padding creating a scrollbar. Preserve content scale; genuinely
+taller expanded forms retain natural document scrolling. Mobile is unchanged.
 
 **Files:**
 - Modify: `static/css/index.css` (grid split, form cap)
@@ -1359,12 +1366,16 @@ Both clients call this helper. Do not animate `width`, `height`, `padding`,
 - [x] **Step 6: Add one opacity-only entrance and reduced-motion behaviour**
 
 Apply the same short entrance to the shared loading composition in `loading.css`
-and `heatmap.css`: pinwheel, track, phase line and visible stats animate through
+and `heatmap.css`: pinwheel, track, phase line and album stats animate through
 opacity only. The final state must be visible under
 `@media (prefers-reduced-motion: reduce)` -- cancelling an animation that fades
 in from zero also requires restoring `opacity: 1`. Keep the existing heatmap
 cached-result handoff. Do not add a heading, a navigation pill, cancellation, or
 a second percentage.
+
+**Owner refinement 2026-09-09:** Heatmap omits the separate counter rail;
+the phase line already displays the current count. Its parameters and Home
+action remain. The outgoing loader and incoming result overlap during handoff.
 
 - [x] **Step 7: Add real-browser progress checks**
 

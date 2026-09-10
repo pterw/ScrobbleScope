@@ -9,6 +9,100 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-09 - Audit PR 227 for regression and bloat; ignore gate artifacts (side-task)
+
+- Scope: the owner asked which commits after `b987e48` carry value and which
+  are bloat, and whether the 15 route TODOs were implemented. Owner chose the
+  hygiene-only remedy: no history rewrite and no gate split.
+- Premise correction recorded before any change: `b987e48` is not a baseline
+  to restore toward. `main` merged into this branch at `ebc5145`, *after*
+  `b987e48`, so reverting toward it would discard PRs #225 and #226. PR content
+  was therefore measured against `origin/main`.
+- Size of the PR, since three different questions give three different answers
+  and the first is the one that misleads. `b987e48..HEAD` is +4524/-1848 over
+  62 files, but it hides everything that arrived through the `ebc5145` merge
+  and must not be quoted. `origin/main..HEAD` is +8458/-2293 over 76 files.
+  Summing each of the 34 non-merge commits' own diffs gives the real churn:
+  **+13802/-5450 over 86 distinct files**, so netting the endpoints conceals
+  8,501 touched lines. The largest single contributor is `frontend_gate.py`:
+  20 commits and 3,158 gross lines to land a net +791 while chasing the CI
+  stall. Quote the churn figure when judging review effort and the endpoint
+  diff when judging the delivered change.
+- Three bloat suspicions were tested and **disproved**, so nothing was
+  reverted: (1) the 486/484-line `global.css` diff is a whole-file CRLF-to-LF
+  conversion in `d41db1f` with about five semantic lines, and `global.css` was
+  the only CRLF outlier in `static/**` and `templates/**`, so the conversion
+  normalized it; (2) `typekit_fixture.css` was added then deleted under the
+  owner's 2026-09-07 font-licensing ruling, recorded in
+  `scripts/dev/fixtures/README.md`; (3) the ruff migration touched about
+  fifteen test files but only reflowed `assert` formatting, weakening no
+  assertion. `ipinfo` and `cachetools` removal was confirmed against zero
+  imports repo-wide.
+- Security and hardening in the range were confirmed genuine and kept:
+  `innerHTML` sinks in `static/js` fall 5 (main) to 4 (`b987e48`) to 1 (HEAD,
+  `heatmap.js` only); least-privilege `contents: read`;
+  `persist-credentials: false`; 18 vulnerable pins upgraded to a zero-finding
+  `pip-audit`; aiohttp 3.14 deprecations replaced with stdlib `base64`; CI
+  actions moved off the deprecated Node 20 runtime.
+- TODO verification: 13 of 15 described already-implemented behaviour
+  (`/unmatched` GET route, `unmatched_empty.html`, `index.js` blur validation,
+  `heatmap.js` `retryable` branching), so removing them was correct. Two were
+  genuine and are now **F-B21-49**.
+- Implementation: added root-anchored `.gitignore` entries for
+  `/gate_out*.txt` and `/gate_summary.txt` (about 3 MB of untracked console
+  captures) plus `*.new` and `*_backup.toml` migration scaffolding, verified
+  against `git ls-files` so no tracked file became hidden; deleted the
+  untracked zero-byte `.github/workflows/workflow1`, which would have been an
+  invalid workflow had it ever been committed.
+- Deviations: three findings were filed rather than fixed, because each needs
+  an owner ruling or parity tests this side-task does not carry. **F-B21-49**
+  (four `error.html` callers return HTTP 200 while painting a 400 badge;
+  measured, not read) needs the owner to choose 404 or 410 for expired jobs.
+  **F-B21-50** records the net-zero TODO churn that cost eight Qlty rounds
+  (15 distinct `routes.py` line numbers, each republished 8 times: 120 comment
+  bodies). **F-B21-51** sizes `frontend_gate.py` at 3,756 lines against its
+  largest sibling's 404, and defers the split because gate infrastructure has
+  no parity tests (AGENTS.md Proposal and Design Rules item 4). F-B21-10's
+  status line now points at F-B21-49 for its call-site half.
+- One claim in the review commit's own subject was checked and does not hold as
+  written: "simplify frontend checks". The gate plus helper grew from 2,965
+  lines in 49 functions on `main` to 3,879 in 78 at HEAD, about 222 of those
+  lines added by that very commit, with its test file going 966 to 1,328. What
+  did improve is unit size -- the longest function fell 485 to 271. Recorded in
+  F-B21-51 so a later reader does not inherit "simplified" as fact.
+- Validation: `pytest -q` -- **962 passed**. All pre-commit hooks and
+  `doc_state_sync.py --check` pass. The committed tree was verified clean by
+  stashing the unrelated results-scaling work in progress; the earlier
+  `tailwind-css-drift` failure belonged to that work, not to any PR commit.
+- Forward guidance: the PR #227 body still needs writing before merge. Task 6
+  (accessibility pass) and WP-7 remain the next batch work.
+
+### 2026-09-07 - Remediate PR 227 and simplify frontend checks
+
+- Owner requested one review-remediation package. The full comment inventory,
+  body exclusions, repeated claims and individual dispositions are in
+  `docs/history/reports/PR227_REVIEW_2026-09-07.md`.
+- Extracted gate measurement/comparison/profile responsibilities, shared phase
+  probes and lazy generic CDN fixture loading; preserved the live-fonts option.
+  Existing thresholds and the Chromium matrix / Firefox static canary remain.
+- Separated spotlight aggregation from routes, shared Spotify payload parsing,
+  separated heatmap validation/dispatch, and extracted the Last.fm job stage.
+  Existing job-state, empty/error, fallback and sampling behavior stays covered.
+- Split results spotlight hydration/rotation from exports; use DOM text nodes
+  for metrics/toasts and supported metric-toggle font weights. CSV follows the
+  current rank/metric with full ISO dates while display stays month precision.
+  JPEG background comes from the active theme; browser checks decode actual
+  downloads in both themes at mobile and desktop widths.
+- Reconciled implemented route TODOs, corrected explicit 404/500 badges (the
+  remainder of F-B21-10 stays open), and disabled checkout credential persistence.
+- Review caught invalid JSON in the extracted stale-response fixture. A failing
+  regression test proved it; structured JSON serialization restored the check.
+- Validation: `pytest -q` -- **962 passed**, zero warnings. The frontend gate
+  passed 25 checks in 45 runs across Chromium and the Firefox static canary.
+  Both theme exports decode to nonblank 3600px-wide JPEGs. All pre-commit
+  hooks and `doc_state_sync.py --check` pass. No push or deployment. Header
+  alignment and optional white-card shadow remain a separate design follow-up.
+
 ### 2026-09-07 - Qlty adopted; first triage closes the workflow-permission gap (side-task)
 
 - Scope: the owner added qlty (`.qlty/qlty.toml`, uncommitted by owner

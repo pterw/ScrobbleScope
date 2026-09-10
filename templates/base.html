@@ -51,14 +51,8 @@
         })();
     </script>
 
-    {# Graceful page-load: shell.css hides body at opacity:0; this resolves
-       it after the first paint so content fades in rather than popping. Fires
-       on DOMContentLoaded so the theme (above) is already committed. #}
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            document.body.classList.add('is-ready');
-        });
-    </script>
+    {# Shared arrival/departure motion applies to page content. #}
+    <script src="{{ url_for('static', filename='js/page_motion.js') }}" defer></script>
 
     {# Adobe Fonts: the five families the design system uses. #}
     <link rel="stylesheet" href="https://use.typekit.net/rwy8ghw.css">
@@ -132,10 +126,7 @@
     {# Page-specific JavaScript #}
     {% block scripts %}{% endblock %}
 
-    {# The page extras wrapper centres and spaces whatever a page puts here;
-       results.html still injects its back-to-top control. Emitted on every
-       page so a page cannot forget it; kept on one line so :empty collapses
-       it where nothing is added. #}
+    {# Optional page extras; keep one line so :empty collapses the wrapper. #}
     <div class="page-footer-extras">{% block page_footer_extra %}{% endblock %}</div>
 
     {# Shared theme logic -- loads after the header toggle is in the DOM #}

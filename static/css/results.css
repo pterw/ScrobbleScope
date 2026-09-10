@@ -5,6 +5,7 @@
     /* Grow the current composition through native layout; mobile keeps its
        original measure and desktop uses more of the available gutters. */
     --results-scale: 1;
+    --results-surface: color-mix(in srgb, var(--color-base-100) 50%, var(--ss-surface-sunken));
     --results-base-rem: 75;
     --spacing: calc(0.25rem * var(--results-scale));
     /* This theme emits named spacing tokens, so overriding --spacing alone
@@ -37,8 +38,72 @@
     }
 }
 
-/* Results cards and the table use --ss-surface-sunken in the template,
-   per owner refinement. The shared page/navbar canvas remains separate. */
+/* One midway surface follows the active theme without changing control fills. */
+.results-rail-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    line-height: 1.4;
+}
+
+.results-side-rail h3.results-rail-title {
+    text-align: center;
+    font-size: var(--text-sm);
+}
+
+@media (min-width: 768px) {
+    .results-rail-title {
+        font-size: var(--text-lg);
+    }
+}
+
+/* Shared control geometry; toolbar typography and primary fill refine it below. */
+.results-action {
+    min-height: max(2.75rem, calc(2.5rem * var(--results-scale, 1)));
+    padding: calc(0.5rem * var(--results-scale, 1)) calc(0.875rem * var(--results-scale, 1));
+    border: 1px solid var(--ss-border-default);
+    border-radius: var(--radius-sm);
+    background-color: var(--ss-surface-card);
+    color: var(--color-base-content);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 400;
+    letter-spacing: normal;
+    text-transform: none;
+    box-shadow: none;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.results-action:hover {
+    background-color: var(--ss-surface-sunken);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+}
+
+.results-action:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.results-toolbar-action {
+    font-family: var(--font-mono-narrow);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.results-action.btn-primary {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary-content);
+}
+
+.results-action.btn-primary:hover {
+    background-color: color-mix(in srgb, var(--color-primary) 90%, var(--color-base-content));
+    border-color: var(--color-primary);
+    color: var(--color-primary-content);
+}
 
 /* Stat-cell padding, restored to the geometry that shipped to Fly.io.
 
@@ -211,8 +276,7 @@
 .metric-toggle-btn {
     user-select: none;
     cursor: pointer;
-    /* The kit supplies 400 and 700; use its real bold face for both options. */
-    font-weight: 700;
+    font-weight: 400;
 }
 
 .metric-toggle-btn:focus-visible {
@@ -246,11 +310,11 @@
     }
 }
 
-/* Keep the sidebar below the fixed shared header while scrolling. */
+/* The rail remains available after the document header scrolls away. */
 @media (min-width: 1024px) {
     .results-side-rail {
         position: sticky;
-        top: calc(var(--shell-height) + 1.5rem * var(--results-scale));
+        top: calc(1.5rem * var(--results-scale));
         align-self: flex-start;
     }
 }
@@ -265,6 +329,42 @@
 .album-link:focus-visible {
     color: var(--rocket-5, #f0903a);
     text-decoration: underline;
+}
+
+.album-link-tooltip {
+    position: fixed;
+    z-index: 1040;
+    max-width: calc(100vw - 2rem);
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--ss-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--ss-surface-card);
+    color: var(--color-base-content);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms ease, visibility 120ms;
+}
+
+.album-link-tooltip.is-visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+@keyframes leaderboard-reorder {
+    from { transform: translateY(var(--rank-offset, 0)); }
+    to { transform: translateY(0); }
+}
+
+.is-reordering {
+    animation: leaderboard-reorder 280ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .is-reordering { animation: none; }
+    .album-link-tooltip { transition: none; }
 }
 
 .results-page .btn {
@@ -304,7 +404,7 @@
     position: relative;
     width: 100%;
     height: calc(11.875rem * var(--results-scale));
-    background-color: var(--ss-surface-sunken);
+    background-color: var(--results-surface);
     overflow: hidden;
 }
 
@@ -316,7 +416,7 @@
 
 /* Text-only fallback: no photo available. Overrides the absolute geometry
    so the card grows to fit the artist name and scrobble count. The card
-   background (--ss-surface-sunken) provides the surface. */
+   background (--results-surface) provides the surface. */
 .spotlight-no-image {
     position: relative;
     height: auto;
@@ -380,7 +480,7 @@
     position: relative;
     width: 100%;
     aspect-ratio: 16 / 10;
-    background-color: var(--ss-surface-sunken);
+    background-color: var(--results-surface);
     overflow: hidden;
 }
 

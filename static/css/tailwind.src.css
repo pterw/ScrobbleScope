@@ -166,15 +166,16 @@
      Light: page and sunken are base-100 and base-200, and the card is white.
      Dark: page is base-100, the card is base-200, and the sunken tone has no
      slot at all. Two named tokens are cheaper than a per-theme override on
-     every panel. The heatmap frame gets its own because it is page-coloured
-     in light and card-coloured in dark. (Owner revisited the paper-cream
+     every panel. The heatmap frame uses the light sunken surface
+     (owner refinement 2026-09-10) and a dark card surface.
+     (Owner revisited the paper-cream
      experiment on 2026-09-07: general cards take the slightly warm
      #f9f7f1 -- a composition between #fcfbf8 and the rejected #f7f3ea --
      while the index card goes pure white as a standout via the companion
      token below; RECONCILIATION.md section 12 records the ruling.) */
    --ss-surface-card: #f9f7f1;
    --ss-surface-sunken: #f0ebe0;
-   --heatmap-surface: #faf8f3;
+   --heatmap-surface: var(--ss-surface-sunken);
 
    /* The index card alone. The owner wants the one card a visitor sees
      first to read as pure white against the warm page -- a standout --
@@ -193,10 +194,9 @@
    --ss-shadow-chip: 0 1px 3px rgb(0 0 0 / 0.06);
    --ss-shadow-float: 0 2px 8px rgb(0 0 0 / 0.15);
 
-   /* The empty heatmap cell. README wins over the #e0e0e0 in the unimported
-     guidelines/colors-rocket.prompt.md, which predates the warm revision --
-     RECONCILIATION.md section 7. */
-   --heatmap-empty: #e8e2d6;
+   /* Empty cells remain distinct on the sunken frame (owner, 2026-09-10).
+      heatmap.js reads this token for SVG fills as well as image export. */
+   --heatmap-empty: #c8bfad;
 }
 
 @plugin "../../scripts/bin/daisyui-theme.mjs" {

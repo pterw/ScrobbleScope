@@ -128,6 +128,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
             const bgColor = getComputedStyle(document.body).backgroundColor;
+            // html2canvas 1.4 cannot parse color() emitted by color-mix(). Let
+            // the browser resolve the live surface, then give only the clone RGB.
+            const swatch = document.createElement('canvas');
+            swatch.width = swatch.height = 1;
+            const paint = swatch.getContext('2d');
+            paint.fillStyle = getComputedStyle(targetElement).backgroundColor;
+            paint.fillRect(0, 0, 1, 1);
+            const [red, green, blue] = paint.getImageData(0, 0, 1, 1).data;
+            const exportSurface = `rgb(${red}, ${green}, ${blue})`;
 
             window.html2canvas(targetElement, {
                 scale: 3,
@@ -137,8 +146,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 scrollX: 0,
                 scrollY: 0,
                 onclone: (clonedDoc) => {
+                    const clonedPage = clonedDoc.querySelector('.results-page');
+                    if (clonedPage) {
+                        clonedPage.style.setProperty('--results-surface', exportSurface);
+                        clonedPage.style.animation = 'none';
+                    }
                     const clonedWrapper = clonedDoc.getElementById('results-table-wrapper');
                     if (clonedWrapper) {
+                        clonedWrapper.querySelectorAll('.is-reordering').forEach(row => {
+                            row.classList.remove('is-reordering');
+                        });
                         clonedWrapper.style.overflow = 'visible';
                         clonedWrapper.style.width = '1200px';
                         clonedWrapper.style.maxWidth = '1200px';
@@ -212,10 +229,15 @@ document.addEventListener('DOMContentLoaded', () => {
     function setLeaderboardMetric(mode, showNotification = true) {
         const table = document.getElementById('results-table');
         const tbody = table?.querySelector('tbody');
-        if (!tbody) return;
+        if (!tbody || table.dataset.metric === mode) return;
+        const animate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        // Read the current visual positions before changing layout. This also
+        // lets a rapid second click continue from an interrupted transition.
+        const positions = new Map(rows.map(row => [row, row.getBoundingClientRect()]));
+        rows.forEach(row => row.classList.remove('is-reordering'));
         table.dataset.metric = mode;
         const key = mode === 'playtime' ? 'playTimeSeconds' : 'playCount';
-        const rows = Array.from(tbody.querySelectorAll('tr'));
         rows.sort((a, b) => Number(b.dataset[key] || 0) - Number(a.dataset[key] || 0));
         rows.forEach((row, index) => {
             tbody.appendChild(row);
@@ -232,6 +254,16 @@ document.addEventListener('DOMContentLoaded', () => {
             subtitle.textContent = `${window.APP_DATA?.year || ''} \u00b7 Ranked by ${ranking}`;
         }
         updateMetricButtons(mode);
+        const moves = rows.map(row => ({ row, before: positions.get(row), after: row.getBoundingClientRect() }));
+        if (animate) {
+            moves.forEach(({ row, before, after }) => {
+                const delta = before.top - after.top;
+                if (!delta || (before.top > innerHeight && after.top > innerHeight)
+                    || (before.bottom < 0 && after.bottom < 0)) return;
+                row.style.setProperty('--rank-offset', `${delta}px`);
+                row.classList.add('is-reordering');
+            });
+        }
         if (showNotification) {
             showToast(mode === 'playtime'
                 ? 'Leaderboard ranked by Spotify listening time.'
@@ -243,6 +275,53 @@ document.addEventListener('DOMContentLoaded', () => {
     if (resultsTable) {
         resultsTable.dataset.metric = window.APP_DATA?.sort_by === 'playtime' ? 'playtime' : 'plays';
         updateMetricButtons(resultsTable.dataset.metric);
+    }
+
+    // One tooltip outside the clipped table serves every Spotify album link.
+    const albumLinks = document.querySelectorAll('.album-link');
+    if (albumLinks.length) {
+        const tooltip = textNode('div', 'album-link-tooltip', 'Open this album on Spotify (new tab)');
+        tooltip.id = 'album-link-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        document.body.appendChild(tooltip);
+        let tooltipTimer;
+
+        /** Dismiss both a pending hover and the currently displayed hint. */
+        function hideAlbumTooltip() {
+            window.clearTimeout(tooltipTimer);
+            tooltip.classList.remove('is-visible');
+        }
+
+        /** Position the shared hint below its link, keeping it on screen. */
+        function showAlbumTooltip(link) {
+            const box = link.getBoundingClientRect();
+            const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+            tooltip.style.left = `${Math.max(rem, Math.min(box.left, innerWidth - tooltip.offsetWidth - rem))}px`;
+            tooltip.style.top = `${Math.min(box.bottom + rem / 2, innerHeight - tooltip.offsetHeight - rem)}px`;
+            tooltip.classList.add('is-visible');
+        }
+
+        albumLinks.forEach(link => {
+            link.setAttribute('aria-describedby', tooltip.id);
+            link.addEventListener('mouseenter', () => {
+                hideAlbumTooltip();
+                tooltipTimer = window.setTimeout(() => showAlbumTooltip(link), 450);
+            });
+            link.addEventListener('mouseleave', () => {
+                window.clearTimeout(tooltipTimer);
+                tooltipTimer = window.setTimeout(hideAlbumTooltip, 120);
+            });
+            link.addEventListener('focus', () => { hideAlbumTooltip(); showAlbumTooltip(link); });
+            link.addEventListener('blur', hideAlbumTooltip);
+            link.addEventListener('click', hideAlbumTooltip);
+        });
+        tooltip.addEventListener('mouseenter', () => window.clearTimeout(tooltipTimer));
+        tooltip.addEventListener('mouseleave', hideAlbumTooltip);
+        window.addEventListener('scroll', hideAlbumTooltip, { passive: true });
+        window.addEventListener('resize', hideAlbumTooltip);
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') hideAlbumTooltip();
+        });
     }
 
     const togglePlaysBtn = document.getElementById('toggle-sort-plays');

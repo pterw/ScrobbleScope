@@ -567,4 +567,31 @@ document.addEventListener('DOMContentLoaded', () => {
   toggleReleaseOptions();           // set decade/custom vis on first load
   updateThresholdSummary();
   updateFilterTags();
+
+  /* ---------- Desktop form placement ---------- */
+  const formWell = document.querySelector('.index-form');
+  const formComposition = document.querySelector('.index-form__inner');
+  const header = document.querySelector('.site-header');
+
+  /** Lift the centred composition by 2.5rem, bounded below the document header.
+   * Measure content rather than a presumed browser-chrome height. Expanded
+   * forms keep their scale and scroll naturally only when the content cannot
+   * fit. Observe the inner composition so changing its margins cannot loop.
+   */
+  function positionForm() {
+    if (!matchMedia('(min-width: 860px)').matches) return;
+    const height = formComposition.getBoundingClientRect().height;
+    if (!height) return;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize);
+    const available = window.innerHeight - header.getBoundingClientRect().height;
+    const top = Math.max(0.25 * rem, (available - height) / 2 - 2.5 * rem);
+    formWell.style.setProperty('--index-form-top', `${top}px`);
+    formWell.classList.add('is-positioned');
+  }
+
+  const placementObserver = new ResizeObserver(positionForm);
+  placementObserver.observe(formComposition);
+  placementObserver.observe(header);
+  window.addEventListener('resize', positionForm);
+  positionForm();
 });

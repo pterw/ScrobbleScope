@@ -45,33 +45,40 @@
 }
 
 /* ------------------------------------------------------------------ */
-/* Graceful page-load fade-in (universal, driven by base.html script)  */
-/* Page starts invisible; JS adds .is-ready on DOMContentLoaded.       */
+/* Graceful page-load fade-in, starting with the first styled paint.   */
 /* ------------------------------------------------------------------ */
 
-/* Fade each visible child independently, keeping the page root opaque.
-   Header positioning is owned by the desktop/mobile rules below; opacity
-   creates a stacking context, not a containing block for fixed elements. */
-body > * {
-    opacity: 0;
+/* Do not wait for DOMContentLoaded: a slow deferred script would let the
+   content paint at full opacity before restarting it from zero. CSS owns
+   arrival, including without JavaScript; the header does not fade. */
+@keyframes ss-page-enter {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
-body.is-ready > * {
-    opacity: 1;
-    transition: opacity 220ms ease;
+@keyframes ss-page-exit {
+    to { opacity: 0; }
 }
 
-/* Fixed on every screen size (owner direction, 2026-09-09).
-   Reserve the bar's height once so page content starts below it. */
+body > main,
+body > .container {
+    animation: ss-page-enter 220ms ease-out both;
+}
+
+body.is-leaving > main,
+body.is-leaving > .container {
+    animation: ss-page-exit 140ms ease-in both;
+    pointer-events: none;
+}
+
+/* The header belongs to the document and scrolls away with it. Its own
+   height reserves the space; a body offset would count that space twice. */
 body {
-    padding-top: var(--shell-height);
+    padding-top: 0;
 }
 
 .site-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    position: relative;
     z-index: 1030;
     display: flex;
     align-items: center;
@@ -255,7 +262,7 @@ body {
    The asset used to carry SMIL <animate> elements with repeatCount
    indefinite. CSS cannot pause SMIL, so prefers-reduced-motion did not
    reach it, and WP-2 made that far worse by moving the mark into a fixed
-   header that is on every page and never scrolls away. The SMIL is stripped
+   header that is on every page. The SMIL is stripped
    and the motion is CSS, which is the route
    docs/design/README.md "Wordmark animation" specifies. F-B21-5 still
    covers the pinwheel and the index hero wordmark.
@@ -620,13 +627,7 @@ body {
 /* Page footer extras                                                  */
 /* ------------------------------------------------------------------ */
 
-/* WP-2 removed the old .page-footer-bar wrapper, but results.html still fills
-   page_footer_extra with its back-to-top control. That left the control
-   bare: left-aligned, unpadded, no entrance.
-
-   The rules live here rather than in global.css because that file only
-   reaches unmigrated pages, and results.html moves in WP-5. Same reason the
-   fade is redefined instead of reusing global.css's fadeInCard. */
+/* Optional page extras share one framework-neutral wrapper. */
 .page-footer-extras {
     display: flex;
     justify-content: center;
@@ -718,6 +719,14 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+
+    body > main,
+    body > .container,
+    body.is-leaving > main,
+    body.is-leaving > .container {
+        animation: none;
+        opacity: 1;
+    }
 
     .site-header,
     .site-header__nav-link,
