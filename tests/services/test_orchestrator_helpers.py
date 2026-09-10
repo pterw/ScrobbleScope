@@ -104,6 +104,39 @@ def test_build_results_zero_playtime_no_division_error():
     assert results[0]["proportion_of_total"] == 0.0
 
 
+def test_build_results_records_reason_code():
+    """Albums excluded by release criteria must record reason_code='release_scope'."""
+    from scrobblescope.repositories import get_job_unmatched
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_hits = {
+        ("artist", "album"): {
+            "cached": {
+                "spotify_id": "sp1",
+                "release_date": "2018-01-01",
+                "album_image_url": "https://img.example.com/a.jpg",
+                "track_durations": {},
+            },
+            "original": {
+                "play_count": 20,
+                "track_counts": {"song a": 5},
+                "original_artist": "Artist",
+                "original_album": "Album",
+            },
+        }
+    }
+
+    results = _build_results(
+        cache_hits, job_id, year=2024, sort_mode="playcount", release_scope="same"
+    )
+
+    assert len(results) == 0
+    unmatched = get_job_unmatched(job_id)
+    key = "artist|album"
+    assert key in unmatched
+    assert unmatched[key]["reason_code"] == "release_scope"
+
+
 # ---------------------------------------------------------------------------
 # WP-3 adversarial tests for extracted _fetch_and_process helpers
 # ---------------------------------------------------------------------------

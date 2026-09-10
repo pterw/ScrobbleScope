@@ -35,6 +35,7 @@ from scrobblescope.spotify import (
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
 )
+from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH, REASON_RELEASE_SCOPE
 from scrobblescope.utils import (
     cleanup_expired_cache,
     create_optimized_session,
@@ -262,6 +263,7 @@ async def _run_spotify_search_phase(
                     "artist": original_artist,
                     "album": original_album,
                     "reason": "No Spotify match",
+                    "reason_code": REASON_NO_SPOTIFY_MATCH,
                 },
             )
 
@@ -474,7 +476,12 @@ def _build_results(
             add_job_unmatched(
                 job_id,
                 unmatched_key,
-                {"artist": artist, "album": album, "reason": reason},
+                {
+                    "artist": artist,
+                    "album": album,
+                    "reason": reason,
+                    "reason_code": REASON_RELEASE_SCOPE,
+                },
             )
             continue
 

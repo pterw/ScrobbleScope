@@ -183,7 +183,7 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** Begin WP-7 (unmatched page + reason_code) -- WP-0 through WP-5 are done. WP-6 is absorbed into WP-3
+- **Next action:** WP-7 (unmatched page + reason_code) is active. Commit 1 (backend reason_code contract) complete; Commit 2 (rebuild unmatched page on Tailwind) in progress. WP-0 through WP-5 are done. WP-6 is absorbed into WP-3
   and ships no commit of its own. WP-7 is next; WP-8 follows it.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate

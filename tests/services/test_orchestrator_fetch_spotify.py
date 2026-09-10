@@ -385,6 +385,9 @@ async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
     assert id_to_key == {}
     assert id_to_data == {}
     assert mock_unmatched.call_count == 2
+    for call in mock_unmatched.call_args_list:
+        payload = call.args[2]
+        assert payload["reason_code"] == "no_spotify_match"
 
 
 @pytest.mark.asyncio

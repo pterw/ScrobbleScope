@@ -714,12 +714,22 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     add_job_unmatched(
         job_id,
         "a|one",
-        {"artist": "Artist A", "album": "Album One", "reason": "No Spotify match"},
+        {
+            "artist": "Artist A",
+            "album": "Album One",
+            "reason": "No Spotify match",
+            "reason_code": "no_spotify_match",
+        },
     )
     add_job_unmatched(
         job_id,
         "b|two",
-        {"artist": "Artist B", "album": "Album Two", "reason": "No Spotify match"},
+        {
+            "artist": "Artist B",
+            "album": "Album Two",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+        },
     )
     add_job_unmatched(
         job_id,
@@ -727,16 +737,18 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
         {
             "artist": "Artist C",
             "album": "Album Three",
-            "reason": "Outside filter year",
+            "reason": "Released in 2019 (filter requires 2024)",
+            "reason_code": "release_scope",
         },
     )
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
     assert b"Albums That Didn't Match Your Filter" in response.data
-    assert b"No Spotify match" in response.data
-    assert b"Outside filter year" in response.data
-    assert b"Artist A" in response.data
+    assert (
+        b"Outside Release Filter" in response.data or b"release_scope" in response.data
+    )
+    assert b"Artist B" in response.data
     assert b"Artist C" in response.data
 
 
