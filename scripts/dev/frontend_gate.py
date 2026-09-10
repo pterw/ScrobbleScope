@@ -20,6 +20,7 @@ when it ships something the existing ones cannot see.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -57,6 +58,7 @@ if not os.environ.get("SECRET_KEY"):
 from app import create_app  # noqa: E402
 from scripts.dev._frontend_gate_results import check_results_interactions  # noqa: E402
 from scrobblescope.repositories import (  # noqa: E402
+    add_job_unmatched,
     create_job,
     delete_job,
     get_job_context,
@@ -174,7 +176,7 @@ ERROR_PAGE_PATH = "/no-such-page-for-the-gate"
 #: and loads no kit faces, so pointing those two checks at every page would
 #: park four permanent failures in the output until WP-7 -- and a gate with
 #: expected failures in it stops being read.
-MIGRATED_PAGES = ["/", "/results", "/heatmap", ERROR_PAGE_PATH]
+MIGRATED_PAGES = ["/", "/results", "/heatmap", "/unmatched", ERROR_PAGE_PATH]
 
 #: Throwaway jobs owned by serve_app and driven by pipeline checks.
 GATE_JOB_IDS: dict[str, str] = {}
@@ -2741,6 +2743,208 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_unmatched_report(page, base_url: str) -> list[str]:
+    """Exercise the populated report contract and its ten-row disclosure."""
+    job_id = create_job(
+        {
+            "username": "frontend-gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "same",
+            "min_plays": 10,
+            "min_tracks": 3,
+            "limit_results": "all",
+            "mode": "album",
+        }
+    )
+    failures = []
+    spotlight_requests = []
+
+    def fulfill_spotlight(route):
+        """Return deterministic portrait data without contacting Spotify."""
+        spotlight_requests.append(route.request.url)
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "name": "Missing Spotify Artist",
+                    "artist_id": "artist-1",
+                    "image_url": (
+                        "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>"
+                    ),
+                    "spotify_url": "https://open.spotify.com/artist/artist-1",
+                }
+            ),
+        )
+
+    spotlight_pattern = "**/api/artist_spotlight?*"
+    page.route(spotlight_pattern, fulfill_spotlight)
+    try:
+        play_counts = (5, 29, 11, 23, 7, 17, 13, 19, 3, 2, 27, 9)
+        for index in range(1, 13):
+            add_job_unmatched(
+                job_id,
+                f"scope-{index}",
+                {
+                    "album": f"Scope Album {index}",
+                    "artist": f"Scope Artist {index}",
+                    "reason": "Outside selected release scope",
+                    "reason_code": "release_scope",
+                    "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+                    "spotify_id": f"scope-album-{index}",
+                    "play_count": play_counts[index - 1],
+                },
+            )
+        add_job_unmatched(
+            job_id,
+            "missing-spotify",
+            {
+                "album": "Missing Spotify Album",
+                "artist": "Missing Spotify Artist",
+                "reason": "No Spotify match",
+                "reason_code": "no_spotify_match",
+                "album_image": None,
+                "spotify_id": None,
+                "play_count": 7,
+            },
+        )
+
+        page.goto(f"{base_url}/unmatched?job_id={job_id}", wait_until="load")
+        groups = page.locator(".unmatched-group")
+        if groups.count() != 2:
+            failures.append(
+                f"unmatched report rendered {groups.count()} reason groups instead of 2"
+            )
+            return failures
+
+        scope_group = page.locator('[data-reason="release_scope"]')
+        state = scope_group.evaluate(
+            """node => {
+                const rows = [...node.querySelectorAll('tbody tr')];
+                const overflow = rows.filter(row => row.classList.contains('unmatched-overflow'));
+                const button = node.querySelector('.unmatched-expander-btn');
+                const count = node.querySelector('.unmatched-count');
+                const page = document.querySelector('.unmatched-page');
+                const grid = node.parentElement;
+                const fixHint = node.querySelector('.unmatched-fix-hint');
+                const root = getComputedStyle(document.documentElement);
+                const normalizeFont = value => value.replaceAll('"', '').replaceAll(' ', '');
+                return {
+                    rows: rows.length,
+                    visibleRows: rows.filter(row => getComputedStyle(row).display !== 'none').length,
+                    hiddenOverflow: overflow.filter(row => getComputedStyle(row).display === 'none').length,
+                    buttonText: button?.textContent.trim(),
+                    expanded: button?.getAttribute('aria-expanded'),
+                    spotifyHref: node.querySelector('a[href*="open.spotify.com/album/"]')?.href,
+                    plays: rows[0]?.querySelector('td:nth-child(3)')?.textContent.trim(),
+                    countFont: normalizeFont(getComputedStyle(count).fontFamily),
+                    figureFont: normalizeFont(root.getPropertyValue('--font-figure').trim()),
+                    pageMaxWidth: getComputedStyle(page).maxWidth,
+                    gridColumns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+                    groupColumnEnd: getComputedStyle(node).gridColumnEnd,
+                    fixHint: fixHint?.textContent.trim(),
+                    fixHintSize: getComputedStyle(fixHint).fontSize,
+                    unsupportedWeights: [...node.querySelectorAll('*')]
+                        .map(element => getComputedStyle(element).fontWeight)
+                        .filter(weight => weight === '500' || weight === '600'),
+                };
+            }"""
+        )
+        expected = {
+            "rows": 12,
+            "visibleRows": 10,
+            "hiddenOverflow": 2,
+            "buttonText": "Show all 12 albums",
+            "expanded": "false",
+            "plays": "29",
+            "pageMaxWidth": "1180px",
+            "gridColumns": 3,
+            "groupColumnEnd": "span 2",
+            "fixHint": 'Choose "All years (no filter)" on a new search to include these releases.',
+            "fixHintSize": "9px",
+        }
+        for claim, wanted in expected.items():
+            if state[claim] != wanted:
+                failures.append(
+                    f"unmatched report {claim} is {state[claim]!r}, expected {wanted!r}"
+                )
+        if not (state["spotifyHref"] or "").endswith("/scope-album-2"):
+            failures.append("unmatched report did not render the Spotify album link")
+        if state["countFont"] != state["figureFont"]:
+            failures.append(
+                "unmatched report count does not use the figure typeface token"
+            )
+        if state["unsupportedWeights"]:
+            failures.append("unmatched report renders unsupported 500/600 font weights")
+
+        unmatched_portrait = page.locator(
+            '[data-reason="no_spotify_match"] [data-artist-image]'
+        )
+        unmatched_portrait.scroll_into_view_if_needed()
+        artist_image = unmatched_portrait.locator(".unmatched-artist-image")
+        artist_image.wait_for(state="visible")
+        portrait_state = unmatched_portrait.evaluate(
+            """node => ({
+                alt: node.querySelector('.unmatched-artist-image')?.alt,
+                imageDisplay: getComputedStyle(node.querySelector('.unmatched-artist-image')).display,
+                fallbackDisplay: getComputedStyle(node.querySelector('.unmatched-artwork-fallback')).display,
+            })"""
+        )
+        if portrait_state != {
+            "alt": "Missing Spotify Artist artist portrait",
+            "imageDisplay": "block",
+            "fallbackDisplay": "none",
+        }:
+            failures.append(
+                "unmatched report artist portrait fallback is incorrect: "
+                f"{portrait_state!r}"
+            )
+        if len(spotlight_requests) != 1 or "Missing%20Spotify%20Artist" not in (
+            spotlight_requests[0] if spotlight_requests else ""
+        ):
+            failures.append(
+                "unmatched report did not hydrate missing artwork once through "
+                "/api/artist_spotlight"
+            )
+
+        button = scope_group.locator(".unmatched-expander-btn")
+        button.click()
+        expanded = scope_group.evaluate(
+            """node => ({
+                visibleRows: [...node.querySelectorAll('tbody tr')]
+                    .filter(row => getComputedStyle(row).display !== 'none').length,
+                buttonText: node.querySelector('.unmatched-expander-btn')?.textContent.trim(),
+                expanded: node.querySelector('.unmatched-expander-btn')?.getAttribute('aria-expanded'),
+            })"""
+        )
+        if expanded != {
+            "visibleRows": 12,
+            "buttonText": "Show fewer",
+            "expanded": "true",
+        }:
+            failures.append(
+                f"unmatched report expanded state is incorrect: {expanded!r}"
+            )
+
+        button.click()
+        collapsed = scope_group.evaluate(
+            """node => ({
+                visibleRows: [...node.querySelectorAll('tbody tr')]
+                    .filter(row => getComputedStyle(row).display !== 'none').length,
+                expanded: node.querySelector('.unmatched-expander-btn')?.getAttribute('aria-expanded'),
+            })"""
+        )
+        if collapsed != {"visibleRows": 10, "expanded": "false"}:
+            failures.append(
+                f"unmatched report collapsed state is incorrect: {collapsed!r}"
+            )
+    finally:
+        page.unroute(spotlight_pattern, fulfill_spotlight)
+        delete_job(job_id)
+    return failures
+
+
 def _parse_matrix_scalex(transform_str: str | None) -> float | None:
     """Extract the scaleX component from a computed CSS transform matrix."""
     if not transform_str or transform_str == "none":
@@ -3547,6 +3751,12 @@ CHECKS = (
         "destination empty states",
         check_destination_empty_states,
         (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "unmatched report",
+        check_unmatched_report,
+        (DESKTOP,),
         LAYOUT_PIPELINE,
     ),
     (

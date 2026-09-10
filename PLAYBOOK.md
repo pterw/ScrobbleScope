@@ -183,11 +183,10 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** fast-track the owner-authorized WP-7 commits without a
-  history rewrite: commit the backend finding fixes separately, then commit
-  the reviewed frontend. The backend contract is committed at `b3e3e96`; no
-  push is authorized. WP-6 is absorbed into WP-3. WP-8 is the next expected
-  work package only after the remaining WP-7 commits.
+- **Next action:** WP-7 is complete locally: backend contract `b3e3e96`,
+  owner-authorized non-rewrite finding fix `ba5f9fe`, and the independently
+  revertible UI commit. No push is authorized. WP-6 is absorbed into WP-3;
+  proceed to WP-8 only on owner direction.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -604,10 +603,9 @@ non-current operational logs. Older dated entries live in
 
 ### 2026-09-10 - Unmatched page reconciled after review (Batch 21 WP-7)
 
-- Scope: completed the local WP-7 implementation and review reconciliation.
-  The backend contract is committed; the owner authorized a separate
-  non-rewrite finding-fix commit followed by the frontend commit. WP-7 stays
-  active until both commits are complete.
+- Scope: completed and committed the local WP-7 implementation and review
+  reconciliation. The backend contract, separate non-rewrite finding fix, and
+  independently revertible frontend are distinct rollback units.
 - Implementation:
   - Backend contract (`feat(unmatched): Add stable reason_code to the unmatched contract`, committed as `b3e3e96`):
     - Added `scrobblescope/unmatched.py` defining canonical reason constants
@@ -665,15 +663,15 @@ non-current operational logs. Older dated entries live in
   - **Commit boundary:** the fixes above are backend changes discovered after
     the backend commit. The owner authorized staging and committing on
     2026-09-10; the non-rewrite path keeps them in a separate fix commit before
-    the independently revertible UI commit.
+    the independently revertible UI commit. The fix is `ba5f9fe`.
 - Validation: `pytest -q` -- **986 passed**, 2 warnings across 41 test modules.
   `scripts/dev/frontend_gate.py` passed all 26 checks in 46 runs
   across Chromium and the Firefox static-assets canary. The populated-report
   check covers both expander states and computed type roles. Targeted WP-7
   coverage passed 345 tests; `node --check static/js/unmatched.js` passed.
   All 10 pre-commit hooks and `doc_state_sync.py --check` pass.
-- Forward guidance: commit the finding fixes, then the reviewed UI. Do not push
-  and do not begin WP-8 until WP-7 is committed.
+- Forward guidance: WP-7 is complete locally. Do not push or begin WP-8 without
+  owner direction.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

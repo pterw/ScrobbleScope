@@ -14,9 +14,11 @@
 
 - Pinned dependencies only: no new entries in `requirements.txt` or `requirements-dev.txt`.
 - ASCII-only characters in all Python source and Markdown documentation; `--` for dashes, never em-dash.
-- Two-commit sequence mandated by `BATCH21_DEFINITION.md`:
+- Original two-commit sequence mandated by `BATCH21_DEFINITION.md`:
   1. `feat(unmatched): add stable reason_code to the unmatched contract` (Tasks 1-3)
   2. `feat(ui): rebuild unmatched page on tailwind` (Tasks 4-5)
+- Execution adds the owner-authorized non-rewrite `fix(workers)` deviation
+  commit between those rollback units; deviation 4 records why.
 - Reason codes in scope for Batch 21 are strictly `release_scope` and `no_spotify_match`. Threshold codes (`below_min_plays`, `below_min_tracks`) remain deferred to Batch 22+ near-miss retention.
 - Spacing and type in CSS must use `rem` (divide px by 16); hairline borders, outlines, radii remain `px`.
 - Touch targets on coarse pointers (`@media (any-pointer: coarse)`) must be at least 44px on their smaller side.
@@ -770,12 +772,15 @@ Expected: All unit tests pass, pre-commit passes, doc sync passes, and the front
    non-rewrite path uses a separate fix commit before the UI commit.
 
 
-- [ ] **Step 5: Commit the authorized finding fix, then the remaining WP-7 UI**
+- [x] **Step 5: Commit the authorized finding fix, then the remaining WP-7 UI**
 
 ```bash
 git add templates/unmatched.html static/css/unmatched.css static/css/tailwind.css static/js/unmatched.js scrobblescope/orchestrator.py scrobblescope/heatmap.py tests/services/test_orchestrator_helpers.py tests/services/test_orchestrator_fetch_spotify.py tests/services/test_orchestrator_fetch_and_process.py tests/test_heatmap.py tests/test_template_shell.py scripts/dev/frontend_gate.py docs/architecture/top-albums-sequence.md docs/architecture/heatmap-sequence.md docs/superpowers/plans/2026-09-10-batch21-wp7-unmatched-page-and-reason-code.md BATCH21_DEFINITION.md FINDINGS.md PLAYBOOK.md .claude/SESSION_CONTEXT.md
 git commit -m "feat(ui): rebuild unmatched page on tailwind"
 ```
+
+The non-rewrite deviation fix committed as `ba5f9fe`; the UI commit completes
+this step.
 
 ---
 
@@ -789,7 +794,8 @@ git commit -m "feat(ui): rebuild unmatched page on tailwind"
    - Two reason cards with human copy, top offenders + expander: Covered by Task 4 (`templates/unmatched.html`, `static/js/unmatched.js`).
    - Leaderboard-styled rows, 9px mono fix line: Covered by Task 4 (`templates/unmatched.html`).
    - Removal of Bootstrap JS bundle and legacy CSS: Covered by Task 4 (`unmatched.html`), Task 5 (`tests/test_template_shell.py`, `scripts/dev/frontend_gate.py`).
-   - Two-commit sequence strictly maintained: Covered by Task 3 (Commit 1) and Task 5 (Commit 2).
+   - Rollback boundaries maintained: Task 3 is the backend contract, deviation
+     fix `ba5f9fe` is separate, and Task 5 is the UI commit.
 
 2. **Placeholder Scan:**
    - No `TODO`, `TBD`, or vague instructions exist. All code snippets are concrete, copy-pasteable, and syntactically valid.
