@@ -248,17 +248,21 @@ def heatmap_task(job_id, username):
     The concurrency slot acquired by the caller is released in the ``finally``
     block regardless of success or failure.
     """
-    if sys.platform == "win32":
-        loop = asyncio.ProactorEventLoop()
-    else:
-        loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    loop = None
     try:
+        if sys.platform == "win32":
+            loop = asyncio.ProactorEventLoop()
+        else:
+            loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         loop.run_until_complete(_fetch_and_process_heatmap(job_id, username))
     except Exception:
         logging.exception(f"Unhandled error in heatmap task for {username}")
         # Surface the error to the polling client so it does not hang.
         set_job_error(job_id, "lastfm_unavailable", username=username)
     finally:
-        loop.close()
-        release_job_slot()
+        try:
+            if loop is not None:
+                loop.close()
+        finally:
+            release_job_slot()

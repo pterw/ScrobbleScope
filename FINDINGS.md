@@ -1,9 +1,10 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-09
-Status: Batch 21 is active. WP-0 through WP-5 and owner-review remediation
-Tasks 1-5 are complete. PLAYBOOK Section 3 owns the current work order.
-974 tests across 40 test modules.
+Last updated: 2026-09-10
+Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
+into WP-3, and WP-7 is active pending its remaining commits.
+PLAYBOOK Section 3 owns the current work order.
+986 tests across 41 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -114,8 +115,8 @@ When the count is zero, render a direct no-unmatched state and retain the
 search settings plus existing navigation actions. Do not change the route,
 the API, or the job's unmatched payload; this is a presentation condition.
 
-Status: resolved locally; deploy before the next production release.
-Source: owner browser review, 2026-08-29.
+Status: resolved in Batch 21 WP-7; template renders zero-row state when total_count == 0.
+Source: owner browser review, 2026-08-29; verified in templates/unmatched.html 2026-09-10.
 
 ---
 
@@ -140,6 +141,21 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-56: upstream Spotify failure detection was coupled to written prose reason instead of reason_code
+
+`_detect_spotify_total_failure` in `scrobblescope/orchestrator.py` checked the
+English string `"No Spotify match"` instead of the domain contract
+`reason_code` (`REASON_NO_SPOTIFY_MATCH`). When the first WP-7 commit
+`b3e3e96` introduced `reason_code` to the contract, this detector was missed.
+If the prose string varied or changed, Spotify total failure detection would
+not fire, preventing the classified `spotify_unavailable` error from being set.
+
+Status: resolved locally in the Batch 21 WP-7 deviation, pending commit;
+`_detect_spotify_total_failure` checks
+`reason_code == REASON_NO_SPOTIFY_MATCH` with legacy fallback, verified by
+mutation testing.
+Source: owner review, 2026-09-10.
 
 ### F-B21-47: Artist Spotlight rendered one top-album artist and never rotated
 
@@ -842,9 +858,12 @@ small: move the loop construction inside the `try`, or acquire the slot after
 the loop exists.
 
 Found while checking the Top Albums and heatmap sequence diagrams against the
-code. The diagrams now state the limit instead of claiming the release is
-unconditional.
-Status: open. Source: PR #171 diagram verification, 2026-08-15.
+code. The diagrams record that the release in finally is always reached because
+loop setup is inside the try block.
+Status: resolved locally in the Batch 21 WP-7 deviation, pending commit; loop
+setup moved inside the try block in both `background_task`
+and `heatmap_task`, with defensive cleanup in `finally`.
+Source: PR #171 diagram verification, 2026-08-15; verified with TDD mutests 2026-09-10.
 
 ### F-B21-2: three dormant Tailwind seams that WP-2 meets at once
 
@@ -1349,8 +1368,9 @@ batch's plan and the bundle may simply have outlived it, but a `dropdown` or
 `collapse` initialised from `unmatched.js` would not show up in a
 `data-bs-` grep.
 
-Status: open. WP-7 verifies before removing.
-Source: Batch 21 WP-3 review of the remaining legacy pages, 2026-08-25.
+Status: resolved in Batch 21 WP-7. Verified no JS dependencies exist, removed
+`bootstrap.bundle.min.js`, and enforced via `test_template_shell.py::test_a_migrated_page_loads_no_bootstrap_javascript`.
+Source: Batch 21 WP-3 review of the remaining legacy pages, 2026-08-25; verified 2026-09-10.
 
 ### F-B21-17: a third of this batch's review comments were one fact written twice
 

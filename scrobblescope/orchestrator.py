@@ -264,6 +264,9 @@ async def _run_spotify_search_phase(
                     "album": original_album,
                     "reason": "No Spotify match",
                     "reason_code": REASON_NO_SPOTIFY_MATCH,
+                    "album_image": None,
+                    "spotify_id": None,
+                    "play_count": data.get("play_count"),
                 },
             )
 
@@ -481,6 +484,9 @@ def _build_results(
                     "album": album,
                     "reason": reason,
                     "reason_code": REASON_RELEASE_SCOPE,
+                    "album_image": cached.get("album_image_url"),
+                    "spotify_id": cached.get("spotify_id"),
+                    "play_count": original_data.get("play_count"),
                 },
             )
             continue
@@ -690,13 +696,16 @@ def _detect_spotify_total_failure(job_id, results, filtered_albums):
     """Return True and set job error if all filtered albums had no Spotify match.
 
     Only fires when results is empty but filtered_albums is non-empty.
-    Reads job unmatched state to count 'No Spotify match' entries.
+    Reads job unmatched state to count 'no_spotify_match' entries.
     """
     if not results and filtered_albums:
         job_ctx = get_job_context(job_id)
         unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
         spotify_no_match = sum(
-            1 for v in unmatched.values() if v.get("reason") == "No Spotify match"
+            1
+            for v in unmatched.values()
+            if v.get("reason_code") == REASON_NO_SPOTIFY_MATCH
+            or (not v.get("reason_code") and v.get("reason") == "No Spotify match")
         )
         if spotify_no_match == len(filtered_albums):
             set_job_error(job_id, "spotify_unavailable")
@@ -950,12 +959,13 @@ def background_task(
     mis-negotiates the connection and Postgres logs 'invalid length of startup
     packet'.
     """
-    if sys.platform == "win32":
-        loop = asyncio.ProactorEventLoop()
-    else:
-        loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    loop = None
     try:
+        if sys.platform == "win32":
+            loop = asyncio.ProactorEventLoop()
+        else:
+            loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         loop.run_until_complete(
             _fetch_and_process(
                 job_id,
@@ -973,5 +983,8 @@ def background_task(
     except Exception:
         logging.exception(f"Unhandled error in background task for {username}/{year}")
     finally:
-        loop.close()
-        release_job_slot()
+        try:
+            if loop is not None:
+                loop.close()
+        finally:
+            release_job_slot()

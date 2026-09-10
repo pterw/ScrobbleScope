@@ -63,3 +63,42 @@ def test_group_unmatched_albums_handles_legacy_missing_reason_code():
     assert (
         metadata["Custom unclassified reason"]["title"] == "Custom unclassified reason"
     )
+
+
+def test_group_unmatched_albums_ranks_top_offenders_deterministically():
+    """Visible rows rank by plays, with stable identity ties and missing counts last."""
+    data = {
+        "low": {
+            "artist": "Artist Low",
+            "album": "Low Plays",
+            "play_count": 3,
+            "reason_code": REASON_RELEASE_SCOPE,
+        },
+        "tie-z": {
+            "artist": "Artist Z",
+            "album": "High Plays Z",
+            "play_count": 20,
+            "reason_code": REASON_RELEASE_SCOPE,
+        },
+        "missing": {
+            "artist": "Artist Unknown",
+            "album": "Unknown Plays",
+            "play_count": None,
+            "reason_code": REASON_RELEASE_SCOPE,
+        },
+        "tie-a": {
+            "artist": "Artist A",
+            "album": "High Plays A",
+            "play_count": 20,
+            "reason_code": REASON_RELEASE_SCOPE,
+        },
+    }
+
+    groups, _, _ = group_unmatched_albums(data)
+
+    assert [item["album"] for item in groups[REASON_RELEASE_SCOPE]] == [
+        "High Plays A",
+        "High Plays Z",
+        "Low Plays",
+        "Unknown Plays",
+    ]

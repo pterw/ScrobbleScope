@@ -151,7 +151,7 @@ sequenceDiagram
                 Note over Orch,Repo: background_task only logs it, so the job keeps its last state
             end
             Orch->>Worker: release_job_slot()
-            Note over Orch,Worker: In the background_task finally -- reached unless the event-loop setup above the try fails
+            Note over Orch,Worker: In the background_task finally -- always reached because event-loop setup is inside the try block
         and Browser polls progress
             loop Poll until 100% or an error
                 Browser->>Routes: GET /progress?job_id=...

@@ -1,5 +1,5 @@
 import logging
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -445,6 +445,45 @@ def test_background_task_releases_slot_on_exception():
         patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
     ):
         background_task(job_id, "flounder14", 2025, "playcount", "same")
+
+    mock_release.assert_called_once()
+
+
+def test_background_task_releases_slot_when_event_loop_setup_raises():
+    """
+    GIVEN event loop creation or setup raises an exception
+    WHEN background_task is called
+    THEN release_job_slot must still be called so the concurrency slot is not leaked (F-B21-1).
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    with (
+        patch("asyncio.set_event_loop", side_effect=RuntimeError("loop setup failed")),
+        patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
+    ):
+        background_task(job_id, "flounder14", 2025, "playcount", "same")
+
+    mock_release.assert_called_once()
+
+
+def test_background_task_releases_slot_when_loop_close_raises():
+    """
+    GIVEN loop.close raises an exception in finally
+    WHEN background_task terminates
+    THEN release_job_slot must still be called so the concurrency slot is not leaked.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    mock_loop = MagicMock()
+    mock_loop.close.side_effect = RuntimeError("close failed")
+
+    with (
+        patch("asyncio.new_event_loop", return_value=mock_loop),
+        patch("asyncio.ProactorEventLoop", return_value=mock_loop),
+        patch("asyncio.set_event_loop"),
+        patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
+    ):
+        with pytest.raises(RuntimeError, match="close failed"):
+            background_task(job_id, "flounder14", 2025, "playcount", "same")
 
     mock_release.assert_called_once()
 

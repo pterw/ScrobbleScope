@@ -18,7 +18,7 @@ CATEGORY_METADATA = {
         "title": "Outside Release Filter",
         "description": "Albums released outside your selected release-date scope.",
         "badge": "Release date",
-        "fix_hint": "Adjust your Release Scope filter on a new search to include these releases.",
+        "fix_hint": 'Choose "All years (no filter)" on a new search to include these releases.',
     },
     REASON_NO_SPOTIFY_MATCH: {
         "title": "No Spotify Match",
@@ -65,6 +65,21 @@ def group_unmatched_albums(
         groups.setdefault(group_key, []).append(item)
         if group_key not in metadata:
             metadata[group_key] = meta
+
+    def _album_sort_key(item: dict[str, Any]) -> tuple[float, str, str]:
+        """Rank known play counts first, then stabilize ties by identity."""
+        play_count = item.get("play_count")
+        numeric_count = (
+            float(play_count) if isinstance(play_count, (int, float)) else -1
+        )
+        return (
+            -numeric_count,
+            str(item.get("artist", "")).casefold(),
+            str(item.get("album", "")).casefold(),
+        )
+
+    for albums in groups.values():
+        albums.sort(key=_album_sort_key)
 
     # Deterministic sort: canonical codes first, then alphabetical
     def _sort_key(k: str) -> tuple[int, str]:

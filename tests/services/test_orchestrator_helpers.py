@@ -135,6 +135,9 @@ def test_build_results_records_reason_code():
     key = "artist|album"
     assert key in unmatched
     assert unmatched[key]["reason_code"] == "release_scope"
+    assert unmatched[key]["album_image"] == "https://img.example.com/a.jpg"
+    assert unmatched[key]["spotify_id"] == "sp1"
+    assert unmatched[key]["play_count"] == 20
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +248,58 @@ def test_detect_spotify_total_failure_does_not_fire_partial_match():
         return_value={
             "unmatched": {
                 "a|b": {"reason": "No Spotify match"},
+            }
+        },
+    ):
+        assert _detect_spotify_total_failure(job_id, [], filtered) is False
+
+
+def test_detect_spotify_total_failure_bases_detection_on_reason_code():
+    """Failure detection must check reason_code, not written prose."""
+    from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {("a", "b"): {}, ("c", "d"): {}}
+    with (
+        patch(
+            "scrobblescope.orchestrator.get_job_context",
+            return_value={
+                "unmatched": {
+                    "a|b": {
+                        "reason": "Different prose string",
+                        "reason_code": REASON_NO_SPOTIFY_MATCH,
+                    },
+                    "c|d": {
+                        "reason": "Another prose message",
+                        "reason_code": REASON_NO_SPOTIFY_MATCH,
+                    },
+                }
+            },
+        ),
+        patch("scrobblescope.orchestrator.set_job_error") as mock_err,
+    ):
+        assert _detect_spotify_total_failure(job_id, [], filtered) is True
+        mock_err.assert_called_once_with(job_id, "spotify_unavailable")
+
+
+def test_detect_spotify_total_failure_does_not_fire_for_other_reason_codes():
+    """Items with non-matching reason_code do not trigger spotify_unavailable."""
+    from scrobblescope.unmatched import REASON_RELEASE_SCOPE
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {("a", "b"): {}, ("c", "d"): {}}
+    with patch(
+        "scrobblescope.orchestrator.get_job_context",
+        return_value={
+            "unmatched": {
+                "a|b": {
+                    "reason": "Release scope reason",
+                    "reason_code": REASON_RELEASE_SCOPE,
+                },
+                "c|d": {
+                    "reason": "Release scope reason",
+                    "reason_code": REASON_RELEASE_SCOPE,
+                },
             }
         },
     ):

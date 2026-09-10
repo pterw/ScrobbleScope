@@ -183,8 +183,11 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** WP-7 (unmatched page + reason_code) is active. Commit 1 (backend reason_code contract) complete; Commit 2 (rebuild unmatched page on Tailwind) in progress. WP-0 through WP-5 are done. WP-6 is absorbed into WP-3
-  and ships no commit of its own. WP-7 is next; WP-8 follows it.
+- **Next action:** fast-track the owner-authorized WP-7 commits without a
+  history rewrite: commit the backend finding fixes separately, then commit
+  the reviewed frontend. The backend contract is committed at `b3e3e96`; no
+  push is authorized. WP-6 is absorbed into WP-3. WP-8 is the next expected
+  work package only after the remaining WP-7 commits.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -599,6 +602,79 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **922 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All 12 pre-commit hooks and `doc_state_sync.py --check` pass.
 - Forward guidance: proceed to WP-7 (unmatched page + reason_code backend fix).
 
+### 2026-09-10 - Unmatched page reconciled after review (Batch 21 WP-7)
+
+- Scope: completed the local WP-7 implementation and review reconciliation.
+  The backend contract is committed; the owner authorized a separate
+  non-rewrite finding-fix commit followed by the frontend commit. WP-7 stays
+  active until both commits are complete.
+- Implementation:
+  - Backend contract (`feat(unmatched): Add stable reason_code to the unmatched contract`, committed as `b3e3e96`):
+    - Added `scrobblescope/unmatched.py` defining canonical reason constants
+      `REASON_RELEASE_SCOPE` and `REASON_NO_SPOTIFY_MATCH`, human category metadata
+      (title, description, badge, fix hint), and pure grouping helper
+      `group_unmatched_albums` with deterministic sorting and fallback for legacy jobs.
+    - Updated `scrobblescope/orchestrator.py` search and release phases to record
+      stable `reason_code` alongside prose reasons on unmatched items.
+    - Updated `scrobblescope/routes.py` `_render_unmatched_page` to group by
+      `reason_code` and pass `reason_metadata` and `reason_counts` to template.
+    - Added unit and adversarial mutation tests in `tests/test_unmatched.py`,
+      `tests/services/test_orchestrator_fetch_spotify.py`,
+      `tests/services/test_orchestrator_helpers.py`,
+      `tests/services/test_orchestrator_fetch_and_process.py`, `tests/test_heatmap.py`,
+      and `tests/test_routes.py`.
+  - Frontend rebuild (`feat(ui): rebuild unmatched page on tailwind`):
+    - Rebuilt `templates/unmatched.html` opting out of legacy CSS; added masthead
+      with editorial headline, purple italic username, and >= 44px navigation
+      actions; summary pill bar; Screen 5 reason cards grid with category badges,
+      Instrument Serif/Gotham counts, semantic table with numbered rows,
+      `unmatched-overflow` client expander for groups with > 10 albums, and
+      single-line 9px uppercase mono-narrow tracking fix line.
+    - Preserved existing pipeline data on each audit row: cover artwork,
+      Spotify destination, and Last.fm play count. Rows without cached album
+      artwork progressively reuse `/api/artist_spotlight`; intersection-based
+      loading and a per-artist request cache avoid eager or duplicate calls.
+    - Replaced `static/css/unmatched.css` with token-based rules for min-height,
+      surface cards (`--ss-surface-card`), borders, and coarse pointer touch targets.
+    - Implemented keyboard-accessible expander toggle and lazy artist-portrait
+      hydration in `static/js/unmatched.js`.
+    - Completely removed `bootstrap.bundle.min.js` and legacy Bootstrap dependencies.
+    - Added `unmatched.html` to `MIGRATED` in `tests/test_template_shell.py`,
+      `"/unmatched"` to `MIGRATED_PAGES`, and a populated-report browser check
+      in `scripts/dev/frontend_gate.py`. The check drives both expander states
+      and verifies Spotify, play-count, artist-portrait hydration through the
+      existing full-stack route, and computed type-role output.
+    - Corrected category badge and table cell padding to whole scale steps (`py-1`,
+      `py-2`), resolving the `F-B21-52` fractional Tailwind spacing trap on this page.
+    - Recompiled `static/css/tailwind.css`.
+- Deviations discovered while the backend work was still in progress:
+  - **F-B21-56:** the first backend commit left Spotify total-failure detection
+    coupled to the old English reason. The local follow-up checks
+    `REASON_NO_SPOTIFY_MATCH`, retaining prose only as a legacy-job fallback.
+  - **F-B21-1:** review of the touched worker boundary confirmed that event-loop
+    setup could leak an acquired job slot. The local follow-up moves setup into
+    `try...finally` in both album and heatmap workers and nests cleanup so a
+    `loop.close()` failure cannot skip `release_job_slot()`. Both sequence
+    diagrams and adversarial tests move with the fix. This intentionally
+    supersedes the plan's original claim that `heatmap.py` would stay untouched.
+  - **Audit-row enrichment:** the frontend preparation retains cover artwork,
+    Spotify IDs, and play counts already available at both unmatched producer
+    sites. When cached album artwork is absent, the browser progressively uses
+    the existing `/api/artist_spotlight` route. The permanent browser gate and
+    producer tests own that expanded presentation contract.
+  - **Commit boundary:** the fixes above are backend changes discovered after
+    the backend commit. The owner authorized staging and committing on
+    2026-09-10; the non-rewrite path keeps them in a separate fix commit before
+    the independently revertible UI commit.
+- Validation: `pytest -q` -- **986 passed**, 2 warnings across 41 test modules.
+  `scripts/dev/frontend_gate.py` passed all 26 checks in 46 runs
+  across Chromium and the Firefox static-assets canary. The populated-report
+  check covers both expander states and computed type roles. Targeted WP-7
+  coverage passed 345 tests; `node --check static/js/unmatched.js` passed.
+  All 10 pre-commit hooks and `doc_state_sync.py --check` pass.
+- Forward guidance: commit the finding fixes, then the reviewed UI. Do not push
+  and do not begin WP-8 until WP-7 is committed.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
 ### 2026-09-10 - Add isolated Results script regression coverage
@@ -615,6 +691,11 @@ non-current operational logs. Older dated entries live in
   passed after the final log update.
   No application changes or dependency additions. Owner authorized committing
   this coverage and the README refresh together; pushing is not part of this step.
+- **Later same-day test-count addendum:** the WP-7 current-batch entry above
+  records the subsequent code change and owns its implementation details. Its
+  full-suite result is `pytest -q` -- **986 passed**. The earlier 974 result
+  in this entry remains point-in-time evidence; this pointer supplies the
+  later same-date count to docsync's live-side-first authority order.
 
 ### 2026-09-10 - Refresh the product README against the current implementation
 
