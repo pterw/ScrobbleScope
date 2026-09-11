@@ -7,185 +7,188 @@
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/results.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/unmatched.css') }}">
 {% endblock %}
 
 {% block content %}
-<main class="unmatched-page mx-auto px-4 pt-4 pb-12 md:pt-6 md:pb-16">
-    <!-- Masthead: Editorial title + navigation actions -->
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-4 border-b border-[var(--ss-border-default)]">
-        <div>
-            <span class="unmatched-label text-xs text-[var(--ss-text-muted)] tracking-wider uppercase block mb-1">
-                Audit &amp; Discovery · {{ year|default('2024') }}
-            </span>
-            <h1 class="font-serif text-3xl md:text-5xl text-[var(--color-base-content)] leading-tight">
+<main class="results-page unmatched-page mx-auto px-4 pt-4 pb-8 md:pt-6 md:pb-12">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
+        <div class="unmatched-heading min-w-0 flex-1">
+            <h1 class="results-headline font-serif text-2xl sm:text-3xl md:text-4xl lg:text-[calc(2.5rem*var(--results-scale,1))] text-[var(--color-base-content)] mb-1 leading-tight whitespace-nowrap overflow-hidden text-ellipsis" title="Albums That Didn't Match Your Filter for {{ username }}">
                 {% if total_count %}
-                Albums That Didn't Match Your Filter for <span class="italic text-[var(--color-primary)]">{{ username }}</span>
+                Albums That Didn't Match Your Filter for <span class="unmatched-headline__user not-italic text-[var(--color-base-content)]">{{ username }}</span>
                 {% else %}
                 No unmatched albums to review
                 {% endif %}
             </h1>
-            <p class="font-sans text-sm md:text-base text-[var(--ss-text-muted)] mt-1">
+            <p class="font-sans text-sm md:text-base font-normal text-[var(--ss-text-muted)] pl-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                 {{ (filter_desc|default('all releases'))|capitalize }} · Minimum {{ min_plays|default(0) }} plays and {{ min_tracks|default(0) }} unique tracks
             </p>
         </div>
-        <div class="flex items-center gap-3 flex-shrink-0">
-            <a href="{{ url_for('main.results') }}" class="btn btn-outline min-h-[44px] px-4 font-sans text-sm rounded-[var(--radius-field,8px)]">
+        <div class="flex items-center gap-2.5 flex-shrink-0">
+            <a href="{{ url_for('main.results') }}" class="btn btn-sm sm:btn-md results-action results-toolbar-action">
                 Back to Results
             </a>
-            <a href="/" class="btn btn-primary min-h-[44px] px-5 font-sans text-sm rounded-[var(--radius-field,8px)]">
+            <a href="/" class="btn btn-sm sm:btn-md btn-primary results-action results-toolbar-action">
                 New Search
             </a>
         </div>
     </div>
 
-    <!-- Active Summary Pill Bar -->
     {% if total_count %}
-    <div class="bg-[var(--unmatched-surface)] border border-[var(--ss-border-default)] rounded-[var(--radius-sm)] p-4 mb-6 flex flex-wrap items-center justify-between gap-4">
-        <div class="unmatched-label flex flex-wrap items-center gap-2 text-xs">
-            <span class="px-2 py-1 bg-[var(--ss-surface-sunken)] border border-[var(--ss-border-default)] rounded text-[var(--ss-text-body)]">
-                YEAR: {{ year }}
-            </span>
-            <span class="px-2 py-1 bg-[var(--ss-surface-sunken)] border border-[var(--ss-border-default)] rounded text-[var(--ss-text-body)]">
-                FILTER: {{ filter_desc }}
-            </span>
-            <span class="px-2 py-1 bg-[var(--ss-surface-sunken)] border border-[var(--ss-border-default)] rounded text-[var(--ss-text-body)]">
-                MIN: {{ min_plays }} plays / {{ min_tracks }} tracks
-            </span>
+    <div class="results-filter-bar unmatched-summary">
+        <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[var(--color-primary)]">Listening year:</span>
+            <span class="font-mono text-[var(--color-base-content)]">{{ year }}</span>
+            <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+            <span class="font-mono text-[var(--color-base-content)]">{{ filter_desc }}</span>
+            <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+            <span class="font-mono text-[var(--color-base-content)]">≥{{ min_plays }} plays</span>
+            <span class="text-[var(--ss-text-muted)] opacity-60">·</span>
+            <span class="font-mono text-[var(--color-base-content)]">≥{{ min_tracks }} unique tracks</span>
         </div>
-        <div class="text-sm font-sans text-[var(--ss-text-muted)]">
-            Total unmatched: <strong class="unmatched-count text-[var(--color-base-content)] font-normal text-lg">{{ total_count }}</strong>
+        <div class="whitespace-nowrap text-[var(--ss-text-muted)]">
+            Total unmatched: <strong class="unmatched-count text-[var(--color-base-content)] font-normal">{{ total_count }}</strong>
         </div>
     </div>
     {% endif %}
 
-    <!-- Reason Groups: Dynamic layout respecting item count size discrepancy -->
     {% if not total_count %}
-    <div class="text-center py-12 bg-[var(--unmatched-surface)] border border-[var(--ss-border-default)] rounded-[var(--radius-box,14px)]">
+    <div class="text-center py-12 bg-[var(--results-surface)] border border-[var(--ss-border-default)] rounded-[var(--radius-sm)]">
         <p class="font-sans text-base text-[var(--ss-text-muted)]">This search has no albums that need an unmatched review.</p>
     </div>
     {% else %}
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+    <div class="unmatched-groups grid grid-cols-1 {% if reasons|length == 2 %}lg:grid-cols-2{% elif reasons|length >= 3 %}lg:grid-cols-3{% endif %} gap-6 items-start">
         {% for reason_key, albums in reasons.items() %}
         {% set meta = (reason_metadata or {}).get(reason_key, {}) %}
-        <section class="unmatched-group col-span-1 {% if reasons|length == 1 %}lg:col-span-3{% elif albums|length > 8 %}lg:col-span-2{% else %}lg:col-span-1{% endif %} bg-[var(--unmatched-surface)] border border-[var(--ss-border-default)] rounded-[var(--radius-box,14px)] p-5 md:p-6 flex flex-col justify-between" data-reason="{{ reason_key }}">
+        <section class="unmatched-group results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)] flex flex-col justify-between" data-reason="{{ reason_key }}">
             <div>
-                <!-- Card Header -->
-                <div class="flex items-start justify-between gap-4 mb-4 pb-3 border-b border-[var(--ss-border-default)]">
-                    <div>
-                        <div class="flex items-center gap-2 mb-1">
-                            <span class="unmatched-label text-xs px-2 py-1 rounded bg-[var(--ss-accent-soft)] text-[var(--color-primary)] uppercase tracking-wider font-normal">
-                                {{ meta.badge|default('Excluded') }}
-                            </span>
-                            <h2 class="font-sans font-bold text-lg md:text-xl text-[var(--color-base-content)]">
-                                {{ meta.title|default(reason_key) }}
-                            </h2>
-                        </div>
-                        <p class="font-sans text-sm text-[var(--ss-text-muted)]">
+                <div class="unmatched-group-header p-4 border-b border-[var(--ss-border-default)] flex items-start justify-between gap-3">
+                    <div class="min-w-0 flex-1">
+                        <h2 class="unmatched-group-title font-sans font-normal text-base md:text-lg text-[var(--color-base-content)] leading-tight">
+                            {{ meta.title|default(reason_key) }}
+                        </h2>
+                        <p class="font-sans text-xs text-[var(--ss-text-muted)] mt-1">
+                            {% if reason_key == 'below_threshold' %}
+                            Played in {{ year }}, but below {{ min_plays }} plays or {{ min_tracks }} unique tracks.
+                            {% else %}
                             {{ meta.description|default('Albums excluded by filter criteria.') }}
+                            {% endif %}
                         </p>
                     </div>
                     <div class="text-right flex-shrink-0">
-                        <span class="unmatched-count text-2xl md:text-3xl font-normal text-[var(--color-primary)]">
+                        <span class="unmatched-count font-normal text-xl md:text-2xl text-[var(--color-primary)]">
                             {{ (reason_counts or {}).get(reason_key, albums|length) }}
                         </span>
-                        <span class="unmatched-label block text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)]">albums</span>
+                        <span class="unmatched-label block text-[0.5625rem] uppercase tracking-wider text-[var(--ss-text-muted)]">albums</span>
                     </div>
                 </div>
 
-                <!-- Table of unmatched items -->
-                <div class="overflow-x-auto -mx-2 sm:mx-0">
-                    <table class="w-full min-w-[31.25rem] text-left font-sans text-sm border-collapse">
-                        <thead>
-                            <tr class="unmatched-label border-b border-[var(--ss-border-default)] text-xs uppercase text-[var(--ss-text-muted)]">
-                                <th class="py-2 px-3 w-10 text-center font-normal">#</th>
-                                <th class="py-2 px-3 font-normal">Album &amp; Artist</th>
-                                <th class="py-2 px-3 text-right font-normal whitespace-nowrap">Plays</th>
-                                <th class="py-2 px-3 text-right font-normal whitespace-nowrap">Reason Detail</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-[var(--ss-border-default)]">
-                            {% for item in albums %}
-                            <tr class="hover:bg-[var(--ss-surface-card)] {% if loop.index > 10 %}unmatched-overflow hidden{% endif %}">
-                                <td class="py-2 px-3 font-mono text-xs text-center text-[var(--ss-text-muted)] align-middle w-10">
-                                    {% if item.spotify_id %}
-                                    <a href="https://open.spotify.com/album/{{ item.spotify_id }}" target="_blank" rel="noopener noreferrer" class="text-[var(--color-primary)] hover:underline" title="Open {{ item.album }} on Spotify">
-                                        {{ "%02d" % loop.index }}
-                                    </a>
-                                    {% else %}
+                <table class="results-table unmatched-table w-full text-left font-sans text-sm border-collapse table-fixed">
+                    <colgroup>
+                        <col class="w-10">
+                        <col>
+                        <col class="w-24 md:w-28">
+                        <col class="w-28 md:w-32">
+                    </colgroup>
+                    <thead>
+                        <tr class="unmatched-label border-b border-[var(--ss-border-default)] bg-transparent uppercase tracking-wider text-[var(--ss-text-muted)] text-xs">
+                            <th scope="col" class="py-2.5 px-2 md:px-3 text-center font-normal">#</th>
+                            <th scope="col" class="py-2.5 px-2 md:px-3 font-normal">Album &amp; Artist</th>
+                            <th scope="col" class="py-2.5 px-2 md:px-3 text-right font-normal whitespace-nowrap">Plays / tracks</th>
+                            <th scope="col" class="py-2.5 px-2 md:px-3 text-right font-normal whitespace-nowrap">Reason detail</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[var(--ss-border-default)]">
+                        {% for item in albums %}
+                        <tr class="hover:bg-[var(--ss-surface-card)] transition-colors {% if loop.index > 10 %}unmatched-overflow hidden{% endif %}">
+                            <td class="py-2.5 px-2 md:px-3 font-mono text-xs text-center text-[var(--ss-text-muted)] align-middle w-10">
+                                {% if item.spotify_id %}
+                                <a href="https://open.spotify.com/album/{{ item.spotify_id }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num" title="Open {{ item.album }} on Spotify">
                                     {{ "%02d" % loop.index }}
-                                    {% endif %}
-                                </td>
-                                <td class="py-2 px-3 align-middle">
-                                    <div class="flex items-center gap-3 min-w-0">
+                                </a>
+                                {% else %}
+                                <span class="rank-num">{{ "%02d" % loop.index }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="py-2.5 px-2 md:px-3 align-middle min-w-0 overflow-hidden">
+                                <div class="flex items-center gap-2.5 md:gap-3 min-w-0">
+                                    {% if reason_key != 'below_threshold' %}
                                         {% if item.album_image %}
                                         <img src="{{ item.album_image }}"
                                              alt="{{ item.album }} cover"
                                              class="unmatched-artwork border border-[var(--ss-border-default)]"
                                              loading="lazy"
                                              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                        <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] hidden" aria-hidden="true">
+                                        <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--results-surface)] items-center justify-center font-mono text-xs text-[var(--ss-text-muted)] hidden" aria-hidden="true">
                                             {{ item.album[:2]|upper }}
                                         </div>
                                         {% else %}
-                                        <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--ss-surface-sunken)] overflow-hidden"
+                                        <div class="unmatched-artwork border border-[var(--ss-border-default)] bg-[var(--results-surface)] overflow-hidden"
                                              data-artist-image
                                              data-artist-name="{{ item.artist }}">
-                                            <img alt=""
-                                                 class="unmatched-artist-image hidden"
-                                                 loading="lazy">
+                                            <img alt="" class="unmatched-artist-image hidden" loading="lazy">
                                             <span class="unmatched-artwork-fallback flex items-center justify-center font-mono text-xs text-[var(--ss-text-muted)]" aria-hidden="true">
                                                 {{ item.album[:2]|upper }}
                                             </span>
                                         </div>
                                         {% endif %}
-                                        <div class="min-w-0 flex-1">
-                                            <div class="font-normal text-[var(--color-base-content)] leading-snug truncate" title="{{ item.album }}">
-                                                {% if item.spotify_id %}
-                                                <a href="https://open.spotify.com/album/{{ item.spotify_id }}" target="_blank" rel="noopener noreferrer" class="hover:text-[var(--color-primary)] hover:underline">
-                                                    {{ item.album }}
-                                                </a>
-                                                {% else %}
-                                                {{ item.album }}
-                                                {% endif %}
-                                            </div>
-                                            <div class="text-xs text-[var(--ss-text-muted)] truncate" title="{{ item.artist }}">
-                                                {{ item.artist }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="py-2 px-3 text-right whitespace-nowrap font-mono text-xs md:text-sm text-[var(--color-base-content)] align-middle">
-                                    {% if item.play_count %}
-                                    {{ item.play_count }}
-                                    {% else %}
-                                    —
                                     {% endif %}
-                                </td>
-                                <td class="py-2 px-3 font-mono text-xs text-right whitespace-nowrap text-[var(--ss-text-muted)] align-middle">
-                                    {{ item.reason }}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                    <div class="album-info min-w-0 flex-1 flex flex-col gap-0.5 overflow-hidden">
+                                        {% if item.spotify_id %}
+                                        <a href="https://open.spotify.com/album/{{ item.spotify_id }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-sm md:text-base leading-snug truncate" title="{{ item.album }}">
+                                            {{ item.album }}
+                                        </a>
+                                        {% else %}
+                                        <span class="font-sans font-normal text-sm md:text-base text-[var(--color-base-content)] leading-snug truncate" title="{{ item.album }}">
+                                            {{ item.album }}
+                                        </span>
+                                        {% endif %}
+                                        <span class="font-sans text-xs text-[var(--ss-text-muted)] font-normal truncate" title="{{ item.artist }}">
+                                            {{ item.artist }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-2.5 px-2 md:px-3 unmatched-metric text-right align-middle font-mono text-xs text-[var(--color-base-content)] whitespace-nowrap overflow-hidden text-ellipsis">
+                                {% if reason_key == 'below_threshold' %}
+                                <span class="unmatched-thresholds">{{ item.play_count if item.play_count is not none else '—' }} plays / {{ item.track_count if item.track_count is not none else '—' }} tracks</span>
+                                {% else %}
+                                {{ item.play_count if item.play_count is not none else '—' }}
+                                {% endif %}
+                            </td>
+                            <td class="py-2.5 px-2 md:px-3 unmatched-reason-detail font-mono text-xs text-right text-[var(--ss-text-muted)] align-middle truncate" title="{{ item.reason }}">
+                                {{ item.reason }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
 
-                <!-- Expander Button if more than 10 items -->
                 {% if albums|length > 10 %}
-                <div class="mt-3 text-center">
+                <div class="unmatched-expander-row p-3 flex flex-wrap items-center justify-center gap-3 border-t border-[var(--ss-border-default)]">
                     <button type="button"
-                            class="unmatched-expander-btn btn btn-ghost min-h-[44px] px-4 font-mono font-normal text-xs text-[var(--color-primary)] hover:bg-[var(--ss-surface-card)]"
+                            class="unmatched-expander-btn unmatched-show-more-btn btn btn-ghost btn-sm results-action font-mono font-normal text-xs text-[var(--color-primary)] hover:bg-[var(--ss-surface-card)]"
                             aria-expanded="false"
+                            data-step="50"
+                            data-initial="10"
                             data-total-count="{{ albums|length }}">
+                        {% if albums|length - 10 <= 50 %}
                         Show all {{ albums|length }} albums
+                        {% else %}
+                        Show next 50 ({{ albums|length - 10 }} remaining)
+                        {% endif %}
+                    </button>
+                    <button type="button"
+                            class="unmatched-back-to-top-btn btn btn-ghost btn-sm results-action font-mono font-normal text-xs text-[var(--ss-text-muted)] hover:text-[var(--color-base-content)] hover:bg-[var(--ss-surface-card)]">
+                        ↑ Back to top
                     </button>
                 </div>
                 {% endif %}
             </div>
 
-            <!-- Purple mono uppercase fix line at 9px held to one line (Screen 5 spec) -->
-            <div class="mt-4 pt-3 border-t border-[var(--ss-border-default)] unmatched-fix-hint text-[0.5625rem] uppercase tracking-wider text-[var(--color-primary)] truncate"
+            <div class="unmatched-fix-hint p-3 border-t border-[var(--ss-border-default)] uppercase tracking-wider text-[var(--color-primary)] truncate"
                  title="{{ meta.fix_hint|default('Excluded from results based on criteria.') }}">
                 {{ meta.fix_hint|default('Excluded from results based on criteria.') }}
             </div>

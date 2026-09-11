@@ -16,7 +16,7 @@ REASON_NO_SPOTIFY_MATCH = "no_spotify_match"
 #: Human copy, badges, and fix hints associated with each reason code.
 CATEGORY_METADATA = {
     REASON_BELOW_THRESHOLD: {
-        "title": "Below Your Thresholds",
+        "title": "Below your thresholds",
         "description": "Albums that did not meet one or both listening minimums.",
         "badge": "Threshold",
         "fix_hint": "Lower either minimum on a new search to include these albums.",
@@ -154,7 +154,11 @@ def group_unmatched_albums(
         ]
         return (order.index(k) if k in order else 99, k)
 
-    sorted_groups = {k: groups[k] for k in sorted(groups.keys(), key=_sort_key)}
+    MAX_UNMATCHED_GROUP_CAP = 500
+    sorted_groups = {
+        k: groups[k][:MAX_UNMATCHED_GROUP_CAP]
+        for k in sorted(groups.keys(), key=_sort_key)
+    }
     counts = {k: len(v) for k, v in sorted_groups.items()}
 
     return sorted_groups, counts, metadata

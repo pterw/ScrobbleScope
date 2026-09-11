@@ -725,6 +725,24 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     job_id = create_job(TEST_JOB_PARAMS)
     add_job_unmatched(
         job_id,
+        "threshold|album",
+        {
+            "artist": "Threshold Artist",
+            "album": "Threshold Album",
+            "play_count": 7,
+            "track_count": 2,
+            "failed_thresholds": ["plays", "tracks"],
+            "min_plays": 10,
+            "min_tracks": 3,
+            "reason": (
+                "Played 7 times across 2 unique tracks; minimum is 10 plays and "
+                "3 unique tracks"
+            ),
+            "reason_code": "below_threshold",
+        },
+    )
+    add_job_unmatched(
+        job_id,
         "a|one",
         {
             "artist": "Artist A",
@@ -762,6 +780,15 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     )
     assert b"Artist B" in response.data
     assert b"Artist C" in response.data
+    assert b"Audit &amp; Discovery" not in response.data
+    assert b"unmatched-headline__user" in response.data
+    assert b"7 plays" in response.data
+    assert b"2 tracks" in response.data
+    assert (
+        response.data.index(b'data-reason="below_threshold"')
+        < response.data.index(b'data-reason="release_scope"')
+        < response.data.index(b'data-reason="no_spotify_match"')
+    )
 
 
 def test_loading_page_uses_job_context_at_canonical_url(client):

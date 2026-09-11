@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from scrobblescope.orchestrator import (
+    _MAX_ALBUM_CAP,
     _PLAYTIME_ALBUM_CAP,
     _apply_post_slice,
     _apply_pre_slice,
@@ -171,6 +172,16 @@ def test_apply_pre_slice_playtime_cap_fires():
     }
     result = _apply_pre_slice(albums, "playtime", "all", "all")
     assert len(result) == _PLAYTIME_ALBUM_CAP
+
+
+def test_apply_pre_slice_playcount_cap_fires():
+    """501 albums, sort_mode='playcount' -> capped at _MAX_ALBUM_CAP."""
+    albums = {
+        (f"a{i}", f"b{i}"): {"play_count": 1000 - i, "track_counts": {}}
+        for i in range(501)
+    }
+    result = _apply_pre_slice(albums, "playcount", "all", "same")
+    assert len(result) == _MAX_ALBUM_CAP
 
 
 def test_apply_pre_slice_playtime_below_cap_unchanged():

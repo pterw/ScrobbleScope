@@ -9,11 +9,11 @@ Last updated: 2026-09-11
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **989 passing** across 41 test modules |
+| Tests | **990 passing** across 41 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** PR #231 is green after the portable cleanup-test fix. Backend Task 1 of the owner-approved WP-7 extension retains one `below_threshold` item per excluded album without adding Spotify work. The Results-aligned horizontal report is next. WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
+| Batch 21 status | **Active.** PR #231 is green after the portable cleanup-test fix. WP-7 extension still incomplete and neeeds refinement: retains one `below_threshold` item per excluded album without adding Spotify work, side-by-side horizontal report panels sorted by reason code, Results design tokens and scaling reconciled, and 500-album cap unified across sort modes. WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -21,7 +21,7 @@ Last updated: 2026-09-11
   background jobs via `worker.py`.
 - `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 - `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
-- `_PLAYTIME_ALBUM_CAP = 500` in `orchestrator.py` limits Spotify fetch for playtime sort.
+- `_MAX_ALBUM_CAP = 500` in `orchestrator.py` limits Spotify fetch across all sort modes.
 - Cold-start validated 2026-02-19 (both app + DB auto-wake on demand).
 - DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
   elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
@@ -37,11 +37,11 @@ Last updated: 2026-09-11
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 21.
-- Current-batch entries in active log block: 13.
+- Current-batch entries in active log block: 14.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5, WP-7.
 - Next expected work package: WP-8.
-- Latest validated test count: **989 passed**.
-- Newest current-batch entry: 2026-09-11 - Below-threshold albums retained (Batch 21 WP-7).
+- Latest validated test count: **990 passed**.
+- Newest current-batch entry: 2026-09-11 - Side-by-side unmatched horizontal reports and 500-album cap unified (Batch 21 WP-7).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -185,7 +185,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (989 tests)
+## 6. Test structure (990 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

@@ -2781,6 +2781,26 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
     spotlight_pattern = "**/api/artist_spotlight?*"
     page.route(spotlight_pattern, fulfill_spotlight)
     try:
+        add_job_unmatched(
+            job_id,
+            "below-threshold",
+            {
+                "album": "Older",
+                "artist": "Lizzy McAlpine",
+                "reason": (
+                    "Played 7 times across 2 unique tracks; minimum is 10 plays "
+                    "and 3 unique tracks"
+                ),
+                "reason_code": "below_threshold",
+                "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+                "spotify_id": None,
+                "play_count": 7,
+                "track_count": 2,
+                "failed_thresholds": ["plays", "tracks"],
+                "min_plays": 10,
+                "min_tracks": 3,
+            },
+        )
         play_counts = (5, 29, 11, 23, 7, 17, 13, 19, 3, 2, 27, 9)
         for index in range(1, 13):
             add_job_unmatched(
@@ -2812,9 +2832,9 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
 
         page.goto(f"{base_url}/unmatched?job_id={job_id}", wait_until="load")
         groups = page.locator(".unmatched-group")
-        if groups.count() != 2:
+        if groups.count() != 3:
             failures.append(
-                f"unmatched report rendered {groups.count()} reason groups instead of 2"
+                f"unmatched report rendered {groups.count()} reason groups instead of 3"
             )
             return failures
 
@@ -2830,6 +2850,8 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 const fixHint = node.querySelector('.unmatched-fix-hint');
                 const cover = rows[0]?.querySelector('img');
                 const root = getComputedStyle(document.documentElement);
+                const headline = page.querySelector('h1');
+                const username = page.querySelector('.unmatched-headline__user');
                 const normalizeFont = value => value.replaceAll('"', '').replaceAll(' ', '');
                 return {
                     rows: rows.length,
@@ -2843,7 +2865,15 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     figureFont: normalizeFont(root.getPropertyValue('--font-figure').trim()),
                     pageMaxWidth: getComputedStyle(page).maxWidth,
                     gridColumns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
-                    groupColumnEnd: getComputedStyle(node).gridColumnEnd,
+                    scale: Number.parseFloat(getComputedStyle(page).getPropertyValue('--results-scale')),
+                    reportOverflow: grid.scrollWidth - grid.clientWidth,
+                    headingFirstTag: headline.parentElement.firstElementChild?.tagName,
+                    usernameFontStyle: username ? getComputedStyle(username).fontStyle : null,
+                    usernameMatchesHeadlineColor: username
+                        ? getComputedStyle(username).color === getComputedStyle(headline).color
+                        : false,
+                    resultsStylesheet: [...document.styleSheets].some(sheet =>
+                        sheet.href?.endsWith('/static/css/results.css')),
                     fixHint: fixHint?.textContent.trim(),
                     fixHintSize: getComputedStyle(fixHint).fontSize,
                     coverWidth: getComputedStyle(cover).width,
@@ -2861,19 +2891,56 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
             "buttonText": "Show all 12 albums",
             "expanded": "false",
             "plays": "29",
-            "pageMaxWidth": "1180px",
-            "gridColumns": 3,
-            "groupColumnEnd": "span 2",
+            "pageMaxWidth": "1440px",
+            "gridColumns": 3 if page.viewport_size["width"] >= 1024 else 1,
+            "headingFirstTag": "H1",
+            "usernameFontStyle": "normal",
+            "usernameMatchesHeadlineColor": True,
+            "resultsStylesheet": True,
             "fixHint": 'Choose "All years (no filter)" on a new search to include these releases.',
             "fixHintSize": "9px",
-            "coverWidth": "44px",
-            "coverHeight": "44px",
+            "coverWidth": "44px" if page.viewport_size["width"] >= 768 else "40px",
+            "coverHeight": "44px" if page.viewport_size["width"] >= 768 else "40px",
         }
         for claim, wanted in expected.items():
             if state[claim] != wanted:
                 failures.append(
                     f"unmatched report {claim} is {state[claim]!r}, expected {wanted!r}"
                 )
+        group_tops = page.locator(".unmatched-group").evaluate_all(
+            "groups => groups.map(g => Math.round(g.getBoundingClientRect().top))"
+        )
+        if page.viewport_size["width"] >= 1024:
+            if len(group_tops) >= 2 and group_tops[0] != group_tops[1]:
+                failures.append(
+                    "unmatched reports are not arranged side-by-side on desktop"
+                )
+        else:
+            if len(group_tops) >= 2 and group_tops[0] == group_tops[1]:
+                failures.append(
+                    "unmatched reports should wrap to single column on mobile"
+                )
+
+        if state["reportOverflow"] > 1:
+            failures.append(
+                f"unmatched report overflows horizontally by {state['reportOverflow']!r}px"
+            )
+        if state["scale"] < 1:
+            failures.append(
+                f"unmatched report has invalid Results scale {state['scale']!r}"
+            )
+
+        threshold_state = page.locator('[data-reason="below_threshold"]').evaluate(
+            r"""node => ({
+                rows: node.querySelectorAll('tbody tr').length,
+                metric: node.querySelector('.unmatched-thresholds')?.textContent
+                    .replaceAll(/\s+/g, ' ').trim(),
+            })"""
+        )
+        if threshold_state != {"rows": 1, "metric": "7 plays / 2 tracks"}:
+            failures.append(
+                f"unmatched threshold row is incorrect: {threshold_state!r}"
+            )
         if not (state["spotifyHref"] or "").endswith("/scope-album-2"):
             failures.append("unmatched report did not render the Spotify album link")
         if state["countFont"] != state["figureFont"]:
@@ -3761,7 +3828,7 @@ CHECKS = (
     (
         "unmatched report",
         check_unmatched_report,
-        (DESKTOP,),
+        (DESKTOP, MOBILE),
         LAYOUT_PIPELINE,
     ),
     (

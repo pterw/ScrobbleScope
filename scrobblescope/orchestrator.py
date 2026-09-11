@@ -48,13 +48,13 @@ from scrobblescope.utils import (
 )
 from scrobblescope.worker import release_job_slot
 
-# Hard upper bound on the number of albums sent to process_albums when sorting
-# by playtime. Playtime ranking requires Spotify track durations, so pre-slicing
-# is impossible -- but an unbounded album count creates proportional Spotify API
-# load. 500 albums at 20 per batch = 25 batch requests, well within practical
-# limits. A user with 500+ albums passing min_plays/min_tracks is an extreme
+# Hard upper bound on the number of albums sent to process_albums across all sort
+# modes. An unbounded album count creates proportional Spotify API load and
+# frontend DOM bloat. 500 albums at 20 per batch = 25 batch requests, well within
+# practical limits. A user with 500+ albums passing min_plays/min_tracks is an extreme
 # outlier; raw play_count is the best available proxy for culling the tail.
-_PLAYTIME_ALBUM_CAP = 500
+_MAX_ALBUM_CAP = 500
+_PLAYTIME_ALBUM_CAP = _MAX_ALBUM_CAP
 
 
 async def fetch_top_albums_async(
@@ -122,12 +122,23 @@ async def fetch_top_albums_async(
     )
     logging.debug(f"Albums after filter: {len(filtered)}")
 
+    total_below_threshold = len(threshold_exclusions)
+    if len(threshold_exclusions) > _MAX_ALBUM_CAP:
+        sorted_exclusion_keys = sorted(
+            threshold_exclusions.keys(),
+            key=lambda k: threshold_exclusions[k].get("play_count", 0),
+            reverse=True,
+        )[:_MAX_ALBUM_CAP]
+        threshold_exclusions = {
+            k: threshold_exclusions[k] for k in sorted_exclusion_keys
+        }
+
     fetch_metadata["stats"] = {
         "total_scrobbles": total_tracks,
         "pages_fetched": len(pages),
         "unique_albums": len(albums),
         "albums_passing_filter": len(filtered),
-        "albums_below_threshold": len(threshold_exclusions),
+        "albums_below_threshold": total_below_threshold,
     }
 
     return filtered, threshold_exclusions, fetch_metadata
@@ -663,12 +674,12 @@ def _record_lastfm_stats(job_id, fetch_metadata):
 
 
 def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
-    """Apply pre-Spotify pre-slicing and playtime cap.
+    """Apply pre-Spotify pre-slicing and safety cap.
 
     Playcount pre-slice: only when sort_mode='playcount', release_scope='all',
-    and limit_results is a valid integer. Playtime cap: fires at
-    _PLAYTIME_ALBUM_CAP when sort_mode='playtime'. Returns the (possibly
-    reduced) dict.
+    and limit_results is a valid integer. Safety cap: fires at
+    _MAX_ALBUM_CAP across all sort modes to protect Spotify API quotas and
+    results rendering performance. Returns the (possibly reduced) dict.
     """
     if sort_mode == "playcount" and limit_results != "all" and release_scope == "all":
         try:
@@ -684,16 +695,17 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
         except ValueError:
             pass  # malformed limit_results handled by the post-process slice
 
-    if sort_mode == "playtime" and len(filtered_albums) > _PLAYTIME_ALBUM_CAP:
+    if len(filtered_albums) > _MAX_ALBUM_CAP:
         sorted_items = sorted(
             filtered_albums.items(),
             key=lambda kv: cast(int, kv[1]["play_count"]),
             reverse=True,
         )
-        filtered_albums = dict(sorted_items[:_PLAYTIME_ALBUM_CAP])
+        filtered_albums = dict(sorted_items[:_MAX_ALBUM_CAP])
+        prefix = "Playtime album cap" if sort_mode == "playtime" else "Album cap"
         logging.warning(
-            f"Playtime album cap applied: capped {len(sorted_items)} albums "
-            f"to top {_PLAYTIME_ALBUM_CAP} by play_count before Spotify fetch"
+            f"{prefix} applied: capped {len(sorted_items)} albums "
+            f"to top {_MAX_ALBUM_CAP} by play_count before Spotify fetch"
         )
 
     return filtered_albums

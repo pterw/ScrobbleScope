@@ -4,7 +4,7 @@ Last updated: 2026-09-10
 Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
 into WP-3, and WP-7 is active pending its remaining commits.
 PLAYBOOK Section 3 owns the current work order.
-989 tests across 41 test modules.
+990 tests across 41 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an

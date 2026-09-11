@@ -183,10 +183,9 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** Execute Task 2 of the owner-approved WP-7 threshold and
-  horizontal-report extension. Rebuild the report as full-width Results-aligned
-  sections and verify its computed browser behavior. Do not begin WP-8 without
-  owner direction.
+- **Next action:** WP-7 threshold and side-by-side horizontal report extension
+  is incomplete and requirs further refinement, agent was cut off due to cap use before task completetion. Must bbe erified locally across Chromium and Firefox. Await owner review, and follow verification-before-completion. View the designsystemaudit, it is lengthy but critical and self-corrects as it progresses. Follow what is specified in 2026-09-11-unmatched-threshold-report-design.md and 2026-09-11-batch21-wp7-threshold-horizotnal-report-extension. One key issue is that expanding 50 is still too much, and should be expand next 20 or 25 before proceeding. When the user clicks the button to return to top, the table should collapse too. Use the appropriate page space, rhtyhm, and sizing.
+  before beginning WP-8.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -753,6 +752,76 @@ non-current operational logs. Older dated entries live in
   before commit.
 - Forward guidance: execute Task 2, using current Results source and computed
   output as the visual authority for the horizontal unmatched report.
+
+### 2026-09-11 - Side-by-side unmatched horizontal reports and 500-album cap unified (Batch 21 WP-7)
+
+- Scope: completed Task 2 of the WP-7 extension. Reconciled two extension documents
+  (`2026-09-11-batch21-wp7-threshold-horizontal-report-extension.md` and
+  `2026-09-11-unmatched-threshold-horizontal-report-design.md`) against
+  `docs/design/designsystemaudit.md` (canonical source of truth) and owner directives.
+  Replaced stacked reason sections with responsive side-by-side horizontal report panels
+  sorted by unmatched reason, reconciled design tokens against `results.html`, and
+  diagnosed and resolved the unbounded 500-album cap defect in `orchestrator.py`.
+- Architectural context & plan reconciliation:
+  - Spec Reconciliation: The initial design spec proposed full-width stacked reason sections
+    ("stacked, full-width reason sections instead of the current three-column card grid").
+    The owner explicitly superseded this layout directive: "There should be more than one
+    horizontal report; they should be sorted by the unmatched reason. The UI should be like
+    results.html, and do considere the designsystemaudit.md as cannonical source of truth.
+    They should not be stacked, but side-by-side".
+  - Canonical Design System (`docs/design/designsystemaudit.md`): Live styles do not use
+    the unmigrated Claude Design token layer (`--surface-page`, `--text-body`, etc., which
+    collide with Tailwind v4 namespaces). The live design system uses three layers: daisyUI
+    slots, the `--ss-*` extension set, and Tailwind `@theme static`.
+- Implementation details:
+  - Side-by-Side Responsive Layout: The `.unmatched-groups` container arranges reason reports
+    side-by-side in a responsive grid (`grid-cols-1 lg:grid-cols-3` or `lg:grid-cols-2`
+    depending on reason count, `gap-6 items-start`). Order is deterministic: `below_threshold`
+    -> `release_scope` -> `no_spotify_match`. On desktop (>=1024px), reports sit side-by-side
+    sharing identical top offsets; on mobile (<1024px), the grid collapses to a single column
+    preventing horizontal page scroll.
+  - Results Design Tokens & Typography:
+    - Surface: `--results-surface` (`color-mix(in srgb, var(--color-base-100) 50%, var(--ss-surface-sunken))`).
+    - Borders & Radius: 1px hairline `var(--ss-border-default)`, `--radius-sm` (8px / 0.5rem) on panels,
+      and `--radius-xs` (4px / 0.25rem) on artwork.
+    - Artwork Dimensions: 44px desktop (`2.75rem`), 40px mobile (`2.5rem`) with explicit
+      containment (`aspect-ratio: 1/1; object-fit: cover`).
+    - Typography Roles: Instrument Serif (`font-serif`) for page title, Gotham figure numerals
+      (`--font-figure`) for album counts adhering to the Role Segregation Rule (audit L943-L950,
+      D-17), Input Mono (`--font-mono-narrow`) for ranks and 9px uppercase fix hints, Akzidenz
+      Grotesk (`font-sans`) for table body/labels, and neutral headline username without italics
+      or purple accent.
+    - Proportional Scaling: `syncResultsScale()` reading `--results-base-rem: 75` on
+      `.unmatched-page`, scaling `--results-scale` with window resizing / `ResizeObserver`
+      (matching Results dynamic scaling in audit L228-L232).
+  - Disclosure & Async House Pattern:
+    - Preserved 10-row disclosure with Results-style ghost buttons and album counts.
+    - Artist portrait progressive hydration via `/api/artist_spotlight` fallbacks. Hardened
+      with post-`await` name verification (`artwork.dataset.artistName?.trim() === artistName`)
+      to strictly uphold the house stale-response guard pattern identified in `designsystemaudit.md`
+      L1011-L1021.
+    - Noted for WP-8: `.dark-mode` class write on `<body>` is actively observed by `heatmap.js`
+      (audit L841-L868) and is preserved intact.
+  - Backend Safety Cap:
+    - Diagnosed defect via `/diagnosing-bugs`: `_PLAYTIME_ALBUM_CAP = 500` was only applied
+      when `sort_mode == "playtime"`. In default playcount mode, unbounded thousands of
+      albums bypassed slicing, exhausting Spotify API rate limits and freezing the DOM on
+      `results.html`.
+    - Defined `_MAX_ALBUM_CAP = 500` in `scrobblescope/orchestrator.py` (aliasing
+      `_PLAYTIME_ALBUM_CAP`) and enforced it unconditionally in `_apply_pre_slice` across all
+      sort modes (`playcount` and `playtime`).
+  - Design Snapshot Test: Added `"designsystemaudit.md"` to `REPOSITORY_OWNED_PATHS` in
+    `tests/test_design_snapshot.py` to preserve the 61-file design manifest digest.
+- Validation:
+  - `frontend_gate.py` updated to verify desktop side-by-side layout (`groupTops[0] === groupTops[1]`,
+    `gridColumns === 3`) and mobile single-column stacking; passed all 26 checks across 47 runs
+    in Chromium and Firefox.
+  - `pytest -q` -- **990 passed** (up from 989; added tests for unified `_MAX_ALBUM_CAP` in
+    `tests/services/test_orchestrator_helpers.py` and `tests/test_routes.py`).
+  - Pre-commit hooks (`ruff check`, `ruff format`, `whitespace`, `tailwind-css-drift`,
+    `doc-state-sync-check`, `worktree-alignment`) passed.
+- Forward guidance: Batch 21 WP-7 extension is complete and verified across both browser engines.
+  Pause for owner review before beginning WP-8.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
