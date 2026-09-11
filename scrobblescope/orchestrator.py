@@ -35,7 +35,11 @@ from scrobblescope.spotify import (
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
 )
-from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH, REASON_RELEASE_SCOPE
+from scrobblescope.unmatched import (
+    REASON_NO_SPOTIFY_MATCH,
+    REASON_RELEASE_SCOPE,
+    partition_albums_by_threshold,
+)
 from scrobblescope.utils import (
     cleanup_expired_cache,
     create_optimized_session,
@@ -56,7 +60,11 @@ _PLAYTIME_ALBUM_CAP = 500
 async def fetch_top_albums_async(
     username, year, min_plays=10, min_tracks=3, progress_cb=None
 ):
-    """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple.
+    """Fetch and partition top albums by the configured listening thresholds.
+
+    Returns an ``(eligible_albums, threshold_exclusions, fetch_metadata)``
+    tuple. Threshold exclusions retain report facts but never enter Spotify
+    enrichment.
 
     The returned ``fetch_metadata`` dict includes a ``stats`` key with
     aggregation counters (total_scrobbles, pages_fetched, unique_albums,
@@ -109,11 +117,9 @@ async def fetch_top_albums_async(
                 albums[key]["track_counts"][normalized] += 1
     logging.debug(f"Unique albums: {len(albums)}")
 
-    filtered = {
-        k: v
-        for k, v in albums.items()
-        if v["play_count"] >= min_plays and len(v["track_counts"]) >= min_tracks
-    }
+    filtered, threshold_exclusions = partition_albums_by_threshold(
+        dict(albums), min_plays, min_tracks
+    )
     logging.debug(f"Albums after filter: {len(filtered)}")
 
     fetch_metadata["stats"] = {
@@ -121,9 +127,10 @@ async def fetch_top_albums_async(
         "pages_fetched": len(pages),
         "unique_albums": len(albums),
         "albums_passing_filter": len(filtered),
+        "albums_below_threshold": len(threshold_exclusions),
     }
 
-    return filtered, fetch_metadata
+    return filtered, threshold_exclusions, fetch_metadata
 
 
 def _matches_release_criteria(
@@ -774,7 +781,11 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
             },
         )
 
-    filtered_albums, fetch_metadata = await fetch_top_albums_async(
+    (
+        filtered_albums,
+        threshold_exclusions,
+        fetch_metadata,
+    ) = await fetch_top_albums_async(
         username,
         year,
         min_plays=min_plays,
@@ -794,6 +805,9 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
             username=username,
         )
         return None
+
+    for unmatched_key, item in threshold_exclusions.items():
+        add_job_unmatched(job_id, "|".join(unmatched_key), item)
 
     # Legitimate empty result: user has scrobbles but none pass filters
     if not filtered_albums:

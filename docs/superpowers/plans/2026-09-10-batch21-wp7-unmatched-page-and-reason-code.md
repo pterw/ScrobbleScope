@@ -779,6 +779,11 @@ Expected: All unit tests pass, pre-commit passes, doc sync passes, and the front
    now create that patch target when the platform does not expose it and close
    their test coroutine before forcing `loop.close()` to fail. Production code
    and UI rendering are unchanged.
+6. **Owner-approved threshold extension.** The backend now partitions albums
+   after Last.fm aggregation, persists one structured `below_threshold` item
+   per excluded album, and terminates an all-excluded job successfully without
+   invoking Spotify. The dated 2026-09-11 extension plan owns the remaining
+   horizontal Results-aligned report work.
 
 
 - [x] **Step 5: Commit the authorized finding fix, then the remaining WP-7 UI**

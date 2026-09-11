@@ -183,9 +183,10 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** Execute Task 1 of the owner-approved WP-7 threshold and
-  horizontal-report extension. Retain and persist one `below_threshold` item
-  per album before changing the UI. Do not begin WP-8 without owner direction.
+- **Next action:** Execute Task 2 of the owner-approved WP-7 threshold and
+  horizontal-report extension. Rebuild the report as full-width Results-aligned
+  sections and verify its computed browser behavior. Do not begin WP-8 without
+  owner direction.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -734,6 +735,24 @@ non-current operational logs. Older dated entries live in
   commits that execute the extension.
 - Forward guidance: execute backend Task 1 first, then the horizontal Results-
   aligned UI task. Keep each as an independently revertible commit.
+
+### 2026-09-11 - Below-threshold albums retained (Batch 21 WP-7)
+
+- Scope: completed backend Task 1 of the approved WP-7 extension without
+  changing UI rendering.
+- Implementation: Last.fm aggregation now partitions eligible albums from
+  exclusions that fail plays, unique tracks, or both. Each excluded album is
+  stored once with the `below_threshold` reason code, actual counts, configured
+  minimums, and failed-threshold list.
+- Pipeline boundary: exclusions are persisted only after a successful Last.fm
+  response and before the eligible-empty terminal state. They never enter
+  Spotify processing; an all-excluded job completes normally with empty Results
+  and a populated unmatched report.
+- Validation: focused partition, Last.fm, orchestrator, and route coverage
+  passes. `pytest -q` -- **989 passed**. Repository gate evidence is refreshed
+  before commit.
+- Forward guidance: execute Task 2, using current Results source and computed
+  output as the visual authority for the horizontal unmatched report.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

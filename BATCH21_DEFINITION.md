@@ -474,7 +474,8 @@ stacked full-width horizontal report sections, remove the unmatched eyebrow and
 purple italic username, and mirror the current Results composition, actions,
 surface, table rhythm, and width-derived scale. The approved design and
 execution contract are the two dated 2026-09-11 threshold-extension documents
-under `docs/superpowers/`.
+under `docs/superpowers/`. The backend partition and job-repository boundary
+are implemented and verified; the Results-aligned horizontal report is next.
 
 ### WP-8 -- Sweep + close-out
 

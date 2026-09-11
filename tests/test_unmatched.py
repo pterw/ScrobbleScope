@@ -1,10 +1,42 @@
 """Unit tests for unmatched album domain categorization and grouping."""
 
 from scrobblescope.unmatched import (
+    REASON_BELOW_THRESHOLD,
     REASON_NO_SPOTIFY_MATCH,
     REASON_RELEASE_SCOPE,
     group_unmatched_albums,
+    partition_albums_by_threshold,
 )
+
+
+def test_partition_albums_by_threshold_keeps_each_exclusion_once():
+    """An album below both minimums is retained once with both failures."""
+    albums = {
+        ("artist", "both low"): {
+            "original_artist": "Artist",
+            "original_album": "Both Low",
+            "play_count": 7,
+            "track_counts": {"one": 4, "two": 3},
+        },
+        ("artist", "eligible"): {
+            "original_artist": "Artist",
+            "original_album": "Eligible",
+            "play_count": 10,
+            "track_counts": {"one": 4, "two": 3, "three": 3},
+        },
+    }
+
+    eligible, excluded = partition_albums_by_threshold(albums, 10, 3)
+
+    assert list(eligible) == [("artist", "eligible")]
+    assert list(excluded) == [("artist", "both low")]
+    item = excluded[("artist", "both low")]
+    assert item["reason_code"] == REASON_BELOW_THRESHOLD
+    assert item["failed_thresholds"] == ["plays", "tracks"]
+    assert item["play_count"] == 7
+    assert item["track_count"] == 2
+    assert item["min_plays"] == 10
+    assert item["min_tracks"] == 3
 
 
 def test_group_unmatched_albums_groups_by_reason_code():

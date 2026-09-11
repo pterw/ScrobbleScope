@@ -65,7 +65,7 @@ async def test_fetch_top_albums_aggregates_play_counts():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _ = await fetch_top_albums_async("testuser", 2023)
+        result, excluded, _ = await fetch_top_albums_async("testuser", 2023)
 
     assert len(result) == 1
     key = next(iter(result))
@@ -91,11 +91,17 @@ async def test_fetch_top_albums_min_plays_filter():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _ = await fetch_top_albums_async("testuser", 2023)
+        result, excluded, _ = await fetch_top_albums_async("testuser", 2023)
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist B" in artist_keys
     assert "Artist A" not in artist_keys
+    assert len(excluded) == 1
+    excluded_album = next(iter(excluded.values()))
+    assert excluded_album["artist"] == "Artist A"
+    assert excluded_album["play_count"] == 8
+    assert excluded_album["track_count"] == 8
+    assert excluded_album["failed_thresholds"] == ["plays"]
 
 
 @pytest.mark.asyncio
@@ -119,11 +125,17 @@ async def test_fetch_top_albums_min_tracks_filter():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _ = await fetch_top_albums_async("testuser", 2023)
+        result, excluded, _ = await fetch_top_albums_async("testuser", 2023)
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist B" in artist_keys
     assert "Artist A" not in artist_keys
+    assert len(excluded) == 1
+    excluded_album = next(iter(excluded.values()))
+    assert excluded_album["artist"] == "Artist A"
+    assert excluded_album["play_count"] == 15
+    assert excluded_album["track_count"] == 2
+    assert excluded_album["failed_thresholds"] == ["tracks"]
 
 
 @pytest.mark.asyncio
@@ -146,7 +158,7 @@ async def test_fetch_top_albums_skips_out_of_bounds_timestamps():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _ = await fetch_top_albums_async("testuser", 2023, min_plays=5)
+        result, _, _ = await fetch_top_albums_async("testuser", 2023, min_plays=5)
 
     artist_keys = {v["original_artist"] for v in result.values()}
     assert "Artist X" not in artist_keys
@@ -210,7 +222,7 @@ async def test_fetch_top_albums_skips_now_playing_track():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _ = await fetch_top_albums_async(
+        result, _, _ = await fetch_top_albums_async(
             "testuser", 2023, min_plays=10, min_tracks=3
         )
 
@@ -249,7 +261,7 @@ async def test_fetch_top_albums_non_latin_tracks_counted_distinctly():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        result, _ = await fetch_top_albums_async(
+        result, _, _ = await fetch_top_albums_async(
             "testuser", 2023, min_plays=10, min_tracks=3
         )
 
@@ -279,7 +291,7 @@ async def test_fetch_top_albums_returns_stats_in_metadata():
             new=AsyncMock(return_value=(pages, fetch_meta)),
         ),
     ):
-        _, metadata = await fetch_top_albums_async(
+        _, exclusions, metadata = await fetch_top_albums_async(
             "testuser", 2023, min_plays=10, min_tracks=3
         )
 
@@ -287,3 +299,5 @@ async def test_fetch_top_albums_returns_stats_in_metadata():
     assert stats["total_scrobbles"] == 18
     assert stats["unique_albums"] == 1
     assert stats["albums_passing_filter"] == 1
+    assert stats["albums_below_threshold"] == 0
+    assert exclusions == {}

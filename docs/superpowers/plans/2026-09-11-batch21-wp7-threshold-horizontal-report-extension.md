@@ -41,7 +41,7 @@
 - Changes: `fetch_top_albums_async(...) -> tuple[dict, dict, dict]`, returning eligible albums, threshold exclusions, and fetch metadata.
 - Persists: one unmatched payload per excluded album through `add_job_unmatched`.
 
-- [ ] **Step 1: Write failing partition tests**
+- [x] **Step 1: Write failing partition tests**
 
 Add tests that exercise play-only, track-only, both-failure, and exact-boundary albums:
 
@@ -73,12 +73,12 @@ def test_partition_albums_by_threshold_keeps_each_exclusion_once():
     assert item["track_count"] == 2
 ```
 
-- [ ] **Step 2: Run the partition tests and confirm RED**
+- [x] **Step 2: Run the partition tests and confirm RED**
 
 Run the named tests with qualified pytest. Expected: import failure for
 `REASON_BELOW_THRESHOLD` or `partition_albums_by_threshold`.
 
-- [ ] **Step 3: Implement the pure partition contract**
+- [x] **Step 3: Implement the pure partition contract**
 
 Add the constant and category metadata, then implement one pass over the
 aggregated mapping. Copy only display and threshold facts into exclusions;
@@ -98,7 +98,7 @@ Use the stable category order:
 order = [REASON_BELOW_THRESHOLD, REASON_RELEASE_SCOPE, REASON_NO_SPOTIFY_MATCH]
 ```
 
-- [ ] **Step 4: Make the fetch boundary explicit**
+- [x] **Step 4: Make the fetch boundary explicit**
 
 Replace the filtering comprehension in `fetch_top_albums_async` with the
 partition helper and return:
@@ -111,7 +111,7 @@ Add `albums_below_threshold` to the existing stats mapping. Update every test
 unpacking this function; do not add a compatibility branch that accepts both
 tuple shapes.
 
-- [ ] **Step 5: Persist exclusions after Last.fm success**
+- [x] **Step 5: Persist exclusions after Last.fm success**
 
 In `_fetch_job_albums`, unpack all three values. Check upstream status first.
 Then call `add_job_unmatched(job_id, f"{artist_key}|{album_key}", item)` once
@@ -119,7 +119,7 @@ for every threshold exclusion before handling the eligible-empty case. This
 ensures an all-below-threshold job completes with empty Results and a populated
 unmatched report.
 
-- [ ] **Step 6: Prove the pipeline behavior**
+- [x] **Step 6: Prove the pipeline behavior**
 
 Add tests that assert:
 
@@ -132,7 +132,7 @@ Add tests that assert:
 Run `tests/test_unmatched.py`, `tests/services/test_lastfm_logic.py`, the named
 orchestrator tests, and the affected route tests. Expected: PASS.
 
-- [ ] **Step 7: Update batch state and commit Task 1**
+- [x] **Step 7: Update batch state and commit Task 1**
 
 Record the backend extension in the active WP-7 Section 4 entry, run docsync
 fix, full pytest, all pre-commit hooks, docsync check, and diff check. Stage

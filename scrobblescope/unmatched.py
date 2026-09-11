@@ -9,11 +9,18 @@ from __future__ import annotations
 from typing import Any
 
 #: Stable reason codes stored on unmatched items.
+REASON_BELOW_THRESHOLD = "below_threshold"
 REASON_RELEASE_SCOPE = "release_scope"
 REASON_NO_SPOTIFY_MATCH = "no_spotify_match"
 
 #: Human copy, badges, and fix hints associated with each reason code.
 CATEGORY_METADATA = {
+    REASON_BELOW_THRESHOLD: {
+        "title": "Below Your Thresholds",
+        "description": "Albums that did not meet one or both listening minimums.",
+        "badge": "Threshold",
+        "fix_hint": "Lower either minimum on a new search to include these albums.",
+    },
     REASON_RELEASE_SCOPE: {
         "title": "Outside Release Filter",
         "description": "Albums released outside your selected release-date scope.",
@@ -27,6 +34,63 @@ CATEGORY_METADATA = {
         "fix_hint": "Check album title formatting or artist naming on Last.fm.",
     },
 }
+
+
+def partition_albums_by_threshold(
+    albums: dict[tuple[str, str], dict[str, Any]],
+    min_plays: int,
+    min_tracks: int,
+) -> tuple[
+    dict[tuple[str, str], dict[str, Any]],
+    dict[tuple[str, str], dict[str, Any]],
+]:
+    """Split aggregated albums into eligible and threshold-excluded mappings.
+
+    Each excluded album appears once even when it fails both configured
+    minimums. The exclusion payload keeps only the facts needed by the job
+    repository and report; eligible values retain their original aggregation
+    data for Spotify enrichment.
+
+    Args:
+        albums: Aggregated albums keyed by normalized artist and album names.
+        min_plays: Inclusive minimum Last.fm play count.
+        min_tracks: Inclusive minimum normalized unique-track count.
+
+    Returns:
+        A pair of ``(eligible, excluded)`` mappings using the input keys.
+    """
+    eligible: dict[tuple[str, str], dict[str, Any]] = {}
+    excluded: dict[tuple[str, str], dict[str, Any]] = {}
+
+    for key, album in albums.items():
+        play_count = int(album.get("play_count", 0))
+        track_count = len(album.get("track_counts", {}))
+        failed_thresholds = []
+        if play_count < min_plays:
+            failed_thresholds.append("plays")
+        if track_count < min_tracks:
+            failed_thresholds.append("tracks")
+
+        if not failed_thresholds:
+            eligible[key] = album
+            continue
+
+        excluded[key] = {
+            "artist": album.get("original_artist", key[0]),
+            "album": album.get("original_album", key[1]),
+            "play_count": play_count,
+            "track_count": track_count,
+            "failed_thresholds": failed_thresholds,
+            "min_plays": min_plays,
+            "min_tracks": min_tracks,
+            "reason_code": REASON_BELOW_THRESHOLD,
+            "reason": (
+                f"Played {play_count} times across {track_count} unique tracks; "
+                f"minimum is {min_plays} plays and {min_tracks} unique tracks"
+            ),
+        }
+
+    return eligible, excluded
 
 
 def group_unmatched_albums(
@@ -83,7 +147,11 @@ def group_unmatched_albums(
 
     # Deterministic sort: canonical codes first, then alphabetical
     def _sort_key(k: str) -> tuple[int, str]:
-        order = [REASON_RELEASE_SCOPE, REASON_NO_SPOTIFY_MATCH]
+        order = [
+            REASON_BELOW_THRESHOLD,
+            REASON_RELEASE_SCOPE,
+            REASON_NO_SPOTIFY_MATCH,
+        ]
         return (order.index(k) if k in order else 99, k)
 
     sorted_groups = {k: groups[k] for k in sorted(groups.keys(), key=_sort_key)}

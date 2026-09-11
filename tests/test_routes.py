@@ -611,12 +611,24 @@ def test_unmatched_api_returns_data(client):
             "reason": "Released in 1997, outside filter year",
         },
     )
+    add_job_unmatched(
+        job_id,
+        "lizzy mcalpine|older",
+        {
+            "artist": "Lizzy McAlpine",
+            "album": "Older",
+            "play_count": 7,
+            "track_count": 2,
+            "reason_code": "below_threshold",
+        },
+    )
 
     response = client.get(f"/api/unmatched?job_id={job_id}")
     assert response.status_code == 200
     data = response.get_json()
-    assert data["count"] == 1
+    assert data["count"] == 2
     assert "artist::album_key" in data["data"]
+    assert data["data"]["lizzy mcalpine|older"]["reason_code"] == "below_threshold"
 
 
 # --- Reset progress route tests ---
