@@ -770,6 +770,12 @@ Expected: All unit tests pass, pre-commit passes, doc sync passes, and the front
    the backend commit. They cannot ship inside the independently revertible UI
    commit. On 2026-09-10 the owner authorized staging and committing; the
    non-rewrite path uses a separate fix commit before the UI commit.
+5. **PR #231 Linux test setup.** The first Quality Gate passed pre-commit and
+   then failed because two cleanup tests patched the Windows-only
+   `asyncio.ProactorEventLoop` attribute unconditionally on Ubuntu. The tests
+   now create that patch target when the platform does not expose it and close
+   their test coroutine before forcing `loop.close()` to fail. Production code
+   and UI rendering are unchanged.
 
 
 - [x] **Step 5: Commit the authorized finding fix, then the remaining WP-7 UI**
@@ -792,6 +798,16 @@ square aspect ratio, and `object-fit: cover`; retain the design's 40px mobile /
 44px desktop list artwork and 4px radius. The populated-report browser check is
 the regression seam. The owner approved the remedy and authorized publication
 to `origin/test` on 2026-09-10.
+
+- [x] **Step 7: Repair PR #231 cross-platform cleanup tests**
+
+GitHub Actions run `34542763317` reported `2 failed, 984 passed` after its
+pre-commit step passed. Both failures occurred while patching
+`asyncio.ProactorEventLoop`, which is available on Windows but absent on the
+Ubuntu runner. Use `create=True` for that platform-specific patch target in
+both cleanup tests and close the coroutine consumed by the mocked loop. The
+focused tests must pass both normally and with the attribute removed from the
+local process; then run the complete repository gates before publication.
 
 ---
 

@@ -183,10 +183,10 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** WP-7 is complete locally, including the owner-approved
-  cover-containment follow-up to UI commit `968eaa0`. Publish the authorized
-  commits to `origin/test`, verify the remote ref, and stop. Do not begin WP-8
-  without owner direction.
+- **Next action:** Repair and publish the PR #231 Linux test-setup failure,
+  then reconcile the owner's requested WP-7 horizontal-card and threshold-
+  reason expansion with the active definition and implementation plan before
+  changing product behavior. Do not begin WP-8 without owner direction.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -686,6 +686,31 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the owner approved the rendering remedy and authorized
   publication on 2026-09-10. Push to
   `origin/test`, verify the remote ref, and do not begin WP-8 without direction.
+
+### 2026-09-11 - PR #231 Linux cleanup tests made portable (Batch 21 WP-7)
+
+- Scope: diagnosed the failed Quality Gate on PR #231 and repaired the two
+  worker-cleanup tests without changing production behavior or UI rendering.
+- Root cause: GitHub Actions checked the PR merge commit on Ubuntu, where
+  `asyncio.ProactorEventLoop` is absent. Both new cleanup tests patched that
+  Windows-only attribute unconditionally, so pytest stopped with two
+  `AttributeError` failures after pre-commit had passed.
+- Implementation: both tests now use `patch(..., create=True)` for the
+  platform-specific loop class. Their mocked `run_until_complete` also closes
+  the produced coroutine, eliminating the resource warnings from the cleanup
+  path under test.
+- Pre-commit audit: the hook suite is behaving as configured. It checks Python
+  lint/format, document state, generated Tailwind drift, and worktree alignment;
+  it does not run pytest or emulate Linux APIs. Adding the local Windows suite
+  to pre-commit would still miss this defect, so the repair belongs at the
+  cross-platform test seam rather than as a new hook.
+- Validation: the two focused tests pass both normally and after removing
+  `asyncio.ProactorEventLoop` from the process; `pytest -q` reports **986
+  passed** with no warnings. Final pre-commit, docsync, and remote Quality Gate
+  evidence follow before completion is claimed.
+- Forward guidance: publish this review-fix commit, confirm PR #231 is green,
+  then amend the WP-7 scope and plan for the owner-requested threshold reason
+  and horizontal report design before implementation.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

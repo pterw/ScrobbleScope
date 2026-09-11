@@ -13,7 +13,7 @@ Last updated: 2026-09-10
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** WP-7 is complete locally: backend contract `b3e3e96`, owner-authorized non-rewrite finding fix `ba5f9fe`, UI rebuild `968eaa0`, and the approved Results-pattern cover-containment follow-up. The owner authorized publication to `origin/test` on 2026-09-10. WP-8 follows only on owner direction. Task 6 timing follows the canonical remediation plan linked in PLAYBOOK Section 3. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
+| Batch 21 status | **Active.** WP-7 is implemented on PR #231. Its first Quality Gate exposed two Windows-only test patches that do not exist on Linux; the 2026-09-11 follow-up makes those tests portable. The owner's requested horizontal-card and threshold-reason expansion must amend the active definition and plan before implementation. WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -37,11 +37,11 @@ Last updated: 2026-09-10
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 21.
-- Current-batch entries in active log block: 10.
+- Current-batch entries in active log block: 11.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5, WP-7.
 - Next expected work package: WP-8.
 - Latest validated test count: **986 passed**.
-- Newest current-batch entry: 2026-09-10 - Unmatched page reconciled after review (Batch 21 WP-7).
+- Newest current-batch entry: 2026-09-11 - PR #231 Linux cleanup tests made portable (Batch 21 WP-7).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

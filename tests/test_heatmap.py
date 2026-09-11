@@ -611,10 +611,11 @@ class TestHeatmapTask:
     def test_release_job_slot_called_when_loop_close_raises(self):
         """release_job_slot is called even if loop.close raises."""
         mock_loop = MagicMock()
+        mock_loop.run_until_complete.side_effect = lambda coroutine: coroutine.close()
         mock_loop.close.side_effect = RuntimeError("close failed")
         with (
             patch("asyncio.new_event_loop", return_value=mock_loop),
-            patch("asyncio.ProactorEventLoop", return_value=mock_loop),
+            patch("asyncio.ProactorEventLoop", return_value=mock_loop, create=True),
             patch("asyncio.set_event_loop"),
             patch("scrobblescope.heatmap.release_job_slot") as mock_release,
             patch("scrobblescope.heatmap.set_job_error"),

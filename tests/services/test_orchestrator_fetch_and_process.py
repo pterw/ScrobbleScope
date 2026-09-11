@@ -474,11 +474,12 @@ def test_background_task_releases_slot_when_loop_close_raises():
     """
     job_id = create_job(TEST_JOB_PARAMS)
     mock_loop = MagicMock()
+    mock_loop.run_until_complete.side_effect = lambda coroutine: coroutine.close()
     mock_loop.close.side_effect = RuntimeError("close failed")
 
     with (
         patch("asyncio.new_event_loop", return_value=mock_loop),
-        patch("asyncio.ProactorEventLoop", return_value=mock_loop),
+        patch("asyncio.ProactorEventLoop", return_value=mock_loop, create=True),
         patch("asyncio.set_event_loop"),
         patch("scrobblescope.orchestrator.release_job_slot") as mock_release,
     ):
