@@ -791,6 +791,39 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     )
 
 
+def test_unmatched_view_expander_offers_the_ruled_step(client):
+    """
+    GIVEN a reason group with more albums than the initial disclosure
+    WHEN POST /unmatched_view is submitted
+    THEN the expander must offer the owner-ruled 25-row step, not 50.
+
+    The owner ruled on 2026-09-11 that a 50-row reveal is too much and the step
+    should be 20 or 25. A route assertion pins that ruling so a later edit
+    cannot quietly restore the larger step.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    for index in range(40):
+        add_job_unmatched(
+            job_id,
+            f"artist|album-{index}",
+            {
+                "artist": f"Artist {index}",
+                "album": f"Album {index}",
+                "reason": "No Spotify match",
+                "reason_code": "no_spotify_match",
+            },
+        )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+
+    assert response.status_code == 200
+    assert b'data-step="25"' in response.data
+    assert b'data-initial="10"' in response.data
+    # 40 albums, 10 shown, so 30 remain: more than one step, so the copy names
+    # the step rather than offering the remainder in one go.
+    assert b"Show next 25 (30 remaining)" in response.data
+
+
 def test_loading_page_uses_job_context_at_canonical_url(client):
     """GET /loading should rebuild the loading view from the stored job."""
     job_id = create_job(TEST_JOB_PARAMS)

@@ -37,11 +37,11 @@ Last updated: 2026-09-11
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 21.
-- Current-batch entries in active log block: 14.
+- Current-batch entries in active log block: 15.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5, WP-7.
 - Next expected work package: WP-8.
 - Latest validated test count: **990 passed**.
-- Newest current-batch entry: 2026-09-11 - Side-by-side unmatched horizontal reports and 500-album cap unified (Batch 21 WP-7).
+- Newest current-batch entry: 2026-09-11 - Unmatched disclosure refined: 25-row step and collapse on return (Batch 21 WP-7).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

@@ -53,6 +53,16 @@
     line-height: 1.4;
 }
 
+/* The reason detail is the sentence that explains the exclusion, so it wraps
+   rather than truncates. A side-by-side panel is narrower than a full-width
+   row, and an ellipsis here would hide exactly the text the reader came for.
+   `anywhere` stops a long unbroken token from widening the panel. */
+.unmatched-reason-detail {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+
 /* Match Results' explicit cover containment. The Tailwind theme deliberately
    disables dynamic spacing, so undeclared w-10/h-10 utilities emit no rule. */
 .unmatched-artwork {

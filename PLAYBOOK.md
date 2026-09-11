@@ -183,9 +183,18 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** WP-7 threshold and side-by-side horizontal report extension
-  is incomplete and requirs further refinement, agent was cut off due to cap use before task completetion. Must bbe erified locally across Chromium and Firefox. Await owner review, and follow verification-before-completion. View the designsystemaudit, it is lengthy but critical and self-corrects as it progresses. Follow what is specified in 2026-09-11-unmatched-threshold-report-design.md and 2026-09-11-batch21-wp7-threshold-horizotnal-report-extension. One key issue is that expanding 50 is still too much, and should be expand next 20 or 25 before proceeding. When the user clicks the button to return to top, the table should collapse too. Use the appropriate page space, rhtyhm, and sizing.
-  before beginning WP-8.
+- **Next action:** the WP-7 refinement the owner asked for is implemented and
+  verified, so the earlier note that this work was cut off before completion is
+  discharged. The disclosure step is 25 (was 50), and the back-to-top control
+  now collapses its panel as well as scrolling. `pytest -q` -- **1020 passed**;
+  the two-engine frontend gate -- 26 checks passed in 47 runs across chromium
+  and firefox.
+  One conflict is still open and belongs to the documentation pass: the approved
+  spec `docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`
+  still says "stacked, full-width reason sections", while the owner ruled
+  side-by-side on 2026-09-11 and the shipped page is side-by-side. Correct the
+  spec and this bullet before beginning WP-8, or an agent following them will
+  rebuild the rejected layout. WP-8 starts only on owner direction.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -822,6 +831,49 @@ non-current operational logs. Older dated entries live in
     `doc-state-sync-check`, `worktree-alignment`) passed.
 - Forward guidance: Batch 21 WP-7 extension is complete and verified across both browser engines.
   Pause for owner review before beginning WP-8.
+
+### 2026-09-11 - Unmatched disclosure refined: 25-row step and collapse on return (Batch 21 WP-7)
+
+- Scope: `templates/unmatched.html`, `static/js/unmatched.js`,
+  `static/css/unmatched.css`, the rebuilt `static/css/tailwind.css`, and
+  `tests/test_routes.py`. No server-side change; the Task 1 contract stands.
+- Owner rulings applied, both from the 2026-09-11 review:
+  1. a 50-row reveal is too much, so `data-step` and the server-rendered label
+     become 25 (the owner allowed 20 or 25; 25 is recorded as the choice);
+  2. the back-to-top control now collapses its panel as well as scrolling, so
+     the reader is not left above a table they had just padded.
+- Implementation: the expander's row visibility, button copy and
+  `aria-expanded` were three copies of one state machine spread across two
+  handlers. They collapse to a single `applyVisibleCount(count, isCollapsed)`
+  writer that both the expander and the back-to-top control call.
+- Design refinement, applying the `daisyui` skill's colour rule 10 ("use
+  `primary` only for the most important element on the page. Use it only
+  once") and its usage rules 2 and 7 (prefer utilities over custom CSS):
+  - the panel album count moves off `primary` to `base-content`, matching the
+    filter-bar summary count and leaving the page's one primary to the New
+    Search action;
+  - the panel header takes Results' scale-aware padding,
+    `p-4 md:p-[calc(1.25rem*var(--results-scale))]`, so the panel block rhythm
+    scales as Results' own surfaces do;
+  - the reason-detail cell stops truncating and wraps instead: a side-by-side
+    panel is narrower than a full-width row, and an ellipsis there would hide
+    the sentence that explains the exclusion.
+- The layout is unchanged. The owner ruled side-by-side on 2026-09-11; the
+  spec's earlier "stacked, full-width" wording is superseded and is corrected in
+  the documentation pass.
+- Deviation, resolved rather than carried: the committed `tailwind.css` held a
+  stale `.collapse { visibility: collapse; }` utility that no source produces
+  (only `border-collapse` appears anywhere). The rebuild drops it, and this
+  commit lands the rebuilt file so the drift hook is clean. That rule entered
+  with the previous WP-7 commit, not with this change.
+- Validation: `pytest -q` -- **1020 passed**; the two-engine frontend gate --
+  "26 checks passed in 47 runs across chromium, firefox (static assets & tokens
+  canary on firefox); profiles: desktop, mobile, wide touch". Pre-commit runs
+  after this entry, per the documentation-first commit order.
+- Forward guidance: the panel padding now scales with `--results-scale`, so a
+  later edit to that curve moves the panel rhythm with it. WP-8 still owns
+  retiring `global.css` and the `.dark-mode` write, with `heatmap.js`'s
+  observer moved to `data-theme` in the same change.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

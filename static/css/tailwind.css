@@ -762,9 +762,6 @@
   .pointer-events-auto {
     pointer-events: auto;
   }
-  .collapse {
-    visibility: collapse;
-  }
   .visible {
     visibility: visible;
   }

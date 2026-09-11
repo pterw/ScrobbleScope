@@ -82,50 +82,54 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!expanderBtn) return;
 
         const total = parseInt(expanderBtn.getAttribute('data-total-count'), 10) || 0;
-        const step = parseInt(expanderBtn.getAttribute('data-step'), 10) || 50;
+        const step = parseInt(expanderBtn.getAttribute('data-step'), 10) || 25;
         const initial = parseInt(expanderBtn.getAttribute('data-initial'), 10) || 10;
         let visibleCount = initial;
 
-        expanderBtn.addEventListener('click', () => {
+        /**
+         * Reveal exactly `count` rows and put the button into the state that the
+         * count implies. One writer for the row visibility, the button label and
+         * `aria-expanded`, so the expander and the back-to-top control cannot
+         * drift apart the way two copies of this logic would.
+         */
+        function applyVisibleCount(count, isCollapsed) {
+            visibleCount = count;
             const rows = group.querySelectorAll('.results-table tbody tr');
+            rows.forEach((row, idx) => {
+                row.classList.toggle('hidden', idx >= count);
+            });
+
+            const remaining = total - count;
+            if (count >= total) {
+                expanderBtn.textContent = 'Show fewer';
+                expanderBtn.setAttribute('aria-expanded', 'true');
+                return;
+            }
+            if (remaining <= step) {
+                expanderBtn.textContent = isCollapsed
+                    ? `Show all ${total} albums`
+                    : `Show remaining ${remaining} albums`;
+            } else {
+                expanderBtn.textContent = `Show next ${step} (${remaining} remaining)`;
+            }
+            expanderBtn.setAttribute('aria-expanded', 'false');
+        }
+
+        expanderBtn.addEventListener('click', () => {
             if (visibleCount >= total) {
-                // Currently fully expanded, collapse back to initial 10
-                visibleCount = initial;
-                rows.forEach((row, idx) => {
-                    row.classList.toggle('hidden', idx >= initial);
-                });
-                const remaining = total - initial;
-                if (remaining <= step) {
-                    expanderBtn.textContent = `Show all ${total} albums`;
-                } else {
-                    expanderBtn.textContent = `Show next ${step} (${remaining} remaining)`;
-                }
-                expanderBtn.setAttribute('aria-expanded', 'false');
+                applyVisibleCount(initial, true);
                 group.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 return;
             }
-
-            visibleCount = Math.min(visibleCount + step, total);
-            rows.forEach((row, idx) => {
-                row.classList.toggle('hidden', idx >= visibleCount);
-            });
-
-            if (visibleCount >= total) {
-                expanderBtn.textContent = 'Show fewer';
-                expanderBtn.setAttribute('aria-expanded', 'true');
-            } else {
-                const remaining = total - visibleCount;
-                if (remaining <= step) {
-                    expanderBtn.textContent = `Show remaining ${remaining} albums`;
-                } else {
-                    expanderBtn.textContent = `Show next ${step} (${remaining} remaining)`;
-                }
-                expanderBtn.setAttribute('aria-expanded', 'false');
-            }
+            applyVisibleCount(Math.min(visibleCount + step, total), false);
         });
 
         if (backToTopBtn) {
+            // Owner ruling, 2026-09-11: returning to the top also collapses the
+            // report, so the reader is not left above a table padded with rows
+            // they had just revealed.
             backToTopBtn.addEventListener('click', () => {
+                applyVisibleCount(initial, true);
                 group.scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
         }
