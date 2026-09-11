@@ -19,7 +19,10 @@
   2. `feat(ui): rebuild unmatched page on tailwind` (Tasks 4-5)
 - Execution adds the owner-authorized non-rewrite `fix(workers)` deviation
   commit between those rollback units; deviation 4 records why.
-- Reason codes in scope for Batch 21 are strictly `release_scope` and `no_spotify_match`. Threshold codes (`below_min_plays`, `below_min_tracks`) remain deferred to Batch 22+ near-miss retention.
+- The original reason codes were `release_scope` and `no_spotify_match`.
+  The owner-approved 2026-09-11 extension adds one de-duplicated
+  `below_threshold` code; its separate design and execution contract is the
+  dated threshold-extension plan under `docs/superpowers/plans/`.
 - Spacing and type in CSS must use `rem` (divide px by 16); hairline borders, outlines, radii remain `px`.
 - Touch targets on coarse pointers (`@media (any-pointer: coarse)`) must be at least 44px on their smaller side.
 - No `font-weight: 500` or `font-weight: 600` (the Adobe Fonts kit serves 300, 400, 700 only).

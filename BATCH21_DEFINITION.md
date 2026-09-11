@@ -1,6 +1,6 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page), WP-4 (unified loading and recent-result recovery), and WP-5 (results leaderboard) are complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. WP-7 is implemented on PR #231: backend contract `b3e3e96`, owner-authorized non-rewrite finding fix `ba5f9fe`, UI rebuild `968eaa0`, and the approved Results-pattern cover-containment follow-up. Its first Quality Gate exposed two Windows-only test patches that do not exist on Linux; the 2026-09-11 follow-up makes those cleanup tests portable. The owner's requested horizontal-card and threshold-reason expansion must amend this definition before implementation because threshold near-miss retention is currently out of scope below. WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; see its stub below.
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page), WP-4 (unified loading and recent-result recovery), and WP-5 (results leaderboard) are complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. WP-7 is implemented on PR #231: backend contract `b3e3e96`, owner-authorized non-rewrite finding fix `ba5f9fe`, UI rebuild `968eaa0`, and the approved Results-pattern cover-containment follow-up. Its first Quality Gate exposed two Windows-only test patches that do not exist on Linux; the 2026-09-11 follow-up makes those cleanup tests portable. The owner approved a WP-7 extension on 2026-09-11: retain one `below_threshold` exclusion per album and replace the card grid with horizontal report sections that mirror current Results source. WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; see its stub below.
 **Branch:** See PLAYBOOK Section 3 for the current linked-worktree branch;
 lineage changes are recorded in Section 4.
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
@@ -464,6 +464,18 @@ DOC007 reads this file's own headings and handles the gap.
   2. `feat(ui): rebuild unmatched page on tailwind`
      -- cards, expander, modal removal, Bootstrap JS drop.
 
+**Owner-approved extension, 2026-09-11.** The completed first pass exposed the
+need to explain albums removed at the Last.fm threshold boundary and to align
+the report with current Results source. Retain one `below_threshold` item per
+album, with exact play and unique-track counts plus the failed-threshold list;
+do not duplicate albums that fail both minimums. Partition before Spotify so
+excluded albums add no Spotify work. Replace the three-column card grid with
+stacked full-width horizontal report sections, remove the unmatched eyebrow and
+purple italic username, and mirror the current Results composition, actions,
+surface, table rhythm, and width-derived scale. The approved design and
+execution contract are the two dated 2026-09-11 threshold-extension documents
+under `docs/superpowers/`.
+
 ### WP-8 -- Sweep + close-out
 
 - Remove every remaining Bootstrap reference (closes F-B20-3 by
@@ -590,11 +602,9 @@ commit: production serves the committed file with no runtime build.
 
 ## Out of scope (Batch 22+ candidates, from the audit's backend section)
 
-- Near-miss retention in `fetch_top_albums_async` + "loosen filters"
-  quantified controls (+58 albums) on the unmatched page (introduces
-  the `below_min_plays` / `below_min_tracks` reason codes).
-- Near-miss retention remains deferred; the canonical `GET /unmatched` page
-  route itself moved into WP-4 by owner decision on 2026-08-26.
+- Quantified "loosen filters" controls such as "+58 albums" remain deferred.
+  WP-7 retains below-threshold albums for explanation but does not mutate or
+  resubmit the search form from the report.
 - Shareable heatmap URL (`GET /heatmap/<username>`).
 - Purpose-built save-as-image card node (wordmark + top 10 + chips).
 - True server-side job cancellation.

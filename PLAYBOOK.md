@@ -183,10 +183,9 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** Repair and publish the PR #231 Linux test-setup failure,
-  then reconcile the owner's requested WP-7 horizontal-card and threshold-
-  reason expansion with the active definition and implementation plan before
-  changing product behavior. Do not begin WP-8 without owner direction.
+- **Next action:** Execute Task 1 of the owner-approved WP-7 threshold and
+  horizontal-report extension. Retain and persist one `below_threshold` item
+  per album before changing the UI. Do not begin WP-8 without owner direction.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -711,6 +710,30 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: publish this review-fix commit, confirm PR #231 is green,
   then amend the WP-7 scope and plan for the owner-requested threshold reason
   and horizontal report design before implementation.
+
+### 2026-09-11 - Threshold and horizontal report extension approved (Batch 21 WP-7)
+
+- Scope: amended WP-7 before implementation to retain albums rejected at the
+  play/unique-track boundary and restyle unmatched groups as full-width
+  horizontal report sections.
+- Owner decision: one stable `below_threshold` group covers either failed
+  minimum. An album failing both appears once and retains its actual plays,
+  unique-track count, and failed-threshold list.
+- Design authority: current `results.html`, `results.css`, and computed browser
+  behavior win over the dated design snapshot. Unmatched will mirror Results'
+  composition, scale, surface, actions, and table rhythm while removing its
+  own eyebrow and purple italic username.
+- Architecture: partition after Last.fm aggregation and before Spotify. Store
+  threshold exclusions through the existing unmatched repository, preserving
+  the current Spotify cost boundary and the lazy `/api/artist_spotlight`
+  fallback for missing art.
+- Documentation: added the approved design and supplemental implementation
+  plan, amended the active definition, and retained the original WP-7 plan as
+  the record of the completed first pass.
+- Validation: documentation gates and implementation evidence follow in the
+  commits that execute the extension.
+- Forward guidance: execute backend Task 1 first, then the horizontal Results-
+  aligned UI task. Keep each as an independently revertible commit.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
