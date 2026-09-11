@@ -25,6 +25,21 @@ reference a fact owned by another file, link to it -- do not copy it.
 
 ---
 
+## Agent skills
+
+### Issue tracker
+
+Issues are findings in `FINDINGS.md`, rotating to
+`docs/history/findings/FINDINGS_ARCHIVE.md`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context. Domain documentation is the existing document set named in
+"Document Roles (SoC contract)" above, not a separate top-level context
+document. See `docs/agents/domain.md`.
+
+---
+
 ## Session Bootstrap (in order)
 
 **Fast-path for Copilot comment jobs:** When no direct review-comment link is

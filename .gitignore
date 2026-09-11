@@ -73,8 +73,18 @@ skills-lock.json
 # Unedited vendor templates emitted by the setup-matt-pocock-skills skill.
 # Kept locally for reference. They describe a CONTEXT.md / docs/adr/ layout
 # this repo does not use and cite skills it does not have installed, so they
-# are not repo guidance. Adopting any of it belongs in its own commit.
-docs/agents/
+# are not repo guidance.
+#
+# Narrowed 2026-09-11. Two repo-authored files under this path ARE guidance:
+# they record where this repo's issues and its domain documents actually live,
+# and AGENTS.md links to them, so they have to be tracked -- an ignored path
+# cannot resolve, and docsync's DOC001 check reads `git ls-files`. Only the
+# skill's own seed templates stay ignored; un-ignoring those would put a
+# CONTEXT.md / docs/adr/ layout this repo rejects back into the repository as a
+# second source of truth.
+docs/agents/*
+!docs/agents/issue-tracker.md
+!docs/agents/domain.md
 
 # Mermaid authoring and preview scratch. Canonical diagrams live in tracked
 # Markdown, which is what GitHub renders; a tracked .mmd would be a second

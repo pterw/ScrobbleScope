@@ -9,6 +9,48 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-09 - Refine Results consistency and restore navigation continuity
+
+- Scope: owner-requested UI consistency and remediation of local Heatmap
+  edits. Preserve the larger headline, sans preview labels and tighter loading
+  parameters; correct the undefined legend font token. Remove the intentional
+  duplicate Heatmap counter rail and its unused hydration and layout checks.
+- Implementation: Results panels use an equal sRGB page/sunken mix. Sort and
+  outside-filter headings use smaller uppercase sans type than Spotlight,
+  centred without changing text colours. Sort labels use weight 400. The
+  three toolbar actions use uppercase Input Mono Narrow with one larger gap
+  step; New search retains the theme primary fill. Secondary Results actions
+  and Heatmap result buttons share sans type and control fill, retaining
+  proportional Results dimensions.
+- Index follow-up: measured form placement lifts the composition up to 2.5rem
+  from centre, bounded by 0.25rem of header clearance. Reclaiming excess
+  vertical well padding removes the decade-state scrollbar at 1920x900 and
+  1536x730 in both engines, with thresholds collapsed and scale unchanged.
+  Mobile retains its existing padding. `scratch/index-offset-evidence.json`
+  records five desktop window sizes per engine.
+- Motion: browser samples confirmed existing entrances and a fixed header.
+  Shared keyframes make page entry independent of first-paint timing; normal
+  internal links fade content out before navigation, and Back restores it.
+  Reduced motion remains immediate. Heatmap loader/result stages overlap
+  during their existing opacity handoff. The header remains independently fixed.
+- Export: the browser resolves the mixed surface to RGB in the JPEG clone
+  because html2canvas cannot parse modern computed colour functions. The live
+  page retains its theme-derived mix. Export clones suppress entry animation.
+- Validation: `pytest -q` -- **974 passed**. Focused Chromium and Firefox
+  probes cover desktop/mobile, both themes, scaling, header scroll position,
+  button and heading consistency, navigation, Back and Heatmap completion.
+  Evidence: `scratch/ui-consistency-evidence.json` and accompanying screenshots.
+  Full frontend gate: 25 checks passed in 45 runs. Additional Firefox checks
+  pass for both-theme desktop/mobile exports and the complete layout/state
+  matrix. All hooks pass except committed-CSS drift: the regenerated file
+  intentionally differs from the index while this work remains unstaged.
+  A second build produces identical bytes. Docsync and whitespace checks
+  pass. No commit or push.
+- Deviation: an editing helper briefly misdecoded existing UTF-8 punctuation.
+  Tests caught it; original bytes were restored before the passing suite.
+- Forward guidance: owner visual review before publication. WP-7 remains
+  next batch work; Task 6 stays deferred until Bootstrap removal.
+
 ### 2026-09-09 - Complete Results scaling and warm the shared canvas
 
 - Owner direction: keep the deployed Results aesthetic, warm the page/navbar
