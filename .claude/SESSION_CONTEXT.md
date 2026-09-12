@@ -78,6 +78,7 @@ scripts/
     dev_start.py            # Postgres container check plus Flask launch
     tailwind_build.py       # verified standalone Tailwind + daisyUI frontend builder
     frontend_gate.py        # full Chromium checks and Firefox static-assets canary
+    _frontend_gate_colour.py # pure colour and contrast maths, re-exported by the gate
     _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
@@ -142,8 +143,9 @@ dev/worktree_guard.py <- dev/_worktree_guard_diagnostics, dev/_worktree_guard_in
 dev/check_worktree_alignment.py <- dev/worktree_guard
 dev/dev_start.py <- (leaf; standard library only)
 dev/tailwind_build.py <- (leaf; standard library only)
+dev/_frontend_gate_colour.py <- (leaf; standard library only)
 dev/_frontend_gate_results.py <- repositories
-dev/frontend_gate.py <- dev/_frontend_gate_results; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
+dev/frontend_gate.py <- dev/_frontend_gate_colour, dev/_frontend_gate_results; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 ```
 
 ---

@@ -9,6 +9,46 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Frontend gate: colour maths extracted as F-B21-51 slice 1
+
+- Scope: `scripts/dev/_frontend_gate_colour.py` (new),
+  `scripts/dev/frontend_gate.py`, `tests/scripts/dev/test_frontend_gate_colour.py`
+  (new), and `FINDINGS.md`. The seven helpers moved unchanged and new tests
+  were added. The same commit also lands Batch 21 WP-7's two gate assertions --
+  the `data-step` 25 check and the back-to-top collapse check -- which are
+  recorded in the WP-7 entry titled "Unmatched disclosure refined: 25-row step
+  and collapse on return".
+- F-B21-51 records that the gate is roughly ten times its largest sibling --
+  4,073 lines against `tailwind_build.py` at 404 -- and prescribes a split along
+  the existing check groups while `frontend_gate.py` stays a facade. This is its
+  first slice. The finding now also carries the agreed module map and the
+  `frontend_gate_checks.toml` registry design.
+- The seven pure helpers -- `_parse_rgb_string`, `_composite_over`,
+  `_relative_luminance`, `_contrast_ratio`, `_clamp_px`,
+  `_worst_divider_contrast`, `_divider_contrast_failure` -- moved to the new
+  module and are re-exported through the gate, so no caller has to know. That
+  follows `_frontend_gate_results.py` for the module shape and
+  `worktree_guard.py` for the stable facade.
+- They were chosen first because they take no `page`. The browser gate is the
+  artefact being moved, so it cannot be the thing that verifies its own
+  refactor; these are provable with pytest alone.
+- Parity: 29 tests, three of which a careless rewrite would fail -- the
+  `clamp()` `vw` term must not scale with the root font size while the rem
+  bounds must; worst-contrast must be the minimum across the surface list; and
+  every moved name must still resolve through `frontend_gate`.
+- Deviation, recorded: this commit also carries the browser assertions added
+  for the WP-7 disclosure refinement (`data-step` must be 25, and back-to-top
+  must collapse the panel to 10 rows with `aria-expanded="false"`). They live in
+  `frontend_gate.py`'s unmatched check and belong to that work package, but the
+  file is touched by both changes and separating them inside one file would need
+  partial staging that the gate itself cannot verify. Flagged so the pairing is
+  a recorded choice rather than a later discovery.
+- Validation: `pytest -q` -- **1020 passed** (991 before the split, plus 29);
+  the two-engine frontend gate -- 26 checks passed in 47 runs across chromium
+  and firefox; all pre-commit hooks passed.
+- Forward guidance: the remaining groups are the browser-coupled ones and still
+  need the gate runnable to prove parity.
+
 ### 2026-09-11 - Agent-skills scaffolding configured; issues recorded as FINDINGS.md
 
 - Scope: a new `## Agent skills` section in `AGENTS.md`, a narrowed

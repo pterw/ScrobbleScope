@@ -835,8 +835,10 @@ non-current operational logs. Older dated entries live in
 ### 2026-09-11 - Unmatched disclosure refined: 25-row step and collapse on return (Batch 21 WP-7)
 
 - Scope: `templates/unmatched.html`, `static/js/unmatched.js`,
-  `static/css/unmatched.css`, the rebuilt `static/css/tailwind.css`, and
-  `tests/test_routes.py`. No server-side change; the Task 1 contract stands.
+  `static/css/unmatched.css`, the rebuilt `static/css/tailwind.css`,
+  `scripts/dev/frontend_gate.py` (the two new assertions, which landed later
+  with the F-B21-51 slice-1 commit), and `tests/test_routes.py`. No server-side
+  change; the Task 1 contract stands.
 - Owner rulings applied, both from the 2026-09-11 review:
   1. a 50-row reveal is too much, so `data-step` and the server-rendered label
      become 25 (the owner allowed 20 or 25; 25 is recorded as the choice);
@@ -876,6 +878,59 @@ non-current operational logs. Older dated entries live in
   observer moved to `data-theme` in the same change.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-11 - Document repairs from the Task 1 and Task 1b reviews
+
+- Scope: two task reviews of the document-orderliness remediation found
+  defects that are all documentation, and the owner approved repairing them in
+  one pass rather than two fix loops, because none of them touches the code
+  committed in `95e0896`. Four families: (1) the design-system plan's Progress
+  section contradicted itself, still naming work that `95e0896` and `c277728`
+  had discharged; (2) the remediation plan's own defects -- Task 1's guard
+  expectation, Task 1's impossible staging step, Task 4's unbolded validation
+  template, and a new Task 5 for the undocumented `DOC012` range; (3) two
+  `PLAYBOOK.md` entries that denied behaviour their own commits had landed;
+  (4) `.claude/SESSION_CONTEXT.md` Sections 3 and 4, which never listed
+  `scripts/dev/_frontend_gate_colour.py`.
+- Plan vs implementation: every quoted replacement landed as written, with one
+  word corrected. The brief's replacement State line read "the six documents
+  under `docs/architecture/`"; that directory holds five files, all modified,
+  so the line names `docs/ARCHITECTURE.md` and the five documents under
+  `docs/architecture/`, the same five-file scope this file's architecture entry
+  and the plan already state.
+- Deviation, owner-approved: this commit edits dated Section 4 entries
+  committed earlier the same day -- the F-B21-51 slice-1 entry's "no behaviour
+  change" claim, and WP-7's scope list. Both were wrong as written, and
+  AGENTS.md keeps dated entries as point-in-time records, so the correction is
+  recorded here rather than made quietly.
+- Deviation, consequential: inserting Task 5 falsified two statements in that
+  plan, and this commit repoints both -- the Architecture line's task count,
+  and Task 4's "This is the final task" pause line, which now reads "before
+  Task 5".
+- Validation: `pytest -q` -- **1020 passed**; `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified; `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning.
+- Committed paths (5), recorded as the actual set rather than a smaller
+  claimed one: the two plans
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`
+  and `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`),
+  `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, and the rotation this entry
+  forced in `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved
+  the F-B21-51 slice-1 entry out of the active window and carried its
+  correction with it. docsync demanded no further path: these entries keep the
+  1020 claim the corpus already carried, so `FINDINGS.md`'s header needed no
+  change.
+- Forward guidance: three residual defects in the remediation plan stay,
+  because this task's owner-ruled scope capped it at the reviewed findings.
+  Task 1's Step 1 still says the literal "must exist in none of them afterwards"
+  beside the sentence added here, which says the compliant end state is 2
+  matches; Task 4 still says "Tasks 1 to 3 stand alone" without mentioning
+  Task 5; and Global Constraints and Task 1's Step 7 still cite `PLAYBOOK.md`
+  lines 882, 904 and 1016, which were already stale at HEAD -- the two
+  `implementation_plan` references they intend sat 27 lines lower, at 909 and
+  931 -- and this commit moved the marker itself from 878 to 880. Repoint those
+  citations by name in that plan's next pass: a line number cannot survive the
+  next entry inserted above the marker.
 
 ### 2026-09-11 - Design-system plan corrected to name its own path
 
@@ -975,39 +1030,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: no Mermaid tooling was reachable in the session that made
   these edits, so validation was structural rather than a render. A renderer
   pass is still worth doing, and `.mmd` files remain the authoring surface.
-
-### 2026-09-11 - Frontend gate: colour maths extracted as F-B21-51 slice 1
-
-- Scope: `scripts/dev/_frontend_gate_colour.py` (new),
-  `scripts/dev/frontend_gate.py`, `tests/scripts/dev/test_frontend_gate_colour.py`
-  (new), and `FINDINGS.md`. A pure move plus new tests; no behaviour change.
-- F-B21-51 records that the gate is roughly ten times its largest sibling --
-  4,073 lines against `tailwind_build.py` at 404 -- and prescribes a split along
-  the existing check groups while `frontend_gate.py` stays a facade. This is its
-  first slice. The finding now also carries the agreed module map and the
-  `frontend_gate_checks.toml` registry design.
-- The seven pure helpers -- `_parse_rgb_string`, `_composite_over`,
-  `_relative_luminance`, `_contrast_ratio`, `_clamp_px`,
-  `_worst_divider_contrast`, `_divider_contrast_failure` -- moved to the new
-  module and are re-exported through the gate, so no caller has to know. That
-  follows `_frontend_gate_results.py` for the module shape and
-  `worktree_guard.py` for the stable facade.
-- They were chosen first because they take no `page`. The browser gate is the
-  artefact being moved, so it cannot be the thing that verifies its own
-  refactor; these are provable with pytest alone.
-- Parity: 29 tests, three of which a careless rewrite would fail -- the
-  `clamp()` `vw` term must not scale with the root font size while the rem
-  bounds must; worst-contrast must be the minimum across the surface list; and
-  every moved name must still resolve through `frontend_gate`.
-- Deviation, recorded: this commit also carries the browser assertions added
-  for the WP-7 disclosure refinement (`data-step` must be 25, and back-to-top
-  must collapse the panel to 10 rows with `aria-expanded="false"`). They live in
-  `frontend_gate.py`'s unmatched check and belong to that work package, but the
-  file is touched by both changes and separating them inside one file would need
-  partial staging that the gate itself cannot verify. Flagged so the pairing is
-  a recorded choice rather than a later discovery.
-- Validation: `pytest -q` -- **1020 passed** (991 before the split, plus 29);
-  the two-engine frontend gate -- 26 checks passed in 47 runs across chromium
-  and firefox; all pre-commit hooks passed.
-- Forward guidance: the remaining groups are the browser-coupled ones and still
-  need the gate runnable to prove parity.

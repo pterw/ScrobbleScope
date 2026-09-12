@@ -22,10 +22,8 @@ Order]; update it here.** Last updated 2026-09-11 by the session that drafted
 the plan and executed Phase 1.
 
 **State: Phase 1 complete and committed. Phases 2-5 not started. Uncommitted
-work: the staged F-B21-51 slice-1 gate refactor; the architecture-diagram
-rebuild; and this plan's own move into `docs/superpowers/plans/` together with
-the document-orderliness remediation plan, until that remediation is
-committed.** Nothing is pushed.
+work: the architecture-diagram rebuild in `docs/ARCHITECTURE.md` and the five
+documents under `docs/architecture/`.** Nothing is pushed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
@@ -61,9 +59,11 @@ committed.** Nothing is pushed.
 ### Where to pick up
 
 1. Commit the staged set. Its PLAYBOOK entry and every gate result are recorded.
+   **Discharged 2026-09-11 as `95e0896`.** Its documentation half had already
+   landed in `c277728`, because docsync's count checks force those files into
+   any commit that adds a log entry claiming a test count.
 2. Commit the diagram rebuild, re-staging `PLAYBOOK.md`.
-3. Commit this plan's move. **Discharged 2026-09-11** by the
-   document-orderliness remediation commit, which staged this file. The fate of
+3. Commit this plan's move. **Discharged 2026-09-11 as `c277728`.** The fate of
    `docs/superpowers/plans/gemini_implementation_plan_unverified.md` is still
    open: it remains untracked, superseded, and in the directory.
 4. Start **Phase 2** with the conflict that actively misleads: the approved spec

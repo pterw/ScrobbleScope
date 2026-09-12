@@ -4,7 +4,7 @@
 
 **Goal:** Remove the document-level defects that an exhaustive traversal of the Batch 21 design-system plan surfaced, so the live documents name themselves correctly and a bootstrap reader can see the commit debt.
 
-**Architecture:** Four side-task commits, no work packages. Each task edits a live document and is proved by the same three gates the repository already runs (`pytest -q`, `pre-commit run --all-files`, `doc_state_sync.py --check`) plus one target-specific grep. Dated Section 4 log entries are never rewritten; the plan's own Progress section stays the owner of its status.
+**Architecture:** Five side-task commits, no work packages. Each task edits a live document and is proved by the same three gates the repository already runs (`pytest -q`, `pre-commit run --all-files`, `doc_state_sync.py --check`) plus one target-specific grep. Dated Section 4 log entries are never rewritten; the plan's own Progress section stays the owner of its status.
 
 **Tech Stack:** Markdown documents, `scripts/doc_state_sync.py` (DOCSYNC marker and integrity management), pre-commit, pytest. No application code changes.
 
@@ -24,6 +24,11 @@ Copied verbatim from the repository ruleset. Every task's requirements include t
 - Do **not** renumber WP-7 or WP-8. `DOC007` in `scripts/docsync/integrity.py` reads the WP headings and other documents cite them.
 - Do **not** rewrite `PLAYBOOK.md` lines 882, 904 and 1016. They sit inside dated Section 4 log entries, which AGENTS.md treats as point-in-time records that stay as written.
 - Side-task (untagged) entries go **immediately after** the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker in `PLAYBOOK.md` Section 4, at the top of the non-current list. That marker sits at the top level of Section 4, currently line 878. The identical string inside backticks near the top of Section 4 is an example in the "How to read dated entries" list and is **not** the insertion point. Batch entries are tagged `(Batch N WP-X)`; these are not.
+- Staging is not free. docsync's `DOC005`, `DOC006` and `DOC008` reconcile the
+  corpus against the newest log claim, so any commit that adds a `PLAYBOOK.md`
+  entry claiming a test count also carries `FINDINGS.md`'s header and
+  `.claude/SESSION_CONTEXT.md`'s count fields. Expect that path set, and record
+  the actual paths in the log entry rather than a smaller claimed one.
 - The only virtualenv is `.venv/` in the primary checkout at `C:\Users\peter\Python Projects\ScrobbleScope`. From this linked worktree, run Python, pytest and pre-commit through that qualified path.
 
 ## Why this scope, and what it excludes
@@ -71,9 +76,11 @@ A gate that can never fail is not a gate. This one names a literal that currentl
 Select-String -LiteralPath 'docs\superpowers\plans\2026-09-11-batch21-design-system-reconciliation.md' -Pattern '`implementation_plan\.md`' -Encoding UTF8 | ForEach-Object { "$($_.LineNumber): $($_.Line.Trim())" }
 ```
 
+The compliant end state is **exactly 2 matches**: both are historical statements that name the old root path while recording the move, not live self-references.
+
 - [ ] **Step 2: Run it and confirm it fails**
 
-Expected: **3 matches**, at lines 307, 759 and 791. If you see a different count, stop and read the file before editing: the plan may have moved on, and this plan's line numbers are a hint, not an authority.
+Expected: **3 matches**, at lines 307, 759 and 791. (The task's compliant end state is 2, not 0 -- see Step 1.) If you see a different count, stop and read the file before editing: the plan may have moved on, and this plan's line numbers are a hint, not an authority.
 
 - [ ] **Step 3: Fix the Progress "State" line**
 
@@ -151,7 +158,7 @@ with:
 
 - [ ] **Step 7: Re-run the guard and sweep the repository**
 
-Re-run Step 1's command. Expected: **0 matches**.
+Re-run Step 1's command. Expected: **2 matches**, both historical.
 
 Then sweep the whole repository, because AGENTS.md's item 11 requires repointing every copy rather than fixing the reported instance:
 
@@ -203,7 +210,7 @@ Insert this entry in `PLAYBOOK.md` **immediately after** the `<!-- DOCSYNC:CURRE
   "Where to pick up" item 3, which its Progress had recorded as a separate
   commit. A content correction to an untracked file is observable only once the
   file is committed, so the reorder is recorded rather than silent.
-- Validation: `pytest -q` -- 1020 passed. `pre-commit run --all-files` -- all
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
   hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0,
   with the expected root `BATCH21_DEFINITION.md` warning. The target guard fell
   from 3 matches to 0.
@@ -237,7 +244,7 @@ git status --short
 git commit -m "docs(plan): Name the plan's own path and list its uncommitted work"
 ```
 
-If `.claude/SESSION_CONTEXT.md` changed, stage it in the same commit. If `git status --short` shows anything else staged, stop and unstage it: the staged F-B21-51 set belongs to the previous session's work item, not this one.
+Stage `.claude/SESSION_CONTEXT.md` only if `--fix` changed it. Expect the docsync-forced path set described in Global Constraints, and record the actual paths in the log entry rather than a smaller claimed one.
 
 **Pause for owner review before Task 2.**
 
@@ -335,7 +342,7 @@ Insert this entry in `PLAYBOOK.md` immediately after the `<!-- DOCSYNC:CURRENT-B
   run root's failure ledger.
 - Deviation: none. The report is a durable copy of a working artifact, not new
   analysis.
-- Validation: `pytest -q` -- 1020 passed. `pre-commit run --all-files` -- all
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
   hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0.
   The report is ASCII-only, measured at 0 bytes above 0x7F.
 - Forward guidance: the machine proof stays in `scratch/`, which is untracked.
@@ -434,7 +441,7 @@ Insert this entry in `PLAYBOOK.md` immediately after the `<!-- DOCSYNC:CURRENT-B
   after the existing "Next action:" bullet.
 - Deviation: none. Section 3 gains a statement of existing state; no new work
   is created and no WP is added.
-- Validation: `pytest -q` -- 1020 passed. `pre-commit run --all-files` -- all
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
   hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0
   with the expected root `BATCH21_DEFINITION.md` warning.
 - Forward guidance: keep Section 3's bullets free of counts. Name each owed
@@ -535,7 +542,7 @@ Insert this entry in `PLAYBOOK.md` immediately after the `<!-- DOCSYNC:CURRENT-B
   vendored `.agents/`.
 - Deviation: the owner was offered this task as optional because it does not
   come from the traversal; it was taken.
-- Validation: `pytest -q` -- 1020 passed. `pre-commit run --all-files` -- all
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
   hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0.
   The untracked sweep fell from 500-odd to 0, and the tracked file list was
   unchanged.
@@ -557,7 +564,92 @@ git status --short
 git commit -m "chore(repo): Ignore agent-session analysis trees"
 ```
 
-**Pause for owner review. This is the final task.**
+**Pause for owner review before Task 5.**
+
+---
+
+### Task 5: Correct the documented docsync code range
+
+`AGENTS.md` states the docsync code range as `DOC001-DOC011`, but
+`scripts/docsync/integrity.py` defines `DOC012`: a pass claim in the log must
+carry the bold the authority reads. That is why Task 1's log entry needed
+`**1020 passed**` rather than a plain form. The same sentence already records
+the previous instance of this class, which is the point.
+
+**Files:**
+- Modify: `AGENTS.md`, in the "What `doc_state_sync.py` does and why it exists" list
+- Modify: `PLAYBOOK.md` Section 4, inserting the side-task entry directly after the top-level `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker
+- Test: no new test file. The guard is a grep, plus `doc_state_sync.py --check`.
+
+**Interfaces:**
+- Consumes: nothing.
+- Produces: nothing.
+
+- [ ] **Step 1: Write the failing check**
+
+```powershell
+Select-String -LiteralPath 'AGENTS.md' -Pattern 'DOC001-DOC012' -Encoding UTF8
+```
+
+- [ ] **Step 2: Run it and confirm it fails**
+
+Expected: **0 matches**.
+
+- [ ] **Step 3: Correct the range**
+
+Replace:
+
+```
+4. **Validates** the live document corpus through `docsync.integrity`,
+   which returns typed DOC001-DOC011 issues that block rather than warn.
+   (This range said DOC001-DOC006 until 2026-08-25, four checks after it
+   stopped being true. DOC009 to DOC011 exist because of that class.)
+```
+
+with:
+
+```
+4. **Validates** the live document corpus through `docsync.integrity`,
+   which returns typed DOC001-DOC012 issues that block rather than warn.
+   (This range said DOC001-DOC006 until 2026-08-25, four checks after it
+   stopped being true, and said DOC001-DOC011 until 2026-09-11 for the same
+   reason. DOC009 to DOC012 exist because of that class.)
+```
+
+- [ ] **Step 4: Record that DOC012 is not a declared check**
+
+The paragraph after it begins "**DOC009 to DOC011 are declared, not
+hard-coded.**" That stays true: DOC012 is not declared. Add this sentence
+immediately before the line that begins "Add a declaration when a fact starts
+living in two places":
+
+```
+**DOC012 is not declared.** It is implemented directly in
+`scripts/docsync/integrity.py` and enforces a shape rather than a declared
+fact: a pass claim in the log must carry the bold form the authority reads.
+```
+
+- [ ] **Step 5: Re-run the guard**
+
+Expected: **1 match**, the corrected range.
+
+- [ ] **Step 6: Write the Section 4 log entry**
+
+Insert it immediately after the top-level `<!-- DOCSYNC:CURRENT-BATCH-END -->`
+marker, untagged, using the bold `**1020 passed**` form in its validation line.
+
+- [ ] **Step 7: Run the gates and commit**
+
+```powershell
+python scripts/doc_state_sync.py --fix
+pytest -q
+pre-commit run --all-files
+python scripts/doc_state_sync.py --check
+git add AGENTS.md
+git add PLAYBOOK.md
+git status --short
+git commit -m "docs(agents): Correct the docsync code range to DOC012"
+```
 
 ---
 
@@ -571,6 +663,7 @@ git commit -m "chore(repo): Ignore agent-session analysis trees"
 | Section 10 -- the commit debt is invisible to bootstrap | Task 3 |
 | The traversal's findings exist only in an untracked scratch directory | Task 2 |
 | (Not from the traversal) 500-odd untracked analysis paths | Task 4, owner-gated |
+| The DOC012 code is undocumented in AGENTS.md's stated range | Task 5 |
 | Sections 1 to 6 and 8 to 9 -- findings that describe the plan's content, not a document defect | Not a defect. Section 1 and 2 are the plan's own documented design; Sections 3 to 6 and 8 to 9 are its substance, and the plan owns them under Phase 2 and Phase 4 |
 | The unresolvable `scratchpad/ds-push/` citation in `docs/design/designsystemaudit.md` | **Deliberately not fixed.** The audit is a dated record that must not be edited. Task 2's report and Task 3's bullet point readers at the audit as a record rather than treating its citations as live |
 
