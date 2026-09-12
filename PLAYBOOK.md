@@ -186,9 +186,9 @@ See FINDINGS F-DOCSYNC-3.
 - **Next action:** the WP-7 refinement the owner asked for is implemented and
   verified, so the earlier note that this work was cut off before completion is
   discharged. The disclosure step is 25 (was 50), and the back-to-top control
-  now collapses its panel as well as scrolling. `pytest -q` -- **1020 passed**;
-  the two-engine frontend gate -- 26 checks passed in 47 runs across chromium
-  and firefox.
+  now collapses its panel as well as scrolling. `pytest -q` -- **1022 passed**,
+  measured 2026-09-11; the two-engine frontend gate -- 26 checks passed in 47
+  runs across chromium and firefox.
   One conflict is still open and belongs to the documentation pass: the approved
   spec `docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`
   still says "stacked, full-width reason sections", while the owner ruled
@@ -888,6 +888,89 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Task 8: the guard's own spelling, a false rationale, a live count
+
+- Scope: the six items of the final whole-branch review of this series -- three
+  Important findings and three one-line recommendations, all of them documents
+  except one test assertion. No application behaviour changed. One gate
+  behaviour moved: Guard A's pattern now blocks on a second spelling of the
+  retired range. The review's verdict was "ready to merge with fixes" over the
+  23 commits from `b5b2c89` to `0c87eaa`.
+- Important 1: Guard A's pattern -- the `[[retired]]` declaration named "the
+  docsync integrity range ends at DOC011", at `.docsync.toml:616` -- could not
+  match the spelling of the instance it was built for. The declaration was
+  written for `docs/architecture/documentation-tooling.md:93`'s backtick-split
+  `` `DOC001`-`DOC011` ``, and the pattern required the contiguous literal. The
+  pattern now reads `(?:reports|returns|states).{0,40}DOC001`?-`?DOC011`, so
+  both spellings match and nothing else does. The declaration's comment claimed
+  the pattern "requires the literal `DOC001-DOC011` phrase", which the widening
+  falsifies; it now names both spellings and says why the backticks are
+  optional.
+- NO LIVE RED STATE WAS AVAILABLE for that widening, and none was manufactured
+  to produce one. Task 6 corrected the backtick-split instance in `cc987f5`,
+  before Task 7 designed the guard, so at calibration time the only surviving
+  example of the defect was the plain form inside a plan's spent before-block --
+  which is why the pattern was fitted to the wrong spelling. The evidence is a
+  five-case probe rather than a red-then-green cycle. Measured through
+  `docsync.declarations._declared_matches`, old pattern then new: backtick-split
+  `` It reports typed `DOC001`-`DOC011` issues `` False then True; the plain
+  `It reports typed DOC001-DOC011 issues` True then True; a corrected
+  `` `DOC001`-`DOC012` `` line False then False; the true
+  "**DOC009 to DOC011 are declared, not hard-coded.**" False then False; and a
+  past-tense record naming the old range False then False.
+- Important 2: the entry named "DocSync integrity range corrected to DOC012"
+  justified leaving two dated records alone by saying they "were correct when
+  written", and the ledger falsified it: DOC012 has been enforced since
+  2026-08-26 (`1c78aa0`), so `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md`
+  and the archive entry that carries the same range already stated a retired
+  range on their own dates. The decision to leave them stands. The reason is now
+  the policy -- a dated record is a point-in-time entry, so editing one falsifies
+  the record rather than correcting it -- which holds whether or not the range
+  it states was stale on the day it was written.
+- Important 3: `PLAYBOOK.md:189`, in Section 3's live next-action bullet, read
+  **1020 passed** while the suite is 1022. A live bootstrap field that no gate
+  reads, which is why it drifted: DOC006 and DOC008 cover the named
+  SESSION_CONTEXT fields and the `FINDINGS.md` header, and DOC012 reads only
+  below the execution-log heading. It now reads **1022 passed** with the
+  measurement date beside it.
+- The three recommendations. The traversal report's provenance header no longer
+  pins the traversed revision by sha256 and byte count: that revision was never
+  committed, so no contributor could ever check the pin, which is the
+  unreachable-citation shape Anti-Pattern 11 names. It now records that the
+  traversal bound the pre-publication revision that `c277728` published. The
+  facade test at `tests/scripts/dev/test_frontend_gate_colour.py:194` asserts
+  `is` identity rather than `callable()`, so a facade exporting an unrelated
+  function of the same name fails it; the test is parametrized, so extending it
+  added no test function and the suite count did not move. And the
+  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`
+  work order gained a section after its task list naming Task 6 and Task 7 as
+  the owner-directed additions, so it stops understating the series.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning. The probe
+  above was re-run after the widening, with the pattern read back from
+  `.docsync.toml`, and returned the new column unchanged.
+- Committed paths (6), recorded as the actual set: `.docsync.toml` (the widened
+  pattern and the comment above it), `PLAYBOOK.md` (this entry and the Section 3
+  count), `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`,
+  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`,
+  `tests/scripts/dev/test_frontend_gate_colour.py`, and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which this entry's arrival
+  pushed over the four-entry window: the reworded Important 2 rationale rides in
+  the rotated entry, so the correction is preserved in the archive rather than in
+  Section 4. docsync demanded no further path: this entry carries the 1022 claim
+  the corpus already held, so `FINDINGS.md` and `.claude/SESSION_CONTEXT.md`
+  needed no change.
+- Forward guidance: Guard A now covers both spellings of the retired range, so
+  the live coverage gap it had is closed -- but it still matches *wording*, and
+  a document stating a fresh-phrased range behind the code passes it; Guard B is
+  the check for that, and the two do not subsume each other. Two residuals the
+  review did not name are reported rather than fixed here, because the brief
+  scoped this wave to its six items: the Task 6 entry named "Architecture rebuild
+  landed, and its stale docsync range corrected" still carries the same "correct
+  when written" rationale about a document, and the work order's Task 2 Step 3
+  still reproduces the report's old provenance pin in its instruction block.
+
 ### 2026-09-11 - The docsync code range is guarded, and its stale copy removed
 
 - Scope, four parts in one owner-directed task: declare the retired DOC011
@@ -1053,43 +1136,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the rebuild is the last owed commit before Phase 2, so
   Section 3 now reads "none". The docsync-range guard can land unexempted,
   because no live stale instance remains in the corpus.
-
-### 2026-09-11 - DocSync integrity range corrected to DOC012
-
-- Scope: `AGENTS.md` stated the integrity range as `DOC001-DOC011`, while
-  `scripts/docsync/integrity.py` defines and raises `DOC012` -- a pass claim in
-  the log must carry the bold form the count authority reads. The range drifted
-  for the same reason it drifted the first time: nothing in the corpus asserts
-  that the stated range equals the codes the code raises.
-- Plan vs implementation: both `AGENTS.md` edits landed as written. The list
-  item now reads `DOC001-DOC012`, and its parenthetical records the second
-  drift, so the sentence that already held the first instance of this class now
-  holds both. The added paragraph sits after the DOC009 to DOC011 bullet list
-  and records that DOC012 is implemented directly rather than declared, which
-  keeps the paragraph above it -- "DOC009 to DOC011 are declared, not
-  hard-coded" -- true as written.
-- Sweep, per Anti-Pattern 11: exactly one live document stated the range
-  wrongly, and it is the one corrected here. Left deliberately, with reasons:
-  `FINDINGS.md` records that `AGENTS.md` *used to* say `DOC001-DOC006` and
-  remains true as history; the dated records in
-  `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md` and
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` were correct when
-  written; and three sites that describe the declared mechanism rather than
-  the range -- the WP-3 plan's "DOC009 to DOC011 exist and are declared", the
-  comment at `scripts/docsync/integrity.py:1017`, and the `declarations.py`
-  line in `.claude/SESSION_CONTEXT.md` -- all remain true, because DOC012 is
-  implemented in `integrity.py` and is not declared.
-- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` --
-  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
-  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning. The
-  guard, `Select-String -LiteralPath 'AGENTS.md' -Pattern 'DOC001-DOC012'`,
-  returned 0 matches before the edit and 1 after.
-- Committed paths (3), recorded as the actual set: `AGENTS.md`, this entry in
-  `PLAYBOOK.md`, and the rotation it forced in
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
-  exhaustive-traversal entry out of the active window. docsync demanded no
-  further path: this entry carries the 1020 claim the corpus already held, so
-  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
-- Forward guidance: the range is still unchecked. A guard asserting that the
-  stated range equals the codes the code raises would have caught both drifts,
-  and remains the fix for the class rather than for this instance.

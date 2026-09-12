@@ -642,6 +642,25 @@ git commit -m "docs(agents): Correct the docsync code range to DOC012"
 
 ---
 
+## Owner-directed additions to this series
+
+The five tasks above are not the whole series. Two further tasks were owner-directed
+mid-series, and neither is written here:
+
+- **Task 6 -- the architecture rebuild.** The owed architecture-diagram rebuild had to
+  land first, because its own stale docsync range was the last live instance the guards
+  would have blocked on. Commits `cc987f5`, `29486d8` and `0a84368`.
+- **Task 7 -- the two docsync-range guards.** The `[[retired]]` declaration in
+  `.docsync.toml`, which blocks a stale range stated as a live fact, and the derived
+  test in `tests/test_docsync_integrity.py` that compares the range `AGENTS.md` states
+  with the highest code the package raises. Commits `d41f05c` and `0c87eaa`.
+
+`PLAYBOOK.md` Section 4 is their record; this plan is not. See its 2026-09-11 entries
+"Architecture rebuild landed, and its stale docsync range corrected" and "The docsync
+code range is guarded, and its stale copy removed".
+
+---
+
 ## Self-review
 
 **1. Spec coverage.** Every finding the traversal produced that has this plan as its owner is covered:

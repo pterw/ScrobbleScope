@@ -598,19 +598,22 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 # The drift survived in AGENTS.md until 2026-09-11 and had already been copied into a
 # rebuilt architecture document.
 #
-# The pattern matches the PRESCRIPTIVE phrasing, not the bare code, and requires
-# the literal `DOC001-DOC011` phrase, so AGENTS.md's own true sentence about the
-# declared DOC009 to DOC011 kinds stays out. A pattern matches text shape, and
-# cannot tell "states the range as X" from "records that it was formerly X"; a
-# record leaves itself out by using the past tense. The 40-character gap, and a
-# verb list without `typed`, are what catch a stale range stated as a plain
-# present-tense fact -- a second live phrasing, found in that same plan on
-# 2026-09-11. A still broader form was measured and rejected for flagging true
-# sentences instead.
+# The pattern matches the PRESCRIPTIVE phrasing, not the bare code, and takes the
+# range in either spelling it has shipped in -- contiguous `DOC001-DOC011` and
+# backtick-split `DOC001`-`DOC011` -- so AGENTS.md's own true sentence about the
+# declared DOC009 to DOC011 kinds stays out. The backticks are optional so both
+# spellings match: this declaration was written for a backtick-split instance,
+# and a pattern carrying the contiguous literal alone could not match it.
+# A pattern matches text shape, and cannot tell "states the range as X" from
+# "records that it was formerly X"; a record leaves itself out by using the past
+# tense. The 40-character gap, and a verb list without `typed`, are what catch a
+# stale range stated as a plain present-tense fact -- a second live phrasing,
+# found in that same plan on 2026-09-11. A still broader form was measured and
+# rejected for flagging true sentences instead.
 [[retired]]
 name = "the docsync integrity range ends at DOC011"
 reason = "DOC012 has been enforced since 2026-08-26; the range is DOC001-DOC012."
-pattern = '(?:reports|returns|states).{0,40}DOC001-DOC011'
+pattern = '(?:reports|returns|states).{0,40}DOC001`?-`?DOC011'
 scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 

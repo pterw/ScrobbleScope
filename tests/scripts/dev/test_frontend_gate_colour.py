@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 
-from scripts.dev import frontend_gate
+from scripts.dev import _frontend_gate_colour, frontend_gate
 from scripts.dev._frontend_gate_colour import (
     _clamp_px,
     _composite_over,
@@ -188,4 +188,7 @@ class TestFacadeStillReExportsTheMovedHelpers:
         ],
     )
     def test_name_resolves_through_the_gate_module(self, name: str):
-        assert callable(getattr(frontend_gate, name))
+        # Identity, not callability: a facade exporting an unrelated function
+        # that happens to share the name would satisfy `callable()` while
+        # every caller reading the moved implementation's behaviour breaks.
+        assert getattr(frontend_gate, name) is getattr(_frontend_gate_colour, name)

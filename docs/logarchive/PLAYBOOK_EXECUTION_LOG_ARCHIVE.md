@@ -9,6 +9,49 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - DocSync integrity range corrected to DOC012
+
+- Scope: `AGENTS.md` stated the integrity range as `DOC001-DOC011`, while
+  `scripts/docsync/integrity.py` defines and raises `DOC012` -- a pass claim in
+  the log must carry the bold form the count authority reads. The range drifted
+  for the same reason it drifted the first time: nothing in the corpus asserts
+  that the stated range equals the codes the code raises.
+- Plan vs implementation: both `AGENTS.md` edits landed as written. The list
+  item now reads `DOC001-DOC012`, and its parenthetical records the second
+  drift, so the sentence that already held the first instance of this class now
+  holds both. The added paragraph sits after the DOC009 to DOC011 bullet list
+  and records that DOC012 is implemented directly rather than declared, which
+  keeps the paragraph above it -- "DOC009 to DOC011 are declared, not
+  hard-coded" -- true as written.
+- Sweep, per Anti-Pattern 11: exactly one live document stated the range
+  wrongly, and it is the one corrected here. Left deliberately, with reasons:
+  `FINDINGS.md` records that `AGENTS.md` *used to* say `DOC001-DOC006` and
+  remains true as history; the dated records in
+  `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md` and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` are exempt by policy -- a
+  dated record is a point-in-time entry, so editing one falsifies the record
+  rather than correcting it, and that holds whether or not the range it states
+  was already stale on the day it was written; and three sites that describe
+  the declared mechanism rather than the range -- the WP-3 plan's "DOC009 to
+  DOC011 exist and are declared", the comment at
+  `scripts/docsync/integrity.py:1017`, and the `declarations.py` line in
+  `.claude/SESSION_CONTEXT.md` -- all remain true, because DOC012 is
+  implemented in `integrity.py` and is not declared.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning. The
+  guard, `Select-String -LiteralPath 'AGENTS.md' -Pattern 'DOC001-DOC012'`,
+  returned 0 matches before the edit and 1 after.
+- Committed paths (3), recorded as the actual set: `AGENTS.md`, this entry in
+  `PLAYBOOK.md`, and the rotation it forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
+  exhaustive-traversal entry out of the active window. docsync demanded no
+  further path: this entry carries the 1020 claim the corpus already held, so
+  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
+- Forward guidance: the range is still unchecked. A guard asserting that the
+  stated range equals the codes the code raises would have caught both drifts,
+  and remains the fix for the class rather than for this instance.
+
 ### 2026-09-11 - Agent-session analysis trees ignored
 
 - Scope: `.agent/`, `.impeccable/`, `.qlty/` and `scratch/` were untracked and
