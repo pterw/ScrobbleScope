@@ -1,9 +1,11 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-09
-Status: Batch 21 is active. WP-0 through WP-5 and owner-review remediation
-Tasks 1-5 are complete. PLAYBOOK Section 3 owns the current work order.
-974 tests across 40 test modules.
+Last updated: 2026-09-11
+Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
+into WP-3. The WP-7 extension is implemented and refined, and WP-8 awaits owner
+direction.
+PLAYBOOK Section 3 owns the current work order.
+1026 tests across 43 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -114,8 +116,8 @@ When the count is zero, render a direct no-unmatched state and retain the
 search settings plus existing navigation actions. Do not change the route,
 the API, or the job's unmatched payload; this is a presentation condition.
 
-Status: resolved locally; deploy before the next production release.
-Source: owner browser review, 2026-08-29.
+Status: resolved in Batch 21 WP-7; template renders zero-row state when total_count == 0.
+Source: owner browser review, 2026-08-29; verified in templates/unmatched.html 2026-09-10.
 
 ---
 
@@ -140,6 +142,21 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-56: upstream Spotify failure detection was coupled to written prose reason instead of reason_code
+
+`_detect_spotify_total_failure` in `scrobblescope/orchestrator.py` checked the
+English string `"No Spotify match"` instead of the domain contract
+`reason_code` (`REASON_NO_SPOTIFY_MATCH`). When the first WP-7 commit
+`b3e3e96` introduced `reason_code` to the contract, this detector was missed.
+If the prose string varied or changed, Spotify total failure detection would
+not fire, preventing the classified `spotify_unavailable` error from being set.
+
+Status: resolved locally in the Batch 21 WP-7 deviation, pending commit;
+`_detect_spotify_total_failure` checks
+`reason_code == REASON_NO_SPOTIFY_MATCH` with legacy fallback, verified by
+mutation testing.
+Source: owner review, 2026-09-10.
 
 ### F-B21-47: Artist Spotlight rendered one top-album artist and never rotated
 
@@ -772,6 +789,44 @@ earlier claim that infrastructure has no parity tests was incorrect:
 failure, browser lifecycle, group isolation and CDN route policy. Verify the
 affected coverage before a further split, per AGENTS.md Refactor requires
 parity tests; existing tests are not evidence that every proposed split is safe.
+
+**Split design, agreed 2026-09-11.** Follow the `_frontend_gate_*` sibling
+convention that `_frontend_gate_results.py` already set, and keep
+`frontend_gate.py` as the stable facade, per `worktree_guard.py`.
+
+| Module | Owns |
+| --- | --- |
+| `frontend_gate.py` | Facade: CLI, `main`, re-exports |
+| `_frontend_gate_runtime.py` | Server fixture, CDN route policy, browser and context lifecycle |
+| `_frontend_gate_assets.py` | Stylesheet isolation |
+| `_frontend_gate_theme.py` | Theme tokens, persistence, divider contrast, mark recolour, motion |
+| `_frontend_gate_forms.py` | Forms, validation, private profile, year warnings |
+| `_frontend_gate_layout.py` | Scale parity, header geometry, touch targets, headline wrap |
+| `_frontend_gate_pipeline.py` | Loading phases, progress state machines, spotlight |
+| `_frontend_gate_unmatched.py` | The unmatched report check, including its 2026-09-11 step and collapse assertions |
+| `_frontend_gate_colour.py` | Pure colour and contrast maths -- landed, see below |
+
+The check registry also becomes declarative, in
+`scripts/dev/frontend_gate_checks.toml`: name, group, route, viewport and the
+expected constants. That is this repository's established shape for a thin
+entry point over declarations -- `scripts/doc_state_sync.py` plus
+`scripts/docsync/` plus `.docsync.toml`. The TOML can hold metadata and
+constants but not the procedures, because the checks click, wait and evaluate
+JavaScript. Groups stay derived from the registry, as they already are, and the
+geometry-label literals named above are exactly what moves into it.
+
+**Slice 1 landed 2026-09-11.** The gate stood at 4,073 lines by then, against
+the 3,756 recorded above. The seven pure helpers -- `_parse_rgb_string`,
+`_composite_over`, `_relative_luminance`, `_contrast_ratio`, `_clamp_px`,
+`_worst_divider_contrast`, `_divider_contrast_failure` -- moved to
+`_frontend_gate_colour.py` and are re-exported by the facade, pinned by 29
+parity tests in `tests/scripts/dev/test_frontend_gate_colour.py` that include
+an assertion each moved name still resolves through `frontend_gate`. They were
+chosen first because they take no `page` and therefore carry no browser or
+fixture dependency: the browser gate is the artefact being moved, so it cannot
+be the thing that verifies its own refactor. The remaining groups are the
+browser-coupled ones and still need the gate runnable to prove parity.
+
 Source: PR #227 commit-range audit, 2026-09-09.
 
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached
@@ -842,9 +897,12 @@ small: move the loop construction inside the `try`, or acquire the slot after
 the loop exists.
 
 Found while checking the Top Albums and heatmap sequence diagrams against the
-code. The diagrams now state the limit instead of claiming the release is
-unconditional.
-Status: open. Source: PR #171 diagram verification, 2026-08-15.
+code. The diagrams record that the release in finally is always reached because
+loop setup is inside the try block.
+Status: resolved locally in the Batch 21 WP-7 deviation, pending commit; loop
+setup moved inside the try block in both `background_task`
+and `heatmap_task`, with defensive cleanup in `finally`.
+Source: PR #171 diagram verification, 2026-08-15; verified with TDD mutests 2026-09-10.
 
 ### F-B21-2: three dormant Tailwind seams that WP-2 meets at once
 
@@ -1349,8 +1407,9 @@ batch's plan and the bundle may simply have outlived it, but a `dropdown` or
 `collapse` initialised from `unmatched.js` would not show up in a
 `data-bs-` grep.
 
-Status: open. WP-7 verifies before removing.
-Source: Batch 21 WP-3 review of the remaining legacy pages, 2026-08-25.
+Status: resolved in Batch 21 WP-7. Verified no JS dependencies exist, removed
+`bootstrap.bundle.min.js`, and enforced via `test_template_shell.py::test_a_migrated_page_loads_no_bootstrap_javascript`.
+Source: Batch 21 WP-3 review of the remaining legacy pages, 2026-08-25; verified 2026-09-10.
 
 ### F-B21-17: a third of this batch's review comments were one fact written twice
 
@@ -2145,6 +2204,31 @@ then one-time re-route of the existing close-out entries); hand-retagging
 machine-rotated archive content was declined in PR #162 round 3 and again
 in PR #163 round 3 on the same point-in-time principle.
 Status: open (P2). Source: PR #163 review round 3.
+
+### F-B21-57: `check_retired` uses one variable for the declaration index and the line number
+
+`scripts/docsync/declarations.py:743` names the outer loop's target `index`
+(`for index, declaration in enumerate(declarations)`), and `:763` rebinds the
+same name to a line number inside the scan (`for index, line in enumerate(lines,
+start=1)`), so one name carries two meanings in one function.
+
+Measured 2026-09-11: the reuse is latent, not live. `_validate("retired", index,
+declaration)` at `:744` runs before the inner loop of its own iteration, and the
+`for` statement reassigns `index` at the top of each outer iteration, so the
+declaration index is restored before it is read again. Calling `check_retired`
+with two declarations -- the first scanning `PLAYBOOK.md` behind an
+`allow_after` marker, so its inner loop ran and rebound the name, and the second
+carrying an unknown key -- named the fault `retired 1`, the declaration index
+rather than a line. Nothing reads `index` after `:765`.
+
+It is filed anyway, because the message is correct only by statement order:
+moving `_validate` below the scan, or reading `index` after it, turns a
+declaration-shaped diagnostic into a line number, and a reader sent to the wrong
+line of a long TOML file is the cost. Renaming the inner target to
+`line_number` closes it.
+
+Status: open (P2). No behaviour change; the current message is correct.
+Source: Task 7 fix round 1, 2026-09-11, from that task's implementer report.
 
 ### F-MAS-5: in-memory JOBS dict limits horizontal scaling
 

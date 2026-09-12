@@ -1,155 +1,106 @@
-/* unmatched.css -- page-specific styles for the unmatched report (unmatched.html).
-   Global theme (variables, dark-mode, toggle, SVG) is in global.css. */
+/* unmatched.css -- Unmatched albums report page styles */
 
-/* Page-specific custom properties.
-   --info-bg used to be duplicated here; global.css owns it now, derived
-   from the brand tokens. Only the report-header color stays local. */
-:root {
-    --header-bg: #6a4baf;
+.unmatched-page {
+    --unmatched-surface: color-mix(in srgb, var(--color-base-100) 50%, var(--ss-surface-sunken));
+    width: 100%;
+    max-width: 90rem;
+    min-height: calc(100vh - 12rem);
 }
 
-.dark-mode {
-    --header-bg: #9370db;
+@media (min-width: 1024px) {
+    .unmatched-page {
+        width: 96%;
+    }
 }
 
-body {
-    padding-bottom: 2rem;
+.unmatched-heading h1 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.dark-mode .card {
-    background-color: var(--surface-color);
-    color: var(--text-color);
-    border: 1px solid var(--border-color);
+.unmatched-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
 }
 
-.dark-mode .table {
-    color: var(--text-color);
-}
-
-.dark-mode .table-striped > tbody > tr:nth-of-type(odd) {
-    background-color: rgba(255, 255, 255, 0.04);
-    color: var(--text-color);
-}
-
-.dark-mode .table-striped > tbody > tr:nth-of-type(even) {
-    background-color: transparent;
-    color: var(--text-color);
-}
-
-.dark-mode .table-hover > tbody > tr:hover {
-    background-color: rgba(var(--bars-color-rgb), 0.2);
-    color: var(--text-color);
-}
-
-.dark-mode .alert-info {
-    background-color: var(--info-bg);
-    border-color: rgba(var(--bars-color-rgb), 0.2);
-    color: var(--text-color);
-}
-
-.dark-mode .table-light,
-.dark-mode .table-dark {
-    background-color: var(--surface-elevated);
-    color: var(--text-color);
-}
-
-.dark-mode .table-light th,
-.dark-mode .table-dark th,
-.dark-mode thead th {
-    color: var(--text-color) !important;
-}
-
-.reason-section {
-    margin-bottom: 2rem;
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
+.unmatched-table th,
+.unmatched-table td {
+    vertical-align: middle;
     overflow: hidden;
 }
 
-.reason-header {
-    background-color: var(--header-bg);
-    color: white;
-    padding: 0.75rem 1rem;
+.unmatched-group {
+    background-color: var(--unmatched-surface);
+    border: 1px solid var(--ss-border-default);
+    border-radius: var(--radius-sm);
+    box-shadow: none;
+    overflow: hidden;
+}
+
+.unmatched-count {
+    font-family: var(--font-figure);
+}
+
+.unmatched-label {
     font-family: var(--font-mono-narrow);
-    /* 400, not the old 500: the kit has no 500 and the browser would
-       synthesize it. */
-    font-weight: 400;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
 }
 
-.reason-count {
-    background-color: color-mix(in srgb, currentColor 20%, transparent);
-    border-radius: 999px;
-    padding: 0.125rem 0.5rem;
-    margin-left: 0.5rem;
-    font-size: 0.75rem;
+.unmatched-fix-hint {
     font-family: var(--font-mono-narrow);
-    letter-spacing: 0.05em;
+    font-size: 0.5625rem;
+    line-height: 1.4;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+/* The reason detail is the sentence that explains the exclusion, so it wraps
+   rather than truncates. A side-by-side panel is narrower than a full-width
+   row, and an ellipsis here would hide exactly the text the reader came for.
+   `anywhere` stops a long unbroken token from widening the panel. */
+.unmatched-reason-detail {
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
-.fade-in {
-    animation: fadeIn 0.5s ease forwards;
+
+/* Match Results' explicit cover containment. The Tailwind theme deliberately
+   disables dynamic spacing, so undeclared w-10/h-10 utilities emit no rule. */
+.unmatched-artwork {
+    width: 2.5rem;
+    height: 2.5rem;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    max-width: 2.5rem;
+    max-height: 2.5rem;
+    border-radius: var(--radius-xs);
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    flex-shrink: 0;
 }
 
-#logo-wrapper svg {
+.unmatched-artist-image,
+.unmatched-artwork-fallback {
     width: 100%;
-    height: auto;
-    max-height: 120px;
-    opacity: 0;
-    animation: fadeIn 2s ease forwards;
+    height: 100%;
 }
 
-.action-buttons {
-    position: sticky;
-    top: 1rem;
-    z-index: 100;
-    /* The page colour at 90% so scrolled content blurs through it.
-       Theme-reactive via var(--bg-color): tracks the warm index palette
-       in both themes instead of a hardcoded cool grey. */
-    background-color: color-mix(in srgb, var(--bg-color) 90%, transparent);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-    text-align: center;
-    backdrop-filter: blur(5px);
+.unmatched-artist-image {
+    object-fit: cover;
 }
 
-.info-card {
-    background-color: var(--info-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1.25rem;
-    margin-bottom: 1.5rem;
-    transition: background-color 0.3s ease, color 0.3s ease;
+@media (min-width: 768px) {
+    .unmatched-artwork {
+        width: 2.75rem;
+        height: 2.75rem;
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+        max-width: 2.75rem;
+        max-height: 2.75rem;
+    }
 }
 
-.dark-mode .info-card {
-    background-color: var(--info-bg);
+@media (any-pointer: coarse) {
+    .unmatched-page .btn {
+        min-height: 44px;
+    }
 }
-
-/* Fix for table header in dark mode */
-.dark-mode .table thead th {
-    background-color: var(--surface-elevated) !important;
-    color: var(--text-color) !important;
-    border-color: var(--border-color);
-}
-
-/* Fix for table cells in dark mode */
-.dark-mode .table tbody td,
-.dark-mode .table tbody th {
-    color: var(--text-color) !important;
-}
-
-/* Prevent long unbroken artist/album titles from blowing out table widths */
-.table td,
-.table th {
-    overflow-wrap: break-word;
-}
-

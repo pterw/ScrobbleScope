@@ -15,8 +15,9 @@ sequenceDiagram
     participant Heatmap as heatmap.py
     participant LastFM as Last.fm API
 
-    User->>UI: Select Heatmap and enter username
+    User->>UI: Open /heatmap and enter username
     UI->>Routes: POST /heatmap_loading + CSRF token
+    Note over UI,Routes: /heatmap is the canonical page. /loading stays the transient job route
     Routes->>Routes: Trim and require username
     alt Username missing
         Routes-->>UI: JSON 400
@@ -53,6 +54,7 @@ sequenceDiagram
     end
 
     opt Job admitted and daemon thread started
+        Note over UI,Routes: A saved job that is already cached keeps the loading panel hidden and fades its result in directly
         par Background task runs
             Worker->>Heatmap: heatmap_task(job_id, username)
             Heatmap->>Heatmap: cleanup_expired_cache() from utils (REQUEST_CACHE)
@@ -87,7 +89,7 @@ sequenceDiagram
                 Note over Heatmap,Repo: Prevents the polling client from hanging
             end
             Heatmap->>Worker: release_job_slot()
-            Note over Heatmap,Worker: In the heatmap_task finally -- reached unless the event-loop setup above the try fails
+            Note over Heatmap,Worker: In the heatmap_task finally -- always reached because event-loop setup is inside the try block
         and UI polls progress
             loop Poll until 100% or an error
                 UI->>Routes: GET /progress?job_id=...

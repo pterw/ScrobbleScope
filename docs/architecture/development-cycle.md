@@ -22,7 +22,7 @@ flowchart TD
     Implement --> Targeted[Run targeted and adversarial checks]
     Targeted --> Docs[Update source-of-truth documents<br/>and the dated execution log]
     Docs --> Sync[Run doc_state_sync.py --fix]
-    Sync --> Gates[Run full validation gates]
+    Sync --> Gates[Run full validation gates<br/>pytest, pre-commit, docsync --check,<br/>and the frontend gate from WP-2 on]
     Gates --> SelfReview[Read changed files whole<br/>and sweep sibling claims]
     SelfReview --> Commit[Create one conventional commit<br/>with specific staged paths]
     Commit --> Authorize{Push authorized?}
@@ -40,16 +40,18 @@ flowchart TD
     Close --> Realign[Realign the source branch after merge]
     Realign --> Context
 
-    Current[Current Batch 21 order<br/>F-SWE-1 audit, then WP-1] -.-> Scope
+    Ledger[Side-task path: no batch or WP tag<br/>entry after the current-batch marker] -.-> Docs
+    Handoff[Session close: handoff document<br/>plus Section 3 next action] -.-> Context
+    Current[The active batch and next WP live in<br/>PLAYBOOK Section 3, never in this diagram] -.-> Scope
 
     classDef source fill:#f5efe2,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef feedback fill:#f9e5dd,stroke:#a64b39,color:#1a1820
     classDef current fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
-    class Context,Scope,Docs,Sync source
+    class Context,Scope,Docs,Sync,Ledger source
     class Align,Baseline,Targeted,Gates,SelfReview,CI,Authorize gate
     class Decision,Diagnose feedback
-    class Current current
+    class Current,Handoff current
 ```
 
 Because `main` accepts linear-history merges, a merge can leave the source

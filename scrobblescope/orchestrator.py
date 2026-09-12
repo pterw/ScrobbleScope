@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from math import ceil
-from typing import Any, cast
+from typing import Any
 
 from scrobblescope.cache import (
     _batch_lookup_metadata,
@@ -35,6 +35,11 @@ from scrobblescope.spotify import (
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
 )
+from scrobblescope.unmatched import (
+    REASON_NO_SPOTIFY_MATCH,
+    REASON_RELEASE_SCOPE,
+    partition_albums_by_threshold,
+)
 from scrobblescope.utils import (
     cleanup_expired_cache,
     create_optimized_session,
@@ -43,19 +48,23 @@ from scrobblescope.utils import (
 )
 from scrobblescope.worker import release_job_slot
 
-# Hard upper bound on the number of albums sent to process_albums when sorting
-# by playtime. Playtime ranking requires Spotify track durations, so pre-slicing
-# is impossible -- but an unbounded album count creates proportional Spotify API
-# load. 500 albums at 20 per batch = 25 batch requests, well within practical
-# limits. A user with 500+ albums passing min_plays/min_tracks is an extreme
+# Hard upper bound on the number of albums sent to process_albums across all sort
+# modes. An unbounded album count creates proportional Spotify API load and
+# frontend DOM bloat. 500 albums at 20 per batch = 25 batch requests, well within
+# practical limits. A user with 500+ albums passing min_plays/min_tracks is an extreme
 # outlier; raw play_count is the best available proxy for culling the tail.
-_PLAYTIME_ALBUM_CAP = 500
+_MAX_ALBUM_CAP = 500
+_PLAYTIME_ALBUM_CAP = _MAX_ALBUM_CAP
 
 
 async def fetch_top_albums_async(
     username, year, min_plays=10, min_tracks=3, progress_cb=None
 ):
-    """Fetch and filter top albums. Returns (filtered_albums, fetch_metadata) tuple.
+    """Fetch and partition top albums by the configured listening thresholds.
+
+    Returns an ``(eligible_albums, threshold_exclusions, fetch_metadata)``
+    tuple. Threshold exclusions retain report facts but never enter Spotify
+    enrichment.
 
     The returned ``fetch_metadata`` dict includes a ``stats`` key with
     aggregation counters (total_scrobbles, pages_fetched, unique_albums,
@@ -108,21 +117,34 @@ async def fetch_top_albums_async(
                 albums[key]["track_counts"][normalized] += 1
     logging.debug(f"Unique albums: {len(albums)}")
 
-    filtered = {
-        k: v
-        for k, v in albums.items()
-        if v["play_count"] >= min_plays and len(v["track_counts"]) >= min_tracks
-    }
+    filtered, threshold_exclusions = partition_albums_by_threshold(
+        dict(albums), min_plays, min_tracks
+    )
     logging.debug(f"Albums after filter: {len(filtered)}")
+
+    total_below_threshold = len(threshold_exclusions)
+    if len(threshold_exclusions) > _MAX_ALBUM_CAP:
+        # Ties are broken by normalized key so the retained set does not depend on
+        # the mapping's insertion order. A stable sort alone would keep whichever
+        # tied album happened to be inserted first, which is a property of the
+        # fetch path rather than of this decision.
+        sorted_exclusion_keys = sorted(
+            threshold_exclusions.keys(),
+            key=lambda k: (-int(threshold_exclusions[k].get("play_count", 0)), k),
+        )[:_MAX_ALBUM_CAP]
+        threshold_exclusions = {
+            k: threshold_exclusions[k] for k in sorted_exclusion_keys
+        }
 
     fetch_metadata["stats"] = {
         "total_scrobbles": total_tracks,
         "pages_fetched": len(pages),
         "unique_albums": len(albums),
         "albums_passing_filter": len(filtered),
+        "albums_below_threshold": total_below_threshold,
     }
 
-    return filtered, fetch_metadata
+    return filtered, threshold_exclusions, fetch_metadata
 
 
 def _matches_release_criteria(
@@ -262,6 +284,10 @@ async def _run_spotify_search_phase(
                     "artist": original_artist,
                     "album": original_album,
                     "reason": "No Spotify match",
+                    "reason_code": REASON_NO_SPOTIFY_MATCH,
+                    "album_image": None,
+                    "spotify_id": None,
+                    "play_count": data.get("play_count"),
                 },
             )
 
@@ -474,7 +500,15 @@ def _build_results(
             add_job_unmatched(
                 job_id,
                 unmatched_key,
-                {"artist": artist, "album": album, "reason": reason},
+                {
+                    "artist": artist,
+                    "album": album,
+                    "reason": reason,
+                    "reason_code": REASON_RELEASE_SCOPE,
+                    "album_image": cached.get("album_image_url"),
+                    "spotify_id": cached.get("spotify_id"),
+                    "play_count": original_data.get("play_count"),
+                },
             )
             continue
 
@@ -643,12 +677,16 @@ def _record_lastfm_stats(job_id, fetch_metadata):
 
 
 def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
-    """Apply pre-Spotify pre-slicing and playtime cap.
+    """Apply pre-Spotify pre-slicing and safety cap.
 
     Playcount pre-slice: only when sort_mode='playcount', release_scope='all',
-    and limit_results is a valid integer. Playtime cap: fires at
-    _PLAYTIME_ALBUM_CAP when sort_mode='playtime'. Returns the (possibly
-    reduced) dict.
+    and limit_results is a valid integer. Safety cap: fires at
+    _MAX_ALBUM_CAP across all sort modes to protect Spotify API quotas and
+    results rendering performance. Returns the (possibly reduced) dict.
+
+    Both reductions order by descending play count and then by normalized key,
+    so a tied play count does not let the input mapping's insertion order decide
+    which albums are kept.
     """
     if sort_mode == "playcount" and limit_results != "all" and release_scope == "all":
         try:
@@ -656,24 +694,23 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
             if len(filtered_albums) > limit:
                 sorted_items = sorted(
                     filtered_albums.items(),
-                    key=lambda kv: cast(int, kv[1]["play_count"]),
-                    reverse=True,
+                    key=lambda kv: (-int(kv[1]["play_count"]), kv[0]),
                 )
                 filtered_albums = dict(sorted_items[:limit])
                 logging.info(f"Pre-sliced filtered_albums to top {limit} by play_count")
         except ValueError:
             pass  # malformed limit_results handled by the post-process slice
 
-    if sort_mode == "playtime" and len(filtered_albums) > _PLAYTIME_ALBUM_CAP:
+    if len(filtered_albums) > _MAX_ALBUM_CAP:
         sorted_items = sorted(
             filtered_albums.items(),
-            key=lambda kv: cast(int, kv[1]["play_count"]),
-            reverse=True,
+            key=lambda kv: (-int(kv[1]["play_count"]), kv[0]),
         )
-        filtered_albums = dict(sorted_items[:_PLAYTIME_ALBUM_CAP])
+        filtered_albums = dict(sorted_items[:_MAX_ALBUM_CAP])
+        prefix = "Playtime album cap" if sort_mode == "playtime" else "Album cap"
         logging.warning(
-            f"Playtime album cap applied: capped {len(sorted_items)} albums "
-            f"to top {_PLAYTIME_ALBUM_CAP} by play_count before Spotify fetch"
+            f"{prefix} applied: capped {len(sorted_items)} albums "
+            f"to top {_MAX_ALBUM_CAP} by play_count before Spotify fetch"
         )
 
     return filtered_albums
@@ -683,13 +720,16 @@ def _detect_spotify_total_failure(job_id, results, filtered_albums):
     """Return True and set job error if all filtered albums had no Spotify match.
 
     Only fires when results is empty but filtered_albums is non-empty.
-    Reads job unmatched state to count 'No Spotify match' entries.
+    Reads job unmatched state to count 'no_spotify_match' entries.
     """
     if not results and filtered_albums:
         job_ctx = get_job_context(job_id)
         unmatched = job_ctx.get("unmatched", {}) if job_ctx else {}
         spotify_no_match = sum(
-            1 for v in unmatched.values() if v.get("reason") == "No Spotify match"
+            1
+            for v in unmatched.values()
+            if v.get("reason_code") == REASON_NO_SPOTIFY_MATCH
+            or (not v.get("reason_code") and v.get("reason") == "No Spotify match")
         )
         if spotify_no_match == len(filtered_albums):
             set_job_error(job_id, "spotify_unavailable")
@@ -758,7 +798,11 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
             },
         )
 
-    filtered_albums, fetch_metadata = await fetch_top_albums_async(
+    (
+        filtered_albums,
+        threshold_exclusions,
+        fetch_metadata,
+    ) = await fetch_top_albums_async(
         username,
         year,
         min_plays=min_plays,
@@ -778,6 +822,9 @@ async def _fetch_job_albums(job_id, username, year, min_plays, min_tracks):
             username=username,
         )
         return None
+
+    for unmatched_key, item in threshold_exclusions.items():
+        add_job_unmatched(job_id, "|".join(unmatched_key), item)
 
     # Legitimate empty result: user has scrobbles but none pass filters
     if not filtered_albums:
@@ -943,12 +990,13 @@ def background_task(
     mis-negotiates the connection and Postgres logs 'invalid length of startup
     packet'.
     """
-    if sys.platform == "win32":
-        loop = asyncio.ProactorEventLoop()
-    else:
-        loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    loop = None
     try:
+        if sys.platform == "win32":
+            loop = asyncio.ProactorEventLoop()
+        else:
+            loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         loop.run_until_complete(
             _fetch_and_process(
                 job_id,
@@ -966,5 +1014,8 @@ def background_task(
     except Exception:
         logging.exception(f"Unhandled error in background task for {username}/{year}")
     finally:
-        loop.close()
-        release_job_slot()
+        try:
+            if loop is not None:
+                loop.close()
+        finally:
+            release_job_slot()

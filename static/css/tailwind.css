@@ -1332,8 +1332,8 @@
   .my-8 {
     margin-block: var(--spacing-8);
   }
-  .ms-2 {
-    margin-inline-start: var(--spacing-2);
+  .mt-1 {
+    margin-top: var(--spacing-1);
   }
   .mb-1 {
     margin-bottom: var(--spacing-1);
@@ -1448,6 +1448,9 @@
   .flex-shrink-0 {
     flex-shrink: 0;
   }
+  .table-fixed {
+    table-layout: fixed;
+  }
   .border-collapse {
     border-collapse: collapse;
   }
@@ -1505,6 +1508,9 @@
   }
   .gap-4 {
     gap: var(--spacing-4);
+  }
+  .gap-6 {
+    gap: var(--spacing-6);
   }
   .gap-8 {
     gap: var(--spacing-8);
@@ -1570,6 +1576,10 @@
     border-style: var(--tw-border-style);
     border-width: 1px;
   }
+  .border-t {
+    border-top-style: var(--tw-border-style);
+    border-top-width: 1px;
+  }
   .border-b {
     border-bottom-style: var(--tw-border-style);
     border-bottom-width: 1px;
@@ -1618,6 +1628,14 @@
       --btn-inset: 0 0 0 0 oklch(0% 0 0/0);
       --btn-shadow: 0 0 0 0 oklch(0% 0 0/0);
     }
+    .btn-ghost {
+      --btn-bg: #0000;
+      color: var(--btn-rest-fg, var(--btn-color, var(--color-base-content, currentColor)));
+      --btn-border: #0000;
+      background-image: none;
+      --btn-inset: 0 0 0 0 oklch(0% 0 0/0);
+      --btn-shadow: 0 0 0 0 oklch(0% 0 0/0);
+    }
   }
   .object-cover {
     object-fit: cover;
@@ -1637,6 +1655,9 @@
   .px-1 {
     padding-inline: var(--spacing-1);
   }
+  .px-2 {
+    padding-inline: var(--spacing-2);
+  }
   .px-3 {
     padding-inline: var(--spacing-3);
   }
@@ -1648,6 +1669,9 @@
   }
   .py-3 {
     padding-block: var(--spacing-3);
+  }
+  .py-12 {
+    padding-block: var(--spacing-12);
   }
   .pt-1 {
     padding-top: var(--spacing-1);
@@ -1730,6 +1754,9 @@
     font-size: var(--text-xs);
     line-height: var(--tw-leading, var(--text-xs--line-height));
   }
+  .text-\[0\.5625rem\] {
+    font-size: 0.5625rem;
+  }
   .text-\[calc\(0\.6875rem\*var\(--results-scale\)\)\] {
     font-size: calc(0.6875rem * var(--results-scale));
   }
@@ -1767,6 +1794,9 @@
   }
   .break-words {
     overflow-wrap: break-word;
+  }
+  .text-ellipsis {
+    text-overflow: ellipsis;
   }
   .whitespace-nowrap {
     white-space: nowrap;
@@ -1815,6 +1845,9 @@
   }
   .italic {
     font-style: italic;
+  }
+  .not-italic {
+    font-style: normal;
   }
   .opacity-0 {
     opacity: 0%;
@@ -1886,10 +1919,18 @@
       --btn-fg: var(--color-primary-content);
       --btn-soft-bg: initial;
     }
+    .btn-sm {
+      --fontsize: 0.75rem;
+      --btn-p: 0.75rem;
+      --size: calc(var(--size-field, 0.25rem) * 8);
+    }
   }
   @media (hover: hover) {
     .hover\:bg-\[var\(--ss-surface-card\)\]:hover {
       background-color: var(--ss-surface-card);
+    }
+    .hover\:text-\[var\(--color-base-content\)\]:hover {
+      color: var(--color-base-content);
     }
     .hover\:text-\[var\(--color-primary\)\]:hover {
       color: var(--color-primary);
@@ -1918,6 +1959,23 @@
     .sm\:grid-cols-3 {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+    .sm\:flex-row {
+      flex-direction: row;
+    }
+    .sm\:items-end {
+      align-items: flex-end;
+    }
+    .sm\:text-3xl {
+      font-size: var(--text-3xl);
+      line-height: var(--tw-leading, var(--text-3xl--line-height));
+    }
+    @layer daisyui.l1.l2 {
+      .sm\:btn-md {
+        --fontsize: 0.875rem;
+        --btn-p: 1rem;
+        --size: calc(var(--size-field, 0.25rem) * 10);
+      }
+    }
   }
   @media (width >= 48rem) {
     .md\:hidden {
@@ -1941,6 +1999,9 @@
     .md\:items-end {
       align-items: flex-end;
     }
+    .md\:gap-3 {
+      gap: var(--spacing-3);
+    }
     .md\:gap-4 {
       gap: var(--spacing-4);
     }
@@ -1949,6 +2010,9 @@
     }
     .md\:p-\[calc\(1\.25rem\*var\(--results-scale\)\)\] {
       padding: calc(1.25rem * var(--results-scale));
+    }
+    .md\:px-3 {
+      padding-inline: var(--spacing-3);
     }
     .md\:px-4 {
       padding-inline: var(--spacing-4);
@@ -1962,6 +2026,10 @@
     .md\:pl-1 {
       padding-left: var(--spacing-1);
     }
+    .md\:text-2xl {
+      font-size: var(--text-2xl);
+      line-height: var(--tw-leading, var(--text-2xl--line-height));
+    }
     .md\:text-3xl {
       font-size: var(--text-3xl);
       line-height: var(--tw-leading, var(--text-3xl--line-height));
@@ -1973,6 +2041,10 @@
     .md\:text-5xl {
       font-size: var(--text-5xl);
       line-height: var(--tw-leading, var(--text-5xl--line-height));
+    }
+    .md\:text-base {
+      font-size: var(--text-base);
+      line-height: var(--tw-leading, var(--text-base--line-height));
     }
     .md\:text-lg {
       font-size: var(--text-lg);
@@ -1996,8 +2068,17 @@
     .lg\:col-span-8 {
       grid-column: span 8 / span 8;
     }
+    .lg\:grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .lg\:grid-cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
     .lg\:grid-cols-12 {
       grid-template-columns: repeat(12, minmax(0, 1fr));
+    }
+    .lg\:text-\[calc\(2\.5rem\*var\(--results-scale\,1\)\)\] {
+      font-size: calc(2.5rem * var(--results-scale,1));
     }
   }
 }
