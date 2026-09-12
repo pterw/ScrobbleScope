@@ -21,9 +21,10 @@ claim names.
 Order]; update it here.** Last updated 2026-09-11 by the session that drafted
 the plan and executed Phase 1.
 
-**State: Phase 1 complete and committed. Phases 2-5 not started. Uncommitted
-work: the architecture-diagram rebuild in `docs/ARCHITECTURE.md` and the five
-documents under `docs/architecture/`.** Nothing is pushed.
+**State: Phase 1 complete and committed. Phases 2-5 not started. No work is
+uncommitted: the architecture-diagram rebuild landed as `cc987f5`, the F-B21-51
+slice-1 refactor as `95e0896`, and this plan's own move as `c277728`.**
+Nothing is pushed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
@@ -62,7 +63,9 @@ documents under `docs/architecture/`.** Nothing is pushed.
    **Discharged 2026-09-11 as `95e0896`.** Its documentation half had already
    landed in `c277728`, because docsync's count checks force those files into
    any commit that adds a log entry claiming a test count.
-2. Commit the diagram rebuild, re-staging `PLAYBOOK.md`.
+2. Commit the diagram rebuild, re-staging `PLAYBOOK.md`. **Discharged 2026-09-11
+   as `cc987f5`.** The rebuilt `docs/architecture/documentation-tooling.md` also
+   carried a stale docsync range, corrected in the same commit.
 3. Commit this plan's move. **Discharged 2026-09-11 as `c277728`.** The fate of
    `docs/superpowers/plans/gemini_implementation_plan_unverified.md` is still
    open: it remains untracked, superseded, and in the directory.

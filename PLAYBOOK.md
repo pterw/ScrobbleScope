@@ -196,12 +196,11 @@ See FINDINGS F-DOCSYNC-3.
   spec and this bullet before beginning WP-8, or an agent following them will
   rebuild the rejected layout. WP-8 starts only on owner direction.
 
-- **Owed before Phase 2:** the commits owed before Phase 2 are recorded only in
-  the design-system plan's Progress section
-  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`):
-  the architecture-diagram rebuild. The F-B21-51 slice-1 refactor landed as
-  `95e0896` and that plan's own move as `c277728`. An agent that bootstraps from
-  this section reaches the specification conflict above but not the commit debt.
+- **Owed before Phase 2:** none. Every commit this bullet previously named has
+  landed: the F-B21-51 slice-1 refactor as `95e0896`, the design-system plan's own
+  move as `c277728`, and the architecture-diagram rebuild as `cc987f5`. When a new
+  commit becomes owed, name it here and keep the naming rather than a count, so the
+  section cannot go silently wrong.
 - **Traversal record:** the design-system plan was traversed exhaustively on
   2026-09-11; the findings are
   `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
