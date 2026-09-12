@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Design-system plan corrected to name its own path
+
+- Scope: the Batch 21 design-system plan
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`)
+  still described itself by its pre-move repository-root name in three places,
+  and its Progress "State" line counted its uncommitted work items rather than
+  naming them. Both defects came from an exhaustive traversal of the plan; the
+  evidence is `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
+- Plan vs implementation: all four edits landed as written. The State line now
+  lists the uncommitted items instead of counting them, because a count goes
+  stale the next time one appears (Anti-Pattern Registry item 13). The
+  open-decision entry was rewritten in place rather than deleted, so the
+  numbering of the decisions below it stays stable for any citation.
+- Deviation: this commit stages the plan itself, discharging that plan's own
+  "Where to pick up" item 3, which its Progress had recorded as a separate
+  commit. A content correction to an untracked file is observable only once the
+  file is committed, so the reorder is recorded rather than silent.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0,
+  with the expected root `BATCH21_DEFINITION.md` warning. The target guard fell
+  from 3 matches to 2; the two survivors name the old root path
+  as history beside the new one.
+- Forward guidance: the three dated references to the old root name stay as
+  written -- two in this file's Section 4, one in the archive after this run's
+  rotation. They record what the document said on the day it was written, and
+  editing them would falsify a dated record.
+
 ### 2026-09-11 - Implementation plan moved into the plans directory and given progress tracking
 
 - Scope: the root-level `implementation_plan.md` became

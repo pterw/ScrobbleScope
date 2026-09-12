@@ -195,6 +195,16 @@ See FINDINGS F-DOCSYNC-3.
   side-by-side on 2026-09-11 and the shipped page is side-by-side. Correct the
   spec and this bullet before beginning WP-8, or an agent following them will
   rebuild the rejected layout. WP-8 starts only on owner direction.
+
+- **Owed before Phase 2:** the commits owed before Phase 2 are recorded only in
+  the design-system plan's Progress section
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`):
+  the architecture-diagram rebuild. The F-B21-51 slice-1 refactor landed as
+  `95e0896` and that plan's own move as `c277728`. An agent that bootstraps from
+  this section reaches the specification conflict above but not the commit debt.
+- **Traversal record:** the design-system plan was traversed exhaustively on
+  2026-09-11; the findings are
+  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -879,6 +889,43 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Section 3 now carries the commit debt
+
+- Scope: the commits owed before Phase 2 were recorded only in the design-system
+  plan's Progress section, so an agent bootstrapping from `AGENTS.md` reached the
+  specification conflict Section 3 already carries but never learned that
+  commits were owed. Section 3 now names the debt, points at the traversal
+  record, and the remediation plan's Task 3 Step 3 was corrected so it stops
+  instructing the stale wording.
+- Plan vs implementation: both Section 3 bullets landed as written, inserted
+  directly after the existing "Next action:" bullet. The bullets name the
+  outstanding architecture-diagram rebuild and record the two already-landed
+  commits, `95e0896` for the F-B21-51 slice-1 refactor and `c277728` for that
+  plan's own move. The traversal-record citation resolves because Task 2
+  committed the report.
+- Deviation, controller-directed: the brief's Section 3 bullet text was written
+  before `95e0896` and `c277728` landed, so it still described the F-B21-51
+  slice-1 refactor as staged and the design-system plan's own move as
+  uncommitted. Following it verbatim would have written a false statement into
+  the live bootstrap section, so the corrected wording was used, and the same
+  correction was applied to the remediation plan's Task 3 Step 3 so the plan no
+  longer mandates the stale text. Nothing else in that plan changed.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  10 hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0
+  with only the expected root `BATCH21_DEFINITION.md` warning.
+- Committed paths (3), recorded as the actual set rather than a smaller claimed
+  one: `PLAYBOOK.md`, the remediation plan whose Task 3 Step 3 this commit
+  corrected
+  (`docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`),
+  and the rotation this entry forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
+  design-system plan's own path-correction entry out of the active window.
+  docsync demanded no further path: this entry carries the 1020 claim the corpus
+  already held, so `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no
+  change.
+- Forward guidance: keep Section 3's bullets free of counts. Name each owed
+  item, so the next addition cannot make the section silently wrong.
+
 ### 2026-09-11 - Traversal record tense repaired after the Task 2 review
 
 - Scope: the review of Task 2's commit `106f941` found two tense defects in
@@ -982,30 +1029,3 @@ non-current operational logs. Older dated entries live in
   931 -- and this commit moved the marker itself from 878 to 880. Repoint those
   citations by name in that plan's next pass: a line number cannot survive the
   next entry inserted above the marker.
-
-### 2026-09-11 - Design-system plan corrected to name its own path
-
-- Scope: the Batch 21 design-system plan
-  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`)
-  still described itself by its pre-move repository-root name in three places,
-  and its Progress "State" line counted its uncommitted work items rather than
-  naming them. Both defects came from an exhaustive traversal of the plan; the
-  evidence is `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
-- Plan vs implementation: all four edits landed as written. The State line now
-  lists the uncommitted items instead of counting them, because a count goes
-  stale the next time one appears (Anti-Pattern Registry item 13). The
-  open-decision entry was rewritten in place rather than deleted, so the
-  numbering of the decisions below it stays stable for any citation.
-- Deviation: this commit stages the plan itself, discharging that plan's own
-  "Where to pick up" item 3, which its Progress had recorded as a separate
-  commit. A content correction to an untracked file is observable only once the
-  file is committed, so the reorder is recorded rather than silent.
-- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
-  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0,
-  with the expected root `BATCH21_DEFINITION.md` warning. The target guard fell
-  from 3 matches to 2; the two survivors name the old root path
-  as history beside the new one.
-- Forward guidance: the three dated references to the old root name stay as
-  written -- two in this file's Section 4, one in the archive after this run's
-  rotation. They record what the document said on the day it was written, and
-  editing them would falsify a dated record.

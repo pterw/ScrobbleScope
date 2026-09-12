@@ -406,11 +406,9 @@ Insert directly after the line ending `WP-8 starts only on owner direction.`:
 - **Owed before Phase 2:** the commits owed before Phase 2 are recorded only in
   the design-system plan's Progress section
   (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`):
-  the staged F-B21-51 slice-1 gate refactor, and the architecture-diagram
-  rebuild. That plan's own move was committed on 2026-09-11 together with
-  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`.
-  An agent that bootstraps from this section reaches the specification conflict
-  above but not the commit debt.
+  the architecture-diagram rebuild. The F-B21-51 slice-1 refactor landed as
+  `95e0896` and that plan's own move as `c277728`. An agent that bootstraps from
+  this section reaches the specification conflict above but not the commit debt.
 - **Traversal record:** the design-system plan was traversed exhaustively on
   2026-09-11; the findings are
   `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
