@@ -888,6 +888,49 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Task 6 review fixes: diagram claims and the handoff list
+
+- Scope: the five findings of the Task 6 review of `cc987f5` and `29486d8`, all
+  documentation, none touching behaviour or a gate. (1) The design-system plan's
+  handoff list still presented three landed commits as staged or unstaged,
+  contradicting its State line twenty lines above. (2) A Mermaid node in
+  `docs/architecture/documentation-tooling.md` named pre-commit's code checks
+  `ruff, flake8, bandit`, when this repository runs ruff alone. (3) The Task 6
+  entry immediately below counted "the four citing edits" over a list of three.
+  (4) That entry cited "the six architecture documents above" without naming one
+  of them. (5) The same tooling document put pip-audit before the frontend gate
+  in CI and omitted CI's deliberate `worktree-alignment` skip.
+- Toolchain evidence, read from the configuration rather than assumed:
+  `.pre-commit-config.yaml` defines ten hooks -- ruff-check, ruff-format,
+  trailing-whitespace, end-of-file-fixer, check-yaml, check-merge-conflict,
+  detect-private-key, doc-state-sync-check, tailwind-css-drift and
+  worktree-alignment -- and its own comment records that ruff replaces black,
+  isort, autoflake and flake8. Neither flake8 nor bandit is pinned in
+  `requirements-dev.txt`, defined as a hook, or named in a workflow step; the
+  surviving mentions are prose records and one comment in
+  `scrobblescope/spotlight.py`. The node now reads `ruff check, ruff format`.
+- CI order, read from `.github/workflows/test.yml`: pre-commit with
+  `SKIP: worktree-alignment`, then pytest with coverage, then the Playwright
+  install, then the frontend gate, then advisory pip-audit last. The prose now
+  states that order and the skip.
+- The contradicted list, repaired with discharge markers rather than a retitle:
+  each of its three items names the commit that discharged it, which is what
+  "Where to pick up" already does. A retitle alone would have left "Unstaged:"
+  standing with no outcome beside it, the defect the Task 3 review raised for
+  the sibling Section 3 bullet.
+- Validation: `pytest -q` -- **1020 passed**; `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified; `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning.
+- Committed paths (4), recorded as the actual set: `PLAYBOOK.md` (this entry),
+  `docs/architecture/documentation-tooling.md`, the design-system plan
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`),
+  and the rotation this entry forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the Section 3
+  commit-debt entry out of the active window.
+- Forward guidance: nothing checks a diagram against the workflow it describes,
+  so an edit to the hook set or to the CI step order has to move both this
+  document's Mermaid node and its CI sentence by hand.
+
 ### 2026-09-11 - Architecture rebuild landed, and its stale docsync range corrected
 
 - Scope, three parts in one owner-directed task: correct the stale integrity
@@ -913,16 +956,21 @@ non-current operational logs. Older dated entries live in
   and Section 3's owed-work bullet in the same commit as the rebuild, each
   citing the rebuild's SHA. A commit cannot cite its own SHA, because the
   citation is part of the tree that SHA hashes. The rebuild therefore landed as
-  the first commit of this task, and the four citing edits -- the plan's State
-  line, its previously-owed item 2, and Section 3's bullet -- landed in the
+  the first commit of this task, and the citing edits -- the plan's State line,
+  its previously-owed item 2, and Section 3's bullet -- landed in the
   immediately following commit, which names the rebuild. No brief text was
   reworded; only the commit boundary moved.
 - Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
   10 hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0
   with only the expected root `BATCH21_DEFINITION.md` warning.
 - Committed paths (9), recorded as the actual set: the six architecture
-  documents above, this entry in `PLAYBOOK.md`, the design-system plan whose
-  owed-work notes this task discharged
+  documents -- `docs/ARCHITECTURE.md`,
+  `docs/architecture/development-cycle.md`,
+  `docs/architecture/documentation-tooling.md`,
+  `docs/architecture/heatmap-sequence.md`,
+  `docs/architecture/runtime-system.md`,
+  `docs/architecture/top-albums-sequence.md` -- this entry in `PLAYBOOK.md`, the
+  design-system plan whose owed-work notes this task discharged
   (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`),
   and the rotation this entry forced in
   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. docsync demanded no
@@ -997,40 +1045,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the traversal run root now lives under an ignored path. Its
   report was committed first, so the record survives even if the run root is
   deleted.
-
-### 2026-09-11 - Section 3 now carries the commit debt
-
-- Scope: the commits owed before Phase 2 were recorded only in the design-system
-  plan's Progress section, so an agent bootstrapping from `AGENTS.md` reached the
-  specification conflict Section 3 already carries but never learned that
-  commits were owed. Section 3 now names the debt, points at the traversal
-  record, and the remediation plan's Task 3 Step 3 was corrected so it stops
-  instructing the stale wording.
-- Plan vs implementation: both Section 3 bullets landed as written, inserted
-  directly after the existing "Next action:" bullet. The bullets name the
-  outstanding architecture-diagram rebuild and record the two already-landed
-  commits, `95e0896` for the F-B21-51 slice-1 refactor and `c277728` for that
-  plan's own move. The traversal-record citation resolves because Task 2
-  committed the report.
-- Deviation, controller-directed: the brief's Section 3 bullet text was written
-  before `95e0896` and `c277728` landed, so it still described the F-B21-51
-  slice-1 refactor as staged and the design-system plan's own move as
-  uncommitted. Following it verbatim would have written a false statement into
-  the live bootstrap section, so the corrected wording was used, and the same
-  correction was applied to the remediation plan's Task 3 Step 3 so the plan no
-  longer mandates the stale text. Nothing else in that plan changed.
-- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
-  10 hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0
-  with only the expected root `BATCH21_DEFINITION.md` warning.
-- Committed paths (3), recorded as the actual set rather than a smaller claimed
-  one: `PLAYBOOK.md`, the remediation plan whose Task 3 Step 3 this commit
-  corrected
-  (`docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`),
-  and the rotation this entry forced in
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
-  design-system plan's own path-correction entry out of the active window.
-  docsync demanded no further path: this entry carries the 1020 claim the corpus
-  already held, so `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no
-  change.
-- Forward guidance: keep Section 3's bullets free of counts. Name each owed
-  item, so the next addition cannot make the section silently wrong.

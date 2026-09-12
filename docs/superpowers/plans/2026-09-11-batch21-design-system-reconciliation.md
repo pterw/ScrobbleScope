@@ -49,13 +49,14 @@ Nothing is pushed.
    refactor. `scripts/dev/_frontend_gate_colour.py`,
    `tests/scripts/dev/test_frontend_gate_colour.py`, `scripts/dev/frontend_gate.py`,
    `FINDINGS.md`, `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, and the rotated
-   archive. 480 insertions, 140 deletions.
+   archive. 480 insertions, 140 deletions. **Discharged 2026-09-11 as
+   `95e0896`.**
 2. **Unstaged:** the architecture-diagram rebuild -- `docs/ARCHITECTURE.md` and
    the five owners under `docs/architecture/`. Its PLAYBOOK entry is already
    written but sits unstaged, so `PLAYBOOK.md` reads `MM`; re-stage it with the
-   diagrams.
+   diagrams. **Discharged 2026-09-11 as `cc987f5`.**
 3. **Unstaged:** this plan's move into `docs/superpowers/plans/` and the
-   progress section you are reading.
+   progress section you are reading. **Discharged 2026-09-11 as `c277728`.**
 
 ### Where to pick up
 

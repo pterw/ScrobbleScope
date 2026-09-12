@@ -9,6 +9,43 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Section 3 now carries the commit debt
+
+- Scope: the commits owed before Phase 2 were recorded only in the design-system
+  plan's Progress section, so an agent bootstrapping from `AGENTS.md` reached the
+  specification conflict Section 3 already carries but never learned that
+  commits were owed. Section 3 now names the debt, points at the traversal
+  record, and the remediation plan's Task 3 Step 3 was corrected so it stops
+  instructing the stale wording.
+- Plan vs implementation: both Section 3 bullets landed as written, inserted
+  directly after the existing "Next action:" bullet. The bullets name the
+  outstanding architecture-diagram rebuild and record the two already-landed
+  commits, `95e0896` for the F-B21-51 slice-1 refactor and `c277728` for that
+  plan's own move. The traversal-record citation resolves because Task 2
+  committed the report.
+- Deviation, controller-directed: the brief's Section 3 bullet text was written
+  before `95e0896` and `c277728` landed, so it still described the F-B21-51
+  slice-1 refactor as staged and the design-system plan's own move as
+  uncommitted. Following it verbatim would have written a false statement into
+  the live bootstrap section, so the corrected wording was used, and the same
+  correction was applied to the remediation plan's Task 3 Step 3 so the plan no
+  longer mandates the stale text. Nothing else in that plan changed.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  10 hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0
+  with only the expected root `BATCH21_DEFINITION.md` warning.
+- Committed paths (3), recorded as the actual set rather than a smaller claimed
+  one: `PLAYBOOK.md`, the remediation plan whose Task 3 Step 3 this commit
+  corrected
+  (`docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`),
+  and the rotation this entry forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
+  design-system plan's own path-correction entry out of the active window.
+  docsync demanded no further path: this entry carries the 1020 claim the corpus
+  already held, so `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no
+  change.
+- Forward guidance: keep Section 3's bullets free of counts. Name each owed
+  item, so the next addition cannot make the section silently wrong.
+
 ### 2026-09-11 - Traversal record tense repaired after the Task 2 review
 
 - Scope: the review of Task 2's commit `106f941` found two tense defects in

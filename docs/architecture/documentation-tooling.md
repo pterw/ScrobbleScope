@@ -67,7 +67,7 @@ flowchart TD
 
     PC[pre-commit<br/>10 hooks] -. runs .-> D
     PC -. drift check .-> TB[dev/tailwind_build.py]
-    PC -. code checks .-> RC[ruff, flake8, bandit]
+    PC -. code checks .-> RC[ruff check, ruff format]
     CI[GitHub Actions Quality Gate] -. runs .-> PC
     CI -. runs .-> FG
     CI -. runs .-> PY[pytest, coverage,<br/>advisory pip-audit]
@@ -109,5 +109,6 @@ ephemeral loopback port and shuts it down in a `finally`, so it needs no
 separately running app.
 
 Pre-commit runs the ten hooks above, including `doc-state-sync-check`; CI runs
-pre-commit, then pytest with coverage and advisory pip-audit, then the frontend
-gate after installing both browsers.
+pre-commit with `worktree-alignment` skipped, since a runner has no developer
+worktree lineage to check, then pytest with coverage, then the frontend gate
+after installing both browsers, and advisory pip-audit last.
