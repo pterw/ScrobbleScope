@@ -9,7 +9,7 @@ Last updated: 2026-09-11
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1025 passing** across 43 test modules |
+| Tests | **1026 passing** across 43 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -40,7 +40,7 @@ Last updated: 2026-09-11
 - Current-batch entries in active log block: 15.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5, WP-7.
 - Next expected work package: WP-8.
-- Latest validated test count: **1025 passed**.
+- Latest validated test count: **1026 passed**.
 - Newest current-batch entry: 2026-09-11 - Unmatched disclosure refined: 25-row step and collapse on return (Batch 21 WP-7).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -187,7 +187,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (1025 tests)
+## 6. Test structure (1026 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

@@ -9,6 +9,89 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Task 8: the guard's own spelling, a false rationale, a live count
+
+- Scope: the six items of the final whole-branch review of this series -- three
+  Important findings and three one-line recommendations, all of them documents
+  except one test assertion. No application behaviour changed. One gate
+  behaviour moved: Guard A's pattern now blocks on a second spelling of the
+  retired range. The review's verdict was "ready to merge with fixes" over the
+  23 commits from `b5b2c89` to `0c87eaa`.
+- Important 1: Guard A's pattern -- the `[[retired]]` declaration named "the
+  docsync integrity range ends at DOC011", at `.docsync.toml:616` -- could not
+  match the spelling of the instance it was built for. The declaration was
+  written for `docs/architecture/documentation-tooling.md:93`'s backtick-split
+  `` `DOC001`-`DOC011` ``, and the pattern required the contiguous literal. The
+  pattern now reads `(?:reports|returns|states).{0,40}DOC001`?-`?DOC011`, so
+  both spellings match and nothing else does. The declaration's comment claimed
+  the pattern "requires the literal `DOC001-DOC011` phrase", which the widening
+  falsifies; it now names both spellings and says why the backticks are
+  optional.
+- NO LIVE RED STATE WAS AVAILABLE for that widening, and none was manufactured
+  to produce one. Task 6 corrected the backtick-split instance in `cc987f5`,
+  before Task 7 designed the guard, so at calibration time the only surviving
+  example of the defect was the plain form inside a plan's spent before-block --
+  which is why the pattern was fitted to the wrong spelling. The evidence is a
+  five-case probe rather than a red-then-green cycle. Measured through
+  `docsync.declarations._declared_matches`, old pattern then new: backtick-split
+  `` It reports typed `DOC001`-`DOC011` issues `` False then True; the plain
+  `It reports typed DOC001-DOC011 issues` True then True; a corrected
+  `` `DOC001`-`DOC012` `` line False then False; the true
+  "**DOC009 to DOC011 are declared, not hard-coded.**" False then False; and a
+  past-tense record naming the old range False then False.
+- Important 2: the entry named "DocSync integrity range corrected to DOC012"
+  justified leaving two dated records alone by saying they "were correct when
+  written", and the ledger falsified it: DOC012 has been enforced since
+  2026-08-26 (`1c78aa0`), so `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md`
+  and the archive entry that carries the same range already stated a retired
+  range on their own dates. The decision to leave them stands. The reason is now
+  the policy -- a dated record is a point-in-time entry, so editing one falsifies
+  the record rather than correcting it -- which holds whether or not the range
+  it states was stale on the day it was written.
+- Important 3: `PLAYBOOK.md:189`, in Section 3's live next-action bullet, read
+  **1020 passed** while the suite is 1022. A live bootstrap field that no gate
+  reads, which is why it drifted: DOC006 and DOC008 cover the named
+  SESSION_CONTEXT fields and the `FINDINGS.md` header, and DOC012 reads only
+  below the execution-log heading. It now reads **1022 passed** with the
+  measurement date beside it.
+- The three recommendations. The traversal report's provenance header no longer
+  pins the traversed revision by sha256 and byte count: that revision was never
+  committed, so no contributor could ever check the pin, which is the
+  unreachable-citation shape Anti-Pattern 11 names. It now records that the
+  traversal bound the pre-publication revision that `c277728` published. The
+  facade test at `tests/scripts/dev/test_frontend_gate_colour.py:194` asserts
+  `is` identity rather than `callable()`, so a facade exporting an unrelated
+  function of the same name fails it; the test is parametrized, so extending it
+  added no test function and the suite count did not move. And the
+  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`
+  work order gained a section after its task list naming Task 6 and Task 7 as
+  the owner-directed additions, so it stops understating the series.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning. The probe
+  above was re-run after the widening, with the pattern read back from
+  `.docsync.toml`, and returned the new column unchanged.
+- Committed paths (6), recorded as the actual set: `.docsync.toml` (the widened
+  pattern and the comment above it), `PLAYBOOK.md` (this entry and the Section 3
+  count), `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`,
+  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`,
+  `tests/scripts/dev/test_frontend_gate_colour.py`, and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which this entry's arrival
+  pushed over the four-entry window: the reworded Important 2 rationale rides in
+  the rotated entry, so the correction is preserved in the archive rather than in
+  Section 4. docsync demanded no further path: this entry carries the 1022 claim
+  the corpus already held, so `FINDINGS.md` and `.claude/SESSION_CONTEXT.md`
+  needed no change.
+- Forward guidance: Guard A now covers both spellings of the retired range, so
+  the live coverage gap it had is closed -- but it still matches *wording*, and
+  a document stating a fresh-phrased range behind the code passes it; Guard B is
+  the check for that, and the two do not subsume each other. Two residuals the
+  review did not name are reported rather than fixed here, because the brief
+  scoped this wave to its six items: the Task 6 entry named "Architecture rebuild
+  landed, and its stale docsync range corrected" still carries the same "correct
+  when written" rationale about a document, and the work order's Task 2 Step 3
+  still reproduces the report's old provenance pin in its instruction block.
+
 ### 2026-09-11 - The docsync code range is guarded, and its stale copy removed
 
 - Scope, four parts in one owner-directed task: declare the retired DOC011

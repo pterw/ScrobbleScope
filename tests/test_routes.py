@@ -791,6 +791,66 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     )
 
 
+def test_unmatched_view_renders_artwork_in_every_reason_group(client):
+    """
+    GIVEN one album in each of the three reason groups
+    WHEN POST /unmatched_view is submitted
+    THEN every group must render the sized artwork container.
+
+    Mutation: restore the `reason_key != 'below_threshold'` guard around the
+    artwork block and this fails -- the below-threshold panel then renders no
+    artwork at all, so its identity column starts a cover's width left of the
+    other panels and the side-by-side rhythm breaks. The frontend gate asserted
+    a cover in the release_scope group only, which is why a green gate shipped
+    the omission.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    add_job_unmatched(
+        job_id,
+        "threshold|album",
+        {
+            "artist": "Threshold Artist",
+            "album": "Threshold Album",
+            "play_count": 7,
+            "track_count": 2,
+            "reason_code": "below_threshold",
+        },
+    )
+    add_job_unmatched(
+        job_id,
+        "b|two",
+        {
+            "artist": "Artist B",
+            "album": "Album Two",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+        },
+    )
+    add_job_unmatched(
+        job_id,
+        "a|one",
+        {
+            "artist": "Artist A",
+            "album": "Album One",
+            "reason": "No Spotify match",
+            "reason_code": "no_spotify_match",
+        },
+    )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    assert response.status_code == 200
+
+    html = response.data.decode("utf-8")
+    reasons = ("below_threshold", "release_scope", "no_spotify_match")
+    positions = sorted(html.index(f'data-reason="{reason}"') for reason in reasons)
+    for index, start in enumerate(positions):
+        end = positions[index + 1] if index + 1 < len(positions) else len(html)
+        assert "unmatched-artwork" in html[start:end], (
+            "a reason group renders no artwork container: "
+            f"{html[start : start + 160]!r}"
+        )
+
+
 def test_unmatched_view_expander_offers_the_ruled_step(client):
     """
     GIVEN a reason group with more albums than the initial disclosure

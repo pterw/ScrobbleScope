@@ -2824,6 +2824,24 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 failures.append(
                     f"unmatched report {claim} is {state[claim]!r}, expected {wanted!r}"
                 )
+        group_covers = page.locator(".unmatched-group").evaluate_all(
+            """groups => groups.map(group => {
+                const cover = group.querySelector('.unmatched-artwork');
+                if (!cover) return null;
+                const style = getComputedStyle(cover);
+                return { width: style.width, height: style.height };
+            })"""
+        )
+        expected_cover = "44px" if page.viewport_size["width"] >= 768 else "40px"
+        for index, cover in enumerate(group_covers):
+            if cover is None:
+                failures.append(f"unmatched group {index} renders no artwork container")
+            elif cover["width"] != expected_cover or cover["height"] != expected_cover:
+                failures.append(
+                    f"unmatched group {index} artwork is {cover['width']}x"
+                    f"{cover['height']}, expected {expected_cover}"
+                )
+
         group_tops = page.locator(".unmatched-group").evaluate_all(
             "groups => groups.map(g => Math.round(g.getBoundingClientRect().top))"
         )
