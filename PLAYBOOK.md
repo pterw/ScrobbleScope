@@ -889,6 +889,46 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - DocSync integrity range corrected to DOC012
+
+- Scope: `AGENTS.md` stated the integrity range as `DOC001-DOC011`, while
+  `scripts/docsync/integrity.py` defines and raises `DOC012` -- a pass claim in
+  the log must carry the bold form the count authority reads. The range drifted
+  for the same reason it drifted the first time: nothing in the corpus asserts
+  that the stated range equals the codes the code raises.
+- Plan vs implementation: both `AGENTS.md` edits landed as written. The list
+  item now reads `DOC001-DOC012`, and its parenthetical records the second
+  drift, so the sentence that already held the first instance of this class now
+  holds both. The added paragraph sits after the DOC009 to DOC011 bullet list
+  and records that DOC012 is implemented directly rather than declared, which
+  keeps the paragraph above it -- "DOC009 to DOC011 are declared, not
+  hard-coded" -- true as written.
+- Sweep, per Anti-Pattern 11: exactly one live document stated the range
+  wrongly, and it is the one corrected here. Left deliberately, with reasons:
+  `FINDINGS.md` records that `AGENTS.md` *used to* say `DOC001-DOC006` and
+  remains true as history; the dated records in
+  `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md` and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` were correct when
+  written; and three sites that describe the declared mechanism rather than
+  the range -- the WP-3 plan's "DOC009 to DOC011 exist and are declared", the
+  comment at `scripts/docsync/integrity.py:1017`, and the `declarations.py`
+  line in `.claude/SESSION_CONTEXT.md` -- all remain true, because DOC012 is
+  implemented in `integrity.py` and is not declared.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning. The
+  guard, `Select-String -LiteralPath 'AGENTS.md' -Pattern 'DOC001-DOC012'`,
+  returned 0 matches before the edit and 1 after.
+- Committed paths (3), recorded as the actual set: `AGENTS.md`, this entry in
+  `PLAYBOOK.md`, and the rotation it forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
+  exhaustive-traversal entry out of the active window. docsync demanded no
+  further path: this entry carries the 1020 claim the corpus already held, so
+  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
+- Forward guidance: the range is still unchecked. A guard asserting that the
+  stated range equals the codes the code raises would have caught both drifts,
+  and remains the fix for the class rather than for this instance.
+
 ### 2026-09-11 - Agent-session analysis trees ignored
 
 - Scope: `.agent/`, `.impeccable/`, `.qlty/` and `scratch/` were untracked and
@@ -972,31 +1012,3 @@ non-current operational logs. Older dated entries live in
   pre-repair revision, so its findings describe that revision and not HEAD. A
   reader who needs current state must re-check the plan; Section 7 now names the
   two commits that answered it.
-
-### 2026-09-11 - Exhaustive plan traversal recorded
-
-- Scope: an exhaustive traversal of the Batch 21 design-system plan
-  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`)
-  was run with the `deeper-reading` skill on 2026-09-11. Its findings are
-  recorded at `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
-- Plan vs implementation: 70 of 70 canonical chunks carried a byte-anchored
-  evidence verdict, 192 assertions in total, with zero `non_match` verdicts and
-  70 ordered `chunk_verified` events. One assertion failed its span check on the
-  first attempt and was repaired by re-quoting it from the chunk; the failure,
-  its diagnosed cause and the recovery are recorded in the report and in the
-  run root's failure ledger.
-- Deviation: none. The report is a durable copy of a working artifact, not new
-  analysis.
-- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
-  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0.
-  The report is ASCII-only, measured at 0 bytes above 0x7F.
-- Committed paths (3), recorded as the actual set: the report
-  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`, `PLAYBOOK.md`, and
-  the rotation this entry forced in
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
-  architecture-diagrams entry out of the active window. docsync demanded no
-  further path: this entry carries the 1020 claim the corpus already held, so
-  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
-- Forward guidance: the machine proof stays in `scratch/`, which is untracked.
-  If the run root is deleted, the report remains the record and its chunk
-  ordinals stop being checkable against the manifest. Delete it only knowingly.

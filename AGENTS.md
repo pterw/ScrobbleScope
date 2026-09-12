@@ -362,9 +362,10 @@ agent starts from identical state. It:
 3. **Refreshes** the machine-managed `DOCSYNC:STATUS` block in
    SESSION_CONTEXT from PLAYBOOK truth (Section 3 + Section 4).
 4. **Validates** the live document corpus through `docsync.integrity`,
-   which returns typed DOC001-DOC011 issues that block rather than warn.
+   which returns typed DOC001-DOC012 issues that block rather than warn.
    (This range said DOC001-DOC006 until 2026-08-25, four checks after it
-   stopped being true. DOC009 to DOC011 exist because of that class.)
+   stopped being true, and said DOC001-DOC011 until 2026-09-11 for the same
+   reason. DOC009 to DOC012 exist because of that class.)
 
 **DOC009 to DOC011 are declared, not hard-coded.** They read
 `.docsync.toml` at the repository root, so `scripts/docsync/declarations.py`
@@ -384,6 +385,10 @@ is repository-independent and only the declarations are local. Three kinds:
   a document that still prescribes behaviour. Dated log entries are exempt
   below a declared marker, and struck-through text is exempt everywhere --
   an author who wrote `~~this~~` has already said it is not current.
+
+**DOC012 is not declared.** It is implemented directly in
+`scripts/docsync/integrity.py` and enforces a shape rather than a declared
+fact: a pass claim in the log must carry the bold form the authority reads.
 
 Add a declaration when a fact starts living in two places, not after it
 drifts. `F-B21-17` has the tally that motivated this: six of nineteen review

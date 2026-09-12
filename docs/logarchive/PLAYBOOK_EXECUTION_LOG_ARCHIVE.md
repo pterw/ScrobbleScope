@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Exhaustive plan traversal recorded
+
+- Scope: an exhaustive traversal of the Batch 21 design-system plan
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`)
+  was run with the `deeper-reading` skill on 2026-09-11. Its findings are
+  recorded at `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
+- Plan vs implementation: 70 of 70 canonical chunks carried a byte-anchored
+  evidence verdict, 192 assertions in total, with zero `non_match` verdicts and
+  70 ordered `chunk_verified` events. One assertion failed its span check on the
+  first attempt and was repaired by re-quoting it from the chunk; the failure,
+  its diagnosed cause and the recovery are recorded in the report and in the
+  run root's failure ledger.
+- Deviation: none. The report is a durable copy of a working artifact, not new
+  analysis.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0.
+  The report is ASCII-only, measured at 0 bytes above 0x7F.
+- Committed paths (3), recorded as the actual set: the report
+  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`, `PLAYBOOK.md`, and
+  the rotation this entry forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
+  architecture-diagrams entry out of the active window. docsync demanded no
+  further path: this entry carries the 1020 claim the corpus already held, so
+  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
+- Forward guidance: the machine proof stays in `scratch/`, which is untracked.
+  If the run root is deleted, the report remains the record and its chunk
+  ordinals stop being checkable against the manifest. Delete it only knowingly.
+
 ### 2026-09-11 - Document repairs from the Task 1 and Task 1b reviews
 
 - Scope: two task reviews of the document-orderliness remediation found
