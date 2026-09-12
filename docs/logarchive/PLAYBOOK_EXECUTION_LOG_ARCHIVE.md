@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Agent-session analysis trees ignored
+
+- Scope: `.agent/`, `.impeccable/`, `.qlty/` and `scratch/` were untracked and
+  also unignored, so every `git status` carried 500-odd paths and the only
+  guard against sweeping them into a commit was the ban on `git add -A`.
+- Plan vs implementation: the four patterns landed with a comment recording why
+  each is untracked, and why the singular `.agent/` is deliberate beside the
+  vendored `.agents/`.
+- Deviation: the owner was offered this task as optional because it does not
+  come from the traversal; it was taken.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0.
+  The untracked sweep fell from 500-odd to 0, and the tracked file list was
+  unchanged.
+- Committed paths (3), recorded as the actual set: `.gitignore`, this entry in
+  `PLAYBOOK.md`, and the rotation it forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the Task 1
+  and Task 1b review-repair entry out of the active window. docsync demanded no
+  further path: this entry carries the 1020 claim the corpus already held, so
+  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
+- Forward guidance: the traversal run root now lives under an ignored path. Its
+  report was committed first, so the record survives even if the run root is
+  deleted.
+
 ### 2026-09-11 - Section 3 now carries the commit debt
 
 - Scope: the commits owed before Phase 2 were recorded only in the design-system

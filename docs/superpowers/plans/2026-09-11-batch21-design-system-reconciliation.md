@@ -42,6 +42,9 @@ Nothing is pushed.
 | `72615ed` | `feat(unmatched): Align report with Results and cap album fetch` -- the prior session's work, committed as a checkpoint |
 | `c2f14fa` | `chore(agents): Record the issue tracker and domain docs for agent skills` |
 | `57d1474` | `fix(ui): Refine the unmatched report disclosure` -- this plan's Phase 1 |
+| `c277728` | `docs(plan): Name the plan's own path and list its uncommitted work` -- this plan's move into `docs/superpowers/plans/` |
+| `95e0896` | `refactor(gate): Extract the colour maths as F-B21-51 slice 1` -- the F-B21-51 slice-1 refactor this plan tracked as owed |
+| `cc987f5` | `docs(architecture): Land the rebuild and fix a stale range` -- the architecture-diagram rebuild this plan tracked as owed |
 
 ### Uncommitted work at handoff, in the order it should be committed
 

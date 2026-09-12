@@ -591,3 +591,24 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
 "PLAYBOOK.md" = "## 4. Execution log"
+
+# DOC012 has been enforced since 2026-08-26, but the range that documents the docsync
+# codes drifted twice -- DOC001-DOC006, then DOC001-DOC011 -- and nothing checked it,
+# because no declaration and no test compared the stated range with the codes raised.
+# The drift survived in AGENTS.md until 2026-09-11 and had already been copied into a
+# rebuilt architecture document.
+#
+# The pattern is deliberately narrow: it matches the PRESCRIPTIVE phrasing, not the
+# bare string. A pattern matches text shape, so it cannot tell "states the range as X"
+# from "records that it was formerly X". A broader form was measured and rejected: it
+# flagged AGENTS.md's own true sentence about the declared DOC009 to DOC011 kinds and a
+# plan's true note that those kinds exist, which would make the guard unusable.
+[[retired]]
+name = "the docsync integrity range ends at DOC011"
+reason = "DOC012 has been enforced since 2026-08-26; the range is DOC001-DOC012."
+pattern = '(?:reports|returns|states) typed .{0,14}DOC011'
+scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
+allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
+
+[retired.allow_after]
+"PLAYBOOK.md" = "## 4. Execution log"

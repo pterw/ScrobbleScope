@@ -888,6 +888,61 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - The docsync code range is guarded, and its stale copy removed
+
+- Scope, four parts in one owner-directed task: declare the retired DOC011
+  range in `.docsync.toml` and remove the one live site it exposed; add a
+  derived test comparing the range `AGENTS.md` states with the highest code the
+  package raises; close the design-system plan's commit table; record it here.
+  No behaviour and no gate changed.
+- Two guards, because there are two failure modes and neither subsumes the
+  other. Guard A is a `[[retired]]` declaration whose pattern matches the
+  PRESCRIPTIVE phrasing, `(?:reports|returns|states) typed .{0,14}DOC011`, so a
+  stale range re-appearing in any live document blocks. It catches stale
+  *wording* only: a document stating a range merely behind the code, in fresh
+  wording, passes it. Guard B is
+  `test_stated_docsync_range_matches_the_highest_code_raised`, which compares
+  `AGENTS.md`'s stated upper bound with the highest code literal in
+  `scripts/docsync/*.py`; it catches a documented range that is behind the
+  code. Guard B is the one that would have caught the original drift, and it
+  already catches a `DOC013` added without the documentation following -- a
+  case Guard A cannot see, because such a document quotes no retired range.
+- Red state observed before the fix. With the declaration in place and the plan
+  untouched, `doc_state_sync.py --check` exited 1 with ERROR DOC011 against
+  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md:602`,
+  the spent before-block of Task 5's Step 3. The narrow pattern matched exactly
+  one live site, which is what its calibration predicted; a broader form had
+  been measured and rejected for flagging true sentences instead. Replacing that
+  block with a note naming the commit that applied the correction, `501a7b6`,
+  and quoting neither wording, returned `--check` to exit 0.
+- Guard B's mutation proof, `test_stated_range_helper_rejects_a_stale_range`,
+  feeds the predicate a document still stating `DOC001-DOC011` beside a source
+  raising `DOC012` and asserts the bounds differ. Without it the corpus test
+  would still pass if both helpers returned one constant. Measured directly as
+  well: stated bound `DOC012`, raised bound `DOC012`, and a `DOC013` literal
+  injected into a source makes the comparison false.
+- The design-system plan's commit table gained three rows -- `c277728`,
+  `95e0896`, `cc987f5` -- the commits its own progress section already tracked
+  as dischargeable items. Rows for commits that merely touch that plan were not
+  added, so the table stays bounded to its window.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning. The two
+  new tests are why the count moved from 1020, so `.claude/SESSION_CONTEXT.md`
+  Section 1 and the `FINDINGS.md` header moved with it.
+- Committed paths (8): `PLAYBOOK.md` (this entry), `.docsync.toml`,
+  `tests/test_docsync_integrity.py`, both plan documents
+  (`docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`,
+  `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`),
+  `.claude/SESSION_CONTEXT.md`, `FINDINGS.md`, and the rotation this entry
+  forced in `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. The three
+  untracked plan and design files owned by other efforts stayed untracked.
+- Forward guidance: Guard B compares the upper bound only, so a lower bound --
+  the `DOC001-` prefix the sentence also states -- is still unchecked; and the
+  literal scan covers `scripts/docsync/*.py` alone, so a code first raised in
+  another module would need that glob widened. The `--fix` run rotated the
+  oldest non-current entry into the archive to hold the window at four.
+
 ### 2026-09-11 - Task 6 review fixes: diagram claims and the handoff list
 
 - Scope: the five findings of the Task 6 review of `cc987f5` and `29486d8`, all
@@ -1021,27 +1076,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the range is still unchecked. A guard asserting that the
   stated range equals the codes the code raises would have caught both drifts,
   and remains the fix for the class rather than for this instance.
-
-### 2026-09-11 - Agent-session analysis trees ignored
-
-- Scope: `.agent/`, `.impeccable/`, `.qlty/` and `scratch/` were untracked and
-  also unignored, so every `git status` carried 500-odd paths and the only
-  guard against sweeping them into a commit was the ban on `git add -A`.
-- Plan vs implementation: the four patterns landed with a comment recording why
-  each is untracked, and why the singular `.agent/` is deliberate beside the
-  vendored `.agents/`.
-- Deviation: the owner was offered this task as optional because it does not
-  come from the traversal; it was taken.
-- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
-  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0.
-  The untracked sweep fell from 500-odd to 0, and the tracked file list was
-  unchanged.
-- Committed paths (3), recorded as the actual set: `.gitignore`, this entry in
-  `PLAYBOOK.md`, and the rotation it forced in
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the Task 1
-  and Task 1b review-repair entry out of the active window. docsync demanded no
-  further path: this entry carries the 1020 claim the corpus already held, so
-  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
-- Forward guidance: the traversal run root now lives under an ignored path. Its
-  report was committed first, so the record survives even if the run root is
-  deleted.

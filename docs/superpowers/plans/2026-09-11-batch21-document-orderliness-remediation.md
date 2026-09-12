@@ -595,24 +595,14 @@ Expected: **0 matches**.
 
 - [ ] **Step 3: Correct the range**
 
-Replace:
+Applied 2026-09-11 in `501a7b6`: the range line now reads `DOC001-DOC012`, and the
+parenthetical records the second drift.
 
-```
-4. **Validates** the live document corpus through `docsync.integrity`,
-   which returns typed DOC001-DOC011 issues that block rather than warn.
-   (This range said DOC001-DOC006 until 2026-08-25, four checks after it
-   stopped being true. DOC009 to DOC011 exist because of that class.)
-```
-
-with:
-
-```
-4. **Validates** the live document corpus through `docsync.integrity`,
-   which returns typed DOC001-DOC012 issues that block rather than warn.
-   (This range said DOC001-DOC006 until 2026-08-25, four checks after it
-   stopped being true, and said DOC001-DOC011 until 2026-09-11 for the same
-   reason. DOC009 to DOC012 exist because of that class.)
-```
+The superseded wording is deliberately not quoted here, in either its old or its new
+form. Quoting it prescriptively would re-introduce the retired claim, which is exactly
+what the `[[retired]]` declaration guarding this class in `.docsync.toml` now refuses;
+the durable before-and-after record lives in that commit's `PLAYBOOK.md` Section 4
+entry.
 
 - [ ] **Step 4: Record that DOC012 is not a declared check**
 
