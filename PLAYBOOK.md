@@ -888,6 +888,40 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-12 - Planning records preserved, and the ignored scratch root cleaned
+
+- Scope: preserve the untracked planning record ahead of Phase 2 in
+  `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`,
+  and empty the `scratch/` root. No product code changed in this entry.
+- Committed: the four untracked plans under `docs/superpowers/plans/`, plus the
+  Progress corrections on the reconciliation plan itself. Keeping
+  `gemini_implementation_plan_unverified.md` here closes that plan's open
+  question 2 in favour of keeping.
+- Deviation, owner-directed: live mode was repaired mid-session, then reverted.
+  The skill's pinned engine `0.1.0` is quarantined by Windows Defender; the
+  published `0.1.2` release is not, and its hash matches the release's own
+  `.sha256` sidecar. The two template edits made under live are reverted, and
+  the helper, poll and session are stopped and discarded.
+- Cleaned, owner-directed: `scratch/` held 499 files and 31.05 MB of session
+  debris and is empty now. The `deeper-reading-batch21-plan/` run root went
+  with it. The durable summary of that run is the tracked
+  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`, which states in
+  its own text that the run root is untracked and is not committed.
+- Validation: `pytest -q` -- **1026 passed**; `pre-commit run --all-files` with
+  every hook passing; `doc_state_sync.py --check` exit 0, with the root
+  `BATCH21_DEFINITION.md` warning expected while Batch 21 is active.
+- Owner rulings recorded: the eyebrow labels are intended; any reference
+  placing an eyebrow above its headline is stale; headline emphasis stays and
+  is scoped to the index hero and `results.html`.
+- Forward guidance: begin Phase 2 at step 11 (`DESIGN.md`), not at the
+  spec-versus-ruling conflict, which is already closed.
+  `static/js/heatmap.js:176` is the one stale eyebrow-above comment and is
+  corrected inside that unit. Two harness notes: this shell runs with
+  `$ErrorActionPreference=Stop`, so a tool that writes to stderr looks like a
+  hard failure until that is set to `Continue`; and the git `pre-commit` hook
+  resolves `pre-commit` from `PATH`, so the primary venv must be on `PATH` or
+  every commit is blocked.
+
 ### 2026-09-11 - Artwork restored in the below-threshold panel
 
 - Scope: a review observation that the artwork container is excluded for
@@ -964,56 +998,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the design-system plan's Phase 2 still lists this edit among
   its work. It is now done, so that entry can be retired when Phase 2 runs;
   `RECONCILIATION.md` gains a pointer to the same ruling in that pass.
-
-### 2026-09-11 - Two siblings closed, and the dated-record policy scoped
-
-
-- Scope: the scoped re-review of the fix wave `50cffdd` ruled that two
-  same-class siblings belonged to that wave, and the owner directed it be
-  extended by one follow-up commit. Three document edits: a rationale reworded
-  in a dated entry, the work order's retired provenance pin, and the policy
-  clause in the side-task archive.
-- Owner ruling on the policy fork: a dated entry's recorded measurements are
-  frozen -- a test count, a date, an observed result stands as written, because
-  editing one falsifies the record rather than correcting it -- while its
-  rationale prose may be corrected when it is shown false. `50cffdd` had
-  replaced the archive's rationale with an absolute clause that condemned that
-  wave's own edit of a dated entry, so it contradicted itself; the clause is
-  now scoped to the ruling.
-- Sibling (a), precision rather than retraction: the re-review classified the
-  stale-range bullet in the dated entry "Architecture rebuild landed, and its
-  stale docsync range corrected" as the same falsified claim finding 2
-  corrected. The controller disproved that on authorship timing: the rebuilt
-  `docs/architecture/documentation-tooling.md` was authored at 2026-09-11
-  23:15:13, and `501a7b6` corrected the range in `AGENTS.md` at 2026-09-12
-  00:57:38, one hour forty-two minutes later, so at write time the document
-  agreed with the range's authority. The dated records finding 2 left alone are
-  the opposite case: DOC012's 2026-08-26 enforcement had already made them
-  stale on their own dates. The sentence is true as written, so nothing was
-  retracted; it now reads "It matched `AGENTS.md` when written", which removes
-  the ambiguity about what "correct" meant.
-- Sibling (b): the work order's Task 2 Step 3 still reproduced the retired
-  sha256 and byte-count pin for a plan revision that was never committed, so no
-  contributor could check it. It now names `c277728`, the commit that published
-  that plan, and records that the traversal bound the pre-publication revision
-  -- the precedent the traversal report already sets.
-- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` --
-  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
-  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning.
-- Committed paths (3), recorded as the actual set: `PLAYBOOK.md` (this entry
-  and the sibling (a) reword), the work order
-  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`,
-  and `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which carries the
-  scoped policy clause and the rotation this entry forced -- the oldest
-  non-current entry, the one sibling (a) lives in, moved into the archive, so
-  the correction travels with it. docsync demanded no further path: this entry
-  carries the 1022 claim the corpus already held, so `FINDINGS.md` and
-  `.claude/SESSION_CONTEXT.md` needed no change.
-- Forward guidance: a future agent correcting a dated entry changes rationale
-  only, and leaves every measured figure, date and observed result as written.
-  One absolute statement of the old form survives, in this file's entry "Task 8:
-  the guard's own spelling, a false rationale, a live count", which gives the
-  same reason as "editing one falsifies the record rather than correcting it".
-  That entry is a dated record of the wave's own reasoning, so it was left as
-  written; a pass that wants one form in the corpus should scope it by the same
-  ruling.
