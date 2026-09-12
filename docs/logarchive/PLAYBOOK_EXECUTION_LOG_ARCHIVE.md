@@ -9,6 +9,78 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - The docsync code range is guarded, and its stale copy removed
+
+- Scope, four parts in one owner-directed task: declare the retired DOC011
+  range in `.docsync.toml` and remove the one live site it exposed; add a
+  derived test comparing the range `AGENTS.md` states with the highest code the
+  package raises; close the design-system plan's commit table; record it here.
+  No application behaviour changed, and the docsync gate gained one check.
+- Two guards, because there are two failure modes and neither subsumes the
+  other. Guard A is a `[[retired]]` declaration whose pattern matches the
+  PRESCRIPTIVE phrasing, so a stale range re-appearing in any live document
+  blocks. The pattern was widened during review from the `typed` form alone to
+  any of the three present-tense verbs it lists, which is what caught Task 5's
+  preamble in the remediation plan; a still wider form had been measured and
+  rejected for flagging true sentences instead. It catches stale
+  *wording* only: a document stating a range merely behind the code, in fresh
+  wording, passes it. Guard B is
+  `test_stated_docsync_range_matches_the_highest_code_raised`, which asserts
+  through a shared `_ranges_agree` predicate that `AGENTS.md`'s stated upper
+  bound equals the highest code literal in
+  `scripts/docsync/*.py`; it catches a documented range that is behind the
+  code. Guard B is the one that would have caught the original drift, and it
+  already catches a `DOC013` added without the documentation following -- a
+  case Guard A cannot see, because such a document quotes no retired range.
+- Red state observed before the fix. With the declaration in place and the plan
+  untouched, `doc_state_sync.py --check` exited 1 with ERROR DOC011 against
+  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md:602`,
+  the spent before-block of Task 5's Step 3. The narrow pattern matched exactly
+  one live site, which is what its calibration predicted; a broader form had
+  been measured and rejected for flagging true sentences instead. Replacing that
+  block with a note naming the commit that applied the correction, `501a7b6`,
+  and quoting neither wording, returned `--check` to exit 0. Widening the
+  pattern during review put it back to exit 1 with a second live diagnostic, on
+  Task 5's preamble in the same plan; a past-tense rewrite of that sentence
+  cleared it, and `--check` returned to exit 0 again.
+- Guard B's mutation proof, `test_stated_range_helper_rejects_a_stale_range`,
+  asserts both failure modes through the same `_ranges_agree` predicate the
+  corpus test uses: a fixture document still stating the retired range beside a
+  source raising `DOC012`, and the real `AGENTS.md` beside a source raising
+  `DOC013`. Without them the corpus test would still pass if both helpers
+  returned one constant. The fixture is assembled at runtime, because a literal
+  copy of the retired range sits outside the declaration's `scan` list by file
+  type alone, and widening that list would otherwise make guard A fail on the
+  fixture that proves it works.
+- The design-system plan's commit table gained three rows -- `c277728`,
+  `95e0896`, `cc987f5` -- the commits its own progress section already tracked
+  as dischargeable items. Rows for commits that merely touch that plan were not
+  added, so the table stays bounded to its window.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning. The two
+  new tests are why the count moved from 1020, so `.claude/SESSION_CONTEXT.md`
+  Section 1 and the `FINDINGS.md` header moved with it.
+- Committed paths, in `d41f05c` (8): `PLAYBOOK.md` (this entry), `.docsync.toml`,
+  `tests/test_docsync_integrity.py`, both plan documents
+  (`docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`,
+  `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`),
+  `.claude/SESSION_CONTEXT.md`, `FINDINGS.md`, and the rotation this entry
+  forced in `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. The review round
+  that widened the pattern committed six of those same paths -- this entry,
+  `.docsync.toml`, `tests/test_docsync_integrity.py`, `FINDINGS.md` and both
+  plans -- and its `--fix` run rotated nothing. The three
+  untracked plan and design files owned by other efforts stayed untracked.
+- Forward guidance, all of it still open. Guard B compares the upper bound
+  only, so the lower bound the same sentence states is unchecked, and the
+  retired-range pattern assumes the range is stated in the present tense. Guard
+  B's literal scan covers `scripts/docsync/*.py` alone, so a code first raised in
+  another module would need that glob widened. Nothing in the toolchain parses
+  Mermaid, so a diagram's labels stay unchecked prose. `F-B21-57` records a
+  latent index shadowing in `check_retired`, where a declaration-shaped
+  diagnostic survives on statement order alone. The `--fix` run rotated the
+  oldest non-current entry into the archive to hold the window at four.
+
 ### 2026-09-11 - Task 6 review fixes: diagram claims and the handoff list
 
 - Scope: the five findings of the Task 6 review of `cc987f5` and `29486d8`, all

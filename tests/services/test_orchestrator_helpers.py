@@ -315,3 +315,47 @@ def test_detect_spotify_total_failure_does_not_fire_for_other_reason_codes():
         },
     ):
         assert _detect_spotify_total_failure(job_id, [], filtered) is False
+
+
+def _tied_albums(count):
+    """Build *count* eligible albums sharing one play count, so every sort ties."""
+    return {
+        (f"a{i:03d}", f"b{i:03d}"): {"play_count": 1, "track_counts": {}}
+        for i in range(count)
+    }
+
+
+def test_apply_pre_slice_pre_slice_is_independent_of_input_order():
+    """The playcount pre-slice must not let insertion order choose the survivors.
+
+    Mutation: restore `key=play_count, reverse=True` and this test fails. The sort
+    is stable, so with every album tied it keeps whichever were inserted first,
+    and the two inputs below then disagree.
+    """
+    albums = _tied_albums(300)
+
+    forward = _apply_pre_slice(dict(albums), "playcount", "100", "all")
+    backward = _apply_pre_slice(
+        dict(reversed(list(albums.items()))), "playcount", "100", "all"
+    )
+
+    assert len(forward) == 100
+    assert set(forward) == set(backward)
+
+
+def test_apply_pre_slice_cap_is_independent_of_input_order():
+    """The safety cap must not let insertion order choose the survivors.
+
+    Mutation: restore `key=play_count, reverse=True` and this test fails for the
+    same reason -- with more tied albums than the cap, the stable sort keeps the
+    first-inserted ones.
+    """
+    albums = _tied_albums(_MAX_ALBUM_CAP + 100)
+
+    forward = _apply_pre_slice(dict(albums), "playtime", "all", "all")
+    backward = _apply_pre_slice(
+        dict(reversed(list(albums.items()))), "playtime", "all", "all"
+    )
+
+    assert len(forward) == _MAX_ALBUM_CAP
+    assert set(forward) == set(backward)

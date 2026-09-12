@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from math import ceil
-from typing import Any, cast
+from typing import Any
 
 from scrobblescope.cache import (
     _batch_lookup_metadata,
@@ -124,10 +124,13 @@ async def fetch_top_albums_async(
 
     total_below_threshold = len(threshold_exclusions)
     if len(threshold_exclusions) > _MAX_ALBUM_CAP:
+        # Ties are broken by normalized key so the retained set does not depend on
+        # the mapping's insertion order. A stable sort alone would keep whichever
+        # tied album happened to be inserted first, which is a property of the
+        # fetch path rather than of this decision.
         sorted_exclusion_keys = sorted(
             threshold_exclusions.keys(),
-            key=lambda k: threshold_exclusions[k].get("play_count", 0),
-            reverse=True,
+            key=lambda k: (-int(threshold_exclusions[k].get("play_count", 0)), k),
         )[:_MAX_ALBUM_CAP]
         threshold_exclusions = {
             k: threshold_exclusions[k] for k in sorted_exclusion_keys
@@ -680,6 +683,10 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
     and limit_results is a valid integer. Safety cap: fires at
     _MAX_ALBUM_CAP across all sort modes to protect Spotify API quotas and
     results rendering performance. Returns the (possibly reduced) dict.
+
+    Both reductions order by descending play count and then by normalized key,
+    so a tied play count does not let the input mapping's insertion order decide
+    which albums are kept.
     """
     if sort_mode == "playcount" and limit_results != "all" and release_scope == "all":
         try:
@@ -687,8 +694,7 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
             if len(filtered_albums) > limit:
                 sorted_items = sorted(
                     filtered_albums.items(),
-                    key=lambda kv: cast(int, kv[1]["play_count"]),
-                    reverse=True,
+                    key=lambda kv: (-int(kv[1]["play_count"]), kv[0]),
                 )
                 filtered_albums = dict(sorted_items[:limit])
                 logging.info(f"Pre-sliced filtered_albums to top {limit} by play_count")
@@ -698,8 +704,7 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
     if len(filtered_albums) > _MAX_ALBUM_CAP:
         sorted_items = sorted(
             filtered_albums.items(),
-            key=lambda kv: cast(int, kv[1]["play_count"]),
-            reverse=True,
+            key=lambda kv: (-int(kv[1]["play_count"]), kv[0]),
         )
         filtered_albums = dict(sorted_items[:_MAX_ALBUM_CAP])
         prefix = "Playtime album cap" if sort_mode == "playtime" else "Album cap"
