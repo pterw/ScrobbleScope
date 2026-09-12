@@ -888,7 +888,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Approved spec reconciled with the owner's side-by-side ruling
+
+- Scope: the approved spec
+  `docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`
+  still directed "stacked, full-width reason sections" while the owner ruled
+  side-by-side on 2026-09-11 and both the shipped page and three frontend-gate
+  assertions implement side-by-side. A PR review comment raised it; it was the
+  last stale voice on that conflict.
+- Plan vs implementation: the directive now reads as side-by-side panels and
+  records the supersession, the owner's words and the date. The rest of the spec
+  is unchanged and still accurate.
+- Deviation: none. This is the reconciliation the design-system plan's Phase 2
+  named ("Record that the owner superseded its ... line with the side-by-side
+  ruling"); it sits outside the document-orderliness series' declared scope and is
+  logged here rather than folded silently into that series.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0 with
+  only the expected root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: the design-system plan's Phase 2 still lists this edit among
+  its work. It is now done, so that entry can be retired when Phase 2 runs;
+  `RECONCILIATION.md` gains a pointer to the same ruling in that pass.
+
 ### 2026-09-11 - Two siblings closed, and the dated-record policy scoped
+
 
 - Scope: the scoped re-review of the fix wave `50cffdd` ruled that two
   same-class siblings belonged to that wave, and the owner directed it be
@@ -1094,46 +1117,3 @@ non-current operational logs. Older dated entries live in
   latent index shadowing in `check_retired`, where a declaration-shaped
   diagnostic survives on statement order alone. The `--fix` run rotated the
   oldest non-current entry into the archive to hold the window at four.
-
-### 2026-09-11 - Task 6 review fixes: diagram claims and the handoff list
-
-- Scope: the five findings of the Task 6 review of `cc987f5` and `29486d8`, all
-  documentation, none touching behaviour or a gate. (1) The design-system plan's
-  handoff list still presented three landed commits as staged or unstaged,
-  contradicting its State line twenty lines above. (2) A Mermaid node in
-  `docs/architecture/documentation-tooling.md` named pre-commit's code checks
-  `ruff, flake8, bandit`, when this repository runs ruff alone. (3) The Task 6
-  entry immediately below counted "the four citing edits" over a list of three.
-  (4) That entry cited "the six architecture documents above" without naming one
-  of them. (5) The same tooling document put pip-audit before the frontend gate
-  in CI and omitted CI's deliberate `worktree-alignment` skip.
-- Toolchain evidence, read from the configuration rather than assumed:
-  `.pre-commit-config.yaml` defines ten hooks -- ruff-check, ruff-format,
-  trailing-whitespace, end-of-file-fixer, check-yaml, check-merge-conflict,
-  detect-private-key, doc-state-sync-check, tailwind-css-drift and
-  worktree-alignment -- and its own comment records that ruff replaces black,
-  isort, autoflake and flake8. Neither flake8 nor bandit is pinned in
-  `requirements-dev.txt`, defined as a hook, or named in a workflow step; the
-  surviving mentions are prose records and one comment in
-  `scrobblescope/spotlight.py`. The node now reads `ruff check, ruff format`.
-- CI order, read from `.github/workflows/test.yml`: pre-commit with
-  `SKIP: worktree-alignment`, then pytest with coverage, then the Playwright
-  install, then the frontend gate, then advisory pip-audit last. The prose now
-  states that order and the skip.
-- The contradicted list, repaired with discharge markers rather than a retitle:
-  each of its three items names the commit that discharged it, which is what
-  "Where to pick up" already does. A retitle alone would have left "Unstaged:"
-  standing with no outcome beside it, the defect the Task 3 review raised for
-  the sibling Section 3 bullet.
-- Validation: `pytest -q` -- **1020 passed**; `pre-commit run --all-files` --
-  all 10 hooks passed with no files modified; `doc_state_sync.py --check` --
-  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning.
-- Committed paths (4), recorded as the actual set: `PLAYBOOK.md` (this entry),
-  `docs/architecture/documentation-tooling.md`, the design-system plan
-  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`),
-  and the rotation this entry forced in
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the Section 3
-  commit-debt entry out of the active window.
-- Forward guidance: nothing checks a diagram against the workflow it describes,
-  so an edit to the hook set or to the CI step order has to move both this
-  document's Mermaid node and its CI sentence by hand.

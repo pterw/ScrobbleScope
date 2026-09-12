@@ -60,8 +60,11 @@ constraints that current Results source does not answer. Mirror:
 - warm midpoint report surface, 1px hairlines, 8px section radius, no resting
   shadow;
 - Results-style action buttons and typographic role separation;
-- stacked, full-width reason sections instead of the current three-column card
-  grid;
+- side-by-side reason panels instead of the current three-column card grid. The
+  owner superseded this line's earlier "stacked, full-width" wording on
+  2026-09-11: "They should not be stacked, but side-by-side". The shipped page
+  and the frontend gate implement side-by-side, and `PLAYBOOK.md` Section 3
+  carries the same correction;
 - dense horizontal rows with rank, 40px mobile or 44px desktop artwork,
   album/artist identity, plays/tracks, and reason detail;
 - small album art when cached, otherwise the existing lazy,
