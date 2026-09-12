@@ -888,6 +888,58 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Two siblings closed, and the dated-record policy scoped
+
+- Scope: the scoped re-review of the fix wave `50cffdd` ruled that two
+  same-class siblings belonged to that wave, and the owner directed it be
+  extended by one follow-up commit. Three document edits: a rationale reworded
+  in a dated entry, the work order's retired provenance pin, and the policy
+  clause in the side-task archive.
+- Owner ruling on the policy fork: a dated entry's recorded measurements are
+  frozen -- a test count, a date, an observed result stands as written, because
+  editing one falsifies the record rather than correcting it -- while its
+  rationale prose may be corrected when it is shown false. `50cffdd` had
+  replaced the archive's rationale with an absolute clause that condemned that
+  wave's own edit of a dated entry, so it contradicted itself; the clause is
+  now scoped to the ruling.
+- Sibling (a), precision rather than retraction: the re-review classified the
+  stale-range bullet in the dated entry "Architecture rebuild landed, and its
+  stale docsync range corrected" as the same falsified claim finding 2
+  corrected. The controller disproved that on authorship timing: the rebuilt
+  `docs/architecture/documentation-tooling.md` was authored at 2026-09-11
+  23:15:13, and `501a7b6` corrected the range in `AGENTS.md` at 2026-09-12
+  00:57:38, one hour forty-two minutes later, so at write time the document
+  agreed with the range's authority. The dated records finding 2 left alone are
+  the opposite case: DOC012's 2026-08-26 enforcement had already made them
+  stale on their own dates. The sentence is true as written, so nothing was
+  retracted; it now reads "It matched `AGENTS.md` when written", which removes
+  the ambiguity about what "correct" meant.
+- Sibling (b): the work order's Task 2 Step 3 still reproduced the retired
+  sha256 and byte-count pin for a plan revision that was never committed, so no
+  contributor could check it. It now names `c277728`, the commit that published
+  that plan, and records that the traversal bound the pre-publication revision
+  -- the precedent the traversal report already sets.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning.
+- Committed paths (3), recorded as the actual set: `PLAYBOOK.md` (this entry
+  and the sibling (a) reword), the work order
+  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`,
+  and `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which carries the
+  scoped policy clause and the rotation this entry forced -- the oldest
+  non-current entry, the one sibling (a) lives in, moved into the archive, so
+  the correction travels with it. docsync demanded no further path: this entry
+  carries the 1022 claim the corpus already held, so `FINDINGS.md` and
+  `.claude/SESSION_CONTEXT.md` needed no change.
+- Forward guidance: a future agent correcting a dated entry changes rationale
+  only, and leaves every measured figure, date and observed result as written.
+  One absolute statement of the old form survives, in this file's entry "Task 8:
+  the guard's own spelling, a false rationale, a live count", which gives the
+  same reason as "editing one falsifies the record rather than correcting it".
+  That entry is a dated record of the wave's own reasoning, so it was left as
+  written; a pass that wants one form in the corpus should scope it by the same
+  ruling.
+
 ### 2026-09-11 - Task 8: the guard's own spelling, a false rationale, a live count
 
 - Scope: the six items of the final whole-branch review of this series -- three
@@ -1085,54 +1137,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: nothing checks a diagram against the workflow it describes,
   so an edit to the hook set or to the CI step order has to move both this
   document's Mermaid node and its CI sentence by hand.
-
-### 2026-09-11 - Architecture rebuild landed, and its stale docsync range corrected
-
-- Scope, three parts in one owner-directed task: correct the stale integrity
-  range in the rebuilt `docs/architecture/documentation-tooling.md`; commit the
-  owed architecture-diagram rebuild, unstaged in this worktree since 2026-09-11;
-  and sweep the two documents that still tracked that rebuild as uncommitted
-  work, so nothing claims owed work that has landed.
-- Owner direction, outside the remediation plan: this task is not one of the
-  plan's WPs, and the plan excluded the rebuild as owed work owned by another
-  document. Landing it had to precede the docsync-range guard, because that
-  guard cannot ship while a live stale instance exists, and the instance lived
-  inside this uncommitted work -- correcting the line alone would have dragged
-  52 unstaged lines into a guard commit. Owner ruling, 2026-09-11.
-- The stale range: the rebuilt `documentation-tooling.md:93` read "reports typed
-  `DOC001`-`DOC011` issues". It was correct when written and a later correction
-  made it stale: `501a7b6` corrected the same range in `AGENTS.md`, and this
-  file had not yet entered the repository. The sweep measured the class in four
-  spellings (`DOC001-DOC011`, `` `DOC001`-`DOC011` ``, `DOC001 to DOC008`, and
-  the short form `DOC009-011`); this was the only live statement of the range
-  with a wrong upper bound, and every other hit is true as written, a quotation
-  of the old text, or a dated record.
-- Deviation, forced by commit identity: the brief staged the plan's State line
-  and Section 3's owed-work bullet in the same commit as the rebuild, each
-  citing the rebuild's SHA. A commit cannot cite its own SHA, because the
-  citation is part of the tree that SHA hashes. The rebuild therefore landed as
-  the first commit of this task, and the citing edits -- the plan's State line,
-  its previously-owed item 2, and Section 3's bullet -- landed in the
-  immediately following commit, which names the rebuild. No brief text was
-  reworded; only the commit boundary moved.
-- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
-  10 hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0
-  with only the expected root `BATCH21_DEFINITION.md` warning.
-- Committed paths (9), recorded as the actual set: the six architecture
-  documents -- `docs/ARCHITECTURE.md`,
-  `docs/architecture/development-cycle.md`,
-  `docs/architecture/documentation-tooling.md`,
-  `docs/architecture/heatmap-sequence.md`,
-  `docs/architecture/runtime-system.md`,
-  `docs/architecture/top-albums-sequence.md` -- this entry in `PLAYBOOK.md`, the
-  design-system plan whose owed-work notes this task discharged
-  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`),
-  and the rotation this entry forced in
-  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. docsync demanded no
-  further path: this entry carries the 1020 claim the corpus already held, so
-  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change. The nine
-  paths span two commits, per the deviation above; the six architecture
-  documents and this entry are in the first.
-- Forward guidance: the rebuild is the last owed commit before Phase 2, so
-  Section 3 now reads "none". The docsync-range guard can land unexempted,
-  because no live stale instance remains in the corpus.

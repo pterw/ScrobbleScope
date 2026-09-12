@@ -9,6 +9,57 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Architecture rebuild landed, and its stale docsync range corrected
+
+- Scope, three parts in one owner-directed task: correct the stale integrity
+  range in the rebuilt `docs/architecture/documentation-tooling.md`; commit the
+  owed architecture-diagram rebuild, unstaged in this worktree since 2026-09-11;
+  and sweep the two documents that still tracked that rebuild as uncommitted
+  work, so nothing claims owed work that has landed.
+- Owner direction, outside the remediation plan: this task is not one of the
+  plan's WPs, and the plan excluded the rebuild as owed work owned by another
+  document. Landing it had to precede the docsync-range guard, because that
+  guard cannot ship while a live stale instance exists, and the instance lived
+  inside this uncommitted work -- correcting the line alone would have dragged
+  52 unstaged lines into a guard commit. Owner ruling, 2026-09-11.
+- The stale range: the rebuilt `documentation-tooling.md:93` read "reports typed
+  `DOC001`-`DOC011` issues". It matched `AGENTS.md` when written and a later
+  correction made it stale: `501a7b6` corrected the same range in `AGENTS.md`, and this
+  file had not yet entered the repository. The sweep measured the class in four
+  spellings (`DOC001-DOC011`, `` `DOC001`-`DOC011` ``, `DOC001 to DOC008`, and
+  the short form `DOC009-011`); this was the only live statement of the range
+  with a wrong upper bound, and every other hit is true as written, a quotation
+  of the old text, or a dated record.
+- Deviation, forced by commit identity: the brief staged the plan's State line
+  and Section 3's owed-work bullet in the same commit as the rebuild, each
+  citing the rebuild's SHA. A commit cannot cite its own SHA, because the
+  citation is part of the tree that SHA hashes. The rebuild therefore landed as
+  the first commit of this task, and the citing edits -- the plan's State line,
+  its previously-owed item 2, and Section 3's bullet -- landed in the
+  immediately following commit, which names the rebuild. No brief text was
+  reworded; only the commit boundary moved.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  10 hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0
+  with only the expected root `BATCH21_DEFINITION.md` warning.
+- Committed paths (9), recorded as the actual set: the six architecture
+  documents -- `docs/ARCHITECTURE.md`,
+  `docs/architecture/development-cycle.md`,
+  `docs/architecture/documentation-tooling.md`,
+  `docs/architecture/heatmap-sequence.md`,
+  `docs/architecture/runtime-system.md`,
+  `docs/architecture/top-albums-sequence.md` -- this entry in `PLAYBOOK.md`, the
+  design-system plan whose owed-work notes this task discharged
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`),
+  and the rotation this entry forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. docsync demanded no
+  further path: this entry carries the 1020 claim the corpus already held, so
+  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change. The nine
+  paths span two commits, per the deviation above; the six architecture
+  documents and this entry are in the first.
+- Forward guidance: the rebuild is the last owed commit before Phase 2, so
+  Section 3 now reads "none". The docsync-range guard can land unexempted,
+  because no live stale instance remains in the corpus.
+
 ### 2026-09-11 - DocSync integrity range corrected to DOC012
 
 - Scope: `AGENTS.md` stated the integrity range as `DOC001-DOC011`, while
@@ -29,9 +80,11 @@ Read helpers:
   remains true as history; the dated records in
   `docs/history/reports/GRAPHIFY_AUDIT_2026-09-04.md` and
   `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` are exempt by policy -- a
-  dated record is a point-in-time entry, so editing one falsifies the record
-  rather than correcting it, and that holds whether or not the range it states
-  was already stale on the day it was written; and three sites that describe
+  dated record's recorded measurements are frozen, because editing one
+  falsifies the record rather than correcting it, and that holds whether or
+  not the range it states was already stale on the day it was written, while
+  its rationale prose may be corrected when it is shown false, as this wave's
+  own edit of a dated entry did; and three sites that describe
   the declared mechanism rather than the range -- the WP-3 plan's "DOC009 to
   DOC011 exist and are declared", the comment at
   `scripts/docsync/integrity.py:1017`, and the `declarations.py` line in

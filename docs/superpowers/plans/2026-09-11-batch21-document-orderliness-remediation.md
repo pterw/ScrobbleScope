@@ -291,9 +291,9 @@ Then make exactly four adaptations, and no others:
 
 Recorded 2026-09-11 for the repository's own record. The traversal itself was
 run with the `deeper-reading` skill against
-`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`
-(sha256 `3988998c93bb3005cfe3c183b82043cc4f1325bb361a306e1f618edb58b1ee18`,
-57062 bytes).
+`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`,
+and it bound that plan's pre-publication revision -- the revision `c277728`
+published later the same day.
 
 Coverage: 70 of 70 canonical chunks, 192 byte-anchored assertions, one recorded
 failure and its recovery. The machine proof (chunk manifest, evidence ledger,
