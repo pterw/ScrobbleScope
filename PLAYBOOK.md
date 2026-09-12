@@ -889,6 +889,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Agent-session analysis trees ignored
+
+- Scope: `.agent/`, `.impeccable/`, `.qlty/` and `scratch/` were untracked and
+  also unignored, so every `git status` carried 500-odd paths and the only
+  guard against sweeping them into a commit was the ban on `git add -A`.
+- Plan vs implementation: the four patterns landed with a comment recording why
+  each is untracked, and why the singular `.agent/` is deliberate beside the
+  vendored `.agents/`.
+- Deviation: the owner was offered this task as optional because it does not
+  come from the traversal; it was taken.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0.
+  The untracked sweep fell from 500-odd to 0, and the tracked file list was
+  unchanged.
+- Committed paths (3), recorded as the actual set: `.gitignore`, this entry in
+  `PLAYBOOK.md`, and the rotation it forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the Task 1
+  and Task 1b review-repair entry out of the active window. docsync demanded no
+  further path: this entry carries the 1020 claim the corpus already held, so
+  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
+- Forward guidance: the traversal run root now lives under an ignored path. Its
+  report was committed first, so the record survives even if the run root is
+  deleted.
+
 ### 2026-09-11 - Section 3 now carries the commit debt
 
 - Scope: the commits owed before Phase 2 were recorded only in the design-system
@@ -976,56 +1000,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the machine proof stays in `scratch/`, which is untracked.
   If the run root is deleted, the report remains the record and its chunk
   ordinals stop being checkable against the manifest. Delete it only knowingly.
-
-### 2026-09-11 - Document repairs from the Task 1 and Task 1b reviews
-
-- Scope: two task reviews of the document-orderliness remediation found
-  defects that are all documentation, and the owner approved repairing them in
-  one pass rather than two fix loops, because none of them touches the code
-  committed in `95e0896`. Four families: (1) the design-system plan's Progress
-  section contradicted itself, still naming work that `95e0896` and `c277728`
-  had discharged; (2) the remediation plan's own defects -- Task 1's guard
-  expectation, Task 1's impossible staging step, Task 4's unbolded validation
-  template, and a new Task 5 for the undocumented `DOC012` range; (3) two
-  `PLAYBOOK.md` entries that denied behaviour their own commits had landed;
-  (4) `.claude/SESSION_CONTEXT.md` Sections 3 and 4, which never listed
-  `scripts/dev/_frontend_gate_colour.py`.
-- Plan vs implementation: every quoted replacement landed as written, with one
-  word corrected. The brief's replacement State line read "the six documents
-  under `docs/architecture/`"; that directory holds five files, all modified,
-  so the line names `docs/ARCHITECTURE.md` and the five documents under
-  `docs/architecture/`, the same five-file scope this file's architecture entry
-  and the plan already state.
-- Deviation, owner-approved: this commit edits dated Section 4 entries
-  committed earlier the same day -- the F-B21-51 slice-1 entry's "no behaviour
-  change" claim, and WP-7's scope list. Both were wrong as written, and
-  AGENTS.md keeps dated entries as point-in-time records, so the correction is
-  recorded here rather than made quietly.
-- Deviation, consequential: inserting Task 5 falsified two statements in that
-  plan, and this commit repoints both -- the Architecture line's task count,
-  and Task 4's "This is the final task" pause line, which now reads "before
-  Task 5".
-- Validation: `pytest -q` -- **1020 passed**; `pre-commit run --all-files` --
-  all 10 hooks passed with no files modified; `doc_state_sync.py --check` --
-  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning.
-- Committed paths (5), recorded as the actual set rather than a smaller
-  claimed one: the two plans
-  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`
-  and `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`),
-  `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`, and the rotation this entry
-  forced in `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved
-  the F-B21-51 slice-1 entry out of the active window and carried its
-  correction with it. docsync demanded no further path: these entries keep the
-  1020 claim the corpus already carried, so `FINDINGS.md`'s header needed no
-  change.
-- Forward guidance: three residual defects in the remediation plan stay,
-  because this task's owner-ruled scope capped it at the reviewed findings.
-  Task 1's Step 1 still says the literal "must exist in none of them afterwards"
-  beside the sentence added here, which says the compliant end state is 2
-  matches; Task 4 still says "Tasks 1 to 3 stand alone" without mentioning
-  Task 5; and Global Constraints and Task 1's Step 7 still cite `PLAYBOOK.md`
-  lines 882, 904 and 1016, which were already stale at HEAD -- the two
-  `implementation_plan` references they intend sat 27 lines lower, at 909 and
-  931 -- and this commit moved the marker itself from 878 to 880. Repoint those
-  citations by name in that plan's next pass: a line number cannot survive the
-  next entry inserted above the marker.

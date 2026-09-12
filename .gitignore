@@ -68,6 +68,20 @@ CLAUDE.md
 # mattpocock/skills; harness state for a local agent setup, not project state.
 # Tracked project guidance lives in AGENTS.md and .github/instructions/.
 .agents/
+
+# Agent-session analysis scratch and tool state. Untracked by intent: the
+# impeccable skill's workflow copies and live session logs, the qlty analyser's
+# cache and results, and the deeper-reading traversal run root (source
+# manifest, chunk evidence, rendered traversal report). None of it is project
+# state, but left unignored it put 500-odd untracked paths in every
+# `git status`, and the only thing keeping it out of a commit was the ban on
+# `git add -A`. The singular `.agent/` is deliberate: `.agents/` above is the
+# vendored skill pack, a different directory.
+.agent/
+.impeccable/
+.qlty/
+scratch/
+
 skills-lock.json
 
 # Unedited vendor templates emitted by the setup-matt-pocock-skills skill.
