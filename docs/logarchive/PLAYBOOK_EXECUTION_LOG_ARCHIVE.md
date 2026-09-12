@@ -9,6 +9,51 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Architecture diagrams rebuilt against the shipped system
+
+- Scope: `docs/ARCHITECTURE.md` and the five owners under `docs/architecture/`.
+  Documentation only; no code, test, or generated asset changed. This entry is
+  unstaged on purpose -- it belongs with its own commit, not with the gate-slice
+  commit staged ahead of it.
+- Trigger: the index read "Last verified against the tree on 2026-08-15", so the
+  whole set predated the later half of the Tailwind migration.
+- `runtime-system.md`: `spotlight.py` and `unmatched.py` were missing entirely,
+  as were the canonical routes and the JSON APIs. Added both modules and their
+  import edges, route and API nodes, a `Theme` node for the `data-theme` plus
+  `.dark-mode` dual write, and prose for three silent-failure facts -- one
+  framework stylesheet per page, the theme dual write whose observer WP-8 must
+  move in the same change, and the `_MAX_ALBUM_CAP` plus
+  partition-before-Spotify cost boundary.
+- `documentation-tooling.md`: `docsync.declarations` and `.docsync.toml` were
+  absent, so the diagram showed no route by which a declared fact reaches
+  integrity checking. Also added `FINDINGS.md` and its rotation, `docs/agents/`,
+  `docs/history/`, the `ARCHITECTURE.md` index, the ten pre-commit hooks, and the
+  frontend-gate toolchain with its facade and two extracted modules. The prose
+  now names the DOC codes that actually bite.
+- `development-cycle.md`: an annotation read "Current Batch 21 order: F-SWE-1
+  audit, then WP-1", which stopped being true at WP-2. Replaced with the
+  side-task path, the session-close handoff, and a pointer that the active order
+  lives in PLAYBOOK Section 3 rather than in a diagram. The validation gate now
+  names docsync `--check` and the frontend gate.
+- `top-albums-sequence.md`: added the threshold partition and its persistence
+  before Spotify, corrected the cap line to `_MAX_ALBUM_CAP` for every sort
+  mode, and named the reason order on `/unmatched`.
+- `heatmap-sequence.md`: added the canonical `/heatmap` page against the
+  transient `/loading`, and the cached-saved-job path that keeps the loading
+  panel hidden and fades the result in directly.
+- Deviation, caught in this pass: the first draft put a `;` inside a mermaid
+  `Note over` statement, which the Mermaid instruction file records as a parse
+  failure that has shipped once already. Replaced with a full stop. Every file
+  was then re-checked: no semicolon inside any fenced block, and every block
+  opener has a matching `end`.
+- Validation: `pytest -q` -- **1020 passed**; `doc_state_sync.py --check` -- exit
+  0 with only the expected root BATCH warning; all six files ASCII-only; Mermaid
+  block balance `opens == ends` in each file, 28/28 and 15/15 in the two
+  sequences.
+- Forward guidance: no Mermaid tooling was reachable in the session that made
+  these edits, so validation was structural rather than a render. A renderer
+  pass is still worth doing, and `.mmd` files remain the authoring surface.
+
 ### 2026-09-11 - Frontend gate: colour maths extracted as F-B21-51 slice 1
 
 - Scope: `scripts/dev/_frontend_gate_colour.py` (new),

@@ -879,6 +879,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Exhaustive plan traversal recorded
+
+- Scope: an exhaustive traversal of the Batch 21 design-system plan
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`)
+  was run with the `deeper-reading` skill on 2026-09-11. Its findings are
+  recorded at `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
+- Plan vs implementation: 70 of 70 canonical chunks carried a byte-anchored
+  evidence verdict, 192 assertions in total, with zero `non_match` verdicts and
+  70 ordered `chunk_verified` events. One assertion failed its span check on the
+  first attempt and was repaired by re-quoting it from the chunk; the failure,
+  its diagnosed cause and the recovery are recorded in the report and in the
+  run root's failure ledger.
+- Deviation: none. The report is a durable copy of a working artifact, not new
+  analysis.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0.
+  The report is ASCII-only, measured at 0 bytes above 0x7F.
+- Committed paths (3), recorded as the actual set: the report
+  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`, `PLAYBOOK.md`, and
+  the rotation this entry forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which moved the
+  architecture-diagrams entry out of the active window. docsync demanded no
+  further path: this entry carries the 1020 claim the corpus already held, so
+  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change.
+- Forward guidance: the machine proof stays in `scratch/`, which is untracked.
+  If the run root is deleted, the report remains the record and its chunk
+  ordinals stop being checkable against the manifest. Delete it only knowingly.
+
 ### 2026-09-11 - Document repairs from the Task 1 and Task 1b reviews
 
 - Scope: two task reviews of the document-orderliness remediation found
@@ -985,48 +1013,3 @@ non-current operational logs. Older dated entries live in
 - Forward guidance: the untracked
   `docs/superpowers/plans/gemini_implementation_plan_unverified.md` sits in the
   same directory and is still undecided. Resolve it when this move is committed.
-
-### 2026-09-11 - Architecture diagrams rebuilt against the shipped system
-
-- Scope: `docs/ARCHITECTURE.md` and the five owners under `docs/architecture/`.
-  Documentation only; no code, test, or generated asset changed. This entry is
-  unstaged on purpose -- it belongs with its own commit, not with the gate-slice
-  commit staged ahead of it.
-- Trigger: the index read "Last verified against the tree on 2026-08-15", so the
-  whole set predated the later half of the Tailwind migration.
-- `runtime-system.md`: `spotlight.py` and `unmatched.py` were missing entirely,
-  as were the canonical routes and the JSON APIs. Added both modules and their
-  import edges, route and API nodes, a `Theme` node for the `data-theme` plus
-  `.dark-mode` dual write, and prose for three silent-failure facts -- one
-  framework stylesheet per page, the theme dual write whose observer WP-8 must
-  move in the same change, and the `_MAX_ALBUM_CAP` plus
-  partition-before-Spotify cost boundary.
-- `documentation-tooling.md`: `docsync.declarations` and `.docsync.toml` were
-  absent, so the diagram showed no route by which a declared fact reaches
-  integrity checking. Also added `FINDINGS.md` and its rotation, `docs/agents/`,
-  `docs/history/`, the `ARCHITECTURE.md` index, the ten pre-commit hooks, and the
-  frontend-gate toolchain with its facade and two extracted modules. The prose
-  now names the DOC codes that actually bite.
-- `development-cycle.md`: an annotation read "Current Batch 21 order: F-SWE-1
-  audit, then WP-1", which stopped being true at WP-2. Replaced with the
-  side-task path, the session-close handoff, and a pointer that the active order
-  lives in PLAYBOOK Section 3 rather than in a diagram. The validation gate now
-  names docsync `--check` and the frontend gate.
-- `top-albums-sequence.md`: added the threshold partition and its persistence
-  before Spotify, corrected the cap line to `_MAX_ALBUM_CAP` for every sort
-  mode, and named the reason order on `/unmatched`.
-- `heatmap-sequence.md`: added the canonical `/heatmap` page against the
-  transient `/loading`, and the cached-saved-job path that keeps the loading
-  panel hidden and fades the result in directly.
-- Deviation, caught in this pass: the first draft put a `;` inside a mermaid
-  `Note over` statement, which the Mermaid instruction file records as a parse
-  failure that has shipped once already. Replaced with a full stop. Every file
-  was then re-checked: no semicolon inside any fenced block, and every block
-  opener has a matching `end`.
-- Validation: `pytest -q` -- **1020 passed**; `doc_state_sync.py --check` -- exit
-  0 with only the expected root BATCH warning; all six files ASCII-only; Mermaid
-  block balance `opens == ends` in each file, 28/28 and 15/15 in the two
-  sequences.
-- Forward guidance: no Mermaid tooling was reachable in the session that made
-  these edits, so validation was structural rather than a render. A renderer
-  pass is still worth doing, and `.mmd` files remain the authoring surface.
