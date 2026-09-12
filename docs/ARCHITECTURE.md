@@ -5,7 +5,7 @@ diagrams. Each linked document owns one diagram so corrections have one place
 to land. The code remains authoritative when a diagram and implementation
 disagree.
 
-Last verified against the tree on 2026-08-15.
+Last verified against the tree on 2026-09-11.
 
 **Arrow semantics.** Solid arrows between Python modules are imports. Between
 documents they show which file owns or feeds another. Elsewhere they are
@@ -48,3 +48,7 @@ Canonical documents, docsync, the worktree guard, pre-commit, and CI:
 - Product overview: `README.md`, Architecture
 - CI gate: `.github/workflows/test.yml`
 - Diagram workflow: `.github/instructions/mermaid.instructions.md`
+- Agent-skill configuration: `docs/agents/`
+- Declared duplicated facts and retired claims: `.docsync.toml`
+- Open defects and their status: `FINDINGS.md`
+- Job state, key runtime facts, and architecture: `README.md`

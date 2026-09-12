@@ -62,7 +62,9 @@ sequenceDiagram
                 LastFM-->>Orch: Scrobbles + page progress
                 Orch->>Repo: Progress 5%-20%
             end
-            Orch->>Orch: Group, normalize, and threshold albums (inside fetch_top_albums_async)
+            Orch->>Orch: Group, normalize, and partition by threshold (inside fetch_top_albums_async)
+            Orch->>Repo: Persist one below_threshold exclusion per album, with its counts and failed thresholds
+            Note over Orch,Repo: Threshold exclusions are partitioned before Spotify, so they cost no Spotify quota
             Orch->>Repo: Aggregation stats, and partial_data_warning when pages were dropped
             alt Terminal Last.fm failure
                 Orch->>Repo: set_job_error(lastfm_unavailable)
@@ -73,7 +75,7 @@ sequenceDiagram
                     Note over Orch,Repo: Terminal -- no pre-slice, cache, or Spotify
                 else Albums pass filters
                     Orch->>Repo: Progress 20%
-                    Orch->>Orch: Pre-slice albums (playcount limit, or the 500-album playtime cap)
+                    Orch->>Orch: Pre-slice eligible albums to _MAX_ALBUM_CAP 500 for every sort mode
                     Orch->>Repo: Progress 20% + prepared album count
                     Orch->>Cache: Open connection (None when DB disabled)
                     Orch->>Repo: set_job_stat(db_cache_enabled)
@@ -194,7 +196,8 @@ sequenceDiagram
                     Routes-->>Browser: results.html
                     opt User opens the unmatched list
                         Browser->>Routes: GET /unmatched?job_id=...
-                        Routes-->>Browser: unmatched.html grouped by reason
+                        Routes-->>Browser: unmatched.html, one panel per reason, sorted by reason code
+                        Note over Browser,Routes: below_threshold, then release_scope, then no_spotify_match
                     end
                 end
             end

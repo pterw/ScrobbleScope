@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Traversal record tense repaired after the Task 2 review
+
+- Scope: the review of Task 2's commit `106f941` found two tense defects in
+  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`, both of one
+  class. Its Section 7 asserted as current three passages of the design-system
+  plan that `c277728` and `9cb3662` had already rewritten, and its Section 9
+  past-tensed the heatmap-fill limitation the plan still states.
+- Plan vs implementation: both edits landed as written. Section 7's framing
+  sentence and its closing narration now report what the traversal found at the
+  revision it bound, plus the one controller-authorised sentence naming
+  `c277728` and `9cb3662` and recording that the finding no longer holds at
+  HEAD. Section 9's limitation is present-tense again, matching the plan and
+  the report's own Section 8. The three quoted passages, every chunk ordinal
+  and the provenance header are unchanged.
+- Deviation: none. No other section of the record was touched.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0,
+  with the expected root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: the report records a traversal bound to the plan's
+  pre-repair revision, so its findings describe that revision and not HEAD. A
+  reader who needs current state must re-check the plan; Section 7 now names the
+  two commits that answered it.
+
 ### 2026-09-11 - Exhaustive plan traversal recorded
 
 - Scope: an exhaustive traversal of the Batch 21 design-system plan

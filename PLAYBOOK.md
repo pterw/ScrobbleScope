@@ -889,6 +889,52 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Architecture rebuild landed, and its stale docsync range corrected
+
+- Scope, three parts in one owner-directed task: correct the stale integrity
+  range in the rebuilt `docs/architecture/documentation-tooling.md`; commit the
+  owed architecture-diagram rebuild, unstaged in this worktree since 2026-09-11;
+  and sweep the two documents that still tracked that rebuild as uncommitted
+  work, so nothing claims owed work that has landed.
+- Owner direction, outside the remediation plan: this task is not one of the
+  plan's WPs, and the plan excluded the rebuild as owed work owned by another
+  document. Landing it had to precede the docsync-range guard, because that
+  guard cannot ship while a live stale instance exists, and the instance lived
+  inside this uncommitted work -- correcting the line alone would have dragged
+  52 unstaged lines into a guard commit. Owner ruling, 2026-09-11.
+- The stale range: the rebuilt `documentation-tooling.md:93` read "reports typed
+  `DOC001`-`DOC011` issues". It was correct when written and a later correction
+  made it stale: `501a7b6` corrected the same range in `AGENTS.md`, and this
+  file had not yet entered the repository. The sweep measured the class in four
+  spellings (`DOC001-DOC011`, `` `DOC001`-`DOC011` ``, `DOC001 to DOC008`, and
+  the short form `DOC009-011`); this was the only live statement of the range
+  with a wrong upper bound, and every other hit is true as written, a quotation
+  of the old text, or a dated record.
+- Deviation, forced by commit identity: the brief staged the plan's State line
+  and Section 3's owed-work bullet in the same commit as the rebuild, each
+  citing the rebuild's SHA. A commit cannot cite its own SHA, because the
+  citation is part of the tree that SHA hashes. The rebuild therefore landed as
+  the first commit of this task, and the four citing edits -- the plan's State
+  line, its previously-owed item 2, and Section 3's bullet -- landed in the
+  immediately following commit, which names the rebuild. No brief text was
+  reworded; only the commit boundary moved.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  10 hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0
+  with only the expected root `BATCH21_DEFINITION.md` warning.
+- Committed paths (9), recorded as the actual set: the six architecture
+  documents above, this entry in `PLAYBOOK.md`, the design-system plan whose
+  owed-work notes this task discharged
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`),
+  and the rotation this entry forced in
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. docsync demanded no
+  further path: this entry carries the 1020 claim the corpus already held, so
+  `FINDINGS.md` and `.claude/SESSION_CONTEXT.md` needed no change. The nine
+  paths span two commits, per the deviation above; the six architecture
+  documents and this entry are in the first.
+- Forward guidance: the rebuild is the last owed commit before Phase 2, so
+  Section 3 now reads "none". The docsync-range guard can land unexempted,
+  because no live stale instance remains in the corpus.
+
 ### 2026-09-11 - DocSync integrity range corrected to DOC012
 
 - Scope: `AGENTS.md` stated the integrity range as `DOC001-DOC011`, while
@@ -989,26 +1035,3 @@ non-current operational logs. Older dated entries live in
   change.
 - Forward guidance: keep Section 3's bullets free of counts. Name each owed
   item, so the next addition cannot make the section silently wrong.
-
-### 2026-09-11 - Traversal record tense repaired after the Task 2 review
-
-- Scope: the review of Task 2's commit `106f941` found two tense defects in
-  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`, both of one
-  class. Its Section 7 asserted as current three passages of the design-system
-  plan that `c277728` and `9cb3662` had already rewritten, and its Section 9
-  past-tensed the heatmap-fill limitation the plan still states.
-- Plan vs implementation: both edits landed as written. Section 7's framing
-  sentence and its closing narration now report what the traversal found at the
-  revision it bound, plus the one controller-authorised sentence naming
-  `c277728` and `9cb3662` and recording that the finding no longer holds at
-  HEAD. Section 9's limitation is present-tense again, matching the plan and
-  the report's own Section 8. The three quoted passages, every chunk ordinal
-  and the provenance header are unchanged.
-- Deviation: none. No other section of the record was touched.
-- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
-  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0,
-  with the expected root `BATCH21_DEFINITION.md` warning.
-- Forward guidance: the report records a traversal bound to the plan's
-  pre-repair revision, so its findings describe that revision and not HEAD. A
-  reader who needs current state must re-check the plan; Section 7 now names the
-  two commits that answered it.
