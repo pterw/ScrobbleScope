@@ -125,7 +125,7 @@ its own reader from asserting certain things.
 
 ## 7. The document contradicted its own location
 
-Three passages still describe the file at its old root path:
+Three passages still described the file at its old root path:
 
 - `[25]`: "| `implementation_plan.md` (this file) | A working plan, not a
   governed document. Decide before the first commit whether to keep it ... so it
@@ -134,13 +134,15 @@ Three passages still describe the file at its old root path:
   removed?**"
 - `[70]`: "The only file created is `implementation_plan.md`."
 
-The file now lives at
+The file lived at
 `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`, and
-Progress `[6]` lists that move as one of the three uncommitted work items. So
-the plan's own self-reference by name is stale in the same way the audit's
-citations are, and decision 1 is partly answered by the move having happened.
-This is the drift Anti-Pattern Registry item 11 covers, and it is invisible
-unless the header and the tail are both read.
+Progress `[6]` listed that move as one of the three uncommitted work items. So
+the plan's own self-reference by name was stale in the same way the audit's
+citations were, and decision 1 was partly answered by the move having happened.
+This was the drift Anti-Pattern Registry item 11 covers, and it was invisible
+unless the header and the tail were both read. All three passages were repaired
+afterwards in `c277728`, and `9cb3662` then dropped the move from Progress's
+uncommitted-work list, so this finding no longer holds at HEAD.
 
 ## 8. Operational constraints a skim would have dropped
 
@@ -194,8 +196,8 @@ Two further hard constraints on sequencing were recorded:
 - **WP-8 keeps its number and position** `[69]` assumption 4: `DOC007` in
   `scripts/docsync/integrity.py` reads the WP headings, and renumbering WP-7 or
   WP-8 "breaks citations in `PLAYBOOK.md`, `FINDINGS.md` and `AGENT_NOTES.md`."
-- **The heatmap fill behaviour had no automated coverage** `[69]`
-  limitation: Phase 4 was to create the first check, and "until that check
+- **The heatmap fill behaviour has no automated coverage today** `[69]`
+  limitation: Phase 4 creates the first check, and "until that check
   exists, the retirement is unsafe to ship."
 
 ## 10. Where the plan recorded the work resuming

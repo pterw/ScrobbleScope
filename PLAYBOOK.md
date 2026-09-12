@@ -879,6 +879,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-11 - Traversal record tense repaired after the Task 2 review
+
+- Scope: the review of Task 2's commit `106f941` found two tense defects in
+  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`, both of one
+  class. Its Section 7 asserted as current three passages of the design-system
+  plan that `c277728` and `9cb3662` had already rewritten, and its Section 9
+  past-tensed the heatmap-fill limitation the plan still states.
+- Plan vs implementation: both edits landed as written. Section 7's framing
+  sentence and its closing narration now report what the traversal found at the
+  revision it bound, plus the one controller-authorised sentence naming
+  `c277728` and `9cb3662` and recording that the finding no longer holds at
+  HEAD. Section 9's limitation is present-tense again, matching the plan and
+  the report's own Section 8. The three quoted passages, every chunk ordinal
+  and the provenance header are unchanged.
+- Deviation: none. No other section of the record was touched.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0,
+  with the expected root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: the report records a traversal bound to the plan's
+  pre-repair revision, so its findings describe that revision and not HEAD. A
+  reader who needs current state must re-check the plan; Section 7 now names the
+  two commits that answered it.
+
 ### 2026-09-11 - Exhaustive plan traversal recorded
 
 - Scope: an exhaustive traversal of the Batch 21 design-system plan
@@ -986,30 +1009,3 @@ non-current operational logs. Older dated entries live in
   written -- two in this file's Section 4, one in the archive after this run's
   rotation. They record what the document said on the day it was written, and
   editing them would falsify a dated record.
-
-### 2026-09-11 - Implementation plan moved into the plans directory and given progress tracking
-
-- Scope: the root-level `implementation_plan.md` became
-  `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`.
-  Documentation only; no code, test, or generated asset changed.
-- Why: the plan was untracked and sat at the repository root, so nothing
-  guaranteed it survived a session boundary, and it recorded no state at all. A
-  reader could not tell which phases were done, what Phase 1 had actually
-  changed, or where to resume. The plans directory is where every other plan
-  lives, and the document is worth keeping: it carries the audit's repo-side
-  disposition table and the reasoning behind each phase.
-- Added a **Progress** section that owns the status: a per-phase state table,
-  the commits landed, the uncommitted work in the order it should be committed,
-  a numbered pick-up list, and the four deviations between the plan as written
-  and what Phase 1 actually did. The most important of those is recorded plainly
-  -- the layout was refined rather than rebuilt, because the owner's side-by-side
-  ruling superseded the plan's stacked step and three frontend-gate assertions
-  defend the shipped arrangement.
-- The step list now points at that section instead of repeating status, so the
-  two cannot disagree.
-- Validation: `doc_state_sync.py --check` -- exit 0. The file now lives inside
-  `docs/`, so the DOC001 path, DOC010 anchor and DOC011 retired-claim scans cover
-  it; it passes all three.
-- Forward guidance: the untracked
-  `docs/superpowers/plans/gemini_implementation_plan_unverified.md` sits in the
-  same directory and is still undecided. Resolve it when this move is committed.

@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Implementation plan moved into the plans directory and given progress tracking
+
+- Scope: the root-level `implementation_plan.md` became
+  `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`.
+  Documentation only; no code, test, or generated asset changed.
+- Why: the plan was untracked and sat at the repository root, so nothing
+  guaranteed it survived a session boundary, and it recorded no state at all. A
+  reader could not tell which phases were done, what Phase 1 had actually
+  changed, or where to resume. The plans directory is where every other plan
+  lives, and the document is worth keeping: it carries the audit's repo-side
+  disposition table and the reasoning behind each phase.
+- Added a **Progress** section that owns the status: a per-phase state table,
+  the commits landed, the uncommitted work in the order it should be committed,
+  a numbered pick-up list, and the four deviations between the plan as written
+  and what Phase 1 actually did. The most important of those is recorded plainly
+  -- the layout was refined rather than rebuilt, because the owner's side-by-side
+  ruling superseded the plan's stacked step and three frontend-gate assertions
+  defend the shipped arrangement.
+- The step list now points at that section instead of repeating status, so the
+  two cannot disagree.
+- Validation: `doc_state_sync.py --check` -- exit 0. The file now lives inside
+  `docs/`, so the DOC001 path, DOC010 anchor and DOC011 retired-claim scans cover
+  it; it passes all three.
+- Forward guidance: the untracked
+  `docs/superpowers/plans/gemini_implementation_plan_unverified.md` sits in the
+  same directory and is still undecided. Resolve it when this move is committed.
+
 ### 2026-09-11 - Architecture diagrams rebuilt against the shipped system
 
 - Scope: `docs/ARCHITECTURE.md` and the five owners under `docs/architecture/`.
