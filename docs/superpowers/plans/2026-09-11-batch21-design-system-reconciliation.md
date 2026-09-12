@@ -28,7 +28,7 @@ Nothing is pushed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| 0 Baseline | **Done** | guard exit 0; `pytest -q` 990 at open, 1020 now; docsync exit 0 |
+| 0 Baseline | **Done** | guard exit 0; `pytest -q` 990 at open, 1022 measured 2026-09-11; docsync exit 0 |
 | 1 WP-7 refinement | **Done, committed** | `57d1474`; frontend gate 26 checks in 47 runs, chromium + firefox |
 | 2 Document reconciliation | **Not started** | the two live conflicts are listed below |
 | 3 Audit incidental defects | **Not started** | 5 items, all still present in the code |

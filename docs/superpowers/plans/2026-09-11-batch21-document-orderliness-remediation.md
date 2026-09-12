@@ -568,11 +568,12 @@ git commit -m "chore(repo): Ignore agent-session analysis trees"
 
 ### Task 5: Correct the documented docsync code range
 
-`AGENTS.md` states the docsync code range as `DOC001-DOC011`, but
-`scripts/docsync/integrity.py` defines `DOC012`: a pass claim in the log must
-carry the bold the authority reads. That is why Task 1's log entry needed
-`**1020 passed**` rather than a plain form. The same sentence already records
-the previous instance of this class, which is the point.
+`AGENTS.md` stated the docsync code range as `DOC001-DOC011` until `501a7b6`
+corrected it on 2026-09-11, because `scripts/docsync/integrity.py` defines
+`DOC012`: a pass claim in the log must carry the bold the authority reads.
+That is why Task 1's log entry needed `**1020 passed**` rather than a plain
+form. The same sentence already records the previous instance of this class,
+which is the point.
 
 **Files:**
 - Modify: `AGENTS.md`, in the "What `doc_state_sync.py` does and why it exists" list

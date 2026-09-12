@@ -2205,6 +2205,31 @@ machine-rotated archive content was declined in PR #162 round 3 and again
 in PR #163 round 3 on the same point-in-time principle.
 Status: open (P2). Source: PR #163 review round 3.
 
+### F-B21-57: `check_retired` uses one variable for the declaration index and the line number
+
+`scripts/docsync/declarations.py:743` names the outer loop's target `index`
+(`for index, declaration in enumerate(declarations)`), and `:763` rebinds the
+same name to a line number inside the scan (`for index, line in enumerate(lines,
+start=1)`), so one name carries two meanings in one function.
+
+Measured 2026-09-11: the reuse is latent, not live. `_validate("retired", index,
+declaration)` at `:744` runs before the inner loop of its own iteration, and the
+`for` statement reassigns `index` at the top of each outer iteration, so the
+declaration index is restored before it is read again. Calling `check_retired`
+with two declarations -- the first scanning `PLAYBOOK.md` behind an
+`allow_after` marker, so its inner loop ran and rebound the name, and the second
+carrying an unknown key -- named the fault `retired 1`, the declaration index
+rather than a line. Nothing reads `index` after `:765`.
+
+It is filed anyway, because the message is correct only by statement order:
+moving `_validate` below the scan, or reading `index` after it, turns a
+declaration-shaped diagnostic into a line number, and a reader sent to the wrong
+line of a long TOML file is the cost. Renaming the inner target to
+`line_number` closes it.
+
+Status: open (P2). No behaviour change; the current message is correct.
+Source: Task 7 fix round 1, 2026-09-11, from that task's implementer report.
+
 ### F-MAS-5: in-memory JOBS dict limits horizontal scaling
 
 Process-local dict breaks polling under multiple workers/machines;
