@@ -877,107 +877,137 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-11 - Agent-skills scaffolding configured; issues recorded as FINDINGS.md
+### 2026-09-11 - Design-system plan corrected to name its own path
 
-- Scope: a new `## Agent skills` section in `AGENTS.md`, a narrowed
-  `docs/agents/` rule in `.gitignore`, and two new files,
-  `docs/agents/issue-tracker.md` and `docs/agents/domain.md`. No production
-  code, test, or other document changed.
-- Context: the owner ran the setup-matt-pocock-skills skill. The skill assumes a
-  root context file plus a decision-record directory, and keeps its vendor
-  templates under `docs/agents/`. This repo already owns that ground in the
-  "Document Roles (SoC contract)" table and the anti-duplication rule, so
-  `domain.md` points at those owners instead of seeding a second rule source.
-- Owner decision: issues are findings. `issue-tracker.md` records `FINDINGS.md`
-  as the tracker and links to `AGENTS.md` "Finding-Writing Rules" for the format
-  rather than restating it. The `triage` skill is not installed, so no label
-  vocabulary is written.
-- Deviation, recorded rather than silent: `docs/agents/` was already gitignored,
-  and its comment said adoption "belongs in its own commit". This is that
-  commit, and the change is narrow -- `docs/agents/*` still hides the vendor
-  seed templates, and only the two repo-authored files are trackable.
-  Un-ignoring the templates would put a layout this repo rejects back into the
-  repository as a second source of truth.
-- Implementation note: docsync's DOC001 resolves backticked `.md` references
-  against `git ls-files`, so an ignored path can never resolve and the two files
-  must be staged before `AGENTS.md` links to them. Neither file names a literal
-  root context path.
-- Validation: `pytest -q` -- **990 passed**; `pre-commit run --all-files` -- all
-  hooks passed; `doc_state_sync.py --check` -- exit 0 with only the expected
-  root `BATCH21_DEFINITION.md` warning.
-- Forward guidance: the design-system plan at `implementation_plan.md`
-  (untracked) consumes these files. Its Phase 1 needs revision, because the
-  owner's layout ruling for the unmatched report is side-by-side rather than
-  stacked; Section 3 carries the refinement still owed.
+- Scope: the Batch 21 design-system plan
+  (`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`)
+  still described itself by its pre-move repository-root name in three places,
+  and its Progress "State" line counted its uncommitted work items rather than
+  naming them. Both defects came from an exhaustive traversal of the plan; the
+  evidence is `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
+- Plan vs implementation: all four edits landed as written. The State line now
+  lists the uncommitted items instead of counting them, because a count goes
+  stale the next time one appears (Anti-Pattern Registry item 13). The
+  open-decision entry was rewritten in place rather than deleted, so the
+  numbering of the decisions below it stays stable for any citation.
+- Deviation: this commit stages the plan itself, discharging that plan's own
+  "Where to pick up" item 3, which its Progress had recorded as a separate
+  commit. A content correction to an untracked file is observable only once the
+  file is committed, so the reorder is recorded rather than silent.
+- Validation: `pytest -q` -- **1020 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0,
+  with the expected root `BATCH21_DEFINITION.md` warning. The target guard fell
+  from 3 matches to 2; the two survivors name the old root path
+  as history beside the new one.
+- Forward guidance: the three dated references to the old root name stay as
+  written -- two in this file's Section 4, one in the archive after this run's
+  rotation. They record what the document said on the day it was written, and
+  editing them would falsify a dated record.
 
-### 2026-09-10 - Add isolated Results script regression coverage
+### 2026-09-11 - Implementation plan moved into the plans directory and given progress tracking
 
-- Scope: owner-requested coverage review and tests for Spotlight and leaderboard
-  interactions. Sampling is server-owned and already covered by the route test.
-- Implementation: six isolated Chromium tests run unmodified production scripts
-  with a controlled clock. Cover rotation wraparound, late and failed hydration,
-  reduced motion, numeric sorting with absent metrics, ranks and accessible
-  selection, and hover delay/cancellation plus keyboard tooltip dismissal.
-  CI runs this suite after installing browsers and before the frontend gate.
-- Validation: six browser tests passed; `pytest -q`: **974 passed**;
-  all pre-commit hooks passed. Documentation integrity and whitespace checks
-  passed after the final log update.
-  No application changes or dependency additions. Owner authorized committing
-  this coverage and the README refresh together; pushing is not part of this step.
-- **Later same-day test-count addendum:** the WP-7 current-batch entry above
-  records the subsequent code change and owns its implementation details. Its
-  full-suite result is `pytest -q` -- **986 passed**. The earlier 974 result
-  in this entry remains point-in-time evidence; this pointer supplies the
-  later same-date count to docsync's live-side-first authority order.
+- Scope: the root-level `implementation_plan.md` became
+  `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`.
+  Documentation only; no code, test, or generated asset changed.
+- Why: the plan was untracked and sat at the repository root, so nothing
+  guaranteed it survived a session boundary, and it recorded no state at all. A
+  reader could not tell which phases were done, what Phase 1 had actually
+  changed, or where to resume. The plans directory is where every other plan
+  lives, and the document is worth keeping: it carries the audit's repo-side
+  disposition table and the reasoning behind each phase.
+- Added a **Progress** section that owns the status: a per-phase state table,
+  the commits landed, the uncommitted work in the order it should be committed,
+  a numbered pick-up list, and the four deviations between the plan as written
+  and what Phase 1 actually did. The most important of those is recorded plainly
+  -- the layout was refined rather than rebuilt, because the owner's side-by-side
+  ruling superseded the plan's stacked step and three frontend-gate assertions
+  defend the shipped arrangement.
+- The step list now points at that section instead of repeating status, so the
+  two cannot disagree.
+- Validation: `doc_state_sync.py --check` -- exit 0. The file now lives inside
+  `docs/`, so the DOC001 path, DOC010 anchor and DOC011 retired-claim scans cover
+  it; it passes all three.
+- Forward guidance: the untracked
+  `docs/superpowers/plans/gemini_implementation_plan_unverified.md` sits in the
+  same directory and is still undecided. Resolve it when this move is committed.
 
-### 2026-09-10 - Refresh the product README against the current implementation
+### 2026-09-11 - Architecture diagrams rebuilt against the shipped system
 
-- Scope: owner-requested README refresh while the owner handles PR #227
-  integration. No application changes or Git history operations.
-- Implementation: describe current navigation, Results/Spotlight, Heatmap
-  statistics and export limits, progress UI, and the remaining Bootstrap
-  Unmatched report. Replace stale test/coverage figures with the live CI badge;
-  shorten the file inventory and link to maintained architecture and work orders.
-  Correct virtualenv installs and the init_db.py environment requirement.
-- Related pointers: DEVELOPMENT now accurately distinguishes the Chromium
-  matrix from the Firefox canary; CONTRIBUTING delegates setup to README.
-- Validation: source-checked against templates, routes, frontend scripts,
-  dependency pins, workflow configuration and deployment files. All 42 local
-  Markdown links and anchors, pre-commit hooks, documentation integrity and
-  whitespace checks passed.
-  Owner subsequently authorized committing this refresh with the Results tests.
+- Scope: `docs/ARCHITECTURE.md` and the five owners under `docs/architecture/`.
+  Documentation only; no code, test, or generated asset changed. This entry is
+  unstaged on purpose -- it belongs with its own commit, not with the gate-slice
+  commit staged ahead of it.
+- Trigger: the index read "Last verified against the tree on 2026-08-15", so the
+  whole set predated the later half of the Tailwind migration.
+- `runtime-system.md`: `spotlight.py` and `unmatched.py` were missing entirely,
+  as were the canonical routes and the JSON APIs. Added both modules and their
+  import edges, route and API nodes, a `Theme` node for the `data-theme` plus
+  `.dark-mode` dual write, and prose for three silent-failure facts -- one
+  framework stylesheet per page, the theme dual write whose observer WP-8 must
+  move in the same change, and the `_MAX_ALBUM_CAP` plus
+  partition-before-Spotify cost boundary.
+- `documentation-tooling.md`: `docsync.declarations` and `.docsync.toml` were
+  absent, so the diagram showed no route by which a declared fact reaches
+  integrity checking. Also added `FINDINGS.md` and its rotation, `docs/agents/`,
+  `docs/history/`, the `ARCHITECTURE.md` index, the ten pre-commit hooks, and the
+  frontend-gate toolchain with its facade and two extracted modules. The prose
+  now names the DOC codes that actually bite.
+- `development-cycle.md`: an annotation read "Current Batch 21 order: F-SWE-1
+  audit, then WP-1", which stopped being true at WP-2. Replaced with the
+  side-task path, the session-close handoff, and a pointer that the active order
+  lives in PLAYBOOK Section 3 rather than in a diagram. The validation gate now
+  names docsync `--check` and the frontend gate.
+- `top-albums-sequence.md`: added the threshold partition and its persistence
+  before Spotify, corrected the cap line to `_MAX_ALBUM_CAP` for every sort
+  mode, and named the reason order on `/unmatched`.
+- `heatmap-sequence.md`: added the canonical `/heatmap` page against the
+  transient `/loading`, and the cached-saved-job path that keeps the loading
+  panel hidden and fades the result in directly.
+- Deviation, caught in this pass: the first draft put a `;` inside a mermaid
+  `Note over` statement, which the Mermaid instruction file records as a parse
+  failure that has shipped once already. Replaced with a full stop. Every file
+  was then re-checked: no semicolon inside any fenced block, and every block
+  opener has a matching `end`.
+- Validation: `pytest -q` -- **1020 passed**; `doc_state_sync.py --check` -- exit
+  0 with only the expected root BATCH warning; all six files ASCII-only; Mermaid
+  block balance `opens == ends` in each file, 28/28 and 15/15 in the two
+  sequences.
+- Forward guidance: no Mermaid tooling was reachable in the session that made
+  these edits, so validation was structural rather than a render. A renderer
+  pass is still worth doing, and `.mmd` files remain the authoring surface.
 
-### 2026-09-10 - Refine Heatmap contrast and Results interaction motion
+### 2026-09-11 - Frontend gate: colour maths extracted as F-B21-51 slice 1
 
-- Scope: owner follow-up on Heatmap styling, duplicate Results Top control,
-  delayed Spotify hints, sorting motion and page-loading jank.
-- Implementation: owner-refined sunken light-mode Heatmap frame with darker
-  warm-neutral empty cells (`#c8bfad`); uppercase Input Mono
-  Narrow toolbar with primary New search; supporting label grows from 12px
-  to 15px in Input Mono. Results retains only the side-rail Top control.
-  Spotify links reveal a shared hint after 450ms hover, immediately on focus,
-  and dismiss on Escape, blur or scrolling. Ranking changes interpolate row
-  positions for 280ms, with immediate reduced-motion updates. Export clones
-  clear transient row animations.
-- Diagnosis: delayed page_motion.js reproduced a visible-to-transparent flash
-  in Chromium and Firefox before DOM readiness. CSS now starts entry at first
-  styled paint; the delayed-script probe no longer reproduces the opacity dip.
-  The initial header clarification was interpreted as viewport-fixed. The
-  owner's later screenshot identified that persistent visibility as the
-  unwanted behavior. The header now occupies document flow and scrolls out of
-  view; duplicate body clearance is removed and the sticky rail uses its own gap.
-- Export inspection: Heatmap uses a separate hand-drawn canvas with older
-  headline/layout rules. That visual mismatch remains; the working export is
-  preserved in this pass. Results export is unchanged apart from suppressing
-  temporary row motion in its clone.
-- Validation: `pytest -q` -- **974 passed**. The full frontend gate passed
-  25 checks in 45 runs. Additional Chromium and Firefox probes covered hover
-  delay, dismissal, rapid sorting, reduced motion, scroll stability, header
-  scroll-away, both-theme empty-cell fills and responsive Heatmap geometry.
-  Firefox CSV/JPEG checks passed at desktop and mobile widths in both themes.
-  Evidence: `scratch/pressure-verify-final.txt`, `scratch/pressure-extra-final.txt`
-  and screenshots. Final staged validation passes every hook, including
-  generated-CSS drift and documentation sync. Owner visual
-  review approved the result and authorized a safe push to PR #227. The pre-push
-  sweep reconciled stale design overrides with the shipped composition. This
-  remains an owner-directed side-task, not a new work package.
+- Scope: `scripts/dev/_frontend_gate_colour.py` (new),
+  `scripts/dev/frontend_gate.py`, `tests/scripts/dev/test_frontend_gate_colour.py`
+  (new), and `FINDINGS.md`. A pure move plus new tests; no behaviour change.
+- F-B21-51 records that the gate is roughly ten times its largest sibling --
+  4,073 lines against `tailwind_build.py` at 404 -- and prescribes a split along
+  the existing check groups while `frontend_gate.py` stays a facade. This is its
+  first slice. The finding now also carries the agreed module map and the
+  `frontend_gate_checks.toml` registry design.
+- The seven pure helpers -- `_parse_rgb_string`, `_composite_over`,
+  `_relative_luminance`, `_contrast_ratio`, `_clamp_px`,
+  `_worst_divider_contrast`, `_divider_contrast_failure` -- moved to the new
+  module and are re-exported through the gate, so no caller has to know. That
+  follows `_frontend_gate_results.py` for the module shape and
+  `worktree_guard.py` for the stable facade.
+- They were chosen first because they take no `page`. The browser gate is the
+  artefact being moved, so it cannot be the thing that verifies its own
+  refactor; these are provable with pytest alone.
+- Parity: 29 tests, three of which a careless rewrite would fail -- the
+  `clamp()` `vw` term must not scale with the root font size while the rem
+  bounds must; worst-contrast must be the minimum across the surface list; and
+  every moved name must still resolve through `frontend_gate`.
+- Deviation, recorded: this commit also carries the browser assertions added
+  for the WP-7 disclosure refinement (`data-step` must be 25, and back-to-top
+  must collapse the panel to 10 rows with `aria-expanded="false"`). They live in
+  `frontend_gate.py`'s unmatched check and belong to that work package, but the
+  file is touched by both changes and separating them inside one file would need
+  partial staging that the gate itself cannot verify. Flagged so the pairing is
+  a recorded choice rather than a later discovery.
+- Validation: `pytest -q` -- **1020 passed** (991 before the split, plus 29);
+  the two-engine frontend gate -- 26 checks passed in 47 runs across chromium
+  and firefox; all pre-commit hooks passed.
+- Forward guidance: the remaining groups are the browser-coupled ones and still
+  need the gate runnable to prove parity.

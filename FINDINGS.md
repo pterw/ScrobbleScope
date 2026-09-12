@@ -1,10 +1,11 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-10
+Last updated: 2026-09-11
 Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
-into WP-3, and WP-7 is active pending its remaining commits.
+into WP-3. The WP-7 extension is implemented and refined, and WP-8 awaits owner
+direction.
 PLAYBOOK Section 3 owns the current work order.
-990 tests across 41 test modules.
+1020 tests across 43 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -788,6 +789,44 @@ earlier claim that infrastructure has no parity tests was incorrect:
 failure, browser lifecycle, group isolation and CDN route policy. Verify the
 affected coverage before a further split, per AGENTS.md Refactor requires
 parity tests; existing tests are not evidence that every proposed split is safe.
+
+**Split design, agreed 2026-09-11.** Follow the `_frontend_gate_*` sibling
+convention that `_frontend_gate_results.py` already set, and keep
+`frontend_gate.py` as the stable facade, per `worktree_guard.py`.
+
+| Module | Owns |
+| --- | --- |
+| `frontend_gate.py` | Facade: CLI, `main`, re-exports |
+| `_frontend_gate_runtime.py` | Server fixture, CDN route policy, browser and context lifecycle |
+| `_frontend_gate_assets.py` | Stylesheet isolation |
+| `_frontend_gate_theme.py` | Theme tokens, persistence, divider contrast, mark recolour, motion |
+| `_frontend_gate_forms.py` | Forms, validation, private profile, year warnings |
+| `_frontend_gate_layout.py` | Scale parity, header geometry, touch targets, headline wrap |
+| `_frontend_gate_pipeline.py` | Loading phases, progress state machines, spotlight |
+| `_frontend_gate_unmatched.py` | The unmatched report check, including its 2026-09-11 step and collapse assertions |
+| `_frontend_gate_colour.py` | Pure colour and contrast maths -- landed, see below |
+
+The check registry also becomes declarative, in
+`scripts/dev/frontend_gate_checks.toml`: name, group, route, viewport and the
+expected constants. That is this repository's established shape for a thin
+entry point over declarations -- `scripts/doc_state_sync.py` plus
+`scripts/docsync/` plus `.docsync.toml`. The TOML can hold metadata and
+constants but not the procedures, because the checks click, wait and evaluate
+JavaScript. Groups stay derived from the registry, as they already are, and the
+geometry-label literals named above are exactly what moves into it.
+
+**Slice 1 landed 2026-09-11.** The gate stood at 4,073 lines by then, against
+the 3,756 recorded above. The seven pure helpers -- `_parse_rgb_string`,
+`_composite_over`, `_relative_luminance`, `_contrast_ratio`, `_clamp_px`,
+`_worst_divider_contrast`, `_divider_contrast_failure` -- moved to
+`_frontend_gate_colour.py` and are re-exported by the facade, pinned by 29
+parity tests in `tests/scripts/dev/test_frontend_gate_colour.py` that include
+an assertion each moved name still resolves through `frontend_gate`. They were
+chosen first because they take no `page` and therefore carry no browser or
+fixture dependency: the browser gate is the artefact being moved, so it cannot
+be the thing that verifies its own refactor. The remaining groups are the
+browser-coupled ones and still need the gate runnable to prove parity.
+
 Source: PR #227 commit-range audit, 2026-09-09.
 
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached

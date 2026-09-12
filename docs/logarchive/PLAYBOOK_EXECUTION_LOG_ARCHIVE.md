@@ -9,6 +9,111 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Agent-skills scaffolding configured; issues recorded as FINDINGS.md
+
+- Scope: a new `## Agent skills` section in `AGENTS.md`, a narrowed
+  `docs/agents/` rule in `.gitignore`, and two new files,
+  `docs/agents/issue-tracker.md` and `docs/agents/domain.md`. No production
+  code, test, or other document changed.
+- Context: the owner ran the setup-matt-pocock-skills skill. The skill assumes a
+  root context file plus a decision-record directory, and keeps its vendor
+  templates under `docs/agents/`. This repo already owns that ground in the
+  "Document Roles (SoC contract)" table and the anti-duplication rule, so
+  `domain.md` points at those owners instead of seeding a second rule source.
+- Owner decision: issues are findings. `issue-tracker.md` records `FINDINGS.md`
+  as the tracker and links to `AGENTS.md` "Finding-Writing Rules" for the format
+  rather than restating it. The `triage` skill is not installed, so no label
+  vocabulary is written.
+- Deviation, recorded rather than silent: `docs/agents/` was already gitignored,
+  and its comment said adoption "belongs in its own commit". This is that
+  commit, and the change is narrow -- `docs/agents/*` still hides the vendor
+  seed templates, and only the two repo-authored files are trackable.
+  Un-ignoring the templates would put a layout this repo rejects back into the
+  repository as a second source of truth.
+- Implementation note: docsync's DOC001 resolves backticked `.md` references
+  against `git ls-files`, so an ignored path can never resolve and the two files
+  must be staged before `AGENTS.md` links to them. Neither file names a literal
+  root context path.
+- Validation: `pytest -q` -- **990 passed**; `pre-commit run --all-files` -- all
+  hooks passed; `doc_state_sync.py --check` -- exit 0 with only the expected
+  root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: the design-system plan at `implementation_plan.md`
+  (untracked) consumes these files. Its Phase 1 needs revision, because the
+  owner's layout ruling for the unmatched report is side-by-side rather than
+  stacked; Section 3 carries the refinement still owed.
+
+### 2026-09-10 - Add isolated Results script regression coverage
+
+- Scope: owner-requested coverage review and tests for Spotlight and leaderboard
+  interactions. Sampling is server-owned and already covered by the route test.
+- Implementation: six isolated Chromium tests run unmodified production scripts
+  with a controlled clock. Cover rotation wraparound, late and failed hydration,
+  reduced motion, numeric sorting with absent metrics, ranks and accessible
+  selection, and hover delay/cancellation plus keyboard tooltip dismissal.
+  CI runs this suite after installing browsers and before the frontend gate.
+- Validation: six browser tests passed; `pytest -q`: **974 passed**;
+  all pre-commit hooks passed. Documentation integrity and whitespace checks
+  passed after the final log update.
+  No application changes or dependency additions. Owner authorized committing
+  this coverage and the README refresh together; pushing is not part of this step.
+- **Later same-day test-count addendum:** the WP-7 current-batch entry above
+  records the subsequent code change and owns its implementation details. Its
+  full-suite result is `pytest -q` -- **986 passed**. The earlier 974 result
+  in this entry remains point-in-time evidence; this pointer supplies the
+  later same-date count to docsync's live-side-first authority order.
+
+### 2026-09-10 - Refresh the product README against the current implementation
+
+- Scope: owner-requested README refresh while the owner handles PR #227
+  integration. No application changes or Git history operations.
+- Implementation: describe current navigation, Results/Spotlight, Heatmap
+  statistics and export limits, progress UI, and the remaining Bootstrap
+  Unmatched report. Replace stale test/coverage figures with the live CI badge;
+  shorten the file inventory and link to maintained architecture and work orders.
+  Correct virtualenv installs and the init_db.py environment requirement.
+- Related pointers: DEVELOPMENT now accurately distinguishes the Chromium
+  matrix from the Firefox canary; CONTRIBUTING delegates setup to README.
+- Validation: source-checked against templates, routes, frontend scripts,
+  dependency pins, workflow configuration and deployment files. All 42 local
+  Markdown links and anchors, pre-commit hooks, documentation integrity and
+  whitespace checks passed.
+  Owner subsequently authorized committing this refresh with the Results tests.
+
+### 2026-09-10 - Refine Heatmap contrast and Results interaction motion
+
+- Scope: owner follow-up on Heatmap styling, duplicate Results Top control,
+  delayed Spotify hints, sorting motion and page-loading jank.
+- Implementation: owner-refined sunken light-mode Heatmap frame with darker
+  warm-neutral empty cells (`#c8bfad`); uppercase Input Mono
+  Narrow toolbar with primary New search; supporting label grows from 12px
+  to 15px in Input Mono. Results retains only the side-rail Top control.
+  Spotify links reveal a shared hint after 450ms hover, immediately on focus,
+  and dismiss on Escape, blur or scrolling. Ranking changes interpolate row
+  positions for 280ms, with immediate reduced-motion updates. Export clones
+  clear transient row animations.
+- Diagnosis: delayed page_motion.js reproduced a visible-to-transparent flash
+  in Chromium and Firefox before DOM readiness. CSS now starts entry at first
+  styled paint; the delayed-script probe no longer reproduces the opacity dip.
+  The initial header clarification was interpreted as viewport-fixed. The
+  owner's later screenshot identified that persistent visibility as the
+  unwanted behavior. The header now occupies document flow and scrolls out of
+  view; duplicate body clearance is removed and the sticky rail uses its own gap.
+- Export inspection: Heatmap uses a separate hand-drawn canvas with older
+  headline/layout rules. That visual mismatch remains; the working export is
+  preserved in this pass. Results export is unchanged apart from suppressing
+  temporary row motion in its clone.
+- Validation: `pytest -q` -- **974 passed**. The full frontend gate passed
+  25 checks in 45 runs. Additional Chromium and Firefox probes covered hover
+  delay, dismissal, rapid sorting, reduced motion, scroll stability, header
+  scroll-away, both-theme empty-cell fills and responsive Heatmap geometry.
+  Firefox CSV/JPEG checks passed at desktop and mobile widths in both themes.
+  Evidence: `scratch/pressure-verify-final.txt`, `scratch/pressure-extra-final.txt`
+  and screenshots. Final staged validation passes every hook, including
+  generated-CSS drift and documentation sync. Owner visual
+  review approved the result and authorized a safe push to PR #227. The pre-push
+  sweep reconciled stale design overrides with the shipped composition. This
+  remains an owner-directed side-task, not a new work package.
+
 ### 2026-09-09 - Refine Results consistency and restore navigation continuity
 
 - Scope: owner-requested UI consistency and remediation of local Heatmap
