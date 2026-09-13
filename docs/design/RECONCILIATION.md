@@ -515,7 +515,7 @@ What ships, verified 2026-09-12 in `templates/unmatched.html` and
   on the other two.
 - **The grid is not three columns.** The panel tracks are authored in
   `static/css/unmatched.css`, keyed on the rendered panel count: one column below
-  1024px, two above it, never three. Section 16 records why. See also section 13
+  1280px, two from 1280px, never three. Section 16 records why. See also section 13
   on the measure these panels sit within.
 
 The purple emphasis the snapshot put on the count now lives only on the fix
@@ -600,7 +600,7 @@ Sites: `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.m
 Phase 1 design annex, and the `gridColumns` pin in `check_unmatched_report` in
 `scripts/dev/frontend_gate.py`.
 
-What ships: one column below 1024px, two above it, never three. With three
+What ships: one column below 1280px, two from 1280px, never three. With three
 reasons the second panel spans both rows and the third sits directly under the
 first, so a short first panel does not leave a hole. Side-by-side is unchanged;
 the owner's 2026-09-11 ruling was about stacking, and this is not a step towards
@@ -614,6 +614,17 @@ at both 1536px and 1920px -- the same width that made three-up unreadable at
 measured 453px at 1024px and 686px at 1536px, against the Results table's 608px
 and 920px. Only raising the 90rem cap would make three panels workable, and that
 is a shared value the gate pins, so it is not changed here.
+
+**Superseded again -- two panels start at 1280px, not 1024px (owner ruling,
+2026-09-13).** At 1024px each of two panels is about 453px wide. The album
+column is then 140-156px, and the Results-sized cover (Superseded 3) takes most
+of it: the album title measured 20-36px and broke into columns of two or three
+letters. The old 44px cover left only 48-64px, so the defect predates the cover
+ruling; that ruling made it plain. From 1024px to 1279px each panel now takes
+the full width, and the title gets 354-473px. At 1280px it gets 103-119px. The
+gate's profiles are 390px and 1280px, so none of them saw 1024px;
+`check_unmatched_report` now sweeps 1024px, 1279px and 1280px and requires at
+least 96px of title width.
 
 **Superseded 3 -- the artwork size.** Earlier state: a fixed 40px cover below
 768px and 44px above it, smaller than the Results row's cover. The owner chose

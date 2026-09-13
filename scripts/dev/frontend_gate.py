@@ -2660,6 +2660,60 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
     return failures
 
 
+#: Narrowest window at which two unmatched panels share a row. Below it each
+#: panel takes the full width. Owner ruling, 2026-09-13: at 1024px two panels
+#: left the album title 20-36px beside a Results-sized cover.
+UNMATCHED_TWO_PANEL_MIN = 1280
+
+#: Widths either side of the two-panel breakpoint, and the old breakpoint. None
+#: of the gate's profiles lands here, which is how the 1024px defect shipped.
+UNMATCHED_SWEEP_WIDTHS = (1024, UNMATCHED_TWO_PANEL_MIN - 1, UNMATCHED_TWO_PANEL_MIN)
+
+#: Least width an album title may get beside its cover. At 1280px two panels
+#: give 103-119px; the defect gave 20-36px.
+UNMATCHED_MIN_TITLE_WIDTH = 96
+
+
+def _unmatched_panel_width_sweep(page) -> list[str]:
+    """Resize across the two-panel breakpoint and check the album title's room.
+
+    Restores the original viewport before returning, so later checks on the
+    same page are unaffected.
+    """
+    failures = []
+    original = page.viewport_size
+    try:
+        for width in UNMATCHED_SWEEP_WIDTHS:
+            page.set_viewport_size({"width": width, "height": original["height"]})
+            # Two frames: one for layout, one for the scale ResizeObserver.
+            page.evaluate(
+                "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
+            )
+            sweep = page.evaluate(
+                """() => ({
+                    columns: getComputedStyle(document.querySelector('.unmatched-groups'))
+                        .gridTemplateColumns.split(' ').length,
+                    titles: [...document.querySelectorAll('.unmatched-group')].map(group =>
+                        group.querySelector('tbody tr .album-info').getBoundingClientRect().width),
+                })"""
+            )
+            expected_columns = 2 if width >= UNMATCHED_TWO_PANEL_MIN else 1
+            if sweep["columns"] != expected_columns:
+                failures.append(
+                    f"unmatched report at {width}px has {sweep['columns']} panel "
+                    f"columns, expected {expected_columns}"
+                )
+            narrowest = min(sweep["titles"])
+            if narrowest < UNMATCHED_MIN_TITLE_WIDTH:
+                failures.append(
+                    f"unmatched album title at {width}px is {narrowest:.0f}px wide, "
+                    f"expected at least {UNMATCHED_MIN_TITLE_WIDTH}px"
+                )
+    finally:
+        page.set_viewport_size(original)
+    return failures
+
+
 def check_unmatched_report(page, base_url: str) -> list[str]:
     """Exercise the populated report contract and its ten-row disclosure."""
     job_id = create_job(
@@ -2838,10 +2892,12 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
             "expanded": "false",
             "plays": "29",
             "pageMaxWidth": "1440px",
-            # Two panels share a row above 1024px, never three: the 90rem page
+            # Two panels share a row from 1280px, never three: the 90rem page
             # cap holds a third track to about 448px, the width that made
             # three-up unreadable in the first place.
-            "gridColumns": 2 if page.viewport_size["width"] >= 1024 else 1,
+            "gridColumns": 2
+            if page.viewport_size["width"] >= UNMATCHED_TWO_PANEL_MIN
+            else 1,
             "headingFirstTag": "H1",
             "usernameFontStyle": "normal",
             "usernameMatchesHeadlineColor": True,
@@ -2939,7 +2995,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
         group_tops = page.locator(".unmatched-group").evaluate_all(
             "groups => groups.map(g => Math.round(g.getBoundingClientRect().top))"
         )
-        if page.viewport_size["width"] >= 1024:
+        if page.viewport_size["width"] >= UNMATCHED_TWO_PANEL_MIN:
             if len(group_tops) >= 2 and group_tops[0] != group_tops[1]:
                 failures.append(
                     "unmatched reports are not arranged side-by-side on desktop"
@@ -3068,6 +3124,8 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "unmatched report back-to-top did not collapse the panel: "
                     f"{collapsed_by_top!r}"
                 )
+
+        failures.extend(_unmatched_panel_width_sweep(page))
     finally:
         page.unroute(spotlight_pattern, fulfill_spotlight)
         delete_job(job_id)

@@ -17,14 +17,21 @@
    and refuses to shrink below its content, which is how a fixed table inside a
    grid track pushes the document into horizontal scroll.
 
-   One track below 1024px, two above it, and never three -- see the note below
-   the rule for why three is unreachable at the shipped page cap. Side-by-side is
-   unchanged; what moved is how many panels share a row. */
+   One track below 1280px, two from 1280px, and never three -- see the note
+   below the rule for why three is unreachable at the shipped page cap.
+   Side-by-side is unchanged; what moved is how many panels share a row.
+
+   Why 1280px and not 1024px (owner ruling, 2026-09-13): each of two panels is
+   about 453px wide at 1024px. The four-column table then leaves the album
+   column 140-156px, and the Results-sized cover takes most of it -- the title
+   measured 20-36px and broke into columns of two or three letters. At 1280px
+   the title gets 103-119px. The frontend gate sweeps 1024px, 1279px and 1280px
+   because none of its profiles lands between them. */
 .unmatched-groups {
     grid-template-columns: minmax(0, 1fr);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
     .unmatched-groups:not([data-panels="1"]) {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -37,9 +44,11 @@
    defect rather than fixing it. Two tracks give 453px at 1024px and 686px at
    1600px, against the Results table's 609px and 922px.
 
-   Raising the promotion width is therefore not available as a fix; only raising
-   the page cap would be, and that is a shared design-system value the frontend
-   gate pins. Recorded rather than worked around.
+   Raising the promotion width is therefore not available as a fix for three
+   panels; only raising the page cap would be, and that is a shared
+   design-system value the frontend gate pins. Recorded rather than worked
+   around. (Raising it for two panels, to 1280px, is the fix above: it trades
+   a narrow two-up row for a full-width one.)
 
    Three panels in two tracks would leave a hole: the first row is as tall as its
    taller panel, so a short first panel sits above empty space until the third
@@ -48,7 +57,7 @@
    `1fr` because a spanning item's extra height is given to flexible tracks first,
    which keeps the first row at the first panel's own height. DOM order, and so
    tab order, stays below_threshold, release_scope, no_spotify_match. */
-@media (min-width: 1024px) {
+@media (min-width: 1280px) {
     .unmatched-groups[data-panels="3"] {
         grid-template-rows: auto 1fr;
     }

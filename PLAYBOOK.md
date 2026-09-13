@@ -918,8 +918,9 @@ non-current operational logs. Older dated entries live in
   tokens in `templates/results.html` were deleted, measured render-neutral at
   four viewports with the compiled sheet unchanged. Measured after, on the
   threshold panel: 12px row padding at every width, the album column widest at
-  every width, no document overflow anywhere. Its tightest case is 1024px, where
-  that column is 140px -- readable, but the narrowest the page gets.
+  every width, no document overflow anywhere. Its tightest case was 1024px, where
+  that column was 140px. That was not readable once the cover took its share:
+  see the 2026-09-13 breakpoint deviation below.
 - Inspection round, screenshots at 1440px in both themes and at 390px, found
   what no check covered, all fixed in one batch: the metric header clipped to
   "PLAYS / TRA"; the threshold metric ellipsized to "7 plays ..."; a rank column
@@ -947,6 +948,14 @@ non-current operational logs. Older dated entries live in
     names utilities, so Tailwind drops two dead rules; `.unmatched-page` no
     longer restates the `.results-page` width; the gate's unused cover fields
     are gone.
+  - Two panels now share a row from 1280px, not 1024px (owner ruling,
+    2026-09-13). A Playwright pass at 1024px found album titles 20-36px wide,
+    broken into columns of two or three letters beside the Results-sized cover.
+    From 1024px to 1279px a panel now takes the full width. The gate's profiles
+    never land between 390px and 1280px, so `check_unmatched_report` now sweeps
+    1024px, 1279px and 1280px for the panel count and a 96px title floor. The
+    sweep failed at 1024px and 1279px on every profile before the CSS change and
+    passes after it.
   - The untracked `docs/superpowers/plans/2026-09-12-batch21-phase2-design-record-reconciliation.md`,
     corrected at the start of this work, was removed from disk outside this
     session and was never committed, so its corrections are lost with it.
@@ -954,7 +963,7 @@ non-current operational logs. Older dated entries live in
     own side-task entry, "Documentation reconciled to the shipped unmatched
     page", because they are the design-record reconciliation the Phase 2 plan
     classes as side tasks. `RECONCILIATION.md` section 16 belongs to this entry.
-- Gate changes: `check_unmatched_report` expects two tracks above 1024px, reads
+- Gate changes: `check_unmatched_report` expects two tracks from 1280px, reads
   covers numerically, and newly measures row padding, the column budget's shape,
   document-level overflow, clipped cell content and 44px coarse-pointer
   controls, and now also runs on the wide touch profile. The clipping check
