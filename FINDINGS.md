@@ -2236,6 +2236,60 @@ Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 
+### F-B21-60: the artist spotlight card breaks Spotify's content guidelines
+
+Spotify's design guidelines ("Using our content",
+https://developer.spotify.com/documentation/design#using-our-content) forbid
+cropping artwork, putting images or text over it, animating it, and using
+Spotify metadata without the Spotify logo or icon and a link back to Spotify.
+The results page's artist spotlight (`templates/results.html`
+`artist-spotlight-card`, `static/css/results.css` `.spotlight-card-bleed`,
+`static/js/results-spotlight.js`) breaks these rules. The app uses the Web API
+under Spotify's terms, so this is a compliance defect, not a taste question.
+
+- **Crop:** Spotify artist photos are square, but the card is short and wide.
+  `object-cover` cuts off the top and bottom.
+- **Overlay:** `.spotlight-scrim-top` and `.spotlight-scrim-bottom` put
+  gradients and text (the "Artist Spotlight" title, rank, name and play time)
+  over the photo.
+- **Animation:** every 7 seconds `renderCandidate` fades the whole card,
+  photo included, to 15% opacity and swaps the artist.
+- **Album art fallback:** with no artist photo, the card shows the first
+  album's cover, cropped and overlaid (`spotlight_fallback_img`).
+- **Attribution:** the app shows no Spotify logo or icon anywhere. The
+  spotlight's link to Spotify is a plain arrow, shown only after hydration.
+  Results rows already link each album to Spotify, but carry no Spotify icon.
+
+Owner ruling, 2026-09-13, on the redesign:
+- Show the artist photo whole, square, with 4px corners at small sizes and
+  8px at large sizes. Nothing is drawn on top of it.
+- Put the name, rank and play time beside or below the photo.
+- Change artists without animating the photo. An instant swap is acceptable;
+  reduced motion keeps the first artist, as today.
+- **There is no text-only card and no album-art fallback.** A candidate with
+  no Spotify artist photo is skipped in the rotation. If no candidate has a
+  photo, the card is not shown at all. That includes the server render: do
+  not render the card until an artist photo is known.
+- Add the official Spotify icon, 21px or larger, linking to the artist on
+  Spotify. Use Spotify's asset as supplied, not a redrawn glyph.
+- Add the same icon next to the album links on results rows, or once as
+  attribution for the list, whichever the guidelines' placement rules allow.
+
+To check during the fix:
+- whether the JPEG export captures Spotify artwork in a way the same rules
+  forbid
+- the gap where titles shown next to Spotify artwork are Last.fm spellings,
+  not Spotify's metadata
+
+Tests: route tests assert that the card is absent when no candidate has a photo
+and that `spotlight_fallback_img` is gone. The frontend gate checks the photo
+at its natural aspect ratio, no element overlapping the photo, no opacity
+change on the photo during rotation, and the icon's rendered size and link
+target.
+
+Status: open (P1), owner ruling recorded. Source: Spotify API review,
+2026-09-13.
+
 ## P2 -- Scaling roadmap
 
 ### F-B21-54: PR 227 still reports test assertions through a separate scanner
