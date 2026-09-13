@@ -189,8 +189,11 @@ Spotify limiter, with 429 retry) and calls `on_fallback(status)`.
 - A live call confirmed that `GET /v1/albums/{id}` returns the same object
   shape as the batch endpoint.
 
+Batch 22 (enrichment providers) removes the single-provider dependency this
+finding describes: Deezer answers when Spotify cannot.
+
 Status: resolved 2026-09-13 (fallback implemented). The exemption itself stays
-outside the app's control. Source: Batch 22 planning, 2026-09-13.
+outside the app's control. Source: Batch 23 planning, 2026-09-13.
 
 ### F-B21-58: the unmatched section title says "thresholds", which the copy rules forbid
 
@@ -2274,6 +2277,9 @@ Owner ruling, 2026-09-13, on the redesign:
   Spotify. Use Spotify's asset as supplied, not a redrawn glyph.
 - Add the same icon next to the album links on results rows, or once as
   attribution for the list, whichever the guidelines' placement rules allow.
+- Batch 22 adds Deezer as a fallback provider, so a row's artwork and link may
+  come from either service. The attribution follows the album's own provider,
+  under that provider's rules.
 
 To check during the fix:
 - whether the JPEG export captures Spotify artwork in a way the same rules

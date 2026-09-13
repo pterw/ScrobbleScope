@@ -1,9 +1,12 @@
-# Batch 22 (queued): Spotify listeners import the Extended Streaming History export
+# Batch 23 (queued): Spotify listeners import the Extended Streaming History export
 
 Status: approved by the owner on 2026-09-13, **not started**. Build begins
-when Batch 21 closes or the owner opens Batch 22, on its own branch; PLAYBOOK
-Section 3 must name that branch first, or the worktree guard raises WT003.
-Promote this file to a root `BATCH22_DEFINITION.md` when the batch opens.
+after Batch 22 (enrichment providers,
+`docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`), on its
+own branch; PLAYBOOK Section 3 must name that branch first, or the worktree
+guard raises WT003. Promote this file to a root `BATCH23_DEFINITION.md` when
+the batch opens. Batch 22 comes first by owner ruling on 2026-09-13: this
+batch then builds on the provider interface and on corrected release years.
 
 ## Context
 
@@ -294,7 +297,8 @@ already holds, so Last.fm and Spotify users get the same thing.
   and caps search at 10 results. Both work for this app today, and this
   source raises traffic through `process_albums`. The app is a Development Mode
   app whose endpoint removals Spotify postponed with no new date. FINDINGS
-  F-B21-59's single-album fallback landed on 2026-09-13, before this batch.
+  F-B21-59's single-album fallback landed on 2026-09-13, and Batch 22 adds
+  Deezer behind Spotify before this batch opens.
   Never create a new Spotify Client ID for this work: a new one gets the
   removals at once.
 - **Privacy:**

@@ -202,13 +202,21 @@ See FINDINGS F-DOCSYNC-3.
   the cover takes the Results size, and the threshold panel is titled "Not
   enough listening", which resolves F-B21-58.
 
-- **Queued after Batch 21 -- Batch 22, Spotify export import:** approved by the
+- **Queued after Batch 21 -- Batch 22, enrichment providers:** approved by the
+  owner on 2026-09-13 and not started. Album enrichment moves behind a
+  provider contract, Deezer answers when Spotify cannot, and MusicBrainz
+  corrects a reissue year to the album's original release year while the
+  results page is open. The plan is
+  `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`.
+- **Queued after Batch 22 -- Batch 23, Spotify export import:** approved by the
   owner on 2026-09-13 and not started. Spotify listeners upload the Extended
   Streaming History zip; there is no Spotify login, because Spotify caps apps
   without extended access at 5 allowlisted users. The plan is
-  `docs/superpowers/plans/2026-09-13-batch22-spotify-export-import.md`. Do not
-  start it on `test`: it opens on its own branch, named here first, or the
-  worktree guard raises WT003. F-B21-59 records the Spotify API risk it raises.
+  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`.
+  Neither batch starts on `test`: each opens on its own branch, named here
+  first, or the worktree guard raises WT003. F-B21-59 records the Spotify API
+  risk they raise, and F-B21-60 the artwork rules Batch 22's provider work
+  must satisfy.
 
 - **Owed before Phase 2:** none. Every commit this bullet previously named has
   landed: the F-B21-51 slice-1 refactor as `95e0896`, the design-system plan's own
