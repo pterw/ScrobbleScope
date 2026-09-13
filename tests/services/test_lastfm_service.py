@@ -165,6 +165,46 @@ async def test_check_user_exists_missing_registration_data():
         assert result["registered_year"] is None
 
 
+@pytest.mark.asyncio
+async def test_check_user_exists_propagates_transient_failure():
+    """
+    GIVEN a transient failure while checking user existence (timeout, rate
+    limit, malformed response -- anything short of a definitive 200/404)
+    WHEN check_user_exists is called
+    THEN it must not report exists=True. Both /validate_user and the
+    heatmap-loading validation path treat exists=True as a verified account
+    and clear a username input to green; silently converting "we could not
+    check" into "confirmed valid" showed a false green checkmark for random
+    usernames whenever the lookup itself failed (F-B22-1).
+    """
+    with patch("aiohttp.ClientSession.get", side_effect=TimeoutError("boom")):
+        with pytest.raises(TimeoutError):
+            await check_user_exists("some_user")
+
+
+@pytest.mark.asyncio
+async def test_check_user_exists_rejects_non_404_error_status():
+    """
+    GIVEN Last.fm answers with an error status other than 404 (429 rate
+    limit, 500, etc.)
+    WHEN check_user_exists is called
+    THEN it must not report exists=True; the caller cannot tell that answer
+    apart from a genuinely verified account.
+    """
+    with patch("aiohttp.ClientSession.get") as mock_get:
+        mock_response = AsyncMock()
+        mock_response.status = 429
+        # raise_for_status is synchronous on aiohttp.ClientResponse; AsyncMock
+        # would otherwise auto-mock it as async and swallow the side effect.
+        mock_response.raise_for_status = MagicMock(
+            side_effect=Exception("429 Too Many Requests")
+        )
+        mock_get.return_value.__aenter__.return_value = mock_response
+
+        with pytest.raises(Exception, match="429"):
+            await check_user_exists("rate_limited_user")
+
+
 # --- progress_cb tests for fetch_all_recent_tracks_async ---
 
 
