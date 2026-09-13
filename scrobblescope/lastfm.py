@@ -46,27 +46,26 @@ async def check_user_exists(username):
             "exists": True,
             "registered_year": _extract_year(cached_response),
         }
-    # If not cached, proceed with the request
+    # If not cached, proceed with the request. Every caller already wraps
+    # this in its own try/except (F-B22-1): a raised exception here reaches
+    # the caller as "validation unavailable", which is the correct signal
+    # for a rate limit, timeout, or malformed response. Reporting exists=True
+    # instead would show a confirmed-valid username for input Last.fm never
+    # actually verified.
     async with create_optimized_session() as session:
-        try:
-            async with session.get(url, params=params) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    set_cached_response(url, data, params)
-                    return {
-                        "exists": True,
-                        "registered_year": _extract_year(data),
-                    }
-                elif resp.status == 404:
-                    return {"exists": False, "registered_year": None}
-                else:
-                    # let the error propagate for other status codes
-                    resp.raise_for_status()
-                    return {"exists": False, "registered_year": None}
-        except Exception as e:
-            logging.error(f"Error checking user existence: {e}")
-            # return exists=True to continue processing - we'll get a more specific error later
-            return {"exists": True, "registered_year": None}
+        async with session.get(url, params=params) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                set_cached_response(url, data, params)
+                return {
+                    "exists": True,
+                    "registered_year": _extract_year(data),
+                }
+            elif resp.status == 404:
+                return {"exists": False, "registered_year": None}
+            else:
+                resp.raise_for_status()
+                return {"exists": False, "registered_year": None}
 
 
 async def check_profile_is_public(username: str) -> bool:

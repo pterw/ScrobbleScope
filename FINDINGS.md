@@ -5,7 +5,7 @@ Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
 into WP-3. The WP-7 extension is implemented and refined, and WP-8 awaits owner
 direction.
 PLAYBOOK Section 3 owns the current work order.
-1034 tests across 43 test modules.
+1036 tests across 43 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -143,9 +143,31 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 
 ## Resolved this batch
 
-Nothing yet. Batch 21's resolved findings rotated to
-`docs/history/findings/FINDINGS_ARCHIVE.md` at its close-out on
-2026-09-13, under "Rotated 2026-09-13 (Batch 21 close-out)".
+### F-B22-1: username validation fails open on any transient error
+
+**Status:** Resolved.
+**Source:** owner manual testing, 2026-09-13, after WP-0.
+
+`check_user_exists` (`scrobblescope/lastfm.py`) caught every exception from
+its Last.fm `user.getinfo` call -- timeouts, rate limits, malformed bodies,
+any non-200/404 status via `raise_for_status()` -- and returned
+`{"exists": True, "registered_year": None}` instead of propagating the
+failure. `/validate_user`'s blur check and `_validate_heatmap_user` both read
+`exists` as a verified account and clear the username field to a green
+checkmark, so a transient Last.fm failure (most reachable by rapid
+successive checks tripping Last.fm's own rate limit) showed as a confirmed
+valid username for arbitrary input, including strings that are not
+registered accounts. Last.fm's own privacy check (`check_profile_is_public`)
+was not affected; it has no equivalent fail-open branch.
+
+Fixed by letting the exception propagate. Every caller already had a
+try/except around the call: `/validate_user` and `_validate_heatmap_user`
+now correctly answer 503 "Validation service unavailable. Try again."
+instead of a false positive; `results_loading` already treated a failed
+registration-year check as non-fatal ("proceeding without it") and is
+unaffected. Regression tests:
+`tests/services/test_lastfm_service.py::test_check_user_exists_propagates_transient_failure`
+and `::test_check_user_exists_rejects_non_404_error_status`.
 
 ## P1 -- Next batch candidates
 
