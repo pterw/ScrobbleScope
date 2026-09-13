@@ -143,6 +143,55 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 
 ## Resolved this batch
 
+### F-B21-59: Spotify's February 2026 changelog removes an endpoint the pipeline depends on
+
+`fetch_spotify_album_details_batch` in `scrobblescope/spotify.py` calls Get
+Several Albums (`GET /v1/albums?ids=`), and `search_for_spotify_album_id`
+calls Search. Spotify's February 2026 Web API changelog lists Get Several
+Albums as removed and caps Search at 10 results. The changelog also removes
+fields: album `label`, `popularity` and `external_ids`. The package reads none
+of those fields, and its searches ask for at most 3 results, so only the batch
+call is exposed.
+
+A live probe with the app's client credentials on 2026-09-13 returned HTTP 200
+for `GET /v1/albums?ids=`, `GET /v1/albums/{id}`, and Search with `limit=20`
+(20 items). The app is not broken today.
+
+The cause is known. The owner confirmed on 2026-09-13 that the app is in
+Development Mode. Spotify applied the new rules to new Development Mode apps on
+2026-02-11. Existing ones got the Premium requirement, the five-user cap and
+the one-Client-ID limit on 2026-03-09, but the endpoint removals were
+postponed with no new date
+(https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security).
+The exemption can therefore end at any time, with notice only on Spotify's
+developer blog. When it ends, every album search loses its release dates, and
+every album lands in the unmatched report.
+
+Two actions keep the exemption and must be avoided: creating a new Spotify app
+or Client ID, which gets the new rules at once, and rotating the secret without
+cause.
+
+Fix, **required** (owner ruling, 2026-09-13), implemented the same day.
+`fetch_spotify_album_details_batch` in `scrobblescope/spotify.py` treats a
+status in `BATCH_ENDPOINT_GONE_STATUSES` (403, 404, 410) as the endpoint being
+gone. It then fetches each album through the new
+`fetch_spotify_album_details_single` (`GET /v1/albums/{id}`, under the same
+Spotify limiter, with 429 retry) and calls `on_fallback(status)`.
+- A single album that is unavailable is left out; it does not fail the batch.
+- `_run_spotify_batch_detail_phase` in `scrobblescope/orchestrator.py` logs the
+  fallback once per job.
+- 401 and 5xx do not trigger the fallback: single calls would fail on the same
+  token, and an outage is no reason to multiply calls.
+- Tests in `tests/services/test_spotify_service.py` and
+  `tests/services/test_orchestrator_fetch_spotify.py` pin 403 and 404, a
+  single-album 429 retry, a missing album, 500 staying one call, and one log
+  line per job. Each failed when its guarded behaviour was mutated.
+- A live call confirmed that `GET /v1/albums/{id}` returns the same object
+  shape as the batch endpoint.
+
+Status: resolved 2026-09-13 (fallback implemented). The exemption itself stays
+outside the app's control. Source: Batch 22 planning, 2026-09-13.
+
 ### F-B21-58: the unmatched section title says "thresholds", which the copy rules forbid
 
 `scrobblescope/unmatched.py` titles the `below_threshold` panel "Below your
@@ -2186,45 +2235,6 @@ rather than borrowing an upstream one.
 Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
-
-### F-B21-59: Spotify's February 2026 changelog removes an endpoint the pipeline depends on
-
-`fetch_spotify_album_details_batch` in `scrobblescope/spotify.py` calls Get
-Several Albums (`GET /v1/albums?ids=`), and `search_for_spotify_album_id`
-calls Search. Spotify's February 2026 Web API changelog lists Get Several
-Albums as removed and caps Search at 10 results. The changelog also removes
-fields: album `label`, `popularity` and `external_ids`. The package reads none
-of those fields, and its searches ask for at most 3 results, so only the batch
-call is exposed.
-
-A live probe with the app's client credentials on 2026-09-13 returned HTTP 200
-for `GET /v1/albums?ids=`, `GET /v1/albums/{id}`, and Search with `limit=20`
-(20 items). The app is not broken today.
-
-The cause is known. The owner confirmed on 2026-09-13 that the app is in
-Development Mode. Spotify applied the new rules to new Development Mode apps on
-2026-02-11. Existing ones got the Premium requirement, the five-user cap and
-the one-Client-ID limit on 2026-03-09, but the endpoint removals were
-postponed with no new date
-(https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security).
-The exemption can therefore end at any time, with notice only on Spotify's
-developer blog. When it ends, every album search loses its release dates, and
-every album lands in the unmatched report.
-
-Two actions keep the exemption and must be avoided: creating a new Spotify app
-or Client ID, which gets the new rules at once, and rotating the secret without
-cause.
-
-Fix shape, **required** (owner ruling, 2026-09-13): when the batch call fails
-with any status other than 200 or 429, fall back to single
-`GET /v1/albums/{id}` calls. Those calls go through the existing Spotify limiter
-and semaphore and return the same album object, so the details phase and the
-cache writes stay the same. Log the fallback once per job. The Postgres cache
-limits the extra calls. Tests pin both a 403 and a 404 from the batch call.
-Batch 22 (the Spotify export import) raises traffic through this path, so the
-fallback lands before that batch opens.
-
-Status: open (P1). Source: Batch 22 planning, 2026-09-13.
 
 ## P2 -- Scaling roadmap
 

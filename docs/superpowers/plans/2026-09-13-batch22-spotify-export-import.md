@@ -294,7 +294,7 @@ already holds, so Last.fm and Spotify users get the same thing.
   and caps search at 10 results. Both work for this app today, and this
   source raises traffic through `process_albums`. The app is a Development Mode
   app whose endpoint removals Spotify postponed with no new date. FINDINGS
-  F-B21-59 makes the single-album fallback required before this batch opens.
+  F-B21-59's single-album fallback landed on 2026-09-13, before this batch.
   Never create a new Spotify Client ID for this work: a new one gets the
   removals at once.
 - **Privacy:**

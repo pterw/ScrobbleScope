@@ -331,6 +331,19 @@ async def _run_spotify_batch_detail_phase(
         for i in range(0, len(valid_spotify_ids), batch_size)
     ]
     batch_semaphore = asyncio.Semaphore(SPOTIFY_BATCH_CONCURRENCY)
+    fallback_reported = False
+
+    def report_fallback(status):
+        # Every batch in a job meets the same removed endpoint, so one line
+        # says it; a line per batch would bury the rest of the job's log.
+        nonlocal fallback_reported
+        if fallback_reported:
+            return
+        fallback_reported = True
+        logging.warning(
+            f"Spotify Get Several Albums answered {status}; job {job_id} is "
+            "fetching album details with single-album calls (F-B21-59)."
+        )
 
     async def fetch_batch_with_semaphore(batch_ids):
         return await fetch_spotify_album_details_batch(
@@ -338,6 +351,7 @@ async def _run_spotify_batch_detail_phase(
             batch_ids,
             token,
             semaphore=batch_semaphore,
+            on_fallback=report_fallback,
         )
 
     batch_tasks = [fetch_batch_with_semaphore(batch) for batch in batch_groups]

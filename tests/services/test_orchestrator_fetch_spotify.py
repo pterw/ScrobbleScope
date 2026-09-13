@@ -139,6 +139,43 @@ async def test_fetch_spotify_misses_malformed_album_details():
 
 
 @pytest.mark.asyncio
+async def test_batch_detail_fallback_is_logged_once_per_job(caplog):
+    """
+    GIVEN every Get Several Albums batch in a job falls back to single-album
+        calls (F-B21-59)
+    WHEN _run_spotify_batch_detail_phase runs three batches
+    THEN one warning names the fallback and its status, not one per batch.
+    """
+    from scrobblescope.orchestrator import _run_spotify_batch_detail_phase
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    ids = [f"sp{i}" for i in range(45)]  # 3 batches of up to 20
+
+    async def _fallback_every_batch(
+        session, batch_ids, token, semaphore=None, on_fallback=None
+    ):
+        on_fallback(403)
+        return {}
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            side_effect=_fallback_every_batch,
+        ),
+        caplog.at_level(logging.WARNING),
+    ):
+        await _run_spotify_batch_detail_phase(
+            job_id, MagicMock(), ids, "tok", {}, {}, {}
+        )
+
+    fallback_lines = [
+        record for record in caplog.records if "single-album" in record.getMessage()
+    ]
+    assert len(fallback_lines) == 1
+    assert "403" in fallback_lines[0].getMessage()
+
+
+@pytest.mark.asyncio
 async def test_fetch_spotify_misses_reports_search_progress():
     """
     GIVEN _fetch_spotify_misses searches for 5 Spotify albums
@@ -172,7 +209,7 @@ async def test_fetch_spotify_misses_reports_search_progress():
     # All 5 searches return IDs; batch detail returns minimal data
     spotify_ids = [f"sp{i}" for i in range(5)]
 
-    def _batch_details(session, batch_ids, token, semaphore=None):
+    def _batch_details(session, batch_ids, token, semaphore=None, on_fallback=None):
         return {
             sid: {
                 "release_date": "2025-01-01",
@@ -275,7 +312,7 @@ async def test_fetch_spotify_misses_reports_batch_progress():
     spotify_ids = [f"sp{i}" for i in range(25)]
 
     # Batch detail responses: batch 1 (20 albums), batch 2 (5 albums)
-    def _batch_details(session, batch_ids, token, semaphore=None):
+    def _batch_details(session, batch_ids, token, semaphore=None, on_fallback=None):
         return {
             sid: {
                 "release_date": "2025-01-01",

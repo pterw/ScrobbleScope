@@ -114,6 +114,114 @@ async def test_fetch_spotify_album_details_batch_non_200_returns_empty_dict():
 
     assert result == {}
     assert mock_sleep.await_count == 0
+    # A server error is not an endpoint removal: fetching album by album
+    # would multiply the load on a struggling upstream (F-B21-59).
+    assert session.get.call_count == 1
+
+
+def _single_album_response(album_id):
+    """Return a 200 response for GET /v1/albums/{album_id}."""
+    resp = AsyncMock()
+    resp.status = 200
+    resp.json = AsyncMock(return_value={"id": album_id, "release_date": "2020-01-01"})
+    return resp
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [403, 404])
+async def test_fetch_spotify_album_details_batch_falls_back_to_single_album_calls(
+    status,
+):
+    """
+    GIVEN the Get Several Albums call answers 403 or 404, the status an endpoint
+        Spotify removed from Development Mode apps returns (F-B21-59)
+    WHEN fetch_spotify_album_details_batch runs
+    THEN it fetches each album from GET /v1/albums/{id}, returns the same
+        id-keyed dict, and reports the fallback once through on_fallback.
+    """
+    session = MagicMock()
+    removed = AsyncMock()
+    removed.status = status
+    removed.text = AsyncMock(return_value="endpoint removed")
+
+    def route(url, **kwargs):
+        if url.endswith("/v1/albums"):
+            return make_response_context(removed)
+        return make_response_context(_single_album_response(url.rsplit("/", 1)[1]))
+
+    session.get.side_effect = route
+    on_fallback = MagicMock()
+
+    with (
+        patch(
+            "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+    ):
+        result = await fetch_spotify_album_details_batch(
+            session, ["id_1", "id_2"], "token", retries=2, on_fallback=on_fallback
+        )
+
+    assert result == {
+        "id_1": {"id": "id_1", "release_date": "2020-01-01"},
+        "id_2": {"id": "id_2", "release_date": "2020-01-01"},
+    }
+    single_urls = sorted(
+        call.args[0]
+        for call in session.get.call_args_list
+        if not call.args[0].endswith("/v1/albums")
+    )
+    assert single_urls == [
+        "https://api.spotify.com/v1/albums/id_1",
+        "https://api.spotify.com/v1/albums/id_2",
+    ]
+    on_fallback.assert_called_once_with(status)
+
+
+@pytest.mark.asyncio
+async def test_single_album_fallback_retries_429_and_skips_missing_albums():
+    """
+    GIVEN the batch call is removed, one single-album call answers 429 then 200,
+        and another answers 404
+    WHEN fetch_spotify_album_details_batch runs
+    THEN the rate-limited album is retried and returned, and the missing album
+        is left out rather than failing the batch.
+    """
+    session = MagicMock()
+    removed = AsyncMock()
+    removed.status = 403
+    removed.text = AsyncMock(return_value="endpoint removed")
+    limited = AsyncMock()
+    limited.status = 429
+    limited.headers = {"Retry-After": "1"}
+    missing = AsyncMock()
+    missing.status = 404
+    responses = {
+        "https://api.spotify.com/v1/albums": [removed],
+        "https://api.spotify.com/v1/albums/id_1": [
+            limited,
+            _single_album_response("id_1"),
+        ],
+        "https://api.spotify.com/v1/albums/gone": [missing],
+    }
+
+    def route(url, **kwargs):
+        return make_response_context(responses[url].pop(0))
+
+    session.get.side_effect = route
+
+    with (
+        patch(
+            "scrobblescope.spotify.get_spotify_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+    ):
+        result = await fetch_spotify_album_details_batch(
+            session, ["id_1", "gone"], "token", retries=3
+        )
+
+    assert result == {"id_1": {"id": "id_1", "release_date": "2020-01-01"}}
+    assert mock_sleep.await_count >= 1
 
 
 # ------------------------------------------------------------------ #
