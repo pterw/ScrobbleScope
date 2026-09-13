@@ -183,8 +183,27 @@ See FINDINGS F-DOCSYNC-3.
   directory peer caps, accepted as a deviation and tracked as F-WORKTREE-4,
   not silently. PR #170 merged 2026-08-12 (`5b060a2`), settling the guard and
   docsync sources the audit reads.
-- **Next action:** Begin WP-7 (unmatched page + reason_code) -- WP-0 through WP-5 are done. WP-6 is absorbed into WP-3
-  and ships no commit of its own. WP-7 is next; WP-8 follows it.
+- **Next action:** the WP-7 refinement the owner asked for is implemented and
+  verified, so the earlier note that this work was cut off before completion is
+  discharged. The disclosure step is 25 (was 50), and the back-to-top control
+  now collapses its panel as well as scrolling. `pytest -q` -- **1022 passed**,
+  measured 2026-09-11; the two-engine frontend gate -- 26 checks passed in 47
+  runs across chromium and firefox.
+  One conflict is still open and belongs to the documentation pass: the approved
+  spec `docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`
+  still says "stacked, full-width reason sections", while the owner ruled
+  side-by-side on 2026-09-11 and the shipped page is side-by-side. Correct the
+  spec and this bullet before beginning WP-8, or an agent following them will
+  rebuild the rejected layout. WP-8 starts only on owner direction.
+
+- **Owed before Phase 2:** none. Every commit this bullet previously named has
+  landed: the F-B21-51 slice-1 refactor as `95e0896`, the design-system plan's own
+  move as `c277728`, and the architecture-diagram rebuild as `cc987f5`. When a new
+  commit becomes owed, name it here and keep the naming rather than a count, so the
+  section cannot go silently wrong.
+- **Traversal record:** the design-system plan was traversed exhaustively on
+  2026-09-11; the findings are
+  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
 - **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
   and focused frontend-gate unit coverage pass. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
@@ -599,113 +618,402 @@ non-current operational logs. Older dated entries live in
 - Validation: `pytest -q` -- **922 passed**, 5 warnings. `python scripts/dev/frontend_gate.py` passed all 23 checks in 64 runs across Chromium and Firefox. All 12 pre-commit hooks and `doc_state_sync.py --check` pass.
 - Forward guidance: proceed to WP-7 (unmatched page + reason_code backend fix).
 
+### 2026-09-10 - Unmatched page reconciled after review (Batch 21 WP-7)
+
+- Scope: completed the local WP-7 implementation, review reconciliation, and
+  owner-approved post-commit cover-containment follow-up. The backend contract,
+  backend finding fix, UI rebuild, and final rendering fix remain distinct
+  rollback units.
+- Implementation:
+  - Backend contract (`feat(unmatched): Add stable reason_code to the unmatched contract`, committed as `b3e3e96`):
+    - Added `scrobblescope/unmatched.py` defining canonical reason constants
+      `REASON_RELEASE_SCOPE` and `REASON_NO_SPOTIFY_MATCH`, human category metadata
+      (title, description, badge, fix hint), and pure grouping helper
+      `group_unmatched_albums` with deterministic sorting and fallback for legacy jobs.
+    - Updated `scrobblescope/orchestrator.py` search and release phases to record
+      stable `reason_code` alongside prose reasons on unmatched items.
+    - Updated `scrobblescope/routes.py` `_render_unmatched_page` to group by
+      `reason_code` and pass `reason_metadata` and `reason_counts` to template.
+    - Added unit and adversarial mutation tests in `tests/test_unmatched.py`,
+      `tests/services/test_orchestrator_fetch_spotify.py`,
+      `tests/services/test_orchestrator_helpers.py`,
+      `tests/services/test_orchestrator_fetch_and_process.py`, `tests/test_heatmap.py`,
+      and `tests/test_routes.py`.
+  - Frontend rebuild (`feat(ui): rebuild unmatched page on tailwind`):
+    - Rebuilt `templates/unmatched.html` opting out of legacy CSS; added masthead
+      with editorial headline, purple italic username, and >= 44px navigation
+      actions; summary pill bar; Screen 5 reason cards grid with category badges,
+      Instrument Serif/Gotham counts, semantic table with numbered rows,
+      `unmatched-overflow` client expander for groups with > 10 albums, and
+      single-line 9px uppercase mono-narrow tracking fix line.
+    - Preserved existing pipeline data on each audit row: cover artwork,
+      Spotify destination, and Last.fm play count. Rows without cached album
+      artwork progressively reuse `/api/artist_spotlight`; intersection-based
+      loading and a per-artist request cache avoid eager or duplicate calls.
+    - Post-commit rendering review replaced undeclared `w-10`/`h-10` and
+      `md:w-11`/`md:h-11` utilities with the explicit fixed-size containment
+      pattern used by `results.css`. Covers, portraits, and fallbacks now hold
+      the design-prescribed 40px mobile / 44px desktop square at 4px radius.
+    - Replaced `static/css/unmatched.css` with token-based rules for min-height,
+      surface cards (`--ss-surface-card`), borders, and coarse pointer touch targets.
+    - Implemented keyboard-accessible expander toggle and lazy artist-portrait
+      hydration in `static/js/unmatched.js`.
+    - Completely removed `bootstrap.bundle.min.js` and legacy Bootstrap dependencies.
+    - Added `unmatched.html` to `MIGRATED` in `tests/test_template_shell.py`,
+      `"/unmatched"` to `MIGRATED_PAGES`, and a populated-report browser check
+      in `scripts/dev/frontend_gate.py`. The check drives both expander states
+      and verifies Spotify, play-count, artist-portrait hydration through the
+      existing full-stack route, and computed type-role output.
+    - Corrected category badge and table cell padding to whole scale steps (`py-1`,
+      `py-2`), resolving the `F-B21-52` fractional Tailwind spacing trap on this page.
+    - Recompiled `static/css/tailwind.css`.
+- Deviations discovered while the backend work was still in progress:
+  - **F-B21-56:** the first backend commit left Spotify total-failure detection
+    coupled to the old English reason. The local follow-up checks
+    `REASON_NO_SPOTIFY_MATCH`, retaining prose only as a legacy-job fallback.
+  - **F-B21-1:** review of the touched worker boundary confirmed that event-loop
+    setup could leak an acquired job slot. The local follow-up moves setup into
+    `try...finally` in both album and heatmap workers and nests cleanup so a
+    `loop.close()` failure cannot skip `release_job_slot()`. Both sequence
+    diagrams and adversarial tests move with the fix. This intentionally
+    supersedes the plan's original claim that `heatmap.py` would stay untouched.
+  - **Audit-row enrichment:** the frontend preparation retains cover artwork,
+    Spotify IDs, and play counts already available at both unmatched producer
+    sites. When cached album artwork is absent, the browser progressively uses
+    the existing `/api/artist_spotlight` route. The permanent browser gate and
+    producer tests own that expanded presentation contract.
+  - **Commit boundary:** the fixes above are backend changes discovered after
+    the backend commit. The owner authorized staging and committing on
+    2026-09-10; the non-rewrite path keeps them in a separate fix commit before
+    the independently revertible UI commit. The fix is `ba5f9fe`.
+  - **Rendered cover containment:** visual review after `968eaa0` showed album
+    art expanding to the table's intrinsic width. `tailwind.src.css` disables
+    dynamic spacing and declares no steps 10 or 11, so those template utilities
+    emitted no rules. A computed-style regression check reproduced 302x152px,
+    and the Results-pattern fixed geometry restores 44x44px on desktop.
+- Validation: `pytest -q` -- **986 passed**, 2 warnings across 41 test modules.
+  `scripts/dev/frontend_gate.py` passed all 26 checks in 46 runs
+  across Chromium and the Firefox static-assets canary. The populated-report
+  check covers both expander states, 44px cover containment, and computed type
+  roles. Its focused Chromium loop failed at 302x152px before the remedy and
+  passed afterward; a 2000x1000 rendered capture confirms the repaired page.
+  Targeted WP-7 coverage passed 345 tests; `node --check
+  static/js/unmatched.js` passed. All 10 pre-commit hooks and
+  `doc_state_sync.py --check` pass.
+- Forward guidance: the owner approved the rendering remedy and authorized
+  publication on 2026-09-10. Push to
+  `origin/test`, verify the remote ref, and do not begin WP-8 without direction.
+
+### 2026-09-11 - PR #231 Linux cleanup tests made portable (Batch 21 WP-7)
+
+- Scope: diagnosed the failed Quality Gate on PR #231 and repaired the two
+  worker-cleanup tests without changing production behavior or UI rendering.
+- Root cause: GitHub Actions checked the PR merge commit on Ubuntu, where
+  `asyncio.ProactorEventLoop` is absent. Both new cleanup tests patched that
+  Windows-only attribute unconditionally, so pytest stopped with two
+  `AttributeError` failures after pre-commit had passed.
+- Implementation: both tests now use `patch(..., create=True)` for the
+  platform-specific loop class. Their mocked `run_until_complete` also closes
+  the produced coroutine, eliminating the resource warnings from the cleanup
+  path under test.
+- Pre-commit audit: the hook suite is behaving as configured. It checks Python
+  lint/format, document state, generated Tailwind drift, and worktree alignment;
+  it does not run pytest or emulate Linux APIs. Adding the local Windows suite
+  to pre-commit would still miss this defect, so the repair belongs at the
+  cross-platform test seam rather than as a new hook.
+- Validation: the two focused tests pass both normally and after removing
+  `asyncio.ProactorEventLoop` from the process; `pytest -q` reports **986
+  passed** with no warnings. Final pre-commit, docsync, and remote Quality Gate
+  evidence follow before completion is claimed.
+- Forward guidance: publish this review-fix commit, confirm PR #231 is green,
+  then amend the WP-7 scope and plan for the owner-requested threshold reason
+  and horizontal report design before implementation.
+
+### 2026-09-11 - Threshold and horizontal report extension approved (Batch 21 WP-7)
+
+- Scope: amended WP-7 before implementation to retain albums rejected at the
+  play/unique-track boundary and restyle unmatched groups as full-width
+  horizontal report sections.
+- Owner decision: one stable `below_threshold` group covers either failed
+  minimum. An album failing both appears once and retains its actual plays,
+  unique-track count, and failed-threshold list.
+- Design authority: current `results.html`, `results.css`, and computed browser
+  behavior win over the dated design snapshot. Unmatched will mirror Results'
+  composition, scale, surface, actions, and table rhythm while removing its
+  own eyebrow and purple italic username.
+- Architecture: partition after Last.fm aggregation and before Spotify. Store
+  threshold exclusions through the existing unmatched repository, preserving
+  the current Spotify cost boundary and the lazy `/api/artist_spotlight`
+  fallback for missing art.
+- Documentation: added the approved design and supplemental implementation
+  plan, amended the active definition, and retained the original WP-7 plan as
+  the record of the completed first pass.
+- Validation: documentation gates and implementation evidence follow in the
+  commits that execute the extension.
+- Forward guidance: execute backend Task 1 first, then the horizontal Results-
+  aligned UI task. Keep each as an independently revertible commit.
+
+### 2026-09-11 - Below-threshold albums retained (Batch 21 WP-7)
+
+- Scope: completed backend Task 1 of the approved WP-7 extension without
+  changing UI rendering.
+- Implementation: Last.fm aggregation now partitions eligible albums from
+  exclusions that fail plays, unique tracks, or both. Each excluded album is
+  stored once with the `below_threshold` reason code, actual counts, configured
+  minimums, and failed-threshold list.
+- Pipeline boundary: exclusions are persisted only after a successful Last.fm
+  response and before the eligible-empty terminal state. They never enter
+  Spotify processing; an all-excluded job completes normally with empty Results
+  and a populated unmatched report.
+- Validation: focused partition, Last.fm, orchestrator, and route coverage
+  passes. `pytest -q` -- **989 passed**. Repository gate evidence is refreshed
+  before commit.
+- Forward guidance: execute Task 2, using current Results source and computed
+  output as the visual authority for the horizontal unmatched report.
+
+### 2026-09-11 - Side-by-side unmatched horizontal reports and 500-album cap unified (Batch 21 WP-7)
+
+- Scope: completed Task 2 of the WP-7 extension. Reconciled two extension documents
+  (`2026-09-11-batch21-wp7-threshold-horizontal-report-extension.md` and
+  `2026-09-11-unmatched-threshold-horizontal-report-design.md`) against
+  `docs/design/designsystemaudit.md` (canonical source of truth) and owner directives.
+  Replaced stacked reason sections with responsive side-by-side horizontal report panels
+  sorted by unmatched reason, reconciled design tokens against `results.html`, and
+  diagnosed and resolved the unbounded 500-album cap defect in `orchestrator.py`.
+- Architectural context & plan reconciliation:
+  - Spec Reconciliation: The initial design spec proposed full-width stacked reason sections
+    ("stacked, full-width reason sections instead of the current three-column card grid").
+    The owner explicitly superseded this layout directive: "There should be more than one
+    horizontal report; they should be sorted by the unmatched reason. The UI should be like
+    results.html, and do considere the designsystemaudit.md as cannonical source of truth.
+    They should not be stacked, but side-by-side".
+  - Canonical Design System (`docs/design/designsystemaudit.md`): Live styles do not use
+    the unmigrated Claude Design token layer (`--surface-page`, `--text-body`, etc., which
+    collide with Tailwind v4 namespaces). The live design system uses three layers: daisyUI
+    slots, the `--ss-*` extension set, and Tailwind `@theme static`.
+- Implementation details:
+  - Side-by-Side Responsive Layout: The `.unmatched-groups` container arranges reason reports
+    side-by-side in a responsive grid (`grid-cols-1 lg:grid-cols-3` or `lg:grid-cols-2`
+    depending on reason count, `gap-6 items-start`). Order is deterministic: `below_threshold`
+    -> `release_scope` -> `no_spotify_match`. On desktop (>=1024px), reports sit side-by-side
+    sharing identical top offsets; on mobile (<1024px), the grid collapses to a single column
+    preventing horizontal page scroll.
+  - Results Design Tokens & Typography:
+    - Surface: `--results-surface` (`color-mix(in srgb, var(--color-base-100) 50%, var(--ss-surface-sunken))`).
+    - Borders & Radius: 1px hairline `var(--ss-border-default)`, `--radius-sm` (8px / 0.5rem) on panels,
+      and `--radius-xs` (4px / 0.25rem) on artwork.
+    - Artwork Dimensions: 44px desktop (`2.75rem`), 40px mobile (`2.5rem`) with explicit
+      containment (`aspect-ratio: 1/1; object-fit: cover`).
+    - Typography Roles: Instrument Serif (`font-serif`) for page title, Gotham figure numerals
+      (`--font-figure`) for album counts adhering to the Role Segregation Rule (audit L943-L950,
+      D-17), Input Mono (`--font-mono-narrow`) for ranks and 9px uppercase fix hints, Akzidenz
+      Grotesk (`font-sans`) for table body/labels, and neutral headline username without italics
+      or purple accent.
+    - Proportional Scaling: `syncResultsScale()` reading `--results-base-rem: 75` on
+      `.unmatched-page`, scaling `--results-scale` with window resizing / `ResizeObserver`
+      (matching Results dynamic scaling in audit L228-L232).
+  - Disclosure & Async House Pattern:
+    - Preserved 10-row disclosure with Results-style ghost buttons and album counts.
+    - Artist portrait progressive hydration via `/api/artist_spotlight` fallbacks. Hardened
+      with post-`await` name verification (`artwork.dataset.artistName?.trim() === artistName`)
+      to strictly uphold the house stale-response guard pattern identified in `designsystemaudit.md`
+      L1011-L1021.
+    - Noted for WP-8: `.dark-mode` class write on `<body>` is actively observed by `heatmap.js`
+      (audit L841-L868) and is preserved intact.
+  - Backend Safety Cap:
+    - Diagnosed defect via `/diagnosing-bugs`: `_PLAYTIME_ALBUM_CAP = 500` was only applied
+      when `sort_mode == "playtime"`. In default playcount mode, unbounded thousands of
+      albums bypassed slicing, exhausting Spotify API rate limits and freezing the DOM on
+      `results.html`.
+    - Defined `_MAX_ALBUM_CAP = 500` in `scrobblescope/orchestrator.py` (aliasing
+      `_PLAYTIME_ALBUM_CAP`) and enforced it unconditionally in `_apply_pre_slice` across all
+      sort modes (`playcount` and `playtime`).
+  - Design Snapshot Test: Added `"designsystemaudit.md"` to `REPOSITORY_OWNED_PATHS` in
+    `tests/test_design_snapshot.py` to preserve the 61-file design manifest digest.
+- Validation:
+  - `frontend_gate.py` updated to verify desktop side-by-side layout (`groupTops[0] === groupTops[1]`,
+    `gridColumns === 3`) and mobile single-column stacking; passed all 26 checks across 47 runs
+    in Chromium and Firefox.
+  - `pytest -q` -- **990 passed** (up from 989; added tests for unified `_MAX_ALBUM_CAP` in
+    `tests/services/test_orchestrator_helpers.py` and `tests/test_routes.py`).
+  - Pre-commit hooks (`ruff check`, `ruff format`, `whitespace`, `tailwind-css-drift`,
+    `doc-state-sync-check`, `worktree-alignment`) passed.
+- Forward guidance: Batch 21 WP-7 extension is complete and verified across both browser engines.
+  Pause for owner review before beginning WP-8.
+
+### 2026-09-11 - Unmatched disclosure refined: 25-row step and collapse on return (Batch 21 WP-7)
+
+- Scope: `templates/unmatched.html`, `static/js/unmatched.js`,
+  `static/css/unmatched.css`, the rebuilt `static/css/tailwind.css`,
+  `scripts/dev/frontend_gate.py` (the two new assertions, which landed later
+  with the F-B21-51 slice-1 commit), and `tests/test_routes.py`. No server-side
+  change; the Task 1 contract stands.
+- Owner rulings applied, both from the 2026-09-11 review:
+  1. a 50-row reveal is too much, so `data-step` and the server-rendered label
+     become 25 (the owner allowed 20 or 25; 25 is recorded as the choice);
+  2. the back-to-top control now collapses its panel as well as scrolling, so
+     the reader is not left above a table they had just padded.
+- Implementation: the expander's row visibility, button copy and
+  `aria-expanded` were three copies of one state machine spread across two
+  handlers. They collapse to a single `applyVisibleCount(count, isCollapsed)`
+  writer that both the expander and the back-to-top control call.
+- Design refinement, applying the `daisyui` skill's colour rule 10 ("use
+  `primary` only for the most important element on the page. Use it only
+  once") and its usage rules 2 and 7 (prefer utilities over custom CSS):
+  - the panel album count moves off `primary` to `base-content`, matching the
+    filter-bar summary count and leaving the page's one primary to the New
+    Search action;
+  - the panel header takes Results' scale-aware padding,
+    `p-4 md:p-[calc(1.25rem*var(--results-scale))]`, so the panel block rhythm
+    scales as Results' own surfaces do;
+  - the reason-detail cell stops truncating and wraps instead: a side-by-side
+    panel is narrower than a full-width row, and an ellipsis there would hide
+    the sentence that explains the exclusion.
+- The layout is unchanged. The owner ruled side-by-side on 2026-09-11; the
+  spec's earlier "stacked, full-width" wording is superseded and is corrected in
+  the documentation pass.
+- Deviation, resolved rather than carried: the committed `tailwind.css` held a
+  stale `.collapse { visibility: collapse; }` utility that no source produces
+  (only `border-collapse` appears anywhere). The rebuild drops it, and this
+  commit lands the rebuilt file so the drift hook is clean. That rule entered
+  with the previous WP-7 commit, not with this change.
+- Validation: `pytest -q` -- **1020 passed**; the two-engine frontend gate --
+  "26 checks passed in 47 runs across chromium, firefox (static assets & tokens
+  canary on firefox); profiles: desktop, mobile, wide touch". Pre-commit runs
+  after this entry, per the documentation-first commit order.
+- Forward guidance: the panel padding now scales with `--results-scale`, so a
+  later edit to that curve moves the panel rhythm with it. WP-8 still owns
+  retiring `global.css` and the `.dark-mode` write, with `heatmap.js`'s
+  observer moved to `data-theme` in the same change.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-10 - Add isolated Results script regression coverage
+### 2026-09-11 - Artwork restored in the below-threshold panel
 
-- Scope: owner-requested coverage review and tests for Spotlight and leaderboard
-  interactions. Sampling is server-owned and already covered by the route test.
-- Implementation: six isolated Chromium tests run unmodified production scripts
-  with a controlled clock. Cover rotation wraparound, late and failed hydration,
-  reduced motion, numeric sorting with absent metrics, ranks and accessible
-  selection, and hover delay/cancellation plus keyboard tooltip dismissal.
-  CI runs this suite after installing browsers and before the frontend gate.
-- Validation: six browser tests passed; `pytest -q`: **974 passed**;
-  all pre-commit hooks passed. Documentation integrity and whitespace checks
-  passed after the final log update.
-  No application changes or dependency additions. Owner authorized committing
-  this coverage and the README refresh together; pushing is not part of this step.
+- Scope: a review observation that the artwork container is excluded for
+  `below_threshold` items, contradicting the spec's "consistent 40px mobile or
+  44px desktop artwork" and breaking the side-by-side rhythm.
+- Root cause, verified: `templates/unmatched.html` wrapped the whole artwork block
+  in `{% if reason_key != 'below_threshold' %}`. The stylesheet was correct all
+  along -- `.unmatched-artwork` is 2.5rem, and 2.75rem at >=768px. The guard
+  conflated "these albums have no album image" (true: they are partitioned before
+  Spotify) with "these rows get no artwork"; the block's fallback branch needs only
+  the artist name, which the payload carries (`unmatched.py:79-80`).
+- Plan vs implementation: a below-threshold branch now renders the sized monogram
+  placeholder. Variant chosen by the owner: no `data-artist-image`, so the panel
+  adds no network call and partitioned albums stay at zero cost. The change is
+  additive -- nine lines above the existing guard, nothing removed.
+- Why no gate caught it: `frontend_gate.py` asserted the cover on `rows[0]` of ONE
+  group, the release_scope panel. It now asserts a sized `.unmatched-artwork` in
+  EVERY `.unmatched-group`, which is the class fix rather than the instance.
+- Evidence, both guards proved to fail before passing: with the new branch removed,
+  `tests/test_routes.py::test_unmatched_view_renders_artwork_in_every_reason_group`
+  fails, and the frontend gate reports "unmatched group 0 renders no artwork
+  container" for desktop and mobile. Restored, the test passes and the gate reports
+  26 checks passed in 47 runs. `pytest -q` -- **1026 passed**.
+- Deviation: none. This is a defect the PR review round surfaced and fixed inside
+  the same round.
 
-### 2026-09-10 - Refresh the product README against the current implementation
+### 2026-09-11 - Deterministic tie-breaks on the three cap-path sorts
 
-- Scope: owner-requested README refresh while the owner handles PR #227
-  integration. No application changes or Git history operations.
-- Implementation: describe current navigation, Results/Spotlight, Heatmap
-  statistics and export limits, progress UI, and the remaining Bootstrap
-  Unmatched report. Replace stale test/coverage figures with the live CI badge;
-  shorten the file inventory and link to maintained architecture and work orders.
-  Correct virtualenv installs and the init_db.py environment requirement.
-- Related pointers: DEVELOPMENT now accurately distinguishes the Chromium
-  matrix from the Firefox canary; CONTRIBUTING delegates setup to README.
-- Validation: source-checked against templates, routes, frontend scripts,
-  dependency pins, workflow configuration and deployment files. All 42 local
-  Markdown links and anchors, pre-commit hooks, documentation integrity and
-  whitespace checks passed.
-  Owner subsequently authorized committing this refresh with the Results tests.
 
-### 2026-09-10 - Refine Heatmap contrast and Results interaction motion
+- Scope: a PR review comment on `scrobblescope/orchestrator.py:131` and `:703`
+  asked for a stable tie-breaker on the sorts that choose albums for the
+  `_MAX_ALBUM_CAP` safety cap, so tied play counts cannot let insertion order
+  decide which albums are kept.
+- Plan vs implementation: all three cap-path sorts now order by descending play
+  count and then by normalized key. The reviewer named two; the third is the
+  playcount pre-slice in the same function, added as the same class. The
+  now-unused `cast` import was removed.
+- Evidence: the fix's failure mode was OBSERVED, not assumed. With the three keys
+  reverted to `reverse=True`, all three new tests fail; restored, all three pass.
+  `pytest -q` -- **1025 passed**, up from 1022 with the three new tests.
+- Deviation: none in scope, and one correction to record. The determinism the
+  reviewer worried about was not reachable before this change: the cap's input is
+  built by iterating page results in order, `partition_albums_by_threshold`
+  preserves that order, and the sort is stable. So this makes the guarantee
+  structural instead of inherited from a four-link chain nothing pinned, rather
+  than fixing a live bug. Recorded so a later reader does not overstate it.
+- Forward guidance: two same-class sibling sorts remain at `orchestrator.py:538`
+  and `:540`, in `_build_results`' user-visible ordering. They were NOT fixed
+  here: the review did not name them, their input order derives from `cache_hits`
+  and was not established as nondeterministic, and every further site costs its
+  own fixture and its own claim. Bounded deliberately rather than chased -- the
+  same reasoning that parked the dated-record policy sites. A future pass wanting
+  the class closed should do all remaining sites in one edit.
 
-- Scope: owner follow-up on Heatmap styling, duplicate Results Top control,
-  delayed Spotify hints, sorting motion and page-loading jank.
-- Implementation: owner-refined sunken light-mode Heatmap frame with darker
-  warm-neutral empty cells (`#c8bfad`); uppercase Input Mono
-  Narrow toolbar with primary New search; supporting label grows from 12px
-  to 15px in Input Mono. Results retains only the side-rail Top control.
-  Spotify links reveal a shared hint after 450ms hover, immediately on focus,
-  and dismiss on Escape, blur or scrolling. Ranking changes interpolate row
-  positions for 280ms, with immediate reduced-motion updates. Export clones
-  clear transient row animations.
-- Diagnosis: delayed page_motion.js reproduced a visible-to-transparent flash
-  in Chromium and Firefox before DOM readiness. CSS now starts entry at first
-  styled paint; the delayed-script probe no longer reproduces the opacity dip.
-  The initial header clarification was interpreted as viewport-fixed. The
-  owner's later screenshot identified that persistent visibility as the
-  unwanted behavior. The header now occupies document flow and scrolls out of
-  view; duplicate body clearance is removed and the sticky rail uses its own gap.
-- Export inspection: Heatmap uses a separate hand-drawn canvas with older
-  headline/layout rules. That visual mismatch remains; the working export is
-  preserved in this pass. Results export is unchanged apart from suppressing
-  temporary row motion in its clone.
-- Validation: `pytest -q` -- **974 passed**. The full frontend gate passed
-  25 checks in 45 runs. Additional Chromium and Firefox probes covered hover
-  delay, dismissal, rapid sorting, reduced motion, scroll stability, header
-  scroll-away, both-theme empty-cell fills and responsive Heatmap geometry.
-  Firefox CSV/JPEG checks passed at desktop and mobile widths in both themes.
-  Evidence: `scratch/pressure-verify-final.txt`, `scratch/pressure-extra-final.txt`
-  and screenshots. Final staged validation passes every hook, including
-  generated-CSS drift and documentation sync. Owner visual
-  review approved the result and authorized a safe push to PR #227. The pre-push
-  sweep reconciled stale design overrides with the shipped composition. This
-  remains an owner-directed side-task, not a new work package.
+### 2026-09-11 - Approved spec reconciled with the owner's side-by-side ruling
 
-### 2026-09-09 - Refine Results consistency and restore navigation continuity
 
-- Scope: owner-requested UI consistency and remediation of local Heatmap
-  edits. Preserve the larger headline, sans preview labels and tighter loading
-  parameters; correct the undefined legend font token. Remove the intentional
-  duplicate Heatmap counter rail and its unused hydration and layout checks.
-- Implementation: Results panels use an equal sRGB page/sunken mix. Sort and
-  outside-filter headings use smaller uppercase sans type than Spotlight,
-  centred without changing text colours. Sort labels use weight 400. The
-  three toolbar actions use uppercase Input Mono Narrow with one larger gap
-  step; New search retains the theme primary fill. Secondary Results actions
-  and Heatmap result buttons share sans type and control fill, retaining
-  proportional Results dimensions.
-- Index follow-up: measured form placement lifts the composition up to 2.5rem
-  from centre, bounded by 0.25rem of header clearance. Reclaiming excess
-  vertical well padding removes the decade-state scrollbar at 1920x900 and
-  1536x730 in both engines, with thresholds collapsed and scale unchanged.
-  Mobile retains its existing padding. `scratch/index-offset-evidence.json`
-  records five desktop window sizes per engine.
-- Motion: browser samples confirmed existing entrances and a fixed header.
-  Shared keyframes make page entry independent of first-paint timing; normal
-  internal links fade content out before navigation, and Back restores it.
-  Reduced motion remains immediate. Heatmap loader/result stages overlap
-  during their existing opacity handoff. The header remains independently fixed.
-- Export: the browser resolves the mixed surface to RGB in the JPEG clone
-  because html2canvas cannot parse modern computed colour functions. The live
-  page retains its theme-derived mix. Export clones suppress entry animation.
-- Validation: `pytest -q` -- **974 passed**. Focused Chromium and Firefox
-  probes cover desktop/mobile, both themes, scaling, header scroll position,
-  button and heading consistency, navigation, Back and Heatmap completion.
-  Evidence: `scratch/ui-consistency-evidence.json` and accompanying screenshots.
-  Full frontend gate: 25 checks passed in 45 runs. Additional Firefox checks
-  pass for both-theme desktop/mobile exports and the complete layout/state
-  matrix. All hooks pass except committed-CSS drift: the regenerated file
-  intentionally differs from the index while this work remains unstaged.
-  A second build produces identical bytes. Docsync and whitespace checks
-  pass. No commit or push.
-- Deviation: an editing helper briefly misdecoded existing UTF-8 punctuation.
-  Tests caught it; original bytes were restored before the passing suite.
-- Forward guidance: owner visual review before publication. WP-7 remains
-  next batch work; Task 6 stays deferred until Bootstrap removal.
+- Scope: the approved spec
+  `docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`
+  still directed "stacked, full-width reason sections" while the owner ruled
+  side-by-side on 2026-09-11 and both the shipped page and three frontend-gate
+  assertions implement side-by-side. A PR review comment raised it; it was the
+  last stale voice on that conflict.
+- Plan vs implementation: the directive now reads as side-by-side panels and
+  records the supersession, the owner's words and the date. The rest of the spec
+  is unchanged and still accurate.
+- Deviation: none. This is the reconciliation the design-system plan's Phase 2
+  named ("Record that the owner superseded its ... line with the side-by-side
+  ruling"); it sits outside the document-orderliness series' declared scope and is
+  logged here rather than folded silently into that series.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0 with
+  only the expected root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: the design-system plan's Phase 2 still lists this edit among
+  its work. It is now done, so that entry can be retired when Phase 2 runs;
+  `RECONCILIATION.md` gains a pointer to the same ruling in that pass.
+
+### 2026-09-11 - Two siblings closed, and the dated-record policy scoped
+
+
+- Scope: the scoped re-review of the fix wave `50cffdd` ruled that two
+  same-class siblings belonged to that wave, and the owner directed it be
+  extended by one follow-up commit. Three document edits: a rationale reworded
+  in a dated entry, the work order's retired provenance pin, and the policy
+  clause in the side-task archive.
+- Owner ruling on the policy fork: a dated entry's recorded measurements are
+  frozen -- a test count, a date, an observed result stands as written, because
+  editing one falsifies the record rather than correcting it -- while its
+  rationale prose may be corrected when it is shown false. `50cffdd` had
+  replaced the archive's rationale with an absolute clause that condemned that
+  wave's own edit of a dated entry, so it contradicted itself; the clause is
+  now scoped to the ruling.
+- Sibling (a), precision rather than retraction: the re-review classified the
+  stale-range bullet in the dated entry "Architecture rebuild landed, and its
+  stale docsync range corrected" as the same falsified claim finding 2
+  corrected. The controller disproved that on authorship timing: the rebuilt
+  `docs/architecture/documentation-tooling.md` was authored at 2026-09-11
+  23:15:13, and `501a7b6` corrected the range in `AGENTS.md` at 2026-09-12
+  00:57:38, one hour forty-two minutes later, so at write time the document
+  agreed with the range's authority. The dated records finding 2 left alone are
+  the opposite case: DOC012's 2026-08-26 enforcement had already made them
+  stale on their own dates. The sentence is true as written, so nothing was
+  retracted; it now reads "It matched `AGENTS.md` when written", which removes
+  the ambiguity about what "correct" meant.
+- Sibling (b): the work order's Task 2 Step 3 still reproduced the retired
+  sha256 and byte-count pin for a plan revision that was never committed, so no
+  contributor could check it. It now names `c277728`, the commit that published
+  that plan, and records that the traversal bound the pre-publication revision
+  -- the precedent the traversal report already sets.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` --
+  all 10 hooks passed with no files modified. `doc_state_sync.py --check` --
+  exit 0 with only the expected root `BATCH21_DEFINITION.md` warning.
+- Committed paths (3), recorded as the actual set: `PLAYBOOK.md` (this entry
+  and the sibling (a) reword), the work order
+  `docs/superpowers/plans/2026-09-11-batch21-document-orderliness-remediation.md`,
+  and `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, which carries the
+  scoped policy clause and the rotation this entry forced -- the oldest
+  non-current entry, the one sibling (a) lives in, moved into the archive, so
+  the correction travels with it. docsync demanded no further path: this entry
+  carries the 1022 claim the corpus already held, so `FINDINGS.md` and
+  `.claude/SESSION_CONTEXT.md` needed no change.
+- Forward guidance: a future agent correcting a dated entry changes rationale
+  only, and leaves every measured figure, date and observed result as written.
+  One absolute statement of the old form survives, in this file's entry "Task 8:
+  the guard's own spelling, a false rationale, a live count", which gives the
+  same reason as "editing one falsifies the record rather than correcting it".
+  That entry is a dated record of the wave's own reasoning, so it was left as
+  written; a pass that wants one form in the corpus should scope it by the same
+  ruling.

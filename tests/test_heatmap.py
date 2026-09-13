@@ -13,7 +13,7 @@ Covers:
 
 from datetime import date, datetime, timedelta, timezone
 from datetime import time as dt_time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -594,6 +594,34 @@ class TestHeatmapTask:
         ):
             # Should NOT raise -- heatmap_task catches exceptions.
             heatmap_task("job-err", "user")
+            mock_release.assert_called_once()
+
+    def test_release_job_slot_called_when_event_loop_setup_raises(self):
+        """release_job_slot is called even if event loop setup raises (F-B21-1)."""
+        with (
+            patch(
+                "asyncio.set_event_loop", side_effect=RuntimeError("loop setup failed")
+            ),
+            patch("scrobblescope.heatmap.release_job_slot") as mock_release,
+            patch("scrobblescope.heatmap.set_job_error"),
+        ):
+            heatmap_task("job-loop-err", "user")
+            mock_release.assert_called_once()
+
+    def test_release_job_slot_called_when_loop_close_raises(self):
+        """release_job_slot is called even if loop.close raises."""
+        mock_loop = MagicMock()
+        mock_loop.run_until_complete.side_effect = lambda coroutine: coroutine.close()
+        mock_loop.close.side_effect = RuntimeError("close failed")
+        with (
+            patch("asyncio.new_event_loop", return_value=mock_loop),
+            patch("asyncio.ProactorEventLoop", return_value=mock_loop, create=True),
+            patch("asyncio.set_event_loop"),
+            patch("scrobblescope.heatmap.release_job_slot") as mock_release,
+            patch("scrobblescope.heatmap.set_job_error"),
+        ):
+            with pytest.raises(RuntimeError, match="close failed"):
+                heatmap_task("job-loop-err", "user")
             mock_release.assert_called_once()
 
 

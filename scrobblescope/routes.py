@@ -30,6 +30,7 @@ from scrobblescope.spotify import (
     fetch_spotify_artist_spotlight,
 )
 from scrobblescope.spotlight import select_spotlight_artists
+from scrobblescope.unmatched import group_unmatched_albums
 from scrobblescope.utils import (
     create_optimized_session,
     run_async_in_thread,
@@ -95,18 +96,12 @@ def _filter_results_for_display(results_data, sort_mode):
 
 
 def _group_unmatched_by_reason(unmatched_data):
-    """Group unmatched-album items by their ``reason`` string.
+    """Group unmatched-album items by their ``reason`` string or ``reason_code``.
 
-    Returns a tuple of (reasons, reason_counts) where *reasons* maps each
-    reason string to a list of items and *reason_counts* maps each reason
-    string to the length of that list.
+    Delegates to ``scrobblescope.unmatched.group_unmatched_albums``.
     """
-    reasons = {}
-    for item in unmatched_data.values():
-        reason = item.get("reason", "Unknown reason")
-        reasons.setdefault(reason, []).append(item)
-    reason_counts = {reason: len(albums) for reason, albums in reasons.items()}
-    return reasons, reason_counts
+    groups, counts, _ = group_unmatched_albums(unmatched_data)
+    return groups, counts
 
 
 def _get_filter_description(release_scope, decade, release_year, listening_year):
@@ -680,7 +675,7 @@ def _render_unmatched_page():
     )
 
     unmatched_data = dict(job_context.get("unmatched", {}))
-    reasons, reason_counts = _group_unmatched_by_reason(unmatched_data)
+    reasons, reason_counts, reason_metadata = group_unmatched_albums(unmatched_data)
 
     return render_template(
         "unmatched.html",
@@ -690,6 +685,7 @@ def _render_unmatched_page():
         unmatched_data=unmatched_data,
         reasons=reasons,
         reason_counts=reason_counts,
+        reason_metadata=reason_metadata,
         total_count=len(unmatched_data),
         min_plays=min_plays,
         min_tracks=min_tracks,

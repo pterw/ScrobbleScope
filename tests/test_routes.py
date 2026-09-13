@@ -611,12 +611,24 @@ def test_unmatched_api_returns_data(client):
             "reason": "Released in 1997, outside filter year",
         },
     )
+    add_job_unmatched(
+        job_id,
+        "lizzy mcalpine|older",
+        {
+            "artist": "Lizzy McAlpine",
+            "album": "Older",
+            "play_count": 7,
+            "track_count": 2,
+            "reason_code": "below_threshold",
+        },
+    )
 
     response = client.get(f"/api/unmatched?job_id={job_id}")
     assert response.status_code == 200
     data = response.get_json()
-    assert data["count"] == 1
+    assert data["count"] == 2
     assert "artist::album_key" in data["data"]
+    assert data["data"]["lizzy mcalpine|older"]["reason_code"] == "below_threshold"
 
 
 # --- Reset progress route tests ---
@@ -713,13 +725,41 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
     job_id = create_job(TEST_JOB_PARAMS)
     add_job_unmatched(
         job_id,
+        "threshold|album",
+        {
+            "artist": "Threshold Artist",
+            "album": "Threshold Album",
+            "play_count": 7,
+            "track_count": 2,
+            "failed_thresholds": ["plays", "tracks"],
+            "min_plays": 10,
+            "min_tracks": 3,
+            "reason": (
+                "Played 7 times across 2 unique tracks; minimum is 10 plays and "
+                "3 unique tracks"
+            ),
+            "reason_code": "below_threshold",
+        },
+    )
+    add_job_unmatched(
+        job_id,
         "a|one",
-        {"artist": "Artist A", "album": "Album One", "reason": "No Spotify match"},
+        {
+            "artist": "Artist A",
+            "album": "Album One",
+            "reason": "No Spotify match",
+            "reason_code": "no_spotify_match",
+        },
     )
     add_job_unmatched(
         job_id,
         "b|two",
-        {"artist": "Artist B", "album": "Album Two", "reason": "No Spotify match"},
+        {
+            "artist": "Artist B",
+            "album": "Album Two",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+        },
     )
     add_job_unmatched(
         job_id,
@@ -727,17 +767,121 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
         {
             "artist": "Artist C",
             "album": "Album Three",
-            "reason": "Outside filter year",
+            "reason": "Released in 2019 (filter requires 2024)",
+            "reason_code": "release_scope",
         },
     )
 
     response = client.post("/unmatched_view", data={"job_id": job_id})
     assert response.status_code == 200
     assert b"Albums That Didn't Match Your Filter" in response.data
-    assert b"No Spotify match" in response.data
-    assert b"Outside filter year" in response.data
-    assert b"Artist A" in response.data
+    assert (
+        b"Outside Release Filter" in response.data or b"release_scope" in response.data
+    )
+    assert b"Artist B" in response.data
     assert b"Artist C" in response.data
+    assert b"Audit &amp; Discovery" not in response.data
+    assert b"unmatched-headline__user" in response.data
+    assert b"7 plays" in response.data
+    assert b"2 tracks" in response.data
+    assert (
+        response.data.index(b'data-reason="below_threshold"')
+        < response.data.index(b'data-reason="release_scope"')
+        < response.data.index(b'data-reason="no_spotify_match"')
+    )
+
+
+def test_unmatched_view_renders_artwork_in_every_reason_group(client):
+    """
+    GIVEN one album in each of the three reason groups
+    WHEN POST /unmatched_view is submitted
+    THEN every group must render the sized artwork container.
+
+    Mutation: restore the `reason_key != 'below_threshold'` guard around the
+    artwork block and this fails -- the below-threshold panel then renders no
+    artwork at all, so its identity column starts a cover's width left of the
+    other panels and the side-by-side rhythm breaks. The frontend gate asserted
+    a cover in the release_scope group only, which is why a green gate shipped
+    the omission.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    add_job_unmatched(
+        job_id,
+        "threshold|album",
+        {
+            "artist": "Threshold Artist",
+            "album": "Threshold Album",
+            "play_count": 7,
+            "track_count": 2,
+            "reason_code": "below_threshold",
+        },
+    )
+    add_job_unmatched(
+        job_id,
+        "b|two",
+        {
+            "artist": "Artist B",
+            "album": "Album Two",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+        },
+    )
+    add_job_unmatched(
+        job_id,
+        "a|one",
+        {
+            "artist": "Artist A",
+            "album": "Album One",
+            "reason": "No Spotify match",
+            "reason_code": "no_spotify_match",
+        },
+    )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    assert response.status_code == 200
+
+    html = response.data.decode("utf-8")
+    reasons = ("below_threshold", "release_scope", "no_spotify_match")
+    positions = sorted(html.index(f'data-reason="{reason}"') for reason in reasons)
+    for index, start in enumerate(positions):
+        end = positions[index + 1] if index + 1 < len(positions) else len(html)
+        assert "unmatched-artwork" in html[start:end], (
+            "a reason group renders no artwork container: "
+            f"{html[start : start + 160]!r}"
+        )
+
+
+def test_unmatched_view_expander_offers_the_ruled_step(client):
+    """
+    GIVEN a reason group with more albums than the initial disclosure
+    WHEN POST /unmatched_view is submitted
+    THEN the expander must offer the owner-ruled 25-row step, not 50.
+
+    The owner ruled on 2026-09-11 that a 50-row reveal is too much and the step
+    should be 20 or 25. A route assertion pins that ruling so a later edit
+    cannot quietly restore the larger step.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    for index in range(40):
+        add_job_unmatched(
+            job_id,
+            f"artist|album-{index}",
+            {
+                "artist": f"Artist {index}",
+                "album": f"Album {index}",
+                "reason": "No Spotify match",
+                "reason_code": "no_spotify_match",
+            },
+        )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+
+    assert response.status_code == 200
+    assert b'data-step="25"' in response.data
+    assert b'data-initial="10"' in response.data
+    # 40 albums, 10 shown, so 30 remain: more than one step, so the copy names
+    # the step rather than offering the remainder in one go.
+    assert b"Show next 25 (30 remaining)" in response.data
 
 
 def test_loading_page_uses_job_context_at_canonical_url(client):

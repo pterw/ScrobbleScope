@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from scrobblescope.orchestrator import (
+    _MAX_ALBUM_CAP,
     _PLAYTIME_ALBUM_CAP,
     _apply_post_slice,
     _apply_pre_slice,
@@ -104,6 +105,42 @@ def test_build_results_zero_playtime_no_division_error():
     assert results[0]["proportion_of_total"] == 0.0
 
 
+def test_build_results_records_reason_code():
+    """Albums excluded by release criteria must record reason_code='release_scope'."""
+    from scrobblescope.repositories import get_job_unmatched
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_hits = {
+        ("artist", "album"): {
+            "cached": {
+                "spotify_id": "sp1",
+                "release_date": "2018-01-01",
+                "album_image_url": "https://img.example.com/a.jpg",
+                "track_durations": {},
+            },
+            "original": {
+                "play_count": 20,
+                "track_counts": {"song a": 5},
+                "original_artist": "Artist",
+                "original_album": "Album",
+            },
+        }
+    }
+
+    results = _build_results(
+        cache_hits, job_id, year=2024, sort_mode="playcount", release_scope="same"
+    )
+
+    assert len(results) == 0
+    unmatched = get_job_unmatched(job_id)
+    key = "artist|album"
+    assert key in unmatched
+    assert unmatched[key]["reason_code"] == "release_scope"
+    assert unmatched[key]["album_image"] == "https://img.example.com/a.jpg"
+    assert unmatched[key]["spotify_id"] == "sp1"
+    assert unmatched[key]["play_count"] == 20
+
+
 # ---------------------------------------------------------------------------
 # WP-3 adversarial tests for extracted _fetch_and_process helpers
 # ---------------------------------------------------------------------------
@@ -135,6 +172,16 @@ def test_apply_pre_slice_playtime_cap_fires():
     }
     result = _apply_pre_slice(albums, "playtime", "all", "all")
     assert len(result) == _PLAYTIME_ALBUM_CAP
+
+
+def test_apply_pre_slice_playcount_cap_fires():
+    """501 albums, sort_mode='playcount' -> capped at _MAX_ALBUM_CAP."""
+    albums = {
+        (f"a{i}", f"b{i}"): {"play_count": 1000 - i, "track_counts": {}}
+        for i in range(501)
+    }
+    result = _apply_pre_slice(albums, "playcount", "all", "same")
+    assert len(result) == _MAX_ALBUM_CAP
 
 
 def test_apply_pre_slice_playtime_below_cap_unchanged():
@@ -216,3 +263,99 @@ def test_detect_spotify_total_failure_does_not_fire_partial_match():
         },
     ):
         assert _detect_spotify_total_failure(job_id, [], filtered) is False
+
+
+def test_detect_spotify_total_failure_bases_detection_on_reason_code():
+    """Failure detection must check reason_code, not written prose."""
+    from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {("a", "b"): {}, ("c", "d"): {}}
+    with (
+        patch(
+            "scrobblescope.orchestrator.get_job_context",
+            return_value={
+                "unmatched": {
+                    "a|b": {
+                        "reason": "Different prose string",
+                        "reason_code": REASON_NO_SPOTIFY_MATCH,
+                    },
+                    "c|d": {
+                        "reason": "Another prose message",
+                        "reason_code": REASON_NO_SPOTIFY_MATCH,
+                    },
+                }
+            },
+        ),
+        patch("scrobblescope.orchestrator.set_job_error") as mock_err,
+    ):
+        assert _detect_spotify_total_failure(job_id, [], filtered) is True
+        mock_err.assert_called_once_with(job_id, "spotify_unavailable")
+
+
+def test_detect_spotify_total_failure_does_not_fire_for_other_reason_codes():
+    """Items with non-matching reason_code do not trigger spotify_unavailable."""
+    from scrobblescope.unmatched import REASON_RELEASE_SCOPE
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {("a", "b"): {}, ("c", "d"): {}}
+    with patch(
+        "scrobblescope.orchestrator.get_job_context",
+        return_value={
+            "unmatched": {
+                "a|b": {
+                    "reason": "Release scope reason",
+                    "reason_code": REASON_RELEASE_SCOPE,
+                },
+                "c|d": {
+                    "reason": "Release scope reason",
+                    "reason_code": REASON_RELEASE_SCOPE,
+                },
+            }
+        },
+    ):
+        assert _detect_spotify_total_failure(job_id, [], filtered) is False
+
+
+def _tied_albums(count):
+    """Build *count* eligible albums sharing one play count, so every sort ties."""
+    return {
+        (f"a{i:03d}", f"b{i:03d}"): {"play_count": 1, "track_counts": {}}
+        for i in range(count)
+    }
+
+
+def test_apply_pre_slice_pre_slice_is_independent_of_input_order():
+    """The playcount pre-slice must not let insertion order choose the survivors.
+
+    Mutation: restore `key=play_count, reverse=True` and this test fails. The sort
+    is stable, so with every album tied it keeps whichever were inserted first,
+    and the two inputs below then disagree.
+    """
+    albums = _tied_albums(300)
+
+    forward = _apply_pre_slice(dict(albums), "playcount", "100", "all")
+    backward = _apply_pre_slice(
+        dict(reversed(list(albums.items()))), "playcount", "100", "all"
+    )
+
+    assert len(forward) == 100
+    assert set(forward) == set(backward)
+
+
+def test_apply_pre_slice_cap_is_independent_of_input_order():
+    """The safety cap must not let insertion order choose the survivors.
+
+    Mutation: restore `key=play_count, reverse=True` and this test fails for the
+    same reason -- with more tied albums than the cap, the stable sort keeps the
+    first-inserted ones.
+    """
+    albums = _tied_albums(_MAX_ALBUM_CAP + 100)
+
+    forward = _apply_pre_slice(dict(albums), "playtime", "all", "all")
+    backward = _apply_pre_slice(
+        dict(reversed(list(albums.items()))), "playtime", "all", "all"
+    )
+
+    assert len(forward) == _MAX_ALBUM_CAP
+    assert set(forward) == set(backward)

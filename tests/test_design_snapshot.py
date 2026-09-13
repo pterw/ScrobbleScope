@@ -16,7 +16,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT_ROOT = REPO_ROOT / "docs" / "design"
-REPOSITORY_OWNED_PATHS = frozenset({"RECONCILIATION.md"})
+REPOSITORY_OWNED_PATHS = frozenset({"RECONCILIATION.md", "designsystemaudit.md"})
 
 #: Aggregate manifest of every imported path and byte. Update ONLY on a fresh
 #: import from the design project.

@@ -20,6 +20,7 @@ when it ships something the existing ones cannot see.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -55,8 +56,24 @@ if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = GATE_SECRET_KEY
 
 from app import create_app  # noqa: E402
+
+# Re-exported so the split stays invisible to callers, per F-B21-51: a facade
+# keeps the stable public names and `worktree_guard.py` is the precedent. Four
+# of these are unused inside this module, which is why `F401` is suppressed --
+# without it ruff strips the re-export and the existing gate tests stop
+# importing.
+from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
+    _clamp_px,
+    _composite_over,
+    _contrast_ratio,
+    _divider_contrast_failure,
+    _parse_rgb_string,
+    _relative_luminance,
+    _worst_divider_contrast,
+)
 from scripts.dev._frontend_gate_results import check_results_interactions  # noqa: E402
 from scrobblescope.repositories import (  # noqa: E402
+    add_job_unmatched,
     create_job,
     delete_job,
     get_job_context,
@@ -174,7 +191,7 @@ ERROR_PAGE_PATH = "/no-such-page-for-the-gate"
 #: and loads no kit faces, so pointing those two checks at every page would
 #: park four permanent failures in the output until WP-7 -- and a gate with
 #: expected failures in it stops being read.
-MIGRATED_PAGES = ["/", "/results", "/heatmap", ERROR_PAGE_PATH]
+MIGRATED_PAGES = ["/", "/results", "/heatmap", "/unmatched", ERROR_PAGE_PATH]
 
 #: Throwaway jobs owned by serve_app and driven by pipeline checks.
 GATE_JOB_IDS: dict[str, str] = {}
@@ -457,104 +474,6 @@ def _computed_shadow(page, value: str) -> str:
             return computed;
         }""",
         value,
-    )
-
-
-def _parse_rgb_string(value: str) -> tuple[float, float, float, float]:
-    """Parse a computed ``rgb()``/``rgba()`` string into an (r, g, b, a) tuple."""
-    numbers = [float(part) for part in re.findall(r"[\d.]+", value)]
-    red, green, blue = numbers[:3]
-    alpha = numbers[3] if len(numbers) > 3 else 1.0
-    return red, green, blue, alpha
-
-
-def _composite_over(
-    foreground: tuple[float, float, float, float],
-    background: tuple[float, float, float],
-) -> tuple[float, float, float]:
-    """Alpha-composite a translucent foreground colour over an opaque one."""
-    fg_red, fg_green, fg_blue, alpha = foreground
-    bg_red, bg_green, bg_blue = background
-    return (
-        fg_red * alpha + bg_red * (1 - alpha),
-        fg_green * alpha + bg_green * (1 - alpha),
-        fg_blue * alpha + bg_blue * (1 - alpha),
-    )
-
-
-def _relative_luminance(rgb: tuple[float, float, float]) -> float:
-    """WCAG relative luminance of an sRGB colour given as 0-255 channels."""
-
-    def channel(value: float) -> float:
-        normalised = value / 255
-        if normalised <= 0.03928:
-            return normalised / 12.92
-        return ((normalised + 0.055) / 1.055) ** 2.4
-
-    red, green, blue = rgb
-    return 0.2126 * channel(red) + 0.7152 * channel(green) + 0.0722 * channel(blue)
-
-
-def _contrast_ratio(
-    rgb_a: tuple[float, float, float], rgb_b: tuple[float, float, float]
-) -> float:
-    """WCAG contrast ratio between two opaque sRGB colours."""
-    luminance_a = _relative_luminance(rgb_a) + 0.05
-    luminance_b = _relative_luminance(rgb_b) + 0.05
-    return max(luminance_a, luminance_b) / min(luminance_a, luminance_b)
-
-
-def _clamp_px(
-    min_rem: float,
-    vw_percent: float,
-    max_rem: float,
-    width_px: float,
-    root_px: float = 16,
-) -> float:
-    """Mirror a CSS ``clamp(<min_rem>rem, <vw_percent>vw, <max_rem>rem)``.
-
-    ``vw`` is a percentage of the viewport width in CSS pixels; it never
-    scales with the root font size, only the rem bounds do. Python has to
-    keep those two independent to reproduce the browser's resolved value.
-    """
-    preferred = vw_percent * width_px / 100
-    return min(max_rem * root_px, max(min_rem * root_px, preferred))
-
-
-def _worst_divider_contrast(border: str, *surfaces: str) -> float:
-    """The lowest contrast a translucent divider reaches against its surfaces.
-
-    A divider is painted over whatever sits beside it, not over one known
-    background, so an alpha that clears 3:1 against one surface can still
-    fail against another. Compositing every candidate surface and keeping
-    the minimum is what "adjacent surface" has to mean for a token shared
-    across the header and the rest of the shell.
-    """
-    border_rgba = _parse_rgb_string(border)
-    ratios = []
-    for surface in surfaces:
-        surface_rgb = _parse_rgb_string(surface)[:3]
-        composited = _composite_over(border_rgba, surface_rgb)
-        ratios.append(_contrast_ratio(composited, surface_rgb))
-    return min(ratios)
-
-
-def _divider_contrast_failure(
-    label: str, ratio: float, token: str = "--shell-border"
-) -> str | None:
-    """Name a divider-contrast failure, or None once the ratio clears 3:1.
-
-    ``token`` names which custom property the message blames. F-B21-40 made
-    this a parameter rather than a literal: the same helper now checks both
-    the shared ``--shell-border`` and the index page's own
-    ``--ss-border-divider``, and a message that always said "--shell-border"
-    would misattribute a failing index divider to the wrong token.
-    """
-    if ratio >= 3.0:
-        return None
-    return (
-        f"/ {label}: {token} composites to {ratio:.2f}:1 against its "
-        "adjacent surface, expected at least 3:1"
     )
 
 
@@ -2741,6 +2660,326 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_unmatched_report(page, base_url: str) -> list[str]:
+    """Exercise the populated report contract and its ten-row disclosure."""
+    job_id = create_job(
+        {
+            "username": "frontend-gate",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "same",
+            "min_plays": 10,
+            "min_tracks": 3,
+            "limit_results": "all",
+            "mode": "album",
+        }
+    )
+    failures = []
+    spotlight_requests = []
+
+    def fulfill_spotlight(route):
+        """Return deterministic portrait data without contacting Spotify."""
+        spotlight_requests.append(route.request.url)
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "name": "Missing Spotify Artist",
+                    "artist_id": "artist-1",
+                    "image_url": (
+                        "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>"
+                    ),
+                    "spotify_url": "https://open.spotify.com/artist/artist-1",
+                }
+            ),
+        )
+
+    spotlight_pattern = "**/api/artist_spotlight?*"
+    page.route(spotlight_pattern, fulfill_spotlight)
+    try:
+        add_job_unmatched(
+            job_id,
+            "below-threshold",
+            {
+                "album": "Older",
+                "artist": "Lizzy McAlpine",
+                "reason": (
+                    "Played 7 times across 2 unique tracks; minimum is 10 plays "
+                    "and 3 unique tracks"
+                ),
+                "reason_code": "below_threshold",
+                "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+                "spotify_id": None,
+                "play_count": 7,
+                "track_count": 2,
+                "failed_thresholds": ["plays", "tracks"],
+                "min_plays": 10,
+                "min_tracks": 3,
+            },
+        )
+        play_counts = (5, 29, 11, 23, 7, 17, 13, 19, 3, 2, 27, 9)
+        for index in range(1, 13):
+            add_job_unmatched(
+                job_id,
+                f"scope-{index}",
+                {
+                    "album": f"Scope Album {index}",
+                    "artist": f"Scope Artist {index}",
+                    "reason": "Outside selected release scope",
+                    "reason_code": "release_scope",
+                    "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+                    "spotify_id": f"scope-album-{index}",
+                    "play_count": play_counts[index - 1],
+                },
+            )
+        add_job_unmatched(
+            job_id,
+            "missing-spotify",
+            {
+                "album": "Missing Spotify Album",
+                "artist": "Missing Spotify Artist",
+                "reason": "No Spotify match",
+                "reason_code": "no_spotify_match",
+                "album_image": None,
+                "spotify_id": None,
+                "play_count": 7,
+            },
+        )
+
+        page.goto(f"{base_url}/unmatched?job_id={job_id}", wait_until="load")
+        groups = page.locator(".unmatched-group")
+        if groups.count() != 3:
+            failures.append(
+                f"unmatched report rendered {groups.count()} reason groups instead of 3"
+            )
+            return failures
+
+        scope_group = page.locator('[data-reason="release_scope"]')
+        state = scope_group.evaluate(
+            """node => {
+                const rows = [...node.querySelectorAll('tbody tr')];
+                const overflow = rows.filter(row => row.classList.contains('unmatched-overflow'));
+                const button = node.querySelector('.unmatched-expander-btn');
+                const count = node.querySelector('.unmatched-count');
+                const page = document.querySelector('.unmatched-page');
+                const grid = node.parentElement;
+                const fixHint = node.querySelector('.unmatched-fix-hint');
+                const cover = rows[0]?.querySelector('img');
+                const root = getComputedStyle(document.documentElement);
+                const headline = page.querySelector('h1');
+                const username = page.querySelector('.unmatched-headline__user');
+                const normalizeFont = value => value.replaceAll('"', '').replaceAll(' ', '');
+                return {
+                    rows: rows.length,
+                    visibleRows: rows.filter(row => getComputedStyle(row).display !== 'none').length,
+                    hiddenOverflow: overflow.filter(row => getComputedStyle(row).display === 'none').length,
+                    buttonText: button?.textContent.trim(),
+                    expanded: button?.getAttribute('aria-expanded'),
+                    spotifyHref: node.querySelector('a[href*="open.spotify.com/album/"]')?.href,
+                    plays: rows[0]?.querySelector('td:nth-child(3)')?.textContent.trim(),
+                    countFont: normalizeFont(getComputedStyle(count).fontFamily),
+                    figureFont: normalizeFont(root.getPropertyValue('--font-figure').trim()),
+                    pageMaxWidth: getComputedStyle(page).maxWidth,
+                    gridColumns: getComputedStyle(grid).gridTemplateColumns.split(' ').length,
+                    scale: Number.parseFloat(getComputedStyle(page).getPropertyValue('--results-scale')),
+                    reportOverflow: grid.scrollWidth - grid.clientWidth,
+                    headingFirstTag: headline.parentElement.firstElementChild?.tagName,
+                    usernameFontStyle: username ? getComputedStyle(username).fontStyle : null,
+                    usernameMatchesHeadlineColor: username
+                        ? getComputedStyle(username).color === getComputedStyle(headline).color
+                        : false,
+                    resultsStylesheet: [...document.styleSheets].some(sheet =>
+                        sheet.href?.endsWith('/static/css/results.css')),
+                    fixHint: fixHint?.textContent.trim(),
+                    fixHintSize: getComputedStyle(fixHint).fontSize,
+                    coverWidth: getComputedStyle(cover).width,
+                    coverHeight: getComputedStyle(cover).height,
+                    unsupportedWeights: [...node.querySelectorAll('*')]
+                        .map(element => getComputedStyle(element).fontWeight)
+                        .filter(weight => weight === '500' || weight === '600'),
+                };
+            }"""
+        )
+        expected = {
+            "rows": 12,
+            "visibleRows": 10,
+            "hiddenOverflow": 2,
+            "buttonText": "Show all 12 albums",
+            "expanded": "false",
+            "plays": "29",
+            "pageMaxWidth": "1440px",
+            "gridColumns": 3 if page.viewport_size["width"] >= 1024 else 1,
+            "headingFirstTag": "H1",
+            "usernameFontStyle": "normal",
+            "usernameMatchesHeadlineColor": True,
+            "resultsStylesheet": True,
+            "fixHint": 'Choose "All years (no filter)" on a new search to include these releases.',
+            "fixHintSize": "9px",
+            "coverWidth": "44px" if page.viewport_size["width"] >= 768 else "40px",
+            "coverHeight": "44px" if page.viewport_size["width"] >= 768 else "40px",
+        }
+        for claim, wanted in expected.items():
+            if state[claim] != wanted:
+                failures.append(
+                    f"unmatched report {claim} is {state[claim]!r}, expected {wanted!r}"
+                )
+        group_covers = page.locator(".unmatched-group").evaluate_all(
+            """groups => groups.map(group => {
+                const cover = group.querySelector('.unmatched-artwork');
+                if (!cover) return null;
+                const style = getComputedStyle(cover);
+                return { width: style.width, height: style.height };
+            })"""
+        )
+        expected_cover = "44px" if page.viewport_size["width"] >= 768 else "40px"
+        for index, cover in enumerate(group_covers):
+            if cover is None:
+                failures.append(f"unmatched group {index} renders no artwork container")
+            elif cover["width"] != expected_cover or cover["height"] != expected_cover:
+                failures.append(
+                    f"unmatched group {index} artwork is {cover['width']}x"
+                    f"{cover['height']}, expected {expected_cover}"
+                )
+
+        group_tops = page.locator(".unmatched-group").evaluate_all(
+            "groups => groups.map(g => Math.round(g.getBoundingClientRect().top))"
+        )
+        if page.viewport_size["width"] >= 1024:
+            if len(group_tops) >= 2 and group_tops[0] != group_tops[1]:
+                failures.append(
+                    "unmatched reports are not arranged side-by-side on desktop"
+                )
+        else:
+            if len(group_tops) >= 2 and group_tops[0] == group_tops[1]:
+                failures.append(
+                    "unmatched reports should wrap to single column on mobile"
+                )
+
+        if state["reportOverflow"] > 1:
+            failures.append(
+                f"unmatched report overflows horizontally by {state['reportOverflow']!r}px"
+            )
+        if state["scale"] < 1:
+            failures.append(
+                f"unmatched report has invalid Results scale {state['scale']!r}"
+            )
+
+        threshold_state = page.locator('[data-reason="below_threshold"]').evaluate(
+            r"""node => ({
+                rows: node.querySelectorAll('tbody tr').length,
+                metric: node.querySelector('.unmatched-thresholds')?.textContent
+                    .replaceAll(/\s+/g, ' ').trim(),
+            })"""
+        )
+        if threshold_state != {"rows": 1, "metric": "7 plays / 2 tracks"}:
+            failures.append(
+                f"unmatched threshold row is incorrect: {threshold_state!r}"
+            )
+        if not (state["spotifyHref"] or "").endswith("/scope-album-2"):
+            failures.append("unmatched report did not render the Spotify album link")
+        if state["countFont"] != state["figureFont"]:
+            failures.append(
+                "unmatched report count does not use the figure typeface token"
+            )
+        if state["unsupportedWeights"]:
+            failures.append("unmatched report renders unsupported 500/600 font weights")
+
+        unmatched_portrait = page.locator(
+            '[data-reason="no_spotify_match"] [data-artist-image]'
+        )
+        unmatched_portrait.scroll_into_view_if_needed()
+        artist_image = unmatched_portrait.locator(".unmatched-artist-image")
+        artist_image.wait_for(state="visible")
+        portrait_state = unmatched_portrait.evaluate(
+            """node => ({
+                alt: node.querySelector('.unmatched-artist-image')?.alt,
+                imageDisplay: getComputedStyle(node.querySelector('.unmatched-artist-image')).display,
+                fallbackDisplay: getComputedStyle(node.querySelector('.unmatched-artwork-fallback')).display,
+            })"""
+        )
+        if portrait_state != {
+            "alt": "Missing Spotify Artist artist portrait",
+            "imageDisplay": "block",
+            "fallbackDisplay": "none",
+        }:
+            failures.append(
+                "unmatched report artist portrait fallback is incorrect: "
+                f"{portrait_state!r}"
+            )
+        if len(spotlight_requests) != 1 or "Missing%20Spotify%20Artist" not in (
+            spotlight_requests[0] if spotlight_requests else ""
+        ):
+            failures.append(
+                "unmatched report did not hydrate missing artwork once through "
+                "/api/artist_spotlight"
+            )
+
+        button = scope_group.locator(".unmatched-expander-btn")
+        button.click()
+        expanded = scope_group.evaluate(
+            """node => ({
+                visibleRows: [...node.querySelectorAll('tbody tr')]
+                    .filter(row => getComputedStyle(row).display !== 'none').length,
+                buttonText: node.querySelector('.unmatched-expander-btn')?.textContent.trim(),
+                expanded: node.querySelector('.unmatched-expander-btn')?.getAttribute('aria-expanded'),
+            })"""
+        )
+        if expanded != {
+            "visibleRows": 12,
+            "buttonText": "Show fewer",
+            "expanded": "true",
+        }:
+            failures.append(
+                f"unmatched report expanded state is incorrect: {expanded!r}"
+            )
+
+        button.click()
+        collapsed = scope_group.evaluate(
+            """node => ({
+                visibleRows: [...node.querySelectorAll('tbody tr')]
+                    .filter(row => getComputedStyle(row).display !== 'none').length,
+                expanded: node.querySelector('.unmatched-expander-btn')?.getAttribute('aria-expanded'),
+            })"""
+        )
+        if collapsed != {"visibleRows": 10, "expanded": "false"}:
+            failures.append(
+                f"unmatched report collapsed state is incorrect: {collapsed!r}"
+            )
+
+        # Owner ruling, 2026-09-11: a 50-row reveal is too much, so the step is
+        # 25. The route test pins the rendered attribute; this pins the value the
+        # running script actually reads.
+        step = button.get_attribute("data-step")
+        if step != "25":
+            failures.append(
+                f"unmatched report expander step is {step!r}, expected '25'"
+            )
+
+        # Owner ruling, 2026-09-11: returning to the top must also collapse the
+        # report, so the reader is not left under a table they had just padded
+        # with rows. Expand first, so the collapse has something to undo.
+        if scope_group.locator(".unmatched-back-to-top-btn").count():
+            button.click()
+            scope_group.locator(".unmatched-back-to-top-btn").click()
+            collapsed_by_top = scope_group.evaluate(
+                """node => ({
+                    visibleRows: [...node.querySelectorAll('tbody tr')]
+                        .filter(row => getComputedStyle(row).display !== 'none').length,
+                    expanded: node.querySelector('.unmatched-expander-btn')?.getAttribute('aria-expanded'),
+                })"""
+            )
+            if collapsed_by_top != {"visibleRows": 10, "expanded": "false"}:
+                failures.append(
+                    "unmatched report back-to-top did not collapse the panel: "
+                    f"{collapsed_by_top!r}"
+                )
+    finally:
+        page.unroute(spotlight_pattern, fulfill_spotlight)
+        delete_job(job_id)
+    return failures
+
+
 def _parse_matrix_scalex(transform_str: str | None) -> float | None:
     """Extract the scaleX component from a computed CSS transform matrix."""
     if not transform_str or transform_str == "none":
@@ -3546,6 +3785,12 @@ CHECKS = (
     (
         "destination empty states",
         check_destination_empty_states,
+        (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "unmatched report",
+        check_unmatched_report,
         (DESKTOP, MOBILE),
         LAYOUT_PIPELINE,
     ),

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -1501,3 +1502,93 @@ def test_doc012_ignores_counts_above_the_execution_log():
         "- Validation: `pytest -q` -- **823 passed**.",
     ]
     assert _doc012_codes(lines) == []
+
+
+#: The range AGENTS.md states for the docsync codes. Anchored on "returns typed"
+#: so the sentence that *records* the previous range is not read as stating one.
+STATED_RANGE_RE = re.compile(r"returns typed DOC001-(DOC0\d\d) issues")
+
+#: The repository root, resolved the way the sibling test modules resolve it.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _stated_upper_bound(text: str) -> str:
+    """Return the upper bound of the range AGENTS.md states for the docsync codes."""
+    match = STATED_RANGE_RE.search(text)
+    assert match, "AGENTS.md no longer states the docsync range in the expected form"
+    return match.group(1)
+
+
+def _raised_upper_bound(sources: list[str]) -> str:
+    """Return the highest docsync code literal raised across the given sources."""
+    codes = {code for text in sources for code in re.findall(r'"(DOC0\d\d)"', text)}
+    assert codes, "no docsync code literals found in the scanned sources"
+    return max(codes)
+
+
+def _ranges_agree(text: str, sources: list[str]) -> bool:
+    """Return whether the stated range equals the highest code the sources raise.
+
+    Both tests below assert through this one predicate, so the corpus check and
+    the proof of its failure mode exercise the same comparison. Asserting the
+    two helpers separately would let a later edit change one comparison while
+    the proof went on testing another.
+    """
+    return _stated_upper_bound(text) == _raised_upper_bound(sources)
+
+
+def test_stated_docsync_range_matches_the_highest_code_raised():
+    """The documented range must equal the highest code the package raises.
+
+    The mutation this defends against is the drift that actually happened: the
+    stated upper bound stayed at DOC011 while `scripts/docsync/integrity.py` had
+    raised DOC012 since 2026-08-26. Its next instance is DOC013 -- added to the
+    package without the documentation following.
+
+    Guard A cannot catch either. The `[[retired]]` declaration guards the stale
+    *wording*, so a document that states a range which is merely behind the
+    code, in fresh wording, passes it. This comparison is the only check on the
+    authoritative statement itself.
+    """
+    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    sources = [
+        path.read_text(encoding="utf-8")
+        for path in sorted((REPO_ROOT / "scripts" / "docsync").glob("*.py"))
+    ]
+
+    assert _ranges_agree(agents, sources) is True
+
+
+def test_stated_range_helper_rejects_a_stale_range():
+    """Show the comparison above can fail, so it is not a vacuous assertion.
+
+    Two failure modes, both asserted through the same predicate the corpus test
+    uses. The first is the drift that happened: a document still stating the
+    retired range while the package raises `DOC012`. The second is the case this
+    guard exists for -- a `DOC013` added to the package while the authoritative
+    statement still ends at `DOC012` -- and it is asserted against the real
+    `AGENTS.md` text, so it fails for exactly the reason the next drift would.
+    Without these proofs the corpus test passes even if both helpers were
+    reduced to returning the same constant, which is the failure the
+    repository's test-quality rule forbids: an assertion whose failure mode was
+    never observed.
+    """
+    # The retired range is assembled at runtime rather than written as a
+    # literal. This fixture is the document-shaped claim that guard A's
+    # declaration retires, and it sits outside that declaration's `scan` list
+    # only because the list names no Python file: widening `scan` to include
+    # this module would otherwise make guard A fail on the fixture that proves
+    # it works.
+    retired_range = "DOC001-DOC" + "011"
+    stale_document = (
+        f"which returns typed {retired_range} issues that block rather than warn."
+    )
+    current_source = ['issues.append(_issue("DOC012", rel_path, line, "x"))']
+    assert _ranges_agree(stale_document, current_source) is False
+
+    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    future_source = [
+        'issues.append(_issue("DOC012", rel_path, line, "x"))',
+        'issues.append(_issue("DOC013", rel_path, line, "x"))',
+    ]
+    assert _ranges_agree(agents, future_source) is False

@@ -96,6 +96,7 @@ MIGRATED = {
     "loading.html",
     "results.html",
     "results_empty.html",
+    "unmatched.html",
     "unmatched_empty.html",
 }
 
