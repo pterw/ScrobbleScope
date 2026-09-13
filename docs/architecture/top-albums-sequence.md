@@ -11,10 +11,10 @@ sequenceDiagram
     autonumber
     actor User
     participant Browser
-    participant Routes as routes.py
+    participant Routes as routes/
     participant Worker as worker.py
     participant Repo as repositories.py / JOBS
-    participant Orch as orchestrator.py
+    participant Orch as orchestrator/
     participant LastFM as Last.fm API
     participant Cache as cache.py / PostgreSQL
     participant Spotify as Spotify API
@@ -215,7 +215,10 @@ not a connection was opened.
 errored job holds `[]` rather than `None`. `results_complete` depends on that
 difference: `None` means the results are not stored yet.
 
-`orchestrator.py` self-arrows cover in-process work and helpers it imports from
-`utils.py` and `domain.py`, which are not drawn as participants. The `/progress`
-handler also returns HTTP 400 for a missing `job_id`; the loading page always
-sends one, so that response is not drawn.
+`Orch` self-arrows cover in-process work across the `orchestrator/` package
+(a facade `__init__.py` plus `_search.py`, `_details.py`, `_cache.py`,
+`_results.py` as of Batch 22 WP-0) and helpers it imports from `utils.py`
+and `domain.py`, none of which are drawn as separate participants -- this
+view stays at the pipeline level, not the module-split level. The
+`/progress` handler also returns HTTP 400 for a missing `job_id`; the
+loading page always sends one, so that response is not drawn.

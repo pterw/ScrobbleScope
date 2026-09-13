@@ -9,7 +9,7 @@ flowchart TD
     A --> P[PLAYBOOK.md<br/>work order + execution log]
     A --> F[FINDINGS.md<br/>open defects]
     A --> SK[docs/agents/<br/>issue-tracker, domain]
-    P --> B[BATCH21_DEFINITION.md<br/>scope + acceptance criteria]
+    P --> B[BATCHN_DEFINITION.md<br/>scope + acceptance criteria]
     P --> S[SESSION_CONTEXT.md<br/>current-state dashboard]
     P --> BL[docs/history/logs/<br/>tagged Batch N entries]
     P --> LA[docs/logarchive/<br/>rotated side-task entries]

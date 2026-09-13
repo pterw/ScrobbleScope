@@ -24,10 +24,10 @@ flowchart LR
 
     subgraph Runtime[Flask runtime]
         App[app.py<br/>application factory]
-        Routes[routes.py<br/>Blueprint and handlers]
+        Routes[routes/<br/>Blueprint and handlers]
         Worker[worker.py<br/>bounded semaphore]
         Repo[repositories.py<br/>JOBS + lifecycle CRUD]
-        Album[orchestrator.py<br/>album pipeline]
+        Album[orchestrator/<br/>album pipeline]
         Heatmap[heatmap.py<br/>daily aggregation]
         LastFMClient[lastfm.py]
         SpotifyClient[spotify.py]
@@ -98,12 +98,15 @@ flowchart LR
 ```
 
 Solid module-to-module arrows are imports. The dotted worker edges are runtime
-dispatch through callables injected by `routes.py`; `worker.py` imports neither
+dispatch through callables injected by `routes/`; `worker.py` imports neither
 pipeline. `config.py` is not drawn: eight of the nodes shown here import it
-(`worker.py`, `repositories.py`, `orchestrator.py`, `lastfm.py`, `spotify.py`,
-`cache.py`, and `utils.py` at module level, plus `app.py` inside its `__main__`
-block), and those edges would cross and hide the flow. The complete import
-graph lives in SESSION_CONTEXT Section 4.
+(`worker.py`, `repositories.py`, `orchestrator/__init__.py`, `lastfm.py`,
+`spotify.py`, `cache.py`, and `utils.py` at module level, plus `app.py`
+inside its `__main__` block), and those edges would cross and hide the flow.
+`routes/` and `orchestrator/` are each a package as of Batch 22 WP-0 (split
+by concern and by phase respectively); this view stays at the package level
+rather than drawing every submodule. The complete import graph, submodules
+included, lives in SESSION_CONTEXT Section 4.
 
 Three things this view deliberately makes visible, because breaking them is
 silent:

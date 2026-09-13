@@ -5,7 +5,7 @@ diagrams. Each linked document owns one diagram so corrections have one place
 to land. The code remains authoritative when a diagram and implementation
 disagree.
 
-Last verified against the tree on 2026-09-11.
+Last verified against the tree on 2026-09-13.
 
 **Arrow semantics.** Solid arrows between Python modules are imports. Between
 documents they show which file owns or feeds another. Elsewhere they are
@@ -43,7 +43,8 @@ Canonical documents, docsync, the worktree guard, pre-commit, and CI:
 
 - Rules and bootstrap order: `AGENTS.md`
 - Active work and handoff state: `PLAYBOOK.md`, Sections 3 and 4
-- Batch scope: `BATCH21_DEFINITION.md`
+- Batch scope: the active `BATCHN_DEFINITION.md` named in `PLAYBOOK.md`
+  Section 3 (repo root while active; `docs/history/definitions/` once closed)
 - Complete module graph: `.claude/SESSION_CONTEXT.md`, Section 4
 - Product overview: `README.md`, Architecture
 - CI gate: `.github/workflows/test.yml`

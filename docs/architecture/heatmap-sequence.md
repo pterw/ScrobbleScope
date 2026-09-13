@@ -9,7 +9,7 @@ sequenceDiagram
     autonumber
     actor User
     participant UI as heatmap.js
-    participant Routes as routes.py
+    participant Routes as routes/
     participant Worker as worker.py
     participant Repo as repositories.py / JOBS
     participant Heatmap as heatmap.py
