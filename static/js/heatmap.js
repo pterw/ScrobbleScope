@@ -172,9 +172,10 @@
   /**
    * Write the result headline.
    *
-   * "A year of <name>", not the old possessive range sentence.
-   * The eyebrow above it states the range now, so the headline does not have
-   * to, and a short serif line survives a long username without shrinking.
+   * "<name>'s last 365 days of scrobbling". The eyebrow under it names the
+   * source. This docstring described an earlier "A year of <name>" wording
+   * that the code had already left behind, and the saved image still drew
+   * that version; both now follow this function.
    *
    * Keep the username in the headline's neutral serif treatment. It is data,
    * not a link or control, so accent colour and italics overstate its role.
@@ -307,6 +308,8 @@
   const EXPORT_KPI_GUTTER = 14;     // smallest gap between two columns
   const EXPORT_LEGEND_W = 90;
   const EXPORT_LEGEND_H = 8;
+  const EXPORT_LEGEND_CAP_GAP = 8;  // air between a cap and the bar
+  const EXPORT_LEGEND_FONT = '10px "input-mono-narrow", "input-mono", monospace';
   const EXPORT_HEAD_GAP = 16;       // air between the header and the grid
 
   /**
@@ -374,6 +377,35 @@
   }
 
   /**
+   * Read the header the page renders, so the export cannot state something
+   * else.
+   *
+   * The export carried its own wording: an eyebrow reading "LISTENING HEATMAP
+   * . LAST 365 DAYS" over a headline reading "A year of <name>", with the
+   * name in italic accent. The page renders the headline `renderHeadline`
+   * builds and puts "Last.fm scrobble heatmap" under it, all in one ink. A
+   * saved file is seen only after it is saved, so nothing caught the drift.
+   */
+  //: What the last save actually drew. The gate compares this with the page,
+  //: so a header or caption that stops being drawn shows up as a difference
+  //: rather than as a value read back out of the page it was meant to match.
+  var drawnHeader = null;
+
+  function exportHeaderModel() {
+    var eyebrowNode = document.querySelector('.heatmap-head__titles .eyebrow');
+    var eyebrow = eyebrowNode ? eyebrowNode.textContent.trim() : '';
+    if (eyebrowNode
+        && getComputedStyle(eyebrowNode).textTransform === 'uppercase') {
+      eyebrow = eyebrow.toUpperCase();
+    }
+    return {
+      eyebrow: eyebrow,
+      headline: resultHeadline ? resultHeadline.textContent.trim() : '',
+      legend: legendCaps(),
+    };
+  }
+
+  /**
    * Decide how the export header lays out at this width.
    *
    * Measured, not assumed. A single row of four columns needs about 90px
@@ -409,7 +441,8 @@
     // The legend keeps its place beside the KPIs when there is honestly room
     // for it, and takes a row of its own when there is not.
     var width = gridWidth + EXPORT_PAD * 2;
-    var besideX = width - EXPORT_PAD - EXPORT_LEGEND_W;
+    var legend = legendWidth(ctx, legendCaps());
+    var besideX = width - EXPORT_PAD - legend.total;
     var kpiRight = EXPORT_PAD + columns * step;
     var beside = besideX >= kpiRight + EXPORT_KPI_GUTTER;
     var legendY = beside ? top + 42 : kpiBottom + 4;
@@ -421,6 +454,7 @@
       kpiBottom: kpiBottom,
       legendX: beside ? besideX : EXPORT_PAD,
       legendY: legendY,
+      legendMeasured: legend,
       headHeight:
         Math.max(kpiBottom, legendY + EXPORT_LEGEND_H) + EXPORT_HEAD_GAP,
     };
@@ -453,14 +487,62 @@
   }
 
   /** Draw the rocket ramp, so the file carries its own legend. */
-  function drawLegend(ctx, x, y, width) {
-    var gradient = ctx.createLinearGradient(x, 0, x + width, 0);
+  /**
+   * Read the legend's captions from the page, so the bar is never a naked
+   * gradient in the saved file.
+   *
+   * The export drew the bar alone. On the page the same bar sits between
+   * "Less" and "More", and without them the gradient says nothing about
+   * which end is which.
+   */
+  function legendCaps() {
+    var caps = document.querySelectorAll('.heatmap-legend__cap');
+    var text = function (node) {
+      if (!node) return '';
+      var value = node.textContent.trim();
+      return getComputedStyle(node).textTransform === 'uppercase'
+        ? value.toUpperCase()
+        : value;
+    };
+    return { less: text(caps[0]), more: text(caps[1]) };
+  }
+
+  /** Width the legend needs for its bar and both captions. */
+  function legendWidth(ctx, caps) {
+    var previous = ctx.font;
+    ctx.font = EXPORT_LEGEND_FONT;
+    var lessWidth = caps.less ? ctx.measureText(caps.less).width : 0;
+    var moreWidth = caps.more ? ctx.measureText(caps.more).width : 0;
+    ctx.font = previous;
+    var gaps = (lessWidth ? EXPORT_LEGEND_CAP_GAP : 0)
+      + (moreWidth ? EXPORT_LEGEND_CAP_GAP : 0);
+    return { total: lessWidth + moreWidth + gaps + EXPORT_LEGEND_W, less: lessWidth };
+  }
+
+  function drawLegend(ctx, x, y, caps, measured) {
+    var barX = x + (measured.less ? measured.less + EXPORT_LEGEND_CAP_GAP : 0);
+    var gradient = ctx.createLinearGradient(barX, 0, barX + EXPORT_LEGEND_W, 0);
     ROCKET_STOPS.forEach(function (stop) {
       gradient.addColorStop(
         stop.pos, 'rgb(' + stop.r + ',' + stop.g + ',' + stop.b + ')');
     });
     ctx.fillStyle = gradient;
-    ctx.fillRect(x, y, width, EXPORT_LEGEND_H);
+    ctx.fillRect(barX, y, EXPORT_LEGEND_W, EXPORT_LEGEND_H);
+
+    // The caps sit on the bar's own centre line, as they do on the page.
+    ctx.fillStyle = resolvedColour('--ss-text-muted');
+    ctx.font = EXPORT_LEGEND_FONT;
+    var baseline = y + EXPORT_LEGEND_H - 1;
+    var drawn = { less: '', more: '' };
+    if (caps.less) {
+      ctx.fillText(caps.less, x, baseline);
+      drawn.less = caps.less;
+    }
+    if (caps.more) {
+      ctx.fillText(caps.more, barX + EXPORT_LEGEND_W + EXPORT_LEGEND_CAP_GAP, baseline);
+      drawn.more = caps.more;
+    }
+    return drawn;
   }
 
   /**
@@ -508,22 +590,21 @@
     ctx.fillStyle = resolvedColour('--heatmap-surface');
     ctx.fillRect(0, 0, width, height);
 
-    ctx.fillStyle = resolvedColour('--ss-text-muted');
-    ctx.font = '10px "input-mono-narrow", "input-mono", monospace';
-    ctx.fillText(
-      'LISTENING HEATMAP \u00b7 LAST 365 DAYS', EXPORT_PAD, EXPORT_PAD + 10);
-
-    var lead = 'A year of ';
+    // The page leads with the headline and puts the eyebrow under it, both in
+    // one ink. The export follows it, in the page's order and wording.
+    var header = exportHeaderModel();
     ctx.fillStyle = resolvedColour('--color-base-content');
     ctx.font = '26px "instrument-serif", Georgia, serif';
-    ctx.fillText(lead, EXPORT_PAD, EXPORT_PAD + 42);
-    var leadWidth = ctx.measureText(lead).width;
-    ctx.fillStyle = resolvedColour('--color-primary');
-    ctx.font = 'italic 26px "instrument-serif", Georgia, serif';
-    ctx.fillText(lastUsername, EXPORT_PAD + leadWidth, EXPORT_PAD + 42);
+    ctx.fillText(header.headline, EXPORT_PAD, EXPORT_PAD + 26);
+
+    ctx.fillStyle = resolvedColour('--ss-text-muted');
+    ctx.font = '13px "input-mono-narrow", "input-mono", monospace';
+    ctx.fillText(header.eyebrow, EXPORT_PAD, EXPORT_PAD + 48);
+    drawnHeader = { headline: header.headline, eyebrow: header.eyebrow };
 
     drawKpis(ctx, items, layout);
-    drawLegend(ctx, layout.legendX, layout.legendY, EXPORT_LEGEND_W);
+    drawnHeader.legend =
+      drawLegend(ctx, layout.legendX, layout.legendY, header.legend, layout.legendMeasured);
 
     var image = gridAsImage(svg, gridWidth, gridHeight);
     image.onload = function () {
@@ -1447,6 +1528,9 @@
     initForm();
     initPills();
     initThemeObserver();
+    // Read by the frontend gate, which saves an image and then compares what
+    // the canvas drew with what the page shows.
+    window.__scrobbleHeatmapDrawnHeader = function () { return drawnHeader; };
     window.addEventListener('resize', handleResize);
     if (window.location.pathname === '/heatmap') resumeSavedHeatmap();
   });

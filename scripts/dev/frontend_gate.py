@@ -1845,6 +1845,86 @@ def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
+    """The saved heatmap image states what the page states.
+
+    The export draws its header on a canvas by hand, so its wording can drift
+    from the page and nothing shows it: a saved file is only seen after it is
+    saved. It drew "LISTENING HEATMAP . LAST 365 DAYS" over "A year of <name>"
+    long after the page had moved to the possessive headline with the source
+    named underneath.
+    """
+    failures = []
+    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    set_job_results(
+        job_id,
+        {
+            "username": "frontend-gate",
+            "from_date": "2025-01-01",
+            "to_date": "2025-01-05",
+            "total_scrobbles": 4,
+            "max_count": 4,
+            "daily_counts": {"2025-01-01": 4, "2025-01-02": 0},
+        },
+    )
+    set_job_progress(job_id, progress=100, message="Done", error=False)
+    try:
+        page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
+        page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+        # Save for real: the record read below is what the canvas drew, so a
+        # line that stops being drawn cannot pass by matching the page.
+        with page.expect_download():
+            page.click("#heatmap-save-image")
+        state = page.evaluate(
+            """() => {
+                const model = window.__scrobbleHeatmapDrawnHeader?.();
+                const headline = document.querySelector('#heatmap-result-headline');
+                const eyebrow = document.querySelector('.heatmap-head__titles .eyebrow');
+                return {
+                    model,
+                    pageHeadline: headline?.textContent.trim(),
+                    pageEyebrow: eyebrow?.textContent.trim(),
+                    username: document.querySelector('.heatmap-headline-username')
+                        ?.textContent.trim(),
+                    pageCaps: [...document.querySelectorAll('.heatmap-legend__cap')]
+                        .map(node => getComputedStyle(node).textTransform === 'uppercase'
+                            ? node.textContent.trim().toUpperCase()
+                            : node.textContent.trim()),
+                };
+            }"""
+        )
+    finally:
+        delete_job(job_id)
+
+    model = state["model"]
+    if not model:
+        failures.append("/heatmap exposes no export header for the saved image")
+        return failures
+    if model["headline"] != state["pageHeadline"]:
+        failures.append(
+            f"saved heatmap headline is {model['headline']!r}, "
+            f"the page says {state['pageHeadline']!r}"
+        )
+    if model["eyebrow"].lower() != (state["pageEyebrow"] or "").lower():
+        failures.append(
+            f"saved heatmap eyebrow is {model['eyebrow']!r}, "
+            f"the page says {state['pageEyebrow']!r}"
+        )
+    if state["username"] and state["username"] not in model["headline"]:
+        failures.append(
+            f"saved heatmap headline drops the username {state['username']!r}"
+        )
+    # The saved legend is a bare gradient without its captions: nothing in the
+    # image then says which end of the ramp means more listening.
+    caps = model.get("legend") or {}
+    if [caps.get("less"), caps.get("more")] != state["pageCaps"]:
+        failures.append(
+            f"saved heatmap legend captions are {[caps.get('less'), caps.get('more')]!r}, "
+            f"the page shows {state['pageCaps']!r}"
+        )
+    return failures
+
+
 def _measure_scale_dimensions(page, base_url, selectors, width: int, height: int):
     """Read real rectangles and computed authored dimensions after fonts load."""
     page.set_viewport_size({"width": width, "height": height})
@@ -3946,6 +4026,12 @@ CHECKS = (
     (
         "heatmap zero cells follow theme",
         check_heatmap_zero_cells_follow_theme,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "heatmap export header matches page",
+        check_heatmap_export_header_matches_page,
         (DESKTOP,),
         THEME_MOTION,
     ),
