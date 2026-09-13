@@ -19,6 +19,7 @@ serve as external memory shared across sessions.
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
 | `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audits and other dated one-off documents (`reports/`). |
 | `docs/AGENT_DOC_MAP.md` | **Orientation** | Which document owns what, how to read an audit or a finding, and the known navigation traps. Optional, and not part of the bootstrap set; written for agents new to this repository. |
+| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the worktree guard, pre-commit, and CI fit together. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
 
 **Anti-duplication rule:** Each fact lives in exactly one file. If you need to
 reference a fact owned by another file, link to it -- do not copy it.
@@ -626,24 +627,20 @@ Agents must check their work against this list before committing.
 4. **Wrong venv or bare pip (incident 2026-03-04):** Using `venv/` instead
    of `.venv/`, or running bare `pip install` without the explicit
    `.venv/Scripts/pip` path, can silently install into the wrong environment
-   or drain the active venv. This happened in Batch 17 and caused a full
-   package reinstall with version drift. Always use `.venv/Scripts/pip`
-   (Windows) or `.venv/bin/pip` (Linux) explicitly.
-5. **A server you start is yours to stop.** The harm is a stray process on
-   the owner's machine and a terminal they cannot get back, not the act of
-   serving. Serving is normal here: `scripts/dev/frontend_gate.py` starts
-   the real app every run. Copy what it does -- bind loopback, ask the OS
-   for a port instead of taking 5000, and shut down in a `finally` so a
-   failure cannot leave a socket listening. Never leave a server running
-   past the task that needed it. The owner runs the app on 5000 in their
-   own terminal; do not compete for that port.
-6. **Naive-tz vacuous datetime tests (PR #152, F-B19-6):** A datetime test
-   that builds its inputs with the same tz-awareness pattern (naive vs
-   aware) as the code under test compares the code against itself, not
-   against an invariant -- it passes even if the code silently regresses
-   to a naive-tz day-shift bug. Build test inputs with explicit `tzinfo=`
-   and assert on a date that would shift under a naive interpretation.
-   Canonical example: `tests/test_heatmap.py::TestAggregateDailyCounts::`
+   or drain the active venv. Always use `.venv/Scripts/pip` (Windows) or
+   `.venv/bin/pip` (Linux) explicitly.
+5. **A server you start is yours to stop.** Serving is normal here --
+   `scripts/dev/frontend_gate.py` starts the real app every run. Copy what
+   it does: bind loopback, ask the OS for a port instead of taking 5000, and
+   shut down in a `finally` so a failure cannot leave a socket listening.
+   Never leave a server running past the task that needed it. The owner
+   runs the app on 5000 in their own terminal; do not compete for that port.
+6. **Naive-tz vacuous datetime tests (PR #152, F-B19-6):** a datetime test
+   that builds its inputs with the same tz-awareness pattern as the code
+   under test compares the code against itself, not against an invariant.
+   Build test inputs with explicit `tzinfo=` and assert on a date that
+   would shift under a naive interpretation. Canonical example:
+   `tests/test_heatmap.py::TestAggregateDailyCounts::`
    `test_utc_decode_invariant_against_local_tz_drift`.
 7. **Skipping hooks:** Never commit with `--no-verify`. Fix the failing
    hook instead.
@@ -653,88 +650,55 @@ Agents must check their work against this list before committing.
 9. **Missing log entries:** a WP or side-task commit without its dated
    PLAYBOOK Section 4 entry.
 10. **Stale dashboard figures (coverage incident 2026-07-28):** quoting a
-    canonical number (coverage, test count, module count) from docs
-    without re-measuring. The "~72%" coverage figure survived five months
-    of doc passes while the real figure was 89%. Re-run the measuring
-    command before repeating a number in any doc.
+    canonical number (coverage, test count, module count) from docs without
+    re-measuring. Re-run the measuring command before repeating a number in
+    any doc.
 11. **Fixing the instance instead of the class:** repairing the reported
-    symptom while its siblings survive untouched. Two forms recur:
-    renumbering or renaming something without updating the prose that
-    cites the old number or name, and correcting a factual claim in one
-    file while identical copies remain elsewhere. This is the single
-    largest source of repeat review rounds in this repository -- a
-    documentation PR needed several extra rounds because each round's
-    findings were produced by the previous round's own fixes. Every edit
-    requires a repo-wide grep for the other copies before the gates run:
+    symptom while its siblings survive untouched -- renumbering or
+    renaming without updating citations elsewhere, or correcting one copy
+    of a fact while duplicates remain. Every edit requires a repo-wide grep
+    for the other copies before the gates run:
     - after renumbering or renaming, repoint every citation by **name**,
-      not number -- a name cannot go stale when the list reorders. What
-      matters is whether the target can move, not the wording: an item in
-      a list that reorders needs a name, while a plan citing its own
-      "Step 8" is stable inside that document and is fine. No fixed
-      regex is prescribed here; one written against a single phrasing
-      returned 39 label headings for 2 real citations, which teaches
-      readers to skim past its own output. Choose the search from what
-      moved. Hits inside dated Section 4 log entries are point-in-time
-      records and stay as written;
+      not number -- a name cannot go stale when the list reorders. Hits
+      inside dated Section 4 log entries are point-in-time records and
+      stay as written;
     - after correcting a factual claim, grep its distinctive phrase
       repo-wide and fix every copy in the same commit, or delete the
       copies and link to the single owner (Anti-duplication rule);
     - after changing a signature, a derivation, or an ordering, grep the
-      **concept** rather than only the literal string. The same fact
-      recurs in four shapes -- code, prose, worked example, and a second
-      tabulation elsewhere in the same file -- and a grep written against
-      the code shape clears it while the other three survive. A sweep
-      that replaced nineteen copies of one derivation in shell snippets
-      left the identical derivation standing as an English sentence in a
-      design document, as a normative step in the plan that snippet came
-      from, and inside two callable examples whose argument list no
-      longer matched the function.
-    A fix that leaves siblings behind is half a fix and costs another
-    review round. The same applies when the change *is* a rule: adding
-    or tightening one instantly makes every pre-existing violation
-    non-conformant, so sweep the whole corpus against the new rule in
-    the same commit, or record the remaining backlog explicitly. A rule
-    is not retroactive on its own -- this registry's own name-based
-    citation requirement shipped while three numeric citations sat
-    elsewhere in the repository, written before it existed.
-12. **Lossy or contradictory consolidation:** collapsing a duplicated
-    rule to a single owner, but (a) leaving the copies in place while
-    the new text claims they were removed, (b) dropping a specific
-    prohibition during the collapse -- a bulk-staging ban was nearly
-    lost this way, because the canonical text said which files to stage
-    but not which command never to use -- or (c) writing canonical text
-    that contradicts another section of the same file, as when a
-    "document before committing" rule was added while Side-Task
-    Handling still instructed agents to commit first. When
-    consolidating: re-read the **whole** destination file rather than
-    the diff, and compare the removed text against the new pointer to
-    confirm no requirement was silently dropped.
-13. **Assertions over sets, ranges, and citations:** stating a property
-    of a group without checking each member. Real examples from this
-    repository: a claim that a variable is read across all seven page
-    CSS files when one of them does not use it; a differential baseline
-    headed "Open findings" that listed an ID already marked resolved; a
-    cross-reference to an anti-pattern that does not cover the case
-    being argued; and a citation naming a gitignored file no
-    contributor can open. Ranges and universal quantifiers are the
-    highest-risk constructions here: expand them and verify member by
-    member, or rewrite the claim so it does not depend on the
-    membership. Grep the whole quantifier vocabulary rather than the one
-    phrasing that failed last time -- `all`, `each`, `every`, `both`,
-    `none`, `always`, `never`, `X through Y` -- because a check narrowed
-    to the previous wording misses the next variant. A statement that
-    "close-out entries for each batch live in the monolith" survived one
-    such narrow sweep and was false for the batch that tagged its
-    close-out differently.
-14. **Happy-path-only procedures:** a numbered procedure that only
-    works in one state. Examples that reached the canonical docs: a
-    close-out step saying "add a row" for a table row that already
-    exists, a bootstrap sufficiency gate requiring a batch definition
-    file that by design does not exist between batches, and a
-    validation gate ordered before the work it validates. Walk every
-    procedure through its edge states -- active batch vs between
-    batches, first run vs re-run, item present vs absent -- before
-    committing it.
+      **concept**, not just the literal string -- the same fact often
+      recurs in several shapes: code, prose, a worked example, a second
+      tabulation elsewhere in the file.
+    A fix that leaves siblings behind is half a fix. The same applies when
+    the change *is* a new rule: sweep the whole corpus against it in the
+    same commit, or record the remaining backlog explicitly -- a rule is
+    not retroactive on its own.
+12. **Lossy or contradictory consolidation:** collapsing a duplicated rule
+    to a single owner, but (a) leaving the copies in place while the new
+    text claims they were removed, (b) dropping a specific prohibition
+    during the collapse, or (c) writing canonical text that contradicts
+    another section of the same file. When consolidating: re-read the
+    **whole** destination file, not the diff, and compare the removed text
+    against the new pointer to confirm nothing was silently dropped.
+13. **Assertions over sets, ranges, and citations:** stating a property of
+    a group without checking each member. Ranges and universal quantifiers
+    -- `all`, `each`, `every`, `both`, `none`, `always`, `never`,
+    `X through Y` -- are the highest-risk constructions: expand them and
+    verify member by member, or rewrite the claim so it does not depend on
+    membership. Grep the whole quantifier vocabulary, not just the
+    phrasing that failed last time.
+14. **Happy-path-only procedures:** a numbered procedure that only works
+    in one state. Walk every procedure through its edge states -- active
+    batch vs. between batches, first run vs. re-run, item present vs.
+    absent -- before committing it.
+15. **Trusting an architecture diagram without checking source
+    (F-B21-61):** `docs/architecture/*.md` diagrams are hand-maintained,
+    not machine-checked, and drift after a module split or rename --
+    three diagrams went stale this way after Batch 22 WP-0.
+    `docs/ARCHITECTURE.md` states the rule: code wins when a diagram and
+    implementation disagree. Verify against current source before citing a
+    diagram as ground truth; its own "Last verified" date is exactly as
+    stale-prone as the diagram it labels.
 
 ---
 

@@ -365,6 +365,45 @@ phase boundaries rather than requiring another restructure.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-13 - AGENTS.md trimmed, three stale architecture diagrams fixed
+
+Side-task, owner direction after reviewing WP-0. Two parts:
+
+1. **AGENTS.md trimmed.** The Anti-Pattern Registry (items 1-14) carried
+   multi-paragraph rationale and worked-incident narratives per item; cut to
+   the actionable rule plus its "how to apply" technique where one existed
+   (items 11-14 kept their sub-bullets; anecdotal colour and specific past
+   numbers were cut). Added item 15, the diagram-trust rule (see below), so
+   it reaches every agent working this repo, not only Claude Code sessions
+   with the `scrobblescope-bootstrap` skill installed -- this repo is
+   multi-agent orchestrated (Codex, Copilot, and as of today DeepSeek).
+   Added `docs/architecture/documentation-tooling.md` to the Document Roles
+   table as an on-demand "control plane" reference (docsync, worktree
+   guard, pre-commit, CI), explicitly kept out of the mandatory bootstrap
+   set per the existing token-discipline principle -- it is useful when a
+   gate fails unexplainably or before touching that tooling's own source,
+   not for ordinary batch work.
+2. **Fixed the three architecture diagrams WP-0 left stale**
+   (`docs/architecture/runtime-system.md`, `top-albums-sequence.md`,
+   `heatmap-sequence.md`), plus `documentation-tooling.md`'s own stale
+   `BATCH21_DEFINITION.md` reference (generalized to `BATCHN_DEFINITION.md`
+   so it does not go stale again next batch) and `docs/ARCHITECTURE.md`'s
+   verification date and batch-scope citation. Fixed by priority: the
+   full-stack runtime diagram first (broadest orientation value), then the
+   control-plane diagram (has real drift, is itself the doc AGENTS.md now
+   points agents at), then the two pipeline sequence diagrams (narrower
+   scope, `orchestrator.py`/`routes.py` participant labels only -- the
+   sequence of calls itself did not change, since WP-0 was behaviour-neutral).
+   `docs/AGENT_DOC_MAP.md` already states "code wins over diagrams"
+   (`docs/ARCHITECTURE.md` line 5); it was not itself edited.
+
+Deviation not addressed here: `docs/superpowers/plans/` citations of the old
+module paths are dated plan documents and stay as written, per the
+dated-entry exemption. `README.md` still owes its Batch 22 pass to WP-5, as
+recorded in WP-0's own log entry.
+
+Validation: `python scripts/doc_state_sync.py --check` passes.
+
 ### 2026-09-13 - Username validation no longer fails open (F-B22-1)
 
 Side-task, found during owner manual testing of WP-0's running app.
