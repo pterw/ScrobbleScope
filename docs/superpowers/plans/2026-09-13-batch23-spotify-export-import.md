@@ -288,6 +288,14 @@ already holds, so Last.fm and Spotify users get the same thing.
    and offline plays carry sync time.
 5. **Docs:** a PLAYBOOK entry and FINDINGS for the new source, the
    data-handling guarantees, and the risks below.
+6. **The deferred Batch 21 audit, in this batch's close-out** (owner ruling,
+   2026-09-13). Batch 21 WP-8 charters a frontend and accessibility pass over
+   the migrated `static/js/`, templates and `tailwind.src.css`: the mandated
+   principles where they apply, plus keyboard traversal of every page, focus
+   visibility, label associations, contrast in both themes and tap-target
+   size. It runs here, after this batch's UI lands, so it is done once over
+   the final interface. File results as F-SWE-N or F-AUDIT-N. This batch does
+   not close until it has run.
 
 ## Risks
 

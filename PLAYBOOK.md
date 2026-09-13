@@ -202,6 +202,13 @@ See FINDINGS F-DOCSYNC-3.
   the cover takes the Results size, and the threshold panel is titled "Not
   enough listening", which resolves F-B21-58.
 
+- **Owner ruling, 2026-09-13 -- backend work starts before WP-8's audit.**
+  WP-8's frontend and accessibility audit moves to Batch 23's close-out, and
+  Batch 21 closes without it. Batches 22 and 23 change the same pages, so an
+  audit run first would be redone. `BATCH21_DEFINITION.md` WP-8 records the
+  move; the frontend gate keeps its own accessibility checks running
+  meanwhile.
+
 - **Queued after Batch 21 -- Batch 22, enrichment providers:** approved by the
   owner on 2026-09-13 and not started. Album enrichment moves behind a
   provider contract, Deezer answers when Spotify cannot, and MusicBrainz

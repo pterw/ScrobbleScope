@@ -528,8 +528,17 @@ ruling.
   `tailwind.src.css`: the same mandated principles where they apply, plus an
   accessibility sweep (keyboard traversal of every page, focus visibility,
   label associations, contrast in both themes, tap-target size). File
-  results as F-SWE-N or F-AUDIT-N. **Batch 21 does not close until this
-  has run.**
+  results as F-SWE-N or F-AUDIT-N.
+  **Owner ruling, 2026-09-13: this audit moves to Batch 23's close-out, and
+  Batch 21 closes without it.** Batches 22 and 23 add UI to the same pages --
+  the data-source switch, the file upload, and the live release-year markers
+  on the results page -- so an audit run now would be redone. The audit runs
+  once, over the final UI. Batch 21 still closes on the rest of WP-8: the
+  Bootstrap removal, the `.dark-mode` retirement, the dead-CSS sweep, the
+  linting disposition, the docs and the owner E2E pass. The frontend gate
+  keeps enforcing the accessibility checks it already owns in the meantime --
+  44px coarse-pointer targets, focus visibility and contrast -- so the
+  deferral is of the sweep, not of every check.
 - **Record an explicit disposition for HTML/CSS/JS linting.**
   `AGENT_NOTES.md` assigns that tooling gap to this WP. The decision is:
   add only the generated-CSS drift enforcement (now WP-2), keep the
