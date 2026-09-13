@@ -1,9 +1,10 @@
 """Every page renders and loads exactly one framework stylesheet.
 
-WP-2 moves Bootstrap and global.css out of base.html and into a per-page
-block. A page that ends up with neither loses its theme completely, and a page
-that ends up with both gets a Bootstrap/daisyUI class collision. Neither shows
-up in any other test, and neither is visible until someone opens the page.
+WP-2 moved Bootstrap and global.css out of base.html into a per-page block,
+and WP-8 removed both. A page that ends up with no framework stylesheet loses
+its theme completely, and a page that ends up with two gets a class collision.
+Neither shows up in any other test, and neither is visible until someone opens
+the page.
 
 The browser gate checks the pages it can reach without a job. This module also
 checks the job-backed templates directly.
@@ -770,3 +771,39 @@ def test_every_page_sets_the_theme_before_first_paint(app, template):
     head = html.split("</head>")[0]
     assert "localStorage.getItem('darkMode')" in head
     assert "use.typekit.net/rwy8ghw.css" in head
+
+
+def test_base_template_offers_no_legacy_framework_stack() -> None:
+    """base.html must not hand any page Bootstrap or global.css again.
+
+    WP-8 removed the default-on `legacy_css` block, the `bootstrap_js` block
+    and `static/css/global.css`. A page opted out by overriding the block, so
+    restoring the block silently re-themes every page that does not.
+    """
+    base = (TEMPLATES / "base.html").read_text(encoding="utf-8")
+
+    assert BOOTSTRAP not in base.lower(), "base.html loads Bootstrap again"
+    assert "global.css" not in base, "base.html loads the retired global.css"
+    assert "legacy_css" not in base, "base.html reintroduced the legacy_css block"
+    assert not (STATIC_CSS / "global.css").exists(), "global.css is back on disk"
+
+
+def test_theme_is_written_only_as_data_theme() -> None:
+    """theme.js writes one theme signal, so one observer can follow it.
+
+    The `.dark-mode` class on <body> was the second write. `heatmap.js`
+    observed it to repaint zero-count cells, and that observer now watches
+    `data-theme`. A restored class write would give the app two signals that
+    can disagree.
+    """
+    theme_js = (
+        Path(__file__).resolve().parents[1] / "static" / "js" / "theme.js"
+    ).read_text(encoding="utf-8")
+    heatmap_js = (
+        Path(__file__).resolve().parents[1] / "static" / "js" / "heatmap.js"
+    ).read_text(encoding="utf-8")
+
+    assert "classList.toggle('dark-mode'" not in theme_js
+    assert "data-theme" in theme_js
+    assert "attributeFilter: ['data-theme']" in heatmap_js
+    assert "observer.observe(document.body" not in heatmap_js

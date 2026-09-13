@@ -331,12 +331,13 @@ Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
    and `templates/` are excluded by the top-level rule regardless -- so the
    files eight work packages spend their time rewriting are unreachable by
    two independent mechanisms. Nothing formats or lints them.
-   **Disposition (2026-08-19):** this gap is closed by decision, not by
-   tooling. Batch 21 adds the generated-CSS drift hook (WP-2) and the
-   frontend gate (WP-2 onward), keeps owner Firefox review, and does not
-   add general CSS/JS/HTML linting unless a real regression demonstrates
-   the need. WP-8 records that decision and its reason. Do not read this
-   gap as an open commitment to add linters.
+   **Disposition (2026-08-19, recorded at WP-8 on 2026-09-13):** this gap is
+   closed by decision, not by tooling. Batch 21 adds the generated-CSS drift
+   hook (WP-2) and the frontend gate (WP-2 onward), keeps owner Firefox
+   review, and does not add general CSS/JS/HTML linting unless a real
+   regression demonstrates the need. `BATCH21_DEFINITION.md` WP-8 carries the
+   decision and its reason. Do not read this gap as an open commitment to add
+   linters.
 5. **`workflow_dispatch` is now usable.** The comment in `test.yml` notes
    it only becomes usable once on the default branch; the PR #170 merge put
    it there, confirmed present on `origin/main`.

@@ -1016,6 +1016,45 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-13 - Legacy framework stack retired (Batch 21 WP-8 sweep)
+
+- Scope: the WP-8 sweep, run before the backend batches on the owner's ruling
+  of 2026-09-13. The frontend and accessibility audit is not here; it moved to
+  Batch 23's close-out so it runs once over the final UI.
+- Removed: the default-on `legacy_css` block and the `bootstrap_js` block in
+  `templates/base.html`, the eight per-page opt-outs that answered them, and
+  `static/css/global.css`. WP-8's deterministic check,
+  `git grep -nE "bootstrap|data-bs-|bs-(toggle|target|dismiss)" -- templates static`,
+  now returns nothing. No other stylesheet is unreferenced: every file in
+  `static/css/` is loaded by a template or compiled by the build.
+- The theme is written once. `static/js/theme.js` no longer writes
+  `.dark-mode` on `<body>`; `data-theme` on the root element is the only
+  signal.
+- **A regression the sweep would have shipped.** `static/js/heatmap.js`
+  observed `<body>` for that class to repaint zero-count cells, because a cell
+  carries its colour as an SVG `fill` attribute and a presentation attribute
+  does not resolve a custom property. Retiring the class silently froze the
+  cells at their light colour on a dark page, and the whole gate stayed green:
+  every other theme check reads CSS. `docs/architecture/runtime-system.md` had
+  recorded this dependency and named the fix; reading it is what caught this.
+- Guards added, each seen to fail first: the gate's
+  `check_heatmap_zero_cells_follow_theme` toggles the theme and compares each
+  zero cell against `--heatmap-empty` (it failed with `#c8bfad` in both themes
+  before the observer moved), and two tests in `tests/test_template_shell.py`
+  pin the retired stack and the single theme write.
+- Linting disposition recorded: `BATCH21_DEFINITION.md` WP-8 carries the
+  decision, and the `AGENT_NOTES.md` gap entry now points at it instead of
+  reading as an open commitment.
+- Docs: README's status section, `docs/architecture/runtime-system.md` (both
+  bullets this change falsified), and the `tests/test_template_shell.py`
+  docstring.
+- Validation: `pytest -q` -- **1034 passed**. `python scripts/dev/frontend_gate.py`
+  -- **27 checks passed in 49 runs** across chromium and firefox.
+- Forward guidance: what remains before Batch 21 closes is the owner's
+  end-to-end pass in Firefox, including the saved image in both themes, and
+  the close-out commit. Batch 22 opens on its own branch, named in Section 3
+  first.
+
 ### 2026-09-12 - Documentation reconciled to the shipped unmatched page
 
 - Scope: the documentation-first step the owner chose before the WP-7 table
@@ -1111,31 +1150,3 @@ non-current operational logs. Older dated entries live in
   26 checks passed in 47 runs. `pytest -q` -- **1026 passed**.
 - Deviation: none. This is a defect the PR review round surfaced and fixed inside
   the same round.
-
-### 2026-09-11 - Deterministic tie-breaks on the three cap-path sorts
-
-
-- Scope: a PR review comment on `scrobblescope/orchestrator.py:131` and `:703`
-  asked for a stable tie-breaker on the sorts that choose albums for the
-  `_MAX_ALBUM_CAP` safety cap, so tied play counts cannot let insertion order
-  decide which albums are kept.
-- Plan vs implementation: all three cap-path sorts now order by descending play
-  count and then by normalized key. The reviewer named two; the third is the
-  playcount pre-slice in the same function, added as the same class. The
-  now-unused `cast` import was removed.
-- Evidence: the fix's failure mode was OBSERVED, not assumed. With the three keys
-  reverted to `reverse=True`, all three new tests fail; restored, all three pass.
-  `pytest -q` -- **1025 passed**, up from 1022 with the three new tests.
-- Deviation: none in scope, and one correction to record. The determinism the
-  reviewer worried about was not reachable before this change: the cap's input is
-  built by iterating page results in order, `partition_albums_by_threshold`
-  preserves that order, and the sort is stable. So this makes the guarantee
-  structural instead of inherited from a four-link chain nothing pinned, rather
-  than fixing a live bug. Recorded so a later reader does not overstate it.
-- Forward guidance: two same-class sibling sorts remain at `orchestrator.py:538`
-  and `:540`, in `_build_results`' user-visible ordering. They were NOT fixed
-  here: the review did not name them, their input order derives from `cache_hits`
-  and was not established as nondeterministic, and every further site costs its
-  own fixture and its own claim. Bounded deliberately rather than chased -- the
-  same reasoning that parked the dated-record policy sites. A future pass wanting
-  the class closed should do all remaining sites in one edit.

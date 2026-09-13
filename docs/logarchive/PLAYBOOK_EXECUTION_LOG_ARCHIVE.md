@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Deterministic tie-breaks on the three cap-path sorts
+
+
+- Scope: a PR review comment on `scrobblescope/orchestrator.py:131` and `:703`
+  asked for a stable tie-breaker on the sorts that choose albums for the
+  `_MAX_ALBUM_CAP` safety cap, so tied play counts cannot let insertion order
+  decide which albums are kept.
+- Plan vs implementation: all three cap-path sorts now order by descending play
+  count and then by normalized key. The reviewer named two; the third is the
+  playcount pre-slice in the same function, added as the same class. The
+  now-unused `cast` import was removed.
+- Evidence: the fix's failure mode was OBSERVED, not assumed. With the three keys
+  reverted to `reverse=True`, all three new tests fail; restored, all three pass.
+  `pytest -q` -- **1025 passed**, up from 1022 with the three new tests.
+- Deviation: none in scope, and one correction to record. The determinism the
+  reviewer worried about was not reachable before this change: the cap's input is
+  built by iterating page results in order, `partition_albums_by_threshold`
+  preserves that order, and the sort is stable. So this makes the guarantee
+  structural instead of inherited from a four-link chain nothing pinned, rather
+  than fixing a live bug. Recorded so a later reader does not overstate it.
+- Forward guidance: two same-class sibling sorts remain at `orchestrator.py:538`
+  and `:540`, in `_build_results`' user-visible ordering. They were NOT fixed
+  here: the review did not name them, their input order derives from `cache_hits`
+  and was not established as nondeterministic, and every further site costs its
+  own fixture and its own claim. Bounded deliberately rather than chased -- the
+  same reasoning that parked the dated-record policy sites. A future pass wanting
+  the class closed should do all remaining sites in one edit.
+
 ### 2026-09-11 - Approved spec reconciled with the owner's side-by-side ruling
 
 

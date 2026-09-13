@@ -109,16 +109,19 @@ Three things this view deliberately makes visible, because breaking them is
 silent:
 
 - **One framework stylesheet per page.** `base.html` used to default Bootstrap
-  on and every migrated page opted out. The migration finished: no page loads
-  Bootstrap or `global.css` any more, and the gate asserts stylesheet isolation
-  per page. `global.css` is now dead code awaiting WP-8.
-- **The theme is written twice.** `theme.js` sets `data-theme` on `<html>` for
-  daisyUI and `shell.css`, and `.dark-mode` on `<body>`. The second write is
-  load-bearing even though no stylesheet reads it: `heatmap.js` observes
-  `document.body` for `class` so its zero-count cells can be repainted on a
-  theme change. An SVG presentation attribute does not resolve a custom
-  property, which is why the repaint is JavaScript at all. WP-8 must move that
-  observer to `data-theme` in the same change that retires the class.
+  on and every migrated page opted out. WP-8 removed the default, the per-page
+  opt-outs and `global.css` itself. The gate still asserts stylesheet isolation
+  per page, and `tests/test_template_shell.py` holds every page to exactly one
+  framework stylesheet.
+- **The theme is written once, and one repaint follows it.** `theme.js` sets
+  `data-theme` on `<html>`, which daisyUI and `shell.css` key on. WP-8 retired
+  the second write, `.dark-mode` on `<body>`, and moved `heatmap.js`'s observer
+  to `data-theme` in the same change. That observer is load-bearing: a heatmap
+  cell carries its colour as an SVG `fill` attribute, a presentation attribute
+  does not resolve a custom property, so zero-count cells are repainted in
+  JavaScript. The gate's "heatmap zero cells follow theme" check owns it;
+  before the check existed, the whole gate stayed green while the cells kept
+  their light colour on a dark page.
 - **The Spotify cost boundary.** `_MAX_ALBUM_CAP = 500` caps every sort mode
   before any Spotify call, and `partition_albums_by_threshold` splits the
   aggregated albums before enrichment, so albums that miss a play or track

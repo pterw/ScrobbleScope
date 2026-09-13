@@ -310,8 +310,10 @@ release of the live site.
 ## Current Status & Roadmap
 
 Every page now renders on Tailwind and daisyUI: Home, Heatmap, loading,
-Results, the Unmatched report, the error page, and the empty states. None of
-them loads Bootstrap.
+Results, the Unmatched report, the error page, and the empty states. Nothing
+loads Bootstrap: the framework, the legacy `global.css` and the `.dark-mode`
+compatibility class are all gone, and one theme signal remains, `data-theme`
+on the root element.
 
 The Unmatched report has been rebuilt. It groups exclusions on stable reason
 codes rather than on prose, so a group no longer splits apart because two
@@ -322,9 +324,9 @@ year, and `no_spotify_match` for albums Spotify could not identify. Each
 reason gets its own panel, and the panels sit side by side on a wide screen
 and stack on a narrow one. Long lists start at ten rows and open 25 at a time.
 
-What remains is the close-out sweep: retiring the last unused legacy
-stylesheets and the `.dark-mode` compatibility selector, and a final
-accessibility pass.
+What remains before close-out is the owner's end-to-end pass. The frontend
+and accessibility audit moves to the batch that ships the next interface
+changes, so it runs once over the final UI.
 
 [PLAYBOOK.md](PLAYBOOK.md#3-active-batch--next-action) owns the current work
 order. [FINDINGS.md](FINDINGS.md) records known limitations and deferred work;

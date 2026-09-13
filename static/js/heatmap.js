@@ -1370,18 +1370,26 @@
   }
 
   // ----------------------------------------------------------------
-  // Dark mode observer
+  // Theme observer
   // ----------------------------------------------------------------
-  function initDarkModeObserver() {
-    // When dark mode toggles, update zero-scrobble cells
+  function initThemeObserver() {
+    // A cell carries its colour as an SVG `fill` attribute, and a
+    // presentation attribute does not resolve a custom property, so a theme
+    // change repaints the zero-count cells here rather than in CSS.
+    //
+    // It watched `<body>` for the `.dark-mode` class until WP-8 retired that
+    // write. `data-theme` on <html> is now the only theme signal.
     var observer = new MutationObserver(function (mutations) {
       mutations.forEach(function (m) {
-        if (m.attributeName === 'class') {
+        if (m.attributeName === 'data-theme') {
           updateZeroFills();
         }
       });
     });
-    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
   }
 
   function updateZeroFills() {
@@ -1438,7 +1446,7 @@
     initUsernameValidation();
     initForm();
     initPills();
-    initDarkModeObserver();
+    initThemeObserver();
     window.addEventListener('resize', handleResize);
     if (window.location.pathname === '/heatmap') resumeSavedHeatmap();
   });

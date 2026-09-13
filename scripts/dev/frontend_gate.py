@@ -1781,6 +1781,70 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
+    """A theme change repaints the heatmap's zero-count cells.
+
+    The cells carry a `fill` presentation attribute, and an SVG presentation
+    attribute does not resolve a custom property, so the repaint is JavaScript:
+    `heatmap.js` watches for the theme change and rewrites every zero cell.
+    It watched `<body>` for the `.dark-mode` class until WP-8 retired that
+    write, and nothing here noticed, because every other theme check reads CSS.
+    """
+    failures = []
+    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    set_job_results(
+        job_id,
+        {
+            "username": "frontend-gate",
+            "from_date": "2025-01-01",
+            "to_date": "2025-01-05",
+            "total_scrobbles": 3,
+            "max_count": 3,
+            "daily_counts": {
+                "2025-01-01": 3,
+                "2025-01-02": 0,
+                "2025-01-03": 0,
+                "2025-01-04": 1,
+                "2025-01-05": 0,
+            },
+        },
+    )
+    set_job_progress(job_id, progress=100, message="Done", error=False)
+    try:
+        page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
+        page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+        page.locator('.heatmap-cell[data-count="0"]').first.wait_for(state="attached")
+        readings = {}
+        for theme in ("light", "dark"):
+            page.evaluate(SET_THEME_EXPRESSION, theme)
+            page.wait_for_timeout(120)
+            readings[theme] = page.evaluate(
+                """() => {
+                    const cell = document.querySelector('.heatmap-cell[data-count="0"]');
+                    const probe = getComputedStyle(document.documentElement)
+                        .getPropertyValue('--heatmap-empty').trim();
+                    return { fill: cell?.getAttribute('fill'), token: probe };
+                }"""
+            )
+    finally:
+        delete_job(job_id)
+
+    for theme, reading in readings.items():
+        if not reading["fill"]:
+            failures.append(f"/heatmap renders no zero-count cell in the {theme} theme")
+        elif reading["fill"] != reading["token"]:
+            failures.append(
+                f"/heatmap zero cells are {reading['fill']!r} in the {theme} theme, "
+                f"expected the --heatmap-empty token {reading['token']!r}"
+            )
+    if len(readings) == 2 and readings["light"]["fill"] == readings["dark"]["fill"]:
+        failures.append(
+            "/heatmap zero cells did not repaint across a theme change: "
+            f"{readings['light']['fill']!r} in both"
+        )
+    return failures
+
+
 def _measure_scale_dimensions(page, base_url, selectors, width: int, height: int):
     """Read real rectangles and computed authored dimensions after fonts load."""
     page.set_viewport_size({"width": width, "height": height})
@@ -3879,6 +3943,12 @@ CHECKS = (
         STATIC_ASSETS,
     ),
     ("mark follows theme", check_mark_follows_theme, (DESKTOP,), STATIC_ASSETS),
+    (
+        "heatmap zero cells follow theme",
+        check_heatmap_zero_cells_follow_theme,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE), THEME_MOTION),
     ("true warning survives", check_true_warning_survives, (DESKTOP,), THEME_MOTION),
     (

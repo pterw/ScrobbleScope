@@ -1,16 +1,13 @@
 // static/js/theme.js
 // Shared behaviour loaded via base.html for every page.
-// Handles: dark-mode toggle persistence, back-to-top smooth scroll.
+// Handles: theme toggle persistence, back-to-top smooth scroll.
 (function () {
-    // The theme is written in two places on purpose, for as long as the
-    // strangler migration runs:
-    //   data-theme on <html>  -- daisyUI keys on it, and so does shell.css
-    //   .dark-mode on <body>  -- the seven legacy stylesheets still key on it
-    // WP-8 retires the second write once no Bootstrap page is left.
+    // One write: data-theme on <html>, which daisyUI and shell.css both key
+    // on. WP-8 retired the second write, `.dark-mode` on <body>, with the
+    // legacy stylesheets that read it.
     function applyTheme(isDark) {
         document.documentElement.setAttribute(
             'data-theme', isDark ? 'dark' : 'light');
-        document.body.classList.toggle('dark-mode', isDark);
     }
 
     const darkSwitch = document.getElementById('darkSwitch');
