@@ -12,7 +12,8 @@
 
 Copied verbatim from the repository ruleset. Every task's requirements include this section.
 
-- Test baseline: `pytest -q` must report **1020 passed**. A different number is a failure to investigate, not a new baseline.
+- Test baseline: `pytest -q` must report the count in `.claude/SESSION_CONTEXT.md` Section 1, which is the single owner of that number (**1026 passed** as measured 2026-09-12). Read it there rather than trusting a figure copied into this plan. A different number is a failure to investigate, not a new baseline.
+  - Superseded on 2026-09-12: this line previously hardcoded **1020 passed**, which was the count when this plan was written on 2026-09-11. Every other `1020` in this document sits inside a quoted `PLAYBOOK.md` log entry or a note about one; those are dated point-in-time records of the 2026-09-11 runs and stay as written. Where a step below states an expected count, it now defers to SESSION_CONTEXT Section 1 for the same reason.
 - `pre-commit run --all-files` must pass, all 10 hooks, with **no files modified**. A hook that modifies a file reports `Failed`; re-stage and re-run until a run modifies nothing.
 - `python scripts/doc_state_sync.py --check` must exit **0**, with only the expected root-`BATCH21_DEFINITION.md` warning. Any `DOC` integrity error is a blocker.
 - Never `git add -A` or `git add .`. Stage named paths only.
@@ -230,7 +231,7 @@ pre-commit run --all-files
 python scripts/doc_state_sync.py --check
 ```
 
-Expected: `--fix` refreshes the managed block, `pytest -q` reports **1020 passed**, the hooks report 10 passed with no files modified, and `--check` exits 0 with only the root-`BATCH21_DEFINITION.md` warning. If a hook modifies a file, re-stage that file and run the hooks again until a run modifies nothing.
+Expected: `--fix` refreshes the managed block, `pytest -q` reports the count in `.claude/SESSION_CONTEXT.md` Section 1 (**1026 passed** as measured 2026-09-12), the hooks report 10 passed with no files modified, and `--check` exits 0 with only the root-`BATCH21_DEFINITION.md` warning. If a hook modifies a file, re-stage that file and run the hooks again until a run modifies nothing.
 
 - [ ] **Step 11: Commit**
 
@@ -359,7 +360,7 @@ pre-commit run --all-files
 python scripts/doc_state_sync.py --check
 ```
 
-Expected: **1020 passed**; 10 hooks passed with no files modified; `--check` exits 0 with only the root-`BATCH21_DEFINITION.md` warning.
+Expected: the count in `.claude/SESSION_CONTEXT.md` Section 1 (**1026 passed** as measured 2026-09-12); 10 hooks passed with no files modified; `--check` exits 0 with only the root-`BATCH21_DEFINITION.md` warning.
 
 - [ ] **Step 8: Commit**
 
@@ -455,7 +456,7 @@ pre-commit run --all-files
 python scripts/doc_state_sync.py --check
 ```
 
-Expected: `--fix` refreshes the managed STATUS block in `.claude/SESSION_CONTEXT.md` from the Section 3 text just written; **1020 passed**; 10 hooks passed with no files modified; `--check` exits 0.
+Expected: `--fix` refreshes the managed STATUS block in `.claude/SESSION_CONTEXT.md` from the Section 3 text just written; the count in `.claude/SESSION_CONTEXT.md` Section 1 (**1026 passed** as measured 2026-09-12); 10 hooks passed with no files modified; `--check` exits 0.
 
 - [ ] **Step 7: Commit**
 

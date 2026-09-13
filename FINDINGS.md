@@ -5,7 +5,7 @@ Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
 into WP-3. The WP-7 extension is implemented and refined, and WP-8 awaits owner
 direction.
 PLAYBOOK Section 3 owns the current work order.
-1026 tests across 43 test modules.
+1028 tests across 43 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -142,6 +142,25 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+
+### F-B21-58: the unmatched section title says "thresholds", which the copy rules forbid
+
+`scrobblescope/unmatched.py` titles the `below_threshold` panel "Below your
+thresholds", and the approved WP-7 extension spec specifies that title
+(`docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`,
+Presentation section). The design system's copy rules say the opposite:
+`docs/design/reference/design-system-readme.md` rules that the play and track
+minimums are "what counts as listened" in the UI, **never** "thresholds".
+
+Two approved documents disagree, and the page ships one side. This is a copy
+ruling, not a defect an agent can settle by picking the rule it prefers. The
+title is also what the reader sees on the one panel they can act on, so the
+wording carries more weight here than anywhere else on the page.
+
+Status: resolved 2026-09-13. The owner renamed the panel "Not enough listening"
+in `scrobblescope/unmatched.py` `CATEGORY_METADATA`, so the copy rules win and
+the spec now states the new title. Source: Batch 21 documentation audit,
+2026-09-12.
 
 ### F-B21-56: upstream Spotify failure detection was coupled to written prose reason instead of reason_code
 
@@ -664,11 +683,61 @@ Two candidate fixes, and the choice is the owner's:
    theme does not declare. This is the option that prevents recurrence rather
    than permitting the syntax.
 
-Until one lands, the same trap is live for every future template edit. A grep
-for `-\d+\.5` across `templates/` finds current instances.
+Until one lands, the same trap is live for every future template edit.
 
-Status: open. The Results instance is fixed; the class of defect is not.
-Source: owner-reported stat-bar padding regression, 2026-09-09.
+**The remediation grep this finding used to give was incomplete, and following
+it leaves most of the damage in place.** The old instruction was "a grep for
+`-\d+\.5` across `templates/`". That pattern only finds the fractional shape
+(`py-2.5`, `gap-2.5`, `pl-0.5`, `gap-0.5`, `p-1.5`, `pt-0.5`, `-mr-1.5`). Dead
+utilities come in a second shape it cannot match at all: whole-number steps the
+theme never declares, such as `w-10`, `w-24`, `w-28`, `md:w-28`, `md:w-32`,
+`min-w-0` and `inset-0`. Those are exactly as dead as the fractional ones, and
+on 2026-09-12 they were 21 of the 37 dead occurrences across the two rebuilt
+templates -- so the old grep, followed literally, would have left the majority
+of the defect in the tree.
+
+Search for both shapes. The utility classes at risk are every spacing and
+sizing step (`p*`, `m*`, `gap*`, `w`, `h`, `min-w`, `min-h`, `max-w`, `max-h`,
+`inset`, `top`/`right`/`bottom`/`left`, `space-x`/`space-y`, `size`), fractional
+or not, including their responsive and negative variants. A grep alone cannot
+decide the question, because whether a step is dead depends on the theme, not on
+the class name. The reliable check is to take each such class out of the markup
+and confirm that a matching selector exists in the compiled
+`static/css/tailwind.css` -- remembering that a responsive variant compiles to
+its own prefixed selector (`md:py-3` becomes `.md\:py-3`, not `.py-3`).
+
+**Measured state, 2026-09-12.** The declared ladder is 1, 2, 3, 4, 6, 8, 12.
+Against it, `templates/unmatched.html` carried 23 dead occurrences (`py-2.5` x8,
+`min-w-0` x5, `w-10` x2, `gap-2.5` x2, `w-24`, `w-28`, `md:w-28`, `md:w-32`,
+`gap-0.5`, `pl-0.5`) and `templates/results.html` carried 14 (`min-w-0` x9,
+`pt-0.5` x2, `inset-0`, `p-1.5`, `-mr-1.5`). The `unmatched.html` instances were
+cleared later the same day by the WP-7 follow-up, which re-authored that page
+against the declared ladder. The 14 in `results.html` were then deleted as
+markup that lied: they compiled to nothing, so the owner-approved rendering was
+already the rendering without them, and computed geometry at 390, 768, 1280 and
+1920px was measured identical before and after. Treat
+both counts as a dated snapshot, not as a live inventory -- that is precisely
+the reason this finding asks for a guard instead of a list.
+
+**Owner decision, 2026-09-12: option 2.** Keep the seven-step ladder. It is a
+deliberate design constraint and not a defect. Close the class with a pytest
+guard that fails when a template requests any spacing or sizing utility the
+theme does not declare, so the next dead class is caught at test time rather
+than by a rendered-padding regression.
+
+**Closed by the guard, 2026-09-12.** `tests/test_template_shell.py` gained
+`test_no_template_uses_a_spacing_step_the_theme_does_not_declare`, which fails
+on any spacing or sizing utility in any template that has no selector in the
+compiled sheet, and `test_the_dead_utility_sweep_flags_only_unscaled_spacing_steps`,
+its adversarial helper test. The guard was seen to fail on disk: adding
+`min-w-0 py-2.5` to `templates/results.html` turned it red naming both tokens.
+The frontend gate's unmatched check now also measures row padding, the column
+budget and document-level overflow, because a dead utility shows up there as
+geometry rather than as a class.
+
+Status: resolved 2026-09-12. Rotates to the archive at batch close-out. Source:
+owner-reported stat-bar padding regression, 2026-09-09; re-measured and ruled
+2026-09-12.
 
 ### F-B21-53: the surface-card token now sits darker than the page it lifts off
 
@@ -1834,6 +1903,27 @@ the documented exit 2; and a file deleted on disk with the deletion
 unstaged still counts as tracked.
 Status: open. Source: PR #169 independent review.
 
+### F-DOCSYNC-11: same-date precedence hides a batch count recorded after a side task
+
+`latest_test_count_authority` in `scripts/docsync/logic.py` orders candidates by
+date, then by source precedence, and ranks a live side-task entry above a
+current-batch entry on a shared date. Its docstring states the assumption: "A
+side-task entry is written after the batch entry it follows."
+
+The assumption fails whenever batch work resumes on the same day as a side
+task. Reproduced 2026-09-12: the side-task entry "Planning records preserved"
+recorded **1026 passed** that morning, and the WP-7 entry written hours later
+recorded **1028 passed** after two tests were added. The older count stayed
+authoritative, so SESSION_CONTEXT and the FINDINGS header, both correct at 1028,
+failed DOC006 and DOC008. The only compliant remedies were to publish a
+superseded number or to restate the count in a side-task entry.
+
+Position within each source already encodes recency; the cross-source tie-break
+is where it is lost. A fix needs a design decision about what "newer" means
+across the two lists, so it is recorded rather than patched.
+
+Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12.
+
 ### F-WORKTREE-3: guard boundaries outside the design decision table
 
 Confirmed but unaddressed: between batches the guard skips every ancestry
@@ -1909,7 +1999,10 @@ Status: open; closes at Batch 21 WP-8. Source: F-B19-4 owner review.
 
 Scope, locked decisions, and acceptance criteria live entirely in
 `BATCH21_DEFINITION.md` (active batch) -- this entry is a pointer, not a
-second copy. Status: in progress (Batch 21 active, WP-0 done).
+second copy. Status: in progress (Batch 21 active; WP-0 through WP-5 and
+WP-7 are complete, WP-6 is absorbed into WP-3, and WP-8 awaits owner
+direction). Matches the file header above; corrected 2026-09-12, when this
+line still read "WP-0 done".
 Source: owner audit (UI Audit v3) + F-B19-4 owner review.
 
 ### F-B18-11: heatmap Last.fm page fetch is rate-limit bound
@@ -2277,8 +2370,8 @@ P1 to P2 and the finding moved from the P1 section to this one.
 The related UI need -- the unmatched modal and page should say plainly that
 an album had no Spotify match -- is already Batch 21 WP-7 scope
 (the `WP-7 -- Unmatched page + reason_code` section of
-`BATCH21_DEFINITION.md`: the `no_spotify_match` reason code and two
-reason cards with human copy). It is not extra work and is not tracked here.
+`BATCH21_DEFINITION.md`: the `no_spotify_match` reason code and the reason
+panels with human copy). It is not extra work and is not tracked here.
 Status: open (P2). Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
 
 ### F-SWE-6: reading a job renews its TTL, so a polled job never expires

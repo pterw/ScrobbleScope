@@ -23,7 +23,8 @@ BOOTSTRAP = "bootstrap"
 TAILWIND = "tailwind.css"
 
 STATIC_CSS = Path(__file__).resolve().parents[1] / "static" / "css"
-INLINE_SVG = Path(__file__).resolve().parents[1] / "templates" / "inline"
+TEMPLATES = Path(__file__).resolve().parents[1] / "templates"
+INLINE_SVG = TEMPLATES / "inline"
 
 #: The bar baseline docs/design/README.md "Wordmark animation" names, and the
 #: value shell.css uses as transform-origin for the pulse.
@@ -144,6 +145,50 @@ def _read_without_fallback(text: str) -> set[str]:
         token
         for token, following in re.findall(r"var\(\s*(--[\w-]+)\s*(.?)", text)
         if following != ","
+    }
+
+
+#: Any Jinja span. Stripped from the whole file before class attributes are
+#: read, so a quoted string inside {{ }} cannot end an attribute early.
+JINJA_SPAN = re.compile(r"\{\{.*?\}\}|\{%.*?%\}|\{#.*?#\}", re.S)
+
+#: A class attribute, not data-class or x-bind:class.
+CLASS_ATTRIBUTE = re.compile(r'(?<![\w:.-])class="([^"]*)"')
+
+#: A spacing or sizing utility with a numeric step, after any variant
+#: prefixes. Tailwind v4 puts the negative sign after the variants
+#: (md:-mr-1.5), so that is where the pattern allows it. Arbitrary values
+#: end in ] and never match; neither do hand-written names like results-table.
+SPACING_UTILITY = re.compile(
+    r"(?:[a-z0-9-]+:)*-?"
+    r"(?:p[xytrbl]?|m[xytrbl]?|gap(?:-[xy])?|space-[xy]"
+    r"|(?:min-|max-)?[wh]|size|inset(?:-[xy])?|top|right|bottom|left"
+    r"|basis|translate-[xy])"
+    r"-\d+(?:\.\d+)?"
+)
+
+
+def _spacing_utility_tokens(markup: str) -> set[str]:
+    """Return every literal class token in the markup shaped like a spacing step."""
+    literal = JINJA_SPAN.sub(" ", markup)
+    return {
+        token
+        for attribute in CLASS_ATTRIBUTE.findall(literal)
+        for token in attribute.split()
+        if SPACING_UTILITY.fullmatch(token)
+    }
+
+
+def _compiled_class_names(css: str) -> set[str]:
+    """Return every class name a stylesheet's selectors name, unescaped.
+
+    The build escapes the characters a selector cannot carry bare, so
+    md:py-2.5 is written .md\\:py-2\\.5. Comparing the escaped form against a
+    template token would report every variant and decimal step as dead.
+    """
+    return {
+        re.sub(r"\\(.)", r"\1", name)
+        for name in re.findall(r"\.((?:[\w-]|\\.)+)", _without_comments(css))
     }
 
 
@@ -521,6 +566,76 @@ def test_the_font_size_scale_is_not_shadowed_by_a_colour():
                 f"{size_token} resolves to {value.strip()}, a colour. A theme "
                 f"block has shadowed the font-size scale."
             )
+
+
+def test_the_dead_utility_sweep_flags_only_unscaled_spacing_steps():
+    """The sweep must catch an off-ladder step and nothing that really renders.
+
+    Two ways to get this helper wrong both look like success. Too loose, and
+    it flags arbitrary values like w-[calc(1rem)] or hand-written classes like
+    results-table, so owners learn to ignore it. Too tight, and a variant
+    selector such as .md\\:py-2\\.5 in the compiled sheet satisfies a bare
+    py-2.5 in the markup, which is exactly the class of rule that does not
+    apply at the base breakpoint. The compiled CSS here is inline, so the
+    assertion does not move when the real build does.
+    """
+    markup = '<div class="py-2.5 w-[calc(1rem)] px-3 min-w-0 results-table">'
+    compiled = (
+        ".px-3{padding-inline:var(--spacing-3)}"
+        ".w-\\[calc\\(1rem\\)\\]{width:calc(1rem)}"
+        "@media (width>=48rem){.md\\:py-2\\.5{padding-block:0.625rem}}"
+    )
+
+    dead = sorted(
+        token
+        for token in _spacing_utility_tokens(markup)
+        if token not in _compiled_class_names(compiled)
+    )
+
+    assert dead == ["min-w-0", "py-2.5"]
+
+
+def test_no_template_uses_a_spacing_step_the_theme_does_not_declare():
+    """A spacing utility off the seven-step ladder compiles to nothing at all.
+
+    F-B21-52. tailwind.src.css resets the spacing namespace inside
+    @theme static (--spacing: initial; --spacing-*: initial) and then
+    declares only steps 1, 2, 3, 4, 6, 8 and 12. That switches off Tailwind's
+    dynamic scale, so py-2.5, w-10, min-w-0, inset-0 and every other numeric
+    step outside the ladder generates no rule. Nothing reports it: the build
+    succeeds, the tailwind-css-drift hook passes because a dead class adds no
+    diff, and the page just loses a padding or a width. It already broke the
+    Results stat rail and the Unmatched table before anyone looked.
+
+    The owner kept the ladder on 2026-09-12, so the guard is here rather than
+    in the theme. Every literal class token in every template is checked
+    against the compiled sheet, not the source, because only the build says
+    what shipped. Jinja spans are stripped first; a class that only exists
+    inside an expression is not a literal and cannot be checked statically.
+
+    Only tokens shaped like a spacing or sizing utility with a numeric step
+    are considered. Arbitrary values (w-[calc(...)]) always compile and
+    hand-written page classes are not Tailwind utilities, so neither shape is
+    in scope. The fix for a failure is never to widen the ladder in passing:
+    author the value in the page stylesheet, or as an arbitrary [...] value.
+    """
+    compiled = _compiled_class_names(
+        (STATIC_CSS / TAILWIND).read_text(encoding="utf-8")
+    )
+
+    offenders = {
+        (template.relative_to(TEMPLATES).as_posix(), token)
+        for template in sorted(TEMPLATES.glob("**/*.html"))
+        for token in _spacing_utility_tokens(template.read_text(encoding="utf-8"))
+        if token not in compiled
+    }
+
+    assert not offenders, (
+        "These class tokens compile to no CSS rule, because the theme only "
+        "declares spacing steps 1/2/3/4/6/8/12 (F-B21-52). Author the value in "
+        "the page stylesheet or as an arbitrary [...] value instead:\n"
+        + "\n".join(f"  {path}: {token}" for path, token in sorted(offenders))
+    )
 
 
 def test_the_pinwheel_keeps_the_shape_its_selectors_assume():

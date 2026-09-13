@@ -1655,9 +1655,6 @@
   .px-1 {
     padding-inline: var(--spacing-1);
   }
-  .px-2 {
-    padding-inline: var(--spacing-2);
-  }
   .px-3 {
     padding-inline: var(--spacing-3);
   }
@@ -1794,9 +1791,6 @@
   }
   .break-words {
     overflow-wrap: break-word;
-  }
-  .text-ellipsis {
-    text-overflow: ellipsis;
   }
   .whitespace-nowrap {
     white-space: nowrap;
@@ -1969,13 +1963,6 @@
       font-size: var(--text-3xl);
       line-height: var(--tw-leading, var(--text-3xl--line-height));
     }
-    @layer daisyui.l1.l2 {
-      .sm\:btn-md {
-        --fontsize: 0.875rem;
-        --btn-p: 1rem;
-        --size: calc(var(--size-field, 0.25rem) * 10);
-      }
-    }
   }
   @media (width >= 48rem) {
     .md\:hidden {
@@ -1999,9 +1986,6 @@
     .md\:items-end {
       align-items: flex-end;
     }
-    .md\:gap-3 {
-      gap: var(--spacing-3);
-    }
     .md\:gap-4 {
       gap: var(--spacing-4);
     }
@@ -2010,9 +1994,6 @@
     }
     .md\:p-\[calc\(1\.25rem\*var\(--results-scale\)\)\] {
       padding: calc(1.25rem * var(--results-scale));
-    }
-    .md\:px-3 {
-      padding-inline: var(--spacing-3);
     }
     .md\:px-4 {
       padding-inline: var(--spacing-4);
@@ -2067,12 +2048,6 @@
     }
     .lg\:col-span-8 {
       grid-column: span 8 / span 8;
-    }
-    .lg\:grid-cols-2 {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .lg\:grid-cols-3 {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .lg\:grid-cols-12 {
       grid-template-columns: repeat(12, minmax(0, 1fr));

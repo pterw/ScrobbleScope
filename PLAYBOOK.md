@@ -186,15 +186,21 @@ See FINDINGS F-DOCSYNC-3.
 - **Next action:** the WP-7 refinement the owner asked for is implemented and
   verified, so the earlier note that this work was cut off before completion is
   discharged. The disclosure step is 25 (was 50), and the back-to-top control
-  now collapses its panel as well as scrolling. `pytest -q` -- **1022 passed**,
-  measured 2026-09-11; the two-engine frontend gate -- 26 checks passed in 47
+  now collapses its panel as well as scrolling. `pytest -q` -- **1028 passed**,
+  measured 2026-09-12; the two-engine frontend gate -- 26 checks passed in 48
   runs across chromium and firefox.
-  One conflict is still open and belongs to the documentation pass: the approved
-  spec `docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`
-  still says "stacked, full-width reason sections", while the owner ruled
-  side-by-side on 2026-09-11 and the shipped page is side-by-side. Correct the
-  spec and this bullet before beginning WP-8, or an agent following them will
-  rebuild the rejected layout. WP-8 starts only on owner direction.
+  The layout conflict this bullet tracked is **closed**. It was wider than the
+  bullet said: the spec recorded the side-by-side ruling in its Presentation
+  section, but its Outcome paragraph and its validation paragraph still described
+  full-width stacking, and the second credited the frontend gate with proving a
+  layout the gate asserts against. All three sites now agree, and the disclosure
+  paragraph now states the 25-row step and the collapsing back-to-top control.
+  WP-8 starts only on owner direction.
+  The unmatched table repair is implemented, validated and **committed on
+  `test`**; the latest Section 4 entry records it. The owner answered its four
+  questions on 2026-09-13: two panels is the maximum, the fix-hint accent stays,
+  the cover takes the Results size, and the threshold panel is titled "Not
+  enough listening", which resolves F-B21-58.
 
 - **Owed before Phase 2:** none. Every commit this bullet previously named has
   landed: the F-B21-51 slice-1 refactor as `95e0896`, the design-system plan's own
@@ -204,8 +210,9 @@ See FINDINGS F-DOCSYNC-3.
 - **Traversal record:** the design-system plan was traversed exhaustively on
   2026-09-11; the findings are
   `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`.
-- **Results follow-up:** F-B21-47 is implemented on `test`; the 925-test suite
-  and focused frontend-gate unit coverage pass. F-B21-48 records the separate
+- **Results follow-up:** F-B21-47 is implemented on `test`; the full suite and
+  focused frontend-gate unit coverage pass. The count lives in the next-action
+  bullet above and in SESSION_CONTEXT Section 1; do not restate it here. F-B21-48 records the separate
   persistent Last.fm scrobble-cache candidate; it does not expand this
   frontend change.
 - **Perf note:** heatmap fetch speed is rate-limit bound; measurement and
@@ -886,7 +893,127 @@ non-current operational logs. Older dated entries live in
   retiring `global.css` and the `.dark-mode` write, with `heatmap.js`'s
   observer moved to `data-theme` in the same change.
 
+### 2026-09-12 - Unmatched table repaired and the dead-utility class closed (Batch 21 WP-7)
+
+- Scope: WP-7 follow-up, run in the order the owner chose -- documentation
+  corrections first, then the unmatched table repair, then the F-B21-52 guard.
+  Plan of record: the approved session plan, which found that the Phase 1 file
+  table of `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`
+  already named "the narrower four-column budget" as an `unmatched.css`
+  deliverable that never landed.
+- Cause, measured: the page's row padding (`py-2.5`) and all four column widths
+  (`w-10`, `w-24`, `w-28`, `md:w-28`, `md:w-32`) were Tailwind utilities the
+  theme's spacing reset compiles to nothing. Above 768px every row had 0px
+  padding and the four columns were equal quarters -- 74.8px each at 1024px. A
+  dead `min-w-0` on the headline row also scrolled the whole document
+  horizontally at 768px and 1024px. Below 768px the table borrowed the Results
+  mobile block, which is why review missed it.
+- Implementation: `static/css/unmatched.css` now owns the column budget
+  (`nth-child` from 768px, the reason column at 30%), containment, and the panel
+  tracks keyed on a `data-panels` attribute; `templates/unmatched.html` uses
+  ladder steps and arbitrary values only, lets the headline and fix hint wrap,
+  drops the toolbar's extra `btn-sm sm:btn-md`, and accents the fix hint on the
+  `below_threshold` panel only. `--unmatched-surface` is deleted in favour of
+  `--results-surface`, and the page width matches Results at 94%. The 14 dead
+  tokens in `templates/results.html` were deleted, measured render-neutral at
+  four viewports with the compiled sheet unchanged. Measured after, on the
+  threshold panel: 12px row padding at every width, the album column widest at
+  every width, no document overflow anywhere. Its tightest case is 1024px, where
+  that column is 140px -- readable, but the narrowest the page gets.
+- Inspection round, screenshots at 1440px in both themes and at 390px, found
+  what no check covered, all fixed in one batch: the metric header clipped to
+  "PLAYS / TRA"; the threshold metric ellipsized to "7 plays ..."; a rank column
+  narrower than its link pill, clipping the pill's focus ring; three panels in two
+  tracks leaving a hole under the first (the second panel now spans both rows);
+  the summary total running on from the last filter value; and a borrowed 4.25rem
+  mobile reason column that broke "selected" into letters. The confirmation round
+  was clean.
+- Deviations:
+  - The owner chose two panels at 1024px and three at 1536px. Three tracks
+    measured 448px at both 1536px and 1920px because the page stops at 90rem, so
+    two is the maximum instead. Recorded in `docs/design/RECONCILIATION.md`
+    section 16 for owner confirmation.
+  - `2xl:grid-cols-3` did not survive the Tailwind scan, silently, so the tracks
+    are authored in CSS rather than as utilities.
+  - The owner chose the Results-sized cover. `static/css/unmatched.css` was set
+    back to the committed 40px/44px cover at 09:57, outside this session. The
+    owner confirmed the Results size on 2026-09-13, and it was re-applied then:
+    `.unmatched-artwork` mirrors `.album-cover-img`, and the gate, spec and
+    section 16 now describe it. Put back at 40px/44px, the gate failed on every
+    profile.
+  - Owner rulings on 2026-09-13: two panels is the maximum; the fix-hint accent
+    stays; the threshold panel is titled "Not enough listening" (F-B21-58
+    resolved). Review nits fixed at the same time: the grid comment no longer
+    names utilities, so Tailwind drops two dead rules; `.unmatched-page` no
+    longer restates the `.results-page` width; the gate's unused cover fields
+    are gone.
+  - The untracked `docs/superpowers/plans/2026-09-12-batch21-phase2-design-record-reconciliation.md`,
+    corrected at the start of this work, was removed from disk outside this
+    session and was never committed, so its corrections are lost with it.
+  - The documentation corrections that preceded this repair are logged as their
+    own side-task entry, "Documentation reconciled to the shipped unmatched
+    page", because they are the design-record reconciliation the Phase 2 plan
+    classes as side tasks. `RECONCILIATION.md` section 16 belongs to this entry.
+- Gate changes: `check_unmatched_report` expects two tracks above 1024px, reads
+  covers numerically, and newly measures row padding, the column budget's shape,
+  document-level overflow, clipped cell content and 44px coarse-pointer
+  controls, and now also runs on the wide touch profile. The clipping check
+  compares each cell's rendered contents with its box, because Chromium counts
+  end padding into `scrollWidth`; restoring the three clippings failed it at
+  every profile they reach. Seen to fail on disk: restoring `py-2.5` and removing
+  the budget failed desktop and wide touch on padding and equal columns, while
+  mobile passed -- the original desktop-only defect, reproduced.
+- Guard: `tests/test_template_shell.py` gained
+  `test_no_template_uses_a_spacing_step_the_theme_does_not_declare` and its
+  adversarial helper test, closing F-B21-52. Seen to fail on disk naming both
+  injected tokens. F-B21-58 filed for the "thresholds" copy conflict; the 9px
+  fix-line size stays with F-B21-4 item 4.
+- Design hook: suppressed `broken-image` for `templates/unmatched.html` only,
+  with evidence -- the src-less portrait `img` is hidden until hydration and the
+  gate asserts on it. The 9px `design-system-font-size` finding is left standing
+  as an owner question.
+- Validation: `pytest -q` -- **1028 passed**. `python scripts/dev/frontend_gate.py`
+  -- **26 checks passed in 48 runs** across chromium and firefox.
+- Forward guidance: do not reintroduce numeric spacing utilities; the guard will fail. If three panels
+  are wanted, the lever is the 90rem page cap, not the promotion breakpoint.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-12 - Documentation reconciled to the shipped unmatched page
+
+- Scope: the documentation-first step the owner chose before the WP-7 table
+  repair. Corrected claims that contradicted the shipped unmatched page, by class
+  rather than by instance, using two subagents on disjoint file sets.
+- The approved spec: its Outcome and Verification paragraphs still described
+  full-width stacking, and the second credited the frontend gate with proving
+  it; its disclosure paragraph described one button and no step. All now state
+  side-by-side panels, the 25-row step and the collapsing back-to-top control.
+- `PLAYBOOK.md` Section 3 carried two stale live test counts, 1022 and "the
+  925-test suite"; the second now defers to the next-action bullet. Its conflict
+  note pointed at the one spec sentence already corrected, not at the two stale
+  sites; it now records the conflict as closed.
+- `BATCH21_DEFINITION.md`: the stacked-layout prescription, "is next" for shipped
+  work, "two reason cards" where three ship, and a false claim that
+  `unmatched.css` hardcodes `--header-bg: #6a4baf`. `README.md`: two passages
+  telling readers the unmatched report still runs Bootstrap. `FINDINGS.md`:
+  F-B20-4's stale status, and F-B21-52's grep instruction, which could not find
+  whole-number dead steps.
+- `docs/design/RECONCILIATION.md`: section 11 still said `results.css` and
+  `unmatched.css` were unconverted to rem; sections 13 to 15 record the frozen
+  snapshot's 1180px measure, card styling and two-state expander as overrides,
+  since `docs/design/` is byte-frozen apart from that file.
+- Plans under `docs/superpowers/plans/`: normative "must report 1020 passed"
+  baselines now defer to SESSION_CONTEXT Section 1; the WP-7 plans and the
+  unverified gemini plan carry supersession records for the side-by-side ruling
+  and the 25-row step. Dated log excerpts inside them were left as records.
+- Deviation: F-DOCSYNC-11 filed. Same-date precedence ranks this morning's live
+  side-task entry above the WP-7 entry written after it, so the WP-7 entry's
+  count could not become authoritative and DOC006 and DOC008 failed. This entry
+  carries the working tree's full-suite result instead.
+- Validation: `pytest -q` -- **1028 passed**, on the working tree that also holds
+  the WP-7 table repair and the F-B21-52 guard.
+- Forward guidance: dated Section 4 entries and log excerpts quoted inside plans
+  are point-in-time records and stay as written.
 
 ### 2026-09-12 - Planning records preserved, and the ignored scratch root cleaned
 
@@ -975,26 +1102,3 @@ non-current operational logs. Older dated entries live in
   own fixture and its own claim. Bounded deliberately rather than chased -- the
   same reasoning that parked the dated-record policy sites. A future pass wanting
   the class closed should do all remaining sites in one edit.
-
-### 2026-09-11 - Approved spec reconciled with the owner's side-by-side ruling
-
-
-- Scope: the approved spec
-  `docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`
-  still directed "stacked, full-width reason sections" while the owner ruled
-  side-by-side on 2026-09-11 and both the shipped page and three frontend-gate
-  assertions implement side-by-side. A PR review comment raised it; it was the
-  last stale voice on that conflict.
-- Plan vs implementation: the directive now reads as side-by-side panels and
-  records the supersession, the owner's words and the date. The rest of the spec
-  is unchanged and still accurate.
-- Deviation: none. This is the reconciliation the design-system plan's Phase 2
-  named ("Record that the owner superseded its ... line with the side-by-side
-  ruling"); it sits outside the document-orderliness series' declared scope and is
-  logged here rather than folded silently into that series.
-- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` -- all
-  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0 with
-  only the expected root `BATCH21_DEFINITION.md` warning.
-- Forward guidance: the design-system plan's Phase 2 still lists this edit among
-  its work. It is now done, so that entry can be retired when Phase 2 runs;
-  `RECONCILIATION.md` gains a pointer to the same ruling in that pass.

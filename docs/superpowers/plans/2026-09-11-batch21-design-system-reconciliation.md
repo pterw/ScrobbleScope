@@ -606,7 +606,9 @@ place, so the two cannot disagree.
 
 1. Run the bootstrap guard and record the qualified Python, pytest and
    pre-commit paths it prints.
-2. Confirm the pre-work baseline: `pytest -q` (expect 990 passed),
+2. Confirm the pre-work baseline: `pytest -q` (expected 990 passed when Phase 0
+   ran on 2026-09-11; the current count is owned by `.claude/SESSION_CONTEXT.md`
+   Section 1 -- **1026 passed** as measured 2026-09-12),
    `pre-commit run --all-files`, `doc_state_sync.py --check`. Record the exact
    counts; do not quote SESSION_CONTEXT's number without re-measuring.
 3. Confirm the worktree state matches `git status --short`: the WP-7 UI changes

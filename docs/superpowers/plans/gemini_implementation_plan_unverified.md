@@ -1,5 +1,25 @@
 # Reconcile WP-7 Extension Plans, Fix 500-Album Cap Defect, and Align Results/Unmatched UI
 
+> **SUPERSEDED -- do not execute this plan.** Recorded 2026-09-12.
+>
+> **Superseded by:** `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`,
+> which replaced this plan and is the document that shipped.
+>
+> **Why:** on 2026-09-11 the owner ruled the unmatched reason panels
+> side-by-side -- "They should not be stacked, but side-by-side". Every
+> "multiple stacked horizontal reports", "stacked full-width sections" and
+> "one full-width table section per reason" statement below is contrary to
+> what shipped: `templates/unmatched.html` renders an `.unmatched-groups`
+> panel grid whose tracks `static/css/unmatched.css` owns, and three
+> frontend-gate assertions defend that arrangement. The two-state 10-row
+> disclosure below is also superseded: the shipped disclosure opens at 10 rows
+> and steps by 25 per press (`data-step="25" data-initial="10"`), and a
+> back-to-top button collapses the panel it belongs to.
+>
+> The filename already marks this plan unverified; this banner marks it
+> superseded as well. The file is kept deliberately -- its fate is an open
+> owner decision recorded elsewhere, so do not delete it.
+
 Reconcile the two WP-7 extension documents ([Spec](file:///c:/Users/peter/.config/superpowers/worktrees/ScrobbleScope/batch-21/impeccable-init/docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md) and [Plan](file:///c:/Users/peter/.config/superpowers/worktrees/ScrobbleScope/batch-21/impeccable-init/docs/superpowers/plans/2026-09-11-batch21-wp7-threshold-horizontal-report-extension.md)) using [docs/design/designsystemaudit.md](file:///c:/Users/peter/.config/superpowers/worktrees/ScrobbleScope/batch-21/impeccable-init/docs/design/designsystemaudit.md) as the canonical design system source of truth. Build multiple stacked horizontal reports sorted by unmatched reason mirroring `results.html`, diagnose and fix the backend 500-album cap issue, and resolve all validation gates.
 
 ## User Review Required

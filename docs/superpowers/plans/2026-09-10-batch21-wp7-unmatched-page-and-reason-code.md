@@ -563,6 +563,9 @@ git commit -m "feat(unmatched): Add stable reason_code to the unmatched contract
                 </div>
 
                 <!-- Expander Button if more than 10 items -->
+                <!-- Superseded 2026-09-11 (deviation 7): the shipped button
+                     steps by 25 rows from an initial 10, and a back-to-top
+                     button collapses the panel. -->
                 {% if albums|length > 10 %}
                 <div class="mt-3 text-center">
                     <button type="button"
@@ -640,6 +643,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             btn.setAttribute('aria-expanded', String(!isExpanded));
+            // Superseded 2026-09-11 (deviation 7): the shipped handler steps
+            // by 25 rows per press instead of toggling two states, and a
+            // back-to-top button collapses the panel.
             btn.textContent = isExpanded ? `Show all ${total} albums` : 'Show fewer';
         });
     });
@@ -702,7 +708,11 @@ This immediately subjects `/unmatched` to:
 - `check_body_font`: verifies body typography on desktop and mobile.
 - `check_touch_targets`: verifies all interactive links and buttons have >=44px touch targets on coarse pointers.
 - `check_unmatched_report`: creates a populated disposable job and verifies two
-  stable reason groups, the 10-row disclosure boundary in both toggle states,
+  stable reason groups, the 10-row disclosure boundary in both toggle states
+  (**superseded 2026-09-11, deviation 7:** the disclosure opens at 10 rows and
+  steps by 25 per press rather than having two states, and the gate also
+  asserts the side-by-side panel arrangement and the collapsing back-to-top
+  button),
   Spotify and play-count enrichment, lazy artist-portrait hydration through
   the existing full-stack route, the figure type role, and absence of
   unsupported 500/600 computed font weights.
@@ -784,6 +794,17 @@ Expected: All unit tests pass, pre-commit passes, doc sync passes, and the front
    per excluded album, and terminates an all-excluded job successfully without
    invoking Spotify. The dated 2026-09-11 extension plan owns the remaining
    horizontal Results-aligned report work.
+7. **Superseded disclosure -- owner ruling of 2026-09-11.** The two-state
+   10-row disclosure this task built ("Show all N albums" / "Show fewer") no
+   longer describes what ships. The panel now opens at 10 rows and reveals 25
+   more rows per press (`templates/unmatched.html`,
+   `data-step="25" data-initial="10"`), reduced from the 50-row step the
+   extension first built, and `static/js/unmatched.js` adds a back-to-top
+   button that also collapses the panel it belongs to. The template and script
+   excerpts in Task 4 below, and the `check_unmatched_report` description in
+   Task 5, are records of the code as authored on 2026-09-10 and are left as
+   written; read them against this deviation. The same 2026-09-11 ruling
+   replaced the stacked full-width sections with side-by-side reason panels.
 
 
 - [x] **Step 5: Commit the authorized finding fix, then the remaining WP-7 UI**

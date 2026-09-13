@@ -16,7 +16,7 @@ REASON_NO_SPOTIFY_MATCH = "no_spotify_match"
 #: Human copy, badges, and fix hints associated with each reason code.
 CATEGORY_METADATA = {
     REASON_BELOW_THRESHOLD: {
-        "title": "Below your thresholds",
+        "title": "Not enough listening",
         "description": "Albums that did not meet one or both listening minimums.",
         "badge": "Threshold",
         "fix_hint": "Lower either minimum on a new search to include these albums.",

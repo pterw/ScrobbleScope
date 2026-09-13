@@ -2,11 +2,37 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Retain albums that miss either eligibility threshold under one stable reason code and rebuild the unmatched report as full-width horizontal sections that mirror the current Results implementation.
+**Goal:** Retain albums that miss either eligibility threshold under one stable reason code and rebuild the unmatched report as full-width horizontal sections that mirror the current Results implementation. **Superseded 2026-09-11:** the sections ship side-by-side, not full-width -- see the Supersession record below.
 
 **Architecture:** Partition aggregated Last.fm albums before Spotify enrichment. Return eligible and threshold-excluded mappings separately, persist exclusions through the existing job repository, and keep Spotify cost unchanged. The unmatched template directly reuses Results stylesheet classes and scale variables where their semantics match; `unmatched.css` owns only page-specific row and category behavior.
 
 **Tech Stack:** Python 3.13, Flask, Jinja2, Tailwind CSS v4, daisyUI v5, vanilla JavaScript, Playwright, pytest.
+
+## Supersession record -- owner rulings of 2026-09-11 (recorded 2026-09-12)
+
+This plan is a record of what was planned. Two of its decisions were overruled
+after it was written, and the shipped code follows the rulings. The superseded
+wording below is left in place and marked rather than rewritten, so the record
+of what was planned stays honest.
+
+1. **Layout: side-by-side, not stacked.** On 2026-09-11 the owner ruled "They
+   should not be stacked, but side-by-side". `templates/unmatched.html` ships a
+   panel grid whose tracks `static/css/unmatched.css` owns, and three
+   frontend-gate assertions defend that arrangement. Every "stacked" or
+   "full-width section per reason" statement in this plan -- the Goal above,
+   the Global Constraint below, Task 2's "Produces" line and Task 2 Step 4 --
+   is superseded by that ruling.
+2. **Disclosure: a 25-row step, and a back-to-top that collapses its panel.**
+   The shipped disclosure opens at 10 rows and reveals 25 more per press
+   (`templates/unmatched.html`, `data-step="25" data-initial="10"`), not the
+   50-row step this series first built; the 50-to-25 change is the owner's
+   2026-09-11 ruling. `static/js/unmatched.js` also adds a back-to-top button
+   that collapses the panel it belongs to. This plan's "10-row expander"
+   wording describes the initial state only.
+
+Task 2's steps shipped under those rulings and are ticked below. The ruling and
+the reconciliation that carried it are recorded in
+`docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`.
 
 ## Global Constraints
 
@@ -16,7 +42,7 @@
 - Threshold exclusions never enter Spotify search or batch enrichment.
 - Keep the existing `/api/artist_spotlight` lazy fallback for rows without cached album art.
 - Remove the unmatched eyebrow above `h1`; render its username without purple or italics.
-- Use full-width stacked reason sections, Results width/scale/surface/action/table conventions, 1px hairlines, and no resting shadow.
+- Use full-width stacked reason sections, Results width/scale/surface/action/table conventions, 1px hairlines, and no resting shadow. **Superseded 2026-09-11:** the owner ruled side-by-side reason panels instead of full-width stacked sections; the rest of this constraint still holds.
 - Spacing and type use `rem`; fine borders, outlines, and radii use `px`.
 - Coarse-pointer controls remain at least 44px on their smaller side.
 - No new dependency and no weight 500 or 600.
@@ -160,9 +186,9 @@ feat(unmatched): Retain below-threshold albums
 **Interfaces:**
 - Consumes: `below_threshold`, its structured counts, existing reason metadata, and Results' current CSS variables/classes.
 - Preserves: `.unmatched-expander-btn`, `.unmatched-overflow`, `[data-artist-image]`, and `/api/artist_spotlight` hydration.
-- Produces: stacked `.unmatched-group` sections and `.unmatched-thresholds` row values.
+- Produces: stacked `.unmatched-group` sections and `.unmatched-thresholds` row values. **Superseded 2026-09-11:** the `.unmatched-group` sections ship as side-by-side panels in an `.unmatched-groups` grid.
 
-- [ ] **Step 1: Add RED route and browser assertions**
+- [x] **Step 1: Add RED route and browser assertions**
 
 Require the populated page to have no element before `h1` inside the headline
 block, no italic or primary-color username class, and reason order
@@ -174,14 +200,14 @@ Require every reason section to occupy the report content width at desktop,
 artwork to compute to 44px desktop and 40px mobile, and the page to have no
 horizontal overflow at the narrow profile.
 
-- [ ] **Step 2: Rewrite the masthead from current Results source**
+- [x] **Step 2: Rewrite the masthead from current Results source**
 
 Use the same flex breakpoint, bottom alignment, margin rhythm, headline sizes,
 and toolbar grid as `templates/results.html`. Remove the eyebrow entirely.
 Keep the descriptor below `h1`. The unmatched username is a normal span using
 the surrounding serif and ink color.
 
-- [ ] **Step 3: Reuse Results composition classes**
+- [x] **Step 3: Reuse Results composition classes**
 
 Load `results.css` before `unmatched.css`. Give the main element both
 `results-page` and `unmatched-page`. Use `results-action`,
@@ -192,7 +218,15 @@ In `unmatched.js`, apply the same current Results scaling calculation to the
 shared `--results-scale` and `--results-base-rem` variables on the unmatched
 main element. Do not change `results.js` in this task.
 
-- [ ] **Step 4: Replace the card grid with stacked horizontal sections**
+- [x] **Step 4: Replace the card grid with stacked horizontal sections** -- **superseded and shipped side-by-side**
+
+**Superseded 2026-09-11.** This step as written below is the plan of record,
+not what shipped. The owner ruled side-by-side panels, so the card grid was
+replaced by an `.unmatched-groups` panel grid
+(tracks owned by `static/css/unmatched.css`) rather than by full-width
+stacked sections. Everything else in the step -- removing the category
+badges and the three-column span logic, the header layout, the four table
+columns and the lazy portrait markup -- shipped as written.
 
 Render one full-width section per reason. Remove category badges and the
 three-column span logic. Each section header contains title/description on the
@@ -201,23 +235,26 @@ left and the Gotham album count on the right.
 Use four table columns: rank, album and artist, plays/tracks, and reason detail.
 The threshold metric uses `play_count` and `track_count`; existing categories
 show play count plus their existing detail. Keep the 10-row expander and lazy
-portrait markup.
+portrait markup. **Deviation, owner-ruled 2026-09-11:** the expander opens at
+10 rows but steps by 25 rows per press (`data-step="25" data-initial="10"`),
+reduced from the 50-row step first built, and a back-to-top button collapses
+the panel it belongs to.
 
-- [ ] **Step 5: Author only unmatched-specific CSS**
+- [x] **Step 5: Author only unmatched-specific CSS**
 
 Keep Results' width, surface, action, and table rules authoritative. Add only
-stack spacing, four-column budgets, threshold metric styling, the 40px/44px
-art override, and narrow-screen row containment. Use Results' midpoint surface
+stack spacing, four-column budgets, threshold metric styling, the art override
+(Results-sized since the owner's 2026-09-13 ruling), and narrow-screen row containment. Use Results' midpoint surface
 and 8px radius; remove the old 14px card radius and all resting shadows.
 
-- [ ] **Step 6: Rebuild and verify the frontend**
+- [x] **Step 6: Rebuild and verify the frontend**
 
 Run the qualified Tailwind build, `node --check static/js/unmatched.js`, the
 route/template tests, the focused unmatched browser check in Chromium, and the
 complete frontend gate across Chromium and Firefox. Inspect computed width,
 scale, surface, headline, artwork, row overflow, and both expander states.
 
-- [ ] **Step 7: Update batch state and commit Task 2**
+- [x] **Step 7: Update batch state and commit Task 2**
 
 Record the UI extension and fresh evidence in PLAYBOOK, run docsync fix, full
 pytest, all hooks, docsync check, Tailwind drift check, and diff check. Stage

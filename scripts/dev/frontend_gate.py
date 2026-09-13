@@ -2765,7 +2765,6 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 const page = document.querySelector('.unmatched-page');
                 const grid = node.parentElement;
                 const fixHint = node.querySelector('.unmatched-fix-hint');
-                const cover = rows[0]?.querySelector('img');
                 const root = getComputedStyle(document.documentElement);
                 const headline = page.querySelector('h1');
                 const username = page.querySelector('.unmatched-headline__user');
@@ -2793,8 +2792,38 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                         sheet.href?.endsWith('/static/css/results.css')),
                     fixHint: fixHint?.textContent.trim(),
                     fixHintSize: getComputedStyle(fixHint).fontSize,
-                    coverWidth: getComputedStyle(cover).width,
-                    coverHeight: getComputedStyle(cover).height,
+                    coarsePointer: matchMedia('(any-pointer: coarse)').matches,
+                    controlShortSides: [...document.querySelectorAll(
+                        '.results-toolbar-action, .unmatched-expander-btn, .unmatched-back-to-top-btn')]
+                        .map(el => {
+                            const r = el.getBoundingClientRect();
+                            return Math.min(r.width, r.height);
+                        }),
+                    rowPadTop: Number.parseFloat(
+                        getComputedStyle(rows[0].querySelector('td')).paddingTop),
+                    rowPadBottom: Number.parseFloat(
+                        getComputedStyle(rows[0].querySelector('td')).paddingBottom),
+                    thWidths: [...node.querySelectorAll('thead th')]
+                        .map(th => Number.parseFloat(getComputedStyle(th).width)),
+                    // Compare the rendered extent of a cell's contents with the
+                    // cell's own box. scrollWidth is not usable here: Chromium
+                    // counts end padding into it, so content that is fully
+                    // visible inside the padding would be reported as clipped.
+                    clippedCells: [...document.querySelectorAll(
+                        '.unmatched-table th, .unmatched-table td')]
+                        .filter(cell => {
+                            if (getComputedStyle(cell).display === 'none') return false;
+                            const range = document.createRange();
+                            range.selectNodeContents(cell);
+                            const inner = range.getBoundingClientRect();
+                            const outer = cell.getBoundingClientRect();
+                            return inner.width > 0
+                                && (inner.left < outer.left - 1 || inner.right > outer.right + 1);
+                        })
+                        .map(cell => cell.textContent.replaceAll(/\\s+/g, ' ').trim()
+                            .slice(0, 40)),
+                    docOverflow: document.documentElement.scrollWidth
+                        - document.documentElement.clientWidth,
                     unsupportedWeights: [...node.querySelectorAll('*')]
                         .map(element => getComputedStyle(element).fontWeight)
                         .filter(weight => weight === '500' || weight === '600'),
@@ -2809,15 +2838,16 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
             "expanded": "false",
             "plays": "29",
             "pageMaxWidth": "1440px",
-            "gridColumns": 3 if page.viewport_size["width"] >= 1024 else 1,
+            # Two panels share a row above 1024px, never three: the 90rem page
+            # cap holds a third track to about 448px, the width that made
+            # three-up unreadable in the first place.
+            "gridColumns": 2 if page.viewport_size["width"] >= 1024 else 1,
             "headingFirstTag": "H1",
             "usernameFontStyle": "normal",
             "usernameMatchesHeadlineColor": True,
             "resultsStylesheet": True,
             "fixHint": 'Choose "All years (no filter)" on a new search to include these releases.',
             "fixHintSize": "9px",
-            "coverWidth": "44px" if page.viewport_size["width"] >= 768 else "40px",
-            "coverHeight": "44px" if page.viewport_size["width"] >= 768 else "40px",
         }
         for claim, wanted in expected.items():
             if state[claim] != wanted:
@@ -2832,14 +2862,78 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 return { width: style.width, height: style.height };
             })"""
         )
-        expected_cover = "44px" if page.viewport_size["width"] >= 768 else "40px"
+        # Geometry is compared numerically rather than as strings: row padding
+        # follows the width-derived --results-scale, so an exact pixel string
+        # would only hold at one window. Tolerance covers subpixel rounding.
+        width = page.viewport_size["width"]
+        scale = state["scale"] if width >= 768 else 1
+        # The cover matches the Results row, and scales at every width.
+        expected_cover = (64.0 if width < 768 else 72.0) * state["scale"]
         for index, cover in enumerate(group_covers):
             if cover is None:
                 failures.append(f"unmatched group {index} renders no artwork container")
-            elif cover["width"] != expected_cover or cover["height"] != expected_cover:
+                continue
+            cover_w = float(cover["width"].removesuffix("px"))
+            cover_h = float(cover["height"].removesuffix("px"))
+            if (
+                abs(cover_w - expected_cover) > 0.75
+                or abs(cover_h - expected_cover) > 0.75
+            ):
                 failures.append(
-                    f"unmatched group {index} artwork is {cover['width']}x"
-                    f"{cover['height']}, expected {expected_cover}"
+                    f"unmatched group {index} artwork is {cover_w:.1f}x{cover_h:.1f}px, "
+                    f"expected {expected_cover:.1f}px"
+                )
+
+        # Row padding. It compiled to nothing once (`py-2.5`), leaving every row
+        # with zero vertical padding above 768px while presence checks passed.
+        expected_pad = 12.0 * scale
+        for side in ("rowPadTop", "rowPadBottom"):
+            if abs(state[side] - expected_pad) > 0.75:
+                failures.append(
+                    f"unmatched report {side} is {state[side]:.2f}px, "
+                    f"expected {expected_pad:.2f}px"
+                )
+
+        # Column budget. Lost widths fall back to four equal columns under
+        # `table-layout: fixed` and truncate silently, so assert the shape: the
+        # album column leads and has room for a cover plus a title.
+        th_widths = state["thWidths"]
+        if len(th_widths) != 4:
+            failures.append(
+                f"unmatched table has {len(th_widths)} header cells, expected 4"
+            )
+        else:
+            if max(th_widths) - min(th_widths) < 1:
+                failures.append(
+                    f"unmatched table columns are equal widths {th_widths!r}; "
+                    "the column budget did not apply"
+                )
+            if th_widths[1] != max(th_widths) or th_widths[1] < 150:
+                failures.append(
+                    f"unmatched album column is {th_widths[1]:.1f}px of {th_widths!r}; "
+                    "expected it to be the widest and at least 150px"
+                )
+
+        # Document-level overflow. The grid check below cannot see it: a header
+        # row that refused to shrink scrolled the whole page at 768px and 1024px.
+        if state["docOverflow"] > 1:
+            failures.append(
+                f"unmatched page scrolls horizontally by {state['docOverflow']!r}px"
+            )
+
+        # Cells keep `overflow: hidden`, so text that cannot wrap is cut without
+        # an ellipsis or an error. The metric header shipped as "PLAYS / TRA" and
+        # the threshold metric as "7 plays ..." while every other check passed.
+        if state["clippedCells"]:
+            failures.append(
+                f"unmatched table clips cell content: {state['clippedCells']!r}"
+            )
+
+        if state["coarsePointer"]:
+            small = [round(side, 1) for side in state["controlShortSides"] if side < 44]
+            if small:
+                failures.append(
+                    f"unmatched report controls under 44px on a coarse pointer: {small!r}"
                 )
 
         group_tops = page.locator(".unmatched-group").evaluate_all(
@@ -3791,7 +3885,7 @@ CHECKS = (
     (
         "unmatched report",
         check_unmatched_report,
-        (DESKTOP, MOBILE),
+        (DESKTOP, MOBILE, TOUCH_WIDE),
         LAYOUT_PIPELINE,
     ),
     (

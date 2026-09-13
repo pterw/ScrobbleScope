@@ -67,28 +67,28 @@
     <!-- StatBlock Mini-Table (one row at every width; numerals sized below
         the page header so the hierarchy stays with the h1) -->
     <div class="grid grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
-        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Total Albums</span>
             <div class="results-stat-value flex items-center justify-center overflow-visible">
                 <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ album_list|length }}</span>
             </div>
             <span class="results-stat-caption text-[var(--ss-text-muted)]">matched</span>
         </div>
-        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Top Artist</span>
-            <div class="results-stat-value flex items-center justify-center w-full min-w-0 overflow-visible">
+            <div class="results-stat-value flex items-center justify-center w-full overflow-visible">
                 <span class="font-serif text-lg md:text-[calc(1.5625rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight truncate block px-1 overflow-visible" title="{{ album_list[0].artist if album_list else '—' }}">{{ album_list[0].artist if album_list else '—' }}</span>
             </div>
             <span class="results-stat-caption text-[var(--ss-text-muted)]">leading chart</span>
         </div>
-        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Scrobbles</span>
             <div class="results-stat-value flex items-center justify-center overflow-visible">
                 <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(total_scrobbles) if total_scrobbles else '0' }}</span>
             </div>
             <span class="results-stat-caption text-[var(--ss-text-muted)]">counted</span>
         </div>
-        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Unmatched</span>
             <div class="results-stat-value flex items-center justify-center overflow-visible">
                 <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ unmatched_count|default(0) }}</span>
@@ -122,7 +122,7 @@
     {% else %}
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
         <!-- Main Column: Semantic Leaderboard Table -->
-        <div class="lg:col-span-8 min-w-0">
+        <div class="lg:col-span-8">
             <div class="results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)]" id="results-table-wrapper">
                 <table class="w-full text-left border-collapse results-table" id="results-table">
                     <thead>
@@ -163,7 +163,7 @@
                             </td>
                             <!-- Album Artwork & Metadata -->
                             <td class="py-3 px-3 md:px-4 align-middle">
-                                <div class="flex items-center gap-3 md:gap-4 min-w-0">
+                                <div class="flex items-center gap-3 md:gap-4">
                                     {% if album.album_image %}
                                     <img src="{{ album.album_image }}"
                                          alt="{{ album.album }} cover"
@@ -178,7 +178,7 @@
                                         {{ album.album[:2]|upper }}
                                     </div>
                                     {% endif %}
-                                    <div class="album-info min-w-0 flex flex-col gap-[calc(0.125rem*var(--results-scale))]">
+                                    <div class="album-info flex flex-col gap-[calc(0.125rem*var(--results-scale))]">
                                         {% if album.spotify_id %}
                                         <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug break-words">
                                             {{ album.album }}
@@ -219,7 +219,7 @@
         </div>
 
         <!-- Side Rail Column: Stretches full table height for smooth sticky runway -->
-        <div class="lg:col-span-4 min-w-0">
+        <div class="lg:col-span-4">
             <!-- Sticky Sidebar: Modern Controls & Supporting Insights -->
             <div class="results-side-rail sticky top-6 space-y-4">
                 <!-- Sort Leaderboard Control -->
@@ -249,7 +249,7 @@
                         <img id="spotlight-artist-img"
                              src="{{ spotlight_fallback_img }}"
                              alt="Photograph of {{ top_artist_name|default(album_list[0].artist) }}"
-                             class="absolute inset-0 w-full h-full object-cover transition-opacity duration-400 ease-out opacity-100"
+                             class="absolute w-full h-full object-cover transition-opacity duration-400 ease-out opacity-100"
                              loading="lazy" decoding="async">
                         <!-- Top subtle scrim with monograph tags -->
                         <div class="spotlight-scrim-top">
@@ -264,7 +264,7 @@
                                 </h3>
                                 <a id="spotlight-spotify-link"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="hidden text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 p-1.5 -mr-1.5 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
+                                   class="hidden text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
                                    aria-label="View {{ top_artist_name|default(album_list[0].artist) }} on Spotify (opens in new tab)"
                                    title="View on Spotify">
                                     <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -272,7 +272,7 @@
                                     </svg>
                                 </a>
                             </div>
-                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-white/90 drop-shadow-sm font-normal pt-0.5">
+                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-white/90 drop-shadow-sm font-normal">
                                 <span id="spotlight-playtime-badge" class="font-mono text-[calc(0.6875rem*var(--results-scale))] tracking-tight text-white/95 {% if not top_artist_play_time %}hidden{% endif %}">{{ top_artist_play_time if top_artist_play_time else '' }}</span><span id="spotlight-playtime-sep" class="{% if not top_artist_play_time %}hidden{% endif %}"> · </span><span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
                             </p>
                         </div>
@@ -284,7 +284,7 @@
                         <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
                             {{ top_artist_name|default(album_list[0].artist) }}
                         </h3>
-                        <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal pt-0.5">
+                        <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal">
                             <span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
                         </p>
                         <span id="spotlight-artist-rank" class="font-serif italic text-xs text-[var(--color-primary)] font-normal">01 / {{ spotlight_artists|default([])|length }}</span>

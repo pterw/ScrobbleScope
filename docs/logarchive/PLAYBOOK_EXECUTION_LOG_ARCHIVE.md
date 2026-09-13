@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-11 - Approved spec reconciled with the owner's side-by-side ruling
+
+
+- Scope: the approved spec
+  `docs/superpowers/specs/2026-09-11-unmatched-threshold-horizontal-report-design.md`
+  still directed "stacked, full-width reason sections" while the owner ruled
+  side-by-side on 2026-09-11 and both the shipped page and three frontend-gate
+  assertions implement side-by-side. A PR review comment raised it; it was the
+  last stale voice on that conflict.
+- Plan vs implementation: the directive now reads as side-by-side panels and
+  records the supersession, the owner's words and the date. The rest of the spec
+  is unchanged and still accurate.
+- Deviation: none. This is the reconciliation the design-system plan's Phase 2
+  named ("Record that the owner superseded its ... line with the side-by-side
+  ruling"); it sits outside the document-orderliness series' declared scope and is
+  logged here rather than folded silently into that series.
+- Validation: `pytest -q` -- **1022 passed**. `pre-commit run --all-files` -- all
+  hooks passed with no files modified. `doc_state_sync.py --check` -- exit 0 with
+  only the expected root `BATCH21_DEFINITION.md` warning.
+- Forward guidance: the design-system plan's Phase 2 still lists this edit among
+  its work. It is now done, so that entry can be retired when Phase 2 runs;
+  `RECONCILIATION.md` gains a pointer to the same ruling in that pass.
+
 ### 2026-09-11 - Two siblings closed, and the dated-record policy scoped
 
 

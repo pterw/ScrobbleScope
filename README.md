@@ -89,7 +89,7 @@ available run in the same browser session.
 | Layer | Technology |
 | --- | --- |
 | Backend | Python 3.13, Flask, Gunicorn |
-| Frontend | Jinja templates, CSS, JavaScript, Tailwind CSS 4 and daisyUI 5; the populated Unmatched report still uses Bootstrap during migration |
+| Frontend | Jinja templates, CSS, JavaScript, Tailwind CSS 4 and daisyUI 5 |
 | Typography | Adobe Fonts: Akzidenz Grotesk, Instrument Serif, Gotham, Input Mono, Input Mono Narrow |
 | APIs | Last.fm history and profile data; Spotify album and artist metadata |
 | Async HTTP | `aiohttp`, `aiolimiter`, shared throttling and retry helpers |
@@ -309,11 +309,22 @@ release of the live site.
 
 ## Current Status & Roadmap
 
-The UI migration is in progress. Home, Heatmap, loading, Results, error, and
-empty-state pages use the new Tailwind/daisyUI presentation. The populated
-Unmatched report still uses Bootstrap; its rebuild and stable exclusion-reason
-codes remain planned work, followed by the final migration and accessibility
-sweep.
+Every page now renders on Tailwind and daisyUI: Home, Heatmap, loading,
+Results, the Unmatched report, the error page, and the empty states. None of
+them loads Bootstrap.
+
+The Unmatched report has been rebuilt. It groups exclusions on stable reason
+codes rather than on prose, so a group no longer splits apart because two
+albums were released in different years. Three reasons ship today:
+`below_threshold` for albums you played in the selected year that fell under
+the minimum play or unique-track count, `release_scope` for albums outside the
+year, and `no_spotify_match` for albums Spotify could not identify. Each
+reason gets its own panel, and the panels sit side by side on a wide screen
+and stack on a narrow one. Long lists start at ten rows and open 25 at a time.
+
+What remains is the close-out sweep: retiring the last unused legacy
+stylesheets and the `.dark-mode` compatibility selector, and a final
+accessibility pass.
 
 [PLAYBOOK.md](PLAYBOOK.md#3-active-batch--next-action) owns the current work
 order. [FINDINGS.md](FINDINGS.md) records known limitations and deferred work;
@@ -343,7 +354,8 @@ MIT License -- see [LICENSE](LICENSE).
 - [Last.fm](https://www.last.fm/) for listening history.
 - [Spotify](https://developer.spotify.com/) for music metadata.
 - [Flask](https://flask.palletsprojects.com/), [Tailwind CSS](https://tailwindcss.com/),
-  [daisyUI](https://daisyui.com/), and Bootstrap for the application UI foundations.
+  and [daisyUI](https://daisyui.com/) for the application UI foundations, and
+  Bootstrap, which carried the interface before the Tailwind migration.
 - The maintainers of the Python libraries and developer tools used here.
 
 ## Author & Contact

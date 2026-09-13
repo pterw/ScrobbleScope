@@ -86,8 +86,12 @@ python scripts/dev/check_worktree_alignment.py
 
    Expect exit 0. `WT010` (dirty worktree) is a warning, and the tree IS dirty
    by design right now.
-5. From then on, use the qualified paths above. Baseline: `pytest -q` must be
-   **1020 passed**.
+5. From then on, use the qualified paths above. Baseline: `pytest -q` must
+   report the count in `.claude/SESSION_CONTEXT.md` Section 1, which is the
+   single owner of that number (**1026 passed** as measured 2026-09-12). This
+   line said **1020 passed** when the handoff was written on 2026-09-11;
+   corrected 2026-09-12, and pointed at SESSION_CONTEXT so it cannot go stale
+   the same way again.
 6. `python scripts/doc_state_sync.py --check` must exit 0 with only the
    expected root-`BATCH21_DEFINITION.md` warning.
 
@@ -111,7 +115,9 @@ A  tests/scripts/dev/test_frontend_gate_colour.py (new, 191 lines)
 
 **All gates were observed green on exactly this staged state:**
 
-- `pytest -q` -> **1020 passed**
+- `pytest -q` -> **1020 passed** as observed on 2026-09-11. That is no longer
+  the baseline to reproduce: see `.claude/SESSION_CONTEXT.md` Section 1, which
+  owns the count (**1026 passed** as measured 2026-09-12).
 - `pre-commit run --all-files` -> **10 / 10 Passed, no files modified**
 - `doc_state_sync.py --check` -> passed (expected root-BATCH warning only)
 - Frontend gate -> `26 checks passed in 47 runs across chromium, firefox ...
