@@ -2846,6 +2846,7 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                         sheet.href?.endsWith('/static/css/results.css')),
                     fixHint: fixHint?.textContent.trim(),
                     fixHintSize: getComputedStyle(fixHint).fontSize,
+                    countLabelSize: getComputedStyle(node.querySelector('span.unmatched-label')).fontSize,
                     coarsePointer: matchMedia('(any-pointer: coarse)').matches,
                     controlShortSides: [...document.querySelectorAll(
                         '.results-toolbar-action, .unmatched-expander-btn, .unmatched-back-to-top-btn')]
@@ -2903,7 +2904,10 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
             "usernameMatchesHeadlineColor": True,
             "resultsStylesheet": True,
             "fixHint": 'Choose "All years (no filter)" on a new search to include these releases.',
-            "fixHintSize": "9px",
+            # Owner ruling, 2026-09-13 (F-B21-4 item 4): 12px, not the
+            # README's 9px, for the fix hint and the per-panel count label.
+            "fixHintSize": "12px",
+            "countLabelSize": "12px",
         }
         for claim, wanted in expected.items():
             if state[claim] != wanted:

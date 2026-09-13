@@ -216,10 +216,15 @@
 
 /* The fix hint is the one sentence this page exists to deliver, so it wraps.
    It previously truncated to a single line with the full text in a `title`
-   tooltip, which is unreachable by touch and by keyboard. */
+   tooltip, which is unreachable by touch and by keyboard.
+
+   12px, not the design README's 9px (owner ruling, 2026-09-13, F-B21-4 item
+   4). The most actionable sentence on the page was set at its smallest size,
+   below the 12px readability floor RECONCILIATION section 1 records for small
+   labels. The per-panel "albums" label in unmatched.html follows it. */
 .unmatched-fix-hint {
     font-family: var(--font-mono-narrow);
-    font-size: 0.5625rem;
+    font-size: 0.75rem;
     line-height: 1.4;
     overflow-wrap: anywhere;
 }

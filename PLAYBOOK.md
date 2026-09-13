@@ -956,6 +956,10 @@ non-current operational logs. Older dated entries live in
     1024px, 1279px and 1280px for the panel count and a 96px title floor. The
     sweep failed at 1024px and 1279px on every profile before the CSS change and
     passes after it.
+  - The fix hint and the per-panel "albums" label are 12px, not 9px (owner
+    ruling, 2026-09-13), which decides F-B21-4 item 4. The gate pins both
+    sizes. With the label put back at 9px, the new `countLabelSize` pin failed
+    on every profile.
   - The untracked `docs/superpowers/plans/2026-09-12-batch21-phase2-design-record-reconciliation.md`,
     corrected at the start of this work, was removed from disk outside this
     session and was never committed, so its corrections are lost with it.
@@ -976,11 +980,12 @@ non-current operational logs. Older dated entries live in
   `test_no_template_uses_a_spacing_step_the_theme_does_not_declare` and its
   adversarial helper test, closing F-B21-52. Seen to fail on disk naming both
   injected tokens. F-B21-58 filed for the "thresholds" copy conflict; the 9px
-  fix-line size stays with F-B21-4 item 4.
+  fix-line size stayed with F-B21-4 item 4 until the owner ruled 12px on
+  2026-09-13 (see Deviations).
 - Design hook: suppressed `broken-image` for `templates/unmatched.html` only,
   with evidence -- the src-less portrait `img` is hidden until hydration and the
-  gate asserts on it. The 9px `design-system-font-size` finding is left standing
-  as an owner question.
+  gate asserts on it. The 9px `design-system-font-size` finding was left standing
+  as an owner question; the 12px ruling cleared it.
 - Validation: `pytest -q` -- **1028 passed**. `python scripts/dev/frontend_gate.py`
   -- **26 checks passed in 48 runs** across chromium and firefox.
 - Forward guidance: do not reintroduce numeric spacing utilities; the guard will fail. If three panels

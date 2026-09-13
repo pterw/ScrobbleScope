@@ -1087,9 +1087,12 @@ screens:
 3. **Results KPIs.** The README specifies three sidebar stat blocks. The
    review says two of them restate row 1 of the list, and only albums matched
    versus albums seen earns a card.
-4. **Unmatched fix line.** The README sets it at 9px mono uppercase. The
-   review says the most actionable text in the product is at the smallest,
-   hardest-to-read size, and asks for 11px sentence case.
+4. **Unmatched fix line -- DECIDED 2026-09-13 (owner), 12px.** The README sets
+   it at 9px mono uppercase. The review says the most actionable text in the
+   product is at the smallest, hardest-to-read size, and asks for 11px sentence
+   case. The owner ruled 12px mono, still uppercase, for the fix hint and the
+   per-panel "albums" label. It meets the 12px floor RECONCILIATION section 1
+   records. See RECONCILIATION section 16, Superseded 5.
 
 `BATCH21_DEFINITION.md` encodes the README's side on the first two: WP-3 says
 "Editorial hero", WP-4 specifies the pinwheel, bar, phase label, four-KPI

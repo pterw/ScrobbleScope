@@ -654,9 +654,12 @@ neutral ink. The italic purple clause is carried on the index hero and the
 Results headline only; that asymmetry is intended and is not normalized in
 either direction.
 
-**Still open, for the owner.** The fix hint and the per-panel "albums" label
-render at 9px (`0.5625rem`), which the snapshot specifies and the gate pins,
-while section 1's override table records a 12px readability floor for small
-labels. Both cannot hold. `FINDINGS.md` F-B21-4 item 4 already owns the fix-line
-size question; this conflict is new evidence for it, not a separate finding.
+**Superseded 5 -- the fix-line size (owner ruling, 2026-09-13).** The fix hint
+and the per-panel "albums" label rendered at 9px (`0.5625rem`), as the design
+README specifies, while section 1's override table records a 12px readability
+floor for small labels. The owner ruled 12px (`0.75rem`) for both. It is neither
+the README's 9px nor the audit review's 11px. Uppercase stays. Sites:
+`.unmatched-fix-hint` in `static/css/unmatched.css`, the `unmatched-label` span
+in `templates/unmatched.html`, and the `fixHintSize` and `countLabelSize` pins
+in `check_unmatched_report`. This decides `FINDINGS.md` F-B21-4 item 4.
 
