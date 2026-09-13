@@ -2193,19 +2193,36 @@ Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 Several Albums (`GET /v1/albums?ids=`), and `search_for_spotify_album_id`
 calls Search. Spotify's February 2026 Web API changelog lists Get Several
 Albums as removed and caps Search at 10 results. The changelog also removes
-fields: album `label`, `popularity` and `external_ids`.
+fields: album `label`, `popularity` and `external_ids`. The package reads none
+of those fields, and its searches ask for at most 3 results, so only the batch
+call is exposed.
 
 A live probe with the app's client credentials on 2026-09-13 returned HTTP 200
 for `GET /v1/albums?ids=`, `GET /v1/albums/{id}`, and Search with `limit=20`
-(20 items). The app is not broken today. The cause of the exemption is not
-known, so it can end without notice. If it does, every album search loses its
-release dates, and every album then lands in the unmatched report.
+(20 items). The app is not broken today.
 
-Fix shape: fall back to single `GET /v1/albums/{id}` calls under the existing
-Spotify limiter when the batch call returns 403 or 404, and log the fallback
-once per job. The Postgres cache limits the extra calls. Batch 22 (the Spotify
-export import) raises traffic through this path, so the fallback belongs before
-or inside that batch.
+The cause is known. The owner confirmed on 2026-09-13 that the app is in
+Development Mode. Spotify applied the new rules to new Development Mode apps on
+2026-02-11. Existing ones got the Premium requirement, the five-user cap and
+the one-Client-ID limit on 2026-03-09, but the endpoint removals were
+postponed with no new date
+(https://developer.spotify.com/blog/2026-02-06-update-on-developer-access-and-platform-security).
+The exemption can therefore end at any time, with notice only on Spotify's
+developer blog. When it ends, every album search loses its release dates, and
+every album lands in the unmatched report.
+
+Two actions keep the exemption and must be avoided: creating a new Spotify app
+or Client ID, which gets the new rules at once, and rotating the secret without
+cause.
+
+Fix shape, **required** (owner ruling, 2026-09-13): when the batch call fails
+with any status other than 200 or 429, fall back to single
+`GET /v1/albums/{id}` calls. Those calls go through the existing Spotify limiter
+and semaphore and return the same album object, so the details phase and the
+cache writes stay the same. Log the fallback once per job. The Postgres cache
+limits the extra calls. Tests pin both a 403 and a 404 from the batch call.
+Batch 22 (the Spotify export import) raises traffic through this path, so the
+fallback lands before that batch opens.
 
 Status: open (P1). Source: Batch 22 planning, 2026-09-13.
 

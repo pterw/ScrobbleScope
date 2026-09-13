@@ -292,8 +292,11 @@ already holds, so Last.fm and Spotify users get the same thing.
   and a measured cap.
 - **Spotify API:** the Feb 2026 changelog lists "Get Several Albums" as removed
   and caps search at 10 results. Both work for this app today, and this
-  source raises traffic through `process_albums`. File a FINDINGS entry and
-  plan a fallback to `/v1/albums/{id}`.
+  source raises traffic through `process_albums`. The app is a Development Mode
+  app whose endpoint removals Spotify postponed with no new date. FINDINGS
+  F-B21-59 makes the single-album fallback required before this batch opens.
+  Never create a new Spotify Client ID for this work: a new one gets the
+  removals at once.
 - **Privacy:**
   - uploads stay in memory, and a test enforces it
   - never log file names, rows or IPs
