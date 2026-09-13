@@ -109,7 +109,7 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   "Key runtime facts" (single source; do not restate values here).
 - **Single worker, multiple threads:** Gunicorn runs `--workers 1 --threads 4`.
   Multiple workers would break the in-process `JOBS` dict. This is intentional.
-- **Windows asyncio:** `background_task()` in `orchestrator.py` explicitly uses
+- **Windows asyncio:** `background_task()` in `orchestrator/__init__.py` explicitly uses
   `asyncio.ProactorEventLoop()` on `sys.platform == "win32"`. Required because
   Werkzeug's debug reloader leaves `SelectorEventLoop` in background threads on
   Windows, causing asyncpg startup failures. The guard is Windows-only.
@@ -219,7 +219,7 @@ only in the current process environment and is gone when the shell exits.
 - **Cache note:** heatmap uses different `from`/`to` timestamps than album
   search, producing different REQUEST_CACHE keys. No interference.
 - **Windows asyncio:** heatmap_task must use the same ProactorEventLoop guard
-  as orchestrator.py background_task. See Architectural Constraints above.
+  as orchestrator/__init__.py background_task. See Architectural Constraints above.
 - **Perf:** fetch speed is rate-limit bound; the measurement and rationale
   live in FINDINGS.md F-B18-11 (single source).
 - **Follow-up candidates:** export, date range, summary stats (future
