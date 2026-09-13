@@ -202,6 +202,14 @@ See FINDINGS F-DOCSYNC-3.
   the cover takes the Results size, and the threshold panel is titled "Not
   enough listening", which resolves F-B21-58.
 
+- **Queued after Batch 21 -- Batch 22, Spotify export import:** approved by the
+  owner on 2026-09-13 and not started. Spotify listeners upload the Extended
+  Streaming History zip; there is no Spotify login, because Spotify caps apps
+  without extended access at 5 allowlisted users. The plan is
+  `docs/superpowers/plans/2026-09-13-batch22-spotify-export-import.md`. Do not
+  start it on `test`: it opens on its own branch, named here first, or the
+  worktree guard raises WT003. F-B21-59 records the Spotify API risk it raises.
+
 - **Owed before Phase 2:** none. Every commit this bullet previously named has
   landed: the F-B21-51 slice-1 refactor as `95e0896`, the design-system plan's own
   move as `c277728`, and the architecture-diagram rebuild as `cc987f5`. When a new

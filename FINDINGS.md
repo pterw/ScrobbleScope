@@ -2187,6 +2187,28 @@ Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 
+### F-B21-59: Spotify's February 2026 changelog removes an endpoint the pipeline depends on
+
+`fetch_spotify_album_details_batch` in `scrobblescope/spotify.py` calls Get
+Several Albums (`GET /v1/albums?ids=`), and `search_for_spotify_album_id`
+calls Search. Spotify's February 2026 Web API changelog lists Get Several
+Albums as removed and caps Search at 10 results. The changelog also removes
+fields: album `label`, `popularity` and `external_ids`.
+
+A live probe with the app's client credentials on 2026-09-13 returned HTTP 200
+for `GET /v1/albums?ids=`, `GET /v1/albums/{id}`, and Search with `limit=20`
+(20 items). The app is not broken today. The cause of the exemption is not
+known, so it can end without notice. If it does, every album search loses its
+release dates, and every album then lands in the unmatched report.
+
+Fix shape: fall back to single `GET /v1/albums/{id}` calls under the existing
+Spotify limiter when the batch call returns 403 or 404, and log the fallback
+once per job. The Postgres cache limits the extra calls. Batch 22 (the Spotify
+export import) raises traffic through this path, so the fallback belongs before
+or inside that batch.
+
+Status: open (P1). Source: Batch 22 planning, 2026-09-13.
+
 ## P2 -- Scaling roadmap
 
 ### F-B21-54: PR 227 still reports test assertions through a separate scanner
