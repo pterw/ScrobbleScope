@@ -234,7 +234,7 @@ against the live machine and repository on that date rather than carried
 forward from an earlier note; re-verify before relying on it, because the
 skill and MCP inventory is per-machine and moves independently of this repo.
 
-**How this keys against the definition.** `BATCH21_DEFINITION.md` has no
+**How this keys against the definition.** `docs/history/definitions/BATCH21_DEFINITION.md` has no
 per-WP acceptance criteria. It carries one batch-level list of 9 criteria;
 the three repository gates and owner visual review run at every WP, while
 the repository-owned frontend gate joins them from WP-2 onward. So the map
@@ -335,7 +335,7 @@ Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
    closed by decision, not by tooling. Batch 21 adds the generated-CSS drift
    hook (WP-2) and the frontend gate (WP-2 onward), keeps owner Firefox
    review, and does not add general CSS/JS/HTML linting unless a real
-   regression demonstrates the need. `BATCH21_DEFINITION.md` WP-8 carries the
+   regression demonstrates the need. `docs/history/definitions/BATCH21_DEFINITION.md` WP-8 carries the
    decision and its reason. Do not read this gap as an open commitment to add
    linters.
 5. **`workflow_dispatch` is now usable.** The comment in `test.yml` notes

@@ -9,6 +9,170 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-13 - Batch 21 closed (WP-8 complete)
+
+- Owner end-to-end pass in Firefox: **done**, 2026-09-13, on the running app
+  at 4b4965b. It covered every page in both themes and the saved images from
+  results and from the heatmap.
+- Two defects the pass found, both fixed before close-out:
+  - The saved heatmap drew its own header, "LISTENING HEATMAP . LAST 365
+    DAYS" over "A year of <name>" in italic accent, while the page had moved
+    to the possessive headline in plain ink. `renderHeadline`'s docstring
+    still described the old wording, which is how the two drifted.
+  - The saved legend was a bare gradient: nothing in the file said which end
+    meant more listening.
+  Both are `4b4965b`. The export now reads the page's headline, eyebrow and
+  legend captions, and the gate saves a real image and compares what the
+  canvas drew.
+- WP-8's other deliverables landed in `85e7511`, recorded in the entry above.
+- The frontend and accessibility audit WP-8 charters is **not** part of this
+  close-out. The owner moved it to Batch 23's close-out on 2026-09-13 so it
+  runs once over the final UI; `BATCH21_DEFINITION.md` WP-8 carries the
+  ruling and Batch 23's plan carries the obligation.
+- Validation at close: `pytest -q` -- **1034 passed**;
+  `python scripts/dev/frontend_gate.py` -- **28 checks passed in 50 runs**
+  across chromium and firefox; `doc_state_sync.py --check` exit 0;
+  pre-commit passed. CI passed on `85e7511`
+  (run 34778729537).
+- Next: Batch 22, enrichment providers. It opens on its own branch, which
+  PLAYBOOK Section 3 must name before any commit, or the worktree guard
+  raises WT003.
+
+### 2026-09-13 - Legacy framework stack retired (Batch 21 WP-8 sweep)
+
+- Scope: the WP-8 sweep, run before the backend batches on the owner's ruling
+  of 2026-09-13. The frontend and accessibility audit is not here; it moved to
+  Batch 23's close-out so it runs once over the final UI.
+- Removed: the default-on `legacy_css` block and the `bootstrap_js` block in
+  `templates/base.html`, the eight per-page opt-outs that answered them, and
+  `static/css/global.css`. WP-8's deterministic check,
+  `git grep -nE "bootstrap|data-bs-|bs-(toggle|target|dismiss)" -- templates static`,
+  now returns nothing. No other stylesheet is unreferenced: every file in
+  `static/css/` is loaded by a template or compiled by the build.
+- The theme is written once. `static/js/theme.js` no longer writes
+  `.dark-mode` on `<body>`; `data-theme` on the root element is the only
+  signal.
+- **A regression the sweep would have shipped.** `static/js/heatmap.js`
+  observed `<body>` for that class to repaint zero-count cells, because a cell
+  carries its colour as an SVG `fill` attribute and a presentation attribute
+  does not resolve a custom property. Retiring the class silently froze the
+  cells at their light colour on a dark page, and the whole gate stayed green:
+  every other theme check reads CSS. `docs/architecture/runtime-system.md` had
+  recorded this dependency and named the fix; reading it is what caught this.
+- Guards added, each seen to fail first: the gate's
+  `check_heatmap_zero_cells_follow_theme` toggles the theme and compares each
+  zero cell against `--heatmap-empty` (it failed with `#c8bfad` in both themes
+  before the observer moved), and two tests in `tests/test_template_shell.py`
+  pin the retired stack and the single theme write.
+- Linting disposition recorded: `BATCH21_DEFINITION.md` WP-8 carries the
+  decision, and the `AGENT_NOTES.md` gap entry now points at it instead of
+  reading as an open commitment.
+- Docs: README's status section, `docs/architecture/runtime-system.md` (both
+  bullets this change falsified), and the `tests/test_template_shell.py`
+  docstring.
+- Validation: `pytest -q` -- **1034 passed**. `python scripts/dev/frontend_gate.py`
+  -- **27 checks passed in 49 runs** across chromium and firefox.
+- Forward guidance: what remains before Batch 21 closes is the owner's
+  end-to-end pass in Firefox, including the saved image in both themes, and
+  the close-out commit. Batch 22 opens on its own branch, named in Section 3
+  first.
+
+### 2026-09-12 - Documentation reconciled to the shipped unmatched page
+
+- Scope: the documentation-first step the owner chose before the WP-7 table
+  repair. Corrected claims that contradicted the shipped unmatched page, by class
+  rather than by instance, using two subagents on disjoint file sets.
+- The approved spec: its Outcome and Verification paragraphs still described
+  full-width stacking, and the second credited the frontend gate with proving
+  it; its disclosure paragraph described one button and no step. All now state
+  side-by-side panels, the 25-row step and the collapsing back-to-top control.
+- `PLAYBOOK.md` Section 3 carried two stale live test counts, 1022 and "the
+  925-test suite"; the second now defers to the next-action bullet. Its conflict
+  note pointed at the one spec sentence already corrected, not at the two stale
+  sites; it now records the conflict as closed.
+- `BATCH21_DEFINITION.md`: the stacked-layout prescription, "is next" for shipped
+  work, "two reason cards" where three ship, and a false claim that
+  `unmatched.css` hardcodes `--header-bg: #6a4baf`. `README.md`: two passages
+  telling readers the unmatched report still runs Bootstrap. `FINDINGS.md`:
+  F-B20-4's stale status, and F-B21-52's grep instruction, which could not find
+  whole-number dead steps.
+- `docs/design/RECONCILIATION.md`: section 11 still said `results.css` and
+  `unmatched.css` were unconverted to rem; sections 13 to 15 record the frozen
+  snapshot's 1180px measure, card styling and two-state expander as overrides,
+  since `docs/design/` is byte-frozen apart from that file.
+- Plans under `docs/superpowers/plans/`: normative "must report 1020 passed"
+  baselines now defer to SESSION_CONTEXT Section 1; the WP-7 plans and the
+  unverified gemini plan carry supersession records for the side-by-side ruling
+  and the 25-row step. Dated log excerpts inside them were left as records.
+- Deviation: F-DOCSYNC-11 filed. Same-date precedence ranks this morning's live
+  side-task entry above the WP-7 entry written after it, so the WP-7 entry's
+  count could not become authoritative and DOC006 and DOC008 failed. This entry
+  carries the working tree's full-suite result instead.
+- Validation: `pytest -q` -- **1028 passed**, on the working tree that also holds
+  the WP-7 table repair and the F-B21-52 guard.
+- Forward guidance: dated Section 4 entries and log excerpts quoted inside plans
+  are point-in-time records and stay as written.
+
+### 2026-09-12 - Planning records preserved, and the ignored scratch root cleaned
+
+- Scope: preserve the untracked planning record ahead of Phase 2 in
+  `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`,
+  and empty the `scratch/` root. No product code changed in this entry.
+- Committed: the four untracked plans under `docs/superpowers/plans/`, plus the
+  Progress corrections on the reconciliation plan itself. Keeping
+  `gemini_implementation_plan_unverified.md` here closes that plan's open
+  question 2 in favour of keeping.
+- Deviation, owner-directed: live mode was repaired mid-session, then reverted.
+  The skill's pinned engine `0.1.0` is quarantined by Windows Defender; the
+  published `0.1.2` release is not, and its hash matches the release's own
+  `.sha256` sidecar. The two template edits made under live are reverted, and
+  the helper, poll and session are stopped and discarded.
+- Cleaned, owner-directed: `scratch/` held 499 files and 31.05 MB of session
+  debris and is empty now. The `deeper-reading-batch21-plan/` run root went
+  with it. The durable summary of that run is the tracked
+  `docs/history/reports/BATCH21_PLAN_TRAVERSAL_2026-09-11.md`, which states in
+  its own text that the run root is untracked and is not committed.
+- Validation: `pytest -q` -- **1026 passed**; `pre-commit run --all-files` with
+  every hook passing; `doc_state_sync.py --check` exit 0, with the root
+  `BATCH21_DEFINITION.md` warning expected while Batch 21 is active.
+- Owner rulings recorded: the eyebrow labels are intended; any reference
+  placing an eyebrow above its headline is stale; headline emphasis stays and
+  is scoped to the index hero and `results.html`.
+- Forward guidance: begin Phase 2 at step 11 (`DESIGN.md`), not at the
+  spec-versus-ruling conflict, which is already closed.
+  `static/js/heatmap.js:176` is the one stale eyebrow-above comment and is
+  corrected inside that unit. Two harness notes: this shell runs with
+  `$ErrorActionPreference=Stop`, so a tool that writes to stderr looks like a
+  hard failure until that is set to `Continue`; and the git `pre-commit` hook
+  resolves `pre-commit` from `PATH`, so the primary venv must be on `PATH` or
+  every commit is blocked.
+
+### 2026-09-11 - Artwork restored in the below-threshold panel
+
+- Scope: a review observation that the artwork container is excluded for
+  `below_threshold` items, contradicting the spec's "consistent 40px mobile or
+  44px desktop artwork" and breaking the side-by-side rhythm.
+- Root cause, verified: `templates/unmatched.html` wrapped the whole artwork block
+  in `{% if reason_key != 'below_threshold' %}`. The stylesheet was correct all
+  along -- `.unmatched-artwork` is 2.5rem, and 2.75rem at >=768px. The guard
+  conflated "these albums have no album image" (true: they are partitioned before
+  Spotify) with "these rows get no artwork"; the block's fallback branch needs only
+  the artist name, which the payload carries (`unmatched.py:79-80`).
+- Plan vs implementation: a below-threshold branch now renders the sized monogram
+  placeholder. Variant chosen by the owner: no `data-artist-image`, so the panel
+  adds no network call and partitioned albums stay at zero cost. The change is
+  additive -- nine lines above the existing guard, nothing removed.
+- Why no gate caught it: `frontend_gate.py` asserted the cover on `rows[0]` of ONE
+  group, the release_scope panel. It now asserts a sized `.unmatched-artwork` in
+  EVERY `.unmatched-group`, which is the class fix rather than the instance.
+- Evidence, both guards proved to fail before passing: with the new branch removed,
+  `tests/test_routes.py::test_unmatched_view_renders_artwork_in_every_reason_group`
+  fails, and the frontend gate reports "unmatched group 0 renders no artwork
+  container" for desktop and mobile. Restored, the test passes and the gate reports
+  26 checks passed in 47 runs. `pytest -q` -- **1026 passed**.
+- Deviation: none. This is a defect the PR review round surfaced and fixed inside
+  the same round.
+
 ### 2026-09-11 - Deterministic tie-breaks on the three cap-path sorts
 
 

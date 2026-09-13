@@ -13,7 +13,7 @@ Last updated: 2026-09-11
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** PR #231 is green after the portable cleanup-test fix. The WP-7 extension is implemented and refined: one `below_threshold` item per excluded album without extra Spotify work, side-by-side horizontal report panels sorted by reason code, Results design tokens and scaling reconciled, the 500-album cap unified across sort modes, a 25-row disclosure step, and a back-to-top control that collapses its panel. The spec's stacked-layout conflict is closed. The unmatched table repair and the F-B21-52 guard are committed on `test`, with the owner's four rulings of 2026-09-13 applied (PLAYBOOK Section 3). WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
+| Batch 21 status | **Complete**, closed 2026-09-13. All 9 WPs done. Definition: `docs/history/definitions/BATCH21_DEFINITION.md`; log: `docs/history/logs/BATCH21_LOG.md`. Every page renders on Tailwind and daisyUI, the legacy framework stack and `.dark-mode` are retired, and `data-theme` is the only theme signal. The frontend and accessibility audit moves to Batch 23's close-out (owner ruling, 2026-09-13). No batch is active: Batch 22 (enrichment providers) and Batch 23 (Spotify export import) are approved and queued in PLAYBOOK Section 3. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -36,12 +36,13 @@ Last updated: 2026-09-11
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: Batch 21.
-- Current-batch entries in active log block: 16.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5, WP-7.
-- Next expected work package: WP-8.
-- Latest validated test count: **1034 passed**.
-- Newest current-batch entry: 2026-09-12 - Unmatched table repaired and the dead-utility class closed (Batch 21 WP-7).
+- Current batch: none (between batches).
+- Last completed batch in PLAYBOOK Section 3: Batch 21.
+- Next batch definition status: Batch 22 is not yet defined.
+- Current-batch entries in active log block: 0.
+- Completed work packages in current-batch entries: n/a (no active batch).
+- Next expected work package: n/a (next batch not defined).
+- Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
 ---

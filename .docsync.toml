@@ -219,7 +219,7 @@ pattern = '--index-scale-base: ([\d.]+)'
 expect = "1.075"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'factor of `([\d.]+)'
 expect = "1.075"
 
@@ -237,7 +237,7 @@ pattern = '--index-scale-cap: ([\d.]+)'
 expect = "1.75"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'capped at `([\d.]+)`'
 expect = "1.75"
 
@@ -258,7 +258,7 @@ pattern = '\.index-form__inner\s*\{[^}]*max-width: calc\(([\d.]+)rem \* var\(--i
 expect = "27.5"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'owner-refined `([\d.]+)rem`\s+base cap'
 expect = "27.5"
 
@@ -279,7 +279,7 @@ pattern = 'max-width: min\(([\d.]+)vw, [\d.]+rem\)'
 expect = "84"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'centred result frame uses `([\d.]+)vw`'
 expect = "84"
 
@@ -297,7 +297,7 @@ pattern = 'max-width: min\([\d.]+vw, ([\d.]+)rem\)'
 expect = "120"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'capped at `([\d.]+)rem`'
 expect = "120"
 
@@ -373,7 +373,7 @@ pattern = 'use\.typekit\.net/(\w+)\.css'
 expect = "rwy8ghw"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'Kit `(\w+)`'
 expect = "rwy8ghw"
 
