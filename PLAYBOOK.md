@@ -87,14 +87,43 @@ See FINDINGS F-DOCSYNC-3.
   Branch: `feat/batch22-enrichment` (worktree off `test`). Scope: album
   enrichment moves behind a provider contract, Deezer answers when Spotify
   cannot, and MusicBrainz corrects a reissue year to the album's original
-  while the results page is open. WP-0 splits `routes.py` into blueprints and
-  `orchestrator.py` by phase, behaviour-neutral, before the rest adds to
-  either. Plan of record:
+  while the results page is open. Plan of record:
   `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`. It opens
   only when this section declares it active and names its branch: the
   worktree guard fails every commit on a branch this section does not name
   (WT003, an error). The proposed name is `feat/batch22-enrichment`, cut
   from `test`.
+- **WP-0 is complete.** `routes.py` (985 lines) is now a `routes/` package:
+  a facade `__init__.py` (the shared `Blueprint`, job-context helpers, error
+  handlers) plus `pages.py`, `album_flow.py`, `heatmap_flow.py`, `api.py`,
+  each decorating the same `bp` so every endpoint name and `url_for()` call
+  is unchanged. `orchestrator.py` (1035 lines) is now an `orchestrator/`
+  package: a facade `__init__.py` (the pipeline glue -- `process_albums`,
+  `_fetch_and_process`, `background_task`, `fetch_top_albums_async`) plus
+  `_search.py`, `_details.py`, `_cache.py`, `_results.py` for the four named
+  phases. Every submodule that a test suite patch targets at
+  `scrobblescope.orchestrator.<name>` or `scrobblescope.routes.<name>` reads
+  that dependency through a live reference to its facade module rather than
+  its own import, so the existing patches still land after the code moves;
+  see the module docstrings on both `__init__.py` files for the mechanism.
+  Acceptance held: `pytest -q` -- **1034 passed**, unmodified, and the
+  two-engine frontend gate -- 28 checks passed in 50 runs, matching the
+  batch-open baseline exactly. Resulting sizes: `orchestrator/__init__.py`
+  699 lines, `routes/album_flow.py` (the largest new file) 454 lines --
+  smaller than the originals but still above the 361-line largest-peer mark
+  AGENTS.md's size-limits rule points at; the split stopped at what the
+  behaviour-neutral acceptance criterion could verify rather than forcing a
+  deeper cut for its own sake. **Deviation, logged rather than swept:**
+  `docs/architecture/*.md`, `README.md` and `AGENT_NOTES.md` still cite a few
+  `orchestrator.py`/`routes.py` paths from before this split (two
+  load-bearing ones in `AGENT_NOTES.md` are fixed; the rest are deferred).
+  WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
+  for the new providers, so the remaining citations are swept there rather
+  than twice.
+- **Next action: WP-1, the provider contract.** `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+  Phase 1 Tasks 1-3: the `AlbumMetadata` value object, the cache-column
+  `ALTER TABLE` statements, and moving the Spotify calls behind
+  `spotify.enrich_albums`.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
   chartered. The owner moved it to Batch 23's close-out on 2026-09-13 so it
   covers the final UI once. Batch 23's plan carries the obligation; do not
@@ -277,5 +306,61 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-09-13 - Module split, behaviour-neutral (Batch 22 WP-0)
+
+Scope: split `scrobblescope/routes.py` (985 lines) into a `routes/` package
+and `scrobblescope/orchestrator.py` (1035 lines) into an `orchestrator/`
+package, per `BATCH22_DEFINITION.md` WP-0. No behaviour change; the
+acceptance criterion was every existing test passing unmodified.
+
+Plan vs implementation: matched the definition's four named phases for
+`orchestrator/` (`_search`, `_details`, `_cache`, `_results`) and the four
+named concerns for `routes/` (`pages`, `album_flow`, `heatmap_flow`, `api`),
+each behind a facade `__init__.py` that keeps the pipeline glue
+(`process_albums`, `_fetch_and_process`, `background_task`,
+`fetch_top_albums_async`) or shared job-context helpers respectively. One
+`Blueprint` (`bp`, name `"main"`) is still shared across the four route
+files, so every endpoint name and `url_for()` call is byte-identical --
+`routes/` is a package of route files sharing one blueprint, not four
+separate blueprints, which is the narrower reading of "package of
+blueprints" that kept templates and endpoint names untouched.
+
+The load-bearing discovery: roughly 24 names across both modules are
+`mock.patch`/`monkeypatch.setattr` targets in the existing test suite,
+addressed as `scrobblescope.orchestrator.<name>` or
+`scrobblescope.routes.<name>`. A name imported directly into a phase
+submodule stops being reachable by that patch once the code that calls it
+moves out of the facade file, because the patch only replaces the
+attribute on the facade module's own namespace. Every submodule therefore
+imports its parent package (`from scrobblescope import orchestrator as
+_orchestrator` / `... routes as _routes`) and reads cross-cutting
+dependencies through that live reference at call time, not through its own
+`from x import y`. The facade files keep every original top-level import
+unchanged, even where their own code no longer calls it directly, so the
+attribute still exists for a submodule or a test to reach. Both `__init__.py`
+files carry an explicit `__all__` documenting that contract and satisfying
+ruff's unused-import check (`ruff-check --fix` would otherwise delete an
+import kept only for re-export).
+
+Deviation: `docs/architecture/*.md`, `README.md` and `AGENT_NOTES.md` still
+cite a few pre-split `orchestrator.py`/`routes.py` paths. The two
+load-bearing ones in `AGENT_NOTES.md` (the Windows-asyncio ProactorEventLoop
+note, cited from two places) are fixed in this commit; the rest are left for
+WP-5's already-scoped README and `docs/architecture/runtime-system.md` pass
+rather than swept twice. `docs/superpowers/plans/` citations are dated
+plan documents and are not touched, per the dated-entry exemption.
+
+Validation: `pytest -q` -- **1034 passed**, unmodified from every test file
+in the suite. `scripts/dev/frontend_gate.py` -- 28 checks passed in 50 runs
+across chromium and firefox, matching the batch-open baseline. `ruff check`
+and `ruff format` clean on both new packages. `scripts/doc_state_sync.py
+--check` passes (the root `BATCH22_DEFINITION.md` warning is expected while
+the batch is active).
+
+Forward guidance: WP-1 (the provider contract) adds `scrobblescope/
+enrichment.py` and moves the Spotify calls behind `spotify.enrich_albums`,
+which lands inside `orchestrator/_search.py`'s and `_details.py`'s existing
+phase boundaries rather than requiring another restructure.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
