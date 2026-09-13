@@ -13,7 +13,7 @@ Last updated: 2026-09-11
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Complete**, closed 2026-09-13. All 9 WPs done. Definition: `docs/history/definitions/BATCH21_DEFINITION.md`; log: `docs/history/logs/BATCH21_LOG.md`. Every page renders on Tailwind and daisyUI, the legacy framework stack and `.dark-mode` are retired, and `data-theme` is the only theme signal. The frontend and accessibility audit moves to Batch 23's close-out (owner ruling, 2026-09-13). No batch is active: Batch 22 (enrichment providers) and Batch 23 (Spotify export import) are approved and queued in PLAYBOOK Section 3. Adobe Fonts kit `rwy8ghw` remains active. |
+| Batch 22 status | **Active**, opened 2026-09-13 on `feat/batch22-enrichment`. Album enrichment moves behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects reissue years live on the results page. WP-0 splits `routes.py` into blueprints and `orchestrator.py` by phase, behaviour-neutral. Definition: `BATCH22_DEFINITION.md`. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -38,7 +38,6 @@ Last updated: 2026-09-11
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: none (between batches).
 - Last completed batch in PLAYBOOK Section 3: Batch 21.
-- Next batch definition status: Batch 22 is not yet defined.
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: n/a (no active batch).
 - Next expected work package: n/a (next batch not defined).

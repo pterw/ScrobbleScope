@@ -83,9 +83,14 @@ See FINDINGS F-DOCSYNC-3.
   5.1.3 to Tailwind v4 (standalone CLI) plus daisyUI v5, warm
   heatmap-derived themes app-wide, migrated page by page. The last commit on
   the batch is `4b4965b`, on branch `test`.
-- **No batch is active, and Batch 22 is not yet defined:** its root
-  definition file is written when the batch opens, from the approved plan
-  named below. Batch 22 is approved and queued. It opens
+- **Batch 22 is active.** Definition: `BATCH22_DEFINITION.md` (repo root).
+  Branch: `feat/batch22-enrichment` (worktree off `test`). Scope: album
+  enrichment moves behind a provider contract, Deezer answers when Spotify
+  cannot, and MusicBrainz corrects a reissue year to the album's original
+  while the results page is open. WP-0 splits `routes.py` into blueprints and
+  `orchestrator.py` by phase, behaviour-neutral, before the rest adds to
+  either. Plan of record:
+  `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`. It opens
   only when this section declares it active and names its branch: the
   worktree guard fails every commit on a branch this section does not name
   (WT003, an error). The proposed name is `feat/batch22-enrichment`, cut
@@ -221,12 +226,6 @@ See FINDINGS F-DOCSYNC-3.
   move; the frontend gate keeps its own accessibility checks running
   meanwhile.
 
-- **Queued after Batch 21 -- Batch 22, enrichment providers:** approved by the
-  owner on 2026-09-13 and not started. Album enrichment moves behind a
-  provider contract, Deezer answers when Spotify cannot, and MusicBrainz
-  corrects a reissue year to the album's original release year while the
-  results page is open. The plan is
-  `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`.
 - **Queued after Batch 22 -- Batch 23, Spotify export import:** approved by the
   owner on 2026-09-13 and not started. Spotify listeners upload the Extended
   Streaming History zip; there is no Spotify login, because Spotify caps apps
