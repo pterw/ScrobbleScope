@@ -311,6 +311,38 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-09-14 - README pass for the Deezer fallback (Batch 22 WP-1)
+
+Scope: owner-requested, after Task 6 landed and before a `/handoff`
+close-out -- not one of Task 6's own files, but small (under 20 lines) and
+directly tied to WP-1's own work, so treated as an in-WP deviation rather
+than a separate side-task entry (AGENTS.md Proposal and Design Rules,
+item 2). `README.md`'s Unmatched-report paragraph named `no_spotify_match`
+as "albums Spotify could not identify" -- true before Task 5, false after
+it (the reason now fires only when neither provider matches); fixed as a
+stale-claim correction, not new scope. Also added: one Features bullet on
+the Deezer fallback and per-row provider attribution, a Deezer clause on
+the APIs tech-stack row, a one-line pointer from the Roadmap section to
+PLAYBOOK's Section 3 for the fallback and the original-release-year work
+that follows it, and a Deezer line in Acknowledgements.
+
+Deliberately not touched: the architecture Mermaid diagram and the fuller
+provider data-flow prose. PLAYBOOK Section 3's WP-0 entry already commits
+those to WP-5's own README/`docs/architecture/runtime-system.md` pass, so
+redoing them here would be exactly the double effort that entry ruled out.
+
+Also fixed `CLAUDE.md`'s graphify section, which restated
+`.claude/CLAUDE.md`'s rules inline instead of pointing to
+`.claude/skills/graphify/SKILL.md` -- a duplication against the file's own
+stated "holds no project facts of its own" rule. `CLAUDE.md` is
+git-ignored (confirmed via `git check-ignore`), so this has no commit of
+its own.
+
+Validation: no code changed, so `pytest -q` and the frontend gate are
+unaffected -- Task 6's own entry above has the current measurement,
+**1069 passed**, 29/29; confirmed `doc_state_sync.py --check` still
+passes clean.
+
 ### 2026-09-13 - Show the album's own provider in the UI (Batch 22 WP-1)
 
 Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`

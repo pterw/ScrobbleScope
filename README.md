@@ -39,8 +39,10 @@ available run in the same browser session.
 
 ### Top Albums
 
-- Fetch scrobbles for a listening year and enrich albums with Spotify release
-  dates, artwork, and track runtimes.
+- Fetch scrobbles for a listening year and enrich albums with release dates,
+  artwork, and track runtimes from Spotify, falling back to Deezer for
+  whatever Spotify cannot match or detail. Each album links to its own
+  provider's page and carries a small attribution badge naming it.
 - Include all release years, the listening year, the previous year, a decade,
   or a specific release year.
 - Choose minimum track plays and unique tracks per album; the defaults are
@@ -91,7 +93,7 @@ available run in the same browser session.
 | Backend | Python 3.13, Flask, Gunicorn |
 | Frontend | Jinja templates, CSS, JavaScript, Tailwind CSS 4 and daisyUI 5 |
 | Typography | Adobe Fonts: Akzidenz Grotesk, Instrument Serif, Gotham, Input Mono, Input Mono Narrow |
-| APIs | Last.fm history and profile data; Spotify album and artist metadata |
+| APIs | Last.fm history and profile data; Spotify album and artist metadata, with Deezer as a fallback provider (no API key needed) |
 | Async HTTP | `aiohttp`, `aiolimiter`, shared throttling and retry helpers |
 | Database | Optional PostgreSQL cache through `asyncpg` |
 | Validation | pytest, Playwright browser checks, Ruff, pre-commit, documentation and generated-CSS checks |
@@ -320,9 +322,15 @@ codes rather than on prose, so a group no longer splits apart because two
 albums were released in different years. Three reasons ship today:
 `below_threshold` for albums you played in the selected year that fell under
 the minimum play or unique-track count, `release_scope` for albums outside the
-year, and `no_spotify_match` for albums Spotify could not identify. Each
-reason gets its own panel, and the panels sit side by side on a wide screen
-and stack on a narrow one. Long lists start at ten rows and open 25 at a time.
+year, and `no_spotify_match` for albums neither Spotify nor Deezer could
+identify. Each reason gets its own panel, and the panels sit side by side on
+a wide screen and stack on a narrow one. Long lists start at ten rows and
+open 25 at a time.
+
+Album enrichment now tries Spotify first and Deezer second, so a single
+provider outage no longer empties a result: see
+[PLAYBOOK.md](PLAYBOOK.md#3-active-batch--next-action) for the batch adding
+this and the original-release-year correction that follows it.
 
 What remains before close-out is the owner's end-to-end pass. The frontend
 and accessibility audit moves to the batch that ships the next interface
@@ -355,6 +363,7 @@ MIT License -- see [LICENSE](LICENSE).
 
 - [Last.fm](https://www.last.fm/) for listening history.
 - [Spotify](https://developer.spotify.com/) for music metadata.
+- [Deezer](https://developers.deezer.com/) for fallback music metadata.
 - [Flask](https://flask.palletsprojects.com/), [Tailwind CSS](https://tailwindcss.com/),
   and [daisyUI](https://daisyui.com/) for the application UI foundations, and
   Bootstrap, which carried the interface before the Tailwind migration.
