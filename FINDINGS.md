@@ -1788,6 +1788,49 @@ Status: open (P1), owner ruling recorded. Source: Spotify API review,
 
 ## P2 -- Scaling roadmap
 
+### F-B22-2: `assert` guards job-context narrowing in three `album_flow.py` sites
+
+`scrobblescope/routes/album_flow.py:89,154,302` each use `assert job_context
+is not None` to narrow the type after a validation guard clears (`if err:
+return err`). Moved verbatim from pre-split `routes.py`; not introduced by
+WP-0's module split. Codacy PR #232 review flagged this correctly: `assert`
+strips under `python -O`, so an optimized interpreter would fall through to a
+`None.get(...)` `AttributeError` a few lines later instead of a clear,
+intentional failure.
+
+Fix shape: replace each with `if job_context is None: raise RuntimeError(...)`
+(or equivalent), matching the pattern of an internal-invariant check rather
+than a `python -O`-dependent one. Small and testable, but out of scope for
+WP-0's behaviour-neutral contract -- filed separately rather than fixed
+in-PR.
+
+Status: open (P2). Source: Codacy bot review, PR #232, 2026-09-13.
+
+### F-B22-3: job endpoints trust an unguessable job ID with no session ownership check
+
+`scrobblescope/routes/api.py` (`unmatched_data`, `progress`) and
+`scrobblescope/routes/heatmap_flow.py` (`heatmap_data`) accept `job_id` from
+a query parameter and look it up in the process-local `JOBS` dict with no
+check that the requesting session originated that job. `create_job`
+(`scrobblescope/repositories.py:41`) generates `job_id = uuid4().hex` -- a
+128-bit unguessable value -- so the design already relies on the ID itself as
+a bearer/capability token rather than session-bound ownership. This is
+consistent across every job-polling endpoint, not a WP-0 regression: the
+pre-split `routes.py` had the same shape.
+
+Graphify's PR #232 review flagged two instances (`api.py:103`,
+`heatmap_flow.py:179`) as missing an "ownership check," unverified
+(consensus-only, no reproducing execution). Read as a security question
+rather than a bug: is a 128-bit unguessable ID sufficient authorization for
+an ephemeral (TTL-bounded, `JOB_TTL_SECONDS`) result set, or should these
+endpoints also require the ID to match the requesting session's
+`_LATEST_ALBUM_JOB`/`_LATEST_HEATMAP_JOB`? No incident or reported leak
+motivates this; filed for owner judgment, not because current behaviour is
+demonstrated wrong.
+
+Status: open (P2, owner-gated). Source: Graphify bot review, PR #232,
+2026-09-14.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in

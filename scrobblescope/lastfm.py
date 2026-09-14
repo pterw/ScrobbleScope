@@ -65,7 +65,6 @@ async def check_user_exists(username):
                 return {"exists": False, "registered_year": None}
             else:
                 resp.raise_for_status()
-                return {"exists": False, "registered_year": None}
 
 
 async def check_profile_is_public(username: str) -> bool:
