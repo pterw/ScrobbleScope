@@ -120,11 +120,12 @@ See FINDINGS F-DOCSYNC-3.
   WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
   for the new providers, so the remaining citations are swept there rather
   than twice.
-- **WP-1 Phase 1 and Phase 2 (Tasks 4-6) complete.** Task 6 (show the
-  album's own provider in the UI) landed 2026-09-13: results/unmatched rows
-  link to `album_url` and carry a text provider-attribution badge, per the
-  2026-09-13 Section 4 entry below. **Next action:** Task 7, the
-  MusicBrainz client (Phase 3, original release years).
+- **WP-1 Phase 1, Phase 2, and Phase 3 Task 7 complete.** Task 7 (the
+  MusicBrainz client) landed 2026-09-14: `lookup_original_release` returns
+  a release-group id and original release date, or `(None, None)`, and
+  never trusts a high MusicBrainz score alone -- a normalized-name match is
+  required too. See the 2026-09-14 Section 4 entry below. **Next action:**
+  Task 8, apply cached corrections before results render.
   `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
   executed task by task via `superpowers:executing-plans`; per-task progress
   is also tracked in that plan file's own Progress section.
@@ -310,6 +311,57 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-09-14 - MusicBrainz client (Batch 22 WP-1)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Task 7, the first task of Phase 3. New module, no caller wired yet (Task 8
+consumes it).
+
+`scrobblescope/musicbrainz.py` (new): `lookup_original_release(session,
+artist, album)` returns `(mb_release_group_id, "YYYY-MM-DD")` on a trusted
+match or `(None, None)` -- both cacheable, matching
+`original_release_cache`'s null-`mb_release_group` "checked, nothing
+found" row from Task 2. A candidate is accepted only when its MusicBrainz
+`score` is at least 90 **and** its normalized artist-credit/title match the
+searched key (`scrobblescope.domain.normalize_name`, already used by
+`deezer.py`); score alone is rejected because it ranks text similarity, not
+identity -- a high-scoring tribute act or same-titled album by a different
+artist must not silently mis-date a real one. The Lucene release-group
+query (`releasegroup:"..." AND artist:"..."`) escapes quotes and Lucene
+operators in both fields rather than passing them through raw. With no
+`MUSICBRAINZ_CONTACT` configured, or `MUSICBRAINZ_ENABLED=False`, the
+client returns `(None, None)` without making a request: MusicBrainz blocks
+anonymous clients, so an unconfigured contact would only guarantee a
+rejected request against the shared 1-request/second budget. A 503 waits
+and retries via the existing `retry_with_semaphore`, asking the limiter
+again on every attempt.
+
+`scrobblescope/utils.py`: `get_musicbrainz_limiter()`, same
+`_ThrottledLimiter` pattern as `get_deezer_limiter` (a global cross-thread
+throttle plus a per-loop `AsyncLimiter`) -- this is what makes the 1
+request/second limit process-wide rather than per-loop, ahead of Task 9's
+dedicated worker thread. `scrobblescope/config.py`: `MUSICBRAINZ_CONTACT`,
+`MUSICBRAINZ_ENABLED` (default True), `MUSICBRAINZ_REQUESTS_PER_SECOND`
+(default 1), `MUSICBRAINZ_SEARCH_RETRIES` (default 3, mirrors
+`DEEZER_SEARCH_RETRIES`), and `MUSICBRAINZ_CHECKS_PER_JOB` (default 60,
+unused until Task 9). `MUSICBRAINZ_REQUESTS_PER_SECOND` and
+`MUSICBRAINZ_SEARCH_RETRIES` are not in the plan's own file list for this
+task but follow the existing per-provider rate/retry constant pattern
+(`DEEZER_REQUESTS_PER_SECOND`, `DEEZER_SEARCH_RETRIES`) rather than a
+magic number inside `utils.py`/`musicbrainz.py`.
+
+`tests/services/test_musicbrainz_service.py` (new, 10 tests): query
+building and Lucene escaping, the score-floor-and-name-match rule
+(including a high-scoring wrong-artist rejection), the return shape on a
+match and on no candidates, a 503-then-success retry asserting the limiter
+is entered on every attempt, the User-Agent contents, and the two
+no-contact/disabled-by-flag paths asserting zero requests.
+
+Validation: `pytest -q` -- **1079 passed** (was 1069; +10 new). No frontend
+change, so the frontend gate is unaffected; its last measurement (29/29)
+still stands. `doc_state_sync.py --check` passes clean (the root
+`BATCH22_DEFINITION.md` warning is expected while the batch is active).
 
 ### 2026-09-14 - README architecture, tech stack, and diagram refresh (Batch 22 WP-1)
 
