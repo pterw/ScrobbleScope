@@ -80,6 +80,35 @@ def _get_user_friendly_reason(
         return f"Unknown release year: {release_date}"
 
 
+def _album_provider(cached):
+    """Return the provider that supplied *cached*'s metadata, or None.
+
+    ``provider`` is only present on rows written since Batch 22 WP-1
+    Task 2 (or backfilled by its migration). A row with a ``spotify_id``
+    but no ``provider`` predates that column and is a Spotify row in
+    every case, so it falls back to "spotify" rather than reporting an
+    unknown source for data that is, in fact, known.
+    """
+    return cached.get("provider") or ("spotify" if cached.get("spotify_id") else None)
+
+
+def _album_url(cached):
+    """Return the link to *cached*'s album page on its provider, or None.
+
+    ``provider_url`` is only present on rows written since Task 2; a
+    Spotify row from before that (or fetched live before Task 5 wired the
+    provider fields into the live fetch path) carries only ``spotify_id``,
+    from which the classic Spotify album URL is reconstructed.
+    """
+    url = cached.get("provider_url")
+    if url:
+        return url
+    spotify_id = cached.get("spotify_id")
+    if spotify_id:
+        return f"https://open.spotify.com/album/{spotify_id}"
+    return None
+
+
 def _build_results(
     cache_hits, job_id, year, sort_mode, release_scope, decade=None, release_year=None
 ):
@@ -143,6 +172,8 @@ def _build_results(
                 "release_date": release_date,
                 "album_image": cached.get("album_image_url"),
                 "spotify_id": cached.get("spotify_id", ""),
+                "provider": _album_provider(cached),
+                "album_url": _album_url(cached),
             }
         )
 

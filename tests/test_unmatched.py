@@ -70,7 +70,7 @@ def test_group_unmatched_albums_groups_by_reason_code():
     assert len(groups[REASON_RELEASE_SCOPE]) == 2
     assert len(groups[REASON_NO_SPOTIFY_MATCH]) == 1
     assert metadata[REASON_RELEASE_SCOPE]["title"] == "Outside Release Filter"
-    assert metadata[REASON_NO_SPOTIFY_MATCH]["title"] == "No Spotify Match"
+    assert metadata[REASON_NO_SPOTIFY_MATCH]["title"] == "No Match Found"
     # Row detail preserved
     assert (
         groups[REASON_RELEASE_SCOPE][0]["reason"]

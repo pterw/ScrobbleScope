@@ -120,9 +120,11 @@ See FINDINGS F-DOCSYNC-3.
   WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
   for the new providers, so the remaining citations are swept there rather
   than twice.
-- **WP-1 Phase 1 (the provider contract) complete;** Phase 2 Task 4 (Deezer
-  client) also done, per the 2026-09-13 Section 4 entries above. **Next
-  action:** Task 5, wire the Deezer fallback into the orchestrator.
+- **WP-1 Phase 1 complete; Phase 2 Tasks 4-5 also done** (Deezer client,
+  Deezer wired into the orchestrator as the Spotify-miss fallback), per the
+  2026-09-13 Section 4 entries above. **Next action:** Task 6, show the
+  album's own provider in the UI -- blocked on reading Deezer's
+  attribution guidelines first (developers.deezer.com/guidelines).
   `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
   executed task by task via `superpowers:executing-plans`; per-task progress
   is also tracked in that plan file's own Progress section.
@@ -308,6 +310,74 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-09-13 - Deezer fallback wired into the orchestrator (Batch 22 WP-1)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Phase 2 Task 5. Real behaviour change: album enrichment no longer depends
+on Spotify alone.
+
+Plan vs implementation: kept the phase order (Spotify search, Spotify
+details, then one Deezer pass over what is left), but the plan's "does not
+rewrite them" line from Task 3 applied only to Task 3 -- Task 5 had to
+touch `orchestrator/_search.py` itself, because deferring the
+unmatched-or-not decision to after Deezer's turn means a search miss can
+no longer be written to job unmatched immediately. `_run_spotify_search_phase`
+now returns a third value, `search_miss_keys`, instead of calling
+`add_job_unmatched`; its own two tests (`test_run_spotify_search_phase_all_misses_returns_empty_maps`,
+`test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call`) are
+updated to match, and a new `orchestrator/_deezer_fallback.py` phase file
+(mirroring `_search.py`/`_details.py`'s per-phase convention) owns the
+Deezer pass and the now-deferred unmatched write, with reason text "No
+match on Spotify or Deezer" (`reason_code` unchanged: `no_spotify_match`).
+"Still missing after Spotify" is computed as `cache_misses.keys() -
+cache_hits.keys()` post-detail-phase, which uniformly catches both a
+search miss and a detail-fetch failure (the latter was already silently
+dropped before this task, not newly introduced).
+
+`_detect_spotify_total_failure` is renamed `_detect_enrichment_total_failure`
+(swept: tests/services/test_orchestrator_helpers.py's four tests and their
+own names). `_fetch_spotify_misses` snapshots `cache_hits` emptiness before
+any mutation (`had_cache_hits`) so the post-Deezer `SpotifyUnavailableError`
+check reads the pre-run state, not cache_hits after Deezer has already
+promoted its own matches into it -- item 4's "Deezer enriches everything
+and the job succeeds" only holds if that snapshot is taken first.
+
+`orchestrator/_results.py`'s `_build_results` gains `provider` and
+`album_url` per result (`_album_provider`/`_album_url` helpers), reading
+the provider columns Task 2 added with a fallback to the classic
+`open.spotify.com` URL built from `spotify_id` for rows or live fetches
+that predate the provider columns -- Task 6 wires these two fields into
+templates/CSV, but the plan's own Task 5 test list asks for them at the
+`process_albums` output, so they land here. `unmatched.py`'s
+`CATEGORY_METADATA` for `REASON_NO_SPOTIFY_MATCH` is reworded ("No Match
+Found" / "Not Found" / mentions Deezer) to match; its one pinned test
+(`tests/test_unmatched.py`) is updated in the same commit.
+
+Job progress: the Deezer phase reports 60-75%; the two fixed
+post-`process_albums` markers ("Adding album art...", "Compiling...")
+move from 60/80 to 80/85 so progress never runs backward when Deezer's
+phase ran up to 75%. No test pinned the old 60/80 values.
+
+Validation: `pytest -q` from the worktree cwd -- **1067 passed** (1061 +
+6 new integration tests in `tests/services/test_orchestrator_process_albums.py`,
+covering the plan's five Step 1 scenarios: Spotify-matches-everything
+skips Deezer, a Spotify miss falls through to a Deezer match with
+`provider`/`album_url` set, neither provider matching registers one
+unmatched entry with the new reason text, a Deezer-only run with no
+Spotify token succeeds, that same no-token run raises
+`SpotifyUnavailableError` only when Deezer also fails, and a Deezer match's
+persisted row carries `provider`/`provider_album_id`/`provider_url` with
+`spotify_id` left `None`). Fixed two pre-existing tests
+(`test_process_albums_partial_cache_token_failure_uses_cached_results`,
+`test_process_albums_all_misses_token_failure_raises`) that would
+otherwise have made real, unmocked network calls to Deezer once this task
+landed -- both now mock `search_deezer_album` explicitly. Frontend gate:
+28 checks passed in 50 runs (unchanged from WP-0's baseline; `unmatched.py`'s
+reworded copy did not regress the gate's rendered-page assertions). Task 6
+(show the album's own provider in the UI) is next; note its own blocker:
+read Deezer's attribution guidelines before shipping any Deezer-sourced
+result.
 
 ### 2026-09-13 - Spotify calls behind spotify.enrich_albums (Batch 22 WP-1)
 

@@ -10,7 +10,7 @@ from scrobblescope.orchestrator import (
     _apply_pre_slice,
     _build_results,
     _classify_exception_to_error_code,
-    _detect_spotify_total_failure,
+    _detect_enrichment_total_failure,
     _get_user_friendly_reason,
     _matches_release_criteria,
 )
@@ -230,7 +230,7 @@ def test_classify_exception_to_error_code_unclassified_returns_none():
     assert _classify_exception_to_error_code("connection timeout") is None
 
 
-def test_detect_spotify_total_failure_fires_when_all_unmatched():
+def test_detect_enrichment_total_failure_fires_when_all_unmatched():
     """All filtered_albums unmatched -> returns True, set_job_error called."""
     job_id = create_job(TEST_JOB_PARAMS)
     filtered = {("a", "b"): {}, ("c", "d"): {}}
@@ -246,11 +246,11 @@ def test_detect_spotify_total_failure_fires_when_all_unmatched():
         ),
         patch("scrobblescope.orchestrator.set_job_error") as mock_err,
     ):
-        assert _detect_spotify_total_failure(job_id, [], filtered) is True
+        assert _detect_enrichment_total_failure(job_id, [], filtered) is True
         mock_err.assert_called_once_with(job_id, "spotify_unavailable")
 
 
-def test_detect_spotify_total_failure_does_not_fire_partial_match():
+def test_detect_enrichment_total_failure_does_not_fire_partial_match():
     """Only some albums unmatched -> returns False."""
     job_id = create_job(TEST_JOB_PARAMS)
     filtered = {("a", "b"): {}, ("c", "d"): {}}
@@ -262,10 +262,10 @@ def test_detect_spotify_total_failure_does_not_fire_partial_match():
             }
         },
     ):
-        assert _detect_spotify_total_failure(job_id, [], filtered) is False
+        assert _detect_enrichment_total_failure(job_id, [], filtered) is False
 
 
-def test_detect_spotify_total_failure_bases_detection_on_reason_code():
+def test_detect_enrichment_total_failure_bases_detection_on_reason_code():
     """Failure detection must check reason_code, not written prose."""
     from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH
 
@@ -289,11 +289,11 @@ def test_detect_spotify_total_failure_bases_detection_on_reason_code():
         ),
         patch("scrobblescope.orchestrator.set_job_error") as mock_err,
     ):
-        assert _detect_spotify_total_failure(job_id, [], filtered) is True
+        assert _detect_enrichment_total_failure(job_id, [], filtered) is True
         mock_err.assert_called_once_with(job_id, "spotify_unavailable")
 
 
-def test_detect_spotify_total_failure_does_not_fire_for_other_reason_codes():
+def test_detect_enrichment_total_failure_does_not_fire_for_other_reason_codes():
     """Items with non-matching reason_code do not trigger spotify_unavailable."""
     from scrobblescope.unmatched import REASON_RELEASE_SCOPE
 
@@ -314,7 +314,7 @@ def test_detect_spotify_total_failure_does_not_fire_for_other_reason_codes():
             }
         },
     ):
-        assert _detect_spotify_total_failure(job_id, [], filtered) is False
+        assert _detect_enrichment_total_failure(job_id, [], filtered) is False
 
 
 def _tied_albums(count):

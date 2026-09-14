@@ -32,6 +32,7 @@ from scrobblescope.cache import (
     _get_db_connection,
 )
 from scrobblescope.config import SPOTIFY_SEARCH_CONCURRENCY
+from scrobblescope.deezer import fetch_deezer_album, search_deezer_album
 from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.lastfm import fetch_all_recent_tracks_async
@@ -157,52 +158,70 @@ async def fetch_top_albums_async(
 
 
 async def _fetch_spotify_misses(job_id, cache_misses, cache_hits):
-    """Fetch Spotify metadata for cache misses via search + batch detail.
+    """Enrich cache misses via Spotify search + batch detail, then Deezer
+    for whatever Spotify still could not enrich.
 
     Mutates *cache_hits* in place by promoting newly found entries.
     Returns a list of new_metadata_rows tuples for DB persistence.
-    Raises SpotifyUnavailableError if token fetch fails and no cache_hits exist.
+    Raises SpotifyUnavailableError only when Spotify's token fetch fails,
+    nothing was already cached before this call, and Deezer could not
+    enrich a single album either -- a Deezer-only run that finds at least
+    one match is a valid, if partial, outcome, not a failure.
     """
     if not cache_misses:
         return []
 
+    had_cache_hits = bool(cache_hits)
+    new_metadata_rows = []
     token = await fetch_spotify_access_token()
+    still_missing = cache_misses
+
     if not token:
-        logging.error("Spotify token fetch failed. Cannot process cache misses.")
-        if not cache_hits:
-            raise SpotifyUnavailableError(
-                "Spotify token fetch failed while processing cache misses."
-            )
+        logging.error(
+            "Spotify token fetch failed. Falling back to Deezer for all misses."
+        )
         set_job_stat(
             job_id,
             "partial_data_warning",
+            "Spotify is temporarily unavailable; checking Deezer for album details.",
+        )
+    else:
+        async with create_optimized_session() as session:
+            search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
             (
-                "Spotify is temporarily unavailable. "
-                "Showing cached albums only for this request."
-            ),
-        )
-        return []
-
-    new_metadata_rows = []
-    async with create_optimized_session() as session:
-        search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
-        (
-            spotify_id_to_key,
-            spotify_id_to_original_data,
-        ) = await _run_spotify_search_phase(
-            job_id, session, cache_misses, token, search_semaphore
-        )
-        valid_spotify_ids = list(spotify_id_to_original_data.keys())
-        if valid_spotify_ids:
-            new_metadata_rows = await _run_spotify_batch_detail_phase(
-                job_id,
-                session,
-                valid_spotify_ids,
-                token,
                 spotify_id_to_key,
                 spotify_id_to_original_data,
-                cache_hits,
+                _search_miss_keys,
+            ) = await _run_spotify_search_phase(
+                job_id, session, cache_misses, token, search_semaphore
             )
+            valid_spotify_ids = list(spotify_id_to_original_data.keys())
+            if valid_spotify_ids:
+                new_metadata_rows = await _run_spotify_batch_detail_phase(
+                    job_id,
+                    session,
+                    valid_spotify_ids,
+                    token,
+                    spotify_id_to_key,
+                    spotify_id_to_original_data,
+                    cache_hits,
+                )
+        still_missing = {
+            key: data for key, data in cache_misses.items() if key not in cache_hits
+        }
+
+    if still_missing:
+        async with create_optimized_session() as session:
+            deezer_rows = await _run_deezer_fallback_phase(
+                job_id, session, still_missing, cache_hits
+            )
+        new_metadata_rows.extend(deezer_rows)
+
+    if not token and not had_cache_hits and not new_metadata_rows:
+        raise SpotifyUnavailableError(
+            "Spotify token fetch failed and Deezer could not enrich any album."
+        )
+
     return new_metadata_rows
 
 
@@ -335,11 +354,14 @@ def _apply_pre_slice(filtered_albums, sort_mode, limit_results, release_scope):
     return filtered_albums
 
 
-def _detect_spotify_total_failure(job_id, results, filtered_albums):
-    """Return True and set job error if all filtered albums had no Spotify match.
+def _detect_enrichment_total_failure(job_id, results, filtered_albums):
+    """Return True and set job error if no filtered album matched any provider.
 
     Only fires when results is empty but filtered_albums is non-empty.
-    Reads job unmatched state to count 'no_spotify_match' entries.
+    Reads job unmatched state to count 'no_spotify_match' entries -- the
+    reason_code is unchanged (Task 5 only changed its reason text, "No
+    match on Spotify or Deezer"), so this still fires only once both
+    providers have had their turn on every album.
     """
     if not results and filtered_albums:
         job_ctx = get_job_context(job_id)
@@ -528,19 +550,19 @@ async def _fetch_and_process(
         step_elapsed = time.time() - step_start_time
         logging.info(f"Time elapsed (Spotify album processing): {step_elapsed:.1f}s")
 
-        if _detect_spotify_total_failure(job_id, results, filtered_albums):
+        if _detect_enrichment_total_failure(job_id, results, filtered_albums):
             return []
 
         set_job_progress(
             job_id,
-            progress=60,
+            progress=80,
             message="Adding album art to your results...",
             phase=None,
         )
 
         set_job_progress(
             job_id,
-            progress=80,
+            progress=85,
             message="Compiling your top album list...",
             phase=None,
         )
@@ -649,6 +671,9 @@ from scrobblescope.orchestrator._cache import (  # noqa: E402
     _lookup_cached_metadata,
     _persist_new_metadata,
 )
+from scrobblescope.orchestrator._deezer_fallback import (  # noqa: E402
+    _run_deezer_fallback_phase,
+)
 from scrobblescope.orchestrator._details import (  # noqa: E402
     _run_spotify_batch_detail_phase,
 )
@@ -669,7 +694,7 @@ __all__ = [
     "_build_results",
     "_classify_exception_to_error_code",
     "_cleanup_stale_metadata",
-    "_detect_spotify_total_failure",
+    "_detect_enrichment_total_failure",
     "_fetch_and_process",
     "_fetch_job_albums",
     "_fetch_spotify_misses",
@@ -679,6 +704,7 @@ __all__ = [
     "_matches_release_criteria",
     "_persist_new_metadata",
     "_record_lastfm_stats",
+    "_run_deezer_fallback_phase",
     "_run_spotify_batch_detail_phase",
     "_run_spotify_search_phase",
     "add_job_unmatched",
@@ -687,12 +713,14 @@ __all__ = [
     "create_optimized_session",
     "enrich_albums",
     "fetch_all_recent_tracks_async",
+    "fetch_deezer_album",
     "fetch_spotify_access_token",
     "fetch_spotify_album_details_batch",
     "fetch_top_albums_async",
     "get_job_context",
     "process_albums",
     "release_job_slot",
+    "search_deezer_album",
     "search_for_spotify_album_id",
     "set_job_error",
     "set_job_progress",

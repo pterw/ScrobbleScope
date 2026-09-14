@@ -39,8 +39,19 @@ lives in PLAYBOOK Section 4; this section tracks status only.
   `DEEZER_SEARCH_RETRIES`, `DEEZER_DETAIL_RETRIES`),
   `tests/services/test_deezer_service.py` (7 tests). 1061 passed. Not
   wired into any caller yet.
-- Tasks 5-11 (Phase 2 cont'd, Phase 3), Phase 4: not started. Next: Task 5,
-  wire the Deezer fallback into the orchestrator.
+- **Task 5 (wire the fallback into the orchestrator): done, 2026-09-13.**
+  New `orchestrator/_deezer_fallback.py`; modified `orchestrator/_search.py`
+  (defers the unmatched write -- Deezer gets a turn first),
+  `orchestrator/__init__.py` (`_fetch_spotify_misses` wiring,
+  `_detect_spotify_total_failure` renamed `_detect_enrichment_total_failure`),
+  `orchestrator/_results.py` (`provider`/`album_url` per result),
+  `unmatched.py` (reworded `REASON_NO_SPOTIFY_MATCH` copy). 1067 passed;
+  frontend gate 28/28. Full reasoning, including why `_search.py` needed
+  touching despite Task 3's "does not rewrite them" note, in PLAYBOOK's
+  2026-09-13 Section 4 entry for this task.
+- Tasks 6-11 (Phase 2 close, Phase 3), Phase 4: not started. Next: Task 6,
+  show the album's own provider -- blocked on Deezer's attribution
+  guidelines first.
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.
