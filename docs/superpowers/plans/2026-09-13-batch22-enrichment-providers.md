@@ -3,12 +3,23 @@
 > **For Claude:** REQUIRED SUB-SKILL: use superpowers:executing-plans to
 > implement this plan task by task.
 
-Status: approved by the owner on 2026-09-13, **not started**. It opens on its
-own branch, which PLAYBOOK Section 3 must name first, or the worktree guard
-raises WT003. Promote this file to a root `BATCH22_DEFINITION.md` when the
-batch opens. Batch 23 is the Spotify export import
+Status: approved by the owner on 2026-09-13. Batch opened as
+`BATCH22_DEFINITION.md` (repo root); branch `feat/batch22-enrichment`. Batch
+23 is the Spotify export import
 (`docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`), which
 builds on the work here.
+
+## Progress
+
+Executed task by task via `superpowers:executing-plans`. Full detail per task
+lives in PLAYBOOK Section 4; this section tracks status only.
+
+- **Task 1 (AlbumMetadata value object): done, 2026-09-13.**
+  `scrobblescope/enrichment.py`, `tests/services/test_enrichment.py`.
+  1037 passed.
+- Task 2 (cache columns for any provider): not started.
+- Task 3 (Spotify calls behind `spotify.enrich_albums`): not started.
+- Tasks 4-11 (Phases 2-3), Phase 4: not started.
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.

@@ -120,10 +120,13 @@ See FINDINGS F-DOCSYNC-3.
   WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
   for the new providers, so the remaining citations are swept there rather
   than twice.
-- **Next action: WP-1, the provider contract.** `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-  Phase 1 Tasks 1-3: the `AlbumMetadata` value object, the cache-column
-  `ALTER TABLE` statements, and moving the Spotify calls behind
-  `spotify.enrich_albums`.
+- **WP-1 in progress (Phase 1, the provider contract).** Task 1
+  (`AlbumMetadata` value object) is done, per the 2026-09-13 Section 4
+  entry above. **Next action:** Task 2 (cache-column `ALTER TABLE`
+  statements) then Task 3 (moving the Spotify calls behind
+  `spotify.enrich_albums`). `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
+  executed task by task via `superpowers:executing-plans`; per-task progress
+  is also tracked in that plan file's own Progress section.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
   chartered. The owner moved it to Batch 23's close-out on 2026-09-13 so it
   covers the final UI once. Batch 23's plan carries the obligation; do not
@@ -306,6 +309,27 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-09-13 - Provider contract, AlbumMetadata value object (Batch 22 WP-1)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Phase 1 Task 1. No behaviour change yet -- `AlbumMetadata` is not wired into
+any caller.
+
+Plan vs implementation: matched exactly. `scrobblescope/enrichment.py` adds
+`AlbumMetadata`, a frozen dataclass (`provider`, `album_id`, `url`,
+`release_date`, `image_url`, `track_durations`) with `as_cache_row_fields()`
+returning the six fields as a tuple in cache-column order.
+`track_durations` holds seconds keyed by `normalize_track_name`, the shape
+`_build_results` already reads -- documented on the class rather than
+duplicated at each call site.
+
+Validation: `pytest -q` from the worktree cwd (not the primary checkout,
+which collects its own stale tree and undercounts) -- **1037 passed**
+(1036 baseline + 1 new). Task 2 (cache columns) and Task 3 (Spotify calls
+behind `spotify.enrich_albums`) are next; see
+`docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md` for
+progress notes per task.
 
 ### 2026-09-13 - Module split, behaviour-neutral (Batch 22 WP-0)
 
