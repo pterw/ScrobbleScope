@@ -345,8 +345,17 @@ Validation: `pytest -q` from the worktree cwd -- **1049 passed** (1037 +
 in `tests/services/test_cache.py`). The 6-tuple-legacy-default behaviour and
 the pre-existing `tests/test_repositories.py` cache tests are covered
 without modification, confirming the defaulting path preserves today's
-persisted rows. Task 3 (Spotify calls behind `spotify.enrich_albums`) is
-next.
+persisted rows.
+
+**Owner-verified against real Postgres, 2026-09-13:** owner ran the app on
+localhost against the Docker `ss-postgres` container (mirrors the deploy
+target, not a mock), which re-runs `init_db.py`'s migration on startup.
+No regressions observed. This is real evidence the `ALTER TABLE` statements
+apply cleanly to a live database, beyond the unit tests' string assertions
+on `init_db.py`'s source -- partial coverage of the plan's own Verification
+item 5 ("run `init_db.py` against a copy of the production schema"); the
+Deezer-round-trip half of that item waits on Phase 2. Task 3 (Spotify calls
+behind `spotify.enrich_albums`) is next.
 
 ### 2026-09-13 - Provider contract, AlbumMetadata value object (Batch 22 WP-1)
 
