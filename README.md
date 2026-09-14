@@ -93,7 +93,7 @@ available run in the same browser session.
 | Backend | Python 3.13, Flask, Gunicorn |
 | Frontend | Jinja templates, CSS, JavaScript, Tailwind CSS 4 and daisyUI 5 |
 | Typography | Adobe Fonts: Akzidenz Grotesk, Instrument Serif, Gotham, Input Mono, Input Mono Narrow |
-| APIs | Last.fm history and profile data; Spotify album and artist metadata, with Deezer as a fallback provider (no API key needed) |
+| APIs | Last.fm for listening history and profile data; Spotify for album and artist metadata, with Deezer as a no-key fallback for whatever Spotify cannot match or detail |
 | Async HTTP | `aiohttp`, `aiolimiter`, shared throttling and retry helpers |
 | Database | Optional PostgreSQL cache through `asyncpg` |
 | Validation | pytest, Playwright browser checks, Ruff, pre-commit, documentation and generated-CSS checks |
@@ -106,29 +106,30 @@ results rather than a manually maintained test or coverage count.
 
 ## Architecture
 
-Flask starts a bounded background job for each accepted search. The browser
-polls progress; completed results stay in job-scoped memory. Album processing
-can reuse Spotify metadata from PostgreSQL, while Heatmap aggregates Last.fm
-history directly.
+Flask accepts a search and starts a bounded background job for it; the
+browser polls progress while the job runs, and a completed job's results
+stay in server memory for the life of that run. A Top Albums job pulls a
+year of scrobbles from Last.fm, then enriches each album with a release
+date, artwork, and track runtimes: Spotify answers first, and Deezer
+covers whatever Spotify cannot match or detail, so one provider's outage
+no longer empties a result. A Heatmap job aggregates Last.fm history
+directly and skips enrichment. An optional PostgreSQL cache remembers
+provider metadata across restarts, so the same album is never re-fetched
+once any user has searched for it.
 
 ```mermaid
 graph LR
-    A[Browser] -->|POST /results_loading or /heatmap_loading| B[routes.py]
-    A -.->|GET /progress| B
-    B --> C[repositories.py]
-    B --> D[worker.py]
-    D -.->|injected task| E[orchestrator.py]
-    D -.->|injected task| F[heatmap.py]
-    E --> G[lastfm.py]
-    E --> H[spotify.py]
-    E --> I[cache.py]
-    F --> G
-    I --> J[(PostgreSQL)]
+    Browser -->|start a search| Flask
+    Browser -.->|poll progress| Flask
+    Flask --> Job[Background job]
+    Job --> LastFM[Last.fm]
+    Job --> Spotify
+    Spotify -.->|fallback| Deezer
+    Job --> Cache[(PostgreSQL cache)]
 ```
 
-Dotted task edges represent runtime dispatch, not imports: `worker.py` runs
-callables supplied by the routes. See [the architecture guide](docs/ARCHITECTURE.md)
-for the dependency graph and detailed pipeline sequences.
+Dotted edges are the fallback path and the browser's progress polling, not
+the primary request flow.
 
 ## Key Implementation Highlights
 
@@ -136,10 +137,11 @@ for the dependency graph and detailed pipeline sequences.
   bounded semaphore limits active jobs; configuration lives in
   [scrobblescope/config.py](scrobblescope/config.py).
 - **Caching:** In-memory request caching reduces repeated HTTP work.
-  PostgreSQL optionally stores Spotify album metadata between runs and
-  application restarts; it does not persist the browser's result jobs.
+  PostgreSQL optionally stores album metadata from either provider between
+  runs and application restarts; it does not persist the browser's result
+  jobs.
 - **Matching:** Artist, album, and track names are normalized before matching
-  Last.fm scrobbles to Spotify metadata.
+  Last.fm scrobbles to Spotify or Deezer metadata.
 - **Request protection:** Flask-WTF protects POST requests, Jinja's `tojson`
   filter carries template data into JavaScript, and Results renders dynamic
   text with DOM text nodes.
@@ -156,7 +158,7 @@ for the dependency graph and detailed pipeline sequences.
 - Python 3.13 and Git.
 - A [Last.fm API key](https://www.last.fm/api/account/create).
 - A [Spotify Developer app](https://developer.spotify.com/dashboard) for album
-  and artist enrichment.
+  and artist enrichment. Deezer, the fallback provider, needs no key.
 - Docker only if you want the optional local PostgreSQL cache.
 
 ### Setup

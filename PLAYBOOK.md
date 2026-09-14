@@ -311,6 +311,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
+### 2026-09-14 - README architecture, tech stack, and diagram refresh (Batch 22 WP-1)
+
+Scope: owner follow-up to the README pass below, given mid-session
+(2026-09-14) -- overrides that entry's "deliberately not touched" call.
+The owner wants the Mermaid diagram redrawn now (it named modules that
+predate WP-0's split -- `routes.py`, `orchestrator.py` -- and never
+mentioned Deezer), the Architecture prose and Tech Stack row enhanced, and
+new writing to avoid pointers to actual code in favour of self-contained
+prose. This still does not duplicate WP-5's own pass: WP-5 owns the
+dependency graph and pipeline-sequence detail in
+`docs/architecture/runtime-system.md`, which this diagram does not
+attempt -- the owner's brief was "keep it simple," a conceptual diagram
+(Browser, Flask, background job, Last.fm, Spotify, Deezer, PostgreSQL
+cache) rather than a module map.
+
+Changed: the Architecture section's prose and Mermaid diagram (no
+filenames, Spotify-then-Deezer fallback shown as a dotted edge), the
+`docs/ARCHITECTURE.md` pointer sentence removed (the section is now
+self-contained), the APIs tech-stack row reworded to state the fallback
+inline, a Deezer clause added to the Prerequisites line ("needs no key"),
+and the two Key Implementation Highlights bullets that still said
+"Spotify metadata" corrected to name both providers -- left stale by the
+entry below, they would have directly contradicted the rewritten
+Architecture section above them.
+
+Validation: doc-only; `doc_state_sync.py --check` passes clean. No code
+changed, so the Task 6 entry's **1069 passed**, 29/29 still stands.
+
 ### 2026-09-14 - README pass for the Deezer fallback (Batch 22 WP-1)
 
 Scope: owner-requested, after Task 6 landed and before a `/handoff`
