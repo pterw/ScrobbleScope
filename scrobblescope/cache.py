@@ -31,7 +31,10 @@ async def _get_db_connection():
     - `db-down`
 
     To smooth over Fly Postgres wake-up races, connection attempts use a small
-    exponential backoff before giving up.
+    exponential backoff before giving up. Each attempt is capped at
+    DB_CONNECT_TIMEOUT_SECONDS (default 5s) so an unreachable host that
+    never answers -- rather than actively refusing -- fails fast instead of
+    hanging for asyncpg's own 60s default per attempt.
     """
     if asyncpg is None:
         logging.warning(
@@ -44,9 +47,14 @@ async def _get_db_connection():
         return None
     max_attempts = max(1, int(os.environ.get("DB_CONNECT_MAX_ATTEMPTS", "3")))
     base_delay_seconds = float(os.environ.get("DB_CONNECT_BASE_DELAY_SECONDS", "0.25"))
+    # asyncpg.connect has no caller-set timeout by default, so a host that
+    # never answers (a paused container gets no SYN-ACK, unlike a refused
+    # connection) hangs for asyncpg's own 60s default on every attempt --
+    # observed as a 3-minute silent stall at DB_CONNECT_MAX_ATTEMPTS=3.
+    connect_timeout_seconds = float(os.environ.get("DB_CONNECT_TIMEOUT_SECONDS", "5"))
     for attempt in range(1, max_attempts + 1):
         try:
-            conn = await asyncpg.connect(dsn)
+            conn = await asyncpg.connect(dsn, timeout=connect_timeout_seconds)
             return conn
         except Exception as exc:
             if attempt >= max_attempts:

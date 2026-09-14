@@ -9,6 +9,31 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-13 - Fixed a broken batch-reference edit; graphify agent sections
+
+Two unrelated uncommitted changes found sitting in the worktree during a
+pre-clear sweep, neither written by this session:
+
+1. **`docs/agents/domain.md` had a broken edit**, from an unknown earlier
+   process: `BATCH21_DEFINITION.md` had been changed to `BATCH2_DEFINITION.md`
+   -- a dropped digit, not a real batch. Fixed to `BATCHN_DEFINITION.md`
+   (the file named in PLAYBOOK Section 3), matching the same generalization
+   already applied to `docs/architecture/documentation-tooling.md` and
+   `docs/ARCHITECTURE.md` earlier today, so it cannot go stale the same way
+   again.
+2. **Graphify's own tooling had added a `## graphify` section to `AGENTS.md`
+   and `.github/copilot-instructions.md`**, matching one already present
+   (and already noted, this session) in the gitignored `CLAUDE.md`. Kept:
+   the content is operational and non-duplicative with anything already in
+   `AGENTS.md`, and reaching every agent's own instructions file (Claude,
+   Copilot, and via `AGENTS.md`, everyone else) is exactly the "reach every
+   agent" pattern this session's earlier `AGENTS.md` edits argued for. Not
+   independently trimmed -- reads as graphify's own multi-agent install
+   pattern, not this session's prose.
+
+Validation: `pytest -q` -- **1036 passed** (unchanged).
+`python scripts/doc_state_sync.py --check` passes.
+
 ### 2026-09-13 - AGENTS.md trimmed, three stale architecture diagrams fixed
 
 Side-task, owner direction after reviewing WP-0. Two parts:

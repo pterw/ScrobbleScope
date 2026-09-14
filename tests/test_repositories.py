@@ -290,6 +290,67 @@ async def test_get_db_connection_retry_exhaustion_returns_none():
 
 
 @pytest.mark.asyncio
+async def test_get_db_connection_passes_explicit_timeout_to_asyncpg():
+    """
+    GIVEN DATABASE_URL is set and DB_CONNECT_TIMEOUT_SECONDS is configured
+    WHEN _get_db_connection calls asyncpg.connect
+    THEN it passes that value as the timeout kwarg -- asyncpg.connect has no
+        caller-set timeout otherwise, so an unreachable host (a paused
+        container answers no SYN-ACK, rather than refusing) hangs for
+        asyncpg's own 60s default per attempt instead of failing fast.
+    """
+    mock_conn = AsyncMock()
+    with patch(
+        "scrobblescope.cache._DATABASE_URL",
+        "postgres://good:good@localhost/good",
+    ):
+        with patch.dict(
+            "os.environ",
+            {"DB_CONNECT_TIMEOUT_SECONDS": "2.5"},
+        ):
+            with patch("scrobblescope.cache.asyncpg") as mock_asyncpg:
+                mock_asyncpg.connect = AsyncMock(return_value=mock_conn)
+                result = await _get_db_connection()
+    assert result is mock_conn
+    mock_asyncpg.connect.assert_awaited_once_with(
+        "postgres://good:good@localhost/good", timeout=2.5
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_db_connection_treats_timeout_as_an_ordinary_failure(caplog):
+    """
+    GIVEN every asyncpg.connect attempt raises asyncio.TimeoutError (what a
+        capped, unreachable connection raises once the timeout kwarg fires)
+    WHEN _get_db_connection exhausts its retry budget
+    THEN it returns None and logs db-down, the same as any other connect
+        failure -- a timeout is not a special case the caller must handle.
+    """
+    with patch(
+        "scrobblescope.cache._DATABASE_URL",
+        "postgres://bad:bad@localhost/bad",
+    ):
+        with patch.dict(
+            "os.environ",
+            {
+                "DB_CONNECT_MAX_ATTEMPTS": "2",
+                "DB_CONNECT_BASE_DELAY_SECONDS": "0",
+                "DB_CONNECT_TIMEOUT_SECONDS": "1",
+            },
+        ):
+            with (
+                patch("scrobblescope.cache.asyncpg") as mock_asyncpg,
+                patch("scrobblescope.cache.asyncio.sleep", new_callable=AsyncMock),
+            ):
+                mock_asyncpg.connect = AsyncMock(side_effect=TimeoutError())
+                with caplog.at_level(logging.INFO):
+                    result = await _get_db_connection()
+    assert result is None
+    assert mock_asyncpg.connect.await_count == 2
+    assert "db-down" in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_batch_lookup_metadata_empty_keys():
     """
     GIVEN an empty list of keys

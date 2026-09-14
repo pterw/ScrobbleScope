@@ -1,11 +1,11 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-11
+Last updated: 2026-09-14
 Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
 into WP-3. The WP-7 extension is implemented and refined, and WP-8 awaits owner
 direction.
 PLAYBOOK Section 3 owns the current work order.
-1036 tests across 43 test modules.
+1081 tests across 48 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an

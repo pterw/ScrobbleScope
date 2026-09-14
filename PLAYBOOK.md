@@ -723,6 +723,53 @@ phase boundaries rather than requiring another restructure.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-14 - DB connect timeout (found while localhost-testing the Deezer fallback)
+
+Scope: `scrobblescope/cache.py`, `tests/test_repositories.py`. Owner-found
+during manual localhost verification of Task 5's Spotify-fails-to-Deezer
+fallback (an invalid `SPOTIFY_CLIENT_ID`, per the plan's own verification
+step 2): the browser sat at "Preparing 129 albums for Spotify lookup..."
+for three minutes with no server-log output at all, for two different
+Last.fm usernames. The owner had *paused* (not stopped) the local
+`ss-postgres` Docker container, which answers no SYN-ACK at all rather than
+refusing the connection -- unlike the ordinary "DB is down" case the
+existing retry/backoff (2026-02-14, `DB_CONNECT_MAX_ATTEMPTS`,
+`DB_CONNECT_BASE_DELAY_SECONDS`) was built to smooth over.
+`_get_db_connection` is the first thing `process_albums` does, before any
+further progress update, so the whole stall was silent and looked
+identical to a hang. Root cause: `asyncpg.connect(dsn)` carried no
+explicit `timeout`, so each of the 3 default attempts ran out asyncpg's own
+60s default -- 3 x 60s = 180s, matching the observed 3 minutes exactly.
+
+Fix: a new `DB_CONNECT_TIMEOUT_SECONDS` env knob (default 5), passed as
+`asyncpg.connect(dsn, timeout=connect_timeout_seconds)`, following the same
+env-tunable pattern as the two existing retry knobs. Worst case with
+defaults is now ~3 x 5s plus the existing sub-second backoff, not 180s. Not
+part of any Batch 22 WP-1 task's file list (Task 7 already landed and
+committed separately as `8eb3c2a`); a small, unrelated robustness fix,
+logged here per Side-Task Handling rather than folded into a task entry.
+
+`tests/test_repositories.py`: `asyncpg.connect` is asserted to receive the
+configured `timeout=` kwarg, and a `TimeoutError` from `asyncpg.connect` is
+asserted to be treated as an ordinary connect failure (retried, then
+`None` with a `db-down` log line) rather than needing special handling.
+
+Validation: `pytest -q` -- **1081 passed** (was 1079; +2 new). Not yet
+verified live against a paused container (that reproduction is the owner's
+local setup); the two new tests cover the mechanism directly.
+
+`doc_state_sync.py --check` initially failed DOC006/DOC008 after this
+entry rotated to the top of the log: `.claude/SESSION_CONTEXT.md`'s
+Section 1 dashboard row and Section 6 heading, and `FINDINGS.md`'s header
+line, all carried a hand-written "1036" test count untouched since
+2026-09-11 -- separate from the `DOCSYNC:STATUS` managed block, which
+`--fix` had correctly kept current all along. Corrected both to **1081**
+and the module count to the re-measured **48** (was 43); `--check` passes
+clean. Left as found and not swept here (a bigger doc pass, out of this
+side-task's scope): `FINDINGS.md`'s own "Batch 21 is active" status line,
+stale since the same 2026-09-11 date -- Batch 21 closed and Batch 22 is
+now active per PLAYBOOK Section 3.
+
 ### 2026-09-13 - Deezer client (Batch 22 WP-1, Phase 2 begins)
 
 Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
@@ -819,28 +866,3 @@ blocking health regressions).
 
 Verification: `pytest -q` -- **1036 passed**; `doc_state_sync.py --check` and
 `pre-commit run` both pass.
-
-### 2026-09-13 - Fixed a broken batch-reference edit; graphify agent sections
-
-Two unrelated uncommitted changes found sitting in the worktree during a
-pre-clear sweep, neither written by this session:
-
-1. **`docs/agents/domain.md` had a broken edit**, from an unknown earlier
-   process: `BATCH21_DEFINITION.md` had been changed to `BATCH2_DEFINITION.md`
-   -- a dropped digit, not a real batch. Fixed to `BATCHN_DEFINITION.md`
-   (the file named in PLAYBOOK Section 3), matching the same generalization
-   already applied to `docs/architecture/documentation-tooling.md` and
-   `docs/ARCHITECTURE.md` earlier today, so it cannot go stale the same way
-   again.
-2. **Graphify's own tooling had added a `## graphify` section to `AGENTS.md`
-   and `.github/copilot-instructions.md`**, matching one already present
-   (and already noted, this session) in the gitignored `CLAUDE.md`. Kept:
-   the content is operational and non-duplicative with anything already in
-   `AGENTS.md`, and reaching every agent's own instructions file (Claude,
-   Copilot, and via `AGENTS.md`, everyone else) is exactly the "reach every
-   agent" pattern this session's earlier `AGENTS.md` edits argued for. Not
-   independently trimmed -- reads as graphify's own multi-agent install
-   pattern, not this session's prose.
-
-Validation: `pytest -q` -- **1036 passed** (unchanged).
-`python scripts/doc_state_sync.py --check` passes.
