@@ -365,6 +365,40 @@ phase boundaries rather than requiring another restructure.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-13 - PR #232 bot review triage (Codacy + Graphify)
+
+Triaged both bot reviews on PR #232 (WP-0 + F-B22-1 + AGENTS.md cleanup)
+per `/pr-bot-triage`. Codacy (2026-09-13 21:49 UTC, 3 alerts) and Graphify
+(2026-09-14 01:08 UTC, 5 inline coupling-delta comments + 5 "worth a look"
+escalate findings from the check run) both reviewed the same branch tip.
+
+Acted: `scrobblescope/lastfm.py:68`'s unreachable `return` after
+`resp.raise_for_status()` deleted (Codacy, confirmed real -- the call
+always raises for any status reaching that branch, so the line never ran).
+
+Deferred, filed as findings: the three `assert job_context is not None`
+sites in `album_flow.py` moved verbatim from pre-split `routes.py`
+(F-B22-2 -- real hardening gap, `python -O` strips asserts, but out of
+WP-0's behaviour-neutral scope); the job-ID-as-bearer-token design across
+`/progress`, `/api/unmatched`, and `/heatmap_data` (F-B22-3 -- owner
+judgment call, not a demonstrated bug).
+
+Declined, false positives (verified against source, not fixed): Codacy's
+XSS claim on `_get_filter_description`'s f-string returns (no `|safe` in
+`results.html`/`unmatched.html`; Jinja2 autoescapes regardless of how the
+Python string was built). Graphify's two "job slot leak on failed thread
+startup" escalate findings (`worker.py`'s `start_job_thread` already calls
+`release_job_slot()` in its own `except` before re-raising -- confirmed by
+reading `worker.py:31-42`). Graphify's "`check_user_exists` now raises
+instead of returning a fallback" escalate finding (that is the PR's own
+intentional F-B22-1 fix, not a new regression). Graphify's five inline
+"health regression" coupling-delta comments (expected structural churn
+from WP-0's module split; the tool's own gate marked the run PASS with no
+blocking health regressions).
+
+Verification: `pytest -q` -- **1036 passed**; `doc_state_sync.py --check` and
+`pre-commit run` both pass.
+
 ### 2026-09-13 - Fixed a broken batch-reference edit; graphify agent sections
 
 Two unrelated uncommitted changes found sitting in the worktree during a
