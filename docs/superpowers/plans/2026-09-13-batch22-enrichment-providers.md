@@ -17,7 +17,13 @@ lives in PLAYBOOK Section 4; this section tracks status only.
 - **Task 1 (AlbumMetadata value object): done, 2026-09-13.**
   `scrobblescope/enrichment.py`, `tests/services/test_enrichment.py`.
   1037 passed.
-- Task 2 (cache columns for any provider): not started.
+- **Task 2 (cache columns for any provider): done, 2026-09-13.**
+  `init_db.py`, `scrobblescope/cache.py`, `scrobblescope/config.py`,
+  `tests/test_cache_schema.py`, `tests/services/test_cache.py`. 1049
+  passed. `_batch_persist_metadata`'s row tuple grew to up to 9 elements
+  with the last 3 optional (defaults keep today's 6-element caller
+  behaviour-identical); full reasoning in PLAYBOOK's 2026-09-13 Section 4
+  entry for this task.
 - Task 3 (Spotify calls behind `spotify.enrich_albums`): not started.
 - Tasks 4-11 (Phases 2-3), Phase 4: not started.
 

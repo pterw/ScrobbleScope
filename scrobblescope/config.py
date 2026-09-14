@@ -30,6 +30,9 @@ JOB_TTL_SECONDS = 2 * 60 * 60
 # Fly.io machine.
 MAX_ACTIVE_JOBS = int(os.getenv("MAX_ACTIVE_JOBS", "5"))
 METADATA_CACHE_TTL_DAYS = int(os.getenv("METADATA_CACHE_TTL_DAYS", "30"))
+# An album's original release date never changes, so this TTL only guards
+# against a bad MusicBrainz match rather than staleness.
+ORIGINAL_RELEASE_TTL_DAYS = int(os.getenv("ORIGINAL_RELEASE_TTL_DAYS", "365"))
 
 spotify_token_cache = {"token": None, "expires_at": 0}
 

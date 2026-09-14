@@ -120,11 +120,11 @@ See FINDINGS F-DOCSYNC-3.
   WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
   for the new providers, so the remaining citations are swept there rather
   than twice.
-- **WP-1 in progress (Phase 1, the provider contract).** Task 1
-  (`AlbumMetadata` value object) is done, per the 2026-09-13 Section 4
-  entry above. **Next action:** Task 2 (cache-column `ALTER TABLE`
-  statements) then Task 3 (moving the Spotify calls behind
-  `spotify.enrich_albums`). `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
+- **WP-1 in progress (Phase 1, the provider contract).** Tasks 1
+  (`AlbumMetadata` value object) and 2 (cache columns for any provider) are
+  done, per the 2026-09-13 Section 4 entries above. **Next action:** Task 3,
+  moving the Spotify calls behind `spotify.enrich_albums`.
+  `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
   executed task by task via `superpowers:executing-plans`; per-task progress
   is also tracked in that plan file's own Progress section.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
@@ -309,6 +309,44 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-09-13 - Cache columns for any provider (Batch 22 WP-1)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Phase 1 Task 2. No behaviour change -- the new columns and table are unused
+until Task 3+ wires a caller to them.
+
+Plan vs implementation: matched. `init_db.py` adds
+`ALTER TABLE spotify_cache ADD COLUMN IF NOT EXISTS provider/provider_album_id/
+provider_url` plus `ALTER COLUMN spotify_id DROP NOT NULL` (a Deezer-only row
+cannot satisfy the old constraint), backfills `provider='spotify'`,
+`provider_album_id=spotify_id` for existing rows, and creates
+`original_release_cache` (`artist_norm`, `album_norm`, `mb_release_group`,
+`original_release`, `checked_at`, PK on the norm pair) exactly as specified.
+
+`scrobblescope/cache.py`: `_batch_lookup_metadata` and `_batch_persist_metadata`
+now read/write the three new columns. **Deviation, deliberate:**
+`_batch_persist_metadata`'s row tuple grows from 6 to up to 9 elements
+(`+provider, provider_album_id, provider_url`), but the extra three are
+optional -- a 6-element row (today's only caller,
+`orchestrator/_details.py:137`, unchanged in this task) defaults to
+`provider="spotify"`, `provider_album_id=spotify_id`, `provider_url=None`.
+This keeps Phase 1's "no behaviour change" for that caller while still
+tagging its writes correctly, so jobs run after this commit don't need the
+one-time backfill to be re-run. Added
+`_batch_lookup_original_release`/`_batch_persist_original_release` against
+the new table, TTL'd on `ORIGINAL_RELEASE_TTL_DAYS` (`config.py`, default
+365 -- an original release date does not change, so the TTL only guards a
+bad match). A cached row with a null `mb_release_group` is a valid "checked,
+nothing found" cache hit, distinct from no row (uncached).
+
+Validation: `pytest -q` from the worktree cwd -- **1049 passed** (1037 +
+12 new: 4 schema tests in `tests/test_cache_schema.py`, 8 cache-layer tests
+in `tests/services/test_cache.py`). The 6-tuple-legacy-default behaviour and
+the pre-existing `tests/test_repositories.py` cache tests are covered
+without modification, confirming the defaulting path preserves today's
+persisted rows. Task 3 (Spotify calls behind `spotify.enrich_albums`) is
+next.
 
 ### 2026-09-13 - Provider contract, AlbumMetadata value object (Batch 22 WP-1)
 
