@@ -120,11 +120,10 @@ See FINDINGS F-DOCSYNC-3.
   WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
   for the new providers, so the remaining citations are swept there rather
   than twice.
-- **WP-1 Phase 1 (the provider contract) complete.** Tasks 1-3
-  (`AlbumMetadata` value object, cache columns for any provider, Spotify
-  calls behind `spotify.enrich_albums`) are done, per the 2026-09-13
-  Section 4 entries above. **Next action:** Phase 2 Task 4, the Deezer
-  client. `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
+- **WP-1 Phase 1 (the provider contract) complete;** Phase 2 Task 4 (Deezer
+  client) also done, per the 2026-09-13 Section 4 entries above. **Next
+  action:** Task 5, wire the Deezer fallback into the orchestrator.
+  `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
   executed task by task via `superpowers:executing-plans`; per-task progress
   is also tracked in that plan file's own Progress section.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
@@ -476,6 +475,42 @@ phase boundaries rather than requiring another restructure.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-13 - Deezer client (Batch 22 WP-1, Phase 2 begins)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Phase 2 Task 4. No behaviour change -- `scrobblescope/deezer.py` is new and
+unused by any caller; Task 5 wires it in as the Spotify-miss fallback.
+
+Plan vs implementation: matched. `search_deezer_album(session, artist,
+album)` queries the plain `f"{artist} {album}"` (the filtered
+`artist:"..." album:"..."` form favors tribute/cover results per the
+plan's probe) and accepts a candidate only when
+`normalize_name(candidate_artist, candidate_title)` equals the key built
+from the caller's own `artist`/`album` -- never "the first result" as a
+guess. `fetch_deezer_album(session, album_id)` calls `/album/{id}` for
+metadata and `/album/{id}/tracks?limit=500` for every track's duration,
+since `/album/{id}` alone caps at 25 tracks regardless of `nb_tracks`
+(pinned with a 30-track fixture). Both share `_fetch_deezer_json`, which
+treats Deezer's HTTP-200-with-body errors correctly: code 800 ("no data")
+is a terminal miss: `None`; code 4 (quota) retries after a 1s wait via
+`retry_with_semaphore`'s existing retry-after path, the same mechanism
+Spotify's 429 handling already uses.
+
+`scrobblescope/utils.py` adds `get_deezer_limiter()` (10 req/s, the
+existing `_GlobalThrottle` + per-loop `AsyncLimiter` pattern, mirroring
+`get_spotify_limiter`); `scrobblescope/config.py` adds
+`DEEZER_REQUESTS_PER_SECOND` (default 10 -- Deezer's stated 50 req/5s),
+`DEEZER_SEARCH_RETRIES`, `DEEZER_DETAIL_RETRIES` (default 3, matching
+Spotify's retry defaults).
+
+Validation: `pytest -q` from the worktree cwd -- **1061 passed** (1054 + 7
+new in `tests/services/test_deezer_service.py`: candidate-matching,
+no-match, the two HTTP-200-error-code cases, the 25-vs-30-track pagination
+case, and two adversarial "the second request never succeeds" cases for
+`fetch_deezer_album`, added beyond the plan's own four because a helper
+this new needs at least one failure-path test per AGENTS.md's Test
+Quality Rules. Task 5 (wire the fallback into the orchestrator) is next.
+
 ### 2026-09-13 - PR #232 merged to `test`; branch reset, SHAs remapped
 
 Owner rebase-merged PR #232 into `test` (mergeCommit `812cdde`). GitHub
@@ -561,42 +596,3 @@ pre-clear sweep, neither written by this session:
 
 Validation: `pytest -q` -- **1036 passed** (unchanged).
 `python scripts/doc_state_sync.py --check` passes.
-
-### 2026-09-13 - AGENTS.md trimmed, three stale architecture diagrams fixed
-
-Side-task, owner direction after reviewing WP-0. Two parts:
-
-1. **AGENTS.md trimmed.** The Anti-Pattern Registry (items 1-14) carried
-   multi-paragraph rationale and worked-incident narratives per item; cut to
-   the actionable rule plus its "how to apply" technique where one existed
-   (items 11-14 kept their sub-bullets; anecdotal colour and specific past
-   numbers were cut). Added item 15, the diagram-trust rule (see below), so
-   it reaches every agent working this repo, not only Claude Code sessions
-   with the `scrobblescope-bootstrap` skill installed -- this repo is
-   multi-agent orchestrated (Codex, Copilot, and as of today DeepSeek).
-   Added `docs/architecture/documentation-tooling.md` to the Document Roles
-   table as an on-demand "control plane" reference (docsync, worktree
-   guard, pre-commit, CI), explicitly kept out of the mandatory bootstrap
-   set per the existing token-discipline principle -- it is useful when a
-   gate fails unexplainably or before touching that tooling's own source,
-   not for ordinary batch work.
-2. **Fixed the three architecture diagrams WP-0 left stale**
-   (`docs/architecture/runtime-system.md`, `top-albums-sequence.md`,
-   `heatmap-sequence.md`), plus `documentation-tooling.md`'s own stale
-   `BATCH21_DEFINITION.md` reference (generalized to `BATCHN_DEFINITION.md`
-   so it does not go stale again next batch) and `docs/ARCHITECTURE.md`'s
-   verification date and batch-scope citation. Fixed by priority: the
-   full-stack runtime diagram first (broadest orientation value), then the
-   control-plane diagram (has real drift, is itself the doc AGENTS.md now
-   points agents at), then the two pipeline sequence diagrams (narrower
-   scope, `orchestrator.py`/`routes.py` participant labels only -- the
-   sequence of calls itself did not change, since WP-0 was behaviour-neutral).
-   `docs/AGENT_DOC_MAP.md` already states "code wins over diagrams"
-   (`docs/ARCHITECTURE.md` line 5); it was not itself edited.
-
-Deviation not addressed here: `docs/superpowers/plans/` citations of the old
-module paths are dated plan documents and stay as written, per the
-dated-entry exemption. `README.md` still owes its Batch 22 pass to WP-5, as
-recorded in WP-0's own log entry.
-
-Validation: `python scripts/doc_state_sync.py --check` passes.

@@ -33,8 +33,14 @@ lives in PLAYBOOK Section 4; this section tracks status only.
   owner's editor: `AlbumMetadata.image_url` (Task 1) was typed `str` but
   should be `str | None` -- an album can have no cover art. **Phase 1
   complete.**
-- Tasks 4-11 (Phases 2-3), Phase 4: not started. Next: Task 4, the Deezer
-  client.
+- **Task 4 (Deezer client): done, 2026-09-13.** `scrobblescope/deezer.py`
+  (new), `scrobblescope/utils.py` (`get_deezer_limiter`),
+  `scrobblescope/config.py` (`DEEZER_REQUESTS_PER_SECOND`,
+  `DEEZER_SEARCH_RETRIES`, `DEEZER_DETAIL_RETRIES`),
+  `tests/services/test_deezer_service.py` (7 tests). 1061 passed. Not
+  wired into any caller yet.
+- Tasks 5-11 (Phase 2 cont'd, Phase 3), Phase 4: not started. Next: Task 5,
+  wire the Deezer fallback into the orchestrator.
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.

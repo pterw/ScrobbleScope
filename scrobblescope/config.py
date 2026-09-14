@@ -16,6 +16,11 @@ SPOTIFY_REQUESTS_PER_SECOND = int(os.getenv("SPOTIFY_REQUESTS_PER_SECOND", "10")
 SPOTIFY_SEARCH_RETRIES = int(os.getenv("SPOTIFY_SEARCH_RETRIES", "3"))
 SPOTIFY_BATCH_RETRIES = int(os.getenv("SPOTIFY_BATCH_RETRIES", "3"))
 
+# Deezer: 50 requests per 5 seconds per IP (10/s), no API key required.
+DEEZER_REQUESTS_PER_SECOND = int(os.getenv("DEEZER_REQUESTS_PER_SECOND", "10"))
+DEEZER_SEARCH_RETRIES = int(os.getenv("DEEZER_SEARCH_RETRIES", "3"))
+DEEZER_DETAIL_RETRIES = int(os.getenv("DEEZER_DETAIL_RETRIES", "3"))
+
 # Global state tracking
 REQUEST_CACHE_TIMEOUT = 3600  # Cache timeout in seconds (1 hour)
 JOB_TTL_SECONDS = 2 * 60 * 60
