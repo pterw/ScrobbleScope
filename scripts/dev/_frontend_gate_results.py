@@ -52,7 +52,7 @@ def check_results_interactions(page, base_url: str) -> list[str]:
         with probe.expect_download() as downloaded:
             probe.locator("#export-csv").click()
         csv_text = Path(downloaded.value.path()).read_text(encoding="utf-8")
-        if '"1","Time winner","Second","2m","2025-02-03"' not in csv_text:
+        if '"1","Time winner","Second","2m","2025-02-03",""' not in csv_text:
             failures.append(
                 "CSV lost the visible rank, single metric, or full date after sorting"
             )
@@ -78,6 +78,106 @@ def check_results_interactions(page, base_url: str) -> list[str]:
             failures.append("metric text was interpreted as markup")
         if probe.locator("#toastContainer .alert").count() == 0:
             failures.append("results controls no longer report actions through toasts")
+    finally:
+        try:
+            probe.unroute("**/api/artist_spotlight?*", empty_spotlight)
+        finally:
+            delete_job(job_id)
+    return failures
+
+
+def check_results_provider_attribution(page, base_url: str) -> list[str]:
+    """A row's link and provider badge follow its own provider (Batch 22 WP-1 Task 6).
+
+    One Spotify-sourced row and one Deezer-sourced row must each link to
+    their own provider's album page (not a hardcoded open.spotify.com URL
+    built from spotify_id) and carry a visible, provider-labelled
+    attribution link -- the interim text form recorded next to the markup
+    in templates/results.html pending each provider's official logo asset
+    (F-B22-4).
+    """
+    job_id = create_job({"username": "gate", "year": 2025, "sort_mode": "playcount"})
+    probe = page
+    failures = []
+
+    def empty_spotlight(route):
+        route.fulfill(json={})
+
+    try:
+        set_job_results(
+            job_id,
+            [
+                {
+                    "artist": "Spotify Artist",
+                    "album": "Spotify Album",
+                    "play_count": 30,
+                    "play_time_seconds": 60,
+                    "play_time": "1m",
+                    "release_date": "2025-01-02",
+                    "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+                    "spotify_id": "sp-gate-1",
+                    "provider": "spotify",
+                    "album_url": "https://open.spotify.com/album/sp-gate-1",
+                },
+                {
+                    "artist": "Deezer Artist",
+                    "album": "Deezer Album",
+                    "play_count": 20,
+                    "play_time_seconds": 120,
+                    "play_time": "2m",
+                    "release_date": "2025-02-03",
+                    "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
+                    "spotify_id": "",
+                    "provider": "deezer",
+                    "album_url": "https://www.deezer.com/album/dz-gate-1",
+                },
+            ],
+        )
+        probe.route("**/api/artist_spotlight?*", empty_spotlight)
+        probe.goto(f"{base_url}/results?job_id={job_id}", wait_until="domcontentloaded")
+
+        rows = probe.locator("#results-table tbody tr")
+        by_provider = {
+            row.get_attribute("data-provider"): row
+            for row in [rows.nth(i) for i in range(rows.count())]
+        }
+
+        for provider, host in (
+            ("spotify", "open.spotify.com"),
+            ("deezer", "deezer.com"),
+        ):
+            row = by_provider.get(provider)
+            if row is None:
+                failures.append(f"results table has no {provider}-sourced row")
+                continue
+            album_link = row.locator("a.album-link")
+            href = album_link.get_attribute("href") or ""
+            if host not in href:
+                failures.append(
+                    f"{provider} row's album link is {href!r}, expected it to contain {host!r}"
+                )
+            badge = row.locator("a.provider-badge")
+            if badge.count() == 0:
+                failures.append(f"{provider} row renders no provider attribution badge")
+                continue
+            if badge.first.is_hidden():
+                failures.append(f"{provider} row's provider badge is not visible")
+            badge_href = badge.first.get_attribute("href") or ""
+            if host not in badge_href:
+                failures.append(
+                    f"{provider} row's provider badge links to {badge_href!r}, "
+                    f"expected it to contain {host!r}"
+                )
+            if provider not in (badge.first.text_content() or "").strip().lower():
+                failures.append(
+                    f"{provider} row's provider badge does not name its provider"
+                )
+
+        with probe.expect_download() as downloaded:
+            probe.locator("#export-csv").click()
+        csv_text = Path(downloaded.value.path()).read_text(encoding="utf-8")
+        if '"spotify"' not in csv_text or '"deezer"' not in csv_text:
+            failures.append("CSV export is missing the Provider column values")
     finally:
         try:
             probe.unroute("**/api/artist_spotlight?*", empty_spotlight)

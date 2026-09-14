@@ -120,11 +120,11 @@ See FINDINGS F-DOCSYNC-3.
   WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
   for the new providers, so the remaining citations are swept there rather
   than twice.
-- **WP-1 Phase 1 complete; Phase 2 Tasks 4-5 also done** (Deezer client,
-  Deezer wired into the orchestrator as the Spotify-miss fallback), per the
-  2026-09-13 Section 4 entries above. **Next action:** Task 6, show the
-  album's own provider in the UI -- blocked on reading Deezer's
-  attribution guidelines first (developers.deezer.com/guidelines).
+- **WP-1 Phase 1 and Phase 2 (Tasks 4-6) complete.** Task 6 (show the
+  album's own provider in the UI) landed 2026-09-13: results/unmatched rows
+  link to `album_url` and carry a text provider-attribution badge, per the
+  2026-09-13 Section 4 entry below. **Next action:** Task 7, the
+  MusicBrainz client (Phase 3, original release years).
   `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
   executed task by task via `superpowers:executing-plans`; per-task progress
   is also tracked in that plan file's own Progress section.
@@ -310,6 +310,72 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-09-13 - Show the album's own provider in the UI (Batch 22 WP-1)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Task 6, the last task of Phase 2. Real behaviour change: results and
+unmatched rows now link to the album's own provider instead of always
+building a Spotify URL.
+
+Read the task's hard blocker first: `developers.deezer.com/guidelines`
+(plus its linked `/guidelines/logo` page; `deezerbrand.com`, where the
+detailed logo spec lives, did not render -- JS-only page, no image-fetch
+tool available this session). Two facts recorded here per the task's own
+instruction to write them "next to the artwork and the link":
+"Local Storage/Offline Storage of audio data is strictly forbidden" is
+scoped to audio only, and says nothing about metadata or artwork --
+confirms the owner's own reading and means nothing here changes about
+caching Deezer's release dates, cover art, or track durations in
+`spotify_cache`. Separately, "Each application using Deezer API/SDKs must
+have to include a clearly visible Deezer Logo" is a real, unmet
+requirement: no tool available could fetch either provider's actual logo
+asset (no image-fetch tool; hotlinking a guessed brand-CDN URL was ruled
+out as unsafe). Put to the owner directly (F-B21-60 already made the same
+call for Spotify -- "Use Spotify's asset as supplied, not a redrawn
+glyph"), the ruling was to ship a text attribution badge now and swap in
+each provider's real logo later, filed as F-B22-4. F-B21-60 itself gets a
+short addendum recording this partial progress; its own scope (the artist
+spotlight card's crop/overlay/animation) is unchanged and still open --
+Task 6's file list never named the spotlight card.
+
+Plan vs implementation: `orchestrator/_results.py`'s release-scope-miss
+branch (in `_build_results`) did not carry `provider`/`album_url` even
+though the matched-result branch has since Task 5 -- an album Deezer
+matched but the release filter then excluded would have shown no
+attribution and no link on `/unmatched`. Added `_album_provider(cached)`/
+`_album_url(cached)` (the same Task 5 helpers) to that dict; not in the
+plan's own Task 6 file list, but a direct consequence of wiring
+`album_url` through the one place it was still missing.
+
+`templates/results.html` and `templates/unmatched.html`: both album-rank
+and album-title links switch from `https://open.spotify.com/album/{{
+spotify_id }}` to `{{ album_url }}` (guarded on truthiness, so a row with
+neither renders plain text as before); a new `.provider-badge` text link
+sits beside the artist name, guarded on `provider and album_url` together
+so it never appears without something to link to. Both templates carry an
+inline comment citing the two Deezer facts above, next to the badge markup
+itself. `static/js/results.js`'s CSV export reads a new `data-provider`
+attribute and appends a `"Provider"` column.
+
+`scripts/dev/_frontend_gate_results.py` gains
+`check_results_provider_attribution`: one Spotify-sourced and one
+Deezer-sourced row, asserting each links to its own host
+(`open.spotify.com` / `deezer.com`), each shows a visible provider badge
+naming its provider and linking to the same URL, and the CSV export
+carries both provider values. Switching the link source from `spotify_id`
+to `album_url` broke two existing fixtures that set `spotify_id` directly
+without `album_url`: `check_unmatched_report`'s release-scope rows (fixed
+by adding matching `provider`/`album_url` fields) and
+`check_results_interactions`'s pinned CSV row string (fixed by appending
+the new column's empty value, since that fixture sets neither field).
+`tests/test_routes.py` gains two tests: a results-page row-by-provider
+link/badge check, and an unmatched-page release-scope-miss check for the
+same thing.
+
+Validation: `pytest -q` from the worktree cwd -- **1069 passed** (1067 +
+2). Frontend gate: **29 checks passed in 51 runs** (28/50 + the new
+check). Task 7 (MusicBrainz client, Phase 3) is next.
 
 ### 2026-09-13 - Deezer fallback wired into the orchestrator (Batch 22 WP-1)
 

@@ -1783,10 +1783,43 @@ at its natural aspect ratio, no element overlapping the photo, no opacity
 change on the photo during rotation, and the icon's rendered size and link
 target.
 
+**Partial progress, 2026-09-13 (Batch 22 WP-1 Task 6):** results and
+unmatched rows now link to the album's own provider (`album_url`, not a
+Spotify URL reconstructed from `spotify_id`) and carry a small text
+attribution link naming that provider. This closes the "results rows carry
+no Spotify icon" gap in substance but not to the letter -- it is a text
+label, not either provider's official logo asset, so the ruling below is
+still open. The artist spotlight card is unchanged: still cropped, still
+overlaid, still animated. See F-B22-4 for the logo-asset gap.
+
 Status: open (P1), owner ruling recorded. Source: Spotify API review,
 2026-09-13.
 
 ## P2 -- Scaling roadmap
+
+### F-B22-4: provider attribution on results/unmatched rows is text, not each provider's official logo
+
+Batch 22 WP-1 Task 6 added a per-row attribution link (`.provider-badge` in
+`templates/results.html` and `templates/unmatched.html`) naming the album's
+provider and linking to its `album_url`. Deezer's developer guidelines
+require "a clearly visible Deezer Logo" for any app using its API
+(developers.deezer.com/guidelines#local, /guidelines/logo); F-B21-60 records
+the equivalent Spotify ruling ("Use Spotify's asset as supplied, not a
+redrawn glyph"). Neither provider's actual logo file could be sourced from
+an agent session: no image-fetch tool was available, and guessing a brand
+CDN URL to hotlink was rejected as unsafe. The owner chose the text-badge
+interim over blocking Task 6 on asset sourcing (2026-09-13).
+
+Fix shape: replace `.provider-badge`'s text content with each provider's
+official logo asset once the owner supplies the files (or an agent gains
+image-fetch tooling) -- swap the `<a>`'s text node for an `<img>`/inline
+`<svg>` sized per that provider's own minimum-size rule (Spotify: 21px+, per
+F-B21-60's owner ruling; Deezer: size unspecified on the guidelines page
+itself, deezerbrand.com carries the detail but did not render for an agent
+session). Small and self-contained; no test rewrite beyond swapping the
+`provider-badge` element type assertions.
+
+Status: open (P2). Source: Batch 22 WP-1 Task 6, 2026-09-13.
 
 ### F-B22-2: `assert` guards job-context narrowing in three `album_flow.py` sites
 

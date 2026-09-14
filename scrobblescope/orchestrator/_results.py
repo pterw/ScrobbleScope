@@ -148,6 +148,8 @@ def _build_results(
                     "reason_code": REASON_RELEASE_SCOPE,
                     "album_image": cached.get("album_image_url"),
                     "spotify_id": cached.get("spotify_id"),
+                    "provider": _album_provider(cached),
+                    "album_url": _album_url(cached),
                     "play_count": original_data.get("play_count"),
                 },
             )

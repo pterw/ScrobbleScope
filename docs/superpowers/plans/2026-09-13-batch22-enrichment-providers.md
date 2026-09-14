@@ -49,9 +49,31 @@ lives in PLAYBOOK Section 4; this section tracks status only.
   frontend gate 28/28. Full reasoning, including why `_search.py` needed
   touching despite Task 3's "does not rewrite them" note, in PLAYBOOK's
   2026-09-13 Section 4 entry for this task.
-- Tasks 6-11 (Phase 2 close, Phase 3), Phase 4: not started. Next: Task 6,
-  show the album's own provider -- blocked on Deezer's attribution
-  guidelines first.
+- **Task 6 (show the album's own provider): done, 2026-09-13.** Read
+  developers.deezer.com/guidelines (and /guidelines/logo) before starting,
+  per the task's hard blocker: audio data offline storage is "strictly
+  forbidden", separately from and narrower than any metadata/artwork
+  caching (confirms the owner's own reading); apps must include "a clearly
+  visible Deezer Logo", with sizing/color detail on deezerbrand.com, which
+  did not render for this session (JS-only page, no image-fetch tool).
+  Owner chose a text attribution badge as the interim (not either
+  provider's redrawn/hotlinked logo asset) -- tracked as F-B22-4, alongside
+  the still-open F-B21-60 spotlight-card redesign, which Task 6's file list
+  never covered.
+  `scrobblescope/orchestrator/_results.py` (unmatched dict for a
+  release-scope miss now also carries `provider`/`album_url`, matching the
+  matched-result dict Task 5 already built), `templates/results.html`,
+  `templates/unmatched.html` (`album.spotify_id`-built Spotify links
+  replaced with `album.album_url`; new `.provider-badge` text link),
+  `static/js/results.js` (CSV gains a Provider column),
+  `scripts/dev/frontend_gate.py` + `scripts/dev/_frontend_gate_results.py`
+  (new `check_results_provider_attribution`: a Spotify row links to
+  open.spotify.com, a Deezer row to deezer.com, each with a visible
+  provider badge; fixed the `check_unmatched_report`/`check_results_interactions`
+  fixtures the link-source change would otherwise have broken),
+  `tests/test_routes.py` (2 new tests). 1069 passed; frontend gate 29/29.
+- Tasks 7-11 (Phase 3), Phase 4: not started. Next: Task 7 (MusicBrainz
+  client).
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.
