@@ -93,8 +93,21 @@ lives in PLAYBOOK Section 4; this section tracks status only.
   the docsync gotcha this surfaced, logged as a new finding
   (F-DOCSYNC-12) for a future renderer fix. 1081 passed. Committed
   `c724ebc`. Full reasoning: PLAYBOOK's 2026-09-14 Section 4 entry.
-- **Next: Task 8**, apply cached corrections before results render. Tasks
-  9-11, Phase 4: not started.
+- **Task 8 (apply cached corrections before results render): done,
+  2026-09-14.** `scrobblescope/orchestrator/_cache.py` (new
+  `_lookup_cached_original_release`), `scrobblescope/orchestrator/__init__.py`
+  (`process_albums` wiring, using the connection already open for
+  Phase 1-4), `scrobblescope/orchestrator/_results.py` (`_build_results`
+  gains `original_release_hits`; `_get_user_friendly_reason` gains
+  `corrected`), `tests/services/test_orchestrator_helpers.py` (4 tests).
+  1085 passed; frontend gate 29/29 (unaffected, backend-only). File list
+  drift: the plan names `scrobblescope/orchestrator.py`, which WP-0 split
+  into a package before this task ran -- see PLAYBOOK's 2026-09-14 Section
+  4 entry for the real targets and full reasoning. Not yet wired: no
+  caller populates new `original_release_cache` rows live -- that is
+  Task 9's worker; today's task only applies findings already cached.
+- **Next: Task 9**, the correction worker. Tasks 10-11, Phase 4: not
+  started.
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.

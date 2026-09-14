@@ -14,7 +14,7 @@ from scrobblescope.orchestrator import (
     _get_user_friendly_reason,
     _matches_release_criteria,
 )
-from scrobblescope.repositories import create_job
+from scrobblescope.repositories import create_job, get_job_unmatched
 from tests.helpers import TEST_JOB_PARAMS
 
 # =====================================================================
@@ -103,6 +103,167 @@ def test_build_results_zero_playtime_no_division_error():
     # proportion_of_max uses `or 1` guard: 0 / 1 * 100 = 0.0
     assert results[0]["proportion_of_max"] == 0.0
     assert results[0]["proportion_of_total"] == 0.0
+
+
+def _corrected_cache_hits(provider_release_date):
+    """One album whose provider date is *provider_release_date*, ready for an
+    ``original_release_hits`` lookup keyed the same way ``_build_results``
+    keys ``cache_hits``: ``(artist_norm, album_norm)``.
+    """
+    return {
+        ("artist", "album"): {
+            "cached": {
+                "spotify_id": "sp1",
+                "release_date": provider_release_date,
+                "album_image_url": "https://img.example.com/a.jpg",
+                "track_durations": {},
+            },
+            "original": {
+                "play_count": 20,
+                "track_counts": {"song a": 5},
+                "original_artist": "Artist",
+                "original_album": "Album",
+            },
+        }
+    }
+
+
+def test_build_results_cached_original_release_excludes_album_outside_filter():
+    """A cached MusicBrainz correction, not the provider's reissue date,
+    drives the release filter. Task 8, Batch 22 WP-1: 1977 original vs a
+    2011 provider date, filtered by year=2011, must exclude the album and
+    explain the exclusion in terms of the original year, not the provider's.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_hits = _corrected_cache_hits("2011-11-11")
+    original_release_hits = {
+        ("artist", "album"): {
+            "mb_release_group": "mbid-1",
+            "original_release": "1977-02-04",
+        }
+    }
+
+    results = _build_results(
+        cache_hits,
+        job_id,
+        year=2011,
+        sort_mode="playcount",
+        release_scope="same",
+        original_release_hits=original_release_hits,
+    )
+
+    assert results == []
+    unmatched = get_job_unmatched(job_id)
+    entry = unmatched["artist|album"]
+    assert entry["reason"] == "First released in 1977, not 2011"
+    assert entry["reason_code"] == "release_scope"
+    assert entry["provider_release_date"] == "2011-11-11"
+
+
+def test_build_results_cached_original_release_includes_album_matching_filter():
+    """The same correction, filtered by the original year (1977), keeps the
+    album in the results and displays the corrected date -- the provider's
+    own reissue date survives separately as ``provider_release_date``.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    cache_hits = _corrected_cache_hits("2011-11-11")
+    original_release_hits = {
+        ("artist", "album"): {
+            "mb_release_group": "mbid-1",
+            "original_release": "1977-02-04",
+        }
+    }
+
+    results = _build_results(
+        cache_hits,
+        job_id,
+        year=1977,
+        sort_mode="playcount",
+        release_scope="same",
+        original_release_hits=original_release_hits,
+    )
+
+    assert len(results) == 1
+    assert results[0]["release_date"] == "1977-02-04"
+    assert results[0]["provider_release_date"] == "2011-11-11"
+
+
+def test_build_results_no_cached_original_release_behaves_as_before():
+    """With no correction cached at all (omitted kwarg) or a 'checked,
+    nothing found' row (both fields null), the provider's own release_date
+    drives filtering and display exactly as it did before Task 8, and no
+    ``provider_release_date`` key is added to the result.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    # Case A: original_release_hits not passed at all.
+    results_a = _build_results(
+        _corrected_cache_hits("2011-11-11"),
+        job_id,
+        year=2011,
+        sort_mode="playcount",
+        release_scope="same",
+    )
+    assert len(results_a) == 1
+    assert results_a[0]["release_date"] == "2011-11-11"
+    assert "provider_release_date" not in results_a[0]
+
+    # Case B: a real "checked, nothing found" cache row (both fields null).
+    job_id_b = create_job(TEST_JOB_PARAMS)
+    results_b = _build_results(
+        _corrected_cache_hits("2011-11-11"),
+        job_id_b,
+        year=2011,
+        sort_mode="playcount",
+        release_scope="same",
+        original_release_hits={
+            ("artist", "album"): {"mb_release_group": None, "original_release": None}
+        },
+    )
+    assert len(results_b) == 1
+    assert results_b[0]["release_date"] == "2011-11-11"
+    assert "provider_release_date" not in results_b[0]
+
+
+def test_get_user_friendly_reason_corrected_wording_covers_every_scope():
+    """``corrected=True`` swaps every scope's wording to name the original
+    release year ("First released...") instead of implying the app misread
+    the provider's own date ("Released..."). Adversarial per AGENTS.md Test
+    Quality Rules: covers same/previous/decade/custom, not just the one
+    scope the plan's own example uses.
+    """
+    assert (
+        _get_user_friendly_reason(
+            "1977-02-04", release_scope="same", year=2011, corrected=True
+        )
+        == "First released in 1977, not 2011"
+    )
+    assert (
+        _get_user_friendly_reason(
+            "1977-02-04", release_scope="previous", year=2012, corrected=True
+        )
+        == "First released in 1977, not 2011"
+    )
+    assert (
+        _get_user_friendly_reason(
+            "1977-02-04",
+            release_scope="decade",
+            year=2011,
+            decade="1970s",
+            corrected=True,
+        )
+        == "First released in 1977, outside of 1970-1979"
+    )
+    assert (
+        _get_user_friendly_reason(
+            "1977-02-04",
+            release_scope="custom",
+            year=2011,
+            release_year=2011,
+            corrected=True,
+        )
+        == "First released in 1977, not 2011"
+    )
 
 
 def test_build_results_records_reason_code():

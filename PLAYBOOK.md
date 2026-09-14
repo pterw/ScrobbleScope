@@ -120,12 +120,18 @@ See FINDINGS F-DOCSYNC-3.
   WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
   for the new providers, so the remaining citations are swept there rather
   than twice.
-- **WP-1 Phase 1, Phase 2, and Phase 3 Task 7 complete.** Task 7 (the
+- **WP-1 Phase 1, Phase 2, and Phase 3 Tasks 7-8 complete.** Task 7 (the
   MusicBrainz client) landed 2026-09-14: `lookup_original_release` returns
   a release-group id and original release date, or `(None, None)`, and
   never trusts a high MusicBrainz score alone -- a normalized-name match is
-  required too. See the 2026-09-14 Section 4 entry below. **Next action:**
-  Task 8, apply cached corrections before results render.
+  required too. Task 8 (apply cached corrections before results render)
+  landed the same day: `process_albums` now looks up
+  `original_release_cache` for every matched album (via the DB connection
+  already open for Phase 1-4) and `_build_results` uses a cached original
+  date -- not the provider's -- for both the release filter and display,
+  keeping the provider's own date as `provider_release_date`. See the
+  2026-09-14 Section 4 entry below. **Next action:** Task 9, the
+  correction worker that populates new `original_release_cache` rows live.
   `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
   executed task by task via `superpowers:executing-plans`; per-task progress
   is also tracked in that plan file's own Progress section.
@@ -720,6 +726,97 @@ Forward guidance: WP-1 (the provider contract) adds `scrobblescope/
 enrichment.py` and moves the Spotify calls behind `spotify.enrich_albums`,
 which lands inside `orchestrator/_search.py`'s and `_details.py`'s existing
 phase boundaries rather than requiring another restructure.
+
+### 2026-09-14 - Apply cached original-release corrections (Batch 22 WP-1)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Task 8, the second task of Phase 3. Applies a MusicBrainz finding already
+sitting in `original_release_cache` -- populated by Task 9's worker, not
+yet built -- so this task is display-only wiring with no live MusicBrainz
+call of its own.
+
+Plan drift, expected: the plan's file list still names
+`scrobblescope/orchestrator.py`, which the WP-0 module split above turned
+into a package before this task ran. The real targets are
+`scrobblescope/orchestrator/_results.py` (`_build_results`,
+`_get_user_friendly_reason`), `scrobblescope/orchestrator/_cache.py` (new
+`_lookup_cached_original_release`), and `scrobblescope/orchestrator/__init__.py`
+(`process_albums` wiring). The owner flagged this drift before the task
+started; no separate deviation write-up needed beyond this note.
+
+`scrobblescope/orchestrator/_cache.py`: `_lookup_cached_original_release(conn,
+keys)` mirrors `_lookup_cached_metadata` -- returns `{}` without raising if
+`conn` is falsy or the query fails, since a missing correction must only
+skip the display upgrade, never block a job. `scrobblescope/orchestrator/__init__.py`:
+`process_albums` calls it inside the same try block that already holds
+`conn` open for Phase 1-4 (right after `_persist_new_metadata`, before the
+`finally: conn.close()`), keyed on `list(cache_hits.keys())` -- these are
+already `(artist_norm, album_norm)` tuples, the same shape
+`original_release_cache`'s primary key uses, so no new key derivation was
+needed. The result feeds into `_build_results` as a new trailing
+`original_release_hits` parameter.
+
+`scrobblescope/orchestrator/_results.py`: `_build_results` now looks up
+each album's key in `original_release_hits`; a finding with a non-null
+`original_release` becomes the `release_date` used for both
+`_matches_release_criteria` and the displayed date, and the provider's own
+date survives as a new `provider_release_date` field on the result (or the
+unmatched entry, if the correction excludes the album). No finding, or a
+cached "checked, nothing found" row (both fields null), leaves the result
+shape identical to before this task -- `provider_release_date` is only
+added when a correction actually applied. `_get_user_friendly_reason`
+gained a `corrected` flag: when true, the wording changes from "Released
+X instead of Y" to "First released in X, not Y" (and the decade/custom
+equivalents) so a MusicBrainz-corrected exclusion reads as "this is the
+true original year," not "the app misread the provider's date."
+
+`tests/services/test_orchestrator_helpers.py` (4 new tests): a correction
+that excludes an album from its filter year (reason text asserted
+verbatim), the same correction under the original year keeping the album
+with `provider_release_date` preserved, the no-correction/nothing-found
+case proving behaviour is unchanged (both the omitted-kwarg case and the
+explicit-null-row case), and an adversarial sweep of `_get_user_friendly_reason`'s
+`corrected=True` wording across all four scopes (same/previous/decade/custom),
+not just the one scope the plan's own example uses -- per AGENTS.md Test
+Quality Rules, a new branch needs its own test, not just integration
+coverage through `_build_results`.
+
+**Docsync gotcha found while landing this entry -- two layers, one
+already filed:** (1) this section of Section 4 is append-ordered (oldest
+entry on top, new entries added at the bottom, then the tool reverses the
+list internally) -- `scripts/docsync/logic.py`'s `_monotonic_dates` says
+so explicitly ("current-batch entries are appended and then
+reversed... position, not the heading date, is the authority on
+recency"). Every WP-1 tagged entry so far, including the MusicBrainz
+entry above and this task's own first draft, was inserted at the *top*
+instead -- the untagged side-task convention, not this section's. Moved
+here, to the true bottom, to follow the tool's actual model; the
+pre-existing MusicBrainz/README entries above are left as written rather
+than reordered, since that is a multi-entry change outside this task's
+scope. (2) Fixing the position was not enough: `latest_test_count_authority`
+still resolves to 1081, not this entry's 1085, because the DB-connect-timeout
+side-task entry below the end marker is *also* dated 2026-09-14 and
+explicitly claims 1081 -- on a same-date tie, source precedence ranks a
+side-task entry above any current-batch entry regardless of which was
+actually written later that day. This is **F-DOCSYNC-11** (open, P1,
+filed 2026-09-12, same mechanism, different day), not a new finding.
+Tried publishing 1085 into SESSION_CONTEXT/FINDINGS by hand to match
+reality; `--check` rejected it (DOC005/DOC006/DOC008), because those
+checks independently recompute the same stuck-at-1081 authority and
+compare against it, rather than trusting a hand-written number -- the
+prior session's F-DOCSYNC-12 fix (a genuinely unmanaged, never-recomputed
+field) does not generalize to this one (a managed field recomputed every
+run). Reverted to 1081 everywhere docsync validates it, per F-DOCSYNC-11's
+own stated remedy ("publish a superseded number"); this entry's own
+Validation line below is the accurate record of the true count until
+F-DOCSYNC-11 is fixed.
+
+Validation: `pytest -q` -- **1085 passed** (was 1081; +4 new). Frontend
+gate -- 29/29, unaffected (backend-only change). `doc_state_sync.py
+--check` passes clean (SESSION_CONTEXT/FINDINGS test-count fields read
+1081, the tool's current authoritative-but-superseded figure, per
+F-DOCSYNC-11 above; the root `BATCH22_DEFINITION.md` warning is expected
+while the batch is active).
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

@@ -50,9 +50,15 @@ def _matches_release_criteria(
 
 
 def _get_user_friendly_reason(
-    release_date, release_scope, year, decade=None, release_year=None
+    release_date, release_scope, year, decade=None, release_year=None, corrected=False
 ):
     """Return a human-readable explanation for why an album was filtered out.
+
+    ``corrected=True`` (Task 8, Batch 22 WP-1) means *release_date* is a
+    MusicBrainz original-release finding, not the provider's own date, so
+    the wording says "First released ... not ..." instead of "Released ...
+    instead of ..." -- the reader is being told the true original year, not
+    that the app misread the provider's date.
 
     Pure function: data-in, string-out.  Extracted from process_albums so it
     can be unit-tested in isolation without mocking the async I/O pipeline.
@@ -66,15 +72,25 @@ def _get_user_friendly_reason(
     try:
         rel_year = int(release_year_str)
         if release_scope == "same":
+            if corrected:
+                return f"First released in {rel_year}, not {year}"
             return f"Released in {rel_year} instead of {year}"
         if release_scope == "previous":
+            if corrected:
+                return f"First released in {rel_year}, not {year - 1}"
             return f"Released in {rel_year} instead of {year - 1}"
         if release_scope == "decade" and decade:
             decade_start = int(decade[:3] + "0")
             decade_end = decade_start + 9
+            if corrected:
+                return f"First released in {rel_year}, outside of {decade_start}-{decade_end}"
             return f"Released in {rel_year}, outside of {decade_start}-{decade_end}"
         if release_scope == "custom" and release_year:
+            if corrected:
+                return f"First released in {rel_year}, not {release_year}"
             return f"Released in {rel_year} instead of {release_year}"
+        if corrected:
+            return f"First released in {rel_year}, which does not match filter"
         return f"Release year {rel_year} does not match filter"
     except ValueError:
         return f"Unknown release year: {release_date}"
@@ -110,7 +126,14 @@ def _album_url(cached):
 
 
 def _build_results(
-    cache_hits, job_id, year, sort_mode, release_scope, decade=None, release_year=None
+    cache_hits,
+    job_id,
+    year,
+    sort_mode,
+    release_scope,
+    decade=None,
+    release_year=None,
+    original_release_hits=None,
 ):
     """Transform unified cache_hits into the sorted results list for the frontend.
 
@@ -118,41 +141,57 @@ def _build_results(
     chosen mode, and calculates proportion-of-max/total percentages.
     Albums that fail the release filter are logged and added to job unmatched.
 
+    ``original_release_hits`` (Task 8, Batch 22 WP-1) is an optional dict
+    keyed by the same ``(artist_norm, album_norm)`` tuples as *cache_hits*,
+    holding any already-cached MusicBrainz finding
+    (``{"mb_release_group": ..., "original_release": ...}``). A finding with
+    a non-null ``original_release`` drives both the release filter and the
+    displayed date in place of the provider's own date, which survives as
+    ``provider_release_date`` on the result. No finding, or one whose
+    ``original_release`` is null (a cached "checked, nothing found"),
+    leaves behaviour unchanged from before this parameter existed.
+
     Pure synchronous logic -- no I/O.  Extracted from process_albums Phase 5
     so the data-transformation layer can be tested independently of the async
     fetch pipeline.
     """
+    original_release_hits = original_release_hits or {}
     results = []
-    for _key, entry in cache_hits.items():
+    for key, entry in cache_hits.items():
         cached = entry["cached"]
         original_data = entry["original"]
 
-        release_date = cached.get("release_date", "")
+        provider_release_date = cached.get("release_date", "")
+        correction = original_release_hits.get(key)
+        corrected = bool(correction and correction.get("original_release"))
+        release_date = (
+            correction["original_release"] if corrected else provider_release_date
+        )
+
         if not _matches_release_criteria(
             release_date, release_scope, year, decade, release_year
         ):
             artist = original_data["original_artist"]
             album = original_data["original_album"]
             reason = _get_user_friendly_reason(
-                release_date, release_scope, year, decade, release_year
+                release_date, release_scope, year, decade, release_year, corrected
             )
             logging.debug(f"Skipped '{album}' by '{artist}': {reason}")
             unmatched_key = "|".join(normalize_name(artist, album))
-            _orchestrator.add_job_unmatched(
-                job_id,
-                unmatched_key,
-                {
-                    "artist": artist,
-                    "album": album,
-                    "reason": reason,
-                    "reason_code": REASON_RELEASE_SCOPE,
-                    "album_image": cached.get("album_image_url"),
-                    "spotify_id": cached.get("spotify_id"),
-                    "provider": _album_provider(cached),
-                    "album_url": _album_url(cached),
-                    "play_count": original_data.get("play_count"),
-                },
-            )
+            unmatched_entry = {
+                "artist": artist,
+                "album": album,
+                "reason": reason,
+                "reason_code": REASON_RELEASE_SCOPE,
+                "album_image": cached.get("album_image_url"),
+                "spotify_id": cached.get("spotify_id"),
+                "provider": _album_provider(cached),
+                "album_url": _album_url(cached),
+                "play_count": original_data.get("play_count"),
+            }
+            if corrected:
+                unmatched_entry["provider_release_date"] = provider_release_date
+            _orchestrator.add_job_unmatched(job_id, unmatched_key, unmatched_entry)
             continue
 
         track_durations = cached.get("track_durations") or {}
@@ -162,22 +201,23 @@ def _build_results(
             for track, count in original_data["track_counts"].items()
         )
 
-        results.append(
-            {
-                "artist": original_data["original_artist"],
-                "album": original_data["original_album"],
-                "play_count": original_data["play_count"],
-                "play_time": format_seconds(play_time_sec),
-                "play_time_mobile": format_seconds_mobile(play_time_sec),
-                "play_time_seconds": play_time_sec,
-                "different_songs": len(original_data["track_counts"]),
-                "release_date": release_date,
-                "album_image": cached.get("album_image_url"),
-                "spotify_id": cached.get("spotify_id", ""),
-                "provider": _album_provider(cached),
-                "album_url": _album_url(cached),
-            }
-        )
+        result = {
+            "artist": original_data["original_artist"],
+            "album": original_data["original_album"],
+            "play_count": original_data["play_count"],
+            "play_time": format_seconds(play_time_sec),
+            "play_time_mobile": format_seconds_mobile(play_time_sec),
+            "play_time_seconds": play_time_sec,
+            "different_songs": len(original_data["track_counts"]),
+            "release_date": release_date,
+            "album_image": cached.get("album_image_url"),
+            "spotify_id": cached.get("spotify_id", ""),
+            "provider": _album_provider(cached),
+            "album_url": _album_url(cached),
+        }
+        if corrected:
+            result["provider_release_date"] = provider_release_date
+        results.append(result)
 
     if sort_mode == "playtime":
         results.sort(key=lambda x: x["play_time_seconds"], reverse=True)

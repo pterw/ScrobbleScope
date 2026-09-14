@@ -1467,7 +1467,20 @@ Position within each source already encodes recency; the cross-source tie-break
 is where it is lost. A fix needs a design decision about what "newer" means
 across the two lists, so it is recorded rather than patched.
 
-Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12.
+**Reproduced again, 2026-09-14 (Batch 22 WP-1 Task 8):** the
+DB-connect-timeout side-task entry (same day) recorded **1081 passed**;
+Task 8's own current-batch entry, written later that day, recorded
+**1085 passed**. The authority stayed at 1081. Unlike the 2026-09-12
+case, hand-correcting SESSION_CONTEXT/FINDINGS to the true count (1085)
+was tried and rejected by `--check` outright (DOC005/DOC006/DOC008
+recompute the same authority and compare against it), where the earlier
+case's fix (F-DOCSYNC-12) only ever applied to fields the renderer never
+recomputes. Confirms the same mechanism generalizes: any WP-1 batch
+entry written on a day that already has a side-task entry will have its
+count silently shadowed until this is fixed.
+
+Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12; reproduced
+Batch 22 WP-1, 2026-09-14.
 
 ### F-DOCSYNC-12: `--fix` does not rewrite two of the three fields DOC006 checks
 

@@ -37,11 +37,11 @@ Last updated: 2026-09-14
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 22.
-- Current-batch entries in active log block: 9.
+- Current-batch entries in active log block: 10.
 - Completed work packages in current-batch entries: WP-0, WP-1.
 - Next expected work package: WP-2.
 - Latest validated test count: **1081 passed**.
-- Newest current-batch entry: 2026-09-13 - Module split, behaviour-neutral (Batch 22 WP-0).
+- Newest current-batch entry: 2026-09-14 - Apply cached original-release corrections (Batch 22 WP-1).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

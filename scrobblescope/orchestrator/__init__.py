@@ -27,6 +27,7 @@ from typing import Any
 
 from scrobblescope.cache import (
     _batch_lookup_metadata,
+    _batch_lookup_original_release,
     _batch_persist_metadata,
     _cleanup_stale_metadata,
     _get_db_connection,
@@ -282,6 +283,15 @@ async def process_albums(
         # Phase 4: DB Batch Persist
         # =============================================================
         await _persist_new_metadata(conn, job_id, new_metadata_rows)
+
+        # =============================================================
+        # Phase 4b: Original-release correction lookup (Task 8, Batch 22
+        # WP-1). Applies findings already in original_release_cache --
+        # the live MusicBrainz worker (Task 9) is what populates new ones.
+        # =============================================================
+        original_release_hits = await _lookup_cached_original_release(
+            conn, list(cache_hits.keys())
+        )
     finally:
         if conn:
             await conn.close()
@@ -298,7 +308,14 @@ async def process_albums(
     )
 
     return _build_results(
-        cache_hits, job_id, year, sort_mode, release_scope, decade, release_year
+        cache_hits,
+        job_id,
+        year,
+        sort_mode,
+        release_scope,
+        decade,
+        release_year,
+        original_release_hits,
     )
 
 
@@ -669,6 +686,7 @@ def background_task(
 # imported last, after every name above is defined.
 from scrobblescope.orchestrator._cache import (  # noqa: E402
     _lookup_cached_metadata,
+    _lookup_cached_original_release,
     _persist_new_metadata,
 )
 from scrobblescope.orchestrator._deezer_fallback import (  # noqa: E402
@@ -690,6 +708,7 @@ __all__ = [
     "_apply_post_slice",
     "_apply_pre_slice",
     "_batch_lookup_metadata",
+    "_batch_lookup_original_release",
     "_batch_persist_metadata",
     "_build_results",
     "_classify_exception_to_error_code",
@@ -701,6 +720,7 @@ __all__ = [
     "_get_db_connection",
     "_get_user_friendly_reason",
     "_lookup_cached_metadata",
+    "_lookup_cached_original_release",
     "_matches_release_criteria",
     "_persist_new_metadata",
     "_record_lastfm_stats",
