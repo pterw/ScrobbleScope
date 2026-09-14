@@ -365,6 +365,33 @@ phase boundaries rather than requiring another restructure.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-13 - PR #232 merged to `test`; branch reset, SHAs remapped
+
+Owner rebase-merged PR #232 into `test` (mergeCommit `812cdde`). GitHub
+rebased rather than merge-committed, so every commit on the PR got a new
+SHA: `e8de45c`->`d29cc5e`, `85d458f`->`a124b52`, `c5c52fb`->`735c05d`,
+`594c705`->`87f3822`, `05a0ff5`->`812cdde`. **Every one of those five old
+hashes is quoted earlier in this file, in FINDINGS.md, and in the Claude
+project memory for this repo; none of them resolve on this branch
+anymore.** Content is unchanged -- `git show <new-sha>` reproduces the
+same diff as the corresponding old one -- only the identifier changed.
+
+`feat/batch22-enrichment` (worktree and `origin`) was hard-reset to
+`origin/test`'s tip and force-pushed to drop the now-orphaned pre-rebase
+commits, per owner direction (reset in place, not a fresh branch --
+`AskUserQuestion`, 2026-09-13). PLAYBOOK Section 3's branch name is
+unchanged; WP-1 continues on `feat/batch22-enrichment`. Verified after
+reset: `pytest -q` -- **1036 passed**; worktree-alignment guard passed (0
+behind, 21 ahead of `origin/main`).
+
+A second Graphify review landed on `05a0ff5` (2026-09-14 01:29 UTC, before
+the merge) claiming 5 endpoints were "removed" from `scrobblescope/routes.py`
+-- a stale-baseline false positive (its own index was "15 commit(s) behind
+this PR's base"): the file no longer exists post-WP-0, and all five
+endpoints are present, unmoved in content, in `routes/api.py` and
+`routes/heatmap_flow.py`. No action taken; not filed as a finding since
+it is a bot-indexing artifact, not a repo issue.
+
 ### 2026-09-13 - PR #232 bot review triage (Codacy + Graphify)
 
 Triaged both bot reviews on PR #232 (WP-0 + F-B22-1 + AGENTS.md cleanup)
@@ -462,18 +489,3 @@ dated-entry exemption. `README.md` still owes its Batch 22 pass to WP-5, as
 recorded in WP-0's own log entry.
 
 Validation: `python scripts/doc_state_sync.py --check` passes.
-
-### 2026-09-13 - Username validation no longer fails open (F-B22-1)
-
-Side-task, found during owner manual testing of WP-0's running app.
-`check_user_exists` (`scrobblescope/lastfm.py`) swallowed every exception --
-timeout, Last.fm rate limit, malformed body, any non-200/404 status -- and
-returned `exists: True`. `/validate_user` and `_validate_heatmap_user` read
-that as a verified account, so a transient Last.fm failure showed a green
-checkmark for arbitrary, unregistered usernames. Fixed by letting the
-exception propagate; every caller already had its own try/except, so
-`/validate_user` and `_validate_heatmap_user` now correctly answer 503
-"Validation service unavailable" instead, and `results_loading` (which
-already tolerated this check failing) is unaffected. Two regression tests
-added in `tests/services/test_lastfm_service.py`. Finding: F-B22-1,
-`FINDINGS.md` "Resolved this batch". `pytest -q` -- **1036 passed**.

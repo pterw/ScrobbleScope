@@ -9,6 +9,21 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-13 - Username validation no longer fails open (F-B22-1)
+
+Side-task, found during owner manual testing of WP-0's running app.
+`check_user_exists` (`scrobblescope/lastfm.py`) swallowed every exception --
+timeout, Last.fm rate limit, malformed body, any non-200/404 status -- and
+returned `exists: True`. `/validate_user` and `_validate_heatmap_user` read
+that as a verified account, so a transient Last.fm failure showed a green
+checkmark for arbitrary, unregistered usernames. Fixed by letting the
+exception propagate; every caller already had its own try/except, so
+`/validate_user` and `_validate_heatmap_user` now correctly answer 503
+"Validation service unavailable" instead, and `results_loading` (which
+already tolerated this check failing) is unaffected. Two regression tests
+added in `tests/services/test_lastfm_service.py`. Finding: F-B22-1,
+`FINDINGS.md` "Resolved this batch". `pytest -q` -- **1036 passed**.
+
 ### 2026-09-13 - Batch 21 closed (WP-8 complete)
 
 - Owner end-to-end pass in Firefox: **done**, 2026-09-13, on the running app
