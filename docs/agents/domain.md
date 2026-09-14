@@ -11,7 +11,8 @@ directory. The domain documentation is the document set that `AGENTS.md` owns:
 - `.claude/SESSION_CONTEXT.md` Sections 3-4 -- project structure, dependency graph
 - `AGENT_NOTES.md` -- owner preferences, local setup, constraints
 - `PLAYBOOK.md` -- work order and execution history
-- `BATCH21_DEFINITION.md` -- the active batch's scope and acceptance criteria
+- `BATCHN_DEFINITION.md` -- the active batch's scope and acceptance criteria
+  (the file named in `PLAYBOOK.md` Section 3)
 - `DESIGN.md`, `docs/design/RECONCILIATION.md`, `docs/design/designsystemaudit.md` -- the design system
 - `FINDINGS.md` -- issues
 
