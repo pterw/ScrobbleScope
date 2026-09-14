@@ -770,6 +770,13 @@ side-task's scope): `FINDINGS.md`'s own "Batch 21 is active" status line,
 stale since the same 2026-09-11 date -- Batch 21 closed and Batch 22 is
 now active per PLAYBOOK Section 3.
 
+**Addendum, same day:** the underlying gap is recorded as **F-DOCSYNC-12**
+-- `--fix` only ever rewrites the STATUS block's own count line, never the
+other two fields DOC006 checks (the Section 1 row, the Section 6 heading)
+or the FINDINGS header DOC008 checks, so all three can drift indefinitely
+until something trips the check and a human corrects them by hand, as
+happened here.
+
 ### 2026-09-13 - Deezer client (Batch 22 WP-1, Phase 2 begins)
 
 Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`

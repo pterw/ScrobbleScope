@@ -72,8 +72,29 @@ lives in PLAYBOOK Section 4; this section tracks status only.
   provider badge; fixed the `check_unmatched_report`/`check_results_interactions`
   fixtures the link-source change would otherwise have broken),
   `tests/test_routes.py` (2 new tests). 1069 passed; frontend gate 29/29.
-- Tasks 7-11 (Phase 3), Phase 4: not started. Next: Task 7 (MusicBrainz
-  client).
+- **Task 7 (MusicBrainz client): done, 2026-09-14.** `scrobblescope/musicbrainz.py`
+  (new), `scrobblescope/utils.py` (`get_musicbrainz_limiter`),
+  `scrobblescope/config.py` (`MUSICBRAINZ_CONTACT`, `MUSICBRAINZ_ENABLED`,
+  `MUSICBRAINZ_REQUESTS_PER_SECOND`, `MUSICBRAINZ_SEARCH_RETRIES`,
+  `MUSICBRAINZ_CHECKS_PER_JOB`), `tests/services/test_musicbrainz_service.py`
+  (10 tests). 1079 passed. No caller wired yet -- Task 8 consumes it.
+  Committed `8eb3c2a`. Full reasoning: PLAYBOOK's 2026-09-14 Section 4 entry.
+- **Side-task, done, 2026-09-14 (not a plan task): DB connect timeout.**
+  Found during live localhost verification of Task 5's fallback (see
+  Verification step 2 below) -- a paused, not stopped, local Postgres
+  container hung `_get_db_connection` for 3 minutes (asyncpg's 60s default
+  x 3 retries) with zero progress feedback, since that call is the first
+  thing `process_albums` does. Fixed with a new `DB_CONNECT_TIMEOUT_SECONDS`
+  env knob (default 5s) in `scrobblescope/cache.py`. Also corrected stale
+  hand-written test counts in `.claude/SESSION_CONTEXT.md` and
+  `FINDINGS.md` (frozen at 1036 since 2026-09-11, separate from the
+  docsync-managed block) that `doc_state_sync --check` started flagging
+  once this fix's log entry became the newest full-suite result -- see
+  the docsync gotcha this surfaced, logged as a new finding
+  (F-DOCSYNC-12) for a future renderer fix. 1081 passed. Committed
+  `c724ebc`. Full reasoning: PLAYBOOK's 2026-09-14 Section 4 entry.
+- **Next: Task 8**, apply cached corrections before results render. Tasks
+  9-11, Phase 4: not started.
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.

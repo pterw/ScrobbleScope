@@ -1469,6 +1469,31 @@ across the two lists, so it is recorded rather than patched.
 
 Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12.
 
+### F-DOCSYNC-12: `--fix` does not rewrite two of the three fields DOC006 checks
+
+`doc_state_sync.py --fix` only ever writes the "Latest validated test
+count" line inside `.claude/SESSION_CONTEXT.md`'s `DOCSYNC:STATUS` block
+(`scripts/docsync/renderer.py`). DOC006
+(`scripts/docsync/integrity.py::SESSION_CURRENT_COUNT_RES`) checks that
+line plus two more: the Section 1 "Tests" dashboard row and the Section 6
+"Test structure (N tests)" heading. Neither of those two is ever rewritten
+by `--fix`, so they can drift indefinitely -- reproduced 2026-09-14: both
+sat at a hand-written "1036" untouched since 2026-09-11 through several
+`--fix` runs across three later PLAYBOOK entries (1069, 1079, 1081
+passed), each of which apparently updated the STATUS block correctly
+without tripping DOC006. Why those earlier checks did not already fail on
+the same mismatch is not established here -- worth checking before
+assuming the mechanism above is the whole story. `FINDINGS.md`'s header
+count line has the identical problem under DOC008: also hand-written,
+also never rewritten by `--fix`.
+
+Fix candidates: extend the renderer to also rewrite the Section 1 row,
+the Section 6 heading, and the FINDINGS header from the same authoritative
+count, or fold all three into one place `--fix` actually owns.
+
+Status: open. Source: Batch 22 WP-1, DB-connect-timeout side task,
+2026-09-14 (fix commit `c724ebc`).
+
 ### F-WORKTREE-3: guard boundaries outside the design decision table
 
 Confirmed but unaddressed: between batches the guard skips every ancestry
