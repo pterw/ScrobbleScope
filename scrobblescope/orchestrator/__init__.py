@@ -45,6 +45,7 @@ from scrobblescope.repositories import (
     set_job_stat,
 )
 from scrobblescope.spotify import (
+    enrich_albums,
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
@@ -684,6 +685,7 @@ __all__ = [
     "background_task",
     "cleanup_expired_jobs",
     "create_optimized_session",
+    "enrich_albums",
     "fetch_all_recent_tracks_async",
     "fetch_spotify_access_token",
     "fetch_spotify_album_details_batch",

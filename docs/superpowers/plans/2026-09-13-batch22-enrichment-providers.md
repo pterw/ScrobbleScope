@@ -23,9 +23,18 @@ lives in PLAYBOOK Section 4; this section tracks status only.
   passed. `_batch_persist_metadata`'s row tuple grew to up to 9 elements
   with the last 3 optional (defaults keep today's 6-element caller
   behaviour-identical); full reasoning in PLAYBOOK's 2026-09-13 Section 4
-  entry for this task.
-- Task 3 (Spotify calls behind `spotify.enrich_albums`): not started.
-- Tasks 4-11 (Phases 2-3), Phase 4: not started.
+  entry for this task. Owner-verified against real Postgres (Docker
+  `ss-postgres`) on localhost: no regressions.
+- **Task 3 (Spotify calls behind `spotify.enrich_albums`): done, 2026-09-13.**
+  `scrobblescope/spotify.py` (new `enrich_albums`), `scrobblescope/orchestrator/__init__.py`
+  (facade import only -- the real pipeline path is untouched, per Task 5),
+  `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_fetch_spotify.py`.
+  1054 passed; frontend gate 28/28. Folded in a real type fix caught by the
+  owner's editor: `AlbumMetadata.image_url` (Task 1) was typed `str` but
+  should be `str | None` -- an album can have no cover art. **Phase 1
+  complete.**
+- Tasks 4-11 (Phases 2-3), Phase 4: not started. Next: Task 4, the Deezer
+  client.
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.

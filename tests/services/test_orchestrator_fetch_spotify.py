@@ -7,10 +7,23 @@ import pytest
 from scrobblescope.cache import _cleanup_stale_metadata
 from scrobblescope.orchestrator import (
     _run_spotify_search_phase,
+    enrich_albums,
 )
 from scrobblescope.repositories import create_job
 from scrobblescope.repositories import set_job_progress as real_set
+from scrobblescope.spotify import enrich_albums as spotify_enrich_albums
 from tests.helpers import TEST_JOB_PARAMS
+
+
+def test_enrich_albums_is_exposed_on_the_orchestrator_facade():
+    """Batch 22 WP-1 Task 3: enrich_albums is importable from the orchestrator
+    facade (like every other spotify.py dependency the pipeline uses), so a
+    later WP's mock.patch("scrobblescope.orchestrator.enrich_albums") reaches
+    spotify.py's implementation once the pipeline is wired to call it. This
+    task adds the seam only; _run_spotify_search_phase and
+    _run_spotify_batch_detail_phase still do the real work today.
+    """
+    assert enrich_albums is spotify_enrich_albums
 
 
 @pytest.mark.asyncio

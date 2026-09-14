@@ -13,7 +13,7 @@ class AlbumMetadata:
     album_id: str
     url: str
     release_date: str
-    image_url: str
+    image_url: str | None
     track_durations: dict[str, int]
 
     def as_cache_row_fields(self) -> tuple:

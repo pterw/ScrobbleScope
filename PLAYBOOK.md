@@ -120,11 +120,11 @@ See FINDINGS F-DOCSYNC-3.
   WP-5 already owns a README and `docs/architecture/runtime-system.md` pass
   for the new providers, so the remaining citations are swept there rather
   than twice.
-- **WP-1 in progress (Phase 1, the provider contract).** Tasks 1
-  (`AlbumMetadata` value object) and 2 (cache columns for any provider) are
-  done, per the 2026-09-13 Section 4 entries above. **Next action:** Task 3,
-  moving the Spotify calls behind `spotify.enrich_albums`.
-  `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
+- **WP-1 Phase 1 (the provider contract) complete.** Tasks 1-3
+  (`AlbumMetadata` value object, cache columns for any provider, Spotify
+  calls behind `spotify.enrich_albums`) are done, per the 2026-09-13
+  Section 4 entries above. **Next action:** Phase 2 Task 4, the Deezer
+  client. `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`,
   executed task by task via `superpowers:executing-plans`; per-task progress
   is also tracked in that plan file's own Progress section.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
@@ -309,6 +309,46 @@ non-current operational logs. Older dated entries live in
   - `<!-- DOCSYNC:CURRENT-BATCH-END -->
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
+
+### 2026-09-13 - Spotify calls behind spotify.enrich_albums (Batch 22 WP-1)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Phase 1 Task 3. No behaviour change to any running job -- `enrich_albums`
+is a new, additional entry point; `process_albums`'s real path still calls
+`_run_spotify_search_phase` and `_run_spotify_batch_detail_phase` directly,
+unchanged, per Phase 2's Task 5 owning the wiring.
+
+Plan vs implementation, one deliberate reading: `scrobblescope/orchestrator.py`
+is a package since WP-0, so "Modify: scrobblescope/orchestrator.py" is read as
+"expose the new seam on the facade" rather than touching the phase functions
+the plan explicitly says to leave alone ("this task adds a seam, it does not
+rewrite them"). `scrobblescope/spotify.py` adds `enrich_albums(session,
+misses, token)`: concurrent per-key search via `search_for_spotify_album_id`,
+then one `fetch_spotify_album_details_batch` call for every match, returning
+`({key: AlbumMetadata}, unmatched_keys)`. `misses` reads the same
+`{key: original_data}` shape `process_albums`'s `cache_misses` already uses
+(only the keys matter here), so Task 5 can pass it through unchanged.
+`scrobblescope/orchestrator/__init__.py` imports `enrich_albums` into the
+facade and `__all__`, alongside the other `spotify.py` dependencies, so
+`mock.patch("scrobblescope.orchestrator.enrich_albums")` reaches it once a
+later task wires it in.
+
+**Fix folded in, caught by Pylance during this task (owner):**
+`AlbumMetadata.image_url` (`scrobblescope/enrichment.py`, Task 1) was typed
+`str`, but a Spotify album can have no cover art -- `images[0].get("url")`
+returns `str | None`, so the type was wrong from Task 1's commit, not
+something Task 3 introduced. Widened to `str | None`; behaviour was already
+correct at every call site (`image_url or None`-shaped fallbacks exist
+elsewhere), only the declared type was too narrow. Added a boundary test
+(`test_enrich_albums_handles_missing_cover_art`) pinning the no-images case.
+
+Validation: `pytest -q` from the worktree cwd -- **1054 passed** (1049 + 5
+new: 4 `enrich_albums` tests in `tests/services/test_spotify_service.py`,
+1 facade-exposure test in `tests/services/test_orchestrator_fetch_spotify.py`).
+The frontend gate -- 28 checks passed in 50 runs, matching WP-0's baseline
+exactly, confirming the facade import didn't disturb `process_albums`'s real
+path. Phase 1 (the provider contract) is now complete; Phase 2 Task 4
+(Deezer client) is next.
 
 ### 2026-09-13 - Cache columns for any provider (Batch 22 WP-1)
 
