@@ -907,6 +907,30 @@ staged-path hook run for this commit passes.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-15 - Docsync close-out plan Task 2 review recorded
+
+Side task, no batch tag: control-plane work on
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
+via `superpowers:subagent-driven-development`. Not Batch 22 scope; nothing
+here touches live `FINDINGS.md`, the archive files, or the docsync CLI.
+
+Task 1 (shared Markdown scanner, DOC010-DOC012 repairs) is complete and
+reviewed clean. Task 2 (finding lifecycle + bounded archives + recoverable
+publish: `findings.py`, `archives.py`, `transaction.py`, DOC013-DOC018) is
+implemented and controller-verified green (93/93 new suites, 351/351 full
+docsync suite, Ruff clean), but its task review returned Needs fixes: 3
+Important findings, all in `archives.py`, all silent history-loss/
+misplacement paths with no diagnostic (a missing index deletes every
+managed page; page prologue content is silently discarded; `page_path`
+writes to the wrong directory when an index does not sit at the store
+root). Plus 7 Minor findings, logged for the final whole-branch review.
+Full detail: `docs/history/reports/DOCSYNC_CLOSEOUT_TASK2_REVIEW_2026-09-15.md`.
+
+Validation: `pytest -q` -- **1298 passed** (unchanged; this side task adds
+one documentation file and a PLAYBOOK entry only, no application or docsync
+source). Tasks 3-4 of the plan are not started. Next step: resume the SDD
+fix loop on Task 2's three Important findings.
+
 ### 2026-09-14 - Mutation testing scoped to hermetic modules
 
 Side task, no batch tag: owner-directed tooling, outside Batch 22's scope and
@@ -1055,30 +1079,3 @@ case, and two adversarial "the second request never succeeds" cases for
 `fetch_deezer_album`, added beyond the plan's own four because a helper
 this new needs at least one failure-path test per AGENTS.md's Test
 Quality Rules. Task 5 (wire the fallback into the orchestrator) is next.
-
-### 2026-09-13 - PR #232 merged to `test`; branch reset, SHAs remapped
-
-Owner rebase-merged PR #232 into `test` (mergeCommit `812cdde`). GitHub
-rebased rather than merge-committed, so every commit on the PR got a new
-SHA: `e8de45c`->`d29cc5e`, `85d458f`->`a124b52`, `c5c52fb`->`735c05d`,
-`594c705`->`87f3822`, `05a0ff5`->`812cdde`. **Every one of those five old
-hashes is quoted earlier in this file, in FINDINGS.md, and in the Claude
-project memory for this repo; none of them resolve on this branch
-anymore.** Content is unchanged -- `git show <new-sha>` reproduces the
-same diff as the corresponding old one -- only the identifier changed.
-
-`feat/batch22-enrichment` (worktree and `origin`) was hard-reset to
-`origin/test`'s tip and force-pushed to drop the now-orphaned pre-rebase
-commits, per owner direction (reset in place, not a fresh branch --
-`AskUserQuestion`, 2026-09-13). PLAYBOOK Section 3's branch name is
-unchanged; WP-1 continues on `feat/batch22-enrichment`. Verified after
-reset: `pytest -q` -- **1036 passed**; worktree-alignment guard passed (0
-behind, 21 ahead of `origin/main`).
-
-A second Graphify review landed on `05a0ff5` (2026-09-14 01:29 UTC, before
-the merge) claiming 5 endpoints were "removed" from `scrobblescope/routes.py`
--- a stale-baseline false positive (its own index was "15 commit(s) behind
-this PR's base"): the file no longer exists post-WP-0, and all five
-endpoints are present, unmoved in content, in `routes/api.py` and
-`routes/heatmap_flow.py`. No action taken; not filed as a finding since
-it is a bot-indexing artifact, not a repo issue.
