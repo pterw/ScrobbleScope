@@ -80,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const csvContent = [];
-                csvContent.push('"#","Album","Artist","Track Plays / Listening Time","Release Date"');
+                csvContent.push('"#","Album","Artist","Track Plays / Listening Time","Release Date","Provider"');
 
                 const rows = table.querySelectorAll('tbody tr');
                 rows.forEach(tr => {
@@ -94,9 +94,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const releaseCell = tr.querySelector('.release-date-cell');
                     const release = releaseCell?.getAttribute('data-export') || releaseCell?.textContent.trim() || '';
+                    const provider = tr.dataset.provider || '';
 
                     const clean = (val) => '"' + String(val).replace(/\s+/g, ' ').replace(/"/g, '""').trim() + '"';
-                    csvContent.push([clean(rank), clean(album), clean(artist), clean(metric), clean(release)].join(','));
+                    csvContent.push([clean(rank), clean(album), clean(artist), clean(metric), clean(release), clean(provider)].join(','));
                 });
 
                 const link = document.createElement('a');

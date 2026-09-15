@@ -1,14 +1,29 @@
-# Batch 22 (queued): Enrichment providers and original release years
+# Batch 22: Enrichment providers and original release years
 
 > **For Claude:** REQUIRED SUB-SKILL: use superpowers:executing-plans to
 > implement this plan task by task.
 
-Status: approved by the owner on 2026-09-13, **not started**. It opens on its
-own branch, which PLAYBOOK Section 3 must name first, or the worktree guard
-raises WT003. Promote this file to a root `BATCH22_DEFINITION.md` when the
-batch opens. Batch 23 is the Spotify export import
+Status: approved by the owner on 2026-09-13. Batch opened as
+`BATCH22_DEFINITION.md` (repo root); branch `feat/batch22-enrichment`. Batch
+23 is the Spotify export import
 (`docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`), which
 builds on the work here.
+
+## Progress
+
+Executed task by task via `superpowers:executing-plans`. Full detail per task
+lives in PLAYBOOK Section 4; this section tracks status only.
+
+- **WP-0: complete.** The behaviour-neutral module split is done.
+- **WP-1: complete.** Tasks 1-3 (provider contract) are done.
+- **WP-2: complete.** Tasks 4-6 (Deezer fallback and attribution) are done.
+- **WP-3: complete.** Tasks 7-9 are done; Task 9 landed the correction worker
+  (`scrobblescope/release_checks.py`) on 2026-09-15.
+- **WP-4: next.** Tasks 10-11 remain.
+- **WP-5: not started.** Phase 4 documentation and close-out remain.
+- **Side-task:** the DB connect timeout fix is done (2026-09-14).
+- **Audit validation:** **1088 passed** after the three missing seam and
+  failure-path tests were added.
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.

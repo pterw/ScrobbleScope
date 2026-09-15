@@ -552,6 +552,74 @@ def test_results_complete_with_results_renders_data(client):
     assert b"GNX" in response.data
 
 
+def test_results_complete_links_each_row_to_its_own_provider(client):
+    """
+    GIVEN a completed job with one Spotify-sourced and one Deezer-sourced album
+    WHEN POST /results_complete is submitted
+    THEN each row links to album_url (not a spotify_id-derived Spotify URL) and
+         carries a provider attribution badge naming its own provider (Batch 22
+         WP-1 Task 6).
+    """
+    job_id = create_job(
+        {
+            "username": "flounder14",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "same",
+            "decade": None,
+            "release_year": None,
+            "min_plays": 10,
+            "min_tracks": 3,
+            "limit_results": "all",
+        }
+    )
+    set_job_results(
+        job_id,
+        [
+            {
+                "artist": "Spotify Band",
+                "album": "Spotify Only",
+                "play_count": 40,
+                "play_time": "10m",
+                "play_time_seconds": 600,
+                "release_date": "2025-01-01",
+                "album_image": "https://example.com/spotify.jpg",
+                "spotify_id": "sp-1",
+                "provider": "spotify",
+                "album_url": "https://open.spotify.com/album/sp-1",
+            },
+            {
+                "artist": "Deezer Band",
+                "album": "Deezer Only",
+                "play_count": 20,
+                "play_time": "5m",
+                "play_time_seconds": 300,
+                "release_date": "2025-02-01",
+                "album_image": "https://example.com/deezer.jpg",
+                "spotify_id": "",
+                "provider": "deezer",
+                "album_url": "https://www.deezer.com/album/dz-1",
+            },
+        ],
+    )
+    set_job_progress(job_id, progress=100, message="Done!", error=False)
+
+    response = client.post("/results_complete", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+    assert response.status_code == 200
+    assert 'href="https://open.spotify.com/album/sp-1"' in html
+    assert 'href="https://www.deezer.com/album/dz-1"' in html
+    # Neither row's link is reconstructed from spotify_id -- each uses its
+    # own provider's album_url, so a Deezer row must never point at Spotify.
+    assert "open.spotify.com/album/dz-1" not in html
+    assert re.search(r"provider-badge[^>]*>\s*spotify\s*<", html), (
+        "Spotify row is missing its provider attribution badge"
+    )
+    assert re.search(r"provider-badge[^>]*>\s*deezer\s*<", html), (
+        "Deezer row is missing its provider attribution badge"
+    )
+
+
 def test_validate_user_too_long_username(client):
     """
     GIVEN a username longer than 64 characters
@@ -789,6 +857,37 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
         < response.data.index(b'data-reason="release_scope"')
         < response.data.index(b'data-reason="no_spotify_match"')
     )
+
+
+def test_unmatched_view_release_scope_row_links_to_its_own_provider(client):
+    """
+    GIVEN a release-scope-filtered album whose metadata came from Deezer
+    WHEN POST /unmatched_view is submitted
+    THEN the row links to album_url and shows a Deezer provider badge, not a
+         Spotify link built from a (here, absent) spotify_id (Batch 22 WP-1
+         Task 6; mirrors the same fix in _build_results for the results page).
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    add_job_unmatched(
+        job_id,
+        "deezer|filtered",
+        {
+            "artist": "Deezer Filtered Artist",
+            "album": "Deezer Filtered Album",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+            "album_image": "https://example.com/deezer-filtered.jpg",
+            "spotify_id": None,
+            "provider": "deezer",
+            "album_url": "https://www.deezer.com/album/dz-filtered",
+        },
+    )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+    assert response.status_code == 200
+    assert 'href="https://www.deezer.com/album/dz-filtered"' in html
+    assert re.search(r"provider-badge[^>]*>\s*deezer\s*<", html)
 
 
 def test_unmatched_view_renders_artwork_in_every_reason_group(client):

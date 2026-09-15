@@ -9,6 +9,146 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-13 - PR #232 merged to `test`; branch reset, SHAs remapped
+
+Owner rebase-merged PR #232 into `test` (mergeCommit `812cdde`). GitHub
+rebased rather than merge-committed, so every commit on the PR got a new
+SHA: `e8de45c`->`d29cc5e`, `85d458f`->`a124b52`, `c5c52fb`->`735c05d`,
+`594c705`->`87f3822`, `05a0ff5`->`812cdde`. **Every one of those five old
+hashes is quoted earlier in this file, in FINDINGS.md, and in the Claude
+project memory for this repo; none of them resolve on this branch
+anymore.** Content is unchanged -- `git show <new-sha>` reproduces the
+same diff as the corresponding old one -- only the identifier changed.
+
+`feat/batch22-enrichment` (worktree and `origin`) was hard-reset to
+`origin/test`'s tip and force-pushed to drop the now-orphaned pre-rebase
+commits, per owner direction (reset in place, not a fresh branch --
+`AskUserQuestion`, 2026-09-13). PLAYBOOK Section 3's branch name is
+unchanged; WP-1 continues on `feat/batch22-enrichment`. Verified after
+reset: `pytest -q` -- **1036 passed**; worktree-alignment guard passed (0
+behind, 21 ahead of `origin/main`).
+
+A second Graphify review landed on `05a0ff5` (2026-09-14 01:29 UTC, before
+the merge) claiming 5 endpoints were "removed" from `scrobblescope/routes.py`
+-- a stale-baseline false positive (its own index was "15 commit(s) behind
+this PR's base"): the file no longer exists post-WP-0, and all five
+endpoints are present, unmoved in content, in `routes/api.py` and
+`routes/heatmap_flow.py`. No action taken; not filed as a finding since
+it is a bot-indexing artifact, not a repo issue.
+
+### 2026-09-13 - PR #232 bot review triage (Codacy + Graphify)
+
+Triaged both bot reviews on PR #232 (WP-0 + F-B22-1 + AGENTS.md cleanup)
+per `/pr-bot-triage`. Codacy (2026-09-13 21:49 UTC, 3 alerts) and Graphify
+(2026-09-14 01:08 UTC, 5 inline coupling-delta comments + 5 "worth a look"
+escalate findings from the check run) both reviewed the same branch tip.
+
+Acted: `scrobblescope/lastfm.py:68`'s unreachable `return` after
+`resp.raise_for_status()` deleted (Codacy, confirmed real -- the call
+always raises for any status reaching that branch, so the line never ran).
+
+Deferred, filed as findings: the three `assert job_context is not None`
+sites in `album_flow.py` moved verbatim from pre-split `routes.py`
+(F-B22-2 -- real hardening gap, `python -O` strips asserts, but out of
+WP-0's behaviour-neutral scope); the job-ID-as-bearer-token design across
+`/progress`, `/api/unmatched`, and `/heatmap_data` (F-B22-3 -- owner
+judgment call, not a demonstrated bug).
+
+Declined, false positives (verified against source, not fixed): Codacy's
+XSS claim on `_get_filter_description`'s f-string returns (no `|safe` in
+`results.html`/`unmatched.html`; Jinja2 autoescapes regardless of how the
+Python string was built). Graphify's two "job slot leak on failed thread
+startup" escalate findings (`worker.py`'s `start_job_thread` already calls
+`release_job_slot()` in its own `except` before re-raising -- confirmed by
+reading `worker.py:31-42`). Graphify's "`check_user_exists` now raises
+instead of returning a fallback" escalate finding (that is the PR's own
+intentional F-B22-1 fix, not a new regression). Graphify's five inline
+"health regression" coupling-delta comments (expected structural churn
+from WP-0's module split; the tool's own gate marked the run PASS with no
+blocking health regressions).
+
+Verification: `pytest -q` -- **1036 passed**; `doc_state_sync.py --check` and
+`pre-commit run` both pass.
+
+### 2026-09-13 - Fixed a broken batch-reference edit; graphify agent sections
+
+Two unrelated uncommitted changes found sitting in the worktree during a
+pre-clear sweep, neither written by this session:
+
+1. **`docs/agents/domain.md` had a broken edit**, from an unknown earlier
+   process: `BATCH21_DEFINITION.md` had been changed to `BATCH2_DEFINITION.md`
+   -- a dropped digit, not a real batch. Fixed to `BATCHN_DEFINITION.md`
+   (the file named in PLAYBOOK Section 3), matching the same generalization
+   already applied to `docs/architecture/documentation-tooling.md` and
+   `docs/ARCHITECTURE.md` earlier today, so it cannot go stale the same way
+   again.
+2. **Graphify's own tooling had added a `## graphify` section to `AGENTS.md`
+   and `.github/copilot-instructions.md`**, matching one already present
+   (and already noted, this session) in the gitignored `CLAUDE.md`. Kept:
+   the content is operational and non-duplicative with anything already in
+   `AGENTS.md`, and reaching every agent's own instructions file (Claude,
+   Copilot, and via `AGENTS.md`, everyone else) is exactly the "reach every
+   agent" pattern this session's earlier `AGENTS.md` edits argued for. Not
+   independently trimmed -- reads as graphify's own multi-agent install
+   pattern, not this session's prose.
+
+Validation: `pytest -q` -- **1036 passed** (unchanged).
+`python scripts/doc_state_sync.py --check` passes.
+
+### 2026-09-13 - AGENTS.md trimmed, three stale architecture diagrams fixed
+
+Side-task, owner direction after reviewing WP-0. Two parts:
+
+1. **AGENTS.md trimmed.** The Anti-Pattern Registry (items 1-14) carried
+   multi-paragraph rationale and worked-incident narratives per item; cut to
+   the actionable rule plus its "how to apply" technique where one existed
+   (items 11-14 kept their sub-bullets; anecdotal colour and specific past
+   numbers were cut). Added item 15, the diagram-trust rule (see below), so
+   it reaches every agent working this repo, not only Claude Code sessions
+   with the `scrobblescope-bootstrap` skill installed -- this repo is
+   multi-agent orchestrated (Codex, Copilot, and as of today DeepSeek).
+   Added `docs/architecture/documentation-tooling.md` to the Document Roles
+   table as an on-demand "control plane" reference (docsync, worktree
+   guard, pre-commit, CI), explicitly kept out of the mandatory bootstrap
+   set per the existing token-discipline principle -- it is useful when a
+   gate fails unexplainably or before touching that tooling's own source,
+   not for ordinary batch work.
+2. **Fixed the three architecture diagrams WP-0 left stale**
+   (`docs/architecture/runtime-system.md`, `top-albums-sequence.md`,
+   `heatmap-sequence.md`), plus `documentation-tooling.md`'s own stale
+   `BATCH21_DEFINITION.md` reference (generalized to `BATCHN_DEFINITION.md`
+   so it does not go stale again next batch) and `docs/ARCHITECTURE.md`'s
+   verification date and batch-scope citation. Fixed by priority: the
+   full-stack runtime diagram first (broadest orientation value), then the
+   control-plane diagram (has real drift, is itself the doc AGENTS.md now
+   points agents at), then the two pipeline sequence diagrams (narrower
+   scope, `orchestrator.py`/`routes.py` participant labels only -- the
+   sequence of calls itself did not change, since WP-0 was behaviour-neutral).
+   `docs/AGENT_DOC_MAP.md` already states "code wins over diagrams"
+   (`docs/ARCHITECTURE.md` line 5); it was not itself edited.
+
+Deviation not addressed here: `docs/superpowers/plans/` citations of the old
+module paths are dated plan documents and stay as written, per the
+dated-entry exemption. `README.md` still owes its Batch 22 pass to WP-5, as
+recorded in WP-0's own log entry.
+
+Validation: `python scripts/doc_state_sync.py --check` passes.
+
+### 2026-09-13 - Username validation no longer fails open (F-B22-1)
+
+Side-task, found during owner manual testing of WP-0's running app.
+`check_user_exists` (`scrobblescope/lastfm.py`) swallowed every exception --
+timeout, Last.fm rate limit, malformed body, any non-200/404 status -- and
+returned `exists: True`. `/validate_user` and `_validate_heatmap_user` read
+that as a verified account, so a transient Last.fm failure showed a green
+checkmark for arbitrary, unregistered usernames. Fixed by letting the
+exception propagate; every caller already had its own try/except, so
+`/validate_user` and `_validate_heatmap_user` now correctly answer 503
+"Validation service unavailable" instead, and `results_loading` (which
+already tolerated this check failing) is unaffected. Two regression tests
+added in `tests/services/test_lastfm_service.py`. Finding: F-B22-1,
+`FINDINGS.md` "Resolved this batch". `pytest -q` -- **1036 passed**.
+
 ### 2026-09-13 - Batch 21 closed (WP-8 complete)
 
 - Owner end-to-end pass in Firefox: **done**, 2026-09-13, on the running app

@@ -4,6 +4,7 @@ import time
 from uuid import uuid4
 
 from scrobblescope.config import JOB_TTL_SECONDS
+from scrobblescope.domain import normalize_name
 from scrobblescope.errors import ERROR_CODES
 
 # Per-job state tracking
@@ -127,6 +128,53 @@ def set_job_stat(job_id, key, value):
         job["progress"].setdefault("stats", {})[key] = value
         job["updated_at"] = time.time()
     return True
+
+
+def set_job_release_check(job_id, state):
+    """Store the correction worker's state at progress.stats.release_check.
+
+    *state* is the whole ``{"status", "checked", "total", "moved_out",
+    "moved_in"}`` dict, replaced on every update rather than merged: the
+    worker owns the key outright and always knows the full state, so a
+    merge could only ever preserve a stale count. Copied on write so a
+    worker that keeps mutating its own running tally cannot reach into
+    JOBS behind the lock.
+    """
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        job["progress"].setdefault("stats", {})["release_check"] = dict(state)
+        job["updated_at"] = time.time()
+    return True
+
+
+def update_job_result(job_id, album_key, fields):
+    """Merge *fields* into the one result matching the normalized *album_key*.
+
+    *album_key* is a ``(artist_norm, album_norm)`` tuple, the same shape the
+    metadata and original-release caches are keyed by. Result dicts carry no
+    pre-normalized key of their own, so each one's key is derived here with
+    ``normalize_name``.
+
+    Returns False -- changing nothing -- when the job is gone, has no results
+    list yet, or holds no album with that key. The correction worker outlives
+    neither condition silently: it treats False as "stop bothering".
+    """
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        results = job.get("results")
+        if not isinstance(results, list):
+            return False
+        for result in results:
+            key = normalize_name(result.get("artist", ""), result.get("album", ""))
+            if key == tuple(album_key):
+                result.update(fields)
+                job["updated_at"] = time.time()
+                return True
+    return False
 
 
 def set_job_results(job_id, results):

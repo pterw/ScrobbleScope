@@ -16,6 +16,21 @@ SPOTIFY_REQUESTS_PER_SECOND = int(os.getenv("SPOTIFY_REQUESTS_PER_SECOND", "10")
 SPOTIFY_SEARCH_RETRIES = int(os.getenv("SPOTIFY_SEARCH_RETRIES", "3"))
 SPOTIFY_BATCH_RETRIES = int(os.getenv("SPOTIFY_BATCH_RETRIES", "3"))
 
+# Deezer: 50 requests per 5 seconds per IP (10/s), no API key required.
+DEEZER_REQUESTS_PER_SECOND = int(os.getenv("DEEZER_REQUESTS_PER_SECOND", "10"))
+DEEZER_SEARCH_RETRIES = int(os.getenv("DEEZER_SEARCH_RETRIES", "3"))
+DEEZER_DETAIL_RETRIES = int(os.getenv("DEEZER_DETAIL_RETRIES", "3"))
+
+# MusicBrainz: 1 request/second per IP, and it blocks anonymous clients --
+# a contact address is required in the User-Agent. With no contact
+# configured, the client stays disabled rather than send guaranteed-reject
+# requests.
+MUSICBRAINZ_CONTACT = os.getenv("MUSICBRAINZ_CONTACT")
+MUSICBRAINZ_ENABLED = os.getenv("MUSICBRAINZ_ENABLED", "true").lower() == "true"
+MUSICBRAINZ_REQUESTS_PER_SECOND = int(os.getenv("MUSICBRAINZ_REQUESTS_PER_SECOND", "1"))
+MUSICBRAINZ_SEARCH_RETRIES = int(os.getenv("MUSICBRAINZ_SEARCH_RETRIES", "3"))
+MUSICBRAINZ_CHECKS_PER_JOB = int(os.getenv("MUSICBRAINZ_CHECKS_PER_JOB", "60"))
+
 # Global state tracking
 REQUEST_CACHE_TIMEOUT = 3600  # Cache timeout in seconds (1 hour)
 JOB_TTL_SECONDS = 2 * 60 * 60
@@ -30,6 +45,9 @@ JOB_TTL_SECONDS = 2 * 60 * 60
 # Fly.io machine.
 MAX_ACTIVE_JOBS = int(os.getenv("MAX_ACTIVE_JOBS", "5"))
 METADATA_CACHE_TTL_DAYS = int(os.getenv("METADATA_CACHE_TTL_DAYS", "30"))
+# An album's original release date never changes, so this TTL only guards
+# against a bad MusicBrainz match rather than staleness.
+ORIGINAL_RELEASE_TTL_DAYS = int(os.getenv("ORIGINAL_RELEASE_TTL_DAYS", "365"))
 
 spotify_token_cache = {"token": None, "expires_at": 0}
 

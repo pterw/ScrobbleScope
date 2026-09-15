@@ -111,8 +111,8 @@
                         {% for item in albums %}
                         <tr class="hover:bg-[var(--ss-surface-card)] transition-colors {% if loop.index > 10 %}unmatched-overflow hidden{% endif %}">
                             <td class="py-3 px-3 md:px-4 font-mono text-xs text-center text-[var(--ss-text-muted)] align-middle">
-                                {% if item.spotify_id %}
-                                <a href="https://open.spotify.com/album/{{ item.spotify_id }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num" title="Open {{ item.album }} on Spotify">
+                                {% if item.album_url %}
+                                <a href="{{ item.album_url }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num" title="Open {{ item.album }} on {{ item.provider|default('Spotify')|capitalize }}">
                                     {{ "%02d" % loop.index }}
                                 </a>
                                 {% else %}
@@ -152,8 +152,8 @@
                                         {% endif %}
                                     {% endif %}
                                     <div class="album-info flex-1 flex flex-col gap-[calc(0.125rem*var(--results-scale))] overflow-hidden">
-                                        {% if item.spotify_id %}
-                                        <a href="https://open.spotify.com/album/{{ item.spotify_id }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug" title="{{ item.album }}">
+                                        {% if item.album_url %}
+                                        <a href="{{ item.album_url }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug" title="{{ item.album }}">
                                             {{ item.album }}
                                         </a>
                                         {% else %}
@@ -164,6 +164,13 @@
                                         <span class="font-sans text-xs text-[var(--ss-text-muted)] font-normal truncate" title="{{ item.artist }}">
                                             {{ item.artist }}
                                         </span>
+                                        {# Provider attribution (Batch 22 WP-1 Task 6); full rule in
+                                           templates/results.html next to the same markup. #}
+                                        {% if item.provider and item.album_url %}
+                                        <a href="{{ item.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ item.album }} on {{ item.provider|capitalize }}">
+                                            {{ item.provider }}
+                                        </a>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </td>

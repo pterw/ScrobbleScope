@@ -71,7 +71,10 @@ from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
     _relative_luminance,
     _worst_divider_contrast,
 )
-from scripts.dev._frontend_gate_results import check_results_interactions  # noqa: E402
+from scripts.dev._frontend_gate_results import (  # noqa: E402
+    check_results_interactions,
+    check_results_provider_attribution,
+)
 from scrobblescope.repositories import (  # noqa: E402
     add_job_unmatched,
     create_job,
@@ -2928,6 +2931,8 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "reason_code": "release_scope",
                     "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
                     "spotify_id": f"scope-album-{index}",
+                    "provider": "spotify",
+                    "album_url": f"https://open.spotify.com/album/scope-album-{index}",
                     "play_count": play_counts[index - 1],
                 },
             )
@@ -4092,6 +4097,12 @@ CHECKS = (
         "results interactions",
         check_results_interactions,
         (DESKTOP, MOBILE),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "results provider attribution",
+        check_results_provider_attribution,
+        (DESKTOP,),
         LAYOUT_PIPELINE,
     ),
     (
