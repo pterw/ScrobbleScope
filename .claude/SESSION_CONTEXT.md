@@ -9,11 +9,11 @@ Last updated: 2026-09-14
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1081 passing** across 48 test modules |
+| Tests | **1298 passing** across 55 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 22 status | **Active**, opened 2026-09-13 on `feat/batch22-enrichment`. Album enrichment moves behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects reissue years live on the results page. **WP-0 is complete**: `routes.py` is now a `routes/` package of blueprint-style route files (`pages`, `album_flow`, `heatmap_flow`, `api`) sharing one `Blueprint`, and `orchestrator.py` is now an `orchestrator/` package split by phase (`_search`, `_details`, `_cache`, `_results`), each behind a facade `__init__.py`; all 1034 tests pass unmodified and the frontend gate still runs 28 checks in 50 runs. Definition: `BATCH22_DEFINITION.md`. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
+| Batch 22 status | **Active**, opened 2026-09-13 on `feat/batch22-enrichment`. **WP-0 through WP-3 are complete; WP-4 is next.** Tasks 7-9 are complete and Task 10, the results JSON endpoint, is next. Definition: `BATCH22_DEFINITION.md`. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -37,11 +37,11 @@ Last updated: 2026-09-14
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 22.
-- Current-batch entries in active log block: 10.
-- Completed work packages in current-batch entries: WP-0, WP-1.
-- Next expected work package: WP-2.
-- Latest validated test count: **1081 passed**.
-- Newest current-batch entry: 2026-09-14 - Apply cached original-release corrections (Batch 22 WP-1).
+- Current-batch entries in active log block: 11.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-3.
+- Next expected work package: WP-4.
+- Latest validated test count: **1298 passed**.
+- Newest current-batch entry: 2026-09-15 - The correction worker (Batch 22 WP-3).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -60,6 +60,8 @@ scrobblescope/
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
   spotify.py                # fetch_spotify_access_token, search, batch details
+  musicbrainz.py            # lookup_original_release (release-group first-release-date)
+  release_checks.py         # correction worker: one thread, FIFO job queue, live original-release lookups
   orchestrator/
     __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async
     _search.py               # Spotify parallel-search phase
@@ -98,6 +100,8 @@ scripts/
     _worktree_guard_venv.py # primary environment topology and tool paths
     worktree_guard.py       # stable public re-export facade
     check_worktree_alignment.py # thin read-only bootstrap CLI
+    mutation_test.py        # on-demand cosmic-ray runner for allowlisted hermetic modules
+    mutation_scope.toml     # the allowlist: modules cleared for mutation testing, with their tests
   docsync/
     __init__.py             # package inventory and entry-point map
     models.py               # typed sync results, entries, issues, and SyncError
@@ -124,11 +128,13 @@ config.py        <- (leaf)
 utils.py         <- config
 cache.py         <- config
 worker.py        <- config
-repositories.py  <- config, errors
+repositories.py  <- config, domain, errors
 lastfm.py        <- config, utils
 spotify.py       <- config, utils
 unmatched.py     <- (leaf)
-orchestrator/__init__.py  <- cache, config, domain, errors, lastfm, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_results (imported last, for re-export)
+musicbrainz.py   <- config, domain, utils
+release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils; orchestrator (facade, DEFERRED -- see note)
+orchestrator/__init__.py  <- cache, config, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, domain; orchestrator (facade)
 orchestrator/_cache.py    <- orchestrator (facade)
@@ -165,6 +171,16 @@ dev/_frontend_gate_colour.py <- (leaf; standard library only)
 dev/_frontend_gate_results.py <- repositories
 dev/frontend_gate.py <- dev/_frontend_gate_colour, dev/_frontend_gate_results; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 ```
+
+**The one deferred edge (Task 9, Batch 22 WP-3).** `orchestrator` imports
+`release_checks` at module level, to hand a finished job to the correction
+worker. `release_checks` needs `_matches_release_criteria` back from
+`orchestrator`, and takes it through a **function-local** import inside
+`_matches_window`, not a module-level one. At module level the pair would
+form a cycle whose outcome depends on which module is imported first --
+importing `release_checks` before `orchestrator` would fail on a
+partially-initialised module. The graph above therefore stays acyclic at
+import time; the edge exists only at call time, and is marked DEFERRED.
 
 ---
 
@@ -207,7 +223,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (1081 tests)
+## 6. Test structure (1298 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

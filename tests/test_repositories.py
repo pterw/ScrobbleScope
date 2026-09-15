@@ -22,8 +22,10 @@ from scrobblescope.repositories import (
     jobs_lock,
     set_job_error,
     set_job_progress,
+    set_job_release_check,
     set_job_results,
     set_job_stat,
+    update_job_result,
 )
 from tests.helpers import TEST_JOB_PARAMS
 
@@ -120,6 +122,113 @@ def test_set_job_stat_stores_and_retrieves():
     assert progress is not None
     assert progress["stats"]["scrobbles_fetched"] == 1234
     assert progress["stats"]["albums_found"] == 42
+
+
+def test_set_job_release_check_stores_state_under_progress_stats():
+    """
+    GIVEN a job
+    WHEN set_job_release_check records the correction worker's state
+    THEN it lands at progress.stats.release_check, replacing any earlier
+    state, and leaves neighbouring stats untouched.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_stat(job_id, "albums_found", 42)
+
+    running = {
+        "status": "running",
+        "checked": 1,
+        "total": 3,
+        "moved_out": 0,
+        "moved_in": 0,
+    }
+    assert set_job_release_check(job_id, running) is True
+    assert get_job_progress(job_id)["stats"]["release_check"] == running
+
+    done = {**running, "status": "done", "checked": 3, "moved_out": 1}
+    assert set_job_release_check(job_id, done) is True
+    progress = get_job_progress(job_id)
+    assert progress["stats"]["release_check"] == done
+    assert progress["stats"]["albums_found"] == 42
+
+
+def test_set_job_release_check_on_a_missing_job_returns_false():
+    """
+    GIVEN a job id that expired while the worker was running
+    WHEN set_job_release_check is called
+    THEN it returns False and does not resurrect the job in JOBS.
+    """
+    assert set_job_release_check("nonexistent_job_id", {"status": "done"}) is False
+    with jobs_lock:
+        assert "nonexistent_job_id" not in JOBS
+
+
+def test_update_job_result_merges_fields_into_the_matching_result():
+    """
+    GIVEN a job whose results list holds two albums
+    WHEN update_job_result targets one by its normalized key
+    THEN only that entry gains the new fields, its existing fields survive,
+    and the list keeps its rank order and length.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(
+        job_id,
+        [
+            {"artist": "Radiohead", "album": "OK Computer", "play_count": 50},
+            {"artist": "Blur", "album": "13", "play_count": 20},
+        ],
+    )
+
+    assert update_job_result(job_id, ("blur", "13"), {"release_check": "moved_out"})
+
+    results = get_job_context(job_id)["results"]
+    assert len(results) == 2
+    assert results[1] == {
+        "artist": "Blur",
+        "album": "13",
+        "play_count": 20,
+        "release_check": "moved_out",
+    }
+    assert "release_check" not in results[0]
+
+
+def test_update_job_result_matches_on_the_normalized_name():
+    """
+    GIVEN a result whose displayed album title carries edition metadata
+    WHEN update_job_result is given the normalized cache key
+    THEN it still finds the entry -- result dicts carry no pre-normalized key.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(
+        job_id, [{"artist": "Radiohead", "album": "OK Computer (Deluxe Edition)"}]
+    )
+
+    assert update_job_result(job_id, ("radiohead", "ok computer"), {"x": 1}) is True
+    assert get_job_context(job_id)["results"][0]["x"] == 1
+
+
+def test_update_job_result_returns_false_when_nothing_matches():
+    """
+    GIVEN a job whose results hold no album with the requested key
+    WHEN update_job_result is called
+    THEN it returns False and leaves every result unchanged.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(job_id, [{"artist": "Blur", "album": "13"}])
+
+    assert update_job_result(job_id, ("oasis", "be here now"), {"y": 1}) is False
+    assert get_job_context(job_id)["results"] == [{"artist": "Blur", "album": "13"}]
+
+
+def test_update_job_result_returns_false_when_results_are_absent():
+    """
+    GIVEN a job that has not finished (results is still None) and one that
+    no longer exists
+    WHEN update_job_result is called
+    THEN both return False rather than raising on the missing list.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    assert update_job_result(job_id, ("blur", "13"), {"z": 1}) is False
+    assert update_job_result("nonexistent_job_id", ("blur", "13"), {"z": 1}) is False
 
 
 def test_expired_job_cleanup():

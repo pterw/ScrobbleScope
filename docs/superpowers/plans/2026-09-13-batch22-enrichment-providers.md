@@ -1,4 +1,4 @@
-# Batch 22 (queued): Enrichment providers and original release years
+# Batch 22: Enrichment providers and original release years
 
 > **For Claude:** REQUIRED SUB-SKILL: use superpowers:executing-plans to
 > implement this plan task by task.
@@ -14,100 +14,16 @@ builds on the work here.
 Executed task by task via `superpowers:executing-plans`. Full detail per task
 lives in PLAYBOOK Section 4; this section tracks status only.
 
-- **Task 1 (AlbumMetadata value object): done, 2026-09-13.**
-  `scrobblescope/enrichment.py`, `tests/services/test_enrichment.py`.
-  1037 passed.
-- **Task 2 (cache columns for any provider): done, 2026-09-13.**
-  `init_db.py`, `scrobblescope/cache.py`, `scrobblescope/config.py`,
-  `tests/test_cache_schema.py`, `tests/services/test_cache.py`. 1049
-  passed. `_batch_persist_metadata`'s row tuple grew to up to 9 elements
-  with the last 3 optional (defaults keep today's 6-element caller
-  behaviour-identical); full reasoning in PLAYBOOK's 2026-09-13 Section 4
-  entry for this task. Owner-verified against real Postgres (Docker
-  `ss-postgres`) on localhost: no regressions.
-- **Task 3 (Spotify calls behind `spotify.enrich_albums`): done, 2026-09-13.**
-  `scrobblescope/spotify.py` (new `enrich_albums`), `scrobblescope/orchestrator/__init__.py`
-  (facade import only -- the real pipeline path is untouched, per Task 5),
-  `tests/services/test_spotify_service.py`, `tests/services/test_orchestrator_fetch_spotify.py`.
-  1054 passed; frontend gate 28/28. Folded in a real type fix caught by the
-  owner's editor: `AlbumMetadata.image_url` (Task 1) was typed `str` but
-  should be `str | None` -- an album can have no cover art. **Phase 1
-  complete.**
-- **Task 4 (Deezer client): done, 2026-09-13.** `scrobblescope/deezer.py`
-  (new), `scrobblescope/utils.py` (`get_deezer_limiter`),
-  `scrobblescope/config.py` (`DEEZER_REQUESTS_PER_SECOND`,
-  `DEEZER_SEARCH_RETRIES`, `DEEZER_DETAIL_RETRIES`),
-  `tests/services/test_deezer_service.py` (7 tests). 1061 passed. Not
-  wired into any caller yet.
-- **Task 5 (wire the fallback into the orchestrator): done, 2026-09-13.**
-  New `orchestrator/_deezer_fallback.py`; modified `orchestrator/_search.py`
-  (defers the unmatched write -- Deezer gets a turn first),
-  `orchestrator/__init__.py` (`_fetch_spotify_misses` wiring,
-  `_detect_spotify_total_failure` renamed `_detect_enrichment_total_failure`),
-  `orchestrator/_results.py` (`provider`/`album_url` per result),
-  `unmatched.py` (reworded `REASON_NO_SPOTIFY_MATCH` copy). 1067 passed;
-  frontend gate 28/28. Full reasoning, including why `_search.py` needed
-  touching despite Task 3's "does not rewrite them" note, in PLAYBOOK's
-  2026-09-13 Section 4 entry for this task.
-- **Task 6 (show the album's own provider): done, 2026-09-13.** Read
-  developers.deezer.com/guidelines (and /guidelines/logo) before starting,
-  per the task's hard blocker: audio data offline storage is "strictly
-  forbidden", separately from and narrower than any metadata/artwork
-  caching (confirms the owner's own reading); apps must include "a clearly
-  visible Deezer Logo", with sizing/color detail on deezerbrand.com, which
-  did not render for this session (JS-only page, no image-fetch tool).
-  Owner chose a text attribution badge as the interim (not either
-  provider's redrawn/hotlinked logo asset) -- tracked as F-B22-4, alongside
-  the still-open F-B21-60 spotlight-card redesign, which Task 6's file list
-  never covered.
-  `scrobblescope/orchestrator/_results.py` (unmatched dict for a
-  release-scope miss now also carries `provider`/`album_url`, matching the
-  matched-result dict Task 5 already built), `templates/results.html`,
-  `templates/unmatched.html` (`album.spotify_id`-built Spotify links
-  replaced with `album.album_url`; new `.provider-badge` text link),
-  `static/js/results.js` (CSV gains a Provider column),
-  `scripts/dev/frontend_gate.py` + `scripts/dev/_frontend_gate_results.py`
-  (new `check_results_provider_attribution`: a Spotify row links to
-  open.spotify.com, a Deezer row to deezer.com, each with a visible
-  provider badge; fixed the `check_unmatched_report`/`check_results_interactions`
-  fixtures the link-source change would otherwise have broken),
-  `tests/test_routes.py` (2 new tests). 1069 passed; frontend gate 29/29.
-- **Task 7 (MusicBrainz client): done, 2026-09-14.** `scrobblescope/musicbrainz.py`
-  (new), `scrobblescope/utils.py` (`get_musicbrainz_limiter`),
-  `scrobblescope/config.py` (`MUSICBRAINZ_CONTACT`, `MUSICBRAINZ_ENABLED`,
-  `MUSICBRAINZ_REQUESTS_PER_SECOND`, `MUSICBRAINZ_SEARCH_RETRIES`,
-  `MUSICBRAINZ_CHECKS_PER_JOB`), `tests/services/test_musicbrainz_service.py`
-  (10 tests). 1079 passed. No caller wired yet -- Task 8 consumes it.
-  Committed `8eb3c2a`. Full reasoning: PLAYBOOK's 2026-09-14 Section 4 entry.
-- **Side-task, done, 2026-09-14 (not a plan task): DB connect timeout.**
-  Found during live localhost verification of Task 5's fallback (see
-  Verification step 2 below) -- a paused, not stopped, local Postgres
-  container hung `_get_db_connection` for 3 minutes (asyncpg's 60s default
-  x 3 retries) with zero progress feedback, since that call is the first
-  thing `process_albums` does. Fixed with a new `DB_CONNECT_TIMEOUT_SECONDS`
-  env knob (default 5s) in `scrobblescope/cache.py`. Also corrected stale
-  hand-written test counts in `.claude/SESSION_CONTEXT.md` and
-  `FINDINGS.md` (frozen at 1036 since 2026-09-11, separate from the
-  docsync-managed block) that `doc_state_sync --check` started flagging
-  once this fix's log entry became the newest full-suite result -- see
-  the docsync gotcha this surfaced, logged as a new finding
-  (F-DOCSYNC-12) for a future renderer fix. 1081 passed. Committed
-  `c724ebc`. Full reasoning: PLAYBOOK's 2026-09-14 Section 4 entry.
-- **Task 8 (apply cached corrections before results render): done,
-  2026-09-14.** `scrobblescope/orchestrator/_cache.py` (new
-  `_lookup_cached_original_release`), `scrobblescope/orchestrator/__init__.py`
-  (`process_albums` wiring, using the connection already open for
-  Phase 1-4), `scrobblescope/orchestrator/_results.py` (`_build_results`
-  gains `original_release_hits`; `_get_user_friendly_reason` gains
-  `corrected`), `tests/services/test_orchestrator_helpers.py` (4 tests).
-  1085 passed; frontend gate 29/29 (unaffected, backend-only). File list
-  drift: the plan names `scrobblescope/orchestrator.py`, which WP-0 split
-  into a package before this task ran -- see PLAYBOOK's 2026-09-14 Section
-  4 entry for the real targets and full reasoning. Not yet wired: no
-  caller populates new `original_release_cache` rows live -- that is
-  Task 9's worker; today's task only applies findings already cached.
-- **Next: Task 9**, the correction worker. Tasks 10-11, Phase 4: not
-  started.
+- **WP-0: complete.** The behaviour-neutral module split is done.
+- **WP-1: complete.** Tasks 1-3 (provider contract) are done.
+- **WP-2: complete.** Tasks 4-6 (Deezer fallback and attribution) are done.
+- **WP-3: complete.** Tasks 7-9 are done; Task 9 landed the correction worker
+  (`scrobblescope/release_checks.py`) on 2026-09-15.
+- **WP-4: next.** Tasks 10-11 remain.
+- **WP-5: not started.** Phase 4 documentation and close-out remain.
+- **Side-task:** the DB connect timeout fix is done (2026-09-14).
+- **Audit validation:** **1088 passed** after the three missing seam and
+  failure-path tests were added.
 
 **Goal:** album enrichment no longer depends on one API, and a release filter
 uses an album's original release year rather than a reissue year.

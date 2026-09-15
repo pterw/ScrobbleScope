@@ -54,7 +54,7 @@ def _get_user_friendly_reason(
 ):
     """Return a human-readable explanation for why an album was filtered out.
 
-    ``corrected=True`` (Task 8, Batch 22 WP-1) means *release_date* is a
+    ``corrected=True`` (Task 8, Batch 22 WP-3) means *release_date* is a
     MusicBrainz original-release finding, not the provider's own date, so
     the wording says "First released ... not ..." instead of "Released ...
     instead of ..." -- the reader is being told the true original year, not
@@ -141,7 +141,7 @@ def _build_results(
     chosen mode, and calculates proportion-of-max/total percentages.
     Albums that fail the release filter are logged and added to job unmatched.
 
-    ``original_release_hits`` (Task 8, Batch 22 WP-1) is an optional dict
+    ``original_release_hits`` (Task 8, Batch 22 WP-3) is an optional dict
     keyed by the same ``(artist_norm, album_norm)`` tuples as *cache_hits*,
     holding any already-cached MusicBrainz finding
     (``{"mb_release_group": ..., "original_release": ...}``). A finding with
@@ -188,9 +188,14 @@ def _build_results(
                 "provider": _album_provider(cached),
                 "album_url": _album_url(cached),
                 "play_count": original_data.get("play_count"),
+                # Always the provider's own date, corrected or not. The
+                # correction worker (Task 9) reads it back off the unmatched
+                # entry to decide which exclusions a MusicBrainz lookup could
+                # still move in -- an original date is never later than the
+                # provider's, so only an entry dated after the target window
+                # is worth a request, and it cannot tell without this field.
+                "provider_release_date": provider_release_date,
             }
-            if corrected:
-                unmatched_entry["provider_release_date"] = provider_release_date
             _orchestrator.add_job_unmatched(job_id, unmatched_key, unmatched_entry)
             continue
 

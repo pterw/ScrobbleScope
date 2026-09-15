@@ -1,5 +1,5 @@
 import logging
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -12,6 +12,7 @@ from scrobblescope.orchestrator import (
     _classify_exception_to_error_code,
     _detect_enrichment_total_failure,
     _get_user_friendly_reason,
+    _lookup_cached_original_release,
     _matches_release_criteria,
 )
 from scrobblescope.repositories import create_job, get_job_unmatched
@@ -128,9 +129,46 @@ def _corrected_cache_hits(provider_release_date):
     }
 
 
+@pytest.mark.asyncio
+async def test_lookup_cached_original_release_without_connection_skips_query():
+    """No DB connection means no correction lookup and an empty result."""
+    album_keys = [("artist", "album")]
+
+    with patch(
+        "scrobblescope.orchestrator._batch_lookup_original_release",
+        new_callable=AsyncMock,
+    ) as mock_lookup:
+        result = await _lookup_cached_original_release(None, album_keys)
+
+    assert result == {}
+    mock_lookup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_lookup_cached_original_release_failure_is_non_fatal(caplog):
+    """A correction-cache failure is logged and cannot block album results."""
+    mock_conn = AsyncMock()
+    album_keys = [("artist", "album")]
+
+    with (
+        caplog.at_level(logging.WARNING),
+        patch(
+            "scrobblescope.orchestrator._batch_lookup_original_release",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("database unavailable"),
+        ),
+    ):
+        result = await _lookup_cached_original_release(mock_conn, album_keys)
+
+    assert result == {}
+    assert "Original-release cache lookup failed (non-fatal): database unavailable" in (
+        caplog.text
+    )
+
+
 def test_build_results_cached_original_release_excludes_album_outside_filter():
     """A cached MusicBrainz correction, not the provider's reissue date,
-    drives the release filter. Task 8, Batch 22 WP-1: 1977 original vs a
+    drives the release filter. Task 8, Batch 22 WP-3: 1977 original vs a
     2011 provider date, filtered by year=2011, must exclude the album and
     explain the exclusion in terms of the original year, not the provider's.
     """

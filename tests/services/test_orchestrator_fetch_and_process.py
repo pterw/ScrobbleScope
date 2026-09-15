@@ -89,6 +89,76 @@ async def test_fetch_and_process_cache_hit_does_not_precheck_spotify():
 
 
 @pytest.mark.asyncio
+async def test_fetch_and_process_hands_the_finished_job_to_the_correction_worker():
+    """
+    GIVEN a run that publishes a non-empty results list
+    WHEN _fetch_and_process finishes
+    THEN the job is queued for the MusicBrainz correction worker, and only
+    after set_job_results -- the worker reads the stored results to pick its
+    candidates, so an earlier hand-off would find nothing.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    filtered = {
+        ("radiohead", "ok computer"): {
+            "play_count": 50,
+            "track_counts": {"paranoid android": 10},
+            "original_artist": "Radiohead",
+            "original_album": "OK Computer",
+        }
+    }
+    expected_results = [{"artist": "Radiohead", "album": "OK Computer"}]
+    seen_results = []
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            return_value=(filtered, {}, {"status": "ok"}),
+        ),
+        patch(
+            "scrobblescope.orchestrator.process_albums",
+            new_callable=AsyncMock,
+            return_value=expected_results,
+        ),
+        patch(
+            "scrobblescope.orchestrator.enqueue_release_check",
+            side_effect=lambda queued: seen_results.append(JOBS[queued]["results"]),
+        ) as mock_enqueue,
+    ):
+        await _fetch_and_process(job_id, "flounder14", 2025, "playcount", "same")
+
+    mock_enqueue.assert_called_once_with(job_id)
+    assert seen_results == [expected_results]
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_process_does_not_queue_correction_checks_on_an_error():
+    """
+    GIVEN a run that fails and publishes an empty results list
+    WHEN _fetch_and_process unwinds
+    THEN the correction worker is never handed the job: there is nothing to
+    correction-check, and the queue is a shared, rate-limited resource.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_top_albums_async",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("boom"),
+        ),
+        patch("scrobblescope.orchestrator.enqueue_release_check") as mock_enqueue,
+    ):
+        results = await _fetch_and_process(
+            job_id, "flounder14", 2025, "playcount", "same"
+        )
+
+    assert results == []
+    mock_enqueue.assert_not_called()
+    assert get_job_progress(job_id)["error"] is True
+
+
+@pytest.mark.asyncio
 async def test_fetch_and_process_retains_all_below_threshold_albums():
     """A successful empty eligible set must still publish threshold exclusions."""
     job_id = create_job(TEST_JOB_PARAMS)

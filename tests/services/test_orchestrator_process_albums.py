@@ -5,7 +5,12 @@ import pytest
 from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import process_albums
-from scrobblescope.repositories import create_job, get_job_context, get_job_progress
+from scrobblescope.repositories import (
+    create_job,
+    get_job_context,
+    get_job_progress,
+    get_job_unmatched,
+)
 from tests.helpers import TEST_JOB_PARAMS
 
 
@@ -69,6 +74,139 @@ async def test_process_albums_cache_hit_skips_spotify():
     assert results[0]["artist"] == "Radiohead"
     assert progress["stats"]["db_cache_enabled"] is True
     assert progress["stats"]["db_cache_lookup_hits"] == 1
+
+
+@pytest.mark.asyncio
+async def test_process_albums_applies_cached_original_release_before_filtering():
+    """A normal run must forward cached corrections into result filtering.
+
+    A 1977 original cached against a provider's 2011 reissue date is excluded
+    from a 2011 filter, and the unmatched record preserves both dates. This
+    guards the Task 8 seam between ``process_albums`` and ``_build_results``.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    album_key = ("fleetwood mac", "rumours")
+    filtered = {
+        album_key: {
+            "play_count": 50,
+            "track_counts": {"dreams": 10},
+            "original_artist": "Fleetwood Mac",
+            "original_album": "Rumours",
+        }
+    }
+    cached_metadata = {
+        album_key: {
+            "spotify_id": "sp-rumours",
+            "release_date": "2011-01-31",
+            "album_image_url": "https://img.example.com/rumours.jpg",
+            "track_durations": {"dreams": 257},
+        }
+    }
+    cached_original_release = {
+        album_key: {
+            "mb_release_group": "mbid-rumours",
+            "original_release": "1977-02-04",
+        }
+    }
+    mock_conn = AsyncMock()
+
+    with (
+        patch(
+            "scrobblescope.orchestrator._get_db_connection",
+            new_callable=AsyncMock,
+            return_value=mock_conn,
+        ),
+        patch(
+            "scrobblescope.orchestrator._batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value=cached_metadata,
+        ),
+        patch(
+            "scrobblescope.orchestrator._batch_lookup_original_release",
+            new_callable=AsyncMock,
+            return_value=cached_original_release,
+        ) as mock_original_lookup,
+        patch(
+            "scrobblescope.orchestrator._batch_persist_metadata", new_callable=AsyncMock
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+        ) as mock_token,
+    ):
+        results = await process_albums(job_id, filtered, 2011, "playcount", "same")
+
+    assert results == []
+    mock_token.assert_not_awaited()
+    mock_original_lookup.assert_awaited_once_with(mock_conn, [album_key])
+    mock_conn.close.assert_awaited_once()
+    unmatched = get_job_unmatched(job_id)
+    assert unmatched["fleetwood mac|rumours"]["reason"] == (
+        "First released in 1977, not 2011"
+    )
+    assert unmatched["fleetwood mac|rumours"]["provider_release_date"] == ("2011-01-31")
+
+
+@pytest.mark.asyncio
+async def test_process_albums_records_provider_date_on_an_uncorrected_exclusion():
+    """An album excluded on the provider's own date still records that date.
+
+    The correction worker (Task 9) picks its move-in candidates out of
+    ``job["unmatched"]`` by comparing each entry's provider year against the
+    target window, so the date has to be there even when no correction was
+    applied -- an exclusion with no cached correction is exactly the case the
+    worker exists to resolve.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    album_key = ("fleetwood mac", "rumours")
+    filtered = {
+        album_key: {
+            "play_count": 50,
+            "track_counts": {"dreams": 10},
+            "original_artist": "Fleetwood Mac",
+            "original_album": "Rumours",
+        }
+    }
+    cached_metadata = {
+        album_key: {
+            "spotify_id": "sp-rumours",
+            "release_date": "2011-01-31",
+            "album_image_url": "https://img.example.com/rumours.jpg",
+            "track_durations": {"dreams": 257},
+        }
+    }
+    mock_conn = AsyncMock()
+
+    with (
+        patch(
+            "scrobblescope.orchestrator._get_db_connection",
+            new_callable=AsyncMock,
+            return_value=mock_conn,
+        ),
+        patch(
+            "scrobblescope.orchestrator._batch_lookup_metadata",
+            new_callable=AsyncMock,
+            return_value=cached_metadata,
+        ),
+        patch(
+            "scrobblescope.orchestrator._batch_lookup_original_release",
+            new_callable=AsyncMock,
+            return_value={},
+        ),
+        patch(
+            "scrobblescope.orchestrator._batch_persist_metadata", new_callable=AsyncMock
+        ),
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_access_token",
+            new_callable=AsyncMock,
+        ),
+    ):
+        results = await process_albums(job_id, filtered, 2025, "playcount", "same")
+
+    assert results == []
+    entry = get_job_unmatched(job_id)["fleetwood mac|rumours"]
+    assert entry["reason"] == "Released in 2011 instead of 2025"
+    assert entry["provider_release_date"] == "2011-01-31"
 
 
 @pytest.mark.asyncio

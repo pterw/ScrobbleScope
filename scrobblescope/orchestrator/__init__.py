@@ -37,6 +37,7 @@ from scrobblescope.deezer import fetch_deezer_album, search_deezer_album
 from scrobblescope.domain import normalize_name, normalize_track_name
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.lastfm import fetch_all_recent_tracks_async
+from scrobblescope.release_checks import enqueue_release_check
 from scrobblescope.repositories import (
     add_job_unmatched,
     cleanup_expired_jobs,
@@ -286,7 +287,7 @@ async def process_albums(
 
         # =============================================================
         # Phase 4b: Original-release correction lookup (Task 8, Batch 22
-        # WP-1). Applies findings already in original_release_cache --
+        # WP-3). Applies findings already in original_release_cache --
         # the live MusicBrainz worker (Task 9) is what populates new ones.
         # =============================================================
         original_release_hits = await _lookup_cached_original_release(
@@ -604,6 +605,11 @@ async def _fetch_and_process(
             error=False,
             phase=None,
         )
+        # Hand the finished job to the MusicBrainz correction worker (Task 9)
+        # so it can replace reissue dates with original ones while the results
+        # page is open. Only here, on the happy path: the error paths below
+        # set an empty results list, and there is nothing to correct in one.
+        enqueue_release_check(job_id)
         return results
 
     except Exception as exc:
@@ -731,6 +737,7 @@ __all__ = [
     "background_task",
     "cleanup_expired_jobs",
     "create_optimized_session",
+    "enqueue_release_check",
     "enrich_albums",
     "fetch_all_recent_tracks_async",
     "fetch_deezer_album",
