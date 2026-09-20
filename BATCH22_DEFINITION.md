@@ -1,6 +1,6 @@
 # BATCH22: Enrichment providers and original release years
 
-**Status:** Active. WP-0 through WP-3 are complete. **WP-4 is the next batch work package.** Tasks 7-9 are complete and Task 10 is next. Owner-approved 2026-09-13.
+**Status:** Active. WP-0 through WP-3 are complete and WP-4 is in progress: Task 10 landed the release-check endpoint and Task 11 remains. **WP-5 is the next batch work package** once WP-4 closes. Owner-approved 2026-09-13.
 **Branch:** `feat/batch22-enrichment` (worktree off `test`).
 **Baseline:** 1034 tests passing at batch open; the frontend gate runs 28
 checks in 50 runs.
@@ -158,7 +158,7 @@ a single process-wide worker that corrects a capped set per job.
 row stays in place, muted, showing the original year. Rows never move while
 the page is open; moved-in albums are announced with a reload link.
 
-- [ ] Task 10: add the job-scoped release-check JSON endpoint.
+- [x] Task 10: add the job-scoped release-check JSON endpoint.
 - [ ] Task 11: poll that endpoint, stop in a terminal state and disclose
   corrections without mutating the live sort order.
 - **Acceptance:** the gate proves no row moves when a marker lands, polling

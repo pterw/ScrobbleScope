@@ -271,6 +271,68 @@ async def test_run_release_checks_confirms_and_moves_out_without_dropping_result
 
 
 @pytest.mark.asyncio
+async def test_run_release_checks_records_the_date_behind_each_outcome():
+    """
+    GIVEN results MusicBrainz moves out, confirms, and cannot date
+    WHEN the worker runs
+    THEN each result carries the original release date the outcome rests on,
+    and the undatable one records None rather than keeping a stale value.
+
+    The results page renders "First released 1977" from this field. Without
+    it the moved-out row still shows the provider's reissue date, which is
+    the date the correction exists to contradict.
+    """
+    job_id = _job_with(
+        results=[
+            _result("Fleetwood Mac", "Rumours", "2025-01-31"),
+            _result("Radiohead", "OK Computer", "2025-06-16"),
+            _result("Boards of Canada", "Geogaddi", "2025-02-18"),
+        ]
+    )
+    lookup = AsyncMock(
+        side_effect=[
+            ("mbid-rumours", "1977-02-04"),
+            ("mbid-okc", "2025-06-16"),
+            (None, None),
+        ]
+    )
+    with _worker_patches(lookup):
+        await run_release_checks(job_id)
+
+    results = get_job_context(job_id)["results"]
+    assert results[0]["release_check"] == "moved_out"
+    assert results[0]["original_release_date"] == "1977-02-04"
+    assert results[1]["original_release_date"] == "2025-06-16"
+    assert results[2]["release_check"] == "unavailable"
+    assert results[2]["original_release_date"] is None
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_records_the_date_from_a_cached_finding():
+    """
+    GIVEN a result whose original release date is already cached
+    WHEN the worker runs
+    THEN it settles that result from the cache, with the same date field the
+    live path writes and without spending a request.
+    """
+    job_id = _job_with(results=[_result("Fleetwood Mac", "Rumours", "2025-01-31")])
+    cached = {
+        normalize_name("Fleetwood Mac", "Rumours"): {
+            "mb_release_group": "mbid-rumours",
+            "original_release": "1977-02-04",
+        }
+    }
+    lookup = AsyncMock()
+    with _worker_patches(lookup, cached=cached):
+        await run_release_checks(job_id)
+
+    results = get_job_context(job_id)["results"]
+    assert results[0]["release_check"] == "confirmed"
+    assert results[0]["original_release_date"] == "1977-02-04"
+    lookup.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_run_release_checks_reports_the_full_stats_shape():
     """
     GIVEN one result and one movable exclusion whose original lands in-window

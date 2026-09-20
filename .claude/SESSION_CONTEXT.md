@@ -13,7 +13,7 @@ Last updated: 2026-09-20
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 22 status | **Active**, opened 2026-09-13 on `feat/batch22-enrichment`. **WP-0 through WP-3 are complete; WP-4 is next.** Tasks 7-9 are complete and Task 10, the results JSON endpoint, is next. Definition: `BATCH22_DEFINITION.md`. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
+| Batch 22 status | **Active**, opened 2026-09-13 on `feat/batch22-enrichment`. **WP-0 through WP-3 are complete; WP-4 is in progress and WP-5 is next.** Task 10 landed the release-check endpoint; Task 11, the live disclosure, closes WP-4. Definition: `BATCH22_DEFINITION.md`. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -37,11 +37,11 @@ Last updated: 2026-09-20
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 22.
-- Current-batch entries in active log block: 11.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
-- Next expected work package: WP-4.
+- Current-batch entries in active log block: 12.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
+- Next expected work package: WP-5.
 - Latest validated test count: **1497 passed**.
-- Newest current-batch entry: 2026-09-15 - The correction worker (Batch 22 WP-3).
+- Newest current-batch entry: 2026-09-20 - The release-check JSON endpoint (Batch 22 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -76,7 +76,7 @@ scrobblescope/
     pages.py                  # home page
     album_flow.py             # loading/results/unmatched pages + results_loading
     heatmap_flow.py           # heatmap page + heatmap_loading/heatmap_data
-    api.py                    # validate_user, csrf-token, progress, unmatched JSON, artist_spotlight
+    api.py                    # validate_user, csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
 templates/                  # base, index, loading, results, unmatched, error
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_result.html
@@ -143,7 +143,7 @@ routes/__init__.py     <- lastfm, repositories, spotify, unmatched, utils, worke
 routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
 routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
-routes/api.py           <- repositories, spotify, utils; routes (facade)
+routes/api.py           <- domain, release_checks, repositories, spotify, utils; routes (facade)
 app.py           <- routes (Blueprint); config (ensure_api_keys, __main__ only)
 
 docsync/__init__.py  <- (leaf)

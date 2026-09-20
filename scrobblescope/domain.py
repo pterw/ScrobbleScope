@@ -50,6 +50,22 @@ def normalize_name(artist, album):
     return clean(artist), clean(album, album_metadata_words)
 
 
+def format_album_key(normalized_key):
+    """Return the wire form of a ``(artist_norm, album_norm)`` pair.
+
+    The release-check API names an album by this string and the results page
+    carries the same value on each row's ``data-album-key``, so the two agree
+    by construction rather than by two call sites spelling the join the same
+    way.
+
+    The separator is safe because ``normalize_name`` replaces every ASCII
+    punctuation character with a space, so neither half can contain a pipe
+    and the split back into two names is unambiguous.
+    """
+    artist_norm, album_norm = normalized_key
+    return f"{artist_norm}|{album_norm}"
+
+
 def normalize_track_name(name):
     """Return a simplified version of a track name for matching.
 
