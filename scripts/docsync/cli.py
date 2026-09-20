@@ -671,7 +671,14 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
             file=sys.stderr,
         )
         return 1
-    assert definition_lines is not None
+    if definition_lines is None:
+        # Not an assert: `python -O` strips those, and this one stands
+        # between a missing definition and a publish that would write the
+        # close-out record from nothing.
+        raise SyncError(
+            f"close-out for batch {batch} reported no issues but produced no "
+            f"definition to archive; refusing to publish."
+        )
 
     # A batch is closed once, and the date the record already carries is the
     # audit trail this command exists to write. A second close -- a retried
@@ -701,7 +708,11 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     archived_lines = render_archived_definition(definition_lines, batch, closed_on)
     playbook_lines = _purge_current_batch_window(list(corpus.playbook_lines))
     row = find_batch_index_row(playbook_lines, batch)
-    assert row is not None
+    if row is None:
+        raise SyncError(
+            f"PLAYBOOK.md has no batch index row for batch {batch} after the "
+            f"close-out checks passed; refusing to publish."
+        )
     playbook_lines[row] = render_batch_index_row(
         playbook_lines[row],
         archived_relative,
