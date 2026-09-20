@@ -217,6 +217,55 @@ def _resolve_cached(job_id, candidates, cached):
     return pending
 
 
+def _mark_unchecked(job_id, candidates):
+    """Set every result candidate's ``release_check`` back to "unchecked".
+
+    Runs once, before any lookup, so a job that fails immediately after
+    still shows "checking" on the results page rather than a stale value
+    left over from a previous correction pass.
+    """
+    for candidate in candidates:
+        if candidate["kind"] == "result":
+            update_job_result(
+                job_id, candidate["key"], {"release_check": CHECK_UNCHECKED}
+            )
+
+
+async def _lookup_cached(conn, candidates):
+    """Return the cached original-release findings for *candidates*.
+
+    Falls back to an empty dict -- every candidate pending -- when the cache
+    read itself fails, so a transient DB hiccup costs requests instead of
+    the whole job.
+    """
+    try:
+        return await _batch_lookup_original_release(
+            conn, [candidate["key"] for candidate in candidates]
+        )
+    except Exception as exc:
+        logging.warning(f"Original-release cache lookup failed: {exc}")
+        return {}
+
+
+async def _check_pending_candidates(job_id, conn, pending, params, state):
+    """Check *pending* candidates one at a time against MusicBrainz.
+
+    Stops early, without raising, if the job disappears mid-run -- expired
+    (``JOB_TTL_SECONDS``) or deleted -- since nobody can read the rest and
+    the shared one-request-per-second budget is better spent elsewhere.
+    """
+    async with create_optimized_session() as session:
+        for candidate in pending:
+            if get_job_context(job_id) is None:
+                logging.info(
+                    f"Release checks stopped: job {job_id} is gone "
+                    f"after {state['checked']}/{state['total']} checks."
+                )
+                return
+            await _check_candidate(session, conn, job_id, candidate, params, state)
+            set_job_release_check(job_id, state)
+
+
 async def _check_candidate(session, conn, job_id, candidate, params, state):
     """Look one candidate up, persist the finding, and record the outcome."""
     artist_norm, album_norm = candidate["key"]
@@ -263,11 +312,7 @@ async def run_release_checks(job_id):
 
     params = context.get("params") or {}
     candidates = _select_candidates(context)
-    for candidate in candidates:
-        if candidate["kind"] == "result":
-            update_job_result(
-                job_id, candidate["key"], {"release_check": CHECK_UNCHECKED}
-            )
+    _mark_unchecked(job_id, candidates)
 
     if not MUSICBRAINZ_ENABLED:
         set_job_release_check(job_id, _state(STATUS_SKIPPED))
@@ -287,14 +332,7 @@ async def run_release_checks(job_id):
 
     state = _state(STATUS_RUNNING)
     try:
-        try:
-            cached = await _batch_lookup_original_release(
-                conn, [candidate["key"] for candidate in candidates]
-            )
-        except Exception as exc:
-            logging.warning(f"Original-release cache lookup failed: {exc}")
-            cached = {}
-
+        cached = await _lookup_cached(conn, candidates)
         pending = _resolve_cached(job_id, candidates, cached)[
             :MUSICBRAINZ_CHECKS_PER_JOB
         ]
@@ -302,21 +340,7 @@ async def run_release_checks(job_id):
         set_job_release_check(job_id, state)
 
         if pending:
-            async with create_optimized_session() as session:
-                for candidate in pending:
-                    if get_job_context(job_id) is None:
-                        # The job expired (JOB_TTL_SECONDS) or was deleted.
-                        # Nobody can read the rest, so stop spending the
-                        # shared one-request-per-second budget on it.
-                        logging.info(
-                            f"Release checks stopped: job {job_id} is gone "
-                            f"after {state['checked']}/{state['total']} checks."
-                        )
-                        return
-                    await _check_candidate(
-                        session, conn, job_id, candidate, params, state
-                    )
-                    set_job_release_check(job_id, state)
+            await _check_pending_candidates(job_id, conn, pending, params, state)
     except Exception:
         logging.exception(f"Release checks failed for job {job_id}")
     finally:

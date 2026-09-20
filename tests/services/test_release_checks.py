@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from scrobblescope import release_checks
+from scrobblescope.domain import normalize_name
 from scrobblescope.release_checks import (
     _release_year,
     _select_candidates,
@@ -31,7 +32,14 @@ from tests.helpers import TEST_JOB_PARAMS
 
 
 def _result(artist, album, release_date="2025-01-01"):
-    """Build a minimal result dict shaped like ``_build_results`` output."""
+    """Build a minimal result dict shaped like ``_build_results`` output.
+
+    ``_normalized_key`` is included because ``update_job_result``
+    (``scrobblescope/repositories.py``) now matches results by that
+    precomputed key rather than re-deriving one with ``normalize_name`` --
+    see ``_build_results`` in ``scrobblescope/orchestrator/_results.py``,
+    which is the real producer this fixture stands in for.
+    """
     return {
         "artist": artist,
         "album": album,
@@ -40,6 +48,7 @@ def _result(artist, album, release_date="2025-01-01"):
         "spotify_id": "sp-id",
         "provider": "spotify",
         "album_url": "https://example.com/album",
+        "_normalized_key": normalize_name(artist, album),
     }
 
 
@@ -360,6 +369,40 @@ async def test_run_release_checks_short_circuits_already_cached_candidates():
         "confirmed",
     ]
     assert get_job_progress(job_id)["stats"]["release_check"]["total"] == 1
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_treats_everything_as_pending_when_cache_lookup_fails():
+    """
+    GIVEN the original-release cache lookup itself raises
+    WHEN the worker runs
+    THEN it does not abort: every candidate falls back to pending (as if
+    nothing were cached) and still gets checked and persisted.
+    """
+    job_id = _job_with(results=[_result("Radiohead", "OK Computer", "2025-06-16")])
+    lookup = AsyncMock(return_value=("mbid-okc", "2025-06-16"))
+    with _worker_patches(
+        lookup,
+        extra=[
+            patch(
+                "scrobblescope.release_checks._batch_lookup_original_release",
+                AsyncMock(side_effect=RuntimeError("cache down")),
+            )
+        ],
+    ):
+        await run_release_checks(job_id)
+
+    assert lookup.await_count == 1
+    results = get_job_context(job_id)["results"]
+    assert results[0]["release_check"] == "confirmed"
+    stats = get_job_progress(job_id)["stats"]["release_check"]
+    assert stats == {
+        "status": "done",
+        "checked": 1,
+        "total": 1,
+        "moved_out": 0,
+        "moved_in": 0,
+    }
 
 
 @pytest.mark.asyncio
