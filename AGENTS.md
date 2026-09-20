@@ -20,7 +20,7 @@ serve as external memory shared across sessions.
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
 | `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audits and other dated one-off documents (`reports/`). |
 | `docs/AGENT_DOC_MAP.md` | **Orientation** | Which document owns what, how to read an audit or a finding, and the known navigation traps. Optional, and not part of the bootstrap set; written for agents new to this repository. |
-| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the commit preflight, the hook installer, the worktree guard, pre-commit, and CI fit together, including the full DOC001-DOC020 catalogue. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/docsync_preflight.py`, `scripts/dev/install_docsync_hook.py`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
+| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the commit preflight, the hook installer, the worktree guard, pre-commit, and CI fit together, including the full DOC001-DOC023 catalogue. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/docsync_preflight.py`, `scripts/dev/install_docsync_hook.py`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
 
 **Anti-duplication rule:** Each fact lives in exactly one file. If you need to
 reference a fact owned by another file, link to it -- do not copy it.
@@ -63,14 +63,16 @@ batch definitions or history docs only if the comment depends on them.
 
 1. `AGENTS.md` (this file) -- rules, commit format, doc sync policy,
    anti-patterns.
-2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
-3. The batch definition file named in Section 3 (repo root while active;
+2. `docs/agents/global-rules.md` -- the binding architectural invariants
+   every code change must hold, and which rule wins when two conflict.
+3. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
+4. The batch definition file named in Section 3 (repo root while active;
    under `docs/history/definitions/` once the batch is closed; between
    batches no file exists -- skip this step).
-4. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
-5. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
-6. Relevant `docs/history/` doc only if the log references one.
-7. `FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
+5. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
+6. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
+7. Relevant `docs/history/` doc only if the log references one.
+8. `FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
    about to raise a defect, or you are reviewing a diff. Raise a known
    defect again only with new evidence. Mirrored to GitHub issues (cheaper
    to search; this file wins if they disagree). Not part of the bootstrap set.
@@ -242,33 +244,6 @@ confirm mocks were called):
 - `caplog` for warning/error log lines on failure paths.
 - Boundary inputs (zero, None, empty, missing keys) to hit fallback branches.
 
-### Mutation testing (on demand, never a gate)
-
-Line coverage says a branch ran. It cannot say an assertion would notice if the
-branch were wrong. `python scripts/dev/mutation_test.py --module <path>` mutates
-one module and reports which mutants no test caught. That is the evidence
-behind "Refactor requires parity tests" below, which otherwise rests on the
-claim that the tests cover what a refactor touches.
-
-- **Scope is an allowlist.** `scripts/dev/mutation_scope.toml` names the modules
-  that may be mutated, and the runner refuses every other path. A module
-  qualifies only when every test covering it is hermetic: no network, no API
-  keys, no live Postgres, and no read of this repository's own documents. A
-  non-hermetic test fails for reasons unrelated to the mutant, which is
-  indistinguishable from a kill and quietly inflates the score.
-- **Run it before a refactor**, on the module about to be renamed, moved, split
-  or merged, and when a weak-assertion claim needs evidence rather than
-  assertion.
-- **Never a gate.** No hook and no workflow invokes it; a full-package run is
-  hours. Its exit code is for the reader (0 every mutant caught, 1 at least one
-  survivor, 2 a usage, scope or tool error), never for CI.
-- **A survivor is not automatically a defect.** It is either a missing
-  assertion or an equivalent mutant, and telling them apart is the work. Do not
-  weaken a test to shorten the list.
-- **An unknown outcome is reported as unknown.** It is counted neither as a
-  kill nor as a survivor, so a report with a large unknown count says the suite
-  is not ready for this, not that it is clean.
-
 ---
 
 ## Doc Sync Rules
@@ -283,7 +258,7 @@ dated entries from PLAYBOOK Section 4 into per-batch log files
 entries); deduplicates archive entries by SHA-256 fingerprint; refreshes the
 managed `DOCSYNC:STATUS` block in SESSION_CONTEXT from PLAYBOOK truth; and
 validates the live document corpus through `docsync.integrity`, which
-returns typed DOC001-DOC020 issues that block rather than warn (full
+returns typed DOC001-DOC023 issues that block rather than warn (full
 catalogue: `docs/architecture/documentation-tooling.md`). Add a declaration
 in `.docsync.toml` when a fact starts living in two places, not after it
 drifts (`F-B21-17` is the tally that motivated this).
@@ -311,7 +286,7 @@ both modes; `--fix` writes deterministic output first, then revalidates the
 final disk state rather than guessing how to repair a semantic reference.
 `.claude/SESSION_CONTEXT.md`'s managed block is deterministic sync output,
 so stale content there is blocking; an absent file skips dependent checks.
-The DOC001-DOC020 catalogue and owning modules are in
+The DOC001-DOC023 catalogue and owning modules are in
 `docs/architecture/documentation-tooling.md`; each WT code is defined by
 the guard module that owns its check, spread across
 `scripts/dev/_worktree_guard_*.py` -- grep for the code, not a module.

@@ -127,10 +127,10 @@ find where to pick up from PLAYBOOK, SESSION_CONTEXT, and what the gate
 currently reports, without depending on continuity from whatever session
 came before it.
 
-## The DOC001-DOC020 catalogue
+## The DOC001-DOC023 catalogue
 
 **`doc_state_sync.py --check` is the document-integrity gate, and it
-blocks.** It returns typed `DOC001`-`DOC020` issues and exits 1. In
+blocks.** It returns typed `DOC001`-`DOC023` issues and exits 1. In
 practice the codes that bite most often are `DOC001` (a backticked path
 must resolve in `git ls-files`, so an ignored or untracked document cannot
 be linked to), `DOC006` (every named session test count must match the
@@ -208,6 +208,28 @@ side may be the history worth keeping. Bounded archives page at 500 lines
 Cold migration only ever happens under an explicit `--cold-storage --as-of
 <ISO date>` operator action -- ordinary `--check`/`--fix` never age a file
 using today's clock -- and a bounded entry is never split across pages.
+
+**DOC023 is the finding-rot code**, implemented in
+`scripts/docsync/findings.py`. DOC013 to DOC018 only ever examine findings
+written in the canonical `- [ ] **Status:**` shape, so a findings file where
+nobody writes that shape is one they have nothing to say about: the file
+grows, and every check on it passes. DOC023 closes that by blocking on an
+active finding whose prose claims a terminal outcome -- the same `resolved`
+and `no action` vocabulary rotation accepts -- while carrying no lifecycle
+record.
+
+The findings that predate the rule are listed by id under `[findings]
+grandfathered` in `.docsync.toml`, and reported once as a non-blocking
+warning carrying their live count, derived on every run. A list of ids
+rather than a batch boundary: ids are not ordered, so a source tag like
+`F-DOCSYNC-9` has no batch number to compare and any boundary would
+grandfather every tagged finding by accident while letting a new one escape
+by choosing a tag. Anything absent from the list is admitted. The list only
+shrinks, and both directions are a reviewable diff. The default is empty, so
+a repository declaring nothing admits every finding. DOC023 never writes:
+whether a finding is resolved is its author's assertion, and a tool that
+turned prose into a checked box would be inventing the record it exists to
+verify.
 
 The DOC codes are defined with their invariants where their checks live:
 `scripts/docsync/integrity.py`, `declarations.py`, `findings.py`,

@@ -13,6 +13,7 @@ import datetime as dt
 import re
 from collections.abc import Sequence
 
+from docsync.archives import ENTRY_BOUNDARY_RE
 from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue
 
@@ -345,6 +346,129 @@ def _duplicate_issues(
     return issues
 
 
+#: The terminal outcomes, as prose would spell them. Built from the same
+#: vocabulary the rotation gate accepts, so a new outcome cannot be honoured
+#: by one half of this module and unrecognised by the other.
+_PROSE_OUTCOME_RE = re.compile(
+    r"\b("
+    + "|".join(re.escape(key).replace(r"\ ", r"[-\s]") for key in _TERMINAL_SUFFIXES)
+    + r")\b",
+    re.IGNORECASE,
+)
+
+#: A negation directly qualifying the outcome word after it: "not resolved",
+#: "not yet resolved", and the same wrapped in Markdown emphasis.
+#:
+#: Deliberately not ``PENDING_QUALIFIER_RE``, whose own comment says why: that
+#: vocabulary is scanned inside a lifecycle record and never a body, because a
+#: body legitimately discusses deployment, and "Resolved and deployed in WP-3"
+#: would stop reading as a claim. Bounded to a few non-word characters so that
+#: a "not" earlier in the sentence -- "we do not know why. Resolved in WP-3"
+#: -- cannot suppress a real claim either.
+_NEGATED_OUTCOME_RE = re.compile(r"\bnot\b(?:[\W_]{1,4}yet)?[\W_]{0,4}$", re.IGNORECASE)
+
+
+def _claims_a_terminal_outcome(finding: _Finding) -> bool:
+    """Whether the finding's prose says it is finished.
+
+    A finding saying it is *not* finished is not making the claim. Blocking
+    on one would fail an honest open finding, and would teach authors to
+    avoid the word -- losing the very signal this check reads.
+    """
+    for line in finding.body_lines:
+        for match in _PROSE_OUTCOME_RE.finditer(line):
+            if not _NEGATED_OUTCOME_RE.search(line[: match.start()]):
+                return True
+    return False
+
+
+def collect_rot_issues(
+    active_text: str, grandfathered: Sequence[str] = ()
+) -> list[IntegrityIssue]:
+    """Report findings that read as finished but carry no lifecycle record.
+
+    This is the gate that makes DOC013-DOC018 reachable. Those checks only
+    ever look at findings written in the canonical shape, so a file where
+    nobody writes that shape is a file they have nothing to say about --
+    which is how a findings file grows while every check on it passes.
+
+    Ids named in ``grandfathered`` are reported once, together, as a warning
+    carrying their live count. They are not forgiven and not silent: the
+    count is derived from the file on every run, so it falls as they are
+    reconciled and cannot be made to look smaller by editing a number.
+
+    Nothing here rewrites a finding. Whether a finding is genuinely resolved
+    is its author's assertion, and a tool that converted prose into a
+    checked box would be inventing exactly the record the gate exists to
+    verify.
+    """
+    admitted = {str(identifier) for identifier in grandfathered}
+    findings, _ = _parse(active_text)
+    unrecorded = [
+        finding
+        for finding in findings
+        if finding.checked is None and _claims_a_terminal_outcome(finding)
+    ]
+
+    issues = [
+        _issue(
+            "DOC023",
+            ACTIVE_PATH,
+            finding.start + 1,
+            "A finding whose prose says it is finished carries the lifecycle "
+            "record that says so.",
+            f"{finding.identifier} reads as finished but has no "
+            f"'- [ ] **Status:**' line, so the rotation checks never see it. "
+            f"Add the record -- `- [x] **Status:** RESOLVED` with a "
+            f"`**Completed:** YYYY-MM-DD` -- or reword the prose if it is not "
+            f"finished after all.",
+        )
+        for finding in unrecorded
+        if finding.identifier not in admitted
+    ]
+
+    outstanding = [
+        finding.identifier for finding in unrecorded if finding.identifier in admitted
+    ]
+    if outstanding:
+        issues.append(
+            IntegrityIssue(
+                code="DOC023",
+                severity="warning",
+                path=ACTIVE_PATH,
+                line=None,
+                invariant=(
+                    "The findings that predate the lifecycle rule are counted, "
+                    "not forgiven."
+                ),
+                remediation=(
+                    f"{len(outstanding)} grandfathered finding(s) still read as "
+                    f"finished without a lifecycle record: "
+                    f"{', '.join(sorted(outstanding))}. Give one its record and "
+                    f"drop its id from [findings] grandfathered in "
+                    f"`.docsync.toml`; the list is meant to empty."
+                ),
+            )
+        )
+    return issues
+
+
+def _newest_entry_line(lines: Sequence[str]) -> int:
+    """Return the line a newly rotated entry belongs on.
+
+    That is the first entry boundary in the archive -- the newest existing
+    entry or rotation banner -- so new entries land above it and the
+    prologue stays on top. An archive with no entries yet takes them at the
+    end, after its prologue. `archives.ENTRY_BOUNDARY_RE` decides what
+    counts as a boundary, because that module paginates this same file and
+    the two must not disagree about where one entry stops.
+    """
+    for index, line in prose_lines(list(lines)):
+        if ENTRY_BOUNDARY_RE.match(line):
+            return index
+    return len(lines)
+
+
 def _archive_heading(finding: _Finding, outcome: str) -> str:
     """Return the archive heading: the original ID and title plus a suffix."""
     suffix = _TERMINAL_SUFFIXES[outcome]
@@ -406,11 +530,28 @@ def plan_findings(active_text: str, archive_text: str) -> FindingRotation:
     archive_lines = archive_text.split("\n")
     while archive_lines and not archive_lines[-1].strip():
         archive_lines.pop()
+
+    rotated_block: list[str] = []
     for finding in eligible:
         outcome = _normalize_outcome(finding.outcome)
-        archive_lines.append("")
-        archive_lines.append(_archive_heading(finding, outcome))
-        archive_lines.extend(finding.lines[1:])
+        rotated_block.append(_archive_heading(finding, outcome))
+        rotated_block.extend(finding.lines[1:])
+        rotated_block.append("")
+
+    if rotated_block:
+        # The archive states its own order in its prologue -- newest rotation
+        # first -- and every manual rotation has honoured it. Appending would
+        # bury each new rotation beneath every older one, and would also put
+        # the newest entries on the oldest page once this file paginates,
+        # because `archives.ArchiveStore` reads the same text newest first.
+        newest = _newest_entry_line(archive_lines)
+        if newest > 0 and archive_lines[newest - 1].strip():
+            # An archive with no entries yet ends at its prologue rule, with
+            # no blank line to sit under. Without this the first rotation
+            # ever written glues its heading to the `---` above it, and a
+            # plain archive reaches disk exactly as planned.
+            rotated_block.insert(0, "")
+        archive_lines[newest:newest] = rotated_block
 
     return FindingRotation(
         active_text=new_active,

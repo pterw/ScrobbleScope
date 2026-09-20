@@ -1740,3 +1740,54 @@ class TestClosedBatchGate:
         ]
 
         assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc023_reaches_the_gate_through_the_live_findings_document(tmp_path: Path):
+    """The rot check is wired in, not merely importable.
+
+    `findings.collect_rot_issues` has its own tests. This one exists so that
+    removing the call from `collect_integrity_issues` fails something: a
+    check nothing invokes is indistinguishable from a check that passes,
+    which is the exact failure DOC023 was written to end.
+    """
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "",
+        "## P0",
+        "",
+        "### F-B21-9: the archive grew without bound",
+        "",
+        "Resolved in WP-3; rotates at close-out.",
+        "",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    rot = [issue for issue in issues if issue.code == "DOC023"]
+    assert len(rot) == 1, [i.code for i in issues]
+    assert rot[0].severity == "error"
+    assert "F-B21-9" in rot[0].remediation
+
+
+def test_doc023_honours_the_repositorys_grandfather_list(tmp_path: Path):
+    """The declared list is read from the repository under check."""
+    inputs = _valid_inputs(tmp_path)
+    (tmp_path / ".docsync.toml").write_text(
+        '[findings]\ngrandfathered = ["F-B21-9"]\n', encoding="utf-8"
+    )
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "",
+        "## P0",
+        "",
+        "### F-B21-9: the archive grew without bound",
+        "",
+        "Resolved in WP-3; rotates at close-out.",
+        "",
+    ]
+
+    rot = [i for i in collect_integrity_issues(**inputs) if i.code == "DOC023"]
+
+    assert [issue.severity for issue in rot] == ["warning"]
+    assert rot[0].remediation.startswith("1 grandfathered")

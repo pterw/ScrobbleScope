@@ -115,6 +115,51 @@ def test_resolve_hook_directory_relative_path_resolves_per_worktree(tmp_path):
     assert primary_hooks != linked_hooks
 
 
+def test_resolve_hook_directory_ignores_the_callers_subdirectory(tmp_path):
+    """A relative core.hooksPath resolves against the worktree root.
+
+    Git runs hooks from the top of the working tree, so that is what a
+    relative path resolves against. Every other test here passes the repo
+    root as `cwd`, where the two are the same; called from a subdirectory
+    they diverge, and resolving against `cwd` put the wrapper somewhere
+    Git never looks while still reporting a successful install.
+    """
+    repo = _init_repo(tmp_path / "repo")
+    _git(repo, "config", "core.hooksPath", ".githooks")
+    subdirectory = repo / "scripts" / "dev"
+    subdirectory.mkdir(parents=True)
+
+    assert installer.resolve_hook_directory(subdirectory) == (
+        (repo / ".githooks").resolve()
+    )
+
+
+def test_install_refuses_a_symlinked_hook_path(tmp_path):
+    """Writing through a link would rewrite its target, not the hook."""
+    repo = _init_repo(tmp_path / "repo")
+    _make_qualified_python(repo)
+    hooks = installer.resolve_hook_directory(repo)
+    hooks.mkdir(parents=True, exist_ok=True)
+    # The target must classify as *ours*, or the pre-existing-hook check
+    # refuses first and this proves nothing about the symlink guard.
+    target = tmp_path / "somebody-elses-file"
+    target.write_text(f"#!/bin/sh\n# {installer.GENERATED_MARKER}\n", encoding="utf-8")
+    original = target.read_text(encoding="utf-8")
+    try:
+        (hooks / "pre-commit").symlink_to(target)
+    except OSError:  # pragma: no cover - unprivileged Windows
+        pytest.skip("creating a symlink requires privileges here")
+
+    messages: list[str] = []
+    code = installer.install(
+        repo, yes=True, os_name="nt", access=lambda *a: True, print_fn=messages.append
+    )
+
+    assert code == 2
+    assert target.read_text(encoding="utf-8") == original
+    assert any("symlink" in message for message in messages)
+
+
 def test_resolve_hook_directory_absolute_hooks_path_is_shared(tmp_path):
     shared = tmp_path / "shared-hooks"
     repo = _init_repo(tmp_path / "repo")

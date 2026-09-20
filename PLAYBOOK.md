@@ -907,6 +907,49 @@ staged-path hook run for this commit passes.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-20 - Docsync review round, DOC023, and PR #234
+
+Side task, no batch tag: close-out of
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`. Not Batch 22
+scope. The unrelated in-flight Batch 22 edits in this worktree were neither
+staged nor reverted. Ledger:
+`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
+
+The whole-branch review had to be split: `/ultrareview` caps at 500 files and
+8,000 lines against the working tree, and this work package was 52 files and
+12,403 lines. The engine commit was reviewed alone from a temporary branch.
+Every reported finding across ultrareview, Codacy, Graphify and qlty was
+reproduced or refuted before being acted on -- roughly twenty reports produced
+eight real defects. Refutations included a "high" that was an artifact of
+where the review scope was cut and healed by the next commit, and three qlty
+correctness items that were analyzer flow-model false positives.
+
+Defects fixed, each with a regression test proven to fail without its fix:
+archive pages were packed in reading order while every producer prepends, so
+one rotated entry repacked the whole archive and returned cold pages to hot;
+`--close-batch` restated the closure date from the clock; findings rotated to
+the bottom of an archive whose prologue says newest first; the hook installer
+resolved a relative `core.hooksPath` against cwd and wrote through a
+pre-existing symlink onto its target; close-out `assert`s guarded a publish
+and vanish under `python -O`; the preflight re-encoded a text-mode tar payload
+and extracted unfiltered below Python 3.12.
+
+DOC023 closes the finding-rot hole: all 83 findings lacked the canonical
+`- [ ] **Status:**` record, so DOC013-DOC018 had never fired once. It blocks a
+finding whose prose claims a terminal outcome without that record. The
+boundary is an explicit id allowlist in `[findings] grandfathered`, not the
+batch number the plan specified -- 32 of 83 ids are source-tagged and carry no
+batch to compare, so a boundary would grandfather them by accident and let a
+new finding escape by choosing a tag. 23 ids are grandfathered and reported as
+one warning carrying a count derived from the file on every run.
+`docs/agents/global-rules.md` was also added to Session Bootstrap, which it was
+missing from despite being binding.
+
+Validation: `pytest -q` -- **1497 passed**; `doc_state_sync.py --check` exit 0;
+`frontend_gate.py` exit 0; `AGENTS.md` 473 lines against its 500 cap. Eighteen
+commits on `feat/batch22-enrichment`, nothing unpushed, open as PR #234 into
+`test`.
+
 ### 2026-09-19 - Docsync close-out plan Tasks 3 and 4, and a control-plane code review
 
 Side task, no batch tag: continuation of the entries below on
@@ -1052,62 +1095,3 @@ Validation: `pytest -q` -- **1298 passed** (unchanged; this side task adds
 one documentation file and a PLAYBOOK entry only, no application or docsync
 source). Tasks 3-4 of the plan are not started. Next step: resume the SDD
 fix loop on Task 2's three Important findings.
-
-### 2026-09-14 - Mutation testing scoped to hermetic modules
-
-Side task, no batch tag: owner-directed tooling, outside Batch 22's scope and
-its definition.
-
-Scope: `scripts/dev/mutation_scope.toml` (new),
-`scripts/dev/mutation_test.py` (new),
-`tests/scripts/dev/test_mutation_test.py` (new), `AGENTS.md`. Motivation was
-`cosmic-ray==8.7.0` sitting in `requirements-dev.txt` with no caller; the
-decision was to give it a defined home rather than delete it, because a
-47-mutant module costs minutes here and the repo already mutation-tests by hand
-(the Batch 21 plans call it "mutests").
-
-Implementation:
-- `mutation_scope.toml` is the allowlist of modules cleared for mutation
-  testing, each with the tests that cover it: `domain.py`, `enrichment.py`,
-  `unmatched.py`, `worker.py`, `spotlight.py`, `orchestrator/_results.py`,
-  `scripts/dev/graphify_refresh.py`. The file carries its exclusion list and
-  the reason per entry, so a gap is not read as an oversight: `utils.py` and
-  `repositories.py` are time- and loop-dependent, and the network and DB
-  modules are not hermetic at all.
-- `mutation_test.py` drives cosmic-ray for one allowlisted module and refuses
-  every other path by exact normalized comparison. It builds the cosmic-ray
-  config in a temporary directory, runs init/baseline/exec, and reports caught,
-  survivors and unknown. Two guards protect the checkout: it refuses to start
-  while the module has uncommitted changes unless `--allow-dirty`, and it
-  compares the module's SHA-256 before and after so a mutant left on disk is an
-  error, not a clean verdict.
-- `AGENTS.md` gains a "Mutation testing (on demand, never a gate)" subsection
-  under Test Quality Rules: the allowlist rule, the pre-refactor trigger, the
-  survivor-is-not-a-defect warning, and that no hook and no workflow calls it.
-
-Deviations and repairs found on the way:
-- `doc_state_sync.py --check` was already failing on four integrity errors
-  before this task, all fallout from the removal of the "UI and Accessibility
-  Rules" section from `AGENTS.md`: DOC009 for the declared 44px touch minimum,
-  and DOC010 twice for citations of a heading that no longer existed. The
-  section is restored in condensed form, with items 1 and 2 keeping the numbers
-  two other documents cite. That removal was mid-edit, not part of this task;
-  the repair is recorded here because it shares the commit.
-- `AGENT_NOTES.md` was also failing DOC009 on its declared heatmap-window site,
-  and had trailing whitespace at what was line 314. Both repaired.
-- `requirements-dev.txt`'s `cosmic-ray==8.7.0` line was uncommitted and
-  unreferenced; this entry is the first record of an owner decision to keep it.
-
-Validation: `pytest -q` -- **1153 passed**, up from 1108 with the 45 new tests.
-`ruff check` and `ruff format --check` clean on both new files.
-`doc_state_sync.py --check` passed with only the expected root-BATCH warning.
-`mutation_test.py --list` prints the seven scoped modules, and `--init-only` on
-`scrobblescope/unmatched.py` reports 47 mutants in about a second.
-
-Forward guidance: the post-`exec` outcome mapping in `classify()` was written
-against cosmic-ray 8.7.0's session schema. Which modules qualify, the refusals,
-and the config shape are all covered by tests, but the mapping from a completed
-session record to killed/survived is not yet exercised end to end, so a first
-full run should be checked with `--raw` before its numbers are quoted. An
-unrecognised record is reported as unknown rather than guessed, which is what
-makes that check cheap.

@@ -1,6 +1,6 @@
 """Finding lifecycle parsing and rotation planning regressions."""
 
-from docsync.findings import plan_findings
+from docsync.findings import collect_rot_issues, plan_findings
 
 ARCHIVE_PROLOGUE = "\n".join(
     [
@@ -73,6 +73,49 @@ def test_valid_checked_record_rotates():
         "### F-B22-1: the cache connect attempt never timed out -- RESOLVED"
         in rotation.archive_text
     )
+
+
+def test_rotation_lands_above_older_archived_entries():
+    """The archive reads newest first, and a rotation must not bury itself.
+
+    Appending put each new rotation below every older one, contradicting the
+    prologue's own 'Newest rotation first' and, once this file paginates,
+    putting the newest entries on the oldest page.
+    """
+    existing = ARCHIVE_PROLOGUE + "\n".join(
+        [
+            "## Rotated 2026-01-01 (Batch 1 close-out)",
+            "",
+            "### F-B1-9: an older finding -- RESOLVED",
+            "",
+            "Body of the older finding.",
+            "",
+        ]
+    )
+
+    rotation = plan_findings(_active(RESOLVED, OPEN), existing)
+
+    assert rotation.rotated_ids == ("F-B22-1",)
+    lines = rotation.archive_text.split("\n")
+    assert lines[:6] == ARCHIVE_PROLOGUE.split("\n")[:6]
+    new_at = next(i for i, line in enumerate(lines) if "F-B22-1" in line)
+    old_at = next(i for i, line in enumerate(lines) if "F-B1-9" in line)
+    assert new_at < old_at, rotation.archive_text
+
+
+def test_first_rotation_keeps_a_blank_line_under_the_prologue():
+    """An empty archive ends at its rule, with no blank line to sit under.
+
+    The rotated block carries its separator after each entry, which is
+    right when it is spliced above an existing entry. Inserted at the end
+    of a prologue it needs one in front too, or the heading is glued to the
+    `---` above it and reaches disk that way.
+    """
+    rotation = plan_findings(_active(RESOLVED, OPEN), ARCHIVE_PROLOGUE)
+
+    lines = rotation.archive_text.split("\n")
+    heading_at = next(i for i, line in enumerate(lines) if line.startswith("### "))
+    assert lines[heading_at - 1] == "", lines[max(0, heading_at - 3) : heading_at + 1]
 
 
 def test_unchecked_open_record_is_retained():
@@ -487,3 +530,138 @@ def test_existing_archive_suffix_is_not_appended_twice():
 
     assert rotation.rotated_ids == ("F-B22-21",)
     assert "-- RESOLVED -- RESOLVED" not in rotation.archive_text
+
+
+# ---------------------------------------------------------------------------
+# DOC023 -- findings that read as finished but carry no lifecycle record
+# ---------------------------------------------------------------------------
+
+ROTTED = "\n".join(
+    [
+        "### F-B21-9: the archive grew without bound",
+        "",
+        "Resolved in WP-3; rotates at close-out.",
+        "",
+    ]
+)
+
+ROTTED_TAGGED = "\n".join(
+    [
+        "### F-DOCSYNC-9: the preflight skipped staged deletions",
+        "",
+        "No action -- the guard covers it already.",
+        "",
+    ]
+)
+
+STILL_OPEN = "\n".join(
+    [
+        "### F-B21-10: the report omits its provider",
+        "",
+        "Nothing records which provider produced the miss.",
+        "",
+    ]
+)
+
+
+def test_rot_is_reported_for_a_finding_with_no_lifecycle_record():
+    issues = collect_rot_issues(_active(ROTTED))
+
+    assert [issue.code for issue in issues] == ["DOC023"]
+    assert issues[0].severity == "error"
+    assert "F-B21-9" in issues[0].remediation
+
+
+def test_rot_ignores_a_finding_that_carries_its_record():
+    """DOC013-DOC018 own a finding once it is written in the canonical shape."""
+    assert collect_rot_issues(_active(RESOLVED, OPEN)) == []
+
+
+def test_rot_ignores_prose_that_claims_no_outcome():
+    assert collect_rot_issues(_active(STILL_OPEN)) == []
+
+
+def test_a_grandfathered_finding_warns_once_with_a_live_count():
+    issues = collect_rot_issues(_active(ROTTED, ROTTED_TAGGED), ["F-B21-9"])
+
+    errors = [issue for issue in issues if issue.severity == "error"]
+    warnings = [issue for issue in issues if issue.severity == "warning"]
+    assert [issue.remediation.split()[0] for issue in errors] == ["F-DOCSYNC-9"]
+    assert len(warnings) == 1
+    assert warnings[0].remediation.startswith("1 grandfathered")
+
+
+def test_a_source_tagged_id_cannot_escape_by_being_tagged():
+    """The hole a batch-number boundary would leave open.
+
+    `F-DOCSYNC-9` carries no batch number, so any boundary drawn over batch
+    numbers has to put it on one side by default. Admission is by absence
+    from an explicit list instead, so a new tag is admitted, not exempt.
+    """
+    issues = collect_rot_issues(_active(ROTTED_TAGGED))
+
+    assert [issue.severity for issue in issues] == ["error"]
+    assert "F-DOCSYNC-9" in issues[0].remediation
+
+
+def test_the_count_is_derived_not_declared():
+    """Shrinking the list is the only way to shrink the reported number."""
+    both = collect_rot_issues(
+        _active(ROTTED, ROTTED_TAGGED), ["F-B21-9", "F-DOCSYNC-9"]
+    )
+    one = collect_rot_issues(_active(ROTTED), ["F-B21-9", "F-DOCSYNC-9"])
+
+    assert both[-1].remediation.startswith("2 grandfathered")
+    assert one[-1].remediation.startswith("1 grandfathered")
+
+
+NOT_YET = "\n".join(
+    [
+        "### F-B21-11: the limiter starves under load",
+        "",
+        "This is **not yet resolved** -- the fix is written but undeployed.",
+        "",
+    ]
+)
+
+
+def test_a_finding_saying_it_is_not_resolved_is_not_a_claim():
+    """Blocking an honest open finding would teach authors to avoid the word.
+
+    DOC023 reads prose for a terminal outcome, so the one wording it must
+    not misread is the negation of that outcome.
+    """
+    assert collect_rot_issues(_active(NOT_YET)) == []
+
+
+def test_negation_does_not_reach_across_a_sentence():
+    """A 'not' elsewhere in the line cannot suppress a real claim."""
+    finding = "\n".join(
+        [
+            "### F-B21-12: the cache stalls",
+            "",
+            "We do not know why it happened. Resolved in WP-3.",
+            "",
+        ]
+    )
+
+    assert [issue.code for issue in collect_rot_issues(_active(finding))] == ["DOC023"]
+
+
+def test_a_deployed_resolution_still_reads_as_a_claim():
+    """The lifecycle record's pending vocabulary must not be reused here.
+
+    `PENDING_QUALIFIER_RE` covers 'deploy', which is correct inside a record
+    and wrong in a body: this line is a claim, and suppressing it would let
+    a resolved finding sit unrecorded.
+    """
+    finding = "\n".join(
+        [
+            "### F-B21-13: the worker leaked connections",
+            "",
+            "Resolved and deployed in WP-3.",
+            "",
+        ]
+    )
+
+    assert [issue.code for issue in collect_rot_issues(_active(finding))] == ["DOC023"]

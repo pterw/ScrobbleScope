@@ -44,6 +44,7 @@ from docsync.closeout import (
     ARCHIVED_DEFINITIONS_DIR,
     collect_transition_issues,
     find_batch_index_row,
+    read_closeout_record,
     render_archived_definition,
     render_batch_index_row,
 )
@@ -623,6 +624,37 @@ def _candidate_live_documents(
     return documents
 
 
+def _resolve_closed_on(batch: int, archived_relative: str, proposed: str) -> str:
+    """Return the date this batch's closure is recorded under.
+
+    A batch is closed once, and the date its record already carries is the
+    audit trail the command exists to write. A second close -- a retried job,
+    or an operator who does not recall the first -- must not restate when the
+    closure happened, least of all from today's clock. The first record wins,
+    and a conflicting ``--as-of`` is reported rather than applied, so
+    correcting a date stays a deliberate edit.
+
+    The record is read from the archived definition by path, never from the
+    lines the close was built from: that source is the *root* definition
+    whenever one is tracked, and a root restored after a close carries no
+    record at all, which would hand the date back to the clock.
+    """
+    archived_existing = _read_lines_optional(REPO_ROOT / archived_relative)
+    if archived_existing is None:
+        return proposed
+    recorded = read_closeout_record(archived_existing)
+    if recorded is None:
+        return proposed
+    if recorded.closed_on != proposed:
+        print(
+            f"doc_state_sync --close-batch {batch}: batch {batch} is already "
+            f"recorded as closed on {recorded.closed_on}; keeping that date "
+            f"and ignoring {proposed}.",
+            file=sys.stderr,
+        )
+    return recorded.closed_on
+
+
 def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     """Perform the whole batch transition, or refuse and write nothing.
 
@@ -670,12 +702,25 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
             file=sys.stderr,
         )
         return 1
-    assert definition_lines is not None
+    if definition_lines is None:
+        # Not an assert: `python -O` strips those, and this one stands
+        # between a missing definition and a publish that would write the
+        # close-out record from nothing.
+        raise SyncError(
+            f"close-out for batch {batch} reported no issues but produced no "
+            f"definition to archive; refusing to publish."
+        )
+
+    closed_on = _resolve_closed_on(batch, archived_relative, closed_on)
 
     archived_lines = render_archived_definition(definition_lines, batch, closed_on)
     playbook_lines = _purge_current_batch_window(list(corpus.playbook_lines))
     row = find_batch_index_row(playbook_lines, batch)
-    assert row is not None
+    if row is None:
+        raise SyncError(
+            f"PLAYBOOK.md has no batch index row for batch {batch} after the "
+            f"close-out checks passed; refusing to publish."
+        )
     playbook_lines[row] = render_batch_index_row(
         playbook_lines[row],
         archived_relative,

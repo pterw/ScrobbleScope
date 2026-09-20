@@ -673,3 +673,44 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
 "PLAYBOOK.md" = "## 4. Execution log"
+
+# ----------------------------------------------------------------------
+# Findings
+# ----------------------------------------------------------------------
+
+# Findings that read as finished but predate the lifecycle record, listed
+# so DOC023 can report them as a counted warning instead of blocking on
+# history nobody can retroactively assert. An id absent from this list is
+# admitted, which is why the list is ids and not a batch boundary: a
+# source tag like F-DOCSYNC-9 carries no batch number, so a boundary
+# would grandfather every tagged finding by accident and let a new one
+# escape by choosing a tag.
+#
+# This list only shrinks. Give a finding its `- [x] **Status:**` record,
+# then delete its id here. Adding an id is a reviewable diff, on purpose.
+[findings]
+grandfathered = [
+    "F-B21-26",
+    "F-B21-28",
+    "F-B21-29",
+    "F-B21-30",
+    "F-B21-27",
+    "F-B22-1",
+    "F-B21-55",
+    "F-B21-52",
+    "F-B21-53",
+    "F-B21-49",
+    "F-B21-36",
+    "F-B21-33",
+    "F-B21-1",
+    "F-B21-2",
+    "F-B21-5",
+    "F-B21-7",
+    "F-B21-9",
+    "F-B21-10",
+    "F-B21-11",
+    "F-B21-16",
+    "F-B21-17",
+    "F-B21-21",
+    "F-AUDIT-1",
+]

@@ -979,6 +979,60 @@ class TestCloseBatchMode:
         assert _run_cli(tmp_path, "--fix").returncode == 0
         assert _run_cli(tmp_path, "--check").returncode == 0
 
+    def test_reclosing_without_as_of_keeps_the_recorded_date(self, tmp_path: Path):
+        """The clock cannot restate when a closed batch was closed.
+
+        The sibling test above repeats the same --as-of on both runs, so it
+        proves idempotence only for the date it supplies. The dangerous path
+        is the other one: an operator who re-runs the close without --as-of
+        on a later day, whose closure date then comes from today's clock and
+        silently overwrites the archived record.
+        """
+        _make_corpus(tmp_path)
+        first = _run_cli(tmp_path, "--close-batch", "22", "--as-of", "2026-09-10")
+        assert first.returncode == 0, first.stderr
+        _git(tmp_path, "add", "-A")
+        before = _snapshot(tmp_path)
+
+        again = _run_cli(tmp_path, "--close-batch", "22")
+
+        assert again.returncode == 0, again.stderr
+        assert "2026-09-10" in again.stderr
+        changed = [
+            key for key in before if before.get(key) != _snapshot(tmp_path).get(key)
+        ]
+        assert not changed, f"re-close rewrote {changed}"
+
+    def test_restoring_the_root_definition_cannot_restate_the_closure(
+        self, tmp_path: Path
+    ):
+        """The record is read from the archive, not from the close's source.
+
+        After a close the root definition is gone, so the source resolves to
+        the archived copy that carries the record. Restore the root -- from
+        history, or from a branch that still has it -- and the source is a
+        document with no record at all, which would hand the date back to
+        the clock on a batch that was closed months ago.
+        """
+        _make_corpus(tmp_path)
+        root = tmp_path / "BATCH22_DEFINITION.md"
+        root_text = root.read_text(encoding="utf-8")
+        archived = tmp_path / "docs/history/definitions/BATCH22_DEFINITION.md"
+
+        first = _run_cli(tmp_path, "--close-batch", "22", "--as-of", "2026-09-10")
+        assert first.returncode == 0, first.stderr
+        _git(tmp_path, "add", "-A")
+        assert "2026-09-10" in archived.read_text(encoding="utf-8")
+
+        root.write_text(root_text, encoding="utf-8")
+        _git(tmp_path, "add", "-A")
+        again = _run_cli(tmp_path, "--close-batch", "22", "--as-of", "2026-12-25")
+
+        assert again.returncode == 0, again.stderr
+        assert "2026-09-10" in archived.read_text(encoding="utf-8")
+        assert "2026-12-25" not in archived.read_text(encoding="utf-8")
+        assert "2026-09-10" in again.stderr
+
     def test_opening_another_batch_does_not_mask_an_incomplete_closure(
         self, tmp_path: Path
     ):

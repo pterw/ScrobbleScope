@@ -55,7 +55,13 @@ PAGE_MARKER = "<!-- DOCSYNC:ARCHIVE-PAGE v1 -->"
 #: bounds the rendered file a reader actually opens.
 PAGE_HEADER_LINES = 3
 
-MANIFEST_VERSION = 1
+#: Version 1 numbered pages in reading order, so page 0001 held the newest
+#: entries. Version 2 numbers them chronologically, so page 0001 holds the
+#: oldest and never changes again. The two cannot be told apart by reading a
+#: page -- both are well-formed Markdown -- so a v1 index read as v2 comes
+#: back with its entries reordered and would be written back that way. The
+#: version is what makes that a refusal instead of a silent rewrite.
+MANIFEST_VERSION = 2
 
 HOT_DIRECTORY = "pages"
 COLD_DIRECTORY = "cold"
@@ -192,7 +198,14 @@ class _Page:
 
 @dataclasses.dataclass(frozen=True)
 class _Layout:
-    """The archive as it exists on disk right now."""
+    """The archive as it exists on disk right now.
+
+    Pages are held in chronological order: page 0001 holds the oldest
+    entries and never changes again, and the highest-numbered page is the
+    writable tail new entries land on. Logical archive text runs the other
+    way, newest first, because that is how these archives are read. The two
+    orders meet here and in `plan`, and nowhere else.
+    """
 
     paginated: bool
     prologue: tuple[str, ...]
@@ -200,7 +213,9 @@ class _Layout:
 
     @property
     def entries(self) -> tuple[tuple[str, ...], ...]:
-        return tuple(entry for page in self.pages for entry in page.entries)
+        """Return the archive's entries as logical text orders them."""
+        chronological = (entry for page in self.pages for entry in page.entries)
+        return tuple(reversed(tuple(chronological)))
 
 
 class ArchiveStore:
@@ -275,7 +290,8 @@ class ArchiveStore:
                 f"Archive page {path} has content before its first entry "
                 f"heading that a plain read would discard: {prologue[0]!r}"
             )
-        return entries
+        # Written newest first for readers, held oldest first internally.
+        return tuple(reversed(entries))
 
     def _load(self, index_path: Path) -> _Layout:
         """Parse and validate the archive's current layout."""
@@ -296,7 +312,9 @@ class ArchiveStore:
             # and it must be reported, never resolved by deleting one side.
             self._reject_orphans(index_path, set())
             prologue, entries = _split(text)
-            page = _Page(0, index_path.name, "hot", False, entries)
+            # Pages hold entries oldest first whatever the layout, so that
+            # `_Layout.entries` has exactly one rule to undo.
+            page = _Page(0, index_path.name, "hot", False, tuple(reversed(entries)))
             return _Layout(paginated=False, prologue=prologue, pages=(page,))
 
         head, _, rest = text.partition(INDEX_START_MARKER)
@@ -317,6 +335,16 @@ class ArchiveStore:
             raise SyncError(
                 f"Unreadable archive manifest in {index_path}: {error}"
             ) from None
+        if version == 1:
+            raise SyncError(
+                f"The archive index {index_path} was paginated by an earlier "
+                f"docsync that numbered pages newest first; this tool numbers "
+                f"them oldest first. Reading it here would reorder its "
+                f"entries. Concatenate its pages back into a single "
+                f"{index_path.name}, newest entry first, delete the page "
+                f"directories beside it, and let `--paginate-archives` "
+                f"rebuild the index."
+            )
         if version != MANIFEST_VERSION:
             raise SyncError(
                 f"The archive manifest in {index_path} declares unsupported "
@@ -425,7 +453,9 @@ class ArchiveStore:
     def _render_page(self, stem: str, page: _Page) -> bytes:
         header = [PAGE_MARKER, f"# {stem} -- page {page.number:04d}", ""]
         body: list[str] = []
-        for position, entry in enumerate(page.entries):
+        # Held oldest first, written newest first: a page reads the same way
+        # the archive it belongs to does. `_read_page` undoes this.
+        for position, entry in enumerate(reversed(page.entries)):
             if position:
                 body.append("")
             body.extend(entry)
@@ -455,6 +485,8 @@ class ArchiveStore:
             "## Archive pages",
             "",
             "Every entry in this archive lives on exactly one page below.",
+            "Pages run oldest first: the last one listed holds the newest",
+            "entries and is the only one that still changes.",
             "",
         ]
         for page in pages:
@@ -519,17 +551,25 @@ class ArchiveStore:
         if not layout.paginated and len(flattened.splitlines()) <= self.max_lines:
             return self._diff(index_path, {index_path: flattened.encode("utf-8")})
 
+        # Entries arrive newest first, because that is how the archive reads,
+        # but pages are numbered oldest first so that a finalized page keeps
+        # its number and its bytes forever. Every producer of this text sorts
+        # newest first and so prepends, which means matching pages in text
+        # order would miss on the very first page of every run and repack the
+        # whole archive each time an entry rotated.
+        chronological = tuple(reversed(entries))
+
         existing = list(layout.pages) if layout.paginated else []
         retained: list[_Page] = []
         cursor = 0
         for page in existing:
             size = len(page.entries)
-            if tuple(entries[cursor : cursor + size]) != page.entries:
+            if tuple(chronological[cursor : cursor + size]) != page.entries:
                 break
             retained.append(page)
             cursor += size
 
-        leftover: list[Sequence[str]] = list(entries[cursor:])
+        leftover: list[Sequence[str]] = list(chronological[cursor:])
         if (
             leftover
             and retained

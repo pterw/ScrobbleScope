@@ -8,10 +8,11 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from docsync import findings as findings_module
-from docsync.closeout import collect_definition_issues
+from docsync.closeout import ARCHIVED_DEFINITIONS_DIR, collect_definition_issues
 from docsync.declarations import (
     collect_declaration_issues,
     load_closeout_config,
+    load_findings_config,
 )
 from docsync.logic import latest_test_count_authority
 from docsync.markdown import prose_lines
@@ -489,6 +490,12 @@ _WRAPPED_COUNT_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: A validation line that carries its own count, both on one line.
+_EXPLICIT_CLAIM_RE = re.compile(
+    r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*(?:\*\*)?(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)\b",
+    re.IGNORECASE,
+)
+
 #: Where the execution log starts. Counts above it are prose, not entries.
 _EXECUTION_LOG_HEADING = "## 4. Execution log"
 
@@ -529,20 +536,18 @@ def _check_unbolded_test_counts(
     for first, last in _entry_spans(playbook_lines, start):
         entry_lines = dict(prose_lines(playbook_lines[first:last]))
         ordered_lines = list(entry_lines.items())
-        explicit = re.compile(
-            r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*(?:\*\*)?(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)\b",
-            re.IGNORECASE,
-        )
         explicit_claims = [
             (offset, line, match)
             for offset, line in ordered_lines
-            for match in explicit.finditer(line)
+            for match in _EXPLICIT_CLAIM_RE.finditer(line)
         ]
         # A validation line's count can wrap to the next prose line (often
         # split by an HTML comment). The trigger line itself carries no
-        # digits, so `explicit` above never sees it as a claim.
+        # digits, so `_EXPLICIT_CLAIM_RE` never sees it as a claim.
         for position, (_offset, line) in enumerate(ordered_lines):
-            if explicit.search(line) or not _VALIDATION_TRIGGER_RE.search(line):
+            if _EXPLICIT_CLAIM_RE.search(line) or not _VALIDATION_TRIGGER_RE.search(
+                line
+            ):
                 continue
             if position + 1 >= len(ordered_lines):
                 continue
@@ -1091,6 +1096,19 @@ def collect_integrity_issues(
     # never guessed) is what separates evidence-checked closure from rewritten
     # history. The archived definition's content arrives through
     # `live_documents`, the same as every other document this pass reads; the
+    # DOC023 reads the active findings file itself rather than a rendering of
+    # it, because what it checks is what an author wrote: a finding whose
+    # prose says it is done while carrying no record for DOC013-DOC018 to
+    # read. Absent from `live_documents` the check simply has nothing to say.
+    active_findings = live_documents.get(findings_module.ACTIVE_PATH)
+    if active_findings is not None:
+        issues.extend(
+            findings_module.collect_rot_issues(
+                "\n".join(active_findings),
+                load_findings_config(repo_root).grandfathered,
+            )
+        )
+
     # close-out composition that publishes a real closure must keep it there.
     closeout_config = load_closeout_config(repo_root)
     try:
@@ -1102,7 +1120,7 @@ def collect_integrity_issues(
     else:
         section3_lines = playbook_lines[section3_start:section3_end]
     for batch in closed_batch_claims(section3_lines):
-        archived_path = f"docs/history/definitions/BATCH{batch}_DEFINITION.md"
+        archived_path = f"{ARCHIVED_DEFINITIONS_DIR}BATCH{batch}_DEFINITION.md"
         issues.extend(
             collect_definition_issues(
                 batch=batch,

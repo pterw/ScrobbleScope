@@ -9,7 +9,7 @@ Last updated: 2026-09-14
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1470 passing** across 58 test modules |
+| Tests | **1497 passing** across 58 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -40,7 +40,7 @@ Last updated: 2026-09-14
 - Current-batch entries in active log block: 11.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-3.
 - Next expected work package: WP-4.
-- Latest validated test count: **1470 passed**.
+- Latest validated test count: **1497 passed**.
 - Newest current-batch entry: 2026-09-15 - The correction worker (Batch 22 WP-3).
 <!-- DOCSYNC:STATUS-END -->
 
@@ -100,8 +100,6 @@ scripts/
     _worktree_guard_venv.py # primary environment topology and tool paths
     worktree_guard.py       # stable public re-export facade
     check_worktree_alignment.py # thin read-only bootstrap CLI
-    mutation_test.py        # on-demand cosmic-ray runner for allowlisted hermetic modules
-    mutation_scope.toml     # the allowlist: modules cleared for mutation testing, with their tests
   docsync/
     __init__.py             # package inventory and entry-point map
     models.py               # typed sync results, entries, issues, and SyncError
@@ -223,7 +221,7 @@ loading.js polls GET /progress?job_id=...
 
 ---
 
-## 6. Test structure (1470 tests)
+## 6. Test structure (1497 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
