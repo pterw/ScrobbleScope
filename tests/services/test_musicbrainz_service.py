@@ -2,8 +2,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from scrobblescope.config import APP_USER_AGENT
 from scrobblescope.musicbrainz import (
     _build_release_group_query,
+    _musicbrainz_headers,
     lookup_original_release,
 )
 from tests.helpers import NoopAsyncContext, make_response_context
@@ -280,6 +282,38 @@ async def test_lookup_disabled_without_contact_makes_no_request():
 
     assert result == (None, None)
     session.get.assert_not_called()
+
+
+def test_musicbrainz_headers_refuses_a_missing_contact():
+    """
+    GIVEN MUSICBRAINZ_CONTACT is unset
+    WHEN _musicbrainz_headers builds the request headers directly, without
+        going through the disable gate in lookup_original_release
+    THEN it raises rather than interpolating the literal string "None" into
+        the User-Agent. MusicBrainz blocks anonymous clients, and a header
+        naming "None" identifies nobody -- it is a rejected request dressed
+        as an identified one.
+    """
+    with patch("scrobblescope.musicbrainz.MUSICBRAINZ_CONTACT", None):
+        with pytest.raises(RuntimeError, match="MUSICBRAINZ_CONTACT"):
+            _musicbrainz_headers()
+
+
+def test_musicbrainz_headers_is_derived_from_the_shared_identity():
+    """
+    GIVEN a configured MUSICBRAINZ_CONTACT
+    WHEN _musicbrainz_headers builds the request headers
+    THEN the User-Agent starts from the application's single identity and
+        appends the contact, so musicbrainz.py cannot name the application
+        differently from every other provider client.
+    """
+    with patch(
+        "scrobblescope.musicbrainz.MUSICBRAINZ_CONTACT", "scrobblescope@example.com"
+    ):
+        user_agent = _musicbrainz_headers()["User-Agent"]
+
+    assert user_agent.startswith(APP_USER_AGENT)
+    assert "scrobblescope@example.com" in user_agent
 
 
 @pytest.mark.asyncio

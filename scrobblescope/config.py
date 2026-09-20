@@ -5,6 +5,16 @@ LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
+# The identity every outbound provider request carries in its User-Agent.
+# Last.fm asks for an identifiable User-Agent on all requests and warns that
+# an anonymous client risks suspension; Deezer's integration guidelines ask
+# for attribution as well. One owner for the fact, because musicbrainz.py
+# appends the contact address MusicBrainz additionally requires -- two copies
+# of the identity would let the application disagree with itself about its
+# own name.
+APP_VERSION = "1.0"
+APP_USER_AGENT = f"ScrobbleScope/{APP_VERSION}"
+
 # API Concurrency Configuration
 # These values can be overridden via environment variables for tuning without code changes.
 MAX_CONCURRENT_LASTFM = int(os.getenv("MAX_CONCURRENT_LASTFM", "10"))

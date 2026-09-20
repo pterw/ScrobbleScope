@@ -15,6 +15,7 @@ https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting.
 """
 
 from scrobblescope.config import (
+    APP_USER_AGENT,
     MUSICBRAINZ_CONTACT,
     MUSICBRAINZ_ENABLED,
     MUSICBRAINZ_SEARCH_RETRIES,
@@ -22,7 +23,6 @@ from scrobblescope.config import (
 from scrobblescope.domain import normalize_name
 from scrobblescope.utils import get_musicbrainz_limiter, retry_with_semaphore
 
-_APP_VERSION = "1.0"
 _MIN_MATCH_SCORE = 90
 _SEARCH_URL = "https://musicbrainz.org/ws/2/release-group/"
 _RATE_LIMIT_STATUS = 503
@@ -70,7 +70,23 @@ def _is_matching_candidate(candidate, key):
 
 
 def _musicbrainz_headers():
-    return {"User-Agent": f"ScrobbleScope/{_APP_VERSION} ( {MUSICBRAINZ_CONTACT} )"}
+    """Build the User-Agent MusicBrainz requires, contact address included.
+
+    MusicBrainz blocks anonymous clients, so the contact is not optional --
+    but this helper must not be the thing that decides that silently. An
+    unset contact interpolates as the literal string ``None``, which is not
+    an address anyone can be reached at, and would travel under a header
+    whose whole purpose is to identify a client that can be. The docstring
+    of ``lookup_original_release`` says an unconfigured contact "would only
+    guarantee a rejected request"; that guarantee is kept here, at the point
+    the header is built, so it holds for any later caller too.
+    """
+    if not MUSICBRAINZ_CONTACT:
+        raise RuntimeError(
+            "MUSICBRAINZ_CONTACT is not configured; MusicBrainz blocks "
+            "anonymous clients, so there is no valid User-Agent to send."
+        )
+    return {"User-Agent": f"{APP_USER_AGENT} ( {MUSICBRAINZ_CONTACT} )"}
 
 
 async def lookup_original_release(

@@ -10,6 +10,7 @@ import aiohttp
 from aiolimiter import AsyncLimiter
 
 from scrobblescope.config import (
+    APP_USER_AGENT,
     DEEZER_REQUESTS_PER_SECOND,
     LASTFM_REQUESTS_PER_SECOND,
     MUSICBRAINZ_REQUESTS_PER_SECOND,
@@ -223,6 +224,12 @@ def create_optimized_session():
     - Per-host connections: 25 (for Spotify/Last.fm)
     - DNS cache: 5 minutes
     - Timeouts: 30s total, 10s connect, 20s read
+
+    Every request carries ``APP_USER_AGENT`` unless it sets its own
+    ``User-Agent``. Last.fm asks for an identifiable User-Agent on all
+    requests and warns that an anonymous client risks suspension, and the
+    other providers' guidelines want attribution too. MusicBrainz is the one
+    caller that overrides it, with the contact-bearing form its API requires.
     """
     connector = aiohttp.TCPConnector(
         limit=40,  # Max total connections across all hosts
@@ -245,6 +252,7 @@ def create_optimized_session():
         connector=connector,
         timeout=timeout,
         raise_for_status=False,  # Manual status handling
+        headers={"User-Agent": APP_USER_AGENT},
     )
 
 
