@@ -400,6 +400,19 @@ def install(
     script_text = render_hook_script(
         python_exe=python_exe, preflight_script=preflight_script
     )
+    if disclosure.hook_path.is_symlink():
+        # `write_bytes` opens the target, not the link, so installing over a
+        # symlink silently rewrites whatever it points at and leaves the
+        # link in place. This module refuses a hook it does not recognise
+        # rather than guessing; a link is the same situation.
+        print_fn(
+            f"ERROR {disclosure.hook_path} is a symlink. Installing would "
+            f"overwrite the file it points at rather than the hook. Remove "
+            f"the link, or install into a hook directory of your own, and "
+            f"re-run this installer."
+        )
+        return 2
+
     disclosure.hook_directory.mkdir(parents=True, exist_ok=True)
     # write_bytes, not write_text: write_text's default newline handling
     # translates every "\n" to the platform line separator, which on
