@@ -44,6 +44,7 @@ from docsync.closeout import (
     ARCHIVED_DEFINITIONS_DIR,
     collect_transition_issues,
     find_batch_index_row,
+    read_closeout_record,
     render_archived_definition,
     render_batch_index_row,
 )
@@ -671,6 +672,22 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
         )
         return 1
     assert definition_lines is not None
+
+    # A batch is closed once, and the date the record already carries is the
+    # audit trail this command exists to write. A second close -- a retried
+    # job, or an operator who does not recall the first -- must not restate
+    # when the closure happened, least of all from today's clock. The first
+    # record wins, and a conflicting --as-of is reported rather than applied.
+    recorded = read_closeout_record(definition_lines)
+    if recorded is not None and recorded.closed_on != closed_on:
+        print(
+            f"doc_state_sync --close-batch {batch}: batch {batch} is already "
+            f"recorded as closed on {recorded.closed_on}; keeping that date "
+            f"and ignoring {closed_on}.",
+            file=sys.stderr,
+        )
+    if recorded is not None:
+        closed_on = recorded.closed_on
 
     archived_lines = render_archived_definition(definition_lines, batch, closed_on)
     playbook_lines = _purge_current_batch_window(list(corpus.playbook_lines))

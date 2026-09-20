@@ -979,6 +979,30 @@ class TestCloseBatchMode:
         assert _run_cli(tmp_path, "--fix").returncode == 0
         assert _run_cli(tmp_path, "--check").returncode == 0
 
+    def test_reclosing_without_as_of_keeps_the_recorded_date(self, tmp_path: Path):
+        """The clock cannot restate when a closed batch was closed.
+
+        The sibling test above repeats the same --as-of on both runs, so it
+        proves idempotence only for the date it supplies. The dangerous path
+        is the other one: an operator who re-runs the close without --as-of
+        on a later day, whose closure date then comes from today's clock and
+        silently overwrites the archived record.
+        """
+        _make_corpus(tmp_path)
+        first = _run_cli(tmp_path, "--close-batch", "22", "--as-of", "2026-09-10")
+        assert first.returncode == 0, first.stderr
+        _git(tmp_path, "add", "-A")
+        before = _snapshot(tmp_path)
+
+        again = _run_cli(tmp_path, "--close-batch", "22")
+
+        assert again.returncode == 0, again.stderr
+        assert "2026-09-10" in again.stderr
+        changed = [
+            key for key in before if before.get(key) != _snapshot(tmp_path).get(key)
+        ]
+        assert not changed, f"re-close rewrote {changed}"
+
     def test_opening_another_batch_does_not_mask_an_incomplete_closure(
         self, tmp_path: Path
     ):
