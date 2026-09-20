@@ -100,8 +100,6 @@ scripts/
     _worktree_guard_venv.py # primary environment topology and tool paths
     worktree_guard.py       # stable public re-export facade
     check_worktree_alignment.py # thin read-only bootstrap CLI
-    mutation_test.py        # on-demand cosmic-ray runner for allowlisted hermetic modules
-    mutation_scope.toml     # the allowlist: modules cleared for mutation testing, with their tests
   docsync/
     __init__.py             # package inventory and entry-point map
     models.py               # typed sync results, entries, issues, and SyncError

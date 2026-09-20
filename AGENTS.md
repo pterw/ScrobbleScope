@@ -242,33 +242,6 @@ confirm mocks were called):
 - `caplog` for warning/error log lines on failure paths.
 - Boundary inputs (zero, None, empty, missing keys) to hit fallback branches.
 
-### Mutation testing (on demand, never a gate)
-
-Line coverage says a branch ran. It cannot say an assertion would notice if the
-branch were wrong. `python scripts/dev/mutation_test.py --module <path>` mutates
-one module and reports which mutants no test caught. That is the evidence
-behind "Refactor requires parity tests" below, which otherwise rests on the
-claim that the tests cover what a refactor touches.
-
-- **Scope is an allowlist.** `scripts/dev/mutation_scope.toml` names the modules
-  that may be mutated, and the runner refuses every other path. A module
-  qualifies only when every test covering it is hermetic: no network, no API
-  keys, no live Postgres, and no read of this repository's own documents. A
-  non-hermetic test fails for reasons unrelated to the mutant, which is
-  indistinguishable from a kill and quietly inflates the score.
-- **Run it before a refactor**, on the module about to be renamed, moved, split
-  or merged, and when a weak-assertion claim needs evidence rather than
-  assertion.
-- **Never a gate.** No hook and no workflow invokes it; a full-package run is
-  hours. Its exit code is for the reader (0 every mutant caught, 1 at least one
-  survivor, 2 a usage, scope or tool error), never for CI.
-- **A survivor is not automatically a defect.** It is either a missing
-  assertion or an equivalent mutant, and telling them apart is the work. Do not
-  weaken a test to shorten the list.
-- **An unknown outcome is reported as unknown.** It is counted neither as a
-  kill nor as a survivor, so a report with a large unknown count says the suite
-  is not ready for this, not that it is clean.
-
 ---
 
 ## Doc Sync Rules
