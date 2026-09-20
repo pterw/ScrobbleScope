@@ -63,14 +63,16 @@ batch definitions or history docs only if the comment depends on them.
 
 1. `AGENTS.md` (this file) -- rules, commit format, doc sync policy,
    anti-patterns.
-2. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
-3. The batch definition file named in Section 3 (repo root while active;
+2. `docs/agents/global-rules.md` -- the binding architectural invariants
+   every code change must hold, and which rule wins when two conflict.
+3. `PLAYBOOK.md` Section 3 (next action) + Section 4 (current-batch log).
+4. The batch definition file named in Section 3 (repo root while active;
    under `docs/history/definitions/` once the batch is closed; between
    batches no file exists -- skip this step).
-4. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
-5. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
-6. Relevant `docs/history/` doc only if the log references one.
-7. `FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
+5. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
+6. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
+7. Relevant `docs/history/` doc only if the log references one.
+8. `FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
    about to raise a defect, or you are reviewing a diff. Raise a known
    defect again only with new evidence. Mirrored to GitHub issues (cheaper
    to search; this file wins if they disagree). Not part of the bootstrap set.
