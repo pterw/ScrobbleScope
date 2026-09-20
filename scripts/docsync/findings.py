@@ -351,15 +351,35 @@ def _duplicate_issues(
 #: by one half of this module and unrecognised by the other.
 _PROSE_OUTCOME_RE = re.compile(
     r"\b("
-    + "|".join(key.replace(" ", r"[-\s]") for key in _TERMINAL_SUFFIXES)
+    + "|".join(re.escape(key).replace(r"\ ", r"[-\s]") for key in _TERMINAL_SUFFIXES)
     + r")\b",
     re.IGNORECASE,
 )
 
+#: A negation directly qualifying the outcome word after it: "not resolved",
+#: "not yet resolved", and the same wrapped in Markdown emphasis.
+#:
+#: Deliberately not ``PENDING_QUALIFIER_RE``, whose own comment says why: that
+#: vocabulary is scanned inside a lifecycle record and never a body, because a
+#: body legitimately discusses deployment, and "Resolved and deployed in WP-3"
+#: would stop reading as a claim. Bounded to a few non-word characters so that
+#: a "not" earlier in the sentence -- "we do not know why. Resolved in WP-3"
+#: -- cannot suppress a real claim either.
+_NEGATED_OUTCOME_RE = re.compile(r"\bnot\b(?:[\W_]{1,4}yet)?[\W_]{0,4}$", re.IGNORECASE)
+
 
 def _claims_a_terminal_outcome(finding: _Finding) -> bool:
-    """Whether the finding's prose says it is finished."""
-    return any(_PROSE_OUTCOME_RE.search(line) for line in finding.body_lines)
+    """Whether the finding's prose says it is finished.
+
+    A finding saying it is *not* finished is not making the claim. Blocking
+    on one would fail an honest open finding, and would teach authors to
+    avoid the word -- losing the very signal this check reads.
+    """
+    for line in finding.body_lines:
+        for match in _PROSE_OUTCOME_RE.finditer(line):
+            if not _NEGATED_OUTCOME_RE.search(line[: match.start()]):
+                return True
+    return False
 
 
 def collect_rot_issues(

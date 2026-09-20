@@ -613,3 +613,55 @@ def test_the_count_is_derived_not_declared():
 
     assert both[-1].remediation.startswith("2 grandfathered")
     assert one[-1].remediation.startswith("1 grandfathered")
+
+
+NOT_YET = "\n".join(
+    [
+        "### F-B21-11: the limiter starves under load",
+        "",
+        "This is **not yet resolved** -- the fix is written but undeployed.",
+        "",
+    ]
+)
+
+
+def test_a_finding_saying_it_is_not_resolved_is_not_a_claim():
+    """Blocking an honest open finding would teach authors to avoid the word.
+
+    DOC023 reads prose for a terminal outcome, so the one wording it must
+    not misread is the negation of that outcome.
+    """
+    assert collect_rot_issues(_active(NOT_YET)) == []
+
+
+def test_negation_does_not_reach_across_a_sentence():
+    """A 'not' elsewhere in the line cannot suppress a real claim."""
+    finding = "\n".join(
+        [
+            "### F-B21-12: the cache stalls",
+            "",
+            "We do not know why it happened. Resolved in WP-3.",
+            "",
+        ]
+    )
+
+    assert [issue.code for issue in collect_rot_issues(_active(finding))] == ["DOC023"]
+
+
+def test_a_deployed_resolution_still_reads_as_a_claim():
+    """The lifecycle record's pending vocabulary must not be reused here.
+
+    `PENDING_QUALIFIER_RE` covers 'deploy', which is correct inside a record
+    and wrong in a body: this line is a claim, and suppressing it would let
+    a resolved finding sit unrecorded.
+    """
+    finding = "\n".join(
+        [
+            "### F-B21-13: the worker leaked connections",
+            "",
+            "Resolved and deployed in WP-3.",
+            "",
+        ]
+    )
+
+    assert [issue.code for issue in collect_rot_issues(_active(finding))] == ["DOC023"]
