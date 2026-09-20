@@ -219,6 +219,13 @@ def _build_results(
             "spotify_id": cached.get("spotify_id", ""),
             "provider": _album_provider(cached),
             "album_url": _album_url(cached),
+            # Carries the cache_hits key -- already the normalized
+            # (artist_norm, album_norm) tuple, no extra normalize_name call
+            # needed -- forward so update_job_result (repositories.py) can
+            # match by key comparison instead of re-deriving one per lookup
+            # under jobs_lock. Not surfaced anywhere: results.html and the
+            # JSON endpoints read named fields only, never dump the dict.
+            "_normalized_key": key,
         }
         if corrected:
             result["provider_release_date"] = provider_release_date

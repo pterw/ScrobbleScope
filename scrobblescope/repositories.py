@@ -4,7 +4,6 @@ import time
 from uuid import uuid4
 
 from scrobblescope.config import JOB_TTL_SECONDS
-from scrobblescope.domain import normalize_name
 from scrobblescope.errors import ERROR_CODES
 
 # Per-job state tracking
@@ -153,9 +152,20 @@ def update_job_result(job_id, album_key, fields):
     """Merge *fields* into the one result matching the normalized *album_key*.
 
     *album_key* is a ``(artist_norm, album_norm)`` tuple, the same shape the
-    metadata and original-release caches are keyed by. Result dicts carry no
-    pre-normalized key of their own, so each one's key is derived here with
-    ``normalize_name``.
+    metadata and original-release caches are keyed by. Result dicts carry
+    that same tuple as ``_normalized_key``, attached once when the results
+    list is built (``_build_results`` in
+    ``scrobblescope/orchestrator/_results.py``, which already has the key on
+    hand from partitioning cache hits and just forwards it) rather than
+    re-derived here with ``normalize_name`` on every entry. That turns the
+    lookup into a cheap tuple comparison per entry instead of an O(n)
+    ``normalize_name`` scan taken while holding the process-global
+    ``jobs_lock`` -- with up to 500 results and one call per corrected
+    album, repeated normalization under that lock could stall unrelated
+    Flask request handlers. A result dict with no ``_normalized_key`` (none
+    of this module's own producers omit it, but a caller could) simply never
+    matches, which is indistinguishable from the existing "no album with
+    that key" case.
 
     Returns False -- changing nothing -- when the job is gone, has no results
     list yet, or holds no album with that key. The correction worker outlives
@@ -168,9 +178,9 @@ def update_job_result(job_id, album_key, fields):
         results = job.get("results")
         if not isinstance(results, list):
             return False
+        target_key = tuple(album_key)
         for result in results:
-            key = normalize_name(result.get("artist", ""), result.get("album", ""))
-            if key == tuple(album_key):
+            if result.get("_normalized_key") == target_key:
                 result.update(fields)
                 job["updated_at"] = time.time()
                 return True
