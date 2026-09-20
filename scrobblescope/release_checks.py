@@ -25,6 +25,12 @@ provider's own, so an album already dated at or before the window's end
 cannot be corrected into it. Move-outs mark the result in place; move-ins are
 counted on the job's stats, not inserted -- the results list a user is
 already reading is never reordered underneath them.
+
+Each ruling is written onto the result as ``release_check`` plus the
+``original_release_date`` it rests on, because the outcome alone cannot be
+rendered: the row on screen still carries the provider's reissue date, and
+a moved-out row has to name the year the album was first released.
+``GET /api/release_checks`` serves both fields to the open page.
 """
 
 import asyncio
@@ -34,9 +40,11 @@ import sys
 import threading
 
 from scrobblescope.cache import (
+    SCHEMA_OUT_OF_DATE_REMEDIATION,
     _batch_lookup_original_release,
     _batch_persist_original_release,
     _get_db_connection,
+    schema_is_out_of_date,
 )
 from scrobblescope.config import (
     MUSICBRAINZ_CHECKS_PER_JOB,
@@ -59,6 +67,10 @@ CHECK_CONFIRMED = "confirmed"
 CHECK_MOVED_OUT = "moved_out"
 CHECK_UNAVAILABLE = "unavailable"
 
+# The job's own ``progress.stats.release_check`` status. PENDING is never
+# written: it is what the API reports while the key is absent, between a job
+# publishing its results and the worker first reporting on them.
+STATUS_PENDING = "pending"
 STATUS_RUNNING = "running"
 STATUS_DONE = "done"
 STATUS_SKIPPED = "skipped"
@@ -203,15 +215,15 @@ def _resolve_cached(job_id, candidates, cached):
             pending.append(candidate)
             continue
         if candidate["kind"] == "result":
+            original_release = hit.get("original_release")
             update_job_result(
                 job_id,
                 candidate["key"],
                 {
                     "release_check": (
-                        CHECK_CONFIRMED
-                        if hit.get("original_release")
-                        else CHECK_UNAVAILABLE
-                    )
+                        CHECK_CONFIRMED if original_release else CHECK_UNAVAILABLE
+                    ),
+                    "original_release_date": original_release,
                 },
             )
     return pending
@@ -243,7 +255,16 @@ async def _lookup_cached(conn, candidates):
             conn, [candidate["key"] for candidate in candidates]
         )
     except Exception as exc:
-        logging.warning(f"Original-release cache lookup failed: {exc}")
+        if schema_is_out_of_date(exc):
+            # Not a hiccup: until the table exists, every finding this worker
+            # pays a MusicBrainz second for is discarded and looked up again
+            # on the next job.
+            logging.warning(
+                f"Original-release cache lookup failed: {exc}. "
+                f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+            )
+        else:
+            logging.warning(f"Original-release cache lookup failed: {exc}")
         return {}
 
 
@@ -281,7 +302,13 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
             conn, [(artist_norm, album_norm, mb_release_group, original_release)]
         )
     except Exception as exc:
-        logging.warning(f"Original-release persist failed (non-fatal): {exc}")
+        if schema_is_out_of_date(exc):
+            logging.warning(
+                f"Original-release persist failed (non-fatal): {exc}. "
+                f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+            )
+        else:
+            logging.warning(f"Original-release persist failed (non-fatal): {exc}")
 
     state["checked"] += 1
     in_window = bool(original_release) and _matches_window(original_release, params)
@@ -294,7 +321,16 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         else:
             outcome = CHECK_MOVED_OUT
             state["moved_out"] += 1
-        update_job_result(job_id, candidate["key"], {"release_check": outcome})
+        # The date travels with the outcome because the outcome alone cannot
+        # be rendered: a moved-out row has to say which year it was first
+        # released in, and the row on screen still shows the provider's
+        # reissue date. None on an unavailable result clears any earlier
+        # value rather than leaving one the new outcome contradicts.
+        update_job_result(
+            job_id,
+            candidate["key"],
+            {"release_check": outcome, "original_release_date": original_release},
+        )
     elif in_window:
         state["moved_in"] += 1
 

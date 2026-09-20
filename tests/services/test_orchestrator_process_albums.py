@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -5,6 +6,7 @@ import pytest
 from scrobblescope.enrichment import AlbumMetadata
 from scrobblescope.errors import SpotifyUnavailableError
 from scrobblescope.orchestrator import process_albums
+from scrobblescope.orchestrator._cache import _lookup_cached_metadata
 from scrobblescope.repositories import (
     create_job,
     get_job_context,
@@ -1015,3 +1017,48 @@ async def test_process_albums_deezer_row_persists_provider_fields():
     assert row[6] == "deezer"
     assert row[7] == "dz1"
     assert row[8] == "https://www.deezer.com/album/dz1"
+
+
+class _StaleSchemaError(Exception):
+    """An asyncpg undefined-column error, reduced to what the check reads."""
+
+    sqlstate = "42703"
+
+    def __init__(self):
+        super().__init__('column "provider" does not exist')
+
+
+@pytest.mark.asyncio
+async def test_lookup_reports_a_stale_schema_as_its_own_fault(caplog):
+    """A missing column is a migration, not a hiccup, and says so.
+
+    The read already degrades to a cache-less run, which is right: a job must
+    not fail because the cache is unavailable. What was wrong is that it
+    reported a permanent, fixable fault in the same words as a transient one,
+    so a database stuck on an old schema looked like a passing glitch while
+    every lookup missed.
+    """
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(side_effect=_StaleSchemaError())
+
+    with caplog.at_level(logging.WARNING):
+        cached = await _lookup_cached_metadata(conn, "job-1", [("a", "b")])
+
+    assert cached == {}
+    logged = " ".join(record.message for record in caplog.records)
+    assert "init_db.py" in logged
+    assert "schema" in logged.lower()
+
+
+@pytest.mark.asyncio
+async def test_lookup_still_reports_a_transient_failure_plainly(caplog):
+    """A dropped connection must not tell the reader to run a migration."""
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(side_effect=OSError("connection reset"))
+
+    with caplog.at_level(logging.WARNING):
+        cached = await _lookup_cached_metadata(conn, "job-1", [("a", "b")])
+
+    assert cached == {}
+    logged = " ".join(record.message for record in caplog.records)
+    assert "init_db.py" not in logged

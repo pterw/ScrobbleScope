@@ -19,8 +19,18 @@ lives in PLAYBOOK Section 4; this section tracks status only.
 - **WP-2: complete.** Tasks 4-6 (Deezer fallback and attribution) are done.
 - **WP-3: complete.** Tasks 7-9 are done; Task 9 landed the correction worker
   (`scrobblescope/release_checks.py`) on 2026-09-15.
-- **WP-4: next.** Tasks 10-11 remain.
-- **WP-5: not started.** Phase 4 documentation and close-out remain.
+- **WP-4: complete.** Task 10 landed `GET /api/release_checks` and Task 11
+  the live disclosure, both on 2026-09-20. Deviations, recorded in their
+  PLAYBOOK entries: the endpoint validates in JSON rather than through
+  `_get_validated_job_context`, which renders HTML; the correction worker was
+  extended to write the `original_release_date` the payload needs; and the
+  status line is rendered with the page rather than injected on the first
+  reply, because it sits above the table.
+- **WP-5: next.** Phase 4 documentation and close-out remain. Two items
+  found during WP-4 belong in it: SESSION_CONTEXT Section 5's architecture
+  overview names neither the correction worker nor its endpoint, and
+  `docs/design/RECONCILIATION.md` still needs this plan's note that a
+  displayed release year may now come from MusicBrainz.
 - **Side-task:** the DB connect timeout fix is done (2026-09-14).
 - **Audit validation:** **1088 passed** after the three missing seam and
   failure-path tests were added.

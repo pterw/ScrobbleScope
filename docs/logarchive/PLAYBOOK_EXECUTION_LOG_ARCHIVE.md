@@ -9,6 +9,266 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-20 - Batch 22 work-package tags, and the docsync side task closed
+
+Side task, no batch tag: bookkeeping repair found while orienting for WP-4,
+plus the close-out of the docsync work the entry below tracks. No code
+changed and no batch scope moved. The unrelated in-flight Batch 22 edits in
+this worktree (the mutation runner, `graphify_refresh.py`, `AGENT_NOTES.md`,
+`requirements-dev.txt`) were neither staged nor reverted.
+
+**PR #234 merged** as `88f6e27` into `test`, so the docsync close-out side
+task is finished and `feat/batch22-enrichment` is now fully contained in
+`origin/test`. The gitignored `CLAUDE.md` section that tracked it asked to be
+deleted on that merge, and was.
+
+**The defect: six current-batch entries carried the wrong work-package tag.**
+Every entry from Task 5 onward was headed `(Batch 22 WP-1)`, including the
+Task 6 work that belongs to WP-2 and the Tasks 7-8 work that belongs to WP-3.
+That tag is not decoration: `ENTRY_BATCH_RE` in `scripts/docsync/parser.py`
+parses it, and the managed STATUS block in `.claude/SESSION_CONTEXT.md` is
+derived from what it finds. The dashboard therefore read "WP-0, WP-1, WP-3"
+and never named WP-2 at all -- a cold-resume reader would have seen the
+Deezer fallback as work nobody had done. Retagged against the definition's
+own task-to-WP map: Tasks 5-6 and both README passes to WP-2, Tasks 7-8 to
+WP-3. Tasks 1-3 were already correct.
+
+**Why this overrides the note that left the tags alone.** The Task 8 entry
+above recorded a decision to keep its WP-1 heading as "its historical commit
+record". That reasoning treats the tag as prose. It is an index key, and the
+scope to fix it across six entries is exactly what that session said it
+lacked. The superseding note now sits in that entry. The declines recorded in
+F-DOCSYNC-3 are a different case and still stand: they cover content the tool
+has already rotated into an archive, not live entries that have not rotated
+yet.
+
+**Also repaired:** `BATCH22_DEFINITION.md` still showed Task 9 unchecked while
+its own header and Section 3 both said Tasks 7-9 were complete; the WP-3
+heading now carries the struck-through DONE form its three siblings use.
+F-B21-60 and F-B22-4 cited "Batch 22 WP-1 Task 6" in three places and now cite
+WP-2.
+
+**Known remaining instance, recorded rather than fixed:** F-DOCSYNC-12's
+`Source:` line reads "Batch 22 WP-1, DB-connect-timeout side task". A side
+task has no work package, so the right correction is not a different number,
+and inventing one would trade a visible error for an invisible one.
+
+**Two findings filed.** F-SWE-8 records the mutation-test runner's
+disposition -- built, never adopted, four defects on first use, uncommitted,
+its own future work package. It lived only in the gitignored `CLAUDE.md`, so
+deleting that section would have erased it from the corpus entirely.
+F-DOCSYNC-3 gains a second instance: Batch 22's Task 4 entry was headed
+`(Batch 22 WP-1, Phase 2 begins)`, and the trailing clause inside the
+parentheses made the heading unparseable as batch-tagged, so rotation sent it
+to the monolith archive instead of a per-batch log. The defect is wider than
+the `(Batch N close-out)` suffix the finding first described, and the tool
+says nothing when it happens.
+
+Validation: `pytest -q` -- **1497 passed**, unchanged (documentation only).
+`doc_state_sync.py --check` exit 0, with the expected DOC023 grandfather
+warning and the root `BATCH22_DEFINITION.md` warning. The frontend gate was
+not rerun: nothing under `templates/` or `static/` changed, so the last
+recorded result stands.
+
+Forward guidance: Batch 22 WP-4 is next -- Task 10, the job-scoped
+`GET /api/release_checks` endpoint, then Task 11's live disclosure. Two gaps
+between the plan text and the code as built land on Task 10. The plan says
+the endpoint reuses `_get_validated_job_context`, which renders `error.html`
+and returns HTML; its JSON neighbours return JSON error bodies, so a
+JSON-shaped validation path is needed. The plan's payload also carries
+`original_release_date` per album, but Task 9's worker writes only
+`{"release_check": ...}` through `update_job_result`, so the corrected date
+never reaches the result and the worker has to write it.
+
+### 2026-09-20 - Docsync review round, DOC023, and PR #234
+
+Side task, no batch tag: close-out of
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`. Not Batch 22
+scope. The unrelated in-flight Batch 22 edits in this worktree were neither
+staged nor reverted. Ledger:
+`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
+
+The whole-branch review had to be split: `/ultrareview` caps at 500 files and
+8,000 lines against the working tree, and this work package was 52 files and
+12,403 lines. The engine commit was reviewed alone from a temporary branch.
+Every reported finding across ultrareview, Codacy, Graphify and qlty was
+reproduced or refuted before being acted on -- roughly twenty reports produced
+eight real defects. Refutations included a "high" that was an artifact of
+where the review scope was cut and healed by the next commit, and three qlty
+correctness items that were analyzer flow-model false positives.
+
+Defects fixed, each with a regression test proven to fail without its fix:
+archive pages were packed in reading order while every producer prepends, so
+one rotated entry repacked the whole archive and returned cold pages to hot;
+`--close-batch` restated the closure date from the clock; findings rotated to
+the bottom of an archive whose prologue says newest first; the hook installer
+resolved a relative `core.hooksPath` against cwd and wrote through a
+pre-existing symlink onto its target; close-out `assert`s guarded a publish
+and vanish under `python -O`; the preflight re-encoded a text-mode tar payload
+and extracted unfiltered below Python 3.12.
+
+DOC023 closes the finding-rot hole: all 83 findings lacked the canonical
+`- [ ] **Status:**` record, so DOC013-DOC018 had never fired once. It blocks a
+finding whose prose claims a terminal outcome without that record. The
+boundary is an explicit id allowlist in `[findings] grandfathered`, not the
+batch number the plan specified -- 32 of 83 ids are source-tagged and carry no
+batch to compare, so a boundary would grandfather them by accident and let a
+new finding escape by choosing a tag. 23 ids are grandfathered and reported as
+one warning carrying a count derived from the file on every run.
+`docs/agents/global-rules.md` was also added to Session Bootstrap, which it was
+missing from despite being binding.
+
+Validation: `pytest -q` -- **1497 passed**; `doc_state_sync.py --check` exit 0;
+`frontend_gate.py` exit 0; `AGENTS.md` 473 lines against its 500 cap. Eighteen
+commits on `feat/batch22-enrichment`, nothing unpushed, open as PR #234 into
+`test`.
+
+### 2026-09-19 - Docsync close-out plan Tasks 3 and 4, and a control-plane code review
+
+Side task, no batch tag: continuation of the entries below on
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
+via `superpowers:subagent-driven-development`. Not Batch 22 scope. Nothing
+is committed; the whole plan remains working-tree-only by owner constraint,
+and the unrelated in-flight Batch 22 edits in this worktree were neither
+staged nor reverted.
+
+Task 3 (CLI integration and multi-signal close-out) landed in six slices:
+the two strict configuration tables, the definition-side close-out record,
+the gate wiring, `--close-batch`, the archive maintenance modes, and DOC020.
+Its review found one Important defect -- the `expected` map passed to
+`transaction.publish` did not cover every path the plan had READ, so a
+concurrent edit by another agent could publish a decision made about
+different content. Fix round 1 made `_Corpus.read_paths()` the single source
+of truth for that, so a document added to the corpus later inherits the
+protection instead of needing a second hand-maintained list.
+
+Task 4 was split into a code half and a documentation half. The code half
+added `scripts/dev/docsync_preflight.py` and
+`scripts/dev/install_docsync_hook.py`, moved the docsync hook to first
+position in `.pre-commit-config.yaml`, and added an explicit CI preflight
+step. Its review found that the control-plane refusal existed only in
+`--staged` while the pre-commit entry runs `--worktree`, which is the path
+that actually executes on every local commit; fix round 1 closed that.
+The documentation half brought `AGENTS.md` from 728 to 498 lines by
+compressing, relocating the DOC catalogue to
+`docs/architecture/documentation-tooling.md` and the bootstrap edge cases to
+`HANDOFF_PROMPT.md`, and relocating the `UI and Accessibility Rules` that an
+in-flight Batch 22 edit had deleted into `docs/agents/ui-accessibility.md`.
+That single deletion was the root cause of all three live gate errors, which
+are now repaired.
+
+Owner rulings taken during the session, both recorded in the plan ledger: the
+commit preflight refuses any commit that modifies the docsync control plane,
+and the one named escape is `SKIP=doc-state-sync-check git commit` rather
+than `--no-verify`, so the absolute prohibition on `--no-verify` in
+`AGENTS.md` anti-pattern 7 stands unchanged; and the architectural invariants
+the owner supplied are now a binding document at
+`docs/agents/global-rules.md`, carrying an explicit precedence order for when
+two rules conflict.
+
+An owner-requested code review of the control plane followed, and its
+findings were fixed rather than filed. `--split-archive` had been writing
+directly to disk with no lock, no journal and no staleness check, which
+contradicted the atomicity guarantee every other writing mode honours; it now
+publishes through the same transaction. The batch-definition regex that had
+been constructed five times across three modules is now
+`parser.root_definition_pattern`. The live-document path list, which the tool
+had duplicated between `cli.py` and `integrity.py` without the declaration it
+would demand of any other repository, now has one owner. On the application
+side, `update_job_result` no longer normalizes every result inside the
+process-global lock -- the key is attached once where results are built --
+and `run_release_checks` was decomposed into three named units with its
+existing tests passing unmodified as parity evidence.
+
+Validation, run fresh in the controller session rather than taken from any
+subagent's report: the two preflight and hook suites were 76 passing, the
+release-check suite 23 passing unmodified before and after its refactor, and
+`ruff check` plus `ruff format --check` were clean across the touched files.
+`scripts/doc_state_sync.py --check` now exits 0, leaving only the expected
+root `BATCH22_DEFINITION.md` warning. Validation: `pytest -q` -- **1470 passed**.
+
+Deviations worth the next reader's attention. `AGENTS.md` landed at 498 lines
+rather than the ~420 target: every remaining line is a distinct rule or
+procedure, and further cuts would have removed prohibitions rather than
+narrative. Two documents under `docs/agents/` were staged, against the
+plan's own no-staging rule and at the owner's explicit instruction, because
+DOC001 reads `git ls-files` and an untracked file can never satisfy a
+reference to it.
+
+Forward guidance, in the owner's stated order: build the DOC023 invariant
+that stops resolved findings rotting in free prose, then run the final
+whole-branch review, then land the work as a sequence of atomic commits
+rather than one large one. The triage list for that review is every finding
+marked deferred in
+`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`, which
+remains the authoritative ledger for this plan.
+
+### 2026-09-16 - Docsync close-out plan Task 2 closed out
+
+Side task, no batch tag: continuation of the 2026-09-15 entry below on
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
+via `superpowers:subagent-driven-development`. Not Batch 22 scope; nothing
+here touches live `FINDINGS.md`, the archive files, or the docsync CLI.
+
+Task 2's fix round 1 (resumed 2026-09-15 with a fresh implementer, since
+the original handle was unavailable) addressed all 3 Important findings
+recorded in `docs/history/reports/DOCSYNC_CLOSEOUT_TASK2_REVIEW_2026-09-15.md`:
+a missing index no longer deletes existing pages (`_load` now rejects
+orphans before returning an empty layout); a page's silently-discarded
+prologue/missing header now raises `SyncError` instead of being dropped;
+`page_path` now resolves beside `index_path` instead of always under the
+store root. Each fix is covered by a regression test whose own docstring
+names the finding it reproduces.
+
+This session had no subagent-dispatch tool available, so the required
+scoped re-review was performed by the controller directly instead of a
+dispatched reviewer -- a disclosed deviation from
+`superpowers:subagent-driven-development`, consistent with how Task 1's
+own fix round 1 was handled for the same reason. The re-review checked
+each fix against the review report's findings and the design spec's own
+language (not just that tests pass), and swept for the same defect class
+elsewhere in the module (`_diff`, the other `_reject_orphans` call site)
+before concluding no sibling instance existed. Full re-review detail is in
+`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
+
+Validation, run fresh: the archive suite alone was 43 passing, and the
+full docsync suite (markdown/declarations/integrity/logic/parser/findings/
+archives/transaction) was 355 passing; `ruff check` on all Task 1/2-owned
+files was clean. Validation: `pytest -q` -- **1302 passed** (up from 1298;
+the delta is this shared worktree's own concurrent, uncommitted growth in
+`archives.py`/`test_docsync_archives.py`, not a regression -- see the
+out-of-band fix entries above for the same observation applied to
+`logic.py`).
+
+Task 2 is complete: 3/3 Important findings addressed, 0 new
+Critical/Important breakage. 7 Minor findings (recorded in the review
+report) remain deferred, unchanged, to the final whole-branch review's
+triage. Next step: Task 3 (CLI integration and multi-signal close-out).
+
+### 2026-09-15 - Docsync close-out plan Task 2 review recorded
+
+Side task, no batch tag: control-plane work on
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
+via `superpowers:subagent-driven-development`. Not Batch 22 scope; nothing
+here touches live `FINDINGS.md`, the archive files, or the docsync CLI.
+
+Task 1 (shared Markdown scanner, DOC010-DOC012 repairs) is complete and
+reviewed clean. Task 2 (finding lifecycle + bounded archives + recoverable
+publish: `findings.py`, `archives.py`, `transaction.py`, DOC013-DOC018) is
+implemented and controller-verified green (93/93 new suites, 351/351 full
+docsync suite, Ruff clean), but its task review returned Needs fixes: 3
+Important findings, all in `archives.py`, all silent history-loss/
+misplacement paths with no diagnostic (a missing index deletes every
+managed page; page prologue content is silently discarded; `page_path`
+writes to the wrong directory when an index does not sit at the store
+root). Plus 7 Minor findings, logged for the final whole-branch review.
+Full detail: `docs/history/reports/DOCSYNC_CLOSEOUT_TASK2_REVIEW_2026-09-15.md`.
+
+Validation: `pytest -q` -- **1298 passed** (unchanged; this side task adds
+one documentation file and a PLAYBOOK entry only, no application or docsync
+source). Tasks 3-4 of the plan are not started. Next step: resume the SDD
+fix loop on Task 2's three Important findings.
+
 ### 2026-09-14 - Mutation testing scoped to hermetic modules
 
 Side task, no batch tag: owner-directed tooling, outside Batch 22's scope and

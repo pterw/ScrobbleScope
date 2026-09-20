@@ -6,6 +6,7 @@ each result -- rather than on mock call counts alone, per AGENTS.md Test
 Quality Rules.
 """
 
+import logging
 from contextlib import ExitStack, contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -268,6 +269,105 @@ async def test_run_release_checks_confirms_and_moves_out_without_dropping_result
     assert results[1]["release_check"] == "confirmed"
     stats = get_job_progress(job_id)["stats"]["release_check"]
     assert stats["moved_out"] == 1
+
+
+class _MissingTableError(Exception):
+    """What the correction cache raised before its table existed."""
+
+    sqlstate = "42P01"
+
+    def __init__(self):
+        super().__init__('relation "original_release_cache" does not exist')
+
+
+@pytest.mark.asyncio
+async def test_a_missing_correction_table_names_the_migration(caplog):
+    """The table this worker writes to has to exist before it is useful.
+
+    Observed on the owner's database on 2026-09-20: original_release_cache
+    had never been created, so every finding was looked up, not found,
+    fetched again from MusicBrainz at one request per second, and thrown
+    away. The run still succeeds -- a correction pass must never take a job
+    down -- so the log line is the only place this can be said.
+    """
+    job_id = _job_with(results=[_result("Fleetwood Mac", "Rumours", "2025-01-31")])
+    lookup = AsyncMock(return_value=(None, None))
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(side_effect=_MissingTableError())
+
+    with caplog.at_level(logging.WARNING):
+        with _worker_patches(lookup, conn=conn) as _:
+            with patch(
+                "scrobblescope.release_checks._batch_lookup_original_release",
+                new_callable=AsyncMock,
+                side_effect=_MissingTableError(),
+            ):
+                await run_release_checks(job_id)
+
+    logged = " ".join(record.message for record in caplog.records)
+    assert "init_db.py" in logged
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_records_the_date_behind_each_outcome():
+    """
+    GIVEN results MusicBrainz moves out, confirms, and cannot date
+    WHEN the worker runs
+    THEN each result carries the original release date the outcome rests on,
+    and the undatable one records None rather than keeping a stale value.
+
+    The results page renders "First released 1977" from this field. Without
+    it the moved-out row still shows the provider's reissue date, which is
+    the date the correction exists to contradict.
+    """
+    job_id = _job_with(
+        results=[
+            _result("Fleetwood Mac", "Rumours", "2025-01-31"),
+            _result("Radiohead", "OK Computer", "2025-06-16"),
+            _result("Boards of Canada", "Geogaddi", "2025-02-18"),
+        ]
+    )
+    lookup = AsyncMock(
+        side_effect=[
+            ("mbid-rumours", "1977-02-04"),
+            ("mbid-okc", "2025-06-16"),
+            (None, None),
+        ]
+    )
+    with _worker_patches(lookup):
+        await run_release_checks(job_id)
+
+    results = get_job_context(job_id)["results"]
+    assert results[0]["release_check"] == "moved_out"
+    assert results[0]["original_release_date"] == "1977-02-04"
+    assert results[1]["original_release_date"] == "2025-06-16"
+    assert results[2]["release_check"] == "unavailable"
+    assert results[2]["original_release_date"] is None
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_records_the_date_from_a_cached_finding():
+    """
+    GIVEN a result whose original release date is already cached
+    WHEN the worker runs
+    THEN it settles that result from the cache, with the same date field the
+    live path writes and without spending a request.
+    """
+    job_id = _job_with(results=[_result("Fleetwood Mac", "Rumours", "2025-01-31")])
+    cached = {
+        normalize_name("Fleetwood Mac", "Rumours"): {
+            "mb_release_group": "mbid-rumours",
+            "original_release": "1977-02-04",
+        }
+    }
+    lookup = AsyncMock()
+    with _worker_patches(lookup, cached=cached):
+        await run_release_checks(job_id)
+
+    results = get_job_context(job_id)["results"]
+    assert results[0]["release_check"] == "confirmed"
+    assert results[0]["original_release_date"] == "1977-02-04"
+    lookup.assert_not_awaited()
 
 
 @pytest.mark.asyncio

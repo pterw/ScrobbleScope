@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-14
+Last updated: 2026-09-20
 
 ---
 
@@ -9,11 +9,11 @@ Last updated: 2026-09-14
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1497 passing** across 58 test modules |
+| Tests | **1529 passing** across 58 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 22 status | **Active**, opened 2026-09-13 on `feat/batch22-enrichment`. **WP-0 through WP-3 are complete; WP-4 is next.** Tasks 7-9 are complete and Task 10, the results JSON endpoint, is next. Definition: `BATCH22_DEFINITION.md`. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
+| Batch 22 status | **Complete**. All 6 WPs done. Definition: docs/history/definitions/BATCH22_DEFINITION.md. Opened 2026-09-13 on `feat/batch22-enrichment` and closed 2026-09-20: album enrichment moved behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects a reissue year to the original while the results page is open. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -36,12 +36,13 @@ Last updated: 2026-09-14
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: Batch 22.
-- Current-batch entries in active log block: 11.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-3.
-- Next expected work package: WP-4.
-- Latest validated test count: **1497 passed**.
-- Newest current-batch entry: 2026-09-15 - The correction worker (Batch 22 WP-3).
+- Current batch: none (between batches).
+- Last completed batch in PLAYBOOK Section 3: Batch 22.
+- Next batch definition status: Batch 23 is not yet defined.
+- Current-batch entries in active log block: 0.
+- Completed work packages in current-batch entries: n/a (no active batch).
+- Next expected work package: n/a (next batch not defined).
+- Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -76,7 +77,7 @@ scrobblescope/
     pages.py                  # home page
     album_flow.py             # loading/results/unmatched pages + results_loading
     heatmap_flow.py           # heatmap page + heatmap_loading/heatmap_data
-    api.py                    # validate_user, csrf-token, progress, unmatched JSON, artist_spotlight
+    api.py                    # validate_user, csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
 templates/                  # base, index, loading, results, unmatched, error
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_result.html
@@ -143,7 +144,7 @@ routes/__init__.py     <- lastfm, repositories, spotify, unmatched, utils, worke
 routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
 routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
-routes/api.py           <- repositories, spotify, utils; routes (facade)
+routes/api.py           <- domain, release_checks, repositories, spotify, utils; routes (facade)
 app.py           <- routes (Blueprint); config (ensure_api_keys, __main__ only)
 
 docsync/__init__.py  <- (leaf)
@@ -210,18 +211,27 @@ background_task (orchestrator/__init__.py, daemon Thread):
        orchestrator/_details.py, phase 5 in orchestrator/_results.py):
       1: DB connect + batch lookup (30-day TTL)
       2: Partition cache_hits / cache_misses
-      3: Spotify fetch for misses only
+      3: Spotify fetch for misses only, then Deezer for Spotify's misses
       4: DB batch persist + conn.close() in finally
-      5: Build results -> set_job_results()
+      5: Build results (cached original-release dates applied here)
+         -> set_job_results() -> enqueue_release_check(job_id)
+
+release_checks.py (one process-wide daemon thread, own loop, FIFO job queue):
+  -> MusicBrainz at 1 req/s, capped per job, both hits and misses cached
+  -> marks each result in place and publishes progress.stats.release_check
 
 loading.js polls GET /progress?job_id=...
   -> 100% + no error -> GET /results?job_id=... -> renders results.html
   -> error + retryable -> show Retry button
+
+results-release-checks.js polls GET /api/release_checks?job_id=...
+  -> marks corrected rows in place; never reorders the open list
+  -> stops on any status that is not pending or running
 ```
 
 ---
 
-## 6. Test structure (1497 tests)
+## 6. Test structure (1529 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

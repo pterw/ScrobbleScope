@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from scrobblescope.domain import normalize_name
 from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
     JOBS,
@@ -15,6 +16,7 @@ from scrobblescope.repositories import (
     jobs_lock,
     set_job_error,
     set_job_progress,
+    set_job_release_check,
     set_job_results,
 )
 from scrobblescope.routes import (
@@ -697,6 +699,184 @@ def test_unmatched_api_returns_data(client):
     assert data["count"] == 2
     assert "artist::album_key" in data["data"]
     assert data["data"]["lizzy mcalpine|older"]["reason_code"] == "below_threshold"
+
+
+# --- Release-check API tests ---
+
+
+def _release_check_job(states, release_check=None):
+    """Create an album job whose results carry *states* and return its ID.
+
+    *states* maps a ``(artist, album)`` pair to the ``release_check`` value
+    the correction worker would have written, or to a ``(value, original)``
+    pair when the worker also recorded an original release date. A value of
+    None leaves the result without the field at all, which is what a result
+    looks like before the worker has touched it.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    results = []
+    for (artist, album), state in states.items():
+        result = {
+            "artist": artist,
+            "album": album,
+            "_normalized_key": normalize_name(artist, album),
+        }
+        if state is not None:
+            value, original = state if isinstance(state, tuple) else (state, None)
+            result["release_check"] = value
+            result["original_release_date"] = original
+        results.append(result)
+    set_job_results(job_id, results)
+    if release_check is not None:
+        set_job_release_check(job_id, release_check)
+    return job_id
+
+
+def test_release_checks_api_missing_job_id(client):
+    """
+    GIVEN no job_id query parameter
+    WHEN GET /api/release_checks is requested
+    THEN it should return 400 with an error and no albums.
+    """
+    response = client.get("/api/release_checks")
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "Missing" in data.get("error", "")
+    assert data["albums"] == []
+    assert data["status"] == "error"
+
+
+def test_release_checks_api_unknown_job(client):
+    """
+    GIVEN a job_id that no job matches
+    WHEN GET /api/release_checks is requested
+    THEN it should return 404 with an error rather than an HTML page.
+    """
+    response = client.get("/api/release_checks?job_id=does-not-exist")
+    assert response.status_code == 404
+    assert response.mimetype == "application/json"
+    data = response.get_json()
+    assert "not found" in data.get("error", "").lower()
+    assert data["status"] == "error"
+
+
+def test_release_checks_api_rejects_a_heatmap_job(client):
+    """
+    GIVEN a heatmap job
+    WHEN GET /api/release_checks is requested with its job_id
+    THEN it should return 404: release checks belong to the album flow.
+    """
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json()["status"] == "error"
+
+
+def test_release_checks_api_reports_pending_before_the_worker_reports(client):
+    """
+    GIVEN an album job whose correction worker has not published state yet
+    WHEN GET /api/release_checks is requested
+    THEN the status should be pending, with zeroed counts and no albums.
+    """
+    job_id = _release_check_job({("Fleetwood Mac", "Rumours"): None})
+
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "pending"
+    assert data["checked"] == 0
+    assert data["total"] == 0
+    assert data["moved_in"] == 0
+    assert data["albums"] == []
+
+
+def test_release_checks_api_lists_only_albums_whose_state_changed(client):
+    """
+    GIVEN results in every release-check state the worker can write
+    WHEN GET /api/release_checks is requested
+    THEN unchecked results are omitted and the rest are listed with their
+         state and original release date.
+    """
+    job_id = _release_check_job(
+        {
+            ("Fleetwood Mac", "Rumours"): ("moved_out", "1977-02-04"),
+            ("Radiohead", "OK Computer"): ("confirmed", "1997-05-21"),
+            ("Boards of Canada", "Geogaddi"): ("unavailable", None),
+            ("Lizzy McAlpine", "Older"): "unchecked",
+        },
+        release_check={
+            "status": "running",
+            "checked": 3,
+            "total": 4,
+            "moved_out": 1,
+            "moved_in": 2,
+        },
+    )
+
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "running"
+    assert data["checked"] == 3
+    assert data["total"] == 4
+    assert data["moved_in"] == 2
+    by_key = {album["key"]: album for album in data["albums"]}
+    assert set(by_key) == {
+        "fleetwood mac|rumours",
+        "radiohead|ok computer",
+        "boards of canada|geogaddi",
+    }
+    assert by_key["fleetwood mac|rumours"]["state"] == "moved_out"
+    assert by_key["fleetwood mac|rumours"]["original_release_date"] == "1977-02-04"
+    assert by_key["boards of canada|geogaddi"]["original_release_date"] is None
+
+
+def test_release_checks_api_key_matches_the_normalized_pair(client):
+    """
+    GIVEN an album whose name normalization drops punctuation and metadata
+    WHEN GET /api/release_checks is requested
+    THEN the album key should be the normalized pair joined by a pipe, the
+         same value the results page puts on the row.
+    """
+    job_id = _release_check_job(
+        {("Sigur Rós", "( ) [Deluxe Edition]"): ("confirmed", "2002-10-28")},
+        release_check={
+            "status": "done",
+            "checked": 1,
+            "total": 1,
+            "moved_out": 0,
+            "moved_in": 0,
+        },
+    )
+
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+
+    artist_norm, album_norm = normalize_name("Sigur Rós", "( ) [Deluxe Edition]")
+    assert "|" not in artist_norm and "|" not in album_norm
+    assert response.get_json()["albums"][0]["key"] == f"{artist_norm}|{album_norm}"
+
+
+def test_release_checks_api_survives_a_result_without_a_normalized_key(client):
+    """
+    GIVEN a result dict carrying no _normalized_key
+    WHEN GET /api/release_checks is requested
+    THEN that result is skipped rather than crashing the endpoint.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(
+        job_id, [{"artist": "A", "album": "B", "release_check": "confirmed"}]
+    )
+    set_job_release_check(
+        job_id,
+        {"status": "done", "checked": 1, "total": 1, "moved_out": 0, "moved_in": 0},
+    )
+
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+
+    assert response.status_code == 200
+    assert response.get_json()["albums"] == []
 
 
 # --- Reset progress route tests ---

@@ -1,9 +1,10 @@
 # BATCH22: Enrichment providers and original release years
 
-**Status:** Active. WP-0 through WP-3 are complete. **WP-4 is the next batch work package.** Tasks 7-9 are complete and Task 10 is next. Owner-approved 2026-09-13.
+**Status:** Complete, closed 2026-09-20. All six planned work packages are complete. Owner-approved 2026-09-13.
 **Branch:** `feat/batch22-enrichment` (worktree off `test`).
-**Baseline:** 1034 tests passing at batch open; the frontend gate runs 28
-checks in 50 runs.
+**Baseline:** 1034 tests passing at batch open, where the frontend gate ran
+28 checks in 50 runs. Both numbers are the batch-open measurement, not a
+standing claim: the latest of each lives in the newest Section 4 entry.
 **Plan of record:**
 `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md` carries
 every task, its tests and its exact commands. This file carries the scope,
@@ -133,7 +134,7 @@ endpoint lists only 25. Errors arrive as HTTP 200 with an error body.
 - **Accepted interim deviation:** Task 6 shipped text attribution. Official
   Spotify and Deezer logo assets remain tracked by F-B21-60 and F-B22-4.
 
-### WP-3 -- Original release years, backend
+### ~~WP-3 -- Original release years, backend~~ -- **DONE**
 
 A MusicBrainz client at one request per second with a contact User-Agent, a
 cache table of its own, cached corrections applied before results render, and
@@ -143,7 +144,7 @@ a single process-wide worker that corrects a capped set per job.
   artist/title matching, bounded retries and a contact-bearing User-Agent.
 - [x] Task 8: apply cached original dates before release filtering and display,
   while preserving the provider date as `provider_release_date`.
-- [ ] Task 9: run one capped correction worker per process, persist both
+- [x] Task 9: run one capped correction worker per process, persist both
   matches and confirmed misses, and expose `pending`, `running`, `done` or
   `skipped` state without delaying the album job.
 - **Acceptance:** a cached original of 1977 against a provider date of 2011
@@ -152,30 +153,30 @@ a single process-wide worker that corrects a capped set per job.
   is unchanged. A job with the client disabled records `skipped` and makes no
   request.
 
-### WP-4 -- Progressive disclosure, frontend
+### ~~WP-4 -- Progressive disclosure, frontend~~ -- **DONE**
 
 `GET /api/release_checks`, a status line, and per-row markers. A corrected
 row stays in place, muted, showing the original year. Rows never move while
 the page is open; moved-in albums are announced with a reload link.
 
-- [ ] Task 10: add the job-scoped release-check JSON endpoint.
-- [ ] Task 11: poll that endpoint, stop in a terminal state and disclose
+- [x] Task 10: add the job-scoped release-check JSON endpoint.
+- [x] Task 11: poll that endpoint, stop in a terminal state and disclose
   corrections without mutating the live sort order.
 - **Acceptance:** the gate proves no row moves when a marker lands, polling
   stops when the status is done or skipped, moved-in albums receive a reload
   action, and the page holds at 390px and 1280px.
 
-### WP-5 -- Docs and close-out
+### ~~WP-5 -- Docs and close-out~~ -- **DONE**
 
 README (the new environment variables, the MusicBrainz contact, the Deezer
 constraint), `docs/architecture/runtime-system.md` (a release year may now
 come from MusicBrainz), a PLAYBOOK entry per WP, then the standard close-out.
 
-- [ ] Document every new environment variable and the MusicBrainz contact
+- [x] Document every new environment variable and the MusicBrainz contact
   requirement.
-- [ ] Record the Deezer non-commercial constraint and the runtime provider /
+- [x] Record the Deezer non-commercial constraint and the runtime provider /
   correction data flow without duplicating source code.
-- [ ] Run the complete test, frontend, pre-commit and docsync gates, archive
+- [x] Run the complete test, frontend, pre-commit and docsync gates, archive
   this definition and close the batch through the standard procedure.
 
 ---
@@ -212,3 +213,13 @@ come from MusicBrainz), a PLAYBOOK entry per WP, then the standard close-out.
 - MusicBrainz blocks anonymous clients. With no contact configured, the
   client stays disabled rather than guessing.
 - Standard library only for the new code; no new dependency.
+
+<!-- DOCSYNC:CLOSEOUT -->
+- Batch 22 closed 2026-09-20
+- WP-0 complete
+- WP-1 complete
+- WP-2 complete
+- WP-3 complete
+- WP-4 complete
+- WP-5 complete
+<!-- DOCSYNC:CLOSEOUT-END -->

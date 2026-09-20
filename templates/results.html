@@ -122,6 +122,21 @@
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
         <!-- Main Column: Semantic Leaderboard Table -->
         <div class="lg:col-span-8">
+            {# Live release-year corrections (Batch 22 WP-4 Task 11). Rendered
+               with the page, never injected later: this line sits above the
+               table, so creating it on the first poll reply would push every
+               row down. It is present only when the job has a correction pass
+               that can still report, and results.js removes it once the pass
+               ends with nothing to say. #}
+            {% if release_check and release_check.status not in ('skipped', 'done') %}
+            <div id="release-check-bar" class="release-check-bar"
+                 data-job-id="{{ job_id }}"
+                 data-checked="{{ release_check.checked|default(0) }}"
+                 data-total="{{ release_check.total|default(0) }}">
+                <span id="release-check-status" class="release-check-status" role="status" aria-live="polite"></span>
+                <a id="release-check-reload" class="release-check-reload hidden" href="{{ url_for('main.results', job_id=job_id) }}">Reload</a>
+            </div>
+            {% endif %}
             <div class="results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)]" id="results-table-wrapper">
                 <table class="w-full text-left border-collapse results-table" id="results-table">
                     <thead>
@@ -140,6 +155,7 @@
                         {% for album in album_list %}
                         <tr class="hover:bg-[var(--ss-surface-card)] transition-colors"
                             data-rank="{{ loop.index }}"
+                            data-album-key="{{ album|album_key }}"
                             data-album="{{ album.album }}"
                             data-artist="{{ album.artist }}"
                             data-play-count="{{ album.play_count }}"
@@ -192,7 +208,7 @@
                                         <span class="font-sans text-xs md:text-sm text-[var(--ss-text-muted)] truncate font-normal">
                                             {{ album.artist }}
                                         </span>
-                                        {# Provider attribution (Batch 22 WP-1 Task 6). Deezer requires "a
+                                        {# Provider attribution (Batch 22 WP-2 Task 6). Deezer requires "a
                                            clearly visible Deezer Logo" on any app using its API
                                            (developers.deezer.com/guidelines#local and /guidelines/logo);
                                            Spotify's own content rules make the same demand (F-B21-60). This
@@ -222,7 +238,7 @@
                             </td>
                             <!-- Release Date Context (YYYY-MM only, no DD) -->
                             <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[calc(0.6875rem*var(--results-scale))] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ album.release_date or year }}">
-                                {{ (album.release_date or '')[:7] if album.release_date else year }}
+                                <span class="release-date-value">{{ (album.release_date or '')[:7] if album.release_date else year }}</span>
                             </td>
                         </tr>
                         {% endfor %}
@@ -337,4 +353,5 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/results.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/results-spotlight.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/results-release-checks.js') }}" defer></script>
 {% endblock %}

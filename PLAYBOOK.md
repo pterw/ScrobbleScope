@@ -50,6 +50,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 19 | Heatmap polish -- frame, KPIs, mobile layout | `docs/history/definitions/BATCH19_DEFINITION.md` | `docs/history/logs/BATCH19_LOG.md` |
 | 20 | File-hygiene + docs methodology refresh | `docs/history/definitions/BATCH20_DEFINITION.md` | `docs/history/logs/BATCH20_LOG.md` |
 | 21 | UI overhaul -- Tailwind + daisyUI migration | `docs/history/definitions/BATCH21_DEFINITION.md` | `docs/history/logs/BATCH21_LOG.md` |
+| 22 | Enrichment providers and original release years | `docs/history/definitions/BATCH22_DEFINITION.md` | `docs/history/logs/BATCH22_LOG.md` |
 
 A batch's close-out entry sits in its per-batch log only when the heading
 carried a `(Batch N WP-X)` tag (as Batch 18's did). Close-outs tagged
@@ -83,11 +84,14 @@ See FINDINGS F-DOCSYNC-3.
   5.1.3 to Tailwind v4 (standalone CLI) plus daisyUI v5, warm
   heatmap-derived themes app-wide, migrated page by page. The last commit on
   the batch is `4b4965b`, on branch `test`.
-- **Batch 22 is active.** Definition: `BATCH22_DEFINITION.md` (repo root).
-  Branch: `feat/batch22-enrichment` (worktree off `test`). Scope: album
-  enrichment moves behind a provider contract, Deezer answers when Spotify
-  cannot, and MusicBrainz corrects a reissue year to the album's original
-  while the results page is open. Plan of record:
+- **Batch 22 is complete**, closed 2026-09-20. All six work packages are
+  done. Definition archived:
+  `docs/history/definitions/BATCH22_DEFINITION.md`; log:
+  `docs/history/logs/BATCH22_LOG.md`. Branch: `feat/batch22-enrichment`
+  (worktree off `test`). Scope was album enrichment behind a provider
+  contract, Deezer answering when Spotify cannot, and MusicBrainz correcting
+  a reissue year to the album's original while the results page is open.
+  Plan of record:
   `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`.
 - **WP-0 is complete.** The behaviour-neutral module split is done.
 - **WP-1 is complete.** Tasks 1-3 moved album metadata behind the provider
@@ -99,9 +103,46 @@ See FINDINGS F-DOCSYNC-3.
   correction worker that populates new `original_release_cache` rows live
   (`scrobblescope/release_checks.py`, one process-wide thread fed a FIFO
   queue of job ids by `_fetch_and_process`).
-- **Next action:** **WP-4 is next:** Task 10, the results JSON endpoint that
-  serves the worker's findings to an open results page, then Task 11, the
-  live disclosure that renders them.
+- **WP-4 is complete.** Task 10 added `GET /api/release_checks?job_id=` and
+  Task 11 disclosed its findings live on the results page, without moving a
+  row while the page is open.
+- **WP-5 is complete**, and with it **all planned work packages for Batch 22
+  are complete**. The batch is closed: its definition is archived at
+  `docs/history/definitions/BATCH22_DEFINITION.md` and its log at
+  `docs/history/logs/BATCH22_LOG.md`.
+- **Session handoff, 2026-09-20:** `docs/history/reports/HANDOFF_2026-09-20.md`
+  is the entry point for a new agent -- reading order, environment, the gates
+  and why they refuse, the schema-migration trap, and the open items.
+- **Next action: the owner opens Batch 23 by naming its branch here.**
+  `BATCH23_DEFINITION.md` is written and sits at the repository root, derived
+  from
+  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`: eight
+  work packages, WP-0 through WP-7, with the deferred Batch 21 frontend and
+  accessibility audit inside WP-7, which the batch cannot close without.
+  What remains is the branch. It is not `test`, it is named in this section
+  before the first commit, or the worktree guard raises WT003, and choosing
+  it is an owner decision.
+- **Batch 23 is not yet defined**, in the sense the parser reads: no batch is
+  open and none is being worked. That phrase has to sit on one line, because
+  the scanner reads Section 3 line by line and a wrapped copy of it matches
+  nothing. The definition file itself does exist, at the repository root. The
+  tool's vocabulary has "not yet defined" and "active" and no word for
+  "written, not started", so the sentence is kept and qualified rather than
+  removed.
+- **The dashboard's test count is 1522 again**, and the way it got unstuck is
+  worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
+  date, and on a same-date tie source precedence ranks an untagged side-task
+  entry above the batch entries regardless of which was written later
+  (F-DOCSYNC-11). A hand-written correction was refused by DOC005, DOC006 and
+  DOC008, which recompute the same authority. Writing a *newer* side-task
+  entry carrying the measured count is what moved it, because that entry
+  outranks the older one in its own source. The count still cannot be
+  published directly; F-DOCSYNC-13 proposes letting an authored measurement
+  be passed in instead.
+- **Owner-facing verification still owed from Batch 22**, neither blocking the
+  close-out: a run with `MUSICBRAINZ_CONTACT` configured, to watch corrections
+  land against the real service, and restoring the Spotify credentials that
+  were disabled to live-test the Deezer fallback.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
   chartered. The owner moved it to Batch 23's close-out on 2026-09-13 so it
   covers the final UI once. Batch 23's plan carries the obligation; do not
@@ -285,813 +326,237 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
-### 2026-09-14 - MusicBrainz client (Batch 22 WP-1)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Task 7, the first task of Phase 3. New module, no caller wired yet (Task 8
-consumes it).
-
-`scrobblescope/musicbrainz.py` (new): `lookup_original_release(session,
-artist, album)` returns `(mb_release_group_id, "YYYY-MM-DD")` on a trusted
-match or `(None, None)` -- both cacheable, matching
-`original_release_cache`'s null-`mb_release_group` "checked, nothing
-found" row from Task 2. A candidate is accepted only when its MusicBrainz
-`score` is at least 90 **and** its normalized artist-credit/title match the
-searched key (`scrobblescope.domain.normalize_name`, already used by
-`deezer.py`); score alone is rejected because it ranks text similarity, not
-identity -- a high-scoring tribute act or same-titled album by a different
-artist must not silently mis-date a real one. The Lucene release-group
-query (`releasegroup:"..." AND artist:"..."`) escapes quotes and Lucene
-operators in both fields rather than passing them through raw. With no
-`MUSICBRAINZ_CONTACT` configured, or `MUSICBRAINZ_ENABLED=False`, the
-client returns `(None, None)` without making a request: MusicBrainz blocks
-anonymous clients, so an unconfigured contact would only guarantee a
-rejected request against the shared 1-request/second budget. A 503 waits
-and retries via the existing `retry_with_semaphore`, asking the limiter
-again on every attempt.
-
-`scrobblescope/utils.py`: `get_musicbrainz_limiter()`, same
-`_ThrottledLimiter` pattern as `get_deezer_limiter` (a global cross-thread
-throttle plus a per-loop `AsyncLimiter`) -- this is what makes the 1
-request/second limit process-wide rather than per-loop, ahead of Task 9's
-dedicated worker thread. `scrobblescope/config.py`: `MUSICBRAINZ_CONTACT`,
-`MUSICBRAINZ_ENABLED` (default True), `MUSICBRAINZ_REQUESTS_PER_SECOND`
-(default 1), `MUSICBRAINZ_SEARCH_RETRIES` (default 3, mirrors
-`DEEZER_SEARCH_RETRIES`), and `MUSICBRAINZ_CHECKS_PER_JOB` (default 60,
-unused until Task 9). `MUSICBRAINZ_REQUESTS_PER_SECOND` and
-`MUSICBRAINZ_SEARCH_RETRIES` are not in the plan's own file list for this
-task but follow the existing per-provider rate/retry constant pattern
-(`DEEZER_REQUESTS_PER_SECOND`, `DEEZER_SEARCH_RETRIES`) rather than a
-magic number inside `utils.py`/`musicbrainz.py`.
-
-`tests/services/test_musicbrainz_service.py` (new, 10 tests): query
-building and Lucene escaping, the score-floor-and-name-match rule
-(including a high-scoring wrong-artist rejection), the return shape on a
-match and on no candidates, a 503-then-success retry asserting the limiter
-is entered on every attempt, the User-Agent contents, and the two
-no-contact/disabled-by-flag paths asserting zero requests.
-
-Validation: `pytest -q` -- **1079 passed** (was 1069; +10 new). No frontend
-change, so the frontend gate is unaffected; its last measurement (29/29)
-still stands. `doc_state_sync.py --check` passes clean (the root
-`BATCH22_DEFINITION.md` warning is expected while the batch is active).
-
-### 2026-09-14 - README architecture, tech stack, and diagram refresh (Batch 22 WP-1)
-
-Scope: owner follow-up to the README pass below, given mid-session
-(2026-09-14) -- overrides that entry's "deliberately not touched" call.
-The owner wants the Mermaid diagram redrawn now (it named modules that
-predate WP-0's split -- `routes.py`, `orchestrator.py` -- and never
-mentioned Deezer), the Architecture prose and Tech Stack row enhanced, and
-new writing to avoid pointers to actual code in favour of self-contained
-prose. This still does not duplicate WP-5's own pass: WP-5 owns the
-dependency graph and pipeline-sequence detail in
-`docs/architecture/runtime-system.md`, which this diagram does not
-attempt -- the owner's brief was "keep it simple," a conceptual diagram
-(Browser, Flask, background job, Last.fm, Spotify, Deezer, PostgreSQL
-cache) rather than a module map.
-
-Changed: the Architecture section's prose and Mermaid diagram (no
-filenames, Spotify-then-Deezer fallback shown as a dotted edge), the
-`docs/ARCHITECTURE.md` pointer sentence removed (the section is now
-self-contained), the APIs tech-stack row reworded to state the fallback
-inline, a Deezer clause added to the Prerequisites line ("needs no key"),
-and the two Key Implementation Highlights bullets that still said
-"Spotify metadata" corrected to name both providers -- left stale by the
-entry below, they would have directly contradicted the rewritten
-Architecture section above them.
-
-Validation: doc-only; `doc_state_sync.py --check` passes clean. No code
-changed, so the Task 6 entry's **1069 passed**, 29/29 still stands.
-
-### 2026-09-14 - README pass for the Deezer fallback (Batch 22 WP-1)
-
-Scope: owner-requested, after Task 6 landed and before a `/handoff`
-close-out -- not one of Task 6's own files, but small (under 20 lines) and
-directly tied to WP-1's own work, so treated as an in-WP deviation rather
-than a separate side-task entry (AGENTS.md Proposal and Design Rules,
-item 2). `README.md`'s Unmatched-report paragraph named `no_spotify_match`
-as "albums Spotify could not identify" -- true before Task 5, false after
-it (the reason now fires only when neither provider matches); fixed as a
-stale-claim correction, not new scope. Also added: one Features bullet on
-the Deezer fallback and per-row provider attribution, a Deezer clause on
-the APIs tech-stack row, a one-line pointer from the Roadmap section to
-PLAYBOOK's Section 3 for the fallback and the original-release-year work
-that follows it, and a Deezer line in Acknowledgements.
-
-Deliberately not touched: the architecture Mermaid diagram and the fuller
-provider data-flow prose. PLAYBOOK Section 3's WP-0 entry already commits
-those to WP-5's own README/`docs/architecture/runtime-system.md` pass, so
-redoing them here would be exactly the double effort that entry ruled out.
-
-Also fixed `CLAUDE.md`'s graphify section, which restated
-`.claude/CLAUDE.md`'s rules inline instead of pointing to
-`.claude/skills/graphify/SKILL.md` -- a duplication against the file's own
-stated "holds no project facts of its own" rule. `CLAUDE.md` is
-git-ignored (confirmed via `git check-ignore`), so this has no commit of
-its own.
-
-Validation: no code changed, so `pytest -q` and the frontend gate are
-unaffected -- Task 6's own entry above has the current measurement,
-**1069 passed**, 29/29; confirmed `doc_state_sync.py --check` still
-passes clean.
-
-### 2026-09-13 - Show the album's own provider in the UI (Batch 22 WP-1)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Task 6, the last task of Phase 2. Real behaviour change: results and
-unmatched rows now link to the album's own provider instead of always
-building a Spotify URL.
-
-Read the task's hard blocker first: `developers.deezer.com/guidelines`
-(plus its linked `/guidelines/logo` page; `deezerbrand.com`, where the
-detailed logo spec lives, did not render -- JS-only page, no image-fetch
-tool available this session). Two facts recorded here per the task's own
-instruction to write them "next to the artwork and the link":
-"Local Storage/Offline Storage of audio data is strictly forbidden" is
-scoped to audio only, and says nothing about metadata or artwork --
-confirms the owner's own reading and means nothing here changes about
-caching Deezer's release dates, cover art, or track durations in
-`spotify_cache`. Separately, "Each application using Deezer API/SDKs must
-have to include a clearly visible Deezer Logo" is a real, unmet
-requirement: no tool available could fetch either provider's actual logo
-asset (no image-fetch tool; hotlinking a guessed brand-CDN URL was ruled
-out as unsafe). Put to the owner directly (F-B21-60 already made the same
-call for Spotify -- "Use Spotify's asset as supplied, not a redrawn
-glyph"), the ruling was to ship a text attribution badge now and swap in
-each provider's real logo later, filed as F-B22-4. F-B21-60 itself gets a
-short addendum recording this partial progress; its own scope (the artist
-spotlight card's crop/overlay/animation) is unchanged and still open --
-Task 6's file list never named the spotlight card.
-
-Plan vs implementation: `orchestrator/_results.py`'s release-scope-miss
-branch (in `_build_results`) did not carry `provider`/`album_url` even
-though the matched-result branch has since Task 5 -- an album Deezer
-matched but the release filter then excluded would have shown no
-attribution and no link on `/unmatched`. Added `_album_provider(cached)`/
-`_album_url(cached)` (the same Task 5 helpers) to that dict; not in the
-plan's own Task 6 file list, but a direct consequence of wiring
-`album_url` through the one place it was still missing.
-
-`templates/results.html` and `templates/unmatched.html`: both album-rank
-and album-title links switch from `https://open.spotify.com/album/{{
-spotify_id }}` to `{{ album_url }}` (guarded on truthiness, so a row with
-neither renders plain text as before); a new `.provider-badge` text link
-sits beside the artist name, guarded on `provider and album_url` together
-so it never appears without something to link to. Both templates carry an
-inline comment citing the two Deezer facts above, next to the badge markup
-itself. `static/js/results.js`'s CSV export reads a new `data-provider`
-attribute and appends a `"Provider"` column.
-
-`scripts/dev/_frontend_gate_results.py` gains
-`check_results_provider_attribution`: one Spotify-sourced and one
-Deezer-sourced row, asserting each links to its own host
-(`open.spotify.com` / `deezer.com`), each shows a visible provider badge
-naming its provider and linking to the same URL, and the CSV export
-carries both provider values. Switching the link source from `spotify_id`
-to `album_url` broke two existing fixtures that set `spotify_id` directly
-without `album_url`: `check_unmatched_report`'s release-scope rows (fixed
-by adding matching `provider`/`album_url` fields) and
-`check_results_interactions`'s pinned CSV row string (fixed by appending
-the new column's empty value, since that fixture sets neither field).
-`tests/test_routes.py` gains two tests: a results-page row-by-provider
-link/badge check, and an unmatched-page release-scope-miss check for the
-same thing.
-
-Validation: `pytest -q` from the worktree cwd -- **1069 passed** (1067 +
-2). Frontend gate: **29 checks passed in 51 runs** (28/50 + the new
-check). Task 7 (MusicBrainz client, Phase 3) is next.
-
-### 2026-09-13 - Deezer fallback wired into the orchestrator (Batch 22 WP-1)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Phase 2 Task 5. Real behaviour change: album enrichment no longer depends
-on Spotify alone.
-
-Plan vs implementation: kept the phase order (Spotify search, Spotify
-details, then one Deezer pass over what is left), but the plan's "does not
-rewrite them" line from Task 3 applied only to Task 3 -- Task 5 had to
-touch `orchestrator/_search.py` itself, because deferring the
-unmatched-or-not decision to after Deezer's turn means a search miss can
-no longer be written to job unmatched immediately. `_run_spotify_search_phase`
-now returns a third value, `search_miss_keys`, instead of calling
-`add_job_unmatched`; its own two tests (`test_run_spotify_search_phase_all_misses_returns_empty_maps`,
-`test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call`) are
-updated to match, and a new `orchestrator/_deezer_fallback.py` phase file
-(mirroring `_search.py`/`_details.py`'s per-phase convention) owns the
-Deezer pass and the now-deferred unmatched write, with reason text "No
-match on Spotify or Deezer" (`reason_code` unchanged: `no_spotify_match`).
-"Still missing after Spotify" is computed as `cache_misses.keys() -
-cache_hits.keys()` post-detail-phase, which uniformly catches both a
-search miss and a detail-fetch failure (the latter was already silently
-dropped before this task, not newly introduced).
-
-`_detect_spotify_total_failure` is renamed `_detect_enrichment_total_failure`
-(swept: tests/services/test_orchestrator_helpers.py's four tests and their
-own names). `_fetch_spotify_misses` snapshots `cache_hits` emptiness before
-any mutation (`had_cache_hits`) so the post-Deezer `SpotifyUnavailableError`
-check reads the pre-run state, not cache_hits after Deezer has already
-promoted its own matches into it -- item 4's "Deezer enriches everything
-and the job succeeds" only holds if that snapshot is taken first.
-
-`orchestrator/_results.py`'s `_build_results` gains `provider` and
-`album_url` per result (`_album_provider`/`_album_url` helpers), reading
-the provider columns Task 2 added with a fallback to the classic
-`open.spotify.com` URL built from `spotify_id` for rows or live fetches
-that predate the provider columns -- Task 6 wires these two fields into
-templates/CSV, but the plan's own Task 5 test list asks for them at the
-`process_albums` output, so they land here. `unmatched.py`'s
-`CATEGORY_METADATA` for `REASON_NO_SPOTIFY_MATCH` is reworded ("No Match
-Found" / "Not Found" / mentions Deezer) to match; its one pinned test
-(`tests/test_unmatched.py`) is updated in the same commit.
-
-Job progress: the Deezer phase reports 60-75%; the two fixed
-post-`process_albums` markers ("Adding album art...", "Compiling...")
-move from 60/80 to 80/85 so progress never runs backward when Deezer's
-phase ran up to 75%. No test pinned the old 60/80 values.
-
-Validation: `pytest -q` from the worktree cwd -- **1067 passed** (1061 +
-6 new integration tests in `tests/services/test_orchestrator_process_albums.py`,
-covering the plan's five Step 1 scenarios: Spotify-matches-everything
-skips Deezer, a Spotify miss falls through to a Deezer match with
-`provider`/`album_url` set, neither provider matching registers one
-unmatched entry with the new reason text, a Deezer-only run with no
-Spotify token succeeds, that same no-token run raises
-`SpotifyUnavailableError` only when Deezer also fails, and a Deezer match's
-persisted row carries `provider`/`provider_album_id`/`provider_url` with
-`spotify_id` left `None`). Fixed two pre-existing tests
-(`test_process_albums_partial_cache_token_failure_uses_cached_results`,
-`test_process_albums_all_misses_token_failure_raises`) that would
-otherwise have made real, unmocked network calls to Deezer once this task
-landed -- both now mock `search_deezer_album` explicitly. Frontend gate:
-28 checks passed in 50 runs (unchanged from WP-0's baseline; `unmatched.py`'s
-reworded copy did not regress the gate's rendered-page assertions). Task 6
-(show the album's own provider in the UI) is next; note its own blocker:
-read Deezer's attribution guidelines before shipping any Deezer-sourced
-result.
-
-### 2026-09-13 - Spotify calls behind spotify.enrich_albums (Batch 22 WP-1)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Phase 1 Task 3. No behaviour change to any running job -- `enrich_albums`
-is a new, additional entry point; `process_albums`'s real path still calls
-`_run_spotify_search_phase` and `_run_spotify_batch_detail_phase` directly,
-unchanged, per Phase 2's Task 5 owning the wiring.
-
-Plan vs implementation, one deliberate reading: `scrobblescope/orchestrator.py`
-is a package since WP-0, so "Modify: scrobblescope/orchestrator.py" is read as
-"expose the new seam on the facade" rather than touching the phase functions
-the plan explicitly says to leave alone ("this task adds a seam, it does not
-rewrite them"). `scrobblescope/spotify.py` adds `enrich_albums(session,
-misses, token)`: concurrent per-key search via `search_for_spotify_album_id`,
-then one `fetch_spotify_album_details_batch` call for every match, returning
-`({key: AlbumMetadata}, unmatched_keys)`. `misses` reads the same
-`{key: original_data}` shape `process_albums`'s `cache_misses` already uses
-(only the keys matter here), so Task 5 can pass it through unchanged.
-`scrobblescope/orchestrator/__init__.py` imports `enrich_albums` into the
-facade and `__all__`, alongside the other `spotify.py` dependencies, so
-`mock.patch("scrobblescope.orchestrator.enrich_albums")` reaches it once a
-later task wires it in.
-
-**Fix folded in, caught by Pylance during this task (owner):**
-`AlbumMetadata.image_url` (`scrobblescope/enrichment.py`, Task 1) was typed
-`str`, but a Spotify album can have no cover art -- `images[0].get("url")`
-returns `str | None`, so the type was wrong from Task 1's commit, not
-something Task 3 introduced. Widened to `str | None`; behaviour was already
-correct at every call site (`image_url or None`-shaped fallbacks exist
-elsewhere), only the declared type was too narrow. Added a boundary test
-(`test_enrich_albums_handles_missing_cover_art`) pinning the no-images case.
-
-Validation: `pytest -q` from the worktree cwd -- **1054 passed** (1049 + 5
-new: 4 `enrich_albums` tests in `tests/services/test_spotify_service.py`,
-1 facade-exposure test in `tests/services/test_orchestrator_fetch_spotify.py`).
-The frontend gate -- 28 checks passed in 50 runs, matching WP-0's baseline
-exactly, confirming the facade import didn't disturb `process_albums`'s real
-path. Phase 1 (the provider contract) is now complete; Phase 2 Task 4
-(Deezer client) is next.
-
-### 2026-09-13 - Cache columns for any provider (Batch 22 WP-1)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Phase 1 Task 2. No behaviour change -- the new columns and table are unused
-until Task 3+ wires a caller to them.
-
-Plan vs implementation: matched. `init_db.py` adds
-`ALTER TABLE spotify_cache ADD COLUMN IF NOT EXISTS provider/provider_album_id/
-provider_url` plus `ALTER COLUMN spotify_id DROP NOT NULL` (a Deezer-only row
-cannot satisfy the old constraint), backfills `provider='spotify'`,
-`provider_album_id=spotify_id` for existing rows, and creates
-`original_release_cache` (`artist_norm`, `album_norm`, `mb_release_group`,
-`original_release`, `checked_at`, PK on the norm pair) exactly as specified.
-
-`scrobblescope/cache.py`: `_batch_lookup_metadata` and `_batch_persist_metadata`
-now read/write the three new columns. **Deviation, deliberate:**
-`_batch_persist_metadata`'s row tuple grows from 6 to up to 9 elements
-(`+provider, provider_album_id, provider_url`), but the extra three are
-optional -- a 6-element row (today's only caller,
-`orchestrator/_details.py:137`, unchanged in this task) defaults to
-`provider="spotify"`, `provider_album_id=spotify_id`, `provider_url=None`.
-This keeps Phase 1's "no behaviour change" for that caller while still
-tagging its writes correctly, so jobs run after this commit don't need the
-one-time backfill to be re-run. Added
-`_batch_lookup_original_release`/`_batch_persist_original_release` against
-the new table, TTL'd on `ORIGINAL_RELEASE_TTL_DAYS` (`config.py`, default
-365 -- an original release date does not change, so the TTL only guards a
-bad match). A cached row with a null `mb_release_group` is a valid "checked,
-nothing found" cache hit, distinct from no row (uncached).
-
-Validation: `pytest -q` from the worktree cwd -- **1049 passed** (1037 +
-12 new: 4 schema tests in `tests/test_cache_schema.py`, 8 cache-layer tests
-in `tests/services/test_cache.py`). The 6-tuple-legacy-default behaviour and
-the pre-existing `tests/test_repositories.py` cache tests are covered
-without modification, confirming the defaulting path preserves today's
-persisted rows.
-
-**Owner-verified against real Postgres, 2026-09-13:** owner ran the app on
-localhost against the Docker `ss-postgres` container (mirrors the deploy
-target, not a mock), which re-runs `init_db.py`'s migration on startup.
-No regressions observed. This is real evidence the `ALTER TABLE` statements
-apply cleanly to a live database, beyond the unit tests' string assertions
-on `init_db.py`'s source -- partial coverage of the plan's own Verification
-item 5 ("run `init_db.py` against a copy of the production schema"); the
-Deezer-round-trip half of that item waits on Phase 2. Task 3 (Spotify calls
-behind `spotify.enrich_albums`) is next.
-
-### 2026-09-13 - Provider contract, AlbumMetadata value object (Batch 22 WP-1)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Phase 1 Task 1. No behaviour change yet -- `AlbumMetadata` is not wired into
-any caller.
-
-Plan vs implementation: matched exactly. `scrobblescope/enrichment.py` adds
-`AlbumMetadata`, a frozen dataclass (`provider`, `album_id`, `url`,
-`release_date`, `image_url`, `track_durations`) with `as_cache_row_fields()`
-returning the six fields as a tuple in cache-column order.
-`track_durations` holds seconds keyed by `normalize_track_name`, the shape
-`_build_results` already reads -- documented on the class rather than
-duplicated at each call site.
-
-Validation: `pytest -q` from the worktree cwd (not the primary checkout,
-which collects its own stale tree and undercounts) -- **1037 passed**
-(1036 baseline + 1 new). Task 2 (cache columns) and Task 3 (Spotify calls
-behind `spotify.enrich_albums`) are next; see
-`docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md` for
-progress notes per task.
-
-### 2026-09-13 - Module split, behaviour-neutral (Batch 22 WP-0)
-
-Scope: split `scrobblescope/routes.py` (985 lines) into a `routes/` package
-and `scrobblescope/orchestrator.py` (1035 lines) into an `orchestrator/`
-package, per `BATCH22_DEFINITION.md` WP-0. No behaviour change; the
-acceptance criterion was every existing test passing unmodified.
-
-Plan vs implementation: matched the definition's four named phases for
-`orchestrator/` (`_search`, `_details`, `_cache`, `_results`) and the four
-named concerns for `routes/` (`pages`, `album_flow`, `heatmap_flow`, `api`),
-each behind a facade `__init__.py` that keeps the pipeline glue
-(`process_albums`, `_fetch_and_process`, `background_task`,
-`fetch_top_albums_async`) or shared job-context helpers respectively. One
-`Blueprint` (`bp`, name `"main"`) is still shared across the four route
-files, so every endpoint name and `url_for()` call is byte-identical --
-`routes/` is a package of route files sharing one blueprint, not four
-separate blueprints, which is the narrower reading of "package of
-blueprints" that kept templates and endpoint names untouched.
-
-The load-bearing discovery: roughly 24 names across both modules are
-`mock.patch`/`monkeypatch.setattr` targets in the existing test suite,
-addressed as `scrobblescope.orchestrator.<name>` or
-`scrobblescope.routes.<name>`. A name imported directly into a phase
-submodule stops being reachable by that patch once the code that calls it
-moves out of the facade file, because the patch only replaces the
-attribute on the facade module's own namespace. Every submodule therefore
-imports its parent package (`from scrobblescope import orchestrator as
-_orchestrator` / `... routes as _routes`) and reads cross-cutting
-dependencies through that live reference at call time, not through its own
-`from x import y`. The facade files keep every original top-level import
-unchanged, even where their own code no longer calls it directly, so the
-attribute still exists for a submodule or a test to reach. Both `__init__.py`
-files carry an explicit `__all__` documenting that contract and satisfying
-ruff's unused-import check (`ruff-check --fix` would otherwise delete an
-import kept only for re-export).
-
-Deviation: `docs/architecture/*.md`, `README.md` and `AGENT_NOTES.md` still
-cite a few pre-split `orchestrator.py`/`routes.py` paths. The two
-load-bearing ones in `AGENT_NOTES.md` (the Windows-asyncio ProactorEventLoop
-note, cited from two places) are fixed in this commit; the rest are left for
-WP-5's already-scoped README and `docs/architecture/runtime-system.md` pass
-rather than swept twice. `docs/superpowers/plans/` citations are dated
-plan documents and are not touched, per the dated-entry exemption.
-
-Validation: `pytest -q` -- **1034 passed**, unmodified from every test file
-in the suite. `scripts/dev/frontend_gate.py` -- 28 checks passed in 50 runs
-across chromium and firefox, matching the batch-open baseline. `ruff check`
-and `ruff format` clean on both new packages. `scripts/doc_state_sync.py
---check` passes (the root `BATCH22_DEFINITION.md` warning is expected while
-the batch is active).
-
-Forward guidance: WP-1 (the provider contract) adds `scrobblescope/
-enrichment.py` and moves the Spotify calls behind `spotify.enrich_albums`,
-which lands inside `orchestrator/_search.py`'s and `_details.py`'s existing
-phase boundaries rather than requiring another restructure.
-
-### 2026-09-14 - Apply cached original-release corrections (Batch 22 WP-1)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Task 8, the second task of Phase 3. Applies a MusicBrainz finding already
-sitting in `original_release_cache` -- populated by Task 9's worker, not
-yet built -- so this task is display-only wiring with no live MusicBrainz
-call of its own.
-
-Plan drift, expected: the plan's file list still names
-`scrobblescope/orchestrator.py`, which the WP-0 module split above turned
-into a package before this task ran. The real targets are
-`scrobblescope/orchestrator/_results.py` (`_build_results`,
-`_get_user_friendly_reason`), `scrobblescope/orchestrator/_cache.py` (new
-`_lookup_cached_original_release`), and `scrobblescope/orchestrator/__init__.py`
-(`process_albums` wiring). The owner flagged this drift before the task
-started; no separate deviation write-up needed beyond this note.
-
-`scrobblescope/orchestrator/_cache.py`: `_lookup_cached_original_release(conn,
-keys)` mirrors `_lookup_cached_metadata` -- returns `{}` without raising if
-`conn` is falsy or the query fails, since a missing correction must only
-skip the display upgrade, never block a job. `scrobblescope/orchestrator/__init__.py`:
-`process_albums` calls it inside the same try block that already holds
-`conn` open for Phase 1-4 (right after `_persist_new_metadata`, before the
-`finally: conn.close()`), keyed on `list(cache_hits.keys())` -- these are
-already `(artist_norm, album_norm)` tuples, the same shape
-`original_release_cache`'s primary key uses, so no new key derivation was
-needed. The result feeds into `_build_results` as a new trailing
-`original_release_hits` parameter.
-
-`scrobblescope/orchestrator/_results.py`: `_build_results` now looks up
-each album's key in `original_release_hits`; a finding with a non-null
-`original_release` becomes the `release_date` used for both
-`_matches_release_criteria` and the displayed date, and the provider's own
-date survives as a new `provider_release_date` field on the result (or the
-unmatched entry, if the correction excludes the album). No finding, or a
-cached "checked, nothing found" row (both fields null), leaves the result
-shape identical to before this task -- `provider_release_date` is only
-added when a correction actually applied. `_get_user_friendly_reason`
-gained a `corrected` flag: when true, the wording changes from "Released
-X instead of Y" to "First released in X, not Y" (and the decade/custom
-equivalents) so a MusicBrainz-corrected exclusion reads as "this is the
-true original year," not "the app misread the provider's date."
-
-`tests/services/test_orchestrator_helpers.py` (4 new tests): a correction
-that excludes an album from its filter year (reason text asserted
-verbatim), the same correction under the original year keeping the album
-with `provider_release_date` preserved, the no-correction/nothing-found
-case proving behaviour is unchanged (both the omitted-kwarg case and the
-explicit-null-row case), and an adversarial sweep of `_get_user_friendly_reason`'s
-`corrected=True` wording across all four scopes (same/previous/decade/custom),
-not just the one scope the plan's own example uses -- per AGENTS.md Test
-Quality Rules, a new branch needs its own test, not just integration
-coverage through `_build_results`.
-
-Audit reconciliation, 2026-09-14: commit `f971991` implements Task 8's
-runtime behavior once, at the intended seams; no duplicate implementation or
-non-working path was found. Its tests did not prove that the normal
-`process_albums` run forwarded cached corrections into `_build_results`, and
-the new cache wrapper lacked direct no-connection and failure coverage. Three
-focused tests now close those gaps. The process seam test was also run with
-the forwarding argument temporarily disconnected and failed on the expected
-2011-vs-1977 result, then passed again after restoration. The root definition,
-plan Progress section, Section 3 and SESSION_CONTEXT now agree that WP-0
-through WP-2 are complete, WP-3 owns Tasks 7-9, and Task 9 is next. This dated
-entry's existing WP-1 heading remains its historical commit record; it is not
-the canonical work-package mapping.
-
-**Docsync gotcha found while landing this entry -- two layers, one
-already filed:** (1) this section of Section 4 is append-ordered (oldest
-entry on top, new entries added at the bottom, then the tool reverses the
-list internally) -- `scripts/docsync/logic.py`'s `_monotonic_dates` says
-so explicitly ("current-batch entries are appended and then
-reversed... position, not the heading date, is the authority on
-recency"). Every WP-1 tagged entry so far, including the MusicBrainz
-entry above and this task's own first draft, was inserted at the *top*
-instead -- the untagged side-task convention, not this section's. Moved
-here, to the true bottom, to follow the tool's actual model; the
-pre-existing MusicBrainz/README entries above are left as written rather
-than reordered, since that is a multi-entry change outside this task's
-scope. (2) Fixing the position was not enough: `latest_test_count_authority`
-still resolves to 1081, not this entry's 1085, because the DB-connect-timeout
-side-task entry below the end marker is *also* dated 2026-09-14 and
-explicitly claims 1081 -- on a same-date tie, source precedence ranks a
-side-task entry above any current-batch entry regardless of which was
-actually written later that day. This is **F-DOCSYNC-11** (open, P1,
-filed 2026-09-12, same mechanism, different day), not a new finding.
-Tried publishing 1085 into SESSION_CONTEXT/FINDINGS by hand to match
-reality; `--check` rejected it (DOC005/DOC006/DOC008), because those
-checks independently recompute the same stuck-at-1081 authority and
-compare against it, rather than trusting a hand-written number -- the
-prior session's F-DOCSYNC-12 fix (a genuinely unmanaged, never-recomputed
-field) does not generalize to this one (a managed field recomputed every
-run). Reverted to 1081 everywhere docsync validates it, per F-DOCSYNC-11's
-own stated remedy ("publish a superseded number"); this entry's own
-Validation line below is the accurate record of the true count until
-F-DOCSYNC-11 is fixed.
-
-Validation: `pytest -q` -- **1085 passed** (was 1081; +4 new). Frontend
-gate -- 29/29, unaffected (backend-only change). `doc_state_sync.py
---check` passes clean (SESSION_CONTEXT/FINDINGS test-count fields read
-1081, the tool's current authoritative-but-superseded figure, per
-F-DOCSYNC-11 above; the root `BATCH22_DEFINITION.md` warning is expected
-while the batch is active).
-
-Audit validation: `pytest -q` -- **1088 passed** (was 1085; +3 focused
-tests). The frontend gate was not rerun because the audit changed tests and
-documentation only; Task 8's prior backend-only 29/29 result remains the
-latest frontend evidence.
-
-### 2026-09-15 - The correction worker (Batch 22 WP-3)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Task 9, which closes the loop Task 7 and Task 8 left open. Task 7 built the
-MusicBrainz client and Task 8 applied findings that were already cached;
-until now nothing wrote a new one, so `lookup_original_release`,
-`_batch_lookup_original_release` and `_batch_persist_original_release` had no
-production caller at all.
-
-`scrobblescope/release_checks.py` (new): one process-wide daemon thread with
-its own event loop (`ProactorEventLoop` on Windows, for the reason
-`orchestrator.background_task` already documents) draining a FIFO
-`queue.Queue` of job ids. One thread, not a pool: MusicBrainz allows one
-request per second per IP and `utils.get_musicbrainz_limiter()` enforces that
-process-wide, so extra threads would queue behind the same limiter while
-multiplying DB connections and the ways a job's state can be raced. The
-thread starts lazily, on the first job that can use it, so a process that
-never runs one -- a test session, a CLI script -- never grows it.
-
-Candidates per job, in the plan's order: the results in rank order (a
-correction can move one out), then the release-scope exclusions whose
-provider year is **later** than the target window's last year (a correction
-can move one in). Nothing else can change, because an original release date
-is never later than the provider's own. `_select_candidates`, `_window_end`
-and `_release_year` are pure and tested directly. Each result gains a
-`release_check` field -- `unchecked`, `confirmed`, `moved_out` or
-`unavailable` -- and `progress.stats.release_check` holds `{status, checked,
-total, moved_out, moved_in}` with `status` one of `running`, `done`,
-`skipped`. A move-out marks the result in place and is counted; a move-in is
-counted only, never inserted, so a results list somebody is reading is not
-reordered underneath them.
-
-Three design points the plan left open, decided here. **Cache hits cost no
-request and still settle the result:** a cached row carrying an original date
-is why the album passed the filter at all (Task 8 filtered on it), so the
-result is `confirmed`; a cached null row is a recorded "checked, nothing
-found", so it is `unavailable`. The cap therefore applies to what is left
-after the cache short-circuit, because the cap exists to bound requests.
-**Findings are persisted one row per check, not batched at the end:** the
-worker spends about a second per candidate and a job lives two hours, so a
-finding held in memory until the end is a request nobody gets back if the
-process restarts. **No cache DB means no run:** the pass is marked `skipped`
-without requesting anything, since a finding that cannot be persisted buys
-one job's display and nothing for the next, at the shared budget's expense.
-The worker also re-reads the job before every candidate and stops when it is
-gone (`JOB_TTL_SECONDS`), and returns without raising in every failure mode:
-a correction pass is an enhancement over results the user can already read.
-
-`scrobblescope/repositories.py`: `set_job_release_check(job_id, state)`
-replaces the whole stats payload rather than merging (the worker owns the key
-and always knows the full state, so a merge could only preserve a stale
-count) and copies on write; `update_job_result(job_id, album_key, fields)`
-merges into the one result whose `normalize_name(artist, album)` matches
-`album_key`, returning False when the job is gone, has no results list yet,
-or holds no such album. Result dicts carry no pre-normalized key, which is
-why the key is derived per entry rather than looked up.
-
-`scrobblescope/orchestrator/__init__.py`: `_fetch_and_process` calls
-`enqueue_release_check(job_id)` immediately after `set_job_results` on the
-happy path only. The worker picks its candidates out of the stored results,
-so an earlier hand-off would find nothing, and the error paths publish an
-empty list, which has nothing to correct. `enqueue_release_check` is imported
-at the top of the facade, and `release_checks` reaches
-`_matches_release_criteria` through a function-local import: the two modules
-would otherwise form an import cycle whose behaviour depends on which one is
-imported first.
-
-`scrobblescope/orchestrator/_results.py`: `provider_release_date` is now
-attached to every release-scope unmatched entry, not only a corrected one. It
-was half-wired in Task 8 (corrected entries only); the worker reads it back
-off the unmatched entry to decide which exclusions a lookup could still move
-in, and an *uncorrected* exclusion is exactly the case it exists to resolve,
-so without this it could not build that candidate list at all.
-
-Tests (31 new): `tests/services/test_release_checks.py` (22) covers the
-candidate list and its order, the four exclusion rules that make an unmatched
-album unmovable, the cap, the cache short-circuit including a null row,
-`moved_out` marking a result without removing it from the list, the full
-stats shape with a counted-not-inserted move-in, a job deleted mid-run
-stopping the worker, `MUSICBRAINZ_ENABLED=False` and an unreachable DB both
-marking `skipped` with no request, a "nothing found" row still being
-persisted, connection close on a raising lookup, and the queue/thread
-lifecycle. `tests/test_repositories.py` (+6) and
-`tests/services/test_orchestrator_fetch_and_process.py` (+2, including the
-error path *not* queueing) assert on the shared `JOBS` state rather than mock
-calls. `tests/services/test_orchestrator_process_albums.py` (+1) covers the
-uncorrected `provider_release_date`. The cap and the job-gone guard were each
-disconnected in turn and the matching test failed, then passed again on
-restoration.
-
-Validation: `pytest -q` -- **1298 passed**. That figure is measured in a
-worktree that also carries a concurrent, uncommitted docsync work package
-from another session, so it is not comparable to the 1088 the entry above
-records. Task 9's own contribution is +31 (22 + 6 + 2 + 1, per the file list
-above). No frontend change, so the frontend gate is unaffected and its last
-29/29 measurement stands.
-
-Deviation, logged rather than swept: `pre-commit run --all-files` reports
-`ruff` failures in `scripts/docsync/`, files this task does not touch and
-does not stage. They belong to that concurrent docsync work package. The
-staged-path hook run for this commit passes.
-
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-20 - Docsync review round, DOC023, and PR #234
+### 2026-09-20 - Session close-out and handoff
 
-Side task, no batch tag: close-out of
-`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`. Not Batch 22
-scope. The unrelated in-flight Batch 22 edits in this worktree were neither
-staged nor reverted. Ledger:
-`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
+Side task, no batch tag. The session closed under a token budget, so this
+entry records the state rather than the reasoning; the entries below carry
+the reasoning.
 
-The whole-branch review had to be split: `/ultrareview` caps at 500 files and
-8,000 lines against the working tree, and this work package was 52 files and
-12,403 lines. The engine commit was reviewed alone from a temporary branch.
-Every reported finding across ultrareview, Codacy, Graphify and qlty was
-reproduced or refuted before being acted on -- roughly twenty reports produced
-eight real defects. Refutations included a "high" that was an artifact of
-where the review scope was cut and healed by the next commit, and three qlty
-correctness items that were analyzer flow-model false positives.
+**Pushed.** Seven commits are on `origin/feat/batch22-enrichment`, from
+`3707d6a` to `e57e894`: the work-package tag repair, Batch 22 WP-4 (the
+release-check endpoint and its live disclosure), the colour-serialization
+class fix, the Batch 22 close-out, the Batch 23 definition with six
+corroborated proposals, and the cache repair with the findings rotation. The
+branch is **not merged** into `test`; opening a pull request is an owner
+decision and has not been taken.
 
-Defects fixed, each with a regression test proven to fail without its fix:
-archive pages were packed in reading order while every producer prepends, so
-one rotated entry repacked the whole archive and returned cold pages to hot;
-`--close-batch` restated the closure date from the clock; findings rotated to
-the bottom of an archive whose prologue says newest first; the hook installer
-resolved a relative `core.hooksPath` against cwd and wrote through a
-pre-existing symlink onto its target; close-out `assert`s guarded a publish
-and vanish under `python -O`; the preflight re-encoded a text-mode tar payload
-and extracted unfiltered below Python 3.12.
+**Handoff written for a new agent**, deliberately assuming no familiarity
+with this repository and no particular tooling:
+`docs/history/reports/HANDOFF_2026-09-20.md`. It carries the reading order,
+the environment, the five ways this repository will refuse a commit and why,
+the database-migration fact that hid a dead cache for a whole batch, what
+Batch 23 is, and the open items with their findings.
 
-DOC023 closes the finding-rot hole: all 83 findings lacked the canonical
-`- [ ] **Status:**` record, so DOC013-DOC018 had never fired once. It blocks a
-finding whose prose claims a terminal outcome without that record. The
-boundary is an explicit id allowlist in `[findings] grandfathered`, not the
-batch number the plan specified -- 32 of 83 ids are source-tagged and carry no
-batch to compare, so a boundary would grandfather them by accident and let a
-new finding escape by choosing a tag. 23 ids are grandfathered and reported as
-one warning carrying a count derived from the file on every run.
-`docs/agents/global-rules.md` was also added to Session Bootstrap, which it was
-missing from despite being binding.
+**The owner's inline questions in `FINDINGS.md` are resolved** and have been
+removed. They were written after Batch 21 closed, asking why nothing had
+rotated; the answer was that no finding carried the lifecycle record rotation
+requires, and the rotation in the entry below is the answer in effect. Two of
+the removed lines were not questions and were restored: an owner ruling that
+the GitHub-to-findings sync must run in both directions, now recorded inside
+F-B21-9, and a wrapped line of F-LOAD-2's own prose that a regex mistook for
+an annotation because it began with a slash.
 
-Validation: `pytest -q` -- **1497 passed**; `doc_state_sync.py --check` exit 0;
-`frontend_gate.py` exit 0; `AGENTS.md` 473 lines against its 500 cap. Eighteen
-commits on `feat/batch22-enrichment`, nothing unpushed, open as PR #234 into
-`test`.
+Validation: `pytest -q` -- **1529 passed**. `doc_state_sync.py --check` exit
+0, its only warning the root definition waiting for Batch 23 to open.
 
-### 2026-09-19 - Docsync close-out plan Tasks 3 and 4, and a control-plane code review
+Next action for whoever arrives: read the handoff, then decide the pull
+request and whether to open Batch 23.
 
-Side task, no batch tag: continuation of the entries below on
-`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
-via `superpowers:subagent-driven-development`. Not Batch 22 scope. Nothing
-is committed; the whole plan remains working-tree-only by owner constraint,
-and the unrelated in-flight Batch 22 edits in this worktree were neither
-staged nor reverted.
+### 2026-09-20 - The cache was inert, and the findings backlog now rotates
 
-Task 3 (CLI integration and multi-signal close-out) landed in six slices:
-the two strict configuration tables, the definition-side close-out record,
-the gate wiring, `--close-batch`, the archive maintenance modes, and DOC020.
-Its review found one Important defect -- the `expected` map passed to
-`transaction.publish` did not cover every path the plan had READ, so a
-concurrent edit by another agent could publish a decision made about
-different content. Fix round 1 made `_Corpus.read_paths()` the single source
-of truth for that, so a document added to the corpus later inherits the
-protection instead of needing a second hand-maintained list.
+Side task, no batch tag, on the owner's instruction to close Batch 22's
+remaining cache and findings work now rather than carry it into Batch 23.
+Investigated through `superpowers:systematic-debugging`.
 
-Task 4 was split into a code half and a documentation half. The code half
-added `scripts/dev/docsync_preflight.py` and
-`scripts/dev/install_docsync_hook.py`, moved the docsync hook to first
-position in `.pre-commit-config.yaml`, and added an explicit CI preflight
-step. Its review found that the control-plane refusal existed only in
-`--staged` while the pre-commit entry runs `--worktree`, which is the path
-that actually executes on every local commit; fix round 1 closed that.
-The documentation half brought `AGENTS.md` from 728 to 498 lines by
-compressing, relocating the DOC catalogue to
-`docs/architecture/documentation-tooling.md` and the bootstrap edge cases to
-`HANDOFF_PROMPT.md`, and relocating the `UI and Accessibility Rules` that an
-in-flight Batch 22 edit had deleted into `docs/agents/ui-accessibility.md`.
-That single deletion was the root cause of all three live gate errors, which
-are now repaired.
+**The metadata cache had been inert since Batch 22 shipped.** The owner's
+local database still held the pre-Batch-22 schema: `spotify_cache` had no
+`provider`, `provider_album_id` or `provider_url` columns, `spotify_id` was
+still `NOT NULL`, and `original_release_cache` did not exist at all. Read
+against it, `_batch_lookup_metadata` raised `UndefinedColumnError` and
+`_batch_lookup_original_release` raised `UndefinedTableError` -- measured, not
+inferred.
 
-Owner rulings taken during the session, both recorded in the plan ledger: the
-commit preflight refuses any commit that modifies the docsync control plane,
-and the one named escape is `SKIP=doc-state-sync-check git commit` rather
-than `--no-verify`, so the absolute prohibition on `--no-verify` in
-`AGENTS.md` anti-pattern 7 stands unchanged; and the architectural invariants
-the owner supplied are now a binding document at
-`docs/agents/global-rules.md`, carrying an explicit precedence order for when
-two rules conflict.
+The consequence was not an outage, which is why nobody caught it. Both reads
+are wrapped, so every job degraded to a cache-less run and carried on: 3,628
+usable rows went unread on every search, every album was re-fetched from
+Spotify or Deezer, and every MusicBrainz correction was paid for at one
+request per second and then discarded. The owner's 2026-09-20 run reads
+exactly that way -- `Cache partition: 0 hits, 366 misses` -- and the database
+being down at the time hid the second fault behind the first.
 
-An owner-requested code review of the control plane followed, and its
-findings were fixed rather than filed. `--split-archive` had been writing
-directly to disk with no lock, no journal and no staleness check, which
-contradicted the atomicity guarantee every other writing mode honours; it now
-publishes through the same transaction. The batch-definition regex that had
-been constructed five times across three modules is now
-`parser.root_definition_pattern`. The live-document path list, which the tool
-had duplicated between `cli.py` and `integrity.py` without the declaration it
-would demand of any other repository, now has one owner. On the application
-side, `update_job_result` no longer normalizes every result inside the
-process-global lock -- the key is attached once where results are built --
-and `run_release_checks` was decomposed into three named units with its
-existing tests passing unmodified as parity evidence.
+`init_db.py` is idempotent and is what fixes it. Run against the live
+database: the three columns exist, `spotify_id` is nullable,
+`original_release_cache` exists, and all **3,628** existing rows were
+backfilled to `provider = 'spotify'` with `provider_album_id = spotify_id`.
+Then, against that live database rather than a mock, Batch 22's cache
+acceptance criteria were exercised for the first time: a Deezer-only row with
+no Spotify id round-trips; a legacy six-tuple caller still writes a row that
+reads back as Spotify; a pre-existing row is readable through the cache API
+after the backfill; and both a correction and a "checked, nothing found" row
+round-trip through `original_release_cache`. The probe rows were deleted
+afterwards.
 
-Validation, run fresh in the controller session rather than taken from any
-subagent's report: the two preflight and hook suites were 76 passing, the
-release-check suite 23 passing unmodified before and after its refactor, and
-`ruff check` plus `ruff format --check` were clean across the touched files.
-`scripts/doc_state_sync.py --check` now exits 0, leaving only the expected
-root `BATCH22_DEFINITION.md` warning. Validation: `pytest -q` -- **1470 passed**.
+**The class fix, because the instance was a one-line command.** A missing
+column is not a transient failure: it never heals, and every read until
+someone notices misses a cache that is sitting right there. The code reported
+it in the same words as a dropped connection. `scrobblescope/cache.py` gains
+`schema_is_out_of_date`, matching PostgreSQL SQLSTATEs 42703 and 42P01 --
+matched on the SQLSTATE rather than the asyncpg exception class, because
+asyncpg is an optional import here and a SQLSTATE is the stable half of the
+contract -- and a single remediation string naming `init_db.py`. Both cache
+readers and the correction worker's persist path now say which kind of
+failure they hit. Seven tests cover it, including that a transient failure
+must **not** tell the reader to run a migration.
 
-Deviations worth the next reader's attention. `AGENTS.md` landed at 498 lines
-rather than the ~420 target: every remaining line is a distinct rule or
-procedure, and further cuts would have removed prohibitions rather than
-narrative. Two documents under `docs/agents/` were staged, against the
-plan's own no-staging rule and at the owner's explicit instruction, because
-DOC001 reads `git ls-files` and an untracked file can never satisfy a
-reference to it.
+This is the same shape as the DOC013-DOC018 gate that had never fired once:
+a subsystem reporting success while doing nothing. It is worth naming as a
+class -- a failure that degrades silently needs a diagnostic that
+distinguishes "will heal" from "will never heal", or it is indistinguishable
+from working.
 
-Forward guidance, in the owner's stated order: build the DOC023 invariant
-that stops resolved findings rotting in free prose, then run the final
-whole-branch review, then land the work as a sequence of atomic commits
-rather than one large one. The triage list for that review is every finding
-marked deferred in
-`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`, which
-remains the authoritative ledger for this plan.
+**The findings backlog rotates again.** 85 findings, 83 with no lifecycle
+record, so nothing had rotated at either batch close-out -- the owner's
+question in `FINDINGS.md` had the right instinct. The owner ruled on
+2026-09-20 that a prior session's record may be transcribed, since the
+authors are earlier agent sessions and the standing warning confuses a reader
+more than an archived finding would.
 
-### 2026-09-16 - Docsync close-out plan Task 2 closed out
+Each of the 23 grandfathered findings was given the record its own author's
+words support, and the distinctions were kept:
 
-Side task, no batch tag: continuation of the 2026-09-15 entry below on
-`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
-via `superpowers:subagent-driven-development`. Not Batch 22 scope; nothing
-here touches live `FINDINGS.md`, the archive files, or the docsync CLI.
+- **16 were terminal** and are now in `docs/history/findings/FINDINGS_ARCHIVE.md`
+  under their original ids with the `-- RESOLVED` suffix. Where the author
+  wrote a date it is theirs; where they wrote none, the completion date is
+  the day of the evidence they cite, which is an inference and is recorded
+  here as one.
+- **5 say "resolved locally, deploy before the next production release"** and
+  are NOT checked. The lifecycle gate treats a pending deploy as not-yet
+  terminal and it is right to: the fix is in the tree, not in front of a
+  user. They keep an unchecked record and stay active.
+- **2 were never resolved at all** -- F-B21-9 was deferred by owner decision
+  and F-B21-53 is open for the general card token. Reading either as finished
+  because the word "resolved" appears in its prose is exactly the mistake
+  DOC023 exists to prevent.
+- **F-B21-1 was verified in source rather than taken on trust**: loop
+  construction now sits inside the `try` in both `background_task` and
+  `heatmap_task`, with `release_job_slot()` in the `finally`.
 
-Task 2's fix round 1 (resumed 2026-09-15 with a fresh implementer, since
-the original handle was unavailable) addressed all 3 Important findings
-recorded in `docs/history/reports/DOCSYNC_CLOSEOUT_TASK2_REVIEW_2026-09-15.md`:
-a missing index no longer deletes existing pages (`_load` now rejects
-orphans before returning an empty layout); a page's silently-discarded
-prologue/missing header now raises `SyncError` instead of being dropped;
-`page_path` now resolves beside `index_path` instead of always under the
-store root. Each fix is covered by a regression test whose own docstring
-names the finding it reproduces.
+`[findings] grandfathered` in `.docsync.toml` is now `[]`, and **DOC023's
+standing warning is gone**. The list stays declared so a repository adopting
+this gate starts strict with somewhere to put its own history. Active
+findings: 72, down from 85.
 
-This session had no subagent-dispatch tool available, so the required
-scoped re-review was performed by the controller directly instead of a
-dispatched reviewer -- a disclosed deviation from
-`superpowers:subagent-driven-development`, consistent with how Task 1's
-own fix round 1 was handled for the same reason. The re-review checked
-each fix against the review report's findings and the design spec's own
-language (not just that tests pass), and swept for the same defect class
-elsewhere in the module (`_diff`, the other `_reject_orphans` call site)
-before concluding no sibling instance existed. Full re-review detail is in
-`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
+Validation: `pytest -q` -- **1529 passed** (was 1522; +7 for the schema
+diagnostic). `pre-commit run --all-files` -- all hooks pass.
+`doc_state_sync.py --check` exit 0, and its only remaining warning is the
+root definition for Batch 23, which is expected while that file waits at the
+root. `.docsync.toml` is control-plane, so this commit uses the sanctioned
+`SKIP=doc-state-sync-check`, with `--check` run directly first.
 
-Validation, run fresh: the archive suite alone was 43 passing, and the
-full docsync suite (markdown/declarations/integrity/logic/parser/findings/
-archives/transaction) was 355 passing; `ruff check` on all Task 1/2-owned
-files was clean. Validation: `pytest -q` -- **1302 passed** (up from 1298;
-the delta is this shared worktree's own concurrent, uncommitted growth in
-`archives.py`/`test_docsync_archives.py`, not a regression -- see the
-out-of-band fix entries above for the same observation applied to
-`logic.py`).
+Forward guidance: the five "pending deploy" findings resolve themselves the
+next time production ships, and their records are the checklist. Nothing
+about this change requires a deploy of its own -- but the schema migration
+does need running wherever else this app has a database, which on Fly.io
+happens automatically, since `init_db.py` is the release command.
 
-Task 2 is complete: 3/3 Important findings addressed, 0 new
-Critical/Important breakage. 7 Minor findings (recorded in the review
-report) remain deferred, unchanged, to the final whole-branch review's
-triage. Next step: Task 3 (CLI integration and multi-signal close-out).
+### 2026-09-20 - Batch 23 defined, and six owner proposals corroborated
 
-### 2026-09-15 - Docsync close-out plan Task 2 review recorded
+Side task, no batch tag: the owner proposed a different MusicBrainz lookup
+strategy, a move from threads to `asyncio` inside Flask, server-sent events
+in place of polling, a narrowed Lucene query, and a test-count fix, and asked
+for each to be corroborated rather than taken. Nothing in this entry changes
+runtime behaviour. `BATCH23_DEFINITION.md` is written but Batch 23 is **not
+open**: its branch is unnamed, and naming it is an owner decision.
 
-Side task, no batch tag: control-plane work on
-`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
-via `superpowers:subagent-driven-development`. Not Batch 22 scope; nothing
-here touches live `FINDINGS.md`, the archive files, or the docsync CLI.
+**Threads cannot run coroutines -- half right, and the half that is wrong
+matters.** Measured directly: `threading.Thread(target=an_async_def)` never
+runs the coroutine and raises no error, only a "was never awaited" warning,
+which is worse than a crash. A thread that creates its own event loop and
+calls `run_until_complete` runs it correctly, and that is what
+`scrobblescope/release_checks.py` already does. The proposed remedy --
+dropping `threading` for `asyncio.create_task()` inside Flask -- cannot work
+here: a probe route asked for a running loop and got "no running event loop".
+Flask under a WSGI server has no persistent loop to attach a long-lived task
+to, so the thread-owns-a-loop pattern is the remedy, not the problem.
 
-Task 1 (shared Markdown scanner, DOC010-DOC012 repairs) is complete and
-reviewed clean. Task 2 (finding lifecycle + bounded archives + recoverable
-publish: `findings.py`, `archives.py`, `transaction.py`, DOC013-DOC018) is
-implemented and controller-verified green (93/93 new suites, 351/351 full
-docsync suite, Ruff clean), but its task review returned Needs fixes: 3
-Important findings, all in `archives.py`, all silent history-loss/
-misplacement paths with no diagnostic (a missing index deletes every
-managed page; page prologue content is silently discarded; `page_path`
-writes to the wrong directory when an index does not sit at the store
-root). Plus 7 Minor findings, logged for the final whole-branch review.
-Full detail: `docs/history/reports/DOCSYNC_CLOSEOUT_TASK2_REVIEW_2026-09-15.md`.
+**The Gunicorn race condition does not exist today, by configuration.**
+`Dockerfile` runs `--workers 1 --threads 4`. One worker means one `JOBS`
+dict, one semaphore and one process-wide MusicBrainz limiter.
+`AGENT_NOTES.md` already records that a second worker would break the job
+store; it would break the rate limiter too, which is the sharper consequence
+since MusicBrainz blocks by IP.
 
-Validation: `pytest -q` -- **1298 passed** (unchanged; this side task adds
-one documentation file and a PLAYBOOK entry only, no application or docsync
-source). Tasks 3-4 of the plan are not started. Next step: resume the SDD
-fix loop on Task 2's three Important findings.
+**Server-sent events would take the whole thread pool.** Four threads, and an
+SSE response holds its thread for the life of the connection: four readers
+with a results page open would leave nothing for the home page. Filed as
+F-B22-6.
+
+**The MusicBrainz proposal: the exact path is real, the ISRC path is not.**
+Probed live against five albums at one request per second.
+`GET /ws/2/url?resource=<spotify album url>&inc=release-rels` returns a "free
+streaming" relation to a **release** when an editor has mapped that album;
+a second request on the release yields the release group's
+`first-release-date`. Two requests, exact, no scoring. It answered two cases
+today's search path did not -- one where the top candidate scored 100 with no
+date at all. It was unmapped for one of the five. Note for the implementer:
+`inc=release-groups` on that endpoint returns nothing, and
+`inc=release-group-rels` returned zero relations; the include is
+`release-rels`.
+
+The ISRC path costs more and is worth less. `GET /v1/albums/{id}` returns
+simplified track objects carrying **no** `external_ids`, confirmed by reading
+the keys off a live response, so every ISRC needs an extra Spotify request;
+and `/ws/2/isrc/{isrc}` returns recordings, whose earliest release group may
+be a single rather than the album. Dating an album by its lead single is a
+worse answer than no correction.
+
+Also measured: `AND type:album` would exclude EPs, which this application
+ranks alongside albums -- `normalize_name` strips "ep" from titles for
+exactly that reason -- and the release-group search field is `primarytype`,
+not `type`.
+
+All of it is F-B22-5, with the measurements, and the recommendation is to
+keep the one-request search as the primary and spend the second request only
+where it buys something: no candidate, or a candidate with no date, and a
+Spotify id present. **The correction cache must stay keyed on
+`(artist_norm, album_norm)`, never on a Spotify id.** The owner's own
+2026-09-20 run had Deezer rescue 9 of the 10 albums Spotify could not enrich,
+and those albums have no Spotify id at all.
+
+**That run also settles what Deezer is for.** The log shows 356 of 366 albums
+matched on Spotify, then 9 of the remaining 10 matched on Deezer, with the
+database cache down and every lookup live. Deezer is not only an outage
+fallback; it answers for albums Spotify does not carry. The README's
+description was written for the outage case and now says both.
+
+**The test count.** `--fix` cannot publish a measured count and `--check`
+refuses a hand-written one, because `latest_test_count_authority` parses the
+number out of prose in dated entries and DOC005/DOC006/DOC008 recompute that
+parse. Rule 7 is why the tool does not simply run pytest: it may rewrite only
+what it can derive from facts a human authored, and measuring the world is
+not that. Filed as F-DOCSYNC-13 with a proposed shape -- an authored
+measurement passed in, written by `--fix` into all four sites -- for the
+owner to rule on.
+
+**Batch 23's definition** is derived from the approved plan, in this
+repository's own work-package form: WP-0 behaviour-neutral extractions, WP-1
+error codes, WP-2 the pure parser and aggregators, WP-3 the job hand-off,
+WP-4 routes and upload handling, WP-5 the interface, WP-6 the new statistics
+for both sources, WP-7 documentation, the deferred Batch 21 accessibility
+audit and close-out. The audit is inside WP-7 because the owner ruled on
+2026-09-13 that this batch cannot close without it.
+
+**A wording trap worth knowing.** Section 3's "Batch 23 is not yet defined"
+has to sit on one line: the state parser reads Section 3 line by line, and
+wrapping that sentence across two lines made the gate infer an active batch
+and demand a definition declaration. The same class of defect, in the other
+direction, was fixed during the docsync close-out.
+
+Validation: `pytest -q` -- **1522 passed**, unchanged (no runtime code was
+touched). `doc_state_sync.py --check` exit 0, with the expected DOC023
+warning and the root-definition warning that is normal for a batch with a
+definition at the root. The live probes were read-only: Spotify with the
+app's own credentials, MusicBrainz with a contact-bearing User-Agent at one
+request per second.

@@ -3,10 +3,12 @@ from unittest.mock import AsyncMock
 import pytest
 
 from scrobblescope.cache import (
+    SCHEMA_OUT_OF_DATE_REMEDIATION,
     _batch_lookup_metadata,
     _batch_lookup_original_release,
     _batch_persist_metadata,
     _batch_persist_original_release,
+    schema_is_out_of_date,
 )
 
 
@@ -174,3 +176,47 @@ async def test_batch_persist_original_release_upsert_call_shape():
     assert call_args[2] == ["rumours", "obscure ep"]
     assert call_args[3] == ["mb-rg-1", None]
     assert call_args[4] == ["1977-02-04", None]
+
+
+# --- The stale-schema diagnostic ------------------------------------------
+
+
+class _PgError(Exception):
+    """Stands in for an asyncpg error, which carries its SQLSTATE."""
+
+    def __init__(self, sqlstate, message="boom"):
+        super().__init__(message)
+        self.sqlstate = sqlstate
+
+
+def test_undefined_column_reads_as_a_stale_schema():
+    """42703 is what a cache read hits when a migration has not been run.
+
+    Measured against the owner's live database on 2026-09-20: it held the
+    pre-Batch-22 schema, so every metadata read raised UndefinedColumnError
+    and every job silently ran cache-less against 3,628 usable rows.
+    """
+    assert schema_is_out_of_date(_PgError("42703", 'column "provider" does not exist'))
+
+
+def test_undefined_table_reads_as_a_stale_schema():
+    """42P01 is the same fault one table earlier: original_release_cache."""
+    assert schema_is_out_of_date(
+        _PgError("42P01", 'relation "original_release_cache" does not exist')
+    )
+
+
+def test_a_transient_failure_is_not_a_stale_schema():
+    """A dropped connection heals itself; a missing column never does.
+
+    Reporting the two the same way is what let a permanent fault look like a
+    passing hiccup for as long as it did.
+    """
+    assert not schema_is_out_of_date(_PgError("08006", "connection failure"))
+    assert not schema_is_out_of_date(OSError("connection refused"))
+    assert not schema_is_out_of_date(None)
+
+
+def test_the_remediation_names_the_command_that_fixes_it():
+    """The reader will not be the person who wrote the check."""
+    assert "init_db.py" in SCHEMA_OUT_OF_DATE_REMEDIATION

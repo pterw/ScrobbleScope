@@ -67,11 +67,13 @@ from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
     _composite_over,
     _contrast_ratio,
     _divider_contrast_failure,
+    _is_forbidden_surface,
     _parse_rgb_string,
     _relative_luminance,
     _worst_divider_contrast,
 )
 from scripts.dev._frontend_gate_results import (  # noqa: E402
+    check_release_check_disclosure,
     check_results_interactions,
     check_results_provider_attribution,
 )
@@ -558,10 +560,14 @@ def check_theme_tokens(page, base_url: str) -> list[str]:
                     return [...seen];
                 }"""
             )
-            for forbidden in FORBIDDEN_SURFACES:
-                if forbidden in surfaces:
+            # Compared as colours, not strings: the same grey arriving
+            # through a color-mix() serializes as color(srgb 0.97 0.98 0.98),
+            # which no string comparison against rgb(248, 249, 250) matches,
+            # and the check would stay green with the surface on screen.
+            for surface in surfaces:
+                if _is_forbidden_surface(surface, FORBIDDEN_SURFACES):
                     failures.append(
-                        f"{path} {theme}: forbidden cool-grey surface {forbidden}"
+                        f"{path} {theme}: forbidden cool-grey surface {surface}"
                     )
     return failures
 
@@ -4102,6 +4108,12 @@ CHECKS = (
     (
         "results provider attribution",
         check_results_provider_attribution,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "release check disclosure",
+        check_release_check_disclosure,
         (DESKTOP,),
         LAYOUT_PIPELINE,
     ),
