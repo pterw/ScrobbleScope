@@ -110,21 +110,32 @@ See FINDINGS F-DOCSYNC-3.
   are complete**. The batch is closed: its definition is archived at
   `docs/history/definitions/BATCH22_DEFINITION.md` and its log at
   `docs/history/logs/BATCH22_LOG.md`.
-- **Next action:** no batch is open, and **Batch 23 is not yet defined.** The
-  Spotify export import is approved and scoped, but a plan is not a
-  definition: opening it means promoting
-  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md` to a
-  root `BATCHN_DEFINITION.md` for Batch 23, and naming its branch here first,
-  or the worktree guard raises WT003. (The name is written schematically
-  because DOC001 resolves a concrete one, and that file does not exist yet.)
-- **The dashboard's test count reads 1497; the validated suite is 1522
-  passed**, measured 2026-09-20. This is F-DOCSYNC-11, not drift: two entries
-  dated 2026-09-20 each carry a count, and on a same-date tie source
-  precedence ranks the untagged side-task entry above the batch entries
-  regardless of which was written later. DOC005, DOC006 and DOC008 recompute
-  that authority and reject a hand-written 1522 -- tried, and refused. The
-  number here is written without bold so it cannot become a third claim; the
-  batch log's own entries carry the accurate figures.
+- **Next action: the owner opens Batch 23 by naming its branch here.**
+  `BATCH23_DEFINITION.md` is written and sits at the repository root, derived
+  from
+  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`: eight
+  work packages, WP-0 through WP-7, with the deferred Batch 21 frontend and
+  accessibility audit inside WP-7, which the batch cannot close without.
+  What remains is the branch. It is not `test`, it is named in this section
+  before the first commit, or the worktree guard raises WT003, and choosing
+  it is an owner decision.
+- **Batch 23 is not yet defined**, in the sense the parser reads: no batch is
+  open and none is being worked. That phrase has to sit on one line, because
+  the scanner reads Section 3 line by line and a wrapped copy of it matches
+  nothing. The definition file itself does exist, at the repository root. The
+  tool's vocabulary has "not yet defined" and "active" and no word for
+  "written, not started", so the sentence is kept and qualified rather than
+  removed.
+- **The dashboard's test count is 1522 again**, and the way it got unstuck is
+  worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
+  date, and on a same-date tie source precedence ranks an untagged side-task
+  entry above the batch entries regardless of which was written later
+  (F-DOCSYNC-11). A hand-written correction was refused by DOC005, DOC006 and
+  DOC008, which recompute the same authority. Writing a *newer* side-task
+  entry carrying the measured count is what moved it, because that entry
+  outranks the older one in its own source. The count still cannot be
+  published directly; F-DOCSYNC-13 proposes letting an authored measurement
+  be passed in instead.
 - **Owner-facing verification still owed from Batch 22**, neither blocking the
   close-out: a run with `MUSICBRAINZ_CONTACT` configured, to watch corrections
   land against the real service, and restoring the Spotify credentials that
@@ -313,3 +324,103 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-20 - Batch 23 defined, and six owner proposals corroborated
+
+Side task, no batch tag: the owner proposed a different MusicBrainz lookup
+strategy, a move from threads to `asyncio` inside Flask, server-sent events
+in place of polling, a narrowed Lucene query, and a test-count fix, and asked
+for each to be corroborated rather than taken. Nothing in this entry changes
+runtime behaviour. `BATCH23_DEFINITION.md` is written but Batch 23 is **not
+open**: its branch is unnamed, and naming it is an owner decision.
+
+**Threads cannot run coroutines -- half right, and the half that is wrong
+matters.** Measured directly: `threading.Thread(target=an_async_def)` never
+runs the coroutine and raises no error, only a "was never awaited" warning,
+which is worse than a crash. A thread that creates its own event loop and
+calls `run_until_complete` runs it correctly, and that is what
+`scrobblescope/release_checks.py` already does. The proposed remedy --
+dropping `threading` for `asyncio.create_task()` inside Flask -- cannot work
+here: a probe route asked for a running loop and got "no running event loop".
+Flask under a WSGI server has no persistent loop to attach a long-lived task
+to, so the thread-owns-a-loop pattern is the remedy, not the problem.
+
+**The Gunicorn race condition does not exist today, by configuration.**
+`Dockerfile` runs `--workers 1 --threads 4`. One worker means one `JOBS`
+dict, one semaphore and one process-wide MusicBrainz limiter.
+`AGENT_NOTES.md` already records that a second worker would break the job
+store; it would break the rate limiter too, which is the sharper consequence
+since MusicBrainz blocks by IP.
+
+**Server-sent events would take the whole thread pool.** Four threads, and an
+SSE response holds its thread for the life of the connection: four readers
+with a results page open would leave nothing for the home page. Filed as
+F-B22-6.
+
+**The MusicBrainz proposal: the exact path is real, the ISRC path is not.**
+Probed live against five albums at one request per second.
+`GET /ws/2/url?resource=<spotify album url>&inc=release-rels` returns a "free
+streaming" relation to a **release** when an editor has mapped that album;
+a second request on the release yields the release group's
+`first-release-date`. Two requests, exact, no scoring. It answered two cases
+today's search path did not -- one where the top candidate scored 100 with no
+date at all. It was unmapped for one of the five. Note for the implementer:
+`inc=release-groups` on that endpoint returns nothing, and
+`inc=release-group-rels` returned zero relations; the include is
+`release-rels`.
+
+The ISRC path costs more and is worth less. `GET /v1/albums/{id}` returns
+simplified track objects carrying **no** `external_ids`, confirmed by reading
+the keys off a live response, so every ISRC needs an extra Spotify request;
+and `/ws/2/isrc/{isrc}` returns recordings, whose earliest release group may
+be a single rather than the album. Dating an album by its lead single is a
+worse answer than no correction.
+
+Also measured: `AND type:album` would exclude EPs, which this application
+ranks alongside albums -- `normalize_name` strips "ep" from titles for
+exactly that reason -- and the release-group search field is `primarytype`,
+not `type`.
+
+All of it is F-B22-5, with the measurements, and the recommendation is to
+keep the one-request search as the primary and spend the second request only
+where it buys something: no candidate, or a candidate with no date, and a
+Spotify id present. **The correction cache must stay keyed on
+`(artist_norm, album_norm)`, never on a Spotify id.** The owner's own
+2026-09-20 run had Deezer rescue 9 of the 10 albums Spotify could not enrich,
+and those albums have no Spotify id at all.
+
+**That run also settles what Deezer is for.** The log shows 356 of 366 albums
+matched on Spotify, then 9 of the remaining 10 matched on Deezer, with the
+database cache down and every lookup live. Deezer is not only an outage
+fallback; it answers for albums Spotify does not carry. The README's
+description was written for the outage case and now says both.
+
+**The test count.** `--fix` cannot publish a measured count and `--check`
+refuses a hand-written one, because `latest_test_count_authority` parses the
+number out of prose in dated entries and DOC005/DOC006/DOC008 recompute that
+parse. Rule 7 is why the tool does not simply run pytest: it may rewrite only
+what it can derive from facts a human authored, and measuring the world is
+not that. Filed as F-DOCSYNC-13 with a proposed shape -- an authored
+measurement passed in, written by `--fix` into all four sites -- for the
+owner to rule on.
+
+**Batch 23's definition** is derived from the approved plan, in this
+repository's own work-package form: WP-0 behaviour-neutral extractions, WP-1
+error codes, WP-2 the pure parser and aggregators, WP-3 the job hand-off,
+WP-4 routes and upload handling, WP-5 the interface, WP-6 the new statistics
+for both sources, WP-7 documentation, the deferred Batch 21 accessibility
+audit and close-out. The audit is inside WP-7 because the owner ruled on
+2026-09-13 that this batch cannot close without it.
+
+**A wording trap worth knowing.** Section 3's "Batch 23 is not yet defined"
+has to sit on one line: the state parser reads Section 3 line by line, and
+wrapping that sentence across two lines made the gate infer an active batch
+and demand a definition declaration. The same class of defect, in the other
+direction, was fixed during the docsync close-out.
+
+Validation: `pytest -q` -- **1522 passed**, unchanged (no runtime code was
+touched). `doc_state_sync.py --check` exit 0, with the expected DOC023
+warning and the root-definition warning that is normal for a batch with a
+definition at the root. The live probes were read-only: Spotify with the
+app's own credentials, MusicBrainz with a contact-bearing User-Agent at one
+request per second.

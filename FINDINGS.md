@@ -3,7 +3,7 @@
 Last updated: 2026-09-20
 Status: Batch 22 is active.
 PLAYBOOK Section 3 owns the current work order.
-1497 tests across 58 test modules.
+1522 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -171,6 +171,41 @@ and `::test_check_user_exists_rejects_non_404_error_status`.
 ## P1 -- Next batch candidates
 /which batch? are these being rotated? Batch 21 closed out
 /so anything from there should be rotated out per docsync.
+
+### F-DOCSYNC-13: the test count is parsed from prose when it could be measured
+
+`--fix` cannot publish a measured test count, and `--check` refuses a
+hand-written one. Both follow from the same design: `latest_test_count_authority`
+(`scripts/docsync/logic.py`) resolves the count by parsing `**N passed**` out
+of dated log entries under a total ordering, and DOC005, DOC006 and DOC008
+recompute that ordering and compare the named fields against it. A field
+edited to the number a real run produced is therefore drift, and is rejected.
+
+Measured 2026-09-20: the suite was 1522 passing while every dashboard field
+read 1497, because two entries dated the same day each carry a count and
+same-date precedence ranks the untagged side-task entry above the batch
+entries regardless of which was written later. That tie is F-DOCSYNC-11; this
+finding is the reason it cannot simply be overridden by hand.
+
+**Why `--fix` does not just run pytest.** `docs/agents/global-rules.md` Rule 7
+lets the engine rewrite only what it can derive deterministically from facts a
+human already authored. Running a test suite is measuring the world, not
+deriving from an authored fact, and it would put a minute of test execution
+inside a documentation tool that the pre-commit hook calls.
+
+**Proposed shape, for the owner to rule on.** Let the author supply the
+measurement instead of the tool taking it: an explicit input --
+`--test-count N`, or a small machine-written artifact a test run drops -- that
+`--fix` writes into the managed block *and* the three hand-maintained fields
+(SESSION_CONTEXT Section 1's Tests row, its Section 6 heading, and the
+FINDINGS header), with `--check` comparing against the same input. The
+measurement stays human-authored, the copies stop being hand-typed, and the
+same-date tie stops mattering for every field a reader actually looks at.
+F-DOCSYNC-12 already records that `--fix` rewrites none of those three today.
+
+- [ ] **Status:** open (P1, owner-gated -- needs a decision on the input shape)
+
+Source: Batch 22 close-out, 2026-09-20.
 
 ### F-B21-55: Results scaling left geometry fixed and collapsed in Firefox
 
@@ -1854,6 +1889,84 @@ Status: open (P1), owner ruling recorded. Source: Spotify API review,
 2026-09-13.
 
 ## P2 -- Scaling roadmap
+
+### F-B22-5: the release-year lookup has a precision path it does not use
+
+`lookup_original_release` (`scrobblescope/musicbrainz.py`) finds a release
+group by searching artist and title text, then guards the result with a score
+floor and a normalized identity check. It is one request and it is usually
+right. It is not exact, and two measured cases show the edges.
+
+**Measured against the live APIs, 2026-09-20**, five albums, one request per
+second:
+
+| Album | Spotify's date | URL path | Search path |
+| --- | --- | --- | --- |
+| The Beatles (White Album) | 1968-11-22 | 1968-11-22 | top candidate scored 100 with **no** `first-release-date` |
+| Rumours | 1977-02-04 | 1977-02-04 | 1977-02-04 |
+| Kind of Blue | 1959-08-17 | 1959-08-17 | 1959-08-17 |
+| Geogaddi | 2002-02-19 | **not mapped (404)** | **no candidate returned** |
+| Stratosphere | 1998-02-24 | 1998-02-24 | 1998-02-24 |
+
+**The URL path.** `GET /ws/2/url?resource=https://open.spotify.com/album/<id>&inc=release-rels`
+returns a "free streaming" relation to a MusicBrainz **release** when an
+editor has mapped that Spotify album. A second request on that release with
+`inc=release-groups` yields the release group's `first-release-date`. It is
+exact -- no scoring, no name matching -- and it answered two cases the search
+path did not. It costs **two requests where the search costs one**, which at
+one request per second is the whole budget doubled, and it needs a Spotify
+album id, so it can never serve a Deezer-only album.
+
+Note for anyone implementing it: `inc=release-groups` on the `url` endpoint
+returns nothing. The relation include is `release-rels`, and the target is a
+release, not a release group. `inc=release-group-rels` returned zero
+relations for the same album.
+
+**The ISRC path is not viable as a third option.** `GET /v1/albums/{id}`
+returns simplified track objects with **no** `external_ids`, confirmed by
+reading the keys off a live response, so every ISRC costs an extra Spotify
+request. `GET /ws/2/isrc/{isrc}` then returns *recordings*, and a recording's
+earliest release group may be a single or a compilation rather than the album
+-- dating an album by its lead single is worse than not correcting it.
+
+**Recommended shape, not yet built:** keep the search as the primary path,
+and spend the second request only where it buys something -- when the search
+returns no candidate, or a candidate with no `first-release-date`, and the
+album has a Spotify id. Cache the outcome under the existing
+`(artist_norm, album_norm)` key, never under a Spotify id: 9 of the 10 albums
+Spotify could not enrich in the owner's 2026-09-20 run were rescued by
+Deezer, and those have no Spotify id at all.
+
+**Also measured:** adding `AND type:album` to the Lucene query, as proposed,
+would exclude EPs, which this application ranks alongside albums --
+`normalize_name` deliberately strips "ep" from titles. The release-group
+search field is `primarytype`, not `type`. If the query is narrowed at all,
+it should be to exclude live albums and compilations by secondary type, not
+to require a primary type.
+
+- [ ] **Status:** open (P2, owner-gated -- a scope decision, not a defect)
+
+Source: owner proposal and live probes, 2026-09-20.
+
+### F-B22-6: server-sent events would consume the whole thread pool
+
+Replacing the results page's polling with an SSE stream was proposed. It does
+not fit this deployment. Gunicorn runs `--workers 1 --threads 4`
+(`Dockerfile`), and an SSE response holds its worker thread open for the life
+of the connection. Four readers with a results page open would occupy every
+thread, and the fifth request -- any request, including the home page --
+would wait for one of them to disconnect.
+
+The current design has the opposite shape: a poll every two seconds that
+stops at a terminal state, pauses while the tab is hidden, and holds a thread
+only for the milliseconds each reply takes.
+
+SSE would become reasonable only alongside a different serving model, which
+is a larger change than the feature it would serve.
+
+- [ ] **Status:** open (P2, no action recommended)
+
+Source: owner proposal, measured against the Dockerfile, 2026-09-20.
 
 ### F-B21-62: the design system's status colours are documented but undefined
 
