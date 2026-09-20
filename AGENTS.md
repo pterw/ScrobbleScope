@@ -20,7 +20,7 @@ serve as external memory shared across sessions.
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
 | `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audits and other dated one-off documents (`reports/`). |
 | `docs/AGENT_DOC_MAP.md` | **Orientation** | Which document owns what, how to read an audit or a finding, and the known navigation traps. Optional, and not part of the bootstrap set; written for agents new to this repository. |
-| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the commit preflight, the hook installer, the worktree guard, pre-commit, and CI fit together, including the full DOC001-DOC020 catalogue. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/docsync_preflight.py`, `scripts/dev/install_docsync_hook.py`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
+| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the commit preflight, the hook installer, the worktree guard, pre-commit, and CI fit together, including the full DOC001-DOC023 catalogue. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/docsync_preflight.py`, `scripts/dev/install_docsync_hook.py`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
 
 **Anti-duplication rule:** Each fact lives in exactly one file. If you need to
 reference a fact owned by another file, link to it -- do not copy it.
@@ -258,7 +258,7 @@ dated entries from PLAYBOOK Section 4 into per-batch log files
 entries); deduplicates archive entries by SHA-256 fingerprint; refreshes the
 managed `DOCSYNC:STATUS` block in SESSION_CONTEXT from PLAYBOOK truth; and
 validates the live document corpus through `docsync.integrity`, which
-returns typed DOC001-DOC020 issues that block rather than warn (full
+returns typed DOC001-DOC023 issues that block rather than warn (full
 catalogue: `docs/architecture/documentation-tooling.md`). Add a declaration
 in `.docsync.toml` when a fact starts living in two places, not after it
 drifts (`F-B21-17` is the tally that motivated this).
@@ -286,7 +286,7 @@ both modes; `--fix` writes deterministic output first, then revalidates the
 final disk state rather than guessing how to repair a semantic reference.
 `.claude/SESSION_CONTEXT.md`'s managed block is deterministic sync output,
 so stale content there is blocking; an absent file skips dependent checks.
-The DOC001-DOC020 catalogue and owning modules are in
+The DOC001-DOC023 catalogue and owning modules are in
 `docs/architecture/documentation-tooling.md`; each WT code is defined by
 the guard module that owns its check, spread across
 `scripts/dev/_worktree_guard_*.py` -- grep for the code, not a module.

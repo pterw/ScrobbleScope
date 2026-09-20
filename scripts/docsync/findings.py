@@ -346,6 +346,93 @@ def _duplicate_issues(
     return issues
 
 
+#: The terminal outcomes, as prose would spell them. Built from the same
+#: vocabulary the rotation gate accepts, so a new outcome cannot be honoured
+#: by one half of this module and unrecognised by the other.
+_PROSE_OUTCOME_RE = re.compile(
+    r"\b("
+    + "|".join(key.replace(" ", r"[-\s]") for key in _TERMINAL_SUFFIXES)
+    + r")\b",
+    re.IGNORECASE,
+)
+
+
+def _claims_a_terminal_outcome(finding: _Finding) -> bool:
+    """Whether the finding's prose says it is finished."""
+    return any(_PROSE_OUTCOME_RE.search(line) for line in finding.body_lines)
+
+
+def collect_rot_issues(
+    active_text: str, grandfathered: Sequence[str] = ()
+) -> list[IntegrityIssue]:
+    """Report findings that read as finished but carry no lifecycle record.
+
+    This is the gate that makes DOC013-DOC018 reachable. Those checks only
+    ever look at findings written in the canonical shape, so a file where
+    nobody writes that shape is a file they have nothing to say about --
+    which is how a findings file grows while every check on it passes.
+
+    Ids named in ``grandfathered`` are reported once, together, as a warning
+    carrying their live count. They are not forgiven and not silent: the
+    count is derived from the file on every run, so it falls as they are
+    reconciled and cannot be made to look smaller by editing a number.
+
+    Nothing here rewrites a finding. Whether a finding is genuinely resolved
+    is its author's assertion, and a tool that converted prose into a
+    checked box would be inventing exactly the record the gate exists to
+    verify.
+    """
+    admitted = {str(identifier) for identifier in grandfathered}
+    findings, _ = _parse(active_text)
+    unrecorded = [
+        finding
+        for finding in findings
+        if finding.checked is None and _claims_a_terminal_outcome(finding)
+    ]
+
+    issues = [
+        _issue(
+            "DOC023",
+            ACTIVE_PATH,
+            finding.start + 1,
+            "A finding whose prose says it is finished carries the lifecycle "
+            "record that says so.",
+            f"{finding.identifier} reads as finished but has no "
+            f"'- [ ] **Status:**' line, so the rotation checks never see it. "
+            f"Add the record -- `- [x] **Status:** RESOLVED` with a "
+            f"`**Completed:** YYYY-MM-DD` -- or reword the prose if it is not "
+            f"finished after all.",
+        )
+        for finding in unrecorded
+        if finding.identifier not in admitted
+    ]
+
+    outstanding = [
+        finding.identifier for finding in unrecorded if finding.identifier in admitted
+    ]
+    if outstanding:
+        issues.append(
+            IntegrityIssue(
+                code="DOC023",
+                severity="warning",
+                path=ACTIVE_PATH,
+                line=None,
+                invariant=(
+                    "The findings that predate the lifecycle rule are counted, "
+                    "not forgiven."
+                ),
+                remediation=(
+                    f"{len(outstanding)} grandfathered finding(s) still read as "
+                    f"finished without a lifecycle record: "
+                    f"{', '.join(sorted(outstanding))}. Give one its record and "
+                    f"drop its id from [findings] grandfathered in "
+                    f"`.docsync.toml`; the list is meant to empty."
+                ),
+            )
+        )
+    return issues
+
+
 def _newest_entry_line(lines: Sequence[str]) -> int:
     """Return the line a newly rotated entry belongs on.
 

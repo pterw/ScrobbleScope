@@ -1,6 +1,6 @@
 """Finding lifecycle parsing and rotation planning regressions."""
 
-from docsync.findings import plan_findings
+from docsync.findings import collect_rot_issues, plan_findings
 
 ARCHIVE_PROLOGUE = "\n".join(
     [
@@ -530,3 +530,86 @@ def test_existing_archive_suffix_is_not_appended_twice():
 
     assert rotation.rotated_ids == ("F-B22-21",)
     assert "-- RESOLVED -- RESOLVED" not in rotation.archive_text
+
+
+# ---------------------------------------------------------------------------
+# DOC023 -- findings that read as finished but carry no lifecycle record
+# ---------------------------------------------------------------------------
+
+ROTTED = "\n".join(
+    [
+        "### F-B21-9: the archive grew without bound",
+        "",
+        "Resolved in WP-3; rotates at close-out.",
+        "",
+    ]
+)
+
+ROTTED_TAGGED = "\n".join(
+    [
+        "### F-DOCSYNC-9: the preflight skipped staged deletions",
+        "",
+        "No action -- the guard covers it already.",
+        "",
+    ]
+)
+
+STILL_OPEN = "\n".join(
+    [
+        "### F-B21-10: the report omits its provider",
+        "",
+        "Nothing records which provider produced the miss.",
+        "",
+    ]
+)
+
+
+def test_rot_is_reported_for_a_finding_with_no_lifecycle_record():
+    issues = collect_rot_issues(_active(ROTTED))
+
+    assert [issue.code for issue in issues] == ["DOC023"]
+    assert issues[0].severity == "error"
+    assert "F-B21-9" in issues[0].remediation
+
+
+def test_rot_ignores_a_finding_that_carries_its_record():
+    """DOC013-DOC018 own a finding once it is written in the canonical shape."""
+    assert collect_rot_issues(_active(RESOLVED, OPEN)) == []
+
+
+def test_rot_ignores_prose_that_claims_no_outcome():
+    assert collect_rot_issues(_active(STILL_OPEN)) == []
+
+
+def test_a_grandfathered_finding_warns_once_with_a_live_count():
+    issues = collect_rot_issues(_active(ROTTED, ROTTED_TAGGED), ["F-B21-9"])
+
+    errors = [issue for issue in issues if issue.severity == "error"]
+    warnings = [issue for issue in issues if issue.severity == "warning"]
+    assert [issue.remediation.split()[0] for issue in errors] == ["F-DOCSYNC-9"]
+    assert len(warnings) == 1
+    assert warnings[0].remediation.startswith("1 grandfathered")
+
+
+def test_a_source_tagged_id_cannot_escape_by_being_tagged():
+    """The hole a batch-number boundary would leave open.
+
+    `F-DOCSYNC-9` carries no batch number, so any boundary drawn over batch
+    numbers has to put it on one side by default. Admission is by absence
+    from an explicit list instead, so a new tag is admitted, not exempt.
+    """
+    issues = collect_rot_issues(_active(ROTTED_TAGGED))
+
+    assert [issue.severity for issue in issues] == ["error"]
+    assert "F-DOCSYNC-9" in issues[0].remediation
+
+
+def test_the_count_is_derived_not_declared():
+    """Shrinking the list is the only way to shrink the reported number."""
+    both = collect_rot_issues(
+        _active(ROTTED, ROTTED_TAGGED), ["F-B21-9", "F-DOCSYNC-9"]
+    )
+    one = collect_rot_issues(_active(ROTTED), ["F-B21-9", "F-DOCSYNC-9"])
+
+    assert both[-1].remediation.startswith("2 grandfathered")
+    assert one[-1].remediation.startswith("1 grandfathered")

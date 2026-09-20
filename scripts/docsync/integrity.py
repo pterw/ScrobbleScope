@@ -12,6 +12,7 @@ from docsync.closeout import ARCHIVED_DEFINITIONS_DIR, collect_definition_issues
 from docsync.declarations import (
     collect_declaration_issues,
     load_closeout_config,
+    load_findings_config,
 )
 from docsync.logic import latest_test_count_authority
 from docsync.markdown import prose_lines
@@ -1095,6 +1096,19 @@ def collect_integrity_issues(
     # never guessed) is what separates evidence-checked closure from rewritten
     # history. The archived definition's content arrives through
     # `live_documents`, the same as every other document this pass reads; the
+    # DOC023 reads the active findings file itself rather than a rendering of
+    # it, because what it checks is what an author wrote: a finding whose
+    # prose says it is done while carrying no record for DOC013-DOC018 to
+    # read. Absent from `live_documents` the check simply has nothing to say.
+    active_findings = live_documents.get(findings_module.ACTIVE_PATH)
+    if active_findings is not None:
+        issues.extend(
+            findings_module.collect_rot_issues(
+                "\n".join(active_findings),
+                load_findings_config(repo_root).grandfathered,
+            )
+        )
+
     # close-out composition that publishes a real closure must keep it there.
     closeout_config = load_closeout_config(repo_root)
     try:
