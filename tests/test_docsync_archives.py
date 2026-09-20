@@ -383,6 +383,24 @@ def test_unknown_manifest_version_is_rejected(tmp_path):
         store.read(index)
 
 
+def test_version_one_index_is_refused_rather_than_reordered(tmp_path):
+    """A pre-reordering index must not be read as though it were current.
+
+    Version 1 numbered pages newest first; this tool numbers them oldest
+    first. Both layouts are well-formed Markdown, so nothing in the pages
+    themselves reveals which one is on disk: read as v2, a v1 archive comes
+    back with its entries shuffled and the next fix writes that order back.
+    The manifest version is the only thing that can catch it.
+    """
+    store, index, _ = _paginate(tmp_path)
+    manifest = _manifest(index)
+    manifest["version"] = 1
+    _rewrite_manifest(index, manifest)
+
+    with pytest.raises(SyncError, match="newest first"):
+        store.read(index)
+
+
 def test_missing_page_is_rejected(tmp_path):
     store, index, _ = _paginate(tmp_path)
     manifest = _manifest(index)

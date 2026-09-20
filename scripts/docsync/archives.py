@@ -55,7 +55,13 @@ PAGE_MARKER = "<!-- DOCSYNC:ARCHIVE-PAGE v1 -->"
 #: bounds the rendered file a reader actually opens.
 PAGE_HEADER_LINES = 3
 
-MANIFEST_VERSION = 1
+#: Version 1 numbered pages in reading order, so page 0001 held the newest
+#: entries. Version 2 numbers them chronologically, so page 0001 holds the
+#: oldest and never changes again. The two cannot be told apart by reading a
+#: page -- both are well-formed Markdown -- so a v1 index read as v2 comes
+#: back with its entries reordered and would be written back that way. The
+#: version is what makes that a refusal instead of a silent rewrite.
+MANIFEST_VERSION = 2
 
 HOT_DIRECTORY = "pages"
 COLD_DIRECTORY = "cold"
@@ -329,6 +335,16 @@ class ArchiveStore:
             raise SyncError(
                 f"Unreadable archive manifest in {index_path}: {error}"
             ) from None
+        if version == 1:
+            raise SyncError(
+                f"The archive index {index_path} was paginated by an earlier "
+                f"docsync that numbered pages newest first; this tool numbers "
+                f"them oldest first. Reading it here would reorder its "
+                f"entries. Concatenate its pages back into a single "
+                f"{index_path.name}, newest entry first, delete the page "
+                f"directories beside it, and let `--paginate-archives` "
+                f"rebuild the index."
+            )
         if version != MANIFEST_VERSION:
             raise SyncError(
                 f"The archive manifest in {index_path} declares unsupported "
