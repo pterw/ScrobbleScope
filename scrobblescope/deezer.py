@@ -27,6 +27,31 @@ def _deezer_error_code(data):
     return error.get("code") if error else None
 
 
+async def _deezer_request(session, url, params, limiter):
+    """Perform one rate-limited Deezer GET and classify the outcome.
+
+    Returns the ``(result, retry_after, done)`` triple `retry_with_semaphore`
+    reads, carrying the decoded body only when the request both succeeded and
+    came back without an error code. Deezer reports failures with HTTP 200 and
+    a code in the body, so a status check alone cannot separate a success from
+    a quota refusal: code 4 is the retryable one and every other code is a
+    terminal miss. Callers that need more than the raw body -- a search picking
+    a candidate out of it -- inspect the body only when it is not None, so the
+    two failure shapes pass straight through unchanged.
+    """
+    async with limiter:
+        async with session.get(url, params=params) as response:
+            if response.status != 200:
+                return None, None, True
+            data = await response.json()
+            code = _deezer_error_code(data)
+            if code == _DEEZER_ERROR_QUOTA:
+                return None, 1, False
+            if code is not None:
+                return None, None, True
+            return data, None, True
+
+
 async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETRIES):
     """Search Deezer for *artist*/*album* and return the matching album ID.
 
@@ -43,22 +68,15 @@ async def search_deezer_album(session, artist, album, retries=DEEZER_SEARCH_RETR
     limiter = get_deezer_limiter()
 
     async def search_once():
-        async with limiter:
-            async with session.get(url, params=params) as response:
-                if response.status != 200:
-                    return None, None, True
-                data = await response.json()
-                code = _deezer_error_code(data)
-                if code == _DEEZER_ERROR_QUOTA:
-                    return None, 1, False
-                if code is not None:
-                    return None, None, True
-                for candidate in data.get("data", []):
-                    candidate_artist = candidate.get("artist", {}).get("name", "")
-                    candidate_title = candidate.get("title", "")
-                    if normalize_name(candidate_artist, candidate_title) == key:
-                        return candidate.get("id"), None, True
-                return None, None, True
+        data, retry_after, done = await _deezer_request(session, url, params, limiter)
+        if data is None:
+            return None, retry_after, done
+        for candidate in data.get("data", []):
+            candidate_artist = candidate.get("artist", {}).get("name", "")
+            candidate_title = candidate.get("title", "")
+            if normalize_name(candidate_artist, candidate_title) == key:
+                return candidate.get("id"), None, True
+        return None, None, True
 
     return await retry_with_semaphore(
         search_once,
@@ -77,17 +95,7 @@ async def _fetch_deezer_json(session, url, params, retries, error_label):
     limiter = get_deezer_limiter()
 
     async def fetch_once():
-        async with limiter:
-            async with session.get(url, params=params) as response:
-                if response.status != 200:
-                    return None, None, True
-                data = await response.json()
-                code = _deezer_error_code(data)
-                if code == _DEEZER_ERROR_QUOTA:
-                    return None, 1, False
-                if code is not None:
-                    return None, None, True
-                return data, None, True
+        return await _deezer_request(session, url, params, limiter)
 
     return await retry_with_semaphore(
         fetch_once,
