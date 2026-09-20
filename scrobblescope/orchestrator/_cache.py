@@ -12,6 +12,12 @@ closed by the caller. See ``scrobblescope/orchestrator/_search.py`` for why
 import logging
 
 from scrobblescope import orchestrator as _orchestrator
+from scrobblescope.cache import (
+    SCHEMA_OUT_OF_DATE_REMEDIATION as _SCHEMA_OUT_OF_DATE_REMEDIATION,
+)
+from scrobblescope.cache import (
+    schema_is_out_of_date as _schema_is_out_of_date,
+)
 
 
 async def _lookup_cached_metadata(conn, job_id, album_keys):
@@ -32,7 +38,13 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
             f"DB cache: {len(cached_metadata)} hits / {len(album_keys)} total albums"
         )
     except Exception as exc:
-        logging.warning(f"DB lookup failed, proceeding without cache: {exc}")
+        if _schema_is_out_of_date(exc):
+            logging.warning(
+                f"DB lookup failed, proceeding without cache: {exc}. "
+                f"{_SCHEMA_OUT_OF_DATE_REMEDIATION}"
+            )
+        else:
+            logging.warning(f"DB lookup failed, proceeding without cache: {exc}")
         _orchestrator.set_job_stat(
             job_id, "db_cache_warning", "DB lookup failed; cache bypassed."
         )

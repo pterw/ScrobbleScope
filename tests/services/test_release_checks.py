@@ -6,6 +6,7 @@ each result -- rather than on mock call counts alone, per AGENTS.md Test
 Quality Rules.
 """
 
+import logging
 from contextlib import ExitStack, contextmanager
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -268,6 +269,43 @@ async def test_run_release_checks_confirms_and_moves_out_without_dropping_result
     assert results[1]["release_check"] == "confirmed"
     stats = get_job_progress(job_id)["stats"]["release_check"]
     assert stats["moved_out"] == 1
+
+
+class _MissingTableError(Exception):
+    """What the correction cache raised before its table existed."""
+
+    sqlstate = "42P01"
+
+    def __init__(self):
+        super().__init__('relation "original_release_cache" does not exist')
+
+
+@pytest.mark.asyncio
+async def test_a_missing_correction_table_names_the_migration(caplog):
+    """The table this worker writes to has to exist before it is useful.
+
+    Observed on the owner's database on 2026-09-20: original_release_cache
+    had never been created, so every finding was looked up, not found,
+    fetched again from MusicBrainz at one request per second, and thrown
+    away. The run still succeeds -- a correction pass must never take a job
+    down -- so the log line is the only place this can be said.
+    """
+    job_id = _job_with(results=[_result("Fleetwood Mac", "Rumours", "2025-01-31")])
+    lookup = AsyncMock(return_value=(None, None))
+    conn = AsyncMock()
+    conn.fetch = AsyncMock(side_effect=_MissingTableError())
+
+    with caplog.at_level(logging.WARNING):
+        with _worker_patches(lookup, conn=conn) as _:
+            with patch(
+                "scrobblescope.release_checks._batch_lookup_original_release",
+                new_callable=AsyncMock,
+                side_effect=_MissingTableError(),
+            ):
+                await run_release_checks(job_id)
+
+    logged = " ".join(record.message for record in caplog.records)
+    assert "init_db.py" in logged
 
 
 @pytest.mark.asyncio

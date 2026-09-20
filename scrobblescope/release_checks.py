@@ -40,9 +40,11 @@ import sys
 import threading
 
 from scrobblescope.cache import (
+    SCHEMA_OUT_OF_DATE_REMEDIATION,
     _batch_lookup_original_release,
     _batch_persist_original_release,
     _get_db_connection,
+    schema_is_out_of_date,
 )
 from scrobblescope.config import (
     MUSICBRAINZ_CHECKS_PER_JOB,
@@ -253,7 +255,16 @@ async def _lookup_cached(conn, candidates):
             conn, [candidate["key"] for candidate in candidates]
         )
     except Exception as exc:
-        logging.warning(f"Original-release cache lookup failed: {exc}")
+        if schema_is_out_of_date(exc):
+            # Not a hiccup: until the table exists, every finding this worker
+            # pays a MusicBrainz second for is discarded and looked up again
+            # on the next job.
+            logging.warning(
+                f"Original-release cache lookup failed: {exc}. "
+                f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+            )
+        else:
+            logging.warning(f"Original-release cache lookup failed: {exc}")
         return {}
 
 
@@ -291,7 +302,13 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
             conn, [(artist_norm, album_norm, mb_release_group, original_release)]
         )
     except Exception as exc:
-        logging.warning(f"Original-release persist failed (non-fatal): {exc}")
+        if schema_is_out_of_date(exc):
+            logging.warning(
+                f"Original-release persist failed (non-fatal): {exc}. "
+                f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+            )
+        else:
+            logging.warning(f"Original-release persist failed (non-fatal): {exc}")
 
     state["checked"] += 1
     in_window = bool(original_release) and _matches_window(original_release, params)

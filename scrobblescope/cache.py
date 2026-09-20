@@ -17,6 +17,32 @@ from scrobblescope.config import METADATA_CACHE_TTL_DAYS, ORIGINAL_RELEASE_TTL_D
 # between app startup and the first background-task invocation).
 _DATABASE_URL: str | None = os.environ.get("DATABASE_URL")
 
+#: PostgreSQL SQLSTATEs that mean the database is missing something this code
+#: expects: 42703 undefined_column, 42P01 undefined_table. Matched on the code
+#: rather than the asyncpg exception class because asyncpg is an optional
+#: import here, and a SQLSTATE is the stable half of the contract anyway.
+_STALE_SCHEMA_SQLSTATES = frozenset({"42703", "42P01"})
+
+#: What to do about it. A missing column is not a transient failure: it never
+#: heals, and every read until it is fixed misses a cache that is sitting
+#: right there. Found on 2026-09-20, when the owner's database still held the
+#: pre-Batch-22 schema and 3,628 usable rows went unread on every job.
+SCHEMA_OUT_OF_DATE_REMEDIATION = (
+    "The cache schema is out of date -- run `python init_db.py` with "
+    "DATABASE_URL set. It is idempotent and safe to re-run."
+)
+
+
+def schema_is_out_of_date(exc):
+    """Return True when *exc* says the database lacks something the code needs.
+
+    Distinguishing this from a dropped connection is the whole point: one is
+    a hiccup that heals itself and the other is a migration nobody has run,
+    and reporting them in the same words is what let a permanently inert
+    cache look like a passing glitch.
+    """
+    return getattr(exc, "sqlstate", None) in _STALE_SCHEMA_SQLSTATES
+
 
 async def _get_db_connection():
     """Open a single asyncpg connection from DATABASE_URL, or return None.
