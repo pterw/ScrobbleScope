@@ -13,6 +13,7 @@ import datetime as dt
 import re
 from collections.abc import Sequence
 
+from docsync.archives import ENTRY_BOUNDARY_RE
 from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue
 
@@ -345,6 +346,22 @@ def _duplicate_issues(
     return issues
 
 
+def _newest_entry_line(lines: Sequence[str]) -> int:
+    """Return the line a newly rotated entry belongs on.
+
+    That is the first entry boundary in the archive -- the newest existing
+    entry or rotation banner -- so new entries land above it and the
+    prologue stays on top. An archive with no entries yet takes them at the
+    end, after its prologue. `archives.ENTRY_BOUNDARY_RE` decides what
+    counts as a boundary, because that module paginates this same file and
+    the two must not disagree about where one entry stops.
+    """
+    for index, line in prose_lines(list(lines)):
+        if ENTRY_BOUNDARY_RE.match(line):
+            return index
+    return len(lines)
+
+
 def _archive_heading(finding: _Finding, outcome: str) -> str:
     """Return the archive heading: the original ID and title plus a suffix."""
     suffix = _TERMINAL_SUFFIXES[outcome]
@@ -406,11 +423,22 @@ def plan_findings(active_text: str, archive_text: str) -> FindingRotation:
     archive_lines = archive_text.split("\n")
     while archive_lines and not archive_lines[-1].strip():
         archive_lines.pop()
+
+    rotated_block: list[str] = []
     for finding in eligible:
         outcome = _normalize_outcome(finding.outcome)
-        archive_lines.append("")
-        archive_lines.append(_archive_heading(finding, outcome))
-        archive_lines.extend(finding.lines[1:])
+        rotated_block.append(_archive_heading(finding, outcome))
+        rotated_block.extend(finding.lines[1:])
+        rotated_block.append("")
+
+    if rotated_block:
+        # The archive states its own order in its prologue -- newest rotation
+        # first -- and every manual rotation has honoured it. Appending would
+        # bury each new rotation beneath every older one, and would also put
+        # the newest entries on the oldest page once this file paginates,
+        # because `archives.ArchiveStore` reads the same text newest first.
+        newest = _newest_entry_line(archive_lines)
+        archive_lines[newest:newest] = rotated_block
 
     return FindingRotation(
         active_text=new_active,

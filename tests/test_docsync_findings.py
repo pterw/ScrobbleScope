@@ -75,6 +75,34 @@ def test_valid_checked_record_rotates():
     )
 
 
+def test_rotation_lands_above_older_archived_entries():
+    """The archive reads newest first, and a rotation must not bury itself.
+
+    Appending put each new rotation below every older one, contradicting the
+    prologue's own 'Newest rotation first' and, once this file paginates,
+    putting the newest entries on the oldest page.
+    """
+    existing = ARCHIVE_PROLOGUE + "\n".join(
+        [
+            "## Rotated 2026-01-01 (Batch 1 close-out)",
+            "",
+            "### F-B1-9: an older finding -- RESOLVED",
+            "",
+            "Body of the older finding.",
+            "",
+        ]
+    )
+
+    rotation = plan_findings(_active(RESOLVED, OPEN), existing)
+
+    assert rotation.rotated_ids == ("F-B22-1",)
+    lines = rotation.archive_text.split("\n")
+    assert lines[:6] == ARCHIVE_PROLOGUE.split("\n")[:6]
+    new_at = next(i for i, line in enumerate(lines) if "F-B22-1" in line)
+    old_at = next(i for i, line in enumerate(lines) if "F-B1-9" in line)
+    assert new_at < old_at, rotation.archive_text
+
+
 def test_unchecked_open_record_is_retained():
     rotation = plan_findings(_active(OPEN), ARCHIVE_PROLOGUE)
 
