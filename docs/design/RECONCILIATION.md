@@ -664,3 +664,35 @@ the README's 9px nor the audit review's 11px. Uppercase stays. Sites:
 in `templates/unmatched.html`, and the `fixHintSize` and `countLabelSize` pins
 in `check_unmatched_report`. This decides `FINDINGS.md` F-B21-4 item 4.
 
+## 17. A displayed release year may come from MusicBrainz, 2026-09-20
+
+The Release column on the results page, and the year in the unmatched
+report's release-scope reason, used to be the provider's own date and nothing
+else. From Batch 22 a row may show an album's **original** release date,
+taken from MusicBrainz's release group, while the provider's date stays
+beside it as `provider_release_date` for the provider page the row links to.
+Spotify and Deezer both date a remaster by its reissue, and the year filters
+mean the year the album first came out, so the provider's date was the wrong
+one to filter or display against.
+
+**What this changes for the design system.** Nothing about the type, the
+column or the token -- the value in that cell simply has two possible
+sources, and a corrected row carries a small uppercase mono kicker under the
+date (`.release-check-note` in `static/css/results.css`) linking to the
+unmatched report. It follows the `.provider-badge` treatment on the same page:
+muted ink, accent on hover, quiet through size and tracking rather than
+through low contrast. The frontend gate measures it against the 4.5:1 text
+floor on every run.
+
+**The kicker is not a status colour, and that is a deviation.** The design
+README names `--ss-warn` for exactly this kind of mono kicker. No stylesheet
+defines that token, or `--ss-good`, or `--ss-bad`, and
+`test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads`
+fails any page that reads one. F-B21-62 records the choice for the owner:
+ship the tokens, or stop describing a treatment nothing can apply.
+
+**Rows never move while the page is open.** The correction arrives after the
+results render, so the owner's ruling is that a corrected row stays in place,
+marked, and the list re-sorts only on reload. Sites:
+`docs/architecture/runtime-system.md` (the runtime view and the reason the
+pass runs late), `templates/results.html`, `static/js/results-release-checks.js`.

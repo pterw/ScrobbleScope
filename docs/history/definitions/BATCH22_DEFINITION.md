@@ -1,6 +1,6 @@
 # BATCH22: Enrichment providers and original release years
 
-**Status:** Active. WP-0 through WP-4 are complete. **WP-5 is the next batch work package**: documentation and close-out. Owner-approved 2026-09-13.
+**Status:** Complete, closed 2026-09-20. All six planned work packages are complete. Owner-approved 2026-09-13.
 **Branch:** `feat/batch22-enrichment` (worktree off `test`).
 **Baseline:** 1034 tests passing at batch open, where the frontend gate ran
 28 checks in 50 runs. Both numbers are the batch-open measurement, not a
@@ -166,17 +166,17 @@ the page is open; moved-in albums are announced with a reload link.
   stops when the status is done or skipped, moved-in albums receive a reload
   action, and the page holds at 390px and 1280px.
 
-### WP-5 -- Docs and close-out
+### ~~WP-5 -- Docs and close-out~~ -- **DONE**
 
 README (the new environment variables, the MusicBrainz contact, the Deezer
 constraint), `docs/architecture/runtime-system.md` (a release year may now
 come from MusicBrainz), a PLAYBOOK entry per WP, then the standard close-out.
 
-- [ ] Document every new environment variable and the MusicBrainz contact
+- [x] Document every new environment variable and the MusicBrainz contact
   requirement.
-- [ ] Record the Deezer non-commercial constraint and the runtime provider /
+- [x] Record the Deezer non-commercial constraint and the runtime provider /
   correction data flow without duplicating source code.
-- [ ] Run the complete test, frontend, pre-commit and docsync gates, archive
+- [x] Run the complete test, frontend, pre-commit and docsync gates, archive
   this definition and close the batch through the standard procedure.
 
 ---
@@ -213,3 +213,13 @@ come from MusicBrainz), a PLAYBOOK entry per WP, then the standard close-out.
 - MusicBrainz blocks anonymous clients. With no contact configured, the
   client stays disabled rather than guessing.
 - Standard library only for the new code; no new dependency.
+
+<!-- DOCSYNC:CLOSEOUT -->
+- Batch 22 closed 2026-09-20
+- WP-0 complete
+- WP-1 complete
+- WP-2 complete
+- WP-3 complete
+- WP-4 complete
+- WP-5 complete
+<!-- DOCSYNC:CLOSEOUT-END -->
