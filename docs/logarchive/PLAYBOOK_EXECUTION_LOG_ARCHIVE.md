@@ -9,6 +9,203 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-20 - The cache was inert, and the findings backlog now rotates
+
+Side task, no batch tag, on the owner's instruction to close Batch 22's
+remaining cache and findings work now rather than carry it into Batch 23.
+Investigated through `superpowers:systematic-debugging`.
+
+**The metadata cache had been inert since Batch 22 shipped.** The owner's
+local database still held the pre-Batch-22 schema: `spotify_cache` had no
+`provider`, `provider_album_id` or `provider_url` columns, `spotify_id` was
+still `NOT NULL`, and `original_release_cache` did not exist at all. Read
+against it, `_batch_lookup_metadata` raised `UndefinedColumnError` and
+`_batch_lookup_original_release` raised `UndefinedTableError` -- measured, not
+inferred.
+
+The consequence was not an outage, which is why nobody caught it. Both reads
+are wrapped, so every job degraded to a cache-less run and carried on: 3,628
+usable rows went unread on every search, every album was re-fetched from
+Spotify or Deezer, and every MusicBrainz correction was paid for at one
+request per second and then discarded. The owner's 2026-09-20 run reads
+exactly that way -- `Cache partition: 0 hits, 366 misses` -- and the database
+being down at the time hid the second fault behind the first.
+
+`init_db.py` is idempotent and is what fixes it. Run against the live
+database: the three columns exist, `spotify_id` is nullable,
+`original_release_cache` exists, and all **3,628** existing rows were
+backfilled to `provider = 'spotify'` with `provider_album_id = spotify_id`.
+Then, against that live database rather than a mock, Batch 22's cache
+acceptance criteria were exercised for the first time: a Deezer-only row with
+no Spotify id round-trips; a legacy six-tuple caller still writes a row that
+reads back as Spotify; a pre-existing row is readable through the cache API
+after the backfill; and both a correction and a "checked, nothing found" row
+round-trip through `original_release_cache`. The probe rows were deleted
+afterwards.
+
+**The class fix, because the instance was a one-line command.** A missing
+column is not a transient failure: it never heals, and every read until
+someone notices misses a cache that is sitting right there. The code reported
+it in the same words as a dropped connection. `scrobblescope/cache.py` gains
+`schema_is_out_of_date`, matching PostgreSQL SQLSTATEs 42703 and 42P01 --
+matched on the SQLSTATE rather than the asyncpg exception class, because
+asyncpg is an optional import here and a SQLSTATE is the stable half of the
+contract -- and a single remediation string naming `init_db.py`. Both cache
+readers and the correction worker's persist path now say which kind of
+failure they hit. Seven tests cover it, including that a transient failure
+must **not** tell the reader to run a migration.
+
+This is the same shape as the DOC013-DOC018 gate that had never fired once:
+a subsystem reporting success while doing nothing. It is worth naming as a
+class -- a failure that degrades silently needs a diagnostic that
+distinguishes "will heal" from "will never heal", or it is indistinguishable
+from working.
+
+**The findings backlog rotates again.** 85 findings, 83 with no lifecycle
+record, so nothing had rotated at either batch close-out -- the owner's
+question in `FINDINGS.md` had the right instinct. The owner ruled on
+2026-09-20 that a prior session's record may be transcribed, since the
+authors are earlier agent sessions and the standing warning confuses a reader
+more than an archived finding would.
+
+Each of the 23 grandfathered findings was given the record its own author's
+words support, and the distinctions were kept:
+
+- **16 were terminal** and are now in `docs/history/findings/FINDINGS_ARCHIVE.md`
+  under their original ids with the `-- RESOLVED` suffix. Where the author
+  wrote a date it is theirs; where they wrote none, the completion date is
+  the day of the evidence they cite, which is an inference and is recorded
+  here as one.
+- **5 say "resolved locally, deploy before the next production release"** and
+  are NOT checked. The lifecycle gate treats a pending deploy as not-yet
+  terminal and it is right to: the fix is in the tree, not in front of a
+  user. They keep an unchecked record and stay active.
+- **2 were never resolved at all** -- F-B21-9 was deferred by owner decision
+  and F-B21-53 is open for the general card token. Reading either as finished
+  because the word "resolved" appears in its prose is exactly the mistake
+  DOC023 exists to prevent.
+- **F-B21-1 was verified in source rather than taken on trust**: loop
+  construction now sits inside the `try` in both `background_task` and
+  `heatmap_task`, with `release_job_slot()` in the `finally`.
+
+`[findings] grandfathered` in `.docsync.toml` is now `[]`, and **DOC023's
+standing warning is gone**. The list stays declared so a repository adopting
+this gate starts strict with somewhere to put its own history. Active
+findings: 72, down from 85.
+
+Validation: `pytest -q` -- **1529 passed** (was 1522; +7 for the schema
+diagnostic). `pre-commit run --all-files` -- all hooks pass.
+`doc_state_sync.py --check` exit 0, and its only remaining warning is the
+root definition for Batch 23, which is expected while that file waits at the
+root. `.docsync.toml` is control-plane, so this commit uses the sanctioned
+`SKIP=doc-state-sync-check`, with `--check` run directly first.
+
+Forward guidance: the five "pending deploy" findings resolve themselves the
+next time production ships, and their records are the checklist. Nothing
+about this change requires a deploy of its own -- but the schema migration
+does need running wherever else this app has a database, which on Fly.io
+happens automatically, since `init_db.py` is the release command.
+
+### 2026-09-20 - Batch 23 defined, and six owner proposals corroborated
+
+Side task, no batch tag: the owner proposed a different MusicBrainz lookup
+strategy, a move from threads to `asyncio` inside Flask, server-sent events
+in place of polling, a narrowed Lucene query, and a test-count fix, and asked
+for each to be corroborated rather than taken. Nothing in this entry changes
+runtime behaviour. `BATCH23_DEFINITION.md` is written but Batch 23 is **not
+open**: its branch is unnamed, and naming it is an owner decision.
+
+**Threads cannot run coroutines -- half right, and the half that is wrong
+matters.** Measured directly: `threading.Thread(target=an_async_def)` never
+runs the coroutine and raises no error, only a "was never awaited" warning,
+which is worse than a crash. A thread that creates its own event loop and
+calls `run_until_complete` runs it correctly, and that is what
+`scrobblescope/release_checks.py` already does. The proposed remedy --
+dropping `threading` for `asyncio.create_task()` inside Flask -- cannot work
+here: a probe route asked for a running loop and got "no running event loop".
+Flask under a WSGI server has no persistent loop to attach a long-lived task
+to, so the thread-owns-a-loop pattern is the remedy, not the problem.
+
+**The Gunicorn race condition does not exist today, by configuration.**
+`Dockerfile` runs `--workers 1 --threads 4`. One worker means one `JOBS`
+dict, one semaphore and one process-wide MusicBrainz limiter.
+`AGENT_NOTES.md` already records that a second worker would break the job
+store; it would break the rate limiter too, which is the sharper consequence
+since MusicBrainz blocks by IP.
+
+**Server-sent events would take the whole thread pool.** Four threads, and an
+SSE response holds its thread for the life of the connection: four readers
+with a results page open would leave nothing for the home page. Filed as
+F-B22-6.
+
+**The MusicBrainz proposal: the exact path is real, the ISRC path is not.**
+Probed live against five albums at one request per second.
+`GET /ws/2/url?resource=<spotify album url>&inc=release-rels` returns a "free
+streaming" relation to a **release** when an editor has mapped that album;
+a second request on the release yields the release group's
+`first-release-date`. Two requests, exact, no scoring. It answered two cases
+today's search path did not -- one where the top candidate scored 100 with no
+date at all. It was unmapped for one of the five. Note for the implementer:
+`inc=release-groups` on that endpoint returns nothing, and
+`inc=release-group-rels` returned zero relations; the include is
+`release-rels`.
+
+The ISRC path costs more and is worth less. `GET /v1/albums/{id}` returns
+simplified track objects carrying **no** `external_ids`, confirmed by reading
+the keys off a live response, so every ISRC needs an extra Spotify request;
+and `/ws/2/isrc/{isrc}` returns recordings, whose earliest release group may
+be a single rather than the album. Dating an album by its lead single is a
+worse answer than no correction.
+
+Also measured: `AND type:album` would exclude EPs, which this application
+ranks alongside albums -- `normalize_name` strips "ep" from titles for
+exactly that reason -- and the release-group search field is `primarytype`,
+not `type`.
+
+All of it is F-B22-5, with the measurements, and the recommendation is to
+keep the one-request search as the primary and spend the second request only
+where it buys something: no candidate, or a candidate with no date, and a
+Spotify id present. **The correction cache must stay keyed on
+`(artist_norm, album_norm)`, never on a Spotify id.** The owner's own
+2026-09-20 run had Deezer rescue 9 of the 10 albums Spotify could not enrich,
+and those albums have no Spotify id at all.
+
+**That run also settles what Deezer is for.** The log shows 356 of 366 albums
+matched on Spotify, then 9 of the remaining 10 matched on Deezer, with the
+database cache down and every lookup live. Deezer is not only an outage
+fallback; it answers for albums Spotify does not carry. The README's
+description was written for the outage case and now says both.
+
+**The test count.** `--fix` cannot publish a measured count and `--check`
+refuses a hand-written one, because `latest_test_count_authority` parses the
+number out of prose in dated entries and DOC005/DOC006/DOC008 recompute that
+parse. Rule 7 is why the tool does not simply run pytest: it may rewrite only
+what it can derive from facts a human authored, and measuring the world is
+not that. Filed as F-DOCSYNC-13 with a proposed shape -- an authored
+measurement passed in, written by `--fix` into all four sites -- for the
+owner to rule on.
+
+**Batch 23's definition** is derived from the approved plan, in this
+repository's own work-package form: WP-0 behaviour-neutral extractions, WP-1
+error codes, WP-2 the pure parser and aggregators, WP-3 the job hand-off,
+WP-4 routes and upload handling, WP-5 the interface, WP-6 the new statistics
+for both sources, WP-7 documentation, the deferred Batch 21 accessibility
+audit and close-out. The audit is inside WP-7 because the owner ruled on
+2026-09-13 that this batch cannot close without it.
+
+**A wording trap worth knowing.** Section 3's "Batch 23 is not yet defined"
+has to sit on one line: the state parser reads Section 3 line by line, and
+wrapping that sentence across two lines made the gate infer an active batch
+and demand a definition declaration. The same class of defect, in the other
+direction, was fixed during the docsync close-out.
+
+Validation: `pytest -q` -- **1522 passed**, unchanged (no runtime code was
+touched). `doc_state_sync.py --check` exit 0, with the expected DOC023
+warning and the root-definition warning that is normal for a batch with a
+definition at the root. The live probes were read-only: Spotify with the
+app's own credentials, MusicBrainz with a contact-bearing User-Agent at one
+request per second.
+
 ### 2026-09-20 - Batch 22 work-package tags, and the docsync side task closed
 
 Side task, no batch tag: bookkeeping repair found while orienting for WP-4,

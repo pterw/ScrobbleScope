@@ -216,21 +216,76 @@ The script runs as a pre-commit hook (`doc-state-sync-check` in
 leaves deterministic drift or a proven live-document contradiction is rejected
 at the gate, before it reaches CI.
 
-**Package structure (Batch 14 refactor).** The script was originally a
-monolithic 600-line file. Batch 14 decomposed it into a proper Python
-package (`scripts/docsync/`) with separate modules for parsing (`parser.py`),
-rendering (`renderer.py`), rotation/dedup logic (`logic.py`), live-document
-integrity (`integrity.py`), the CLI entrypoint (`cli.py`), and typed dataclass
-models (`models.py`); the root
-`scripts/doc_state_sync.py` is now a thin wrapper that delegates into the
-package. This made each concern independently testable. Six focused modules --
-`tests/test_docsync_parser.py`, `tests/test_docsync_logic.py`,
-`tests/test_docsync_renderer.py`, `tests/test_docsync_integrity.py`,
-`tests/test_docsync_cli.py`, and `tests/test_docsync_test_count.py` -- cover
-parsing, rotation, deduplication, rendering, live integrity, CLI modes, and
-the test-count authority that must survive log retention. Run
+**Package structure.** The script was originally a monolithic 600-line file.
+Batch 14 decomposed it into a proper Python package (`scripts/docsync/`) with
+separate modules for parsing (`parser.py`), rendering (`renderer.py`),
+rotation/dedup logic (`logic.py`), live-document integrity (`integrity.py`),
+the CLI entrypoint (`cli.py`), and typed dataclass models (`models.py`); the
+root `scripts/doc_state_sync.py` is now a thin wrapper that delegates into the
+package. This made each concern independently testable.
+
+Batch 22 added six more modules, because the same discipline was extended to
+the things a batch close-out has to get right: `declarations.py` (the
+declared-duplicate and retired-claim checker, `[[value]]` / `[[anchor]]` /
+`[[retired]]`, reading its facts from `.docsync.toml` rather than hard-coding
+them), `closeout.py` (the six close-out signals a managed batch must satisfy),
+`archives.py` (bounded paginated archives), `findings.py` (finding lifecycle
+and rotation), `transaction.py` (crash-safe publication), and `markdown.py`
+(the shared fenced-block scanner that keeps a quoted example from parsing as
+real content).
+
+Twelve modules, and twelve matching test files in `tests/`
+(`test_docsync_archives.py`, `test_docsync_cli.py`, `test_docsync_closeout.py`,
+`test_docsync_declarations.py`, `test_docsync_findings.py`,
+`test_docsync_integrity.py`, `test_docsync_logic.py`, `test_docsync_markdown.py`,
+`test_docsync_parser.py`, `test_docsync_renderer.py`,
+`test_docsync_test_count.py`, `test_docsync_transaction.py`), plus
+`tests/scripts/dev/test_docsync_preflight.py` and `test_docsync_hook.py` for
+the two entry points that live under `scripts/dev/`. Run
 `pytest tests/test_docsync_*.py -q` for the current measured count rather than
 preserving a number here that will drift as edge-case coverage grows.
+
+**Publication is crash-safe, and that is not incidental.** Reading PLAYBOOK
+Section 4 and writing it back is a read-modify-write across several files, and
+a half-finished write would leave the corpus in a state no later agent could
+reason about: some entries rotated, others not, with the archive index
+disagreeing with the pages beside it. So every mutating mode (`--fix`,
+`--close-batch`, `--split-archive`, `--paginate-archives`, `--cold-storage`)
+publishes through `scripts/docsync/transaction.py`:
+
+1. An exclusive lock (`.docsync.lock`) makes the run single-writer.
+2. Every file it read is proved still byte-identical to what it read, so a
+   concurrent edit is a refusal rather than a silent clobber.
+3. The before-image of every path is journalled (`.docsync.journal`) *before*
+   the first write lands.
+4. Each write goes to a same-directory staging file (`.docsync-stage`) and
+   lands via `os.replace`, which is atomic on one filesystem.
+5. A run killed between two writes leaves the journal behind; the next
+   publication replays it against the on-disk state, or refuses if a
+   journalled file matches neither the before-image nor the interrupted
+   content. It never guesses which side of that disagreement is the history
+   worth keeping.
+
+The property this buys is narrower than "the tool is transactional" and it is
+worth stating precisely: a crash can lose the whole run, but it cannot leave a
+partially-published corpus. That is the guarantee the journal, the lock and the
+staged rename exist to provide.
+
+**Archives are bounded, and their ordering is deliberate.** `archives.py` caps
+a page at 500 lines by default and paginates an archive that outgrows it into
+numbered, immutable pages, keeping a flattened index so every page stays
+searchable Markdown. Page `0001` holds the *oldest* content -- version 1
+numbered pages in reading order, which put the newest entries on the oldest
+page, and reversing that is what `4b36d6a` fixed. Cold migration never reads
+the system clock: it happens only under an explicit `--cold-storage --as-of
+<ISO date>`, because a check that aged files using today's date would make the
+same commit produce different results on different days.
+
+The full module-by-module treatment, the DOC001-DOC023 diagnostic catalogue,
+and the commit-preflight and hook-installer design live in
+`docs/architecture/documentation-tooling.md`. That file is the owner; this
+section is the methodology narrative around it and deliberately does not
+restate the catalogue.
 
 **SESSION_CONTEXT.md is optional in CI.**
 
@@ -286,16 +341,20 @@ environment. It is not a CI topology gate: detached recognized CI reports an
 explicit skip, while the existing test workflow exercises the guard's state
 decisions. The detailed design lives in
 `docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
-Operational behavior is owned by `AGENTS.md` and
-`scripts/dev/check_worktree_alignment.py`; this section is human methodology
-documentation only.
+Operational behavior is owned by `AGENTS.md` and the guard itself --
+`scripts/dev/check_worktree_alignment.py` is the CLI entry point, and the
+checks live across `scripts/dev/_worktree_guard_*.py` (inspection, lineage,
+diagnostics, runner, venv, types) behind the `scripts/dev/worktree_guard.py`
+facade. Each `WT000`-`WT014` code names its own remediation. This section is
+human methodology documentation only.
 
 ---
 
 ## Frontend Asset Build
 
-Batch 21 uses the Tailwind CSS standalone CLI and daisyUI bundles without a
-Node project. The source of truth is `static/css/tailwind.src.css`; production
+Batch 21 migrated the interface to the Tailwind CSS standalone CLI and daisyUI
+bundles without a Node project; that migration is complete. The source of truth
+is `static/css/tailwind.src.css`; production
 serves the committed `static/css/tailwind.css`, so app startup never downloads
 or compiles frontend tooling.
 
@@ -344,10 +403,98 @@ matrix; Firefox runs the static-assets and theme-token canary. UI changes
 also receive focused Firefox checks and owner visual review. `--headed`
 shows the diagnostic browser windows.
 
-The active batch definition owns the validation criteria and CI setup.
+**What makes it a gate rather than a screenshot run.** Three properties are
+worth naming, because each closes a way a visual check can pass while the page
+is wrong:
+
+- **It serves the real application, on a port it owns.** The gate binds
+  `127.0.0.1` on port `0`, so the OS assigns an ephemeral port, and shuts the
+  server down in a `finally`. No separately running app is required, and two
+  concurrent runs cannot collide on a fixed port.
+- **It asserts computed values, not class names.** A probe checking a
+  `className` passes against a stylesheet that was never applied, so checks read
+  `getComputedStyle` and real geometry instead. The colour maths lives in
+  `_frontend_gate_colour.py` as pure functions with no page attached: WCAG
+  relative luminance and alpha-composited contrast, used to prove a translucent
+  divider token still clears 3:1 against *every* surface it can sit on rather
+  than the one it happened to be sampled over.
+- **It measures the interface at the sizes a reader actually uses.** Viewport
+  profiles cover mobile, 1080p, 1440p and 4K, plus a wide screen with a coarse
+  pointer -- because width alone does not imply a mouse: a tablet in landscape
+  and a touch laptop are both wide and both touched. Touch targets on
+  coarse-pointer profiles must measure at least 44px on their smaller side, and
+  desktop composition has to reach its proportions through layout rather than a
+  CSS `zoom` or `transform`, which would satisfy a pixel check while breaking
+  the type scale.
+
+Stylesheet isolation is asserted per page -- exactly one framework stylesheet,
+because daisyUI, Tailwind v4 and a legacy Bootstrap file all claim `.btn`,
+`.card` and `.modal`, and loading two would let one silently win.
+CI runs the browser gate after installing both browsers. `docs/agents/ui-accessibility.md`
+owns the unit, touch-target, motion and keyboard rules the checks enforce.
 
 ---
 
+## This Repository Is Also a Template Being Extracted
+
+**Owner intent, stated 2026-08-25.** The long-term goal is to lift this
+workflow out of ScrobbleScope and reuse it when building any application -- at
+least any data-visualisation or full-stack one. That is *why* the tooling is
+larger than the application it checks, and why the hardening has been
+progressive rather than a one-off: `scripts/docsync/`, the worktree guard,
+the frontend gate, `AGENTS.md`, the PLAYBOOK and FINDINGS discipline, and the
+batch and work-package structure are all intended to leave with the template.
+
+So the repository has three separable systems, and it is worth being precise
+about what each one is, because they are at very different levels of maturity
+and the difference matters to anyone planning to lift them.
+
+**1. The documentation control plane (`scripts/docsync/`).** The most portable
+of the three, and the closest to finished. Its integrity checks are generic
+apart from the document names in `_LIVE_DOCUMENT_PATHS`, and its facts live in
+`.docsync.toml` rather than in the code -- `declarations.py` carries no
+ScrobbleScope value at all. It publishes atomically, diagnoses with typed codes
+and a remediation, and runs from a pre-commit hook and from CI.
+
+**2. The worktree guard (`scripts/dev/_worktree_guard_*.py`).** Structurally
+complete: a public facade (`worktree_guard.py`), a thin CLI entry point, and
+the checks spread across seven modules by concern -- inspection, lineage,
+diagnostics, runner, venv, types. It reports `WT000`-`WT014`, each code naming
+its own remediation. It runs as an advisory pre-commit hook rather than a gate,
+and deliberately so: `WT003` fires for any branch the active batch does not
+name and `WT004` for the identical-tree divergence a rebase merge always
+leaves, so gating on it would refuse every commit on a feature branch.
+
+**3. The frontend gate (`scripts/dev/frontend_gate.py`).** Generic in
+structure -- serve the app, drive a browser, run checks per device profile --
+and specific in its checks, which is the right split and the part that stays
+behind. This is the least extracted of the three: the facade is still the bulk
+of the code, with the colour maths and the results probes moved out so far.
+The decomposition plan exists and is deliberately parked.
+
+Two things that are *not* portable and should not try to be: the design system
+under `docs/design/`, and every path constant that names a ScrobbleScope file.
+
+**The standing constraint until the extraction is scheduled.** It is a batch of
+its own and has not been scheduled, so it must not be started as a side task.
+What binds in the meantime is narrower and more useful: write new tooling so
+the extraction stays cheap -- keep repository facts in the declarations file
+rather than in the mechanism, name an assumption and make it switchable rather
+than letting it harden into doctrine, prefer the standard library so the next
+repository does not have to agree to a new dependency, and fail with a path, a
+line and a remediation, because the reader will not be the person who wrote
+the check.
+
+The two extraction plans and their current status are
+`docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
+(the docsync kernel) and
+`docs/superpowers/plans/2026-09-12-reusable-frontend-ci-verification-components.md`
+(the gate components). Both carry explicit "do not execute until" conditions;
+neither is current work. Owner intent and the reasoning behind the constraint
+are owned by `AGENT_NOTES.md`, which is the authority if this section and that
+one ever disagree.
+
+---
 ## Claude Code Skills (tightly scoped tooling)
 
 Two project-scoped Claude Code (CC) skills provide structured entry points for

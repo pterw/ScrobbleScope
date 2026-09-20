@@ -177,13 +177,54 @@ bears directly on one of them: the Codacy duplication request to merge the two
 Deezer request prologues was declined at the second occurrence, and the
 duplication was extracted inside the module instead (`a8e426f`).
 
-## What this changed
+## 14. "Residual Bootstrap" in the frontend gate
 
-Nothing in `scripts/docsync/` or the gate logic. The verified claims needed no
-repair: four were already fixed, one was already escaped, and two describe
-deliberate behaviour. The work product is the two filed findings (F-B22-7,
-F-DOCSYNC-14) and this record, so the next agent does not repeat the
-adjudication or, worse, act on a claim that was never true.
+Claim (owner's working description, and the gate's own comment): the frontend
+gate must "prevent DaisyUI, Tailwind v4, and residual Bootstrap from
+colliding", implying pages still on Bootstrap.
+
+Verdict: **there is no residual Bootstrap, and the comment saying so was
+itself the defect.** `LEGACY_PAGES = []`. Every template carries an explicit
+opt-out note (`results.html:5` and `unmatched.html:5` both read "Migrated to
+Tailwind, so this page opts out of the legacy Bootstrap stack"), `static/css/`
+contains no Bootstrap file, and README already stated "Bootstrap is gone".
+
+What was wrong was `frontend_gate.py:209-215`, whose comment read "Pages still
+served by Bootstrap. Move each one into MIGRATED_PAGES in the work package
+that migrates it... The job-backed Results and Unmatched templates remain on
+Bootstrap until their work packages" -- sitting directly above an
+already-empty list. A reader trusting the comment would conclude two page
+families were still unmigrated; the list, and the templates, said otherwise.
+
+Corrected in place, with the real state and the reason an empty list stays
+declared: `check_stylesheet_isolation` consumes both inventories because
+"exactly one framework stylesheet" is a claim about every page, migrated or
+not, so the list is a legitimate landing place for a future page that reverts.
+The Bootstrap material still in the module is `bootstrap_fixture` and
+`BOOTSTRAP_MARKER`, which serve a synthetic stylesheet so the isolation check
+can prove a page *would* collide if it loaded both -- a test fixture, not a
+live framework.
+
+This is anti-pattern 15 in miniature: the architecture comment had drifted
+from the code it described, and only reading the source rather than the
+comment surfaced it.
+
+## What this changed, in full
+
+Before the fixes below, nothing in `scripts/docsync/` or the gate logic needed
+repair for the four refuted claims, the escaped pattern, or the two deliberate
+behaviours. What the verification actually produced:
+
+| Change | Kind |
+|---|---|
+| `F-B22-7` filed -- `as_cache_row` unreachable from application code | Finding |
+| `F-DOCSYNC-14` filed -- DOC023 blocks on the outcome-vocabulary compounds | Finding |
+| `F-B22-2` retitled and extended from 3 sites to 6, stale line corrected | Finding corrected |
+| `frontend_gate.py` stale Bootstrap comment replaced | **Defect fixed** |
+| This report | Record |
+
+The two findings are records, not repairs, and each says why the fix is an
+owner decision rather than a mechanical one.
 
 ---
 

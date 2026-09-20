@@ -9,10 +9,11 @@
 [![Deployed on Fly.io](https://img.shields.io/badge/deployed-fly.io-8b5cf6.svg)](https://scrobblescope.fly.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-The Quality Gate badge is the live state: it runs the Python suite, a coverage
-floor, Ruff, the documentation-integrity checks and the browser gate on every
-push. No badge here carries a hand-maintained test or coverage number, because
-a number typed into a README is wrong the next time anybody commits.
+The Quality Gate badge tracks real gates rather than a snapshot of them: it
+runs the Python suite, a coverage floor, Ruff, the documentation-integrity
+checks and the browser gate on every push. Nothing on this page carries a
+hand-maintained test or coverage number, because a number typed into a README
+is wrong the next time anybody commits.
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
 
@@ -273,6 +274,22 @@ module, so the clients stay thin:
   removes repeated HTTP work inside a session. The optional PostgreSQL cache
   remembers album metadata and original-release findings across restarts and
   across users. Neither stores a result set: those are ephemeral by design.
+- **The cache talks to Postgres in arrays, not rows.** A job's albums are
+  looked up and written in single statements built on `unnest($1::text[], ...)`,
+  so five hundred albums cost one round trip rather than five hundred. This is
+  a hand-written primitive layer rather than an ORM saving records one at a
+  time, and it is the reason a cold cache does not dominate a run.
+- **A stale schema names itself.** A missing column or table answers with a
+  PostgreSQL SQLSTATE (`42703`, `42P01`), and the cache reads that code
+  specifically instead of treating every failure as network turbulence. The
+  difference matters: an unmigrated database and a dropped connection look
+  identical to a generic handler, and the first one needs a migration rather
+  than a retry. Startup prints the exact `init_db.py` command to run.
+- **A provider endpoint that disappears degrades instead of failing.** Spotify
+  removed Get Several Albums for Development Mode apps, which answers with
+  `403`, `404` or `410`. The batch fetch recognises those three statuses and
+  falls back to one request per album, gathered concurrently, so album details
+  keep arriving under the same rate limit instead of emptying the result.
 - **Normalization is the join key.** Artist, album and track names are
   normalized once -- Unicode-normalized, punctuation flattened, release-noise
   words such as "deluxe" and "remastered" dropped from album titles only, so

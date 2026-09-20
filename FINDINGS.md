@@ -1,9 +1,9 @@
 # ScrobbleScope Findings & Open Issues
 
 Last updated: 2026-09-20
-Status: Batch 22 is active.
+Status: no batch is active; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1529 tests across 58 test modules.
+1532 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -1486,23 +1486,37 @@ session). Small and self-contained; no test rewrite beyond swapping the
 
 Status: open (P2). Source: Batch 22 WP-2 Task 6, 2026-09-13.
 
-### F-B22-2: `assert` guards job-context narrowing in three `album_flow.py` sites
+### F-B22-2: `assert` guards an invariant that `python -O` strips, at six sites
 
-`scrobblescope/routes/album_flow.py:89,154,302` each use `assert job_context
-is not None` to narrow the type after a validation guard clears (`if err:
-return err`). Moved verbatim from pre-split `routes.py`; not introduced by
-WP-0's module split. Codacy PR #232 review flagged this correctly: `assert`
-strips under `python -O`, so an optimized interpreter would fall through to a
-`None.get(...)` `AttributeError` a few lines later instead of a clear,
-intentional failure.
+`assert` stands in for a runtime invariant check in six places across three
+files. `python -O` strips `assert` entirely, so an optimized interpreter would
+fall through to an `AttributeError` a few lines later instead of a clear,
+intentional failure:
 
-Fix shape: replace each with `if job_context is None: raise RuntimeError(...)`
-(or equivalent), matching the pattern of an internal-invariant check rather
-than a `python -O`-dependent one. Small and testable, but out of scope for
-WP-0's behaviour-neutral contract -- filed separately rather than fixed
-in-PR.
+- `scrobblescope/routes/album_flow.py:89,154,309` -- `assert job_context is not
+  None`, narrowing the type after a validation guard clears (`if err: return
+  err`). Moved verbatim from pre-split `routes.py`; not introduced by WP-0.
+- `scrobblescope/spotify.py:28,29` -- `assert SPOTIFY_CLIENT_ID is not None` and
+  the same for `SPOTIFY_CLIENT_SECRET`, guarding the token request. A stripped
+  assert here sends `None` as a credential rather than refusing.
+- `scripts/docsync/findings.py:132` -- `assert heading_match is not None` in
+  `_build`, whose only caller `_parse` passes lines that already matched the
+  heading pattern.
 
-Status: open (P2). Source: Codacy bot review, PR #232, 2026-09-13.
+Codacy flagged the `album_flow.py` group on PR #232 and the `findings.py` site
+on PR #235; the original filing named only `album_flow.py`'s three sites and
+cited line 302, which had drifted to 309. The class is the pattern, not the
+package or the PR that noticed it, so all six are recorded here rather than one
+finding per reviewer comment.
+
+Fix shape: replace each with `if X is None: raise RuntimeError(...)` (or
+`ValueError` where the input is external), matching the pattern of an
+internal-invariant check rather than a `python -O`-dependent one. Small and
+testable, but out of scope for WP-0's behaviour-neutral contract -- filed
+separately rather than fixed in-PR.
+
+Status: open (P2). Source: Codacy bot reviews, PR #232, 2026-09-13, and
+PR #235, 2026-09-20.
 
 ### F-B22-3: job endpoints trust an unguessable job ID with no session ownership check
 
@@ -1528,6 +1542,31 @@ demonstrated wrong.
 
 Status: open (P2, owner-gated). Source: Graphify bot review, PR #232,
 2026-09-14.
+
+### F-B22-7: `AlbumMetadata.as_cache_row` is unreachable from application code
+
+`scrobblescope/enrichment.py:19` builds the nine-element provider-aware cache
+row that `cache._batch_persist_metadata` unpacks. Both production sites that
+persist metadata build that tuple themselves instead:
+`orchestrator/_details.py:137` inline as six elements (the Spotify shape) and
+`orchestrator/_deezer_fallback.py:83` inline as nine. A repo-wide search finds
+the method at its definition and in its own test
+(`tests/services/test_enrichment.py:14,42`) and nowhere else, so no
+application code path calls it.
+
+Consequences worth naming. The persistence row order already has one owner,
+`cache._batch_persist_metadata`'s docstring, so this method is a second copy
+of that fact and a place for the two to drift. Its test asserts an order that
+nothing writes, which reads as coverage of the persist path without exercising
+it -- the false-confidence shape AGENTS.md's test-quality rules exist to
+catch. `AlbumMetadata` is still genuinely used: `spotify.py:273` and
+`deezer.py:144` construct it and read its fields. Only this method is unread.
+
+Filed rather than fixed because removing a method and its test, or routing one
+builder through it and deleting the other, is a choice between two working
+shapes with a Batch 22 test contract around one of them. Owner call.
+
+Status: open (P2). Source: PR #234 advisory verification, 2026-09-20.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
@@ -1825,6 +1864,51 @@ Status: standing design decision. Source: cache verification 2026-03-04.
 
 Playcount filter + 500-album playtime cap applied before cache lookup.
 Status: standing design decision. Source: load testing 2026-03-04.
+
+### F-DOCSYNC-14: DOC023 fires on prose that quotes the outcome vocabulary
+
+`_claims_a_terminal_outcome` (`scripts/docsync/findings.py:371`) suppresses a
+claim when a `not` directly qualifies the outcome word, including the
+tab-separated and uppercase spellings and the Markdown-emphasised form. Two
+classes of prose therefore still block, and both are deliberate.
+
+First, a `not` earlier in the sentence does not suppress a later claim. The
+negation rule is anchored to the outcome word, so prose that says it does not
+know something and then states an outcome still reads as a claim. That is
+asserted by `test_negation_does_not_reach_across_a_sentence`.
+
+Second, a compound that takes the vocabulary's `no` branch and appends a
+trailing qualifier carries no `not` for the rule to find, so it blocks as
+well.
+
+There is a practical consequence worth recording, because it was learned the
+hard way: this file cannot quote a sentence that trips the gate. The first two
+drafts of this very entry quoted the trigger sentences in order to explain
+them, and DOC023 blocked both -- the first on a `no`-branch compound, the
+second on the sentence the boundary rule above describes. The quoted sentences
+and the 14-case measurement live in
+`docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`, which sits
+outside DOC023's scan. This file does not, so it describes the shapes instead
+of spelling them.
+
+Measured 2026-09-20 against 14 synthetic findings run through the real gate,
+`collect_rot_issues` (probe: `tmp/_zG_doc023_verdict.py`). Every negation
+spelling the rule was written for is handled, and the boundary case above
+still blocks, as documented. `tests/test_docsync_findings.py` already covers
+the intended behaviour --
+`test_a_finding_saying_it_is_not_resolved_is_not_a_claim`,
+`test_negation_does_not_reach_across_a_sentence`,
+`test_a_deployed_resolution_still_reads_as_a_claim`.
+
+Recorded so a later agent does not "fix" either boundary by widening the
+negation window. That trade buys silence on a couple of phrases and pays for
+it by missing real completion claims, which is the failure DOC023 exists to
+prevent. Blocking is the safe direction -- Rule 7's "a wrong green is worse
+than a red" -- and the cost is one reword by an author whose open finding
+happens to use the phrase.
+
+Status: standing design decision. Source: PR #234 advisory verification,
+2026-09-20.
 
 ---
 
