@@ -678,7 +678,16 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
     # job, or an operator who does not recall the first -- must not restate
     # when the closure happened, least of all from today's clock. The first
     # record wins, and a conflicting --as-of is reported rather than applied.
-    recorded = read_closeout_record(definition_lines)
+    # Read it from the archived definition, never from `definition_lines`:
+    # that is the source, which is the root definition whenever one is
+    # tracked. Restoring a root after a close would otherwise present a
+    # document with no record, and the clock would win again.
+    archived_existing = _read_lines_optional(REPO_ROOT / archived_relative)
+    recorded = (
+        read_closeout_record(archived_existing)
+        if archived_existing is not None
+        else None
+    )
     if recorded is not None and recorded.closed_on != closed_on:
         print(
             f"doc_state_sync --close-batch {batch}: batch {batch} is already "
