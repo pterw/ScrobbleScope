@@ -9,6 +9,65 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-14 - Mutation testing scoped to hermetic modules
+
+Side task, no batch tag: owner-directed tooling, outside Batch 22's scope and
+its definition.
+
+Scope: `scripts/dev/mutation_scope.toml` (new),
+`scripts/dev/mutation_test.py` (new),
+`tests/scripts/dev/test_mutation_test.py` (new), `AGENTS.md`. Motivation was
+`cosmic-ray==8.7.0` sitting in `requirements-dev.txt` with no caller; the
+decision was to give it a defined home rather than delete it, because a
+47-mutant module costs minutes here and the repo already mutation-tests by hand
+(the Batch 21 plans call it "mutests").
+
+Implementation:
+- `mutation_scope.toml` is the allowlist of modules cleared for mutation
+  testing, each with the tests that cover it: `domain.py`, `enrichment.py`,
+  `unmatched.py`, `worker.py`, `spotlight.py`, `orchestrator/_results.py`,
+  `scripts/dev/graphify_refresh.py`. The file carries its exclusion list and
+  the reason per entry, so a gap is not read as an oversight: `utils.py` and
+  `repositories.py` are time- and loop-dependent, and the network and DB
+  modules are not hermetic at all.
+- `mutation_test.py` drives cosmic-ray for one allowlisted module and refuses
+  every other path by exact normalized comparison. It builds the cosmic-ray
+  config in a temporary directory, runs init/baseline/exec, and reports caught,
+  survivors and unknown. Two guards protect the checkout: it refuses to start
+  while the module has uncommitted changes unless `--allow-dirty`, and it
+  compares the module's SHA-256 before and after so a mutant left on disk is an
+  error, not a clean verdict.
+- `AGENTS.md` gains a "Mutation testing (on demand, never a gate)" subsection
+  under Test Quality Rules: the allowlist rule, the pre-refactor trigger, the
+  survivor-is-not-a-defect warning, and that no hook and no workflow calls it.
+
+Deviations and repairs found on the way:
+- `doc_state_sync.py --check` was already failing on four integrity errors
+  before this task, all fallout from the removal of the "UI and Accessibility
+  Rules" section from `AGENTS.md`: DOC009 for the declared 44px touch minimum,
+  and DOC010 twice for citations of a heading that no longer existed. The
+  section is restored in condensed form, with items 1 and 2 keeping the numbers
+  two other documents cite. That removal was mid-edit, not part of this task;
+  the repair is recorded here because it shares the commit.
+- `AGENT_NOTES.md` was also failing DOC009 on its declared heatmap-window site,
+  and had trailing whitespace at what was line 314. Both repaired.
+- `requirements-dev.txt`'s `cosmic-ray==8.7.0` line was uncommitted and
+  unreferenced; this entry is the first record of an owner decision to keep it.
+
+Validation: `pytest -q` -- **1153 passed**, up from 1108 with the 45 new tests.
+`ruff check` and `ruff format --check` clean on both new files.
+`doc_state_sync.py --check` passed with only the expected root-BATCH warning.
+`mutation_test.py --list` prints the seven scoped modules, and `--init-only` on
+`scrobblescope/unmatched.py` reports 47 mutants in about a second.
+
+Forward guidance: the post-`exec` outcome mapping in `classify()` was written
+against cosmic-ray 8.7.0's session schema. Which modules qualify, the refusals,
+and the config shape are all covered by tests, but the mapping from a completed
+session record to killed/survived is not yet exercised end to end, so a first
+full run should be checked with `--raw` before its numbers are quoted. An
+unrecognised record is reported as unknown rather than guessed, which is what
+makes that check cheap.
+
 ### 2026-09-14 - DB connect timeout (found while localhost-testing the Deezer fallback)
 
 Scope: `scrobblescope/cache.py`, `tests/test_repositories.py`. Owner-found
