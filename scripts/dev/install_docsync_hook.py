@@ -123,7 +123,13 @@ def resolve_hook_directory(cwd: Path, *, runner: Runner = subprocess.run) -> Pat
     candidate = Path(hooks_path)
     if candidate.is_absolute():
         return candidate
-    return Path(cwd).resolve() / candidate
+    # Against the worktree root, not ``cwd``: Git runs a hook from the top
+    # of the working tree, so that is what a relative ``core.hooksPath``
+    # resolves against. Resolving against ``cwd`` instead put the wrapper
+    # in `<subdir>/.githooks` whenever the installer was run from anywhere
+    # but the root -- a write that succeeds, reports success, and leaves
+    # the hook somewhere Git will never look.
+    return repo_root(cwd, runner=runner) / candidate
 
 
 def list_worktrees(cwd: Path, *, runner: Runner = subprocess.run) -> list[Path]:

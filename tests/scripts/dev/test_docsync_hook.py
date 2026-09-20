@@ -115,6 +115,25 @@ def test_resolve_hook_directory_relative_path_resolves_per_worktree(tmp_path):
     assert primary_hooks != linked_hooks
 
 
+def test_resolve_hook_directory_ignores_the_callers_subdirectory(tmp_path):
+    """A relative core.hooksPath resolves against the worktree root.
+
+    Git runs hooks from the top of the working tree, so that is what a
+    relative path resolves against. Every other test here passes the repo
+    root as `cwd`, where the two are the same; called from a subdirectory
+    they diverge, and resolving against `cwd` put the wrapper somewhere
+    Git never looks while still reporting a successful install.
+    """
+    repo = _init_repo(tmp_path / "repo")
+    _git(repo, "config", "core.hooksPath", ".githooks")
+    subdirectory = repo / "scripts" / "dev"
+    subdirectory.mkdir(parents=True)
+
+    assert installer.resolve_hook_directory(subdirectory) == (
+        (repo / ".githooks").resolve()
+    )
+
+
 def test_resolve_hook_directory_absolute_hooks_path_is_shared(tmp_path):
     shared = tmp_path / "shared-hooks"
     repo = _init_repo(tmp_path / "repo")
