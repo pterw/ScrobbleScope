@@ -1088,6 +1088,70 @@ and `docs/design/RECONCILIATION.md` still needs the plan's note that a
 displayed release year may now come from MusicBrainz rather than the
 provider.
 
+### 2026-09-20 - The colour-serialization audit and its class fix (Batch 22 WP-4)
+
+Scope: the owner asked whether any existing check was failing the same way
+Task 11's contrast check did, and for the class to be remediated rather than
+the instance. Investigated through `superpowers:systematic-debugging`:
+evidence first, then one hypothesis, then the fix.
+
+**Evidence.** A probe drove both engines the gate runs, in both themes, and
+printed the exact string `getComputedStyle` returns for every colour any
+check reads. Both Chromium and Firefox serialize a computed
+`color-mix(in srgb, ...)` as `color(srgb 0.960784 0.945098 0.909804)`, with
+channels in 0-1. Every other measured value -- `--shell-border`,
+`--shell-bg`, `--shell-surface`, `--color-base-100`, `--ss-surface-sunken`,
+`--color-primary`, `--color-base-content`, `--ss-text-muted`, and
+`.index-form`'s rendered border -- came back as `rgb()` or `rgba()` in both
+engines and both themes.
+
+**Finding: no existing check was wrong.** `_parse_rgb_string` has exactly two
+callers, `check_divider_contrast` (through `_worst_divider_contrast`) and
+Task 11's new contrast check. The divider check reads only tokens that
+serialize as `rgb()`/`rgba()`, so its measurements were correct. The defect
+was latent, and Task 11's check was the first to measure a `color-mix()`
+surface -- `--results-surface` is one. Two other colour tokens are built from
+`color-mix()` (`--color-base-300`, and the accent hover on `.results-action`)
+and no check measures them.
+
+**The class fix, in two parts.** The parser now recognises `color(srgb ...)`
+and **refuses** any serialization it does not understand -- `oklch()`,
+`lab()`, `hsl()`, `color()` in a wider gamut -- with a message naming the
+value and saying to teach it the form. All of those lead with three numbers
+that are not sRGB channels, so the previous behaviour was to return a
+plausible ratio for a colour nobody painted, and a contrast gate reporting a
+wrong ratio is the wrong green `docs/agents/global-rules.md` ranks above
+every other rule. The generated stylesheet carries 46 `oklch`/`oklab`
+occurrences, so the form is one theme change away from being measured.
+
+Second, the forbidden-surface scan compared strings. It reads every element
+on a page for the cool-greys the warm themes replaced, so the same grey
+arriving through a `color-mix()` would have serialized as `color(srgb ...)`
+and passed the scan with the surface on screen. It now compares colours
+through `_is_forbidden_surface`, which normalises both sides and falls back
+to an exact string match for anything the parser refuses -- a scan over every
+element cannot raise, which is the opposite trade from a measurement, and
+both are stated where they are made.
+
+Tests (+10 net): `TestColourSerializations` pins both readable forms and
+parametrises the four refusals; `TestForbiddenSurfaceDetection` pins the
+cross-serialization match, the plain match, a non-match, and the tolerated
+unparseable value. The standalone test written during Task 11 was folded into
+the first class rather than left beside it.
+
+Also in this entry: the two findings this session filed (F-SWE-8, F-B21-62)
+now carry the canonical `- [ ] **Status:**` lifecycle record from
+`docs/agents/issue-tracker.md`, so they are rotation-eligible when they close
+and the backlog DOC023 counts does not grow. F-DOCSYNC-3 keeps its prose
+status line: it is another author's record, and converting one is not this
+session's to do (Rule 7).
+
+Validation: `pytest -q` -- **1522 passed** (was 1512; +10). The frontend gate
+-- **30 checks passed in 52 runs** across chromium and firefox, green with
+the strict parser, which is itself the proof that no check feeds it a
+serialization it refuses. `ruff check` and `ruff format` clean.
+`doc_state_sync.py --check` exit 0.
+
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
 ### 2026-09-20 - Batch 22 work-package tags, and the docsync side task closed

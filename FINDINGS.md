@@ -1872,7 +1872,9 @@ tokens ship in `static/css/tailwind.src.css` for both themes, or the README
 stops describing a treatment nothing can apply. Sizing is small; deciding
 which way is a design-system call, not an implementation one.
 
-Status: open (P2, owner-gated). Source: Batch 22 WP-4 Task 11, 2026-09-20.
+- [ ] **Status:** open (P2, owner-gated)
+
+Source: Batch 22 WP-4 Task 11, 2026-09-20.
 
 ### F-SWE-8: the mutation-test runner is written, unadopted, and uncommitted
 
@@ -1894,8 +1896,10 @@ concrete Markdown reference has to name a tracked file, and it is not one.
 Do not stage those two files as part of another task's commit, and do not
 treat the runner's output as evidence until its own defects are fixed.
 
-Status: open (P2, owner-gated -- a future work package, not a defect in
-shipped code). Source: docsync close-out side task, 2026-09-20.
+- [ ] **Status:** open (P2, owner-gated)
+
+Source: docsync close-out side task, 2026-09-20. It is a future work package
+rather than a defect in shipped code.
 
 ### F-B22-4: provider attribution on results/unmatched rows is text, not each provider's official logo
 
