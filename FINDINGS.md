@@ -128,11 +128,8 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
-/resolved which batch?
 
 ## P1 -- Next batch candidates
-/which batch? are these being rotated? Batch 21 closed out
-/so anything from there should be rotated out per docsync.
 
 ### F-DOCSYNC-13: the test count is parsed from prose when it could be measured
 
@@ -194,7 +191,6 @@ Was recorded as: open for the general card token. The owner warmed the page/navb
 canvas and selected midpoint surfaces for Results; PLAYBOOK Section 4 records
 that refinement. The comparisons above describe the previous canvas.
 Source: owner-reported stat-bar background regression, 2026-09-09.
-/so is this resolved?
 
 ### F-B21-50: reconnaissance TODOs in production code generated eight review rounds
 
@@ -307,10 +303,6 @@ browser-coupled ones and still need the gate runnable to prove parity.
 
 Source: PR #227 commit-range audit, 2026-09-09.
 
-/the front end gate is still massive. the work is incomplete,
-/has bootstrap been **Fully** migrated out? I know there
-/is a pointer: `scripts\dev\fixtures\boostrap_fixture.css`
-/what does this do?
 
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached
 
@@ -500,12 +492,15 @@ What a sync needs: open an issue for each finding that has none, close the
 issue when its finding resolves, and never write back to `FINDINGS.md`. The
 file stays the source of truth. Issues are a read-only mirror.
 
+**Owner ruling, 2026-09-20:** the sync has to run in both directions --
+GitHub issues to `FINDINGS.md` as well as out -- so neither side can become
+the only place a defect is recorded.
+
 - [ ] **Status:** open, deferred by owner decision
 Was recorded as: open, deferred on purpose. The owner accepted the drift on
 2026-08-22 and asked that the work be recorded rather than done now.
 Source: findings mirror, 2026-08-22.
 
-/correct, sync needs to exist to and from gh to findings
 
 ### F-B21-10: error-page fallback can report 400 for other statuses
 
