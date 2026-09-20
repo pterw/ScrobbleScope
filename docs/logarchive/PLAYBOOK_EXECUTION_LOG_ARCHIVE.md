@@ -9,6 +9,96 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-14 - DB connect timeout (found while localhost-testing the Deezer fallback)
+
+Scope: `scrobblescope/cache.py`, `tests/test_repositories.py`. Owner-found
+during manual localhost verification of Task 5's Spotify-fails-to-Deezer
+fallback (an invalid `SPOTIFY_CLIENT_ID`, per the plan's own verification
+step 2): the browser sat at "Preparing 129 albums for Spotify lookup..."
+for three minutes with no server-log output at all, for two different
+Last.fm usernames. The owner had *paused* (not stopped) the local
+`ss-postgres` Docker container, which answers no SYN-ACK at all rather than
+refusing the connection -- unlike the ordinary "DB is down" case the
+existing retry/backoff (2026-02-14, `DB_CONNECT_MAX_ATTEMPTS`,
+`DB_CONNECT_BASE_DELAY_SECONDS`) was built to smooth over.
+`_get_db_connection` is the first thing `process_albums` does, before any
+further progress update, so the whole stall was silent and looked
+identical to a hang. Root cause: `asyncpg.connect(dsn)` carried no
+explicit `timeout`, so each of the 3 default attempts ran out asyncpg's own
+60s default -- 3 x 60s = 180s, matching the observed 3 minutes exactly.
+
+Fix: a new `DB_CONNECT_TIMEOUT_SECONDS` env knob (default 5), passed as
+`asyncpg.connect(dsn, timeout=connect_timeout_seconds)`, following the same
+env-tunable pattern as the two existing retry knobs. Worst case with
+defaults is now ~3 x 5s plus the existing sub-second backoff, not 180s. Not
+part of any Batch 22 WP-1 task's file list (Task 7 already landed and
+committed separately as `8eb3c2a`); a small, unrelated robustness fix,
+logged here per Side-Task Handling rather than folded into a task entry.
+
+`tests/test_repositories.py`: `asyncpg.connect` is asserted to receive the
+configured `timeout=` kwarg, and a `TimeoutError` from `asyncpg.connect` is
+asserted to be treated as an ordinary connect failure (retried, then
+`None` with a `db-down` log line) rather than needing special handling.
+
+Validation: `pytest -q` -- **1081 passed** (was 1079; +2 new). Not yet
+verified live against a paused container (that reproduction is the owner's
+local setup); the two new tests cover the mechanism directly.
+
+`doc_state_sync.py --check` initially failed DOC006/DOC008 after this
+entry rotated to the top of the log: `.claude/SESSION_CONTEXT.md`'s
+Section 1 dashboard row and Section 6 heading, and `FINDINGS.md`'s header
+line, all carried a hand-written "1036" test count untouched since
+2026-09-11 -- separate from the `DOCSYNC:STATUS` managed block, which
+`--fix` had correctly kept current all along. Corrected both to **1081**
+and the module count to the re-measured **48** (was 43); `--check` passes
+clean. Left as found and not swept here (a bigger doc pass, out of this
+side-task's scope): `FINDINGS.md`'s own "Batch 21 is active" status line,
+stale since the same 2026-09-11 date -- Batch 21 closed and Batch 22 is
+now active per PLAYBOOK Section 3.
+
+**Addendum, same day:** the underlying gap is recorded as **F-DOCSYNC-12**
+-- `--fix` only ever rewrites the STATUS block's own count line, never the
+other two fields DOC006 checks (the Section 1 row, the Section 6 heading)
+or the FINDINGS header DOC008 checks, so all three can drift indefinitely
+until something trips the check and a human corrects them by hand, as
+happened here.
+
+### 2026-09-13 - Deezer client (Batch 22 WP-1, Phase 2 begins)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Phase 2 Task 4. No behaviour change -- `scrobblescope/deezer.py` is new and
+unused by any caller; Task 5 wires it in as the Spotify-miss fallback.
+
+Plan vs implementation: matched. `search_deezer_album(session, artist,
+album)` queries the plain `f"{artist} {album}"` (the filtered
+`artist:"..." album:"..."` form favors tribute/cover results per the
+plan's probe) and accepts a candidate only when
+`normalize_name(candidate_artist, candidate_title)` equals the key built
+from the caller's own `artist`/`album` -- never "the first result" as a
+guess. `fetch_deezer_album(session, album_id)` calls `/album/{id}` for
+metadata and `/album/{id}/tracks?limit=500` for every track's duration,
+since `/album/{id}` alone caps at 25 tracks regardless of `nb_tracks`
+(pinned with a 30-track fixture). Both share `_fetch_deezer_json`, which
+treats Deezer's HTTP-200-with-body errors correctly: code 800 ("no data")
+is a terminal miss: `None`; code 4 (quota) retries after a 1s wait via
+`retry_with_semaphore`'s existing retry-after path, the same mechanism
+Spotify's 429 handling already uses.
+
+`scrobblescope/utils.py` adds `get_deezer_limiter()` (10 req/s, the
+existing `_GlobalThrottle` + per-loop `AsyncLimiter` pattern, mirroring
+`get_spotify_limiter`); `scrobblescope/config.py` adds
+`DEEZER_REQUESTS_PER_SECOND` (default 10 -- Deezer's stated 50 req/5s),
+`DEEZER_SEARCH_RETRIES`, `DEEZER_DETAIL_RETRIES` (default 3, matching
+Spotify's retry defaults).
+
+Validation: `pytest -q` from the worktree cwd -- **1061 passed** (1054 + 7
+new in `tests/services/test_deezer_service.py`: candidate-matching,
+no-match, the two HTTP-200-error-code cases, the 25-vs-30-track pagination
+case, and two adversarial "the second request never succeeds" cases for
+`fetch_deezer_album`, added beyond the plan's own four because a helper
+this new needs at least one failure-path test per AGENTS.md's Test
+Quality Rules. Task 5 (wire the fallback into the orchestrator) is next.
+
 ### 2026-09-13 - PR #232 merged to `test`; branch reset, SHAs remapped
 
 Owner rebase-merged PR #232 into `test` (mergeCommit `812cdde`). GitHub

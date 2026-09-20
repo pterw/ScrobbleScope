@@ -5,7 +5,7 @@ Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
 into WP-3. The WP-7 extension is implemented and refined, and WP-8 awaits owner
 direction.
 PLAYBOOK Section 3 owns the current work order.
-1298 tests across 55 test modules.
+1470 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -1958,6 +1958,9 @@ Fix shape (owner ruling, 2026-09-13): extend docsync rather than add a tool.
   toolchain the Tailwind build already requires, never as a pre-commit hook.
 - AGENT_NOTES.md "This repository is also a template being extracted" gains a
   line naming diagrams as a third declared surface beside values and anchors.
+
+Note (2026-09-19): DOC013 is taken (docsync finding-lifecycle codes); a new
+invariant for this finding starts at DOC023, not DOC013.
 
 Status: open (P2). Not scheduled; it belongs with docsync work, not with
 Batch 21. Source: architecture review, 2026-09-13.

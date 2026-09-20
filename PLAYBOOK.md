@@ -907,6 +907,128 @@ staged-path hook run for this commit passes.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-19 - Docsync close-out plan Tasks 3 and 4, and a control-plane code review
+
+Side task, no batch tag: continuation of the entries below on
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
+via `superpowers:subagent-driven-development`. Not Batch 22 scope. Nothing
+is committed; the whole plan remains working-tree-only by owner constraint,
+and the unrelated in-flight Batch 22 edits in this worktree were neither
+staged nor reverted.
+
+Task 3 (CLI integration and multi-signal close-out) landed in six slices:
+the two strict configuration tables, the definition-side close-out record,
+the gate wiring, `--close-batch`, the archive maintenance modes, and DOC020.
+Its review found one Important defect -- the `expected` map passed to
+`transaction.publish` did not cover every path the plan had READ, so a
+concurrent edit by another agent could publish a decision made about
+different content. Fix round 1 made `_Corpus.read_paths()` the single source
+of truth for that, so a document added to the corpus later inherits the
+protection instead of needing a second hand-maintained list.
+
+Task 4 was split into a code half and a documentation half. The code half
+added `scripts/dev/docsync_preflight.py` and
+`scripts/dev/install_docsync_hook.py`, moved the docsync hook to first
+position in `.pre-commit-config.yaml`, and added an explicit CI preflight
+step. Its review found that the control-plane refusal existed only in
+`--staged` while the pre-commit entry runs `--worktree`, which is the path
+that actually executes on every local commit; fix round 1 closed that.
+The documentation half brought `AGENTS.md` from 728 to 498 lines by
+compressing, relocating the DOC catalogue to
+`docs/architecture/documentation-tooling.md` and the bootstrap edge cases to
+`HANDOFF_PROMPT.md`, and relocating the `UI and Accessibility Rules` that an
+in-flight Batch 22 edit had deleted into `docs/agents/ui-accessibility.md`.
+That single deletion was the root cause of all three live gate errors, which
+are now repaired.
+
+Owner rulings taken during the session, both recorded in the plan ledger: the
+commit preflight refuses any commit that modifies the docsync control plane,
+and the one named escape is `SKIP=doc-state-sync-check git commit` rather
+than `--no-verify`, so the absolute prohibition on `--no-verify` in
+`AGENTS.md` anti-pattern 7 stands unchanged; and the architectural invariants
+the owner supplied are now a binding document at
+`docs/agents/global-rules.md`, carrying an explicit precedence order for when
+two rules conflict.
+
+An owner-requested code review of the control plane followed, and its
+findings were fixed rather than filed. `--split-archive` had been writing
+directly to disk with no lock, no journal and no staleness check, which
+contradicted the atomicity guarantee every other writing mode honours; it now
+publishes through the same transaction. The batch-definition regex that had
+been constructed five times across three modules is now
+`parser.root_definition_pattern`. The live-document path list, which the tool
+had duplicated between `cli.py` and `integrity.py` without the declaration it
+would demand of any other repository, now has one owner. On the application
+side, `update_job_result` no longer normalizes every result inside the
+process-global lock -- the key is attached once where results are built --
+and `run_release_checks` was decomposed into three named units with its
+existing tests passing unmodified as parity evidence.
+
+Validation, run fresh in the controller session rather than taken from any
+subagent's report: the two preflight and hook suites were 76 passing, the
+release-check suite 23 passing unmodified before and after its refactor, and
+`ruff check` plus `ruff format --check` were clean across the touched files.
+`scripts/doc_state_sync.py --check` now exits 0, leaving only the expected
+root `BATCH22_DEFINITION.md` warning. Validation: `pytest -q` -- **1470 passed**.
+
+Deviations worth the next reader's attention. `AGENTS.md` landed at 498 lines
+rather than the ~420 target: every remaining line is a distinct rule or
+procedure, and further cuts would have removed prohibitions rather than
+narrative. Two documents under `docs/agents/` were staged, against the
+plan's own no-staging rule and at the owner's explicit instruction, because
+DOC001 reads `git ls-files` and an untracked file can never satisfy a
+reference to it.
+
+Forward guidance, in the owner's stated order: build the DOC023 invariant
+that stops resolved findings rotting in free prose, then run the final
+whole-branch review, then land the work as a sequence of atomic commits
+rather than one large one. The triage list for that review is every finding
+marked deferred in
+`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`, which
+remains the authoritative ledger for this plan.
+
+### 2026-09-16 - Docsync close-out plan Task 2 closed out
+
+Side task, no batch tag: continuation of the 2026-09-15 entry below on
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
+via `superpowers:subagent-driven-development`. Not Batch 22 scope; nothing
+here touches live `FINDINGS.md`, the archive files, or the docsync CLI.
+
+Task 2's fix round 1 (resumed 2026-09-15 with a fresh implementer, since
+the original handle was unavailable) addressed all 3 Important findings
+recorded in `docs/history/reports/DOCSYNC_CLOSEOUT_TASK2_REVIEW_2026-09-15.md`:
+a missing index no longer deletes existing pages (`_load` now rejects
+orphans before returning an empty layout); a page's silently-discarded
+prologue/missing header now raises `SyncError` instead of being dropped;
+`page_path` now resolves beside `index_path` instead of always under the
+store root. Each fix is covered by a regression test whose own docstring
+names the finding it reproduces.
+
+This session had no subagent-dispatch tool available, so the required
+scoped re-review was performed by the controller directly instead of a
+dispatched reviewer -- a disclosed deviation from
+`superpowers:subagent-driven-development`, consistent with how Task 1's
+own fix round 1 was handled for the same reason. The re-review checked
+each fix against the review report's findings and the design spec's own
+language (not just that tests pass), and swept for the same defect class
+elsewhere in the module (`_diff`, the other `_reject_orphans` call site)
+before concluding no sibling instance existed. Full re-review detail is in
+`.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
+
+Validation, run fresh: the archive suite alone was 43 passing, and the
+full docsync suite (markdown/declarations/integrity/logic/parser/findings/
+archives/transaction) was 355 passing; `ruff check` on all Task 1/2-owned
+files was clean. Validation: `pytest -q` -- **1302 passed** (up from 1298;
+the delta is this shared worktree's own concurrent, uncommitted growth in
+`archives.py`/`test_docsync_archives.py`, not a regression -- see the
+out-of-band fix entries above for the same observation applied to
+`logic.py`).
+
+Task 2 is complete: 3/3 Important findings addressed, 0 new
+Critical/Important breakage. 7 Minor findings (recorded in the review
+report) remain deferred, unchanged, to the final whole-branch review's
+triage. Next step: Task 3 (CLI integration and multi-signal close-out).
+
 ### 2026-09-15 - Docsync close-out plan Task 2 review recorded
 
 Side task, no batch tag: control-plane work on
@@ -989,93 +1111,3 @@ session record to killed/survived is not yet exercised end to end, so a first
 full run should be checked with `--raw` before its numbers are quoted. An
 unrecognised record is reported as unknown rather than guessed, which is what
 makes that check cheap.
-
-### 2026-09-14 - DB connect timeout (found while localhost-testing the Deezer fallback)
-
-Scope: `scrobblescope/cache.py`, `tests/test_repositories.py`. Owner-found
-during manual localhost verification of Task 5's Spotify-fails-to-Deezer
-fallback (an invalid `SPOTIFY_CLIENT_ID`, per the plan's own verification
-step 2): the browser sat at "Preparing 129 albums for Spotify lookup..."
-for three minutes with no server-log output at all, for two different
-Last.fm usernames. The owner had *paused* (not stopped) the local
-`ss-postgres` Docker container, which answers no SYN-ACK at all rather than
-refusing the connection -- unlike the ordinary "DB is down" case the
-existing retry/backoff (2026-02-14, `DB_CONNECT_MAX_ATTEMPTS`,
-`DB_CONNECT_BASE_DELAY_SECONDS`) was built to smooth over.
-`_get_db_connection` is the first thing `process_albums` does, before any
-further progress update, so the whole stall was silent and looked
-identical to a hang. Root cause: `asyncpg.connect(dsn)` carried no
-explicit `timeout`, so each of the 3 default attempts ran out asyncpg's own
-60s default -- 3 x 60s = 180s, matching the observed 3 minutes exactly.
-
-Fix: a new `DB_CONNECT_TIMEOUT_SECONDS` env knob (default 5), passed as
-`asyncpg.connect(dsn, timeout=connect_timeout_seconds)`, following the same
-env-tunable pattern as the two existing retry knobs. Worst case with
-defaults is now ~3 x 5s plus the existing sub-second backoff, not 180s. Not
-part of any Batch 22 WP-1 task's file list (Task 7 already landed and
-committed separately as `8eb3c2a`); a small, unrelated robustness fix,
-logged here per Side-Task Handling rather than folded into a task entry.
-
-`tests/test_repositories.py`: `asyncpg.connect` is asserted to receive the
-configured `timeout=` kwarg, and a `TimeoutError` from `asyncpg.connect` is
-asserted to be treated as an ordinary connect failure (retried, then
-`None` with a `db-down` log line) rather than needing special handling.
-
-Validation: `pytest -q` -- **1081 passed** (was 1079; +2 new). Not yet
-verified live against a paused container (that reproduction is the owner's
-local setup); the two new tests cover the mechanism directly.
-
-`doc_state_sync.py --check` initially failed DOC006/DOC008 after this
-entry rotated to the top of the log: `.claude/SESSION_CONTEXT.md`'s
-Section 1 dashboard row and Section 6 heading, and `FINDINGS.md`'s header
-line, all carried a hand-written "1036" test count untouched since
-2026-09-11 -- separate from the `DOCSYNC:STATUS` managed block, which
-`--fix` had correctly kept current all along. Corrected both to **1081**
-and the module count to the re-measured **48** (was 43); `--check` passes
-clean. Left as found and not swept here (a bigger doc pass, out of this
-side-task's scope): `FINDINGS.md`'s own "Batch 21 is active" status line,
-stale since the same 2026-09-11 date -- Batch 21 closed and Batch 22 is
-now active per PLAYBOOK Section 3.
-
-**Addendum, same day:** the underlying gap is recorded as **F-DOCSYNC-12**
--- `--fix` only ever rewrites the STATUS block's own count line, never the
-other two fields DOC006 checks (the Section 1 row, the Section 6 heading)
-or the FINDINGS header DOC008 checks, so all three can drift indefinitely
-until something trips the check and a human corrects them by hand, as
-happened here.
-
-### 2026-09-13 - Deezer client (Batch 22 WP-1, Phase 2 begins)
-
-Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
-Phase 2 Task 4. No behaviour change -- `scrobblescope/deezer.py` is new and
-unused by any caller; Task 5 wires it in as the Spotify-miss fallback.
-
-Plan vs implementation: matched. `search_deezer_album(session, artist,
-album)` queries the plain `f"{artist} {album}"` (the filtered
-`artist:"..." album:"..."` form favors tribute/cover results per the
-plan's probe) and accepts a candidate only when
-`normalize_name(candidate_artist, candidate_title)` equals the key built
-from the caller's own `artist`/`album` -- never "the first result" as a
-guess. `fetch_deezer_album(session, album_id)` calls `/album/{id}` for
-metadata and `/album/{id}/tracks?limit=500` for every track's duration,
-since `/album/{id}` alone caps at 25 tracks regardless of `nb_tracks`
-(pinned with a 30-track fixture). Both share `_fetch_deezer_json`, which
-treats Deezer's HTTP-200-with-body errors correctly: code 800 ("no data")
-is a terminal miss: `None`; code 4 (quota) retries after a 1s wait via
-`retry_with_semaphore`'s existing retry-after path, the same mechanism
-Spotify's 429 handling already uses.
-
-`scrobblescope/utils.py` adds `get_deezer_limiter()` (10 req/s, the
-existing `_GlobalThrottle` + per-loop `AsyncLimiter` pattern, mirroring
-`get_spotify_limiter`); `scrobblescope/config.py` adds
-`DEEZER_REQUESTS_PER_SECOND` (default 10 -- Deezer's stated 50 req/5s),
-`DEEZER_SEARCH_RETRIES`, `DEEZER_DETAIL_RETRIES` (default 3, matching
-Spotify's retry defaults).
-
-Validation: `pytest -q` from the worktree cwd -- **1061 passed** (1054 + 7
-new in `tests/services/test_deezer_service.py`: candidate-matching,
-no-match, the two HTTP-200-error-code cases, the 25-vs-30-track pagination
-case, and two adversarial "the second request never succeeds" cases for
-`fetch_deezer_album`, added beyond the plan's own four because a helper
-this new needs at least one failure-path test per AGENTS.md's Test
-Quality Rules. Task 5 (wire the fallback into the orchestrator) is next.
