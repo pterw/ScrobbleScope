@@ -285,7 +285,7 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
-### 2026-09-14 - MusicBrainz client (Batch 22 WP-1)
+### 2026-09-14 - MusicBrainz client (Batch 22 WP-3)
 
 Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
 Task 7, the first task of Phase 3. New module, no caller wired yet (Task 8
@@ -336,7 +336,7 @@ change, so the frontend gate is unaffected; its last measurement (29/29)
 still stands. `doc_state_sync.py --check` passes clean (the root
 `BATCH22_DEFINITION.md` warning is expected while the batch is active).
 
-### 2026-09-14 - README architecture, tech stack, and diagram refresh (Batch 22 WP-1)
+### 2026-09-14 - README architecture, tech stack, and diagram refresh (Batch 22 WP-2)
 
 Scope: owner follow-up to the README pass below, given mid-session
 (2026-09-14) -- overrides that entry's "deliberately not touched" call.
@@ -364,11 +364,11 @@ Architecture section above them.
 Validation: doc-only; `doc_state_sync.py --check` passes clean. No code
 changed, so the Task 6 entry's **1069 passed**, 29/29 still stands.
 
-### 2026-09-14 - README pass for the Deezer fallback (Batch 22 WP-1)
+### 2026-09-14 - README pass for the Deezer fallback (Batch 22 WP-2)
 
 Scope: owner-requested, after Task 6 landed and before a `/handoff`
 close-out -- not one of Task 6's own files, but small (under 20 lines) and
-directly tied to WP-1's own work, so treated as an in-WP deviation rather
+directly tied to WP-2's own work, so treated as an in-WP deviation rather
 than a separate side-task entry (AGENTS.md Proposal and Design Rules,
 item 2). `README.md`'s Unmatched-report paragraph named `no_spotify_match`
 as "albums Spotify could not identify" -- true before Task 5, false after
@@ -396,7 +396,7 @@ unaffected -- Task 6's own entry above has the current measurement,
 **1069 passed**, 29/29; confirmed `doc_state_sync.py --check` still
 passes clean.
 
-### 2026-09-13 - Show the album's own provider in the UI (Batch 22 WP-1)
+### 2026-09-13 - Show the album's own provider in the UI (Batch 22 WP-2)
 
 Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
 Task 6, the last task of Phase 2. Real behaviour change: results and
@@ -462,7 +462,7 @@ Validation: `pytest -q` from the worktree cwd -- **1069 passed** (1067 +
 2). Frontend gate: **29 checks passed in 51 runs** (28/50 + the new
 check). Task 7 (MusicBrainz client, Phase 3) is next.
 
-### 2026-09-13 - Deezer fallback wired into the orchestrator (Batch 22 WP-1)
+### 2026-09-13 - Deezer fallback wired into the orchestrator (Batch 22 WP-2)
 
 Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
 Phase 2 Task 5. Real behaviour change: album enrichment no longer depends
@@ -694,7 +694,7 @@ enrichment.py` and moves the Spotify calls behind `spotify.enrich_albums`,
 which lands inside `orchestrator/_search.py`'s and `_details.py`'s existing
 phase boundaries rather than requiring another restructure.
 
-### 2026-09-14 - Apply cached original-release corrections (Batch 22 WP-1)
+### 2026-09-14 - Apply cached original-release corrections (Batch 22 WP-3)
 
 Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
 Task 8, the second task of Phase 3. Applies a MusicBrainz finding already
@@ -757,9 +757,13 @@ focused tests now close those gaps. The process seam test was also run with
 the forwarding argument temporarily disconnected and failed on the expected
 2011-vs-1977 result, then passed again after restoration. The root definition,
 plan Progress section, Section 3 and SESSION_CONTEXT now agree that WP-0
-through WP-2 are complete, WP-3 owns Tasks 7-9, and Task 9 is next. This dated
-entry's existing WP-1 heading remains its historical commit record; it is not
-the canonical work-package mapping.
+through WP-2 are complete, WP-3 owns Tasks 7-9, and Task 9 is next. This
+entry's heading was left tagged WP-1 at the time, as a historical commit
+record rather than the canonical work-package mapping. **Superseded
+2026-09-20:** the untagged side-task entry below the end marker retags this
+heading and five others, because `ENTRY_BATCH_RE` parses that tag into the
+managed STATUS block, so a wrong tag is a wrong dashboard rather than a
+harmless label.
 
 **Docsync gotcha found while landing this entry -- two layers, one
 already filed:** (1) this section of Section 4 is append-ordered (oldest
@@ -767,7 +771,7 @@ entry on top, new entries added at the bottom, then the tool reverses the
 list internally) -- `scripts/docsync/logic.py`'s `_monotonic_dates` says
 so explicitly ("current-batch entries are appended and then
 reversed... position, not the heading date, is the authority on
-recency"). Every WP-1 tagged entry so far, including the MusicBrainz
+recency"). Every current-batch entry so far, including the MusicBrainz
 entry above and this task's own first draft, was inserted at the *top*
 instead -- the untagged side-task convention, not this section's. Moved
 here, to the true bottom, to follow the tool's actual model; the
@@ -906,6 +910,77 @@ does not stage. They belong to that concurrent docsync work package. The
 staged-path hook run for this commit passes.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-20 - Batch 22 work-package tags, and the docsync side task closed
+
+Side task, no batch tag: bookkeeping repair found while orienting for WP-4,
+plus the close-out of the docsync work the entry below tracks. No code
+changed and no batch scope moved. The unrelated in-flight Batch 22 edits in
+this worktree (the mutation runner, `graphify_refresh.py`, `AGENT_NOTES.md`,
+`requirements-dev.txt`) were neither staged nor reverted.
+
+**PR #234 merged** as `88f6e27` into `test`, so the docsync close-out side
+task is finished and `feat/batch22-enrichment` is now fully contained in
+`origin/test`. The gitignored `CLAUDE.md` section that tracked it asked to be
+deleted on that merge, and was.
+
+**The defect: six current-batch entries carried the wrong work-package tag.**
+Every entry from Task 5 onward was headed `(Batch 22 WP-1)`, including the
+Task 6 work that belongs to WP-2 and the Tasks 7-8 work that belongs to WP-3.
+That tag is not decoration: `ENTRY_BATCH_RE` in `scripts/docsync/parser.py`
+parses it, and the managed STATUS block in `.claude/SESSION_CONTEXT.md` is
+derived from what it finds. The dashboard therefore read "WP-0, WP-1, WP-3"
+and never named WP-2 at all -- a cold-resume reader would have seen the
+Deezer fallback as work nobody had done. Retagged against the definition's
+own task-to-WP map: Tasks 5-6 and both README passes to WP-2, Tasks 7-8 to
+WP-3. Tasks 1-3 were already correct.
+
+**Why this overrides the note that left the tags alone.** The Task 8 entry
+above recorded a decision to keep its WP-1 heading as "its historical commit
+record". That reasoning treats the tag as prose. It is an index key, and the
+scope to fix it across six entries is exactly what that session said it
+lacked. The superseding note now sits in that entry. The declines recorded in
+F-DOCSYNC-3 are a different case and still stand: they cover content the tool
+has already rotated into an archive, not live entries that have not rotated
+yet.
+
+**Also repaired:** `BATCH22_DEFINITION.md` still showed Task 9 unchecked while
+its own header and Section 3 both said Tasks 7-9 were complete; the WP-3
+heading now carries the struck-through DONE form its three siblings use.
+F-B21-60 and F-B22-4 cited "Batch 22 WP-1 Task 6" in three places and now cite
+WP-2.
+
+**Known remaining instance, recorded rather than fixed:** F-DOCSYNC-12's
+`Source:` line reads "Batch 22 WP-1, DB-connect-timeout side task". A side
+task has no work package, so the right correction is not a different number,
+and inventing one would trade a visible error for an invisible one.
+
+**Two findings filed.** F-SWE-8 records the mutation-test runner's
+disposition -- built, never adopted, four defects on first use, uncommitted,
+its own future work package. It lived only in the gitignored `CLAUDE.md`, so
+deleting that section would have erased it from the corpus entirely.
+F-DOCSYNC-3 gains a second instance: Batch 22's Task 4 entry was headed
+`(Batch 22 WP-1, Phase 2 begins)`, and the trailing clause inside the
+parentheses made the heading unparseable as batch-tagged, so rotation sent it
+to the monolith archive instead of a per-batch log. The defect is wider than
+the `(Batch N close-out)` suffix the finding first described, and the tool
+says nothing when it happens.
+
+Validation: `pytest -q` -- **1497 passed**, unchanged (documentation only).
+`doc_state_sync.py --check` exit 0, with the expected DOC023 grandfather
+warning and the root `BATCH22_DEFINITION.md` warning. The frontend gate was
+not rerun: nothing under `templates/` or `static/` changed, so the last
+recorded result stands.
+
+Forward guidance: Batch 22 WP-4 is next -- Task 10, the job-scoped
+`GET /api/release_checks` endpoint, then Task 11's live disclosure. Two gaps
+between the plan text and the code as built land on Task 10. The plan says
+the endpoint reuses `_get_validated_job_context`, which renders `error.html`
+and returns HTML; its JSON neighbours return JSON error bodies, so a
+JSON-shaped validation path is needed. The plan's payload also carries
+`original_release_date` per album, but Task 9's worker writes only
+`{"release_check": ...}` through `update_job_result`, so the corrected date
+never reaches the result and the worker has to write it.
 
 ### 2026-09-20 - Docsync review round, DOC023, and PR #234
 
@@ -1071,27 +1146,3 @@ Task 2 is complete: 3/3 Important findings addressed, 0 new
 Critical/Important breakage. 7 Minor findings (recorded in the review
 report) remain deferred, unchanged, to the final whole-branch review's
 triage. Next step: Task 3 (CLI integration and multi-signal close-out).
-
-### 2026-09-15 - Docsync close-out plan Task 2 review recorded
-
-Side task, no batch tag: control-plane work on
-`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
-via `superpowers:subagent-driven-development`. Not Batch 22 scope; nothing
-here touches live `FINDINGS.md`, the archive files, or the docsync CLI.
-
-Task 1 (shared Markdown scanner, DOC010-DOC012 repairs) is complete and
-reviewed clean. Task 2 (finding lifecycle + bounded archives + recoverable
-publish: `findings.py`, `archives.py`, `transaction.py`, DOC013-DOC018) is
-implemented and controller-verified green (93/93 new suites, 351/351 full
-docsync suite, Ruff clean), but its task review returned Needs fixes: 3
-Important findings, all in `archives.py`, all silent history-loss/
-misplacement paths with no diagnostic (a missing index deletes every
-managed page; page prologue content is silently discarded; `page_path`
-writes to the wrong directory when an index does not sit at the store
-root). Plus 7 Minor findings, logged for the final whole-branch review.
-Full detail: `docs/history/reports/DOCSYNC_CLOSEOUT_TASK2_REVIEW_2026-09-15.md`.
-
-Validation: `pytest -q` -- **1298 passed** (unchanged; this side task adds
-one documentation file and a PLAYBOOK entry only, no application or docsync
-source). Tasks 3-4 of the plan are not started. Next step: resume the SDD
-fix loop on Task 2's three Important findings.

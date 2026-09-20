@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-14
+Last updated: 2026-09-20
 
 ---
 
@@ -38,7 +38,7 @@ Last updated: 2026-09-14
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 22.
 - Current-batch entries in active log block: 11.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-3.
+- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3.
 - Next expected work package: WP-4.
 - Latest validated test count: **1497 passed**.
 - Newest current-batch entry: 2026-09-15 - The correction worker (Batch 22 WP-3).

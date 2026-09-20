@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-15 - Docsync close-out plan Task 2 review recorded
+
+Side task, no batch tag: control-plane work on
+`docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`, executed
+via `superpowers:subagent-driven-development`. Not Batch 22 scope; nothing
+here touches live `FINDINGS.md`, the archive files, or the docsync CLI.
+
+Task 1 (shared Markdown scanner, DOC010-DOC012 repairs) is complete and
+reviewed clean. Task 2 (finding lifecycle + bounded archives + recoverable
+publish: `findings.py`, `archives.py`, `transaction.py`, DOC013-DOC018) is
+implemented and controller-verified green (93/93 new suites, 351/351 full
+docsync suite, Ruff clean), but its task review returned Needs fixes: 3
+Important findings, all in `archives.py`, all silent history-loss/
+misplacement paths with no diagnostic (a missing index deletes every
+managed page; page prologue content is silently discarded; `page_path`
+writes to the wrong directory when an index does not sit at the store
+root). Plus 7 Minor findings, logged for the final whole-branch review.
+Full detail: `docs/history/reports/DOCSYNC_CLOSEOUT_TASK2_REVIEW_2026-09-15.md`.
+
+Validation: `pytest -q` -- **1298 passed** (unchanged; this side task adds
+one documentation file and a PLAYBOOK entry only, no application or docsync
+source). Tasks 3-4 of the plan are not started. Next step: resume the SDD
+fix loop on Task 2's three Important findings.
+
 ### 2026-09-14 - Mutation testing scoped to hermetic modules
 
 Side task, no batch tag: owner-directed tooling, outside Batch 22's scope and

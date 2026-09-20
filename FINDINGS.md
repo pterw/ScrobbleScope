@@ -1841,7 +1841,7 @@ at its natural aspect ratio, no element overlapping the photo, no opacity
 change on the photo during rotation, and the icon's rendered size and link
 target.
 
-**Partial progress, 2026-09-13 (Batch 22 WP-1 Task 6):** results and
+**Partial progress, 2026-09-13 (Batch 22 WP-2 Task 6):** results and
 unmatched rows now link to the album's own provider (`album_url`, not a
 Spotify URL reconstructed from `spotify_id`) and carry a small text
 attribution link naming that provider. This closes the "results rows carry
@@ -1855,9 +1855,32 @@ Status: open (P1), owner ruling recorded. Source: Spotify API review,
 
 ## P2 -- Scaling roadmap
 
+### F-SWE-8: the mutation-test runner is written, unadopted, and uncommitted
+
+`scripts/dev/mutation_test.py` and `scripts/dev/mutation_scope.toml` exist in
+the working tree and are not committed. They were built during the docsync
+close-out side task, run for the first time against `scripts/docsync/`, and
+that first run found four real defects in the runner itself, the fourth
+needing a rework rather than a patch. The owner's call on 2026-09-20 was that
+mutation testing is not adopted on the strength of a tool that had never been
+run: finishing it is a work package of its own, and the code stays out of the
+corpus until then.
+
+This is recorded here because it was recorded nowhere a clone can read. The
+only written copy was a section of the gitignored CLAUDE.md at the repository
+root, and that section was deleted the same day once the work it tracked
+merged. DOC001 is the reason that file name carries no backticks here: a
+concrete Markdown reference has to name a tracked file, and it is not one.
+
+Do not stage those two files as part of another task's commit, and do not
+treat the runner's output as evidence until its own defects are fixed.
+
+Status: open (P2, owner-gated -- a future work package, not a defect in
+shipped code). Source: docsync close-out side task, 2026-09-20.
+
 ### F-B22-4: provider attribution on results/unmatched rows is text, not each provider's official logo
 
-Batch 22 WP-1 Task 6 added a per-row attribution link (`.provider-badge` in
+Batch 22 WP-2 Task 6 added a per-row attribution link (`.provider-badge` in
 `templates/results.html` and `templates/unmatched.html`) naming the album's
 provider and linking to its `album_url`. Deezer's developer guidelines
 require "a clearly visible Deezer Logo" for any app using its API
@@ -1877,7 +1900,7 @@ itself, deezerbrand.com carries the detail but did not render for an agent
 session). Small and self-contained; no test rewrite beyond swapping the
 `provider-badge` element type assertions.
 
-Status: open (P2). Source: Batch 22 WP-1 Task 6, 2026-09-13.
+Status: open (P2). Source: Batch 22 WP-2 Task 6, 2026-09-13.
 
 ### F-B22-2: `assert` guards job-context narrowing in three `album_flow.py` sites
 
@@ -2073,7 +2096,18 @@ WP together with F-DOCSYNC-1/F-DOCSYNC-2 (make close-out tags parseable,
 then one-time re-route of the existing close-out entries); hand-retagging
 machine-rotated archive content was declined in PR #162 round 3 and again
 in PR #163 round 3 on the same point-in-time principle.
-Status: open (P2). Source: PR #163 review round 3.
+
+**Another instance, found 2026-09-20.** Batch 22's Task 4 entry was headed
+`(Batch 22 WP-1, Phase 2 begins)`. `ENTRY_BATCH_RE` requires the closing
+parenthesis immediately after the work-package number, so the trailing
+clause made the heading unparseable as batch-tagged and rotation sent the
+entry to the monolith. Batch 22's own per-batch log will therefore be
+missing its Task 4 entry unless the routing is corrected first. The entry
+itself stays where the tool put it, per the declines above. What this adds
+is that the defect is not limited to the `(Batch N close-out)` suffix: any
+extra text inside the parentheses does it, and the tool reports nothing.
+Status: open (P2). Source: PR #163 review round 3; second instance
+2026-09-20.
 
 ### F-B21-57: `check_retired` uses one variable for the declaration index and the line number
 

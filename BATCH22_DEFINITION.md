@@ -133,7 +133,7 @@ endpoint lists only 25. Errors arrive as HTTP 200 with an error body.
 - **Accepted interim deviation:** Task 6 shipped text attribution. Official
   Spotify and Deezer logo assets remain tracked by F-B21-60 and F-B22-4.
 
-### WP-3 -- Original release years, backend
+### ~~WP-3 -- Original release years, backend~~ -- **DONE**
 
 A MusicBrainz client at one request per second with a contact User-Agent, a
 cache table of its own, cached corrections applied before results render, and
@@ -143,7 +143,7 @@ a single process-wide worker that corrects a capped set per job.
   artist/title matching, bounded retries and a contact-bearing User-Agent.
 - [x] Task 8: apply cached original dates before release filtering and display,
   while preserving the provider date as `provider_release_date`.
-- [ ] Task 9: run one capped correction worker per process, persist both
+- [x] Task 9: run one capped correction worker per process, persist both
   matches and confirmed misses, and expose `pending`, `running`, `done` or
   `skipped` state without delaying the album job.
 - **Acceptance:** a cached original of 1977 against a provider date of 2011
