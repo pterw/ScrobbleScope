@@ -16,10 +16,11 @@ serve as external memory shared across sessions.
 | `AGENT_NOTES.md` | **Owner context** | Owner preferences, local dev setup, architectural constraints, known issues. |
 | `.claude/SESSION_CONTEXT.md` | **Dashboard** | Current project state snapshot. No rules, no history. |
 | `PLAYBOOK.md` | **Work order** | What to do next, what was just done. Active batch + execution log. |
+| `docs/agents/global-rules.md` | **Architectural invariants** | The global business logic rules every code change must hold: single source of truth, SoC/SRP, the rule-of-three duplication buffer, the anti-corruption layer, KISS, network defence, and deterministic diagnostics. Binding, and each rule states how it is checked. |
 | `README.md` | **Product docs** | User/developer setup and context. Not for agent orchestration. |
 | `docs/history/` | **Archive** | Completed batch definitions (`definitions/`), per-batch execution logs (`logs/`), audits and other dated one-off documents (`reports/`). |
 | `docs/AGENT_DOC_MAP.md` | **Orientation** | Which document owns what, how to read an audit or a finding, and the known navigation traps. Optional, and not part of the bootstrap set; written for agents new to this repository. |
-| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the worktree guard, pre-commit, and CI fit together. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
+| `docs/architecture/documentation-tooling.md` | **Control plane** | How docsync, the commit preflight, the hook installer, the worktree guard, pre-commit, and CI fit together, including the full DOC001-DOC020 catalogue. Optional and not part of the bootstrap set; read it when a gate fails in a way `AGENTS.md`'s own instructions don't explain, or before changing `scripts/docsync/`, `scripts/dev/docsync_preflight.py`, `scripts/dev/install_docsync_hook.py`, `scripts/dev/_worktree_guard_*`, or `frontend_gate.py`'s own structure. |
 
 **Anti-duplication rule:** Each fact lives in exactly one file. If you need to
 reference a fact owned by another file, link to it -- do not copy it.
@@ -39,26 +40,26 @@ Single-context. Domain documentation is the existing document set named in
 "Document Roles (SoC contract)" above, not a separate top-level context
 document. See `docs/agents/domain.md`.
 
+### UI and accessibility
+
+Units, touch targets, keyboard access, motion and computed-style rules for
+templates and static assets. See `docs/agents/ui-accessibility.md`.
+
 ---
 
 ## Session Bootstrap (in order)
 
-**Fast-path for Copilot comment jobs:** When no direct review-comment link is
-supplied, first fetch comments and determine whether any new `@copilot`
-comments are actionable. If none are actionable, stop immediately without
-running full bootstrap. If a single actionable comment is scoped to a known
-file/section, read only that target file plus any directly related test or
-config file needed to validate the change.
+**Fast-path for Copilot comment jobs:** With no direct review-comment link,
+fetch comments first and check for actionable new `@copilot` comments --
+stop immediately if none. A single actionable comment scoped to a known
+file/section needs only that file plus directly related test/config files.
 Actionable means a concrete request, question, or correction addressed to
-`@copilot`; praise, status updates, and threads where the author rejected the
-suggestion are non-actionable.
+`@copilot`; praise, status updates, and rejected suggestions are not.
 
-**Fast-path for targeted review-comment jobs:** If the prompt links to a
-single review comment or `discussion_r...` URL, fetch that thread first and
-work from the linked file/lines before opening broader bootstrap docs. Read
-only the minimum bootstrap/context files needed to answer that thread. Open
-batch definitions or archive/history docs only when the linked comment
-explicitly depends on batch-acceptance or historical context.
+**Fast-path for targeted review-comment jobs:** For a single review comment
+or `discussion_r...` URL: fetch that thread first, work from the linked
+file/lines, and read only the minimum bootstrap/context files needed. Open
+batch definitions or history docs only if the comment depends on them.
 
 1. `AGENTS.md` (this file) -- rules, commit format, doc sync policy,
    anti-patterns.
@@ -69,66 +70,27 @@ explicitly depends on batch-acceptance or historical context.
 4. `.claude/SESSION_CONTEXT.md` -- current batch, test count, architecture, risks.
 5. `AGENT_NOTES.md` -- owner preferences, local dev setup, constraints.
 6. Relevant `docs/history/` doc only if the log references one.
-7. `FINDINGS.md` -- read on demand only, and it is long. Three reasons to
-   open it: your task names an F-* ID, you are about to raise a defect, or
-   you are reviewing a diff. A defect recorded there is known and owned, so
-   raise it again only with new evidence. Open findings are mirrored to
-   GitHub issues, which are cheaper to search; this file wins if they
-   disagree. Not part of the bootstrap set.
+7. `FINDINGS.md` -- read on demand only: your task names an F-* ID, you are
+   about to raise a defect, or you are reviewing a diff. Raise a known
+   defect again only with new evidence. Mirrored to GitHub issues (cheaper
+   to search; this file wins if they disagree). Not part of the bootstrap set.
 
-This list is the single canonical bootstrap order; `HANDOFF_PROMPT.md` links
-here and adds only the post-read verification steps.
-
-Bootstrap is complete when the sources agree. During an active batch that
-means PLAYBOOK Section 3, the batch definition, and SESSION_CONTEXT
-Section 1 all agree on the current batch and next WP. Between batches no
-definition exists, so the gate is PLAYBOOK Section 3 and SESSION_CONTEXT
-Section 1 agreeing that the last batch is closed and none is open.
-If two bootstrap files conflict, follow the stricter safety rule and pause
-only when the conflict affects the next action.
-
-When network access is available, refresh the comparison ref with
-`git fetch --prune origin`, then run
-`python scripts/dev/check_worktree_alignment.py`. Offline sessions run the
-same command with `--offline` and must treat its base result as local-ref-only.
-Stop on a nonzero exit. The guard is read-only; follow its remediation and the
-existing owner-authorization rule before any history rewrite. Add `--debug` only
-when diagnosing the guard itself: it re-raises instead of rendering WT014.
-
-**WT004 after a merge is expected.** `main` requires linear history and accepts
-only squash and rebase merges, so merging a PR rewrites its commits and leaves
-the source branch diverged from `origin/main` with an identical tree. The guard
-is right to stop -- a diverged branch is normally serious -- but here the
-remediation is routine: confirm `git rev-parse HEAD^{tree}` matches
-`origin/main^{tree}` and that `git diff HEAD origin/main` is empty, then reset
-the branch onto `origin/main` and force-push with lease. If the trees differ,
-stop; that is a real divergence and not this case.
-
-Three states are expected rather than faults, so the guard does not block on
-them:
-
-- **Between batches**, there is no expected work branch and therefore no
-  ancestry contract. The guard reports the checkout and skips the base
-  comparison, including when `origin/main` is absent.
-- **A fresh clone with no `.venv`** reports WT009 as a warning, because
-  creating that environment is the next documented step (Environment Setup).
-  Inside a linked worktree the same state is an error, since a second
-  environment there is forbidden and only the owner can resolve it.
-- **Offline**, the base result is local-ref-only and WT013 says so; the guard
-  never fetches.
-
-The initial guard launch is the sole stdlib-only bootstrap exception to the
-qualified-tool rule: the primary checkout paths are not known until the guard
-prints them, so bare `python` is permitted only for that launch. After it
-succeeds, every subsequent Python, pytest, and pre-commit command from a linked
-worktree uses the qualified primary-checkout path it printed.
-
-**How the commands in this repository's documents are written.** Every literal
-command shown in these documents -- `pytest -q`, `pre-commit run --all-files`,
-`python scripts/doc_state_sync.py`, `python app.py`, and the rest -- is written
-in its primary-checkout form for readability. From a linked worktree, run each
-one through the qualified path the guard printed. The commands are not repeated
-in qualified form at every site; this paragraph is the single conversion rule.
+This is the single canonical bootstrap order (`HANDOFF_PROMPT.md` adds only
+post-read verification and the edge cases below). Bootstrap is complete when
+the sources agree: during an active batch, PLAYBOOK Section 3, the batch
+definition, and SESSION_CONTEXT Section 1 agree on the current batch and
+next WP; between batches, PLAYBOOK Section 3 and SESSION_CONTEXT Section 1
+agree the last batch is closed and none is open. If two bootstrap files
+conflict, follow the stricter safety rule and pause only if the conflict
+affects the next action.
+When network access is available, run `git fetch --prune origin` then
+`python scripts/dev/check_worktree_alignment.py`; offline, add `--offline`
+and treat its base result as local-ref-only. Stop on a nonzero exit and
+follow the guard's remediation (it is read-only) and the owner-authorization
+rule before any history rewrite; add `--debug` only to diagnose the guard
+itself. See `HANDOFF_PROMPT.md` "Bootstrap edge cases" for the
+expected-not-a-fault states, the WT004 remediation, the stdlib-only
+exception, and the command-conversion rule.
 
 **Token discipline for bootstrap:**
 - Always read Sections 1-2 of `.claude/SESSION_CONTEXT.md`; later sections only if structure, dependency, architecture, test-inventory, or environment detail is needed.
@@ -140,67 +102,31 @@ in qualified form at every site; this paragraph is the single conversion rule.
 
 ---
 
-## GitHub Copilot Environment Notes
-
-- Work from the fresh repository clone provided by the Copilot task
-  environment; do not assume access to the owner's interactive shell.
-- Use GitHub-provided tooling for PR creation, review replies, workflow
-  inspection, and progress reporting when those tools are available.
-- Do not push with `git push` or `gh pr create` from the shell when the
-  Copilot environment exposes dedicated progress or PR tools instead.
-- For CI, build, test, or workflow failures, inspect GitHub Actions runs
-  and job logs before concluding that CI details are unavailable.
-- Treat this `AGENTS.md` file as the authoritative ruleset for repository
-  task sessions. Do not read `.github/agents/`; those files may target
-  other agent types and can conflict with this ruleset. If you suspect
-  drift between the two locations, pause and ask the owner to reconcile
-  them instead of trying to merge rule sources yourself.
-
----
-
 ## Environment Setup
 
+The only virtualenv is `.venv/` in the primary checkout. Never use `venv/`,
+bare `pip`, or `python -m pip` without the qualified path -- a linked
+worktree reuses the primary checkout's `.venv` and never creates a second
+one; after the bootstrap guard succeeds, use its qualified Python, pytest,
+and pre-commit paths for every later command there.
+
 ```bash
-# The ONLY virtualenv is .venv/ in the primary checkout.
-# Never use venv/, bare pip, or python -m pip without the qualified path.
-#
-# Activate (for interactive use):
-# Windows:  .venv\Scripts\activate
-# Linux:    source .venv/bin/activate
-#
-# Install deps (always use the qualified pip path, never bare pip):
-# Windows:  .venv\Scripts\pip install -r requirements-dev.txt
-# Linux:    .venv/bin/pip install -r requirements-dev.txt
+# Windows:  .venv\Scripts\activate            .venv\Scripts\pip install -r requirements-dev.txt
+# Linux:    source .venv/bin/activate         .venv/bin/pip install -r requirements-dev.txt
 ```
 
-A linked worktree reuses the primary checkout `.venv`; never create a second
-environment. After the bootstrap guard succeeds, use its qualified Python,
-pytest, and pre-commit paths for all later commands from that linked worktree.
+All packages in `requirements.txt`/`requirements-dev.txt` are pinned with
+`==`; propose a new one to the owner and wait for approval (Copilot task
+sessions too) before installing it. **CI exception:** local-development
+only -- a CI runner manages its own Python and bare `pip install` is
+correct there.
 
-All packages in `requirements.txt` and `requirements-dev.txt` are pinned
-with `==`. Do not add `>=` or unversioned entries. If a new package is
-needed for a WP, propose it to the owner and wait for explicit approval
-before running any pip command.
-
-**Note:** The qualified-path rule (`.venv/Scripts/pip`) applies to **local
-development only**. In GitHub Actions (CI), the runner manages its own Python
-environment and bare `pip install` is correct -- do not add `.venv/` paths
-to the workflow file. In GitHub Copilot task sessions, avoid ad-hoc package
-installs unless the task requires them and the owner has approved the change.
-
-API keys in `.env` (git-ignored). Template: `.env.example`.
-Required: `LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`,
-`SECRET_KEY` (min 16 chars; startup refuses weak values in production).
-Optional: `DATABASE_URL` (Postgres; enables persistent Spotify metadata cache).
-Local dev connection string: `postgresql://postgres:postgres@localhost:5432/scrobblescope`
-(requires a running Postgres instance; see Docker setup in `AGENT_NOTES.md` Local Dev Setup).
-Run `python init_db.py` once to create the schema. **Caveat:** `init_db.py` has no
-`load_dotenv()` call -- set `DATABASE_URL` directly in the shell before running it;
-the Flask app reads `.env` automatically via `load_dotenv()` at startup.
-
-For local development with the Postgres cache, use `python scripts/dev/dev_start.py`
-instead of `python app.py` directly. This script checks and starts the `ss-postgres`
-Docker container if needed, then launches Flask in one command.
+API keys live in `.env` (git-ignored; template `.env.example`). Required:
+`LASTFM_API_KEY`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SECRET_KEY`
+(min 16 chars; startup refuses weak values in production). Optional:
+`DATABASE_URL` (Postgres cache) -- see `AGENT_NOTES.md` Local Dev Setup for
+the connection string, the Docker container, the `init_db.py` caveat, and
+`dev_start.py`.
 
 ---
 
@@ -223,14 +149,12 @@ Conventional Commits, imperative mood, no trailing period:
 <body>                            # explain WHY; wrap at 72 chars
 ```
 
-**Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `style`, `perf`
-
+**Types:** `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `style`, `perf`.
 **Subject:** imperative ("Add", "Fix", "Extract") -- NOT "Added", "Fixes".
 
-**Procedure before every commit:**
-Documentation is written first, then validated -- a gate that runs before
-the doc update cannot check it, and `pre-commit` includes the
-`doc-state-sync-check` hook.
+**Procedure before every commit** (documentation is written first, then
+validated -- a gate that runs before the doc update cannot check it, and
+`pre-commit` includes the `doc-state-sync-check` hook):
 
 1. Update PLAYBOOK Section 3 + Section 4. Batch log entries carry a
    `(Batch N WP-X)` tag in the heading; side-task entries are untagged
@@ -242,96 +166,71 @@ the doc update cannot check it, and `pre-commit` includes the
 5. `python scripts/doc_state_sync.py --check` -- exits 0 on the final
    state (the root `BATCHN_DEFINITION.md` warning is expected while a
    batch is active).
-6. Stage specific paths by name. **Never `git add -A` or `git add .`**,
-   not even when every changed file belongs to this work package -- the
-   prohibition is on the command, because it silently picks up whatever
-   else is in the tree. Stage only files changed for this work package,
-   and stage `.claude/SESSION_CONTEXT.md` together with PLAYBOOK whenever
-   it changed -- do not leave it modified and unstaged.
-7. Commit after each WP (do not batch multiple WPs into one commit).
-   Do not push without explicit owner instruction. Pause after each commit
-   for owner review.
-   **Standing exception -- Claude Code and Codex sessions only (granted
-   2026-07-31):** commits that respond to review feedback on an
-   already-open PR may be pushed without asking each time, followed by one
-   batched reply per review round. This covers review-fix commits only.
-   Batch and WP commits still pause for owner review, and force-pushes,
-   history rewrites, and anything targeting `main` always require explicit
-   instruction. The exception does **not** extend to GitHub Copilot task
-   sessions or their subagents, Jules, or any other agent -- those follow
-   the unmodified rule above.
-   When authorized to push in a GitHub Copilot session, use the platform
-   progress/reporting tool; do not push directly with shell `git`/`gh`.
+6. Stage specific paths by name. **Never `git add -A` or `git add .`** --
+   the prohibition is on the command, since it silently picks up whatever
+   else is in the tree, even when every changed file belongs to this WP.
+   Stage `.claude/SESSION_CONTEXT.md` together with PLAYBOOK whenever it
+   changed; do not leave it modified and unstaged.
+7. Commit after each WP (never batch multiple into one commit). Do not push
+   without explicit owner instruction; pause after each commit for review.
+   **Standing exception (Claude Code and Codex only, granted 2026-07-31):**
+   review-fix commits on an already-open PR may be pushed without asking
+   each time, with one batched reply per review round. Batch/WP commits
+   still pause for review, and force-pushes, history rewrites, and anything
+   targeting `main` always need explicit instruction. Copilot sessions,
+   their subagents, Jules, and any other agent follow the unmodified rule
+   and use the platform progress/reporting tool instead of shell `git`/`gh`.
 
 **Pre-push self-review.** The validation gates check mechanics (tests,
-formatting, docsync markers); nothing in the toolchain checks whether one
-document now contradicts another. That gap is what turns a single review
-comment into a chain of rounds, each fixing damage from the last. Before
-pushing, spend the two minutes these checks cost:
+formatting, docsync markers), not whether one document now contradicts
+another -- that gap is what turns one review comment into a chain of rounds.
+Before pushing:
 
-1. Read each changed file **whole**, not as a diff -- contradictions hide
-   in the unchanged text next to the edit.
-2. Run the repo-wide greps described in the Anti-Pattern Registry
-   under "Fixing the instance instead of the class", "Lossy or
-   contradictory consolidation", and "Assertions over sets, ranges, and
-   citations": citations of anything renumbered or renamed, sibling
-   copies of any corrected claim, and every set or range the change
-   asserts.
-3. Derive that sweep from `git diff origin/main...HEAD` -- the branch's
-   cumulative state, never one review round's commits. Each round
-   inherits everything the earlier rounds touched, so a sweep scoped to
-   today's edits narrows a little further each time until it finds
-   nothing and the next reviewer does.
-4. Recording a deviation does not discharge the sweep. After writing a
-   finding that says some property no longer holds, grep the vocabulary
-   of the property being deviated **from** -- not the words of the new
-   finding, which appear nowhere else -- and repoint or delete every
-   affirmative claim of it. Hits inside dated Section 4 entries are
-   point-in-time records and stay as written.
-5. Walk any procedure touched through its edge states, per
-   "Happy-path-only procedures".
-6. Prefer deletion to addition. Every added sentence is new surface area
-   that a later change can contradict; collapsing a duplicate to a
-   pointer removes surface area permanently.
+1. Read each changed file **whole**, not as a diff -- contradictions hide in
+   the unchanged text next to the edit.
+2. Grep for the patterns in "Fixing the instance instead of the class",
+   "Lossy or contradictory consolidation", and "Assertions over sets,
+   ranges, and citations": stale citations, sibling copies of a corrected
+   claim, every set or range the change asserts.
+3. Scope that sweep to `git diff origin/main...HEAD` -- the branch's
+   cumulative state, not just this round's commits -- so it narrows further
+   each round until it finds nothing. A recorded deviation does not
+   discharge it: grep the vocabulary of the property being deviated
+   **from** and repoint or delete every affirmative claim (Section 4
+   entries are point-in-time and stay as written).
+4. Walk any touched procedure through its edge states, per
+   "Happy-path-only procedures"; prefer deletion to addition -- a pointer
+   removes surface area permanently, an added sentence is more to contradict.
 
-**Co-author prohibition:** Do NOT add `Co-authored-by` trailers or any co-author
-metadata to commits. This repo uses multi-agent orchestration; attribution is
-managed by the owner, not by individual agents.
+**Co-author prohibition:** Do NOT add `Co-authored-by` trailers or co-author
+metadata -- multi-agent orchestration means attribution is managed by the
+owner, not by individual agents.
 
 ---
 
 ## Side-Task Handling
 
-Not all work is batch work (e.g., a leap-year bugfix, a dark-mode polish commit).
-Non-batch changes follow the commit rules above unchanged -- including the
-documentation step, which puts the dated Section 4 entry in the *same*
-commit as the change ("Missing log entries" in the Anti-Pattern Registry).
-Side-tasks differ only in where that entry goes and how it is tagged:
+Not all work is batch work (e.g., a leap-year bugfix, a dark-mode polish
+commit); non-batch changes follow the commit rules above unchanged,
+including the documentation step landing in the *same* commit ("Missing
+log entries" in the Anti-Pattern Registry). Side-tasks differ only in
+where that entry goes and how it is tagged:
 
-1. Add the dated entry in PLAYBOOK Section 4 **after** the
-   `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker, using the same log format
-   but **without** a `(Batch N WP-X)` suffix in the heading.
-   Placing it outside the current-batch markers avoids the batch-aware
-   filter that would treat untagged entries as stale when tagged entries
-   exist. Entries after the end marker are subject to the standard
-   `--keep-non-current` rotation policy (default: keep 4).
-   **Insert the new entry directly after the end marker** (top of the
-   non-current list), not at the bottom. The list is ordered newest-first
-   and rotation keeps the first `--keep-non-current` entries positionally,
-   rotating the rest -- once the window is at capacity, a bottom-appended
-   entry is treated as oldest and archived by the very next `--fix` run
-   instead of staying in the active window (below capacity it is
-   retained, but top placement is still correct).
-2. Run `doc_state_sync.py --fix`.
-3. Update SESSION_CONTEXT Section 1 if the change affects test count or project state.
+1. Add the dated entry in PLAYBOOK Section 4 **directly after** the
+   `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker (top of the non-current
+   list), using the same format but **without** a `(Batch N WP-X)` suffix --
+   top placement keeps it out of the staleness filter and out of the next
+   `--fix` run's rotation (`--keep-non-current`, default 4), which would
+   otherwise archive a bottom-appended entry as oldest.
+2. Run `doc_state_sync.py --fix`, then update SESSION_CONTEXT Section 1 if
+   test count or project state changed.
 
 ---
 
 ## Test Quality Rules
 
-Tests must challenge real behaviour, not just confirm mocks were called.
-
-**Forbidden patterns:**
+**Forbidden patterns** (tests must challenge real behaviour, not just
+confirm mocks were called):
 - Mock-call-only with no argument check and no state assertion.
 - Return-value-only when the real consumer reads shared state (`JOBS` dict).
 - Vacuous: passes if the function under test is deleted.
@@ -343,152 +242,104 @@ Tests must challenge real behaviour, not just confirm mocks were called.
 - `caplog` for warning/error log lines on failure paths.
 - Boundary inputs (zero, None, empty, missing keys) to hit fallback branches.
 
+### Mutation testing (on demand, never a gate)
+
+Line coverage says a branch ran. It cannot say an assertion would notice if the
+branch were wrong. `python scripts/dev/mutation_test.py --module <path>` mutates
+one module and reports which mutants no test caught. That is the evidence
+behind "Refactor requires parity tests" below, which otherwise rests on the
+claim that the tests cover what a refactor touches.
+
+- **Scope is an allowlist.** `scripts/dev/mutation_scope.toml` names the modules
+  that may be mutated, and the runner refuses every other path. A module
+  qualifies only when every test covering it is hermetic: no network, no API
+  keys, no live Postgres, and no read of this repository's own documents. A
+  non-hermetic test fails for reasons unrelated to the mutant, which is
+  indistinguishable from a kill and quietly inflates the score.
+- **Run it before a refactor**, on the module about to be renamed, moved, split
+  or merged, and when a weak-assertion claim needs evidence rather than
+  assertion.
+- **Never a gate.** No hook and no workflow invokes it; a full-package run is
+  hours. Its exit code is for the reader (0 every mutant caught, 1 at least one
+  survivor, 2 a usage, scope or tool error), never for CI.
+- **A survivor is not automatically a defect.** It is either a missing
+  assertion or an equivalent mutant, and telling them apart is the work. Do not
+  weaken a test to shorten the list.
+- **An unknown outcome is reported as unknown.** It is counted neither as a
+  kill nor as a survivor, so a report with a large unknown count says the suite
+  is not ready for this, not that it is clean.
+
 ---
 
 ## Doc Sync Rules
 
 ### What `doc_state_sync.py` does and why it exists
 
-`scripts/doc_state_sync.py` is a deterministic sync tool that keeps
-PLAYBOOK, SESSION_CONTEXT, and the archive file consistent so that every
-agent starts from identical state. It:
-
-1. **Rotates** overflow dated entries from PLAYBOOK Section 4 into
-   per-batch log files (`docs/history/logs/BATCHN_LOG.md`) when the entry
-   carries a `(Batch N WP-X)` tag, or into the monolith archive
-   (`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`) for untagged
-   side-task entries.
-2. **Deduplicates** archive entries by SHA-256 fingerprint (same content
-   is never stored twice).
-3. **Refreshes** the machine-managed `DOCSYNC:STATUS` block in
-   SESSION_CONTEXT from PLAYBOOK truth (Section 3 + Section 4).
-4. **Validates** the live document corpus through `docsync.integrity`,
-   which returns typed DOC001-DOC012 issues that block rather than warn.
-   (This range said DOC001-DOC006 until 2026-08-25, four checks after it
-   stopped being true, and said DOC001-DOC011 until 2026-09-11 for the same
-   reason. DOC009 to DOC012 exist because of that class.)
-
-**DOC009 to DOC011 are declared, not hard-coded.** They read
-`.docsync.toml` at the repository root, so `scripts/docsync/declarations.py`
-is repository-independent and only the declarations are local. Three kinds:
-
-- **DOC009 -- value.** One fact written in several places must still be
-  stated in all of them, and where a pattern captures a group, the captured
-  text must agree across sites. A pattern with no group only has to match,
-  which is how sites that spell one fact differently are declared: a media
-  query writes `859.98px` where a script writes `860`.
-- **DOC010 -- anchor.** A cross-reference must resolve to a heading, bold
-  section label or list item that exists. The declaration describes the
-  *shape* of a citation rather than one citation, so a reference written
-  tomorrow is checked with no new declaration. This is the check that
-  `F-STYLE-1` could not be: citing by name does not help when the name moves.
-- **DOC011 -- retired.** A claim that is no longer true must not survive in
-  a document that still prescribes behaviour. Dated log entries are exempt
-  below a declared marker, and struck-through text is exempt everywhere --
-  an author who wrote `~~this~~` has already said it is not current.
-
-**DOC012 is not declared.** It is implemented directly in
-`scripts/docsync/integrity.py` and enforces a shape rather than a declared
-fact: a pass claim in the log must carry the bold form the authority reads.
-
-Add a declaration when a fact starts living in two places, not after it
-drifts. `F-B21-17` has the tally that motivated this: six of nineteen review
-comments in Batch 21 were one fact written twice.
-
-**Lookup map (avoid path confusion):**
-- Untagged side-task archive: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
-- Tagged per-batch logs: `docs/history/logs/BATCHN_LOG.md`
-- Batch definitions: `docs/history/definitions/BATCHN_DEFINITION.md`
-
-Without this script, agents would drift: one might update PLAYBOOK but
-forget SESSION_CONTEXT, or manually move entries and break marker order.
+`scripts/doc_state_sync.py` keeps PLAYBOOK, SESSION_CONTEXT, and the archive
+consistent so every agent starts from identical state. It rotates overflow
+dated entries from PLAYBOOK Section 4 into per-batch log files
+(`docs/history/logs/BATCHN_LOG.md`, tagged entries) or the monolith archive
+(`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, untagged side-task
+entries); deduplicates archive entries by SHA-256 fingerprint; refreshes the
+managed `DOCSYNC:STATUS` block in SESSION_CONTEXT from PLAYBOOK truth; and
+validates the live document corpus through `docsync.integrity`, which
+returns typed DOC001-DOC020 issues that block rather than warn (full
+catalogue: `docs/architecture/documentation-tooling.md`). Add a declaration
+in `.docsync.toml` when a fact starts living in two places, not after it
+drifts (`F-B21-17` is the tally that motivated this).
 
 ### How to run
 
-After any change to PLAYBOOK Section 4 or SESSION_CONTEXT managed blocks:
-
 ```bash
-python scripts/doc_state_sync.py --fix
+python scripts/doc_state_sync.py --fix          # after any Section 4 / SESSION_CONTEXT edit
 pre-commit run --all-files
+python scripts/doc_state_sync.py --fix --keep-non-current 0   # at batch close-out
 ```
 
-At batch close-out (all WPs done):
-
-```bash
-python scripts/doc_state_sync.py --fix --keep-non-current 0
-```
-
-Modes: `--check` (read-only), `--fix` (write updates), or
-`--split-archive` (one-time migration: partition the monolith archive into
-per-batch log files; run once after upgrading to per-batch routing).
-The `--check` mode also runs as a pre-commit hook (`doc-state-sync-check`).
-
-Exit codes: 0 clean; 1 deterministic drift or an integrity error; 2 malformed
-input or an invocation error.
+Modes: `--check` (read-only; also the `doc-state-sync-check` pre-commit
+hook), `--fix` (write updates), `--split-archive` (one-time migration into
+per-batch log files). Exit codes: 0 clean; 1 drift or an integrity error;
+2 malformed input or an invocation error. A commit staging docsync
+control-plane code is refused; the one escape is
+`SKIP=doc-state-sync-check git commit`, never `--no-verify` -- see
+`docs/architecture/documentation-tooling.md`.
 
 ### Integrity diagnostics
 
-Proven live-document integrity defects print stable `ERROR DOC...` diagnostics and
-make both `--check` and `--fix` exit 1. `--fix` writes deterministic renderer output
-first, then revalidates the final disk state; it does not guess how to repair semantic
-references or metadata. Use the command output for the actionable invariant and
-remediation.
-
-`.claude/SESSION_CONTEXT.md` is committed and shared across all agents. When it is present,
-its managed block is deterministic sync output and stale content is blocking; when it
-is absent, dependent checks are skipped without creating the file.
-
-**Which test count is authoritative.** The newest full-suite `pytest -q` result
-wins, even when it belongs to a side-task entry outside the current-batch
-markers. It stays authoritative after rotation moves that entry into the
-archive, so the count never changes because of a retention setting. An entry
-quoting several bold counts without a `pytest -q` result is ambiguous, and
-ambiguity suppresses every older entry rather than deferring to one: the count
-reads as unknown. Skipping to an older entry would republish a superseded
-number as if it were current, which is worse than reporting no count.
-
-The DOC codes are defined with their invariants in
-`scripts/docsync/integrity.py`. Each WT code is defined by the guard module
-that owns its check, so they are spread across `scripts/dev/_worktree_guard_*.py`
-rather than collected in one file -- grep for the code itself instead of
-assuming a module. The implementation plans under `docs/superpowers/plans/`
-tabulate both sets.
-
-Root `BATCHN_DEFINITION.md` warnings are expected while a batch is active
-and PLAYBOOK Section 3 points to that root definition. Treat them as a
-reminder that the definition must be archived at close-out, not as a blocker
-during active work. After close-out, the root warning should disappear.
-
-### Before writing to Section 4
-
-Before appending a new dated entry to PLAYBOOK Section 4, search the existing
-archive to avoid re-describing an already-recorded decision and to prevent
-title/date collisions:
-
-```bash
-rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md
-rg -n "^### 20" docs/history/logs/*.md
-```
+A proven defect prints as a stable `ERROR DOC...` diagnostic and exits 1 on
+both modes; `--fix` writes deterministic output first, then revalidates the
+final disk state rather than guessing how to repair a semantic reference.
+`.claude/SESSION_CONTEXT.md`'s managed block is deterministic sync output,
+so stale content there is blocking; an absent file skips dependent checks.
+The DOC001-DOC020 catalogue and owning modules are in
+`docs/architecture/documentation-tooling.md`; each WT code is defined by
+the guard module that owns its check, spread across
+`scripts/dev/_worktree_guard_*.py` -- grep for the code, not a module.
+**Which test count is authoritative.** The newest full-suite `pytest -q`
+result wins, even from a side-task entry outside the current-batch markers,
+and stays authoritative after rotation archives that entry. An entry
+quoting several bold counts without a `pytest -q` result reads as unknown
+rather than deferring to an older one.
 
 ### What to update after a WP or side-task commit
 
-- PLAYBOOK Section 3 (status) + Section 4 (dated log entry -- inside markers
-  for batch work, after end marker for side-tasks; see Side-Task Handling).
-- SESSION_CONTEXT Section 1 (test count, batch status row) if changed.
-- SESSION_CONTEXT Section 3 (project structure) and Section 4 (dependency
-  graph) if modules are added, removed, renamed, or dependencies change.
-- `README.md` for user/developer-visible setup or behavior changes.
-  **Exception:** If the active batch definition includes a dedicated README
-  WP (e.g., WP-5), README updates may be deferred to that WP to avoid
-  churn from intermediate WPs that change paths or structure.
+Before appending a new dated entry, search
+`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
+`docs/history/logs/*.md` (`rg -n "^### 20"`) to avoid re-describing a
+recorded decision or a date collision. Then update:
+
+- PLAYBOOK Section 3 + Section 4 (inside markers for batch work, after the
+  end marker for side-tasks; see Side-Task Handling).
+- SESSION_CONTEXT Section 1 (test count, batch status) if changed, and
+  Sections 3-4 (structure, dependency graph) if modules change.
+- `README.md` for user/developer-visible changes (a batch's dedicated
+  README WP may absorb updates from earlier WPs instead).
 - `docs/history/reports/<TOPIC>_<DATE>.md` for significant findings or audits.
 
 **Mid-batch handoff discipline:** PLAYBOOK Section 3 must reflect the true
-state of every WP at all times -- not just after commits. If a deviation fix
-is discovered and implemented during a WP, mark it in Section 3 immediately
-(before committing) so any agent arriving mid-batch sees accurate state. The
-log entry in Section 4 provides detail; Section 3 provides the at-a-glance
-status. Both must agree.
+state of every WP at all times -- mark a mid-WP deviation fix there before
+committing, so a mid-batch arrival sees accurate state; Section 4 gives
+detail, Section 3 the at-a-glance status, and both must agree.
 
 ---
 
@@ -500,109 +351,39 @@ When all WPs in the active batch are committed and validated:
    (purges old non-current entries from PLAYBOOK Section 4 to keep it lean).
 2. **Archive the definition file:** rename `BATCHN_PROPOSAL.md` (or equivalent)
    to `docs/history/definitions/BATCHN_DEFINITION.md` using `git mv`.
-3. **Update PLAYBOOK Section 2** table: the active batch already has a row
-   (its Definition cell points at the root file and its Log cell reads
-   `active -- Section 4`). Repoint that existing row at
-   `docs/history/definitions/BATCHN_DEFINITION.md` and fill the Log cell
-   with `docs/history/logs/BATCHN_LOG.md`. Add a new row only if the batch
-   has none.
-4. **Update SESSION_CONTEXT** Section 1 batch status row: `**Complete**. All N WPs done.
-   Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
+3. **Update PLAYBOOK Section 2** table: repoint the active batch's existing
+   row (Definition cell currently the root file, Log cell `active --
+   Section 4`) at `docs/history/definitions/BATCHN_DEFINITION.md` and
+   `docs/history/logs/BATCHN_LOG.md`; add a new row only if the batch has none.
+4. **Update SESSION_CONTEXT** Section 1 batch status row: `**Complete**. All N WPs done. Definition: docs/history/definitions/BATCHN_DEFINITION.md.`
 5. **Run `--fix` again** to refresh the STATUS block.
-6. **Verify clean:** `python scripts/doc_state_sync.py --check` must exit 0 with no
-   integrity errors (the expected root BATCH file warning disappears
-   once the definition file has been archived by the step above).
+6. **Verify clean:** `python scripts/doc_state_sync.py --check` exits 0 with
+   no integrity errors (the root BATCH file warning disappears once step 2
+   archives the definition).
 7. **Commit:** `chore(close-out): Batch N complete; archive definition and purge log`.
 
 ---
 
 ## Proposal and Design Rules
 
-1. **Definition before execution:** Every batch must have a definition file
-   (`BATCHN_DEFINITION.md` or equivalent) with acceptance criteria written
-   and committed before any WP work begins. Retroactive definitions are a
-   deviation and must be logged.
-2. **Scope discipline:** Do not add work packages mid-batch unless the owner
-   approves. Discovered issues that are out of scope become deviation notes
-   in the log entry, not new WPs. If a fix is urgent and small (under ~20
-   lines of code change), treat it as a deviation within the current WP; if
-   it is larger, log it as a future-batch candidate.
-3. **Size limits on new files:** the rule is against god files, not against
-   line counts. A file that is large because its job is large is fine. When
-   you notice scope creep -- a file taking on a second responsibility, or
-   growing past what one reader holds at once -- compare it against the
-   largest peer in its directory. That comparison is the check, not a
-   threshold to clear. Split only when the file has genuinely outgrown its
-   job; when it is merely large, record that in the log entry and move on.
-   `F-WORKTREE-4` and `F-MAS-3` are the recorded examples of this reading.
-4. **Refactor requires parity tests:** Do not restructure existing code
-   (rename, move, split, merge modules) without first verifying that
-   existing tests cover the affected paths. If coverage is insufficient,
-   add tests in a preceding WP.
+1. **Definition before execution:** every batch needs a definition file
+   (`BATCHN_DEFINITION.md` or equivalent) with acceptance criteria, written
+   and committed before any WP begins; a retroactive one is a logged deviation.
+2. **Scope discipline:** do not add work packages mid-batch without owner
+   approval. Out-of-scope issues become deviation notes in the log entry,
+   not new WPs -- an urgent small fix (under ~20 lines) is a deviation
+   within the current WP; a larger one is a future-batch candidate.
+3. **Size limits on new files:** the rule is against god files, not line
+   counts -- a large file whose job is large is fine. Compare scope creep
+   against the largest peer in its directory (the check, not a threshold);
+   split only when genuinely outgrown, otherwise record it in the log entry
+   (`F-WORKTREE-4`, `F-MAS-3`).
+4. **Refactor requires parity tests:** do not restructure existing code
+   (rename, move, split, merge) without first verifying tests cover the
+   affected paths; add tests in a preceding WP if coverage is insufficient.
 5. **Docstrings and comments:** every function has a comprehensive
-   docstring; inline comments explain non-obvious logic (the why, not the
-   what). SoC/DRY is the constraint on file content, not line count.
-
----
-
-## UI and Accessibility Rules
-
-Every rule here was written after the defect it prevents had already shipped.
-None of it is theory. Where a rule names a work package, that is the
-evidence, not the scope -- the rule outlives the batch.
-
-1. **Units: rem for type and space, px for fine detail.** A reader who raises
-   their browser font size should get a layout that grows with the text. Font
-   size, line height, padding, margin, gap, and any width or height that
-   holds text take rem -- divide the design's px figure by 16. Borders,
-   outlines, radii, shadows and anything 2px or under stay px: a hairline is
-   a hairline at any text size, and 1px is also the visually-hidden clip.
-   Media query breakpoints stay px, because the design states them in px.
-   The type scale is already rem (`--text-body: 1rem` in
-   `static/css/tailwind.src.css`), and rem text inside px boxes is the
-   mismatch that crowds and clips when a reader scales up. WCAG technique C14
-   makes relative font sizes a sufficient technique for 1.4.4 Resize Text;
-   the spacing half is this repository's own choice, for the same reason. The
-   design snapshot under `docs/design/tokens/` states its ladders in px and is
-   overridden here, which `docs/design/RECONCILIATION.md` section 11 records.
-   Prove a conversion neutral by measuring the rendered page before and
-   after, not by reading the diff.
-2. **Size for the finger, not for the window.** A control a person can touch
-   is at least 44px on its smaller side, and a text input is at least 1rem so
-   iOS does not zoom the page when it takes focus. Key both on the pointer --
-   `@media (any-pointer: coarse)` -- never on a max-width. A tablet in
-   landscape and a touch laptop are wide and touched, and a width-scoped rule
-   misses them completely; `any-pointer` rather than `pointer`, because a
-   laptop with a mouse and a touchscreen reports the mouse as primary and is
-   still touched. Both mistakes shipped in WP-3, and neither was visible to a
-   gate that only ever measured a phone.
-3. **Every control works without a mouse.** A hint that opens on hover alone
-   is unreachable by keyboard and by touch, so removing a popover library
-   quietly removes the explanation for some readers. Use `details`/`summary`
-   or a real button. Every interactive element keeps a visible focus state
-   and a programmatic label. Prove it by tab traversal: a scripted `.focus()`
-   stops matching `:focus-visible` once the page has seen a click, so it will
-   report a missing focus ring that is not missing.
-4. **Replacing a framework control means inheriting what it did silently.**
-   Bootstrap's `.invalid-feedback` was hidden unless a sibling carried
-   `.is-invalid`, so dropping that class cleared stale text for free. Its
-   replacement hides only while empty, and nothing emptied it -- a rejected
-   username stayed on screen beside a green, valid field. Before swapping a
-   framework class for one of ours, list what the old one did that no markup
-   states, and give each of those behaviours a new home.
-5. **Motion must be stoppable by CSS.** No SMIL: `prefers-reduced-motion`
-   cannot pause an `<animate>` element at all, and `svg.pauseAnimations()` is
-   not the answer. Animate from CSS keyframes and cancel them under the media
-   query. When cancelling an animation that fades in from zero, restore the
-   end state as well, or the control stays invisible for exactly the readers
-   who asked for less motion.
-6. **Check what the browser computed, in every state a script can reach.**
-   A class name is not evidence: a page stylesheet loads after the framework
-   and beats a utility of equal specificity, so an element can carry `hidden`
-   and still be on screen. Assert computed style. And check the states a
-   reader can reach, not only the one that loads -- the first touch-target
-   pass measured almost nothing, because the decade pills, the release-year
-   field and the whole heatmap form all start hidden.
+   docstring; inline comments explain the why, not the what. SoC/DRY
+   constrains file content, not line count.
 
 ---
 
@@ -611,124 +392,98 @@ evidence, not the scope -- the rule outlives the batch.
 Patterns that have caused regressions or quality issues in past batches.
 Agents must check their work against this list before committing.
 
-1. **Test bloat without value:** Adding tests that duplicate existing
-   coverage or that pass vacuously (test succeeds even if the function
-   under test is deleted). Every new test must exercise a unique code path
-   or boundary condition not covered by any existing test.
-2. **Undocumented SoC violations:** Importing a leaf module into a
-   higher-level module without updating the dependency graph in
-   SESSION_CONTEXT Section 4. Any new cross-module import must be reflected
-   in the documented acyclic dependency graph.
-3. **Silent doc staleness:** Committing code changes that affect test count,
-   module structure, or dependency graph without updating the corresponding
-   documentation (README project structure, SESSION_CONTEXT Sections 3-4,
-   PLAYBOOK Section 3). Every code commit must include any doc updates
-   needed to keep bootstrap files accurate.
-4. **Wrong venv or bare pip (incident 2026-03-04):** Using `venv/` instead
-   of `.venv/`, or running bare `pip install` without the explicit
-   `.venv/Scripts/pip` path, can silently install into the wrong environment
-   or drain the active venv. Always use `.venv/Scripts/pip` (Windows) or
-   `.venv/bin/pip` (Linux) explicitly.
-5. **A server you start is yours to stop.** Serving is normal here --
-   `scripts/dev/frontend_gate.py` starts the real app every run. Copy what
-   it does: bind loopback, ask the OS for a port instead of taking 5000, and
-   shut down in a `finally` so a failure cannot leave a socket listening.
-   Never leave a server running past the task that needed it. The owner
-   runs the app on 5000 in their own terminal; do not compete for that port.
+1. **Test bloat without value:** a test that duplicates existing coverage or
+   passes vacuously (succeeds even if the function under test is deleted).
+   Every new test must exercise a unique code path or boundary condition.
+2. **Undocumented SoC violations:** importing a leaf module into a
+   higher-level one without updating the SESSION_CONTEXT Section 4
+   dependency graph; every new cross-module import must be reflected there.
+3. **Silent doc staleness:** committing code that changes test count,
+   module structure, or the dependency graph without updating the matching
+   docs (README, SESSION_CONTEXT Sections 3-4, PLAYBOOK Section 3).
+4. **Wrong venv or bare pip (incident 2026-03-04):** `venv/` instead of
+   `.venv/`, or bare `pip install` without the qualified path (Environment
+   Setup), can silently install into the wrong environment.
+5. **A server you start is yours to stop.** Serving is normal here
+   (`scripts/dev/frontend_gate.py` starts the real app every run): bind
+   loopback, ask the OS for a port instead of 5000, and shut down in a
+   `finally`; never leave one running past the task, since the owner runs
+   the app on 5000 in their own terminal.
 6. **Naive-tz vacuous datetime tests (PR #152, F-B19-6):** a datetime test
-   that builds its inputs with the same tz-awareness pattern as the code
-   under test compares the code against itself, not against an invariant.
-   Build test inputs with explicit `tzinfo=` and assert on a date that
-   would shift under a naive interpretation. Canonical example:
-   `tests/test_heatmap.py::TestAggregateDailyCounts::`
-   `test_utc_decode_invariant_against_local_tz_drift`.
+   built with the same tz-awareness pattern as the code under test compares
+   the code against itself, not an invariant -- use explicit `tzinfo=` and
+   assert on a date that would shift under a naive read. Canonical:
+   `tests/test_heatmap.py::TestAggregateDailyCounts::test_utc_decode_invariant_against_local_tz_drift`.
 7. **Skipping hooks:** Never commit with `--no-verify`. Fix the failing
    hook instead.
-8. **Stale PLAYBOOK Section 3:** Section 3 not reflecting the true state
-   of every WP at all times (see Doc Sync Rules, mid-batch handoff
-   discipline).
+8. **Stale PLAYBOOK Section 3:** not reflecting the true state of every WP
+   at all times (see Doc Sync Rules, mid-batch handoff discipline).
 9. **Missing log entries:** a WP or side-task commit without its dated
    PLAYBOOK Section 4 entry.
 10. **Stale dashboard figures (coverage incident 2026-07-28):** quoting a
-    canonical number (coverage, test count, module count) from docs without
-    re-measuring. Re-run the measuring command before repeating a number in
-    any doc.
+    canonical number (coverage, test count, module count) without
+    re-measuring. Re-run the measuring command before repeating a number.
 11. **Fixing the instance instead of the class:** repairing the reported
-    symptom while its siblings survive untouched -- renumbering or
-    renaming without updating citations elsewhere, or correcting one copy
-    of a fact while duplicates remain. Every edit requires a repo-wide grep
-    for the other copies before the gates run:
-    - after renumbering or renaming, repoint every citation by **name**,
-      not number -- a name cannot go stale when the list reorders. Hits
-      inside dated Section 4 log entries are point-in-time records and
-      stay as written;
-    - after correcting a factual claim, grep its distinctive phrase
-      repo-wide and fix every copy in the same commit, or delete the
-      copies and link to the single owner (Anti-duplication rule);
-    - after changing a signature, a derivation, or an ordering, grep the
-      **concept**, not just the literal string -- the same fact often
-      recurs in several shapes: code, prose, a worked example, a second
-      tabulation elsewhere in the file.
-    A fix that leaves siblings behind is half a fix. The same applies when
-    the change *is* a new rule: sweep the whole corpus against it in the
-    same commit, or record the remaining backlog explicitly -- a rule is
-    not retroactive on its own.
+    symptom while its siblings survive untouched -- renumbering without
+    repointing citations, or correcting one copy of a fact while duplicates
+    remain. Grep for the other copies before the gates run: after
+    renumbering or renaming, repoint every citation by **name**, not number
+    (hits inside dated Section 4 entries are point-in-time and stay as
+    written); after correcting a factual claim, grep its distinctive phrase
+    and fix every copy in the same commit, or delete the copies and link to
+    the single owner (Anti-duplication rule); after changing a signature,
+    derivation, or ordering, grep the **concept**, not the literal string --
+    the same fact recurs as code, prose, a worked example, or a second
+    tabulation. A fix that leaves siblings behind is half a fix, and a new
+    rule is not retroactive on its own: sweep the whole corpus against it in
+    the same commit, or record the remaining backlog explicitly.
 12. **Lossy or contradictory consolidation:** collapsing a duplicated rule
-    to a single owner, but (a) leaving the copies in place while the new
-    text claims they were removed, (b) dropping a specific prohibition
-    during the collapse, or (c) writing canonical text that contradicts
-    another section of the same file. When consolidating: re-read the
-    **whole** destination file, not the diff, and compare the removed text
-    against the new pointer to confirm nothing was silently dropped.
+    to one owner, but (a) leaving copies in place while the new text claims
+    they were removed, (b) dropping a prohibition, or (c) writing text that
+    contradicts another section of the same file -- re-read the **whole**
+    destination file, not the diff, and compare removed text against the
+    new pointer.
 13. **Assertions over sets, ranges, and citations:** stating a property of
-    a group without checking each member. Ranges and universal quantifiers
-    -- `all`, `each`, `every`, `both`, `none`, `always`, `never`,
-    `X through Y` -- are the highest-risk constructions: expand them and
-    verify member by member, or rewrite the claim so it does not depend on
-    membership. Grep the whole quantifier vocabulary, not just the
-    phrasing that failed last time.
+    a group without checking each member. Universal quantifiers -- `all`,
+    `each`, `every`, `both`, `none`, `always`, `never`, `X through Y` -- are
+    highest-risk: expand and verify member by member, or rewrite the claim
+    so it does not depend on membership; grep the whole vocabulary, not
+    just the phrasing that failed last time.
 14. **Happy-path-only procedures:** a numbered procedure that only works
     in one state. Walk every procedure through its edge states -- active
     batch vs. between batches, first run vs. re-run, item present vs.
     absent -- before committing it.
 15. **Trusting an architecture diagram without checking source
-    (F-B21-61):** `docs/architecture/*.md` diagrams are hand-maintained,
-    not machine-checked, and drift after a module split or rename --
-    three diagrams went stale this way after Batch 22 WP-0.
-    `docs/ARCHITECTURE.md` states the rule: code wins when a diagram and
-    implementation disagree. Verify against current source before citing a
-    diagram as ground truth; its own "Last verified" date is exactly as
-    stale-prone as the diagram it labels.
+    (F-B21-61):** `docs/architecture/*.md` diagrams are hand-maintained and
+    drift after a module split or rename (three went stale after Batch 22
+    WP-0); `docs/ARCHITECTURE.md`'s rule is that code wins when they
+    disagree, so verify against current source before citing one -- its own
+    "Last verified" date is as stale-prone as the diagram.
 
 ---
 
 ## Finding-Writing Rules
 
 Findings live in `FINDINGS.md` (active) and rotate to
-`docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during a
-dedicated findings-cleanup WP. Nothing is deleted -- the archive preserves
-grep history.
+`docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or a
+findings-cleanup WP; nothing is deleted, so the archive preserves grep
+history.
 
 1. **F-ID format:** every item heading is `F-<context>-<N>: <title>`.
    Context is a batch tag (`B18`, `B19`, `B20`, ...) or one of these
-   source tags -- the list is complete, so extend it here when you coin a
-   new tag rather than leaving it undocumented:
-   `MAS` (MULTI_AGENT_SWEEP), `DOCSYNC`, `AUDIT`, `LOAD` (the
-   load-testing session), `SWE` (the SWE-principles audit), `WORKTREE`
-   (the worktree-guard work), `DATA` (data-model items), `STYLE`
-   (writing and Python style), and `FEATURE` (feature-prep notes). No
-   bare-numbered items in FINDINGS.md.
+   complete source tags -- extend the list here, never leave a tag
+   undocumented: `MAS`, `DOCSYNC`, `AUDIT`, `LOAD`, `SWE`, `WORKTREE`,
+   `DATA`, `STYLE`, `FEATURE`. No bare-numbered items in FINDINGS.md.
 2. **Required fields:** the F-ID heading, a one-sentence problem statement,
-   a `Status:` line, and a `Source:` line when the finding came from a
-   named audit or session.
+   a `Status:` line, and a `Source:` line when a named audit or session
+   produced it.
 3. **Rotation:** resolved and closed no-action items move to the archive
-   with their original F-ID and a `-- RESOLVED` / `-- NO ACTION` suffix.
-   Standing design-decision Info items (documentation of deliberate,
-   still-current choices) keep their F-IDs in the active file and rotate
-   only when superseded.
-4. **Cross-references:** promoted or absorbed findings keep a one-line
-   pointer in the "Deferred / future-batch candidates" block (for
-   example, `F-B18-1 -- promoted to F-B20-2`) so old IDs stay resolvable.
+   with their original F-ID and a `-- RESOLVED` / `-- NO ACTION` suffix;
+   standing design-decision Info items stay active and rotate only when
+   superseded.
+4. **Cross-references:** a promoted or absorbed finding keeps a one-line
+   pointer in "Deferred / future-batch candidates" (e.g. `F-B18-1 --
+   promoted to F-B20-2`) so the old ID stays resolvable.
 
 ---
 
@@ -741,16 +496,3 @@ grep history.
   implementation, deviations, validation results (test count), and forward
   guidance -- that is what to cover, not how much to write.
 - Do not manually move entries across DOCSYNC markers; use `doc_state_sync.py`.
-
-## graphify
-
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

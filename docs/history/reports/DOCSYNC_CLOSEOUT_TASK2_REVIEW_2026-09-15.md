@@ -15,10 +15,20 @@ committed -- git-ignored SDD workspace; this report is the durable summary).
   entry). 258/258 focused docsync tests, Ruff clean.
 - **Task 2** (finding lifecycle + bounded archives + recoverable
   transactional publish: `scripts/docsync/findings.py`, `archives.py`,
-  `transaction.py`, six new diagnostic codes DOC013-DOC018): implementation
-  complete, controller-verified (93/93 new-suite tests, 351/351 full docsync
-  suite, Ruff clean on all owned files). **Review verdict: Needs fixes** --
-  3 Important findings, 7 Minor, 0 Critical. Not yet in the fix loop.
+  `transaction.py`, six new diagnostic codes DOC013-DOC018): **complete**.
+  Fix round 1 (resumed 2026-09-15, a fresh implementer since the original
+  handle was unavailable) addressed all 3 Important findings below with
+  regression tests that reproduce each defect before the fix, per their own
+  docstrings. A controller-authored scoped re-review (2026-09-16, disclosed
+  deviation -- no subagent-dispatch tool available in that session) verified
+  each fix against this report's findings and the design spec's own
+  language, confirmed no sibling instance of the same defect class
+  elsewhere in the module, and ran the 4 named regression tests
+  individually plus the full docsync suite fresh: 355/355 passed, Ruff
+  clean. Verdict: all 3 Important findings ADDRESSED, no new
+  Critical/Important breakage. 7 Minor findings remain deferred to the
+  final whole-branch review, unchanged. Full detail:
+  `.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
 - **Tasks 3-4** (CLI close-out composition, commit preflight/hook
   installation): not started.
 
@@ -82,9 +92,9 @@ guarantee (`docs/superpowers/specs/2026-09-15-docsync-closeout-archives-design.m
 
 ## Next step
 
-Resume the SDD fix loop: send Important findings 1-3 verbatim to the Task 2
-implementer for a fix plus covering tests, then a scoped re-review (fix
-round 1/5). Minor findings 4-10 are already logged for the final
-whole-branch review's triage and should not be re-litigated in the fix
-loop. Full detail and the running ledger are in
+Task 2 is complete (see Status above); do not re-litigate findings 1-3 or
+re-dispatch its fix loop. Minor findings 4-10 stay deferred, unchanged, to
+the final whole-branch review's triage. Proceed to Task 3 (CLI integration
+and multi-signal close-out) per the plan's progress checkboxes. Full detail
+and the running ledger are in
 `.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`.
