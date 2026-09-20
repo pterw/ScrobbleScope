@@ -19,6 +19,7 @@ from docsync.declarations import (
     ArchiveConfig,
     CloseoutConfig,
     DeclarationError,
+    FindingsConfig,
     _Files,
     check_anchors,
     check_retired,
@@ -27,6 +28,7 @@ from docsync.declarations import (
     load_archive_config,
     load_closeout_config,
     load_declarations,
+    load_findings_config,
 )
 from docsync.models import SyncError
 
@@ -1794,3 +1796,51 @@ def test_collect_declaration_issues_accepts_valid_closeout(tmp_path: Path) -> No
         {DECLARATIONS_FILENAME: "[closeout]\nadmit_from_batch = 22\n"},
     )
     assert collect_declaration_issues(repo_root=root, live_documents={}) == []
+
+
+# ---------------------------------------------------------------------------
+# [findings] -- the DOC023 grandfather list
+# ---------------------------------------------------------------------------
+
+
+def test_findings_config_defaults_to_grandfathering_nothing(tmp_path: Path) -> None:
+    """The default is the strict end: every finding is admitted.
+
+    A default carrying any ids would be this repository's own history baked
+    into a mechanism meant to be extractable, and a default of "grandfather
+    everything" would make the check unable to fire in the repository that
+    most needs it.
+    """
+    assert load_findings_config(_repo(tmp_path, {})) == FindingsConfig(())
+
+
+def test_findings_config_reads_the_declared_ids(tmp_path: Path) -> None:
+    root = _closeout_repo(
+        tmp_path, '[findings]\ngrandfathered = ["F-B21-1", "F-DOCSYNC-9"]\n'
+    )
+    assert load_findings_config(root) == FindingsConfig(("F-B21-1", "F-DOCSYNC-9"))
+
+
+def test_findings_config_accepts_an_empty_list(tmp_path: Path) -> None:
+    """An empty list is the honest way to declare that nothing is exempt."""
+    root = _closeout_repo(tmp_path, "[findings]\ngrandfathered = []\n")
+    assert load_findings_config(root) == FindingsConfig(())
+
+
+def test_findings_config_requires_the_list(tmp_path: Path) -> None:
+    """An empty table must not read as "grandfather everything"."""
+    root = _closeout_repo(tmp_path, "[findings]\n")
+    with pytest.raises(DeclarationError, match="grandfathered"):
+        load_findings_config(root)
+
+
+def test_findings_config_rejects_an_unknown_key(tmp_path: Path) -> None:
+    root = _closeout_repo(tmp_path, '[findings]\ngrandfathers = ["F-B21-1"]\n')
+    with pytest.raises(DeclarationError, match="unknown key 'grandfathers'"):
+        load_findings_config(root)
+
+
+def test_findings_config_rejects_a_non_id_entry(tmp_path: Path) -> None:
+    root = _closeout_repo(tmp_path, "[findings]\ngrandfathered = [21]\n")
+    with pytest.raises(DeclarationError, match="finding id"):
+        load_findings_config(root)

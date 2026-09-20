@@ -224,6 +224,7 @@ _TOP_LEVEL_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
     "options": {"required": {}, "optional": {"strikethrough_exempt": bool}},
     "archives": {"required": {"max_lines": int, "cold_days": int}, "optional": {}},
     "closeout": {"required": {"admit_from_batch": int}, "optional": {}},
+    "findings": {"required": {"grandfathered": list}, "optional": {}},
 }
 
 
@@ -460,6 +461,72 @@ def _closeout_config(declarations: Mapping) -> CloseoutConfig:
 def load_closeout_config(repo_root: Path) -> CloseoutConfig:
     """Read the repository's close-out admission boundary."""
     return _closeout_config(load_declarations(repo_root))
+
+
+@dataclasses.dataclass(frozen=True)
+class FindingsConfig:
+    """Which findings predate the lifecycle rule, from [findings].
+
+    A list of ids rather than a boundary, which is the opposite of
+    ``CloseoutConfig`` and deliberately so. A boundary works when what it
+    admits is ordered: every batch at or above a number. Finding ids are not
+    ordered -- a source tag like ``F-DOCSYNC-9`` carries no batch to compare
+    -- so any boundary drawn over batch numbers leaves every tagged id on one
+    side of it by accident, and a new finding could pick a tag and escape.
+
+    An explicit list cannot be escaped by naming: anything absent is admitted.
+    It only ever shrinks, and both directions are a reviewable diff, so the
+    backlog cannot be quietly forgiven one id at a time.
+
+    The default is empty -- strict. A repository that declares nothing admits
+    every finding, so this mechanism carries no repository's history in it.
+    """
+
+    grandfathered: tuple[str, ...] = ()
+
+
+def _validate_findings(findings: object) -> FindingsConfig:
+    """Check a declared [findings] table and return its grandfathered ids."""
+    if not isinstance(findings, Mapping):
+        raise DeclarationError(f"[findings] is {type(findings).__name__}, not a table.")
+    known = _TOP_LEVEL_SCHEMA["findings"]["required"]
+    for key in findings:
+        if key not in known:
+            raise DeclarationError(
+                f"[findings] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    for key in known:
+        if key not in findings:
+            raise DeclarationError(
+                f"[findings] has no {key!r}; the grandfathered list is required "
+                f"once the table is declared. Write an empty list to admit "
+                f"every finding."
+            )
+    raw = findings["grandfathered"]
+    if not isinstance(raw, list):
+        raise DeclarationError(
+            f"[findings] grandfathered is {type(raw).__name__}, not a list."
+        )
+    for entry in raw:
+        if not isinstance(entry, str) or not entry.strip():
+            raise DeclarationError(
+                f"[findings] grandfathered holds {entry!r}; every entry must be "
+                f"a finding id such as 'F-B21-1'."
+            )
+    return FindingsConfig(grandfathered=tuple(raw))
+
+
+def _findings_config(declarations: Mapping) -> FindingsConfig:
+    """Return the grandfathered ids for an already-read declarations file."""
+    if "findings" not in declarations:
+        return FindingsConfig()
+    return _validate_findings(declarations["findings"])
+
+
+def load_findings_config(repo_root: Path) -> FindingsConfig:
+    """Read the repository's grandfathered finding ids."""
+    return _findings_config(load_declarations(repo_root))
 
 
 def _issue(
