@@ -103,6 +103,21 @@ def test_rotation_lands_above_older_archived_entries():
     assert new_at < old_at, rotation.archive_text
 
 
+def test_first_rotation_keeps_a_blank_line_under_the_prologue():
+    """An empty archive ends at its rule, with no blank line to sit under.
+
+    The rotated block carries its separator after each entry, which is
+    right when it is spliced above an existing entry. Inserted at the end
+    of a prologue it needs one in front too, or the heading is glued to the
+    `---` above it and reaches disk that way.
+    """
+    rotation = plan_findings(_active(RESOLVED, OPEN), ARCHIVE_PROLOGUE)
+
+    lines = rotation.archive_text.split("\n")
+    heading_at = next(i for i, line in enumerate(lines) if line.startswith("### "))
+    assert lines[heading_at - 1] == "", lines[max(0, heading_at - 3) : heading_at + 1]
+
+
 def test_unchecked_open_record_is_retained():
     rotation = plan_findings(_active(OPEN), ARCHIVE_PROLOGUE)
 

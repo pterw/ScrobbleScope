@@ -438,6 +438,12 @@ def plan_findings(active_text: str, archive_text: str) -> FindingRotation:
         # the newest entries on the oldest page once this file paginates,
         # because `archives.ArchiveStore` reads the same text newest first.
         newest = _newest_entry_line(archive_lines)
+        if newest > 0 and archive_lines[newest - 1].strip():
+            # An archive with no entries yet ends at its prologue rule, with
+            # no blank line to sit under. Without this the first rotation
+            # ever written glues its heading to the `---` above it, and a
+            # plain archive reaches disk exactly as planned.
+            rotated_block.insert(0, "")
         archive_lines[newest:newest] = rotated_block
 
     return FindingRotation(
