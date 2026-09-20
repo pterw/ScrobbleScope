@@ -277,7 +277,15 @@ def candidate_corpus(root: Path, *, runner: Runner = subprocess.run) -> Iterator
 
     payload = archive.stdout
     if isinstance(payload, str):
-        payload = payload.encode("utf-8")
+        # A tar is bytes. Reaching here means a caller passed a text-mode
+        # runner, and whatever decoding produced this string has already
+        # lost bytes no encode can restore -- re-encoding it would hand the
+        # extractor a corrupted archive that still looks like one. The
+        # production call sets no `text=True`, so this is a wiring error.
+        raise PreflightError(
+            "git archive returned text, not bytes: the runner must not "
+            "decode output for this call, or the tar payload is corrupted."
+        )
 
     with tempfile.TemporaryDirectory(prefix="docsync-preflight-") as handle:
         dest = Path(handle)
@@ -288,10 +296,18 @@ def candidate_corpus(root: Path, *, runner: Runner = subprocess.run) -> Iterator
             # paths, but passing the strict filter where it exists costs
             # nothing and rejects anything unexpected (symlinks escaping
             # ``dest``, device files) before it can land on disk.
-            if sys.version_info >= (3, 12):
-                tar.extractall(dest, filter="data")
-            else:  # pragma: no cover - exercised only on Python < 3.12
-                tar.extractall(dest)
+            if sys.version_info < (3, 12):  # pragma: no cover - CI pins 3.13
+                # Extracting unfiltered would accept members this code never
+                # inspects -- paths climbing out of `dest`, symlinks, device
+                # nodes. Refusing is correct rather than cautious: nothing
+                # supported runs here, CI pins 3.13, and a preflight that
+                # cannot extract safely must not extract at all.
+                raise PreflightError(
+                    "building the candidate corpus needs Python 3.12 or newer "
+                    "for filtered tar extraction; this interpreter is "
+                    f"{sys.version_info.major}.{sys.version_info.minor}."
+                )
+            tar.extractall(dest, filter="data")
 
         init = _run_git(["init", "-q"], cwd=dest, runner=runner)
         if init.returncode != 0:
