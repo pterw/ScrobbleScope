@@ -8,7 +8,9 @@ validation by docsync.integrity.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 
+from docsync.markdown import prose_lines
 from docsync.models import (
     Entry,
     SyncError,
@@ -349,7 +351,7 @@ def _newest_count(
     treating ambiguity as absence lets an older entry supply the answer.
     """
     for entry, _precedence, _date_ordering_key in candidates:
-        entry_text = "\n".join(entry.lines)
+        entry_text = "\n".join(line for _, line in prose_lines(entry.lines))
         explicit_matches = re.findall(
             r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*"
             r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*",
@@ -358,6 +360,12 @@ def _newest_count(
         )
         if explicit_matches:
             return int(explicit_matches[-1])
+        if re.search(
+            r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*\d+\s+(?:tests?\s+)?pass(?:ing|ed)\b",
+            entry_text,
+            flags=re.IGNORECASE,
+        ):
+            return _AMBIGUOUS_COUNT
         fallback_matches = [
             int(match.group(1)) for match in TEST_COUNT_RE.finditer(entry_text)
         ]
@@ -386,7 +394,7 @@ def _latest_test_count_from_entries(
 def latest_test_count_authority(
     playbook_lines: list[str],
     archive_lines: list[str] | None = None,
-    batch_log_lines: dict[int, list[str]] | None = None,
+    batch_log_lines: Mapping[int, list[str]] | None = None,
 ) -> TestCountAuthority:
     """Return the newest full-suite count recorded anywhere in the log.
 

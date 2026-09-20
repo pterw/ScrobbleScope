@@ -190,8 +190,9 @@ roughly 1.4:1 against the dark page. The non-text requirement is 3:1.
 
       **Floor: 44px, ruled 2026-09-02.** A strict viewport fraction would take
       the 48px link to `48 * 1920/2560 = 36px` at 1080p, under the touch
-      minimum in `AGENTS.md` "UI and Accessibility Rules" item 2 and reversing
-      the 48px desktop target F-B21-29 established. So the header scales but
+      minimum in `docs/agents/ui-accessibility.md` "UI and Accessibility
+      Rules" item 2 and reversing the 48px desktop target F-B21-29
+      established. So the header scales but
       never goes below 44px on its smaller side: 44px at 1080p, 48px at 1440p,
       growing above that.
 

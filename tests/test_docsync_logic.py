@@ -738,3 +738,40 @@ class TestParseActiveBatchStateConflicting:
         # Active signal should override complete for the same batch number.
         assert state.current_batch == 10
         assert state.last_completed_batch == 10
+
+
+def test_unbold_full_suite_does_not_publish_focused_or_older_authority():
+    from docsync.logic import latest_test_count_authority
+
+    lines = [
+        "## 4. Execution log",
+        "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+        "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        "### 2026-09-15 - Newest",
+        "Focused: **12 passed**.",
+        "Validation: `pytest -q` -- 1154 passed.",
+        "### 2026-09-14 - Older",
+        "Validation: `pytest -q` -- **1153 passed**.",
+    ]
+    result = latest_test_count_authority(lines)
+    assert result.count is None
+    assert result.ambiguous
+
+
+def test_wrapped_unbold_full_suite_suppresses_focused_and_older_authority():
+    from docsync.logic import latest_test_count_authority
+
+    lines = [
+        "## 4. Execution log",
+        "<!-- DOCSYNC:CURRENT-BATCH-START -->",
+        "<!-- DOCSYNC:CURRENT-BATCH-END -->",
+        "### 2026-09-15 - Newest",
+        "Focused: **12 passed**.",
+        "Validation: `pytest -q` --",
+        "1154 passed.",
+        "### 2026-09-14 - Older",
+        "Validation: `pytest -q` -- **1153 passed**.",
+    ]
+    result = latest_test_count_authority(lines)
+    assert result.count is None
+    assert result.ambiguous

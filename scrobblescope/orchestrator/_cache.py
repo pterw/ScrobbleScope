@@ -42,6 +42,22 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
     return cached_metadata
 
 
+async def _lookup_cached_original_release(conn, keys):
+    """Original-release correction lookup (Task 8, Batch 22 WP-3).
+
+    Returns {} without raising if the DB is unavailable or the read failed --
+    a missing correction only skips the display upgrade, it must never block
+    a job the way a metadata-fetch failure would.
+    """
+    if not conn:
+        return {}
+    try:
+        return await _orchestrator._batch_lookup_original_release(conn, keys)
+    except Exception as exc:
+        logging.warning(f"Original-release cache lookup failed (non-fatal): {exc}")
+        return {}
+
+
 async def _persist_new_metadata(conn, job_id, new_metadata_rows):
     """DB Batch Persist. Non-fatal on failure."""
     if not (conn and new_metadata_rows):

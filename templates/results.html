@@ -147,11 +147,13 @@
                             data-play-time-mobile="{{ album.play_time_mobile|default(album.play_time|default('')) }}"
                             data-play-time-seconds="{{ album.play_time_seconds|default(0) }}"
                             data-album-image="{{ album.album_image|default('') }}"
-                            data-spotify-id="{{ album.spotify_id|default('') }}">
+                            data-spotify-id="{{ album.spotify_id|default('') }}"
+                            data-provider="{{ album.provider|default('') }}"
+                            data-album-url="{{ album.album_url|default('') }}">
                             <!-- Semantic Rank with glow hover -->
                             <td class="py-3 px-3 md:px-4 text-center align-middle">
-                                {% if album.spotify_id %}
-                                <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num font-mono text-sm font-normal" title="Open {{ album.album }} on Spotify">
+                                {% if album.album_url %}
+                                <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num font-mono text-sm font-normal" title="Open {{ album.album }} on {{ album.provider|default('Spotify')|capitalize }}">
                                     {{ "%02d" % loop.index }}
                                 </a>
                                 {% else %}
@@ -178,8 +180,8 @@
                                     </div>
                                     {% endif %}
                                     <div class="album-info flex flex-col gap-[calc(0.125rem*var(--results-scale))]">
-                                        {% if album.spotify_id %}
-                                        <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug break-words">
+                                        {% if album.album_url %}
+                                        <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug break-words">
                                             {{ album.album }}
                                         </a>
                                         {% else %}
@@ -190,6 +192,18 @@
                                         <span class="font-sans text-xs md:text-sm text-[var(--ss-text-muted)] truncate font-normal">
                                             {{ album.artist }}
                                         </span>
+                                        {# Provider attribution (Batch 22 WP-1 Task 6). Deezer requires "a
+                                           clearly visible Deezer Logo" on any app using its API
+                                           (developers.deezer.com/guidelines#local and /guidelines/logo);
+                                           Spotify's own content rules make the same demand (F-B21-60). This
+                                           text link is the interim measure -- swapping in each provider's
+                                           official logo asset is tracked separately (F-B22-4) since neither
+                                           asset could be sourced from here. #}
+                                        {% if album.provider and album.album_url %}
+                                        <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ album.album }} on {{ album.provider|capitalize }}">
+                                            {{ album.provider }}
+                                        </a>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </td>

@@ -25,6 +25,7 @@ dependency.
 
 from __future__ import annotations
 
+import dataclasses
 import fnmatch
 import re
 from collections import namedtuple
@@ -33,6 +34,7 @@ from pathlib import Path
 
 import tomllib
 
+from docsync.markdown import fully_struck, marker_lines, prose_lines
 from docsync.models import IntegrityIssue, SyncError
 
 #: Where the repository's own declarations live, relative to the repo root.
@@ -72,12 +74,35 @@ _LABEL_TAIL_RE = re.compile(r"\s*(?:--|—|:)\s.*$")
 #: retired claim an invisibility cloak. So the exemption is a declared option
 #: rather than doctrine baked into the tool: `[options] strikethrough_exempt`
 #: sets the default, and any [[retired]] declaration can override it.
-_STRIKETHROUGH_RE = re.compile(r"~~.+?~~")
 
 #: What `strikethrough_exempt` defaults to when nothing declares it. On,
 #: because it matches the convention most Markdown corpora follow -- but the
 #: option exists so a corpus that does not follow it can say so.
 DEFAULT_STRIKETHROUGH_EXEMPT = True
+
+#: What `[archives] max_lines` defaults to: the rendered-line target for one
+#: archive page. Large enough that an ordinary batch's log stays one file,
+#: which is why a repository that never paginates needs no table at all.
+DEFAULT_ARCHIVE_MAX_LINES = 500
+
+#: What `[archives] cold_days` defaults to: the age at which a finalized page
+#: becomes eligible to move beneath `cold/`. Only an explicit as-of date ever
+#: evaluates it, so this value cannot age a file on its own.
+DEFAULT_ARCHIVE_COLD_DAYS = 365
+
+#: What `[closeout] admit_from_batch` defaults to: the lowest batch number
+#: whose closure the close-out signals are evaluated against. Every batch at or
+#: above the boundary is managed, so a batch cannot opt out of the check by
+#: being absent from a list -- which is why the boundary is an integer rather
+#: than a recorded set.
+#:
+#: The default is the strict end of the range, not the permissive one. A
+#: repository that adopted this tooling from its first batch wants every closure
+#: checked, and "no table" must not be readable as "no batch is managed". A
+#: repository with older history overrides the value to grandfather batches
+#: that closed before the signals existed, because requiring those to be
+#: rewritten would be fabricating evidence.
+DEFAULT_CLOSEOUT_ADMIT_FROM_BATCH = 1
 
 
 class DeclarationError(SyncError):
@@ -188,8 +213,17 @@ _DECLARATION_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
 }
 
 #: The tables the declarations file itself may hold.
-_TOP_LEVEL_SCHEMA = {
+#:
+#: `archives` and `closeout` are listed so the unknown-table guard recognizes
+#: them: a table the guard has not heard of is refused, and the real
+#: `.docsync.toml` would start raising the moment one of them appeared. Their
+#: keys are checked by `_validate_archives` and `_validate_closeout` rather than
+#: by the generic walker, because they are values a maintenance run consumes,
+#: not facts a check compares.
+_TOP_LEVEL_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
     "options": {"required": {}, "optional": {"strikethrough_exempt": bool}},
+    "archives": {"required": {"max_lines": int, "cold_days": int}, "optional": {}},
+    "closeout": {"required": {"admit_from_batch": int}, "optional": {}},
 }
 
 
@@ -277,6 +311,155 @@ def _validate_options(options: object) -> None:
         bad = _mismatch(wanted, value)
         if bad:
             raise DeclarationError(f"[options] gives {key!r} as {bad}.")
+
+
+@dataclasses.dataclass(frozen=True)
+class ArchiveConfig:
+    """The thresholds a maintenance run consumes, from [archives] or defaults.
+
+    Not a declaration: these are not facts anything compares against a
+    document. They are the numbers a pagination or cold-storage run is driven
+    by, which is why they are validated once here and passed in.
+    """
+
+    max_lines: int = DEFAULT_ARCHIVE_MAX_LINES
+    cold_days: int = DEFAULT_ARCHIVE_COLD_DAYS
+
+
+def _positive_int(table: str, key: str, value: object) -> int:
+    """Return one validated positive integer from a configuration table.
+
+    Shared by every table that carries a number, so two tables cannot disagree
+    about what counts as one and the ``bool`` trap is answered in a single
+    place. ``bool`` is refused before the numeric test because it subclasses
+    ``int``: ``max_lines = true`` would otherwise pass as a page target of one
+    line and silently repaginate the whole corpus one entry per file, and
+    ``admit_from_batch = true`` would read as boundary 1, making every
+    historical batch managed. Both are typos that read as success. The double
+    negative is the point: a boolean is not an integer, and the message names
+    the table and the key to look at.
+    """
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise DeclarationError(
+            f"{table} gives {key!r} as {type(value).__name__}, not an integer."
+        )
+    if value <= 0:
+        raise DeclarationError(
+            f"{table} gives {key!r} as {value}; a threshold must be positive."
+        )
+    return value
+
+
+def _validate_archives(archives: object) -> ArchiveConfig:
+    """Check a declared [archives] table and return its thresholds.
+
+    Every key is required once the table exists, and every key is listed, for
+    the same reason [options] lists its own: the quiet failure. A misspelled
+    ``max_line`` would otherwise name a page size nobody chose while the gate
+    stayed green.
+    """
+    if not isinstance(archives, Mapping):
+        raise DeclarationError(f"[archives] is {type(archives).__name__}, not a table.")
+    known = _TOP_LEVEL_SCHEMA["archives"]["required"]
+    for key in archives:
+        if key not in known:
+            raise DeclarationError(
+                f"[archives] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    for key in known:
+        if key not in archives:
+            raise DeclarationError(
+                f"[archives] has no {key!r}; both thresholds are required once "
+                f"the table is declared."
+            )
+    return ArchiveConfig(
+        max_lines=_positive_int("[archives]", "max_lines", archives["max_lines"]),
+        cold_days=_positive_int("[archives]", "cold_days", archives["cold_days"]),
+    )
+
+
+def _archive_config(declarations: Mapping) -> ArchiveConfig:
+    """Return the archive thresholds for an already-read declarations file.
+
+    Absence of the table is not an error. Pagination and cold aging are opt-in
+    maintenance operations, so their thresholds have a documented default and a
+    repository that never paginates needs no table at all. This is the single
+    place that decides that; both readers below go through it so they cannot
+    disagree about what "not configured" means.
+    """
+    if "archives" not in declarations:
+        return ArchiveConfig()
+    return _validate_archives(declarations["archives"])
+
+
+def load_archive_config(repo_root: Path) -> ArchiveConfig:
+    """Read the repository's archive thresholds, defaults included."""
+    return _archive_config(load_declarations(repo_root))
+
+
+@dataclasses.dataclass(frozen=True)
+class CloseoutConfig:
+    """Which batches a close-out check is responsible for, from [closeout].
+
+    Not a declaration, for the same reason the archive thresholds are not: this
+    decides which batch numbers the closure signals are evaluated against, it is
+    not a fact compared against a document.
+
+    One boundary rather than a recorded set of managed batches, because a set
+    can be opted out of by omission and a boundary cannot: every batch at or
+    above ``admit_from_batch`` is managed whether or not anything lists it. The
+    boundary only moves when someone edits this file, which is a reviewable act.
+    """
+
+    admit_from_batch: int = DEFAULT_CLOSEOUT_ADMIT_FROM_BATCH
+
+
+def _validate_closeout(closeout: object) -> CloseoutConfig:
+    """Check a declared [closeout] table and return its admission boundary.
+
+    The single key is required once the table exists. An empty table read as
+    "nothing is managed" would silently switch off every closure signal, which
+    is the same quiet failure [options] and [archives] already refuse.
+    """
+    if not isinstance(closeout, Mapping):
+        raise DeclarationError(f"[closeout] is {type(closeout).__name__}, not a table.")
+    known = _TOP_LEVEL_SCHEMA["closeout"]["required"]
+    for key in closeout:
+        if key not in known:
+            raise DeclarationError(
+                f"[closeout] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(known))}."
+            )
+    for key in known:
+        if key not in closeout:
+            raise DeclarationError(
+                f"[closeout] has no {key!r}; the admission boundary is required "
+                f"once the table is declared."
+            )
+    return CloseoutConfig(
+        admit_from_batch=_positive_int(
+            "[closeout]", "admit_from_batch", closeout["admit_from_batch"]
+        )
+    )
+
+
+def _closeout_config(declarations: Mapping) -> CloseoutConfig:
+    """Return the admission boundary for an already-read declarations file.
+
+    Absence of the table takes the documented default rather than raising, for
+    the same reason [archives] does: repositories that never wrote one still run
+    the gate, and this default already admits every batch, so an absent table
+    cannot be the thing that lets a closure through unchecked.
+    """
+    if "closeout" not in declarations:
+        return CloseoutConfig()
+    return _validate_closeout(declarations["closeout"])
+
+
+def load_closeout_config(repo_root: Path) -> CloseoutConfig:
+    """Read the repository's close-out admission boundary."""
+    return _closeout_config(load_declarations(repo_root))
 
 
 def _issue(
@@ -596,7 +779,8 @@ def _headings(lines: list[str]) -> dict[str, int]:
     written as "Session Bootstrap (in order)".
     """
     found: dict[str, int] = {}
-    for index, line in enumerate(lines, start=1):
+    for source_index, line in prose_lines(lines):
+        index = source_index + 1
         match = _HEADING_RE.match(line) or _BOLD_LABEL_RE.match(line)
         if not match:
             continue
@@ -619,7 +803,9 @@ def _list_numbers_under(lines: list[str], heading_line: int) -> set[int]:
     sixth anywhere in the file.
     """
     numbers: set[int] = set()
-    for line in lines[heading_line:]:
+    for index, line in prose_lines(lines):
+        if index < heading_line:
+            continue
         if _HEADING_RE.match(line):
             break
         item = _LIST_ITEM_RE.match(line)
@@ -664,7 +850,7 @@ def check_anchors(files: _Files, declarations: Iterable[dict]) -> list[Integrity
             # across two lines, so a per-line-only gate could not have caught
             # that heading moving.
             for match, line_number, _text, _position in _declared_matches(
-                pattern, lines
+                pattern, _prose_source(lines)
             ):
                 heading = match.group(1)
                 item = match.group(2) if len(match.groups()) > 1 else None
@@ -760,8 +946,9 @@ def check_retired(
             exempt_from = None
             marker = allow_after.get(rel_path)
             if marker:
+                candidates = dict(marker_lines(lines))
                 for index, line in enumerate(lines, start=1):
-                    if marker in line:
+                    if line.strip() == marker.strip() and index - 1 in candidates:
                         exempt_from = index
                         break
 
@@ -771,11 +958,13 @@ def check_retired(
             # never match a per-line search, while replacing that search loses
             # line anchors. Newlines become spaces only for the cross-line pass.
             for _match, line_number, text, position in _declared_matches(
-                pattern, lines
+                pattern, _prose_source(lines)
             ):
                 if exempt_from is not None and line_number >= exempt_from:
                     continue
-                if skip_struck and _is_struck_through(text, position):
+                if skip_struck and fully_struck(
+                    text, position, position + len(_match.group(0))
+                ):
                     continue
                 issues.append(
                     _issue(
@@ -790,6 +979,12 @@ def check_retired(
                     )
                 )
     return issues
+
+
+def _prose_source(lines: list[str]) -> list[str]:
+    """Keep line coordinates while excluding example/comment content."""
+    visible = dict(prose_lines(lines))
+    return [visible.get(index, "") for index in range(len(lines))]
 
 
 def _joined_text(lines: list[str]) -> tuple[str, list[int]]:
@@ -903,10 +1098,7 @@ def _is_struck_through(line: str, position: int) -> bool:
     an instruction, and it is the one form of retired claim worth keeping in
     place -- deleting it would lose why the step existed at all.
     """
-    return any(
-        span.start() <= position < span.end()
-        for span in _STRIKETHROUGH_RE.finditer(line)
-    )
+    return fully_struck(line, position, position + 1)
 
 
 def _expand(files: _Files, patterns: Iterable[str]) -> list[str]:
@@ -973,6 +1165,11 @@ def collect_declaration_issues(
                 f"Known tables: {', '.join(sorted(known_tables))}."
             )
     _validate_options(declarations.get("options", {}))
+    # Validated here as well as at the maintenance entry point, so a bad table
+    # is refused by every command that reads the file and not only by the one
+    # that happens to consume the thresholds.
+    _archive_config(declarations)
+    _closeout_config(declarations)
 
     # Validate the outer collections before a collector tries to iterate one.
     # Per-declaration validation starts inside that iteration, so it cannot

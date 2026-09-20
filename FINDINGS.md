@@ -1,11 +1,11 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-11
+Last updated: 2026-09-14
 Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
 into WP-3. The WP-7 extension is implemented and refined, and WP-8 awaits owner
 direction.
 PLAYBOOK Section 3 owns the current work order.
-1036 tests across 43 test modules.
+1470 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -142,6 +142,7 @@ Source: owner report and Last.fm API response classification, 2026-08-28.
 ---
 
 ## Resolved this batch
+/resolved which batch?
 
 ### F-B22-1: username validation fails open on any transient error
 
@@ -170,6 +171,8 @@ unaffected. Regression tests:
 and `::test_check_user_exists_rejects_non_404_error_status`.
 
 ## P1 -- Next batch candidates
+/which batch? are these being rotated? Batch 21 closed out
+/so anything from there should be rotated out per docsync.
 
 ### F-B21-55: Results scaling left geometry fixed and collapsed in Firefox
 
@@ -280,6 +283,7 @@ geometry rather than as a class.
 Status: resolved 2026-09-12. Rotates to the archive at batch close-out. Source:
 owner-reported stat-bar padding regression, 2026-09-09; re-measured and ruled
 2026-09-12.
+/resolved in which batch closeout? is it rotated?
 
 ### F-B21-53: the surface-card token now sits darker than the page it lifts off
 
@@ -305,6 +309,7 @@ Status: open for the general card token. The owner warmed the page/navbar
 canvas and selected midpoint surfaces for Results; PLAYBOOK Section 4 records
 that refinement. The comparisons above describe the previous canvas.
 Source: owner-reported stat-bar background regression, 2026-09-09.
+/so is this resolved?
 
 ### F-B21-49: four error-page callers painted a 400 badge on a 200 response
 
@@ -328,6 +333,7 @@ Validation and comment provenance:
 Status: resolved in the review follow-up; closes the remaining call-site
 half of F-B21-10.
 Source: PR #227 TODO verification and owner-authorized priority fix, 2026-09-09.
+/so resolved. so it should rotated?
 
 ### F-B21-50: reconnaissance TODOs in production code generated eight review rounds
 
@@ -440,6 +446,11 @@ browser-coupled ones and still need the gate runnable to prove parity.
 
 Source: PR #227 commit-range audit, 2026-09-09.
 
+/the front end gate is still massive. the work is incomplete,
+/has bootstrap been **Fully** migrated out? I know there
+/is a pointer: `scripts\dev\fixtures\boostrap_fixture.css`
+/what does this do?
+
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached
 
 Every album and Heatmap job calls `user.getrecenttracks` for its requested
@@ -468,6 +479,9 @@ copy that does not help the current wait.
 Status: resolved 2026-09-05; rotates to the archive at Batch 21 close-out.
 Source: annotated owner heatmap-loading screenshot, 2026-09-04.
 
+/batch 21 was closed-out. why is this here?
+
+
 ### F-B21-33: heatmap progress can apply stale responses and mislabel failed pages
 
 Heatmap's interval polls can overlap and apply an older response after a newer
@@ -489,6 +503,8 @@ but must not be presented as successfully received data.
 Status: resolved 2026-09-05; rotates to the archive at Batch 21 close-out.
 Source: owner-requested polling audit, 2026-09-04; current Last.fm callback,
 heatmap worker and browser polling, plus reversed-response execution probe.
+
+/again batch 21 was closed out, why is this here?
 
 ### F-B21-1: a failed event-loop setup leaks a job slot
 
@@ -514,6 +530,8 @@ Status: resolved locally in the Batch 21 WP-7 deviation, pending commit; loop
 setup moved inside the try block in both `background_task`
 and `heatmap_task`, with defensive cleanup in `finally`.
 Source: PR #171 diagram verification, 2026-08-15; verified with TDD mutests 2026-09-10.
+
+/is this confirmed?
 
 ### F-B21-2: three dormant Tailwind seams that WP-2 meets at once
 
@@ -555,6 +573,8 @@ removing Bootstrap at WP-8.
 
 Nothing is broken in production today, which is why WP-1's gates passed over
 all three.
+
+/so is batch 21 closed out.
 
 **Resolved by WP-2 on 2026-08-23.** All three seams are closed. `theme.js`
 dual-writes `data-theme` on `<html>` and `.dark-mode` on `<body>`, and an
@@ -835,6 +855,8 @@ file stays the source of truth. Issues are a read-only mirror.
 Status: open, deferred on purpose. The owner accepted the drift on
 2026-08-22 and asked that the work be recorded rather than done now.
 Source: findings mirror, 2026-08-22.
+
+/correct, sync needs to exist to and from gh to findings
 
 ### F-B21-10: error-page fallback can report 400 for other statuses
 
@@ -1467,7 +1489,45 @@ Position within each source already encodes recency; the cross-source tie-break
 is where it is lost. A fix needs a design decision about what "newer" means
 across the two lists, so it is recorded rather than patched.
 
-Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12.
+**Reproduced again, 2026-09-14 (Batch 22 Task 8):** the
+DB-connect-timeout side-task entry (same day) recorded **1081 passed**;
+Task 8's own current-batch entry, written later that day, recorded
+**1085 passed**. The authority stayed at 1081. Unlike the 2026-09-12
+case, hand-correcting SESSION_CONTEXT/FINDINGS to the true count (1085)
+was tried and rejected by `--check` outright (DOC005/DOC006/DOC008
+recompute the same authority and compare against it), where the earlier
+case's fix (F-DOCSYNC-12) only ever applied to fields the renderer never
+recomputes. Confirms the same mechanism generalizes: a current-batch entry
+written on a day that already has a side-task entry can have its count
+silently shadowed until this is fixed.
+
+Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12; reproduced
+Batch 22 Task 8, 2026-09-14.
+
+### F-DOCSYNC-12: `--fix` does not rewrite two of the three fields DOC006 checks
+
+`doc_state_sync.py --fix` only ever writes the "Latest validated test
+count" line inside `.claude/SESSION_CONTEXT.md`'s `DOCSYNC:STATUS` block
+(`scripts/docsync/renderer.py`). DOC006
+(`scripts/docsync/integrity.py::SESSION_CURRENT_COUNT_RES`) checks that
+line plus two more: the Section 1 "Tests" dashboard row and the Section 6
+"Test structure (N tests)" heading. Neither of those two is ever rewritten
+by `--fix`, so they can drift indefinitely -- reproduced 2026-09-14: both
+sat at a hand-written "1036" untouched since 2026-09-11 through several
+`--fix` runs across three later PLAYBOOK entries (1069, 1079, 1081
+passed), each of which apparently updated the STATUS block correctly
+without tripping DOC006. Why those earlier checks did not already fail on
+the same mismatch is not established here -- worth checking before
+assuming the mechanism above is the whole story. `FINDINGS.md`'s header
+count line has the identical problem under DOC008: also hand-written,
+also never rewritten by `--fix`.
+
+Fix candidates: extend the renderer to also rewrite the Section 1 row,
+the Section 6 heading, and the FINDINGS header from the same authoritative
+count, or fold all three into one place `--fix` actually owns.
+
+Status: open. Source: Batch 22 WP-1, DB-connect-timeout side task,
+2026-09-14 (fix commit `c724ebc`).
 
 ### F-WORKTREE-3: guard boundaries outside the design decision table
 
@@ -1783,10 +1843,43 @@ at its natural aspect ratio, no element overlapping the photo, no opacity
 change on the photo during rotation, and the icon's rendered size and link
 target.
 
+**Partial progress, 2026-09-13 (Batch 22 WP-1 Task 6):** results and
+unmatched rows now link to the album's own provider (`album_url`, not a
+Spotify URL reconstructed from `spotify_id`) and carry a small text
+attribution link naming that provider. This closes the "results rows carry
+no Spotify icon" gap in substance but not to the letter -- it is a text
+label, not either provider's official logo asset, so the ruling below is
+still open. The artist spotlight card is unchanged: still cropped, still
+overlaid, still animated. See F-B22-4 for the logo-asset gap.
+
 Status: open (P1), owner ruling recorded. Source: Spotify API review,
 2026-09-13.
 
 ## P2 -- Scaling roadmap
+
+### F-B22-4: provider attribution on results/unmatched rows is text, not each provider's official logo
+
+Batch 22 WP-1 Task 6 added a per-row attribution link (`.provider-badge` in
+`templates/results.html` and `templates/unmatched.html`) naming the album's
+provider and linking to its `album_url`. Deezer's developer guidelines
+require "a clearly visible Deezer Logo" for any app using its API
+(developers.deezer.com/guidelines#local, /guidelines/logo); F-B21-60 records
+the equivalent Spotify ruling ("Use Spotify's asset as supplied, not a
+redrawn glyph"). Neither provider's actual logo file could be sourced from
+an agent session: no image-fetch tool was available, and guessing a brand
+CDN URL to hotlink was rejected as unsafe. The owner chose the text-badge
+interim over blocking Task 6 on asset sourcing (2026-09-13).
+
+Fix shape: replace `.provider-badge`'s text content with each provider's
+official logo asset once the owner supplies the files (or an agent gains
+image-fetch tooling) -- swap the `<a>`'s text node for an `<img>`/inline
+`<svg>` sized per that provider's own minimum-size rule (Spotify: 21px+, per
+F-B21-60's owner ruling; Deezer: size unspecified on the guidelines page
+itself, deezerbrand.com carries the detail but did not render for an agent
+session). Small and self-contained; no test rewrite beyond swapping the
+`provider-badge` element type assertions.
+
+Status: open (P2). Source: Batch 22 WP-1 Task 6, 2026-09-13.
 
 ### F-B22-2: `assert` guards job-context narrowing in three `album_flow.py` sites
 
@@ -1865,6 +1958,9 @@ Fix shape (owner ruling, 2026-09-13): extend docsync rather than add a tool.
   toolchain the Tailwind build already requires, never as a pre-commit hook.
 - AGENT_NOTES.md "This repository is also a template being extracted" gains a
   line naming diagrams as a third declared surface beside values and anchors.
+
+Note (2026-09-19): DOC013 is taken (docsync finding-lifecycle codes); a new
+invariant for this finding starts at DOC023, not DOC013.
 
 Status: open (P2). Not scheduled; it belongs with docsync work, not with
 Batch 21. Source: architecture review, 2026-09-13.

@@ -1427,6 +1427,9 @@
   .w-\[calc\(6rem\*var\(--results-scale\)\)\] {
     width: calc(6rem * var(--results-scale));
   }
+  .w-fit {
+    width: fit-content;
+  }
   .w-full {
     width: 100%;
   }
@@ -1753,6 +1756,9 @@
   }
   .text-\[0\.75rem\] {
     font-size: 0.75rem;
+  }
+  .text-\[0\.625rem\] {
+    font-size: 0.625rem;
   }
   .text-\[calc\(0\.6875rem\*var\(--results-scale\)\)\] {
     font-size: calc(0.6875rem * var(--results-scale));

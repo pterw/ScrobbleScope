@@ -15,8 +15,6 @@ import time
 
 from scrobblescope import orchestrator as _orchestrator
 from scrobblescope.config import SPOTIFY_REQUESTS_PER_SECOND, SPOTIFY_SEARCH_CONCURRENCY
-from scrobblescope.domain import normalize_name
-from scrobblescope.unmatched import REASON_NO_SPOTIFY_MATCH
 
 
 async def _run_spotify_search_phase(
@@ -28,8 +26,11 @@ async def _run_spotify_search_phase(
 ):
     """Parallel Spotify search for all cache misses.
 
-    Reports progress in the 20-40% range. Registers unmatched albums via
-    add_job_unmatched. Returns (spotify_id_to_key, spotify_id_to_original_data).
+    Reports progress in the 20-40% range. Returns (spotify_id_to_key,
+    spotify_id_to_original_data, search_miss_keys). A search miss is not
+    registered as unmatched here: Deezer gets one fallback attempt first
+    (Batch 22 WP-1 Task 5), so the caller owns the final unmatched write
+    once every provider has had its turn.
     """
     logging.info(
         f"Starting parallel search for {len(cache_misses)} "
@@ -77,27 +78,13 @@ async def _run_spotify_search_phase(
 
     spotify_id_to_key = {}
     spotify_id_to_original_data = {}
+    search_miss_keys = set()
     for key, spotify_id, data in search_results:
         if spotify_id:
             spotify_id_to_key[spotify_id] = key
             spotify_id_to_original_data[spotify_id] = data
         else:
-            original_artist = data["original_artist"]
-            original_album = data["original_album"]
-            unmatched_key = "|".join(normalize_name(original_artist, original_album))
-            _orchestrator.add_job_unmatched(
-                job_id,
-                unmatched_key,
-                {
-                    "artist": original_artist,
-                    "album": original_album,
-                    "reason": "No Spotify match",
-                    "reason_code": REASON_NO_SPOTIFY_MATCH,
-                    "album_image": None,
-                    "spotify_id": None,
-                    "play_count": data.get("play_count"),
-                },
-            )
+            search_miss_keys.add(key)
 
     search_duration = time.time() - search_start_time
     logging.info(
@@ -106,4 +93,4 @@ async def _run_spotify_search_phase(
         f"misses found on Spotify"
     )
 
-    return spotify_id_to_key, spotify_id_to_original_data
+    return spotify_id_to_key, spotify_id_to_original_data, search_miss_keys

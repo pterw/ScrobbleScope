@@ -18,7 +18,7 @@ responsibilities in `scripts/docsync/integrity.py` and
 the current public functions. The kernel resolves a bounded repository corpus,
 named document sets, lifecycle records and authority references; repository
 names and paths remain declarative policy. Existing DOC001-DOC012 behavior and
-CLI diagnostics remain stable while new DOC013-DOC014 checks close the
+CLI diagnostics remain stable while new DOC021-DOC022 checks close the
 source-of-intent gap.
 
 **Tech Stack:** Python 3.13 standard library, TOML, Git, pytest, pre-commit.
@@ -63,7 +63,7 @@ source-of-intent gap.
   cross-line match primitives with source-line preservation.
 - `scripts/docsync/contracts.py` -- typed document-set, lifecycle and authority
   configuration plus deterministic resolution.
-- `scripts/docsync/intent.py` -- DOC013-DOC014 evaluation over resolved contract
+- `scripts/docsync/intent.py` -- DOC021-DOC022 evaluation over resolved contract
   objects; no repository-specific names.
 
 ### Existing files retained as facades
@@ -84,7 +84,7 @@ source-of-intent gap.
 - `tests/test_docsync_corpus.py` -- path, overlay, tracked-set and glob behavior.
 - `tests/test_docsync_markdown.py` -- extracted Markdown primitives.
 - `tests/test_docsync_contracts.py` -- schema and resolution behavior.
-- `tests/test_docsync_intent.py` -- DOC013-DOC014 regression and mutation tests.
+- `tests/test_docsync_intent.py` -- DOC021-DOC022 regression and mutation tests.
 - `tests/test_docsync_integrity.py` -- facade-level parity and integration.
 - `tests/test_docsync_declarations.py` -- facade-level parity and named-set
   scanning.
@@ -197,7 +197,7 @@ minimum = 1
 maximum = 1
 ```
 
-DOC013 owns document-set and lifecycle integrity:
+DOC021 owns document-set and lifecycle integrity:
 
 - every included path is repository-bounded and tracked;
 - every discovered path has exactly one lifecycle record;
@@ -205,7 +205,7 @@ DOC013 owns document-set and lifecycle integrity:
 - `superseded` requires a tracked `superseded_by` target;
 - the target cannot itself be superseded and supersession cannot cycle.
 
-DOC014 owns authority integrity:
+DOC022 owns authority integrity:
 
 - the source exists and is tracked;
 - the regex has exactly one capture group;
@@ -511,7 +511,7 @@ git add scripts/docsync/contracts.py scripts/docsync/models.py scripts/docsync/d
 git commit -m "feat(docsync): Add typed document contracts"
 ```
 
-### Task 5: Add DOC013 lifecycle coverage
+### Task 5: Add DOC021 lifecycle coverage
 
 **Files:**
 
@@ -523,15 +523,15 @@ git commit -m "feat(docsync): Add typed document contracts"
 **Interfaces:**
 
 - Consumes: typed contract configuration and resolved corpus.
-- Produces: DOC013 diagnostics for membership and lifecycle defects.
+- Produces: DOC021 diagnostics for membership and lifecycle defects.
 
-- [ ] **Step 1: Write failing DOC013 tests**
+- [ ] **Step 1: Write failing DOC021 tests**
 
 Cover an unregistered discovered plan, a duplicate record, an untracked plan,
 a record outside its set, a superseded record without a target, a missing
 target, a superseded target and a two-document supersession cycle.
 
-- [ ] **Step 2: Run the tests and confirm DOC013 is absent**
+- [ ] **Step 2: Run the tests and confirm DOC021 is absent**
 
 ```bash
 pytest tests/test_docsync_intent.py -q
@@ -552,16 +552,16 @@ existing DOC001-DOC012 call unchanged.
 - [ ] **Step 5: Prove a mutation fails**
 
 Remove one lifecycle record from the fixture. Record that the test fails with
-DOC013 and names the unregistered path; restore it and rerun green.
+DOC021 and names the unregistered path; restore it and rerun green.
 
-- [ ] **Step 6: Commit DOC013**
+- [ ] **Step 6: Commit DOC021**
 
 ```bash
 git add scripts/docsync/intent.py scripts/docsync/integrity.py tests/test_docsync_intent.py
 git commit -m "feat(docsync): Guard intent document lifecycles"
 ```
 
-### Task 6: Add DOC014 authority resolution
+### Task 6: Add DOC022 authority resolution
 
 **Files:**
 
@@ -573,7 +573,7 @@ git commit -m "feat(docsync): Guard intent document lifecycles"
 **Interfaces:**
 
 - Consumes: `AuthoritySpec`, central lifecycle records and corpus bytes.
-- Produces: DOC014 diagnostics for missing, ambiguous, outside-set or
+- Produces: DOC022 diagnostics for missing, ambiguous, outside-set or
   lifecycle-incompatible authority pointers.
 
 - [ ] **Step 1: Write failing authority tests**
@@ -591,7 +591,7 @@ that order so diagnostics point at the earliest repairable defect.
 - [ ] **Step 3: Prove stale authority fails**
 
 Change the fixture's active plan to `superseded` without changing the source
-pointer. Record that DOC014 fails before restoring the state.
+pointer. Record that DOC022 fails before restoring the state.
 
 - [ ] **Step 4: Run the complete intent and parity suites**
 
@@ -599,7 +599,7 @@ pointer. Record that DOC014 fails before restoring the state.
 pytest tests/test_docsync_intent.py tests/test_docsync_contracts.py tests/test_docsync_contract_compat.py tests/test_docsync_integrity.py -q
 ```
 
-- [ ] **Step 5: Commit DOC014**
+- [ ] **Step 5: Commit DOC022**
 
 ```bash
 git add scripts/docsync/intent.py scripts/docsync/integrity.py tests/test_docsync_intent.py
@@ -696,7 +696,7 @@ make the active-intent document set available to DOC010/DOC011 through
 
 - [ ] **Step 4: Update the documented DOC range**
 
-Change live descriptions from DOC001-DOC012 to DOC001-DOC014 and update the
+Change live descriptions from DOC001-DOC012 to DOC001-DOC022 and update the
 existing declaration that rejects retired range claims. Run the check
 immediately after `.docsync.toml` changes:
 
@@ -704,14 +704,14 @@ immediately after `.docsync.toml` changes:
 python scripts/doc_state_sync.py --check
 ```
 
-Expected initially: deterministic DOC013/DOC014 findings for real lifecycle or
+Expected initially: deterministic DOC021/DOC022 findings for real lifecycle or
 authority drift. Repair the documents or registry based on repository truth;
 never exempt an active contradiction.
 
 - [ ] **Step 5: Prove the current failure class**
 
 In a temporary test corpus, leave an obsolete plan's prose unchanged, mark it
-`superseded`, and point the authority source at it. Confirm DOC014 fails. Point
+`superseded`, and point the authority source at it. Confirm DOC022 fails. Point
 the source at the active replacement and confirm it passes.
 
 - [ ] **Step 6: Sync and commit the repository policy**
@@ -840,8 +840,8 @@ warning if a later batch is open.
 
 - [ ] **Step 3: Repeat the two required mutations**
 
-Temporarily remove an intent lifecycle record and verify DOC013 fails. Restore
-it; temporarily point an authority at a superseded plan and verify DOC014
+Temporarily remove an intent lifecycle record and verify DOC021 fails. Restore
+it; temporarily point an authority at a superseded plan and verify DOC022
 fails. Restore the files and rerun the full ordered gate.
 
 - [ ] **Step 4: Record completion and commit**

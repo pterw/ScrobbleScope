@@ -28,9 +28,9 @@ CATEGORY_METADATA = {
         "fix_hint": 'Choose "All years (no filter)" on a new search to include these releases.',
     },
     REASON_NO_SPOTIFY_MATCH: {
-        "title": "No Spotify Match",
-        "description": "Albums found in your Last.fm history that could not be matched on Spotify.",
-        "badge": "Not on Spotify",
+        "title": "No Match Found",
+        "description": "Albums found in your Last.fm history that could not be matched on Spotify or Deezer.",
+        "badge": "Not Found",
         "fix_hint": "Check album title formatting or artist naming on Last.fm.",
     },
 }

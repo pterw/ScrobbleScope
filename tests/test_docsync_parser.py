@@ -20,6 +20,8 @@ from docsync.parser import (
     _fingerprint,
     _parse_active_batch_state,
     _parse_entries,
+    closed_batch_claims,
+    root_definition_pattern,
 )
 
 # ---------------------------------------------------------------------------
@@ -268,6 +270,37 @@ class TestParseActiveBatchState:
         assert state.last_completed_batch is None
 
 
+class TestClosedBatchClaims:
+    def test_returns_claimed_complete_batches_in_document_order(self):
+        lines = [
+            "- **Batch 18 is complete.**",
+            "- **Batch 21 is complete**, closed 2026-09-13.",
+            "- **Batch 22 is active.**",
+        ]
+        assert closed_batch_claims(lines) == [18, 21]
+
+    def test_fenced_examples_and_comments_are_not_claims(self):
+        lines = [
+            "```",
+            "Batch 9 is complete",
+            "```",
+            "- **Batch 20 is complete.**",
+            "<!-- Batch 19 is complete -->",
+        ]
+        assert closed_batch_claims(lines) == [20]
+
+    def test_duplicate_claims_are_collapsed(self):
+        lines = [
+            "- **Batch 21 is complete.**",
+            "- **Batch 21 is complete**, recorded again.",
+        ]
+        assert closed_batch_claims(lines) == [21]
+
+    def test_empty_and_claim_free_sections(self):
+        assert closed_batch_claims([]) == []
+        assert closed_batch_claims(["- **Batch 22 is active.**"]) == []
+
+
 # ---------------------------------------------------------------------------
 # Regex constant behaviour
 # ---------------------------------------------------------------------------
@@ -310,6 +343,37 @@ class TestRegexPatterns:
     def test_batch_not_defined_re(self):
         assert BATCH_NOT_DEFINED_RE.search("Batch 12 is not yet defined.")
         assert not BATCH_NOT_DEFINED_RE.search("Batch 12 is active.")
+
+
+# ---------------------------------------------------------------------------
+# root_definition_pattern -- the one root-definition naming convention
+# ---------------------------------------------------------------------------
+
+
+class TestRootDefinitionPattern:
+    def test_matches_the_bare_and_suffixed_forms(self):
+        pattern = root_definition_pattern(22)
+        assert pattern.fullmatch("BATCH22.md")
+        assert pattern.fullmatch("BATCH22_DEFINITION.md")
+
+    def test_is_case_insensitive(self):
+        pattern = root_definition_pattern(22)
+        assert pattern.fullmatch("batch22_definition.md")
+        assert pattern.fullmatch("Batch22.MD")
+
+    def test_rejects_a_different_batch_number(self):
+        pattern = root_definition_pattern(22)
+        assert not pattern.fullmatch("BATCH2.md")
+        assert not pattern.fullmatch("BATCH220.md")
+        assert not pattern.fullmatch("BATCH21_DEFINITION.md")
+
+    def test_rejects_a_path_under_a_subdirectory(self):
+        pattern = root_definition_pattern(22)
+        assert not pattern.fullmatch("docs/history/definitions/BATCH22_DEFINITION.md")
+
+    def test_rejects_a_non_markdown_suffix(self):
+        pattern = root_definition_pattern(22)
+        assert not pattern.fullmatch("BATCH22_DEFINITION.txt")
 
 
 # ---------------------------------------------------------------------------
@@ -382,3 +446,26 @@ class TestExtractEntryBatch:
             fingerprint="def",
         )
         assert _extract_entry_batch(multi_batch) is None
+
+
+def test_sections_and_entries_ignore_commented_and_tilde_examples():
+    from docsync.parser import SECTION_3_RE, _find_section, _parse_entries
+
+    lines = [
+        "<!--",
+        "## 3. Active batch",
+        "-->",
+        "~~~~",
+        "## 3. Active batch",
+        "~~~",
+        "## Fake",
+        "~~~~",
+        "## 3. Active batch",
+        "## 4. Execution log",
+    ]
+    assert _find_section(lines, SECTION_3_RE, "section 3") == (8, 9)
+    entries, first = _parse_entries(
+        ["~~~", "### Fake", "~~~", "<!-- ### Fake -->", "### 2026-09-15 - Real", "body"]
+    )
+    assert first == 4
+    assert [entry.title for entry in entries] == ["Real"]

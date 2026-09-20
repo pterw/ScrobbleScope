@@ -7,8 +7,14 @@ import subprocess
 from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
-from docsync.declarations import collect_declaration_issues
+from docsync import findings as findings_module
+from docsync.closeout import collect_definition_issues
+from docsync.declarations import (
+    collect_declaration_issues,
+    load_closeout_config,
+)
 from docsync.logic import latest_test_count_authority
+from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue, SyncError, TestCountAuthority
 from docsync.parser import (
     CURRENT_BATCH_END_MARKER,
@@ -20,6 +26,8 @@ from docsync.parser import (
     _find_section,
     _parse_active_batch_state,
     _parse_entries,
+    closed_batch_claims,
+    root_definition_pattern,
 )
 from docsync.renderer import SIDE_ARCHIVE_PREFIX, _next_wp_number
 
@@ -96,16 +104,25 @@ SESSION_CURRENT_COUNT_RES = (
     re.compile(r"^##\s+\d+\.\s+Test structure\s+\((\d+)\s+tests\)\s*$"),
 )
 
-_LIVE_DOCUMENT_PATHS = frozenset(
-    {
-        "AGENTS.md",
-        "HANDOFF_PROMPT.md",
-        "AGENT_NOTES.md",
-        "PLAYBOOK.md",
-        "FINDINGS.md",
-    }
+# The canonical list of this repository's always-scanned live documents, plus
+# the dashboard path, both named here as plain repository-relative strings
+# rather than `Path` objects: this module never touches a filesystem, it only
+# compares keys against the string-keyed `live_documents` mapping the caller
+# supplies. `cli.py` is the only other module that needs this same set --
+# to build the `Path` objects it actually reads and writes -- and it imports
+# these two names rather than restating them, so the two modules cannot drift
+# on which documents get scanned. `cli.py` already imports from this module,
+# so this is the direction that avoids an import cycle; the FINDINGS.md entry
+# is `findings_module.ACTIVE_PATH` rather than a second literal spelling of
+# the same filename, for the same reason.
+LIVE_DOCUMENT_RELATIVE_PATHS: tuple[str, ...] = (
+    "AGENTS.md",
+    "HANDOFF_PROMPT.md",
+    "AGENT_NOTES.md",
+    "PLAYBOOK.md",
+    findings_module.ACTIVE_PATH,
 )
-_SESSION_CONTEXT_PATH = ".claude/SESSION_CONTEXT.md"
+SESSION_CONTEXT_RELATIVE_PATH = ".claude/SESSION_CONTEXT.md"
 _TRACKED_PATH_DISCOVERY_ERROR = "Repository tracked-file discovery failed"
 
 
@@ -137,15 +154,8 @@ def _normalize_reference(raw: str) -> str:
 def _concrete_references(lines: list[str]) -> list[tuple[int, str]]:
     """Extract literal repository-relative Markdown references and their lines."""
     references: list[tuple[int, str]] = []
-    in_code_block = False
-    for line_number, line in enumerate(lines, start=1):
-        if line.strip().startswith("```"):
-            in_code_block = not in_code_block
-            continue
-        # A fenced block illustrates a command or a historical state rather
-        # than asserting that a file exists now.
-        if in_code_block:
-            continue
+    for index, line in prose_lines(lines):
+        line_number = index + 1
         for pattern in (BACKTICK_MD_RE, MARKDOWN_LINK_RE):
             for match in pattern.finditer(line):
                 reference = _normalize_reference(match.group(1))
@@ -262,9 +272,7 @@ def _active_definition_reference(
         )
 
     line, reference = references[0]
-    batch_token_re = re.compile(
-        rf"^BATCH{current_batch}(?:_[^/]+)?\.md$", re.IGNORECASE
-    )
+    batch_token_re = root_definition_pattern(current_batch)
     if batch_token_re.fullmatch(reference) is None:
         return (
             current_batch,
@@ -286,7 +294,7 @@ def _active_definition_candidates(
     current_batch: int, tracked_paths: frozenset[str]
 ) -> tuple[str, ...]:
     """Return tracked root definitions for one exact batch token."""
-    candidate_re = re.compile(rf"^BATCH{current_batch}(?:_[^/]+)?\.md$", re.IGNORECASE)
+    candidate_re = root_definition_pattern(current_batch)
     candidates = {
         normalized
         for path in tracked_paths
@@ -467,6 +475,20 @@ _UNBOLDED_COUNT_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: A validation line whose count is not on the line itself but wraps to the
+#: next prose line -- often because an HTML comment sits between them. The
+#: trigger has nothing after the `--` to match on its own line.
+_VALIDATION_TRIGGER_RE = re.compile(
+    r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*$",
+    re.IGNORECASE,
+)
+
+#: The wrapped count itself, anchored at the start of its own line.
+_WRAPPED_COUNT_RE = re.compile(
+    r"^\s*(?:\*\*)?(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)\b",
+    re.IGNORECASE,
+)
+
 #: Where the execution log starts. Counts above it are prose, not entries.
 _EXECUTION_LOG_HEADING = "## 4. Execution log"
 
@@ -505,10 +527,48 @@ def _check_unbolded_test_counts(
     # entirely, because nothing in it is bold, can silently hold the wrong
     # number.
     for first, last in _entry_spans(playbook_lines, start):
-        entry_lines = playbook_lines[first:last]
-        if any(TEST_COUNT_RE.search(line) for line in entry_lines):
+        entry_lines = dict(prose_lines(playbook_lines[first:last]))
+        ordered_lines = list(entry_lines.items())
+        explicit = re.compile(
+            r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*(?:\*\*)?(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)\b",
+            re.IGNORECASE,
+        )
+        explicit_claims = [
+            (offset, line, match)
+            for offset, line in ordered_lines
+            for match in explicit.finditer(line)
+        ]
+        # A validation line's count can wrap to the next prose line (often
+        # split by an HTML comment). The trigger line itself carries no
+        # digits, so `explicit` above never sees it as a claim.
+        for position, (_offset, line) in enumerate(ordered_lines):
+            if explicit.search(line) or not _VALIDATION_TRIGGER_RE.search(line):
+                continue
+            if position + 1 >= len(ordered_lines):
+                continue
+            next_offset, next_line = ordered_lines[position + 1]
+            wrapped = _WRAPPED_COUNT_RE.match(next_line)
+            if wrapped is not None:
+                explicit_claims.append((next_offset, next_line, wrapped))
+        if explicit_claims:
+            for offset, line, match in explicit_claims:
+                bold = list(TEST_COUNT_RE.finditer(line))
+                if any(count.start() <= match.start(1) < count.end() for count in bold):
+                    continue
+                issues.append(
+                    _issue(
+                        "DOC012",
+                        "PLAYBOOK.md",
+                        first + offset + 1,
+                        "A full-suite pass claim carries its own bold count.",
+                        f"Write `**{match.group(1)} passed**`.",
+                    )
+                )
             continue
-        for offset, line in enumerate(entry_lines, start=first + 1):
+        if any(TEST_COUNT_RE.search(line) for line in entry_lines.values()):
+            continue
+        for source_offset, line in entry_lines.items():
+            offset = first + source_offset + 1
             match = _UNBOLDED_COUNT_RE.search(line)
             if match is None:
                 continue
@@ -531,7 +591,9 @@ def _check_unbolded_test_counts(
 def _entry_spans(lines: Sequence[str], start: int) -> list[tuple[int, int]]:
     """Return (first, last) index pairs for each `### ` entry after ``start``."""
     heads = [
-        index for index in range(start, len(lines)) if lines[index].startswith("### ")
+        index
+        for index, line in prose_lines(lines)
+        if index >= start and line.startswith("### ")
     ]
     return [
         (head, heads[position + 1] if position + 1 < len(heads) else len(lines))
@@ -828,14 +890,16 @@ def collect_integrity_issues(
                 )
             )
 
-    documents_to_scan = set(_LIVE_DOCUMENT_PATHS)
+    documents_to_scan = set(LIVE_DOCUMENT_RELATIVE_PATHS)
     if definition_path is not None:
         documents_to_scan.add(definition_path)
     if session_lines is not None:
-        documents_to_scan.add(_SESSION_CONTEXT_PATH)
+        documents_to_scan.add(SESSION_CONTEXT_RELATIVE_PATH)
     for path in sorted(documents_to_scan):
         lines = (
-            session_lines if path == _SESSION_CONTEXT_PATH else live_documents.get(path)
+            session_lines
+            if path == SESSION_CONTEXT_RELATIVE_PATH
+            else live_documents.get(path)
         )
         if lines is None:
             continue
@@ -1019,5 +1083,34 @@ def collect_integrity_issues(
     issues.extend(
         collect_declaration_issues(repo_root=repo_root, live_documents=live_documents)
     )
+
+    # DOC019. Every batch PLAYBOOK Section 3 claims complete is held to the
+    # definition-side close-out evidence when it sits at or above the admission
+    # boundary. Below it a batch closed before those signals existed, so its
+    # claim is admitted as it stands; the boundary (an edit in .docsync.toml,
+    # never guessed) is what separates evidence-checked closure from rewritten
+    # history. The archived definition's content arrives through
+    # `live_documents`, the same as every other document this pass reads; the
+    # close-out composition that publishes a real closure must keep it there.
+    closeout_config = load_closeout_config(repo_root)
+    try:
+        section3_start, section3_end = _find_section(
+            playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"
+        )
+    except SyncError:
+        section3_lines: list[str] = []
+    else:
+        section3_lines = playbook_lines[section3_start:section3_end]
+    for batch in closed_batch_claims(section3_lines):
+        archived_path = f"docs/history/definitions/BATCH{batch}_DEFINITION.md"
+        issues.extend(
+            collect_definition_issues(
+                batch=batch,
+                definition_path=archived_path,
+                definition_lines=live_documents.get(archived_path),
+                tracked_paths=tracked_paths,
+                config=closeout_config,
+            )
+        )
 
     return sorted(issues, key=lambda issue: (issue.path, issue.line or 0, issue.code))

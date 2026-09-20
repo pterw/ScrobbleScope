@@ -564,14 +564,28 @@ performance follow-ups continue as F-B18-11 in the active file.
 
 ## Rotated 2026-07-24 (Batch 20 WP-7)
 
-### F-B19-6: register naive-tz anti-pattern in AGENTS.md (follow-up portion) -- RESOLVED
+### F-B19-6: naive-tz day-attribution bug -- RESOLVED
 
-The remaining open portion of F-B19-6 (the code fix was archived in WP-6
-below) was closed in Batch 20 WP-7: the naive-tz vacuous-datetime-test
-anti-pattern is now item 6 in the AGENTS.md Anti-Pattern Registry, citing
+This finding closed in two portions that were rotated separately, leaving two
+headings under one ID. They were merged here on 2026-09-19 because an F-ID is
+a permanent cross-reference key and must resolve to exactly one record; DOC018
+reports the split. Both bodies are preserved verbatim below, and the finding
+is filed at the rotation that closed it.
+
+**Code fix, rotated with Batch 20 WP-6.** PR #152 review (Gemini) surfaced
+that `scrobblescope/heatmap.py` decoded Last.fm UTS values with naive
+`datetime.fromtimestamp` and built the fetch window with naive
+`datetime.now()`. On Fly.io (UTC container) this was silently fine; on local
+Windows dev or any non-UTC host it shifted day attribution by hours. Code
+fixed in PR #152 (commit `ccb000f`) with
 `tests/test_heatmap.py::TestAggregateDailyCounts::
 test_utc_decode_invariant_against_local_tz_drift` as the canonical
-regression example.
+regression test.
+
+**Follow-up, rotated with Batch 20 WP-7.** The remaining open portion was
+closed in Batch 20 WP-7: the naive-tz vacuous-datetime-test anti-pattern is
+now item 6 in the AGENTS.md Anti-Pattern Registry, citing that same
+regression test as its canonical example.
 
 ## Rotated 2026-07-24 (Batch 20 WP-6)
 
@@ -684,16 +698,3 @@ across all job threads. Jobs slow linearly: N jobs sharing 10 req/s =
 
 **Last.fm rate config:** App configures 10 req/s; official limit is 5 req/s
 averaged over 5 minutes. No 429s observed in testing, but aggressive.
-
-### F-B19-6: naive-tz day-attribution bug (code-fix portion) -- RESOLVED
-
-PR #152 review (Gemini) surfaced that `scrobblescope/heatmap.py` decoded
-Last.fm UTS values with naive `datetime.fromtimestamp` and built the fetch
-window with naive `datetime.now()`. On Fly.io (UTC container) this was
-silently fine; on local Windows dev or any non-UTC host it shifted day
-attribution by hours. Code fixed in PR #152 (commit `ccb000f`) with
-`tests/test_heatmap.py::TestAggregateDailyCounts::
-test_utc_decode_invariant_against_local_tz_drift` as the canonical
-regression test. The follow-up (register the naive-tz vacuous-test
-anti-pattern in AGENTS.md) was closed in Batch 20 WP-7; see the WP-7
-rotation block above.
