@@ -807,3 +807,108 @@ def test_theme_is_written_only_as_data_theme() -> None:
     assert "data-theme" in theme_js
     assert "attributeFilter: ['data-theme']" in heatmap_js
     assert "observer.observe(document.body" not in heatmap_js
+
+
+# --- Live release-check disclosure (Batch 22 WP-4 Task 11) ------------------
+
+
+def _results_html(app, **overrides) -> str:
+    """Render results.html with one album and the given extra context."""
+    from scrobblescope.domain import normalize_name
+
+    album = {
+        "artist": "Fleetwood Mac",
+        "album": "Rumours",
+        "play_count": 42,
+        "release_date": "2011-01-24",
+        "album_url": "https://example.com/album",
+        "provider": "spotify",
+        "_normalized_key": normalize_name("Fleetwood Mac", "Rumours"),
+    }
+    context = {
+        "job_id": "job-1",
+        "username": "someone",
+        "year": "2024",
+        "data": [album],
+    }
+    context.update(overrides)
+    with app.test_request_context("/"):
+        return render_template("results.html", **context)
+
+
+def test_every_row_carries_the_same_album_key_the_api_uses(app) -> None:
+    """The row and the API must name an album identically, or no marker lands.
+
+    `format_album_key` is the one producer of that string; the template reads
+    it through the `album_key` filter rather than joining the pair itself.
+    """
+    from scrobblescope.domain import format_album_key, normalize_name
+
+    html = _results_html(app)
+
+    expected = format_album_key(normalize_name("Fleetwood Mac", "Rumours"))
+    assert f'data-album-key="{expected}"' in html
+    assert expected == "fleetwood mac|rumours"
+
+
+def test_a_row_without_a_normalized_key_renders_an_empty_album_key(app) -> None:
+    """A result built without the key must not break the page it is on."""
+    html = _results_html(
+        app,
+        data=[
+            {
+                "artist": "Fleetwood Mac",
+                "album": "Rumours",
+                "play_count": 42,
+                "release_date": "2011-01-24",
+            }
+        ],
+    )
+
+    assert 'data-album-key=""' in html
+
+
+def test_the_release_check_bar_is_in_flow_before_any_marker_lands(app) -> None:
+    """The status line renders with the page, not when the first reply lands.
+
+    It sits above the table, so creating it later would push every row down --
+    the one thing the owner ruling forbids. It is rendered from first paint
+    whenever the job has correction work, and removed only at the end.
+    """
+    html = _results_html(
+        app, release_check={"status": "running", "checked": 0, "total": 9}
+    )
+
+    assert 'id="release-check-bar"' in html
+    assert 'id="release-check-status"' in html
+    assert 'role="status"' in html
+    assert 'aria-live="polite"' in html
+    assert "js/results-release-checks.js" in html
+
+
+def test_the_release_check_bar_is_absent_when_there_is_nothing_to_check(app) -> None:
+    """No MusicBrainz contact, no correction pass, so no reserved space."""
+    assert 'id="release-check-bar"' not in _results_html(
+        app, release_check={"status": "skipped", "checked": 0, "total": 0}
+    )
+    assert 'id="release-check-bar"' not in _results_html(app)
+
+
+def test_the_release_check_poller_stops_on_every_terminal_state() -> None:
+    """Polling forever against a finished job is the failure mode here.
+
+    The endpoint answers `done`, `skipped`, and `error`, and Task 10 chose
+    `error` precisely so an unrecognised status stops the loop too. The
+    script must therefore continue on the two live states only, never stop
+    on a list of terminal ones it could fall off the end of.
+    """
+    script = (
+        Path(__file__).resolve().parents[1]
+        / "static"
+        / "js"
+        / "results-release-checks.js"
+    ).read_text(encoding="utf-8")
+
+    assert "'pending'" in script and "'running'" in script
+    assert "visibilitychange" in script
+    assert "setInterval(" not in script, "F-B21-33: overlapping interval polls"

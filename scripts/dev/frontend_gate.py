@@ -72,6 +72,7 @@ from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
     _worst_divider_contrast,
 )
 from scripts.dev._frontend_gate_results import (  # noqa: E402
+    check_release_check_disclosure,
     check_results_interactions,
     check_results_provider_attribution,
 )
@@ -4102,6 +4103,12 @@ CHECKS = (
     (
         "results provider attribution",
         check_results_provider_attribution,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "release check disclosure",
+        check_release_check_disclosure,
         (DESKTOP,),
         LAYOUT_PIPELINE,
     ),

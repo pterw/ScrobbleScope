@@ -228,6 +228,12 @@ def _render_results_page():
             job_id=job_id,
         )
 
+    # Passed so the release-check status line renders with the page. It sits
+    # above the table, so creating it on the first poll reply would push every
+    # row down -- the one move the owner's progressive-disclosure ruling
+    # forbids. A skipped pass reserves nothing, because nothing will report.
+    release_check = progress_payload.get("stats", {}).get("release_check")
+
     spotlight_artists = select_spotlight_artists(filtered_results, job_id)
     spotlight_artist = spotlight_artists[0] if spotlight_artists else {}
     top_artist_name = spotlight_artist.get("name", "")
@@ -257,6 +263,7 @@ def _render_results_page():
         top_artist_play_time=top_artist_play_time,
         top_artist_image=top_artist_image,
         spotlight_artists=spotlight_artists,
+        release_check=release_check,
     )
 
 

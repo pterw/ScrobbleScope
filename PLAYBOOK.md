@@ -99,15 +99,14 @@ See FINDINGS F-DOCSYNC-3.
   correction worker that populates new `original_release_cache` rows live
   (`scrobblescope/release_checks.py`, one process-wide thread fed a FIFO
   queue of job ids by `_fetch_and_process`).
-- **WP-4 is in progress.** Task 10 landed
-  `GET /api/release_checks?job_id=`, which serves the correction worker's
-  findings to an open results page. Task 11 remains.
-- **Next action:** Task 11, WP-4's live disclosure -- poll that endpoint from
-  the results page, mark corrected rows in place without moving them, and
-  announce moved-in albums with a reload action. WP-4 closes with it, and
-  **WP-5 is next** after that: docs and close-out. (Section 4's WP-4 entry
-  advances the derived pointer to WP-5 as soon as a WP-4 entry exists; the
-  work package itself is not finished until Task 11 is.)
+- **WP-4 is complete.** Task 10 added `GET /api/release_checks?job_id=` and
+  Task 11 disclosed its findings live on the results page, without moving a
+  row while the page is open.
+- **Next action:** **WP-5 is next**, the batch's documentation and close-out:
+  the new environment variables and the MusicBrainz contact in `README.md`,
+  the Deezer non-commercial constraint, the release-year source in
+  `docs/architecture/runtime-system.md` and `docs/design/RECONCILIATION.md`,
+  then the standard close-out procedure.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
   chartered. The owner moved it to Batch 23's close-out on 2026-09-13 so it
   covers the final UI once. Batch 23's plan carries the obligation; do not
@@ -1000,6 +999,94 @@ results row carrying `format_album_key`'s output, a status line reading
 markers that do not move a row, and the moved-in announcement from
 `moved_in` with a reload action. Polling stops on `done`, on `skipped`, on
 any unrecognised status, and on a failed request.
+
+### 2026-09-20 - Live release-year disclosure (Batch 22 WP-4)
+
+Scope: `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md`
+Task 11, which closes WP-4. The results page now polls Task 10's endpoint and
+discloses corrections as they land, under the owner's progressive-disclosure
+ruling: results render at once, a corrected row stays exactly where it is,
+and the list re-sorts only on reload.
+
+`static/js/results-release-checks.js` (new, split from `results.js` the way
+`results-spotlight.js` already is): polls `GET /api/release_checks` every two
+seconds, pauses while the tab is hidden, and stops on any status that is not
+`pending` or `running`. Stopping on the *absence* of a live state rather than
+on a list of terminal ones is why Task 10 answers `error` for a missing job:
+a word this script has never heard of has to stop it, not slip through.
+
+`templates/results.html`: each row carries `data-album-key`, rendered through
+a new `album_key` Jinja filter so the row and the endpoint name an album by
+one function (`scrobblescope.domain.format_album_key`) rather than two
+spellings of the same join. The status line is rendered **with the page**,
+from the job's own `release_check` state, not created when the first reply
+arrives: it sits above the table, so injecting it later would push every row
+down, which is the one movement the ruling forbids. It is absent entirely
+when the pass is `skipped` or already `done`, and `results.js` removes it if
+the pass ends with nothing to report.
+
+The marker goes inside the release cell, under the date. That cell is shorter
+than the row's artwork, so a corrected row gains a line without gaining
+height, and the gate measures every row's top before and after to prove it.
+A `moved_out` row shows its original year in place of the provider's reissue
+date, with a muted mono kicker linking to the unmatched report and an
+`aria-label` carrying the full sentence. `confirmed` and `unavailable` rows
+are marked in the DOM but show nothing: neither tells a reader anything the
+row does not already say. Moved-in albums are announced as a count plus a
+reload action, never inserted.
+
+**A gate finding that was the gate's own defect.** The new contrast check
+reported the note at 3.78:1 against the table surface, then 3.22:1 after a
+recolour, then 1.19:1 against the page's own ink -- a figure no theme could
+produce. `_parse_rgb_string` reads the first three numbers out of a computed
+colour and treats them as 0-255 channels, but the results surface is a
+`color-mix()`, which a browser serializes as `color(srgb 0.96 0.94 0.91)`
+with channels in 0-1. Every such surface collapsed to near black.
+`scripts/dev/_frontend_gate_colour.py` now scales that form, with a unit test
+pinning both serializations. The real ratios clear the 4.5:1 text floor in
+both themes -- muted 4.90:1 light and 5.59:1 dark -- so the note kept the
+muted treatment the design called for, and two changes made to satisfy a
+false measurement were reverted. The defect was not new: any check measuring
+a `color-mix()` surface was reading a different colour than the one on screen.
+
+**Filed, not fixed:** F-B21-62. `docs/design/README.md` names `--ss-warn`,
+`--ss-good` and `--ss-bad` and says a mono kicker is exactly what they are
+for, but no stylesheet defines them, and a page may not read a token its own
+sheets do not define. The first attempt to use the documented treatment had
+to pick another token.
+
+Tests (+6): five in `tests/test_template_shell.py` -- the row key matching
+`format_album_key`, an unkeyed result rendering an empty attribute rather
+than breaking the page, the status line being in flow from first paint with
+its `role="status"` and `aria-live`, its absence when there is nothing to
+check, and the poller continuing on the live states only with no
+`setInterval` (F-B21-33). One in
+`tests/scripts/dev/test_frontend_gate_colour.py` for the `color(srgb ...)`
+serialization.
+
+Gate: `check_release_check_disclosure` scripts two replies and proves WP-4's
+acceptance conditions -- no row moves when a marker lands, the corrected
+row shows its original year and links to the unmatched report, the note
+clears the text-contrast floor, moved-in albums get a reload action, polling
+makes no further request after a terminal status, and nothing overflows at
+390px or 1280px.
+
+Validation: `pytest -q` -- **1512 passed** (was 1506; +6). The frontend gate
+-- **30 checks passed in 52 runs** across chromium and firefox (was 29 in 50;
+this task adds one check, and the run count follows).
+`ruff check` and `ruff format` clean. `doc_state_sync.py --check` exit 0 with
+the expected root-definition and DOC023 warnings. The count the managed block
+and the three hand-written fields carry is still the superseded 1497, for the
+F-DOCSYNC-11 reason the Task 10 entry above records.
+
+Forward guidance: WP-5 is next -- README for the new environment variables
+and the MusicBrainz contact, the Deezer non-commercial constraint,
+`docs/architecture/runtime-system.md` for the release-year source, then the
+standard close-out. Two items belong in that pass: neither the worker nor
+this endpoint appears in SESSION_CONTEXT Section 5's architecture overview,
+and `docs/design/RECONCILIATION.md` still needs the plan's note that a
+displayed release year may now come from MusicBrainz rather than the
+provider.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 

@@ -37,11 +37,11 @@ Last updated: 2026-09-20
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
 - Current batch: Batch 22.
-- Current-batch entries in active log block: 12.
+- Current-batch entries in active log block: 13.
 - Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4.
 - Next expected work package: WP-5.
 - Latest validated test count: **1497 passed**.
-- Newest current-batch entry: 2026-09-20 - The release-check JSON endpoint (Batch 22 WP-4).
+- Newest current-batch entry: 2026-09-20 - Live release-year disclosure (Batch 22 WP-4).
 <!-- DOCSYNC:STATUS-END -->
 
 ---

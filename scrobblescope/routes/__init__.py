@@ -25,6 +25,7 @@ from datetime import datetime
 
 from flask import Blueprint, render_template, request, session, url_for
 
+from scrobblescope.domain import format_album_key
 from scrobblescope.lastfm import check_profile_is_public, check_user_exists
 from scrobblescope.repositories import cleanup_expired_jobs, get_job_context
 from scrobblescope.spotify import fetch_spotify_access_token
@@ -170,6 +171,23 @@ def _render_no_job_state(title, message):
     )
 
 
+@bp.app_template_filter("album_key")
+def album_key_filter(result):
+    """Return the wire key for *result*, or "" when it carries none.
+
+    The results page puts this on each row and
+    ``GET /api/release_checks`` names the same album by the same string, so
+    a marker finds its row. Both read
+    ``scrobblescope.domain.format_album_key`` rather than spelling the join
+    twice. A result with no ``_normalized_key`` renders an empty attribute:
+    the endpoint skips such a result too, so the row is simply never
+    addressed, which is what an unkeyed result already means everywhere else
+    (see ``update_job_result``).
+    """
+    normalized_key = (result or {}).get("_normalized_key")
+    return format_album_key(normalized_key) if normalized_key else ""
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
@@ -247,6 +265,7 @@ from scrobblescope.routes.album_flow import (  # noqa: E402
 
 __all__ = [
     "_check_profile_is_public",
+    "album_key_filter",
     "_check_user_exists",
     "_filter_results_for_display",
     "_get_filter_description",

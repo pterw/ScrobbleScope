@@ -542,3 +542,65 @@
     }
 }
 
+/* Live release-year corrections (Batch 22 WP-4 Task 11).
+
+   The bar is rendered with the page and holds its line whether or not it has
+   anything to say yet, so the first reply cannot push the table down. It is
+   removed outright only when the pass ends with nothing to report, which is
+   the one movement the owner's ruling allows. */
+.release-check-bar {
+    display: flex;
+    align-items: baseline;
+    gap: calc(0.5rem * var(--results-scale));
+    min-height: calc(1.25rem * var(--results-scale));
+    margin-bottom: calc(0.5rem * var(--results-scale));
+    font-family: var(--font-mono-narrow);
+    font-size: calc(0.75rem * var(--results-scale));
+    font-weight: 400;
+    letter-spacing: 0.03em;
+    color: var(--ss-text-muted);
+}
+
+.release-check-reload {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.release-check-reload:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+/* The note sits under the date inside the release cell, which is shorter than
+   the row's artwork, so a corrected row gains a line without gaining height.
+   It follows .provider-badge above -- muted by default, accent on hover --
+   because that is this page's established quiet-link treatment and a
+   correction is meant to be found, not shouted. Muted clears the 4.5:1 text
+   floor against this surface in both themes (4.90:1 light, 5.59:1 dark),
+   which the gate measures on every run. docs/design/README.md names a
+   --ss-warn status colour for exactly this kind of mono kicker, but no
+   stylesheet defines one (F-B21-62), and a page may not read a token its own
+   sheets do not define. */
+.release-check-note {
+    display: block;
+    margin-top: calc(0.125rem * var(--results-scale));
+    font-family: var(--font-mono-narrow);
+    font-size: calc(0.5625rem * var(--results-scale));
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ss-text-muted);
+    text-decoration: none;
+}
+
+.release-check-note:hover,
+.release-check-note:focus-visible {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+.release-check-note:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}

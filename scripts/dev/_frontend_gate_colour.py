@@ -32,9 +32,18 @@ __all__ = [
 
 
 def _parse_rgb_string(value: str) -> tuple[float, float, float, float]:
-    """Parse a computed ``rgb()``/``rgba()`` string into an (r, g, b, a) tuple."""
+    """Parse a computed colour string into an (r, g, b, a) tuple of 0-255 channels.
+
+    Handles ``rgb()``/``rgba()`` and the ``color(srgb r g b / a)`` form, which
+    is how a browser serializes a computed ``color-mix()``. That form states
+    its channels in 0-1, and reading them as 0-255 collapses any such colour
+    to near black -- the results table's own surface is a ``color-mix()``, so
+    a contrast measurement against it reported 1.19:1 for ink that plainly
+    reads against it.
+    """
     numbers = [float(part) for part in re.findall(r"[\d.]+", value)]
-    red, green, blue = numbers[:3]
+    scale = 255.0 if value.strip().startswith("color(") else 1.0
+    red, green, blue = (number * scale for number in numbers[:3])
     alpha = numbers[3] if len(numbers) > 3 else 1.0
     return red, green, blue, alpha
 

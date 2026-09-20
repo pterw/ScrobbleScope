@@ -1,9 +1,10 @@
 # BATCH22: Enrichment providers and original release years
 
-**Status:** Active. WP-0 through WP-3 are complete and WP-4 is in progress: Task 10 landed the release-check endpoint and Task 11 remains. **WP-5 is the next batch work package** once WP-4 closes. Owner-approved 2026-09-13.
+**Status:** Active. WP-0 through WP-4 are complete. **WP-5 is the next batch work package**: documentation and close-out. Owner-approved 2026-09-13.
 **Branch:** `feat/batch22-enrichment` (worktree off `test`).
-**Baseline:** 1034 tests passing at batch open; the frontend gate runs 28
-checks in 50 runs.
+**Baseline:** 1034 tests passing at batch open, where the frontend gate ran
+28 checks in 50 runs. Both numbers are the batch-open measurement, not a
+standing claim: the latest of each lives in the newest Section 4 entry.
 **Plan of record:**
 `docs/superpowers/plans/2026-09-13-batch22-enrichment-providers.md` carries
 every task, its tests and its exact commands. This file carries the scope,
@@ -152,14 +153,14 @@ a single process-wide worker that corrects a capped set per job.
   is unchanged. A job with the client disabled records `skipped` and makes no
   request.
 
-### WP-4 -- Progressive disclosure, frontend
+### ~~WP-4 -- Progressive disclosure, frontend~~ -- **DONE**
 
 `GET /api/release_checks`, a status line, and per-row markers. A corrected
 row stays in place, muted, showing the original year. Rows never move while
 the page is open; moved-in albums are announced with a reload link.
 
 - [x] Task 10: add the job-scoped release-check JSON endpoint.
-- [ ] Task 11: poll that endpoint, stop in a terminal state and disclose
+- [x] Task 11: poll that endpoint, stop in a terminal state and disclose
   corrections without mutating the live sort order.
 - **Acceptance:** the gate proves no row moves when a marker lands, polling
   stops when the status is done or skipped, moved-in albums receive a reload

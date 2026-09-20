@@ -1855,6 +1855,25 @@ Status: open (P1), owner ruling recorded. Source: Spotify API review,
 
 ## P2 -- Scaling roadmap
 
+### F-B21-62: the design system's status colours are documented but undefined
+
+`docs/design/README.md` names three status colour pairs -- `--ss-good`
+`#2f7a4a`/`#6fcf97`, `--ss-warn` `#b35a1f`/`#e0a458`, `--ss-bad`
+`#b03434`/`#e07070` -- and states what they are for: "3px rules and mono
+kickers, never as full-bleed tinted cards". No stylesheet defines any of the
+three. `test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads`
+fails any page that reads one, so the documented treatment cannot be used at
+all, and the first attempt to use it (the release-correction kicker, Batch 22
+WP-4 Task 11) had to pick a different token.
+
+This is the `docs/ARCHITECTURE.md` rule in another form: the document is a
+claim about the code that nothing checked, and the code wins. Either the
+tokens ship in `static/css/tailwind.src.css` for both themes, or the README
+stops describing a treatment nothing can apply. Sizing is small; deciding
+which way is a design-system call, not an implementation one.
+
+Status: open (P2, owner-gated). Source: Batch 22 WP-4 Task 11, 2026-09-20.
+
 ### F-SWE-8: the mutation-test runner is written, unadopted, and uncommitted
 
 `scripts/dev/mutation_test.py` and `scripts/dev/mutation_scope.toml` exist in

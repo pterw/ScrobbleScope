@@ -192,3 +192,17 @@ class TestFacadeStillReExportsTheMovedHelpers:
         # that happens to share the name would satisfy `callable()` while
         # every caller reading the moved implementation's behaviour breaks.
         assert getattr(frontend_gate, name) is getattr(_frontend_gate_colour, name)
+
+
+def test_parse_rgb_string_reads_the_color_srgb_serialization() -> None:
+    """A color-mix() background comes back as color(srgb ...), not rgb().
+
+    Chromium serializes a computed `color-mix(in srgb, ...)` that way, with
+    channels in 0-1 rather than 0-255. Read as 0-255 they collapse to near
+    black, which turned a real contrast measurement on the results table into
+    1.19:1 against ink that plainly reads against it. Every check that
+    measures a surface built from color-mix depends on this.
+    """
+    assert _parse_rgb_string("color(srgb 0.98 0.97 1)") == (249.9, 247.35, 255.0, 1.0)
+    assert _parse_rgb_string("color(srgb 0 0 0 / 0.5)") == (0.0, 0.0, 0.0, 0.5)
+    assert _parse_rgb_string("rgb(26, 24, 32)") == (26.0, 24.0, 32.0, 1.0)
