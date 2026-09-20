@@ -43,6 +43,18 @@ def _corpus(entries: list[str]) -> str:
     return PROLOGUE + "\n\n" + "\n\n".join(entries) + "\n"
 
 
+def _prepend(text: str, entry: str) -> str:
+    """Insert one entry at the newest end, where real producers put it.
+
+    Every producer feeding these archives sorts newest first (see
+    `logic._dedup_sorted`), so a freshly rotated entry lands immediately
+    after the prologue -- never at the end, which is the oldest end.
+    """
+    normalized = normalize(text)
+    first = normalized.index("### ")
+    return normalized[:first] + entry + "\n\n" + normalized[first:]
+
+
 def _store(tmp_path: Path, **kwargs) -> tuple[ArchiveStore, Path]:
     root = tmp_path / "findings"
     root.mkdir()
@@ -196,7 +208,7 @@ def test_finalized_page_names_are_stable_on_append(tmp_path):
         for page in _manifest(index)["pages"][:-1]
     }
 
-    grown = first + [_entry(f"F-new-{n}", body=6) for n in range(8)]
+    grown = [_entry(f"F-new-{n}", body=6) for n in range(8)] + first
     updates = store.plan(index, _corpus(grown))
     _apply(updates)
     after = [page["name"] for page in _manifest(index)["pages"]]
@@ -209,6 +221,31 @@ def test_finalized_page_names_are_stable_on_append(tmp_path):
                 == (finalized_bytes[page["name"]])
             )
     assert store.read(index) == normalize(_corpus(grown))
+
+
+def test_a_prepended_entry_rewrites_only_the_tail_page(tmp_path):
+    """The newest-first producers must not repack the whole archive.
+
+    Entries reach an archive newest first, so a rotation prepends. Matching
+    pages against the text in that order misses on the very first page and
+    sends every finalized page back through the packer, renumbering history
+    no one edited. Only the writable tail and the index may move.
+    """
+    store, index = _store(tmp_path, max_lines=40)
+    first = [_entry(f"F-{n}", body=6) for n in range(30)]
+    _apply(store.plan(index, _corpus(first)))
+
+    pages_before = [page["name"] for page in _manifest(index)["pages"]]
+    tail = pages_before[-1]
+
+    grown = _prepend(_corpus(first), _entry("F-newest", body=6))
+    updates = store.plan(index, grown)
+    touched = {path.name for path in updates}
+
+    assert touched <= {tail, index.name}, sorted(touched)
+    _apply(updates)
+    assert [page["name"] for page in _manifest(index)["pages"]] == pages_before
+    assert store.read(index) == normalize(grown)
 
 
 def test_writable_tail_receives_entries_up_to_the_target(tmp_path):
@@ -529,7 +566,9 @@ def test_mixed_age_page_stays_hot(tmp_path):
 def test_undated_entries_keep_their_page_hot(tmp_path):
     store, index = _store(tmp_path, max_lines=30)
     entries = [_entry(f"F-{n}", body=4, completed=OLD) for n in range(19)]
-    entries.insert(1, _entry("F-undated", body=4))
+    # Near the oldest end, so it lands on a finalized page rather than on
+    # the writable tail, which stays hot regardless.
+    entries.insert(-1, _entry("F-undated", body=4))
     text = _corpus(entries)
     _apply(store.plan(index, text))
 
@@ -601,7 +640,7 @@ def test_appending_after_cold_migration_keeps_cold_pages_in_place(tmp_path):
         page["name"] for page in _manifest(index)["pages"] if page["location"] == "cold"
     }
 
-    grown = normalize(text).rstrip("\n") + "\n\n" + _entry("F-new", body=4) + "\n"
+    grown = _prepend(text, _entry("F-new", body=4))
     _apply(store.plan(index, grown))
     cold_after = {
         page["name"] for page in _manifest(index)["pages"] if page["location"] == "cold"
