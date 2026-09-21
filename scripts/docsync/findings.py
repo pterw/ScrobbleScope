@@ -367,6 +367,19 @@ _PROSE_OUTCOME_RE = re.compile(
 #: -- cannot suppress a real claim either.
 _NEGATED_OUTCOME_RE = re.compile(r"\bnot\b(?:[\W_]{1,4}yet)?[\W_]{0,4}$", re.IGNORECASE)
 
+#: A legacy status label whose value opens with "closed": `Status: closed.`,
+#: `- **Status:** closed`, or the same label after a sentence ends. "Closed"
+#: is not rotation vocabulary -- the canonical record still says `resolved`
+#: -- but it is how a pre-lifecycle author said the same thing, and a finding
+#: written that way sat unrotated for weeks (F-B21-13). The word alone is
+#: never read: findings mention closed batches, work packages and PRs
+#: constantly. Only the capitalised `Status` label counts, and only when
+#: "closed" is the first word after it, so "partly closed" and "not closed"
+#: are not claims.
+_LEGACY_CLOSED_STATUS_RE = re.compile(
+    r"(?:^\s*(?:[-*+]\s+)?|[.;!?]\s+)(?:\*\*)?Status:?(?:\*\*)?:?\s*[Cc]losed\b"
+)
+
 
 def _claims_a_terminal_outcome(finding: _Finding) -> bool:
     """Whether the finding's prose says it is finished.
@@ -376,6 +389,8 @@ def _claims_a_terminal_outcome(finding: _Finding) -> bool:
     avoid the word -- losing the very signal this check reads.
     """
     for line in finding.body_lines:
+        if _LEGACY_CLOSED_STATUS_RE.search(line):
+            return True
         for match in _PROSE_OUTCOME_RE.finditer(line):
             if not _NEGATED_OUTCOME_RE.search(line[: match.start()]):
                 return True

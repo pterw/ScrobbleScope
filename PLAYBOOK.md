@@ -358,6 +358,44 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - DOC023 reads a legacy "Status: closed" as a claim
+
+Side task, no batch tag, owner-approved on 2026-09-21 with one condition:
+it must not start flagging findings that merely mention a closed batch, work
+package or PR. Control-plane change, committed with the documented escape
+`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run by hand on
+the final tree.
+
+**Why.** F-B21-13's prose said "Status: closed." for four weeks while the
+finding sat active. DOC023 recognises only `resolved` and `no action`, the
+rotation vocabulary, so the word the author actually used was invisible to
+it. That is the one real pattern miss the morning's findings pass found.
+
+**Plan vs implementation.** Measured before designing: matching "closed" on
+any body line fired on two findings, one of them F-B21-25, whose status is
+"partly closed" -- a false positive even on the status line. So the rule is
+narrow: `_LEGACY_CLOSED_STATUS_RE` in `scripts/docsync/findings.py` matches a
+capitalised `Status` label (plain, bold, or after a sentence ends) whose value
+*opens* with "closed". Rotation vocabulary is unchanged: "closed" is a way to
+detect the claim, not an outcome a record may state, so the remedy is still a
+`resolved` record. `docs/architecture/documentation-tooling.md` records the
+rule beside DOC023.
+
+**Tests.** Ten in `tests/test_docsync_findings.py`. Four claim shapes, red
+before the pattern existed. Six non-claims, which pass before and after:
+"partly closed", "not closed", "closes at", and "closed" in ordinary prose
+about a batch, a work package and a PR. On the live corpus the check stays
+clean: F-B21-25 is not flagged.
+
+**Validation:** `pytest -q` -- **1553 passed**. `pre-commit run --all-files`
+with `SKIP=doc-state-sync-check` -- every other hook passes.
+`doc_state_sync.py --check` run directly -- exit 0.
+
+**Forward guidance:** other pre-lifecycle spellings ("fixed", "done") were
+measured and left out: on status lines they appeared only qualified ("the
+scope itself is fixed", "closes at WP-8"). Add one only with a measured
+instance, the same way.
+
 ### 2026-09-21 - Broad catches judged one by one, then gated (F-MAS-4)
 
 Side task, no batch tag, owner-approved on 2026-09-21 because the count only
@@ -491,83 +529,3 @@ all hooks pass. `doc_state_sync.py --check` exit 0. `ruff check` clean.
 **Forward guidance:** F-SWE-7 (`utils.py`) is the sibling split, and wants a
 work package of its own. Batch 23 WP-0's export wrapper should call
 `new_thread_event_loop` rather than add a fourth platform branch.
-
-### 2026-09-21 - Between-batch verification: findings, MusicBrainz policy, one diagram
-
-Side task, no batch tag. The owner is using the gap before Batch 23 to close
-findings and verify earlier agent work against its sources. Scope was three
-checks and the fixes they produced.
-
-**Six findings rotated that had been finished for weeks or months.** None
-carried a lifecycle record, so rotation could not see them, and DOC023 could
-not flag them because their prose still said "open" or "in progress" -- stale
-text rather than a missed pattern. Each was verified against git and source
-before its box was checked, with the landing date as its completion date:
-F-DOCSYNC-1 (`fd39c89`, 2026-02-26 -- seven months), F-B21-8 (`20dfe0d`),
-F-B21-13 (`8ed1650`), F-B21-12 (`c7bfaec`), F-B20-4 (`9152fd3`), and F-B21-50
-as no action by owner ruling. F-B21-13 is the one real pattern miss: its
-prose said "closed", a word DOC023 does not read.
-
-**F-B20-3 gained its record but stays active.** Bootstrap is gone on this
-branch (`85e7511`), but `origin/main` is what Fly.io deploys and still loads
-it, so it reads "resolved locally, pending deploy" like the five Batch 21
-findings in the same state (F-B21-10, -26, -27, -28, -29). DOC014 is right
-to hold all six until `main` advances; they are not stuck.
-
-**F-STYLE-2 narrowed, and `.flake8` deleted.** Ruff (`c7bfaec`) settled the
-line length at 88; the orphaned `.flake8` still claimed 120 and nothing read
-it. What remains open is only the docstring convention.
-
-**MusicBrainz: the code is right and its stated reason was wrong.** Checked
-against the upstream API and rate-limiting pages, including the raw wiki
-text. `client=` is required only on POST (data submission); this app sends
-GET searches, so omitting it is correct. The User-Agent format, the 1 req/s
-per IP limit, the 503 on throttling, `fmt=json`, and the `releasegroup` and
-`artist` search fields all match. But the code, its docs and its tests said
-MusicBrainz "blocks
-anonymous clients outright" and that a contact-less request "would only
-guarantee a rejected request". Upstream, "anonymous" is a named list of
-library defaults (blank, `Java`, `Python-urllib`, ...) that share a throttled
-pool; the contact is a policy requirement, and breaking it risks throttling
-or a block. The design -- stay disabled without a contact -- is unchanged;
-the reason is corrected in `musicbrainz.py`, `release_checks.py`,
-`config.py`, `.env.example`, `DEPLOY.md`, `README.md` and four test
-docstrings, which also now say an email or a URL is accepted. The Batch 22
-plan keeps its wording as a historical record.
-
-**Architecture diagrams, verified mechanically.** `runtime-system.md` was
-compared with the module import graph extracted by `ast`: no missing edge, no
-extra edge, the three deferred imports drawn dotted, and all ten `config.py`
-importers at their cited lines. `heatmap-sequence.md` matches `heatmap_task`
-and `/heatmap_data`. `top-albums-sequence.md` had one false paragraph: it said
-`background_task`'s `finally` "is not reached if the event-loop setup above it
-fails". The setup is inside the `try`, so the release is unconditional -- and
-the diagram's own note near its end already said so. Rewritten.
-
-**Deviation: a real test-isolation defect, surfaced by configuring the
-contact.** The first full run after the owner set `MUSICBRAINZ_CONTACT` failed
-`test_enqueue_release_check_queues_jobs_in_order` intermittently. A probe
-plugin showed why: `app.py` loads the developer's `.env`, so every unpatched
-happy-path pipeline test now enqueued its job and started the **real**
-`release-checks` thread (the first was a test in
-`tests/services/test_orchestrator_fetch_and_process.py`), which drained the
-shared queue the order test reads and
-could reach musicbrainz.org and the local Postgres. No real call went out in
-the probed run; nothing stopped one either. CI never saw it because it has no
-`.env`. Fixed in `tests/conftest.py` beside the existing `SECRET_KEY` guard:
-`MUSICBRAINZ_CONTACT` is forced empty before `app` is imported, which
-`load_dotenv` will not override. Re-probed: no worker, no queue residue, no
-MusicBrainz attempt. Regression test
-`test_session_starts_with_no_musicbrainz_contact` fails with that line removed
-on a machine that has a contact configured -- which is the only machine the
-defect exists on. Otherwise no runtime behaviour changed; the one string a
-test matches (`MUSICBRAINZ_CONTACT`) is still in the error message.
-
-**Validation:** `pytest -q` -- **1533 passed**. `pre-commit run --all-files` --
-all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate: 30 checks
-passed in 52 runs across chromium and firefox.
-
-**Forward guidance:** the owner approved four follow-ups in the same session,
-each its own commit: the shared event-loop runner F-B20-2 now warrants, the
-startup key check F-SWE-4 describes, the F-MAS-4 broad-catch remediation, and
-DOC023 reading a legacy status line that opens with "closed".
