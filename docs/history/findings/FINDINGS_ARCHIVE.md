@@ -9,6 +9,30 @@ Newest rotation first.
 
 ---
 
+### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1) -- RESOLVED
+
+`scrobblescope/orchestrator.py` (916 lines) mixes album workflow, Spotify
+batch processing, error mapping, progress tracking, and result assembly.
+Now that `heatmap.py` provides a second pipeline, extract the shared
+patterns (event loop setup including the win32 Proactor guard, progress
+mapping, error guards) into a common module and split the orchestrator
+into pipeline / processing / result-shaping modules. Also on the README
+roadmap; absorbs F-B18-7.
+
+Both halves are done. Batch 22 WP-0 split the orchestrator into the
+`scrobblescope/orchestrator/` package by phase. The event-loop setup then
+reached a third copy -- `background_task`, `heatmap_task` and the
+release-check worker -- which is the point `docs/agents/global-rules.md`
+Rule 3 says to extract, so on 2026-09-21 it became
+`worker.new_thread_event_loop`, with its own tests and every existing
+slot-release test passing unmodified. Progress mapping and error guards
+still have two occurrences, album and heatmap, so Rule 3 says leave them;
+Batch 23's export pipeline would be the third, and its WP-0 is where that
+decision belongs.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+Source: Batch 18 audit.
+
 ### F-B21-50: reconnaissance TODOs in production code generated eight review rounds -- NO ACTION
 
 Commit `769f0aa` added 15 `# todo:` comments to `scrobblescope/routes.py`,

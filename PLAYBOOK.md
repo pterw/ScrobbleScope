@@ -358,6 +358,55 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - One event-loop helper for every background thread (F-B20-2)
+
+Side task, no batch tag, owner-approved on 2026-09-21 on condition that it
+is non-breaking. F-B20-2 asked for the orchestrator split, which Batch 22
+WP-0 delivered, and for shared event-loop setup. That setup had since
+reached a third copy -- `orchestrator.background_task`, `heatmap.heatmap_task`
+and `release_checks._worker_loop` each built a `ProactorEventLoop` on Windows
+and a default loop elsewhere -- which is the point `docs/agents/global-rules.md`
+Rule 3 says to extract.
+
+**Plan vs implementation.** New `worker.new_thread_event_loop()` creates the
+loop, installs it, and returns it; the three call sites now call it. It
+lives in `worker.py` because that module already owns background-thread
+execution and both job modules import it; `utils.py` was rejected, since
+F-SWE-7 records it as already holding five unrelated concerns. The one new
+import edge, `release_checks -> worker`, is drawn in
+`docs/architecture/runtime-system.md` (re-verified against the `ast` import
+graph: no missing or extra edge) and listed in SESSION_CONTEXT Section 4.
+
+**The behaviour worth preserving, and how it was kept.** Before, a failure in
+`asyncio.set_event_loop` still closed the loop, because the loop was
+assigned before the call and the caller's `finally` closed it. The helper
+cannot return a loop it failed to install, so it closes the loop itself
+before re-raising. Test-first: three new tests in `tests/test_worker.py`
+(default loop off Windows, Proactor on Windows, close-on-install-failure),
+red before the helper existed. The existing slot-release parity tests for
+both job entry points -- crash, loop-setup failure, loop-close failure --
+pass unmodified, as does the whole suite.
+
+**Only part of F-B20-2's list was extracted, deliberately.** Progress mapping
+and error guards have two occurrences, album and heatmap, so Rule 3 says
+leave them. F-B20-2 is resolved with that reasoning written into it.
+
+**Deviation: Batch 23's definition and plan were amended by one clause.**
+`BATCH23_DEFINITION.md` WP-0 plans `_run_coroutine_in_new_loop`, described
+as "the Proactor boilerplate". The Proactor choice is now shared, so both
+documents describe that item as the run-and-close wrapper built on
+`worker.new_thread_event_loop`. Scope is unchanged; the owner should know the
+approved definition moved. `AGENT_NOTES.md` and SESSION_CONTEXT Section 7
+each restated the Proactor rationale; both now point at the helper's
+docstring, which owns it.
+
+**Validation:** `pytest -q` -- **1536 passed**. `pre-commit run --all-files` --
+all hooks pass. `doc_state_sync.py --check` exit 0. `ruff check` clean.
+
+**Forward guidance:** F-SWE-7 (`utils.py`) is the sibling split, and wants a
+work package of its own. Batch 23 WP-0's export wrapper should call
+`new_thread_event_loop` rather than add a fourth platform branch.
+
 ### 2026-09-21 - Between-batch verification: findings, MusicBrainz policy, one diagram
 
 Side task, no batch tag. The owner is using the gap before Batch 23 to close
@@ -617,76 +666,3 @@ the retired one is evidence, not a work order. The charter's own Section 2a also
 requires a clean worktree, and `AGENT_NOTES.md` plus `requirements-dev.txt` are
 currently modified with untracked tooling alongside them, so that is a
 precondition rather than a formality.
-
-### 2026-09-20 - README engineering depth and the control-plane narrative
-
-Side task, no batch tag, following the earlier reconciliation in this session.
-That pass fixed stale *facts*; this one fixed a missing *argument*. The
-architecture's real depth was documented nowhere, and DEVELOPMENT.md had been
-stale for weeks about a control plane that is now the largest body of code in
-the repository.
-
-**README gained the engineering case, because its audience is developers and
-recruiters rather than end users.** Two new pieces:
-
-- **"A search is an ETL pass over an event stream, not a query."** Last.fm
-  stores scrobbles -- an unbounded stream of track timestamps -- and has no
-  concept of the album a listener played. An album is *produced* by grouping on
-  a normalized key and threshold-gating on user criteria, so it is a function
-  of the query, not a row. That is why the codebase does not look like CRUD,
-  and it is the frame the rest of the architecture reads against.
-- **"Owned Interface Components."** The heatmap as a hand-built SVG
-  (`createElementNS`, Monday-first via `mondayIndex`, 7 rows against 53 week
-  columns, a separate sequential mobile grid because 880px cannot fit a phone
-  column), and the log-normalised intensity
-  `Math.log10(count + 1) / Math.log10(maxCount + 1)` that keeps a heavy
-  listener's mid-range visible on a linear ramp. Plus the theme-resolved
-  zero-count cells (an SVG `fill` presentation attribute does not resolve a
-  custom property), the 2x cloned-SVG export, the owned pinwheel, the
-  deliberately desktop-faithful results export, and the sampled spotlight.
-
-**DEVELOPMENT.md gained two arguments it was missing.** First, *why* the
-rotation is a mechanism: it was done by hand three times and failed three
-distinct ways -- an entry archived that should have stayed, an entry duplicated
-across the boundary, a stale remark left behind -- all silent, because the
-document still renders. The parser, renderer and rotation exist because that
-task is one an LLM is not reliable at across sessions. Second, the ACID framing
-stated honestly: atomicity is real, consistency is real (the invariant checks
-are the C), isolation is partial (filesystem-scoped lock, no cross-machine
-coordination, readers not serialised), durability is within filesystem
-semantics. The precise description is an atomic file-transaction and invariant
-enforcement system; the acronym is useful shorthand and stops being useful the
-moment it is read as a database guarantee.
-
-**The `.docsync.toml` extraction story is now written down**, which was the
-largest gap. The declaration layer exists specifically so a second repository
-supplies its own config without touching the mechanism -- and `declarations.py`
-carries no ScrobbleScope value at all. What remains tied is enumerated as a
-table rather than asserted: document paths, the scanned corpus and its
-`allow_files` list, `[retired.allow_after] "PLAYBOOK.md"`, `[closeout]
-admit_from_batch = 22`, the design-token `[[value]]` entries, and
-`_LIVE_DOCUMENT_PATHS` in `integrity.py` (verified at line 100). The section
-also records why finishing it now would cost more than it saves: the remaining
-modules are the largest in the package, and making them generic before there is
-a second consumer buys indirection rather than reuse.
-
-**Also added:** the three pieces that make the package a workflow rather than
-a mechanism -- the commit preflight, the opt-in hook installer (not installed
-here), and the CLI surface. README's methodology section now says the tooling
-is larger than the application on purpose and points at DEVELOPMENT.md for the
-honest extraction state.
-
-**Deviations:** one, self-inflicted and caught. Authoring the console section
-introduced a zero-width space (U+200B) into DEVELOPMENT.md, violating the
-ASCII-only authoring rule. Found by scanning for non-ASCII code points rather
-than by eye, removed with a targeted rewrite, and re-verified clean. No other
-document or file carried one.
-
-**Validation:** `pytest -q` -- **1532 passed**. `pre-commit run --all-files` --
-all ten hooks pass. `doc_state_sync.py --check` exit 0. Non-ASCII scan of
-README.md and DEVELOPMENT.md: none.
-
-**Forward guidance:** DEVELOPMENT.md is still the narrative and
-`docs/architecture/documentation-tooling.md` still owns the DOC001-DOC023
-catalogue; the split was preserved rather than duplicated. The deferred plans
-are unchanged and stay deferred.

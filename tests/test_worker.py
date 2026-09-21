@@ -1,10 +1,15 @@
 import logging
 import threading
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scrobblescope.worker import acquire_job_slot, release_job_slot, start_job_thread
+from scrobblescope.worker import (
+    acquire_job_slot,
+    new_thread_event_loop,
+    release_job_slot,
+    start_job_thread,
+)
 
 
 def test_acquire_job_slot_succeeds_when_capacity_available():
@@ -106,3 +111,61 @@ def test_start_job_thread_releases_slot_on_thread_construction_failure():
 
         # Slot should have been released despite the failure
         assert sem.acquire(blocking=False) is True
+
+
+def test_new_thread_event_loop_installs_a_default_loop_off_windows():
+    """GIVEN a non-Windows platform
+    WHEN new_thread_event_loop is called
+    THEN it creates the default loop, installs it as this thread's loop, and
+    returns it -- never touching ProactorEventLoop.
+    """
+    loop = MagicMock()
+    proactor = MagicMock()
+    with (
+        patch("sys.platform", "linux"),
+        patch("asyncio.new_event_loop", return_value=loop),
+        patch("asyncio.ProactorEventLoop", proactor, create=True),
+        patch("asyncio.set_event_loop") as installed,
+    ):
+        assert new_thread_event_loop() is loop
+
+    installed.assert_called_once_with(loop)
+    proactor.assert_not_called()
+
+
+def test_new_thread_event_loop_uses_a_proactor_loop_on_windows():
+    """GIVEN Windows, where Werkzeug's reloader can leave a SelectorEventLoop
+        policy in child threads and asyncpg then mis-negotiates Postgres
+    WHEN new_thread_event_loop is called
+    THEN it builds a ProactorEventLoop explicitly and installs that one.
+    """
+    loop = MagicMock()
+    with (
+        patch("sys.platform", "win32"),
+        patch("asyncio.ProactorEventLoop", return_value=loop, create=True),
+        patch("asyncio.new_event_loop") as default,
+        patch("asyncio.set_event_loop") as installed,
+    ):
+        assert new_thread_event_loop() is loop
+
+    installed.assert_called_once_with(loop)
+    default.assert_not_called()
+
+
+def test_new_thread_event_loop_closes_the_loop_when_installing_it_fails():
+    """GIVEN installing the new loop raises
+    WHEN new_thread_event_loop is called
+    THEN the loop it already created is closed before the error propagates.
+        The callers used to own that close in their own finally; the helper
+        must keep it, or a failed setup leaks the loop's selector and sockets.
+    """
+    loop = MagicMock()
+    with (
+        patch("sys.platform", "linux"),
+        patch("asyncio.new_event_loop", return_value=loop),
+        patch("asyncio.set_event_loop", side_effect=RuntimeError("install failed")),
+    ):
+        with pytest.raises(RuntimeError, match="install failed"):
+            new_thread_event_loop()
+
+    loop.close.assert_called_once_with()

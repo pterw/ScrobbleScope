@@ -124,10 +124,10 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
   "Key runtime facts" (single source; do not restate values here).
 - **Single worker, multiple threads:** Gunicorn runs `--workers 1 --threads 4`.
   Multiple workers would break the in-process `JOBS` dict. This is intentional.
-- **Windows asyncio:** `background_task()` in `orchestrator/__init__.py` explicitly uses
-  `asyncio.ProactorEventLoop()` on `sys.platform == "win32"`. Required because
-  Werkzeug's debug reloader leaves `SelectorEventLoop` in background threads on
-  Windows, causing asyncpg startup failures. The guard is Windows-only.
+- **Windows asyncio:** background threads build their event loop through
+  `worker.new_thread_event_loop`, never inline. It uses a `ProactorEventLoop`
+  on Windows, where Werkzeug's reloader otherwise breaks asyncpg; the reason
+  lives in its docstring. The guard is Windows-only.
 - **In-memory `REQUEST_CACHE`** avoids re-fetching Last.fm for same-user/year
   re-searches with different filters. Clears on Fly.io machine sleep. By design.
 - **Spotify cache TTL:** cache hits do not refresh `updated_at`; albums expire

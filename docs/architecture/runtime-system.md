@@ -25,7 +25,7 @@ flowchart LR
     subgraph Runtime[Flask runtime]
         App[app.py<br/>application factory]
         Routes[routes/<br/>Blueprint and handlers]
-        Worker[worker.py<br/>bounded semaphore]
+        Worker[worker.py<br/>job slots, thread event loops]
         Repo[repositories.py<br/>JOBS + lifecycle CRUD]
         Album[orchestrator/<br/>album pipeline]
         Heatmap[heatmap.py<br/>daily aggregation]
@@ -77,6 +77,7 @@ flowchart LR
     ReleaseChecks --> Domain
     ReleaseChecks --> Unmatched
     ReleaseChecks --> Utils
+    ReleaseChecks --> Worker
     ReleaseChecks -.->|imported inside a function| Album
     LastFMClient --> Utils
     SpotifyClient --> Utils

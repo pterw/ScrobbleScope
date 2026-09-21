@@ -33,10 +33,8 @@ a moved-out row has to name the year the album was first released.
 ``GET /api/release_checks`` serves both fields to the open page.
 """
 
-import asyncio
 import logging
 import queue
-import sys
 import threading
 
 from scrobblescope.cache import (
@@ -60,6 +58,7 @@ from scrobblescope.repositories import (
 )
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
 from scrobblescope.utils import create_optimized_session
+from scrobblescope.worker import new_thread_event_loop
 
 # Each result's ``release_check`` field, as the results page reads it.
 CHECK_UNCHECKED = "unchecked"
@@ -391,16 +390,10 @@ async def run_release_checks(job_id):
 def _worker_loop():
     """Drain the job queue forever, one job at a time, in one event loop.
 
-    On Windows the loop must be a ProactorEventLoop explicitly, for the same
-    reason ``orchestrator.background_task`` says so: Werkzeug's reloader can
-    leave a SelectorEventLoop as the policy in child threads, under which
-    asyncpg mis-negotiates its PostgreSQL startup packet.
+    ``worker.new_thread_event_loop`` builds that loop, including the Windows
+    ``ProactorEventLoop`` asyncpg needs; the job threads use the same helper.
     """
-    if sys.platform == "win32":
-        loop = asyncio.ProactorEventLoop()
-    else:
-        loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    loop = new_thread_event_loop()
     try:
         while True:
             job_id = _JOB_QUEUE.get()

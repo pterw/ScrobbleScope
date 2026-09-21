@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: no batch is active; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1533 tests across 58 test modules.
+1536 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -926,16 +926,6 @@ Revisit when any of these files next changes substantially; the natural seam
 in the collector is Git/topology collection versus diagnostic orchestration.
 Status: open (accepted deviation). Source: PR #169 review round 4.
 
-### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1)
-
-`scrobblescope/orchestrator.py` (916 lines) mixes album workflow, Spotify
-batch processing, error mapping, progress tracking, and result assembly.
-Now that `heatmap.py` provides a second pipeline, extract the shared
-patterns (event loop setup including the win32 Proactor guard, progress
-mapping, error guards) into a common module and split the orchestrator
-into pipeline / processing / result-shaping modules. Also on the README
-roadmap; absorbs F-B18-7. Status: open. Source: Batch 18 audit.
-
 ### F-B20-3: Bootstrap loads from two CDN providers
 
 `base.html` loads Bootstrap CSS from cdnjs while `index.html` loads the
@@ -1675,8 +1665,9 @@ tracks lives in the same file as `format_seconds`, and a reader looking for
 either has no reason to look here.
 
 A split into rate limiting, HTTP and caching, and formatting is a sibling
-of the F-B20-2 orchestrator decomposition and belongs in the same batch as
-it, not before Batch 21.
+of the F-B20-2 orchestrator decomposition, archived on 2026-09-21. It is a
+structural change with its own parity-test cost, so it wants a work
+package of its own rather than a side task.
 Status: open (P2). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
@@ -1751,13 +1742,14 @@ One-line cross-references; detailed bodies live in pre-Batch-20
 `FINDINGS.md` (git history before `494f2c7`) or the `docs/history/`
 audits; 2026-03-04 load-test data is in the findings archive.
 
-- F-B18-1: orchestrator monolith -- promoted to F-B20-2 above.
+- F-B18-1: orchestrator monolith -- promoted to F-B20-2, resolved 2026-09-21.
 - F-B18-2: JOBS dict lacks TypedDict/dataclass annotations.
 - F-B18-3: `loading.js` album messaging; extract shared polling utility
   if a third feature emerges.
 - F-B18-4: `_check_user_exists` creates a throwaway event loop per call.
 - F-B18-5: inline SVG payload growth; lazy-load or sprite if more added.
-- F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2.
+- F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2,
+  resolved 2026-09-21 as `worker.new_thread_event_loop`.
 - F-B18-10: heatmap + album jobs share the 10 req/s throttle (by design).
 - F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`)
   -- RESOLVED 2026-08-25 by Batch 21 WP-3. They are equal-width `<button>`
