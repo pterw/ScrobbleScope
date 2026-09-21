@@ -192,66 +192,6 @@ canvas and selected midpoint surfaces for Results; PLAYBOOK Section 4 records
 that refinement. The comparisons above describe the previous canvas.
 Source: owner-reported stat-bar background regression, 2026-09-09.
 
-### F-B21-51: frontend_gate.py is nine times its largest sibling
-
-`scripts/dev/frontend_gate.py` is 4,361 lines (2026-09-21). The largest other
-module in `scripts/dev/` is `_frontend_gate_results.py` at 497, and the
-largest unrelated one is `tailwind_build.py` at 404. AGENTS.md "Proposal and
-Design Rules" item 3 compares against the largest peer rather than a line
-threshold, and this is roughly ten times it. One module owns the import
-bootstrap, the server fixture, CDN route policy, browser lifecycle, 27 check
-implementations, their measurement helpers, the registry and the CLI.
-
-Status: open. Rescoped 2026-09-21 from a batch work package to an
-owner-approved side task, because pairing it with the routes and
-orchestrator split made that batch far larger than planned. Plan of record:
-`docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`, one
-commit per slice.
-
-**Design, agreed 2026-09-11 and amended 2026-09-21.** `frontend_gate.py`
-stays the only entry point and a stable facade, following `worktree_guard.py`,
-with the `_frontend_gate_*` sibling convention `_frontend_gate_results.py`
-set. Slice order: shared, assets, unmatched, forms, theme, layout, pipeline,
-runtime.
-
-| Module | Owns |
-| --- | --- |
-| `frontend_gate.py` | Facade: `sys.path` and environment bootstrap, viewports, `CHECKS`, groups, runner, CLI, re-exports |
-| `_frontend_gate_shared.py` | Page inventories, `GATE_JOB_IDS`, `TOGGLE_TIMEOUT_MS`, `_reach_state` |
-| `_frontend_gate_assets.py` | Stylesheet isolation |
-| `_frontend_gate_unmatched.py` | The unmatched report check and its width sweep |
-| `_frontend_gate_forms.py` | Validation, private profile, validator outage and races, year warning, initial visibility |
-| `_frontend_gate_theme.py` | Theme tokens, divider contrast, persistence, blocked storage, mark, entrance motion, heatmap theme checks |
-| `_frontend_gate_layout.py` | Fonts, text scaling, touch targets, scale parity, empty states |
-| `_frontend_gate_pipeline.py` | Loading composition, progress state machines, spotlight |
-| `_frontend_gate_runtime.py` | Playwright loading, browser launch, `serve_app`, CDN route policy |
-| `_frontend_gate_colour.py` | Pure colour and contrast maths -- landed 2026-09-11 |
-
-Two amendments to the 2026-09-11 design. A shared module is added, because
-four slices read the page inventories and two read `_reach_state`; importing
-them back from the facade would be circular. The `frontend_gate_checks.toml`
-registry is deferred: it changes representation rather than location, and
-folding it into each move would double every slice's parity surface. It
-remains a candidate once the split has landed.
-
-**Traps the plan closes.** A test patch aimed at the facade stops reaching
-code that moved, and a patched constant stops reaching a sibling that
-imported it; both still pass. `serve_app` mutates `MIGRATED_PAGES`,
-`ALL_PAGES` and `GATE_JOB_IDS` in place, so every module must share those
-objects. `scrobblescope.config` reads the provider keys at first import, so
-no sibling may import `scrobblescope` above the facade's environment
-bootstrap. `tests/scripts/dev/test_frontend_gate_split.py` pins the registry,
-the patch targets and the import order.
-
-**Slice 1 landed 2026-09-11.** The seven pure helpers moved to
-`_frontend_gate_colour.py` and are re-exported by the facade, pinned by the
-parity tests in `tests/scripts/dev/test_frontend_gate_colour.py`. They went
-first because they take no `page`, so the browser gate was not needed to
-prove the move.
-
-Source: PR #227 commit-range audit, 2026-09-09.
-
-
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached
 
 Every album and Heatmap job calls `user.getrecenttracks` for its requested

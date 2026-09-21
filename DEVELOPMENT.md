@@ -528,9 +528,15 @@ leaves, so gating on it would refuse every commit on a feature branch.
 **3. The frontend gate (`scripts/dev/frontend_gate.py`).** Generic in
 structure -- serve the app, drive a browser, run checks per device profile --
 and specific in its checks, which is the right split and the part that stays
-behind. This is the least extracted of the three: the facade is still the bulk
-of the code, with the colour maths and the results probes moved out so far.
-The decomposition plan exists and is deliberately parked.
+behind. The decomposition split (F-B21-51) has landed: the facade measures
+535 lines, and the checks are grouped by concern across ten `_frontend_gate_*`
+siblings -- eight own a concern (`_frontend_gate_assets`, `_frontend_gate_forms`,
+`_frontend_gate_layout`, `_frontend_gate_pipeline`, `_frontend_gate_results`,
+`_frontend_gate_runtime`, `_frontend_gate_theme`, `_frontend_gate_unmatched`),
+one holds pure colour maths (`_frontend_gate_colour`), and one holds shared
+state rather than a concern of its own (`_frontend_gate_shared`, the page
+inventories and other objects several slices read). The
+`frontend_gate_checks.toml` registry stays a deferred candidate.
 
 Two things that are *not* portable and should not try to be: the design system
 under `docs/design/`, and every path constant that names a ScrobbleScope file.

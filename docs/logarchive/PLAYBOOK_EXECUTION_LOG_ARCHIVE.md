@@ -9,6 +9,47 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: theme slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_theme.py` now owns the nine checks
+that read computed theme values -- `check_divider_contrast`,
+`check_theme_tokens`, `check_index_design_tokens`, `check_theme_persistence`,
+`check_index_entrance_motion`, `check_mark_follows_theme`,
+`check_theme_survives_blocked_storage`, `check_heatmap_zero_cells_follow_theme`,
+`check_heatmap_export_header_matches_page` -- plus their private helper
+`_computed_colour`, the `_BLOCK_STORAGE` init script, and the
+`THEME_EXPRESSION`, `SET_THEME_EXPRESSION` and `FORBIDDEN_SURFACES`
+constants, moved verbatim and importing the divider-contrast helpers from
+the colour slice and the page inventories from the shared module. The
+definitions were not contiguous in the facade; `check_touch_targets`,
+`_small_targets`, `check_fonts`, `check_body_font`,
+`check_shell_scales_with_text` and `check_loading_composition` stayed behind
+between them.
+
+This is the first slice to move existing tests rather than write new ones
+against moved code alone: `test_blocked_storage_probe_closes_context_when_page_creation_fails`
+and `test_theme_persistence_check_restores_the_saved_preference` moved out of
+`test_frontend_gate.py`. The persistence test's `MIGRATED_PAGES` patch is an
+instance of trap 2 (constraints.md): it targeted
+`scripts.dev.frontend_gate.MIGRATED_PAGES`, which rebinds the facade's name,
+not the theme module's own `from ... import MIGRATED_PAGES` binding that
+`check_theme_persistence` actually reads. Pointing the patch back at the
+facade to check whether the retarget is load-bearing showed the test still
+passes: the mocked page is not path-aware, so the check silently runs
+against the real `MIGRATED_PAGES` tuple instead of `("/",)` and reports no
+failures either way. The retarget to `scripts.dev._frontend_gate_theme.MIGRATED_PAGES`
+is still correct -- it is what makes the test actually exercise a single
+page the way its docstring describes -- but it is not what makes the test
+fail if omitted; the patch-target guard is what would have caught the
+mis-target here, not this test's own assertions.
+
+A mutation probe returning `["mutation probe"]` first in
+`check_mark_follows_theme` produced the expected
+`FAIL chromium: mark follows theme [desktop]: mutation probe` and the
+matching `[firefox]` line, because that check is in the static-assets
+canary group that runs on both browsers, then was reverted. The gate's
+summary line is unchanged at 30 checks across both browsers.
+
 ### 2026-09-21 - Frontend gate split: forms slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_forms.py` now owns the index form's

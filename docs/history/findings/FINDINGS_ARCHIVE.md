@@ -9,6 +9,110 @@ Newest rotation first.
 
 ---
 
+### F-B21-51: frontend_gate.py is nine times its largest sibling -- RESOLVED
+
+`scripts/dev/frontend_gate.py` is 4,361 lines (2026-09-21). The largest other
+module in `scripts/dev/` is `_frontend_gate_results.py` at 497, and the
+largest unrelated one is `tailwind_build.py` at 404. AGENTS.md "Proposal and
+Design Rules" item 3 compares against the largest peer rather than a line
+threshold, and this is roughly ten times it. One module owns the import
+bootstrap, the server fixture, CDN route policy, browser lifecycle, 27 check
+implementations, their measurement helpers, the registry and the CLI.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+
+Rescoped 2026-09-21 from a batch work package to an owner-approved side
+task, because pairing it with the routes and orchestrator split made that
+batch far larger than planned. Plan of record:
+`docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`, one
+commit per slice.
+
+**Design, agreed 2026-09-11 and amended 2026-09-21.** `frontend_gate.py`
+stays the only entry point and a stable facade, following `worktree_guard.py`,
+with the `_frontend_gate_*` sibling convention `_frontend_gate_results.py`
+set. Slice order: shared, assets, unmatched, forms, theme, layout, pipeline,
+runtime.
+
+| Module | Owns |
+| --- | --- |
+| `frontend_gate.py` | Facade: `sys.path` and environment bootstrap, viewports, `CHECKS`, groups, runner, CLI, re-exports |
+| `_frontend_gate_shared.py` | Page inventories, `GATE_JOB_IDS`, `TOGGLE_TIMEOUT_MS`, `_reach_state` |
+| `_frontend_gate_assets.py` | Stylesheet isolation |
+| `_frontend_gate_unmatched.py` | The unmatched report check and its width sweep |
+| `_frontend_gate_forms.py` | Validation, private profile, validator outage and races, year warning, initial visibility |
+| `_frontend_gate_theme.py` | Theme tokens, divider contrast, persistence, blocked storage, mark, entrance motion, heatmap theme checks |
+| `_frontend_gate_layout.py` | Fonts, text scaling, touch targets, scale parity, empty states |
+| `_frontend_gate_pipeline.py` | Loading composition, progress state machines, spotlight |
+| `_frontend_gate_runtime.py` | Playwright loading, browser launch, `serve_app`, CDN route policy |
+| `_frontend_gate_colour.py` | Pure colour and contrast maths -- landed 2026-09-11 |
+
+Two amendments to the 2026-09-11 design. A shared module is added, because
+four slices read the page inventories and two read `_reach_state`; importing
+them back from the facade would be circular. The `frontend_gate_checks.toml`
+registry is deferred: it changes representation rather than location, and
+folding it into each move would double every slice's parity surface. It
+remains a candidate once the split has landed.
+
+**Traps the plan closes.** A test patch aimed at the facade stops reaching
+code that moved, and a patched constant stops reaching a sibling that
+imported it; both still pass. `serve_app` mutates `MIGRATED_PAGES`,
+`ALL_PAGES` and `GATE_JOB_IDS` in place, so every module must share those
+objects. `scrobblescope.config` reads the provider keys at first import, so
+no sibling may import `scrobblescope` above the facade's environment
+bootstrap. `tests/scripts/dev/test_frontend_gate_split.py` pins the registry,
+the patch targets and the import order.
+
+**Slice 1 landed 2026-09-11.** The seven pure helpers moved to
+`_frontend_gate_colour.py` and are re-exported by the facade, pinned by the
+parity tests in `tests/scripts/dev/test_frontend_gate_colour.py`. They went
+first because they take no `page`, so the browser gate was not needed to
+prove the move.
+
+**Measured end state, 2026-09-21.** `frontend_gate.py` is 535 lines.
+The ten `_frontend_gate_*` siblings measure: `_frontend_gate_assets` 49,
+`_frontend_gate_colour` 191, `_frontend_gate_forms` 434,
+`_frontend_gate_layout` 1,176, `_frontend_gate_pipeline` 854,
+`_frontend_gate_results` 497, `_frontend_gate_runtime` 156,
+`_frontend_gate_shared` 71, `_frontend_gate_theme` 749, and
+`_frontend_gate_unmatched` 490. The facade landed under the plan's 700-line
+threshold, above its roughly-450-line estimate. The gate summary line is
+unchanged: `[frontend_gate] 30 checks passed in 52 runs across chromium,
+firefox`.
+
+The split is two preparatory commits plus eight slices, oldest first:
+`a06f6c2` (test(gate): Pin the invariants the frontend gate split must
+keep), `30310c2` (refactor(gate): Delete dead helpers before the split
+moves them), `04882a2` (refactor(gate): Move what several slices read into
+a shared module), `7a7b599` (refactor(gate): Move stylesheet isolation
+into its own slice), `6f1186f` (refactor(gate): Move the unmatched report
+check into its own slice), `06a9ae7` (refactor(gate): Move the form and
+validator checks into a slice), `bfc8749` (refactor(gate): Move the theme
+and motion checks into a slice), `e172b3e` (refactor(gate): Move the
+layout and scale checks into a slice), `2887c23` (refactor(gate): Move the
+loading and pipeline checks into a slice), and `839fa3e` (refactor(gate):
+Move the server and browser runtime into a slice).
+
+**Two lessons from the split, recorded for the next one.**
+
+Trap 2 (a patched constant the check no longer sees) was shown to be
+silent in practice rather than merely possible. During the theme slice,
+pointing the persistence test's `MIGRATED_PAGES` patch back at the facade
+still passed, because the mocked page is not path-aware and the check ran
+the same regardless of which page name it thought it was looking at. Only
+the patch-target guard in `tests/scripts/dev/test_frontend_gate_split.py`
+caught that class of defect; the test's own assertions did not.
+
+Tests that reach a moved name by attribute access
+(`frontend_gate.<name>(...)`) are invisible to both ruff and the
+patch-target guard, because neither tool follows a call through the
+facade's re-export to the module that now owns the name. The layout,
+pipeline and runtime slices each found such calls only by grep. A future
+split should grep for `frontend_gate\.<name>` per moved name, not rely on
+ruff or the guard to surface it.
+
+Source: PR #227 commit-range audit, 2026-09-09.
+
 ### F-B22-2: `assert` guards an invariant that `python -O` strips, at six sites -- RESOLVED
 
 `assert` stands in for a runtime invariant check in six places across three

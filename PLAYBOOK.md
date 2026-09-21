@@ -135,8 +135,9 @@ See FINDINGS F-DOCSYNC-3.
   itself about its own name.
 - **`MUSICBRAINZ_CONTACT` is set on Fly.io** (2026-09-21, the project's
   GitHub URL), as well as in the local `.env`.
-- **Side task in progress: the frontend gate split (F-B21-51).** Plan of
-  record: `docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`.
+- **Side task complete: the frontend gate split (F-B21-51).** The facade
+  measures 535 lines, under the plan's 700-line threshold. Plan of record:
+  `docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`.
 - **The code defect is closed.** `_musicbrainz_headers` raises instead of
   interpolating the literal string `None` as a contact address, which is what
   it did when called outside the gate that guards it.
@@ -356,6 +357,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - Frontend gate split complete (F-B21-51)
+
+Side task, no batch tag. Task 11 closes out the split: `frontend_gate.py`
+measures 535 lines, under the plan's 700-line threshold and above its
+roughly-450 estimate. The ten `_frontend_gate_*` siblings measure
+`_frontend_gate_assets` 49, `_frontend_gate_colour` 191,
+`_frontend_gate_forms` 434, `_frontend_gate_layout` 1,176,
+`_frontend_gate_pipeline` 854, `_frontend_gate_results` 497,
+`_frontend_gate_runtime` 156, `_frontend_gate_shared` 71,
+`_frontend_gate_theme` 749, `_frontend_gate_unmatched` 490. The gate
+summary is unchanged: `[frontend_gate] 30 checks passed in 52 runs across
+chromium, firefox`. F-B21-51 is resolved; `docs/architecture/
+documentation-tooling.md`, `DEVELOPMENT.md`, `FINDINGS.md` and this file
+are reconciled to the measured end state. The `frontend_gate_checks.toml`
+registry stays a deferred candidate.
+
 ### 2026-09-21 - Frontend gate split: runtime slice (F-B21-51)
 
 Side task, no batch tag, last of the split. `_frontend_gate_runtime.py` now
@@ -450,44 +467,3 @@ never re-exports, so those references were retargeted to
 `_frontend_gate_layout` alongside the patch-target guard's own findings.
 `test_the_touch_profiles_really_carry_a_coarse_pointer` stayed in
 `test_frontend_gate.py`: it tests `VIEWPORTS`, which remains in the facade.
-
-### 2026-09-21 - Frontend gate split: theme slice (F-B21-51)
-
-Side task, no batch tag. `_frontend_gate_theme.py` now owns the nine checks
-that read computed theme values -- `check_divider_contrast`,
-`check_theme_tokens`, `check_index_design_tokens`, `check_theme_persistence`,
-`check_index_entrance_motion`, `check_mark_follows_theme`,
-`check_theme_survives_blocked_storage`, `check_heatmap_zero_cells_follow_theme`,
-`check_heatmap_export_header_matches_page` -- plus their private helper
-`_computed_colour`, the `_BLOCK_STORAGE` init script, and the
-`THEME_EXPRESSION`, `SET_THEME_EXPRESSION` and `FORBIDDEN_SURFACES`
-constants, moved verbatim and importing the divider-contrast helpers from
-the colour slice and the page inventories from the shared module. The
-definitions were not contiguous in the facade; `check_touch_targets`,
-`_small_targets`, `check_fonts`, `check_body_font`,
-`check_shell_scales_with_text` and `check_loading_composition` stayed behind
-between them.
-
-This is the first slice to move existing tests rather than write new ones
-against moved code alone: `test_blocked_storage_probe_closes_context_when_page_creation_fails`
-and `test_theme_persistence_check_restores_the_saved_preference` moved out of
-`test_frontend_gate.py`. The persistence test's `MIGRATED_PAGES` patch is an
-instance of trap 2 (constraints.md): it targeted
-`scripts.dev.frontend_gate.MIGRATED_PAGES`, which rebinds the facade's name,
-not the theme module's own `from ... import MIGRATED_PAGES` binding that
-`check_theme_persistence` actually reads. Pointing the patch back at the
-facade to check whether the retarget is load-bearing showed the test still
-passes: the mocked page is not path-aware, so the check silently runs
-against the real `MIGRATED_PAGES` tuple instead of `("/",)` and reports no
-failures either way. The retarget to `scripts.dev._frontend_gate_theme.MIGRATED_PAGES`
-is still correct -- it is what makes the test actually exercise a single
-page the way its docstring describes -- but it is not what makes the test
-fail if omitted; the patch-target guard is what would have caught the
-mis-target here, not this test's own assertions.
-
-A mutation probe returning `["mutation probe"]` first in
-`check_mark_follows_theme` produced the expected
-`FAIL chromium: mark follows theme [desktop]: mutation probe` and the
-matching `[firefox]` line, because that check is in the static-assets
-canary group that runs on both browsers, then was reverted. The gate's
-summary line is unchanged at 30 checks across both browsers.

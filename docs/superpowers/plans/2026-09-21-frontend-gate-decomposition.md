@@ -255,7 +255,7 @@ $PY scripts/doc_state_sync.py --check
   - The test file `test_frontend_gate_split.py`, which later slices extend
     with nothing: it discovers new modules and test files by glob.
 
-- [ ] **Step 1: Write the shared test helpers**
+- [x] **Step 1: Write the shared test helpers**
 
 `tests/scripts/dev/gate_parity.py`:
 
@@ -321,7 +321,7 @@ def gate_modules() -> list[ModuleType]:
     return [importlib.import_module(f"scripts.dev.{stem}") for stem in stems]
 ```
 
-- [ ] **Step 2: Write the three guard tests**
+- [x] **Step 2: Write the three guard tests**
 
 `tests/scripts/dev/test_frontend_gate_split.py`:
 
@@ -458,14 +458,14 @@ def test_the_gate_sets_provider_keys_before_config_reads_them() -> None:
     assert "KEY=frontend-gate-placeholder" in result.stdout
 ```
 
-- [ ] **Step 3: Run the guards; they pass on the unsplit gate**
+- [x] **Step 3: Run the guards; they pass on the unsplit gate**
 
 Run: `$PY -m pytest -q tests/scripts/dev/test_frontend_gate_split.py`
 Expected: all PASS. The registry test finds 30 checks. The patch-target
 test is parametrized over every patch in `test_frontend_gate.py`, all of
 which target `frontend_gate` today.
 
-- [ ] **Step 4: Prove each guard can fail, then revert each change**
+- [x] **Step 4: Prove each guard can fail, then revert each change**
 
 The guards must be shown to fail on a real defect:
 1. Comment out the `("fonts", check_fonts, ...)` entry in `CHECKS`. The
@@ -483,7 +483,7 @@ The guards must be shown to fail on a real defect:
 Confirm with `git diff --stat` that only the two new test files and the doc
 edits remain.
 
-- [ ] **Step 5: Revise F-B21-51**
+- [x] **Step 5: Revise F-B21-51**
 
 Replace the F-B21-51 section, from its heading down to its `Source:` line,
 with the text below. Keep the heading unchanged. Do not write "resolved" or
@@ -551,7 +551,7 @@ prove the move.
 Source: PR #227 commit-range audit, 2026-09-09.
 ```
 
-- [ ] **Step 6: Refresh PLAYBOOK Section 3 and add the Section 4 entry**
+- [x] **Step 6: Refresh PLAYBOOK Section 3 and add the Section 4 entry**
 
 Section 3 still describes PR #235 as open and the MusicBrainz contact as
 local-only. Replace those two bullets with:
@@ -582,7 +582,7 @@ bootstrap precedes any `scrobblescope` import. Each guard was shown to fail on
 a deliberate defect before being kept.
 ```
 
-- [ ] **Step 7: Full sequence and commit**
+- [x] **Step 7: Full sequence and commit**
 
 Run the full pre-commit sequence (see "Commands used throughout"). Then:
 
@@ -622,13 +622,13 @@ skip Part B entirely**, and in Task 10 move `FIXTURE_DIR`,
     `--live-fonts` meaningful for a local run with the overlay.
   - `FIXTURE_DIR` and `_bootstrap_fixture` no longer exist.
 
-- [ ] **Step 1 (Part A): Confirm `_computed_shadow` is unused, then delete it**
+- [x] **Step 1 (Part A): Confirm `_computed_shadow` is unused, then delete it**
 
 Run: `grep -rn "_computed_shadow" scripts tests`
 Expected: exactly one match, its own `def` line. Delete the function (the
 `def _computed_shadow(page, value: str) -> str:` block, 13 lines).
 
-- [ ] **Step 2 (Part A): Move the eight colour tests to the file that covers colour**
+- [x] **Step 2 (Part A): Move the eight colour tests to the file that covers colour**
 
 Move these tests verbatim from `test_frontend_gate.py` to the end of
 `test_frontend_gate_colour.py`, under a comment line
@@ -645,7 +645,7 @@ Move these tests verbatim from `test_frontend_gate.py` to the end of
 Remove the colour names from `test_frontend_gate.py`'s import block that
 are now unused (`ruff check` reports them).
 
-- [ ] **Step 3 (Part B): Strip the Bootstrap route from `install_cdn_routes`**
+- [x] **Step 3 (Part B): Strip the Bootstrap route from `install_cdn_routes`**
 
 Replace the body of `install_cdn_routes` below its docstring with:
 
@@ -683,7 +683,7 @@ it.
 Update the `--live-fonts` help text to:
 `"let the Impeccable Live developer overlay load (local visual review only)"`.
 
-- [ ] **Step 4 (Part B): Update the tests**
+- [x] **Step 4 (Part B): Update the tests**
 
 - In `test_install_cdn_routes_fulfills_bootstrap_and_passes_the_kit`, rename
   the test to `test_install_cdn_routes_aborts_only_the_overlay_origin`.
@@ -708,7 +708,7 @@ def test_install_cdn_routes_aborts_only_the_overlay_origin() -> None:
   either asserts on the Bootstrap route, change that assertion to the
   `localhost:8400` route, not to nothing.
 
-- [ ] **Step 5 (Part B): Delete the fixture directory and repoint live docs**
+- [x] **Step 5 (Part B): Delete the fixture directory and repoint live docs**
 
 ```bash
 git rm scripts/dev/fixtures/bootstrap_fixture.css scripts/dev/fixtures/README.md
@@ -719,7 +719,7 @@ grep -rn "bootstrap_fixture\|fixtures/README" --include=*.md --include=*.py . \
 Expected: no matches, or only matches in the files this task already edits.
 Repoint any live document (not history) that describes the fixture.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 - Gate unit tests: PASS.
 - The protocol's name comparison lists exactly two names:
@@ -729,7 +729,7 @@ Repoint any live document (not history) that describes the fixture.
 - Gate summary line unchanged. Stylesheet isolation still passes on every
   page, which proves no page needed the fixture.
 
-- [ ] **Step 7: PLAYBOOK Section 4 entry, full sequence, commit**
+- [x] **Step 7: PLAYBOOK Section 4 entry, full sequence, commit**
 
 ```markdown
 ### 2026-09-21 - Frontend gate: dead code removed before the split (F-B21-51)
@@ -780,9 +780,9 @@ hrefs, so a reintroduced Bootstrap link still fails it."
 and do **not** move now: the markers go with assets, and the lock goes with
 runtime.
 
-- [ ] **Step 1: Record the collection count and gate line**
+- [x] **Step 1: Record the collection count and gate line**
 
-- [ ] **Step 2: Write the failing parity test**
+- [x] **Step 2: Write the failing parity test**
 
 `tests/scripts/dev/test_frontend_gate_shared.py`:
 
@@ -853,7 +853,7 @@ def test_reach_state_refuses_an_unknown_action() -> None:
 Run: `$PY -m pytest -q tests/scripts/dev/test_frontend_gate_shared.py`
 Expected: FAIL, `ModuleNotFoundError: No module named 'scripts.dev._frontend_gate_shared'`.
 
-- [ ] **Step 3: Create the module**
+- [x] **Step 3: Create the module**
 
 Header of `scripts/dev/_frontend_gate_shared.py`, followed by the moved
 definitions:
@@ -871,7 +871,7 @@ every module on the same objects, and nothing may rebind them.
 from __future__ import annotations
 ```
 
-- [ ] **Step 4: Facade import**
+- [x] **Step 4: Facade import**
 
 In `frontend_gate.py`, below the environment bootstrap, with the other
 sibling imports:
@@ -892,7 +892,7 @@ If ruff reports any of these as `F401` (unused in the facade), keep the
 import and add `F401` to its `noqa`, with the reason on the line above:
 `# Re-exported: the facade keeps the public names stable (F-B21-51).`
 
-- [ ] **Step 5: Ruff, tests, count, gate**
+- [x] **Step 5: Ruff, tests, count, gate**
 
 There are no tests to move: the one patch of `MIGRATED_PAGES` targets
 `check_theme_persistence`, which still lives in the facade and reads the
@@ -900,7 +900,7 @@ facade's binding. Task 7 moves it.
 - Expected: the parity and guard tests PASS.
 - Expected: the name comparison in protocol step 8 is empty.
 
-- [ ] **Step 6: Mutation proof**
+- [x] **Step 6: Mutation proof**
 
 Make `raise RuntimeError("mutation probe")` the first statement of
 `_reach_state`. The gate must print `raised RuntimeError: mutation probe`
@@ -908,7 +908,7 @@ for `touch targets` and for the form checks that drive a state, such as
 `validation feedback`. That shows both callers reach the shared object
 through the facade's import. Restore it as the protocol describes.
 
-- [ ] **Step 7: Docs and commit**
+- [x] **Step 7: Docs and commit**
 
 - SESSION_CONTEXT tree line:
   `_frontend_gate_shared.py # page inventories and helpers two or more slices read`
@@ -946,9 +946,9 @@ that every module holds the same objects."
 **Definitions to move:** `BOOTSTRAP_MARKER`, `TAILWIND_MARKER`,
 `_stylesheet_hrefs`, `check_stylesheet_isolation`.
 
-- [ ] **Step 1: Record the count and gate line**
+- [x] **Step 1: Record the count and gate line**
 
-- [ ] **Step 2: Failing parity test**
+- [x] **Step 2: Failing parity test**
 
 `tests/scripts/dev/test_frontend_gate_assets.py`:
 
@@ -1020,7 +1020,7 @@ def test_isolation_passes_one_tailwind_sheet_beside_other_css() -> None:
 
 Expected: FAIL, `ModuleNotFoundError`.
 
-- [ ] **Step 3: Module header**
+- [x] **Step 3: Module header**
 
 ```python
 """Stylesheet isolation: each page loads exactly one framework stylesheet.
@@ -1035,7 +1035,7 @@ from __future__ import annotations
 from scripts.dev._frontend_gate_shared import ALL_PAGES
 ```
 
-- [ ] **Step 4: Facade import**
+- [x] **Step 4: Facade import**
 
 ```python
 from scripts.dev._frontend_gate_assets import (  # noqa: E402, F401
@@ -1045,9 +1045,9 @@ from scripts.dev._frontend_gate_assets import (  # noqa: E402, F401
 )
 ```
 
-- [ ] **Step 5: Ruff, tests, name comparison, gate**
+- [x] **Step 5: Ruff, tests, name comparison, gate**
 
-- [ ] **Step 6: Mutation proof**
+- [x] **Step 6: Mutation proof**
 
 Insert `return ["mutation probe"]` as the first statement of
 `check_stylesheet_isolation`. The gate must print
@@ -1055,7 +1055,7 @@ Insert `return ["mutation probe"]` as the first statement of
 and the same line for `firefox`, which proves the Firefox canary group also
 reaches the moved module. Revert.
 
-- [ ] **Step 7: Docs and commit**
+- [x] **Step 7: Docs and commit**
 
 - SESSION_CONTEXT tree line:
   `_frontend_gate_assets.py # stylesheet isolation`
@@ -1093,9 +1093,9 @@ deliberate failure) is shown on a check that fits on one screen."
 `UNMATCHED_SWEEP_WIDTHS`, `UNMATCHED_MIN_TITLE_WIDTH`,
 `_unmatched_panel_width_sweep`, `check_unmatched_report`.
 
-- [ ] **Step 1: Record the count and gate line**
+- [x] **Step 1: Record the count and gate line**
 
-- [ ] **Step 2: Failing parity test**
+- [x] **Step 2: Failing parity test**
 
 `tests/scripts/dev/test_frontend_gate_unmatched.py`:
 
@@ -1171,7 +1171,7 @@ def test_sweep_restores_the_viewport_when_measurement_raises() -> None:
 
 Expected: FAIL, `ModuleNotFoundError`.
 
-- [ ] **Step 3: Module header**
+- [x] **Step 3: Module header**
 
 ```python
 """The unmatched report check: populated contract, disclosure, and width sweep.
@@ -1191,7 +1191,7 @@ from scrobblescope.repositories import add_job_unmatched, create_job, delete_job
 
 If ruff reports another undefined name (F821), add its import here.
 
-- [ ] **Step 4: Facade import**
+- [x] **Step 4: Facade import**
 
 ```python
 from scripts.dev._frontend_gate_unmatched import (  # noqa: E402, F401
@@ -1204,15 +1204,15 @@ from scripts.dev._frontend_gate_unmatched import (  # noqa: E402, F401
 
 Delete `json` from the facade's imports if ruff reports it unused.
 
-- [ ] **Step 5: Ruff, tests, name comparison, gate**
+- [x] **Step 5: Ruff, tests, name comparison, gate**
 
-- [ ] **Step 6: Mutation proof**
+- [x] **Step 6: Mutation proof**
 
 Set `UNMATCHED_MIN_TITLE_WIDTH = 960`. The gate must print
 `FAIL chromium: unmatched report [...]: unmatched album title at ...px is ...px wide, expected at least 960px`
 lines. Revert.
 
-- [ ] **Step 7: Docs and commit**
+- [x] **Step 7: Docs and commit**
 
 - SESSION_CONTEXT tree line:
   `_frontend_gate_unmatched.py # unmatched report contract and width sweep`
@@ -1263,9 +1263,9 @@ including that it restores the viewport when measurement raises."
 - `_year_warning`
 - `check_initial_visibility`
 
-- [ ] **Step 1: Record the count and gate line**
+- [x] **Step 1: Record the count and gate line**
 
-- [ ] **Step 2: Failing parity test**
+- [x] **Step 2: Failing parity test**
 
 `tests/scripts/dev/test_frontend_gate_forms.py`:
 
@@ -1325,7 +1325,7 @@ def test_collecting_handlers_do_not_share_a_sink() -> None:
 
 Expected: FAIL, `ModuleNotFoundError`.
 
-- [ ] **Step 3: Module header**
+- [x] **Step 3: Module header**
 
 ```python
 """Form checks: validation feedback, validator failures and races, visibility.
@@ -1341,7 +1341,7 @@ from __future__ import annotations
 from scripts.dev._frontend_gate_shared import _reach_state
 ```
 
-- [ ] **Step 4: Facade import**
+- [x] **Step 4: Facade import**
 
 ```python
 from scripts.dev._frontend_gate_forms import (  # noqa: E402, F401
@@ -1356,18 +1356,18 @@ from scripts.dev._frontend_gate_forms import (  # noqa: E402, F401
 )
 ```
 
-- [ ] **Step 5: Ruff, tests, name comparison, gate**
+- [x] **Step 5: Ruff, tests, name comparison, gate**
 
 No existing unit test covers a forms function, so there are no tests to
 move. The patch-target guard confirms that.
 
-- [ ] **Step 6: Mutation proof**
+- [x] **Step 6: Mutation proof**
 
 Add `"#year"` to the `"/"` tuple in `HIDDEN_ON_LOAD`. The year field is
 visible on load, so the gate must print a
 `FAIL chromium: initial visibility [desktop]: ...#year...` line. Revert.
 
-- [ ] **Step 7: Docs and commit**
+- [x] **Step 7: Docs and commit**
 
 - SESSION_CONTEXT tree line:
   `_frontend_gate_forms.py # form validation, validator races, initial visibility`
@@ -1438,9 +1438,9 @@ describes: one parameter, so Playwright cannot overwrite its sink."
   `patch("scripts.dev._frontend_gate_theme.MIGRATED_PAGES", ("/",))`. This is
   trap 2: the check reads the theme module's binding.
 
-- [ ] **Step 1: Record the count and gate line**
+- [x] **Step 1: Record the count and gate line**
 
-- [ ] **Step 2: Failing parity test**
+- [x] **Step 2: Failing parity test**
 
 `tests/scripts/dev/test_frontend_gate_theme.py` (the moved tests are
 appended below this in Step 6):
@@ -1492,7 +1492,7 @@ Expected: FAIL, `ModuleNotFoundError`. The two imported checks are what the
 moved tests call. If ruff flags `MagicMock` or `patch` as unused before
 Step 6, the moved tests will use them.
 
-- [ ] **Step 3: Module header**
+- [x] **Step 3: Module header**
 
 ```python
 """Theme checks: tokens, divider contrast, persistence, motion, and the mark.
@@ -1519,7 +1519,7 @@ from scrobblescope.repositories import (
 )
 ```
 
-- [ ] **Step 4: Facade import**
+- [x] **Step 4: Facade import**
 
 ```python
 from scripts.dev._frontend_gate_theme import (  # noqa: E402, F401
@@ -1543,24 +1543,24 @@ The facade's colour import keeps its existing names, and
 function reads them any more. Keep that block, and make its `noqa` include
 `F401`.
 
-- [ ] **Step 5: Ruff**
+- [x] **Step 5: Ruff**
 
-- [ ] **Step 6: Move the two tests and retarget the patch**
+- [x] **Step 6: Move the two tests and retarget the patch**
 
 Remove `check_theme_persistence` and
 `check_theme_survives_blocked_storage` from `test_frontend_gate.py`'s
 import block.
 
-- [ ] **Step 7: Tests, name comparison, gate**
+- [x] **Step 7: Tests, name comparison, gate**
 
-- [ ] **Step 8: Mutation proof**
+- [x] **Step 8: Mutation proof**
 
 Insert `return ["mutation probe"]` first in `check_mark_follows_theme`. Expected:
 `FAIL chromium: mark follows theme [desktop]: mutation probe` and the same
 for `firefox`, because that check is in the static-assets canary group.
 Revert.
 
-- [ ] **Step 9: Docs and commit**
+- [x] **Step 9: Docs and commit**
 
 - SESSION_CONTEXT tree line:
   `_frontend_gate_theme.py # theme tokens, contrast, persistence, motion, mark`
@@ -1646,9 +1646,9 @@ would have run against every page and still passed."
 `check_shell_scales_with_text`, and any others ruff reports) to import from
 `_frontend_gate_layout`.
 
-- [ ] **Step 1: Record the count and gate line**
+- [x] **Step 1: Record the count and gate line**
 
-- [ ] **Step 2: Failing parity test**
+- [x] **Step 2: Failing parity test**
 
 `tests/scripts/dev/test_frontend_gate_layout.py` (moved tests are appended
 in Step 6):
@@ -1717,7 +1717,7 @@ def test_the_name_resolves_through_the_gate_module(name: str) -> None:
 
 Expected: FAIL, `ModuleNotFoundError`.
 
-- [ ] **Step 3: Module header**
+- [x] **Step 3: Module header**
 
 ```python
 """Layout checks: fonts, text scaling, touch targets, and large-display parity.
@@ -1742,7 +1742,7 @@ from scripts.dev._frontend_gate_shared import (
 )
 ```
 
-- [ ] **Step 4: Facade import**
+- [x] **Step 4: Facade import**
 
 ```python
 from scripts.dev._frontend_gate_layout import (  # noqa: E402, F401
@@ -1761,19 +1761,19 @@ from scripts.dev._frontend_gate_layout import (  # noqa: E402, F401
 )
 ```
 
-- [ ] **Step 5: Ruff**
+- [x] **Step 5: Ruff**
 
-- [ ] **Step 6: Move the tests listed above and retarget their patches**
+- [x] **Step 6: Move the tests listed above and retarget their patches**
 
-- [ ] **Step 7: Tests, name comparison, gate**
+- [x] **Step 7: Tests, name comparison, gate**
 
-- [ ] **Step 8: Mutation proof**
+- [x] **Step 8: Mutation proof**
 
 Insert `return ["mutation probe"]` first in `check_touch_targets`. Expected:
 `FAIL chromium: touch targets [mobile]: mutation probe` and
 `FAIL chromium: touch targets [wide touch]: mutation probe`. Revert.
 
-- [ ] **Step 9: Docs and commit**
+- [x] **Step 9: Docs and commit**
 
 - SESSION_CONTEXT tree line:
   `_frontend_gate_layout.py # fonts, text scaling, touch targets, scale parity`
@@ -1845,9 +1845,9 @@ own complexity is a separate question."
   its `create_job`, `set_job_progress` and `delete_job` patches.
 - `test_counted_sequence_updates_real_storage_and_detects_stale_text`
 
-- [ ] **Step 1: Record the count and gate line**
+- [x] **Step 1: Record the count and gate line**
 
-- [ ] **Step 2: Failing parity test**
+- [x] **Step 2: Failing parity test**
 
 `tests/scripts/dev/test_frontend_gate_pipeline.py`:
 
@@ -1906,7 +1906,7 @@ def test_the_name_resolves_through_the_gate_module(name: str) -> None:
 
 Expected: FAIL, `ModuleNotFoundError`.
 
-- [ ] **Step 3: Module header**
+- [x] **Step 3: Module header**
 
 ```python
 """Pipeline checks: loading composition, progress state machines, spotlight.
@@ -1935,7 +1935,7 @@ from scrobblescope.repositories import (
 )
 ```
 
-- [ ] **Step 4: Facade import**
+- [x] **Step 4: Facade import**
 
 ```python
 from scripts.dev._frontend_gate_pipeline import (  # noqa: E402, F401
@@ -1959,19 +1959,19 @@ Then delete from the facade whichever `scrobblescope.repositories` imports
 ruff now reports unused. The runtime still needs `create_job`,
 `delete_job` and `set_job_progress` until Task 10.
 
-- [ ] **Step 5: Ruff**
+- [x] **Step 5: Ruff**
 
-- [ ] **Step 6: Move the tests listed above and retarget their patches**
+- [x] **Step 6: Move the tests listed above and retarget their patches**
 
-- [ ] **Step 7: Tests, name comparison, gate**
+- [x] **Step 7: Tests, name comparison, gate**
 
-- [ ] **Step 8: Mutation proof**
+- [x] **Step 8: Mutation proof**
 
 Insert `return ["mutation probe"]` first in `check_pipeline_state_machines`.
 Expected: `FAIL chromium: pipeline state machines [desktop]: mutation probe`.
 Revert.
 
-- [ ] **Step 9: Docs and commit**
+- [x] **Step 9: Docs and commit**
 
 - SESSION_CONTEXT tree line:
   `_frontend_gate_pipeline.py # loading composition, progress state machines, spotlight`
@@ -2051,9 +2051,9 @@ and `delete_job` patch in them to `_frontend_gate_runtime`. Tests that call
 remain correct, because `main` reads those names through the facade's
 globals.
 
-- [ ] **Step 1: Record the count and gate line**
+- [x] **Step 1: Record the count and gate line**
 
-- [ ] **Step 2: Failing parity test**
+- [x] **Step 2: Failing parity test**
 
 `tests/scripts/dev/test_frontend_gate_runtime.py`:
 
@@ -2117,7 +2117,7 @@ Expected: FAIL, `ModuleNotFoundError`. The imported names are what the
 moved tests call. Keep whichever imports the moved tests use; ruff reports
 the rest.
 
-- [ ] **Step 3: Module header**
+- [x] **Step 3: Module header**
 
 ```python
 """Gate runtime: Playwright loading, browser launch, the served app, routes.
@@ -2146,7 +2146,7 @@ from scrobblescope.repositories import create_job, delete_job, set_job_progress
 If Part B was skipped, add `from functools import cache` and
 `from pathlib import Path`.
 
-- [ ] **Step 4: Facade import**
+- [x] **Step 4: Facade import**
 
 ```python
 from scripts.dev._frontend_gate_runtime import (  # noqa: E402, F401
@@ -2166,11 +2166,11 @@ Delete the facade's `from app import create_app`,
 why the environment bootstrap precedes the imports, and extend it with one
 sentence: `Every sibling is imported below this line for the same reason.`
 
-- [ ] **Step 5: Ruff**
+- [x] **Step 5: Ruff**
 
-- [ ] **Step 6: Move the tests listed above and retarget their patches**
+- [x] **Step 6: Move the tests listed above and retarget their patches**
 
-- [ ] **Step 7: Tests, name comparison, gate**
+- [x] **Step 7: Tests, name comparison, gate**
 
 Also run the gate as CI does, from a clean environment, and confirm it still
 boots in production mode with no provider keys set:
@@ -2183,14 +2183,14 @@ env -u LASTFM_API_KEY -u SPOTIFY_CLIENT_ID -u SPOTIFY_CLIENT_SECRET \
 Expected: the same summary line. The trap-4 subprocess test covers the same
 thing in pytest.
 
-- [ ] **Step 8: Mutation proof**
+- [x] **Step 8: Mutation proof**
 
 In `_launch_browser`, change `headless=headless` to
 `headless=headless, nonexistent_option=True`. Expected: the gate prints
 `[frontend_gate] FAIL chromium: raised FrontendGateError: chromium is not available to Playwright...`
 and the same for `firefox`. Revert.
 
-- [ ] **Step 9: Docs and commit**
+- [x] **Step 9: Docs and commit**
 
 - SESSION_CONTEXT tree line:
   `_frontend_gate_runtime.py # Playwright loading, browser launch, served app, route policy`
@@ -2224,7 +2224,7 @@ provider keys once at first import and CI boots in production mode."
   and its paragraph)
 - Modify: `PLAYBOOK.md`, `.claude/SESSION_CONTEXT.md`
 
-- [ ] **Step 1: Measure the end state**
+- [x] **Step 1: Measure the end state**
 
 ```bash
 wc -l scripts/dev/frontend_gate.py scripts/dev/_frontend_gate_*.py
@@ -2235,7 +2235,7 @@ Record every module's line count and the summary line. The facade should be
 roughly 450 lines. If it is above 700, find what was not moved before
 closing, and do not close the finding.
 
-- [ ] **Step 2: Architecture doc**
+- [x] **Step 2: Architecture doc**
 
 In `docs/architecture/documentation-tooling.md`, add one node per new slice
 to the gate diagram, each with an edge from `FG`, following the existing
@@ -2248,7 +2248,7 @@ registry is deferred.
 Validate the Mermaid block by rendering it (the Mermaid validation tool, or
 the repository's usual preview). A diagram that fails to parse is a defect.
 
-- [ ] **Step 3: DEVELOPMENT.md**
+- [x] **Step 3: DEVELOPMENT.md**
 
 Rewrite the paragraph that begins "**3. The frontend gate
 (`scripts/dev/frontend_gate.py`).**" so it no longer says the facade is
@@ -2256,7 +2256,7 @@ Rewrite the paragraph that begins "**3. The frontend gate
 State that the split has landed, with the measured facade size, and that
 the checks are grouped by concern in nine siblings.
 
-- [ ] **Step 4: Resolve the finding**
+- [x] **Step 4: Resolve the finding**
 
 In F-B21-51, replace the `Status:` line with the lifecycle record:
 
@@ -2272,7 +2272,7 @@ to the archive with the `-- RESOLVED` suffix. This is dev tooling that never
 deploys, so DOC014's pending-deploy block does not apply. If `--check`
 reports otherwise, read the diagnostic before changing anything.
 
-- [ ] **Step 5: PLAYBOOK Section 3 and Section 4**
+- [x] **Step 5: PLAYBOOK Section 3 and Section 4**
 
 - In Section 3, change the "Side task in progress" bullet to a completed
   one.
@@ -2280,7 +2280,7 @@ reports otherwise, read the diagnostic before changing anything.
   `### <date> - Frontend gate split complete (F-B21-51)`, with the
   measurements.
 
-- [ ] **Step 6: Pre-push self-review (AGENTS.md "Commit Rules")**
+- [x] **Step 6: Pre-push self-review (AGENTS.md "Commit Rules")**
 
 - Read every file this plan changed **whole**.
 - Grep the branch's cumulative diff for stale claims about the gate's
@@ -2295,7 +2295,7 @@ grep -rnE "frontend_gate\.py.{0,40}(lines|bulk|parked|nine times|ten times)" \
 Every live claim must match the measured end state. Section 4 entries are
 point-in-time and stay as written.
 
-- [ ] **Step 7: Full sequence and commit**
+- [x] **Step 7: Full sequence and commit**
 
 ```bash
 git add FINDINGS.md docs/history/findings/FINDINGS_ARCHIVE.md DEVELOPMENT.md \
@@ -2306,7 +2306,7 @@ described the split as parked and the facade as the bulk of the code; both
 now state the measured end state. The TOML registry stays a candidate."
 ```
 
-- [ ] **Step 8: Hand over**
+- [x] **Step 8: Hand over**
 
 Report to the owner:
 - the per-module line counts;
@@ -2315,3 +2315,64 @@ Report to the owner:
 - that CI's workflow file was not changed, and why (see "What CI needs").
 
 Pushing and the PR are the owner's call.
+
+## Execution record (2026-09-21)
+
+One commit per task, oldest first:
+
+- Task 1: `a06f6c2` -- test(gate): Pin the invariants the frontend gate
+  split must keep.
+- Task 2: `30310c2` -- refactor(gate): Delete dead helpers before the
+  split moves them.
+- Task 3 (shared slice): `04882a2` -- refactor(gate): Move what several
+  slices read into a shared module.
+- Task 4 (assets slice): `7a7b599` -- refactor(gate): Move stylesheet
+  isolation into its own slice.
+- Task 5 (unmatched slice): `6f1186f` -- refactor(gate): Move the
+  unmatched report check into its own slice.
+- Task 6 (forms slice): `06a9ae7` -- refactor(gate): Move the form and
+  validator checks into a slice.
+- Task 7 (theme slice): `bfc8749` -- refactor(gate): Move the theme and
+  motion checks into a slice.
+- Task 8 (layout slice): `e172b3e` -- refactor(gate): Move the layout and
+  scale checks into a slice.
+- Task 9 (pipeline slice): `2887c23` -- refactor(gate): Move the loading
+  and pipeline checks into a slice.
+- Task 10 (runtime slice): `839fa3e` -- refactor(gate): Move the server
+  and browser runtime into a slice.
+- Task 11 (this task): docs(gate): Close F-B21-51 now the frontend gate
+  split has landed.
+
+**Deviations from the plan text:**
+
+- Task 1: PLAYBOOK Section 3's bullet states PR #238 merged. That is
+  fact-checked against the live PR state, not copied from the plan text,
+  which predated the merge.
+- Task 2: `test_main_preserves_route_policy_through_real_runner`'s call
+  count changed from 4 to 2 and gained an explicit `localhost:8400`
+  pattern assertion, beyond what the plan's test body specified. A second
+  stale `bootstrap_fixture` mention, in the `LEGACY_PAGES` comment, was
+  also repointed; the plan named only the first.
+- Task 8: two `.docsync.toml` site entries -- the 860px breakpoint's
+  `matchMedia` expression and the 44px touch-target constant -- were
+  retargeted to `_frontend_gate_layout.py` (DOC009), committed with
+  `SKIP=doc-state-sync-check` per the escape hatch, since the control-plane
+  preflight refuses a `.docsync.toml` change otherwise.
+  `TOGGLE_TIMEOUT_MS` was dropped from the layout module's header import as
+  unused, which the plan's header listing did not anticipate.
+- Task 10: four `frontend_gate.create_job`/`frontend_gate.delete_job`
+  attribute calls in `test_frontend_gate_pipeline.py` (an earlier slice's
+  test file) were retargeted to `_frontend_gate_pipeline.create_job`/
+  `_frontend_gate_pipeline.delete_job`, discovered only because the
+  runtime slice removed the facade's own import of those names.
+- The facade ended at 535 lines (Step 1's measurement), above the plan's
+  roughly-450 estimate and under its 700-line threshold.
+- Every task's `doc_state_sync.py --fix` rotated an older Section 4 entry
+  out of `PLAYBOOK.md` into `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`;
+  each rotation was staged and committed together with that task's own
+  commit, not as a separate change.
+- CI's workflow file (`.github/workflows/test.yml`) was not changed across
+  any task. It runs `python scripts/dev/frontend_gate.py` once regardless
+  of how the checks are split across modules, and the registry-completeness
+  test (Task 1) guards against a moved check silently dropping out of
+  `CHECKS`.
