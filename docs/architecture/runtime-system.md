@@ -43,12 +43,14 @@ flowchart LR
         Unmatched[unmatched.py<br/>reason codes,<br/>threshold partition]
     end
 
-    App --> Routes
+    App -.->|imported inside create_app| Routes
     Routes --> Repo
     Routes --> Worker
     Routes --> Album
     Routes --> Heatmap
     Routes --> LastFMClient
+    Routes --> SpotifyClient
+    Routes --> Domain
     Routes --> Utils
     Routes --> Spotlight
     Routes --> Unmatched
@@ -74,13 +76,18 @@ flowchart LR
     ReleaseChecks --> Repo
     ReleaseChecks --> Domain
     ReleaseChecks --> Unmatched
+    ReleaseChecks --> Utils
     ReleaseChecks -.->|imported inside a function| Album
     LastFMClient --> Utils
     SpotifyClient --> Utils
+    SpotifyClient --> Domain
     SpotifyClient --> Enrichment
     DeezerClient --> Utils
+    DeezerClient --> Domain
     DeezerClient --> Enrichment
     MusicBrainzClient --> Utils
+    MusicBrainzClient --> Domain
+    Spotlight --> Utils
 
     Worker -.->|runs injected callable| Album
     Worker -.->|runs injected callable| Heatmap
@@ -118,16 +125,25 @@ flowchart LR
 
 Solid module-to-module arrows are imports. The dotted worker edges are runtime
 dispatch through callables injected by `routes/`; `worker.py` imports neither
-pipeline. `config.py` is not drawn: eight of the nodes shown here import it
-(`worker.py`, `repositories.py`, `orchestrator/__init__.py`, `lastfm.py`,
-`spotify.py`, `cache.py`, and `utils.py` at module level, plus `app.py`
-inside its `__main__` block), and those edges would cross and hide the flow.
+pipeline. The dotted `App` edges are imports deferred into a function, which is
+what the factory pattern requires: `create_app` imports the blueprint at
+`app.py:143` and the entrypoint imports `ensure_api_keys` at `app.py:155`, so
+neither is a module-level edge.
+
+`config.py` is not drawn: **ten** of the nodes shown here import it at module
+level, and those edges would cross and hide the flow. Named with their import
+lines so the list can be re-checked rather than trusted -- `worker.py:4`,
+`repositories.py:6`, `cache.py:11`, `utils.py:12`, `lastfm.py:8`,
+`spotify.py:6`, `deezer.py:16`, `musicbrainz.py:17`, `release_checks.py:49`,
+and `orchestrator/` (three of its five files: `__init__.py:35`, `_search.py:17`,
+`_details.py:16`). An eleventh node, `app.py`, imports it too, but deferred
+inside the `__main__` block.
 `routes/` and `orchestrator/` are each a package as of Batch 22 WP-0 (split
 by concern and by phase respectively); this view stays at the package level
 rather than drawing every submodule. The complete import graph, submodules
 included, lives in SESSION_CONTEXT Section 4.
 
-Three things this view deliberately makes visible, because breaking them is
+Five things this view deliberately makes visible, because breaking them is
 silent:
 
 - **One framework stylesheet per page.** `base.html` used to default Bootstrap

@@ -9,6 +9,66 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-20 - Outbound request identity and the MusicBrainz contact
+
+Side task, no batch tag. Scope was the pre-integration task for `test` into
+`main`: API endpoint-fetching compliance, the MusicBrainz HTTP contact, and
+agent access to the key documents. PR #236 was opened for the branch.
+
+**Three findings, each verified before repair.** First, no provider request
+carried a User-Agent at all: the string `User-Agent` appeared in exactly one
+file under `scrobblescope/` (`musicbrainz.py`), and `create_optimized_session`
+passed no headers, so every Last.fm, Spotify and Deezer request went out as
+aiohttp's default `Python/3.13 aiohttp/3.14.3`. Last.fm's API introduction
+asks for "an identifiable User-Agent header on all requests" and warns an
+account "may be suspended if your application is continuously making several
+calls per second", so this was a compliance gap rather than a style one.
+Second, `_musicbrainz_headers` interpolated an unset contact as the literal
+string `None`, producing `ScrobbleScope/1.0 ( None )`; the guard in
+`lookup_original_release` kept it off the wire, but the helper is reachable
+directly and the header's whole purpose is to name a client that can be
+contacted. Third, `MUSICBRAINZ_CONTACT` is absent from this worktree's `.env`,
+so the correction pass is inert here: a read-only probe returned `(None, None)`
+with zero HTTP calls.
+
+**Plan vs implementation: matched.** `APP_VERSION` and `APP_USER_AGENT` moved
+into `config.py` as the single owner of the application's own name, and
+`create_optimized_session` now sends that User-Agent as a session default.
+`musicbrainz.py` dropped its private `_APP_VERSION` copy and composes its
+contact-bearing header on the shared identity, so the application cannot name
+itself two different ways. Before adding the session default, aiohttp's merge
+semantics were measured against the pinned 3.14.3, because the change rests on
+them: a per-request `headers=` dict merges with the session default rather than
+replacing the header set, so MusicBrainz's own User-Agent still wins and is not
+clobbered. `_musicbrainz_headers` now raises when no contact is configured
+instead of rendering `None`.
+
+**Deviations: none.** No new dependency, no new module, and no new import edge:
+the graph stays `utils.py <- config` and `musicbrainz.py <- config, domain,
+utils`, so SESSION_CONTEXT Section 4 needed no change, and `.docsync.toml`
+declares nothing about environment variables or User-Agent.
+
+**Agent access to the key documents verified**: all 15 documents in the
+bootstrap and orientation set resolve and are readable, including both optional
+ones (`docs/AGENT_DOC_MAP.md`, `docs/architecture/documentation-tooling.md`)
+and the handoff report. The worktree guard also exits 0 on this branch; its
+`WARNING WT010` and `INFO WT000` are the expected states for a development
+branch in a linked worktree, not failures.
+
+**Validation:** `pytest -q` -- **1532 passed**, three more than the previous
+1529: `test_create_optimized_session_sends_shared_user_agent`,
+`test_musicbrainz_headers_refuses_a_missing_contact`, and
+`test_musicbrainz_headers_is_derived_from_the_shared_identity`. `ruff check`
+and `ruff format --check` are clean on all five touched files.
+
+**Forward guidance:** the code defect is closed, and `MUSICBRAINZ_CONTACT` is
+not a secret -- it is a contact string that travels in the User-Agent header,
+so setting it is a config change rather than a credential decision. It is
+unset here and was absent from DEPLOY.md's own instructions, which is why the
+deployed app runs the correction pass off; DEPLOY.md now documents it. The
+`main` branch was deliberately not touched -- `test` is the integration branch
+and `main` is the stable Fly.io deployment.
+
 ### 2026-09-20 - Session close-out and handoff
 
 Side task, no batch tag. The session closed under a token budget, so this
