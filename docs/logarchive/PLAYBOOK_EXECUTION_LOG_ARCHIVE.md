@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: unmatched slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_unmatched.py` now owns the largest
+single check, `check_unmatched_report` (422 lines), its breakpoint sweep
+`_unmatched_panel_width_sweep`, and their constants
+(`UNMATCHED_TWO_PANEL_MIN`, `UNMATCHED_SWEEP_WIDTHS`,
+`UNMATCHED_MIN_TITLE_WIDTH`), moved verbatim and importing
+`add_job_unmatched`, `create_job` and `delete_job` from
+`scrobblescope.repositories`. The sweep gains its first unit tests: that it
+reports a wrong column count and a starved album title at each swept width,
+and that it restores the viewport through its `finally` block both on a
+normal return and when a page measurement raises. A mutation probe that
+widened `UNMATCHED_MIN_TITLE_WIDTH` to 960 produced the expected FAIL lines
+on chromium at all three profiles. The gate's summary line is unchanged at
+30 checks across both browsers.
+
 ### 2026-09-21 - Frontend gate split: assets slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_assets.py` now owns stylesheet

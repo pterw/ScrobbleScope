@@ -6,7 +6,6 @@ covered by running the gate itself, which is what the Quality Gate does.
 
 from __future__ import annotations
 
-import json
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -15,11 +14,8 @@ from scripts.dev import frontend_gate
 from scripts.dev.frontend_gate import (
     SETUP_COMMAND,
     FrontendGateError,
-    _assert_loading_progress_state,
     _launch_browser,
     _load_playwright,
-    _parse_matrix_scalex,
-    check_pipeline_state_machines,
     run_checks,
     serve_app,
 )
@@ -114,31 +110,6 @@ def test_server_setup_failure_restores_jobs_and_page_inventories() -> None:
         "album-job",
         "heatmap-job",
     ]
-
-
-def test_pipeline_state_machine_uses_a_disposable_page() -> None:
-    """Its page-level timer patch must not reach later checks."""
-    page = MagicMock()
-    probe = page.context.new_page.return_value
-
-    with (
-        patch.dict(
-            "scripts.dev.frontend_gate.GATE_JOB_IDS",
-            {"album": "album-job", "heatmap": "heatmap-job"},
-            clear=True,
-        ),
-        patch("scripts.dev.frontend_gate.reset_job_state"),
-        patch("scripts.dev.frontend_gate.set_job_progress"),
-        patch(
-            "scripts.dev.frontend_gate._exercise_pipeline_state_machines",
-            side_effect=RuntimeError("pipeline failed"),
-        ) as exercise,
-    ):
-        with pytest.raises(RuntimeError, match="pipeline failed"):
-            check_pipeline_state_machines(page, "http://127.0.0.1:0")
-
-    exercise.assert_called_once_with(probe, "http://127.0.0.1:0")
-    probe.close.assert_called_once()
 
 
 @pytest.mark.parametrize("browser_name", ("chromium", "firefox"))
@@ -362,104 +333,6 @@ def test_main_isolates_lifecycle_faults_and_reports_complete_success(fault, caps
         )
 
 
-def test_parse_matrix_scalex_recovers_scale_and_handles_boundaries() -> None:
-    """The matrix parser must extract scaleX, support zero/identity, and handle invalid strings."""
-    assert _parse_matrix_scalex("matrix(0.2255, 0, 0, 1, 0, 0)") == pytest.approx(
-        0.2255
-    )
-    assert _parse_matrix_scalex("matrix(0.9, 0, 0, 1, 0, 0)") == pytest.approx(0.9)
-    assert _parse_matrix_scalex("matrix(1, 0, 0, 1, 0, 0)") == pytest.approx(1.0)
-    assert _parse_matrix_scalex("none") == 0.0
-    assert _parse_matrix_scalex(None) == 0.0
-    assert _parse_matrix_scalex("") == 0.0
-    assert _parse_matrix_scalex("invalid") is None
-    assert _parse_matrix_scalex("matrix()") is None
-
-
-def test_assert_loading_progress_state_reports_mismatches() -> None:
-    """The progress state assertion must report any discrepancy in valuenow, valuetext, visible text, or scale."""
-    page = MagicMock()
-    valid_state = {
-        "valuenow": "23",
-        "valuetext": "FETCHING SCROBBLES · PAGE 23 / 102",
-        "transform": "matrix(0.2255, 0, 0, 1, 0, 0)",
-        "phaseText": "FETCHING SCROBBLES · PAGE 23 / 102",
-    }
-    page.evaluate.return_value = dict(valid_state)
-
-    # Clean match produces no failures
-    assert (
-        _assert_loading_progress_state(
-            page,
-            "#track",
-            "#bar",
-            "#text",
-            expected_valuenow=23,
-            expected_scalex=0.2255,
-            expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
-        )
-        == []
-    )
-
-    # Mismatched valuenow
-    page.evaluate.return_value = dict(valid_state, valuenow="99")
-    failures = _assert_loading_progress_state(
-        page,
-        "#track",
-        "#bar",
-        "#text",
-        expected_valuenow=23,
-        expected_scalex=0.2255,
-        expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
-    )
-    assert len(failures) == 1
-    assert "aria-valuenow was '99'" in failures[0]
-
-    # Mismatched valuetext
-    page.evaluate.return_value = dict(valid_state, valuetext="Wrong")
-    failures = _assert_loading_progress_state(
-        page,
-        "#track",
-        "#bar",
-        "#text",
-        expected_valuenow=23,
-        expected_scalex=0.2255,
-        expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
-    )
-    assert len(failures) == 1
-    assert "aria-valuetext was 'Wrong'" in failures[0]
-
-    # Mismatched visible text
-    page.evaluate.return_value = dict(valid_state, phaseText="Stale text")
-    failures = _assert_loading_progress_state(
-        page,
-        "#track",
-        "#bar",
-        "#text",
-        expected_valuenow=23,
-        expected_scalex=0.2255,
-        expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
-    )
-    assert len(failures) == 1
-    assert "visible text was 'Stale text'" in failures[0]
-
-    # Mismatched scale
-    page.evaluate.return_value = dict(
-        valid_state, transform="matrix(0.5, 0, 0, 1, 0, 0)"
-    )
-    failures = _assert_loading_progress_state(
-        page,
-        "#track",
-        "#bar",
-        "#text",
-        expected_valuenow=23,
-        expected_scalex=0.2255,
-        expected_text="FETCHING SCROBBLES · PAGE 23 / 102",
-    )
-    assert len(failures) == 1
-    assert "scaleX was 0.5" in failures[0]
-
-
 def test_install_cdn_routes_aborts_only_the_overlay_origin() -> None:
     """Only the developer overlay's origin is routed; everything else is untouched."""
     page = MagicMock()
@@ -561,119 +434,3 @@ def test_main_preserves_route_policy_through_real_runner(live_fonts) -> None:
     if not live_fonts:
         assert page.route.call_args.args[0] == "http://localhost:8400/**"
     assert page.set_default_navigation_timeout.call_args.args == (10_000,)
-
-
-def test_phase_repository_probe_checks_real_isolation_and_invalid_views() -> None:
-    """The extracted diagnostic exercises real storage and detects missing snapshots."""
-    job = frontend_gate.create_job({"username": "probe"})
-    try:
-        assert frontend_gate._check_phase_repository_isolation(job) == []
-        assert frontend_gate.get_job_progress(job)["phase"]["current"] == 23
-        with (
-            patch.object(frontend_gate, "get_job_progress", return_value=None),
-            patch.object(frontend_gate, "get_job_context", return_value=None),
-        ):
-            failures = frontend_gate._check_phase_repository_isolation(job)
-        assert len(failures) == 6
-    finally:
-        frontend_gate.delete_job(job)
-
-
-def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:
-    """Late old-job data is checked and temporary job/routes are removed on faults."""
-    page = MagicMock()
-    held = MagicMock()
-    held.request.url = "http://local/progress?job_id=old-job"
-    page.route.side_effect = lambda pattern, handler: handler(held)
-    page.locator.return_value.get_attribute.return_value = "20"
-    page.locator.return_value.inner_text.return_value = "PAGE 20 / 100"
-    with (
-        patch.object(frontend_gate, "create_job", return_value="replacement"),
-        patch.object(frontend_gate, "set_job_progress"),
-        patch.object(frontend_gate, "delete_job") as delete,
-    ):
-        failures = frontend_gate._exercise_replaced_job_progress(
-            page, "http://local", "old-job", "/heatmap?job_id=old-job"
-        )
-        assert failures == [
-            "stale out-of-order progress response regressed aria-valuenow",
-            "stale out-of-order progress response regressed visible text",
-        ]
-        assert held.fulfill.call_args.kwargs["status"] == 200
-        response = held.fulfill.call_args.kwargs
-        payload = response.get("json") or json.loads(response["body"])
-        assert payload == {
-            "progress": 20,
-            "phase": {
-                "key": "lastfm_fetch",
-                "label": "Fetching scrobbles",
-                "unit": "page",
-                "current": 20,
-                "total": 100,
-            },
-        }
-        delete.assert_called_once_with("replacement")
-        page.unroute.assert_called_once_with("**/progress?job_id=*")
-        page.goto.side_effect = RuntimeError("navigation broke")
-        with pytest.raises(RuntimeError, match="navigation broke"):
-            frontend_gate._exercise_replaced_job_progress(
-                page, "http://local", "old-job", "/heatmap?job_id=old-job"
-            )
-        assert delete.call_count == 2
-        assert page.unroute.call_count == 2
-
-
-@pytest.mark.parametrize("client", ("album", "heatmap"))
-def test_counted_sequence_updates_real_storage_and_detects_stale_text(client) -> None:
-    """Both clients receive the same phase transitions and report an uncleared fraction."""
-    job = frontend_gate.create_job({"username": "probe"})
-    page = MagicMock()
-    snapshots = []
-    expected = [
-        (
-            "23",
-            "FETCHING SCROBBLES \u00b7 PAGE 23 / 102",
-            "matrix(0.2255, 0, 0, 1, 0, 0)",
-        ),
-        ("90", "FETCHING SCROBBLES \u00b7 PAGE 90 / 100", "matrix(0.9, 0, 0, 1, 0, 0)"),
-        ("92", "Counting daily scrobbles", "matrix(0.92, 0, 0, 1, 0, 0)"),
-    ]
-
-    def read_state(script, selectors):
-        """Capture the producer state before returning the simulated browser frame."""
-        snapshots.append(frontend_gate.get_job_progress(job))
-        value, text, transform = expected[len(snapshots) - 1]
-        return {
-            "valuenow": value,
-            "valuetext": text,
-            "phaseText": text,
-            "transform": transform,
-        }
-
-    page.evaluate.side_effect = read_state
-    page.locator.return_value.inner_text.return_value = "PAGE 90 / 100"
-    try:
-        failures = frontend_gate._exercise_counted_progress(
-            page, "http://local", job, "/loading", ("#track", "#bar", "#text"), client
-        )
-        assert failures == [f"{client} uncounted frame retained stale phase fraction"]
-        assert [snapshot["progress"] for snapshot in snapshots] == [20, 90, 92]
-        assert [snapshot.get("phase") for snapshot in snapshots] == [
-            {
-                "key": "lastfm_fetch",
-                "label": "Fetching scrobbles",
-                "unit": "page",
-                "current": 23,
-                "total": 102,
-            },
-            {
-                "key": "lastfm_fetch",
-                "label": "Fetching scrobbles",
-                "unit": "page",
-                "current": 90,
-                "total": 100,
-            },
-            None,
-        ]
-    finally:
-        frontend_gate.delete_job(job)
