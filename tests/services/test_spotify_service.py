@@ -1,3 +1,4 @@
+import logging
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -314,19 +315,35 @@ async def test_fetch_spotify_access_token_returns_none_on_non_200():
 
 
 @pytest.mark.asyncio
-async def test_fetch_spotify_access_token_asserts_on_missing_credentials():
+@pytest.mark.parametrize(
+    ("client_id", "client_secret"),
+    [(None, "test_secret"), ("test_id", None), ("", "test_secret")],
+    ids=["id-missing", "secret-missing", "id-empty"],
+)
+async def test_fetch_spotify_access_token_returns_none_without_credentials(
+    client_id, client_secret, caplog
+):
     """
-    GIVEN SPOTIFY_CLIENT_ID is None
+    GIVEN a Spotify credential is missing or empty
     WHEN fetch_spotify_access_token is called with an expired cache
-    THEN it should raise AssertionError before making any HTTP request.
+    THEN it returns None -- the same answer as a rejected token request, so
+    callers fall back to Deezer -- without making any HTTP request. It used
+    to `assert`, which `python -O` strips (F-B22-2) and which otherwise
+    raised past that fallback and failed the whole job.
     """
     fake_cache = {"token": None, "expires_at": 0}
     with (
         patch("scrobblescope.spotify.spotify_token_cache", fake_cache),
-        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", None),
-        pytest.raises(AssertionError, match="SPOTIFY_CLIENT_ID not set"),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_ID", client_id),
+        patch("scrobblescope.spotify.SPOTIFY_CLIENT_SECRET", client_secret),
+        patch("scrobblescope.spotify.create_optimized_session") as session,
+        caplog.at_level(logging.ERROR),
     ):
-        await fetch_spotify_access_token()
+        token = await fetch_spotify_access_token()
+
+    assert token is None
+    session.assert_not_called()
+    assert "credentials are not configured" in caplog.text
 
 
 # ------------------------------------------------------------------ #

@@ -5,7 +5,7 @@ diagrams. Each linked document owns one diagram so corrections have one place
 to land. The code remains authoritative when a diagram and implementation
 disagree.
 
-Last verified against the tree on 2026-09-13.
+Last verified against the tree on 2026-09-20.
 
 **Arrow semantics.** Solid arrows between Python modules are imports. Between
 documents they show which file owns or feeds another. Elsewhere they are
@@ -26,8 +26,9 @@ deployment: [Full-stack application architecture](architecture/runtime-system.md
 
 ## 3. Top Albums request and enrichment sequence
 
-Job admission, Last.fm retrieval, Spotify/cache enrichment, result storage,
-and polling: [Top Albums sequence](architecture/top-albums-sequence.md).
+Job admission, Last.fm retrieval, Spotify enrichment with a Deezer fallback,
+the deferred MusicBrainz correction pass, result storage, and polling:
+[Top Albums sequence](architecture/top-albums-sequence.md).
 
 ## 4. Heatmap request and rendering sequence
 

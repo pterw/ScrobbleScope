@@ -1,5 +1,6 @@
 """Finding lifecycle parsing and rotation planning regressions."""
 
+import pytest
 from docsync.findings import collect_rot_issues, plan_findings
 
 ARCHIVE_PROLOGUE = "\n".join(
@@ -665,3 +666,57 @@ def test_a_deployed_resolution_still_reads_as_a_claim():
     )
 
     assert [issue.code for issue in collect_rot_issues(_active(finding))] == ["DOC023"]
+
+
+# DOC023 and the word "closed": read on a legacy status line only.
+
+
+def _legacy(identifier, *body):
+    """Build one finding with no lifecycle record from *body* lines."""
+    return "\n".join([f"### {identifier}: a legacy finding", "", *body, ""])
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Status: closed. DOC007 and the renderer now share one helper.",
+        "Status: Closed -- the check landed in `8ed1650`.",
+        "- **Status:** closed",
+        "No contract tests exist yet. Status: closed. Source: sweep.",
+    ],
+    ids=["plain", "capitalised", "bold-bullet", "after-a-sentence"],
+)
+def test_a_legacy_status_line_opening_with_closed_is_a_claim(line):
+    """F-B21-13 said "Status: closed." and sat unrotated, because DOC023
+    only knew `resolved` and `no action`. A status label opening with
+    "closed" is its author saying the finding is finished."""
+    issues = collect_rot_issues(_active(_legacy("F-B21-13", line)))
+
+    assert [issue.code for issue in issues] == ["DOC023"]
+    assert "F-B21-13" in issues[0].remediation
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Status: partly closed. The rest needs an owner ruling.",
+        "Status: not closed; the WP-2 half is still open.",
+        "Status: open; closes at Batch 21 WP-8.",
+        "Batch 21 closed on 2026-09-13 without this work package.",
+        "The PR was closed, and its status: closed is only the PR's.",
+        "WP-3 closed the gap the audit named; this finding tracks the rest.",
+    ],
+    ids=[
+        "partly",
+        "negated",
+        "future-tense",
+        "batch-closed-in-prose",
+        "lower-case-label-in-a-sentence",
+        "wp-closed-in-prose",
+    ],
+)
+def test_closed_elsewhere_in_a_finding_is_not_a_claim(line):
+    """The owner's concern, 2026-09-21: findings talk about closed batches,
+    work packages and PRs all the time. Only the status label is read, and
+    only when "closed" is the first thing it says."""
+    assert collect_rot_issues(_active(_legacy("F-B21-25", line))) == []

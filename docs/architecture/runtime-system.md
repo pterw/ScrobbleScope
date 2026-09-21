@@ -25,7 +25,7 @@ flowchart LR
     subgraph Runtime[Flask runtime]
         App[app.py<br/>application factory]
         Routes[routes/<br/>Blueprint and handlers]
-        Worker[worker.py<br/>bounded semaphore]
+        Worker[worker.py<br/>job slots, thread event loops]
         Repo[repositories.py<br/>JOBS + lifecycle CRUD]
         Album[orchestrator/<br/>album pipeline]
         Heatmap[heatmap.py<br/>daily aggregation]
@@ -43,12 +43,14 @@ flowchart LR
         Unmatched[unmatched.py<br/>reason codes,<br/>threshold partition]
     end
 
-    App --> Routes
+    App -.->|imported inside create_app| Routes
     Routes --> Repo
     Routes --> Worker
     Routes --> Album
     Routes --> Heatmap
     Routes --> LastFMClient
+    Routes --> SpotifyClient
+    Routes --> Domain
     Routes --> Utils
     Routes --> Spotlight
     Routes --> Unmatched
@@ -74,13 +76,19 @@ flowchart LR
     ReleaseChecks --> Repo
     ReleaseChecks --> Domain
     ReleaseChecks --> Unmatched
+    ReleaseChecks --> Utils
+    ReleaseChecks --> Worker
     ReleaseChecks -.->|imported inside a function| Album
     LastFMClient --> Utils
     SpotifyClient --> Utils
+    SpotifyClient --> Domain
     SpotifyClient --> Enrichment
     DeezerClient --> Utils
+    DeezerClient --> Domain
     DeezerClient --> Enrichment
     MusicBrainzClient --> Utils
+    MusicBrainzClient --> Domain
+    Spotlight --> Utils
 
     Worker -.->|runs injected callable| Album
     Worker -.->|runs injected callable| Heatmap
@@ -118,16 +126,26 @@ flowchart LR
 
 Solid module-to-module arrows are imports. The dotted worker edges are runtime
 dispatch through callables injected by `routes/`; `worker.py` imports neither
-pipeline. `config.py` is not drawn: eight of the nodes shown here import it
-(`worker.py`, `repositories.py`, `orchestrator/__init__.py`, `lastfm.py`,
-`spotify.py`, `cache.py`, and `utils.py` at module level, plus `app.py`
-inside its `__main__` block), and those edges would cross and hide the flow.
+pipeline. The dotted `App` edges are imports deferred into a function, which is
+what the factory pattern requires: `create_app` imports the blueprint, and
+`_validate_api_keys` (called by `create_app`) and the `__main__` block each
+import `ensure_api_keys` -- none of them a module-level edge, because
+`load_dotenv` must run before `config` reads the environment.
+
+`config.py` is not drawn: **ten** of the nodes shown here import it at module
+level, and those edges would cross and hide the flow. They are `worker.py`,
+`repositories.py`, `cache.py`, `utils.py`, `lastfm.py`, `spotify.py`,
+`deezer.py`, `musicbrainz.py`, `release_checks.py`, and `orchestrator/`
+(three of its files: `__init__.py`, `_search.py`, `_details.py`). An eleventh
+node, `app.py`, imports it only inside functions. Named by module rather than
+by line, because a line number moves with every edit above it; re-check the
+list with a module-level `ast` walk for `scrobblescope.config` imports.
 `routes/` and `orchestrator/` are each a package as of Batch 22 WP-0 (split
 by concern and by phase respectively); this view stays at the package level
 rather than drawing every submodule. The complete import graph, submodules
 included, lives in SESSION_CONTEXT Section 4.
 
-Three things this view deliberately makes visible, because breaking them is
+Five things this view deliberately makes visible, because breaking them is
 silent:
 
 - **One framework stylesheet per page.** `base.html` used to default Bootstrap

@@ -112,7 +112,8 @@ Mutation-check every limit.
   - `_cap_threshold_exclusions`
   - `_process_filtered_albums`: the tail of `_fetch_and_process`, from
     `_apply_pre_slice` to `set_job_results`
-  - `_run_coroutine_in_new_loop`: the Proactor boilerplate
+  - `_run_coroutine_in_new_loop`: the run-and-close wrapper, built on
+    `worker.new_thread_event_loop` (extracted 2026-09-21 for F-B20-2)
   - `tests/services/test_orchestrator_fetch_and_process.py` must pass
     unmodified
 - **New `scrobblescope/export_jobs.py`:**

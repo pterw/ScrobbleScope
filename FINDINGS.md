@@ -1,9 +1,9 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-20
-Status: Batch 22 is active.
+Last updated: 2026-09-21
+Status: no batch is active; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1529 tests across 58 test modules.
+1555 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -191,39 +191,6 @@ Was recorded as: open for the general card token. The owner warmed the page/navb
 canvas and selected midpoint surfaces for Results; PLAYBOOK Section 4 records
 that refinement. The comparisons above describe the previous canvas.
 Source: owner-reported stat-bar background regression, 2026-09-09.
-
-### F-B21-50: reconnaissance TODOs in production code generated eight review rounds
-
-Commit `769f0aa` added 15 `# todo:` comments to `scrobblescope/routes.py`,
-mostly appended to bare HTTP status literals (`400,  # todo: Consider adding
-client-side validation`). Commit `16fbf92` removed all 15. Net change to
-`routes.py` is zero: the TODO count runs 0 at `b987e48`, 15 at `a53e412`, 0 at
-HEAD.
-
-Between those commits the notes cost eight repeated Qlty rounds. The PR #227
-audit records `radarlint-pythonS1135` ("Complete the task associated to this
-TODO") on 15 rows, at 15 distinct `routes.py` line numbers, each carrying an
-occurrence count of 8 -- 120 comment bodies for one batch of notes.
-
-The later priority pass corrected the first verification's "13 implemented /
-two genuine" tally: twelve notes described existing behavior, two retain
-deferred work (unmatched redesign and possible retirement of legacy POST),
-and the results note exposed the remaining F-B21-49 status defect. Removing a
-note did not implement the deferred work. The per-note evidence and refreshed
-review counts are in
-[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
-The eight-round count above remains the original audit's snapshot.
-
-The lesson is about where such notes live, not whether to take them. A scratch
-file or a findings entry costs one reader; a TODO in a linted production module
-is a standing finding that every scanner republishes on every run, and a
-reviewer cannot tell an orientation note from a real defect. Keep reading notes
-out of production source.
-
-Status: open as guidance; the code half is already clean at HEAD. No revert is
-proposed -- the churn is in history, and rewriting it needs owner
-authorization for a net-zero gain.
-Source: PR #227 commit-range audit, 2026-09-09.
 
 ### F-B21-51: frontend_gate.py is nine times its largest sibling
 
@@ -440,42 +407,6 @@ Status: open. Found in the WP-1 review on 2026-08-20 and left unfiled; filed
 and re-verified against the code 2026-08-22.
 Source: WP-1 parallel review.
 
-### F-B21-8: Tailwind scanned the whole repository, and no test would say so
-
-`@source` **adds** to Tailwind v4's automatic source detection; it does not
-replace it. `static/css/tailwind.src.css` named `templates/` and
-`static/js/`, and everyone -- this repository's own documentation included --
-read that as the scan boundary. It was not. `@import "tailwindcss"` walks the
-project from the root, so `docs/`, `tests/`, `scripts/` and the root Markdown
-files were all feeding the extractor.
-
-The extractor treats bare words as class candidates, so ordinary English
-prose in Markdown compiled into real utilities. `.contents`, `.isolate`,
-`.flex`, `.border`, `.relative`, `.sticky`, `.truncate` and `.italic` were all
-in the shipped stylesheet on that basis. Scoping the scan to what the config
-already claimed removed **713 of 2,289 lines -- 31% of the file**.
-
-Fixed by `@import "tailwindcss" source(none)`, which turns automatic detection
-off and makes the two `@source` directives the whole scan.
-
-**The reason this reached CI.** Nothing local runs the build and compares. The
-WP-1 suite tests `tailwind_build.py`'s fetch, verify and platform logic, and
-never asserts that the committed CSS is what the pinned toolchain emits. The
-only check that can fail is the "Verify committed Tailwind CSS" step in the
-Quality Gate, which runs after push. `git diff --exit-code -- static/css/tailwind.css`
-was used locally as if it were that check; it only proves the file has not
-been edited by hand. This is the same shape as `F-B21-7` -- a gate whose local
-tests cannot fail -- and it is the strongest argument for WP-2's
-`tailwind-css-drift` pre-commit hook, which closes it.
-
-Two `@source not` directives are now unreachable: `./tailwind.css` and
-`../../scripts/bin/*` both sit outside the two scanned directories. They are
-harmless, and are left in place as protection in case `source(none)` is ever
-removed. Delete them only together with that line.
-
-Status: open for the missing local check; the `@source` scope itself is fixed
-on `wip/batch-21`. WP-2 closes the remainder with the drift hook.
-Source: PR #173 Quality Gate failure, 2026-08-22.
 ### F-B21-9: the findings-to-issues mirror is manual
 
 Open findings were mirrored to GitHub issues #174-#215 on 2026-08-22. The
@@ -520,87 +451,6 @@ Was recorded as: resolved locally. F-B21-49 closes the remaining call sites; its
 priority-fix commit and publication are pending.
 Source: WP-2 template migration, 2026-08-23; PR #227 review, 2026-09-07;
 call-site measurement, 2026-09-09.
-
-### F-B21-12: four pinned CI actions target a deprecated Node runtime
-
-Every Quality Gate run now annotates: `Node.js 20 is deprecated. The
-following actions target Node.js 20 but are being forced to run on Node.js
-24: actions/cache@v4, actions/checkout@v4, actions/setup-python@v5,
-actions/upload-artifact@v4.` The changelog is
-`https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/`.
-
-Nothing is broken. GitHub runs those actions on Node 24 anyway and the gate
-passes. The risk is the shape of the fix rather than the fault: all four sit
-in one file, `.github/workflows/test.yml`, and they fail together on the day
-the forced fallback is withdrawn. That failure would land on whichever work
-package happens to be open, would look unrelated to its diff, and would block
-every PR at once.
-
-Remedy: bump each of the four to a release that targets Node 24, in one
-commit, and confirm the annotation is gone from the next run. Do not guess
-the version numbers -- read each action's releases first, because the major
-that carries the new runtime differs per action.
-
-Worth doing on its own rather than inside a UI work package. It touches the
-gate every other work package depends on, so a bad bump is expensive and a
-separate commit is trivial to revert.
-
-Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
-
-Status: open. Not urgent, but the deadline belongs to GitHub rather than to
-this repository.
-Source: PR #216 Quality Gate annotation, 2026-08-23.
-
-### F-B21-13: bootstrap state lives in three files and only one is gated
-
-`AGENTS.md` makes bootstrap complete only when PLAYBOOK Section 3, the active
-batch definition and `.claude/SESSION_CONTEXT.md` Section 1 agree on the
-current batch and the next work package. Nothing checks that they do.
-
-`doc_state_sync.py` derives the next work package from PLAYBOOK and writes it
-into the managed SESSION_CONTEXT block. It never reads the batch definition.
-`scripts/docsync/integrity.py` names `FINDINGS.md` once, in the pinned
-root-document list, and its test-count enforcement reads SESSION_CONTEXT
-only. So two of the three legs are hand-maintained and unread.
-
-Both drifted in Batch 21 and both were caught by PR review rather than by a
-gate:
-
-- `docs/history/definitions/BATCH21_DEFINITION.md` still said WP-2 was next after WP-2 shipped. WP-1's
-  plan carried updating that line as an explicit task, WP-2's did not, and
-  PR #170 had already made the same correction once for WP-1. Second
-  occurrence of the same line going stale.
-- The `FINDINGS.md` header still published 666 tests after PLAYBOOK and
-  SESSION_CONTEXT moved to 671, in the very commit that was correcting stale
-  documentation.
-
-Remedy: extend the integrity gate rather than write another rule. Two checks,
-both cheap, because both compare text that already exists:
-
-1. Parse the next-work-package claim out of the active batch definition's
-   status line and compare it to the value the renderer already computes from
-   PLAYBOOK. Report a diagnostic when they disagree.
-2. Apply the existing `latest_test_count_authority()` to the `FINDINGS.md`
-   header the same way it is applied to the SESSION_CONTEXT fields.
-
-Written rules have now failed twice on the definition status line, which is
-the point at which `AGENTS.md` prefers a mechanical check over a restatement.
-Do it in its own commit with tests, not inside a UI work package -- it
-changes the gate every other work package depends on.
-
-Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
-
-Status: closed. DOC007 and the SESSION_CONTEXT renderer now call the same
-finite, plan-aware next-WP helper. The CLI supplies the active definition's
-planned headings, so absorbed gaps are skipped and an all-complete plan
-terminates instead of hanging. DOC007 checks both the definition Status line
-and PLAYBOOK's actual Next action bullet; a missing parseable claim remains
-silent because it is a different defect. DOC008 applies the shared count
-authority to the FINDINGS header with header-specific remediation, including
-rotated per-batch logs and deterministic same-date batch ordering. Regression
-tests cover agreeing, disagreeing, unparseable, absorbed-gap, all-complete,
-header-scope, ambiguity and rotated-authority cases.
-Source: PR #216 review round two, 2026-08-23.
 
 ### F-B21-14: the heatmap has no path to its data that is not colour
 
@@ -1076,16 +926,6 @@ Revisit when any of these files next changes substantially; the natural seam
 in the collector is Git/topology collection versus diagnostic orchestration.
 Status: open (accepted deviation). Source: PR #169 review round 4.
 
-### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1)
-
-`scrobblescope/orchestrator.py` (916 lines) mixes album workflow, Spotify
-batch processing, error mapping, progress tracking, and result assembly.
-Now that `heatmap.py` provides a second pipeline, extract the shared
-patterns (event loop setup including the win32 Proactor guard, progress
-mapping, error guards) into a common module and split the orchestrator
-into pipeline / processing / result-shaping modules. Also on the README
-roadmap; absorbs F-B18-7. Status: open. Source: Batch 18 audit.
-
 ### F-B20-3: Bootstrap loads from two CDN providers
 
 `base.html` loads Bootstrap CSS from cdnjs while `index.html` loads the
@@ -1093,17 +933,11 @@ JS bundle from jsdelivr; other pages use cdnjs. The original remedy
 (consolidate to one provider before a Bootstrap 5.1 -> 5.3 upgrade) is
 dead: Batch 21 removes Bootstrap entirely and resolves the split by
 elimination (`docs/history/definitions/BATCH21_DEFINITION.md` WP-8 "closes F-B20-3").
-Status: open; closes at Batch 21 WP-8. Source: F-B19-4 owner review.
-
-### F-B20-4: UI overhaul (driven by owner audit)
-
-Scope, locked decisions, and acceptance criteria live entirely in
-`docs/history/definitions/BATCH21_DEFINITION.md` (active batch) -- this entry is a pointer, not a
-second copy. Status: in progress (Batch 21 active; WP-0 through WP-5 and
-WP-7 are complete, WP-6 is absorbed into WP-3, and WP-8 awaits owner
-direction). Matches the file header above; corrected 2026-09-12, when this
-line still read "WP-0 done".
-Source: owner audit (UI Audit v3) + F-B19-4 owner review.
+WP-8 did so in `85e7511` on 2026-09-13: no template loads Bootstrap, and
+`static/css/global.css` is gone. `origin/main`, which Fly.io deploys, predates
+that commit and still loads both, so this stays active until `main` advances.
+- [ ] **Status:** resolved locally, pending deploy
+Source: F-B19-4 owner review.
 
 ### F-B18-11: heatmap Last.fm page fetch is rate-limit bound
 
@@ -1141,12 +975,6 @@ pass mocked tests. Status: open. Source: MULTI_AGENT_SWEEP.
 Theme toggle, export, polling, and heatmap rendering have no automated
 coverage. Status: open. Source: MULTI_AGENT_SWEEP.
 
-### F-DOCSYNC-1: ENTRY_BATCH_RE too loose
-
-`parser.py` batch-tag regex can misroute entries whose titles contain
-"Batch N" substrings; tightening needs backward-compat testing. On the
-README roadmap. Status: open. Source: DOCSYNC_AUDIT Finding 6.
-
 ### F-MAS-3: test_docsync_logic.py covers several unrelated seams
 
 One module holds WP collection, test-count authority, whole-sync
@@ -1163,12 +991,6 @@ finding went stale as soon as the file changed, and size was never the
 defect. Compare against the largest peer in the directory when deciding
 whether the split is due.
 Status: open. Source: MULTI_AGENT_SWEEP.
-
-### F-MAS-4: broad `except Exception` catches
-
-17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at
-the original sweep); narrow or add structured logging per exception
-class. Status: open. Source: MULTI_AGENT_SWEEP.
 
 ### F-STYLE-1: repository prose is denser than it needs to be
 
@@ -1206,42 +1028,16 @@ docstring (84%), and 4 using Google sections such as `Args:` or `Returns:`
 the documented ones, plus 33 that carry no docstring at all. That size is why
 this is a finding and not a rule. Re-measure before quoting these numbers.
 
-**Line length.** `black` has no `[tool.black]` section in `pyproject.toml`,
-so it wraps at its default 88. `.flake8` sets `max-line-length = 120`.
-Nothing reconciles the two.
+**Line length and the stale `.flake8` note are settled.** Ruff replaced black,
+isort, autoflake and flake8 in `c7bfaec` on 2026-09-07, and `pyproject.toml`
+`[tool.ruff]` now owns one line length, 88. The orphaned `.flake8` -- still
+claiming 120 and calling its ignores temporary, with nothing left that reads
+it -- was deleted on 2026-09-21.
 
-**A stale note.** `.flake8` still describes its five ignored codes as
-temporary, for an incremental cleanup that has since finished.
-
-Ruff is the planned replacement for black, isort, autoflake and flake8, as
-part of a CI modernization, and it also settles the line-length
-disagreement -- so do not open that as a separate question. The plan is not
-written down anywhere it would be found: the only tracked traces are
-`.ruff_cache/` in `.dockerignore` and one line in
-`docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. Defer the sweep; record
-the decision.
-Status: open. Source: root-hygiene side task, 2026-08-19.
-
-### F-SWE-4: the production entrypoint never validates API keys
-
-`config.ensure_api_keys()` (`config.py:37-40`) raises when any of the three
-API keys is missing, and it is called only inside the `__main__` guard at
-`app.py:140-145`. Production starts with `gunicorn app:app`
-(`Dockerfile:15`), which imports the module rather than running it, so the
-check never fires. Verified: with all three keys unset, `import app`
-succeeds and serves, while `ensure_api_keys()` would have raised.
-
-The same file gets the neighbouring case right. `_validate_secret_key` is
-called from `create_app()` (`app.py:111`) and refuses to start in
-production. One secret is checked at startup and three are not.
-
-`spotify.py:26-27` is the only remaining guard for two of them, and it uses
-`assert`, which `python -O` strips. Without the startup check a missing key
-surfaces as a per-request failure, classified as an upstream outage.
-
-Fix: call `ensure_api_keys()` from `create_app()`. One line, and it closes
-two C cells in the audit matrix.
-Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
+What remains is the docstring convention alone: adopt Google sections or
+not. Defer the sweep; record the decision.
+Status: open (docstring convention only). Source: root-hygiene side task,
+2026-08-19.
 
 ### F-SWE-5: the two background entry points disagree about terminal job state
 
@@ -1486,24 +1282,6 @@ session). Small and self-contained; no test rewrite beyond swapping the
 
 Status: open (P2). Source: Batch 22 WP-2 Task 6, 2026-09-13.
 
-### F-B22-2: `assert` guards job-context narrowing in three `album_flow.py` sites
-
-`scrobblescope/routes/album_flow.py:89,154,302` each use `assert job_context
-is not None` to narrow the type after a validation guard clears (`if err:
-return err`). Moved verbatim from pre-split `routes.py`; not introduced by
-WP-0's module split. Codacy PR #232 review flagged this correctly: `assert`
-strips under `python -O`, so an optimized interpreter would fall through to a
-`None.get(...)` `AttributeError` a few lines later instead of a clear,
-intentional failure.
-
-Fix shape: replace each with `if job_context is None: raise RuntimeError(...)`
-(or equivalent), matching the pattern of an internal-invariant check rather
-than a `python -O`-dependent one. Small and testable, but out of scope for
-WP-0's behaviour-neutral contract -- filed separately rather than fixed
-in-PR.
-
-Status: open (P2). Source: Codacy bot review, PR #232, 2026-09-13.
-
 ### F-B22-3: job endpoints trust an unguessable job ID with no session ownership check
 
 `scrobblescope/routes/api.py` (`unmatched_data`, `progress`) and
@@ -1528,6 +1306,31 @@ demonstrated wrong.
 
 Status: open (P2, owner-gated). Source: Graphify bot review, PR #232,
 2026-09-14.
+
+### F-B22-7: `AlbumMetadata.as_cache_row` is unreachable from application code
+
+`scrobblescope/enrichment.py:19` builds the nine-element provider-aware cache
+row that `cache._batch_persist_metadata` unpacks. Both production sites that
+persist metadata build that tuple themselves instead:
+`orchestrator/_details.py:137` inline as six elements (the Spotify shape) and
+`orchestrator/_deezer_fallback.py:83` inline as nine. A repo-wide search finds
+the method at its definition and in its own test
+(`tests/services/test_enrichment.py:14,42`) and nowhere else, so no
+application code path calls it.
+
+Consequences worth naming. The persistence row order already has one owner,
+`cache._batch_persist_metadata`'s docstring, so this method is a second copy
+of that fact and a place for the two to drift. Its test asserts an order that
+nothing writes, which reads as coverage of the persist path without exercising
+it -- the false-confidence shape AGENTS.md's test-quality rules exist to
+catch. `AlbumMetadata` is still genuinely used: `spotify.py:273` and
+`deezer.py:144` construct it and read its fields. Only this method is unread.
+
+Filed rather than fixed because removing a method and its test, or routing one
+builder through it and deleting the other, is a choice between two working
+shapes with a Batch 22 test contract around one of them. Owner call.
+
+Status: open (P2). Source: PR #234 advisory verification, 2026-09-20.
 
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
@@ -1803,8 +1606,9 @@ tracks lives in the same file as `format_seconds`, and a reader looking for
 either has no reason to look here.
 
 A split into rate limiting, HTTP and caching, and formatting is a sibling
-of the F-B20-2 orchestrator decomposition and belongs in the same batch as
-it, not before Batch 21.
+of the F-B20-2 orchestrator decomposition, archived on 2026-09-21. It is a
+structural change with its own parity-test cost, so it wants a work
+package of its own rather than a side task.
 Status: open (P2). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
@@ -1826,6 +1630,51 @@ Status: standing design decision. Source: cache verification 2026-03-04.
 Playcount filter + 500-album playtime cap applied before cache lookup.
 Status: standing design decision. Source: load testing 2026-03-04.
 
+### F-DOCSYNC-14: DOC023 fires on prose that quotes the outcome vocabulary
+
+`_claims_a_terminal_outcome` (`scripts/docsync/findings.py:371`) suppresses a
+claim when a `not` directly qualifies the outcome word, including the
+tab-separated and uppercase spellings and the Markdown-emphasised form. Two
+classes of prose therefore still block, and both are deliberate.
+
+First, a `not` earlier in the sentence does not suppress a later claim. The
+negation rule is anchored to the outcome word, so prose that says it does not
+know something and then states an outcome still reads as a claim. That is
+asserted by `test_negation_does_not_reach_across_a_sentence`.
+
+Second, a compound that takes the vocabulary's `no` branch and appends a
+trailing qualifier carries no `not` for the rule to find, so it blocks as
+well.
+
+There is a practical consequence worth recording, because it was learned the
+hard way: this file cannot quote a sentence that trips the gate. The first two
+drafts of this very entry quoted the trigger sentences in order to explain
+them, and DOC023 blocked both -- the first on a `no`-branch compound, the
+second on the sentence the boundary rule above describes. The quoted sentences
+and the 14-case measurement live in
+`docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`, which sits
+outside DOC023's scan. This file does not, so it describes the shapes instead
+of spelling them.
+
+Measured 2026-09-20 against 14 synthetic findings run through the real gate,
+`collect_rot_issues` (probe: `tmp/_zG_doc023_verdict.py`). Every negation
+spelling the rule was written for is handled, and the boundary case above
+still blocks, as documented. `tests/test_docsync_findings.py` already covers
+the intended behaviour --
+`test_a_finding_saying_it_is_not_resolved_is_not_a_claim`,
+`test_negation_does_not_reach_across_a_sentence`,
+`test_a_deployed_resolution_still_reads_as_a_claim`.
+
+Recorded so a later agent does not "fix" either boundary by widening the
+negation window. That trade buys silence on a couple of phrases and pays for
+it by missing real completion claims, which is the failure DOC023 exists to
+prevent. Blocking is the safe direction -- Rule 7's "a wrong green is worse
+than a red" -- and the cost is one reword by an author whose open finding
+happens to use the phrase.
+
+Status: standing design decision. Source: PR #234 advisory verification,
+2026-09-20.
+
 ---
 
 ## Deferred / future-batch candidates (Batch 18/19 audits)
@@ -1834,13 +1683,14 @@ One-line cross-references; detailed bodies live in pre-Batch-20
 `FINDINGS.md` (git history before `494f2c7`) or the `docs/history/`
 audits; 2026-03-04 load-test data is in the findings archive.
 
-- F-B18-1: orchestrator monolith -- promoted to F-B20-2 above.
+- F-B18-1: orchestrator monolith -- promoted to F-B20-2, resolved 2026-09-21.
 - F-B18-2: JOBS dict lacks TypedDict/dataclass annotations.
 - F-B18-3: `loading.js` album messaging; extract shared polling utility
   if a third feature emerges.
 - F-B18-4: `_check_user_exists` creates a throwaway event loop per call.
 - F-B18-5: inline SVG payload growth; lazy-load or sprite if more added.
-- F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2.
+- F-B18-7: duplicated win32 event-loop guard -- absorbed into F-B20-2,
+  resolved 2026-09-21 as `worker.new_thread_event_loop`.
 - F-B18-10: heatmap + album jobs share the 10 req/s throttle (by design).
 - F-B18-12: mode pills differ in width (no `min-width` on `.mode-pill`)
   -- RESOLVED 2026-08-25 by Batch 21 WP-3. They are equal-width `<button>`

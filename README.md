@@ -9,10 +9,11 @@
 [![Deployed on Fly.io](https://img.shields.io/badge/deployed-fly.io-8b5cf6.svg)](https://scrobblescope.fly.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-The Quality Gate badge is the live state: it runs the Python suite, a coverage
-floor, Ruff, the documentation-integrity checks and the browser gate on every
-push. No badge here carries a hand-maintained test or coverage number, because
-a number typed into a README is wrong the next time anybody commits.
+The Quality Gate badge tracks real gates rather than a snapshot of them: it
+runs the Python suite, a coverage floor, Ruff, the documentation-integrity
+checks and the browser gate on every push. Nothing on this page carries a
+hand-maintained test or coverage number, because a number typed into a README
+is wrong the next time anybody commits.
 
 **[Try it live ->](https://scrobblescope.fly.dev)**
 
@@ -29,10 +30,16 @@ available run in the same browser session.
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
+  - [A search is an ETL pass over an event stream, not a query](#a-search-is-an-etl-pass-over-an-event-stream-not-a-query)
   - [How a search runs, end to end](#how-a-search-runs-end-to-end)
   - [The shared infrastructure in `utils.py`](#the-shared-infrastructure-in-utilspy)
   - [What each module owns](#what-each-module-owns)
 - [Key Implementation Highlights](#key-implementation-highlights)
+- [Owned Interface Components](#owned-interface-components)
+  - [The heatmap is a hand-built SVG](#the-heatmap-is-a-hand-built-svg)
+  - [The pinwheel is an owned component](#the-pinwheel-is-an-owned-component)
+  - [The results export renders desktop on purpose](#the-results-export-renders-desktop-on-purpose)
+  - [The artist spotlight is sampled, and never empty](#the-artist-spotlight-is-sampled-and-never-empty)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
@@ -175,6 +182,36 @@ Dotted edges are the fallback path, the correction pass that runs after the
 results are on screen, and the browser's progress polling -- none of them the
 primary request flow.
 
+### A search is an ETL pass over an event stream, not a query
+
+This framing matters more than it sounds, because it is the reason the
+codebase does not look like a CRUD app.
+
+Last.fm stores **scrobbles**: an unbounded event stream of individual track
+timestamps. It has no concept of the album a listener played. An "album" does
+not exist upstream to be fetched -- it is *produced*, by grouping the stream on
+a normalized `(artist, album)` key, then partitioning and threshold-gating the
+groups on criteria the user chose. The same stream yields different album sets
+depending on those thresholds, so the album is a function of the query rather
+than a row in a table.
+
+That has three consequences visible throughout the architecture:
+
+- **Identity is resolved, not looked up.** Two providers name the same album
+  differently, and Last.fm's own spelling varies. The normalized key is the
+  join, so album identity is computed once and reused by the cache, every
+  provider match, and every live correction.
+- **PostgreSQL is a cache, not the domain's home.** It is a read-through layer
+  with a 30-day TTL, and its purpose is to protect upstream rate limits and cut
+  latency, not to hold the model. The application is correct with the database
+  absent; `DATABASE_URL` blank is a supported configuration, and a search
+  simply does every lookup live.
+- **A job is a pipeline stage, not a transaction.** Progress is published per
+  phase, failures are classified per provider, and the correction pass is
+  queued after the results are already on screen rather than awaited. Holding a
+  result set behind a one-request-per-second lookup would make the page slower
+  than the API it is waiting on.
+
 ### How a search runs, end to end
 
 1. **The form posts to Flask.** The username has already been checked while
@@ -247,9 +284,9 @@ module, so the clients stay thin:
 
 | Module | Responsibility |
 | --- | --- |
-| `app.py` | The application factory: configuration, CSRF, logging, blueprint registration, secret validation |
+| `app.py` | The application factory: configuration, CSRF, logging, blueprint registration, secret and API-key validation |
 | `routes/` | One blueprint split by concern -- the home page, the album flow, the heatmap flow, and the small JSON endpoints. Handlers parse the request, start or read a job, and render |
-| `worker.py` | The concurrency boundary: the job semaphore and thread startup. It runs a callable given to it and imports neither pipeline |
+| `worker.py` | The concurrency boundary: the job semaphore, thread startup, and the event loop each background thread runs in. It runs a callable given to it and imports neither pipeline |
 | `repositories.py` | The in-memory job store and every read and write to it, each under one lock |
 | `orchestrator/` | The album pipeline, split by phase: search, details, cache, Deezer fallback, results |
 | `heatmap.py` | The second pipeline: daily aggregation in UTC over the last 365 days, with no enrichment step |
@@ -273,6 +310,22 @@ module, so the clients stay thin:
   removes repeated HTTP work inside a session. The optional PostgreSQL cache
   remembers album metadata and original-release findings across restarts and
   across users. Neither stores a result set: those are ephemeral by design.
+- **The cache talks to Postgres in arrays, not rows.** A job's albums are
+  looked up and written in single statements built on `unnest($1::text[], ...)`,
+  so five hundred albums cost one round trip rather than five hundred. This is
+  a hand-written primitive layer rather than an ORM saving records one at a
+  time, and it is the reason a cold cache does not dominate a run.
+- **A stale schema names itself.** A missing column or table answers with a
+  PostgreSQL SQLSTATE (`42703`, `42P01`), and the cache reads that code
+  specifically instead of treating every failure as network turbulence. The
+  difference matters: an unmigrated database and a dropped connection look
+  identical to a generic handler, and the first one needs a migration rather
+  than a retry. Startup prints the exact `init_db.py` command to run.
+- **A provider endpoint that disappears degrades instead of failing.** Spotify
+  removed Get Several Albums for Development Mode apps, which answers with
+  `403`, `404` or `410`. The batch fetch recognises those three statuses and
+  falls back to one request per album, gathered concurrently, so album details
+  keep arriving under the same rate limit instead of emptying the result.
 - **Normalization is the join key.** Artist, album and track names are
   normalized once -- Unicode-normalized, punctuation flattened, release-noise
   words such as "deluxe" and "remastered" dropped from album titles only, so
@@ -296,13 +349,94 @@ module, so the clients stay thin:
   results page builds dynamic text with DOM text nodes rather than HTML
   strings.
 - **Secret validation.** Production startup rejects a missing, short or known
-  placeholder `SECRET_KEY`. Development logs a warning instead of refusing to
-  start.
+  placeholder `SECRET_KEY`, and a missing Last.fm or Spotify key, in the
+  factory itself -- `gunicorn app:app` never runs a `__main__` block, so a
+  check there would never fire. Development logs a warning instead of
+  refusing to start.
 - **Canonical navigation.** `/heatmap`, `/results` and `/unmatched` recover
   the latest run for the current browser session, so a reader who closes a tab
   can come back. Explicit job IDs still work, and the JSON endpoints
   (`/progress`, `/api/unmatched`, `/api/release_checks`,
   `/api/artist_spotlight`) are separate from the pages.
+
+## Owned Interface Components
+
+Three of the interface elements are built from scratch rather than pulled from
+a library. That is not minimalism for its own sake: each one is a place where a
+charting or animation dependency would have cost more than it saved, and each
+had to satisfy a constraint a generic library does not know about.
+
+### The heatmap is a hand-built SVG
+
+There is no charting library and no `<canvas>` on the page. `static/js/heatmap.js`
+constructs the grid as SVG nodes with `createElementNS`: a Monday-first weekly
+calendar on desktop (`mondayIndex` normalises `getDay()` so week one does not
+depend on the locale), 7 rows of days against 53 week columns, with month
+labels tracking the column offsets. Narrow screens get a **separate sequential
+grid** with larger cells rather than a squeezed copy of the weekly one, because
+a 53-week grid is roughly 880px and cannot be made to work in a phone column.
+
+Cell intensity is log-normalised, not linear:
+
+```js
+Math.log10(count + 1) / Math.log10(maxCount + 1)
+```
+
+A heavy listener's year is dominated by a handful of huge days. On a linear
+scale almost every cell lands in the first stop of the ramp and the map reads
+as blank. The logarithm is what makes the mid-range visible.
+
+The colour comes from a seven-stop ramp (`ROCKET_STOPS`, sampled from
+matplotlib's `rocket_r`) interpolated by `rocketColor(t)`. Two details are
+load-bearing:
+
+- **Zero-count cells are repainted from the active theme.** A cell carries its
+  colour as an SVG `fill` *presentation attribute*, and a presentation
+  attribute does not resolve a CSS custom property -- so the token is read and
+  resolved in JavaScript before being assigned. Without that, the grid keeps
+  its light-theme empties on a dark page, which is exactly the failure the
+  browser gate later grew a check for.
+- **The palette has one owner.** `heatmap.js` holds all seven stops;
+  `tailwind.src.css` and `heatmap.css` derive from them rather than
+  re-declaring them, so the tab accent and the grid cannot disagree.
+
+The JPEG export is not a screenshot. The live SVG is cloned, given explicit
+pixel dimensions, serialised to a data URI and drawn into a canvas at 2x
+(`EXPORT_SCALE`), with a header laid out from named geometry constants. Two
+problems this solves: an SVG carries no stylesheet, so the fonts and tokens
+have to be inlined; and the export header is *read from the page* rather than
+written into the export code, so the image cannot state something the page
+does not.
+
+### The pinwheel is an owned component
+
+`scrobblescope_pinwheel.svg` with its animation in `shell.css` -- an inline
+vector mark rather than a loader GIF or a JavaScript animation library, so it
+inherits theme tokens, respects `prefers-reduced-motion`, and stays crisp at
+any density.
+
+### The results export renders desktop on purpose
+
+The JPEG export of the results table forces the **desktop** markup visible
+inside the clone (`html2canvas`'s `onclone` hook swaps the `.desktop-val` and
+`.mobile-val` families), at `scale: 3`. A phone therefore produces a
+desktop-faithful image. That is intentional: a table of album rows is far more
+readable at full width, and an export is something a person keeps or shares
+rather than reads in place.
+
+Two constraints are handled explicitly. `html2canvas` 1.4 cannot parse the
+`color()` function that `color-mix()` emits, so the page surface is rasterised
+to an `rgb()` string first. And the CSV export reads a `data-export` attribute
+rather than the cell's text, because the table rounds and the file should not.
+
+### The artist spotlight is sampled, and never empty
+
+`spotlight.py` aggregates the results by artist, ranks by play count and play
+time, takes the top ten, and samples **five** -- seeded on the job id, so
+re-running the same search does not reshuffle the panel under the user while a
+fresh search does. It issues a separate request scoped to that sample, and if
+any single image fails to load the album artwork already on the page is the
+fallback, so the panel has no empty state to design for.
 
 ## Getting Started
 
@@ -314,10 +448,11 @@ module, so the clients stay thin:
   and artist enrichment. Deezer, the fallback provider, needs no key; its
   terms permit non-commercial use only, which binds any future change to how
   this app is run.
-- Optionally, a contact address for [MusicBrainz](https://musicbrainz.org/),
-  which corrects a reissue date to the album's original release date. It
-  blocks anonymous clients, so without `MUSICBRAINZ_CONTACT` the correction
-  pass stays off and everything else behaves exactly as before.
+- Optionally, a contact for [MusicBrainz](https://musicbrainz.org/), which
+  corrects a reissue date to the album's original release date. Its policy
+  requires a contact -- an email address or a URL -- in every request's
+  User-Agent, so without `MUSICBRAINZ_CONTACT` the correction pass stays off
+  and everything else behaves exactly as before.
 - Docker only if you want the optional local PostgreSQL cache.
 
 ### Setup
@@ -366,8 +501,8 @@ module, so the clients stay thin:
    ```
 
    Set `DEBUG_MODE=1` for local development. Leave `DATABASE_URL` blank to run
-   without PostgreSQL. Set `MUSICBRAINZ_CONTACT` to an address you can be
-   reached at to enable original-release corrections. Never commit `.env` or
+   without PostgreSQL. Set `MUSICBRAINZ_CONTACT` to an email address or a
+   URL you can be reached at to enable original-release corrections. Never commit `.env` or
    reuse its secret in a public example.
 
    The tuning variables -- per-provider rate limits and retry counts, the
@@ -557,8 +692,8 @@ streaks with your busiest weekday and hour.
 - The heatmap covers the last 365 days in UTC, including today. It is bounded
   by Last.fm's rate limit rather than by anything in this application, which
   is why it takes as long as it does.
-- The correction pass is disabled unless a MusicBrainz contact address is
-  configured, because MusicBrainz blocks anonymous clients.
+- The correction pass is disabled unless a MusicBrainz contact is configured,
+  because MusicBrainz's policy requires one in every request's User-Agent.
 - Deezer's terms permit non-commercial use only. That binds any future change
   to how this application is run, not just to the code.
 
@@ -587,6 +722,26 @@ outgrown, or a batch closed without the steps its own procedure requires.
 That is unusual enough to be worth saying plainly -- it exists because this
 project is developed across many short sessions, and a document that quietly
 went stale costs more than a failing test.
+
+**The tooling is larger than the application on purpose.** Rotation,
+deduplication and cross-file consistency are *mechanisms* rather than rules an
+agent is trusted to follow, because they were left unfollowed three times and
+each lapse left a stale claim in the corpus. Around that sit a browser gate
+that serves the real application across its viewport profiles in CI, and a
+worktree guard whose diagnostics are typed rather than prose. None of it is
+in-house for its own sake; each piece replaced a class of failure that review
+alone had already failed to catch.
+
+**It is also built to be lifted.** The guards, the documentation package, the
+browser gate and the batch discipline are intended to leave this repository and
+serve the next one, which is why the checks read their facts from a
+declarations file instead of hard-coding them, prefer the standard library,
+and fail with a path, a line and a remediation. That extraction is a scheduled
+body of work rather than a side effect, and it is deliberately unfinished --
+parts of it still name ScrobbleScope files, and making the rest generic before
+there is a second consumer would buy abstraction rather than reuse.
+[DEVELOPMENT.md](DEVELOPMENT.md) reports which parts are generic today, which
+are still tied to this repository, and why.
 
 [DEVELOPMENT.md](DEVELOPMENT.md) covers the tooling and its tradeoffs;
 [CONTRIBUTING.md](CONTRIBUTING.md) covers sending a change.

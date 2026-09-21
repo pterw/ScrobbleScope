@@ -5,6 +5,16 @@ LASTFM_API_KEY = os.getenv("LASTFM_API_KEY")
 SPOTIFY_CLIENT_ID = os.getenv("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 
+# The identity every outbound provider request carries in its User-Agent.
+# Last.fm asks for an identifiable User-Agent on all requests and warns that
+# an anonymous client risks suspension; Deezer's integration guidelines ask
+# for attribution as well. One owner for the fact, because musicbrainz.py
+# appends the contact address MusicBrainz additionally requires -- two copies
+# of the identity would let the application disagree with itself about its
+# own name.
+APP_VERSION = "1.0"
+APP_USER_AGENT = f"ScrobbleScope/{APP_VERSION}"
+
 # API Concurrency Configuration
 # These values can be overridden via environment variables for tuning without code changes.
 MAX_CONCURRENT_LASTFM = int(os.getenv("MAX_CONCURRENT_LASTFM", "10"))
@@ -21,10 +31,10 @@ DEEZER_REQUESTS_PER_SECOND = int(os.getenv("DEEZER_REQUESTS_PER_SECOND", "10"))
 DEEZER_SEARCH_RETRIES = int(os.getenv("DEEZER_SEARCH_RETRIES", "3"))
 DEEZER_DETAIL_RETRIES = int(os.getenv("DEEZER_DETAIL_RETRIES", "3"))
 
-# MusicBrainz: 1 request/second per IP, and it blocks anonymous clients --
-# a contact address is required in the User-Agent. With no contact
-# configured, the client stays disabled rather than send guaranteed-reject
-# requests.
+# MusicBrainz: 1 request/second per IP, and its policy requires a contact --
+# an email address or a URL -- in every request's User-Agent. With no contact
+# configured, the client stays disabled rather than send requests that break
+# that policy and risk the IP being throttled or blocked.
 MUSICBRAINZ_CONTACT = os.getenv("MUSICBRAINZ_CONTACT")
 MUSICBRAINZ_ENABLED = os.getenv("MUSICBRAINZ_ENABLED", "true").lower() == "true"
 MUSICBRAINZ_REQUESTS_PER_SECOND = int(os.getenv("MUSICBRAINZ_REQUESTS_PER_SECOND", "1"))

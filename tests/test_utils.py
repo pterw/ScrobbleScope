@@ -5,11 +5,13 @@ import time
 
 import pytest
 
+from scrobblescope.config import APP_USER_AGENT
 from scrobblescope.utils import (
     REQUEST_CACHE,
     _cache_lock,
     _GlobalThrottle,
     cleanup_expired_cache,
+    create_optimized_session,
     format_seconds,
     format_seconds_mobile,
     get_cached_response,
@@ -103,14 +105,16 @@ def test_cache_concurrent_write_and_cleanup_no_error():
         for i in range(100):
             try:
                 set_cached_response(f"/api/item/{i}", {"i": i})
-            except Exception as exc:
+            # Collect every exception a racing thread raises; the test asserts none.
+            except Exception as exc:  # noqa: BLE001
                 errors.append(exc)
 
     def cleaner():
         for _ in range(20):
             try:
                 cleanup_expired_cache()
-            except Exception as exc:
+            # Collect every exception a racing thread raises; the test asserts none.
+            except Exception as exc:  # noqa: BLE001
                 errors.append(exc)
 
     threads = [threading.Thread(target=writer) for _ in range(4)]
@@ -232,3 +236,26 @@ def test_format_seconds_mobile_negative_passes_through():
     """Negative input is not clamped (matches format_seconds behavior)."""
     result = format_seconds_mobile(-5)
     assert result == "-5s"
+
+
+# ------------------------------------------------------------------ #
+# create_optimized_session tests                                      #
+# ------------------------------------------------------------------ #
+
+
+def test_create_optimized_session_sends_shared_user_agent():
+    """
+    GIVEN the shared session factory every provider client builds on
+    WHEN a session is created
+    THEN its default headers identify the application, because Last.fm asks
+        for an identifiable User-Agent on all requests and warns that an
+        anonymous client risks suspension. Before this, every Last.fm,
+        Spotify and Deezer request went out as aiohttp's default
+        ``Python/3.x aiohttp/3.y``, which identifies nobody.
+    """
+
+    async def _user_agent():
+        async with create_optimized_session() as session:
+            return session.headers.get("User-Agent")
+
+    assert asyncio.run(_user_agent()) == APP_USER_AGENT

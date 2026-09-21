@@ -111,25 +111,31 @@ def _parse(text: str) -> tuple[list[_Finding], list[str]]:
     """Split a findings document into its findings and its raw lines."""
     lines = text.split("\n")
     visible = prose_lines(lines)
-    heading_positions = [
-        index for index, line in visible if FINDING_HEADING_RE.match(line)
+    headings = [
+        (index, match)
+        for index, line in visible
+        if (match := FINDING_HEADING_RE.match(line)) is not None
     ]
     boundaries = [index for index, line in visible if ANY_HEADING_RE.match(line)]
 
     findings: list[_Finding] = []
-    for start in heading_positions:
+    for start, heading_match in headings:
         end = next((index for index in boundaries if index > start), len(lines))
         block = list(lines[start:end])
         while block and not block[-1].strip():
             block.pop()
-        findings.append(_build(block, start))
+        findings.append(_build(block, start, heading_match))
     return findings, lines
 
 
-def _build(block: list[str], start: int) -> _Finding:
-    """Assemble one finding from its block, locating its lifecycle record."""
-    heading_match = FINDING_HEADING_RE.match(block[0])
-    assert heading_match is not None
+def _build(block: list[str], start: int, heading_match: re.Match[str]) -> _Finding:
+    """Assemble one finding from its block, locating its lifecycle record.
+
+    Takes the heading match ``_parse`` already made rather than matching
+    ``block[0]`` again: the heading is known to match by construction, and
+    re-deriving it here needed an ``assert`` that ``python -O`` strips
+    (F-B22-2).
+    """
     identifier, title = heading_match.group(1), heading_match.group(2)
 
     # Scan the block through the shared scanner so a lifecycle record quoted
@@ -367,6 +373,19 @@ _PROSE_OUTCOME_RE = re.compile(
 #: -- cannot suppress a real claim either.
 _NEGATED_OUTCOME_RE = re.compile(r"\bnot\b(?:[\W_]{1,4}yet)?[\W_]{0,4}$", re.IGNORECASE)
 
+#: A legacy status label whose value opens with "closed": `Status: closed.`,
+#: `- **Status:** closed`, or the same label after a sentence ends. "Closed"
+#: is not rotation vocabulary -- the canonical record still says `resolved`
+#: -- but it is how a pre-lifecycle author said the same thing, and a finding
+#: written that way sat unrotated for weeks (F-B21-13). The word alone is
+#: never read: findings mention closed batches, work packages and PRs
+#: constantly. Only the capitalised `Status` label counts, and only when
+#: "closed" is the first word after it, so "partly closed" and "not closed"
+#: are not claims.
+_LEGACY_CLOSED_STATUS_RE = re.compile(
+    r"(?:^\s*(?:[-*+]\s+)?|[.;!?]\s+)(?:\*\*)?Status:?(?:\*\*)?:?\s*[Cc]losed\b"
+)
+
 
 def _claims_a_terminal_outcome(finding: _Finding) -> bool:
     """Whether the finding's prose says it is finished.
@@ -376,6 +395,8 @@ def _claims_a_terminal_outcome(finding: _Finding) -> bool:
     avoid the word -- losing the very signal this check reads.
     """
     for line in finding.body_lines:
+        if _LEGACY_CLOSED_STATUS_RE.search(line):
+            return True
         for match in _PROSE_OUTCOME_RE.finditer(line):
             if not _NEGATED_OUTCOME_RE.search(line[: match.start()]):
                 return True
