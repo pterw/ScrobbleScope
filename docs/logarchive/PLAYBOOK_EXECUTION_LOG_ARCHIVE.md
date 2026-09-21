@@ -9,6 +9,20 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: shared slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_shared.py` now owns the page
+inventories (`MIGRATED_PAGES`, `LEGACY_PAGES`, `ALL_PAGES`,
+`ERROR_PAGE_PATH`), `GATE_JOB_IDS` and `_reach_state`, moved verbatim so every
+later slice can import them without importing the facade that imports them.
+`serve_app` still lives in the facade but now mutates the shared module's
+`MIGRATED_PAGES`, `ALL_PAGES` and `GATE_JOB_IDS` in place through a `from ...
+import` binding, never rebinding them; a new parity test pins that every
+module holding one of those names holds the same object. A mutation probe in
+`_reach_state` produced the expected FAIL on both the touch-target and
+form-validation checks, confirming both reach the shared code through the
+facade's re-export.
+
 ### 2026-09-21 - Frontend gate: dead code removed before the split (F-B21-51)
 
 Side task, no batch tag. `_computed_shadow` had no caller anywhere and is

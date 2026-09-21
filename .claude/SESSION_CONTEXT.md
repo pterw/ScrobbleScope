@@ -96,6 +96,7 @@ scripts/
     _frontend_gate_forms.py # form validation, validator races, initial visibility
     _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
     _frontend_gate_shared.py # page inventories and helpers two or more slices read
+    _frontend_gate_theme.py # theme tokens, contrast, persistence, motion, mark
     _frontend_gate_unmatched.py # unmatched report contract and width sweep
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
@@ -175,8 +176,9 @@ dev/_frontend_gate_colour.py <- (leaf; standard library only)
 dev/_frontend_gate_forms.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_results.py <- repositories
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
+dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_shared; repositories
 dev/_frontend_gate_unmatched.py <- repositories
-dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_results, dev/_frontend_gate_shared, dev/_frontend_gate_unmatched; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
+dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_results, dev/_frontend_gate_shared, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 ```
 
 **The one deferred edge (Task 9, Batch 22 WP-3).** `orchestrator` imports

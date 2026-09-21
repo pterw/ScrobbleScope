@@ -25,8 +25,6 @@ from scripts.dev.frontend_gate import (
     _touch_minimum_failures,
     check_pipeline_state_machines,
     check_shell_scales_with_text,
-    check_theme_persistence,
-    check_theme_survives_blocked_storage,
     run_checks,
     serve_app,
 )
@@ -123,21 +121,6 @@ def test_server_setup_failure_restores_jobs_and_page_inventories() -> None:
     ]
 
 
-def test_blocked_storage_probe_closes_context_when_page_creation_fails() -> None:
-    """A failed probe page must not leave its isolated context open."""
-    context = MagicMock()
-    context.new_page.side_effect = RuntimeError("page unavailable")
-    browser = MagicMock()
-    browser.new_context.return_value = context
-    page = MagicMock()
-    page.context.browser = browser
-
-    with pytest.raises(RuntimeError, match="page unavailable"):
-        check_theme_survives_blocked_storage(page, "http://127.0.0.1:0")
-
-    context.close.assert_called_once()
-
-
 def test_pipeline_state_machine_uses_a_disposable_page() -> None:
     """Its page-level timer patch must not reach later checks."""
     page = MagicMock()
@@ -225,40 +208,6 @@ def test_text_scaling_check_restores_the_page_root() -> None:
 
     assert check_shell_scales_with_text(page, "http://127.0.0.1:0") == []
     assert page.root_font_size == "17px"
-
-
-def test_theme_persistence_check_restores_the_saved_preference() -> None:
-    """The persistence diagnostic must not choose a theme for later checks."""
-    state = {"saved": "true", "theme": "dark"}
-    page = MagicMock()
-
-    def load_saved_theme(*_args, **_kwargs):
-        state["theme"] = "dark" if state["saved"] == "true" else "light"
-
-    def evaluate(script, arg=None):
-        if "localStorage.getItem('darkMode')" in script:
-            return state["saved"]
-        if "document.documentElement.dataset.theme" in script:
-            return state["theme"]
-        if "localStorage.removeItem('darkMode')" in script:
-            state["saved"] = arg
-            return None
-        raise AssertionError(f"unexpected browser expression: {script}")
-
-    def toggle_theme(*_args, **_kwargs):
-        state["saved"] = "false" if state["saved"] == "true" else "true"
-        load_saved_theme()
-
-    page.goto.side_effect = load_saved_theme
-    page.reload.side_effect = load_saved_theme
-    page.evaluate.side_effect = evaluate
-    page.locator.return_value.count.return_value = 1
-    page.locator.return_value.first.click.side_effect = toggle_theme
-
-    with patch("scripts.dev.frontend_gate.MIGRATED_PAGES", ("/",)):
-        assert check_theme_persistence(page, "http://127.0.0.1:0") == []
-
-    assert state == {"saved": "true", "theme": "dark"}
 
 
 def test_a_raising_check_is_reported_and_the_run_continues() -> None:
