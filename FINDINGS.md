@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: no batch is active; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1536 tests across 58 test modules.
+1540 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -1045,27 +1045,6 @@ not. Defer the sweep; record the decision.
 Status: open (docstring convention only). Source: root-hygiene side task,
 2026-08-19.
 
-### F-SWE-4: the production entrypoint never validates API keys
-
-`config.ensure_api_keys()` (`config.py:37-40`) raises when any of the three
-API keys is missing, and it is called only inside the `__main__` guard at
-`app.py:140-145`. Production starts with `gunicorn app:app`
-(`Dockerfile:15`), which imports the module rather than running it, so the
-check never fires. Verified: with all three keys unset, `import app`
-succeeds and serves, while `ensure_api_keys()` would have raised.
-
-The same file gets the neighbouring case right. `_validate_secret_key` is
-called from `create_app()` (`app.py:111`) and refuses to start in
-production. One secret is checked at startup and three are not.
-
-`spotify.py:26-27` is the only remaining guard for two of them, and it uses
-`assert`, which `python -O` strips. Without the startup check a missing key
-surfaces as a per-request failure, classified as an upstream outage.
-
-Fix: call `ensure_api_keys()` from `create_app()`. One line, and it closes
-two C cells in the audit matrix.
-Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
-
 ### F-SWE-5: the two background entry points disagree about terminal job state
 
 `heatmap_task` and `background_task` answer the same question two different
@@ -1337,6 +1316,10 @@ Fix shape: replace each with `if X is None: raise RuntimeError(...)` (or
 internal-invariant check rather than a `python -O`-dependent one. Small and
 testable, but out of scope for WP-0's behaviour-neutral contract -- filed
 separately rather than fixed in-PR.
+
+Since 2026-09-21 (F-SWE-4) production refuses to start without either
+Spotify key, so the `spotify.py` pair can only be reached in dev mode. The
+defect is narrower but not gone: the fix shape above still applies to all six.
 
 Status: open (P2). Source: Codacy bot reviews, PR #232, 2026-09-13, and
 PR #235, 2026-09-20.

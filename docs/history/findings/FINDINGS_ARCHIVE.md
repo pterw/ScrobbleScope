@@ -9,6 +9,41 @@ Newest rotation first.
 
 ---
 
+### F-SWE-4: the production entrypoint never validates API keys -- RESOLVED
+
+`config.ensure_api_keys()` (`config.py:37-40`) raises when any of the three
+API keys is missing, and it is called only inside the `__main__` guard at
+`app.py:140-145`. Production starts with `gunicorn app:app`
+(`Dockerfile:15`), which imports the module rather than running it, so the
+check never fires. Verified: with all three keys unset, `import app`
+succeeds and serves, while `ensure_api_keys()` would have raised.
+
+The same file gets the neighbouring case right. `_validate_secret_key` is
+called from `create_app()` (`app.py:111`) and refuses to start in
+production. One secret is checked at startup and three are not.
+
+`spotify.py:26-27` is the only remaining guard for two of them, and it uses
+`assert`, which `python -O` strips. Without the startup check a missing key
+surfaces as a per-request failure, classified as an upstream outage.
+
+Fix: call `ensure_api_keys()` from `create_app()`. One line, and it closes
+two C cells in the audit matrix.
+
+Resolved 2026-09-21, and it was not quite one line. An unconditional call
+would have made every environment without the keys fail at import -- the
+test suite and the frontend gate both import `app`, and CI's secrets arrive
+empty when unavailable. So `create_app()` now calls `_validate_api_keys`,
+which mirrors `_validate_secret_key`: refuse to start in production, warn in
+dev mode. `tests/conftest.py` and `scripts/dev/frontend_gate.py` supply
+placeholder keys the way they already supply `SECRET_KEY`. Four tests in
+`tests/test_app_factory.py` cover it, including one that `create_app()`
+itself refuses; the suite also passes with every key and `SECRET_KEY` empty
+in production mode, which is CI without secrets. The `spotify.py` `assert`
+remains, and is F-B22-2's to settle.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+Source: SWE_PRINCIPLES_AUDIT.
+
 ### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1) -- RESOLVED
 
 `scrobblescope/orchestrator.py` (916 lines) mixes album workflow, Spotify

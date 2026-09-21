@@ -9,7 +9,7 @@ Last updated: 2026-09-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1536 passing** across 58 test modules |
+| Tests | **1540 passing** across 58 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -50,7 +50,7 @@ Last updated: 2026-09-20
 ## 3. Project structure
 
 ```
-app.py                      # create_app() factory (~150 lines)
+app.py                      # create_app() factory and startup checks
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # SpotifyUnavailableError, ERROR_CODES
@@ -145,7 +145,7 @@ routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
 routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
 routes/api.py           <- domain, release_checks, repositories, spotify, utils; routes (facade)
-app.py           <- routes (Blueprint); config (ensure_api_keys, __main__ only)
+app.py           <- routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
 
 docsync/__init__.py  <- (leaf)
 docsync/models.py    <- (leaf)
@@ -231,7 +231,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (1536 tests)
+## 6. Test structure (1540 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

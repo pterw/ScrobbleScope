@@ -284,9 +284,9 @@ module, so the clients stay thin:
 
 | Module | Responsibility |
 | --- | --- |
-| `app.py` | The application factory: configuration, CSRF, logging, blueprint registration, secret validation |
+| `app.py` | The application factory: configuration, CSRF, logging, blueprint registration, secret and API-key validation |
 | `routes/` | One blueprint split by concern -- the home page, the album flow, the heatmap flow, and the small JSON endpoints. Handlers parse the request, start or read a job, and render |
-| `worker.py` | The concurrency boundary: the job semaphore and thread startup. It runs a callable given to it and imports neither pipeline |
+| `worker.py` | The concurrency boundary: the job semaphore, thread startup, and the event loop each background thread runs in. It runs a callable given to it and imports neither pipeline |
 | `repositories.py` | The in-memory job store and every read and write to it, each under one lock |
 | `orchestrator/` | The album pipeline, split by phase: search, details, cache, Deezer fallback, results |
 | `heatmap.py` | The second pipeline: daily aggregation in UTC over the last 365 days, with no enrichment step |
@@ -349,8 +349,10 @@ module, so the clients stay thin:
   results page builds dynamic text with DOM text nodes rather than HTML
   strings.
 - **Secret validation.** Production startup rejects a missing, short or known
-  placeholder `SECRET_KEY`. Development logs a warning instead of refusing to
-  start.
+  placeholder `SECRET_KEY`, and a missing Last.fm or Spotify key, in the
+  factory itself -- `gunicorn app:app` never runs a `__main__` block, so a
+  check there would never fire. Development logs a warning instead of
+  refusing to start.
 - **Canonical navigation.** `/heatmap`, `/results` and `/unmatched` recover
   the latest run for the current browser session, so a reader who closes a tab
   can come back. Explicit job IDs still work, and the JSON endpoints

@@ -127,18 +127,19 @@ flowchart LR
 Solid module-to-module arrows are imports. The dotted worker edges are runtime
 dispatch through callables injected by `routes/`; `worker.py` imports neither
 pipeline. The dotted `App` edges are imports deferred into a function, which is
-what the factory pattern requires: `create_app` imports the blueprint at
-`app.py:143` and the entrypoint imports `ensure_api_keys` at `app.py:155`, so
-neither is a module-level edge.
+what the factory pattern requires: `create_app` imports the blueprint, and
+`_validate_api_keys` (called by `create_app`) and the `__main__` block each
+import `ensure_api_keys` -- none of them a module-level edge, because
+`load_dotenv` must run before `config` reads the environment.
 
 `config.py` is not drawn: **ten** of the nodes shown here import it at module
-level, and those edges would cross and hide the flow. Named with their import
-lines so the list can be re-checked rather than trusted -- `worker.py:4`,
-`repositories.py:6`, `cache.py:11`, `utils.py:12`, `lastfm.py:8`,
-`spotify.py:6`, `deezer.py:16`, `musicbrainz.py:17`, `release_checks.py:49`,
-and `orchestrator/` (three of its five files: `__init__.py:35`, `_search.py:17`,
-`_details.py:16`). An eleventh node, `app.py`, imports it too, but deferred
-inside the `__main__` block.
+level, and those edges would cross and hide the flow. They are `worker.py`,
+`repositories.py`, `cache.py`, `utils.py`, `lastfm.py`, `spotify.py`,
+`deezer.py`, `musicbrainz.py`, `release_checks.py`, and `orchestrator/`
+(three of its files: `__init__.py`, `_search.py`, `_details.py`). An eleventh
+node, `app.py`, imports it only inside functions. Named by module rather than
+by line, because a line number moves with every edit above it; re-check the
+list with a module-level `ast` walk for `scrobblescope.config` imports.
 `routes/` and `orchestrator/` are each a package as of Batch 22 WP-0 (split
 by concern and by phase respectively); this view stays at the package level
 rather than drawing every submodule. The complete import graph, submodules

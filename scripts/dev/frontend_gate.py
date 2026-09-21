@@ -55,6 +55,14 @@ if str(REPO_ROOT) not in sys.path:
 if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = GATE_SECRET_KEY
 
+# create_app also refuses to start without the three provider keys outside dev
+# mode (F-SWE-4), and CI's secrets arrive empty in exactly the same way. The
+# gate renders pages from seeded jobs and never calls a provider, so a
+# placeholder is enough to boot the application.
+for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
+    if not os.environ.get(_key):
+        os.environ[_key] = "frontend-gate-placeholder"
+
 from app import create_app  # noqa: E402
 
 # Re-exported so the split stays invisible to callers, per F-B21-51: a facade

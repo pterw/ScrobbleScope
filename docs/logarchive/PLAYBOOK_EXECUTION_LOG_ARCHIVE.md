@@ -9,6 +9,83 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-20 - Architecture diagrams reconciled against the import graph
+
+Side task, no batch tag. Two of the five architecture diagrams were stale, and
+verifying them produced a scope problem for the deferred SWE audit that is
+worth recording before anyone starts it.
+
+**How the staleness was found.** Not by reading the diagrams against memory,
+which is how they went stale, but by extracting the real module-level import
+graph with `ast` and comparing edge by edge. That is the check F-B21-61 says
+does not exist, and it took one script to demonstrate the need for it.
+
+**`runtime-system.md` had seven missing edges and a wrong count.** Ground truth:
+`Routes -> SpotifyClient` (`routes/api.py:22`, `routes/__init__.py:31`),
+`Routes -> Domain` (`api.py:15`, `__init__.py:28`), `ReleaseChecks -> Utils`
+(`release_checks.py:62`), `Spotlight -> Utils` (`spotlight.py:5`), and
+`SpotifyClient -> Domain` (`spotify.py:14`), `DeezerClient -> Domain`
+(`deezer.py:17`), `MusicBrainzClient -> Domain` (`musicbrainz.py:23`) were all
+real imports absent from the drawing. The prose claimed eight nodes import
+`config.py`; the true count is ten, and the list omitted `deezer.py`,
+`musicbrainz.py` and `release_checks.py` -- the three modules Batch 22 added.
+`App --> Routes` was drawn solid but is deferred inside `create_app`
+(`app.py:143`), and the entrypoint's `config` import (`app.py:155`) is deferred
+inside `__main__`. Fixed, with import lines cited so the list can be re-checked
+rather than trusted.
+
+**A second defect in the same file:** five bullets sat under the heading "Three
+things this view deliberately makes visible". Batch 22 added three bullets and
+nobody moved the count.
+
+**`top-albums-sequence.md` was materially wrong, not merely incomplete.** A
+search for `Deezer|MusicBrainz|release_check|provider|enrich` matched only its
+own title: the entire Batch 22 enrichment path was undocumented. Worse, the
+existing branch was incorrect independent of that omission -- it drew the
+no-cache-hits case as an immediate `raise SpotifyUnavailableError`, while
+`_fetch_spotify_misses` (`orchestrator/__init__.py:162`) tries Deezer for every
+remaining miss first and raises only on three conditions together: no token,
+nothing cached beforehand, and Deezer matching nothing. Persistence was drawn
+inside the Spotify branch when it actually happens in the caller after the
+Deezer pass returns, which is one row set for both providers rather than one per
+provider. The correction worker -- enqueued at
+`orchestrator/__init__.py:612`, immediately after `set_job_results` at `:600`
+and only on the happy path -- was absent entirely, so it now has its own
+lifeline and block.
+
+**Validated structurally, not by eye.** A checker counts `alt`/`opt`/`loop`/
+`par`/`subgraph`/`box` against `end` per fence and reports the final depth; all
+six mermaid blocks in the repository return to zero, so the edits parse.
+`docs/ARCHITECTURE.md`'s "Last verified" date moved to 2026-09-20 and its
+section 3 description now names the Deezer fallback and the correction pass.
+
+**Forward guidance, and the reason this matters more than two diagrams.** The
+deferred SWE audit's charter (`docs/SWE_AUDIT_CHARTER.md`, retired after its
+2026-08-20 execution) is no longer executable as written, because its closed
+scope table names thirteen modules that no longer exist in that shape:
+
+- It lists `scrobblescope/orchestrator.py` and `scrobblescope/routes.py`, which
+  are packages since Batch 22 WP-0 -- 6 and 5 files respectively.
+- It omits `deezer.py`, `enrichment.py`, `musicbrainz.py`, `release_checks.py`,
+  `spotlight.py` and `unmatched.py` entirely. `git ls-files 'scrobblescope/*.py'
+  app.py` returns **29** files, not the charter's 14.
+- Its stated hotspots have moved. It names `_fetch_and_process` (was 151 lines)
+  and `results_loading` (was 112). The largest function now is
+  **`_render_results_page` at `routes/album_flow.py:126`, 142 lines**, which
+  postdates the charter and is in neither list; `_fetch_and_process_heatmap`
+  (141) and `_fetch_and_process` (133, now `orchestrator/__init__.py:502`)
+  follow it.
+
+The principle count is unchanged at ten (DRY, SoC, SRP, KISS, Dependency
+Inversion, Composition over Inheritance, Clean Architecture, Boy Scout Rule,
+Law of Demeter, Fail Fast), so the matrix is ten principles against the real
+module list -- roughly 280 cells, not the charter's 130. A re-audit therefore
+needs its own charter with a current, closed scope table before grading starts;
+the retired one is evidence, not a work order. The charter's own Section 2a also
+requires a clean worktree, and `AGENT_NOTES.md` plus `requirements-dev.txt` are
+currently modified with untracked tooling alongside them, so that is a
+precondition rather than a formality.
+
 ### 2026-09-20 - README engineering depth and the control-plane narrative
 
 Side task, no batch tag, following the earlier reconciliation in this session.
