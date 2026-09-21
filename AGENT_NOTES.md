@@ -62,6 +62,21 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 - Deployed site: `https://scrobblescope.fly.dev` -- reachable directly.
 - Local app: use `http://host.docker.internal:5000/` (not `localhost`).
 
+**Graphify graph refresh (local only, threshold-gated):**
+- `graphify-out/` is git-ignored generated data (see Architectural Constraints)
+  and `graphify update .` is incremental -- it diffs against the manifest inside
+  that directory. A CI checkout never has it, so no workflow can rebuild the
+  graph. That is a property of the design, not a gap to fill.
+- With `git config core.hooksPath .githooks` set in a clone, `post-commit` and
+  `post-checkout` call `python scripts/dev/graphify_refresh.py --quiet`. It
+  rebuilds only once 5 commits or 25 changed files have accumulated since the
+  last refresh, so an ordinary commit costs one `git rev-list`.
+- Activation is per clone, and the hook file must keep LF endings: a CRLF
+  `post-commit` fails under Git for Windows' `sh`.
+- In a fresh clone there is no graph to refresh, so the script records a
+  baseline and skips. Build once with `/graphify` first, or run
+  `python scripts/dev/graphify_refresh.py --force` once a graph exists.
+
 ---
 
 ## Architectural Constraints
@@ -120,6 +135,10 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 - **CSRF:** `CSRFProtect` is active on all POST routes including `/results_loading`.
   Disabled only in `tests/conftest.py`. Token is a hidden form field:
   `<input name="csrf_token" value="...">`.
+- **Heatmap window:** the heatmap covers the last 365 days, today included, and
+  the daily average divides by that. `HEATMAP_WINDOW_DAYS` in
+  `scrobblescope/heatmap.py` is the source; every prose copy is declared in
+  `.docsync.toml` and DOC009 fails if they stop agreeing.
 
 ---
 
@@ -207,40 +226,6 @@ only in the current process environment and is gone when the shell exits.
 
 ---
 
-## Heatmap Feature Notes (shipped -- Batches 18/19)
-
-- **Definitions (archived):** `docs/history/definitions/BATCH18_DEFINITION.md`
-  (core feature) and `docs/history/definitions/BATCH19_DEFINITION.md`
-  (polish; closed out 2026-05-19, PR #152 merged).
-- **Key decisions:** username-only input (last 365 days), pill tabs on index.html,
-  all states on one page (no navigation), GitHub-style 7x52 SVG grid, rocket_r
-  palette, log-adjusted intensity, no heatmap-specific caching (REQUEST_CACHE
-  covers Last.fm pages), no new Python dependencies, no matplotlib/seaborn.
-- **Cache note:** heatmap uses different `from`/`to` timestamps than album
-  search, producing different REQUEST_CACHE keys. No interference.
-- **Windows asyncio:** heatmap_task must use the same ProactorEventLoop guard
-  as orchestrator/__init__.py background_task. See Architectural Constraints above.
-- **Perf:** fetch speed is rate-limit bound; the measurement and rationale
-  live in FINDINGS.md F-B18-11 (single source).
-- **Follow-up candidates:** export, date range, summary stats (future
-  batches; the orchestrator split is tracked as FINDINGS F-B20-2).
-
----
-
-## Batch 21 Tooling Map (WP-1 through WP-8)
-
-Written 2026-08-14, before WP-1 started. Everything below was verified
-against the live machine and repository on that date rather than carried
-forward from an earlier note; re-verify before relying on it, because the
-skill and MCP inventory is per-machine and moves independently of this repo.
-
-**How this keys against the definition.** `docs/history/definitions/BATCH21_DEFINITION.md` has no
-per-WP acceptance criteria. It carries one batch-level list of 9 criteria;
-the three repository gates and owner visual review run at every WP, while
-the repository-owned frontend gate joins them from WP-2 onward. So the map
-keys on the WP and names the batch-level criteria each one serves. Do not go
-looking for per-WP criteria; there are none by design.
-
 ### Skills: four separate sources, and the names collide
 
 1. **superpowers plugin v4.3.1** -- 14 skills, including
@@ -280,19 +265,6 @@ episodic-memory.
 
 Needing interactive OAuth and therefore unusable in a headless or cron run:
 Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
-
-### Per-WP map
-
-| WP | Tooling that serves it | Batch criteria |
-|---|---|---|
-| WP-1 toolchain + themes | Bespoke Python only. No installed skill covers pinned-binary fetch with per-platform SHA-256 verification, and `frontend-design` authors UI rather than build plumbing. Treat WP-1 as unassisted work | 2, 3, 9 |
-| WP-2 base shell + `error.html` pilot | `frontend-design`; repository-owned `playwright==1.62.0` + Chromium power `scripts/dev/frontend_gate.py`, independent of MCP. The one-stylesheet-per-page rule becomes an enforced check rather than a stated deliverable. The drift hook also lands here after WP-1 records its CI-fetch decision | 1, 3, 4 |
-| WP-3 index page | `frontend-design`; Playwright for decade pills, the thresholds disclosure, and the CSS-only hints that replace `bootstrap.Popover` | 1, 4, 8 |
-| WP-4 unified loading | Playwright for progress polling against a live job; the shared Jinja2 partial is exercised from both `loading.html` and the heatmap panel | 5 |
-| WP-5 results leaderboard | Playwright, driven directly -- see gap 1. The JPEG export must be checked in both themes at mobile and desktop, and the `data-export` CSV precision fix needs a real DOM walk | 5, 7 |
-| WP-6 heatmap seam removal | Playwright plus visual review; `--bars-color` aliasing is the thing to assert in both themes | 2, 3, 8 |
-| WP-7 `reason_code` (only backend WP) | `test-driven-development` or `tdd`, and `systematic-debugging` or `diagnosing-bugs`. The test count moves again here, so update the inventory sites listed in `AGENTS.md` in the same commit | 6, 9 |
-| WP-8 sweep + close-out | `verification-before-completion` before any done claim; `pr-bot-triage` for review rounds. Gap 4 lands here as a recorded decision, not as tooling; gaps 2 and 3 moved to WP-2 | 1, 9 |
 
 ### Verified gaps
 
@@ -343,11 +315,6 @@ Atlassian Rovo, Microsoft 365, Vercel, ZipRecruiter.
    it there, confirmed present on `origin/main`.
 6. **pip-audit is `continue-on-error: true`** -- advisory, and will not fail
    the Quality Gate.
-7. **`skills-lock.json` names 22 skills; `.agents/skills/` holds 20.** The
-   two absent are `systematic-debugging` and `test-driven-development` --
-   both supplied by the superpowers plugin instead, so this is lockfile
-   bookkeeping drift rather than a lost capability. Worth knowing before
-   anyone "fixes" it by reinstalling.
 
 ---
 

@@ -9,6 +9,62 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-20 - PR #234 advisory verification
+
+Side task, no batch tag. PRs #233 and #234 merged with their review threads
+deliberately unaddressed, so adjudicating them was the other half of the
+pre-integration task. The question was not "are they open" but "are they
+true".
+
+**Method.** Read all threads from the GitHub API (35 review comments on #233,
+22 on #234, plus issue comments and reviews), then checked each substantive
+claim against on-disk code by grepping the tree, reading the cited function,
+or running the cited gate. Nothing was accepted on the strength of a bot's own
+summary.
+
+**Result: four refuted, one partly true, one by design, one out of scope.**
+Refuted: the DOC023 negation false positive (already handled by
+`_NEGATED_OUTCOME_RE`); the `_TERMINAL_SUFFIXES` escaping gap (`re.escape` is
+already there, line 354); the `newest == 0` blank-line nitpick (the guard is
+deliberate, and `495e9c2` already fixed the real case); and the claim that
+DOC023 is documented as both blocking and non-blocking (the catalogue states
+the blocking and grandfathered-warning roles as two populations, and the code
+implements exactly that). By design: hard-failing a stale archive index
+(`DOC020`) is Rule 7's refusal to guess which side of a disagreement is the
+history worth keeping. Out of scope by owner ruling: complexity and coupling
+advisories, recorded in the report so nobody re-adjudicates them.
+
+**One refuted claim surfaced a real defect.** Graphify rated
+"`AlbumMetadata` cache-row method renamed and now requires extra arguments" as
+high risk. Nothing calls the method, so nothing broke -- but a repo-wide search
+found `as_cache_row` at its definition and in its own test only, while both
+production sites build the row tuple inline (`_details.py:137` as six elements,
+`_deezer_fallback.py:83` as nine). The persistence order therefore has two
+owners, and a test asserts the copy nothing writes. Filed as F-B22-7 rather
+than fixed: retiring the method or rerouting a builder is a choice between two
+working shapes with a Batch 22 test contract around one of them.
+
+**A vacuity guard earned its place.** The first run of the DOC023 probe used an
+`##` heading, which `FINDING_HEADING_RE` does not match, so no finding parsed
+and every case read "blocks = False". The output looked like a clean refutation
+of the whole claim. Adding a guard that reports `VACUOUS PROBE` when no case
+parses caught it; the corrected run is live on 6 of 14 cases with every
+expectation met. Recorded because "the gate stayed silent" and "the gate was
+never reached" are the same output and different facts.
+
+**Deviations: none.** No production behaviour changed. The two findings are
+records, not repairs, and the report is
+`docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`.
+
+**Validation:** `pytest -q` -- **1532 passed**, unchanged (no runtime code
+touched). `doc_state_sync.py --check` exit 0.
+
+**Forward guidance:** the residual DOC023 false positive ("No action needed
+yet." blocks) is deliberate and filed as F-DOCSYNC-14; widening the negation
+window would buy silence on two phrases and pay for it by missing real
+completion claims, which is the failure the gate exists to prevent. Do not
+"fix" it without reading that entry.
+
 ### 2026-09-20 - Outbound request identity and the MusicBrainz contact
 
 Side task, no batch tag. Scope was the pre-integration task for `test` into
