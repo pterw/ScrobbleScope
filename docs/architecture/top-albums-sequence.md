@@ -6,8 +6,10 @@ deferred MusicBrainz correction pass, result storage, and polling.
 
 The concurrency slot is acquired before job creation. `start_job_thread` releases
 the slot when the thread does not start, and `background_task` releases it in a
-`finally` block. That `finally` is not reached if the event-loop setup above it
-fails, so the release is near-certain and not unconditional.
+`finally` block. The event-loop setup sits inside the `try` that `finally`
+guards, so the release is unconditional once the thread runs: a failure to
+create the loop is caught and logged like any other, and the slot still comes
+back.
 
 ```mermaid
 sequenceDiagram

@@ -16,9 +16,10 @@ fly apps open
 ## MusicBrainz contact
 
 `MUSICBRAINZ_CONTACT` enables original-release-year corrections. **It is not a
-credential.** MusicBrainz's API requires a contact address in the `User-Agent`
-of every request and blocks anonymous clients, so the value is a plain string
-that travels in an HTTP header. Nothing authenticates with it and no key is
+credential.** MusicBrainz's API policy requires a contact -- an email address
+or a URL -- in the `User-Agent` of every request, and a client that ignores it
+risks being throttled or blocked. The value is a plain string that travels in
+an HTTP header. Nothing authenticates with it and no key is
 issued; there is no secret to rotate or leak.
 
 It is set with `fly secrets set` rather than in `fly.toml`'s `[env]` for one

@@ -236,7 +236,7 @@ async def test_lookup_sends_user_agent_with_contact():
     GIVEN a configured MUSICBRAINZ_CONTACT
     WHEN lookup_original_release makes a request
     THEN the request carries a User-Agent naming ScrobbleScope and the
-        contact address -- MusicBrainz blocks anonymous clients.
+        contact -- MusicBrainz requires one in every User-Agent.
     """
     session = MagicMock()
     resp = AsyncMock()
@@ -269,8 +269,8 @@ async def test_lookup_disabled_without_contact_makes_no_request():
     GIVEN no MUSICBRAINZ_CONTACT is configured
     WHEN lookup_original_release runs
     THEN it returns (None, None) without calling the API at all --
-        MusicBrainz blocks anonymous clients, so an unconfigured contact
-        would only guarantee a rejected request.
+        MusicBrainz requires a contact in every User-Agent, so a request
+        without one would break its policy.
     """
     session = MagicMock()
 
@@ -290,9 +290,9 @@ def test_musicbrainz_headers_refuses_a_missing_contact():
     WHEN _musicbrainz_headers builds the request headers directly, without
         going through the disable gate in lookup_original_release
     THEN it raises rather than interpolating the literal string "None" into
-        the User-Agent. MusicBrainz blocks anonymous clients, and a header
-        naming "None" identifies nobody -- it is a rejected request dressed
-        as an identified one.
+        the User-Agent. MusicBrainz requires a contact, and a header
+        naming "None" identifies nobody -- it is an anonymous request
+        dressed as an identified one.
     """
     with patch("scrobblescope.musicbrainz.MUSICBRAINZ_CONTACT", None):
         with pytest.raises(RuntimeError, match="MUSICBRAINZ_CONTACT"):

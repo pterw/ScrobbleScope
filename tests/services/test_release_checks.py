@@ -663,6 +663,26 @@ async def test_run_release_checks_closes_the_connection_when_a_lookup_raises():
 # --- Queue and thread lifecycle ---------------------------------------------
 
 
+def test_session_starts_with_no_musicbrainz_contact():
+    """
+    GIVEN the test session, whatever the developer's .env or shell holds
+    WHEN a test reads the contact the release-check worker is gated on
+    THEN none is configured, so an unpatched happy-path pipeline test is
+    skipped rather than starting the real worker thread. conftest.py forces
+    this; with it removed, any machine with a configured contact reached the
+    network and raced the queue-order test below.
+    """
+    job_id = create_job(dict(TEST_JOB_PARAMS))
+    queued_before = release_checks._JOB_QUEUE.qsize()
+
+    assert not release_checks.MUSICBRAINZ_CONTACT
+    with patch("scrobblescope.release_checks._ensure_worker_started") as started:
+        assert enqueue_release_check(job_id) is False
+
+    started.assert_not_called()
+    assert release_checks._JOB_QUEUE.qsize() == queued_before
+
+
 def test_enqueue_release_check_queues_jobs_in_order():
     """
     GIVEN MusicBrainz is configured
@@ -687,7 +707,7 @@ def test_enqueue_release_check_queues_jobs_in_order():
 
 def test_enqueue_release_check_skips_when_musicbrainz_is_unconfigured():
     """
-    GIVEN no MUSICBRAINZ_CONTACT (MusicBrainz blocks anonymous clients)
+    GIVEN no MUSICBRAINZ_CONTACT (MusicBrainz requires one in the User-Agent)
     WHEN a finished job is handed to the worker
     THEN nothing is queued, no thread starts, and the job is marked skipped
     so the results page can say so.

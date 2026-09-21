@@ -9,6 +9,67 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-20 - DEVELOPMENT.md and README.md reconciled with the control plane
+
+Side task, no batch tag. Two documents described a repository that no longer
+exists, and one gate comment described a migration that had already finished.
+
+**DEVELOPMENT.md was materially stale.** Its docsync section said the package
+had "Six focused modules" and listed six test files. It has **twelve** modules
+(`declarations`, `closeout`, `archives`, `findings`, `transaction`, `markdown`
+were added by Batch 22) and twelve matching test files in `tests/`. The
+worktree section named only `check_worktree_alignment.py` and a spec document,
+omitting the seven `_worktree_guard_*.py` modules and the `WT000`-`WT014`
+codes. The gate section stopped at "starts and stops its own loopback server"
+and never named `port 0`, the `finally`, the 44px touch target, the 3:1
+composited-contrast check, the viewport profiles or stylesheet isolation. Two
+lines were also written in the present tense of a batch that has closed
+("Batch 21 uses...", "The active batch definition owns...").
+
+**README lacked four architectural facts** it should carry at product level:
+the cache talks to Postgres in arrays via `unnest($1::text[], ...)` rather than
+row by row; a stale schema identifies itself by SQLSTATE (`42703`, `42P01`)
+instead of being mistaken for network turbulence; Spotify's removed batch
+endpoint answers `403`/`404`/`410` and degrades to one request per album; and
+the opening prose said the badge "is the live state", which read awkwardly.
+
+**A new DEVELOPMENT.md section records the extraction intent** owner-stated
+2026-08-25 and owned by `AGENT_NOTES.md`: this repository is also a template
+being extracted, and the three control-plane components are at very different
+maturity. The section states that honestly rather than aspirationally -- the
+worktree guard is structurally complete, docsync is close, and the frontend
+gate is the least extracted, with its decomposition plan deliberately parked.
+It also records the standing constraint: do not start the extraction as a side
+task; write new tooling so it stays cheap.
+
+**A real defect was found and fixed in the process.**
+`frontend_gate.py:209-215` carried a comment describing "the job-backed
+Results and Unmatched templates" as still on Bootstrap, directly above an
+already-empty `LEGACY_PAGES`. There is no residual Bootstrap: every template
+carries an opt-out note, `static/css/` has no Bootstrap file, and README
+already said "Bootstrap is gone". The only Bootstrap left is a test fixture
+that proves a page *would* collide if it loaded both frameworks. A reader
+trusting the comment would have concluded two page families were unmigrated.
+This is anti-pattern 15 in miniature -- the comment had drifted from the code
+beneath it, and only reading the source surfaced it.
+
+**Deviations: none.** No production behaviour changed beyond the comment fix.
+`docs/architecture/documentation-tooling.md` remains the owner of the control
+plane; DEVELOPMENT.md links to it rather than restating the DOC catalogue, per
+Rule 1.
+
+**Validation:** `pytest -q` -- **1532 passed**. `pre-commit run --all-files` --
+all ten hooks pass. `doc_state_sync.py --check` exit 0. `ruff check` clean.
+
+**Forward guidance:** the extraction plans
+(`docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
+and `.../2026-09-12-reusable-frontend-ci-verification-components.md`) both
+carry "do not execute until" conditions and neither is scheduled. The frontend
+plan's stated line count for `frontend_gate.py` (4,008) is now 4,353, so
+re-measure before relying on its inventory. PR #235's summary was completed in
+the same session and its review threads are adjudicated in
+`docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`.
+
 ### 2026-09-20 - PR #234 advisory verification
 
 Side task, no batch tag. PRs #233 and #234 merged with their review threads

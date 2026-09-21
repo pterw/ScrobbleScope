@@ -132,13 +132,13 @@ See FINDINGS F-DOCSYNC-3.
   client risks suspension. `musicbrainz.py` composes its contact-bearing
   User-Agent on the same identity, so the application cannot disagree with
   itself about its own name.
-- **`MUSICBRAINZ_CONTACT` is unset**, so the correction pass is inert: a
-  read-only probe on 2026-09-20 confirmed `lookup_original_release` returns
-  `(None, None)` with zero HTTP calls. It is **not a secret** -- the value is a
-  contact address that travels in the User-Agent header, and nothing
-  authenticates with it -- so enabling it is a config change, not a credential
-  decision. `DEPLOY.md` named no way to set it, which is why the deployed app
-  runs with the pass off; that gap is now documented there.
+- **`MUSICBRAINZ_CONTACT` is set locally, not yet on Fly.io.** The owner
+  configured the project's GitHub URL in `.env` on 2026-09-21, which
+  MusicBrainz's policy accepts in place of an email address, so the
+  correction pass now runs locally. On 2026-09-20 it was unset and a probe
+  confirmed zero HTTP calls. It is **not a secret** -- the value travels in the
+  User-Agent header and nothing authenticates with it -- so enabling it on the
+  deployment is a config change, `DEPLOY.md` "MusicBrainz contact".
 - **The code defect is closed.** `_musicbrainz_headers` raises instead of
   interpolating the literal string `None` as a contact address, which is what
   it did when called outside the gate that guards it.
@@ -357,6 +357,86 @@ non-current operational logs. Older dated entries live in
 <!-- DOCSYNC:CURRENT-BATCH-START -->
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
+
+### 2026-09-21 - Between-batch verification: findings, MusicBrainz policy, one diagram
+
+Side task, no batch tag. The owner is using the gap before Batch 23 to close
+findings and verify earlier agent work against its sources. Scope was three
+checks and the fixes they produced.
+
+**Six findings rotated that had been finished for weeks or months.** None
+carried a lifecycle record, so rotation could not see them, and DOC023 could
+not flag them because their prose still said "open" or "in progress" -- stale
+text rather than a missed pattern. Each was verified against git and source
+before its box was checked, with the landing date as its completion date:
+F-DOCSYNC-1 (`fd39c89`, 2026-02-26 -- seven months), F-B21-8 (`20dfe0d`),
+F-B21-13 (`8ed1650`), F-B21-12 (`c7bfaec`), F-B20-4 (`9152fd3`), and F-B21-50
+as no action by owner ruling. F-B21-13 is the one real pattern miss: its
+prose said "closed", a word DOC023 does not read.
+
+**F-B20-3 gained its record but stays active.** Bootstrap is gone on this
+branch (`85e7511`), but `origin/main` is what Fly.io deploys and still loads
+it, so it reads "resolved locally, pending deploy" like the five Batch 21
+findings in the same state (F-B21-10, -26, -27, -28, -29). DOC014 is right
+to hold all six until `main` advances; they are not stuck.
+
+**F-STYLE-2 narrowed, and `.flake8` deleted.** Ruff (`c7bfaec`) settled the
+line length at 88; the orphaned `.flake8` still claimed 120 and nothing read
+it. What remains open is only the docstring convention.
+
+**MusicBrainz: the code is right and its stated reason was wrong.** Checked
+against the upstream API and rate-limiting pages, including the raw wiki
+text. `client=` is required only on POST (data submission); this app sends
+GET searches, so omitting it is correct. The User-Agent format, the 1 req/s
+per IP limit, the 503 on throttling, `fmt=json`, and the `releasegroup` and
+`artist` search fields all match. But the code, its docs and its tests said
+MusicBrainz "blocks
+anonymous clients outright" and that a contact-less request "would only
+guarantee a rejected request". Upstream, "anonymous" is a named list of
+library defaults (blank, `Java`, `Python-urllib`, ...) that share a throttled
+pool; the contact is a policy requirement, and breaking it risks throttling
+or a block. The design -- stay disabled without a contact -- is unchanged;
+the reason is corrected in `musicbrainz.py`, `release_checks.py`,
+`config.py`, `.env.example`, `DEPLOY.md`, `README.md` and four test
+docstrings, which also now say an email or a URL is accepted. The Batch 22
+plan keeps its wording as a historical record.
+
+**Architecture diagrams, verified mechanically.** `runtime-system.md` was
+compared with the module import graph extracted by `ast`: no missing edge, no
+extra edge, the three deferred imports drawn dotted, and all ten `config.py`
+importers at their cited lines. `heatmap-sequence.md` matches `heatmap_task`
+and `/heatmap_data`. `top-albums-sequence.md` had one false paragraph: it said
+`background_task`'s `finally` "is not reached if the event-loop setup above it
+fails". The setup is inside the `try`, so the release is unconditional -- and
+the diagram's own note near its end already said so. Rewritten.
+
+**Deviation: a real test-isolation defect, surfaced by configuring the
+contact.** The first full run after the owner set `MUSICBRAINZ_CONTACT` failed
+`test_enqueue_release_check_queues_jobs_in_order` intermittently. A probe
+plugin showed why: `app.py` loads the developer's `.env`, so every unpatched
+happy-path pipeline test now enqueued its job and started the **real**
+`release-checks` thread (the first was a test in
+`tests/services/test_orchestrator_fetch_and_process.py`), which drained the
+shared queue the order test reads and
+could reach musicbrainz.org and the local Postgres. No real call went out in
+the probed run; nothing stopped one either. CI never saw it because it has no
+`.env`. Fixed in `tests/conftest.py` beside the existing `SECRET_KEY` guard:
+`MUSICBRAINZ_CONTACT` is forced empty before `app` is imported, which
+`load_dotenv` will not override. Re-probed: no worker, no queue residue, no
+MusicBrainz attempt. Regression test
+`test_session_starts_with_no_musicbrainz_contact` fails with that line removed
+on a machine that has a contact configured -- which is the only machine the
+defect exists on. Otherwise no runtime behaviour changed; the one string a
+test matches (`MUSICBRAINZ_CONTACT`) is still in the error message.
+
+**Validation:** `pytest -q` -- **1533 passed**. `pre-commit run --all-files` --
+all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate: 30 checks
+passed in 52 runs across chromium and firefox.
+
+**Forward guidance:** the owner approved four follow-ups in the same session,
+each its own commit: the shared event-loop runner F-B20-2 now warrants, the
+startup key check F-SWE-4 describes, the F-MAS-4 broad-catch remediation, and
+DOC023 reading a legacy status line that opens with "closed".
 
 ### 2026-09-20 - Working tree reconciled for the deferred audit
 
@@ -610,64 +690,3 @@ README.md and DEVELOPMENT.md: none.
 `docs/architecture/documentation-tooling.md` still owns the DOC001-DOC023
 catalogue; the split was preserved rather than duplicated. The deferred plans
 are unchanged and stay deferred.
-
-### 2026-09-20 - DEVELOPMENT.md and README.md reconciled with the control plane
-
-Side task, no batch tag. Two documents described a repository that no longer
-exists, and one gate comment described a migration that had already finished.
-
-**DEVELOPMENT.md was materially stale.** Its docsync section said the package
-had "Six focused modules" and listed six test files. It has **twelve** modules
-(`declarations`, `closeout`, `archives`, `findings`, `transaction`, `markdown`
-were added by Batch 22) and twelve matching test files in `tests/`. The
-worktree section named only `check_worktree_alignment.py` and a spec document,
-omitting the seven `_worktree_guard_*.py` modules and the `WT000`-`WT014`
-codes. The gate section stopped at "starts and stops its own loopback server"
-and never named `port 0`, the `finally`, the 44px touch target, the 3:1
-composited-contrast check, the viewport profiles or stylesheet isolation. Two
-lines were also written in the present tense of a batch that has closed
-("Batch 21 uses...", "The active batch definition owns...").
-
-**README lacked four architectural facts** it should carry at product level:
-the cache talks to Postgres in arrays via `unnest($1::text[], ...)` rather than
-row by row; a stale schema identifies itself by SQLSTATE (`42703`, `42P01`)
-instead of being mistaken for network turbulence; Spotify's removed batch
-endpoint answers `403`/`404`/`410` and degrades to one request per album; and
-the opening prose said the badge "is the live state", which read awkwardly.
-
-**A new DEVELOPMENT.md section records the extraction intent** owner-stated
-2026-08-25 and owned by `AGENT_NOTES.md`: this repository is also a template
-being extracted, and the three control-plane components are at very different
-maturity. The section states that honestly rather than aspirationally -- the
-worktree guard is structurally complete, docsync is close, and the frontend
-gate is the least extracted, with its decomposition plan deliberately parked.
-It also records the standing constraint: do not start the extraction as a side
-task; write new tooling so it stays cheap.
-
-**A real defect was found and fixed in the process.**
-`frontend_gate.py:209-215` carried a comment describing "the job-backed
-Results and Unmatched templates" as still on Bootstrap, directly above an
-already-empty `LEGACY_PAGES`. There is no residual Bootstrap: every template
-carries an opt-out note, `static/css/` has no Bootstrap file, and README
-already said "Bootstrap is gone". The only Bootstrap left is a test fixture
-that proves a page *would* collide if it loaded both frameworks. A reader
-trusting the comment would have concluded two page families were unmigrated.
-This is anti-pattern 15 in miniature -- the comment had drifted from the code
-beneath it, and only reading the source surfaced it.
-
-**Deviations: none.** No production behaviour changed beyond the comment fix.
-`docs/architecture/documentation-tooling.md` remains the owner of the control
-plane; DEVELOPMENT.md links to it rather than restating the DOC catalogue, per
-Rule 1.
-
-**Validation:** `pytest -q` -- **1532 passed**. `pre-commit run --all-files` --
-all ten hooks pass. `doc_state_sync.py --check` exit 0. `ruff check` clean.
-
-**Forward guidance:** the extraction plans
-(`docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
-and `.../2026-09-12-reusable-frontend-ci-verification-components.md`) both
-carry "do not execute until" conditions and neither is scheduled. The frontend
-plan's stated line count for `frontend_gate.py` (4,008) is now 4,353, so
-re-measure before relying on its inventory. PR #235's summary was completed in
-the same session and its review threads are adjudicated in
-`docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`.

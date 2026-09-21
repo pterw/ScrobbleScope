@@ -446,10 +446,11 @@ fallback, so the panel has no empty state to design for.
   and artist enrichment. Deezer, the fallback provider, needs no key; its
   terms permit non-commercial use only, which binds any future change to how
   this app is run.
-- Optionally, a contact address for [MusicBrainz](https://musicbrainz.org/),
-  which corrects a reissue date to the album's original release date. It
-  blocks anonymous clients, so without `MUSICBRAINZ_CONTACT` the correction
-  pass stays off and everything else behaves exactly as before.
+- Optionally, a contact for [MusicBrainz](https://musicbrainz.org/), which
+  corrects a reissue date to the album's original release date. Its policy
+  requires a contact -- an email address or a URL -- in every request's
+  User-Agent, so without `MUSICBRAINZ_CONTACT` the correction pass stays off
+  and everything else behaves exactly as before.
 - Docker only if you want the optional local PostgreSQL cache.
 
 ### Setup
@@ -498,8 +499,8 @@ fallback, so the panel has no empty state to design for.
    ```
 
    Set `DEBUG_MODE=1` for local development. Leave `DATABASE_URL` blank to run
-   without PostgreSQL. Set `MUSICBRAINZ_CONTACT` to an address you can be
-   reached at to enable original-release corrections. Never commit `.env` or
+   without PostgreSQL. Set `MUSICBRAINZ_CONTACT` to an email address or a
+   URL you can be reached at to enable original-release corrections. Never commit `.env` or
    reuse its secret in a public example.
 
    The tuning variables -- per-provider rate limits and retry counts, the
@@ -689,8 +690,8 @@ streaks with your busiest weekday and hour.
 - The heatmap covers the last 365 days in UTC, including today. It is bounded
   by Last.fm's rate limit rather than by anything in this application, which
   is why it takes as long as it does.
-- The correction pass is disabled unless a MusicBrainz contact address is
-  configured, because MusicBrainz blocks anonymous clients.
+- The correction pass is disabled unless a MusicBrainz contact is configured,
+  because MusicBrainz's policy requires one in every request's User-Agent.
 - Deezer's terms permit non-commercial use only. That binds any future change
   to how this application is run, not just to the code.
 

@@ -431,10 +431,10 @@ def enqueue_release_check(job_id):
 
     Started lazily, on the first job that can actually use it, so a process
     that never runs one (a test session, a CLI script) never grows the
-    thread. With MusicBrainz disabled or no contact address configured there
-    is nothing to queue -- MusicBrainz blocks anonymous clients, so every
-    request would be rejected -- and the job is marked ``skipped`` instead,
-    which is what the results page needs to say so.
+    thread. With MusicBrainz disabled or no contact configured there is
+    nothing to queue -- MusicBrainz requires a contact in every request's
+    User-Agent, so no request is sent without one -- and the job is marked
+    ``skipped`` instead, which is what the results page needs to say so.
     """
     if not job_id:
         return False

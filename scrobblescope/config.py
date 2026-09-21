@@ -31,10 +31,10 @@ DEEZER_REQUESTS_PER_SECOND = int(os.getenv("DEEZER_REQUESTS_PER_SECOND", "10"))
 DEEZER_SEARCH_RETRIES = int(os.getenv("DEEZER_SEARCH_RETRIES", "3"))
 DEEZER_DETAIL_RETRIES = int(os.getenv("DEEZER_DETAIL_RETRIES", "3"))
 
-# MusicBrainz: 1 request/second per IP, and it blocks anonymous clients --
-# a contact address is required in the User-Agent. With no contact
-# configured, the client stays disabled rather than send guaranteed-reject
-# requests.
+# MusicBrainz: 1 request/second per IP, and its policy requires a contact --
+# an email address or a URL -- in every request's User-Agent. With no contact
+# configured, the client stays disabled rather than send requests that break
+# that policy and risk the IP being throttled or blocked.
 MUSICBRAINZ_CONTACT = os.getenv("MUSICBRAINZ_CONTACT")
 MUSICBRAINZ_ENABLED = os.getenv("MUSICBRAINZ_ENABLED", "true").lower() == "true"
 MUSICBRAINZ_REQUESTS_PER_SECOND = int(os.getenv("MUSICBRAINZ_REQUESTS_PER_SECOND", "1"))

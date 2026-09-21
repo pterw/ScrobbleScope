@@ -3,12 +3,12 @@ original release date. Spotify and Deezer both date a remaster by its
 reissue (Deezer dates The Beatles' White Album 2015-12-24); MusicBrainz's
 release-group carries ``first-release-date``, the original.
 
-MusicBrainz allows 1 request per second per IP and blocks anonymous
-clients outright, so every request needs a contact address in the
-User-Agent. A wrong match is worse than no match here -- a rejected result
-costs nothing, but a bad correction would misdate an album silently -- so a
-candidate is accepted only when it clears both a score floor and a
-normalized-name match, never on score alone.
+MusicBrainz allows 1 request per second per IP, and its policy requires
+every request's User-Agent to carry a way to reach the maintainer -- an
+email address or a URL. A wrong match is worse than no match here -- a
+rejected result costs nothing, but a bad correction would misdate an album
+silently -- so a candidate is accepted only when it clears both a score floor
+and a normalized-name match, never on score alone.
 
 Source: https://musicbrainz.org/doc/MusicBrainz_API and
 https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting.
@@ -70,21 +70,21 @@ def _is_matching_candidate(candidate, key):
 
 
 def _musicbrainz_headers():
-    """Build the User-Agent MusicBrainz requires, contact address included.
+    """Build the User-Agent MusicBrainz requires, contact included.
 
-    MusicBrainz blocks anonymous clients, so the contact is not optional --
-    but this helper must not be the thing that decides that silently. An
-    unset contact interpolates as the literal string ``None``, which is not
-    an address anyone can be reached at, and would travel under a header
-    whose whole purpose is to identify a client that can be. The docstring
-    of ``lookup_original_release`` says an unconfigured contact "would only
-    guarantee a rejected request"; that guarantee is kept here, at the point
-    the header is built, so it holds for any later caller too.
+    MusicBrainz's policy makes the contact mandatory -- but this helper must
+    not be the thing that decides that silently. An unset contact
+    interpolates as the literal string ``None``, which is not an address
+    anyone can be reached at, and would travel under a header whose whole
+    purpose is to identify a client that can be. ``lookup_original_release``
+    refuses to send a request that would break the policy; that refusal is
+    kept here too, at the point the header is built, so it holds for any
+    later caller.
     """
     if not MUSICBRAINZ_CONTACT:
         raise RuntimeError(
-            "MUSICBRAINZ_CONTACT is not configured; MusicBrainz blocks "
-            "anonymous clients, so there is no valid User-Agent to send."
+            "MUSICBRAINZ_CONTACT is not configured; MusicBrainz requires a "
+            "contact in the User-Agent, so there is no valid User-Agent to send."
         )
     return {"User-Agent": f"{APP_USER_AGENT} ( {MUSICBRAINZ_CONTACT} )"}
 
@@ -97,9 +97,9 @@ async def lookup_original_release(
     Returns ``(mb_release_group_id, "YYYY-MM-DD")`` on a trusted match, or
     ``(None, None)`` when nothing matches closely enough -- both outcomes
     are cacheable. Also returns ``(None, None)`` without making a request
-    when MusicBrainz is disabled or no contact address is configured:
-    MusicBrainz blocks anonymous clients, so an unconfigured contact would
-    only guarantee a rejected request.
+    when MusicBrainz is disabled or no contact is configured: MusicBrainz
+    requires one in every request's User-Agent, and a client without it
+    risks being throttled or blocked.
     """
     if not MUSICBRAINZ_ENABLED or not MUSICBRAINZ_CONTACT:
         return None, None
