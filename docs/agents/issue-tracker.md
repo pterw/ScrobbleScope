@@ -33,6 +33,16 @@ in `AGENTS.md` rather than coining a tag here.
 Include the problem statement in one sentence, a `Status:` line, and a
 `Source:` line when a named audit or session produced the finding.
 
+**The lifecycle format the gate checks for rotation eligibility:** exactly
+one checkbox-bearing `- [ ] **Status:** <outcome>` line (`- [x]` once
+checked), and, only when checked, exactly one `**Completed:** YYYY-MM-DD`
+line with a real calendar date. A finding written as free prose (no
+checkbox) is not yet eligible to rotate; that is expected, not a defect, for
+findings predating this format. See DOC013-DOC018 in
+`docs/architecture/documentation-tooling.md` for what each code checks --
+any one of them suppresses the whole rotation rather than guessing which
+reading of a contradiction is correct.
+
 ## Reading a finding
 
 Open `FINDINGS.md` on demand, for one of three reasons: the task names an

@@ -67,11 +67,16 @@ from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
     _composite_over,
     _contrast_ratio,
     _divider_contrast_failure,
+    _is_forbidden_surface,
     _parse_rgb_string,
     _relative_luminance,
     _worst_divider_contrast,
 )
-from scripts.dev._frontend_gate_results import check_results_interactions  # noqa: E402
+from scripts.dev._frontend_gate_results import (  # noqa: E402
+    check_release_check_disclosure,
+    check_results_interactions,
+    check_results_provider_attribution,
+)
 from scrobblescope.repositories import (  # noqa: E402
     add_job_unmatched,
     create_job,
@@ -555,10 +560,14 @@ def check_theme_tokens(page, base_url: str) -> list[str]:
                     return [...seen];
                 }"""
             )
-            for forbidden in FORBIDDEN_SURFACES:
-                if forbidden in surfaces:
+            # Compared as colours, not strings: the same grey arriving
+            # through a color-mix() serializes as color(srgb 0.97 0.98 0.98),
+            # which no string comparison against rgb(248, 249, 250) matches,
+            # and the check would stay green with the surface on screen.
+            for surface in surfaces:
+                if _is_forbidden_surface(surface, FORBIDDEN_SURFACES):
                     failures.append(
-                        f"{path} {theme}: forbidden cool-grey surface {forbidden}"
+                        f"{path} {theme}: forbidden cool-grey surface {surface}"
                     )
     return failures
 
@@ -1781,6 +1790,150 @@ def check_loading_composition(page, base_url: str) -> list[str]:
     return failures
 
 
+def check_heatmap_zero_cells_follow_theme(page, base_url: str) -> list[str]:
+    """A theme change repaints the heatmap's zero-count cells.
+
+    The cells carry a `fill` presentation attribute, and an SVG presentation
+    attribute does not resolve a custom property, so the repaint is JavaScript:
+    `heatmap.js` watches for the theme change and rewrites every zero cell.
+    It watched `<body>` for the `.dark-mode` class until WP-8 retired that
+    write, and nothing here noticed, because every other theme check reads CSS.
+    """
+    failures = []
+    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    set_job_results(
+        job_id,
+        {
+            "username": "frontend-gate",
+            "from_date": "2025-01-01",
+            "to_date": "2025-01-05",
+            "total_scrobbles": 3,
+            "max_count": 3,
+            "daily_counts": {
+                "2025-01-01": 3,
+                "2025-01-02": 0,
+                "2025-01-03": 0,
+                "2025-01-04": 1,
+                "2025-01-05": 0,
+            },
+        },
+    )
+    set_job_progress(job_id, progress=100, message="Done", error=False)
+    try:
+        page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
+        page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+        page.locator('.heatmap-cell[data-count="0"]').first.wait_for(state="attached")
+        readings = {}
+        for theme in ("light", "dark"):
+            page.evaluate(SET_THEME_EXPRESSION, theme)
+            page.wait_for_timeout(120)
+            readings[theme] = page.evaluate(
+                """() => {
+                    const cell = document.querySelector('.heatmap-cell[data-count="0"]');
+                    const probe = getComputedStyle(document.documentElement)
+                        .getPropertyValue('--heatmap-empty').trim();
+                    return { fill: cell?.getAttribute('fill'), token: probe };
+                }"""
+            )
+    finally:
+        delete_job(job_id)
+
+    for theme, reading in readings.items():
+        if not reading["fill"]:
+            failures.append(f"/heatmap renders no zero-count cell in the {theme} theme")
+        elif reading["fill"] != reading["token"]:
+            failures.append(
+                f"/heatmap zero cells are {reading['fill']!r} in the {theme} theme, "
+                f"expected the --heatmap-empty token {reading['token']!r}"
+            )
+    if len(readings) == 2 and readings["light"]["fill"] == readings["dark"]["fill"]:
+        failures.append(
+            "/heatmap zero cells did not repaint across a theme change: "
+            f"{readings['light']['fill']!r} in both"
+        )
+    return failures
+
+
+def check_heatmap_export_header_matches_page(page, base_url: str) -> list[str]:
+    """The saved heatmap image states what the page states.
+
+    The export draws its header on a canvas by hand, so its wording can drift
+    from the page and nothing shows it: a saved file is only seen after it is
+    saved. It drew "LISTENING HEATMAP . LAST 365 DAYS" over "A year of <name>"
+    long after the page had moved to the possessive headline with the source
+    named underneath.
+    """
+    failures = []
+    job_id = create_job({"username": "frontend-gate", "mode": "heatmap"})
+    set_job_results(
+        job_id,
+        {
+            "username": "frontend-gate",
+            "from_date": "2025-01-01",
+            "to_date": "2025-01-05",
+            "total_scrobbles": 4,
+            "max_count": 4,
+            "daily_counts": {"2025-01-01": 4, "2025-01-02": 0},
+        },
+    )
+    set_job_progress(job_id, progress=100, message="Done", error=False)
+    try:
+        page.goto(f"{base_url}/heatmap?job_id={job_id}", wait_until="load")
+        page.locator("#heatmap-result-frame svg").wait_for(state="visible")
+        # Save for real: the record read below is what the canvas drew, so a
+        # line that stops being drawn cannot pass by matching the page.
+        with page.expect_download():
+            page.click("#heatmap-save-image")
+        state = page.evaluate(
+            """() => {
+                const model = window.__scrobbleHeatmapDrawnHeader?.();
+                const headline = document.querySelector('#heatmap-result-headline');
+                const eyebrow = document.querySelector('.heatmap-head__titles .eyebrow');
+                return {
+                    model,
+                    pageHeadline: headline?.textContent.trim(),
+                    pageEyebrow: eyebrow?.textContent.trim(),
+                    username: document.querySelector('.heatmap-headline-username')
+                        ?.textContent.trim(),
+                    pageCaps: [...document.querySelectorAll('.heatmap-legend__cap')]
+                        .map(node => getComputedStyle(node).textTransform === 'uppercase'
+                            ? node.textContent.trim().toUpperCase()
+                            : node.textContent.trim()),
+                };
+            }"""
+        )
+    finally:
+        delete_job(job_id)
+
+    model = state["model"]
+    if not model:
+        failures.append("/heatmap exposes no export header for the saved image")
+        return failures
+    if model["headline"] != state["pageHeadline"]:
+        failures.append(
+            f"saved heatmap headline is {model['headline']!r}, "
+            f"the page says {state['pageHeadline']!r}"
+        )
+    if model["eyebrow"].lower() != (state["pageEyebrow"] or "").lower():
+        failures.append(
+            f"saved heatmap eyebrow is {model['eyebrow']!r}, "
+            f"the page says {state['pageEyebrow']!r}"
+        )
+    if state["username"] and state["username"] not in model["headline"]:
+        failures.append(
+            f"saved heatmap headline drops the username {state['username']!r}"
+        )
+    # The saved legend is a bare gradient without its captions: nothing in the
+    # image then says which end of the ramp means more listening.
+    caps = model.get("legend") or {}
+    if [caps.get("less"), caps.get("more")] != state["pageCaps"]:
+        failures.append(
+            f"saved heatmap legend captions are {[caps.get('less'), caps.get('more')]!r}, "
+            f"the page shows {state['pageCaps']!r}"
+        )
+    return failures
+
+
 def _measure_scale_dimensions(page, base_url, selectors, width: int, height: int):
     """Read real rectangles and computed authored dimensions after fonts load."""
     page.set_viewport_size({"width": width, "height": height})
@@ -2660,6 +2813,60 @@ def check_destination_empty_states(page, base_url: str) -> list[str]:
     return failures
 
 
+#: Narrowest window at which two unmatched panels share a row. Below it each
+#: panel takes the full width. Owner ruling, 2026-09-13: at 1024px two panels
+#: left the album title 20-36px beside a Results-sized cover.
+UNMATCHED_TWO_PANEL_MIN = 1280
+
+#: Widths either side of the two-panel breakpoint, and the old breakpoint. None
+#: of the gate's profiles lands here, which is how the 1024px defect shipped.
+UNMATCHED_SWEEP_WIDTHS = (1024, UNMATCHED_TWO_PANEL_MIN - 1, UNMATCHED_TWO_PANEL_MIN)
+
+#: Least width an album title may get beside its cover. At 1280px two panels
+#: give 103-119px; the defect gave 20-36px.
+UNMATCHED_MIN_TITLE_WIDTH = 96
+
+
+def _unmatched_panel_width_sweep(page) -> list[str]:
+    """Resize across the two-panel breakpoint and check the album title's room.
+
+    Restores the original viewport before returning, so later checks on the
+    same page are unaffected.
+    """
+    failures = []
+    original = page.viewport_size
+    try:
+        for width in UNMATCHED_SWEEP_WIDTHS:
+            page.set_viewport_size({"width": width, "height": original["height"]})
+            # Two frames: one for layout, one for the scale ResizeObserver.
+            page.evaluate(
+                "() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))"
+            )
+            sweep = page.evaluate(
+                """() => ({
+                    columns: getComputedStyle(document.querySelector('.unmatched-groups'))
+                        .gridTemplateColumns.split(' ').length,
+                    titles: [...document.querySelectorAll('.unmatched-group')].map(group =>
+                        group.querySelector('tbody tr .album-info').getBoundingClientRect().width),
+                })"""
+            )
+            expected_columns = 2 if width >= UNMATCHED_TWO_PANEL_MIN else 1
+            if sweep["columns"] != expected_columns:
+                failures.append(
+                    f"unmatched report at {width}px has {sweep['columns']} panel "
+                    f"columns, expected {expected_columns}"
+                )
+            narrowest = min(sweep["titles"])
+            if narrowest < UNMATCHED_MIN_TITLE_WIDTH:
+                failures.append(
+                    f"unmatched album title at {width}px is {narrowest:.0f}px wide, "
+                    f"expected at least {UNMATCHED_MIN_TITLE_WIDTH}px"
+                )
+    finally:
+        page.set_viewport_size(original)
+    return failures
+
+
 def check_unmatched_report(page, base_url: str) -> list[str]:
     """Exercise the populated report contract and its ten-row disclosure."""
     job_id = create_job(
@@ -2730,6 +2937,8 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "reason_code": "release_scope",
                     "album_image": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'/>",
                     "spotify_id": f"scope-album-{index}",
+                    "provider": "spotify",
+                    "album_url": f"https://open.spotify.com/album/scope-album-{index}",
                     "play_count": play_counts[index - 1],
                 },
             )
@@ -2765,7 +2974,6 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 const page = document.querySelector('.unmatched-page');
                 const grid = node.parentElement;
                 const fixHint = node.querySelector('.unmatched-fix-hint');
-                const cover = rows[0]?.querySelector('img');
                 const root = getComputedStyle(document.documentElement);
                 const headline = page.querySelector('h1');
                 const username = page.querySelector('.unmatched-headline__user');
@@ -2793,8 +3001,39 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                         sheet.href?.endsWith('/static/css/results.css')),
                     fixHint: fixHint?.textContent.trim(),
                     fixHintSize: getComputedStyle(fixHint).fontSize,
-                    coverWidth: getComputedStyle(cover).width,
-                    coverHeight: getComputedStyle(cover).height,
+                    countLabelSize: getComputedStyle(node.querySelector('span.unmatched-label')).fontSize,
+                    coarsePointer: matchMedia('(any-pointer: coarse)').matches,
+                    controlShortSides: [...document.querySelectorAll(
+                        '.results-toolbar-action, .unmatched-expander-btn, .unmatched-back-to-top-btn')]
+                        .map(el => {
+                            const r = el.getBoundingClientRect();
+                            return Math.min(r.width, r.height);
+                        }),
+                    rowPadTop: Number.parseFloat(
+                        getComputedStyle(rows[0].querySelector('td')).paddingTop),
+                    rowPadBottom: Number.parseFloat(
+                        getComputedStyle(rows[0].querySelector('td')).paddingBottom),
+                    thWidths: [...node.querySelectorAll('thead th')]
+                        .map(th => Number.parseFloat(getComputedStyle(th).width)),
+                    // Compare the rendered extent of a cell's contents with the
+                    // cell's own box. scrollWidth is not usable here: Chromium
+                    // counts end padding into it, so content that is fully
+                    // visible inside the padding would be reported as clipped.
+                    clippedCells: [...document.querySelectorAll(
+                        '.unmatched-table th, .unmatched-table td')]
+                        .filter(cell => {
+                            if (getComputedStyle(cell).display === 'none') return false;
+                            const range = document.createRange();
+                            range.selectNodeContents(cell);
+                            const inner = range.getBoundingClientRect();
+                            const outer = cell.getBoundingClientRect();
+                            return inner.width > 0
+                                && (inner.left < outer.left - 1 || inner.right > outer.right + 1);
+                        })
+                        .map(cell => cell.textContent.replaceAll(/\\s+/g, ' ').trim()
+                            .slice(0, 40)),
+                    docOverflow: document.documentElement.scrollWidth
+                        - document.documentElement.clientWidth,
                     unsupportedWeights: [...node.querySelectorAll('*')]
                         .map(element => getComputedStyle(element).fontWeight)
                         .filter(weight => weight === '500' || weight === '600'),
@@ -2809,15 +3048,21 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
             "expanded": "false",
             "plays": "29",
             "pageMaxWidth": "1440px",
-            "gridColumns": 3 if page.viewport_size["width"] >= 1024 else 1,
+            # Two panels share a row from 1280px, never three: the 90rem page
+            # cap holds a third track to about 448px, the width that made
+            # three-up unreadable in the first place.
+            "gridColumns": 2
+            if page.viewport_size["width"] >= UNMATCHED_TWO_PANEL_MIN
+            else 1,
             "headingFirstTag": "H1",
             "usernameFontStyle": "normal",
             "usernameMatchesHeadlineColor": True,
             "resultsStylesheet": True,
             "fixHint": 'Choose "All years (no filter)" on a new search to include these releases.',
-            "fixHintSize": "9px",
-            "coverWidth": "44px" if page.viewport_size["width"] >= 768 else "40px",
-            "coverHeight": "44px" if page.viewport_size["width"] >= 768 else "40px",
+            # Owner ruling, 2026-09-13 (F-B21-4 item 4): 12px, not the
+            # README's 9px, for the fix hint and the per-panel count label.
+            "fixHintSize": "12px",
+            "countLabelSize": "12px",
         }
         for claim, wanted in expected.items():
             if state[claim] != wanted:
@@ -2832,20 +3077,84 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                 return { width: style.width, height: style.height };
             })"""
         )
-        expected_cover = "44px" if page.viewport_size["width"] >= 768 else "40px"
+        # Geometry is compared numerically rather than as strings: row padding
+        # follows the width-derived --results-scale, so an exact pixel string
+        # would only hold at one window. Tolerance covers subpixel rounding.
+        width = page.viewport_size["width"]
+        scale = state["scale"] if width >= 768 else 1
+        # The cover matches the Results row, and scales at every width.
+        expected_cover = (64.0 if width < 768 else 72.0) * state["scale"]
         for index, cover in enumerate(group_covers):
             if cover is None:
                 failures.append(f"unmatched group {index} renders no artwork container")
-            elif cover["width"] != expected_cover or cover["height"] != expected_cover:
+                continue
+            cover_w = float(cover["width"].removesuffix("px"))
+            cover_h = float(cover["height"].removesuffix("px"))
+            if (
+                abs(cover_w - expected_cover) > 0.75
+                or abs(cover_h - expected_cover) > 0.75
+            ):
                 failures.append(
-                    f"unmatched group {index} artwork is {cover['width']}x"
-                    f"{cover['height']}, expected {expected_cover}"
+                    f"unmatched group {index} artwork is {cover_w:.1f}x{cover_h:.1f}px, "
+                    f"expected {expected_cover:.1f}px"
+                )
+
+        # Row padding. It compiled to nothing once (`py-2.5`), leaving every row
+        # with zero vertical padding above 768px while presence checks passed.
+        expected_pad = 12.0 * scale
+        for side in ("rowPadTop", "rowPadBottom"):
+            if abs(state[side] - expected_pad) > 0.75:
+                failures.append(
+                    f"unmatched report {side} is {state[side]:.2f}px, "
+                    f"expected {expected_pad:.2f}px"
+                )
+
+        # Column budget. Lost widths fall back to four equal columns under
+        # `table-layout: fixed` and truncate silently, so assert the shape: the
+        # album column leads and has room for a cover plus a title.
+        th_widths = state["thWidths"]
+        if len(th_widths) != 4:
+            failures.append(
+                f"unmatched table has {len(th_widths)} header cells, expected 4"
+            )
+        else:
+            if max(th_widths) - min(th_widths) < 1:
+                failures.append(
+                    f"unmatched table columns are equal widths {th_widths!r}; "
+                    "the column budget did not apply"
+                )
+            if th_widths[1] != max(th_widths) or th_widths[1] < 150:
+                failures.append(
+                    f"unmatched album column is {th_widths[1]:.1f}px of {th_widths!r}; "
+                    "expected it to be the widest and at least 150px"
+                )
+
+        # Document-level overflow. The grid check below cannot see it: a header
+        # row that refused to shrink scrolled the whole page at 768px and 1024px.
+        if state["docOverflow"] > 1:
+            failures.append(
+                f"unmatched page scrolls horizontally by {state['docOverflow']!r}px"
+            )
+
+        # Cells keep `overflow: hidden`, so text that cannot wrap is cut without
+        # an ellipsis or an error. The metric header shipped as "PLAYS / TRA" and
+        # the threshold metric as "7 plays ..." while every other check passed.
+        if state["clippedCells"]:
+            failures.append(
+                f"unmatched table clips cell content: {state['clippedCells']!r}"
+            )
+
+        if state["coarsePointer"]:
+            small = [round(side, 1) for side in state["controlShortSides"] if side < 44]
+            if small:
+                failures.append(
+                    f"unmatched report controls under 44px on a coarse pointer: {small!r}"
                 )
 
         group_tops = page.locator(".unmatched-group").evaluate_all(
             "groups => groups.map(g => Math.round(g.getBoundingClientRect().top))"
         )
-        if page.viewport_size["width"] >= 1024:
+        if page.viewport_size["width"] >= UNMATCHED_TWO_PANEL_MIN:
             if len(group_tops) >= 2 and group_tops[0] != group_tops[1]:
                 failures.append(
                     "unmatched reports are not arranged side-by-side on desktop"
@@ -2974,6 +3283,8 @@ def check_unmatched_report(page, base_url: str) -> list[str]:
                     "unmatched report back-to-top did not collapse the panel: "
                     f"{collapsed_by_top!r}"
                 )
+
+        failures.extend(_unmatched_panel_width_sweep(page))
     finally:
         page.unroute(spotlight_pattern, fulfill_spotlight)
         delete_job(job_id)
@@ -3723,6 +4034,18 @@ CHECKS = (
         STATIC_ASSETS,
     ),
     ("mark follows theme", check_mark_follows_theme, (DESKTOP,), STATIC_ASSETS),
+    (
+        "heatmap zero cells follow theme",
+        check_heatmap_zero_cells_follow_theme,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
+    (
+        "heatmap export header matches page",
+        check_heatmap_export_header_matches_page,
+        (DESKTOP,),
+        THEME_MOTION,
+    ),
     ("theme persistence", check_theme_persistence, (DESKTOP, MOBILE), THEME_MOTION),
     ("true warning survives", check_true_warning_survives, (DESKTOP,), THEME_MOTION),
     (
@@ -3783,6 +4106,18 @@ CHECKS = (
         LAYOUT_PIPELINE,
     ),
     (
+        "results provider attribution",
+        check_results_provider_attribution,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
+        "release check disclosure",
+        check_release_check_disclosure,
+        (DESKTOP,),
+        LAYOUT_PIPELINE,
+    ),
+    (
         "destination empty states",
         check_destination_empty_states,
         (DESKTOP, MOBILE),
@@ -3791,7 +4126,7 @@ CHECKS = (
     (
         "unmatched report",
         check_unmatched_report,
-        (DESKTOP, MOBILE),
+        (DESKTOP, MOBILE, TOUCH_WIDE),
         LAYOUT_PIPELINE,
     ),
     (

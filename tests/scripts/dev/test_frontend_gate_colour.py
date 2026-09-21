@@ -23,6 +23,7 @@ from scripts.dev._frontend_gate_colour import (
     _composite_over,
     _contrast_ratio,
     _divider_contrast_failure,
+    _is_forbidden_surface,
     _parse_rgb_string,
     _relative_luminance,
     _worst_divider_contrast,
@@ -192,3 +193,86 @@ class TestFacadeStillReExportsTheMovedHelpers:
         # that happens to share the name would satisfy `callable()` while
         # every caller reading the moved implementation's behaviour breaks.
         assert getattr(frontend_gate, name) is getattr(_frontend_gate_colour, name)
+
+
+class TestColourSerializations:
+    """Every serialization a browser can hand back, read or refused.
+
+    Measured 2026-09-20 in both engines the gate runs: a computed
+    `color-mix(in srgb, ...)` comes back as `color(srgb 0.96 0.94 0.91)`, with
+    channels in 0-1 rather than 0-255. Read as 0-255 those channels collapse
+    to near black, which is how a real contrast measurement on the results
+    table reported 1.19:1 for ink that plainly reads against it. Every other
+    token the gate measures serialized as rgb()/rgba() in both engines, which
+    is why no existing check was wrong -- the defect was waiting for the first
+    check to measure a color-mix() surface.
+    """
+
+    def test_reads_the_color_srgb_form(self):
+        assert _parse_rgb_string("color(srgb 0.98 0.97 1)") == (
+            249.9,
+            247.35,
+            255.0,
+            1.0,
+        )
+
+    def test_reads_the_color_srgb_form_with_alpha(self):
+        assert _parse_rgb_string("color(srgb 0 0 0 / 0.5)") == (0.0, 0.0, 0.0, 0.5)
+
+    def test_still_reads_the_rgb_forms(self):
+        assert _parse_rgb_string("rgb(26, 24, 32)") == (26.0, 24.0, 32.0, 1.0)
+        assert _parse_rgb_string("rgba(26, 24, 32, 0.5)") == (26.0, 24.0, 32.0, 0.5)
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "oklch(0.7 0.15 250)",
+            "lab(52.2% 40.1 59.9)",
+            "hsl(210 50% 40%)",
+            "color(display-p3 0.5 0.2 0.1)",
+        ],
+    )
+    def test_refuses_a_serialization_it_cannot_read(self, value):
+        """A wrong number is worse than a stopped check.
+
+        These forms all carry three leading numbers that are not 0-255 sRGB
+        channels. Guessing at them produces a plausible-looking ratio from a
+        colour nobody painted, and a contrast gate that reports a wrong ratio
+        is the "wrong green" `docs/agents/global-rules.md` puts above every
+        other rule. The name of the value is in the message because the
+        reader will not be the person who wrote the check.
+        """
+        with pytest.raises(ValueError, match="serialization"):
+            _parse_rgb_string(value)
+
+
+class TestForbiddenSurfaceDetection:
+    """A forbidden surface must be caught in whatever form it arrives.
+
+    The scan compares a computed background against the cool-greys the warm
+    themes replaced. It used to compare strings, so the same colour arriving
+    through a `color-mix()` -- and therefore serialized as `color(srgb ...)`
+    -- would not have matched. That is an evasion path, not a false alarm:
+    the check would stay green while the surface was on screen.
+    """
+
+    def test_matches_the_same_colour_in_another_serialization(self):
+        assert _is_forbidden_surface(
+            "color(srgb 0.972549 0.976471 0.980392)", ("rgb(248, 249, 250)",)
+        )
+
+    def test_matches_the_plain_rgb_form(self):
+        assert _is_forbidden_surface("rgb(18, 18, 18)", ("rgb(18, 18, 18)",))
+
+    def test_does_not_match_a_different_colour(self):
+        assert not _is_forbidden_surface("rgb(250, 247, 240)", ("rgb(248, 249, 250)",))
+
+    def test_tolerates_a_serialization_the_parser_refuses(self):
+        """The scan reads every element on the page, so it cannot raise.
+
+        A page carrying one `oklch()` colour must not take the check down;
+        that value simply cannot be compared numerically, so it falls back to
+        an exact string match and the rest of the scan continues.
+        """
+        assert not _is_forbidden_surface("oklch(0.7 0.15 250)", ("rgb(18, 18, 18)",))
+        assert _is_forbidden_surface("oklch(0.7 0.15 250)", ("oklch(0.7 0.15 250)",))

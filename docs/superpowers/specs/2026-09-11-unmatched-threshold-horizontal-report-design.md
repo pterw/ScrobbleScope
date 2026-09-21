@@ -8,8 +8,10 @@
 
 The unmatched report explains every album excluded after Last.fm aggregation,
 including albums that fail the configured play or unique-track minimum. Each
-album appears once. The page uses full-width horizontal reason sections that
+album appears once. The page uses side-by-side horizontal reason panels that
 match the Results report's width, surface, typography, action, and table rhythm.
+The owner superseded this paragraph's earlier "full-width" wording on 2026-09-11;
+the detail and the ruling are recorded in the Presentation section below.
 
 ## Threshold contract
 
@@ -65,23 +67,27 @@ constraints that current Results source does not answer. Mirror:
   2026-09-11: "They should not be stacked, but side-by-side". The shipped page
   and the frontend gate implement side-by-side, and `PLAYBOOK.md` Section 3
   carries the same correction;
-- dense horizontal rows with rank, 40px mobile or 44px desktop artwork,
+- dense horizontal rows with rank, artwork sized like the Results row,
   album/artist identity, plays/tracks, and reason detail;
 - small album art when cached, otherwise the existing lazy,
   per-artist-deduplicated `/api/artist_spotlight` fallback;
 - responsive row stacking without horizontal page scroll.
 
 Reason order is `below_threshold`, `release_scope`, then `no_spotify_match`.
-The threshold section title is `Below your thresholds`. Its description names
+The threshold section title is `Not enough listening` (owner ruling,
+2026-09-13, FINDINGS F-B21-58). Its description names
 the job's minimum plays and unique tracks. The fix hint directs the listener to
 lower either minimum in a new search. Counts use Gotham; prose uses Akzidenz;
 data uses Input Mono; editorial headings use Instrument Serif.
 
 ## Interaction and accessibility
 
-Keep the existing disclosure behavior: the first ten rows are visible and one
-real button reveals or hides the remainder. Preserve `aria-expanded`, visible
-focus, and coarse-pointer targets of at least 44px.
+Keep the existing disclosure behavior: the first ten rows are visible and a real
+button reveals the remainder. The owner ruled the step at 25 rows on 2026-09-11,
+so the control reads "Show next 25" until fewer than a step remain, then "Show
+all N albums", then "Show fewer". A second real button returns the reader to the
+top of the panel and collapses it back to ten in the same action. Preserve
+`aria-expanded`, visible focus, and coarse-pointer targets of at least 44px.
 
 Spotify links remain external links with `noopener noreferrer`. Artist portrait
 hydration remains progressive; a failed image request leaves the initials
@@ -93,8 +99,10 @@ Unit tests prove partition boundaries, both-failure de-duplication, stable
 reason ordering, and the all-below-threshold completed-job path. Route tests
 prove the new group and fields reach HTML and JSON contracts.
 
-The frontend gate proves computed full-width stacking, absence of the eyebrow
-and italic accent, responsive row containment, 40px/44px artwork, disclosure
-states, and the existing artist-spotlight fallback. Rebuild and check committed
-Tailwind CSS. Run the full pytest suite, pre-commit, docsync, JavaScript syntax,
-and the two-engine frontend gate before completion.
+The frontend gate proves computed side-by-side panels -- a shared top offset and
+the expected grid column count, collapsing to one column on narrow viewports --
+absence of the eyebrow and italic accent, responsive row containment, measured
+row padding and column widths, Results-sized artwork, no document-level horizontal
+overflow, disclosure states, and the existing artist-spotlight fallback. Rebuild
+and check committed Tailwind CSS. Run the full pytest suite, pre-commit, docsync,
+JavaScript syntax, and the two-engine frontend gate before completion.

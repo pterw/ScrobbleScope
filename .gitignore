@@ -89,16 +89,18 @@ skills-lock.json
 # this repo does not use and cite skills it does not have installed, so they
 # are not repo guidance.
 #
-# Narrowed 2026-09-11. Two repo-authored files under this path ARE guidance:
-# they record where this repo's issues and its domain documents actually live,
-# and AGENTS.md links to them, so they have to be tracked -- an ignored path
-# cannot resolve, and docsync's DOC001 check reads `git ls-files`. Only the
-# skill's own seed templates stay ignored; un-ignoring those would put a
-# CONTEXT.md / docs/adr/ layout this repo rejects back into the repository as a
-# second source of truth.
+# Narrowed 2026-09-11, widened 2026-09-19. Repo-authored files under this path
+# ARE guidance: they record where this repo's issues, its domain documents,
+# and its UI/accessibility rules actually live, and AGENTS.md links to them,
+# so they have to be tracked -- an ignored path cannot resolve, and docsync's
+# DOC001 check reads `git ls-files`. Only the skill's own seed templates stay
+# ignored; un-ignoring those would put a CONTEXT.md / docs/adr/ layout this
+# repo rejects back into the repository as a second source of truth.
 docs/agents/*
 !docs/agents/issue-tracker.md
 !docs/agents/domain.md
+!docs/agents/ui-accessibility.md
+!docs/agents/global-rules.md
 
 # Mermaid authoring and preview scratch. Canonical diagrams live in tracked
 # Markdown, which is what GitHub renders; a tracked .mmd would be a second
@@ -117,3 +119,14 @@ docs/agents/*
 
 # Generated semantic index; retain locally and query as needed.
 /graphify-out/
+
+# docsync publication runtime state, written beside an archive while a
+# multi-file transition is in flight: the single-writer lock, and the
+# before-image journal the next run replays if a publication is interrupted.
+# Both describe one machine's in-progress run, not repository content.
+# Committing a lock would tell every other checkout a writer is active
+# forever; committing a journal would offer a stale rollback target. They are
+# removed on a clean finish, so a tracked copy could only ever be a leftover.
+.docsync.lock
+.docsync.journal
+*.docsync-stage

@@ -19,7 +19,8 @@ claim names.
 
 **Owner of this status: this section. Do not restate it in [Implementation
 Order]; update it here.** Last updated 2026-09-11 by the session that drafted
-the plan and executed Phase 1.
+the plan and executed Phase 1. Re-read and re-measured 2026-09-12 by the
+`impeccable-init` session before starting Phase 2.
 
 **State: Phase 1 complete and committed. Phases 2-5 not started. No work is
 uncommitted: the architecture-diagram rebuild landed as `cc987f5`, the F-B21-51
@@ -28,7 +29,7 @@ Nothing is pushed.
 
 | Phase | State | Evidence |
 | --- | --- | --- |
-| 0 Baseline | **Done** | guard exit 0; `pytest -q` 990 at open, 1022 measured 2026-09-11; docsync exit 0 |
+| 0 Baseline | **Done** | guard exit 0; `pytest -q` 990 at open, 1022 measured 2026-09-11, 1026 measured 2026-09-12; docsync exit 0 |
 | 1 WP-7 refinement | **Done, committed** | `57d1474`; frontend gate 26 checks in 47 runs, chromium + firefox |
 | 2 Document reconciliation | **Not started** | the two live conflicts are listed below |
 | 3 Audit incidental defects | **Not started** | 5 items, all still present in the code |
@@ -605,7 +606,9 @@ place, so the two cannot disagree.
 
 1. Run the bootstrap guard and record the qualified Python, pytest and
    pre-commit paths it prints.
-2. Confirm the pre-work baseline: `pytest -q` (expect 990 passed),
+2. Confirm the pre-work baseline: `pytest -q` (expected 990 passed when Phase 0
+   ran on 2026-09-11; the current count is owned by `.claude/SESSION_CONTEXT.md`
+   Section 1 -- **1026 passed** as measured 2026-09-12),
    `pre-commit run --all-files`, `doc_state_sync.py --check`. Record the exact
    counts; do not quote SESSION_CONTEXT's number without re-measuring.
 3. Confirm the worktree state matches `git status --short`: the WP-7 UI changes

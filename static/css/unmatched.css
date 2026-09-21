@@ -1,22 +1,93 @@
-/* unmatched.css -- Unmatched albums report page styles */
+/* unmatched.css -- Unmatched albums report page styles.
 
+   This page shares `.results-page` and `.results-table` with the leaderboard, so
+   it inherits the Results scale variables and the narrow-viewport table rules in
+   results.css. What lives here is only what the panel context changes. */
+
+/* Width and the 90rem cap come from `.results-page` on the same element. They
+   are not restated here: the two pages previously declared 94% and 96% on that
+   element, so the winner was decided by stylesheet order rather than by intent. */
 .unmatched-page {
-    --unmatched-surface: color-mix(in srgb, var(--color-base-100) 50%, var(--ss-surface-sunken));
-    width: 100%;
-    max-width: 90rem;
     min-height: calc(100vh - 12rem);
 }
 
-@media (min-width: 1024px) {
-    .unmatched-page {
-        width: 96%;
+/* Panel tracks, keyed on the rendered panel count.
+
+   `minmax(0, 1fr)` rather than a bare `1fr`: the bare form is `minmax(auto, 1fr)`
+   and refuses to shrink below its content, which is how a fixed table inside a
+   grid track pushes the document into horizontal scroll.
+
+   One track below 1280px, two from 1280px, and never three -- see the note
+   below the rule for why three is unreachable at the shipped page cap.
+   Side-by-side is unchanged; what moved is how many panels share a row.
+
+   Why 1280px and not 1024px (owner ruling, 2026-09-13): each of two panels is
+   about 453px wide at 1024px. The four-column table then leaves the album
+   column 140-156px, and the Results-sized cover takes most of it -- the title
+   measured 20-36px and broke into columns of two or three letters. At 1280px
+   the title gets 103-119px. The frontend gate sweeps 1024px, 1279px and 1280px
+   because none of its profiles lands between them. */
+.unmatched-groups {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1280px) {
+    .unmatched-groups:not([data-panels="1"]) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
-.unmatched-heading h1 {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* Two is the maximum, and the page cap is why. `.unmatched-page` stops at 90rem,
+   so three tracks can never be wider than about 448px however large the display
+   gets -- measured 448px at both 1536px and 1920px. That is the same width that
+   made three-up unreadable at 1024px, so promoting at a larger viewport moves the
+   defect rather than fixing it. Two tracks give 453px at 1024px and 686px at
+   1600px, against the Results table's 609px and 922px.
+
+   Raising the promotion width is therefore not available as a fix for three
+   panels; only raising the page cap would be, and that is a shared
+   design-system value the frontend gate pins. Recorded rather than worked
+   around. (Raising it for two panels, to 1280px, is the fix above: it trades
+   a narrow two-up row for a full-width one.)
+
+   Three panels in two tracks would leave a hole: the first row is as tall as its
+   taller panel, so a short first panel sits above empty space until the third
+   panel starts. The tall-or-short pattern is data-dependent, so the second panel
+   spans both rows and the third tucks directly under the first. The second row is
+   `1fr` because a spanning item's extra height is given to flexible tracks first,
+   which keeps the first row at the first panel's own height. DOM order, and so
+   tab order, stays below_threshold, release_scope, no_spotify_match. */
+@media (min-width: 1280px) {
+    .unmatched-groups[data-panels="3"] {
+        grid-template-rows: auto 1fr;
+    }
+
+    .unmatched-groups[data-panels="3"] > :nth-child(1) {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    .unmatched-groups[data-panels="3"] > :nth-child(2) {
+        grid-column: 2;
+        grid-row: 1 / span 2;
+    }
+
+    .unmatched-groups[data-panels="3"] > :nth-child(3) {
+        grid-column: 1;
+        grid-row: 2;
+    }
+}
+
+/* A flex item defaults to `min-width: auto` and refuses to shrink below its
+   content. The headline row relied on the `min-w-0` utility for this, and the
+   theme's spacing reset compiles that utility to nothing (F-B21-52), so the
+   heading could not shrink and the toolbar pushed the document into horizontal
+   scroll at 768px and 1024px -- against the owner's 2026-09-09 "no horizontal
+   scroll at any width" ruling. Authored here, where the containment is. */
+.unmatched-heading,
+.unmatched-group-heading,
+.unmatched-table .album-info {
+    min-width: 0;
 }
 
 .unmatched-table {
@@ -31,8 +102,104 @@
     overflow: hidden;
 }
 
+/* The four-column budget. `table-layout: fixed` honours authored widths and
+   splits the remainder equally between the columns that declare none, so the
+   album column takes everything the other three do not.
+
+   These were authored as `w-10 / w-24 md:w-28 / w-28 md:w-32` colgroup utilities.
+   Every one of them compiles to nothing under the theme's spacing reset, and a
+   fixed table with no declared width falls back to four equal columns -- which is
+   what shipped. Arbitrary calc() values are used instead because they bypass the
+   spacing ladder, which is how results.css already writes its own widths.
+
+   Widths are narrower than the Results table's because a reason panel is narrower
+   than the full leaderboard column. They scale with --results-scale so the whole
+   composition grows together.
+
+   The reason column takes a share of the panel rather than a fixed width. It
+   holds a sentence, not the `YYYY-MM` the Results table puts in the same slot:
+   the 4.25rem budget this table used to borrow from results.css below 768px
+   broke "selected" into letters, and a fixed width that reads well in a 686px
+   panel wraps it into a tower in a 453px one. The album column takes whatever
+   the other three leave.
+
+   The threshold panel's metric reads "N plays / M tracks" rather than a bare
+   count, so it gets a wider metric column. It was ellipsized to "7 plays ..."
+   -- hiding the only numbers on the page a reader can act on.
+
+   The rank column matches the Results width, not a narrower one. The rank is a
+   padded `.rank-link` pill about 30px wide, and these cells clip, so a narrower
+   column cut off the pill's hover glow and its keyboard focus ring. */
+.unmatched-table th:nth-child(1),
+.unmatched-table td:nth-child(1) {
+    width: 2.75rem;
+}
+
+.unmatched-table th:nth-child(3),
+.unmatched-table td:nth-child(3) {
+    width: 3.75rem;
+}
+
+.unmatched-group[data-reason="below_threshold"] .unmatched-table th:nth-child(3),
+.unmatched-group[data-reason="below_threshold"] .unmatched-table td:nth-child(3) {
+    width: 4.75rem;
+}
+
+.unmatched-table th:nth-child(4),
+.unmatched-table td:nth-child(4) {
+    width: 26%;
+}
+
+@media (min-width: 768px) {
+    .unmatched-table th:nth-child(4),
+    .unmatched-table td:nth-child(4) {
+        width: 30%;
+    }
+
+    .unmatched-table th:nth-child(1),
+    .unmatched-table td:nth-child(1) {
+        width: calc(3.5rem * var(--results-scale, 1));
+    }
+
+    .unmatched-table th:nth-child(3),
+    .unmatched-table td:nth-child(3) {
+        width: calc(6.5rem * var(--results-scale, 1));
+    }
+
+    .unmatched-group[data-reason="below_threshold"] .unmatched-table th:nth-child(3),
+    .unmatched-group[data-reason="below_threshold"] .unmatched-table td:nth-child(3) {
+        width: calc(7.5rem * var(--results-scale, 1));
+    }
+}
+
+/* Headers and the threshold metric wrap between words instead of clipping.
+   Cells keep `overflow: hidden` as containment, so anything that does not wrap
+   is silently cut: the metric header rendered as "PLAYS / TRA". Each half of
+   "N plays / M tracks" stays whole, so it breaks only at the slash. */
+.unmatched-table th {
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+.unmatched-metric {
+    white-space: normal;
+}
+
+.unmatched-threshold {
+    white-space: nowrap;
+}
+
+/* The filter summary shares the Results micro-data bar, which packs its items to
+   the start. Here it also carries the total, which then ran straight on from the
+   last filter value ("unique tracks Total unmatched: 14"). Pushing the total to
+   the far edge separates the two kinds of information; on a narrow screen the
+   row wraps and the total takes its own line. */
+.unmatched-summary {
+    justify-content: space-between;
+}
+
 .unmatched-group {
-    background-color: var(--unmatched-surface);
+    background-color: var(--results-surface);
     border: 1px solid var(--ss-border-default);
     border-radius: var(--radius-sm);
     box-shadow: none;
@@ -47,10 +214,19 @@
     font-family: var(--font-mono-narrow);
 }
 
+/* The fix hint is the one sentence this page exists to deliver, so it wraps.
+   It previously truncated to a single line with the full text in a `title`
+   tooltip, which is unreachable by touch and by keyboard.
+
+   12px, not the design README's 9px (owner ruling, 2026-09-13, F-B21-4 item
+   4). The most actionable sentence on the page was set at its smallest size,
+   below the 12px readability floor RECONCILIATION section 1 records for small
+   labels. The per-panel "albums" label in unmatched.html follows it. */
 .unmatched-fix-hint {
     font-family: var(--font-mono-narrow);
-    font-size: 0.5625rem;
+    font-size: 0.75rem;
     line-height: 1.4;
+    overflow-wrap: anywhere;
 }
 
 /* The reason detail is the sentence that explains the exclusion, so it wraps
@@ -62,20 +238,40 @@
     overflow-wrap: anywhere;
 }
 
+/* The album title wraps for the same reason, and the fixed column bounds it. */
+.unmatched-table .album-link,
+.unmatched-table .album-info > span {
+    overflow-wrap: anywhere;
+}
 
-/* Match Results' explicit cover containment. The Tailwind theme deliberately
-   disables dynamic spacing, so undeclared w-10/h-10 utilities emit no rule. */
+/* The cover matches the Results row: 4rem below 768px and 4.5rem above it, both
+   scaled by --results-scale (owner ruling, 2026-09-13). It mirrors
+   `.album-cover-img` in results.css rather than sharing that class, because
+   the fallback markup here is a container, not an image. Authored here because
+   the Tailwind theme disables dynamic spacing, so w-16/h-16 utilities would emit
+   no rule. The frontend gate pins both sizes. */
 .unmatched-artwork {
-    width: 2.5rem;
-    height: 2.5rem;
-    min-width: 2.5rem;
-    min-height: 2.5rem;
-    max-width: 2.5rem;
-    max-height: 2.5rem;
+    width: calc(4rem * var(--results-scale));
+    height: calc(4rem * var(--results-scale));
+    min-width: calc(4rem * var(--results-scale));
+    min-height: calc(4rem * var(--results-scale));
+    max-width: calc(4rem * var(--results-scale));
+    max-height: calc(4rem * var(--results-scale));
     border-radius: var(--radius-xs);
     aspect-ratio: 1 / 1;
     object-fit: cover;
     flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+    .unmatched-artwork {
+        width: calc(4.5rem * var(--results-scale));
+        height: calc(4.5rem * var(--results-scale));
+        min-width: calc(4.5rem * var(--results-scale));
+        min-height: calc(4.5rem * var(--results-scale));
+        max-width: calc(4.5rem * var(--results-scale));
+        max-height: calc(4.5rem * var(--results-scale));
+    }
 }
 
 .unmatched-artist-image,
@@ -86,17 +282,6 @@
 
 .unmatched-artist-image {
     object-fit: cover;
-}
-
-@media (min-width: 768px) {
-    .unmatched-artwork {
-        width: 2.75rem;
-        height: 2.75rem;
-        min-width: 2.75rem;
-        min-height: 2.75rem;
-        max-width: 2.75rem;
-        max-height: 2.75rem;
-    }
 }
 
 @media (any-pointer: coarse) {

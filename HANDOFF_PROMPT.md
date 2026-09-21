@@ -8,8 +8,8 @@ Every rule lives in `AGENTS.md`: the canonical read order, document roles,
 token discipline, the sufficiency gate, bootstrap-conflict handling, the
 validation gates, commit discipline, side-task handling, and the
 Anti-Pattern Registry. Follow them there; this file restates none of them.
-It carries only the two things that belong to no other file -- the check
-that repository reality matches the documents, and the handoff checklist.
+It carries the post-read verification check, the worktree guard's bootstrap
+edge cases, and the handoff checklist -- nothing else lives here.
 
 ---
 
@@ -28,6 +28,46 @@ Confirm the last commits and any staged/modified files match what PLAYBOOK
 Section 3 describes, and that `pytest -q` matches the test count in
 SESSION_CONTEXT Section 1. If anything does not match, resolve the discrepancy
 before doing any work.
+
+---
+
+## Bootstrap edge cases
+
+**WT004 after a merge is expected.** `main` requires linear history and
+accepts only squash and rebase merges, so merging a PR rewrites its commits
+and leaves the source branch diverged from `origin/main` with an identical
+tree. The guard is right to stop -- a diverged branch is normally serious --
+but here the remediation is routine: confirm `git rev-parse HEAD^{tree}`
+matches `origin/main^{tree}` and that `git diff HEAD origin/main` is empty,
+then reset the branch onto `origin/main` and force-push with lease. If the
+trees differ, stop; that is a real divergence and not this case.
+
+Three states are expected rather than faults, so the guard does not block
+on them:
+
+- **Between batches**, there is no expected work branch and therefore no
+  ancestry contract. The guard reports the checkout and skips the base
+  comparison, including when `origin/main` is absent.
+- **A fresh clone with no `.venv`** reports WT009 as a warning, because
+  creating that environment is the next documented step (Environment Setup).
+  Inside a linked worktree the same state is an error, since a second
+  environment there is forbidden and only the owner can resolve it.
+- **Offline**, the base result is local-ref-only and WT013 says so; the
+  guard never fetches.
+
+The initial guard launch is the sole stdlib-only bootstrap exception to the
+qualified-tool rule: the primary checkout paths are not known until the
+guard prints them, so bare `python` is permitted only for that launch.
+After it succeeds, every subsequent Python, pytest, and pre-commit command
+from a linked worktree uses the qualified primary-checkout path it printed.
+
+**How the commands in this repository's documents are written.** Every
+literal command shown in these documents -- `pytest -q`,
+`pre-commit run --all-files`, `python scripts/doc_state_sync.py`,
+`python app.py`, and the rest -- is written in its primary-checkout form for
+readability. From a linked worktree, run each one through the qualified
+path the guard printed. The commands are not repeated in qualified form at
+every site; this paragraph is the single conversion rule.
 
 ---
 

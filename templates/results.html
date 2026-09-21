@@ -3,7 +3,6 @@
 {% block title %}Results | ScrobbleScope{% endblock %}
 
 {# Migrated to Tailwind, so this page opts out of the legacy Bootstrap stack. #}
-{% block legacy_css %}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
@@ -67,28 +66,28 @@
     <!-- StatBlock Mini-Table (one row at every width; numerals sized below
         the page header so the hierarchy stays with the h1) -->
     <div class="grid grid-cols-4 rounded-[var(--radius-sm)] bg-[var(--results-surface)] border border-[var(--ss-border-default)] divide-x divide-[var(--ss-border-default)] mb-4 overflow-hidden">
-        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Total Albums</span>
             <div class="results-stat-value flex items-center justify-center overflow-visible">
                 <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ album_list|length }}</span>
             </div>
             <span class="results-stat-caption text-[var(--ss-text-muted)]">matched</span>
         </div>
-        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Top Artist</span>
-            <div class="results-stat-value flex items-center justify-center w-full min-w-0 overflow-visible">
+            <div class="results-stat-value flex items-center justify-center w-full overflow-visible">
                 <span class="font-serif text-lg md:text-[calc(1.5625rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight truncate block px-1 overflow-visible" title="{{ album_list[0].artist if album_list else '—' }}">{{ album_list[0].artist if album_list else '—' }}</span>
             </div>
             <span class="results-stat-caption text-[var(--ss-text-muted)]">leading chart</span>
         </div>
-        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Scrobbles</span>
             <div class="results-stat-value flex items-center justify-center overflow-visible">
                 <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ "{:,}".format(total_scrobbles) if total_scrobbles else '0' }}</span>
             </div>
             <span class="results-stat-caption text-[var(--ss-text-muted)]">counted</span>
         </div>
-        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1 min-w-0">
+        <div class="results-stat-cell flex flex-col items-center justify-between text-center gap-1">
             <span class="results-stat-label uppercase tracking-wider text-[var(--ss-text-muted)]">Unmatched</span>
             <div class="results-stat-value flex items-center justify-center overflow-visible">
                 <span class="font-serif text-xl md:text-[calc(1.9375rem*var(--results-scale))] text-[var(--color-base-content)] leading-tight">{{ unmatched_count|default(0) }}</span>
@@ -122,7 +121,22 @@
     {% else %}
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
         <!-- Main Column: Semantic Leaderboard Table -->
-        <div class="lg:col-span-8 min-w-0">
+        <div class="lg:col-span-8">
+            {# Live release-year corrections (Batch 22 WP-4 Task 11). Rendered
+               with the page, never injected later: this line sits above the
+               table, so creating it on the first poll reply would push every
+               row down. It is present only when the job has a correction pass
+               that can still report, and results.js removes it once the pass
+               ends with nothing to say. #}
+            {% if release_check and release_check.status not in ('skipped', 'done') %}
+            <div id="release-check-bar" class="release-check-bar"
+                 data-job-id="{{ job_id }}"
+                 data-checked="{{ release_check.checked|default(0) }}"
+                 data-total="{{ release_check.total|default(0) }}">
+                <span id="release-check-status" class="release-check-status" role="status" aria-live="polite"></span>
+                <a id="release-check-reload" class="release-check-reload hidden" href="{{ url_for('main.results', job_id=job_id) }}">Reload</a>
+            </div>
+            {% endif %}
             <div class="results-table-wrapper rounded-[var(--radius-sm)] border border-[var(--ss-border-default)] bg-[var(--results-surface)]" id="results-table-wrapper">
                 <table class="w-full text-left border-collapse results-table" id="results-table">
                     <thead>
@@ -141,6 +155,7 @@
                         {% for album in album_list %}
                         <tr class="hover:bg-[var(--ss-surface-card)] transition-colors"
                             data-rank="{{ loop.index }}"
+                            data-album-key="{{ album|album_key }}"
                             data-album="{{ album.album }}"
                             data-artist="{{ album.artist }}"
                             data-play-count="{{ album.play_count }}"
@@ -148,11 +163,13 @@
                             data-play-time-mobile="{{ album.play_time_mobile|default(album.play_time|default('')) }}"
                             data-play-time-seconds="{{ album.play_time_seconds|default(0) }}"
                             data-album-image="{{ album.album_image|default('') }}"
-                            data-spotify-id="{{ album.spotify_id|default('') }}">
+                            data-spotify-id="{{ album.spotify_id|default('') }}"
+                            data-provider="{{ album.provider|default('') }}"
+                            data-album-url="{{ album.album_url|default('') }}">
                             <!-- Semantic Rank with glow hover -->
                             <td class="py-3 px-3 md:px-4 text-center align-middle">
-                                {% if album.spotify_id %}
-                                <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num font-mono text-sm font-normal" title="Open {{ album.album }} on Spotify">
+                                {% if album.album_url %}
+                                <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="rank-link rank-num font-mono text-sm font-normal" title="Open {{ album.album }} on {{ album.provider|default('Spotify')|capitalize }}">
                                     {{ "%02d" % loop.index }}
                                 </a>
                                 {% else %}
@@ -163,7 +180,7 @@
                             </td>
                             <!-- Album Artwork & Metadata -->
                             <td class="py-3 px-3 md:px-4 align-middle">
-                                <div class="flex items-center gap-3 md:gap-4 min-w-0">
+                                <div class="flex items-center gap-3 md:gap-4">
                                     {% if album.album_image %}
                                     <img src="{{ album.album_image }}"
                                          alt="{{ album.album }} cover"
@@ -178,9 +195,9 @@
                                         {{ album.album[:2]|upper }}
                                     </div>
                                     {% endif %}
-                                    <div class="album-info min-w-0 flex flex-col gap-[calc(0.125rem*var(--results-scale))]">
-                                        {% if album.spotify_id %}
-                                        <a href="https://open.spotify.com/album/{{ album.spotify_id }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug break-words">
+                                    <div class="album-info flex flex-col gap-[calc(0.125rem*var(--results-scale))]">
+                                        {% if album.album_url %}
+                                        <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="album-link font-sans font-normal text-base md:text-lg leading-snug break-words">
                                             {{ album.album }}
                                         </a>
                                         {% else %}
@@ -191,6 +208,18 @@
                                         <span class="font-sans text-xs md:text-sm text-[var(--ss-text-muted)] truncate font-normal">
                                             {{ album.artist }}
                                         </span>
+                                        {# Provider attribution (Batch 22 WP-2 Task 6). Deezer requires "a
+                                           clearly visible Deezer Logo" on any app using its API
+                                           (developers.deezer.com/guidelines#local and /guidelines/logo);
+                                           Spotify's own content rules make the same demand (F-B21-60). This
+                                           text link is the interim measure -- swapping in each provider's
+                                           official logo asset is tracked separately (F-B22-4) since neither
+                                           asset could be sourced from here. #}
+                                        {% if album.provider and album.album_url %}
+                                        <a href="{{ album.album_url }}" target="_blank" rel="noopener noreferrer" class="provider-badge inline-flex items-center gap-1 w-fit font-mono text-[0.625rem] uppercase tracking-wider text-[var(--ss-text-muted)] hover:text-[var(--color-primary)] transition-colors" aria-label="View {{ album.album }} on {{ album.provider|capitalize }}">
+                                            {{ album.provider }}
+                                        </a>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </td>
@@ -209,7 +238,7 @@
                             </td>
                             <!-- Release Date Context (YYYY-MM only, no DD) -->
                             <td class="py-3 px-3 md:px-4 text-right align-middle whitespace-nowrap text-[calc(0.6875rem*var(--results-scale))] font-mono text-[var(--ss-text-muted)] font-normal release-date-cell" data-export="{{ album.release_date or year }}">
-                                {{ (album.release_date or '')[:7] if album.release_date else year }}
+                                <span class="release-date-value">{{ (album.release_date or '')[:7] if album.release_date else year }}</span>
                             </td>
                         </tr>
                         {% endfor %}
@@ -219,7 +248,7 @@
         </div>
 
         <!-- Side Rail Column: Stretches full table height for smooth sticky runway -->
-        <div class="lg:col-span-4 min-w-0">
+        <div class="lg:col-span-4">
             <!-- Sticky Sidebar: Modern Controls & Supporting Insights -->
             <div class="results-side-rail sticky top-6 space-y-4">
                 <!-- Sort Leaderboard Control -->
@@ -249,7 +278,7 @@
                         <img id="spotlight-artist-img"
                              src="{{ spotlight_fallback_img }}"
                              alt="Photograph of {{ top_artist_name|default(album_list[0].artist) }}"
-                             class="absolute inset-0 w-full h-full object-cover transition-opacity duration-400 ease-out opacity-100"
+                             class="absolute w-full h-full object-cover transition-opacity duration-400 ease-out opacity-100"
                              loading="lazy" decoding="async">
                         <!-- Top subtle scrim with monograph tags -->
                         <div class="spotlight-scrim-top">
@@ -264,7 +293,7 @@
                                 </h3>
                                 <a id="spotlight-spotify-link"
                                    target="_blank" rel="noopener noreferrer"
-                                   class="hidden text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 p-1.5 -mr-1.5 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
+                                   class="hidden text-white/80 hover:text-white focus-visible:outline-2 focus-visible:outline-[var(--color-primary)] focus-visible:outline-offset-2 rounded-xs transition-colors flex items-center justify-center flex-shrink-0"
                                    aria-label="View {{ top_artist_name|default(album_list[0].artist) }} on Spotify (opens in new tab)"
                                    title="View on Spotify">
                                     <svg class="w-4 h-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -272,7 +301,7 @@
                                     </svg>
                                 </a>
                             </div>
-                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-white/90 drop-shadow-sm font-normal pt-0.5">
+                            <p id="spotlight-artist-subtitle" class="font-sans text-xs text-white/90 drop-shadow-sm font-normal">
                                 <span id="spotlight-playtime-badge" class="font-mono text-[calc(0.6875rem*var(--results-scale))] tracking-tight text-white/95 {% if not top_artist_play_time %}hidden{% endif %}">{{ top_artist_play_time if top_artist_play_time else '' }}</span><span id="spotlight-playtime-sep" class="{% if not top_artist_play_time %}hidden{% endif %}"> · </span><span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
                             </p>
                         </div>
@@ -284,7 +313,7 @@
                         <h3 id="spotlight-artist-name" class="font-serif text-2xl md:text-3xl text-[var(--color-base-content)] leading-tight truncate" title="{{ top_artist_name|default(album_list[0].artist) }}">
                             {{ top_artist_name|default(album_list[0].artist) }}
                         </h3>
-                        <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal pt-0.5">
+                        <p id="spotlight-artist-subtitle" class="font-sans text-xs text-[var(--ss-text-muted)] font-normal">
                             <span id="spotlight-scrobble-text">{% if top_artist_scrobbles and top_artist_album_count %}{{ "{:,}".format(top_artist_scrobbles) }} scrobbles across {{ top_artist_album_count }} {{ 'album' if top_artist_album_count == 1 else 'albums' }} in {{ year }}{% else %}{{ album_list[0].play_count }} plays on {{ album_list[0].album }}{% endif %}</span>
                         </p>
                         <span id="spotlight-artist-rank" class="font-serif italic text-xs text-[var(--color-primary)] font-normal">01 / {{ spotlight_artists|default([])|length }}</span>
@@ -324,4 +353,5 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/results.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/results-spotlight.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/results-release-checks.js') }}" defer></script>
 {% endblock %}

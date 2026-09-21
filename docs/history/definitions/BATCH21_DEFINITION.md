@@ -1,6 +1,6 @@
 # BATCH21: UI overhaul -- Tailwind + daisyUI migration
 
-**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page), WP-4 (unified loading and recent-result recovery), and WP-5 (results leaderboard) are complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. WP-7 is implemented on PR #231: backend contract `b3e3e96`, owner-authorized non-rewrite finding fix `ba5f9fe`, UI rebuild `968eaa0`, and the approved Results-pattern cover-containment follow-up. Its first Quality Gate exposed two Windows-only test patches that do not exist on Linux; the 2026-09-11 follow-up makes those cleanup tests portable. The owner approved a WP-7 extension on 2026-09-11: retain one `below_threshold` exclusion per album and replace the card grid with horizontal report sections that mirror current Results source. WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; see its stub below.
+**Status:** Active. Owner-approved 2026-07-24 (expanded from the Claude Design audit, ScrobbleScope UI Audit v3). WP-0 committed; PR #170 merged 2026-08-12. The F-SWE-1 audit blocked WP-1 on F-SWE-2; the owner elected the fix, and the standalone prerequisite was resolved 2026-08-20. WP-1 (toolchain) and WP-2 (base shell, `error.html` pilot, drift hook and frontend gate) are complete; WP-2 merged as PR #216 on 2026-08-24. WP-3 (index page), WP-4 (unified loading and recent-result recovery), and WP-5 (results leaderboard) are complete. The original twelve-round PR #218 review closed at `77bb001` with all thirty threads resolved, both Quality Gate runs passing and a Codex thumbs-up. Three later Graphify passes led Codex to harden five developer-gate defect classes: frontend page-state isolation, declaration-path confinement, preservation of both wrapped and per-line regex matches, and canonical live-document lookup for equivalent repository paths. The other claims were disproved by source and execution evidence. PR #218 is the completed WP-3 integration branch. WP-7 is implemented on PR #231: backend contract `b3e3e96`, owner-authorized non-rewrite finding fix `ba5f9fe`, UI rebuild `968eaa0`, and the approved Results-pattern cover-containment follow-up. Its first Quality Gate exposed two Windows-only test patches that do not exist on Linux; the 2026-09-11 follow-up makes those cleanup tests portable. The owner approved a WP-7 extension on 2026-09-11: retain one `below_threshold` exclusion per album and replace the badge-and-span card grid with side-by-side reason panels that mirror current Results source. That extension has shipped. WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; see its stub below.
 **Branch:** See PLAYBOOK Section 3 for the current linked-worktree branch;
 lineage changes are recorded in Section 4.
 **Baseline:** 390 tests passing at batch open (2026-07-24). This batch touches production templates, static assets, and (WP-7 only) `routes.py`/`orchestrator.py`; the count may move and each WP records its own validated count. For the current count see SESSION_CONTEXT Section 1.
@@ -31,14 +31,30 @@ bug claims:
   modal, AND `bootstrap.Popover` for the "?" form tooltips
   (`index.js:268-271`) -- one more than the audit counted. All three must
   be replaced or deleted before `bootstrap.bundle.min.js` can go.
-- `--bars-color` is read via `var()` in six of the seven page CSS files
-  (all but `unmatched.css`, which hardcodes its own
-  `--header-bg: #6a4baf`) plus the inline pinwheel SVG. The inline
-  wordmark hardcodes `stroke: #6a4baf`; only the dark-mode override at
-  `global.css:49-50` routes it through the variable, so light-mode
-  wordmark recoloring must be handled explicitly during migration --
-  aliasing alone does not cover it. The variable must be aliased inside
-  both daisyUI themes, never deleted.
+- `--bars-color`, **dated reconnaissance, corrected 2026-09-12.** The
+  original survey read: "`--bars-color` is read via `var()` in six of the
+  seven page CSS files (all but `unmatched.css`, which hardcodes its own
+  `--header-bg: #6a4baf`)". Keep that sentence only as a record of how the
+  tree was read when this batch was scoped. It does not describe the tree
+  now, and its parenthesis never described `unmatched.css`, which contains
+  neither `--header-bg` nor the literal `#6a4baf`. Re-verified 2026-09-12.
+- **Current state, verified 2026-09-12.** `--bars-color` is declared at
+  `static/css/global.css:14` and read by `var()` only inside that same file
+  (`--info-bg`, `--bs-primary`, the `.dark-mode svg .cls-1` stroke, and one
+  `background-color`). No other page stylesheet references it; the migrated
+  pages read theme tokens instead. It is aliased to `var(--color-primary)` in
+  both daisyUI themes (`static/css/tailwind.src.css:128` light, `:237` dark)
+  and compiles into `static/css/tailwind.css`. The inline pinwheel reads it
+  with a fallback (`templates/inline/scrobblescope_pinwheel.svg:6`). The
+  literal `#6a4baf` survives in `global.css`, `shell.css`, `tailwind.src.css`,
+  the compiled `tailwind.css`, and the two inline wordmark SVGs.
+- The inline wordmark still hardcodes `stroke: #6a4baf`
+  (`templates/inline/scrobble_scope_inline.svg:7` and
+  `templates/inline/scrobble_scope_lockup_inline.svg:30`). Only the dark-mode
+  override at `static/css/global.css:280-281` routes it through the variable,
+  so light-mode wordmark recoloring must still be handled explicitly --
+  aliasing alone does not cover it. The variable must stay aliased inside both
+  daisyUI themes, never deleted.
 - Bootstrap CSS comes from cdnjs while `index.html` pulls the JS bundle
   from jsdelivr (F-B20-3); this batch resolves the split by elimination.
 
@@ -451,7 +467,9 @@ DOC007 reads this file's own headings and handles the gap.
   threshold failures before the pipeline sees them
   (`orchestrator.py:112-116`), so those codes only become producible
   once near-miss retention (out of scope below, Batch 22+) lands.
-- Two reason cards with human copy, top offenders + expander; same row
+- Three reason panels with human copy (`below_threshold`, `release_scope`
+  and `no_spotify_match`, declared at `scrobblescope/unmatched.py:12-14`),
+  top offenders + expander; same row
   component as the leaderboard; welcome + unmatched modals now gone so
   `bootstrap.bundle.min.js` is removed from all templates.
 - **Ship as two commits, backend first.** A single commit mixing a
@@ -469,13 +487,24 @@ need to explain albums removed at the Last.fm threshold boundary and to align
 the report with current Results source. Retain one `below_threshold` item per
 album, with exact play and unique-track counts plus the failed-threshold list;
 do not duplicate albums that fail both minimums. Partition before Spotify so
-excluded albums add no Spotify work. Replace the three-column card grid with
-stacked full-width horizontal report sections, remove the unmatched eyebrow and
-purple italic username, and mirror the current Results composition, actions,
+excluded albums add no Spotify work. Replace the badge-and-span card grid
+with side-by-side reason panels, remove the unmatched eyebrow and purple
+italic username, and mirror the current Results composition, actions,
 surface, table rhythm, and width-derived scale. The approved design and
 execution contract are the two dated 2026-09-11 threshold-extension documents
-under `docs/superpowers/`. The backend partition and job-repository boundary
-are implemented and verified; the Results-aligned horizontal report is next.
+under `docs/superpowers/`. The backend partition, the job-repository boundary
+and the Results-aligned report are all implemented and verified, and the
+report has shipped.
+
+**Layout supersession, 2026-09-11.** An earlier draft of this paragraph asked
+to "replace the three-column card grid with stacked full-width horizontal
+report sections". The owner ruled side-by-side the same day, and side-by-side
+is what ships: the panels share rows in an `.unmatched-groups` grid whose
+tracks `static/css/unmatched.css` owns -- one column below 1024px, two above it. What
+the spec rejected was the original
+badge-and-span card grid, not side-by-side panels. Read any "stacked
+full-width" wording in older planning records as superseded by the 2026-09-11
+ruling.
 
 ### WP-8 -- Sweep + close-out
 
@@ -499,8 +528,17 @@ are implemented and verified; the Results-aligned horizontal report is next.
   `tailwind.src.css`: the same mandated principles where they apply, plus an
   accessibility sweep (keyboard traversal of every page, focus visibility,
   label associations, contrast in both themes, tap-target size). File
-  results as F-SWE-N or F-AUDIT-N. **Batch 21 does not close until this
-  has run.**
+  results as F-SWE-N or F-AUDIT-N.
+  **Owner ruling, 2026-09-13: this audit moves to Batch 23's close-out, and
+  Batch 21 closes without it.** Batches 22 and 23 add UI to the same pages --
+  the data-source switch, the file upload, and the live release-year markers
+  on the results page -- so an audit run now would be redone. The audit runs
+  once, over the final UI. Batch 21 still closes on the rest of WP-8: the
+  Bootstrap removal, the `.dark-mode` retirement, the dead-CSS sweep, the
+  linting disposition, the docs and the owner E2E pass. The frontend gate
+  keeps enforcing the accessibility checks it already owns in the meantime --
+  44px coarse-pointer targets, focus visibility and contrast -- so the
+  deferral is of the sweep, not of every check.
 - **Record an explicit disposition for HTML/CSS/JS linting.**
   `AGENT_NOTES.md` assigns that tooling gap to this WP. The decision is:
   add only the generated-CSS drift enforcement (now WP-2), keep the

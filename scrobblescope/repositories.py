@@ -129,6 +129,64 @@ def set_job_stat(job_id, key, value):
     return True
 
 
+def set_job_release_check(job_id, state):
+    """Store the correction worker's state at progress.stats.release_check.
+
+    *state* is the whole ``{"status", "checked", "total", "moved_out",
+    "moved_in"}`` dict, replaced on every update rather than merged: the
+    worker owns the key outright and always knows the full state, so a
+    merge could only ever preserve a stale count. Copied on write so a
+    worker that keeps mutating its own running tally cannot reach into
+    JOBS behind the lock.
+    """
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        job["progress"].setdefault("stats", {})["release_check"] = dict(state)
+        job["updated_at"] = time.time()
+    return True
+
+
+def update_job_result(job_id, album_key, fields):
+    """Merge *fields* into the one result matching the normalized *album_key*.
+
+    *album_key* is a ``(artist_norm, album_norm)`` tuple, the same shape the
+    metadata and original-release caches are keyed by. Result dicts carry
+    that same tuple as ``_normalized_key``, attached once when the results
+    list is built (``_build_results`` in
+    ``scrobblescope/orchestrator/_results.py``, which already has the key on
+    hand from partitioning cache hits and just forwards it) rather than
+    re-derived here with ``normalize_name`` on every entry. That turns the
+    lookup into a cheap tuple comparison per entry instead of an O(n)
+    ``normalize_name`` scan taken while holding the process-global
+    ``jobs_lock`` -- with up to 500 results and one call per corrected
+    album, repeated normalization under that lock could stall unrelated
+    Flask request handlers. A result dict with no ``_normalized_key`` (none
+    of this module's own producers omit it, but a caller could) simply never
+    matches, which is indistinguishable from the existing "no album with
+    that key" case.
+
+    Returns False -- changing nothing -- when the job is gone, has no results
+    list yet, or holds no album with that key. The correction worker outlives
+    neither condition silently: it treats False as "stop bothering".
+    """
+    with jobs_lock:
+        job = JOBS.get(job_id)
+        if not job:
+            return False
+        results = job.get("results")
+        if not isinstance(results, list):
+            return False
+        target_key = tuple(album_key)
+        for result in results:
+            if result.get("_normalized_key") == target_key:
+                result.update(fields)
+                job["updated_at"] = time.time()
+                return True
+    return False
+
+
 def set_job_results(job_id, results):
     """Store the final results payload (list or dict) on a job."""
     with jobs_lock:

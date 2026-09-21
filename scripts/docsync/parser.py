@@ -6,6 +6,7 @@ import hashlib
 import re
 from collections.abc import Iterable
 
+from docsync.markdown import marker_lines, prose_lines
 from docsync.models import ActiveBatchState, Entry, SyncError
 
 # ---------------------------------------------------------------------------
@@ -75,7 +76,7 @@ def _find_section(
     lines: list[str], heading_re: re.Pattern[str], label: str
 ) -> tuple[int, int]:
     start = None
-    for idx, line in enumerate(lines):
+    for idx, line in prose_lines(lines):
         if heading_re.match(line.strip()):
             start = idx
             break
@@ -83,8 +84,8 @@ def _find_section(
         raise SyncError(f"Could not find section heading for {label}.")
 
     end = len(lines)
-    for idx in range(start + 1, len(lines)):
-        if GENERIC_SECTION_RE.match(lines[idx]):
+    for idx, line in prose_lines(lines):
+        if idx > start and GENERIC_SECTION_RE.match(line):
             end = idx
             break
     return start, end
@@ -93,8 +94,9 @@ def _find_section(
 def _find_marker_pair(
     lines: list[str], start_marker: str, end_marker: str, label: str
 ) -> tuple[int, int]:
-    starts = [i for i, line in enumerate(lines) if line.strip() == start_marker]
-    ends = [i for i, line in enumerate(lines) if line.strip() == end_marker]
+    visible = marker_lines(lines)
+    starts = [i for i, line in visible if line.strip() == start_marker]
+    ends = [i for i, line in visible if line.strip() == end_marker]
     if not starts or not ends:
         raise SyncError(
             f"{label} must contain start marker ({start_marker}) and end marker"
@@ -122,14 +124,7 @@ def _find_marker_pair(
 
 def _parse_entries(lines: list[str]) -> tuple[list[Entry], int | None]:
     heading_idxs: list[int] = []
-    in_code_block = False
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("```"):
-            in_code_block = not in_code_block
-            continue
-        if in_code_block:
-            continue
+    for idx, line in prose_lines(lines):
         if ENTRY_HEADING_RE.match(line):
             heading_idxs.append(idx)
         elif re.match(r"^###\s+", line):
@@ -178,7 +173,7 @@ def _parse_active_batch_state(section_lines: list[str]) -> ActiveBatchState:
     explicit_current: list[int] = []
     explicit_next: list[int] = []
 
-    for line in section_lines:
+    for _, line in prose_lines(section_lines):
         completed.extend(int(m.group(1)) for m in BATCH_COMPLETE_RE.finditer(line))
         not_defined.extend(int(m.group(1)) for m in BATCH_NOT_DEFINED_RE.finditer(line))
         explicit_current.extend(
@@ -208,6 +203,28 @@ def _parse_active_batch_state(section_lines: list[str]) -> ActiveBatchState:
     )
 
 
+def closed_batch_claims(section_lines: list[str]) -> list[int]:
+    """Return every batch number Section 3 claims complete, in document order.
+
+    A bullet reading ``**Batch N is complete.**`` is the close-out claim this
+    corpus writes in PLAYBOOK Section 3, and the claim is what the DOC019 gate
+    responds to: for each returned batch at or above the admission boundary,
+    the definition-side close-out evidence is evaluated. Fenced examples and
+    HTML comments are excluded, so a sample sentence inside a code block is an
+    example, not a claim. Duplicate claims of the same batch are collapsed: the
+    gate evaluates a batch once no matter how many bullets say it completed.
+    """
+    claims: list[int] = []
+    seen: set[int] = set()
+    for _, line in prose_lines(section_lines):
+        for match in BATCH_COMPLETE_RE.finditer(line):
+            number = int(match.group(1))
+            if number not in seen:
+                seen.add(number)
+                claims.append(number)
+    return claims
+
+
 # ---------------------------------------------------------------------------
 # Entry metadata helpers
 # ---------------------------------------------------------------------------
@@ -229,3 +246,24 @@ def _collect_wp_numbers(entries: list[Entry]) -> list[int]:
 
 def _date_key(date_str: str) -> int:
     return int(date_str.replace("-", ""))
+
+
+# ---------------------------------------------------------------------------
+# Root definition naming convention
+# ---------------------------------------------------------------------------
+
+
+def root_definition_pattern(batch: int) -> re.Pattern[str]:
+    """Return the compiled pattern for batch ``N``'s root definition filename.
+
+    Encodes this repository's one naming convention for an unarchived batch
+    definition living at the repository root: ``BATCHN.md`` on its own, or
+    ``BATCHN_<anything>.md`` with a free-form suffix (for example
+    ``BATCH22_DEFINITION.md`` or ``BATCH22_PROPOSAL.md``), matched
+    case-insensitively so ``batch22_definition.md`` also counts. The suffix
+    excludes ``/`` so a path under a subdirectory never matches -- this
+    pattern is for root-level candidates only. Five call sites across
+    `cli.py`, `integrity.py`, and `closeout.py` built this same regex
+    independently; a change to the convention now has one place to make it.
+    """
+    return re.compile(rf"^BATCH{batch}(?:_[^/]+)?\.md$", re.IGNORECASE)

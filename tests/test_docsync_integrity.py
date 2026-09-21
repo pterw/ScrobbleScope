@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from docsync.closeout import parse_wp_dispositions, render_closeout_record
 from docsync.integrity import collect_integrity_issues, collect_tracked_paths
 from docsync.models import SyncError
 from docsync.renderer import SIDE_ARCHIVE_PREFIX
@@ -503,6 +504,7 @@ def test_supplied_untracked_definition_cannot_replace_sole_tracked_candidate(
 
 def test_between_batches_skips_root_definition_candidate_uniqueness(tmp_path: Path):
     """Tracked root candidates are irrelevant when no batch is active."""
+    _write_closeout_boundary(tmp_path, 22)
     inputs = _valid_inputs(tmp_path)
     inputs["playbook_lines"][4:6] = [
         "- **Batch 21 is complete.**",
@@ -888,6 +890,7 @@ def test_doc007_missing_status_line_stays_silent(tmp_path: Path):
 
 def test_doc007_between_batches_never_reports(tmp_path: Path):
     """With no current-batch entries there is no computed value to compare."""
+    _write_closeout_boundary(tmp_path, 22)
     inputs = _valid_inputs(tmp_path)
     inputs["playbook_lines"][4:6] = [
         "- **Batch 21 is complete.**",
@@ -1471,6 +1474,39 @@ def test_doc012_flags_a_pass_claim_the_authority_cannot_read():
     assert _doc012_codes(lines) == ["DOC012"]
 
 
+def test_doc012_focused_bold_count_does_not_exempt_full_suite_claim():
+    lines = [
+        "## 4. Execution log",
+        "### 2026-09-15 - newest",
+        "Focused: **12 passed**.",
+        "Validation: `pytest -q` -- 1154 passed.",
+        "### 2026-09-14 - older",
+        "Validation: `pytest -q` -- **1153 passed**.",
+    ]
+    assert _doc012_codes(lines) == ["DOC012"]
+
+
+@pytest.mark.parametrize("bold", [False, True])
+def test_doc012_wrapped_full_suite_claim_uses_own_count_and_source_line(bold):
+    from docsync.integrity import _check_unbolded_test_counts
+
+    count = "**1154 passed**" if bold else "1154 passed"
+    lines = [
+        "## 4. Execution log",
+        "### 2026-09-15 - newest",
+        "Focused: **12 passed**.",
+        "Validation: `pytest -q` --",
+        "<!-- count follows -->",
+        count + ".",
+        "### 2026-09-14 - older",
+        "Validation: `pytest -q` -- **1153 passed**.",
+    ]
+    issues = _check_unbolded_test_counts(lines)
+    assert [issue.code for issue in issues] == ([] if bold else ["DOC012"])
+    if not bold:
+        assert issues[0].line == 6
+
+
 def test_doc012_leaves_a_subset_claim_beside_a_bold_count_alone():
     """A readable entry may also mention a partial suite.
 
@@ -1592,3 +1628,166 @@ def test_stated_range_helper_rejects_a_stale_range():
         'issues.append(_issue("DOC013", rel_path, line, "x"))',
     ]
     assert _ranges_agree(agents, future_source) is False
+
+
+# ---------------------------------------------------------------------------
+# DOC019 -- close-out gate wiring (Task 3 slice 3.3)
+# ---------------------------------------------------------------------------
+
+
+def _write_closeout_boundary(tmp_path: Path, admit_from_batch: int) -> None:
+    """Configure the [closeout] admission boundary for one integrity run."""
+    tmp_path.joinpath(".docsync.toml").write_text(
+        f"[closeout]\nadmit_from_batch = {admit_from_batch}\n",
+        encoding="utf-8",
+    )
+
+
+class TestClosedBatchGate:
+    def test_claimed_closed_batch_below_the_boundary_is_admitted(self, tmp_path: Path):
+        """A claim for a batch below the boundary raises no DOC019.
+
+        The boundary is what keeps historical batches from being asked for
+        evidence that never existed. Batch 21's definition still reads
+        ``**Status:** Active.`` and split WP-8 to Batch 23, so demanding a
+        record from it would mean rewriting history or inventing the evidence
+        the check is supposed to find.
+        """
+        _write_closeout_boundary(tmp_path, 22)
+        inputs = _valid_inputs(tmp_path)
+        inputs["playbook_lines"].insert(4, "- **Batch 3 is complete.**")
+
+        assert collect_integrity_issues(**inputs) == []
+
+    def test_claim_for_a_managed_batch_without_definition_content_is_reported(
+        self, tmp_path: Path
+    ):
+        """A managed closure claim must sit on an archived, recorded definition."""
+        _write_closeout_boundary(tmp_path, 3)
+        inputs = _valid_inputs(tmp_path)
+        inputs["playbook_lines"].insert(4, "- **Batch 3 is complete.**")
+
+        issues = collect_integrity_issues(**inputs)
+
+        assert all(issue.code == "DOC019" for issue in issues)
+        assert {issue.path for issue in issues} == {
+            "docs/history/definitions/BATCH3_DEFINITION.md"
+        }
+
+    def test_managed_closed_claim_with_a_valid_record_is_clean(self, tmp_path: Path):
+        """A definition whose record matches its dispositions satisfies the gate."""
+        _write_closeout_boundary(tmp_path, 3)
+        definition = [
+            "# BATCH3: A batch",
+            "",
+            "**Status:** Active.",
+            "",
+            "### ~~WP-0 -- assembled~~ -- **DONE**",
+        ]
+        record = render_closeout_record(
+            3, "2026-09-18", parse_wp_dispositions(definition)
+        )
+
+        inputs = _valid_inputs(tmp_path)
+        inputs["playbook_lines"].insert(4, "- **Batch 3 is complete.**")
+        path = "docs/history/definitions/BATCH3_DEFINITION.md"
+        inputs["live_documents"][path] = [*definition, "", *record]
+        inputs["tracked_paths"] = frozenset({*inputs["tracked_paths"], path})
+
+        assert collect_integrity_issues(**inputs) == []
+
+    def test_managed_closed_claim_with_a_stale_record_is_reported(self, tmp_path: Path):
+        """Deleting a WP after closure cannot masquerade as an accurate record."""
+        _write_closeout_boundary(tmp_path, 3)
+        closed = [
+            "# BATCH3: A batch",
+            "",
+            "**Status:** Active.",
+            "",
+            "### ~~WP-0 -- one~~ -- **DONE**",
+            "### ~~WP-1 -- two~~ -- **DONE**",
+        ]
+        record = render_closeout_record(3, "2026-09-18", parse_wp_dispositions(closed))
+        edited = [line for line in closed if "WP-1" not in line]
+
+        inputs = _valid_inputs(tmp_path)
+        inputs["playbook_lines"].insert(4, "- **Batch 3 is complete.**")
+        path = "docs/history/definitions/BATCH3_DEFINITION.md"
+        inputs["live_documents"][path] = [*edited, "", *record]
+        inputs["tracked_paths"] = frozenset({*inputs["tracked_paths"], path})
+
+        issues = collect_integrity_issues(**inputs)
+
+        assert [issue.code for issue in issues] == ["DOC019"]
+        assert "WP-1" in issues[0].invariant
+
+    def test_fenced_batch_claim_does_not_reach_the_gate(self, tmp_path: Path):
+        """A claim inside a fenced example is sample text, not a live claim.
+
+        No `.docsync.toml` is written, so the default boundary sits at its
+        strictest end -- every claimed-closed batch would be managed. The
+        claim below is fenced out of the prose scan, so it must not be
+        evaluated at all.
+        """
+        inputs = _valid_inputs(tmp_path)
+        inputs["playbook_lines"][4:4] = [
+            "- A sample code block:",
+            "",
+            "```",
+            "Batch 3 is complete",
+            "```",
+            "",
+        ]
+
+        assert collect_integrity_issues(**inputs) == []
+
+
+def test_doc023_reaches_the_gate_through_the_live_findings_document(tmp_path: Path):
+    """The rot check is wired in, not merely importable.
+
+    `findings.collect_rot_issues` has its own tests. This one exists so that
+    removing the call from `collect_integrity_issues` fails something: a
+    check nothing invokes is indistinguishable from a check that passes,
+    which is the exact failure DOC023 was written to end.
+    """
+    inputs = _valid_inputs(tmp_path)
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "",
+        "## P0",
+        "",
+        "### F-B21-9: the archive grew without bound",
+        "",
+        "Resolved in WP-3; rotates at close-out.",
+        "",
+    ]
+
+    issues = collect_integrity_issues(**inputs)
+
+    rot = [issue for issue in issues if issue.code == "DOC023"]
+    assert len(rot) == 1, [i.code for i in issues]
+    assert rot[0].severity == "error"
+    assert "F-B21-9" in rot[0].remediation
+
+
+def test_doc023_honours_the_repositorys_grandfather_list(tmp_path: Path):
+    """The declared list is read from the repository under check."""
+    inputs = _valid_inputs(tmp_path)
+    (tmp_path / ".docsync.toml").write_text(
+        '[findings]\ngrandfathered = ["F-B21-9"]\n', encoding="utf-8"
+    )
+    inputs["live_documents"]["FINDINGS.md"] = [
+        "# Findings",
+        "",
+        "## P0",
+        "",
+        "### F-B21-9: the archive grew without bound",
+        "",
+        "Resolved in WP-3; rotates at close-out.",
+        "",
+    ]
+
+    rot = [i for i in collect_integrity_issues(**inputs) if i.code == "DOC023"]
+
+    assert [issue.severity for issue in rot] == ["warning"]
+    assert rot[0].remediation.startswith("1 grandfathered")

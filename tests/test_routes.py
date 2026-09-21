@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from scrobblescope.domain import normalize_name
 from scrobblescope.orchestrator import background_task
 from scrobblescope.repositories import (
     JOBS,
@@ -15,6 +16,7 @@ from scrobblescope.repositories import (
     jobs_lock,
     set_job_error,
     set_job_progress,
+    set_job_release_check,
     set_job_results,
 )
 from scrobblescope.routes import (
@@ -552,6 +554,74 @@ def test_results_complete_with_results_renders_data(client):
     assert b"GNX" in response.data
 
 
+def test_results_complete_links_each_row_to_its_own_provider(client):
+    """
+    GIVEN a completed job with one Spotify-sourced and one Deezer-sourced album
+    WHEN POST /results_complete is submitted
+    THEN each row links to album_url (not a spotify_id-derived Spotify URL) and
+         carries a provider attribution badge naming its own provider (Batch 22
+         WP-1 Task 6).
+    """
+    job_id = create_job(
+        {
+            "username": "flounder14",
+            "year": 2025,
+            "sort_mode": "playcount",
+            "release_scope": "same",
+            "decade": None,
+            "release_year": None,
+            "min_plays": 10,
+            "min_tracks": 3,
+            "limit_results": "all",
+        }
+    )
+    set_job_results(
+        job_id,
+        [
+            {
+                "artist": "Spotify Band",
+                "album": "Spotify Only",
+                "play_count": 40,
+                "play_time": "10m",
+                "play_time_seconds": 600,
+                "release_date": "2025-01-01",
+                "album_image": "https://example.com/spotify.jpg",
+                "spotify_id": "sp-1",
+                "provider": "spotify",
+                "album_url": "https://open.spotify.com/album/sp-1",
+            },
+            {
+                "artist": "Deezer Band",
+                "album": "Deezer Only",
+                "play_count": 20,
+                "play_time": "5m",
+                "play_time_seconds": 300,
+                "release_date": "2025-02-01",
+                "album_image": "https://example.com/deezer.jpg",
+                "spotify_id": "",
+                "provider": "deezer",
+                "album_url": "https://www.deezer.com/album/dz-1",
+            },
+        ],
+    )
+    set_job_progress(job_id, progress=100, message="Done!", error=False)
+
+    response = client.post("/results_complete", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+    assert response.status_code == 200
+    assert 'href="https://open.spotify.com/album/sp-1"' in html
+    assert 'href="https://www.deezer.com/album/dz-1"' in html
+    # Neither row's link is reconstructed from spotify_id -- each uses its
+    # own provider's album_url, so a Deezer row must never point at Spotify.
+    assert "open.spotify.com/album/dz-1" not in html
+    assert re.search(r"provider-badge[^>]*>\s*spotify\s*<", html), (
+        "Spotify row is missing its provider attribution badge"
+    )
+    assert re.search(r"provider-badge[^>]*>\s*deezer\s*<", html), (
+        "Deezer row is missing its provider attribution badge"
+    )
+
+
 def test_validate_user_too_long_username(client):
     """
     GIVEN a username longer than 64 characters
@@ -629,6 +699,184 @@ def test_unmatched_api_returns_data(client):
     assert data["count"] == 2
     assert "artist::album_key" in data["data"]
     assert data["data"]["lizzy mcalpine|older"]["reason_code"] == "below_threshold"
+
+
+# --- Release-check API tests ---
+
+
+def _release_check_job(states, release_check=None):
+    """Create an album job whose results carry *states* and return its ID.
+
+    *states* maps a ``(artist, album)`` pair to the ``release_check`` value
+    the correction worker would have written, or to a ``(value, original)``
+    pair when the worker also recorded an original release date. A value of
+    None leaves the result without the field at all, which is what a result
+    looks like before the worker has touched it.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    results = []
+    for (artist, album), state in states.items():
+        result = {
+            "artist": artist,
+            "album": album,
+            "_normalized_key": normalize_name(artist, album),
+        }
+        if state is not None:
+            value, original = state if isinstance(state, tuple) else (state, None)
+            result["release_check"] = value
+            result["original_release_date"] = original
+        results.append(result)
+    set_job_results(job_id, results)
+    if release_check is not None:
+        set_job_release_check(job_id, release_check)
+    return job_id
+
+
+def test_release_checks_api_missing_job_id(client):
+    """
+    GIVEN no job_id query parameter
+    WHEN GET /api/release_checks is requested
+    THEN it should return 400 with an error and no albums.
+    """
+    response = client.get("/api/release_checks")
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "Missing" in data.get("error", "")
+    assert data["albums"] == []
+    assert data["status"] == "error"
+
+
+def test_release_checks_api_unknown_job(client):
+    """
+    GIVEN a job_id that no job matches
+    WHEN GET /api/release_checks is requested
+    THEN it should return 404 with an error rather than an HTML page.
+    """
+    response = client.get("/api/release_checks?job_id=does-not-exist")
+    assert response.status_code == 404
+    assert response.mimetype == "application/json"
+    data = response.get_json()
+    assert "not found" in data.get("error", "").lower()
+    assert data["status"] == "error"
+
+
+def test_release_checks_api_rejects_a_heatmap_job(client):
+    """
+    GIVEN a heatmap job
+    WHEN GET /api/release_checks is requested with its job_id
+    THEN it should return 404: release checks belong to the album flow.
+    """
+    job_id = create_job(HEATMAP_JOB_PARAMS)
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+    assert response.status_code == 404
+    assert response.get_json()["status"] == "error"
+
+
+def test_release_checks_api_reports_pending_before_the_worker_reports(client):
+    """
+    GIVEN an album job whose correction worker has not published state yet
+    WHEN GET /api/release_checks is requested
+    THEN the status should be pending, with zeroed counts and no albums.
+    """
+    job_id = _release_check_job({("Fleetwood Mac", "Rumours"): None})
+
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "pending"
+    assert data["checked"] == 0
+    assert data["total"] == 0
+    assert data["moved_in"] == 0
+    assert data["albums"] == []
+
+
+def test_release_checks_api_lists_only_albums_whose_state_changed(client):
+    """
+    GIVEN results in every release-check state the worker can write
+    WHEN GET /api/release_checks is requested
+    THEN unchecked results are omitted and the rest are listed with their
+         state and original release date.
+    """
+    job_id = _release_check_job(
+        {
+            ("Fleetwood Mac", "Rumours"): ("moved_out", "1977-02-04"),
+            ("Radiohead", "OK Computer"): ("confirmed", "1997-05-21"),
+            ("Boards of Canada", "Geogaddi"): ("unavailable", None),
+            ("Lizzy McAlpine", "Older"): "unchecked",
+        },
+        release_check={
+            "status": "running",
+            "checked": 3,
+            "total": 4,
+            "moved_out": 1,
+            "moved_in": 2,
+        },
+    )
+
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["status"] == "running"
+    assert data["checked"] == 3
+    assert data["total"] == 4
+    assert data["moved_in"] == 2
+    by_key = {album["key"]: album for album in data["albums"]}
+    assert set(by_key) == {
+        "fleetwood mac|rumours",
+        "radiohead|ok computer",
+        "boards of canada|geogaddi",
+    }
+    assert by_key["fleetwood mac|rumours"]["state"] == "moved_out"
+    assert by_key["fleetwood mac|rumours"]["original_release_date"] == "1977-02-04"
+    assert by_key["boards of canada|geogaddi"]["original_release_date"] is None
+
+
+def test_release_checks_api_key_matches_the_normalized_pair(client):
+    """
+    GIVEN an album whose name normalization drops punctuation and metadata
+    WHEN GET /api/release_checks is requested
+    THEN the album key should be the normalized pair joined by a pipe, the
+         same value the results page puts on the row.
+    """
+    job_id = _release_check_job(
+        {("Sigur Rós", "( ) [Deluxe Edition]"): ("confirmed", "2002-10-28")},
+        release_check={
+            "status": "done",
+            "checked": 1,
+            "total": 1,
+            "moved_out": 0,
+            "moved_in": 0,
+        },
+    )
+
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+
+    artist_norm, album_norm = normalize_name("Sigur Rós", "( ) [Deluxe Edition]")
+    assert "|" not in artist_norm and "|" not in album_norm
+    assert response.get_json()["albums"][0]["key"] == f"{artist_norm}|{album_norm}"
+
+
+def test_release_checks_api_survives_a_result_without_a_normalized_key(client):
+    """
+    GIVEN a result dict carrying no _normalized_key
+    WHEN GET /api/release_checks is requested
+    THEN that result is skipped rather than crashing the endpoint.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(
+        job_id, [{"artist": "A", "album": "B", "release_check": "confirmed"}]
+    )
+    set_job_release_check(
+        job_id,
+        {"status": "done", "checked": 1, "total": 1, "moved_out": 0, "moved_in": 0},
+    )
+
+    response = client.get(f"/api/release_checks?job_id={job_id}")
+
+    assert response.status_code == 200
+    assert response.get_json()["albums"] == []
 
 
 # --- Reset progress route tests ---
@@ -789,6 +1037,37 @@ def test_unmatched_view_success_renders_grouped_reasons(client):
         < response.data.index(b'data-reason="release_scope"')
         < response.data.index(b'data-reason="no_spotify_match"')
     )
+
+
+def test_unmatched_view_release_scope_row_links_to_its_own_provider(client):
+    """
+    GIVEN a release-scope-filtered album whose metadata came from Deezer
+    WHEN POST /unmatched_view is submitted
+    THEN the row links to album_url and shows a Deezer provider badge, not a
+         Spotify link built from a (here, absent) spotify_id (Batch 22 WP-1
+         Task 6; mirrors the same fix in _build_results for the results page).
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    add_job_unmatched(
+        job_id,
+        "deezer|filtered",
+        {
+            "artist": "Deezer Filtered Artist",
+            "album": "Deezer Filtered Album",
+            "reason": "Released in 2018 (filter requires 2024)",
+            "reason_code": "release_scope",
+            "album_image": "https://example.com/deezer-filtered.jpg",
+            "spotify_id": None,
+            "provider": "deezer",
+            "album_url": "https://www.deezer.com/album/dz-filtered",
+        },
+    )
+
+    response = client.post("/unmatched_view", data={"job_id": job_id})
+    html = response.data.decode("utf-8")
+    assert response.status_code == 200
+    assert 'href="https://www.deezer.com/album/dz-filtered"' in html
+    assert re.search(r"provider-badge[^>]*>\s*deezer\s*<", html)
 
 
 def test_unmatched_view_renders_artwork_in_every_reason_group(client):

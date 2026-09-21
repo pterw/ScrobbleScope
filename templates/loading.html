@@ -6,7 +6,6 @@
 
 {# WP-4 migrated this page. Loading Bootstrap beside Tailwind would make the
    shared controls inherit two competing .btn and .card systems. #}
-{% block legacy_css %}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">

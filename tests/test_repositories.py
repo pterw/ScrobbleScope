@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from scrobblescope import domain
 from scrobblescope.cache import (
     _batch_lookup_metadata,
     _batch_persist_metadata,
@@ -22,8 +23,10 @@ from scrobblescope.repositories import (
     jobs_lock,
     set_job_error,
     set_job_progress,
+    set_job_release_check,
     set_job_results,
     set_job_stat,
+    update_job_result,
 )
 from tests.helpers import TEST_JOB_PARAMS
 
@@ -120,6 +123,223 @@ def test_set_job_stat_stores_and_retrieves():
     assert progress is not None
     assert progress["stats"]["scrobbles_fetched"] == 1234
     assert progress["stats"]["albums_found"] == 42
+
+
+def test_set_job_release_check_stores_state_under_progress_stats():
+    """
+    GIVEN a job
+    WHEN set_job_release_check records the correction worker's state
+    THEN it lands at progress.stats.release_check, replacing any earlier
+    state, and leaves neighbouring stats untouched.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_stat(job_id, "albums_found", 42)
+
+    running = {
+        "status": "running",
+        "checked": 1,
+        "total": 3,
+        "moved_out": 0,
+        "moved_in": 0,
+    }
+    assert set_job_release_check(job_id, running) is True
+    assert get_job_progress(job_id)["stats"]["release_check"] == running
+
+    done = {**running, "status": "done", "checked": 3, "moved_out": 1}
+    assert set_job_release_check(job_id, done) is True
+    progress = get_job_progress(job_id)
+    assert progress["stats"]["release_check"] == done
+    assert progress["stats"]["albums_found"] == 42
+
+
+def test_set_job_release_check_on_a_missing_job_returns_false():
+    """
+    GIVEN a job id that expired while the worker was running
+    WHEN set_job_release_check is called
+    THEN it returns False and does not resurrect the job in JOBS.
+    """
+    assert set_job_release_check("nonexistent_job_id", {"status": "done"}) is False
+    with jobs_lock:
+        assert "nonexistent_job_id" not in JOBS
+
+
+def test_update_job_result_merges_fields_into_the_matching_result():
+    """
+    GIVEN a job whose results list holds two albums, each carrying the
+    ``_normalized_key`` that ``_build_results`` attaches at construction
+    WHEN update_job_result targets one by its normalized key
+    THEN only that entry gains the new fields, its existing fields survive,
+    the list keeps its rank order and length, and the job's updated_at
+    timestamp advances.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(
+        job_id,
+        [
+            {
+                "artist": "Radiohead",
+                "album": "OK Computer",
+                "play_count": 50,
+                "_normalized_key": ("radiohead", "ok computer"),
+            },
+            {
+                "artist": "Blur",
+                "album": "13",
+                "play_count": 20,
+                "_normalized_key": ("blur", "13"),
+            },
+        ],
+    )
+    updated_at_before = JOBS[job_id]["updated_at"]
+    time.sleep(0.001)
+
+    assert update_job_result(job_id, ("blur", "13"), {"release_check": "moved_out"})
+
+    results = get_job_context(job_id)["results"]
+    assert len(results) == 2
+    assert results[1] == {
+        "artist": "Blur",
+        "album": "13",
+        "play_count": 20,
+        "_normalized_key": ("blur", "13"),
+        "release_check": "moved_out",
+    }
+    assert "release_check" not in results[0]
+    assert JOBS[job_id]["updated_at"] > updated_at_before
+
+
+def test_update_job_result_matches_by_precomputed_key_not_displayed_name():
+    """
+    GIVEN a result whose displayed album title carries edition metadata that
+    differs from its normalized key (the key ``_build_results`` attached
+    when the results list was built, per Batch 22 WP-3's original-release
+    correction path)
+    WHEN update_job_result is given that normalized key
+    THEN it finds the entry by comparing the precomputed ``_normalized_key``
+    field, never by re-deriving one from the displayed artist/album text.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(
+        job_id,
+        [
+            {
+                "artist": "Radiohead",
+                "album": "OK Computer (Deluxe Edition)",
+                "_normalized_key": ("radiohead", "ok computer"),
+            }
+        ],
+    )
+
+    assert update_job_result(job_id, ("radiohead", "ok computer"), {"x": 1}) is True
+    assert get_job_context(job_id)["results"][0]["x"] == 1
+
+
+def test_update_job_result_returns_false_when_nothing_matches():
+    """
+    GIVEN a job whose results hold no album with the requested key
+    WHEN update_job_result is called
+    THEN it returns False and leaves every result unchanged.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    set_job_results(
+        job_id,
+        [{"artist": "Blur", "album": "13", "_normalized_key": ("blur", "13")}],
+    )
+
+    assert update_job_result(job_id, ("oasis", "be here now"), {"y": 1}) is False
+    assert get_job_context(job_id)["results"] == [
+        {"artist": "Blur", "album": "13", "_normalized_key": ("blur", "13")}
+    ]
+
+
+def test_update_job_result_returns_false_for_populated_list_with_no_match():
+    """
+    GIVEN a job whose results list holds 500 entries -- the cap the
+    correction worker's target list can reach -- none matching the
+    requested key
+    WHEN update_job_result is called
+    THEN it returns False and every one of the 500 result dicts is left
+    byte-for-byte unchanged. This is the worst case the finding calls out:
+    a miss (or a late match) pays for scanning the whole list.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    results = [
+        {
+            "artist": f"Artist {i}",
+            "album": f"Album {i}",
+            "play_count": i,
+            "_normalized_key": (f"artist {i}", f"album {i}"),
+        }
+        for i in range(500)
+    ]
+    set_job_results(job_id, results)
+    expected = [dict(r) for r in results]
+
+    assert update_job_result(job_id, ("nobody", "nothing at all"), {"z": 1}) is False
+    assert get_job_context(job_id)["results"] == expected
+
+
+def test_update_job_result_does_not_call_normalize_name(monkeypatch):
+    """
+    GIVEN a populated 500-entry results list, each entry already carrying
+    its precomputed ``_normalized_key``
+    WHEN update_job_result looks up an album, whether it hits or misses
+    THEN it never calls normalize_name -- the O(n) per-entry normalization
+    that used to run on every call, while holding the process-global
+    jobs_lock, is removed rather than merely relocated. A counting wrapper
+    around the real function proves this by observed call count, not by
+    asserting a mock was invoked.
+    """
+    calls = []
+    real_normalize_name = domain.normalize_name
+
+    def counting_normalize_name(artist, album):
+        calls.append((artist, album))
+        return real_normalize_name(artist, album)
+
+    # Patched where repositories.py would consult it if it still imported
+    # the name directly (raising=False: the fixed module has no such
+    # attribute at all, which is itself the point -- the lookup has nothing
+    # left to patch).
+    monkeypatch.setattr(
+        "scrobblescope.repositories.normalize_name",
+        counting_normalize_name,
+        raising=False,
+    )
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    results = [
+        {
+            "artist": f"Artist {i}",
+            "album": f"Album {i}",
+            "_normalized_key": (f"artist {i}", f"album {i}"),
+        }
+        for i in range(500)
+    ]
+    set_job_results(job_id, results)
+
+    assert update_job_result(job_id, ("artist 250", "album 250"), {"hit": True}) is True
+    assert update_job_result(job_id, ("nobody", "nothing"), {"miss": True}) is False
+    assert calls == []
+
+
+def test_update_job_result_returns_false_when_results_are_absent():
+    """
+    GIVEN a job that has not finished (results is still None) and one that
+    no longer exists
+    WHEN update_job_result is called
+    THEN both return False rather than raising on the missing list, and the
+    existing job's state (results still None, updated_at untouched) is left
+    exactly as it was.
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+    updated_at_before = JOBS[job_id]["updated_at"]
+
+    assert update_job_result(job_id, ("blur", "13"), {"z": 1}) is False
+    assert update_job_result("nonexistent_job_id", ("blur", "13"), {"z": 1}) is False
+
+    assert JOBS[job_id]["results"] is None
+    assert JOBS[job_id]["updated_at"] == updated_at_before
 
 
 def test_expired_job_cleanup():
@@ -287,6 +507,67 @@ async def test_get_db_connection_retry_exhaustion_returns_none():
     assert result is None
     assert mock_asyncpg.connect.await_count == 3
     assert mock_sleep.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_get_db_connection_passes_explicit_timeout_to_asyncpg():
+    """
+    GIVEN DATABASE_URL is set and DB_CONNECT_TIMEOUT_SECONDS is configured
+    WHEN _get_db_connection calls asyncpg.connect
+    THEN it passes that value as the timeout kwarg -- asyncpg.connect has no
+        caller-set timeout otherwise, so an unreachable host (a paused
+        container answers no SYN-ACK, rather than refusing) hangs for
+        asyncpg's own 60s default per attempt instead of failing fast.
+    """
+    mock_conn = AsyncMock()
+    with patch(
+        "scrobblescope.cache._DATABASE_URL",
+        "postgres://good:good@localhost/good",
+    ):
+        with patch.dict(
+            "os.environ",
+            {"DB_CONNECT_TIMEOUT_SECONDS": "2.5"},
+        ):
+            with patch("scrobblescope.cache.asyncpg") as mock_asyncpg:
+                mock_asyncpg.connect = AsyncMock(return_value=mock_conn)
+                result = await _get_db_connection()
+    assert result is mock_conn
+    mock_asyncpg.connect.assert_awaited_once_with(
+        "postgres://good:good@localhost/good", timeout=2.5
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_db_connection_treats_timeout_as_an_ordinary_failure(caplog):
+    """
+    GIVEN every asyncpg.connect attempt raises asyncio.TimeoutError (what a
+        capped, unreachable connection raises once the timeout kwarg fires)
+    WHEN _get_db_connection exhausts its retry budget
+    THEN it returns None and logs db-down, the same as any other connect
+        failure -- a timeout is not a special case the caller must handle.
+    """
+    with patch(
+        "scrobblescope.cache._DATABASE_URL",
+        "postgres://bad:bad@localhost/bad",
+    ):
+        with patch.dict(
+            "os.environ",
+            {
+                "DB_CONNECT_MAX_ATTEMPTS": "2",
+                "DB_CONNECT_BASE_DELAY_SECONDS": "0",
+                "DB_CONNECT_TIMEOUT_SECONDS": "1",
+            },
+        ):
+            with (
+                patch("scrobblescope.cache.asyncpg") as mock_asyncpg,
+                patch("scrobblescope.cache.asyncio.sleep", new_callable=AsyncMock),
+            ):
+                mock_asyncpg.connect = AsyncMock(side_effect=TimeoutError())
+                with caplog.at_level(logging.INFO):
+                    result = await _get_db_connection()
+    assert result is None
+    assert mock_asyncpg.connect.await_count == 2
+    assert "db-down" in caplog.text
 
 
 @pytest.mark.asyncio

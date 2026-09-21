@@ -140,6 +140,19 @@ def test_a_branch_value_cannot_repaint_the_diagnostic_line(forged):
 
 
 def test_the_repository_playbook_parses():
-    """The live document must never be one ordinary edit from blocking work."""
+    """The live document must never be one ordinary edit from blocking work.
+
+    Between batches there is no active batch and therefore no branch to name:
+    the guard compares nothing, and every branch is free until Section 3
+    declares the next batch. While a batch is active the branch must parse,
+    because an unparsable one blocks every commit with WT002.
+    """
     playbook = (REPOSITORY_ROOT / "PLAYBOOK.md").read_text(encoding="utf-8")
-    assert parse_batch_branch(playbook).expected_branch == "test"
+    parsed = parse_batch_branch(playbook)
+
+    if parsed.active_batch is None:
+        assert parsed.expected_branch is None
+    else:
+        assert parsed.expected_branch, (
+            f"Batch {parsed.active_batch} is active with no parsable branch"
+        )

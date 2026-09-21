@@ -352,11 +352,12 @@ nothing recorded the divergence. WP-3 then wrote page spacing in px against a
 type scale already in rem.
 
 **The owner ruled on 2026-08-24:** rem for font size and spacing, px for thin
-details a reader never scales. `AGENTS.md` "UI and Accessibility Rules" item 1
-carries the rule for every agent; this section carries why it overrides the
-snapshot. It was written as item 6 of "Proposal and Design Rules" and moved
-the same day, and this pointer was left behind -- the same class of defect
-this section documents, in the sentence that documents it.
+details a reader never scales. `docs/agents/ui-accessibility.md`
+"UI and Accessibility Rules" item 1 carries the rule for every agent; this
+section carries why it overrides the snapshot. It was written as item 6 of
+`AGENTS.md` "Proposal and Design Rules" and moved the same day, and this
+pointer was left behind -- the same class of defect this section documents,
+in the sentence that documents it.
 
 The reason is not only preference. A reader who raises the browser font size
 gets larger text inside boxes that did not grow, so the text crowds and
@@ -382,12 +383,43 @@ so leaving it in px put px spacing around rem type on the one page already
 converted. That is the mismatch this section exists to prevent, and it would
 have sat there until WP-8.
 
-`global.css`, `loading.css`, `results.css` and `unmatched.css` are not
-converted. Each is a Bootstrap-era page stylesheet that its own work package
-rewrites -- WP-4, WP-5, WP-7 -- so converting them now would churn a file
-about to be replaced, for pages whose type is not rem yet either. Convert
-each one with the rewrite that owns it. `error.css` keeps px in the rules
-WP-2 wrote; only its touch-target rule moved, with the rule that changed it.
+`global.css`, `loading.css`, `results.css` and `unmatched.css` were not
+converted when this section was written. Each was a Bootstrap-era page
+stylesheet that its own work package rewrites -- WP-4, WP-5, WP-7 -- so
+converting them then would have churned a file about to be replaced, for pages
+whose type was not rem yet either. Convert each one with the rewrite that owns
+it. `error.css` keeps px in the rules WP-2 wrote; only its touch-target rule
+moved, with the rule that changed it.
+
+**Update, 2026-09-12: those rewrites have landed, and the paragraph above is
+now the 2026-08-24 state, not the current one.** Verified by grep against the
+tree.
+
+`static/css/unmatched.css` is converted. The only px it states are the thin
+details the ruling allows: `768px` and `1024px` media-query breakpoints, a
+`1px` hairline border, and the `44px` coarse-pointer touch target. Everything
+a reader scales is rem, starting with the `90rem` measure.
+
+`static/css/results.css` is converted. Its measure (`90rem`), its `min-height`
+rails and its padding are rem, most of it scaled as
+`calc(<rem> * var(--results-scale))`. Its remaining px are the media-query
+breakpoints, `1px` hairlines, `2px` focus outlines with `1px` and `2px`
+offsets, the `var(--radius-xs, 4px)` fallback, and two decorative values a
+reader never scales: `padding: 2px` on the `.rank-link` block and an `8px`
+hover text-shadow blur. Those all sit inside the "px for thin details" half of
+the 2026-08-24 ruling.
+
+`static/css/loading.css` is converted too, by WP-4. Its px are the `859.98px`
+breakpoint, `1px` rules, a `3px` progress-bar height and a `999px` pill
+radius.
+
+`static/css/global.css` is the one file in that list still unconverted, and it
+is now also the one file in it that no page loads: every page template
+overrides the `legacy_css` block with an empty one, so neither Bootstrap nor
+`global.css` reaches a browser. Its px are a `150px` max-height, `999px` pill
+radii, `1px` and `2px` outline details and a `767.98px` breakpoint. WP-8 owns
+the decision of whether it is converted or deleted; do not convert it
+speculatively before that decision.
 
 
 ---
@@ -408,3 +440,259 @@ and #181520 in dark (dark has no standout to make). The imported
 --ss-card: #ffffff is unchanged in the snapshot. Recorded so the trial
 is not silently re-proposed; treat the white index card and the warm
 general card as settled unless the owner reopens them.
+
+
+---
+
+## 13. Frozen-snapshot override: the unmatched and results measure, 2026-09-12
+
+**The snapshot says 1180px. Both pages ship at `max-width: 90rem`, which is
+1440px. The repo wins, and this is the record of that.**
+
+Two frozen files carry the 1180px figure:
+
+- `docs/design/README.md`: "Max width 1180px" for the Results page, and again
+  for the Unmatched page.
+- `docs/design/reference/design-system-readme.md`: "1180px for results and
+  unmatched".
+
+What ships, verified 2026-09-12:
+
+- `static/css/results.css` -- `.results-page { max-width: 90rem; }`
+- `static/css/unmatched.css` -- `.unmatched-page { max-width: 90rem; }`
+
+90rem is 1440px at a 16px root, so this is a genuine change of measure and not
+the px-to-rem restatement section 11 describes. Read it as a different number,
+not a different unit.
+
+Results moved first. Unmatched followed it deliberately: the WP-7 extension's
+brief was to mirror the current Results composition and its width-derived
+scale, and a narrower Unmatched would have broken that mirror. `--results-scale`
+derives the page's type and spacing from the measure, and `unmatched.css`
+inherits those variables from `results.css`, so the two pages have to share the
+measure or the scale reads differently on each.
+
+This section is the correction's home because both source files sit inside the
+byte-frozen `docs/design/` tree that `tests/test_design_snapshot.py` pins to a
+61-file SHA-256 digest. Do not edit them to say 90rem. Read their 1180px as
+superseded here.
+
+`docs/design/designsystemaudit.md` is stale on this point too. Its comparison
+table still reads "Unmatched measure | 1180px | `73.75rem` (= 1180px;
+correct)", which was true when the audit ran and is not true now. That file is
+a dated self-correcting record and is repository-owned, so it is not edited
+either. This section supersedes it.
+
+
+---
+
+## 14. Frozen-snapshot override: UnmatchedGroup count and reason styling, 2026-09-12
+
+**The snapshot specifies an accent-purple 22px count and a 12px weight-700
+reason label. Neither ships. The repo wins, and this is the record of that.**
+
+`docs/design/README.md` describes the Unmatched page as a three-column grid of
+`UnmatchedGroup` cards and each card as: "reason at 12px weight 700, the count
+as a Gotham 22px figure in accent purple".
+
+What ships, verified 2026-09-12 in `templates/unmatched.html` and
+`static/css/unmatched.css`:
+
+- **The count is ink, not accent.** `.unmatched-count` carries
+  `text-[var(--color-base-content)]` -- the body-text colour -- not the primary
+  purple. Its size is `text-xl` stepping to `md:text-2xl`, driven by the
+  Results scale, rather than a fixed 22px.
+- **The count is still Gotham.** `.unmatched-count` sets
+  `font-family: var(--font-figure)`, and `--font-figure` resolves to
+  `"gotham", "ff-din-paneuropean", ui-sans-serif, sans-serif`. This half of the
+  snapshot survives; only the colour and the fixed size do not.
+- **Nothing on the panel uses weight 700.** Every text element carries
+  `font-normal` (400): the panel title, the count, the table headers, the album
+  and artist names, and both expander buttons. The reason label is not a bold
+  12px badge at all. It is the panel's own `h2` title plus a muted explanatory
+  sentence beneath it, and the reason's short fix line renders through
+  `.unmatched-fix-hint` in `--font-mono-narrow` at `0.5625rem`, in
+  `--color-primary` on the `below_threshold` panel only and `--ss-text-muted`
+  on the other two.
+- **The grid is not three columns.** The panel tracks are authored in
+  `static/css/unmatched.css`, keyed on the rendered panel count: one column below
+  1280px, two from 1280px, never three. Section 16 records why. See also section 13
+  on the measure these panels sit within.
+
+The purple emphasis the snapshot put on the count now lives only on the fix
+line of the one reason a reader can act on. The two explanatory reasons carry
+no accent, so the one that does keeps its authority.
+Moving the count to ink was what made that work: two purple figures in one
+panel gave the reader no order to read them in.
+
+Recorded here rather than in `docs/design/README.md` because that file is
+byte-frozen.
+
+
+---
+
+## 15. Frozen-snapshot override: the unmatched disclosure control, 2026-09-11
+
+**The snapshot and the audit both describe a two-state expander. What ships is
+a 25-row step with a paired collapse control. The repo wins, on the owner's
+2026-09-11 ruling, and this is the record of that.**
+
+`docs/design/designsystemaudit.md` records the shipped expander as
+"`.unmatched-expander-btn`, 'Show all N albums' / 'Show fewer', `aria-expanded`
+toggled" -- two states, all or nothing. The `UnmatchedGroup` spec in
+`docs/design/README.md` has no disclosure control at all.
+
+What ships, verified 2026-09-12 in `templates/unmatched.html` and
+`static/js/unmatched.js`:
+
+- A panel opens showing 10 rows and reveals 25 more per click
+  (`data-initial="10"`, `data-step="25"`).
+- The button label is a three-way function of how many rows are left, written
+  by a single `applyVisibleCount` function so the label, the row visibility and
+  `aria-expanded` cannot drift apart:
+  - more than a step remaining: "Show next 25 (N remaining)";
+  - a step or less remaining: "Show all N albums" while the panel is still
+    collapsed, otherwise "Show remaining N albums";
+  - everything visible: "Show fewer".
+- A long list therefore walks 10 -> 35 -> 60 and so on, instead of dropping
+  several hundred rows into the page at once. Jinja picks the first label
+  server-side so the collapsed button is correct before any JavaScript runs.
+- A second button, "Back to top", sits beside the expander. **Owner ruling,
+  2026-09-11:** returning to the top also collapses the panel, so the reader is
+  not left scrolled above a table still padded with rows they had just
+  revealed. Both controls call the same writer, and both scroll the panel back
+  into view.
+
+The spec's two-state model was written for a card holding a handful of top
+offenders. The shipped page is a full exclusion report, and `below_threshold`
+alone can hold hundreds of albums, so "Show all" was the wrong and only offer.
+Treat the 25-row step and the paired collapse as the settled design unless the
+owner reopens them.
+
+Recorded here rather than in `docs/design/designsystemaudit.md` or
+`docs/design/README.md` because both are frozen: the audit is a dated
+self-correcting record that is repository-owned, and the README is pinned by
+`tests/test_design_snapshot.py`.
+
+---
+
+## 16. The unmatched table repair and the rulings it supersedes, 2026-09-12
+
+Recorded in the same change as the code, so the record and the page cannot
+disagree. Three earlier rulings are superseded here. Each one lived in several
+places at once, which is how a design annex and a frontend-gate pin came to
+state different layouts, so every site is named.
+
+**Why the table was broken.** `static/css/tailwind.src.css` resets `--spacing`
+and `--spacing-*` to `initial` and declares only steps 1, 2, 3, 4, 6, 8 and 12.
+Any other spacing or sizing utility compiles to nothing, silently (F-B21-52).
+The unmatched table had its row padding (`py-2.5`) and all four column widths
+(`w-10`, `w-24`, `w-28`, `md:w-28`, `md:w-32`) written as such utilities. Above
+768px, measured: zero row padding and four equal-quarter columns at every width,
+an album column 75px wide at 1024px, and document-level horizontal scroll at
+768px and 1024px caused by a dead `min-w-0` on the headline row. Below 768px the
+table borrowed the Results mobile block and looked acceptable, which is why it
+survived review. The widths, padding, containment and grid tracks now live in
+`static/css/unmatched.css`.
+
+**Superseded 1 -- the panel count.** Earlier ruling: "Three reasons give three
+columns, two give two, and below 1024px the grid collapses to a single column."
+Sites: `docs/superpowers/plans/2026-09-11-batch21-design-system-reconciliation.md`
+Phase 1 design annex, and the `gridColumns` pin in `check_unmatched_report` in
+`scripts/dev/frontend_gate.py`.
+
+What ships: one column below 1280px, two from 1280px, never three. With three
+reasons the second panel spans both rows and the third sits directly under the
+first, so a short first panel does not leave a hole. Side-by-side is unchanged;
+the owner's 2026-09-11 ruling was about stacking, and this is not a step towards
+it.
+
+**This goes further than the owner chose; the owner confirmed it on 2026-09-13.** On
+2026-09-12 the owner chose two panels at 1024px and three at 1536px. Measurement
+disproved the premise: the page stops at 90rem, so three tracks measured 448px
+at both 1536px and 1920px -- the same width that made three-up unreadable at
+1024px. Promoting later moves the defect rather than fixing it. Two tracks
+measured 453px at 1024px and 686px at 1536px, against the Results table's 608px
+and 920px. Only raising the 90rem cap would make three panels workable, and that
+is a shared value the gate pins, so it is not changed here.
+
+**Superseded again -- two panels start at 1280px, not 1024px (owner ruling,
+2026-09-13).** At 1024px each of two panels is about 453px wide. The album
+column is then 140-156px, and the Results-sized cover (Superseded 3) takes most
+of it: the album title measured 20-36px and broke into columns of two or three
+letters. The old 44px cover left only 48-64px, so the defect predates the cover
+ruling; that ruling made it plain. From 1024px to 1279px each panel now takes
+the full width, and the title gets 354-473px. At 1280px it gets 103-119px. The
+gate's profiles are 390px and 1280px, so none of them saw 1024px;
+`check_unmatched_report` now sweeps 1024px, 1279px and 1280px and requires at
+least 96px of title width.
+
+**Superseded 3 -- the artwork size.** Earlier state: a fixed 40px cover below
+768px and 44px above it, smaller than the Results row's cover. The owner chose
+the Results size, and on 2026-09-13 ruled that it ships: `4rem` below 768px and
+`4.5rem` above it, both scaled by `--results-scale`, mirroring `.album-cover-img`.
+Sites: `.unmatched-artwork` in `static/css/unmatched.css`, the cover check in
+`check_unmatched_report`, and the spec's Presentation and Verification sections.
+The gate pins both sizes as numbers.
+
+**Superseded 2 -- the fix-hint accent.** Earlier state: every panel's fix hint in
+`--color-primary`. What ships: the accent on the `below_threshold` panel only,
+the one reason a reader can act on, and `--ss-text-muted` on the two explanatory
+reasons. The hint also wraps instead of truncating behind a `title` tooltip,
+which touch and keyboard cannot reach. This is the design annex's own
+"spend boldness in one place" and `DESIGN.md`'s Accent Restraint Rule applied to
+a page that had drifted from both. It is a taste change rather than a repair;
+the owner kept it on 2026-09-13.
+
+**Superseded 4 -- the threshold panel title.** Earlier state: "Below your
+thresholds", which the copy rules forbid (F-B21-58). The owner ruled on
+2026-09-13 that the panel reads "Not enough listening". Sites:
+`CATEGORY_METADATA` in `scrobblescope/unmatched.py` and the spec's Presentation
+section.
+
+**Deliberately not changed.** The headline username stays `not-italic` in
+neutral ink. The italic purple clause is carried on the index hero and the
+Results headline only; that asymmetry is intended and is not normalized in
+either direction.
+
+**Superseded 5 -- the fix-line size (owner ruling, 2026-09-13).** The fix hint
+and the per-panel "albums" label rendered at 9px (`0.5625rem`), as the design
+README specifies, while section 1's override table records a 12px readability
+floor for small labels. The owner ruled 12px (`0.75rem`) for both. It is neither
+the README's 9px nor the audit review's 11px. Uppercase stays. Sites:
+`.unmatched-fix-hint` in `static/css/unmatched.css`, the `unmatched-label` span
+in `templates/unmatched.html`, and the `fixHintSize` and `countLabelSize` pins
+in `check_unmatched_report`. This decides `FINDINGS.md` F-B21-4 item 4.
+
+## 17. A displayed release year may come from MusicBrainz, 2026-09-20
+
+The Release column on the results page, and the year in the unmatched
+report's release-scope reason, used to be the provider's own date and nothing
+else. From Batch 22 a row may show an album's **original** release date,
+taken from MusicBrainz's release group, while the provider's date stays
+beside it as `provider_release_date` for the provider page the row links to.
+Spotify and Deezer both date a remaster by its reissue, and the year filters
+mean the year the album first came out, so the provider's date was the wrong
+one to filter or display against.
+
+**What this changes for the design system.** Nothing about the type, the
+column or the token -- the value in that cell simply has two possible
+sources, and a corrected row carries a small uppercase mono kicker under the
+date (`.release-check-note` in `static/css/results.css`) linking to the
+unmatched report. It follows the `.provider-badge` treatment on the same page:
+muted ink, accent on hover, quiet through size and tracking rather than
+through low contrast. The frontend gate measures it against the 4.5:1 text
+floor on every run.
+
+**The kicker is not a status colour, and that is a deviation.** The design
+README names `--ss-warn` for exactly this kind of mono kicker. No stylesheet
+defines that token, or `--ss-good`, or `--ss-bad`, and
+`test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads`
+fails any page that reads one. F-B21-62 records the choice for the owner:
+ship the tokens, or stop describing a treatment nothing can apply.
+
+**Rows never move while the page is open.** The correction arrives after the
+results render, so the owner's ruling is that a corrected row stays in place,
+marked, and the list re-sorts only on reload. Sites:
+`docs/architecture/runtime-system.md` (the runtime view and the reason the
+pass runs late), `templates/results.html`, `static/js/results-release-checks.js`.

@@ -137,6 +137,15 @@ def sync_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     (tmp_path / "docs" / "logarchive").mkdir(parents=True)
     (tmp_path / ".claude").mkdir(parents=True)
 
+    # MINIMAL_PLAYBOOK claims "Batch 10 is complete." A close-out admission
+    # boundary of 1 (active when this file is absent) would make that claim
+    # managed and DOC019 would fire on every CLI test that uses this corpus.
+    # The repository's own boundary (22) admits it the same way it admits the
+    # real Batches 0-21: closed before the close-out signals existed.
+    (tmp_path / ".docsync.toml").write_text(
+        "[closeout]\nadmit_from_batch = 22\n", encoding="utf-8"
+    )
+
     (tmp_path / "PLAYBOOK.md").write_text(MINIMAL_PLAYBOOK, encoding="utf-8")
     archive_path = (
         tmp_path / "docs" / "logarchive" / "PLAYBOOK_EXECUTION_LOG_ARCHIVE.md"

@@ -1,11 +1,9 @@
 # ScrobbleScope Findings & Open Issues
 
-Last updated: 2026-09-11
-Status: Batch 21 is active. WP-0 through WP-5 are complete; WP-6 is absorbed
-into WP-3. The WP-7 extension is implemented and refined, and WP-8 awaits owner
-direction.
+Last updated: 2026-09-20
+Status: Batch 22 is active.
 PLAYBOOK Section 3 owns the current work order.
-1026 tests across 43 test modules.
+1529 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -55,7 +53,8 @@ visible type-scale difference is the older production calibration already
 owned by F-B21-24 and corrected in the undeployed PR #220, not evidence of a
 new font-loading defect.
 
-Status: resolved locally; deploy before the next production release.
+- [ ] **Status:** resolved locally, pending deploy
+Was recorded as: resolved locally; deploy before the next production release.
 Source: owner report and production/browser differential, 2026-08-28.
 
 ---
@@ -77,7 +76,8 @@ loading route's `Back home` link with an honest `Cancel and return home`
 control on both workflows. It returns home and does not cancel the background
 job.
 
-Status: resolved locally; deploy before the next production release.
+- [ ] **Status:** resolved locally, pending deploy
+Was recorded as: resolved locally; deploy before the next production release.
 F-B21-43 supersedes the cached-ready part of this transition: the one-root
 crossfade remains for an active job whose loader has painted, while an
 already-complete saved job keeps that obsolete loader hidden and fades the
@@ -100,24 +100,9 @@ the desktop header links and theme control a 48px target inside a taller bar
 with one consistent sibling gap. Do not apply the hero scale to the header or
 change the compact mobile shell.
 
-Status: resolved locally; deploy before the next production release.
+- [ ] **Status:** resolved locally, pending deploy
+Was recorded as: resolved locally; deploy before the next production release.
 Source: owner browser review, 2026-08-29.
-
----
-
-### F-B21-30: unmatched report describes zero rows as a populated exclusion list
-
-The unmatched route passes `total_count=0` correctly, but its template always
-states that albums were found and did not match the filter. The following
-total of zero contradicts that claim and makes a successful no-unmatched state
-look like a backend error.
-
-When the count is zero, render a direct no-unmatched state and retain the
-search settings plus existing navigation actions. Do not change the route,
-the API, or the job's unmatched payload; this is a presentation condition.
-
-Status: resolved in Batch 21 WP-7; template renders zero-row state when total_count == 0.
-Source: owner browser review, 2026-08-29; verified in templates/unmatched.html 2026-09-10.
 
 ---
 
@@ -136,539 +121,50 @@ in both start routes; other failed responses remain service failures rather
 than privacy claims. Do not reject a public profile simply because it has no
 listening history.
 
-Status: resolved locally; deploy before the next production release.
+- [ ] **Status:** resolved locally, pending deploy
+Was recorded as: resolved locally; deploy before the next production release.
 Source: owner report and Last.fm API response classification, 2026-08-28.
 
 ---
 
 ## Resolved this batch
 
-### F-B21-56: upstream Spotify failure detection was coupled to written prose reason instead of reason_code
-
-`_detect_spotify_total_failure` in `scrobblescope/orchestrator.py` checked the
-English string `"No Spotify match"` instead of the domain contract
-`reason_code` (`REASON_NO_SPOTIFY_MATCH`). When the first WP-7 commit
-`b3e3e96` introduced `reason_code` to the contract, this detector was missed.
-If the prose string varied or changed, Spotify total failure detection would
-not fire, preventing the classified `spotify_unavailable` error from being set.
-
-Status: resolved locally in the Batch 21 WP-7 deviation, pending commit;
-`_detect_spotify_total_failure` checks
-`reason_code == REASON_NO_SPOTIFY_MATCH` with legacy fallback, verified by
-mutation testing.
-Source: owner review, 2026-09-10.
-
-### F-B21-47: Artist Spotlight rendered one top-album artist and never rotated
-
-The Results side rail described an Artist Spotlight but built no rotation
-collection or timer. Both Flask and the metric-toggle client treated the artist
-on the highest-ranked single album as the leading artist, so repeated albums by
-one artist were not ranked by their aggregate scrobbles. The fallback Spotify
-link also labelled an album ID as an artist destination, and its unguarded image
-failure handler could apply after a newer portrait request had started.
-
-Status: resolved locally, 2026-09-06. The server aggregates artists by
-scrobbles, takes the top ten, and uses the job ID to choose a stable random five
-without changing the album or Heatmap pipelines. Results renders the first
-fallback immediately, hydrates the five artist records concurrently afterward,
-and rotates them every seven seconds. Candidate-slot, active-index, and image
-revision checks discard late responses; reduced-motion readers keep one static
-spotlight. The browser gate verifies five unique requests and a rendered card
-change in Chromium and Firefox.
-Source: owner Results review and source/request-flow audit, 2026-09-06.
-
-### F-B21-43: cached Heatmap restoration painted an obsolete loading state
-
-Opening Heatmap from the header after a result was cached called
-`fadeIn(heatmapLoading)` before the first progress request. A completed job
-therefore painted the loading panel for a fraction of a second, then replaced
-it with the cached result. A final DOM assertion could not detect the flash.
-
-Status: resolved, 2026-09-05. Saved-job restoration keeps the loading panel
-hidden until the first response proves that work is still running or reports
-an error. A ready result fades in directly; a still-running result preserves
-the existing Heatmap polling lifecycle and reveals the accurate progress
-state. The Chromium and Firefox gate observes loading-panel class mutations
-from before production `DOMContentLoaded` listeners run and fails if a cached
-result paints that panel.
-Source: owner browser review and two-engine rendered state observation,
-2026-09-05.
-
-### F-B21-46: the desktop index form stayed top-heavy as the window grew
-
-The fixed index scale correctly grew the form between realistic 1080p and
-1440p windows, but the form composition remained anchored to the well's top
-padding. At 1920x945, its outer top and bottom space measured 55.9px and
-98.2px; at 2560x1305, those values diverged to 74.5px and 193.6px. The 28rem
-base cap also left the card slightly wider than the owner's preferred measure.
-
-Status: resolved, 2026-09-05. The owner-refined base cap is `27.5rem`. The
-2026-09-09 refinement places the composition up to 2.5rem above centre,
-bounded by 0.25rem of header clearance. Expanded content retains natural
-scrolling only when it cannot fit. The gate verifies this upward bias
-at realistic 1080p, 1440p, and 4K profiles while retaining the
-fixed-geometry checks across every reachable form state.
-Source: owner 1080p/1440p visual comparison and two-engine rendered
-measurements, 2026-09-05.
-
-### F-B21-45: mobile navigation hid report destinations behind scrolling
-
-The mobile header kept all four desktop navigation links in one horizontal
-flex row. At 390px its navigation had a 203px visible width but a 345px scroll
-width; at 320px only 133px was visible. Results and Unmatched therefore sat
-offscreen unless the reader discovered horizontal scrolling.
-
-Status: resolved, 2026-09-05. The first correction put the four destinations
-in a two-column, two-row grid beside the compact theme control. Owner review
-then found that the control sat across both rows and visually competed with
-their buttons. The subsequent owner refinement uses one contained row across
-the header width and moves the same Light/Dark input below page content; it
-returns to the header at desktop widths without duplicating state. The browser
-gate checks both 390px and 320px widths for contained links, no horizontal
-overflow, a matching body offset, footer placement, and a retained 44px theme
-target. PR #227 review reconciled this description with the current source.
-Source: owner mobile review and rendered Chromium/Firefox measurements,
-2026-09-05.
-
-### F-B21-44: the desktop Heatmap result retained the prototype's small measure
-
-The result stage remained capped at about 1100px on a realistic 1920x945
-content box, occupying only 57.3% of the viewport. Its authored 14px SVG cells
-rendered at 16.6px, making the year grid visually slight beside the scaled
-index composition. The headline also singled out the username in purple
-italics even though it is data rather than an interactive accent.
-
-Status: resolved, 2026-09-05. At widths from 860px, the centred stage now uses
-`84vw` with a `120rem` ceiling; the same realistic 1080p content box renders a
-1544.8px frame and 23.7px cells. Mobile retains the bounded base measure. The
-username inherits the headline's neutral serif colour and normal style. The
-two-engine browser gate asserts the frame ratio, centring, rendered cell range,
-and headline treatment against a full-year fixture.
-Source: owner side-by-side visual review and two-engine rendered measurements,
-2026-09-05.
-
-### F-B21-42: index motion used three unrelated timings and blanked mode copy between animations
-
-The index composition entered over 1.2 seconds after a 0.2-second delay,
-Heatmap stage changes used 300ms, and `switchModeHero()` ran a sequential
-110ms exit followed by a 180ms entrance. Switching modes therefore removed
-the current heading before presenting its replacement and made the hero feel
-slower than the surrounding page states.
-
-Status: resolved, 2026-09-05. The two mode descriptions now share one grid
-track and crossfade concurrently over 180ms, so the taller copy reserves the
-same height in both states. Heatmap stage changes retain 180ms; the 2026-09-09
-owner refinement gives page navigation a shared 220ms entry and 140ms exit.
-The 2026-09-10 delayed-script probe reproduced a first-paint flash in both
-engines: DOM readiness restarted already-visible content from zero opacity.
-Entry now starts in CSS without waiting for JavaScript; the regression probe
-confirms no visible-to-transparent dip.
-The reduced-motion media query restores immediate,
-fully opaque states.
-Source: owner browser review, 2026-09-05.
-
-### F-B21-41: reachable form states rescaled the entire index composition
-
-Task 2's state-sensitive height bounds made the shared `--index-scale`
-depend on which form rows were open. At a fixed 1920x945 content box, both
-engines measured the 481.6px form shrinking to 390.5px for a decade or custom
-release field, 357.8px for open thresholds, and 325.2px when both were open.
-Hero padding, wordmark, headline type, card padding, inputs, and mode controls
-all changed with it. The gate required the expanded form to avoid document
-scrolling, so it enforced the defect.
-
-Status: resolved, 2026-09-05. Reachable states no longer replace the fixed
-window's natural-height reference. Additional rows extend the document while
-the composition keeps its initial dimensions. The Chromium and Firefox gate
-now compares representative dimensions across album, Heatmap, decade,
-custom-year, thresholds, and combined states, and requires the combined state
-to produce normal document scrolling at the realistic 1080p content box.
-`scrollbar-gutter: stable` prevents Firefox from shifting the columns when
-that scrollbar first becomes necessary.
-Source: owner browser review and two-engine rendered measurements, 2026-09-05.
-
-### F-B21-40: Task 3's divider-contrast fix did not cover the index page's own well divider
-
-Task 3 raised `--shell-border` to clear 3:1, but `.index-form`'s
-`border-left` draws from the separate, still-opaque `--ss-border-default`
-token, which measures roughly 1.12:1 (light) and 1.18:1 (dark) against its
-adjoining surfaces -- worse than the 1.27:1 that originally opened
-F-B21-24. `check_divider_contrast` (`frontend_gate.py`) read only
-`--shell-border`, so the gate stayed green while this divider stayed
-unreadable.
-
-Status: resolved in this fix. Added a dedicated `--ss-border-divider` token
-(`#858179` light, `#6e6a75` dark) applied only to `.index-form`'s
-`border-left`; `--ss-border-default` is untouched everywhere else in
-index.css. Measured against both adjoining surfaces in both themes: light
-vs page 3.65:1, vs sunken well 3.26:1 (binding); dark vs page 3.69:1, vs
-sunken well 3.37:1 (binding). `check_divider_contrast` now also reads
-`.index-form`'s rendered `border-left-color` in both engines.
-Source: Task 3 specification and standards review.
-
-### F-B21-37: PR #223 understates its refactor scope and omits its execution log
-
-PR #223 describes a loading.js-only refactor, but head a38044b also changes
-index filter labels and the shared Python retry helper without a PLAYBOOK entry.
-
-Status: Resolved -- PR #223 merged as 123b127 with corrected scope, a side-task
-log, and documented helpers. Validation passed 872 tests and the complete
-22-check, 31-run frontend gate in Chromium and Firefox. This was a review and
-documentation defect; the inspected diff did not establish a functional
-regression. GitHub closed issue #222 on merge despite the partial-scope body;
-it was reopened because the remaining complexity targets are not addressed.
-Source: Owner-requested PR #223 merge-readiness review, 2026-09-04.
-
-### F-B21-34: one captured snapshot kit URL lacked an explicit expectation
-
-The reference design README's URL capture still participated in live-kit
-comparison although its prose capture was pinned as historical evidence.
-
-Added the same snapshot expectation to that URL site. This completes the
-capture isolation without changing the Adobe kit, its fonts, or provider.
-
-Status: resolved, 2026-09-04.
-Source: late PR #221 review thread 3938613706; owner provider clarification.
-
-### F-B21-38: Task 2's fixed gutters and collapsed height could not protect its boundary states
-
-The proposed minimum alone could not fit the longest headline at 1200px, and
-the 673px natural-height guard described the collapsed form rather than the
-required decade-plus-open-threshold state.
-
-With fixed hero gutters, both engines measured a one-line album headline at
-0.63 and wrapping at 0.64, but the width term already selected 0.671875, so a
-lower clamp minimum could not change the rendered result. Scaling the hero
-gutters with the composition supports both mode headlines at 0.70; 0.71 wraps
-the album headline. This is the largest passing tested hundredth, measured
-2026-09-04 in Chromium and Firefox with Adobe Fonts loaded. Readability stays
-bounded at 12px; coarse-pointer targets and inputs keep their 44px and 16px
-lower bounds. Proportional relationships remain required from 1920px upward.
-
-The 2026-09-05 state sweep measured natural form heights of 673.3px collapsed,
-776.8px with decades, 812.3px with thresholds, and 915.8px with both. At the
-0.70 lower bound, the fully expanded form measures 769.4px because readable
-text wraps in the narrower card. The guard must account for reachable state,
-header and gutter space, and the lower bounds; multiplying the available
-height by the base factor would overrun it again.
-
-Status: resolved, 2026-09-05. The complete two-engine frontend gate passed in
-isolation (22 checks, 62 runs, Chromium and Firefox) after the state-sensitive
-height bounds landed. An earlier isolated run failed once in Chromium's
-pipeline state-machine check (30s timeout waiting for the heatmap hand-off)
-and once in Firefox with NS_ERROR_SOCKET_ADDRESS_IN_USE while unrelated
-browser work ran concurrently; neither reproduced in the clean isolated run,
-and both are attributed to environment contention, not the scale mechanism.
-Source: Task 2 implementation measurements, 2026-09-04 and 2026-09-05.
-
-### F-B21-39: Task 2 review found base-geometry drift and an untested gate helper
-
-The explicit-dimension sweep changed three authored `0.25rem` gaps to
-`0.375rem` and removed the mode tabs' `9rem` minimum. Because the scale token
-falls back to one outside wide desktop, those edits changed the mobile and
-unscaled composition rather than only scaling its existing geometry. The new
-desktop-boundary helper also had no adversarial unit test, and current-state
-documents retained contradictory pre-implementation wording.
-
-The review remediation restores the original gap and minimum-width bases while
-applying the layout factor, adds a wrapped-headline failure-path test for the
-helper, and reconciles the live Task 2 and two-engine statements. Qlty's three
-production-code comments are addressed in the same pass. Its Bandit B101
-reports target pytest assertions and do not describe production code.
-
-Status: resolved, 2026-09-05.
-Source: Task 2 specification and standards review; PR #224 Qlty and Graphify
-review comments.
-
-### F-B21-35: the proposed scale height guard ignored root-font enlargement
-
-Task 2's fixed 673px natural-height denominator would not follow its rem-sized
-content when the reader enlarged the root font.
-
-The production replacement expresses the measured denominator as 42.0625rem.
-The complete Chromium and Firefox gate validates a 20px root and restores page
-state after the check.
-
-Status: resolved in Task 2, 2026-09-05.
-Source: late PR #221 review thread 3938613711; Task 2 implementation.
-
-### F-B21-31: the remediation plan conflicted on counts and omitted a phase-copy reader
-
-Task 4 prescribed counted phase labels while the batch still prescribed
-operation-only copy, and its proposed mutable phase dictionary would leave `get_job_context`
-returning that nested object by reference.
-
-The owner reaffirmed visible counts on 2026-09-04, conditional on accurate
-polling, as the September 1 owner-remediation plan intended. The batch decision
-now records that override. The plan requires mutation-isolation assertions for
-both repository readers and the F-B21-33 accuracy prerequisites. This corrects
-the execution contract; the phase feature has not been implemented. The gaps
-predate the latest review fix, rather than being production regressions from it.
-
-Status: resolved in the plan, 2026-09-04; implementation remains Task 4.
-Source: PR #221 review threads 3938450404 and 3938450413.
-
-### F-B21-32: repository-authored PR documentation violated the ASCII rule
-
-The batch definition and reconciliation used a multiplication sign, and the
-published Graphify report used non-ASCII punctuation on 89 lines.
-
-Normalized those repository-authored files to ASCII without touching any of
-the 61 guarded design imports or the preserved Graphify data. The generated
-report introduced most violations; the branch-wide scan covers sibling claims.
-
-Status: resolved, 2026-09-04.
-Source: PR #221 review thread 3938450418.
-
-### F-WORKTREE-5: display-unsafe branch candidates were dropped before the conflict check
-
-`parse_batch_branch` filtered candidates through `is_display_safe_ref` and only
-then counted them, so a Section 3 naming both `wip/batch-21` and a second,
-Git-valid branch holding a non-ASCII letter resolved to the ASCII one instead
-of failing closed on conflicting metadata. The guard then reported an aligned
-checkout even though the document declared two different branches.
-
-The ordering was deliberate in the PR #170 round-2 remediation, on the
-reasoning that a candidate failing the predicate "can name no real branch".
-That reasoning did not hold: `is_display_safe_ref` is deliberately narrower
-than Git's ref rule, so a rejected candidate can still name a real branch.
-What the predicate decides is whether a value may be *rendered*, not whether it
-may *exist*.
-
-Fixed by counting distinct candidates before any filtering and raising the
-existing `GuardError` on a conflict; the display-safety filter now runs
-afterwards, only to decide what may be rendered. Both orderings are covered:
-removing the count-before-filter fails
-`test_a_display_unsafe_branch_still_counts_as_conflicting_metadata`, and
-removing the display-safety filter fails three forgery cases in
-`test_a_branch_value_cannot_repaint_the_diagnostic_line`. The superseded
-prescription in `docs/superpowers/plans/2026-08-05-worktree-safety-guard.md`
-carries a correction note so the plan cannot teach the defect again.
-Status: resolved 2026-08-14. Source: PR #170 review round 5 (Codex), reported
-independently by Copilot in round 6.
-
-### F-WORKTREE-1: Rebase merges leave linked branches history-diverged
-
-GitHub rebase merges rewrite commit identities on `main` without moving the
-linked worktree branch, producing a branch that is both ahead and behind even
-when its tree is identical; after PRs #163, #165, and #168 this repeatedly
-created a risk of phantom PRs, duplicate work, or an incorrect merge.
-Status: resolved 2026-08-05. Evidence: the read-only CLI distinguishes
-behind-only, identical-tree rebase artifacts, and true divergence; the
-canonical bootstrap stops on its errors; and live linked-worktree inspection
-reported the expected branch and ancestry without modifying Git. Review
-remediation adds final WT013 context to every offline result and keeps
-custom-base guidance aligned with the caller-selected ref. Final review
-remediation preserves the public facade; WT014 fails closed without traceback or
-sensitive runner text, and exact severity plus real CLI tests protect every WT
-code. Shared fixtures create host-appropriate tools; host-rendered missing-tool
-assertions and simulated POSIX inspection protect the Ubuntu CI boundary.
-Source: post-merge lineage investigations for PRs #163, #165, and #168.
-
-### F-WORKTREE-2: Linked worktrees cannot use the relative virtualenv path
-
-The sole `.venv` is gitignored under the primary checkout, so a fresh shell in
-a linked worktree cannot run the documented relative activation or test
-commands; an uninformed agent may create a forbidden second environment or
-fall back to bare pip and reproduce dependency drift.
-Status: resolved 2026-08-05. Evidence: the live linked-worktree guard reported
-Python, pytest, and pre-commit under the primary checkout's existing `.venv`,
-and AGENTS now forbids a second environment and requires those qualified paths.
-Source: repository-integrity design validation on 2026-08-05.
-
-### F-DOCSYNC-5: Operational doc metadata drifted across path and branch changes
-
-The live archive prologue and active-definition branch metadata drifted while
-`doc_state_sync.py --check` and CI remained green because prefixes were opaque,
-live-document references were only narrowly checked, and integrity warnings
-did not affect the exit code.
-Status: resolved 2026-08-05. Evidence: final-state CLI enforcement rejects
-conflicting test fields, dead optional-session references, non-unique tracked
-root definitions, and sanitized Git discovery failures; `pytest -q` measured
-**521 passed** with 3 existing warnings on the final combined remediation.
-Approved design:
-`docs/superpowers/specs/2026-08-05-repository-integrity-worktree-alignment-design.md`.
-Source: PR #168 pre-merge audit and follow-up root-cause investigation.
-
-### F-DOCSYNC-8: TOML array-of-tables scoping detached declaration sites into adjacent values
-
-In `.docsync.toml`, an intervening `[[value]]` table (`the wide-desktop scale cap`)
-inserted on 2026-08-28 after the 5th site of `the single 860px breakpoint`
-caused TOML's table-scoping rules to attach the remaining 9 breakpoint sites
-to the scale cap declaration instead of the breakpoint declaration. Because the
-scale cap lacked an `expect` assertion and those 9 sites did not match the
-scale cap's pattern, they silently went unvalidated for 9 days.
-
-Fixed by grouping all 14 breakpoint sites contiguously (including missing frontend
-files `loading.css`, `empty.css`, and `theme.js`), adding an explicit
-`expect` value to every site (`"860"` or `"859.98"`), separating the wide-desktop
-scale baseline and cap declarations, and adding a file-level architectural warning
-comment in `.docsync.toml` documenting TOML array-of-tables scoping hazards.
-Status: resolved 2026-09-06. Evidence: all 14 breakpoint sites validate under
-`the single 860px breakpoint` declaration and `pytest -q` is green.
-Source: docsync tooling audit, 2026-09-06.
-
----
-
-### F-DOCSYNC-9: Mixed expect values in value declarations bypassed consistency checks
-
-In `scripts/docsync/declarations.py:check_values`, sites that declared an `expect`
-parameter executed `continue` without appending their values to `captured`. When
-a declaration had some sites declaring `expect` and other sites omitting `expect`,
-the unannotated sites were cross-checked only against each other, completely
-ignoring disagreements with the expected value sites.
-
-Fixed by determining whether all `expect` annotations in a declaration share a
-uniform value, and if so, registering `(rel_path, expect)` in `captured` so that
-any unannotated site that deviates from the uniform expectation triggers a DOC009
-mismatch. Covered by unit tests `test_a_captured_site_that_disagrees_with_a_uniform_expected_site_fails`
-and `test_a_captured_site_that_agrees_with_a_uniform_expected_site_passes`.
-Status: resolved 2026-09-06. Evidence: 2 new unit tests in `tests/test_docsync_declarations.py`
-and all 73 declaration tests pass.
-Source: docsync tooling audit, 2026-09-06.
-
----
-
-### F-DOCSYNC-10: Unlabelled next-action claims bypassed Section 3 integrity enforcement
-
-In `scripts/docsync/integrity.py:_check_section3_next_wp`, if Section 3 did not
-contain a bullet matching `SECTION_3_NEXT_ACTION_RE` (`- **Next action:** ...`),
-`_section3_next_wp_claim()` returned `None`. The check treated this as absence of a
-claim and returned `None`, allowing unlabelled claims (e.g. `- Batch 21 WP status: ... WP-5 is next`)
-to silently bypass DOC007 next-action validation against Section 4 execution logs
-and the active batch definition.
-
-Fixed with a two-fold remediation:
-1. Hardened `_check_section3_next_wp` to inspect Section 3 for unlabelled `NEXT_WP_CLAIM_RE`
-   matches when `claimed is None`, raising a blocking DOC007 error requiring the
-   `- **Next action:**` bullet label. Covered by `test_doc007_section3_unlabelled_claim_blocks`.
-2. Restored the canonical `- **Next action:**` bullet label in `PLAYBOOK.md` Section 3.
-Status: resolved 2026-09-06. Evidence: `doc_state_sync.py --check` flagged the unlabelled
-claim on `PLAYBOOK.md:167` before remediation and passes cleanly after the label was restored.
-Source: docsync tooling audit, 2026-09-06.
-
----
-
-### F-DOCSYNC-4: per-batch logs were undiscoverable; tombstones retained
-
-Until 2026-07-31 the 18 `docs/history/logs/BATCHN_LOG.md` files were
-referenced by no working doc (PLAYBOOK Section 2 had no Log column), so
-batch history was reachable only via a directory glob. Fixed: Section 2
-gained a Log column and the AGENTS.md close-out procedure fills it per
-batch. Related disposition: the two ~300-byte
-`docs/history/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` and
-`docs/history/logs/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` are deliberate Batch 14
-"Moved:" tombstones kept
-for backward references -- not cruft, do not delete.
-Status: resolved 2026-07-31; rotates to the archive at Batch 21
-close-out. Source: PR #163 doc-hygiene pass.
-
-### F-SWE-1: SWE-principles audit -- executed 2026-08-20
-
-No differential check of the ten mandated software principles
-(AGENT_NOTES.md Owner Preferences) had run since the 2026-02 audits.
-`docs/SWE_AUDIT_CHARTER.md` chartered one on 2026-07-31 and was amended
-2026-08-19, after a preflight review found it could not work as the gate its
-position implies. The amendment named the 13 graded modules explicitly (130
-cells), excluded `scripts/docsync/` and `scripts/dev/` with stated reasons,
-defined the A/B/C/D rubric and the Boy Scout history window, read the whole
-finding corpus including the archive instead of a closed ID list, required a
-provenance block naming the audited SHA, and stated which findings block
-Batch 21 WP-1. The permission to cut modules to fit the budget was withdrawn.
-
-Executed 2026-08-20 against `1994673`, whose runtime code is identical to
-`bb187ae`. All 130 cells filled in one session: 74 A, 28 B, 8 C, 2 D,
-18 N/A. Six net-new findings, F-SWE-2 to F-SWE-7. The weakest principle is
-Fail Fast, holding five of the eight C grades. Mutation testing deleted all
-81 top-level functions in the graded modules one at a time and the suite
-caught every one, so there is no net-new test-vacuity finding. The audit
-returned **migration blocked by F-SWE-2** under charter Section 6, which is
-an owner decision: fix the two lines, or waive.
-
-The charter was retired in the same commit, per its own output contract.
-Status: resolved 2026-08-20; rotates to the archive at Batch 21 close-out.
-Report at `docs/history/reports/SWE_PRINCIPLES_AUDIT_2026-08-20.md`.
-Source: owner request 2026-07-31.
-
-### F-SWE-2: the album year window is built from naive datetimes
-
-`orchestrator.py:70-71` built the Last.fm fetch window with naive datetimes,
-so `.timestamp()` applied the host's local zone. The same shifted timestamps
-were reused to filter individual scrobbles. On a UTC-5 host, each boundary
-moved five hours into the requested year.
-
-This was the twin of F-B19-6 in `heatmap.py`. The standalone pre-WP-1 fix
-adds explicit UTC to both constructors. A deterministic regression drives
-`fetch_top_albums_async` through a simulated UTC-5 time boundary and asserts
-the literal UTC epochs passed to Last.fm; it failed against the naive window
-before passing against the corrected one.
-
-Status: resolved 2026-08-20; rotates to the archive at Batch 21 close-out.
-Source: SWE_PRINCIPLES_AUDIT.
-
----
-
 ## P1 -- Next batch candidates
 
-### F-B21-55: Results scaling left geometry fixed and collapsed in Firefox
+### F-DOCSYNC-13: the test count is parsed from prose when it could be measured
 
-The unfinished local Results scale changed text tokens but left Tailwind's
-named spacing tokens unchanged. At 1200px and 1920px Chromium viewports,
-row padding remained 12px and artwork remained 48px while the heading grew.
-The CSS length-division expression was also invalid in the installed Firefox:
-the desktop heading fell back to 16px and row padding to zero.
+`--fix` cannot publish a measured test count, and `--check` refuses a
+hand-written one. Both follow from the same design: `latest_test_count_authority`
+(`scripts/docsync/logic.py`) resolves the count by parsing `**N passed**` out
+of dated log entries under a total ordering, and DOC005, DOC006 and DOC008
+recompute that ordering and compare the named fields against it. A field
+edited to the number a real run produced is therefore drift, and is rejected.
 
-Resolved locally on 2026-09-09: a ResizeObserver supplies a numeric scale from
-the actual Results width and its 75rem baseline. Named spacing, artwork,
-controls and handwritten geometry share that scale; the existing 90rem page
-cap bounds growth at 1.2. Narrow layouts retain scale 1. No zoom or visual
-transform is used. The header remains independently sized.
+Measured 2026-09-20: the suite was 1522 passing while every dashboard field
+read 1497, because two entries dated the same day each carry a count and
+same-date precedence ranks the untagged side-task entry above the batch
+entries regardless of which was written later. That tie is F-DOCSYNC-11; this
+finding is the reason it cannot simply be overridden by hand.
 
-Chromium and Firefox now agree: at 1200/1920px, title 48/57.6px, row padding
-12/14.4px and artwork 56/67.2px (subpixel rounding allowed). Fourteen browser
-samples from 320px through 2560px show no document or table overflow. The
-Results interaction gate now compares rendered ratios and mobile recovery.
+**Why `--fix` does not just run pytest.** `docs/agents/global-rules.md` Rule 7
+lets the engine rewrite only what it can derive deterministically from facts a
+human already authored. Running a test suite is measuring the world, not
+deriving from an authored fact, and it would put a minute of test execution
+inside a documentation tool that the pre-commit hook calls.
 
-Status: resolved in the review follow-up. Source: owner scaling request and
-browser measurements, 2026-09-09. Evidence: PLAYBOOK Section 4.
+**Proposed shape, for the owner to rule on.** Let the author supply the
+measurement instead of the tool taking it: an explicit input --
+`--test-count N`, or a small machine-written artifact a test run drops -- that
+`--fix` writes into the managed block *and* the three hand-maintained fields
+(SESSION_CONTEXT Section 1's Tests row, its Section 6 heading, and the
+FINDINGS header), with `--check` comparing against the same input. The
+measurement stays human-authored, the copies stop being hand-typed, and the
+same-date tie stops mattering for every field a reader actually looks at.
+F-DOCSYNC-12 already records that `--fix` rewrites none of those three today.
 
-### F-B21-52: fractional Tailwind spacing steps compile to nothing, silently
+- [ ] **Status:** open (P1, owner-gated -- needs a decision on the input shape)
 
-`static/css/tailwind.src.css` sets `--spacing: initial` and `--spacing-*:
-initial`, then declares only whole steps: 1, 2, 3, 4, 6, 8, 12. That switches
-off Tailwind v4's dynamic spacing scale, so a fractional utility is not a
-smaller value -- it is an unknown token that emits no rule at all. `py-2.5`,
-`md:py-3.5`, `px-1.5`, `gap-1.5` and `py-0.5` are all absent from the compiled
-stylesheet, including in the build deployed to Fly.io.
-
-The failure is silent in every direction. The class stays in the markup, the
-Tailwind build reports success, and the drift check passes because the
-committed CSS does match a rebuild -- a rebuild that also omits the rule. Only
-a computed-style read finds it.
-
-This is what cost the Results KPI rail its padding. The deployed markup used
-`p-3` (a real step, 0.75rem on all sides) plus `md:px-4`; the WP-5 rebuild
-replaced it with `px-1.5 py-2.5`, and both evaporated, leaving the cells with
-**zero vertical padding** and the label 1px from the outline. Restored
-2026-09-09 by authoring the deployed geometry in `static/css/results.css`
-against the declared scale, which also recovered the dead `gap-1.5` row gap
-and `py-0.5` numeral padding.
-
-Two candidate fixes, and the choice is the owner's:
-
-1. Restore Tailwind's dynamic scale by setting `--spacing: 0.25rem` instead of
-   `initial`, keeping the named steps as aliases. Fractional utilities then
-   work everywhere and the theme keeps its vocabulary.
-2. Keep the restricted scale deliberately -- it is a real design constraint --
-   and add a check that fails when a template requests a spacing step the
-   theme does not declare. This is the option that prevents recurrence rather
-   than permitting the syntax.
-
-Until one lands, the same trap is live for every future template edit. A grep
-for `-\d+\.5` across `templates/` finds current instances.
-
-Status: open. The Results instance is fixed; the class of defect is not.
-Source: owner-reported stat-bar padding regression, 2026-09-09.
+Source: Batch 22 close-out, 2026-09-20.
 
 ### F-B21-53: the surface-card token now sits darker than the page it lifts off
 
@@ -690,33 +186,11 @@ page, or accept that cards are delineated by rule rather than by fill and stop
 describing them as elevated. The dark theme is unaffected (`#181520` card on
 `#0e0c12` page is a clear lift).
 
-Status: open for the general card token. The owner warmed the page/navbar
+- [ ] **Status:** open for the general card token
+Was recorded as: open for the general card token. The owner warmed the page/navbar
 canvas and selected midpoint surfaces for Results; PLAYBOOK Section 4 records
 that refinement. The comparisons above describe the previous canvas.
 Source: owner-reported stat-bar background regression, 2026-09-09.
-
-### F-B21-49: four error-page callers painted a 400 badge on a 200 response
-
-The missing-ID and unavailable-job branches in `_get_validated_job_context`,
-plus the failed and still-processing branches in `_render_results_page`,
-omitted both an explicit badge and an HTTP status. Flask returned 200 while
-the template displayed its default 400. The earlier description incorrectly
-called the fourth site an expired-results branch; it was pending results.
-
-The owner-authorized priority pass now returns matching HTML/status pairs:
-400 for a missing identifier, 404 for unavailable or wrong-mode jobs, 202 for
-pending results, 503 for retryable processing failure, 404 for an unknown
-Last.fm user, and 500 for an unclassified processing failure. The 404 choice
-matches the existing JSON APIs: no tombstone distinguishes an expired job
-from one that never existed. Saved Results and Unmatched empty states retain
-HTTP 200 and clear stale session pointers.
-
-Validation and comment provenance:
-[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
-
-Status: resolved in the review follow-up; closes the remaining call-site
-half of F-B21-10.
-Source: PR #227 TODO verification and owner-authorized priority fix, 2026-09-09.
 
 ### F-B21-50: reconnaissance TODOs in production code generated eight review rounds
 
@@ -829,6 +303,7 @@ browser-coupled ones and still need the gate runnable to prove parity.
 
 Source: PR #227 commit-range audit, 2026-09-09.
 
+
 ### F-B21-48: Last.fm history is re-fetched because only page responses are cached
 
 Every album and Heatmap job calls `user.getrecenttracks` for its requested
@@ -847,115 +322,6 @@ Status: open. Keep this out of F-B21-47: it changes shared pipeline data and
 needs its own schema, completeness rules, and parity tests.
 Source: owner pipeline-performance observation and source cache audit,
 2026-09-06.
-
-### F-B21-36: heatmap loading repeats context and reserves hidden stat columns
-
-The loading detail repeats the active phase, the lone page stat occupies the
-left third of a three-column grid, and the parameter summary adds rocket-scale
-copy that does not help the current wait.
-
-Status: resolved 2026-09-05; rotates to the archive at Batch 21 close-out.
-Source: annotated owner heatmap-loading screenshot, 2026-09-04.
-
-### F-B21-33: heatmap progress can apply stale responses and mislabel failed pages
-
-Heatmap's interval polls can overlap and apply an older response after a newer
-one, while its received-page stat temporarily counts failed fetch attempts.
-
-A Node probe executed the current `pollProgress` function with held fetch
-responses: two timer ticks created two requests, and resolving the newer
-response before the older one left the older phase label visible. The client
-also reads mutable `currentJobId` when requesting results, so a response from
-an earlier job must be invalidated on replacement. Album polling instead
-schedules its next request after the preceding response.
-
-In `lastfm.py`, `completed` increments before checking whether a page result
-exists; `_heatmap_progress` writes this count to `pages_received`. Final fetch
-metadata corrects it to `len(all_pages)`, so a failed page can make the displayed
-received count fall at phase completion. Attempt counts are valid phase work
-but must not be presented as successfully received data.
-
-Status: resolved 2026-09-05; rotates to the archive at Batch 21 close-out.
-Source: owner-requested polling audit, 2026-09-04; current Last.fm callback,
-heatmap worker and browser polling, plus reversed-response execution probe.
-
-### F-B21-1: a failed event-loop setup leaks a job slot
-
-`background_task` (`scrobblescope/orchestrator.py`) and `heatmap_task`
-(`scrobblescope/heatmap.py`) build the event loop before the `try` block that
-holds the `release_job_slot()` call in its `finally`. If `ProactorEventLoop()`,
-`new_event_loop()`, or `set_event_loop()` raises, the function exits without
-reaching the `finally`, and the acquired slot is never returned. The semaphore
-is a `BoundedSemaphore` in module state, so a leaked slot stays lost until the
-process restarts. `MAX_ACTIVE_JOBS` defaults to 5, so the site stops accepting
-jobs once that many failures have leaked a slot each. A deployment that
-overrides the environment variable exhausts at its own configured capacity, so
-read the count from the configured value rather than from the default.
-
-The trigger is rare, which is why this is a candidate and not a P0. The fix is
-small: move the loop construction inside the `try`, or acquire the slot after
-the loop exists.
-
-Found while checking the Top Albums and heatmap sequence diagrams against the
-code. The diagrams record that the release in finally is always reached because
-loop setup is inside the try block.
-Status: resolved locally in the Batch 21 WP-7 deviation, pending commit; loop
-setup moved inside the try block in both `background_task`
-and `heatmap_task`, with defensive cleanup in `finally`.
-Source: PR #171 diagram verification, 2026-08-15; verified with TDD mutests 2026-09-10.
-
-### F-B21-2: three dormant Tailwind seams that WP-2 meets at once
-
-WP-1 shipped the compiled Tailwind and daisyUI CSS, but no template consumes
-it, so three defects sit dormant and the first migrated template hits all
-three together.
-
-**Nothing sets `data-theme`.** daisyUI keys both themes on that attribute.
-The live control was `body.classList.toggle('dark-mode')` in
-`static/js/theme.js`, which no daisyUI rule reads. A migrated template
-therefore renders the light theme in both modes. `BATCH21_DEFINITION.md` WP-2
-already prescribes the remedy: `theme.js` dual-writes `data-theme` and
-`.dark-mode`.
-
-**`prefersdark: true` compiles to an always-on rule.**
-`prefersdark: true` in the dark `@plugin "daisyui-theme.mjs"` block of
-`static/css/tailwind.src.css` compiles to a `:root:not([data-theme])` rule
-inside a dark media query in the generated `static/css/tailwind.css`. While nothing carries
-`data-theme`, that selector matches every page, so an OS-dark visitor gets
-dark daisyUI colours whatever the in-page toggle says. Setting `data-theme`
-settles this seam too, which is why the two are one finding.
-
-**Bootstrap loads unlayered and therefore wins.** `templates/base.html`
-loaded Bootstrap 5.1.3 from cdnjs with no `@layer`, while
-the generated `static/css/tailwind.css` opens with
-`@layer theme, base, components, utilities`. Unlayered styles beat layered ones at any specificity, so
-Bootstrap wins every shared class name. The compiled CSS emits ten daisyUI
-component classes -- `.alert`, `.btn`, `.card`, `.input`, `.modal`,
-`.select`, `.tab`, `.tabs`, `.toast`, `.toggle` -- and Bootstrap defines
-several of the same, `.btn`, `.card`, `.modal`, `.alert` and `.toast` among
-them. `static/css/global.css`, loaded next to it, is unlayered as well.
-The remedy is already locked and this finding defers to it:
-`BATCH21_DEFINITION.md` WP-2 moves the Bootstrap link into a per-page block
-so each template loads exactly one framework stylesheet. That removes the
-collision rather than re-ordering it, and it supersedes the cascade-layering
-approach this finding first proposed. This is a cascade-ordering defect,
-distinct from the CDN-provider split in F-B20-3, which Batch 21 closes by
-removing Bootstrap at WP-8.
-
-Nothing is broken in production today, which is why WP-1's gates passed over
-all three.
-
-**Resolved by WP-2 on 2026-08-23.** All three seams are closed. `theme.js`
-dual-writes `data-theme` on `<html>` and `.dark-mode` on `<body>`, and an
-inline script in `base.html` sets the attribute before first paint. Setting
-it always also stops the `:root:not([data-theme])` rule matching, which
-settles the `prefersdark` seam. The Bootstrap link and `global.css` moved
-into a per-page `legacy_css` block, so each page loads exactly one framework
-stylesheet and the two frameworks never meet. The frontend gate asserts all
-three, and `tests/test_template_shell.py` asserts the stylesheet rule for
-every page.
-Status: resolved (Batch 21 WP-2, 2026-08-23). Source: WP-1 final review,
-2026-08-20.
 
 ### F-B21-3: 115 dependency advisories, and unused packages ship to production
 
@@ -1018,11 +384,14 @@ screens:
 3. **Results KPIs.** The README specifies three sidebar stat blocks. The
    review says two of them restate row 1 of the list, and only albums matched
    versus albums seen earns a card.
-4. **Unmatched fix line.** The README sets it at 9px mono uppercase. The
-   review says the most actionable text in the product is at the smallest,
-   hardest-to-read size, and asks for 11px sentence case.
+4. **Unmatched fix line -- DECIDED 2026-09-13 (owner), 12px.** The README sets
+   it at 9px mono uppercase. The review says the most actionable text in the
+   product is at the smallest, hardest-to-read size, and asks for 11px sentence
+   case. The owner ruled 12px mono, still uppercase, for the fix hint and the
+   per-panel "albums" label. It meets the 12px floor RECONCILIATION section 1
+   records. See RECONCILIATION section 16, Superseded 5.
 
-`BATCH21_DEFINITION.md` encodes the README's side on the first two: WP-3 says
+`docs/history/definitions/BATCH21_DEFINITION.md` encodes the README's side on the first two: WP-3 says
 "Editorial hero", WP-4 specifies the pinwheel, bar, phase label, four-KPI
 strip and chip row together.
 
@@ -1038,60 +407,6 @@ builds the screen -- WP-3 hero, WP-4 loading, WP-5 results KPIs, WP-7 fix line
 finding by ruling on all four at once. Cross-references F-B21-2.
 Source: design handoff import, 2026-08-21. Owner ruling on precedence the
 same day. See `docs/design/RECONCILIATION.md`.
-
-### F-B21-5: accessibility defects the design handoff does not resolve
-
-Three defects verified against the code while importing the handoff. They are
-behaviour, not taste, which is why they are filed apart from F-B21-4. The
-design bundle names all three but ships no remedy for any of them.
-
-- **Opacity used as a text colour.** `static/css/heatmap.css:174` and `:188`
-  set `opacity: 0.5` on KPI label text. That lands under 4.5:1 in both themes.
-  A real muted token fixes it; transparency cannot, because the effective
-  contrast depends on whatever sits behind.
-- **Mode pills are not buttons.** `templates/index.html:21-22` renders them as
-  `span[role="button"][tabindex="0"]`. The bundle's `ModeTabs` uses real
-  `<button>` elements. WP-3 rebuilds this element anyway.
-- **`prefers-reduced-motion` does not reach SMIL.** The pinwheel and the logo
-  bars animate through `<animate>`, which ignores the CSS media query. The
-  handoff calls reduced motion non-negotiable and specifies the CSS keyframe
-  route for the wordmark.
-  **Partly resolved on 2026-08-23, PR #216 review round three.** The header
-  lockup took the CSS route the handoff specifies: the SMIL is stripped from
-  `templates/inline/scrobble_scope_lockup_inline.svg` and `shell.css`
-  animates the bars with a reduced-motion guard. That instance was the
-  urgent one, because WP-2 had moved the mark into a fixed header on every
-  page where it never scrolls out of view.
-  **Still open:** `templates/inline/scrobblescope_pinwheel.svg` and the
-  index hero copy of `scrobble_scope_inline.svg` both still carry SMIL.
-  Strip them the same way rather than reaching for `svg.pauseAnimations()`;
-  the CSS route is what the handoff asks for and it needs no JavaScript.
-  WP-3 owns the index page and can close both.
-  **Resolved 2026-08-25.** WP-3 stripped the SMIL from both. A test asserts
-  no rendered page contains `<animate>` at all, and a second asserts every
-  inline mark carries the wrapper class the CSS animation keys on -- an
-  unwrapped mark is frozen with no error anywhere.
-
-**Settled, recorded here so it is not re-opened as a conflict.** The mobile
-input size looked like a fifth item: `static/css/index.css:158` forces
-`font-size: 16px` on `.form-control` to stop iOS auto-zoom, while the README
-specifies mono inputs down to 9.5px. It is not a conflict. The canonical
-bundle's own `docs/design/components/forms/Input.prompt.md` opens with "On
-mobile keep the rendered font-size at 16px or larger to stop iOS auto-zoom."
-The README's sizes are desktop values. **Keep the override.**
-
-Status: resolved 2026-08-25 by WP-3, all three items.
-
-- The KPI labels take `var(--ss-text-muted)` in the rewritten
-  `static/css/heatmap.css`; the `opacity: 0.5` text is gone. A real token was
-  the prescribed fix and it is what shipped.
-- The mode pills are `<button>` elements. A test asserts both, and asserts
-  that no `role="button"` survives anywhere on the page -- the class, not the
-  instance.
-- The SMIL is gone from every mark on every page, animated from CSS keyframes
-  with a reduced-motion guard.
-
-Source: design handoff import, 2026-08-21.
 
 ### F-B21-6: the year gate reads host-local time, the fetch window reads UTC
 
@@ -1125,47 +440,6 @@ Status: open. Found in the WP-1 review on 2026-08-20 and left unfiled; filed
 and re-verified against the code 2026-08-22.
 Source: WP-1 parallel review.
 
-### F-B21-7: the toolchain integrity test patches away the code it names
-
-Two independent defects in `scripts/dev/tailwind_build.py` and its tests. Both
-were verified by running them, not by reading.
-
-**The `bin_dir` plumbing is untested.**
-`tests/scripts/dev/test_tailwind_build.py:301-302` patches
-`required_artifacts` *and* `ensure_artifact` in the same `with` block, so no
-integrity code executes inside the one test that names the property. Its
-assertion reads `call.args[0]` only, which is the spec -- the `bin_dir`
-keyword is never inspected. Deleting `bin_dir=bin_dir` from
-`tailwind_build.py:293` leaves **the whole 633-test suite green**, not merely
-the 35 toolchain tests. A mutant that redirects every cached artifact to the
-default directory is invisible. The test needs to assert the keyword, or to
-stop patching `ensure_artifact` and let a `tmp_path` prove the routing.
-
-**A truncated download is reported as tampering.**
-`_download_verified` catches `(OSError, URLError)` at
-`tailwind_build.py:242`, and `main` catches
-`(TailwindBuildError, subprocess.CalledProcessError, OSError)` at `:334`.
-`http.client.IncompleteRead` subclasses `HTTPException`, not `OSError`, so it
-passes through both handlers and reaches the user as a raw traceback. Worse
-is the quiet case: when a connection closes cleanly mid-body, `response.read`
-simply returns empty, the loop ends, and the short file fails the digest
-check -- so a network truncation surfaces as `SHA-256 mismatch`, which reads
-as a supply-chain compromise. An operator seeing that message will
-investigate the wrong thing. Distinguish short reads from digest mismatches
-before the message is trusted.
-
-**Resolved by WP-2 on 2026-08-23.** Both halves are fixed. The test now
-asserts the `bin_dir` keyword on every call, and the mutation was re-run to
-prove it: deleting `bin_dir=bin_dir` fails that one test where it previously
-left all 633 green. `_download_verified` counts received bytes, compares them
-against `Content-Length` before hashing, and reports a truncated download
-rather than a digest mismatch; it also catches `http.client.HTTPException`,
-so `IncompleteRead` no longer escapes as a raw traceback. A chunked response
-sends no `Content-Length`, and that case skips the comparison rather than
-reading the absent header as zero.
-Status: resolved (Batch 21 WP-2, 2026-08-23). Found in the WP-1 review on
-2026-08-20 and left unfiled; filed 2026-08-22 after the mutation was run.
-Source: WP-1 parallel review.
 ### F-B21-8: Tailwind scanned the whole repository, and no test would say so
 
 `@source` **adds** to Tailwind v4's automatic source detection; it does not
@@ -1218,9 +492,15 @@ What a sync needs: open an issue for each finding that has none, close the
 issue when its finding resolves, and never write back to `FINDINGS.md`. The
 file stays the source of truth. Issues are a read-only mirror.
 
-Status: open, deferred on purpose. The owner accepted the drift on
+**Owner ruling, 2026-09-20:** the sync has to run in both directions --
+GitHub issues to `FINDINGS.md` as well as out -- so neither side can become
+the only place a defect is recorded.
+
+- [ ] **Status:** open, deferred by owner decision
+Was recorded as: open, deferred on purpose. The owner accepted the drift on
 2026-08-22 and asked that the work be recorded rather than done now.
 Source: findings mirror, 2026-08-22.
+
 
 ### F-B21-10: error-page fallback can report 400 for other statuses
 
@@ -1235,37 +515,11 @@ actual status or explicitly hide the badge for a normal empty state. The
 template fallback remains for compatibility; app.py's CSRF handler uses that
 400 default and also returns HTTP 400, so its badge already agrees.
 
-Status: resolved locally. F-B21-49 closes the remaining call sites; its
+- [ ] **Status:** resolved locally, pending deploy
+Was recorded as: resolved locally. F-B21-49 closes the remaining call sites; its
 priority-fix commit and publication are pending.
 Source: WP-2 template migration, 2026-08-23; PR #227 review, 2026-09-07;
 call-site measurement, 2026-09-09.
-
-### F-B21-11: the welcome modal covers the new header theme toggle
-
-WP-2 puts a standing header bar on every page at `z-index: 1030`.
-`index.html` opens the welcome modal on load, and Bootstrap's
-`.modal-backdrop` sits at `z-index: 1050`. The backdrop therefore covers the
-header, and the theme toggle cannot be clicked while the modal is open. This
-was found by the frontend gate, which timed out trying to click the control;
-`document.elementFromPoint` at the toggle's centre returns
-`div.modal-backdrop`.
-
-The header z-index is not the defect. A modal should cover a header. The
-defect is that this modal opens by itself on page load, so the toggle is
-unreachable on first visit.
-
-`BATCH21_DEFINITION.md` owner decision 2 already deletes the welcome modal at
-WP-3, which removes the cause. Nothing is needed beyond that, but the
-interaction is recorded so the deletion is not treated as cosmetic.
-
-The frontend gate's theme-persistence check runs on a migrated page rather
-than the index for this reason, and says so in its docstring.
-
-Status: resolved 2026-08-25. WP-3 deleted the welcome modal, so nothing
-covers the header on the index. The gate's theme-persistence check now runs on
-every migrated page including `/`, and passes at both viewports, which is the
-evidence rather than the deletion itself.
-Source: WP-2 frontend gate run, 2026-08-23.
 
 ### F-B21-12: four pinned CI actions target a deprecated Node runtime
 
@@ -1312,7 +566,7 @@ only. So two of the three legs are hand-maintained and unread.
 Both drifted in Batch 21 and both were caught by PR review rather than by a
 gate:
 
-- `BATCH21_DEFINITION.md` still said WP-2 was next after WP-2 shipped. WP-1's
+- `docs/history/definitions/BATCH21_DEFINITION.md` still said WP-2 was next after WP-2 shipped. WP-1's
   plan carried updating that line as an explicit task, WP-2's did not, and
   PR #170 had already made the same correction once for WP-1. Second
   occurrence of the same line going stale.
@@ -1385,7 +639,7 @@ reaffirmed it on 2026-08-23.
 
 The split only pays for itself alongside the deferred
 `GET /heatmap/<username>` item under "Out of scope" in
-`BATCH21_DEFINITION.md`. Without a route, a separate template cannot be
+`docs/history/definitions/BATCH21_DEFINITION.md`. Without a route, a separate template cannot be
 reached, linked or shared, and the frontend gate cannot see it either --
 which is the same reason `LEGACY_PAGES` is empty.
 
@@ -1395,68 +649,6 @@ without inheriting the index's script wiring.
 
 Status: open, deferred. Do this with the GET route or not at all.
 Source: Batch 21 WP-3, owner decision 3, 2026-08-23.
-
-### F-B21-16: unmatched.html loads a Bootstrap bundle nothing on it uses
-
-`templates/unmatched.html` pulls the Bootstrap JS bundle, and no `data-bs-*`
-attribute on that page uses it. It may already be dead weight, in which case
-WP-7 deletes a script tag rather than migrating a dependency.
-
-Check rather than assume. The quick-view modal was deleted earlier in this
-batch's plan and the bundle may simply have outlived it, but a `dropdown` or
-`collapse` initialised from `unmatched.js` would not show up in a
-`data-bs-` grep.
-
-Status: resolved in Batch 21 WP-7. Verified no JS dependencies exist, removed
-`bootstrap.bundle.min.js`, and enforced via `test_template_shell.py::test_a_migrated_page_loads_no_bootstrap_javascript`.
-Source: Batch 21 WP-3 review of the remaining legacy pages, 2026-08-25; verified 2026-09-10.
-
-### F-B21-17: a third of this batch's review comments were one fact written twice
-
-By the review point that opened this finding, Codex had raised nineteen
-comments across PR #216 and PR #218. Six of that first set -- 32 percent --
-were not logic defects at all. They were a single fact recorded in more than
-one place, where the copies had drifted:
-
-- the mobile breakpoint, 860px in `heatmap.css` and 768 in `heatmap.js`;
-- the `limit_results` reversal, recorded as a deviation in the plan while
-  five normative copies still prescribed the old placement;
-- the WP-3 checkpoint, stale in PLAYBOOK Section 3 and SESSION_CONTEXT;
-- the test count in the FINDINGS header;
-- the batch definition's next-work-package line;
-- a cross-reference naming the units rule by the AGENTS.md section it used
-  to sit in, which broke in the same commit that moved it to a new one.
-
-The last one is the argument for a mechanical check rather than a better
-rule. `F-STYLE-1` already says to cite by name and not by line number, and
-that citation *was* by name -- the name itself moved. A written rule cannot
-catch this class; only something that resolves the reference can.
-
-**Proposal, owner-approved 2026-08-25 to build after WP-3 closes.** Three
-checks beside the existing DOC001 to DOC008, driven by a declarations file so
-the mechanism carries to another repository unchanged:
-
-1. **value** -- a canonical source and the mirrors that must agree with it.
-   Catches a constant duplicated across a stylesheet and a script.
-2. **anchor** -- a cross-reference must resolve to a heading or list item
-   that exists. Catches the broken citation above.
-3. **retired** -- a phrase that is no longer true, plus the regions where it
-   may still appear. Point-in-time log entries are exempt by design; one
-   declaration finds every normative copy.
-
-Stdlib only, and it inherits the pre-commit wiring the docsync package
-already has.
-
-Status: resolved 2026-08-25. Built as DOC009, DOC010 and DOC011 in
-`scripts/docsync/declarations.py`, declared in `.docsync.toml`, stdlib
-only. Each check was proved against the real defect it was built for by
-restoring that defect and watching the check name it. On its first run,
-before any test existed, it found `static/css/shell.css` stopping at
-`max-width: 860px` where every other stylesheet stops at `859.98px` --
-so both the mobile and desktop rules applied at exactly 860 -- and
-`AGENTS.md` describing the integrity codes as DOC001-DOC006, four checks
-after that stopped being true.
-Source: Batch 21 WP-3 review analysis, 2026-08-25.
 
 ### F-B21-18: browser JavaScript has no automated unit coverage
 
@@ -1539,7 +731,7 @@ Two canonical heatmap requirements have no ruling and do not match the PR:
 
 - `docs/design/components/heatmap/HeatmapFrame.prompt.md` requires four
   stacked, season-labelled 13-week strips on a phone with the same cell size.
-  `BATCH21_DEFINITION.md` and the WP-3 plan also say to keep the 14px cell.
+  `docs/history/definitions/BATCH21_DEFINITION.md` and the WP-3 plan also say to keep the 14px cell.
   `renderHeatmapMobile()` instead chooses 10 to 28 columns and 18px to 28px
   cells from container width, producing one unlabelled sequential grid. The
   product README was rewritten to describe that implementation, but the
@@ -1582,67 +774,6 @@ already rebuilt stylesheet.
 
 Status: open. Owner decision required; not assigned to a work package.
 Source: PR #218 final verification, 2026-08-25.
-
-### F-B21-21: the index hero wordmark ignores the theme
-
-Measured on the deployed page, both themes, `data-theme` set on `<html>`:
-
-| mark | light | dark |
-| --- | --- | --- |
-| header `.site-header__mark` | ink `#1a1820`, bars `#6a4baf` | ink `#f1ede4`, bars `#b39dde` |
-| hero `.index-hero__mark` | ink `#000000`, bars `#6a4baf` | ink `#000000`, bars `#6a4baf` |
-
-The hero mark is frozen. Its letterforms are pure black in both themes, so on
-the dark page background (`#0e0c12`) they are nearly invisible. Owner reported
-it as the main visual defect after the PR #218 deploy.
-
-Both wrappers include the same asset, `inline/scrobble_scope_lockup_inline.svg`,
-and both carry the shared `ss-mark` class. Only the header is coloured:
-
-```css
-/* static/css/shell.css */
-.site-header__mark svg .cls-1        { stroke: var(--shell-accent); }
-.site-header__mark svg #logo-text path { fill: var(--shell-ink); }
-```
-
-Unstyled, the asset falls back to its own embedded `<style>`, which pins
-`stroke: #6a4baf`, and the letterforms have no fill rule at all, so the user
-agent paints them black.
-
-`global.css` had the equivalent rules unscoped, matching any SVG on the page:
-
-```css
-.dark-mode svg .cls-1 { stroke: var(--bars-color); }
-.dark-mode svg #logo-text path, .dark-mode svg #tagline path { fill: var(--text-color); }
-```
-
-The four unmigrated Bootstrap pages still load `global.css` and still look
-right. The migrated index page does not load it, and `shell.css` replaced the
-rule at a narrower scope, so the hero fell through the gap. This is the PR #216
-round-three lesson in mirror image: there the defect came from deleting a
-container without checking what it styled; here it comes from reusing an asset
-under a new container without carrying its styling across.
-
-Remedy, four lines: move both declarations from `.site-header__mark` to the
-shared `.ss-mark`, which both wrappers already carry. `--shell-ink` and
-`--shell-accent` are defined on `:root` and `:root[data-theme="dark"]`, so they
-resolve anywhere. Add a frontend-gate check asserting that every `.ss-mark` on
-a migrated page changes its computed fill between themes; the existing gate
-cannot see this, because no check reads a colour off an inline SVG.
-
-Not animation. Measured `animate`/`animateTransform` count is 0 on all three
-index marks; the only CSS animations target `#horizontal_bars` and the
-pinwheel. What reads as moving text is the bars pulsing beside it.
-
-Status: **resolved** 2026-08-26. `.index-hero__mark` joins `.site-header__mark`
-on both declarations in `shell.css`, and the hero now measures ink `#1a1820`
-light / `#f1ede4` dark, identical to the header. `.ss-mark` is not yet the
-selector: `shell.css` loads after `global.css`, so a rule on the shared class
-would also win on loading, results and unmatched, whose values differ and
-which no gate can render. WP-8 makes that move when `global.css` retires.
-`check_mark_follows_theme` in the frontend gate now fails if a migrated
-wrapper is missed; reverting the fix reproduces the failure by name.
-Source: owner review of the deployed merge, 2026-08-26. Verified in Chromium.
 
 ### F-B21-22: theme follows the system only until the toggle is first used
 
@@ -1834,6 +965,65 @@ the documented exit 2; and a file deleted on disk with the deletion
 unstaged still counts as tracked.
 Status: open. Source: PR #169 independent review.
 
+### F-DOCSYNC-11: same-date precedence hides a batch count recorded after a side task
+
+`latest_test_count_authority` in `scripts/docsync/logic.py` orders candidates by
+date, then by source precedence, and ranks a live side-task entry above a
+current-batch entry on a shared date. Its docstring states the assumption: "A
+side-task entry is written after the batch entry it follows."
+
+The assumption fails whenever batch work resumes on the same day as a side
+task. Reproduced 2026-09-12: the side-task entry "Planning records preserved"
+recorded **1026 passed** that morning, and the WP-7 entry written hours later
+recorded **1028 passed** after two tests were added. The older count stayed
+authoritative, so SESSION_CONTEXT and the FINDINGS header, both correct at 1028,
+failed DOC006 and DOC008. The only compliant remedies were to publish a
+superseded number or to restate the count in a side-task entry.
+
+Position within each source already encodes recency; the cross-source tie-break
+is where it is lost. A fix needs a design decision about what "newer" means
+across the two lists, so it is recorded rather than patched.
+
+**Reproduced again, 2026-09-14 (Batch 22 Task 8):** the
+DB-connect-timeout side-task entry (same day) recorded **1081 passed**;
+Task 8's own current-batch entry, written later that day, recorded
+**1085 passed**. The authority stayed at 1081. Unlike the 2026-09-12
+case, hand-correcting SESSION_CONTEXT/FINDINGS to the true count (1085)
+was tried and rejected by `--check` outright (DOC005/DOC006/DOC008
+recompute the same authority and compare against it), where the earlier
+case's fix (F-DOCSYNC-12) only ever applied to fields the renderer never
+recomputes. Confirms the same mechanism generalizes: a current-batch entry
+written on a day that already has a side-task entry can have its count
+silently shadowed until this is fixed.
+
+Status: open (P1). Source: Batch 21 WP-7 follow-up, 2026-09-12; reproduced
+Batch 22 Task 8, 2026-09-14.
+
+### F-DOCSYNC-12: `--fix` does not rewrite two of the three fields DOC006 checks
+
+`doc_state_sync.py --fix` only ever writes the "Latest validated test
+count" line inside `.claude/SESSION_CONTEXT.md`'s `DOCSYNC:STATUS` block
+(`scripts/docsync/renderer.py`). DOC006
+(`scripts/docsync/integrity.py::SESSION_CURRENT_COUNT_RES`) checks that
+line plus two more: the Section 1 "Tests" dashboard row and the Section 6
+"Test structure (N tests)" heading. Neither of those two is ever rewritten
+by `--fix`, so they can drift indefinitely -- reproduced 2026-09-14: both
+sat at a hand-written "1036" untouched since 2026-09-11 through several
+`--fix` runs across three later PLAYBOOK entries (1069, 1079, 1081
+passed), each of which apparently updated the STATUS block correctly
+without tripping DOC006. Why those earlier checks did not already fail on
+the same mismatch is not established here -- worth checking before
+assuming the mechanism above is the whole story. `FINDINGS.md`'s header
+count line has the identical problem under DOC008: also hand-written,
+also never rewritten by `--fix`.
+
+Fix candidates: extend the renderer to also rewrite the Section 1 row,
+the Section 6 heading, and the FINDINGS header from the same authoritative
+count, or fold all three into one place `--fix` actually owns.
+
+Status: open. Source: Batch 22 WP-1, DB-connect-timeout side task,
+2026-09-14 (fix commit `c724ebc`).
+
 ### F-WORKTREE-3: guard boundaries outside the design decision table
 
 Confirmed but unaddressed: between batches the guard skips every ancestry
@@ -1902,14 +1092,17 @@ roadmap; absorbs F-B18-7. Status: open. Source: Batch 18 audit.
 JS bundle from jsdelivr; other pages use cdnjs. The original remedy
 (consolidate to one provider before a Bootstrap 5.1 -> 5.3 upgrade) is
 dead: Batch 21 removes Bootstrap entirely and resolves the split by
-elimination (`BATCH21_DEFINITION.md` WP-8 "closes F-B20-3").
+elimination (`docs/history/definitions/BATCH21_DEFINITION.md` WP-8 "closes F-B20-3").
 Status: open; closes at Batch 21 WP-8. Source: F-B19-4 owner review.
 
 ### F-B20-4: UI overhaul (driven by owner audit)
 
 Scope, locked decisions, and acceptance criteria live entirely in
-`BATCH21_DEFINITION.md` (active batch) -- this entry is a pointer, not a
-second copy. Status: in progress (Batch 21 active, WP-0 done).
+`docs/history/definitions/BATCH21_DEFINITION.md` (active batch) -- this entry is a pointer, not a
+second copy. Status: in progress (Batch 21 active; WP-0 through WP-5 and
+WP-7 are complete, WP-6 is absorbed into WP-3, and WP-8 awaits owner
+direction). Matches the file header above; corrected 2026-09-12, when this
+line still read "WP-0 done".
 Source: owner audit (UI Audit v3) + F-B19-4 owner review.
 
 ### F-B18-11: heatmap Last.fm page fetch is rate-limit bound
@@ -1931,20 +1124,6 @@ literal -- deployments that override the env var must show their own
 capacity, and a literal silently goes stale at the next default change
 (it read "N/10" until 2026-07-31).
 Status: open. Source: load testing 2026-03-04.
-
-### F-AUDIT-1: dark-mode toggle placement on mobile
-
-Fixed-position footer toggle may overlap content on small screens. Batch 21
-first moved the toggle into the standing header bar; later mobile review found
-that this made it compete with the two-row navigation instead.
-
-**Resolved by WP-2 and owner mobile review.** The fixed footer bar is deleted.
-The same theme control sits in the standing header on desktop and moves into
-normal flow after page content on mobile, where it cannot cover content or
-compete with navigation. It retains a 44px target, keyboard reachability, its
-accessible name, and one source of checked state in both positions.
-Status: resolved (Batch 21 WP-2, refined 2026-09-05). Source:
-AUDIT_2026-02-11 and owner mobile review.
 
 ### F-LOAD-2: no integration tests in CI
 
@@ -2091,7 +1270,305 @@ Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
 
 ---
 
+### F-B21-60: the artist spotlight card breaks Spotify's content guidelines
+
+Spotify's design guidelines ("Using our content",
+https://developer.spotify.com/documentation/design#using-our-content) forbid
+cropping artwork, putting images or text over it, animating it, and using
+Spotify metadata without the Spotify logo or icon and a link back to Spotify.
+The results page's artist spotlight (`templates/results.html`
+`artist-spotlight-card`, `static/css/results.css` `.spotlight-card-bleed`,
+`static/js/results-spotlight.js`) breaks these rules. The app uses the Web API
+under Spotify's terms, so this is a compliance defect, not a taste question.
+
+- **Crop:** Spotify artist photos are square, but the card is short and wide.
+  `object-cover` cuts off the top and bottom.
+- **Overlay:** `.spotlight-scrim-top` and `.spotlight-scrim-bottom` put
+  gradients and text (the "Artist Spotlight" title, rank, name and play time)
+  over the photo.
+- **Animation:** every 7 seconds `renderCandidate` fades the whole card,
+  photo included, to 15% opacity and swaps the artist.
+- **Album art fallback:** with no artist photo, the card shows the first
+  album's cover, cropped and overlaid (`spotlight_fallback_img`).
+- **Attribution:** the app shows no Spotify logo or icon anywhere. The
+  spotlight's link to Spotify is a plain arrow, shown only after hydration.
+  Results rows already link each album to Spotify, but carry no Spotify icon.
+
+Owner ruling, 2026-09-13, on the redesign:
+- Show the artist photo whole, square, with 4px corners at small sizes and
+  8px at large sizes. Nothing is drawn on top of it.
+- Put the name, rank and play time beside or below the photo.
+- Change artists without animating the photo. An instant swap is acceptable;
+  reduced motion keeps the first artist, as today.
+- **There is no text-only card and no album-art fallback.** A candidate with
+  no Spotify artist photo is skipped in the rotation. If no candidate has a
+  photo, the card is not shown at all. That includes the server render: do
+  not render the card until an artist photo is known.
+- Add the official Spotify icon, 21px or larger, linking to the artist on
+  Spotify. Use Spotify's asset as supplied, not a redrawn glyph.
+- Add the same icon next to the album links on results rows, or once as
+  attribution for the list, whichever the guidelines' placement rules allow.
+- Batch 22 adds Deezer as a fallback provider, so a row's artwork and link may
+  come from either service. The attribution follows the album's own provider,
+  under that provider's rules.
+
+To check during the fix:
+- whether the JPEG export captures Spotify artwork in a way the same rules
+  forbid
+- the gap where titles shown next to Spotify artwork are Last.fm spellings,
+  not Spotify's metadata
+
+Tests: route tests assert that the card is absent when no candidate has a photo
+and that `spotlight_fallback_img` is gone. The frontend gate checks the photo
+at its natural aspect ratio, no element overlapping the photo, no opacity
+change on the photo during rotation, and the icon's rendered size and link
+target.
+
+**Partial progress, 2026-09-13 (Batch 22 WP-2 Task 6):** results and
+unmatched rows now link to the album's own provider (`album_url`, not a
+Spotify URL reconstructed from `spotify_id`) and carry a small text
+attribution link naming that provider. This closes the "results rows carry
+no Spotify icon" gap in substance but not to the letter -- it is a text
+label, not either provider's official logo asset, so the ruling below is
+still open. The artist spotlight card is unchanged: still cropped, still
+overlaid, still animated. See F-B22-4 for the logo-asset gap.
+
+Status: open (P1), owner ruling recorded. Source: Spotify API review,
+2026-09-13.
+
 ## P2 -- Scaling roadmap
+
+### F-B22-5: the release-year lookup has a precision path it does not use
+
+`lookup_original_release` (`scrobblescope/musicbrainz.py`) finds a release
+group by searching artist and title text, then guards the result with a score
+floor and a normalized identity check. It is one request and it is usually
+right. It is not exact, and two measured cases show the edges.
+
+**Measured against the live APIs, 2026-09-20**, five albums, one request per
+second:
+
+| Album | Spotify's date | URL path | Search path |
+| --- | --- | --- | --- |
+| The Beatles (White Album) | 1968-11-22 | 1968-11-22 | top candidate scored 100 with **no** `first-release-date` |
+| Rumours | 1977-02-04 | 1977-02-04 | 1977-02-04 |
+| Kind of Blue | 1959-08-17 | 1959-08-17 | 1959-08-17 |
+| Geogaddi | 2002-02-19 | **not mapped (404)** | **no candidate returned** |
+| Stratosphere | 1998-02-24 | 1998-02-24 | 1998-02-24 |
+
+**The URL path.** `GET /ws/2/url?resource=https://open.spotify.com/album/<id>&inc=release-rels`
+returns a "free streaming" relation to a MusicBrainz **release** when an
+editor has mapped that Spotify album. A second request on that release with
+`inc=release-groups` yields the release group's `first-release-date`. It is
+exact -- no scoring, no name matching -- and it answered two cases the search
+path did not. It costs **two requests where the search costs one**, which at
+one request per second is the whole budget doubled, and it needs a Spotify
+album id, so it can never serve a Deezer-only album.
+
+Note for anyone implementing it: `inc=release-groups` on the `url` endpoint
+returns nothing. The relation include is `release-rels`, and the target is a
+release, not a release group. `inc=release-group-rels` returned zero
+relations for the same album.
+
+**The ISRC path is not viable as a third option.** `GET /v1/albums/{id}`
+returns simplified track objects with **no** `external_ids`, confirmed by
+reading the keys off a live response, so every ISRC costs an extra Spotify
+request. `GET /ws/2/isrc/{isrc}` then returns *recordings*, and a recording's
+earliest release group may be a single or a compilation rather than the album
+-- dating an album by its lead single is worse than not correcting it.
+
+**Recommended shape, not yet built:** keep the search as the primary path,
+and spend the second request only where it buys something -- when the search
+returns no candidate, or a candidate with no `first-release-date`, and the
+album has a Spotify id. Cache the outcome under the existing
+`(artist_norm, album_norm)` key, never under a Spotify id: 9 of the 10 albums
+Spotify could not enrich in the owner's 2026-09-20 run were rescued by
+Deezer, and those have no Spotify id at all.
+
+**Also measured:** adding `AND type:album` to the Lucene query, as proposed,
+would exclude EPs, which this application ranks alongside albums --
+`normalize_name` deliberately strips "ep" from titles. The release-group
+search field is `primarytype`, not `type`. If the query is narrowed at all,
+it should be to exclude live albums and compilations by secondary type, not
+to require a primary type.
+
+- [ ] **Status:** open (P2, owner-gated -- a scope decision, not a defect)
+
+Source: owner proposal and live probes, 2026-09-20.
+
+### F-B22-6: server-sent events would consume the whole thread pool
+
+Replacing the results page's polling with an SSE stream was proposed. It does
+not fit this deployment. Gunicorn runs `--workers 1 --threads 4`
+(`Dockerfile`), and an SSE response holds its worker thread open for the life
+of the connection. Four readers with a results page open would occupy every
+thread, and the fifth request -- any request, including the home page --
+would wait for one of them to disconnect.
+
+The current design has the opposite shape: a poll every two seconds that
+stops at a terminal state, pauses while the tab is hidden, and holds a thread
+only for the milliseconds each reply takes.
+
+SSE would become reasonable only alongside a different serving model, which
+is a larger change than the feature it would serve.
+
+- [ ] **Status:** open (P2, no action recommended)
+
+Source: owner proposal, measured against the Dockerfile, 2026-09-20.
+
+### F-B21-62: the design system's status colours are documented but undefined
+
+`docs/design/README.md` names three status colour pairs -- `--ss-good`
+`#2f7a4a`/`#6fcf97`, `--ss-warn` `#b35a1f`/`#e0a458`, `--ss-bad`
+`#b03434`/`#e07070` -- and states what they are for: "3px rules and mono
+kickers, never as full-bleed tinted cards". No stylesheet defines any of the
+three. `test_every_custom_property_a_page_reads_is_defined_by_a_sheet_it_loads`
+fails any page that reads one, so the documented treatment cannot be used at
+all, and the first attempt to use it (the release-correction kicker, Batch 22
+WP-4 Task 11) had to pick a different token.
+
+This is the `docs/ARCHITECTURE.md` rule in another form: the document is a
+claim about the code that nothing checked, and the code wins. Either the
+tokens ship in `static/css/tailwind.src.css` for both themes, or the README
+stops describing a treatment nothing can apply. Sizing is small; deciding
+which way is a design-system call, not an implementation one.
+
+- [ ] **Status:** open (P2, owner-gated)
+
+Source: Batch 22 WP-4 Task 11, 2026-09-20.
+
+### F-SWE-8: the mutation-test runner is written, unadopted, and uncommitted
+
+`scripts/dev/mutation_test.py` and `scripts/dev/mutation_scope.toml` exist in
+the working tree and are not committed. They were built during the docsync
+close-out side task, run for the first time against `scripts/docsync/`, and
+that first run found four real defects in the runner itself, the fourth
+needing a rework rather than a patch. The owner's call on 2026-09-20 was that
+mutation testing is not adopted on the strength of a tool that had never been
+run: finishing it is a work package of its own, and the code stays out of the
+corpus until then.
+
+This is recorded here because it was recorded nowhere a clone can read. The
+only written copy was a section of the gitignored CLAUDE.md at the repository
+root, and that section was deleted the same day once the work it tracked
+merged. DOC001 is the reason that file name carries no backticks here: a
+concrete Markdown reference has to name a tracked file, and it is not one.
+
+Do not stage those two files as part of another task's commit, and do not
+treat the runner's output as evidence until its own defects are fixed.
+
+- [ ] **Status:** open (P2, owner-gated)
+
+Source: docsync close-out side task, 2026-09-20. It is a future work package
+rather than a defect in shipped code.
+
+### F-B22-4: provider attribution on results/unmatched rows is text, not each provider's official logo
+
+Batch 22 WP-2 Task 6 added a per-row attribution link (`.provider-badge` in
+`templates/results.html` and `templates/unmatched.html`) naming the album's
+provider and linking to its `album_url`. Deezer's developer guidelines
+require "a clearly visible Deezer Logo" for any app using its API
+(developers.deezer.com/guidelines#local, /guidelines/logo); F-B21-60 records
+the equivalent Spotify ruling ("Use Spotify's asset as supplied, not a
+redrawn glyph"). Neither provider's actual logo file could be sourced from
+an agent session: no image-fetch tool was available, and guessing a brand
+CDN URL to hotlink was rejected as unsafe. The owner chose the text-badge
+interim over blocking Task 6 on asset sourcing (2026-09-13).
+
+Fix shape: replace `.provider-badge`'s text content with each provider's
+official logo asset once the owner supplies the files (or an agent gains
+image-fetch tooling) -- swap the `<a>`'s text node for an `<img>`/inline
+`<svg>` sized per that provider's own minimum-size rule (Spotify: 21px+, per
+F-B21-60's owner ruling; Deezer: size unspecified on the guidelines page
+itself, deezerbrand.com carries the detail but did not render for an agent
+session). Small and self-contained; no test rewrite beyond swapping the
+`provider-badge` element type assertions.
+
+Status: open (P2). Source: Batch 22 WP-2 Task 6, 2026-09-13.
+
+### F-B22-2: `assert` guards job-context narrowing in three `album_flow.py` sites
+
+`scrobblescope/routes/album_flow.py:89,154,302` each use `assert job_context
+is not None` to narrow the type after a validation guard clears (`if err:
+return err`). Moved verbatim from pre-split `routes.py`; not introduced by
+WP-0's module split. Codacy PR #232 review flagged this correctly: `assert`
+strips under `python -O`, so an optimized interpreter would fall through to a
+`None.get(...)` `AttributeError` a few lines later instead of a clear,
+intentional failure.
+
+Fix shape: replace each with `if job_context is None: raise RuntimeError(...)`
+(or equivalent), matching the pattern of an internal-invariant check rather
+than a `python -O`-dependent one. Small and testable, but out of scope for
+WP-0's behaviour-neutral contract -- filed separately rather than fixed
+in-PR.
+
+Status: open (P2). Source: Codacy bot review, PR #232, 2026-09-13.
+
+### F-B22-3: job endpoints trust an unguessable job ID with no session ownership check
+
+`scrobblescope/routes/api.py` (`unmatched_data`, `progress`) and
+`scrobblescope/routes/heatmap_flow.py` (`heatmap_data`) accept `job_id` from
+a query parameter and look it up in the process-local `JOBS` dict with no
+check that the requesting session originated that job. `create_job`
+(`scrobblescope/repositories.py:41`) generates `job_id = uuid4().hex` -- a
+128-bit unguessable value -- so the design already relies on the ID itself as
+a bearer/capability token rather than session-bound ownership. This is
+consistent across every job-polling endpoint, not a WP-0 regression: the
+pre-split `routes.py` had the same shape.
+
+Graphify's PR #232 review flagged two instances (`api.py:103`,
+`heatmap_flow.py:179`) as missing an "ownership check," unverified
+(consensus-only, no reproducing execution). Read as a security question
+rather than a bug: is a 128-bit unguessable ID sufficient authorization for
+an ephemeral (TTL-bounded, `JOB_TTL_SECONDS`) result set, or should these
+endpoints also require the ID to match the requesting session's
+`_LATEST_ALBUM_JOB`/`_LATEST_HEATMAP_JOB`? No incident or reported leak
+motivates this; filed for owner judgment, not because current behaviour is
+demonstrated wrong.
+
+Status: open (P2, owner-gated). Source: Graphify bot review, PR #232,
+2026-09-14.
+
+### F-B21-61: the architecture diagrams are claims about the code that nothing checks
+
+`docs/architecture/` holds five mermaid diagrams, one each in
+`docs/architecture/runtime-system.md`,
+`docs/architecture/development-cycle.md`,
+`docs/architecture/documentation-tooling.md`,
+`docs/architecture/top-albums-sequence.md` and
+`docs/architecture/heatmap-sequence.md`. Their nodes name real modules and
+functions -- `orchestrator.py`, `create_job()`, `cleanup_expired_jobs()` -- so
+each diagram states facts about the code. Nothing verifies them: no pre-commit
+hook, no CI step, no test. Every symbol resolves today, verified 2026-09-13, so
+this is drift prevention rather than a repair.
+
+Every other repeated fact in this repository has a control plane: docsync
+carries a generic mechanism plus `.docsync.toml` declarations plus a gate, and
+the worktree guard reads PLAYBOOK Section 3. A diagram node is the same kind of
+claim as a `[[anchor]]`, and it is the only one with no owner.
+
+Fix shape (owner ruling, 2026-09-13): extend docsync rather than add a tool.
+- Mechanism: `scripts/docsync/diagrams.py` finds fenced mermaid blocks, reads
+  their labels, and resolves any label naming a code symbol against the tree.
+  It holds no repository-specific value, so it lifts with the rest of the
+  package.
+- Declarations: a `[[diagram]]` kind in `.docsync.toml` naming each diagram's
+  claimed symbols and the labels that are prose, not code ("Last.fm API"). The
+  prose exemption is a local convention, like `strikethrough_exempt`.
+- Gate: the existing `doc-state-sync-check` hook, reporting a new `DOC013`
+  with a path, a line and a remedy. Record the code in
+  `docs/architecture/documentation-tooling.md` beside `DOC001`-`DOC012`.
+- Standard library only: `re` and `pathlib`. Mermaid syntax validation needs a
+  parser, so if it is wanted, add it as a CI-only step using the Node
+  toolchain the Tailwind build already requires, never as a pre-commit hook.
+- AGENT_NOTES.md "This repository is also a template being extracted" gains a
+  line naming diagrams as a third declared surface beside values and anchors.
+
+Note (2026-09-19): DOC013 is taken (docsync finding-lifecycle codes); a new
+invariant for this finding starts at DOC023, not DOC013.
+
+Status: open (P2). Not scheduled; it belongs with docsync work, not with
+Batch 21. Source: architecture review, 2026-09-13.
 
 ### F-B21-54: PR 227 still reports test assertions through a separate scanner
 
@@ -2203,7 +1680,18 @@ WP together with F-DOCSYNC-1/F-DOCSYNC-2 (make close-out tags parseable,
 then one-time re-route of the existing close-out entries); hand-retagging
 machine-rotated archive content was declined in PR #162 round 3 and again
 in PR #163 round 3 on the same point-in-time principle.
-Status: open (P2). Source: PR #163 review round 3.
+
+**Another instance, found 2026-09-20.** Batch 22's Task 4 entry was headed
+`(Batch 22 WP-1, Phase 2 begins)`. `ENTRY_BATCH_RE` requires the closing
+parenthesis immediately after the work-package number, so the trailing
+clause made the heading unparseable as batch-tagged and rotation sent the
+entry to the monolith. Batch 22's own per-batch log will therefore be
+missing its Task 4 entry unless the routing is corrected first. The entry
+itself stays where the tool put it, per the declines above. What this adds
+is that the defect is not limited to the `(Batch N close-out)` suffix: any
+extra text inside the parentheses does it, and the tool reports nothing.
+Status: open (P2). Source: PR #163 review round 3; second instance
+2026-09-20.
 
 ### F-B21-57: `check_retired` uses one variable for the declaration index and the line number
 
@@ -2277,8 +1765,8 @@ P1 to P2 and the finding moved from the P1 section to this one.
 The related UI need -- the unmatched modal and page should say plainly that
 an album had no Spotify match -- is already Batch 21 WP-7 scope
 (the `WP-7 -- Unmatched page + reason_code` section of
-`BATCH21_DEFINITION.md`: the `no_spotify_match` reason code and two
-reason cards with human copy). It is not extra work and is not tracked here.
+`docs/history/definitions/BATCH21_DEFINITION.md`: the `no_spotify_match` reason code and the reason
+panels with human copy). It is not extra work and is not tracked here.
 Status: open (P2). Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
 
 ### F-SWE-6: reading a job renews its TTL, so a polled job never expires
@@ -2360,7 +1848,7 @@ audits; 2026-03-04 load-test data is in the findings archive.
   item in F-B21-5.
 - F-B19-3: last.timer aggregate endpoints are not a drop-in heatmap
   speedup; future perf experiments listed in the archive.
-- F-B19-4: front-end UI audit notes -- basis of `BATCH21_DEFINITION.md`.
+- F-B19-4: front-end UI audit notes -- basis of `docs/history/definitions/BATCH21_DEFINITION.md`.
 
 ---
 

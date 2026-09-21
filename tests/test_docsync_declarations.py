@@ -13,13 +13,22 @@ from pathlib import Path
 import pytest
 from docsync.declarations import (
     DECLARATIONS_FILENAME,
+    DEFAULT_ARCHIVE_COLD_DAYS,
+    DEFAULT_ARCHIVE_MAX_LINES,
+    DEFAULT_CLOSEOUT_ADMIT_FROM_BATCH,
+    ArchiveConfig,
+    CloseoutConfig,
     DeclarationError,
+    FindingsConfig,
     _Files,
     check_anchors,
     check_retired,
     check_values,
     collect_declaration_issues,
+    load_archive_config,
+    load_closeout_config,
     load_declarations,
+    load_findings_config,
 )
 from docsync.models import SyncError
 
@@ -35,6 +44,64 @@ def _repo(tmp_path: Path, files: dict[str, str]) -> Path:
 
 def _files(tmp_path: Path, live: dict[str, list[str]] | None = None) -> _Files:
     return _Files(tmp_path, live or {})
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        ["~~~", "## Rules", "1. Fake", "~~~"],
+        ["## Rules", "```", "1. Fake", "```"],
+        ["<!--", "## Rules", "1. Fake", "-->"],
+    ],
+)
+def test_example_only_anchor_does_not_resolve(tmp_path, target):
+    files = _files(
+        tmp_path, {"target.md": target, "source.md": ['cite "Rules" item 1']}
+    )
+    issues = check_anchors(
+        files,
+        [
+            {
+                "target": "target.md",
+                "scan": ["source.md"],
+                "pattern": r'cite "([^"]+)" item (\d+)',
+            }
+        ],
+    )
+    assert [issue.code for issue in issues] == ["DOC010"]
+
+
+def test_retired_boundary_mentioned_in_prose_is_not_exemption(tmp_path):
+    files = _files(
+        tmp_path,
+        {
+            "source.md": [
+                "The boundary is ## History below.",
+                "old rule",
+                "## History",
+                "old rule",
+            ]
+        },
+    )
+    issues = check_retired(
+        files,
+        [
+            {
+                "scan": ["source.md"],
+                "pattern": "old rule",
+                "allow_after": {"source.md": "## History"},
+            }
+        ],
+    )
+    assert [issue.line for issue in issues] == [2]
+
+
+def test_retired_match_must_be_entirely_struck(tmp_path):
+    files = _files(tmp_path, {"source.md": ["~~old~~ still prescribed"]})
+    issues = check_retired(
+        files, [{"scan": ["source.md"], "pattern": r"old~~ still prescribed"}]
+    )
+    assert [issue.code for issue in issues] == ["DOC011"]
 
 
 # ----------------------------------------------------------------------
@@ -1525,3 +1592,255 @@ def test_collect_runs_all_three_kinds_and_sorts_them(tmp_path: Path) -> None:
 
     assert [issue.code for issue in issues] == ["DOC010", "DOC009", "DOC011"]
     assert [issue.path for issue in issues] == ["a.md", "b.md", "b.md"]
+
+
+# ----------------------------------------------------------------------
+# [archives] -- the strict archive-configuration table (Task 3)
+# ----------------------------------------------------------------------
+
+
+def _archives_repo(tmp_path: Path, body: str) -> Path:
+    """A throwaway repository whose .docsync.toml is exactly ``body``."""
+    return _repo(tmp_path, {DECLARATIONS_FILENAME: body})
+
+
+def test_archive_config_defaults_when_no_table(tmp_path: Path) -> None:
+    """An unconfigured repository still paginates, at the documented default.
+
+    Pagination and cold aging are opt-in maintenance operations, so their
+    thresholds are configuration with a safe default rather than a required
+    declaration. Absence of the table is not an error.
+    """
+    root = _repo(tmp_path, {})
+    assert load_archive_config(root) == ArchiveConfig(
+        DEFAULT_ARCHIVE_MAX_LINES, DEFAULT_ARCHIVE_COLD_DAYS
+    )
+
+
+def test_archive_config_reads_declared_thresholds(tmp_path: Path) -> None:
+    root = _archives_repo(tmp_path, "[archives]\nmax_lines = 42\ncold_days = 30\n")
+    assert load_archive_config(root) == ArchiveConfig(42, 30)
+
+
+def test_archive_config_rejects_unknown_key(tmp_path: Path) -> None:
+    """A misspelled ``max_line`` must not silently fall back to the default.
+
+    Left unchecked, the wrong key names a page size nobody chose while the gate
+    stays green -- the same quiet failure [options] already refuses.
+    """
+    root = _archives_repo(tmp_path, "[archives]\nmax_line = 42\ncold_days = 30\n")
+    with pytest.raises(DeclarationError, match="unknown key 'max_line'"):
+        load_archive_config(root)
+
+
+def test_archive_config_requires_both_thresholds(tmp_path: Path) -> None:
+    root = _archives_repo(tmp_path, "[archives]\nmax_lines = 42\n")
+    with pytest.raises(DeclarationError, match="no 'cold_days'"):
+        load_archive_config(root)
+
+
+def _archives_body(**overrides: str) -> str:
+    """A valid ``[archives]`` body with individual keys replaced.
+
+    Built by substitution, not by appending. TOML refuses a repeated key, so a
+    body carrying ``max_lines = 42`` and then ``max_lines = 4.5`` would fail as
+    malformed TOML and never reach the value check the test is about.
+    """
+    values = {"max_lines": "42", "cold_days": "30"}
+    values.update(overrides)
+    lines = ["[archives]"] + [f"{key} = {value}" for key, value in values.items()]
+    return "\n".join(lines) + "\n"
+
+
+@pytest.mark.parametrize("key", ["max_lines", "cold_days"])
+def test_archive_config_rejects_boolean(tmp_path: Path, key: str) -> None:
+    """``True`` is an ``int`` subclass; it must not mean a one-line page.
+
+    A plain ``isinstance(value, int)`` check lets a boolean through, and
+    ``max_lines = true`` would then silently mean pages of one line.
+    """
+    root = _archives_repo(tmp_path, _archives_body(**{key: "true"}))
+    with pytest.raises(DeclarationError, match=f"{key!r}"):
+        load_archive_config(root)
+
+
+@pytest.mark.parametrize("key", ["max_lines", "cold_days"])
+def test_archive_config_rejects_nonpositive(tmp_path: Path, key: str) -> None:
+    root = _archives_repo(tmp_path, _archives_body(**{key: "0"}))
+    with pytest.raises(DeclarationError, match="positive"):
+        load_archive_config(root)
+
+
+@pytest.mark.parametrize("key", ["max_lines", "cold_days"])
+def test_archive_config_rejects_non_integer(tmp_path: Path, key: str) -> None:
+    root = _archives_repo(tmp_path, _archives_body(**{key: "4.5"}))
+    with pytest.raises(DeclarationError, match="integer"):
+        load_archive_config(root)
+
+
+def test_collect_declaration_issues_accepts_valid_archives(tmp_path: Path) -> None:
+    """A correct [archives] table is recognized, not rejected as unknown.
+
+    The unknown-table guard must learn [archives] as a top-level table, or the
+    real .docsync.toml would start raising once the table is added.
+    """
+    root = _repo(
+        tmp_path,
+        {
+            DECLARATIONS_FILENAME: "[archives]\nmax_lines = 500\ncold_days = 365\n",
+        },
+    )
+    assert collect_declaration_issues(repo_root=root, live_documents={}) == []
+
+
+def test_collect_declaration_issues_still_rejects_genuinely_unknown_table(
+    tmp_path: Path,
+) -> None:
+    """Recognizing [archives] must not loosen the guard against real typos."""
+    root = _repo(tmp_path, {DECLARATIONS_FILENAME: "[archvies]\nmax_lines = 1\n"})
+    with pytest.raises(DeclarationError, match="unknown table"):
+        collect_declaration_issues(repo_root=root, live_documents={})
+
+
+# ----------------------------------------------------------------------
+# [closeout] -- the strict close-out admission table (Task 3)
+# ----------------------------------------------------------------------
+
+
+def _closeout_repo(tmp_path: Path, body: str) -> Path:
+    """A throwaway repository whose .docsync.toml is exactly ``body``."""
+    return _repo(tmp_path, {DECLARATIONS_FILENAME: body})
+
+
+def test_closeout_config_defaults_to_admitting_every_batch(tmp_path: Path) -> None:
+    """A repository with no [closeout] table still validates every closure.
+
+    The default has to be the strict end of the range, not the permissive one.
+    A default of "no managed batches" would let the very next batch close with
+    none of the six signals ever evaluated, which is the silent opt-out the
+    admission table exists to prevent. This repository overrides the default
+    with a later boundary to grandfather its legacy batches, so the generic
+    default cannot assume that history.
+    """
+    root = _repo(tmp_path, {})
+    assert load_closeout_config(root) == CloseoutConfig(
+        DEFAULT_CLOSEOUT_ADMIT_FROM_BATCH
+    )
+    assert DEFAULT_CLOSEOUT_ADMIT_FROM_BATCH == 1
+
+
+def test_closeout_config_reads_declared_boundary(tmp_path: Path) -> None:
+    """The declared boundary is the value a closure check consumes."""
+    root = _closeout_repo(tmp_path, "[closeout]\nadmit_from_batch = 22\n")
+    assert load_closeout_config(root) == CloseoutConfig(22)
+
+
+def test_closeout_config_rejects_unknown_key(tmp_path: Path) -> None:
+    """A misspelled ``admit_from`` must not silently fall back to the default."""
+    root = _closeout_repo(tmp_path, "[closeout]\nadmit_from = 22\n")
+    with pytest.raises(DeclarationError, match="unknown key 'admit_from'"):
+        load_closeout_config(root)
+
+
+def test_closeout_config_requires_the_boundary(tmp_path: Path) -> None:
+    """An empty table is refused rather than read as the permissive default.
+
+    The boundary decides which batches are asked for close-out evidence, so a
+    table that states none must not be read as "nothing is managed".
+    """
+    root = _closeout_repo(tmp_path, "[closeout]\n")
+    with pytest.raises(DeclarationError, match="no 'admit_from_batch'"):
+        load_closeout_config(root)
+
+
+def _closeout_body(**overrides: str) -> str:
+    """A valid ``[closeout]`` body with individual keys replaced."""
+    values = {"admit_from_batch": "22"}
+    values.update(overrides)
+    lines = ["[closeout]"] + [f"{key} = {value}" for key, value in values.items()]
+    return "\n".join(lines) + "\n"
+
+
+def test_closeout_config_rejects_boolean(tmp_path: Path) -> None:
+    """``true`` is an ``int`` subclass, and would admit batch 1.
+
+    Let through, ``admit_from_batch = true`` reads as boundary 1, which makes
+    every historical batch managed and demands closure evidence those batches
+    were never asked to keep.
+    """
+    root = _closeout_repo(tmp_path, _closeout_body(admit_from_batch="true"))
+    with pytest.raises(DeclarationError, match="'admit_from_batch'"):
+        load_closeout_config(root)
+
+
+def test_closeout_config_rejects_nonpositive(tmp_path: Path) -> None:
+    root = _closeout_repo(tmp_path, _closeout_body(admit_from_batch="0"))
+    with pytest.raises(DeclarationError, match="positive"):
+        load_closeout_config(root)
+
+
+def test_closeout_config_rejects_non_integer(tmp_path: Path) -> None:
+    root = _closeout_repo(tmp_path, _closeout_body(admit_from_batch="22.5"))
+    with pytest.raises(DeclarationError, match="integer"):
+        load_closeout_config(root)
+
+
+def test_collect_declaration_issues_accepts_valid_closeout(tmp_path: Path) -> None:
+    """A correct [closeout] table is recognized, not rejected as unknown.
+
+    The unknown-table guard must learn [closeout] as a top-level table, or the
+    real .docsync.toml would start raising once the table is added.
+    """
+    root = _repo(
+        tmp_path,
+        {DECLARATIONS_FILENAME: "[closeout]\nadmit_from_batch = 22\n"},
+    )
+    assert collect_declaration_issues(repo_root=root, live_documents={}) == []
+
+
+# ---------------------------------------------------------------------------
+# [findings] -- the DOC023 grandfather list
+# ---------------------------------------------------------------------------
+
+
+def test_findings_config_defaults_to_grandfathering_nothing(tmp_path: Path) -> None:
+    """The default is the strict end: every finding is admitted.
+
+    A default carrying any ids would be this repository's own history baked
+    into a mechanism meant to be extractable, and a default of "grandfather
+    everything" would make the check unable to fire in the repository that
+    most needs it.
+    """
+    assert load_findings_config(_repo(tmp_path, {})) == FindingsConfig(())
+
+
+def test_findings_config_reads_the_declared_ids(tmp_path: Path) -> None:
+    root = _closeout_repo(
+        tmp_path, '[findings]\ngrandfathered = ["F-B21-1", "F-DOCSYNC-9"]\n'
+    )
+    assert load_findings_config(root) == FindingsConfig(("F-B21-1", "F-DOCSYNC-9"))
+
+
+def test_findings_config_accepts_an_empty_list(tmp_path: Path) -> None:
+    """An empty list is the honest way to declare that nothing is exempt."""
+    root = _closeout_repo(tmp_path, "[findings]\ngrandfathered = []\n")
+    assert load_findings_config(root) == FindingsConfig(())
+
+
+def test_findings_config_requires_the_list(tmp_path: Path) -> None:
+    """An empty table must not read as "grandfather everything"."""
+    root = _closeout_repo(tmp_path, "[findings]\n")
+    with pytest.raises(DeclarationError, match="grandfathered"):
+        load_findings_config(root)
+
+
+def test_findings_config_rejects_an_unknown_key(tmp_path: Path) -> None:
+    root = _closeout_repo(tmp_path, '[findings]\ngrandfathers = ["F-B21-1"]\n')
+    with pytest.raises(DeclarationError, match="unknown key 'grandfathers'"):
+        load_findings_config(root)
+
+
+def test_findings_config_rejects_a_non_id_entry(tmp_path: Path) -> None:
+    root = _closeout_repo(tmp_path, "[findings]\ngrandfathered = [21]\n")
+    with pytest.raises(DeclarationError, match="finding id"):
+        load_findings_config(root)

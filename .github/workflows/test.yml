@@ -54,6 +54,21 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      # Explicit and first, ahead of pre-commit's own hooks: this runner has
+      # no repository .venv (dependencies just landed in the system Python
+      # above), so `docsync_preflight.py --worktree` falls back to the
+      # interpreter already running it rather than demanding one. It also
+      # means the check still runs here even if a contributor's local hook
+      # was skipped or bypassed (git commit --no-verify) -- CI is the
+      # backstop; see "Enforcement boundary" in
+      # docs/superpowers/specs/2026-09-15-docsync-closeout-archives-design.md.
+      # `--worktree`, not `--staged`: there is no Git index/working-tree
+      # distinction to preserve here, only the one checkout the workflow
+      # already ran actions/checkout against.
+      - name: Run docsync preflight
+        run: |
+          python scripts/dev/docsync_preflight.py --worktree
+
       # The tailwind-css-drift pre-commit hook rebuilds and diffs, so the
       # direct build-and-diff step this replaces would compile the stylesheet
       # a second time for the same answer.
@@ -67,6 +82,13 @@ jobs:
       # ref would silence WT007 and still leave the check measuring
       # nothing. The states it exists to catch can only occur on a
       # developer machine.
+      #
+      # doc-state-sync-check runs again here, inside pre-commit
+      # (.pre-commit-config.yaml's own --worktree entry). That is a
+      # deliberately cheap redundant re-check, not wasted work: this step
+      # is what a contributor's own machine also runs before every commit,
+      # so a discrepancy between the two would mean this workflow step
+      # and a local commit no longer agree on what passes.
       - name: Run pre-commit checks
         env:
           SKIP: worktree-alignment

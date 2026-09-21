@@ -1,6 +1,6 @@
 # ScrobbleScope Session Context
 
-Last updated: 2026-09-11
+Last updated: 2026-09-20
 
 ---
 
@@ -9,11 +9,11 @@ Last updated: 2026-09-11
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1026 passing** across 43 test modules |
+| Tests | **1529 passing** across 58 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
-| Batch 21 status | **Active.** PR #231 is green after the portable cleanup-test fix. The WP-7 extension is implemented and refined: one `below_threshold` item per excluded album without extra Spotify work, side-by-side horizontal report panels sorted by reason code, Results design tokens and scaling reconciled, the 500-album cap unified across sort modes, a 25-row disclosure step, and a back-to-top control that collapses its panel. One documentation conflict remains for the next pass: the approved spec still describes the stacked layout the owner overruled. WP-8 follows only on owner direction. WP-6 is absorbed into WP-3; WP-7 and WP-8 keep their numbers. Adobe Fonts kit `rwy8ghw` remains active. Definition: `BATCH21_DEFINITION.md`. See PLAYBOOK Sections 3-4 for the work order and history. |
+| Batch 22 status | **Complete**. All 6 WPs done. Definition: docs/history/definitions/BATCH22_DEFINITION.md. Opened 2026-09-13 on `feat/batch22-enrichment` and closed 2026-09-20: album enrichment moved behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects a reissue year to the original while the results page is open. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
 **Key runtime facts:**
@@ -21,7 +21,7 @@ Last updated: 2026-09-11
   background jobs via `worker.py`.
 - `_GlobalThrottle` in `utils.py` caps aggregate API throughput across all threads.
 - `_cache_lock` in `utils.py` guards `REQUEST_CACHE` thread safety.
-- `_MAX_ALBUM_CAP = 500` in `orchestrator.py` limits Spotify fetch across all sort modes.
+- `_MAX_ALBUM_CAP = 500` in `orchestrator/__init__.py` limits Spotify fetch across all sort modes.
 - Cold-start validated 2026-02-19 (both app + DB auto-wake on demand).
 - DB cache validated working locally 2026-03-03: `verdict=PASS`, `db_cache_lookup_hits=44`,
   elapsed ~1.05s. Requires `ss-postgres` Docker container running and `DATABASE_URL` in `.env`.
@@ -36,12 +36,13 @@ Last updated: 2026-09-11
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: Batch 21.
-- Current-batch entries in active log block: 15.
-- Completed work packages in current-batch entries: WP-0, WP-1, WP-2, WP-3, WP-4, WP-5, WP-7.
-- Next expected work package: WP-8.
-- Latest validated test count: **1026 passed**.
-- Newest current-batch entry: 2026-09-11 - Unmatched disclosure refined: 25-row step and collapse on return (Batch 21 WP-7).
+- Current batch: none (between batches).
+- Last completed batch in PLAYBOOK Section 3: Batch 22.
+- Next batch definition status: Batch 23 is not yet defined.
+- Current-batch entries in active log block: 0.
+- Completed work packages in current-batch entries: n/a (no active batch).
+- Next expected work package: n/a (next batch not defined).
+- Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
 ---
@@ -60,11 +61,23 @@ scrobblescope/
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
   spotify.py                # fetch_spotify_access_token, search, batch details
-  orchestrator.py           # process_albums, _fetch_and_process, background_task, fetch_top_albums_async
+  musicbrainz.py            # lookup_original_release (release-group first-release-date)
+  release_checks.py         # correction worker: one thread, FIFO job queue, live original-release lookups
+  orchestrator/
+    __init__.py              # facade + pipeline glue: process_albums, _fetch_and_process, background_task, fetch_top_albums_async
+    _search.py               # Spotify parallel-search phase
+    _details.py              # Spotify batch-detail phase
+    _cache.py                # DB metadata cache lookup/persist phase
+    _results.py              # release-filter + sort + proportion phase (_build_results)
   heatmap.py                # heatmap_task, _fetch_and_process_heatmap, _aggregate_daily_counts
   spotlight.py              # pure artist aggregation and stable sample selection
   unmatched.py              # stable reason codes, category metadata, deterministic grouping
-  routes.py                 # Flask Blueprint, all route + error handlers
+  routes/
+    __init__.py              # facade: Blueprint bp, shared job-context helpers, error handlers
+    pages.py                  # home page
+    album_flow.py             # loading/results/unmatched pages + results_loading
+    heatmap_flow.py           # heatmap page + heatmap_loading/heatmap_data
+    api.py                    # validate_user, csrf-token, progress, unmatched JSON, release_checks JSON, artist_spotlight
 templates/                  # base, index, loading, results, unmatched, error
   inline/                   # scrobblescope_pinwheel.svg, scrobble_scope_inline.svg (wordmark), scrobble_scope_lockup_inline.svg (header)
   partials/                 # _loading.html (framework-neutral wait panel), _heatmap_form.html, _heatmap_result.html
@@ -114,14 +127,24 @@ config.py        <- (leaf)
 utils.py         <- config
 cache.py         <- config
 worker.py        <- config
-repositories.py  <- config, errors
+repositories.py  <- config, domain, errors
 lastfm.py        <- config, utils
 spotify.py       <- config, utils
 unmatched.py     <- (leaf)
-orchestrator.py  <- cache, config, domain, errors, lastfm, repositories, spotify, unmatched, utils, worker
+musicbrainz.py   <- config, domain, utils
+release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils; orchestrator (facade, DEFERRED -- see note)
+orchestrator/__init__.py  <- cache, config, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_results (imported last, for re-export)
+orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
+orchestrator/_details.py  <- config, domain; orchestrator (facade)
+orchestrator/_cache.py    <- orchestrator (facade)
+orchestrator/_results.py  <- domain, unmatched, utils; orchestrator (facade)
 heatmap.py       <- lastfm, repositories, utils, worker
 spotlight.py     <- utils
-routes.py        <- heatmap, lastfm, orchestrator, repositories, spotify, spotlight, unmatched, utils, worker
+routes/__init__.py     <- lastfm, repositories, spotify, unmatched, utils, worker; routes/album_flow, routes/api, routes/heatmap_flow, routes/pages (imported last, for re-export)
+routes/pages.py         <- routes (facade)
+routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
+routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
+routes/api.py           <- domain, release_checks, repositories, spotify, utils; routes (facade)
 app.py           <- routes (Blueprint); config (ensure_api_keys, __main__ only)
 
 docsync/__init__.py  <- (leaf)
@@ -148,6 +171,16 @@ dev/_frontend_gate_results.py <- repositories
 dev/frontend_gate.py <- dev/_frontend_gate_colour, dev/_frontend_gate_results; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 ```
 
+**The one deferred edge (Task 9, Batch 22 WP-3).** `orchestrator` imports
+`release_checks` at module level, to hand a finished job to the correction
+worker. `release_checks` needs `_matches_release_criteria` back from
+`orchestrator`, and takes it through a **function-local** import inside
+`_matches_window`, not a module-level one. At module level the pair would
+form a cycle whose outcome depends on which module is imported first --
+importing `release_checks` before `orchestrator` would fail on a
+partially-initialised module. The graph above therefore stays acyclic at
+import time; the edge exists only at call time, and is marked DEFERRED.
+
 ---
 
 ## 5. Architecture overview
@@ -158,7 +191,7 @@ in its focused owner files rather than growing a second copy here.
 
 ```
 User submits form (index.html)
-  -> POST /results_loading (routes.py)
+  -> POST /results_loading (routes/album_flow.py)
     -> cleanup_expired_jobs()
     -> acquire_job_slot() [worker.py] -- BEFORE create_job; on failure the
        request is rejected and no job is created
@@ -169,25 +202,36 @@ User submits form (index.html)
          then the route deletes the newly created job
     -> Renders loading.html with job_id
 
-background_task (orchestrator.py, daemon Thread):
+background_task (orchestrator/__init__.py, daemon Thread):
   -> asyncio event loop -> _fetch_and_process(...)
     -> Fetch Last.fm scrobbles (paginated, async)
     -> Group into albums, filter by thresholds
-    -> process_albums (5-phase cache flow):
+    -> process_albums (5-phase cache flow; phases 1/4 in orchestrator/_cache.py,
+       phase 3's search+detail steps in orchestrator/_search.py and
+       orchestrator/_details.py, phase 5 in orchestrator/_results.py):
       1: DB connect + batch lookup (30-day TTL)
       2: Partition cache_hits / cache_misses
-      3: Spotify fetch for misses only
+      3: Spotify fetch for misses only, then Deezer for Spotify's misses
       4: DB batch persist + conn.close() in finally
-      5: Build results -> set_job_results()
+      5: Build results (cached original-release dates applied here)
+         -> set_job_results() -> enqueue_release_check(job_id)
+
+release_checks.py (one process-wide daemon thread, own loop, FIFO job queue):
+  -> MusicBrainz at 1 req/s, capped per job, both hits and misses cached
+  -> marks each result in place and publishes progress.stats.release_check
 
 loading.js polls GET /progress?job_id=...
   -> 100% + no error -> GET /results?job_id=... -> renders results.html
   -> error + retryable -> show Retry button
+
+results-release-checks.js polls GET /api/release_checks?job_id=...
+  -> marks corrected rows in place; never reorders the open list
+  -> stops on any status that is not pending or running
 ```
 
 ---
 
-## 6. Test structure (1026 tests)
+## 6. Test structure (1529 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
@@ -222,7 +266,7 @@ developer tooling and `tests/services/` the Last.fm and Spotify paths.
   Manual fallback: `docker start ss-postgres` then `python app.py`.
   Check status: `docker ps --filter name=ss-postgres`.
   `init_db.py` has no `load_dotenv()` -- set DATABASE_URL in shell before running it.
-- Windows asyncio: `background_task()` in `orchestrator.py` explicitly uses
+- Windows asyncio: `background_task()` in `orchestrator/__init__.py` explicitly uses
   `asyncio.ProactorEventLoop()` on `sys.platform == "win32"`. This is required
   because Werkzeug's debug reloader leaves `SelectorEventLoop` as the thread-local
   policy in background threads on Windows; asyncpg sends incorrect PostgreSQL

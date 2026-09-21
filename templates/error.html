@@ -5,7 +5,6 @@
 {# Migrated to Tailwind, so this page opts out of the legacy stack. Loading
    Bootstrap as well would collide: both frameworks claim .btn and .card, and
    Tailwind's preflight would reset the Bootstrap rules. #}
-{% block legacy_css %}{% endblock %}
 
 {% block stylesheets %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">

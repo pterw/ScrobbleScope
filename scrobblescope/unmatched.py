@@ -16,7 +16,7 @@ REASON_NO_SPOTIFY_MATCH = "no_spotify_match"
 #: Human copy, badges, and fix hints associated with each reason code.
 CATEGORY_METADATA = {
     REASON_BELOW_THRESHOLD: {
-        "title": "Below your thresholds",
+        "title": "Not enough listening",
         "description": "Albums that did not meet one or both listening minimums.",
         "badge": "Threshold",
         "fix_hint": "Lower either minimum on a new search to include these albums.",
@@ -28,9 +28,9 @@ CATEGORY_METADATA = {
         "fix_hint": 'Choose "All years (no filter)" on a new search to include these releases.',
     },
     REASON_NO_SPOTIFY_MATCH: {
-        "title": "No Spotify Match",
-        "description": "Albums found in your Last.fm history that could not be matched on Spotify.",
-        "badge": "Not on Spotify",
+        "title": "No Match Found",
+        "description": "Albums found in your Last.fm history that could not be matched on Spotify or Deezer.",
+        "badge": "Not Found",
         "fix_hint": "Check album title formatting or artist naming on Last.fm.",
     },
 }

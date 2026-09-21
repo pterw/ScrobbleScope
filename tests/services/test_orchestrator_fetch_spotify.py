@@ -7,10 +7,23 @@ import pytest
 from scrobblescope.cache import _cleanup_stale_metadata
 from scrobblescope.orchestrator import (
     _run_spotify_search_phase,
+    enrich_albums,
 )
 from scrobblescope.repositories import create_job
 from scrobblescope.repositories import set_job_progress as real_set
+from scrobblescope.spotify import enrich_albums as spotify_enrich_albums
 from tests.helpers import TEST_JOB_PARAMS
+
+
+def test_enrich_albums_is_exposed_on_the_orchestrator_facade():
+    """Batch 22 WP-1 Task 3: enrich_albums is importable from the orchestrator
+    facade (like every other spotify.py dependency the pipeline uses), so a
+    later WP's mock.patch("scrobblescope.orchestrator.enrich_albums") reaches
+    spotify.py's implementation once the pipeline is wired to call it. This
+    task adds the seam only; _run_spotify_search_phase and
+    _run_spotify_batch_detail_phase still do the real work today.
+    """
+    assert enrich_albums is spotify_enrich_albums
 
 
 @pytest.mark.asyncio
@@ -121,6 +134,14 @@ async def test_fetch_spotify_misses_malformed_album_details():
                 "sp2": None,  # deleted/unavailable album
             },
         ),
+        # sp2's detail fetch failed, so Batch 22 WP-1 Task 5's Deezer
+        # fallback gets a turn on ("artist2", "album2"); a clean miss keeps
+        # this test about the Spotify malformed-details path, not Deezer's.
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
     ):
         new_rows = await _fetch_spotify_misses(job_id, cache_misses, cache_hits)
 
@@ -136,6 +157,43 @@ async def test_fetch_spotify_misses_malformed_album_details():
     # Only sp1 should produce a persist row
     assert len(new_rows) == 1
     assert new_rows[0][2] == "sp1"
+
+
+@pytest.mark.asyncio
+async def test_batch_detail_fallback_is_logged_once_per_job(caplog):
+    """
+    GIVEN every Get Several Albums batch in a job falls back to single-album
+        calls (F-B21-59)
+    WHEN _run_spotify_batch_detail_phase runs three batches
+    THEN one warning names the fallback and its status, not one per batch.
+    """
+    from scrobblescope.orchestrator import _run_spotify_batch_detail_phase
+
+    job_id = create_job(TEST_JOB_PARAMS)
+    ids = [f"sp{i}" for i in range(45)]  # 3 batches of up to 20
+
+    async def _fallback_every_batch(
+        session, batch_ids, token, semaphore=None, on_fallback=None
+    ):
+        on_fallback(403)
+        return {}
+
+    with (
+        patch(
+            "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
+            side_effect=_fallback_every_batch,
+        ),
+        caplog.at_level(logging.WARNING),
+    ):
+        await _run_spotify_batch_detail_phase(
+            job_id, MagicMock(), ids, "tok", {}, {}, {}
+        )
+
+    fallback_lines = [
+        record for record in caplog.records if "single-album" in record.getMessage()
+    ]
+    assert len(fallback_lines) == 1
+    assert "403" in fallback_lines[0].getMessage()
 
 
 @pytest.mark.asyncio
@@ -172,7 +230,7 @@ async def test_fetch_spotify_misses_reports_search_progress():
     # All 5 searches return IDs; batch detail returns minimal data
     spotify_ids = [f"sp{i}" for i in range(5)]
 
-    def _batch_details(session, batch_ids, token, semaphore=None):
+    def _batch_details(session, batch_ids, token, semaphore=None, on_fallback=None):
         return {
             sid: {
                 "release_date": "2025-01-01",
@@ -275,7 +333,7 @@ async def test_fetch_spotify_misses_reports_batch_progress():
     spotify_ids = [f"sp{i}" for i in range(25)]
 
     # Batch detail responses: batch 1 (20 albums), batch 2 (5 albums)
-    def _batch_details(session, batch_ids, token, semaphore=None):
+    def _batch_details(session, batch_ids, token, semaphore=None, on_fallback=None):
         return {
             sid: {
                 "release_date": "2025-01-01",
@@ -349,8 +407,10 @@ async def test_fetch_spotify_misses_reports_batch_progress():
 
 @pytest.mark.asyncio
 async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
-    """All search_for_spotify_album_id calls return None: both dicts empty,
-    every album registered as unmatched."""
+    """All search_for_spotify_album_id calls return None: both id maps are
+    empty and every key comes back in search_miss_keys. Batch 22 WP-1
+    Task 5: the search phase no longer registers unmatched itself -- Deezer
+    gets a fallback attempt first, so the caller owns that decision."""
     job_id = create_job(TEST_JOB_PARAMS)
     cache_misses = {
         ("artist1", "album1"): {
@@ -378,28 +438,21 @@ async def test_run_spotify_search_phase_all_misses_returns_empty_maps():
         patch("scrobblescope.orchestrator.set_job_progress"),
         patch("scrobblescope.orchestrator.add_job_unmatched") as mock_unmatched,
     ):
-        id_to_key, id_to_data = await _run_spotify_search_phase(
+        id_to_key, id_to_data, search_miss_keys = await _run_spotify_search_phase(
             job_id, session, cache_misses, "fake_token", semaphore
         )
 
     assert id_to_key == {}
     assert id_to_data == {}
-    assert mock_unmatched.call_count == 2
-    expected_play_counts = {
-        source["original_album"]: source["play_count"]
-        for source in cache_misses.values()
-    }
-    for call in mock_unmatched.call_args_list:
-        payload = call.args[2]
-        assert payload["reason_code"] == "no_spotify_match"
-        assert payload["album_image"] is None
-        assert payload["spotify_id"] is None
-        assert payload["play_count"] == expected_play_counts[payload["album"]]
+    assert search_miss_keys == {("artist1", "album1"), ("artist2", "album2")}
+    mock_unmatched.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call():
-    """valid_spotify_ids=[]: fetch_spotify_album_details_batch not called."""
+    """valid_spotify_ids=[]: fetch_spotify_album_details_batch not called.
+    Batch 22 WP-1 Task 5: the search miss now falls through to a Deezer
+    attempt rather than returning immediately, so Deezer is mocked too."""
     from scrobblescope.orchestrator import _fetch_spotify_misses
 
     job_id = create_job(TEST_JOB_PARAMS)
@@ -422,6 +475,11 @@ async def test_run_spotify_batch_detail_phase_empty_id_list_skips_api_call():
             "scrobblescope.orchestrator.fetch_spotify_album_details_batch",
             new_callable=AsyncMock,
         ) as mock_batch,
+        patch(
+            "scrobblescope.orchestrator.search_deezer_album",
+            new_callable=AsyncMock,
+            return_value=None,
+        ),
         patch("scrobblescope.orchestrator.set_job_progress"),
         patch("scrobblescope.orchestrator.add_job_unmatched"),
     ):

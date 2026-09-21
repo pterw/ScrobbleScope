@@ -25,6 +25,34 @@
 strikethrough_exempt = true
 
 # ----------------------------------------------------------------------
+# Archive thresholds
+# ----------------------------------------------------------------------
+
+# Neither key is a declaration: these are the sizes a maintenance run uses, not
+# facts a check verifies. Both are required once the table is present, so a
+# half-written table cannot paginate at a size nobody chose; remove the table
+# entirely to take the documented defaults (500 / 365).
+[archives]
+max_lines = 500
+cold_days = 365
+
+# ----------------------------------------------------------------------
+# Close-out admission
+# ----------------------------------------------------------------------
+
+# The lowest batch whose closure the six close-out signals are evaluated
+# against. Everything at or above it is managed; everything below it closed
+# before those signals existed, so it is admitted as it stands. Requiring
+# Batches 0-21 to be rewritten would be fabricating evidence, not checking it.
+# Batch 22 is the first managed batch.
+#
+# A boundary rather than a list of managed batches: a list can be opted out of
+# by omission, and a boundary cannot, because a new batch lands above it by
+# arithmetic. Moving the boundary is an edit here, in review.
+[closeout]
+admit_from_batch = 22
+
+# ----------------------------------------------------------------------
 # Values
 # ----------------------------------------------------------------------
 
@@ -39,11 +67,6 @@ expect = "#faf7f0"
 [[value.sites]]
 file = "static/css/shell.css"
 pattern = ':root \{[^}]*--shell-bg: (#[0-9a-f]{6});'
-expect = "#faf7f0"
-
-[[value.sites]]
-file = "static/css/global.css"
-pattern = ':root \{[^}]*--bg-color: (#[0-9a-f]{6});'
 expect = "#faf7f0"
 
 # Owner review raised the small-text floor and strengthened the light muted
@@ -201,13 +224,21 @@ file = "docs/design/README.md"
 pattern = '(?:under |breakpoint at )(\d+)px'
 expect = "860"
 
+# DESIGN.md states the same three design facts as docs/design/README.md -- the
+# breakpoint, the touch minimum and the kit id -- and was undeclared until
+# 2026-09-19, so all three sat outside the guard that exists for them.
 [[value.sites]]
-file = "AGENTS.md"
+file = "DESIGN.md"
+pattern = 'below `(\d+)px`'
+expect = "860"
+
+[[value.sites]]
+file = "docs/architecture/documentation-tooling.md"
 pattern = 'query writes `([\d.]+)px`'
 expect = "859.98"
 
 [[value.sites]]
-file = "AGENTS.md"
+file = "docs/architecture/documentation-tooling.md"
 pattern = 'script writes `(\d+)`'
 expect = "860"
 
@@ -224,7 +255,7 @@ pattern = '--index-scale-base: ([\d.]+)'
 expect = "1.075"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'factor of `([\d.]+)'
 expect = "1.075"
 
@@ -242,7 +273,7 @@ pattern = '--index-scale-cap: ([\d.]+)'
 expect = "1.75"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'capped at `([\d.]+)`'
 expect = "1.75"
 
@@ -263,7 +294,7 @@ pattern = '\.index-form__inner\s*\{[^}]*max-width: calc\(([\d.]+)rem \* var\(--i
 expect = "27.5"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'owner-refined `([\d.]+)rem`\s+base cap'
 expect = "27.5"
 
@@ -284,7 +315,7 @@ pattern = 'max-width: min\(([\d.]+)vw, [\d.]+rem\)'
 expect = "84"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'centred result frame uses `([\d.]+)vw`'
 expect = "84"
 
@@ -302,7 +333,7 @@ pattern = 'max-width: min\([\d.]+vw, ([\d.]+)rem\)'
 expect = "120"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'capped at `([\d.]+)rem`'
 expect = "120"
 
@@ -342,12 +373,16 @@ file = "static/css/shell.css"
 pattern = 'min-height: 2\.75rem'
 
 [[value.sites]]
-file = "AGENTS.md"
+file = "docs/agents/ui-accessibility.md"
 pattern = 'at least 44px on its smaller side'
 
 [[value.sites]]
 file = "docs/design/README.md"
 pattern = 'Touch targets never below 44px'
+
+[[value.sites]]
+file = "DESIGN.md"
+pattern = '44px minimum touch target'
 
 [[value.sites]]
 file = "docs/design/components/forms/Stepper.prompt.md"
@@ -373,12 +408,17 @@ pattern = 'kit `(\w+)`'
 expect = "rwy8ghw"
 
 [[value.sites]]
+file = "DESIGN.md"
+pattern = 'Adobe Fonts kit `(\w+)`'
+expect = "rwy8ghw"
+
+[[value.sites]]
 file = "docs/design/README.md"
 pattern = 'use\.typekit\.net/(\w+)\.css'
 expect = "rwy8ghw"
 
 [[value.sites]]
-file = "BATCH21_DEFINITION.md"
+file = "docs/history/definitions/BATCH21_DEFINITION.md"
 pattern = 'Kit `(\w+)`'
 expect = "rwy8ghw"
 
@@ -559,6 +599,20 @@ scan = [
 ]
 allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
+# `docs/agents/ui-accessibility.md` moved out of AGENTS.md on 2026-09-19 with
+# its item numbering preserved because two design documents cite specific
+# items by number. Declared so a citation written tomorrow is checked with no
+# new declaration, the same reasoning as the two anchors above. Same three
+# exemptions and the same reasons: docs/history and docs/logarchive are dated
+# records, and CLAUDE.md is gitignored and would make the gate depend on who
+# runs it.
+[[anchor]]
+name = "UI and Accessibility Rules citations"
+target = "docs/agents/ui-accessibility.md"
+pattern = '`docs/agents/ui-accessibility\.md` "([^"]+)"(?: item (\d+))?'
+scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
+allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
+
 # ----------------------------------------------------------------------
 # Retired claims
 # ----------------------------------------------------------------------
@@ -619,3 +673,24 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 
 [retired.allow_after]
 "PLAYBOOK.md" = "## 4. Execution log"
+
+# ----------------------------------------------------------------------
+# Findings
+# ----------------------------------------------------------------------
+
+# Findings that read as finished but predate the lifecycle record, listed
+# so DOC023 can report them as a counted warning instead of blocking on
+# history nobody can retroactively assert. An id absent from this list is
+# admitted, which is why the list is ids and not a batch boundary: a
+# source tag like F-DOCSYNC-9 carries no batch number, so a boundary
+# would grandfather every tagged finding by accident and let a new one
+# escape by choosing a tag.
+#
+# This list only shrinks. Give a finding its `- [x] **Status:**` record,
+# then delete its id here. Adding an id is a reviewable diff, on purpose.
+[findings]
+# Emptied 2026-09-20: all 23 were given their records and the 16 their
+# authors called finished have rotated to the archive. The list is meant to
+# empty, and it has. It stays declared so the next repository to adopt this
+# gate starts strict, with somewhere to put its own history.
+grandfathered = []
