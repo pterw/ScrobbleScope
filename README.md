@@ -30,10 +30,16 @@ available run in the same browser session.
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Architecture](#architecture)
+  - [A search is an ETL pass over an event stream, not a query](#a-search-is-an-etl-pass-over-an-event-stream-not-a-query)
   - [How a search runs, end to end](#how-a-search-runs-end-to-end)
   - [The shared infrastructure in `utils.py`](#the-shared-infrastructure-in-utilspy)
   - [What each module owns](#what-each-module-owns)
 - [Key Implementation Highlights](#key-implementation-highlights)
+- [Owned Interface Components](#owned-interface-components)
+  - [The heatmap is a hand-built SVG](#the-heatmap-is-a-hand-built-svg)
+  - [The pinwheel is an owned component](#the-pinwheel-is-an-owned-component)
+  - [The results export renders desktop on purpose](#the-results-export-renders-desktop-on-purpose)
+  - [The artist spotlight is sampled, and never empty](#the-artist-spotlight-is-sampled-and-never-empty)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
@@ -175,6 +181,36 @@ flowchart TB
 Dotted edges are the fallback path, the correction pass that runs after the
 results are on screen, and the browser's progress polling -- none of them the
 primary request flow.
+
+### A search is an ETL pass over an event stream, not a query
+
+This framing matters more than it sounds, because it is the reason the
+codebase does not look like a CRUD app.
+
+Last.fm stores **scrobbles**: an unbounded event stream of individual track
+timestamps. It has no concept of the album a listener played. An "album" does
+not exist upstream to be fetched -- it is *produced*, by grouping the stream on
+a normalized `(artist, album)` key, then partitioning and threshold-gating the
+groups on criteria the user chose. The same stream yields different album sets
+depending on those thresholds, so the album is a function of the query rather
+than a row in a table.
+
+That has three consequences visible throughout the architecture:
+
+- **Identity is resolved, not looked up.** Two providers name the same album
+  differently, and Last.fm's own spelling varies. The normalized key is the
+  join, so album identity is computed once and reused by the cache, every
+  provider match, and every live correction.
+- **PostgreSQL is a cache, not the domain's home.** It is a read-through layer
+  with a 30-day TTL, and its purpose is to protect upstream rate limits and cut
+  latency, not to hold the model. The application is correct with the database
+  absent; `DATABASE_URL` blank is a supported configuration, and a search
+  simply does every lookup live.
+- **A job is a pipeline stage, not a transaction.** Progress is published per
+  phase, failures are classified per provider, and the correction pass is
+  queued after the results are already on screen rather than awaited. Holding a
+  result set behind a one-request-per-second lookup would make the page slower
+  than the API it is waiting on.
 
 ### How a search runs, end to end
 
@@ -320,6 +356,85 @@ module, so the clients stay thin:
   can come back. Explicit job IDs still work, and the JSON endpoints
   (`/progress`, `/api/unmatched`, `/api/release_checks`,
   `/api/artist_spotlight`) are separate from the pages.
+
+## Owned Interface Components
+
+Three of the interface elements are built from scratch rather than pulled from
+a library. That is not minimalism for its own sake: each one is a place where a
+charting or animation dependency would have cost more than it saved, and each
+had to satisfy a constraint a generic library does not know about.
+
+### The heatmap is a hand-built SVG
+
+There is no charting library and no `<canvas>` on the page. `static/js/heatmap.js`
+constructs the grid as SVG nodes with `createElementNS`: a Monday-first weekly
+calendar on desktop (`mondayIndex` normalises `getDay()` so week one does not
+depend on the locale), 7 rows of days against 53 week columns, with month
+labels tracking the column offsets. Narrow screens get a **separate sequential
+grid** with larger cells rather than a squeezed copy of the weekly one, because
+a 53-week grid is roughly 880px and cannot be made to work in a phone column.
+
+Cell intensity is log-normalised, not linear:
+
+```js
+Math.log10(count + 1) / Math.log10(maxCount + 1)
+```
+
+A heavy listener's year is dominated by a handful of huge days. On a linear
+scale almost every cell lands in the first stop of the ramp and the map reads
+as blank. The logarithm is what makes the mid-range visible.
+
+The colour comes from a seven-stop ramp (`ROCKET_STOPS`, sampled from
+matplotlib's `rocket_r`) interpolated by `rocketColor(t)`. Two details are
+load-bearing:
+
+- **Zero-count cells are repainted from the active theme.** A cell carries its
+  colour as an SVG `fill` *presentation attribute*, and a presentation
+  attribute does not resolve a CSS custom property -- so the token is read and
+  resolved in JavaScript before being assigned. Without that, the grid keeps
+  its light-theme empties on a dark page, which is exactly the failure the
+  browser gate later grew a check for.
+- **The palette has one owner.** `heatmap.js` holds all seven stops;
+  `tailwind.src.css` and `heatmap.css` derive from them rather than
+  re-declaring them, so the tab accent and the grid cannot disagree.
+
+The JPEG export is not a screenshot. The live SVG is cloned, given explicit
+pixel dimensions, serialised to a data URI and drawn into a canvas at 2x
+(`EXPORT_SCALE`), with a header laid out from named geometry constants. Two
+problems this solves: an SVG carries no stylesheet, so the fonts and tokens
+have to be inlined; and the export header is *read from the page* rather than
+written into the export code, so the image cannot state something the page
+does not.
+
+### The pinwheel is an owned component
+
+`scrobblescope_pinwheel.svg` with its animation in `shell.css` -- an inline
+vector mark rather than a loader GIF or a JavaScript animation library, so it
+inherits theme tokens, respects `prefers-reduced-motion`, and stays crisp at
+any density.
+
+### The results export renders desktop on purpose
+
+The JPEG export of the results table forces the **desktop** markup visible
+inside the clone (`html2canvas`'s `onclone` hook swaps the `.desktop-val` and
+`.mobile-val` families), at `scale: 3`. A phone therefore produces a
+desktop-faithful image. That is intentional: a table of album rows is far more
+readable at full width, and an export is something a person keeps or shares
+rather than reads in place.
+
+Two constraints are handled explicitly. `html2canvas` 1.4 cannot parse the
+`color()` function that `color-mix()` emits, so the page surface is rasterised
+to an `rgb()` string first. And the CSV export reads a `data-export` attribute
+rather than the cell's text, because the table rounds and the file should not.
+
+### The artist spotlight is sampled, and never empty
+
+`spotlight.py` aggregates the results by artist, ranks by play count and play
+time, takes the top ten, and samples **five** -- seeded on the job id, so
+re-running the same search does not reshuffle the panel under the user while a
+fresh search does. It issues a separate request scoped to that sample, and if
+any single image fails to load the album artwork already on the page is the
+fallback, so the panel has no empty state to design for.
 
 ## Getting Started
 
@@ -604,6 +719,26 @@ outgrown, or a batch closed without the steps its own procedure requires.
 That is unusual enough to be worth saying plainly -- it exists because this
 project is developed across many short sessions, and a document that quietly
 went stale costs more than a failing test.
+
+**The tooling is larger than the application on purpose.** Rotation,
+deduplication and cross-file consistency are *mechanisms* rather than rules an
+agent is trusted to follow, because they were left unfollowed three times and
+each lapse left a stale claim in the corpus. Around that sit a browser gate
+that serves the real application across its viewport profiles in CI, and a
+worktree guard whose diagnostics are typed rather than prose. None of it is
+in-house for its own sake; each piece replaced a class of failure that review
+alone had already failed to catch.
+
+**It is also built to be lifted.** The guards, the documentation package, the
+browser gate and the batch discipline are intended to leave this repository and
+serve the next one, which is why the checks read their facts from a
+declarations file instead of hard-coding them, prefer the standard library,
+and fail with a path, a line and a remediation. That extraction is a scheduled
+body of work rather than a side effect, and it is deliberately unfinished --
+parts of it still name ScrobbleScope files, and making the rest generic before
+there is a second consumer would buy abstraction rather than reuse.
+[DEVELOPMENT.md](DEVELOPMENT.md) reports which parts are generic today, which
+are still tied to this repository, and why.
 
 [DEVELOPMENT.md](DEVELOPMENT.md) covers the tooling and its tradeoffs;
 [CONTRIBUTING.md](CONTRIBUTING.md) covers sending a change.

@@ -287,6 +287,66 @@ and the commit-preflight and hook-installer design live in
 section is the methodology narrative around it and deliberately does not
 restate the catalogue.
 
+**The rotation is a mechanism because agents could not be trusted with it.**
+This is the origin of the whole package, and it is worth recording in the
+engineering terms rather than the motivational ones. Rotating a section between
+two Markdown files is a read-modify-write over documents that must stay
+byte-consistent with each other, and it was performed by hand three times. Each
+attempt produced a distinct failure: an entry archived that should have stayed,
+an entry duplicated across the boundary, and a stale remark left in place after
+the text it described had moved. All three are silent -- the document still
+renders, so nothing tells the reader it is now wrong.
+
+The response was to stop asking for care and build the three pieces that make
+the operation deterministic instead: a **parser** that reads the section into
+typed entries, a **renderer** that emits the result, and **rotation** that
+decides what moves. Those are the load-bearing parts of the package, and they
+exist precisely because the task is one an LLM is not reliable at over many
+sessions. The hooks and the diagnostics came later, once there was a mechanism
+worth guarding.
+
+**"ACID" is a shorthand here, not a claim.** The publication path is usually
+described as ACID-like, and it is worth being exact about how far that carries,
+because overclaiming it would be its own kind of stale remark:
+
+- **Atomicity** is real. A publication commits or does not, via the staged
+  rename, and a crash cannot leave a partially-written corpus.
+- **Consistency** is real, and enforced by a declarative rules engine rather
+  than by hand. The invariant checks are the C in the analogy.
+- **Isolation** is partially accurate. The exclusive lock makes the run
+  single-writer, but it is filesystem-, not database-, scoped: it does not
+  coordinate across machines and does not serialise readers.
+- **Durability** is accurate within filesystem semantics. The journal is on
+  disk and survives the process, but it is not an fsync-per-write guarantee
+  against power loss.
+
+So the precise description is an **atomic file-transaction and invariant
+enforcement system**: atomic batch publishing, strict mechanistic invariant
+checking, exclusive write locks, and persistent on-disk recovery state, instead
+of uncoordinated script overwrites. The acronym is useful because it
+communicates the design intent in one word to a reader who already knows what
+those properties cost; it stops being useful the moment it is read as a
+database guarantee.
+
+**What else the package carries.** Three pieces are what turn the mechanism
+into a workflow, and all three were built in the docsync close-out work:
+
+- **The commit preflight** (`scripts/dev/docsync_preflight.py`). It validates
+  the *commit candidate* rather than the working tree, so a commit cannot carry
+  a broken document set past the gate, and it is deliberately the first hook in
+  `.pre-commit-config.yaml` so nothing downstream can rewrite the files it just
+  validated.
+- **The hook installer** (`scripts/dev/install_docsync_hook.py`). Docsync has
+  to run before any other hook can touch a candidate, which pre-commit's own
+  dispatch does not give you; the installer generates a wrapper that enforces
+  the ordering and refuses to overwrite a hook it did not write. It is
+  **opt-in and not installed in this repository** -- running it for real is an
+  owner action.
+- **The CLI surface** (`scripts/doc_state_sync.py`). `--check` and `--fix` are
+  the daily pair; `--close-batch`, `--split-archive`, `--paginate-archives` and
+  `--cold-storage --as-of` are the maintenance modes, each of which publishes
+  through the transaction above.
+
 **SESSION_CONTEXT.md is optional in CI.**
 
 The file is committed to the repo and is normally present in GitHub Actions (with a standard
@@ -474,6 +534,52 @@ The decomposition plan exists and is deliberately parked.
 
 Two things that are *not* portable and should not try to be: the design system
 under `docs/design/`, and every path constant that names a ScrobbleScope file.
+
+**`.docsync.toml` was written for extraction, and it is the clearest example of
+how far that has gone and how far it has not.** The file exists as a separate
+declaration layer specifically so a second repository can supply its own
+without touching the mechanism: the checks read what to verify from it rather
+than knowing it. That split is real and it works -- `declarations.py` contains
+no ScrobbleScope value at all, which is what makes the module liftable.
+
+What remains tied is the *content* of those declarations, and it is worth
+enumerating rather than summarising, because "still has semantic ties" is easy
+to say and hard to act on:
+
+| Tie | Where | Why it is repository-specific |
+|---|---|---|
+| Document paths | `[[value.sites]]` and `[[anchor]]` entries | They name `docs/design/README.md`, `docs/design/RECONCILIATION.md`, `docs/history/definitions/BATCH21_DEFINITION.md`, `docs/architecture/documentation-tooling.md`, `docs/agents/ui-accessibility.md` |
+| Scanned corpus | `scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]` and its `allow_files` list | The document inventory a repository has is a policy choice, not a universal |
+| Section anchors | `[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"` | PLAYBOOK and its section names are this workflow's vocabulary |
+| Batch vocabulary | `[closeout] admit_from_batch = 22` | Batching is the portable idea; *which* batch is the local fact |
+| Design tokens | the `[[value]]` entries for the page background and muted text | These are ScrobbleScope's visual system, and one of them straddles source CSS, a legacy shell bridge and exact tests |
+| Live-document list | `_LIVE_DOCUMENT_PATHS` in `integrity.py` | The module's own remaining repository knowledge; the short list AGENT_NOTES names as the last thing to move |
+
+The pattern is consistent: **the mechanism is generic and the facts are
+local**, which is the intended end state. The unfinished half is that those
+local facts currently live *inside this repository's config* rather than in a
+config a second repository would write for itself. That is what the deferred
+kernel plan addresses, and it is why the plan's constraint is that the new
+kernel modules "must not contain `ScrobbleScope`, `PLAYBOOK.md`, `Batch`, `WP`,
+or `docs/superpowers/` policy literals".
+
+**Why this is deliberately unfinished.** Two reasons, both of which are
+engineering rather than scheduling. First, some of it is *not* extractable
+without loss: `.docsync.toml`, the design system and the path constants encode
+this repository's own rules, and the honest description of a control plane for
+a repository is that it must know which documents that repository owns. Forcing
+genericity before there is a second consumer produces configuration indirection
+with no second consumer to justify it. Second, the parts still worth
+simplifying -- `integrity.py`, `declarations.py`, `cli.py` -- are the largest
+modules in the package, and restructuring them while Batch 22's checks are
+still settling would trade a working control plane for a tidier unfinished one.
+The plan says so itself: "Refactor by responsibility, not line count."
+
+What is *not* deferred is the constraint on new work, and that one binds every
+commit: write new checks so they read their facts from the declarations layer,
+name an assumption and make it switchable instead of letting it harden into
+doctrine, prefer the standard library, and fail with a path, a line and a
+remediation. The extraction stays cheap because nothing new makes it worse.
 
 **The standing constraint until the extraction is scheduled.** It is a batch of
 its own and has not been scheduled, so it must not be started as a side task.

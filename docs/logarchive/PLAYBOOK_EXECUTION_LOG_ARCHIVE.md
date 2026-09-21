@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-20 - Session close-out and handoff
+
+Side task, no batch tag. The session closed under a token budget, so this
+entry records the state rather than the reasoning; the entries below carry
+the reasoning.
+
+**Pushed.** Seven commits are on `origin/feat/batch22-enrichment`, from
+`3707d6a` to `e57e894`: the work-package tag repair, Batch 22 WP-4 (the
+release-check endpoint and its live disclosure), the colour-serialization
+class fix, the Batch 22 close-out, the Batch 23 definition with six
+corroborated proposals, and the cache repair with the findings rotation. The
+branch is **not merged** into `test`; opening a pull request is an owner
+decision and has not been taken.
+
+**Handoff written for a new agent**, deliberately assuming no familiarity
+with this repository and no particular tooling:
+`docs/history/reports/HANDOFF_2026-09-20.md`. It carries the reading order,
+the environment, the five ways this repository will refuse a commit and why,
+the database-migration fact that hid a dead cache for a whole batch, what
+Batch 23 is, and the open items with their findings.
+
+**The owner's inline questions in `FINDINGS.md` are resolved** and have been
+removed. They were written after Batch 21 closed, asking why nothing had
+rotated; the answer was that no finding carried the lifecycle record rotation
+requires, and the rotation in the entry below is the answer in effect. Two of
+the removed lines were not questions and were restored: an owner ruling that
+the GitHub-to-findings sync must run in both directions, now recorded inside
+F-B21-9, and a wrapped line of F-LOAD-2's own prose that a regex mistook for
+an annotation because it began with a slash.
+
+Validation: `pytest -q` -- **1529 passed**. `doc_state_sync.py --check` exit
+0, its only warning the root definition waiting for Batch 23 to open.
+
+Next action for whoever arrives: read the handoff, then decide the pull
+request and whether to open Batch 23.
+
 ### 2026-09-20 - The cache was inert, and the findings backlog now rotates
 
 Side task, no batch tag, on the owner's instruction to close Batch 22's
