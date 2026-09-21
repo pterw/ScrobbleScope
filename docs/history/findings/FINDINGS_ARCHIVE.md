@@ -9,6 +9,57 @@ Newest rotation first.
 
 ---
 
+### F-B22-2: `assert` guards an invariant that `python -O` strips, at six sites -- RESOLVED
+
+`assert` stands in for a runtime invariant check in six places across three
+files. `python -O` strips `assert` entirely, so an optimized interpreter would
+fall through to an `AttributeError` a few lines later instead of a clear,
+intentional failure:
+
+- `scrobblescope/routes/album_flow.py:89,154,309` -- `assert job_context is not
+  None`, narrowing the type after a validation guard clears (`if err: return
+  err`). Moved verbatim from pre-split `routes.py`; not introduced by WP-0.
+- `scrobblescope/spotify.py:28,29` -- `assert SPOTIFY_CLIENT_ID is not None` and
+  the same for `SPOTIFY_CLIENT_SECRET`, guarding the token request. A stripped
+  assert here sends `None` as a credential rather than refusing.
+- `scripts/docsync/findings.py:132` -- `assert heading_match is not None` in
+  `_build`, whose only caller `_parse` passes lines that already matched the
+  heading pattern.
+
+Codacy flagged the `album_flow.py` group on PR #232 and the `findings.py` site
+on PR #235; the original filing named only `album_flow.py`'s three sites and
+cited line 302, which had drifted to 309. The class is the pattern, not the
+package or the PR that noticed it, so all six are recorded here rather than one
+finding per reviewer comment.
+
+Fix shape: replace each with `if X is None: raise RuntimeError(...)` (or
+`ValueError` where the input is external), matching the pattern of an
+internal-invariant check rather than a `python -O`-dependent one. Small and
+testable, but out of scope for WP-0's behaviour-neutral contract -- filed
+separately rather than fixed in-PR.
+
+Since 2026-09-21 (F-SWE-4) production refuses to start without either
+Spotify key, so the `spotify.py` pair can only be reached in dev mode.
+
+Resolved 2026-09-21, and not with the suggested raise at every site. Each
+invariant was put where it actually holds:
+
+- `album_flow.py`, three sites: deleted. `_get_validated_job_context`
+  returns its error before it can return a missing context, so the
+  `assert`s only narrowed types; three copies of a raise that cannot fire
+  would have been dead code (Rule 3 at the third occurrence).
+- `findings.py`: `_parse` already holds the heading match and now passes it
+  to `_build`, so the invariant holds by construction.
+- `spotify.py`, two sites: missing or empty credentials now return None,
+  the function's existing failure answer, so callers fall back to Deezer.
+  The `assert` had raised past that fallback and failed the whole job.
+
+Ruff `S101` is enabled outside `tests/`, so a new production `assert` fails
+the commit. The affected suites also pass under `python -O`.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+Source: Codacy bot reviews, PR #232, 2026-09-13, and PR #235, 2026-09-20.
+
 ### F-MAS-4: broad `except Exception` catches -- RESOLVED
 
 17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at

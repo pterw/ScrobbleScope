@@ -86,7 +86,6 @@ def _render_loading_page():
     if err:
         return err
 
-    assert job_context is not None
     p = _extract_job_params(job_context)
     return render_template(
         "loading.html",
@@ -149,9 +148,6 @@ def _render_results_page():
                 ),
             )
         return err
-
-    # Type narrowing: after the err guard, job_context is guaranteed non-None.
-    assert job_context is not None
 
     progress_payload = job_context["progress"]
     if progress_payload.get("error"):
@@ -304,9 +300,6 @@ def _render_unmatched_page():
                 ),
             )
         return err
-
-    # Type narrowing: after the err guard, job_context is guaranteed non-None.
-    assert job_context is not None
 
     p = _extract_job_params(job_context)
     username = p["username"]

@@ -358,6 +358,48 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - No `assert` guards runtime code any more (F-B22-2)
+
+Side task, no batch tag. Preparation for closing PR #235's review threads,
+which the owner named as the next step: two of its Codacy threads (HIGH
+RISK) are this finding, and the honest reply is the fix, not a pointer.
+Control-plane change (`scripts/docsync/findings.py`), committed with
+`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run directly.
+
+**Plan vs implementation.** The finding's fix shape was a conditional raise
+at each of six sites. Applied as written, three of those raises could never
+fire, so each invariant was placed where it actually holds instead:
+
+- **`routes/album_flow.py`, three `assert job_context is not None`:
+  deleted.** `_get_validated_job_context` returns an error before it can
+  return a missing context, so they only narrowed types. Three copies of an
+  unreachable raise is dead code, and Rule 3 says the third copy is where
+  the invariant belongs in one place -- which it already is.
+- **`scripts/docsync/findings.py` `_build`: invariant by construction.**
+  `_parse` already has each heading's match; it now passes it in instead of
+  `_build` re-matching `block[0]` and asserting.
+- **`spotify.py` token fetch: a behaviour change, deliberately.** Missing or
+  empty credentials now log and return None, which is the function's
+  existing failure answer, so the album pipeline falls back to Deezer and
+  the spotlight keeps its artwork. The `assert` raised past that fallback
+  and failed the whole job; an empty string also slipped past `is not None`.
+  The old test expected `AssertionError`; it is replaced by three cases
+  (id missing, secret missing, id empty) asserting None, no HTTP call and
+  an error log. Red before the change.
+
+**The gate.** Ruff `S101` is selected, with `tests/**` exempt (all 2,630
+current hits are there). Proven red on a probe file. Production code now
+holds zero `assert` statements, and the affected suites pass under
+`python -O`.
+
+**Validation:** `pytest -q` -- **1555 passed**. `pre-commit run --all-files`
+with `SKIP=doc-state-sync-check` -- every other hook passes.
+`doc_state_sync.py --check` run directly -- exit 0.
+
+**Forward guidance:** PR #235's threads can now be answered with fixes for
+every true claim. The fixes live on this branch, so they reach `main` in the
+follow-up PR the owner plans after #235 merges.
+
 ### 2026-09-21 - DOC023 reads a legacy "Status: closed" as a claim
 
 Side task, no batch tag, owner-approved on 2026-09-21 with one condition:
@@ -480,52 +522,3 @@ all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate passed.
 
 **Forward guidance:** F-B22-2 still wants its six `assert`s replaced; the
 startup check narrows one pair, it does not fix them.
-
-### 2026-09-21 - One event-loop helper for every background thread (F-B20-2)
-
-Side task, no batch tag, owner-approved on 2026-09-21 on condition that it
-is non-breaking. F-B20-2 asked for the orchestrator split, which Batch 22
-WP-0 delivered, and for shared event-loop setup. That setup had since
-reached a third copy -- `orchestrator.background_task`, `heatmap.heatmap_task`
-and `release_checks._worker_loop` each built a `ProactorEventLoop` on Windows
-and a default loop elsewhere -- which is the point `docs/agents/global-rules.md`
-Rule 3 says to extract.
-
-**Plan vs implementation.** New `worker.new_thread_event_loop()` creates the
-loop, installs it, and returns it; the three call sites now call it. It
-lives in `worker.py` because that module already owns background-thread
-execution and both job modules import it; `utils.py` was rejected, since
-F-SWE-7 records it as already holding five unrelated concerns. The one new
-import edge, `release_checks -> worker`, is drawn in
-`docs/architecture/runtime-system.md` (re-verified against the `ast` import
-graph: no missing or extra edge) and listed in SESSION_CONTEXT Section 4.
-
-**The behaviour worth preserving, and how it was kept.** Before, a failure in
-`asyncio.set_event_loop` still closed the loop, because the loop was
-assigned before the call and the caller's `finally` closed it. The helper
-cannot return a loop it failed to install, so it closes the loop itself
-before re-raising. Test-first: three new tests in `tests/test_worker.py`
-(default loop off Windows, Proactor on Windows, close-on-install-failure),
-red before the helper existed. The existing slot-release parity tests for
-both job entry points -- crash, loop-setup failure, loop-close failure --
-pass unmodified, as does the whole suite.
-
-**Only part of F-B20-2's list was extracted, deliberately.** Progress mapping
-and error guards have two occurrences, album and heatmap, so Rule 3 says
-leave them. F-B20-2 is resolved with that reasoning written into it.
-
-**Deviation: Batch 23's definition and plan were amended by one clause.**
-`BATCH23_DEFINITION.md` WP-0 plans `_run_coroutine_in_new_loop`, described
-as "the Proactor boilerplate". The Proactor choice is now shared, so both
-documents describe that item as the run-and-close wrapper built on
-`worker.new_thread_event_loop`. Scope is unchanged; the owner should know the
-approved definition moved. `AGENT_NOTES.md` and SESSION_CONTEXT Section 7
-each restated the Proactor rationale; both now point at the helper's
-docstring, which owns it.
-
-**Validation:** `pytest -q` -- **1536 passed**. `pre-commit run --all-files` --
-all hooks pass. `doc_state_sync.py --check` exit 0. `ruff check` clean.
-
-**Forward guidance:** F-SWE-7 (`utils.py`) is the sibling split, and wants a
-work package of its own. Batch 23 WP-0's export wrapper should call
-`new_thread_event_loop` rather than add a fourth platform branch.

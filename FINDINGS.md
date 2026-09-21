@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: no batch is active; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1553 tests across 58 test modules.
+1555 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -1281,42 +1281,6 @@ session). Small and self-contained; no test rewrite beyond swapping the
 `provider-badge` element type assertions.
 
 Status: open (P2). Source: Batch 22 WP-2 Task 6, 2026-09-13.
-
-### F-B22-2: `assert` guards an invariant that `python -O` strips, at six sites
-
-`assert` stands in for a runtime invariant check in six places across three
-files. `python -O` strips `assert` entirely, so an optimized interpreter would
-fall through to an `AttributeError` a few lines later instead of a clear,
-intentional failure:
-
-- `scrobblescope/routes/album_flow.py:89,154,309` -- `assert job_context is not
-  None`, narrowing the type after a validation guard clears (`if err: return
-  err`). Moved verbatim from pre-split `routes.py`; not introduced by WP-0.
-- `scrobblescope/spotify.py:28,29` -- `assert SPOTIFY_CLIENT_ID is not None` and
-  the same for `SPOTIFY_CLIENT_SECRET`, guarding the token request. A stripped
-  assert here sends `None` as a credential rather than refusing.
-- `scripts/docsync/findings.py:132` -- `assert heading_match is not None` in
-  `_build`, whose only caller `_parse` passes lines that already matched the
-  heading pattern.
-
-Codacy flagged the `album_flow.py` group on PR #232 and the `findings.py` site
-on PR #235; the original filing named only `album_flow.py`'s three sites and
-cited line 302, which had drifted to 309. The class is the pattern, not the
-package or the PR that noticed it, so all six are recorded here rather than one
-finding per reviewer comment.
-
-Fix shape: replace each with `if X is None: raise RuntimeError(...)` (or
-`ValueError` where the input is external), matching the pattern of an
-internal-invariant check rather than a `python -O`-dependent one. Small and
-testable, but out of scope for WP-0's behaviour-neutral contract -- filed
-separately rather than fixed in-PR.
-
-Since 2026-09-21 (F-SWE-4) production refuses to start without either
-Spotify key, so the `spotify.py` pair can only be reached in dev mode. The
-defect is narrower but not gone: the fix shape above still applies to all six.
-
-Status: open (P2). Source: Codacy bot reviews, PR #232, 2026-09-13, and
-PR #235, 2026-09-20.
 
 ### F-B22-3: job endpoints trust an unguessable job ID with no session ownership check
 

@@ -111,25 +111,31 @@ def _parse(text: str) -> tuple[list[_Finding], list[str]]:
     """Split a findings document into its findings and its raw lines."""
     lines = text.split("\n")
     visible = prose_lines(lines)
-    heading_positions = [
-        index for index, line in visible if FINDING_HEADING_RE.match(line)
+    headings = [
+        (index, match)
+        for index, line in visible
+        if (match := FINDING_HEADING_RE.match(line)) is not None
     ]
     boundaries = [index for index, line in visible if ANY_HEADING_RE.match(line)]
 
     findings: list[_Finding] = []
-    for start in heading_positions:
+    for start, heading_match in headings:
         end = next((index for index in boundaries if index > start), len(lines))
         block = list(lines[start:end])
         while block and not block[-1].strip():
             block.pop()
-        findings.append(_build(block, start))
+        findings.append(_build(block, start, heading_match))
     return findings, lines
 
 
-def _build(block: list[str], start: int) -> _Finding:
-    """Assemble one finding from its block, locating its lifecycle record."""
-    heading_match = FINDING_HEADING_RE.match(block[0])
-    assert heading_match is not None
+def _build(block: list[str], start: int, heading_match: re.Match[str]) -> _Finding:
+    """Assemble one finding from its block, locating its lifecycle record.
+
+    Takes the heading match ``_parse`` already made rather than matching
+    ``block[0]`` again: the heading is known to match by construction, and
+    re-deriving it here needed an ``assert`` that ``python -O`` strips
+    (F-B22-2).
+    """
     identifier, title = heading_match.group(1), heading_match.group(2)
 
     # Scan the block through the shared scanner so a lifecycle record quoted

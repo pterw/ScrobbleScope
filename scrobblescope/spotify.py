@@ -21,12 +21,22 @@ from scrobblescope.utils import (
 
 
 async def fetch_spotify_access_token():
-    """Return a valid Spotify access token, refreshing from the API if expired."""
+    """Return a valid Spotify access token, refreshing from the API if expired.
+
+    Returns None when no token can be had, and every caller already treats
+    None as "Spotify unavailable": the album pipeline falls back to Deezer
+    and the spotlight keeps the artwork on screen. Missing credentials take
+    that same path. They used to be `assert`ed, which `python -O` strips and
+    which otherwise raised past the fallback and failed the job (F-B22-2).
+    Production cannot start without them (``app._validate_api_keys``), so
+    this branch is reached in dev mode only.
+    """
     if spotify_token_cache["expires_at"] > time.time():
         return spotify_token_cache["token"]
+    if not (SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET):
+        logging.error("Spotify credentials are not configured; no token requested")
+        return None
     url = "https://accounts.spotify.com/api/token"
-    assert SPOTIFY_CLIENT_ID is not None, "SPOTIFY_CLIENT_ID not set"
-    assert SPOTIFY_CLIENT_SECRET is not None, "SPOTIFY_CLIENT_SECRET not set"
     # aiohttp 3.14 deprecates BasicAuth for removal in 4.0; the documented
     # replacement is a pre-encoded Authorization header. base64 is stdlib,
     # so no new dependency.

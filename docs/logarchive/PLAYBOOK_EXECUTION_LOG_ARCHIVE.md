@@ -9,6 +9,55 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - One event-loop helper for every background thread (F-B20-2)
+
+Side task, no batch tag, owner-approved on 2026-09-21 on condition that it
+is non-breaking. F-B20-2 asked for the orchestrator split, which Batch 22
+WP-0 delivered, and for shared event-loop setup. That setup had since
+reached a third copy -- `orchestrator.background_task`, `heatmap.heatmap_task`
+and `release_checks._worker_loop` each built a `ProactorEventLoop` on Windows
+and a default loop elsewhere -- which is the point `docs/agents/global-rules.md`
+Rule 3 says to extract.
+
+**Plan vs implementation.** New `worker.new_thread_event_loop()` creates the
+loop, installs it, and returns it; the three call sites now call it. It
+lives in `worker.py` because that module already owns background-thread
+execution and both job modules import it; `utils.py` was rejected, since
+F-SWE-7 records it as already holding five unrelated concerns. The one new
+import edge, `release_checks -> worker`, is drawn in
+`docs/architecture/runtime-system.md` (re-verified against the `ast` import
+graph: no missing or extra edge) and listed in SESSION_CONTEXT Section 4.
+
+**The behaviour worth preserving, and how it was kept.** Before, a failure in
+`asyncio.set_event_loop` still closed the loop, because the loop was
+assigned before the call and the caller's `finally` closed it. The helper
+cannot return a loop it failed to install, so it closes the loop itself
+before re-raising. Test-first: three new tests in `tests/test_worker.py`
+(default loop off Windows, Proactor on Windows, close-on-install-failure),
+red before the helper existed. The existing slot-release parity tests for
+both job entry points -- crash, loop-setup failure, loop-close failure --
+pass unmodified, as does the whole suite.
+
+**Only part of F-B20-2's list was extracted, deliberately.** Progress mapping
+and error guards have two occurrences, album and heatmap, so Rule 3 says
+leave them. F-B20-2 is resolved with that reasoning written into it.
+
+**Deviation: Batch 23's definition and plan were amended by one clause.**
+`BATCH23_DEFINITION.md` WP-0 plans `_run_coroutine_in_new_loop`, described
+as "the Proactor boilerplate". The Proactor choice is now shared, so both
+documents describe that item as the run-and-close wrapper built on
+`worker.new_thread_event_loop`. Scope is unchanged; the owner should know the
+approved definition moved. `AGENT_NOTES.md` and SESSION_CONTEXT Section 7
+each restated the Proactor rationale; both now point at the helper's
+docstring, which owns it.
+
+**Validation:** `pytest -q` -- **1536 passed**. `pre-commit run --all-files` --
+all hooks pass. `doc_state_sync.py --check` exit 0. `ruff check` clean.
+
+**Forward guidance:** F-SWE-7 (`utils.py`) is the sibling split, and wants a
+work package of its own. Batch 23 WP-0's export wrapper should call
+`new_thread_event_loop` rather than add a fourth platform branch.
+
 ### 2026-09-21 - Between-batch verification: findings, MusicBrainz policy, one diagram
 
 Side task, no batch tag. The owner is using the gap before Batch 23 to close
