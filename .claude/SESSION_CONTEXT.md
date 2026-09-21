@@ -95,6 +95,7 @@ scripts/
     _frontend_gate_colour.py # pure colour and contrast maths, re-exported by the gate
     _frontend_gate_results.py # results controls and decoded CSV/JPEG export checks
     _frontend_gate_shared.py # page inventories and helpers two or more slices read
+    _frontend_gate_unmatched.py # unmatched report contract and width sweep
     _worktree_guard_types.py # immutable public diagnostic value types
     _worktree_guard_diagnostics.py # stable construction, offline, WT014
     _worktree_guard_lineage.py # PLAYBOOK parsing and pure classification
@@ -172,7 +173,8 @@ dev/_frontend_gate_assets.py <- dev/_frontend_gate_shared
 dev/_frontend_gate_colour.py <- (leaf; standard library only)
 dev/_frontend_gate_results.py <- repositories
 dev/_frontend_gate_shared.py <- (leaf; standard library only)
-dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_results, dev/_frontend_gate_shared; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
+dev/_frontend_gate_unmatched.py <- repositories
+dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_results, dev/_frontend_gate_shared, dev/_frontend_gate_unmatched; app.py (create_app); repositories; werkzeug.serving; playwright (imported late)
 ```
 
 **The one deferred edge (Task 9, Batch 22 WP-3).** `orchestrator` imports

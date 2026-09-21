@@ -9,6 +9,17 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: invariants pinned first (F-B21-51)
+
+Side task, no batch tag, owner-approved 2026-09-21. F-B21-51 is rescoped from
+a batch work package to a side task with a written plan, and amended: a shared
+module is added and the TOML registry is deferred. Before any code moves,
+`tests/scripts/dev/test_frontend_gate_split.py` pins three invariants that
+would otherwise fail silently: every defined check is registered, every test
+patch targets a module that reads the name, and the facade's environment
+bootstrap precedes any `scrobblescope` import. Each guard was shown to fail on
+a deliberate defect before being kept.
+
 ### 2026-09-21 - No `assert` guards runtime code any more (F-B22-2)
 
 Side task, no batch tag. Preparation for closing PR #235's review threads,

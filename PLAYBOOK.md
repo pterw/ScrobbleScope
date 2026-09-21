@@ -356,6 +356,22 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - Frontend gate split: unmatched slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_unmatched.py` now owns the largest
+single check, `check_unmatched_report` (422 lines), its breakpoint sweep
+`_unmatched_panel_width_sweep`, and their constants
+(`UNMATCHED_TWO_PANEL_MIN`, `UNMATCHED_SWEEP_WIDTHS`,
+`UNMATCHED_MIN_TITLE_WIDTH`), moved verbatim and importing
+`add_job_unmatched`, `create_job` and `delete_job` from
+`scrobblescope.repositories`. The sweep gains its first unit tests: that it
+reports a wrong column count and a starved album title at each swept width,
+and that it restores the viewport through its `finally` block both on a
+normal return and when a page measurement raises. A mutation probe that
+widened `UNMATCHED_MIN_TITLE_WIDTH` to 960 produced the expected FAIL lines
+on chromium at all three profiles. The gate's summary line is unchanged at
+30 checks across both browsers.
+
 ### 2026-09-21 - Frontend gate split: assets slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_assets.py` now owns stylesheet
@@ -389,14 +405,3 @@ deleted rather than moved. The cdnjs Bootstrap fixture is removed: no template
 requests Bootstrap, and the isolation check reads hrefs, so it still catches a
 regression; `install_cdn_routes` keeps only the Impeccable Live overlay abort.
 Eight colour tests moved verbatim into the colour test file.
-
-### 2026-09-21 - Frontend gate split: invariants pinned first (F-B21-51)
-
-Side task, no batch tag, owner-approved 2026-09-21. F-B21-51 is rescoped from
-a batch work package to a side task with a written plan, and amended: a shared
-module is added and the TOML registry is deferred. Before any code moves,
-`tests/scripts/dev/test_frontend_gate_split.py` pins three invariants that
-would otherwise fail silently: every defined check is registered, every test
-patch targets a module that reads the name, and the facade's environment
-bootstrap precedes any `scrobblescope` import. Each guard was shown to fail on
-a deliberate defect before being kept.
