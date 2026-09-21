@@ -9,6 +9,44 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - DOC023 reads a legacy "Status: closed" as a claim
+
+Side task, no batch tag, owner-approved on 2026-09-21 with one condition:
+it must not start flagging findings that merely mention a closed batch, work
+package or PR. Control-plane change, committed with the documented escape
+`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run by hand on
+the final tree.
+
+**Why.** F-B21-13's prose said "Status: closed." for four weeks while the
+finding sat active. DOC023 recognises only `resolved` and `no action`, the
+rotation vocabulary, so the word the author actually used was invisible to
+it. That is the one real pattern miss the morning's findings pass found.
+
+**Plan vs implementation.** Measured before designing: matching "closed" on
+any body line fired on two findings, one of them F-B21-25, whose status is
+"partly closed" -- a false positive even on the status line. So the rule is
+narrow: `_LEGACY_CLOSED_STATUS_RE` in `scripts/docsync/findings.py` matches a
+capitalised `Status` label (plain, bold, or after a sentence ends) whose value
+*opens* with "closed". Rotation vocabulary is unchanged: "closed" is a way to
+detect the claim, not an outcome a record may state, so the remedy is still a
+`resolved` record. `docs/architecture/documentation-tooling.md` records the
+rule beside DOC023.
+
+**Tests.** Ten in `tests/test_docsync_findings.py`. Four claim shapes, red
+before the pattern existed. Six non-claims, which pass before and after:
+"partly closed", "not closed", "closes at", and "closed" in ordinary prose
+about a batch, a work package and a PR. On the live corpus the check stays
+clean: F-B21-25 is not flagged.
+
+**Validation:** `pytest -q` -- **1553 passed**. `pre-commit run --all-files`
+with `SKIP=doc-state-sync-check` -- every other hook passes.
+`doc_state_sync.py --check` run directly -- exit 0.
+
+**Forward guidance:** other pre-lifecycle spellings ("fixed", "done") were
+measured and left out: on status lines they appeared only qualified ("the
+scope itself is fixed", "closes at WP-8"). Add one only with a measured
+instance, the same way.
+
 ### 2026-09-21 - Broad catches judged one by one, then gated (F-MAS-4)
 
 Side task, no batch tag, owner-approved on 2026-09-21 because the count only

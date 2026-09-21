@@ -356,6 +356,20 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - Frontend gate split: shared slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_shared.py` now owns the page
+inventories (`MIGRATED_PAGES`, `LEGACY_PAGES`, `ALL_PAGES`,
+`ERROR_PAGE_PATH`), `GATE_JOB_IDS` and `_reach_state`, moved verbatim so every
+later slice can import them without importing the facade that imports them.
+`serve_app` still lives in the facade but now mutates the shared module's
+`MIGRATED_PAGES`, `ALL_PAGES` and `GATE_JOB_IDS` in place through a `from ...
+import` binding, never rebinding them; a new parity test pins that every
+module holding one of those names holds the same object. A mutation probe in
+`_reach_state` produced the expected FAIL on both the touch-target and
+form-validation checks, confirming both reach the shared code through the
+facade's re-export.
+
 ### 2026-09-21 - Frontend gate: dead code removed before the split (F-B21-51)
 
 Side task, no batch tag. `_computed_shadow` had no caller anywhere and is
@@ -416,41 +430,3 @@ with `SKIP=doc-state-sync-check` -- every other hook passes.
 **Forward guidance:** PR #235's threads can now be answered with fixes for
 every true claim. The fixes live on this branch, so they reach `main` in the
 follow-up PR the owner plans after #235 merges.
-
-### 2026-09-21 - DOC023 reads a legacy "Status: closed" as a claim
-
-Side task, no batch tag, owner-approved on 2026-09-21 with one condition:
-it must not start flagging findings that merely mention a closed batch, work
-package or PR. Control-plane change, committed with the documented escape
-`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run by hand on
-the final tree.
-
-**Why.** F-B21-13's prose said "Status: closed." for four weeks while the
-finding sat active. DOC023 recognises only `resolved` and `no action`, the
-rotation vocabulary, so the word the author actually used was invisible to
-it. That is the one real pattern miss the morning's findings pass found.
-
-**Plan vs implementation.** Measured before designing: matching "closed" on
-any body line fired on two findings, one of them F-B21-25, whose status is
-"partly closed" -- a false positive even on the status line. So the rule is
-narrow: `_LEGACY_CLOSED_STATUS_RE` in `scripts/docsync/findings.py` matches a
-capitalised `Status` label (plain, bold, or after a sentence ends) whose value
-*opens* with "closed". Rotation vocabulary is unchanged: "closed" is a way to
-detect the claim, not an outcome a record may state, so the remedy is still a
-`resolved` record. `docs/architecture/documentation-tooling.md` records the
-rule beside DOC023.
-
-**Tests.** Ten in `tests/test_docsync_findings.py`. Four claim shapes, red
-before the pattern existed. Six non-claims, which pass before and after:
-"partly closed", "not closed", "closes at", and "closed" in ordinary prose
-about a batch, a work package and a PR. On the live corpus the check stays
-clean: F-B21-25 is not flagged.
-
-**Validation:** `pytest -q` -- **1553 passed**. `pre-commit run --all-files`
-with `SKIP=doc-state-sync-check` -- every other hook passes.
-`doc_state_sync.py --check` run directly -- exit 0.
-
-**Forward guidance:** other pre-lifecycle spellings ("fixed", "done") were
-measured and left out: on status lines they appeared only qualified ("the
-scope itself is fixed", "closes at WP-8"). Add one only with a measured
-instance, the same way.

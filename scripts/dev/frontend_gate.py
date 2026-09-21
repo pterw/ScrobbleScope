@@ -84,6 +84,17 @@ from scripts.dev._frontend_gate_results import (  # noqa: E402
     check_results_interactions,
     check_results_provider_attribution,
 )
+
+# Re-exported: the facade keeps the public names stable (F-B21-51).
+from scripts.dev._frontend_gate_shared import (  # noqa: E402, F401
+    ALL_PAGES,
+    ERROR_PAGE_PATH,
+    GATE_JOB_IDS,
+    LEGACY_PAGES,
+    MIGRATED_PAGES,
+    TOGGLE_TIMEOUT_MS,
+    _reach_state,
+)
 from scrobblescope.repositories import (  # noqa: E402
     add_job_unmatched,
     create_job,
@@ -156,59 +167,16 @@ def install_cdn_routes(page, live_fonts: bool = False) -> None:
     page.route("http://localhost:8400/**", lambda route: route.abort())
 
 
-#: Clicking budget for the theme toggle. Short, because a miss means the
-#: control is absent or unclickable, and waiting 30s does not change that.
-TOGGLE_TIMEOUT_MS = 5000
-
 #: Marker that identifies a Bootstrap stylesheet in a link href.
 BOOTSTRAP_MARKER = "bootstrap"
 
 #: Marker that identifies the compiled Tailwind stylesheet in a link href.
 TAILWIND_MARKER = "tailwind.css"
 
-#: Any unknown URL renders error.html through the app_errorhandler(404) in
-#: scrobblescope/routes.py. There is no direct route to the error page.
-ERROR_PAGE_PATH = "/no-such-page-for-the-gate"
-
-#: Consumed by check_theme_tokens and check_fonts. Pages already migrated to
-#: Tailwind. Each work package adds its page here, one line.
-#:
-#: Only migrated pages belong here. A Bootstrap page has no --color-primary
-#: and loads no kit faces, so pointing those two checks at every page would
-#: park four permanent failures in the output until WP-7 -- and a gate with
-#: expected failures in it stops being read.
-MIGRATED_PAGES = ["/", "/results", "/heatmap", "/unmatched", ERROR_PAGE_PATH]
-
-#: Throwaway jobs owned by serve_app and driven by pipeline checks.
-GATE_JOB_IDS: dict[str, str] = {}
-
 #: ``serve_app`` temporarily extends module-level page inventories for the
 #: loading fixture. Serialising that context keeps two in-process gate runs
 #: from clearing each other's job IDs or removing each other's route.
 _SERVE_APP_LOCK = threading.Lock()
-
-#: Pages still served by Bootstrap. The tailwind migration is complete, so this
-#: list is empty and stays declared: ``check_stylesheet_isolation`` takes both
-#: inventories because "exactly one framework stylesheet" is a claim about every
-#: page, migrated or not, and ``ALL_PAGES`` below consumes both. A future page
-#: that reverts to a second framework belongs here rather than in
-#: ``MIGRATED_PAGES``, which theme-token and font checks read.
-#:
-#: This replaces a comment that described the migration as still in progress
-#: ("the job-backed Results and Unmatched templates remain on Bootstrap until
-#: their work packages") above an already-empty list. Every template now carries
-#: its own opt-out note -- results.html and unmatched.html both say "Migrated to
-#: Tailwind, so this page opts out of the legacy Bootstrap stack" -- and README
-#: states plainly that "Bootstrap is gone". The only Bootstrap left in this
-#: module is ``BOOTSTRAP_MARKER``, which lets the isolation check prove a page
-#: *would* collide if it reintroduced a Bootstrap stylesheet link, by reading
-#: hrefs rather than serving one. Reading the stale comment as current is what
-#: F-B21-61 warns about; the list, not the comment, was true.
-LEGACY_PAGES = []
-
-#: Consumed by check_stylesheet_isolation. Exactly one framework stylesheet is
-#: a claim about every page, migrated or not, so this check takes both lists.
-ALL_PAGES = [*LEGACY_PAGES, *MIGRATED_PAGES]
 
 #: The device profiles available to visual checks.
 #:
@@ -736,24 +704,6 @@ def check_touch_targets(page, base_url: str) -> list[str]:
                 continue
             failures.extend(_small_targets(page, path, state))
     return failures
-
-
-def _reach_state(page, actions) -> None:
-    """Drive the page into one state, using real clicks and selections.
-
-    Real interactions rather than dispatched events: a synthetic event can
-    reach a listener that a genuine click could never trigger, and the check
-    is about what a finger can do.
-    """
-    for action in actions:
-        kind, selector = action[0], action[1]
-        target = page.locator(selector).first
-        if kind == "click":
-            target.click(timeout=TOGGLE_TIMEOUT_MS)
-        elif kind == "select":
-            target.select_option(action[2], timeout=TOGGLE_TIMEOUT_MS)
-        else:  # pragma: no cover - a typo in the table, not a page fault
-            raise ValueError(f"unknown touch-target action {kind!r}")
 
 
 def _small_targets(page, path: str, state: str) -> list[str]:
