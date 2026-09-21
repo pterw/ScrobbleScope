@@ -194,79 +194,60 @@ Source: owner-reported stat-bar background regression, 2026-09-09.
 
 ### F-B21-51: frontend_gate.py is nine times its largest sibling
 
-`scripts/dev/frontend_gate.py` is 3,756 lines. The largest other module in
-`scripts/dev/` is `tailwind_build.py` at 404. AGENTS.md "Proposal and Design
-Rules" item 3 asks for a comparison against the largest peer in the directory
-rather than a line threshold, and this is 9x it.
+`scripts/dev/frontend_gate.py` is 4,361 lines (2026-09-21). The largest other
+module in `scripts/dev/` is `_frontend_gate_results.py` at 497, and the
+largest unrelated one is `tailwind_build.py` at 404. AGENTS.md "Proposal and
+Design Rules" item 3 compares against the largest peer rather than a line
+threshold, and this is roughly ten times it. One module owns the import
+bootstrap, the server fixture, CDN route policy, browser lifecycle, 27 check
+implementations, their measurement helpers, the registry and the CLI.
 
-The file is not disorganized, and its internal structure improved during the
-review. Measured across the branch, the gate plus its helper went from 2,965
-lines in 49 functions on `main` to 3,879 lines in 78 functions at HEAD, while
-the longest single function fell from 485 lines to 271. The review commit's
-subject calls this "simplify frontend checks", but the module grew by about
-222 lines and its test file grew from 966 to 1,328: the work was
-decomposition, not reduction. Smaller units are the real gain.
+Status: open. Rescoped 2026-09-21 from a batch work package to an
+owner-approved side task, because pairing it with the routes and
+orchestrator split made that batch far larger than planned. Plan of record:
+`docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`, one
+commit per slice.
 
-`CHECKS` is a single source of truth with groups derived from it, and PR #227
-extracted `_frontend_gate_results.py` (123 lines) during review remediation.
-The concern is that one module still owns the server fixture, CDN route
-policy, browser and context lifecycle, 25 check implementations, measurement
-helpers, and the CLI. The PR #227 review received
-`qlty:function-complexity` and `radarlint-pythonS3776` reports against
-`run_checks`, `_exercise_loading_progress_phases`, and
-`check_large_display_scale_parity` -- symptoms of that breadth rather than of
-any single function.
-
-A split should follow the existing group boundaries, which already partition
-the checks by shared fixture: static assets, theme and motion, forms and
-validation, layout and pipeline. `_frontend_gate_results.py` is the precedent
-for the module shape, and `worktree_guard.py` is the precedent for keeping a
-stable public facade over split internals.
-
-Status: open, deferred to a hygiene batch, including the remaining repeated
-geometry-label literals and the owner's issue #228 constants request. The
-earlier claim that infrastructure has no parity tests was incorrect:
-`tests/scripts/dev/test_frontend_gate.py` covers server teardown, setup
-failure, browser lifecycle, group isolation and CDN route policy. Verify the
-affected coverage before a further split, per AGENTS.md Refactor requires
-parity tests; existing tests are not evidence that every proposed split is safe.
-
-**Split design, agreed 2026-09-11.** Follow the `_frontend_gate_*` sibling
-convention that `_frontend_gate_results.py` already set, and keep
-`frontend_gate.py` as the stable facade, per `worktree_guard.py`.
+**Design, agreed 2026-09-11 and amended 2026-09-21.** `frontend_gate.py`
+stays the only entry point and a stable facade, following `worktree_guard.py`,
+with the `_frontend_gate_*` sibling convention `_frontend_gate_results.py`
+set. Slice order: shared, assets, unmatched, forms, theme, layout, pipeline,
+runtime.
 
 | Module | Owns |
 | --- | --- |
-| `frontend_gate.py` | Facade: CLI, `main`, re-exports |
-| `_frontend_gate_runtime.py` | Server fixture, CDN route policy, browser and context lifecycle |
+| `frontend_gate.py` | Facade: `sys.path` and environment bootstrap, viewports, `CHECKS`, groups, runner, CLI, re-exports |
+| `_frontend_gate_shared.py` | Page inventories, `GATE_JOB_IDS`, `TOGGLE_TIMEOUT_MS`, `_reach_state` |
 | `_frontend_gate_assets.py` | Stylesheet isolation |
-| `_frontend_gate_theme.py` | Theme tokens, persistence, divider contrast, mark recolour, motion |
-| `_frontend_gate_forms.py` | Forms, validation, private profile, year warnings |
-| `_frontend_gate_layout.py` | Scale parity, header geometry, touch targets, headline wrap |
-| `_frontend_gate_pipeline.py` | Loading phases, progress state machines, spotlight |
-| `_frontend_gate_unmatched.py` | The unmatched report check, including its 2026-09-11 step and collapse assertions |
-| `_frontend_gate_colour.py` | Pure colour and contrast maths -- landed, see below |
+| `_frontend_gate_unmatched.py` | The unmatched report check and its width sweep |
+| `_frontend_gate_forms.py` | Validation, private profile, validator outage and races, year warning, initial visibility |
+| `_frontend_gate_theme.py` | Theme tokens, divider contrast, persistence, blocked storage, mark, entrance motion, heatmap theme checks |
+| `_frontend_gate_layout.py` | Fonts, text scaling, touch targets, scale parity, empty states |
+| `_frontend_gate_pipeline.py` | Loading composition, progress state machines, spotlight |
+| `_frontend_gate_runtime.py` | Playwright loading, browser launch, `serve_app`, CDN route policy |
+| `_frontend_gate_colour.py` | Pure colour and contrast maths -- landed 2026-09-11 |
 
-The check registry also becomes declarative, in
-`scripts/dev/frontend_gate_checks.toml`: name, group, route, viewport and the
-expected constants. That is this repository's established shape for a thin
-entry point over declarations -- `scripts/doc_state_sync.py` plus
-`scripts/docsync/` plus `.docsync.toml`. The TOML can hold metadata and
-constants but not the procedures, because the checks click, wait and evaluate
-JavaScript. Groups stay derived from the registry, as they already are, and the
-geometry-label literals named above are exactly what moves into it.
+Two amendments to the 2026-09-11 design. A shared module is added, because
+four slices read the page inventories and two read `_reach_state`; importing
+them back from the facade would be circular. The `frontend_gate_checks.toml`
+registry is deferred: it changes representation rather than location, and
+folding it into each move would double every slice's parity surface. It
+remains a candidate once the split has landed.
 
-**Slice 1 landed 2026-09-11.** The gate stood at 4,073 lines by then, against
-the 3,756 recorded above. The seven pure helpers -- `_parse_rgb_string`,
-`_composite_over`, `_relative_luminance`, `_contrast_ratio`, `_clamp_px`,
-`_worst_divider_contrast`, `_divider_contrast_failure` -- moved to
-`_frontend_gate_colour.py` and are re-exported by the facade, pinned by 29
-parity tests in `tests/scripts/dev/test_frontend_gate_colour.py` that include
-an assertion each moved name still resolves through `frontend_gate`. They were
-chosen first because they take no `page` and therefore carry no browser or
-fixture dependency: the browser gate is the artefact being moved, so it cannot
-be the thing that verifies its own refactor. The remaining groups are the
-browser-coupled ones and still need the gate runnable to prove parity.
+**Traps the plan closes.** A test patch aimed at the facade stops reaching
+code that moved, and a patched constant stops reaching a sibling that
+imported it; both still pass. `serve_app` mutates `MIGRATED_PAGES`,
+`ALL_PAGES` and `GATE_JOB_IDS` in place, so every module must share those
+objects. `scrobblescope.config` reads the provider keys at first import, so
+no sibling may import `scrobblescope` above the facade's environment
+bootstrap. `tests/scripts/dev/test_frontend_gate_split.py` pins the registry,
+the patch targets and the import order.
+
+**Slice 1 landed 2026-09-11.** The seven pure helpers moved to
+`_frontend_gate_colour.py` and are re-exported by the facade, pinned by the
+parity tests in `tests/scripts/dev/test_frontend_gate_colour.py`. They went
+first because they take no `page`, so the browser gate was not needed to
+prove the move.
 
 Source: PR #227 commit-range audit, 2026-09-09.
 

@@ -119,10 +119,11 @@ See FINDINGS F-DOCSYNC-3.
   05:50 -- a chronological gap, not a rebase. So `test` now holds WP-4, the
   Batch 22 close-out and the Batch 23 definition; before #236 it held none of
   the three.
-- **PR #235 (`test` -> `main`) is open and no longer a draft**, mergeable.
-  `main` remains the stable Fly.io deployment and still predates Batch 22;
-  advancing it is the owner's call, and its review threads are adjudicated in
-  `docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`.
+- **PR #235 merged `test` into `main`** on 2026-09-21, and **PR #237** then
+  carried the eleven between-batch commits into `test`. **PR #238**
+  (`test` -> `main`) merged on 2026-09-21, carrying them on to `main`; a
+  merge to `main` deploys to Fly.io through Fly's GitHub integration, not a
+  repository workflow.
 - **Outbound request identity, fixed 2026-09-20.** `config.APP_USER_AGENT` is
   now the single owner of the application's own name, and
   `create_optimized_session` sends it on every provider session. Until this
@@ -132,13 +133,10 @@ See FINDINGS F-DOCSYNC-3.
   client risks suspension. `musicbrainz.py` composes its contact-bearing
   User-Agent on the same identity, so the application cannot disagree with
   itself about its own name.
-- **`MUSICBRAINZ_CONTACT` is set locally, not yet on Fly.io.** The owner
-  configured the project's GitHub URL in `.env` on 2026-09-21, which
-  MusicBrainz's policy accepts in place of an email address, so the
-  correction pass now runs locally. On 2026-09-20 it was unset and a probe
-  confirmed zero HTTP calls. It is **not a secret** -- the value travels in the
-  User-Agent header and nothing authenticates with it -- so enabling it on the
-  deployment is a config change, `DEPLOY.md` "MusicBrainz contact".
+- **`MUSICBRAINZ_CONTACT` is set on Fly.io** (2026-09-21, the project's
+  GitHub URL), as well as in the local `.env`.
+- **Side task in progress: the frontend gate split (F-B21-51).** Plan of
+  record: `docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`.
 - **The code defect is closed.** `_musicbrainz_headers` raises instead of
   interpolating the literal string `None` as a contact address, which is what
   it did when called outside the gate that guards it.
@@ -358,6 +356,17 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - Frontend gate split: invariants pinned first (F-B21-51)
+
+Side task, no batch tag, owner-approved 2026-09-21. F-B21-51 is rescoped from
+a batch work package to a side task with a written plan, and amended: a shared
+module is added and the TOML registry is deferred. Before any code moves,
+`tests/scripts/dev/test_frontend_gate_split.py` pins three invariants that
+would otherwise fail silently: every defined check is registered, every test
+patch targets a module that reads the name, and the facade's environment
+bootstrap precedes any `scrobblescope` import. Each guard was shown to fail on
+a deliberate defect before being kept.
+
 ### 2026-09-21 - No `assert` guards runtime code any more (F-B22-2)
 
 Side task, no batch tag. Preparation for closing PR #235's review threads,
@@ -481,44 +490,3 @@ all hooks pass, including the new rule. `doc_state_sync.py --check` exit 0.
 **Forward guidance:** a new broad catch now needs a reason in the diff, which
 is where a reviewer can disagree with it. `docs/SWE_AUDIT_CHARTER.md` notes
 that F-MAS-4 counted catches without judging them; this pass judged them.
-
-### 2026-09-21 - Production refuses to start without its API keys (F-SWE-4)
-
-Side task, no batch tag, owner-approved on 2026-09-21. F-SWE-4: production
-starts through `gunicorn app:app`, which imports `app.py` and never runs its
-`__main__` block, so `ensure_api_keys()` there never fired. A deployment
-missing a key served pages and reported every search as an upstream outage.
-
-**Plan vs implementation.** The finding called it one line. It was not: an
-unconditional call in `create_app()` makes every environment without the
-keys fail at import, and three do -- the test suite and the frontend gate both
-import `app`, and CI's repository secrets arrive empty when unavailable. A
-simulated secret-less CI run confirmed it (whole suite fails at collection).
-So the fix follows the precedent beside it: `_validate_api_keys` mirrors
-`_validate_secret_key` (refuse in production, warn in dev mode) and is called
-from `create_app()`, and `tests/conftest.py` and `scripts/dev/frontend_gate.py`
-supply placeholder keys exactly as they already supply `SECRET_KEY`. The
-`__main__` checks in `app.py` and `run.py` stay: they fail fast for a local
-run, which dev mode would otherwise only warn about.
-
-**Tests.** Four in `tests/test_app_factory.py`, red before the helper existed:
-production refuses, dev warns, a complete set passes, and `create_app()`
-itself refuses -- the regression the finding describes. The full suite passes
-normally and again with `DEBUG_MODE=0` and every key plus `SECRET_KEY`
-empty, which is CI without secrets.
-
-**Deviation: two siblings of the previous commit, found here.** The
-`runtime-system.md` prose listed `config.py`'s importers by line number, and
-the event-loop commit had shifted three of them (`worker.py`,
-`release_checks.py`, `orchestrator/__init__.py`). Rewritten to name modules
-rather than lines, recomputed with an `ast` walk -- still ten nodes -- per
-AGENTS.md anti-pattern 11's rule to cite by name. README's `worker.py` row
-also still read as though the module held only the semaphore; it now names
-the event loop. F-B22-2 gained a note: the `spotify.py` asserts are now
-reachable only in dev mode.
-
-**Validation:** `pytest -q` -- **1540 passed**. `pre-commit run --all-files` --
-all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate passed.
-
-**Forward guidance:** F-B22-2 still wants its six `assert`s replaced; the
-startup check narrows one pair, it does not fix them.

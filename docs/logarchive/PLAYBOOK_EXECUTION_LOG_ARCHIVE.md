@@ -9,6 +9,47 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Production refuses to start without its API keys (F-SWE-4)
+
+Side task, no batch tag, owner-approved on 2026-09-21. F-SWE-4: production
+starts through `gunicorn app:app`, which imports `app.py` and never runs its
+`__main__` block, so `ensure_api_keys()` there never fired. A deployment
+missing a key served pages and reported every search as an upstream outage.
+
+**Plan vs implementation.** The finding called it one line. It was not: an
+unconditional call in `create_app()` makes every environment without the
+keys fail at import, and three do -- the test suite and the frontend gate both
+import `app`, and CI's repository secrets arrive empty when unavailable. A
+simulated secret-less CI run confirmed it (whole suite fails at collection).
+So the fix follows the precedent beside it: `_validate_api_keys` mirrors
+`_validate_secret_key` (refuse in production, warn in dev mode) and is called
+from `create_app()`, and `tests/conftest.py` and `scripts/dev/frontend_gate.py`
+supply placeholder keys exactly as they already supply `SECRET_KEY`. The
+`__main__` checks in `app.py` and `run.py` stay: they fail fast for a local
+run, which dev mode would otherwise only warn about.
+
+**Tests.** Four in `tests/test_app_factory.py`, red before the helper existed:
+production refuses, dev warns, a complete set passes, and `create_app()`
+itself refuses -- the regression the finding describes. The full suite passes
+normally and again with `DEBUG_MODE=0` and every key plus `SECRET_KEY`
+empty, which is CI without secrets.
+
+**Deviation: two siblings of the previous commit, found here.** The
+`runtime-system.md` prose listed `config.py`'s importers by line number, and
+the event-loop commit had shifted three of them (`worker.py`,
+`release_checks.py`, `orchestrator/__init__.py`). Rewritten to name modules
+rather than lines, recomputed with an `ast` walk -- still ten nodes -- per
+AGENTS.md anti-pattern 11's rule to cite by name. README's `worker.py` row
+also still read as though the module held only the semaphore; it now names
+the event loop. F-B22-2 gained a note: the `spotify.py` asserts are now
+reachable only in dev mode.
+
+**Validation:** `pytest -q` -- **1540 passed**. `pre-commit run --all-files` --
+all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate passed.
+
+**Forward guidance:** F-B22-2 still wants its six `assert`s replaced; the
+startup check narrows one pair, it does not fix them.
+
 ### 2026-09-21 - One event-loop helper for every background thread (F-B20-2)
 
 Side task, no batch tag, owner-approved on 2026-09-21 on condition that it
