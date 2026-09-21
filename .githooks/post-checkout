@@ -1,0 +1,21 @@
+#!/bin/sh
+# Refresh the graphify graph after a branch switch, through the same
+# threshold-gated script the post-commit hook uses.
+#
+# No branch is named here on purpose. The earlier version of this hook hardcoded
+# one batch branch and rebuilt on every switch to it, which goes stale the moment
+# that batch closes and pays the full cost on a checkout that changed nothing.
+#
+# $3 is 1 for a branch switch and 0 for a file checkout, so a file checkout does
+# not trigger the check.
+[ "$3" -ne 1 ] && exit 0
+
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+script="$root/scripts/dev/graphify_refresh.py"
+[ -f "$script" ] || exit 0
+if command -v python >/dev/null 2>&1; then
+    python "$script" --quiet || true
+elif command -v py >/dev/null 2>&1; then
+    py -3 "$script" --quiet || true
+fi
+exit 0

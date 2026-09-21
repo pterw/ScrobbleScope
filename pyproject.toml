@@ -28,7 +28,13 @@ extend-exclude = [
 # and variables autoflake removed, now reported instead of silently fixed.
 # I: isort. UP: pyupgrade -- the modernizing half, flags syntax that predates
 # the supported Python. B: flake8-bugbear, real-bug patterns flake8 missed.
-select = ["E", "W", "F", "I", "UP", "B"]
+# BLE: blind except (F-MAS-4). A handler catching bare `Exception` must
+# re-raise, log with a traceback, or carry `# noqa: BLE001` under a comment
+# saying why it is broad -- so the count cannot grow without a stated reason.
+# S101: no `assert` outside tests (F-B22-2). `python -O` strips it, so it is
+# never a runtime guard; state the invariant with an explicit raise, or make
+# it hold by construction.
+select = ["E", "W", "F", "I", "UP", "B", "BLE", "S101"]
 
 # Semantics preserved from the replaced tools. E203 (whitespace before ':')
 # and E501 (line length) are produced by the black-compatible formatter by
@@ -44,6 +50,8 @@ ignore = ["E203", "E501", "E741"]
 
 [tool.ruff.lint.per-file-ignores]
 "app.py" = ["E402"]
+# pytest's assertion rewriting is the point of a test; S101 guards runtime code.
+"tests/**" = ["S101"]
 
 [tool.ruff.lint.isort]
 # Equivalent of the removed [tool.isort] profile = "black".

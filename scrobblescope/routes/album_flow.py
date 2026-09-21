@@ -86,7 +86,6 @@ def _render_loading_page():
     if err:
         return err
 
-    assert job_context is not None
     p = _extract_job_params(job_context)
     return render_template(
         "loading.html",
@@ -149,9 +148,6 @@ def _render_results_page():
                 ),
             )
         return err
-
-    # Type narrowing: after the err guard, job_context is guaranteed non-None.
-    assert job_context is not None
 
     progress_payload = job_context["progress"]
     if progress_payload.get("error"):
@@ -305,9 +301,6 @@ def _render_unmatched_page():
             )
         return err
 
-    # Type narrowing: after the err guard, job_context is guaranteed non-None.
-    assert job_context is not None
-
     p = _extract_job_params(job_context)
     username = p["username"]
     year = p["year"]
@@ -405,9 +398,13 @@ def results_loading():
                     f" ({registered_year}). Please choose {registered_year} or later."
                 ),
             )
-    except Exception:
+    # The registration-year hint is optional; the search proceeds without it.
+    except Exception as exc:  # noqa: BLE001
         logging.warning(
-            "Registration year check failed for %s; proceeding without it", username
+            "Registration year check failed for %s; proceeding without it: %s: %s",
+            username,
+            type(exc).__name__,
+            exc,
         )
 
     cleanup_expired_jobs()

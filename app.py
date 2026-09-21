@@ -105,10 +105,37 @@ def _validate_secret_key(secret_key: str, is_dev_mode: bool) -> None:
         )
 
 
+def _validate_api_keys(is_dev_mode: bool) -> None:
+    """Refuse to start in production without the three provider API keys.
+
+    Production runs ``gunicorn app:app``, which imports this module rather
+    than running it, so a check in the ``__main__`` block alone never fired
+    there (F-SWE-4). Without it a missing key surfaced per request, and was
+    reported to the user as an upstream outage. Dev mode only warns, as
+    ``_validate_secret_key`` does, so a local checkout without keys can still
+    render its pages.
+
+    ``config`` is imported here rather than at module level for the same
+    reason the blueprint is: it reads the environment when first imported,
+    and ``load_dotenv`` above must have run by then.
+    """
+    from scrobblescope.config import ensure_api_keys
+
+    try:
+        ensure_api_keys()
+    except RuntimeError as exc:
+        if not is_dev_mode:
+            raise RuntimeError(f"Refusing to start: {exc}") from exc
+        logging.warning(
+            "%s Continuing in dev mode; searches will fail until they are set.", exc
+        )
+
+
 def create_app():
     """Application factory for ScrobbleScope."""
     _raw_secret = os.getenv("SECRET_KEY", "")
     _validate_secret_key(_raw_secret, debug_mode)
+    _validate_api_keys(debug_mode)
     application = Flask(__name__)
     application.secret_key = _raw_secret or "dev"
 

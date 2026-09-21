@@ -1,0 +1,21 @@
+#!/bin/sh
+# Threshold-gated graphify refresh for local work.
+#
+# The decision lives in scripts/dev/graphify_refresh.py: it counts commits and
+# changed files since the last rebuild and runs graphify update only when a
+# threshold is crossed, so a commit costs a git rev-list rather than a rebuild.
+#
+# The trailing fallback is deliberate. A graph that cannot be rebuilt must never
+# block a commit, and the script exits nonzero only when graphify itself failed.
+#
+# python here is whatever is on PATH -- git hooks do not inherit an activated
+# virtualenv -- which is why the script is standard library only.
+root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+script="$root/scripts/dev/graphify_refresh.py"
+[ -f "$script" ] || exit 0
+if command -v python >/dev/null 2>&1; then
+    python "$script" --quiet || true
+elif command -v py >/dev/null 2>&1; then
+    py -3 "$script" --quiet || true
+fi
+exit 0

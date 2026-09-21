@@ -55,6 +55,14 @@ if str(REPO_ROOT) not in sys.path:
 if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = GATE_SECRET_KEY
 
+# create_app also refuses to start without the three provider keys outside dev
+# mode (F-SWE-4), and CI's secrets arrive empty in exactly the same way. The
+# gate renders pages from seeded jobs and never calls a provider, so a
+# placeholder is enough to boot the application.
+for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
+    if not os.environ.get(_key):
+        os.environ[_key] = "frontend-gate-placeholder"
+
 from app import create_app  # noqa: E402
 
 # Re-exported so the split stays invisible to callers, per F-B21-51: a facade
@@ -206,13 +214,23 @@ GATE_JOB_IDS: dict[str, str] = {}
 #: from clearing each other's job IDs or removing each other's route.
 _SERVE_APP_LOCK = threading.Lock()
 
-#: Pages still served by Bootstrap. Move each one into MIGRATED_PAGES in the
-#: work package that migrates it.
+#: Pages still served by Bootstrap. The tailwind migration is complete, so this
+#: list is empty and stays declared: ``check_stylesheet_isolation`` takes both
+#: inventories because "exactly one framework stylesheet" is a claim about every
+#: page, migrated or not, and ``ALL_PAGES`` below consumes both. A future page
+#: that reverts to a second framework belongs here rather than in
+#: ``MIGRATED_PAGES``, which theme-token and font checks read.
 #:
-#: The job-backed Results and Unmatched templates remain on Bootstrap until
-#: their work packages. The dedicated no-job Results route is migrated, but it
-#: does not claim that results.html is migrated. Unmatched still renders the
-#: shared migrated error surface when no album job exists.
+#: This replaces a comment that described the migration as still in progress
+#: ("the job-backed Results and Unmatched templates remain on Bootstrap until
+#: their work packages") above an already-empty list. Every template now carries
+#: its own opt-out note -- results.html and unmatched.html both say "Migrated to
+#: Tailwind, so this page opts out of the legacy Bootstrap stack" -- and README
+#: states plainly that "Bootstrap is gone". The only Bootstrap left in this
+#: module is ``bootstrap_fixture``/``BOOTSTRAP_MARKER``, which serve a synthetic
+#: stylesheet so the isolation check can prove a page *would* collide if it
+#: loaded both. Reading the stale comment as current is what F-B21-61 warns
+#: about; the list, not the comment, was true.
 LEGACY_PAGES = []
 
 #: Consumed by check_stylesheet_isolation. Exactly one framework stylesheet is

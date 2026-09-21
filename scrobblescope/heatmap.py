@@ -13,9 +13,7 @@ No Spotify enrichment, no DB cache, no domain normalization -- iteration 1
 deals only with raw scrobble counts per day.
 """
 
-import asyncio
 import logging
-import sys
 import time
 from collections import Counter
 from datetime import datetime, timedelta, timezone
@@ -30,7 +28,7 @@ from scrobblescope.repositories import (
     set_job_stat,
 )
 from scrobblescope.utils import cleanup_expired_cache
-from scrobblescope.worker import release_job_slot
+from scrobblescope.worker import new_thread_event_loop, release_job_slot
 
 #: How many calendar days the heatmap covers, today included.
 #:
@@ -240,21 +238,14 @@ async def _fetch_and_process_heatmap(job_id, username):
 def heatmap_task(job_id, username):
     """Thread entry point: run the heatmap pipeline in a dedicated event loop.
 
-    On Windows, explicitly uses ``ProactorEventLoop`` so that asyncpg (if used
-    later) sends the correct PostgreSQL startup packet.  Werkzeug's debug
-    reloader can leave ``SelectorEventLoop`` as the thread-local policy in
-    background threads on Windows, which breaks asyncpg negotiation.
-
-    The concurrency slot acquired by the caller is released in the ``finally``
-    block regardless of success or failure.
+    ``worker.new_thread_event_loop`` builds the loop, including the Windows
+    ``ProactorEventLoop`` asyncpg needs. It is called inside the ``try``, so
+    the concurrency slot acquired by the caller is released in the ``finally``
+    block regardless of success or failure, loop setup included.
     """
     loop = None
     try:
-        if sys.platform == "win32":
-            loop = asyncio.ProactorEventLoop()
-        else:
-            loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        loop = new_thread_event_loop()
         loop.run_until_complete(_fetch_and_process_heatmap(job_id, username))
     except Exception:
         logging.exception(f"Unhandled error in heatmap task for {username}")

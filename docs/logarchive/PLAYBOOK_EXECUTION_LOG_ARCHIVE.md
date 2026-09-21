@@ -9,6 +9,798 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - One event-loop helper for every background thread (F-B20-2)
+
+Side task, no batch tag, owner-approved on 2026-09-21 on condition that it
+is non-breaking. F-B20-2 asked for the orchestrator split, which Batch 22
+WP-0 delivered, and for shared event-loop setup. That setup had since
+reached a third copy -- `orchestrator.background_task`, `heatmap.heatmap_task`
+and `release_checks._worker_loop` each built a `ProactorEventLoop` on Windows
+and a default loop elsewhere -- which is the point `docs/agents/global-rules.md`
+Rule 3 says to extract.
+
+**Plan vs implementation.** New `worker.new_thread_event_loop()` creates the
+loop, installs it, and returns it; the three call sites now call it. It
+lives in `worker.py` because that module already owns background-thread
+execution and both job modules import it; `utils.py` was rejected, since
+F-SWE-7 records it as already holding five unrelated concerns. The one new
+import edge, `release_checks -> worker`, is drawn in
+`docs/architecture/runtime-system.md` (re-verified against the `ast` import
+graph: no missing or extra edge) and listed in SESSION_CONTEXT Section 4.
+
+**The behaviour worth preserving, and how it was kept.** Before, a failure in
+`asyncio.set_event_loop` still closed the loop, because the loop was
+assigned before the call and the caller's `finally` closed it. The helper
+cannot return a loop it failed to install, so it closes the loop itself
+before re-raising. Test-first: three new tests in `tests/test_worker.py`
+(default loop off Windows, Proactor on Windows, close-on-install-failure),
+red before the helper existed. The existing slot-release parity tests for
+both job entry points -- crash, loop-setup failure, loop-close failure --
+pass unmodified, as does the whole suite.
+
+**Only part of F-B20-2's list was extracted, deliberately.** Progress mapping
+and error guards have two occurrences, album and heatmap, so Rule 3 says
+leave them. F-B20-2 is resolved with that reasoning written into it.
+
+**Deviation: Batch 23's definition and plan were amended by one clause.**
+`BATCH23_DEFINITION.md` WP-0 plans `_run_coroutine_in_new_loop`, described
+as "the Proactor boilerplate". The Proactor choice is now shared, so both
+documents describe that item as the run-and-close wrapper built on
+`worker.new_thread_event_loop`. Scope is unchanged; the owner should know the
+approved definition moved. `AGENT_NOTES.md` and SESSION_CONTEXT Section 7
+each restated the Proactor rationale; both now point at the helper's
+docstring, which owns it.
+
+**Validation:** `pytest -q` -- **1536 passed**. `pre-commit run --all-files` --
+all hooks pass. `doc_state_sync.py --check` exit 0. `ruff check` clean.
+
+**Forward guidance:** F-SWE-7 (`utils.py`) is the sibling split, and wants a
+work package of its own. Batch 23 WP-0's export wrapper should call
+`new_thread_event_loop` rather than add a fourth platform branch.
+
+### 2026-09-21 - Between-batch verification: findings, MusicBrainz policy, one diagram
+
+Side task, no batch tag. The owner is using the gap before Batch 23 to close
+findings and verify earlier agent work against its sources. Scope was three
+checks and the fixes they produced.
+
+**Six findings rotated that had been finished for weeks or months.** None
+carried a lifecycle record, so rotation could not see them, and DOC023 could
+not flag them because their prose still said "open" or "in progress" -- stale
+text rather than a missed pattern. Each was verified against git and source
+before its box was checked, with the landing date as its completion date:
+F-DOCSYNC-1 (`fd39c89`, 2026-02-26 -- seven months), F-B21-8 (`20dfe0d`),
+F-B21-13 (`8ed1650`), F-B21-12 (`c7bfaec`), F-B20-4 (`9152fd3`), and F-B21-50
+as no action by owner ruling. F-B21-13 is the one real pattern miss: its
+prose said "closed", a word DOC023 does not read.
+
+**F-B20-3 gained its record but stays active.** Bootstrap is gone on this
+branch (`85e7511`), but `origin/main` is what Fly.io deploys and still loads
+it, so it reads "resolved locally, pending deploy" like the five Batch 21
+findings in the same state (F-B21-10, -26, -27, -28, -29). DOC014 is right
+to hold all six until `main` advances; they are not stuck.
+
+**F-STYLE-2 narrowed, and `.flake8` deleted.** Ruff (`c7bfaec`) settled the
+line length at 88; the orphaned `.flake8` still claimed 120 and nothing read
+it. What remains open is only the docstring convention.
+
+**MusicBrainz: the code is right and its stated reason was wrong.** Checked
+against the upstream API and rate-limiting pages, including the raw wiki
+text. `client=` is required only on POST (data submission); this app sends
+GET searches, so omitting it is correct. The User-Agent format, the 1 req/s
+per IP limit, the 503 on throttling, `fmt=json`, and the `releasegroup` and
+`artist` search fields all match. But the code, its docs and its tests said
+MusicBrainz "blocks
+anonymous clients outright" and that a contact-less request "would only
+guarantee a rejected request". Upstream, "anonymous" is a named list of
+library defaults (blank, `Java`, `Python-urllib`, ...) that share a throttled
+pool; the contact is a policy requirement, and breaking it risks throttling
+or a block. The design -- stay disabled without a contact -- is unchanged;
+the reason is corrected in `musicbrainz.py`, `release_checks.py`,
+`config.py`, `.env.example`, `DEPLOY.md`, `README.md` and four test
+docstrings, which also now say an email or a URL is accepted. The Batch 22
+plan keeps its wording as a historical record.
+
+**Architecture diagrams, verified mechanically.** `runtime-system.md` was
+compared with the module import graph extracted by `ast`: no missing edge, no
+extra edge, the three deferred imports drawn dotted, and all ten `config.py`
+importers at their cited lines. `heatmap-sequence.md` matches `heatmap_task`
+and `/heatmap_data`. `top-albums-sequence.md` had one false paragraph: it said
+`background_task`'s `finally` "is not reached if the event-loop setup above it
+fails". The setup is inside the `try`, so the release is unconditional -- and
+the diagram's own note near its end already said so. Rewritten.
+
+**Deviation: a real test-isolation defect, surfaced by configuring the
+contact.** The first full run after the owner set `MUSICBRAINZ_CONTACT` failed
+`test_enqueue_release_check_queues_jobs_in_order` intermittently. A probe
+plugin showed why: `app.py` loads the developer's `.env`, so every unpatched
+happy-path pipeline test now enqueued its job and started the **real**
+`release-checks` thread (the first was a test in
+`tests/services/test_orchestrator_fetch_and_process.py`), which drained the
+shared queue the order test reads and
+could reach musicbrainz.org and the local Postgres. No real call went out in
+the probed run; nothing stopped one either. CI never saw it because it has no
+`.env`. Fixed in `tests/conftest.py` beside the existing `SECRET_KEY` guard:
+`MUSICBRAINZ_CONTACT` is forced empty before `app` is imported, which
+`load_dotenv` will not override. Re-probed: no worker, no queue residue, no
+MusicBrainz attempt. Regression test
+`test_session_starts_with_no_musicbrainz_contact` fails with that line removed
+on a machine that has a contact configured -- which is the only machine the
+defect exists on. Otherwise no runtime behaviour changed; the one string a
+test matches (`MUSICBRAINZ_CONTACT`) is still in the error message.
+
+**Validation:** `pytest -q` -- **1533 passed**. `pre-commit run --all-files` --
+all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate: 30 checks
+passed in 52 runs across chromium and firefox.
+
+**Forward guidance:** the owner approved four follow-ups in the same session,
+each its own commit: the shared event-loop runner F-B20-2 now warrants, the
+startup key check F-SWE-4 describes, the F-MAS-4 broad-catch remediation, and
+DOC023 reading a legacy status line that opens with "closed".
+
+### 2026-09-20 - Working tree reconciled for the deferred audit
+
+Side task, no batch tag. The SWE audit's charter requires a clean worktree
+before grading -- "a SHA cannot reproduce uncommitted content, so a matrix
+built over a dirty tree is unfalsifiable however carefully its cells cite
+lines" -- and the tree had two modified tracked files and sixteen untracked
+paths. Reconciled, one class at a time, and three of the classes turned out to
+be defects rather than clutter.
+
+**The graphify refresh tooling is now adopted, and it was broken as written.**
+`AGENT_NOTES.md` carries a new section describing a threshold-gated local graph
+refresh: two `.githooks` scripts calling `scripts/dev/graphify_refresh.py`,
+which rebuilds only after 5 commits or 25 changed files have accumulated. Its
+tests pass (20) and it is standard-library only, as its own comment explains
+(hooks do not inherit an activated virtualenv). But the section also states the
+hook files "must keep LF endings: a CRLF `post-commit` fails under Git for
+Windows' `sh`", and **both hook files were CRLF on disk**. `.gitattributes`
+had rules for two CSS files and `docs/design/**`, nothing for `.githooks/`.
+Committing them as they stood would have shipped a hook that fails for any
+clone whose `core.autocrlf` rewrites it, while the document beside it promised
+otherwise. Fixed at the root rather than the instance: a `.githooks/* text
+eol=lf` rule, so the working copy is correct whatever a clone's autocrlf is,
+plus a conversion of both files to LF. This is the same shape as F-B21-61 --
+a written claim that nothing enforced.
+
+**And a second half of the same defect, found after the first commit.** Both
+hooks were staged as mode `100644`, not `100755`. Git does not run a hook file
+that is not executable -- on Linux and macOS it reports "ignored because it's
+not set as executable" and continues -- so the feature would have worked on
+this Windows checkout, where the exec bit is meaningless, and silently done
+nothing on Linux or in CI. `core.fileMode` is `false` in this clone, which is
+exactly why git recorded 100644 and could not report the difference. Fixed with
+`git update-index --chmod=+x`, which writes the mode into the index directly
+rather than relying on a filesystem bit Windows does not have. Both files keep
+their original blob SHAs, so only the mode changed. This is the CRLF defect
+again in a different register: a repository-level property that a
+Windows-only clone cannot notice it is violating.
+
+**`AGENT_NOTES.md` also removed three stale blocks**, which is why it was
+modified at all: the "Heatmap Feature Notes (shipped -- Batches 18/19)" and
+"Batch 21 Tooling Map" sections both describe work that has since closed (the
+tooling map says of itself "Written 2026-08-14, before WP-1 started"), and a
+gap item about `skills-lock.json` was removed because that file is gitignored
+and so cannot be part of the corpus a reader can check. A new
+`HEATMAP_WINDOW_DAYS` constraint was added, pointing at the single source in
+`scrobblescope/heatmap.py`.
+
+**`requirements-dev.txt` was reverted, not committed.** It carried a local
+addition of `cosmic-ray==8.7.0`, which exists to serve the mutation-test runner
+that F-SWE-8 records as unadopted -- "the code stays out of the corpus until
+then". Shipping its dependency while its tool stays untracked would be the
+inconsistent half of that decision.
+
+**Junk removed and ignored, each for a stated reason:** `nul` deleted (a
+Windows reserved device name, so `del` and `Remove-Item` both fail on it and
+`Test-Path` reports false while the directory entry is real; removed through
+the `\\?\` extended-length prefix). `coverage.xml` ignored as the XML form of
+the already-ignored `.coverage`; `/tmp/` ignored as agent probe scratch;
+`.codex/` and `.continue/` ignored as per-machine harness config, which
+`.codex/hooks.json` proves by naming an absolute path under one user's home.
+
+**Deliberately left untracked:** `scripts/dev/mutation_test.py`,
+`scripts/dev/mutation_scope.toml` and `tests/scripts/dev/test_mutation_test.py`,
+because F-SWE-8 says not to stage them as part of another task's commit. They
+are pending work with their own work package, and gitignoring them would
+misdescribe them as not-repository-state. They are not graded modules, so their
+presence does not invalidate a grade of `scrobblescope/`.
+
+**Still awaiting an owner decision, not committed or deleted:**
+`docs/2026-09-14-open-code-review-audit.md` (315 KB at the `docs/` root),
+`docs/history/reports/CONTROL_PLANE_AUDIT_2026-09-15.md` (which cites it as
+"the dated code-review advisory at the repository's docs root"),
+`docs/history/reports/Architecture Review -- ScrobbleScope Control Plane &
+Strangler.html`, `docs/superpowers/plans/plan.md` (a Batch 21 traversal plan)
+and `progress_copy.md` (an SDD ledger for the close-out plan, whose own first
+line names its source plan). All five are audit or planning evidence rather
+than code; four belong under `docs/history/` by AGENTS.md's own archive
+convention if they are kept. Moving or deleting 315 KB of someone else's audit
+evidence is not a call this side task should make.
+
+**Validation:** `pytest -q` -- **1532 passed**. `pre-commit run --all-files` --
+all ten hooks pass. `doc_state_sync.py --check` exit 0. The graphify unit's own
+suite: 20 passed.
+
+**One figure worth knowing about, found while measuring the above.** pytest
+collects from `tests/` on disk, not from `git ls-files`, so the recorded count
+of 1532 includes tests that live in files no clone will ever have: 20 in
+`tests/scripts/dev/test_graphify_refresh.py` (now committed, so those become
+real) and **46 in `tests/scripts/dev/test_mutation_test.py`**, which F-SWE-8
+keeps out of the corpus. A tracked-only checkout therefore measured 1466
+before this commit and measures 1532 only because of two untracked files. That
+does not make the number wrong as measured, but it does mean it is not
+reproducible from the SHA alone -- which is the same objection the audit's
+charter raises about grading a dirty tree, applied to the test count. The 46
+will keep inflating it until either the runner is adopted or the file is moved
+somewhere pytest does not collect.
+
+**Forward guidance:** the audit precondition is now met for the tracked corpus
+-- no tracked file is modified. The three untracked mutation files are the
+recorded exception, by F-SWE-8's own instruction. The five decision-pending
+documents are the last thing between this tree and an empty `git status`, and
+until they are resolved the count above keeps its 46-test caveat.
+
+### 2026-09-20 - Architecture diagrams reconciled against the import graph
+
+Side task, no batch tag. Two of the five architecture diagrams were stale, and
+verifying them produced a scope problem for the deferred SWE audit that is
+worth recording before anyone starts it.
+
+**How the staleness was found.** Not by reading the diagrams against memory,
+which is how they went stale, but by extracting the real module-level import
+graph with `ast` and comparing edge by edge. That is the check F-B21-61 says
+does not exist, and it took one script to demonstrate the need for it.
+
+**`runtime-system.md` had seven missing edges and a wrong count.** Ground truth:
+`Routes -> SpotifyClient` (`routes/api.py:22`, `routes/__init__.py:31`),
+`Routes -> Domain` (`api.py:15`, `__init__.py:28`), `ReleaseChecks -> Utils`
+(`release_checks.py:62`), `Spotlight -> Utils` (`spotlight.py:5`), and
+`SpotifyClient -> Domain` (`spotify.py:14`), `DeezerClient -> Domain`
+(`deezer.py:17`), `MusicBrainzClient -> Domain` (`musicbrainz.py:23`) were all
+real imports absent from the drawing. The prose claimed eight nodes import
+`config.py`; the true count is ten, and the list omitted `deezer.py`,
+`musicbrainz.py` and `release_checks.py` -- the three modules Batch 22 added.
+`App --> Routes` was drawn solid but is deferred inside `create_app`
+(`app.py:143`), and the entrypoint's `config` import (`app.py:155`) is deferred
+inside `__main__`. Fixed, with import lines cited so the list can be re-checked
+rather than trusted.
+
+**A second defect in the same file:** five bullets sat under the heading "Three
+things this view deliberately makes visible". Batch 22 added three bullets and
+nobody moved the count.
+
+**`top-albums-sequence.md` was materially wrong, not merely incomplete.** A
+search for `Deezer|MusicBrainz|release_check|provider|enrich` matched only its
+own title: the entire Batch 22 enrichment path was undocumented. Worse, the
+existing branch was incorrect independent of that omission -- it drew the
+no-cache-hits case as an immediate `raise SpotifyUnavailableError`, while
+`_fetch_spotify_misses` (`orchestrator/__init__.py:162`) tries Deezer for every
+remaining miss first and raises only on three conditions together: no token,
+nothing cached beforehand, and Deezer matching nothing. Persistence was drawn
+inside the Spotify branch when it actually happens in the caller after the
+Deezer pass returns, which is one row set for both providers rather than one per
+provider. The correction worker -- enqueued at
+`orchestrator/__init__.py:612`, immediately after `set_job_results` at `:600`
+and only on the happy path -- was absent entirely, so it now has its own
+lifeline and block.
+
+**Validated structurally, not by eye.** A checker counts `alt`/`opt`/`loop`/
+`par`/`subgraph`/`box` against `end` per fence and reports the final depth; all
+six mermaid blocks in the repository return to zero, so the edits parse.
+`docs/ARCHITECTURE.md`'s "Last verified" date moved to 2026-09-20 and its
+section 3 description now names the Deezer fallback and the correction pass.
+
+**Forward guidance, and the reason this matters more than two diagrams.** The
+deferred SWE audit's charter (`docs/SWE_AUDIT_CHARTER.md`, retired after its
+2026-08-20 execution) is no longer executable as written, because its closed
+scope table names thirteen modules that no longer exist in that shape:
+
+- It lists `scrobblescope/orchestrator.py` and `scrobblescope/routes.py`, which
+  are packages since Batch 22 WP-0 -- 6 and 5 files respectively.
+- It omits `deezer.py`, `enrichment.py`, `musicbrainz.py`, `release_checks.py`,
+  `spotlight.py` and `unmatched.py` entirely. `git ls-files 'scrobblescope/*.py'
+  app.py` returns **29** files, not the charter's 14.
+- Its stated hotspots have moved. It names `_fetch_and_process` (was 151 lines)
+  and `results_loading` (was 112). The largest function now is
+  **`_render_results_page` at `routes/album_flow.py:126`, 142 lines**, which
+  postdates the charter and is in neither list; `_fetch_and_process_heatmap`
+  (141) and `_fetch_and_process` (133, now `orchestrator/__init__.py:502`)
+  follow it.
+
+The principle count is unchanged at ten (DRY, SoC, SRP, KISS, Dependency
+Inversion, Composition over Inheritance, Clean Architecture, Boy Scout Rule,
+Law of Demeter, Fail Fast), so the matrix is ten principles against the real
+module list -- roughly 280 cells, not the charter's 130. A re-audit therefore
+needs its own charter with a current, closed scope table before grading starts;
+the retired one is evidence, not a work order. The charter's own Section 2a also
+requires a clean worktree, and `AGENT_NOTES.md` plus `requirements-dev.txt` are
+currently modified with untracked tooling alongside them, so that is a
+precondition rather than a formality.
+
+### 2026-09-20 - README engineering depth and the control-plane narrative
+
+Side task, no batch tag, following the earlier reconciliation in this session.
+That pass fixed stale *facts*; this one fixed a missing *argument*. The
+architecture's real depth was documented nowhere, and DEVELOPMENT.md had been
+stale for weeks about a control plane that is now the largest body of code in
+the repository.
+
+**README gained the engineering case, because its audience is developers and
+recruiters rather than end users.** Two new pieces:
+
+- **"A search is an ETL pass over an event stream, not a query."** Last.fm
+  stores scrobbles -- an unbounded stream of track timestamps -- and has no
+  concept of the album a listener played. An album is *produced* by grouping on
+  a normalized key and threshold-gating on user criteria, so it is a function
+  of the query, not a row. That is why the codebase does not look like CRUD,
+  and it is the frame the rest of the architecture reads against.
+- **"Owned Interface Components."** The heatmap as a hand-built SVG
+  (`createElementNS`, Monday-first via `mondayIndex`, 7 rows against 53 week
+  columns, a separate sequential mobile grid because 880px cannot fit a phone
+  column), and the log-normalised intensity
+  `Math.log10(count + 1) / Math.log10(maxCount + 1)` that keeps a heavy
+  listener's mid-range visible on a linear ramp. Plus the theme-resolved
+  zero-count cells (an SVG `fill` presentation attribute does not resolve a
+  custom property), the 2x cloned-SVG export, the owned pinwheel, the
+  deliberately desktop-faithful results export, and the sampled spotlight.
+
+**DEVELOPMENT.md gained two arguments it was missing.** First, *why* the
+rotation is a mechanism: it was done by hand three times and failed three
+distinct ways -- an entry archived that should have stayed, an entry duplicated
+across the boundary, a stale remark left behind -- all silent, because the
+document still renders. The parser, renderer and rotation exist because that
+task is one an LLM is not reliable at across sessions. Second, the ACID framing
+stated honestly: atomicity is real, consistency is real (the invariant checks
+are the C), isolation is partial (filesystem-scoped lock, no cross-machine
+coordination, readers not serialised), durability is within filesystem
+semantics. The precise description is an atomic file-transaction and invariant
+enforcement system; the acronym is useful shorthand and stops being useful the
+moment it is read as a database guarantee.
+
+**The `.docsync.toml` extraction story is now written down**, which was the
+largest gap. The declaration layer exists specifically so a second repository
+supplies its own config without touching the mechanism -- and `declarations.py`
+carries no ScrobbleScope value at all. What remains tied is enumerated as a
+table rather than asserted: document paths, the scanned corpus and its
+`allow_files` list, `[retired.allow_after] "PLAYBOOK.md"`, `[closeout]
+admit_from_batch = 22`, the design-token `[[value]]` entries, and
+`_LIVE_DOCUMENT_PATHS` in `integrity.py` (verified at line 100). The section
+also records why finishing it now would cost more than it saves: the remaining
+modules are the largest in the package, and making them generic before there is
+a second consumer buys indirection rather than reuse.
+
+**Also added:** the three pieces that make the package a workflow rather than
+a mechanism -- the commit preflight, the opt-in hook installer (not installed
+here), and the CLI surface. README's methodology section now says the tooling
+is larger than the application on purpose and points at DEVELOPMENT.md for the
+honest extraction state.
+
+**Deviations:** one, self-inflicted and caught. Authoring the console section
+introduced a zero-width space (U+200B) into DEVELOPMENT.md, violating the
+ASCII-only authoring rule. Found by scanning for non-ASCII code points rather
+than by eye, removed with a targeted rewrite, and re-verified clean. No other
+document or file carried one.
+
+**Validation:** `pytest -q` -- **1532 passed**. `pre-commit run --all-files` --
+all ten hooks pass. `doc_state_sync.py --check` exit 0. Non-ASCII scan of
+README.md and DEVELOPMENT.md: none.
+
+**Forward guidance:** DEVELOPMENT.md is still the narrative and
+`docs/architecture/documentation-tooling.md` still owns the DOC001-DOC023
+catalogue; the split was preserved rather than duplicated. The deferred plans
+are unchanged and stay deferred.
+
+### 2026-09-20 - DEVELOPMENT.md and README.md reconciled with the control plane
+
+Side task, no batch tag. Two documents described a repository that no longer
+exists, and one gate comment described a migration that had already finished.
+
+**DEVELOPMENT.md was materially stale.** Its docsync section said the package
+had "Six focused modules" and listed six test files. It has **twelve** modules
+(`declarations`, `closeout`, `archives`, `findings`, `transaction`, `markdown`
+were added by Batch 22) and twelve matching test files in `tests/`. The
+worktree section named only `check_worktree_alignment.py` and a spec document,
+omitting the seven `_worktree_guard_*.py` modules and the `WT000`-`WT014`
+codes. The gate section stopped at "starts and stops its own loopback server"
+and never named `port 0`, the `finally`, the 44px touch target, the 3:1
+composited-contrast check, the viewport profiles or stylesheet isolation. Two
+lines were also written in the present tense of a batch that has closed
+("Batch 21 uses...", "The active batch definition owns...").
+
+**README lacked four architectural facts** it should carry at product level:
+the cache talks to Postgres in arrays via `unnest($1::text[], ...)` rather than
+row by row; a stale schema identifies itself by SQLSTATE (`42703`, `42P01`)
+instead of being mistaken for network turbulence; Spotify's removed batch
+endpoint answers `403`/`404`/`410` and degrades to one request per album; and
+the opening prose said the badge "is the live state", which read awkwardly.
+
+**A new DEVELOPMENT.md section records the extraction intent** owner-stated
+2026-08-25 and owned by `AGENT_NOTES.md`: this repository is also a template
+being extracted, and the three control-plane components are at very different
+maturity. The section states that honestly rather than aspirationally -- the
+worktree guard is structurally complete, docsync is close, and the frontend
+gate is the least extracted, with its decomposition plan deliberately parked.
+It also records the standing constraint: do not start the extraction as a side
+task; write new tooling so it stays cheap.
+
+**A real defect was found and fixed in the process.**
+`frontend_gate.py:209-215` carried a comment describing "the job-backed
+Results and Unmatched templates" as still on Bootstrap, directly above an
+already-empty `LEGACY_PAGES`. There is no residual Bootstrap: every template
+carries an opt-out note, `static/css/` has no Bootstrap file, and README
+already said "Bootstrap is gone". The only Bootstrap left is a test fixture
+that proves a page *would* collide if it loaded both frameworks. A reader
+trusting the comment would have concluded two page families were unmigrated.
+This is anti-pattern 15 in miniature -- the comment had drifted from the code
+beneath it, and only reading the source surfaced it.
+
+**Deviations: none.** No production behaviour changed beyond the comment fix.
+`docs/architecture/documentation-tooling.md` remains the owner of the control
+plane; DEVELOPMENT.md links to it rather than restating the DOC catalogue, per
+Rule 1.
+
+**Validation:** `pytest -q` -- **1532 passed**. `pre-commit run --all-files` --
+all ten hooks pass. `doc_state_sync.py --check` exit 0. `ruff check` clean.
+
+**Forward guidance:** the extraction plans
+(`docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
+and `.../2026-09-12-reusable-frontend-ci-verification-components.md`) both
+carry "do not execute until" conditions and neither is scheduled. The frontend
+plan's stated line count for `frontend_gate.py` (4,008) is now 4,353, so
+re-measure before relying on its inventory. PR #235's summary was completed in
+the same session and its review threads are adjudicated in
+`docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`.
+
+### 2026-09-20 - PR #234 advisory verification
+
+Side task, no batch tag. PRs #233 and #234 merged with their review threads
+deliberately unaddressed, so adjudicating them was the other half of the
+pre-integration task. The question was not "are they open" but "are they
+true".
+
+**Method.** Read all threads from the GitHub API (35 review comments on #233,
+22 on #234, plus issue comments and reviews), then checked each substantive
+claim against on-disk code by grepping the tree, reading the cited function,
+or running the cited gate. Nothing was accepted on the strength of a bot's own
+summary.
+
+**Result: four refuted, one partly true, one by design, one out of scope.**
+Refuted: the DOC023 negation false positive (already handled by
+`_NEGATED_OUTCOME_RE`); the `_TERMINAL_SUFFIXES` escaping gap (`re.escape` is
+already there, line 354); the `newest == 0` blank-line nitpick (the guard is
+deliberate, and `495e9c2` already fixed the real case); and the claim that
+DOC023 is documented as both blocking and non-blocking (the catalogue states
+the blocking and grandfathered-warning roles as two populations, and the code
+implements exactly that). By design: hard-failing a stale archive index
+(`DOC020`) is Rule 7's refusal to guess which side of a disagreement is the
+history worth keeping. Out of scope by owner ruling: complexity and coupling
+advisories, recorded in the report so nobody re-adjudicates them.
+
+**One refuted claim surfaced a real defect.** Graphify rated
+"`AlbumMetadata` cache-row method renamed and now requires extra arguments" as
+high risk. Nothing calls the method, so nothing broke -- but a repo-wide search
+found `as_cache_row` at its definition and in its own test only, while both
+production sites build the row tuple inline (`_details.py:137` as six elements,
+`_deezer_fallback.py:83` as nine). The persistence order therefore has two
+owners, and a test asserts the copy nothing writes. Filed as F-B22-7 rather
+than fixed: retiring the method or rerouting a builder is a choice between two
+working shapes with a Batch 22 test contract around one of them.
+
+**A vacuity guard earned its place.** The first run of the DOC023 probe used an
+`##` heading, which `FINDING_HEADING_RE` does not match, so no finding parsed
+and every case read "blocks = False". The output looked like a clean refutation
+of the whole claim. Adding a guard that reports `VACUOUS PROBE` when no case
+parses caught it; the corrected run is live on 6 of 14 cases with every
+expectation met. Recorded because "the gate stayed silent" and "the gate was
+never reached" are the same output and different facts.
+
+**Deviations: none.** No production behaviour changed. The two findings are
+records, not repairs, and the report is
+`docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`.
+
+**Validation:** `pytest -q` -- **1532 passed**, unchanged (no runtime code
+touched). `doc_state_sync.py --check` exit 0.
+
+**Forward guidance:** the residual DOC023 false positive ("No action needed
+yet." blocks) is deliberate and filed as F-DOCSYNC-14; widening the negation
+window would buy silence on two phrases and pay for it by missing real
+completion claims, which is the failure the gate exists to prevent. Do not
+"fix" it without reading that entry.
+
+### 2026-09-20 - Outbound request identity and the MusicBrainz contact
+
+Side task, no batch tag. Scope was the pre-integration task for `test` into
+`main`: API endpoint-fetching compliance, the MusicBrainz HTTP contact, and
+agent access to the key documents. PR #236 was opened for the branch.
+
+**Three findings, each verified before repair.** First, no provider request
+carried a User-Agent at all: the string `User-Agent` appeared in exactly one
+file under `scrobblescope/` (`musicbrainz.py`), and `create_optimized_session`
+passed no headers, so every Last.fm, Spotify and Deezer request went out as
+aiohttp's default `Python/3.13 aiohttp/3.14.3`. Last.fm's API introduction
+asks for "an identifiable User-Agent header on all requests" and warns an
+account "may be suspended if your application is continuously making several
+calls per second", so this was a compliance gap rather than a style one.
+Second, `_musicbrainz_headers` interpolated an unset contact as the literal
+string `None`, producing `ScrobbleScope/1.0 ( None )`; the guard in
+`lookup_original_release` kept it off the wire, but the helper is reachable
+directly and the header's whole purpose is to name a client that can be
+contacted. Third, `MUSICBRAINZ_CONTACT` is absent from this worktree's `.env`,
+so the correction pass is inert here: a read-only probe returned `(None, None)`
+with zero HTTP calls.
+
+**Plan vs implementation: matched.** `APP_VERSION` and `APP_USER_AGENT` moved
+into `config.py` as the single owner of the application's own name, and
+`create_optimized_session` now sends that User-Agent as a session default.
+`musicbrainz.py` dropped its private `_APP_VERSION` copy and composes its
+contact-bearing header on the shared identity, so the application cannot name
+itself two different ways. Before adding the session default, aiohttp's merge
+semantics were measured against the pinned 3.14.3, because the change rests on
+them: a per-request `headers=` dict merges with the session default rather than
+replacing the header set, so MusicBrainz's own User-Agent still wins and is not
+clobbered. `_musicbrainz_headers` now raises when no contact is configured
+instead of rendering `None`.
+
+**Deviations: none.** No new dependency, no new module, and no new import edge:
+the graph stays `utils.py <- config` and `musicbrainz.py <- config, domain,
+utils`, so SESSION_CONTEXT Section 4 needed no change, and `.docsync.toml`
+declares nothing about environment variables or User-Agent.
+
+**Agent access to the key documents verified**: all 15 documents in the
+bootstrap and orientation set resolve and are readable, including both optional
+ones (`docs/AGENT_DOC_MAP.md`, `docs/architecture/documentation-tooling.md`)
+and the handoff report. The worktree guard also exits 0 on this branch; its
+`WARNING WT010` and `INFO WT000` are the expected states for a development
+branch in a linked worktree, not failures.
+
+**Validation:** `pytest -q` -- **1532 passed**, three more than the previous
+1529: `test_create_optimized_session_sends_shared_user_agent`,
+`test_musicbrainz_headers_refuses_a_missing_contact`, and
+`test_musicbrainz_headers_is_derived_from_the_shared_identity`. `ruff check`
+and `ruff format --check` are clean on all five touched files.
+
+**Forward guidance:** the code defect is closed, and `MUSICBRAINZ_CONTACT` is
+not a secret -- it is a contact string that travels in the User-Agent header,
+so setting it is a config change rather than a credential decision. It is
+unset here and was absent from DEPLOY.md's own instructions, which is why the
+deployed app runs the correction pass off; DEPLOY.md now documents it. The
+`main` branch was deliberately not touched -- `test` is the integration branch
+and `main` is the stable Fly.io deployment.
+
+### 2026-09-20 - Session close-out and handoff
+
+Side task, no batch tag. The session closed under a token budget, so this
+entry records the state rather than the reasoning; the entries below carry
+the reasoning.
+
+**Pushed.** Seven commits are on `origin/feat/batch22-enrichment`, from
+`3707d6a` to `e57e894`: the work-package tag repair, Batch 22 WP-4 (the
+release-check endpoint and its live disclosure), the colour-serialization
+class fix, the Batch 22 close-out, the Batch 23 definition with six
+corroborated proposals, and the cache repair with the findings rotation. The
+branch is **not merged** into `test`; opening a pull request is an owner
+decision and has not been taken.
+
+**Handoff written for a new agent**, deliberately assuming no familiarity
+with this repository and no particular tooling:
+`docs/history/reports/HANDOFF_2026-09-20.md`. It carries the reading order,
+the environment, the five ways this repository will refuse a commit and why,
+the database-migration fact that hid a dead cache for a whole batch, what
+Batch 23 is, and the open items with their findings.
+
+**The owner's inline questions in `FINDINGS.md` are resolved** and have been
+removed. They were written after Batch 21 closed, asking why nothing had
+rotated; the answer was that no finding carried the lifecycle record rotation
+requires, and the rotation in the entry below is the answer in effect. Two of
+the removed lines were not questions and were restored: an owner ruling that
+the GitHub-to-findings sync must run in both directions, now recorded inside
+F-B21-9, and a wrapped line of F-LOAD-2's own prose that a regex mistook for
+an annotation because it began with a slash.
+
+Validation: `pytest -q` -- **1529 passed**. `doc_state_sync.py --check` exit
+0, its only warning the root definition waiting for Batch 23 to open.
+
+Next action for whoever arrives: read the handoff, then decide the pull
+request and whether to open Batch 23.
+
+### 2026-09-20 - The cache was inert, and the findings backlog now rotates
+
+Side task, no batch tag, on the owner's instruction to close Batch 22's
+remaining cache and findings work now rather than carry it into Batch 23.
+Investigated through `superpowers:systematic-debugging`.
+
+**The metadata cache had been inert since Batch 22 shipped.** The owner's
+local database still held the pre-Batch-22 schema: `spotify_cache` had no
+`provider`, `provider_album_id` or `provider_url` columns, `spotify_id` was
+still `NOT NULL`, and `original_release_cache` did not exist at all. Read
+against it, `_batch_lookup_metadata` raised `UndefinedColumnError` and
+`_batch_lookup_original_release` raised `UndefinedTableError` -- measured, not
+inferred.
+
+The consequence was not an outage, which is why nobody caught it. Both reads
+are wrapped, so every job degraded to a cache-less run and carried on: 3,628
+usable rows went unread on every search, every album was re-fetched from
+Spotify or Deezer, and every MusicBrainz correction was paid for at one
+request per second and then discarded. The owner's 2026-09-20 run reads
+exactly that way -- `Cache partition: 0 hits, 366 misses` -- and the database
+being down at the time hid the second fault behind the first.
+
+`init_db.py` is idempotent and is what fixes it. Run against the live
+database: the three columns exist, `spotify_id` is nullable,
+`original_release_cache` exists, and all **3,628** existing rows were
+backfilled to `provider = 'spotify'` with `provider_album_id = spotify_id`.
+Then, against that live database rather than a mock, Batch 22's cache
+acceptance criteria were exercised for the first time: a Deezer-only row with
+no Spotify id round-trips; a legacy six-tuple caller still writes a row that
+reads back as Spotify; a pre-existing row is readable through the cache API
+after the backfill; and both a correction and a "checked, nothing found" row
+round-trip through `original_release_cache`. The probe rows were deleted
+afterwards.
+
+**The class fix, because the instance was a one-line command.** A missing
+column is not a transient failure: it never heals, and every read until
+someone notices misses a cache that is sitting right there. The code reported
+it in the same words as a dropped connection. `scrobblescope/cache.py` gains
+`schema_is_out_of_date`, matching PostgreSQL SQLSTATEs 42703 and 42P01 --
+matched on the SQLSTATE rather than the asyncpg exception class, because
+asyncpg is an optional import here and a SQLSTATE is the stable half of the
+contract -- and a single remediation string naming `init_db.py`. Both cache
+readers and the correction worker's persist path now say which kind of
+failure they hit. Seven tests cover it, including that a transient failure
+must **not** tell the reader to run a migration.
+
+This is the same shape as the DOC013-DOC018 gate that had never fired once:
+a subsystem reporting success while doing nothing. It is worth naming as a
+class -- a failure that degrades silently needs a diagnostic that
+distinguishes "will heal" from "will never heal", or it is indistinguishable
+from working.
+
+**The findings backlog rotates again.** 85 findings, 83 with no lifecycle
+record, so nothing had rotated at either batch close-out -- the owner's
+question in `FINDINGS.md` had the right instinct. The owner ruled on
+2026-09-20 that a prior session's record may be transcribed, since the
+authors are earlier agent sessions and the standing warning confuses a reader
+more than an archived finding would.
+
+Each of the 23 grandfathered findings was given the record its own author's
+words support, and the distinctions were kept:
+
+- **16 were terminal** and are now in `docs/history/findings/FINDINGS_ARCHIVE.md`
+  under their original ids with the `-- RESOLVED` suffix. Where the author
+  wrote a date it is theirs; where they wrote none, the completion date is
+  the day of the evidence they cite, which is an inference and is recorded
+  here as one.
+- **5 say "resolved locally, deploy before the next production release"** and
+  are NOT checked. The lifecycle gate treats a pending deploy as not-yet
+  terminal and it is right to: the fix is in the tree, not in front of a
+  user. They keep an unchecked record and stay active.
+- **2 were never resolved at all** -- F-B21-9 was deferred by owner decision
+  and F-B21-53 is open for the general card token. Reading either as finished
+  because the word "resolved" appears in its prose is exactly the mistake
+  DOC023 exists to prevent.
+- **F-B21-1 was verified in source rather than taken on trust**: loop
+  construction now sits inside the `try` in both `background_task` and
+  `heatmap_task`, with `release_job_slot()` in the `finally`.
+
+`[findings] grandfathered` in `.docsync.toml` is now `[]`, and **DOC023's
+standing warning is gone**. The list stays declared so a repository adopting
+this gate starts strict with somewhere to put its own history. Active
+findings: 72, down from 85.
+
+Validation: `pytest -q` -- **1529 passed** (was 1522; +7 for the schema
+diagnostic). `pre-commit run --all-files` -- all hooks pass.
+`doc_state_sync.py --check` exit 0, and its only remaining warning is the
+root definition for Batch 23, which is expected while that file waits at the
+root. `.docsync.toml` is control-plane, so this commit uses the sanctioned
+`SKIP=doc-state-sync-check`, with `--check` run directly first.
+
+Forward guidance: the five "pending deploy" findings resolve themselves the
+next time production ships, and their records are the checklist. Nothing
+about this change requires a deploy of its own -- but the schema migration
+does need running wherever else this app has a database, which on Fly.io
+happens automatically, since `init_db.py` is the release command.
+
+### 2026-09-20 - Batch 23 defined, and six owner proposals corroborated
+
+Side task, no batch tag: the owner proposed a different MusicBrainz lookup
+strategy, a move from threads to `asyncio` inside Flask, server-sent events
+in place of polling, a narrowed Lucene query, and a test-count fix, and asked
+for each to be corroborated rather than taken. Nothing in this entry changes
+runtime behaviour. `BATCH23_DEFINITION.md` is written but Batch 23 is **not
+open**: its branch is unnamed, and naming it is an owner decision.
+
+**Threads cannot run coroutines -- half right, and the half that is wrong
+matters.** Measured directly: `threading.Thread(target=an_async_def)` never
+runs the coroutine and raises no error, only a "was never awaited" warning,
+which is worse than a crash. A thread that creates its own event loop and
+calls `run_until_complete` runs it correctly, and that is what
+`scrobblescope/release_checks.py` already does. The proposed remedy --
+dropping `threading` for `asyncio.create_task()` inside Flask -- cannot work
+here: a probe route asked for a running loop and got "no running event loop".
+Flask under a WSGI server has no persistent loop to attach a long-lived task
+to, so the thread-owns-a-loop pattern is the remedy, not the problem.
+
+**The Gunicorn race condition does not exist today, by configuration.**
+`Dockerfile` runs `--workers 1 --threads 4`. One worker means one `JOBS`
+dict, one semaphore and one process-wide MusicBrainz limiter.
+`AGENT_NOTES.md` already records that a second worker would break the job
+store; it would break the rate limiter too, which is the sharper consequence
+since MusicBrainz blocks by IP.
+
+**Server-sent events would take the whole thread pool.** Four threads, and an
+SSE response holds its thread for the life of the connection: four readers
+with a results page open would leave nothing for the home page. Filed as
+F-B22-6.
+
+**The MusicBrainz proposal: the exact path is real, the ISRC path is not.**
+Probed live against five albums at one request per second.
+`GET /ws/2/url?resource=<spotify album url>&inc=release-rels` returns a "free
+streaming" relation to a **release** when an editor has mapped that album;
+a second request on the release yields the release group's
+`first-release-date`. Two requests, exact, no scoring. It answered two cases
+today's search path did not -- one where the top candidate scored 100 with no
+date at all. It was unmapped for one of the five. Note for the implementer:
+`inc=release-groups` on that endpoint returns nothing, and
+`inc=release-group-rels` returned zero relations; the include is
+`release-rels`.
+
+The ISRC path costs more and is worth less. `GET /v1/albums/{id}` returns
+simplified track objects carrying **no** `external_ids`, confirmed by reading
+the keys off a live response, so every ISRC needs an extra Spotify request;
+and `/ws/2/isrc/{isrc}` returns recordings, whose earliest release group may
+be a single rather than the album. Dating an album by its lead single is a
+worse answer than no correction.
+
+Also measured: `AND type:album` would exclude EPs, which this application
+ranks alongside albums -- `normalize_name` strips "ep" from titles for
+exactly that reason -- and the release-group search field is `primarytype`,
+not `type`.
+
+All of it is F-B22-5, with the measurements, and the recommendation is to
+keep the one-request search as the primary and spend the second request only
+where it buys something: no candidate, or a candidate with no date, and a
+Spotify id present. **The correction cache must stay keyed on
+`(artist_norm, album_norm)`, never on a Spotify id.** The owner's own
+2026-09-20 run had Deezer rescue 9 of the 10 albums Spotify could not enrich,
+and those albums have no Spotify id at all.
+
+**That run also settles what Deezer is for.** The log shows 356 of 366 albums
+matched on Spotify, then 9 of the remaining 10 matched on Deezer, with the
+database cache down and every lookup live. Deezer is not only an outage
+fallback; it answers for albums Spotify does not carry. The README's
+description was written for the outage case and now says both.
+
+**The test count.** `--fix` cannot publish a measured count and `--check`
+refuses a hand-written one, because `latest_test_count_authority` parses the
+number out of prose in dated entries and DOC005/DOC006/DOC008 recompute that
+parse. Rule 7 is why the tool does not simply run pytest: it may rewrite only
+what it can derive from facts a human authored, and measuring the world is
+not that. Filed as F-DOCSYNC-13 with a proposed shape -- an authored
+measurement passed in, written by `--fix` into all four sites -- for the
+owner to rule on.
+
+**Batch 23's definition** is derived from the approved plan, in this
+repository's own work-package form: WP-0 behaviour-neutral extractions, WP-1
+error codes, WP-2 the pure parser and aggregators, WP-3 the job hand-off,
+WP-4 routes and upload handling, WP-5 the interface, WP-6 the new statistics
+for both sources, WP-7 documentation, the deferred Batch 21 accessibility
+audit and close-out. The audit is inside WP-7 because the owner ruled on
+2026-09-13 that this batch cannot close without it.
+
+**A wording trap worth knowing.** Section 3's "Batch 23 is not yet defined"
+has to sit on one line: the state parser reads Section 3 line by line, and
+wrapping that sentence across two lines made the gate infer an active batch
+and demand a definition declaration. The same class of defect, in the other
+direction, was fixed during the docsync close-out.
+
+Validation: `pytest -q` -- **1522 passed**, unchanged (no runtime code was
+touched). `doc_state_sync.py --check` exit 0, with the expected DOC023
+warning and the root-definition warning that is normal for a batch with a
+definition at the root. The live probes were read-only: Spotify with the
+app's own credentials, MusicBrainz with a contact-bearing User-Agent at one
+request per second.
+
 ### 2026-09-20 - Batch 22 work-package tags, and the docsync side task closed
 
 Side task, no batch tag: bookkeeping repair found while orienting for WP-4,

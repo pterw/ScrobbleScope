@@ -1,3 +1,9 @@
 static/css/tailwind.src.css text eol=lf
 static/css/tailwind.css text eol=lf
 docs/design/** text eol=lf
+# Git hooks are shell scripts that Git for Windows runs through `sh`, which
+# fails on a CRLF shebang line and on CRLF continuation. `core.autocrlf` is a
+# per-clone setting, so without this rule a Windows checkout silently rewrites
+# them and the hooks stop working for that clone only. Forcing LF here makes
+# the working copy correct no matter what a clone's autocrlf is set to.
+.githooks/* text eol=lf

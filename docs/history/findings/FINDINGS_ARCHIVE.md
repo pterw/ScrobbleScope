@@ -9,6 +9,327 @@ Newest rotation first.
 
 ---
 
+### F-B22-2: `assert` guards an invariant that `python -O` strips, at six sites -- RESOLVED
+
+`assert` stands in for a runtime invariant check in six places across three
+files. `python -O` strips `assert` entirely, so an optimized interpreter would
+fall through to an `AttributeError` a few lines later instead of a clear,
+intentional failure:
+
+- `scrobblescope/routes/album_flow.py:89,154,309` -- `assert job_context is not
+  None`, narrowing the type after a validation guard clears (`if err: return
+  err`). Moved verbatim from pre-split `routes.py`; not introduced by WP-0.
+- `scrobblescope/spotify.py:28,29` -- `assert SPOTIFY_CLIENT_ID is not None` and
+  the same for `SPOTIFY_CLIENT_SECRET`, guarding the token request. A stripped
+  assert here sends `None` as a credential rather than refusing.
+- `scripts/docsync/findings.py:132` -- `assert heading_match is not None` in
+  `_build`, whose only caller `_parse` passes lines that already matched the
+  heading pattern.
+
+Codacy flagged the `album_flow.py` group on PR #232 and the `findings.py` site
+on PR #235; the original filing named only `album_flow.py`'s three sites and
+cited line 302, which had drifted to 309. The class is the pattern, not the
+package or the PR that noticed it, so all six are recorded here rather than one
+finding per reviewer comment.
+
+Fix shape: replace each with `if X is None: raise RuntimeError(...)` (or
+`ValueError` where the input is external), matching the pattern of an
+internal-invariant check rather than a `python -O`-dependent one. Small and
+testable, but out of scope for WP-0's behaviour-neutral contract -- filed
+separately rather than fixed in-PR.
+
+Since 2026-09-21 (F-SWE-4) production refuses to start without either
+Spotify key, so the `spotify.py` pair can only be reached in dev mode.
+
+Resolved 2026-09-21, and not with the suggested raise at every site. Each
+invariant was put where it actually holds:
+
+- `album_flow.py`, three sites: deleted. `_get_validated_job_context`
+  returns its error before it can return a missing context, so the
+  `assert`s only narrowed types; three copies of a raise that cannot fire
+  would have been dead code (Rule 3 at the third occurrence).
+- `findings.py`: `_parse` already holds the heading match and now passes it
+  to `_build`, so the invariant holds by construction.
+- `spotify.py`, two sites: missing or empty credentials now return None,
+  the function's existing failure answer, so callers fall back to Deezer.
+  The `assert` had raised past that fallback and failed the whole job.
+
+Ruff `S101` is enabled outside `tests/`, so a new production `assert` fails
+the commit. The affected suites also pass under `python -O`.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+Source: Codacy bot reviews, PR #232, 2026-09-13, and PR #235, 2026-09-20.
+
+### F-MAS-4: broad `except Exception` catches -- RESOLVED
+
+17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at
+the original sweep); narrow or add structured logging per exception
+class.
+
+Resolved 2026-09-21, and gated so the count cannot creep again. It had grown
+to 25 across `scrobblescope/`, and each was judged on its own rather than
+narrowed wholesale: most guard the optional DB cache or decorative
+enrichment, where fail-open is the documented design (`global-rules.md` Rule
+6), and narrowing them to guessed library types would turn today's tolerated
+failure into a crashed job. Outcome: `lastfm.py`'s JSON catch narrowed to
+`aiohttp.ContentTypeError` and `ValueError`, because it had labelled every
+failure "Invalid JSON"; eleven already re-raised or logged a traceback, and
+`run_async_in_thread` now does too; the remaining twelve each carry a one-line
+reason and `# noqa: BLE001`, and the three degradation logs and the retry
+helper now name the exception class. Ruff's `BLE` rules are enabled in
+`pyproject.toml`, so a new unexplained broad catch fails the commit.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+Source: MULTI_AGENT_SWEEP.
+
+### F-SWE-4: the production entrypoint never validates API keys -- RESOLVED
+
+`config.ensure_api_keys()` (`config.py:37-40`) raises when any of the three
+API keys is missing, and it is called only inside the `__main__` guard at
+`app.py:140-145`. Production starts with `gunicorn app:app`
+(`Dockerfile:15`), which imports the module rather than running it, so the
+check never fires. Verified: with all three keys unset, `import app`
+succeeds and serves, while `ensure_api_keys()` would have raised.
+
+The same file gets the neighbouring case right. `_validate_secret_key` is
+called from `create_app()` (`app.py:111`) and refuses to start in
+production. One secret is checked at startup and three are not.
+
+`spotify.py:26-27` is the only remaining guard for two of them, and it uses
+`assert`, which `python -O` strips. Without the startup check a missing key
+surfaces as a per-request failure, classified as an upstream outage.
+
+Fix: call `ensure_api_keys()` from `create_app()`. One line, and it closes
+two C cells in the audit matrix.
+
+Resolved 2026-09-21, and it was not quite one line. An unconditional call
+would have made every environment without the keys fail at import -- the
+test suite and the frontend gate both import `app`, and CI's secrets arrive
+empty when unavailable. So `create_app()` now calls `_validate_api_keys`,
+which mirrors `_validate_secret_key`: refuse to start in production, warn in
+dev mode. `tests/conftest.py` and `scripts/dev/frontend_gate.py` supply
+placeholder keys the way they already supply `SECRET_KEY`. Four tests in
+`tests/test_app_factory.py` cover it, including one that `create_app()`
+itself refuses; the suite also passes with every key and `SECRET_KEY` empty
+in production mode, which is CI without secrets. The `spotify.py` `assert`
+remains, and is F-B22-2's to settle.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+Source: SWE_PRINCIPLES_AUDIT.
+
+### F-B20-2: orchestrator.py second-pass decomposition (promoted from F-B18-1) -- RESOLVED
+
+`scrobblescope/orchestrator.py` (916 lines) mixes album workflow, Spotify
+batch processing, error mapping, progress tracking, and result assembly.
+Now that `heatmap.py` provides a second pipeline, extract the shared
+patterns (event loop setup including the win32 Proactor guard, progress
+mapping, error guards) into a common module and split the orchestrator
+into pipeline / processing / result-shaping modules. Also on the README
+roadmap; absorbs F-B18-7.
+
+Both halves are done. Batch 22 WP-0 split the orchestrator into the
+`scrobblescope/orchestrator/` package by phase. The event-loop setup then
+reached a third copy -- `background_task`, `heatmap_task` and the
+release-check worker -- which is the point `docs/agents/global-rules.md`
+Rule 3 says to extract, so on 2026-09-21 it became
+`worker.new_thread_event_loop`, with its own tests and every existing
+slot-release test passing unmodified. Progress mapping and error guards
+still have two occurrences, album and heatmap, so Rule 3 says leave them;
+Batch 23's export pipeline would be the third, and its WP-0 is where that
+decision belongs.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+Source: Batch 18 audit.
+
+### F-B21-50: reconnaissance TODOs in production code generated eight review rounds -- NO ACTION
+
+Commit `769f0aa` added 15 `# todo:` comments to `scrobblescope/routes.py`,
+mostly appended to bare HTTP status literals (`400,  # todo: Consider adding
+client-side validation`). Commit `16fbf92` removed all 15. Net change to
+`routes.py` is zero: the TODO count runs 0 at `b987e48`, 15 at `a53e412`, 0 at
+HEAD.
+
+Between those commits the notes cost eight repeated Qlty rounds. The PR #227
+audit records `radarlint-pythonS1135` ("Complete the task associated to this
+TODO") on 15 rows, at 15 distinct `routes.py` line numbers, each carrying an
+occurrence count of 8 -- 120 comment bodies for one batch of notes.
+
+The later priority pass corrected the first verification's "13 implemented /
+two genuine" tally: twelve notes described existing behavior, two retain
+deferred work (unmatched redesign and possible retirement of legacy POST),
+and the results note exposed the remaining F-B21-49 status defect. Removing a
+note did not implement the deferred work. The per-note evidence and refreshed
+review counts are in
+[PR 227 priority triage](docs/history/reports/PR227_PRIORITY_TRIAGE_2026-09-09.md).
+The eight-round count above remains the original audit's snapshot.
+
+The lesson is about where such notes live, not whether to take them. A scratch
+file or a findings entry costs one reader; a TODO in a linted production module
+is a standing finding that every scanner republishes on every run, and a
+reviewer cannot tell an orientation note from a real defect. Keep reading notes
+out of production source.
+
+No action, by owner ruling on 2026-09-21. The code half is clean: `git grep`
+finds no `TODO` or `FIXME` in `scrobblescope/` or `app.py`. The churn stays in
+history, because rewriting it needs owner authorization for a net-zero gain.
+What remains is the guidance above, which is a lesson rather than a defect.
+- [x] **Status:** no action
+**Completed:** 2026-09-21
+Source: PR #227 commit-range audit, 2026-09-09.
+
+### F-B21-8: Tailwind scanned the whole repository, and no test would say so -- RESOLVED
+
+`@source` **adds** to Tailwind v4's automatic source detection; it does not
+replace it. `static/css/tailwind.src.css` named `templates/` and
+`static/js/`, and everyone -- this repository's own documentation included --
+read that as the scan boundary. It was not. `@import "tailwindcss"` walks the
+project from the root, so `docs/`, `tests/`, `scripts/` and the root Markdown
+files were all feeding the extractor.
+
+The extractor treats bare words as class candidates, so ordinary English
+prose in Markdown compiled into real utilities. `.contents`, `.isolate`,
+`.flex`, `.border`, `.relative`, `.sticky`, `.truncate` and `.italic` were all
+in the shipped stylesheet on that basis. Scoping the scan to what the config
+already claimed removed **713 of 2,289 lines -- 31% of the file**.
+
+Fixed by `@import "tailwindcss" source(none)`, which turns automatic detection
+off and makes the two `@source` directives the whole scan.
+
+**The reason this reached CI.** Nothing local runs the build and compares. The
+WP-1 suite tests `tailwind_build.py`'s fetch, verify and platform logic, and
+never asserts that the committed CSS is what the pinned toolchain emits. The
+only check that can fail is the "Verify committed Tailwind CSS" step in the
+Quality Gate, which runs after push. `git diff --exit-code -- static/css/tailwind.css`
+was used locally as if it were that check; it only proves the file has not
+been edited by hand. This is the same shape as `F-B21-7` -- a gate whose local
+tests cannot fail -- and it is the strongest argument for WP-2's
+`tailwind-css-drift` pre-commit hook, which closes it.
+
+Two `@source not` directives are now unreachable: `./tailwind.css` and
+`../../scripts/bin/*` both sit outside the two scanned directories. They are
+harmless, and are left in place as protection in case `source(none)` is ever
+removed. Delete them only together with that line.
+
+Resolved. The `@source` scope was fixed first, and the missing local check
+landed in `20dfe0d` on 2026-08-23 as the `tailwind-css-drift` pre-commit hook,
+which rebuilds the CSS and fails on any difference from the committed file.
+- [x] **Status:** resolved
+**Completed:** 2026-08-23
+Source: PR #173 Quality Gate failure, 2026-08-22.
+
+### F-B21-12: four pinned CI actions target a deprecated Node runtime -- RESOLVED
+
+Every Quality Gate run now annotates: `Node.js 20 is deprecated. The
+following actions target Node.js 20 but are being forced to run on Node.js
+24: actions/cache@v4, actions/checkout@v4, actions/setup-python@v5,
+actions/upload-artifact@v4.` The changelog is
+`https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/`.
+
+Nothing is broken. GitHub runs those actions on Node 24 anyway and the gate
+passes. The risk is the shape of the fix rather than the fault: all four sit
+in one file, `.github/workflows/test.yml`, and they fail together on the day
+the forced fallback is withdrawn. That failure would land on whichever work
+package happens to be open, would look unrelated to its diff, and would block
+every PR at once.
+
+Remedy: bump each of the four to a release that targets Node 24, in one
+commit, and confirm the annotation is gone from the next run. Do not guess
+the version numbers -- read each action's releases first, because the major
+that carries the new runtime differs per action.
+
+Worth doing on its own rather than inside a UI work package. It touches the
+gate every other work package depends on, so a bad bump is expensive and a
+separate commit is trivial to revert.
+
+Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
+
+Resolved in `c7bfaec` on 2026-09-07, one commit as the remedy asked:
+`.github/workflows/test.yml` now pins `actions/checkout@v7`,
+`actions/setup-python@v7`, `actions/cache@v6` and `actions/upload-artifact@v7`.
+- [x] **Status:** resolved
+**Completed:** 2026-09-07
+Source: PR #216 Quality Gate annotation, 2026-08-23.
+
+### F-B21-13: bootstrap state lives in three files and only one is gated -- RESOLVED
+
+`AGENTS.md` makes bootstrap complete only when PLAYBOOK Section 3, the active
+batch definition and `.claude/SESSION_CONTEXT.md` Section 1 agree on the
+current batch and the next work package. Nothing checks that they do.
+
+`doc_state_sync.py` derives the next work package from PLAYBOOK and writes it
+into the managed SESSION_CONTEXT block. It never reads the batch definition.
+`scripts/docsync/integrity.py` names `FINDINGS.md` once, in the pinned
+root-document list, and its test-count enforcement reads SESSION_CONTEXT
+only. So two of the three legs are hand-maintained and unread.
+
+Both drifted in Batch 21 and both were caught by PR review rather than by a
+gate:
+
+- `docs/history/definitions/BATCH21_DEFINITION.md` still said WP-2 was next after WP-2 shipped. WP-1's
+  plan carried updating that line as an explicit task, WP-2's did not, and
+  PR #170 had already made the same correction once for WP-1. Second
+  occurrence of the same line going stale.
+- The `FINDINGS.md` header still published 666 tests after PLAYBOOK and
+  SESSION_CONTEXT moved to 671, in the very commit that was correcting stale
+  documentation.
+
+Remedy: extend the integrity gate rather than write another rule. Two checks,
+both cheap, because both compare text that already exists:
+
+1. Parse the next-work-package claim out of the active batch definition's
+   status line and compare it to the value the renderer already computes from
+   PLAYBOOK. Report a diagnostic when they disagree.
+2. Apply the existing `latest_test_count_authority()` to the `FINDINGS.md`
+   header the same way it is applied to the SESSION_CONTEXT fields.
+
+Written rules have now failed twice on the definition status line, which is
+the point at which `AGENTS.md` prefers a mechanical check over a restatement.
+Do it in its own commit with tests, not inside a UI work package -- it
+changes the gate every other work package depends on.
+
+Not mirrored to a GitHub issue; `F-B21-9` records that the mirror is manual.
+
+Resolved in `8ed1650` on 2026-08-24. DOC007 and the SESSION_CONTEXT renderer now call the same
+finite, plan-aware next-WP helper. The CLI supplies the active definition's
+planned headings, so absorbed gaps are skipped and an all-complete plan
+terminates instead of hanging. DOC007 checks both the definition Status line
+and PLAYBOOK's actual Next action bullet; a missing parseable claim remains
+silent because it is a different defect. DOC008 applies the shared count
+authority to the FINDINGS header with header-specific remediation, including
+rotated per-batch logs and deterministic same-date batch ordering. Regression
+tests cover agreeing, disagreeing, unparseable, absorbed-gap, all-complete,
+header-scope, ambiguity and rotated-authority cases.
+- [x] **Status:** resolved
+**Completed:** 2026-08-24
+Source: PR #216 review round two, 2026-08-23.
+
+### F-B20-4: UI overhaul (driven by owner audit) -- RESOLVED
+
+Scope, locked decisions, and acceptance criteria live entirely in
+`docs/history/definitions/BATCH21_DEFINITION.md` -- this entry is a pointer, not a
+second copy. Resolved: Batch 21 closed on 2026-09-13 (`9152fd3`) with all
+nine work packages done. The frontend and accessibility audit WP-8 chartered
+was moved by owner ruling to Batch 23's close-out, where
+`BATCH23_DEFINITION.md` WP-7 carries it, so it does not keep this entry open.
+- [x] **Status:** resolved
+**Completed:** 2026-09-13
+Source: owner audit (UI Audit v3) + F-B19-4 owner review.
+
+### F-DOCSYNC-1: ENTRY_BATCH_RE too loose -- RESOLVED
+
+`parser.py` batch-tag regex can misroute entries whose titles contain
+"Batch N" substrings; tightening needs backward-compat testing.
+
+Resolved in `fd39c89` on 2026-02-26, whose message cites this audit finding
+("F6"): `ENTRY_BATCH_RE` now requires the parenthetical `(Batch N WP-X)` form,
+and `tests/test_docsync_parser.py` gained adversarial batch-mention titles.
+The finding stayed open for seven months because it was written as prose with
+no lifecycle record, so nothing could notice the fix. F-DOCSYNC-3 is a
+separate defect: close-out suffixes are still not matched.
+- [x] **Status:** resolved
+**Completed:** 2026-02-26
+Source: DOCSYNC_AUDIT Finding 6.
+
 ### F-B21-30: unmatched report describes zero rows as a populated exclusion list -- RESOLVED
 
 The unmatched route passes `total_count=0` correctly, but its template always

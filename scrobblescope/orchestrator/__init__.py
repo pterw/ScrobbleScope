@@ -19,7 +19,6 @@ use this facade so that the internal module boundaries may evolve safely.
 
 import asyncio
 import logging
-import sys
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -58,7 +57,7 @@ from scrobblescope.unmatched import (
     partition_albums_by_threshold,
 )
 from scrobblescope.utils import cleanup_expired_cache, create_optimized_session
-from scrobblescope.worker import release_job_slot
+from scrobblescope.worker import new_thread_event_loop, release_job_slot
 
 # Hard upper bound on the number of albums sent to process_albums across all sort
 # modes. An unbounded album count creates proportional Spotify API load and
@@ -648,19 +647,13 @@ def background_task(
 ):
     """Run the async fetch pipeline in a dedicated event loop on this thread.
 
-    On Windows, explicitly use ProactorEventLoop so asyncpg sends the correct
-    PostgreSQL startup packet.  With the default SelectorEventLoop (which
-    Werkzeug's debug reloader can leave as the policy in child threads) asyncpg
-    mis-negotiates the connection and Postgres logs 'invalid length of startup
-    packet'.
+    ``worker.new_thread_event_loop`` builds the loop, including the Windows
+    ``ProactorEventLoop`` asyncpg needs. It is called inside the ``try`` so a
+    setup failure still reaches the ``finally`` that releases the job slot.
     """
     loop = None
     try:
-        if sys.platform == "win32":
-            loop = asyncio.ProactorEventLoop()
-        else:
-            loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        loop = new_thread_event_loop()
         loop.run_until_complete(
             _fetch_and_process(
                 job_id,

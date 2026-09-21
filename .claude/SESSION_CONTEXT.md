@@ -9,7 +9,7 @@ Last updated: 2026-09-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1529 passing** across 58 test modules |
+| Tests | **1555 passing** across 58 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -50,7 +50,7 @@ Last updated: 2026-09-20
 ## 3. Project structure
 
 ```
-app.py                      # create_app() factory (~150 lines)
+app.py                      # create_app() factory and startup checks
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # SpotifyUnavailableError, ERROR_CODES
@@ -132,7 +132,7 @@ lastfm.py        <- config, utils
 spotify.py       <- config, utils
 unmatched.py     <- (leaf)
 musicbrainz.py   <- config, domain, utils
-release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils; orchestrator (facade, DEFERRED -- see note)
+release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils, worker; orchestrator (facade, DEFERRED -- see note)
 orchestrator/__init__.py  <- cache, config, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, domain; orchestrator (facade)
@@ -145,7 +145,7 @@ routes/pages.py         <- routes (facade)
 routes/album_flow.py    <- orchestrator, repositories, spotlight; routes (facade)
 routes/heatmap_flow.py  <- heatmap, repositories; routes (facade)
 routes/api.py           <- domain, release_checks, repositories, spotify, utils; routes (facade)
-app.py           <- routes (Blueprint); config (ensure_api_keys, __main__ only)
+app.py           <- routes (Blueprint); config (ensure_api_keys) -- both deferred into functions
 
 docsync/__init__.py  <- (leaf)
 docsync/models.py    <- (leaf)
@@ -231,7 +231,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (1529 tests)
+## 6. Test structure (1555 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it
@@ -266,9 +266,8 @@ developer tooling and `tests/services/` the Last.fm and Spotify paths.
   Manual fallback: `docker start ss-postgres` then `python app.py`.
   Check status: `docker ps --filter name=ss-postgres`.
   `init_db.py` has no `load_dotenv()` -- set DATABASE_URL in shell before running it.
-- Windows asyncio: `background_task()` in `orchestrator/__init__.py` explicitly uses
-  `asyncio.ProactorEventLoop()` on `sys.platform == "win32"`. This is required
-  because Werkzeug's debug reloader leaves `SelectorEventLoop` as the thread-local
-  policy in background threads on Windows; asyncpg sends incorrect PostgreSQL
-  startup bytes with `SelectorEventLoop`, causing the `invalid length of startup
-  packet` error. The guard is Windows-only; Fly.io (Linux) is unaffected.
+- Windows asyncio: every background thread (the album and heatmap jobs and the
+  release-check worker) builds its loop through `worker.new_thread_event_loop`,
+  which uses `asyncio.ProactorEventLoop()` on Windows so asyncpg does not
+  mis-negotiate Postgres under Werkzeug's reloader. Its docstring owns the
+  reason. Windows-only; Fly.io (Linux) is unaffected.

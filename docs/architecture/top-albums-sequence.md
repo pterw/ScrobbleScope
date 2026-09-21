@@ -1,10 +1,15 @@
 # Top Albums request and enrichment sequence
 
-This diagram is the canonical owner of the Top Albums pipeline sequence. The
-concurrency slot is acquired before job creation. `start_job_thread` releases
+This diagram is the canonical owner of the Top Albums pipeline sequence:
+admission, Last.fm retrieval, enrichment across two metadata providers, the
+deferred MusicBrainz correction pass, result storage, and polling.
+
+The concurrency slot is acquired before job creation. `start_job_thread` releases
 the slot when the thread does not start, and `background_task` releases it in a
-`finally` block. That `finally` is not reached if the event-loop setup above it
-fails, so the release is near-certain and not unconditional.
+`finally` block. The event-loop setup sits inside the `try` that `finally`
+guards, so the release is unconditional once the thread runs: a failure to
+create the loop is caught and logged like any other, and the slot still comes
+back.
 
 ```mermaid
 sequenceDiagram
@@ -18,6 +23,9 @@ sequenceDiagram
     participant LastFM as Last.fm API
     participant Cache as cache.py / PostgreSQL
     participant Spotify as Spotify API
+    participant Deezer as Deezer API
+    participant ReleaseChecks as release_checks.py
+    participant MusicBrainz as MusicBrainz API
 
     User->>Browser: Submit username, year, filters, and sort
     Browser->>Routes: POST /results_loading + CSRF token
@@ -99,29 +107,39 @@ sequenceDiagram
                     alt Cache misses exist
                         Orch->>Spotify: Fetch token
                         alt Token fetch fails
-                            alt Cache hits exist
-                                Orch->>Repo: set_job_stat(partial_data_warning)
-                                Note over Orch,Spotify: Continue with cached albums only
-                            else No cache hits
-                                Orch->>Orch: raise SpotifyUnavailableError
-                            end
+                            Orch->>Repo: set_job_stat(partial_data_warning)
+                            Note over Orch,Spotify: No search or detail call; every miss goes to Deezer
                         else Token acquired
                             Orch->>Spotify: Search albums
-                            Spotify-->>Orch: Spotify IDs or unmatched results
-                            Orch->>Repo: Progress 20%-40% + unmatched reason No Spotify match
+                            Spotify-->>Orch: Spotify IDs, or search misses
+                            Orch->>Repo: Progress 20%-40%
                             opt At least one album matched
                                 Orch->>Spotify: Batch-fetch matched album details
                                 Spotify-->>Orch: Dates, art, and track durations
                                 Orch->>Repo: Progress 40%-60%
-                            end
-                            opt DB connected and new metadata rows exist
-                                Orch->>Cache: Persist fresh metadata
-                                Orch->>Repo: set_job_stat(db_cache_persisted)
-                                Note over Orch,Cache: A persist failure is non-fatal and sets db_cache_warning
+                                Note over Orch: A matched album promotes into cache_hits
                             end
                         end
+                        opt Misses remain -- a search miss, a detail failure, or no token
+                            Orch->>Deezer: Search, then fetch detail and track list, per album
+                            Deezer-->>Orch: Date, art, and track durations
+                            Orch->>Repo: Progress 60%-75%
+                            alt No token, nothing was cached beforehand, and Deezer matched nothing
+                                Orch->>Orch: raise SpotifyUnavailableError
+                            else At least one album enriched, or cache hits existed
+                                Note over Orch: Continue -- a partly enriched run is a valid outcome
+                            end
+                        end
+                        opt Albums neither provider could enrich
+                            Orch->>Repo: Unmatched reason No match on Spotify or Deezer
+                        end
+                        opt DB connected and new metadata rows exist
+                            Orch->>Cache: Persist fresh metadata
+                            Orch->>Repo: set_job_stat(db_cache_persisted)
+                            Note over Orch,Cache: A persist failure is non-fatal and sets db_cache_warning
+                        end
                     else All metadata is cached
-                        Note over Orch,Spotify: No Spotify call or cache persistence, while JOBS stats still update
+                        Note over Orch,Spotify: No Spotify or Deezer call, while JOBS stats still update
                     end
                     opt DB connected
                         Orch->>Cache: Close connection
@@ -142,9 +160,22 @@ sequenceDiagram
                             Orch->>Repo: Progress 60%-90%
                             Orch->>Orch: Post-slice to limit_results
                             Orch->>Repo: Store results and progress 100%
+                            Orch->>Repo: enqueue_release_check(job_id)
+                            Note over Orch,ReleaseChecks: Queued on a FIFO, never awaited -- and only here, because an error path stores an empty list worth no correction
                         end
                     end
                 end
+            end
+            opt A correction pass was queued
+                ReleaseChecks->>Repo: Read this job's candidate albums
+                ReleaseChecks->>Cache: Look up the findings already known
+                loop Each album still unknown, capped per job
+                    ReleaseChecks->>MusicBrainz: Look up the release group's first-release-date
+                    MusicBrainz-->>ReleaseChecks: A trusted match, or nothing close enough
+                    ReleaseChecks->>Cache: Persist the finding, hit and miss alike
+                    ReleaseChecks->>Repo: Mark a moved-out row in place
+                end
+                ReleaseChecks->>Repo: set_job_release_check(running, then done)
             end
             opt Unhandled exception inside _fetch_and_process
                 Orch->>Repo: Classified error code, or empty results with a retryable unknown error
@@ -217,8 +248,30 @@ difference: `None` means the results are not stored yet.
 
 `Orch` self-arrows cover in-process work across the `orchestrator/` package
 (a facade `__init__.py` plus `_search.py`, `_details.py`, `_cache.py`,
-`_results.py` as of Batch 22 WP-0) and helpers it imports from `utils.py`
-and `domain.py`, none of which are drawn as separate participants -- this
-view stays at the pipeline level, not the module-split level. The
-`/progress` handler also returns HTTP 400 for a missing `job_id`; the
-loading page always sends one, so that response is not drawn.
+`_deezer_fallback.py`, `_results.py` as of Batch 22 WP-0 and WP-1) and helpers
+it imports from `utils.py` and `domain.py`, none of which are drawn as separate
+participants -- this view stays at the pipeline level, not the module-split
+level. The `/progress` handler also returns HTTP 400 for a missing `job_id`;
+the loading page always sends one, so that response is not drawn.
+
+`_fetch_spotify_misses` owns the whole enrichment chain, and the order in it is
+load-bearing. A Spotify match promotes into `cache_hits`; whatever is still
+missing afterwards is computed as `cache_misses` minus `cache_hits`, so a
+search miss and a detail failure converge on the same Deezer pass rather than
+being retried separately. Persistence happens in the caller (Phase 4) after
+that call returns, which is why the diagram shows it after Deezer: one row set
+is written for both providers, not one per provider.
+
+`SpotifyUnavailableError` is raised on three conditions together -- no token,
+nothing cached before this call, and Deezer matched nothing -- so a Deezer-only
+run that finds even one album is a valid partial outcome rather than a failure.
+An earlier revision of this diagram drew the no-cache-hits case as an immediate
+raise, which was wrong before Batch 22 added Deezer and is wrong now.
+
+The correction pass is queued, never awaited, and is enqueued only on the happy
+path: the error handlers below it store an empty result list, and an empty list
+has nothing to correct. `release_checks.py` runs it on its own thread with a
+FIFO queue of job ids, which is why it appears as a separate lifeline rather
+than an `Orch` arrow. `GET /api/release_checks` is what the open results page
+polls for the findings; that poll is not drawn here, because this view ends at
+the results document.

@@ -34,6 +34,10 @@ env/
 # Pytest cache and coverage artifacts
 .pytest_cache/
 .coverage
+# coverage.xml is the same artifact in XML form, written by `--cov-report=xml`
+# (the CI workflow and the pre-commit-era local runs both use it). It was only
+# ever missing here because the .coverage spelling was added first.
+coverage.xml
 
 # Frontend-gate console captures. A single run writes ~600 KB, and diagnosing
 # one CI stall takes several, so these accumulated to ~3 MB of untracked root
@@ -69,6 +73,14 @@ CLAUDE.md
 # Tracked project guidance lives in AGENTS.md and .github/instructions/.
 .agents/
 
+# Per-machine agent and editor harness configuration, same class as .agents/
+# above. `.codex/hooks.json` names an absolute path under one user's home
+# (`C:/Users/.../.local/bin/graphify.EXE`), and the .continue files are an
+# editor's own MCP and agent scaffolding, so neither can be a correct
+# committed value for any other checkout.
+.codex/
+.continue/
+
 # Agent-session analysis scratch and tool state. Untracked by intent: the
 # impeccable skill's workflow copies and live session logs, the qlty analyser's
 # cache and results, and the deeper-reading traversal run root (source
@@ -81,6 +93,10 @@ CLAUDE.md
 .impeccable/
 .qlty/
 scratch/
+# Agent probe and diagnostic scratch. A session writes dozens of small
+# throwaway scripts and their captured output here; none of it is repository
+# state, and unignored it put ~150 untracked paths into every `git status`.
+/tmp/
 
 skills-lock.json
 

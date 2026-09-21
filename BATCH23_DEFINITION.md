@@ -95,8 +95,10 @@ WP-0 did.
 
 - [ ] Extract `_cap_threshold_exclusions`, `_process_filtered_albums` (the
   tail of `_fetch_and_process`, from `_apply_pre_slice` to `set_job_results`)
-  and `_run_coroutine_in_new_loop` (the Proactor boilerplate) in
-  `orchestrator/`.
+  and `_run_coroutine_in_new_loop` (the run-and-close wrapper) in
+  `orchestrator/`. The Windows `ProactorEventLoop` choice inside it is
+  already shared as `worker.new_thread_event_loop` (2026-09-21, F-B20-2);
+  build the wrapper on that rather than repeating the platform branch.
 - [ ] Extract `_zero_fill_daily_counts` from `scrobblescope/heatmap.py` so
   both aggregators share one zero-fill.
 - **Acceptance:** every existing test passes **unmodified**, including

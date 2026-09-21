@@ -216,7 +216,13 @@ nobody writes that shape is one they have nothing to say about: the file
 grows, and every check on it passes. DOC023 closes that by blocking on an
 active finding whose prose claims a terminal outcome -- the same `resolved`
 and `no action` vocabulary rotation accepts -- while carrying no lifecycle
-record.
+record. It also reads one pre-lifecycle spelling of the same claim: a
+`Status:` label whose value opens with "closed" (`Status: closed.`). That
+word is read on the label only, never in running prose, because findings
+mention closed batches, work packages and PRs constantly; "partly closed" and
+"not closed" are not claims. "Closed" is not rotation vocabulary, so the
+remedy is still a `resolved` record. F-B21-13 sat unrotated for weeks written
+that way.
 
 The findings that predate the rule are listed by id under `[findings]
 grandfathered` in `.docsync.toml`, and reported once as a non-blocking

@@ -1,5 +1,8 @@
+import json
+import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 
 from scrobblescope.lastfm import (
@@ -118,6 +121,80 @@ async def test_fetch_recent_tracks_page_retries_429_then_succeeds():
     assert result == payload
     assert session.get.call_count == 2
     assert mock_sleep.await_count >= 1
+
+
+def _page_fetch_with_json_error(session, json_error):
+    """Point *session* at one 200 response whose ``json()`` raises *json_error*."""
+    resp = AsyncMock()
+    resp.status = 200
+    resp.json = AsyncMock(side_effect=json_error)
+    resp.text = AsyncMock(return_value="<html>maintenance</html>")
+    session.get.return_value = make_response_context(resp)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "json_error",
+    [
+        aiohttp.ContentTypeError(MagicMock(), (), message="text/html"),
+        json.JSONDecodeError("Expecting value", "<html>", 0),
+    ],
+    ids=["html-served-as-200", "malformed-json"],
+)
+async def test_fetch_recent_tracks_page_reports_an_unparseable_body(json_error, caplog):
+    """
+    GIVEN Last.fm answers 200 with a body that is not JSON
+    WHEN fetch_recent_tracks_page_async runs
+    THEN the page is given up as invalid JSON, with the body's opening quoted.
+    """
+    session = MagicMock()
+    _page_fetch_with_json_error(session, json_error)
+
+    with (
+        patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        caplog.at_level(logging.ERROR),
+    ):
+        result = await fetch_recent_tracks_page_async(
+            session, "flounder14", 1, 2, page=1, retries=1
+        )
+
+    assert result is None
+    assert "Invalid JSON from Last.fm page 1" in caplog.text
+    assert "<html>maintenance" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_fetch_recent_tracks_page_does_not_call_other_failures_invalid_json(
+    caplog,
+):
+    """
+    GIVEN reading the body fails for a reason that is not a parse failure
+    WHEN fetch_recent_tracks_page_async runs
+    THEN it is not misreported as invalid JSON: the retry helper reports it
+    under its own exception class instead (F-MAS-4 -- a blind catch here
+    used to label every failure "Invalid JSON").
+    """
+    session = MagicMock()
+    _page_fetch_with_json_error(session, RuntimeError("connection reset mid-body"))
+
+    with (
+        patch("scrobblescope.lastfm.get_cached_response", return_value=None),
+        patch(
+            "scrobblescope.lastfm.get_lastfm_limiter", return_value=NoopAsyncContext()
+        ),
+        patch("asyncio.sleep", new_callable=AsyncMock),
+        caplog.at_level(logging.ERROR),
+    ):
+        result = await fetch_recent_tracks_page_async(
+            session, "flounder14", 1, 2, page=1, retries=1
+        )
+
+    assert result is None
+    assert "Invalid JSON" not in caplog.text
+    assert "RuntimeError: connection reset mid-body" in caplog.text
 
 
 @pytest.mark.asyncio

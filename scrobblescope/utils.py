@@ -3,13 +3,13 @@ import logging
 import math
 import threading
 import time
-import traceback
 from weakref import WeakKeyDictionary
 
 import aiohttp
 from aiolimiter import AsyncLimiter
 
 from scrobblescope.config import (
+    APP_USER_AGENT,
     DEEZER_REQUESTS_PER_SECOND,
     LASTFM_REQUESTS_PER_SECOND,
     MUSICBRAINZ_REQUESTS_PER_SECOND,
@@ -181,7 +181,13 @@ def get_musicbrainz_limiter():
 def run_async_in_thread(coro):
     """Run an async coroutine synchronously in a short-lived thread.
 
-    Used only by ``/validate_user``; background_task owns its own event loop.
+    For request handlers that need one async call and cannot await it: the
+    Last.fm user and privacy checks behind ``/validate_user`` and both start
+    routes, and ``/api/artist_spotlight``. Background jobs build their own
+    loop through ``worker.new_thread_event_loop`` instead.
+
+    An exception is logged here with its traceback, then re-raised in the
+    calling thread, which is the only one that can answer the request.
     """
     result = []
     error = []
@@ -193,8 +199,7 @@ def run_async_in_thread(coro):
             asyncio.set_event_loop(loop)
             result.append(loop.run_until_complete(coro()))
         except Exception as e:
-            error_traceback = traceback.format_exc()
-            logging.error(f"Error in async thread: {e}\n{error_traceback}")
+            logging.exception(f"Error in async thread: {e}")
             error.append(e)
         finally:
             if loop is not None:
@@ -223,6 +228,12 @@ def create_optimized_session():
     - Per-host connections: 25 (for Spotify/Last.fm)
     - DNS cache: 5 minutes
     - Timeouts: 30s total, 10s connect, 20s read
+
+    Every request carries ``APP_USER_AGENT`` unless it sets its own
+    ``User-Agent``. Last.fm asks for an identifiable User-Agent on all
+    requests and warns that an anonymous client risks suspension, and the
+    other providers' guidelines want attribution too. MusicBrainz is the one
+    caller that overrides it, with the contact-bearing form its API requires.
     """
     connector = aiohttp.TCPConnector(
         limit=40,  # Max total connections across all hosts
@@ -245,6 +256,7 @@ def create_optimized_session():
         connector=connector,
         timeout=timeout,
         raise_for_status=False,  # Manual status handling
+        headers={"User-Agent": APP_USER_AGENT},
     )
 
 
@@ -390,8 +402,12 @@ async def retry_with_semaphore(
                 continue
         except reraise:
             raise
-        except Exception as e:
-            logging.error(f"Error in {error_label}: {e}")
+        # Broad on purpose: a retry helper retries whatever its callable
+        # raises, except the declared ``reraise`` types. What it owes the
+        # reader is the exception's class, so a programming error retried
+        # here cannot pass for a network blip in the log.
+        except Exception as e:  # noqa: BLE001
+            logging.error(f"Error in {error_label}: {type(e).__name__}: {e}")
 
         await asyncio.sleep(_resolve_backoff(backoff, attempt))
 

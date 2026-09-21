@@ -113,6 +113,35 @@ See FINDINGS F-DOCSYNC-3.
 - **Session handoff, 2026-09-20:** `docs/history/reports/HANDOFF_2026-09-20.md`
   is the entry point for a new agent -- reading order, environment, the gates
   and why they refuse, the schema-migration trap, and the open items.
+- **PR #236 merged into `test`** at `fc9098d3` (2026-09-20 21:12). It carried
+  the eight commits that landed after PR #234, which had merged the branch as
+  it stood at `f6d5926` (2026-09-20 05:06) while the first of those eight was
+  05:50 -- a chronological gap, not a rebase. So `test` now holds WP-4, the
+  Batch 22 close-out and the Batch 23 definition; before #236 it held none of
+  the three.
+- **PR #235 (`test` -> `main`) is open and no longer a draft**, mergeable.
+  `main` remains the stable Fly.io deployment and still predates Batch 22;
+  advancing it is the owner's call, and its review threads are adjudicated in
+  `docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`.
+- **Outbound request identity, fixed 2026-09-20.** `config.APP_USER_AGENT` is
+  now the single owner of the application's own name, and
+  `create_optimized_session` sends it on every provider session. Until this
+  change every Last.fm, Spotify and Deezer request went out as aiohttp's
+  default `Python/3.x aiohttp/3.y`, which identifies nobody -- Last.fm asks
+  for an identifiable User-Agent on all requests and warns that an anonymous
+  client risks suspension. `musicbrainz.py` composes its contact-bearing
+  User-Agent on the same identity, so the application cannot disagree with
+  itself about its own name.
+- **`MUSICBRAINZ_CONTACT` is set locally, not yet on Fly.io.** The owner
+  configured the project's GitHub URL in `.env` on 2026-09-21, which
+  MusicBrainz's policy accepts in place of an email address, so the
+  correction pass now runs locally. On 2026-09-20 it was unset and a probe
+  confirmed zero HTTP calls. It is **not a secret** -- the value travels in the
+  User-Agent header and nothing authenticates with it -- so enabling it on the
+  deployment is a config change, `DEPLOY.md` "MusicBrainz contact".
+- **The code defect is closed.** `_musicbrainz_headers` raises instead of
+  interpolating the literal string `None` as a contact address, which is what
+  it did when called outside the gate that guards it.
 - **Next action: the owner opens Batch 23 by naming its branch here.**
   `BATCH23_DEFINITION.md` is written and sits at the repository root, derived
   from
@@ -129,7 +158,8 @@ See FINDINGS F-DOCSYNC-3.
   tool's vocabulary has "not yet defined" and "active" and no word for
   "written, not started", so the sentence is kept and qualified rather than
   removed.
-- **The dashboard's test count is 1522 again**, and the way it got unstuck is
+- **The dashboard's test count read 1522 for a while**, and the way it got
+  unstuck is
   worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
   date, and on a same-date tie source precedence ranks an untagged side-task
   entry above the batch entries regardless of which was written later
@@ -328,235 +358,167 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-20 - Session close-out and handoff
+### 2026-09-21 - No `assert` guards runtime code any more (F-B22-2)
 
-Side task, no batch tag. The session closed under a token budget, so this
-entry records the state rather than the reasoning; the entries below carry
-the reasoning.
+Side task, no batch tag. Preparation for closing PR #235's review threads,
+which the owner named as the next step: two of its Codacy threads (HIGH
+RISK) are this finding, and the honest reply is the fix, not a pointer.
+Control-plane change (`scripts/docsync/findings.py`), committed with
+`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run directly.
 
-**Pushed.** Seven commits are on `origin/feat/batch22-enrichment`, from
-`3707d6a` to `e57e894`: the work-package tag repair, Batch 22 WP-4 (the
-release-check endpoint and its live disclosure), the colour-serialization
-class fix, the Batch 22 close-out, the Batch 23 definition with six
-corroborated proposals, and the cache repair with the findings rotation. The
-branch is **not merged** into `test`; opening a pull request is an owner
-decision and has not been taken.
+**Plan vs implementation.** The finding's fix shape was a conditional raise
+at each of six sites. Applied as written, three of those raises could never
+fire, so each invariant was placed where it actually holds instead:
 
-**Handoff written for a new agent**, deliberately assuming no familiarity
-with this repository and no particular tooling:
-`docs/history/reports/HANDOFF_2026-09-20.md`. It carries the reading order,
-the environment, the five ways this repository will refuse a commit and why,
-the database-migration fact that hid a dead cache for a whole batch, what
-Batch 23 is, and the open items with their findings.
+- **`routes/album_flow.py`, three `assert job_context is not None`:
+  deleted.** `_get_validated_job_context` returns an error before it can
+  return a missing context, so they only narrowed types. Three copies of an
+  unreachable raise is dead code, and Rule 3 says the third copy is where
+  the invariant belongs in one place -- which it already is.
+- **`scripts/docsync/findings.py` `_build`: invariant by construction.**
+  `_parse` already has each heading's match; it now passes it in instead of
+  `_build` re-matching `block[0]` and asserting.
+- **`spotify.py` token fetch: a behaviour change, deliberately.** Missing or
+  empty credentials now log and return None, which is the function's
+  existing failure answer, so the album pipeline falls back to Deezer and
+  the spotlight keeps its artwork. The `assert` raised past that fallback
+  and failed the whole job; an empty string also slipped past `is not None`.
+  The old test expected `AssertionError`; it is replaced by three cases
+  (id missing, secret missing, id empty) asserting None, no HTTP call and
+  an error log. Red before the change.
 
-**The owner's inline questions in `FINDINGS.md` are resolved** and have been
-removed. They were written after Batch 21 closed, asking why nothing had
-rotated; the answer was that no finding carried the lifecycle record rotation
-requires, and the rotation in the entry below is the answer in effect. Two of
-the removed lines were not questions and were restored: an owner ruling that
-the GitHub-to-findings sync must run in both directions, now recorded inside
-F-B21-9, and a wrapped line of F-LOAD-2's own prose that a regex mistook for
-an annotation because it began with a slash.
+**The gate.** Ruff `S101` is selected, with `tests/**` exempt (all 2,630
+current hits are there). Proven red on a probe file. Production code now
+holds zero `assert` statements, and the affected suites pass under
+`python -O`.
 
-Validation: `pytest -q` -- **1529 passed**. `doc_state_sync.py --check` exit
-0, its only warning the root definition waiting for Batch 23 to open.
+**Validation:** `pytest -q` -- **1555 passed**. `pre-commit run --all-files`
+with `SKIP=doc-state-sync-check` -- every other hook passes.
+`doc_state_sync.py --check` run directly -- exit 0.
 
-Next action for whoever arrives: read the handoff, then decide the pull
-request and whether to open Batch 23.
+**Forward guidance:** PR #235's threads can now be answered with fixes for
+every true claim. The fixes live on this branch, so they reach `main` in the
+follow-up PR the owner plans after #235 merges.
 
-### 2026-09-20 - The cache was inert, and the findings backlog now rotates
+### 2026-09-21 - DOC023 reads a legacy "Status: closed" as a claim
 
-Side task, no batch tag, on the owner's instruction to close Batch 22's
-remaining cache and findings work now rather than carry it into Batch 23.
-Investigated through `superpowers:systematic-debugging`.
+Side task, no batch tag, owner-approved on 2026-09-21 with one condition:
+it must not start flagging findings that merely mention a closed batch, work
+package or PR. Control-plane change, committed with the documented escape
+`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run by hand on
+the final tree.
 
-**The metadata cache had been inert since Batch 22 shipped.** The owner's
-local database still held the pre-Batch-22 schema: `spotify_cache` had no
-`provider`, `provider_album_id` or `provider_url` columns, `spotify_id` was
-still `NOT NULL`, and `original_release_cache` did not exist at all. Read
-against it, `_batch_lookup_metadata` raised `UndefinedColumnError` and
-`_batch_lookup_original_release` raised `UndefinedTableError` -- measured, not
-inferred.
+**Why.** F-B21-13's prose said "Status: closed." for four weeks while the
+finding sat active. DOC023 recognises only `resolved` and `no action`, the
+rotation vocabulary, so the word the author actually used was invisible to
+it. That is the one real pattern miss the morning's findings pass found.
 
-The consequence was not an outage, which is why nobody caught it. Both reads
-are wrapped, so every job degraded to a cache-less run and carried on: 3,628
-usable rows went unread on every search, every album was re-fetched from
-Spotify or Deezer, and every MusicBrainz correction was paid for at one
-request per second and then discarded. The owner's 2026-09-20 run reads
-exactly that way -- `Cache partition: 0 hits, 366 misses` -- and the database
-being down at the time hid the second fault behind the first.
+**Plan vs implementation.** Measured before designing: matching "closed" on
+any body line fired on two findings, one of them F-B21-25, whose status is
+"partly closed" -- a false positive even on the status line. So the rule is
+narrow: `_LEGACY_CLOSED_STATUS_RE` in `scripts/docsync/findings.py` matches a
+capitalised `Status` label (plain, bold, or after a sentence ends) whose value
+*opens* with "closed". Rotation vocabulary is unchanged: "closed" is a way to
+detect the claim, not an outcome a record may state, so the remedy is still a
+`resolved` record. `docs/architecture/documentation-tooling.md` records the
+rule beside DOC023.
 
-`init_db.py` is idempotent and is what fixes it. Run against the live
-database: the three columns exist, `spotify_id` is nullable,
-`original_release_cache` exists, and all **3,628** existing rows were
-backfilled to `provider = 'spotify'` with `provider_album_id = spotify_id`.
-Then, against that live database rather than a mock, Batch 22's cache
-acceptance criteria were exercised for the first time: a Deezer-only row with
-no Spotify id round-trips; a legacy six-tuple caller still writes a row that
-reads back as Spotify; a pre-existing row is readable through the cache API
-after the backfill; and both a correction and a "checked, nothing found" row
-round-trip through `original_release_cache`. The probe rows were deleted
-afterwards.
+**Tests.** Ten in `tests/test_docsync_findings.py`. Four claim shapes, red
+before the pattern existed. Six non-claims, which pass before and after:
+"partly closed", "not closed", "closes at", and "closed" in ordinary prose
+about a batch, a work package and a PR. On the live corpus the check stays
+clean: F-B21-25 is not flagged.
 
-**The class fix, because the instance was a one-line command.** A missing
-column is not a transient failure: it never heals, and every read until
-someone notices misses a cache that is sitting right there. The code reported
-it in the same words as a dropped connection. `scrobblescope/cache.py` gains
-`schema_is_out_of_date`, matching PostgreSQL SQLSTATEs 42703 and 42P01 --
-matched on the SQLSTATE rather than the asyncpg exception class, because
-asyncpg is an optional import here and a SQLSTATE is the stable half of the
-contract -- and a single remediation string naming `init_db.py`. Both cache
-readers and the correction worker's persist path now say which kind of
-failure they hit. Seven tests cover it, including that a transient failure
-must **not** tell the reader to run a migration.
+**Validation:** `pytest -q` -- **1553 passed**. `pre-commit run --all-files`
+with `SKIP=doc-state-sync-check` -- every other hook passes.
+`doc_state_sync.py --check` run directly -- exit 0.
 
-This is the same shape as the DOC013-DOC018 gate that had never fired once:
-a subsystem reporting success while doing nothing. It is worth naming as a
-class -- a failure that degrades silently needs a diagnostic that
-distinguishes "will heal" from "will never heal", or it is indistinguishable
-from working.
+**Forward guidance:** other pre-lifecycle spellings ("fixed", "done") were
+measured and left out: on status lines they appeared only qualified ("the
+scope itself is fixed", "closes at WP-8"). Add one only with a measured
+instance, the same way.
 
-**The findings backlog rotates again.** 85 findings, 83 with no lifecycle
-record, so nothing had rotated at either batch close-out -- the owner's
-question in `FINDINGS.md` had the right instinct. The owner ruled on
-2026-09-20 that a prior session's record may be transcribed, since the
-authors are earlier agent sessions and the standing warning confuses a reader
-more than an archived finding would.
+### 2026-09-21 - Broad catches judged one by one, then gated (F-MAS-4)
 
-Each of the 23 grandfathered findings was given the record its own author's
-words support, and the distinctions were kept:
+Side task, no batch tag, owner-approved on 2026-09-21 because the count only
+grows: F-MAS-4 recorded 14, then 17; it was 25.
 
-- **16 were terminal** and are now in `docs/history/findings/FINDINGS_ARCHIVE.md`
-  under their original ids with the `-- RESOLVED` suffix. Where the author
-  wrote a date it is theirs; where they wrote none, the completion date is
-  the day of the evidence they cite, which is an inference and is recorded
-  here as one.
-- **5 say "resolved locally, deploy before the next production release"** and
-  are NOT checked. The lifecycle gate treats a pending deploy as not-yet
-  terminal and it is right to: the fix is in the tree, not in front of a
-  user. They keep an unchecked record and stay active.
-- **2 were never resolved at all** -- F-B21-9 was deferred by owner decision
-  and F-B21-53 is open for the general card token. Reading either as finished
-  because the word "resolved" appears in its prose is exactly the mistake
-  DOC023 exists to prevent.
-- **F-B21-1 was verified in source rather than taken on trust**: loop
-  construction now sits inside the `try` in both `background_task` and
-  `heatmap_task`, with `release_job_slot()` in the `finally`.
+**Plan vs implementation.** The finding offered "narrow or add structured
+logging". Narrowing all 25 was rejected after reading them: most guard the
+optional DB cache or decorative enrichment, where fail-open is the
+documented design (`docs/agents/global-rules.md` Rule 6), and swapping
+`Exception` for guessed asyncpg or aiohttp types would turn a failure the job
+tolerates today into a crashed job. So each site was judged, and the growth
+was made impossible to miss instead:
 
-`[findings] grandfathered` in `.docsync.toml` is now `[]`, and **DOC023's
-standing warning is gone**. The list stays declared so a repository adopting
-this gate starts strict with somewhere to put its own history. Active
-findings: 72, down from 85.
+- **Narrowed (1):** `lastfm.py`'s JSON guard, to `aiohttp.ContentTypeError`
+  and `ValueError`. It wrapped the cache write too and labelled *every*
+  failure "Invalid JSON". Anything else now reaches `retry_with_semaphore`,
+  which retries it exactly as before. Tests first: two pin the parse
+  failures that must stay handled, and one red test showed a non-parse
+  error being misreported.
+- **Logged with a traceback (12):** eleven already re-raised or called
+  `logging.exception`; `run_async_in_thread` hand-built the same output with
+  `traceback.format_exc()` and now calls `logging.exception`.
+- **Justified (12):** the DB-cache, correction-cache, close-in-finally and
+  optional-enrichment catches each carry a one-line reason above the
+  `except` and `# noqa: BLE001`. The three degradation warnings and the
+  retry helper now log the exception's class, which they omitted, so a
+  programming error cannot pass for a network blip.
+- **The gate:** Ruff's `BLE` rules are on in `pyproject.toml`. A handler
+  catching bare `Exception` must re-raise, log a traceback, or say why.
+  Proven red with a probe file. The five hits outside `scrobblescope/`
+  (`init_db.py`, two scripts, two thread-collecting tests) are deliberate
+  report-everything boundaries and carry reasons too.
 
-Validation: `pytest -q` -- **1529 passed** (was 1522; +7 for the schema
-diagnostic). `pre-commit run --all-files` -- all hooks pass.
-`doc_state_sync.py --check` exit 0, and its only remaining warning is the
-root definition for Batch 23, which is expected while that file waits at the
-root. `.docsync.toml` is control-plane, so this commit uses the sanctioned
-`SKIP=doc-state-sync-check`, with `--check` run directly first.
+**Deviation: one stale docstring.** `run_async_in_thread` said it was "used
+only by `/validate_user`"; it also serves both start routes' Last.fm checks
+and `/api/artist_spotlight`. Corrected while the function was open.
 
-Forward guidance: the five "pending deploy" findings resolve themselves the
-next time production ships, and their records are the checklist. Nothing
-about this change requires a deploy of its own -- but the schema migration
-does need running wherever else this app has a database, which on Fly.io
-happens automatically, since `init_db.py` is the release command.
+**Validation:** `pytest -q` -- **1543 passed**. `pre-commit run --all-files` --
+all hooks pass, including the new rule. `doc_state_sync.py --check` exit 0.
 
-### 2026-09-20 - Batch 23 defined, and six owner proposals corroborated
+**Forward guidance:** a new broad catch now needs a reason in the diff, which
+is where a reviewer can disagree with it. `docs/SWE_AUDIT_CHARTER.md` notes
+that F-MAS-4 counted catches without judging them; this pass judged them.
 
-Side task, no batch tag: the owner proposed a different MusicBrainz lookup
-strategy, a move from threads to `asyncio` inside Flask, server-sent events
-in place of polling, a narrowed Lucene query, and a test-count fix, and asked
-for each to be corroborated rather than taken. Nothing in this entry changes
-runtime behaviour. `BATCH23_DEFINITION.md` is written but Batch 23 is **not
-open**: its branch is unnamed, and naming it is an owner decision.
+### 2026-09-21 - Production refuses to start without its API keys (F-SWE-4)
 
-**Threads cannot run coroutines -- half right, and the half that is wrong
-matters.** Measured directly: `threading.Thread(target=an_async_def)` never
-runs the coroutine and raises no error, only a "was never awaited" warning,
-which is worse than a crash. A thread that creates its own event loop and
-calls `run_until_complete` runs it correctly, and that is what
-`scrobblescope/release_checks.py` already does. The proposed remedy --
-dropping `threading` for `asyncio.create_task()` inside Flask -- cannot work
-here: a probe route asked for a running loop and got "no running event loop".
-Flask under a WSGI server has no persistent loop to attach a long-lived task
-to, so the thread-owns-a-loop pattern is the remedy, not the problem.
+Side task, no batch tag, owner-approved on 2026-09-21. F-SWE-4: production
+starts through `gunicorn app:app`, which imports `app.py` and never runs its
+`__main__` block, so `ensure_api_keys()` there never fired. A deployment
+missing a key served pages and reported every search as an upstream outage.
 
-**The Gunicorn race condition does not exist today, by configuration.**
-`Dockerfile` runs `--workers 1 --threads 4`. One worker means one `JOBS`
-dict, one semaphore and one process-wide MusicBrainz limiter.
-`AGENT_NOTES.md` already records that a second worker would break the job
-store; it would break the rate limiter too, which is the sharper consequence
-since MusicBrainz blocks by IP.
+**Plan vs implementation.** The finding called it one line. It was not: an
+unconditional call in `create_app()` makes every environment without the
+keys fail at import, and three do -- the test suite and the frontend gate both
+import `app`, and CI's repository secrets arrive empty when unavailable. A
+simulated secret-less CI run confirmed it (whole suite fails at collection).
+So the fix follows the precedent beside it: `_validate_api_keys` mirrors
+`_validate_secret_key` (refuse in production, warn in dev mode) and is called
+from `create_app()`, and `tests/conftest.py` and `scripts/dev/frontend_gate.py`
+supply placeholder keys exactly as they already supply `SECRET_KEY`. The
+`__main__` checks in `app.py` and `run.py` stay: they fail fast for a local
+run, which dev mode would otherwise only warn about.
 
-**Server-sent events would take the whole thread pool.** Four threads, and an
-SSE response holds its thread for the life of the connection: four readers
-with a results page open would leave nothing for the home page. Filed as
-F-B22-6.
+**Tests.** Four in `tests/test_app_factory.py`, red before the helper existed:
+production refuses, dev warns, a complete set passes, and `create_app()`
+itself refuses -- the regression the finding describes. The full suite passes
+normally and again with `DEBUG_MODE=0` and every key plus `SECRET_KEY`
+empty, which is CI without secrets.
 
-**The MusicBrainz proposal: the exact path is real, the ISRC path is not.**
-Probed live against five albums at one request per second.
-`GET /ws/2/url?resource=<spotify album url>&inc=release-rels` returns a "free
-streaming" relation to a **release** when an editor has mapped that album;
-a second request on the release yields the release group's
-`first-release-date`. Two requests, exact, no scoring. It answered two cases
-today's search path did not -- one where the top candidate scored 100 with no
-date at all. It was unmapped for one of the five. Note for the implementer:
-`inc=release-groups` on that endpoint returns nothing, and
-`inc=release-group-rels` returned zero relations; the include is
-`release-rels`.
+**Deviation: two siblings of the previous commit, found here.** The
+`runtime-system.md` prose listed `config.py`'s importers by line number, and
+the event-loop commit had shifted three of them (`worker.py`,
+`release_checks.py`, `orchestrator/__init__.py`). Rewritten to name modules
+rather than lines, recomputed with an `ast` walk -- still ten nodes -- per
+AGENTS.md anti-pattern 11's rule to cite by name. README's `worker.py` row
+also still read as though the module held only the semaphore; it now names
+the event loop. F-B22-2 gained a note: the `spotify.py` asserts are now
+reachable only in dev mode.
 
-The ISRC path costs more and is worth less. `GET /v1/albums/{id}` returns
-simplified track objects carrying **no** `external_ids`, confirmed by reading
-the keys off a live response, so every ISRC needs an extra Spotify request;
-and `/ws/2/isrc/{isrc}` returns recordings, whose earliest release group may
-be a single rather than the album. Dating an album by its lead single is a
-worse answer than no correction.
+**Validation:** `pytest -q` -- **1540 passed**. `pre-commit run --all-files` --
+all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate passed.
 
-Also measured: `AND type:album` would exclude EPs, which this application
-ranks alongside albums -- `normalize_name` strips "ep" from titles for
-exactly that reason -- and the release-group search field is `primarytype`,
-not `type`.
-
-All of it is F-B22-5, with the measurements, and the recommendation is to
-keep the one-request search as the primary and spend the second request only
-where it buys something: no candidate, or a candidate with no date, and a
-Spotify id present. **The correction cache must stay keyed on
-`(artist_norm, album_norm)`, never on a Spotify id.** The owner's own
-2026-09-20 run had Deezer rescue 9 of the 10 albums Spotify could not enrich,
-and those albums have no Spotify id at all.
-
-**That run also settles what Deezer is for.** The log shows 356 of 366 albums
-matched on Spotify, then 9 of the remaining 10 matched on Deezer, with the
-database cache down and every lookup live. Deezer is not only an outage
-fallback; it answers for albums Spotify does not carry. The README's
-description was written for the outage case and now says both.
-
-**The test count.** `--fix` cannot publish a measured count and `--check`
-refuses a hand-written one, because `latest_test_count_authority` parses the
-number out of prose in dated entries and DOC005/DOC006/DOC008 recompute that
-parse. Rule 7 is why the tool does not simply run pytest: it may rewrite only
-what it can derive from facts a human authored, and measuring the world is
-not that. Filed as F-DOCSYNC-13 with a proposed shape -- an authored
-measurement passed in, written by `--fix` into all four sites -- for the
-owner to rule on.
-
-**Batch 23's definition** is derived from the approved plan, in this
-repository's own work-package form: WP-0 behaviour-neutral extractions, WP-1
-error codes, WP-2 the pure parser and aggregators, WP-3 the job hand-off,
-WP-4 routes and upload handling, WP-5 the interface, WP-6 the new statistics
-for both sources, WP-7 documentation, the deferred Batch 21 accessibility
-audit and close-out. The audit is inside WP-7 because the owner ruled on
-2026-09-13 that this batch cannot close without it.
-
-**A wording trap worth knowing.** Section 3's "Batch 23 is not yet defined"
-has to sit on one line: the state parser reads Section 3 line by line, and
-wrapping that sentence across two lines made the gate infer an active batch
-and demand a definition declaration. The same class of defect, in the other
-direction, was fixed during the docsync close-out.
-
-Validation: `pytest -q` -- **1522 passed**, unchanged (no runtime code was
-touched). `doc_state_sync.py --check` exit 0, with the expected DOC023
-warning and the root-definition warning that is normal for a batch with a
-definition at the root. The live probes were read-only: Spotify with the
-app's own credentials, MusicBrainz with a contact-bearing User-Agent at one
-request per second.
+**Forward guidance:** F-B22-2 still wants its six `assert`s replaced; the
+startup check narrows one pair, it does not fix them.

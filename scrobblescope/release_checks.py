@@ -33,10 +33,8 @@ a moved-out row has to name the year the album was first released.
 ``GET /api/release_checks`` serves both fields to the open page.
 """
 
-import asyncio
 import logging
 import queue
-import sys
 import threading
 
 from scrobblescope.cache import (
@@ -60,6 +58,7 @@ from scrobblescope.repositories import (
 )
 from scrobblescope.unmatched import REASON_RELEASE_SCOPE
 from scrobblescope.utils import create_optimized_session
+from scrobblescope.worker import new_thread_event_loop
 
 # Each result's ``release_check`` field, as the results page reads it.
 CHECK_UNCHECKED = "unchecked"
@@ -254,7 +253,8 @@ async def _lookup_cached(conn, candidates):
         return await _batch_lookup_original_release(
             conn, [candidate["key"] for candidate in candidates]
         )
-    except Exception as exc:
+    # Fail open: a failed cache read costs requests, never the job.
+    except Exception as exc:  # noqa: BLE001
         if schema_is_out_of_date(exc):
             # Not a hiccup: until the table exists, every finding this worker
             # pays a MusicBrainz second for is discarded and looked up again
@@ -301,7 +301,8 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         await _batch_persist_original_release(
             conn, [(artist_norm, album_norm, mb_release_group, original_release)]
         )
-    except Exception as exc:
+    # Fail open: an unpersisted finding is looked up again next time.
+    except Exception as exc:  # noqa: BLE001
         if schema_is_out_of_date(exc):
             logging.warning(
                 f"Original-release persist failed (non-fatal): {exc}. "
@@ -384,23 +385,18 @@ async def run_release_checks(job_id):
         set_job_release_check(job_id, state)
         try:
             await conn.close()
-        except Exception as exc:
+        # A failed close must not mask the job's own outcome.
+        except Exception as exc:  # noqa: BLE001
             logging.warning(f"Closing the release-check DB connection failed: {exc}")
 
 
 def _worker_loop():
     """Drain the job queue forever, one job at a time, in one event loop.
 
-    On Windows the loop must be a ProactorEventLoop explicitly, for the same
-    reason ``orchestrator.background_task`` says so: Werkzeug's reloader can
-    leave a SelectorEventLoop as the policy in child threads, under which
-    asyncpg mis-negotiates its PostgreSQL startup packet.
+    ``worker.new_thread_event_loop`` builds that loop, including the Windows
+    ``ProactorEventLoop`` asyncpg needs; the job threads use the same helper.
     """
-    if sys.platform == "win32":
-        loop = asyncio.ProactorEventLoop()
-    else:
-        loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    loop = new_thread_event_loop()
     try:
         while True:
             job_id = _JOB_QUEUE.get()
@@ -431,10 +427,10 @@ def enqueue_release_check(job_id):
 
     Started lazily, on the first job that can actually use it, so a process
     that never runs one (a test session, a CLI script) never grows the
-    thread. With MusicBrainz disabled or no contact address configured there
-    is nothing to queue -- MusicBrainz blocks anonymous clients, so every
-    request would be rejected -- and the job is marked ``skipped`` instead,
-    which is what the results page needs to say so.
+    thread. With MusicBrainz disabled or no contact configured there is
+    nothing to queue -- MusicBrainz requires a contact in every request's
+    User-Agent, so no request is sent without one -- and the job is marked
+    ``skipped`` instead, which is what the results page needs to say so.
     """
     if not job_id:
         return False

@@ -16,6 +16,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 if not os.environ.get("SECRET_KEY"):
     os.environ["SECRET_KEY"] = "test-only-secret-key-min-16chars!!"
 
+# The same, for the three provider keys create_app() now refuses to start
+# without (F-SWE-4). CI passes them from repository secrets, which arrive
+# empty when unavailable, and no test reaches a real provider.
+for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
+    if not os.environ.get(_key):
+        os.environ[_key] = "test-only-placeholder"
+
+# Keep the MusicBrainz correction pass off for the whole session, whatever a
+# developer's .env says. app.py's load_dotenv never overrides a variable that
+# is already set, so an empty value here wins. Without it, a configured
+# contact makes every happy-path pipeline test enqueue its job and start the
+# real release-checks thread, which can reach musicbrainz.org and the local
+# Postgres and races the tests that inspect the shared queue. Unconditional
+# rather than setdefault, because a contact exported in the shell leaks the
+# same way. Tests that need a contact patch the module attribute explicitly.
+os.environ["MUSICBRAINZ_CONTACT"] = ""
+
 from docsync.renderer import SIDE_ARCHIVE_PREFIX  # noqa: E402
 
 from app import create_app  # noqa: E402
