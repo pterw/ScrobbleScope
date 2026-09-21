@@ -9,6 +9,294 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: theme slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_theme.py` now owns the nine checks
+that read computed theme values -- `check_divider_contrast`,
+`check_theme_tokens`, `check_index_design_tokens`, `check_theme_persistence`,
+`check_index_entrance_motion`, `check_mark_follows_theme`,
+`check_theme_survives_blocked_storage`, `check_heatmap_zero_cells_follow_theme`,
+`check_heatmap_export_header_matches_page` -- plus their private helper
+`_computed_colour`, the `_BLOCK_STORAGE` init script, and the
+`THEME_EXPRESSION`, `SET_THEME_EXPRESSION` and `FORBIDDEN_SURFACES`
+constants, moved verbatim and importing the divider-contrast helpers from
+the colour slice and the page inventories from the shared module. The
+definitions were not contiguous in the facade; `check_touch_targets`,
+`_small_targets`, `check_fonts`, `check_body_font`,
+`check_shell_scales_with_text` and `check_loading_composition` stayed behind
+between them.
+
+This is the first slice to move existing tests rather than write new ones
+against moved code alone: `test_blocked_storage_probe_closes_context_when_page_creation_fails`
+and `test_theme_persistence_check_restores_the_saved_preference` moved out of
+`test_frontend_gate.py`. The persistence test's `MIGRATED_PAGES` patch is an
+instance of trap 2 (constraints.md): it targeted
+`scripts.dev.frontend_gate.MIGRATED_PAGES`, which rebinds the facade's name,
+not the theme module's own `from ... import MIGRATED_PAGES` binding that
+`check_theme_persistence` actually reads. Pointing the patch back at the
+facade to check whether the retarget is load-bearing showed the test still
+passes: the mocked page is not path-aware, so the check silently runs
+against the real `MIGRATED_PAGES` tuple instead of `("/",)` and reports no
+failures either way. The retarget to `scripts.dev._frontend_gate_theme.MIGRATED_PAGES`
+is still correct -- it is what makes the test actually exercise a single
+page the way its docstring describes -- but it is not what makes the test
+fail if omitted; the patch-target guard is what would have caught the
+mis-target here, not this test's own assertions.
+
+A mutation probe returning `["mutation probe"]` first in
+`check_mark_follows_theme` produced the expected
+`FAIL chromium: mark follows theme [desktop]: mutation probe` and the
+matching `[firefox]` line, because that check is in the static-assets
+canary group that runs on both browsers, then was reverted. The gate's
+summary line is unchanged at 30 checks across both browsers.
+
+### 2026-09-21 - Frontend gate split: forms slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_forms.py` now owns the index form's
+seven checks -- `check_validation_feedback`, `check_private_profile_is_blocked`,
+`check_validator_outage_is_recoverable`, `check_stale_validator_failure_is_discarded`,
+`check_current_validator_failure_replaces_old_verdict`,
+`check_true_warning_survives`, `check_initial_visibility` -- plus their
+private helpers `_collecting_handler` and `_year_warning`, and the
+`HIDDEN_ON_LOAD` constant, moved verbatim and importing `_reach_state` from
+the shared module. The definitions were not contiguous in the facade;
+`check_index_entrance_motion`, `check_mark_follows_theme` and
+`check_theme_survives_blocked_storage` stayed behind between them.
+`_collecting_handler` gains the regression test its docstring describes: a
+one-parameter handler so Playwright cannot overwrite its sink with the
+request object, and that two handlers do not share one. A mutation probe
+that added `"#year"` to `HIDDEN_ON_LOAD`'s `"/"` tuple produced the expected
+`FAIL chromium: initial visibility [desktop]: /: #year should start hidden
+but computes display: block` line (and the matching `[mobile]` line), then
+was reverted. The gate's summary line is unchanged at 30 checks across both
+browsers.
+
+### 2026-09-21 - Frontend gate split: unmatched slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_unmatched.py` now owns the largest
+single check, `check_unmatched_report` (422 lines), its breakpoint sweep
+`_unmatched_panel_width_sweep`, and their constants
+(`UNMATCHED_TWO_PANEL_MIN`, `UNMATCHED_SWEEP_WIDTHS`,
+`UNMATCHED_MIN_TITLE_WIDTH`), moved verbatim and importing
+`add_job_unmatched`, `create_job` and `delete_job` from
+`scrobblescope.repositories`. The sweep gains its first unit tests: that it
+reports a wrong column count and a starved album title at each swept width,
+and that it restores the viewport through its `finally` block both on a
+normal return and when a page measurement raises. A mutation probe that
+widened `UNMATCHED_MIN_TITLE_WIDTH` to 960 produced the expected FAIL lines
+on chromium at all three profiles. The gate's summary line is unchanged at
+30 checks across both browsers.
+
+### 2026-09-21 - Frontend gate split: assets slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_assets.py` now owns stylesheet
+isolation: `BOOTSTRAP_MARKER`, `TAILWIND_MARKER`, `_stylesheet_hrefs` and
+`check_stylesheet_isolation`, moved verbatim and importing `ALL_PAGES` from
+the shared module. This is the first browser-coupled slice, so it sets the
+pattern the rest of the split follows: move verbatim, re-export through the
+facade, and prove the gate still reaches the moved code. A mutation probe in
+`check_stylesheet_isolation` produced the expected FAIL on both chromium and
+firefox, confirming the Firefox canary group also reaches the moved module.
+The gate's summary line is unchanged at 30 checks across both browsers.
+
+### 2026-09-21 - Frontend gate split: shared slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_shared.py` now owns the page
+inventories (`MIGRATED_PAGES`, `LEGACY_PAGES`, `ALL_PAGES`,
+`ERROR_PAGE_PATH`), `GATE_JOB_IDS` and `_reach_state`, moved verbatim so every
+later slice can import them without importing the facade that imports them.
+`serve_app` still lives in the facade but now mutates the shared module's
+`MIGRATED_PAGES`, `ALL_PAGES` and `GATE_JOB_IDS` in place through a `from ...
+import` binding, never rebinding them; a new parity test pins that every
+module holding one of those names holds the same object. A mutation probe in
+`_reach_state` produced the expected FAIL on both the touch-target and
+form-validation checks, confirming both reach the shared code through the
+facade's re-export.
+
+### 2026-09-21 - Frontend gate: dead code removed before the split (F-B21-51)
+
+Side task, no batch tag. `_computed_shadow` had no caller anywhere and is
+deleted rather than moved. The cdnjs Bootstrap fixture is removed: no template
+requests Bootstrap, and the isolation check reads hrefs, so it still catches a
+regression; `install_cdn_routes` keeps only the Impeccable Live overlay abort.
+Eight colour tests moved verbatim into the colour test file.
+
+### 2026-09-21 - Frontend gate split: invariants pinned first (F-B21-51)
+
+Side task, no batch tag, owner-approved 2026-09-21. F-B21-51 is rescoped from
+a batch work package to a side task with a written plan, and amended: a shared
+module is added and the TOML registry is deferred. Before any code moves,
+`tests/scripts/dev/test_frontend_gate_split.py` pins three invariants that
+would otherwise fail silently: every defined check is registered, every test
+patch targets a module that reads the name, and the facade's environment
+bootstrap precedes any `scrobblescope` import. Each guard was shown to fail on
+a deliberate defect before being kept.
+
+### 2026-09-21 - No `assert` guards runtime code any more (F-B22-2)
+
+Side task, no batch tag. Preparation for closing PR #235's review threads,
+which the owner named as the next step: two of its Codacy threads (HIGH
+RISK) are this finding, and the honest reply is the fix, not a pointer.
+Control-plane change (`scripts/docsync/findings.py`), committed with
+`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run directly.
+
+**Plan vs implementation.** The finding's fix shape was a conditional raise
+at each of six sites. Applied as written, three of those raises could never
+fire, so each invariant was placed where it actually holds instead:
+
+- **`routes/album_flow.py`, three `assert job_context is not None`:
+  deleted.** `_get_validated_job_context` returns an error before it can
+  return a missing context, so they only narrowed types. Three copies of an
+  unreachable raise is dead code, and Rule 3 says the third copy is where
+  the invariant belongs in one place -- which it already is.
+- **`scripts/docsync/findings.py` `_build`: invariant by construction.**
+  `_parse` already has each heading's match; it now passes it in instead of
+  `_build` re-matching `block[0]` and asserting.
+- **`spotify.py` token fetch: a behaviour change, deliberately.** Missing or
+  empty credentials now log and return None, which is the function's
+  existing failure answer, so the album pipeline falls back to Deezer and
+  the spotlight keeps its artwork. The `assert` raised past that fallback
+  and failed the whole job; an empty string also slipped past `is not None`.
+  The old test expected `AssertionError`; it is replaced by three cases
+  (id missing, secret missing, id empty) asserting None, no HTTP call and
+  an error log. Red before the change.
+
+**The gate.** Ruff `S101` is selected, with `tests/**` exempt (all 2,630
+current hits are there). Proven red on a probe file. Production code now
+holds zero `assert` statements, and the affected suites pass under
+`python -O`.
+
+**Validation:** `pytest -q` -- **1555 passed**. `pre-commit run --all-files`
+with `SKIP=doc-state-sync-check` -- every other hook passes.
+`doc_state_sync.py --check` run directly -- exit 0.
+
+**Forward guidance:** PR #235's threads can now be answered with fixes for
+every true claim. The fixes live on this branch, so they reach `main` in the
+follow-up PR the owner plans after #235 merges.
+
+### 2026-09-21 - DOC023 reads a legacy "Status: closed" as a claim
+
+Side task, no batch tag, owner-approved on 2026-09-21 with one condition:
+it must not start flagging findings that merely mention a closed batch, work
+package or PR. Control-plane change, committed with the documented escape
+`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run by hand on
+the final tree.
+
+**Why.** F-B21-13's prose said "Status: closed." for four weeks while the
+finding sat active. DOC023 recognises only `resolved` and `no action`, the
+rotation vocabulary, so the word the author actually used was invisible to
+it. That is the one real pattern miss the morning's findings pass found.
+
+**Plan vs implementation.** Measured before designing: matching "closed" on
+any body line fired on two findings, one of them F-B21-25, whose status is
+"partly closed" -- a false positive even on the status line. So the rule is
+narrow: `_LEGACY_CLOSED_STATUS_RE` in `scripts/docsync/findings.py` matches a
+capitalised `Status` label (plain, bold, or after a sentence ends) whose value
+*opens* with "closed". Rotation vocabulary is unchanged: "closed" is a way to
+detect the claim, not an outcome a record may state, so the remedy is still a
+`resolved` record. `docs/architecture/documentation-tooling.md` records the
+rule beside DOC023.
+
+**Tests.** Ten in `tests/test_docsync_findings.py`. Four claim shapes, red
+before the pattern existed. Six non-claims, which pass before and after:
+"partly closed", "not closed", "closes at", and "closed" in ordinary prose
+about a batch, a work package and a PR. On the live corpus the check stays
+clean: F-B21-25 is not flagged.
+
+**Validation:** `pytest -q` -- **1553 passed**. `pre-commit run --all-files`
+with `SKIP=doc-state-sync-check` -- every other hook passes.
+`doc_state_sync.py --check` run directly -- exit 0.
+
+**Forward guidance:** other pre-lifecycle spellings ("fixed", "done") were
+measured and left out: on status lines they appeared only qualified ("the
+scope itself is fixed", "closes at WP-8"). Add one only with a measured
+instance, the same way.
+
+### 2026-09-21 - Broad catches judged one by one, then gated (F-MAS-4)
+
+Side task, no batch tag, owner-approved on 2026-09-21 because the count only
+grows: F-MAS-4 recorded 14, then 17; it was 25.
+
+**Plan vs implementation.** The finding offered "narrow or add structured
+logging". Narrowing all 25 was rejected after reading them: most guard the
+optional DB cache or decorative enrichment, where fail-open is the
+documented design (`docs/agents/global-rules.md` Rule 6), and swapping
+`Exception` for guessed asyncpg or aiohttp types would turn a failure the job
+tolerates today into a crashed job. So each site was judged, and the growth
+was made impossible to miss instead:
+
+- **Narrowed (1):** `lastfm.py`'s JSON guard, to `aiohttp.ContentTypeError`
+  and `ValueError`. It wrapped the cache write too and labelled *every*
+  failure "Invalid JSON". Anything else now reaches `retry_with_semaphore`,
+  which retries it exactly as before. Tests first: two pin the parse
+  failures that must stay handled, and one red test showed a non-parse
+  error being misreported.
+- **Logged with a traceback (12):** eleven already re-raised or called
+  `logging.exception`; `run_async_in_thread` hand-built the same output with
+  `traceback.format_exc()` and now calls `logging.exception`.
+- **Justified (12):** the DB-cache, correction-cache, close-in-finally and
+  optional-enrichment catches each carry a one-line reason above the
+  `except` and `# noqa: BLE001`. The three degradation warnings and the
+  retry helper now log the exception's class, which they omitted, so a
+  programming error cannot pass for a network blip.
+- **The gate:** Ruff's `BLE` rules are on in `pyproject.toml`. A handler
+  catching bare `Exception` must re-raise, log a traceback, or say why.
+  Proven red with a probe file. The five hits outside `scrobblescope/`
+  (`init_db.py`, two scripts, two thread-collecting tests) are deliberate
+  report-everything boundaries and carry reasons too.
+
+**Deviation: one stale docstring.** `run_async_in_thread` said it was "used
+only by `/validate_user`"; it also serves both start routes' Last.fm checks
+and `/api/artist_spotlight`. Corrected while the function was open.
+
+**Validation:** `pytest -q` -- **1543 passed**. `pre-commit run --all-files` --
+all hooks pass, including the new rule. `doc_state_sync.py --check` exit 0.
+
+**Forward guidance:** a new broad catch now needs a reason in the diff, which
+is where a reviewer can disagree with it. `docs/SWE_AUDIT_CHARTER.md` notes
+that F-MAS-4 counted catches without judging them; this pass judged them.
+
+### 2026-09-21 - Production refuses to start without its API keys (F-SWE-4)
+
+Side task, no batch tag, owner-approved on 2026-09-21. F-SWE-4: production
+starts through `gunicorn app:app`, which imports `app.py` and never runs its
+`__main__` block, so `ensure_api_keys()` there never fired. A deployment
+missing a key served pages and reported every search as an upstream outage.
+
+**Plan vs implementation.** The finding called it one line. It was not: an
+unconditional call in `create_app()` makes every environment without the
+keys fail at import, and three do -- the test suite and the frontend gate both
+import `app`, and CI's repository secrets arrive empty when unavailable. A
+simulated secret-less CI run confirmed it (whole suite fails at collection).
+So the fix follows the precedent beside it: `_validate_api_keys` mirrors
+`_validate_secret_key` (refuse in production, warn in dev mode) and is called
+from `create_app()`, and `tests/conftest.py` and `scripts/dev/frontend_gate.py`
+supply placeholder keys exactly as they already supply `SECRET_KEY`. The
+`__main__` checks in `app.py` and `run.py` stay: they fail fast for a local
+run, which dev mode would otherwise only warn about.
+
+**Tests.** Four in `tests/test_app_factory.py`, red before the helper existed:
+production refuses, dev warns, a complete set passes, and `create_app()`
+itself refuses -- the regression the finding describes. The full suite passes
+normally and again with `DEBUG_MODE=0` and every key plus `SECRET_KEY`
+empty, which is CI without secrets.
+
+**Deviation: two siblings of the previous commit, found here.** The
+`runtime-system.md` prose listed `config.py`'s importers by line number, and
+the event-loop commit had shifted three of them (`worker.py`,
+`release_checks.py`, `orchestrator/__init__.py`). Rewritten to name modules
+rather than lines, recomputed with an `ast` walk -- still ten nodes -- per
+AGENTS.md anti-pattern 11's rule to cite by name. README's `worker.py` row
+also still read as though the module held only the semaphore; it now names
+the event loop. F-B22-2 gained a note: the `spotify.py` asserts are now
+reachable only in dev mode.
+
+**Validation:** `pytest -q` -- **1540 passed**. `pre-commit run --all-files` --
+all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate passed.
+
+**Forward guidance:** F-B22-2 still wants its six `assert`s replaced; the
+startup check narrows one pair, it does not fix them.
+
 ### 2026-09-21 - One event-loop helper for every background thread (F-B20-2)
 
 Side task, no batch tag, owner-approved on 2026-09-21 on condition that it

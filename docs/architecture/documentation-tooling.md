@@ -96,6 +96,20 @@ flowchart TD
 
     FG[dev/frontend_gate.py<br/>stable facade] --> FGR[_frontend_gate_results]
     FG --> FGC[_frontend_gate_colour<br/>pure maths, no page]
+    FG --> FGS[_frontend_gate_shared<br/>page inventories, shared state]
+    FG --> FGA[_frontend_gate_assets]
+    FG --> FGU[_frontend_gate_unmatched]
+    FG --> FGFM[_frontend_gate_forms]
+    FG --> FGT[_frontend_gate_theme]
+    FG --> FGLY[_frontend_gate_layout]
+    FG --> FGPI[_frontend_gate_pipeline]
+    FG --> FGRU[_frontend_gate_runtime]
+    FGA --> FGS
+    FGFM --> FGS
+    FGT --> FGS
+    FGLY --> FGS
+    FGPI --> FGS
+    FGRU --> FGS
     FG -. owns its lifecycle .-> APP[Flask on an<br/>ephemeral loopback port]
     FG -. drives .-> CHR[Chromium: every group]
     FG -. drives .-> FFX[Firefox: assets canary]
@@ -104,7 +118,7 @@ flowchart TD
     classDef tool fill:#eee7fb,stroke:#6a4baf,color:#1a1820
     classDef gate fill:#e5f1e8,stroke:#4d7a5a,color:#1a1820
     class A,H,P,B,S,BL,LA,F,FA,SK,DH,AR,RV,DC,TA,HM,DT doc
-    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,TB,RC,FG,FGR,FGC,APP,CHR,FFX tool
+    class D,CLI,Integrity,Logic,Models,Parser,Render,Decl,TOML,Closeout,Findings,Archives,Transaction,MD,PF,IH,HOOKW,PCImpl,G,Guard,Inspect,Lineage,Runner,Venv,Diag,Types,TB,RC,FG,FGR,FGC,FGS,FGA,FGU,FGFM,FGT,FGLY,FGPI,FGRU,APP,CHR,FFX tool
     class PC,CI,PY gate
 ```
 
@@ -346,11 +360,16 @@ the check to run even before pre-commit's own stash isolation exists.
   `--install --yes` for real is an owner action.
 
 `dev/frontend_gate.py` is the browser gate and a stable facade, following
-`dev/worktree_guard.py`: `_frontend_gate_results` and `_frontend_gate_colour`
-hold the moved parts, and F-B21-51 records the remaining split and the
-`frontend_gate_checks.toml` registry it plans. It starts its own server on an
-ephemeral loopback port and shuts it down in a `finally`, so it needs no
-separately running app.
+`dev/worktree_guard.py`: the checks are grouped by concern across ten
+`_frontend_gate_*` siblings -- `_frontend_gate_assets`, `_frontend_gate_colour`,
+`_frontend_gate_forms`, `_frontend_gate_layout`, `_frontend_gate_pipeline`,
+`_frontend_gate_results`, `_frontend_gate_runtime`, `_frontend_gate_shared`,
+`_frontend_gate_theme`, and `_frontend_gate_unmatched` -- with `_frontend_gate_shared`
+holding the page inventories and other state several siblings read rather than
+owning a concern of its own. The `frontend_gate_checks.toml` registry F-B21-51
+proposed stays a deferred candidate; it would change representation rather
+than location. It starts its own server on an ephemeral loopback port and
+shuts it down in a `finally`, so it needs no separately running app.
 
 Pre-commit runs the ten hooks above, including `doc-state-sync-check` (now
 the first hook in the file); CI runs the docsync preflight explicitly, then

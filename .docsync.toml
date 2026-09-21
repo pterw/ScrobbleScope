@@ -215,7 +215,7 @@ pattern = 'max-width: ([\d.]+)px'
 expect = "859.98"
 
 [[value.sites]]
-file = "scripts/dev/frontend_gate.py"
+file = "scripts/dev/_frontend_gate_layout.py"
 pattern = '''matchMedia\('[^']*max-width: ([\d.]+)px'''
 expect = "859.98"
 
@@ -349,7 +349,7 @@ expect = "120"
 name = "the 44px minimum touch target"
 
 [[value.sites]]
-file = "scripts/dev/frontend_gate.py"
+file = "scripts/dev/_frontend_gate_layout.py"
 pattern = 'MIN_TOUCH_TARGET_PX = 44\b'
 
 [[value.sites]]

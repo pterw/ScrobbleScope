@@ -119,10 +119,11 @@ See FINDINGS F-DOCSYNC-3.
   05:50 -- a chronological gap, not a rebase. So `test` now holds WP-4, the
   Batch 22 close-out and the Batch 23 definition; before #236 it held none of
   the three.
-- **PR #235 (`test` -> `main`) is open and no longer a draft**, mergeable.
-  `main` remains the stable Fly.io deployment and still predates Batch 22;
-  advancing it is the owner's call, and its review threads are adjudicated in
-  `docs/history/reports/ADVISORY_VERIFICATION_2026-09-20.md`.
+- **PR #235 merged `test` into `main`** on 2026-09-21, and **PR #237** then
+  carried the eleven between-batch commits into `test`. **PR #238**
+  (`test` -> `main`) merged on 2026-09-21, carrying them on to `main`; a
+  merge to `main` deploys to Fly.io through Fly's GitHub integration, not a
+  repository workflow.
 - **Outbound request identity, fixed 2026-09-20.** `config.APP_USER_AGENT` is
   now the single owner of the application's own name, and
   `create_optimized_session` sends it on every provider session. Until this
@@ -132,13 +133,11 @@ See FINDINGS F-DOCSYNC-3.
   client risks suspension. `musicbrainz.py` composes its contact-bearing
   User-Agent on the same identity, so the application cannot disagree with
   itself about its own name.
-- **`MUSICBRAINZ_CONTACT` is set locally, not yet on Fly.io.** The owner
-  configured the project's GitHub URL in `.env` on 2026-09-21, which
-  MusicBrainz's policy accepts in place of an email address, so the
-  correction pass now runs locally. On 2026-09-20 it was unset and a probe
-  confirmed zero HTTP calls. It is **not a secret** -- the value travels in the
-  User-Agent header and nothing authenticates with it -- so enabling it on the
-  deployment is a config change, `DEPLOY.md` "MusicBrainz contact".
+- **`MUSICBRAINZ_CONTACT` is set on Fly.io** (2026-09-21, the project's
+  GitHub URL), as well as in the local `.env`.
+- **Side task complete: the frontend gate split (F-B21-51).** The facade
+  measures 535 lines, under the plan's 700-line threshold. Plan of record:
+  `docs/superpowers/plans/2026-09-21-frontend-gate-decomposition.md`.
 - **The code defect is closed.** `_musicbrainz_headers` raises instead of
   interpolating the literal string `None` as a contact address, which is what
   it did when called outside the gate that guards it.
@@ -358,167 +357,113 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-21 - No `assert` guards runtime code any more (F-B22-2)
+### 2026-09-21 - Frontend gate split complete (F-B21-51)
 
-Side task, no batch tag. Preparation for closing PR #235's review threads,
-which the owner named as the next step: two of its Codacy threads (HIGH
-RISK) are this finding, and the honest reply is the fix, not a pointer.
-Control-plane change (`scripts/docsync/findings.py`), committed with
-`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run directly.
+Side task, no batch tag. Task 11 closes out the split: `frontend_gate.py`
+measures 535 lines, under the plan's 700-line threshold and above its
+roughly-450 estimate. The ten `_frontend_gate_*` siblings measure
+`_frontend_gate_assets` 49, `_frontend_gate_colour` 191,
+`_frontend_gate_forms` 434, `_frontend_gate_layout` 1,176,
+`_frontend_gate_pipeline` 854, `_frontend_gate_results` 497,
+`_frontend_gate_runtime` 156, `_frontend_gate_shared` 71,
+`_frontend_gate_theme` 749, `_frontend_gate_unmatched` 490. The gate
+summary is unchanged: `[frontend_gate] 30 checks passed in 52 runs across
+chromium, firefox`. F-B21-51 is resolved; `docs/architecture/
+documentation-tooling.md`, `DEVELOPMENT.md`, `FINDINGS.md` and this file
+are reconciled to the measured end state. The `frontend_gate_checks.toml`
+registry stays a deferred candidate.
 
-**Plan vs implementation.** The finding's fix shape was a conditional raise
-at each of six sites. Applied as written, three of those raises could never
-fire, so each invariant was placed where it actually holds instead:
+### 2026-09-21 - Frontend gate split: runtime slice (F-B21-51)
 
-- **`routes/album_flow.py`, three `assert job_context is not None`:
-  deleted.** `_get_validated_job_context` returns an error before it can
-  return a missing context, so they only narrowed types. Three copies of an
-  unreachable raise is dead code, and Rule 3 says the third copy is where
-  the invariant belongs in one place -- which it already is.
-- **`scripts/docsync/findings.py` `_build`: invariant by construction.**
-  `_parse` already has each heading's match; it now passes it in instead of
-  `_build` re-matching `block[0]` and asserting.
-- **`spotify.py` token fetch: a behaviour change, deliberately.** Missing or
-  empty credentials now log and return None, which is the function's
-  existing failure answer, so the album pipeline falls back to Deezer and
-  the spotlight keeps its artwork. The `assert` raised past that fallback
-  and failed the whole job; an empty string also slipped past `is not None`.
-  The old test expected `AssertionError`; it is replaced by three cases
-  (id missing, secret missing, id empty) asserting None, no HTTP call and
-  an error log. Red before the change.
+Side task, no batch tag, last of the split. `_frontend_gate_runtime.py` now
+owns `SETUP_COMMAND`, `install_cdn_routes`, `_SERVE_APP_LOCK`,
+`FrontendGateError`, `_load_playwright`, `_launch_browser` and `serve_app`,
+moved verbatim with the `app`, `werkzeug.serving` and
+`scrobblescope.repositories` imports they need. The facade no longer imports
+`create_app`, `make_server` or the repository job functions directly; it
+re-exports the six public names through the new sibling instead.
+`REPO_ROOT`, the `sys.path` insert, `GATE_SECRET_KEY` and the environment
+bootstrap stay in the facade, above every sibling import, because
+`scrobblescope.config` reads the provider keys once at first import and the
+gate boots in CI's production mode with no secrets set. The facade's
+bootstrap comment now says so explicitly.
 
-**The gate.** Ruff `S101` is selected, with `tests/**` exempt (all 2,630
-current hits are there). Proven red on a probe file. Production code now
-holds zero `assert` statements, and the affected suites pass under
-`python -O`.
+Seven tests moved out of `test_frontend_gate.py` into
+`test_frontend_gate_runtime.py`, retargeting their `make_server` and
+`create_app` patches to `_frontend_gate_runtime`, and their
+`frontend_gate.install_cdn_routes` attribute calls to
+`_frontend_gate_runtime.install_cdn_routes`. `test_headed_reaches_the_browser_launch`,
+`test_launch_is_headless_by_default` and the tests that call `main(` or
+`run_checks(` stayed in `test_frontend_gate.py`, unchanged, because they
+reach `_launch_browser` and `serve_app` through the facade's re-export or
+`patch.object(frontend_gate, ...)`, which still resolves.
 
-**Validation:** `pytest -q` -- **1555 passed**. `pre-commit run --all-files`
-with `SKIP=doc-state-sync-check` -- every other hook passes.
-`doc_state_sync.py --check` run directly -- exit 0.
+Removing the facade's `create_job`/`delete_job` import broke two tests in
+`test_frontend_gate_pipeline.py` (an earlier slice) that called
+`frontend_gate.create_job`/`frontend_gate.delete_job` by attribute access --
+a name the facade no longer defines. `_frontend_gate_pipeline` already
+imports both from `scrobblescope.repositories` for its own checks, so those
+four call sites were retargeted to `_frontend_gate_pipeline.create_job`/
+`_frontend_gate_pipeline.delete_job` rather than restoring the facade
+import.
 
-**Forward guidance:** PR #235's threads can now be answered with fixes for
-every true claim. The fixes live on this branch, so they reach `main` in the
-follow-up PR the owner plans after #235 merges.
+### 2026-09-21 - Frontend gate split: pipeline slice (F-B21-51)
 
-### 2026-09-21 - DOC023 reads a legacy "Status: closed" as a claim
+Side task, no batch tag. `_frontend_gate_pipeline.py` now owns the three
+checks that write real job state through `scrobblescope.repositories` and
+watch the page follow it -- `check_loading_composition`,
+`check_pipeline_state_machines`, `check_artist_spotlight_rotation` -- plus
+their nine helpers (`_parse_matrix_scalex`, `_assert_loading_progress_state`,
+`_exercise_loading_progress_phases`, `_check_phase_repository_isolation`,
+`_exercise_counted_progress`, `_exercise_album_progress`,
+`_exercise_heatmap_progress`, `_exercise_replaced_job_progress`,
+`_exercise_pipeline_state_machines`) and the ten progress constants
+(`ALBUM_PROGRESS_TRACK`, `ALBUM_PROGRESS_BAR`, `ALBUM_PROGRESS_TEXT`,
+`HEATMAP_PROGRESS_TRACK`, `HEATMAP_PROGRESS_BAR`, `HEATMAP_PROGRESS_TEXT`,
+`FETCHING_SCROBBLES`, `COUNTING_SCROBBLES`, `PAGE_23_OF_102`,
+`PAGE_90_OF_100`), moved verbatim. `serve_app` stays behind in the facade, so
+the facade keeps `create_job`, `delete_job` and `set_job_progress`; the other
+six repository imports (`get_job_context`, `get_job_progress`,
+`reset_job_state`, `set_job_error`, `set_job_results`, `set_job_stat`) moved
+with the code that reads them.
 
-Side task, no batch tag, owner-approved on 2026-09-21 with one condition:
-it must not start flagging findings that merely mention a closed batch, work
-package or PR. Control-plane change, committed with the documented escape
-`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run by hand on
-the final tree.
+Six tests moved out of `test_frontend_gate.py`, retargeting their patches of
+`reset_job_state`, `set_job_progress`, `create_job`, `delete_job`,
+`get_job_progress` and `get_job_context`, and of
+`_exercise_pipeline_state_machines`, to `_frontend_gate_pipeline`. Two moved
+tests also called `_check_phase_repository_isolation`,
+`_exercise_replaced_job_progress`, `_exercise_counted_progress` and
+`get_job_progress` through `frontend_gate.<name>` attribute access -- names
+the facade no longer defines -- and were retargeted the same way.
+`serve_app`'s own tests kept patching `frontend_gate.create_job`,
+`frontend_gate.set_job_progress` and `frontend_gate.delete_job`, since those
+three still resolve there.
 
-**Why.** F-B21-13's prose said "Status: closed." for four weeks while the
-finding sat active. DOC023 recognises only `resolved` and `no action`, the
-rotation vocabulary, so the word the author actually used was invisible to
-it. That is the one real pattern miss the morning's findings pass found.
+### 2026-09-21 - Frontend gate split: layout slice (F-B21-51)
 
-**Plan vs implementation.** Measured before designing: matching "closed" on
-any body line fired on two findings, one of them F-B21-25, whose status is
-"partly closed" -- a false positive even on the status line. So the rule is
-narrow: `_LEGACY_CLOSED_STATUS_RE` in `scripts/docsync/findings.py` matches a
-capitalised `Status` label (plain, bold, or after a sentence ends) whose value
-*opens* with "closed". Rotation vocabulary is unchanged: "closed" is a way to
-detect the claim, not an outcome a record may state, so the remedy is still a
-`resolved` record. `docs/architecture/documentation-tooling.md` records the
-rule beside DOC023.
+Side task, no batch tag. `_frontend_gate_layout.py` now owns the six checks
+that measure fonts, text scaling, touch targets and large-display
+composition -- `check_touch_targets`, `check_fonts`, `check_body_font`,
+`check_shell_scales_with_text`, `check_large_display_scale_parity`,
+`check_destination_empty_states` -- plus their eighteen measurement and
+judgement helpers and the `FONTS_READY_EXPRESSION`, `REQUIRED_FONT_FAMILIES`,
+`MIN_TOUCH_TARGET_PX`, `INTERACTIVE_SELECTOR`, `TOUCH_TARGET_STATES` and
+`DEFAULT_STATES` constants, moved verbatim and importing `_clamp_px` from the
+colour slice and the page inventories and `_reach_state` from the shared
+module. It is the largest slice at roughly 1,150 lines; the split isolates it
+rather than shrinking it, and `check_large_display_scale_parity`'s own
+complexity is a separate question. The definitions were not contiguous in the
+facade: `check_loading_composition` stayed behind between
+`check_shell_scales_with_text` and the scale-parity measurement helpers.
 
-**Tests.** Ten in `tests/test_docsync_findings.py`. Four claim shapes, red
-before the pattern existed. Six non-claims, which pass before and after:
-"partly closed", "not closed", "closes at", and "closed" in ordinary prose
-about a batch, a work package and a PR. On the live corpus the check stays
-clean: F-B21-25 is not flagged.
-
-**Validation:** `pytest -q` -- **1553 passed**. `pre-commit run --all-files`
-with `SKIP=doc-state-sync-check` -- every other hook passes.
-`doc_state_sync.py --check` run directly -- exit 0.
-
-**Forward guidance:** other pre-lifecycle spellings ("fixed", "done") were
-measured and left out: on status lines they appeared only qualified ("the
-scope itself is fixed", "closes at WP-8"). Add one only with a measured
-instance, the same way.
-
-### 2026-09-21 - Broad catches judged one by one, then gated (F-MAS-4)
-
-Side task, no batch tag, owner-approved on 2026-09-21 because the count only
-grows: F-MAS-4 recorded 14, then 17; it was 25.
-
-**Plan vs implementation.** The finding offered "narrow or add structured
-logging". Narrowing all 25 was rejected after reading them: most guard the
-optional DB cache or decorative enrichment, where fail-open is the
-documented design (`docs/agents/global-rules.md` Rule 6), and swapping
-`Exception` for guessed asyncpg or aiohttp types would turn a failure the job
-tolerates today into a crashed job. So each site was judged, and the growth
-was made impossible to miss instead:
-
-- **Narrowed (1):** `lastfm.py`'s JSON guard, to `aiohttp.ContentTypeError`
-  and `ValueError`. It wrapped the cache write too and labelled *every*
-  failure "Invalid JSON". Anything else now reaches `retry_with_semaphore`,
-  which retries it exactly as before. Tests first: two pin the parse
-  failures that must stay handled, and one red test showed a non-parse
-  error being misreported.
-- **Logged with a traceback (12):** eleven already re-raised or called
-  `logging.exception`; `run_async_in_thread` hand-built the same output with
-  `traceback.format_exc()` and now calls `logging.exception`.
-- **Justified (12):** the DB-cache, correction-cache, close-in-finally and
-  optional-enrichment catches each carry a one-line reason above the
-  `except` and `# noqa: BLE001`. The three degradation warnings and the
-  retry helper now log the exception's class, which they omitted, so a
-  programming error cannot pass for a network blip.
-- **The gate:** Ruff's `BLE` rules are on in `pyproject.toml`. A handler
-  catching bare `Exception` must re-raise, log a traceback, or say why.
-  Proven red with a probe file. The five hits outside `scrobblescope/`
-  (`init_db.py`, two scripts, two thread-collecting tests) are deliberate
-  report-everything boundaries and carry reasons too.
-
-**Deviation: one stale docstring.** `run_async_in_thread` said it was "used
-only by `/validate_user`"; it also serves both start routes' Last.fm checks
-and `/api/artist_spotlight`. Corrected while the function was open.
-
-**Validation:** `pytest -q` -- **1543 passed**. `pre-commit run --all-files` --
-all hooks pass, including the new rule. `doc_state_sync.py --check` exit 0.
-
-**Forward guidance:** a new broad catch now needs a reason in the diff, which
-is where a reviewer can disagree with it. `docs/SWE_AUDIT_CHARTER.md` notes
-that F-MAS-4 counted catches without judging them; this pass judged them.
-
-### 2026-09-21 - Production refuses to start without its API keys (F-SWE-4)
-
-Side task, no batch tag, owner-approved on 2026-09-21. F-SWE-4: production
-starts through `gunicorn app:app`, which imports `app.py` and never runs its
-`__main__` block, so `ensure_api_keys()` there never fired. A deployment
-missing a key served pages and reported every search as an upstream outage.
-
-**Plan vs implementation.** The finding called it one line. It was not: an
-unconditional call in `create_app()` makes every environment without the
-keys fail at import, and three do -- the test suite and the frontend gate both
-import `app`, and CI's repository secrets arrive empty when unavailable. A
-simulated secret-less CI run confirmed it (whole suite fails at collection).
-So the fix follows the precedent beside it: `_validate_api_keys` mirrors
-`_validate_secret_key` (refuse in production, warn in dev mode) and is called
-from `create_app()`, and `tests/conftest.py` and `scripts/dev/frontend_gate.py`
-supply placeholder keys exactly as they already supply `SECRET_KEY`. The
-`__main__` checks in `app.py` and `run.py` stay: they fail fast for a local
-run, which dev mode would otherwise only warn about.
-
-**Tests.** Four in `tests/test_app_factory.py`, red before the helper existed:
-production refuses, dev warns, a complete set passes, and `create_app()`
-itself refuses -- the regression the finding describes. The full suite passes
-normally and again with `DEBUG_MODE=0` and every key plus `SECRET_KEY`
-empty, which is CI without secrets.
-
-**Deviation: two siblings of the previous commit, found here.** The
-`runtime-system.md` prose listed `config.py`'s importers by line number, and
-the event-loop commit had shifted three of them (`worker.py`,
-`release_checks.py`, `orchestrator/__init__.py`). Rewritten to name modules
-rather than lines, recomputed with an `ast` walk -- still ten nodes -- per
-AGENTS.md anti-pattern 11's rule to cite by name. README's `worker.py` row
-also still read as though the module held only the semaphore; it now names
-the event loop. F-B22-2 gained a note: the `spotify.py` asserts are now
-reachable only in dev mode.
-
-**Validation:** `pytest -q` -- **1540 passed**. `pre-commit run --all-files` --
-all hooks pass. `doc_state_sync.py --check` exit 0. Frontend gate passed.
-
-**Forward guidance:** F-B22-2 still wants its six `assert`s replaced; the
-startup check narrows one pair, it does not fix them.
+Sixteen tests and the `_healthy_mobile_header` helper moved out of
+`test_frontend_gate.py`. Several of the moved tests called private helpers
+through `frontend_gate._mobile_header_failures`, `frontend_gate.
+_expected_scaled_dimension`, `frontend_gate._scale_dimension_failures`,
+`frontend_gate._wide_layout_failures`, `frontend_gate._header_geometry_failures`,
+`frontend_gate._scale_mechanism_failures`, `frontend_gate._measure_enlarged_root`
+and `frontend_gate._composition_bounds_failures` -- private names the facade
+never re-exports, so those references were retargeted to
+`_frontend_gate_layout` alongside the patch-target guard's own findings.
+`test_the_touch_profiles_really_carry_a_coarse_pointer` stayed in
+`test_frontend_gate.py`: it tests `VIEWPORTS`, which remains in the facade.
