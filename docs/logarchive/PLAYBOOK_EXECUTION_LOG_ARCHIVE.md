@@ -9,6 +9,14 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate: dead code removed before the split (F-B21-51)
+
+Side task, no batch tag. `_computed_shadow` had no caller anywhere and is
+deleted rather than moved. The cdnjs Bootstrap fixture is removed: no template
+requests Bootstrap, and the isolation check reads hrefs, so it still catches a
+regression; `install_cdn_routes` keeps only the Impeccable Live overlay abort.
+Eight colour tests moved verbatim into the colour test file.
+
 ### 2026-09-21 - Frontend gate split: invariants pinned first (F-B21-51)
 
 Side task, no batch tag, owner-approved 2026-09-21. F-B21-51 is rescoped from
