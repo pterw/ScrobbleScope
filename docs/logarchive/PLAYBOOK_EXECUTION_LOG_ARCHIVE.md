@@ -9,6 +9,18 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: assets slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_assets.py` now owns stylesheet
+isolation: `BOOTSTRAP_MARKER`, `TAILWIND_MARKER`, `_stylesheet_hrefs` and
+`check_stylesheet_isolation`, moved verbatim and importing `ALL_PAGES` from
+the shared module. This is the first browser-coupled slice, so it sets the
+pattern the rest of the split follows: move verbatim, re-export through the
+facade, and prove the gate still reaches the moved code. A mutation probe in
+`check_stylesheet_isolation` produced the expected FAIL on both chromium and
+firefox, confirming the Firefox canary group also reaches the moved module.
+The gate's summary line is unchanged at 30 checks across both browsers.
+
 ### 2026-09-21 - Frontend gate split: shared slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_shared.py` now owns the page
