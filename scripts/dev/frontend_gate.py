@@ -27,7 +27,6 @@ import sys
 import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
-from functools import cache
 from pathlib import Path
 
 from werkzeug.serving import make_server
@@ -134,52 +133,26 @@ REQUIRED_FONT_FAMILIES = (
 #: wedge cascade through the rest of the run. 10s bounds the damage.
 NAVIGATION_TIMEOUT_MS = 10_000
 
-#: Directory holding route-blocked CDN fixtures. Repo-owned so CI never
-#: waits on the generic framework CDN (spec: 2026-09-07 gate isolation).
-FIXTURE_DIR = Path(__file__).parent / "fixtures"
-
-
-@cache
-def _bootstrap_fixture() -> str:
-    """Read the generic CDN fixture on first use and share it across pages.
-
-    Deferring the read lets imports and live-CDN runs work without fixtures.
-    Failed reads are not cached, so a corrected installation can retry.
-    """
-    return (FIXTURE_DIR / "bootstrap_fixture.css").read_text(encoding="utf-8")
-
 
 def install_cdn_routes(page, live_fonts: bool = False) -> None:
-    """Serve the generic framework CDN from a fixture; pass the kit through.
-
-    cdnjs Bootstrap is a generic framework file, safe to serve from a
-    repo-owned fixture so CI never waits on it. The Adobe Fonts kit is
-    NOT faked: its families are licensed web fonts, and re-hosting or
-    synthesizing them in the repo would misdeclare licensed typefaces.
-    Owner ruling 2026-09-07 -- use the Typekit, no exceptions per family
-    (the kit composition can change; a blanket network rule cannot drift).
-    The kit still loads from the real origin; a stall there costs the
-    page its webfonts, never the gate its pass, because check_fonts
-    reports misses as advisory WARN lines.
+    """Keep developer-only origins out of the gate's pages.
 
     Impeccable Live is a developer overlay injected into base.html while
-    visual review is active; the production gate stays independent of it.
+    visual review is active; the gate must stay independent of it, so its
+    origin is aborted. ``live_fonts`` skips that for a local calibration run.
+
+    The Adobe Fonts kit always loads from its real origin: its families are
+    licensed web fonts, and re-hosting or synthesizing them would misdeclare
+    licensed typefaces (owner ruling 2026-09-07, no exceptions per family).
+    A stall there costs the page its webfonts, never the gate its pass,
+    because check_fonts reports misses as advisory WARN lines.
+
+    The cdnjs Bootstrap fixture this used to serve was removed on 2026-09-21:
+    no template requests Bootstrap, and check_stylesheet_isolation reads link
+    hrefs, so it still catches a page that reintroduces it.
     """
     if live_fonts:
         return
-
-    def _route(route):
-        url = route.request.url
-        if "cdnjs.cloudflare.com" in url and "bootstrap" in url:
-            route.fulfill(
-                status=200,
-                content_type="text/css",
-                body=_bootstrap_fixture(),
-            )
-        else:
-            route.continue_()
-
-    page.route("**/*", _route)
     page.route("http://localhost:8400/**", lambda route: route.abort())
 
 
@@ -227,10 +200,10 @@ _SERVE_APP_LOCK = threading.Lock()
 #: its own opt-out note -- results.html and unmatched.html both say "Migrated to
 #: Tailwind, so this page opts out of the legacy Bootstrap stack" -- and README
 #: states plainly that "Bootstrap is gone". The only Bootstrap left in this
-#: module is ``bootstrap_fixture``/``BOOTSTRAP_MARKER``, which serve a synthetic
-#: stylesheet so the isolation check can prove a page *would* collide if it
-#: loaded both. Reading the stale comment as current is what F-B21-61 warns
-#: about; the list, not the comment, was true.
+#: module is ``BOOTSTRAP_MARKER``, which lets the isolation check prove a page
+#: *would* collide if it reintroduced a Bootstrap stylesheet link, by reading
+#: hrefs rather than serving one. Reading the stale comment as current is what
+#: F-B21-61 warns about; the list, not the comment, was true.
 LEGACY_PAGES = []
 
 #: Consumed by check_stylesheet_isolation. Exactly one framework stylesheet is
@@ -478,21 +451,6 @@ def _computed_colour(page, value: str) -> str:
             document.body.appendChild(probe);
             probe.style.backgroundColor = value;
             const computed = getComputedStyle(probe).backgroundColor;
-            probe.remove();
-            return computed;
-        }""",
-        value,
-    )
-
-
-def _computed_shadow(page, value: str) -> str:
-    """Resolve a box-shadow value through the browser's CSS parser."""
-    return page.evaluate(
-        """(value) => {
-            const probe = document.createElement('div');
-            document.body.appendChild(probe);
-            probe.style.boxShadow = value;
-            const computed = getComputedStyle(probe).boxShadow;
             probe.remove();
             return computed;
         }""",
@@ -4281,10 +4239,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--live-fonts",
         action="store_true",
-        help=(
-            "navigate to the real Typekit and cdnjs origins (local font "
-            "calibration; requires network)"
-        ),
+        help="let the Impeccable Live developer overlay load (local visual review only)",
     )
     return parser.parse_args(argv)
 

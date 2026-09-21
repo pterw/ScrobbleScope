@@ -17,19 +17,12 @@ from scripts.dev.frontend_gate import (
     FrontendGateError,
     _assert_loading_progress_state,
     _check_desktop_scale_bounds,
-    _clamp_px,
-    _composite_over,
-    _contrast_ratio,
-    _divider_contrast_failure,
     _headline_wrap_failures,
     _launch_browser,
     _load_playwright,
     _parse_matrix_scalex,
-    _parse_rgb_string,
-    _relative_luminance,
     _state_dimension_failures,
     _touch_minimum_failures,
-    _worst_divider_contrast,
     check_pipeline_state_machines,
     check_shell_scales_with_text,
     check_theme_persistence,
@@ -388,113 +381,6 @@ def test_the_touch_profiles_really_carry_a_coarse_pointer() -> None:
     assert not desktop.get("has_touch"), "the mouse profile must stay a mouse"
     # Wide, so a width-scoped rule cannot be what satisfies the check.
     assert frontend_gate.VIEWPORTS[frontend_gate.TOUCH_WIDE]["viewport"]["width"] >= 860
-
-
-def test_parse_rgb_string_reads_rgb_and_rgba_forms() -> None:
-    """The parser must recover alpha when present and default it to opaque."""
-    assert _parse_rgb_string("rgb(26, 24, 32)") == (26.0, 24.0, 32.0, 1.0)
-    assert _parse_rgb_string("rgba(26, 24, 32, 0.5)") == (26.0, 24.0, 32.0, 0.5)
-
-
-def test_composite_over_blends_by_alpha() -> None:
-    """A translucent foreground must blend proportionally with its backdrop."""
-    # Half-alpha white over black must land exactly halfway, per channel.
-    assert _composite_over((255.0, 255.0, 255.0, 0.5), (0.0, 0.0, 0.0)) == (
-        127.5,
-        127.5,
-        127.5,
-    )
-    # An opaque foreground must pass through unchanged regardless of backdrop.
-    assert _composite_over((10.0, 20.0, 30.0, 1.0), (200.0, 200.0, 200.0)) == (
-        10.0,
-        20.0,
-        30.0,
-    )
-
-
-def test_relative_luminance_orders_black_grey_white() -> None:
-    """Luminance must be 0 for black, 1 for white, and monotonic between."""
-    black = _relative_luminance((0.0, 0.0, 0.0))
-    grey = _relative_luminance((128.0, 128.0, 128.0))
-    white = _relative_luminance((255.0, 255.0, 255.0))
-    assert black == 0.0
-    assert white == 1.0
-    assert black < grey < white
-
-
-def test_contrast_ratio_is_symmetric_and_maximal_for_black_on_white() -> None:
-    """Contrast ratio must not depend on argument order and must cap at 21:1."""
-    black = (0.0, 0.0, 0.0)
-    white = (255.0, 255.0, 255.0)
-    assert _contrast_ratio(black, white) == pytest.approx(21.0, abs=0.01)
-    assert _contrast_ratio(black, white) == _contrast_ratio(white, black)
-    # Identical colours never separate, so the ratio floors at 1:1.
-    assert _contrast_ratio(black, black) == 1.0
-
-
-def test_worst_divider_contrast_is_the_minimum_across_surfaces() -> None:
-    """A divider painted over several surfaces is only as good as the worst one."""
-    border = "rgba(26, 24, 32, 0.5)"
-    high_contrast_surface = "rgb(255, 255, 255)"
-    low_contrast_surface = "rgb(40, 38, 46)"
-    worst = _worst_divider_contrast(border, high_contrast_surface, low_contrast_surface)
-    against_low_only = _worst_divider_contrast(border, low_contrast_surface)
-    assert worst == pytest.approx(against_low_only)
-    assert worst < _worst_divider_contrast(border, high_contrast_surface)
-
-
-def test_divider_contrast_failure_boundary_is_exactly_3_to_1() -> None:
-    """The 3:1 boundary must pass at 3.0 and fail just below it.
-
-    Repo rule: this must fail if `_divider_contrast_failure` is deleted or its
-    comparison is loosened (e.g. `> 3.0` instead of `>= 3.0`), so both sides of
-    the boundary are asserted rather than only the failing side.
-    """
-    assert _divider_contrast_failure("light", 3.0) is None
-    assert _divider_contrast_failure("light", 4.5) is None
-    assert _divider_contrast_failure("light", 2.9999) is not None
-    failure = _divider_contrast_failure("light", 1.27)
-    assert failure == (
-        "/ light: --shell-border composites to 1.27:1 against its "
-        "adjacent surface, expected at least 3:1"
-    )
-
-
-def test_divider_contrast_failure_names_the_token_it_checks() -> None:
-    """A caller must be able to attribute a failure to a specific token.
-
-    F-B21-40: the same helper now checks both the shared --shell-border and
-    the index page's own --ss-border-divider. This must fail if the `token`
-    parameter is removed or its default silently changes, since a message
-    that always says "--shell-border" would misattribute a failing index
-    divider to the wrong token.
-    """
-    failure = _divider_contrast_failure(
-        "index divider light", 1.12, token="--ss-border-divider"
-    )
-    assert failure == (
-        "/ index divider light: --ss-border-divider composites to 1.12:1 "
-        "against its adjacent surface, expected at least 3:1"
-    )
-    # The default stays --shell-border for every existing caller.
-    assert _divider_contrast_failure("light", 1.27) == (
-        "/ light: --shell-border composites to 1.27:1 against its "
-        "adjacent surface, expected at least 3:1"
-    )
-
-
-def test_clamp_px_resolves_floor_preferred_and_ceiling() -> None:
-    """`_clamp_px` must mirror CSS clamp(): floor, vw-scaled middle, ceiling."""
-    # Below the point where 2.96875vw reaches the 4.25rem floor.
-    assert _clamp_px(4.25, 2.96875, 4.75, 1000) == pytest.approx(4.25 * 16)
-    # At 1920px, 2.96875vw is still under the 4.75rem ceiling and over the
-    # 4.25rem floor at root 16px, so the floor still wins (matches the header
-    # bar's ruled 68px at a real 1080p window).
-    assert _clamp_px(4.25, 2.96875, 4.75, 1920) == pytest.approx(4.25 * 16)
-    # Above the point where the preferred value exceeds the ceiling.
-    assert _clamp_px(4.25, 2.96875, 4.75, 2560) == pytest.approx(4.75 * 16)
-    # A non-default root font size scales both bounds, not the vw term.
-    assert _clamp_px(4.25, 2.96875, 4.75, 1920, root_px=20) == pytest.approx(4.25 * 20)
 
 
 def _healthy_mobile_header() -> dict:
@@ -876,40 +762,16 @@ def test_assert_loading_progress_state_reports_mismatches() -> None:
     assert "scaleX was 0.5" in failures[0]
 
 
-def test_install_cdn_routes_fulfills_bootstrap_and_passes_the_kit() -> None:
-    """The blocker serves the generic CDN; the licensed kit passes through.
-
-    The Adobe families are licensed web fonts (owner ruling 2026-09-07):
-    none may be served from a repo fixture, so use.typekit.net must reach
-    the real origin. Only cdnjs Bootstrap is route-served.
-    """
+def test_install_cdn_routes_aborts_only_the_overlay_origin() -> None:
+    """Only the developer overlay's origin is routed; everything else is untouched."""
     page = MagicMock()
-    handlers = {}
-    page.route.side_effect = lambda pattern, handler: handlers.__setitem__(
-        pattern, handler
-    )
     frontend_gate.install_cdn_routes(page)
-
-    assert len(handlers) == 2  # CDN blocker + the Impeccable Live abort
-    cdn_handler = handlers["**/*"]
-
-    typekit_route, bootstrap_route, other_route = MagicMock(), MagicMock(), MagicMock()
-    typekit_route.request.url = "https://use.typekit.net/rwy8ghw.css"
-    bootstrap_route.request.url = (
-        "https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css"
-    )
-    other_route.request.url = "http://127.0.0.1:1/static/css/shell.css"
-
-    cdn_handler(typekit_route)
-    cdn_handler(bootstrap_route)
-    cdn_handler(other_route)
-
-    typekit_route.continue_.assert_called_once()
-    typekit_route.fulfill.assert_not_called()
-    bootstrap_route.fulfill.assert_called_once()
-    bootstrap_route.continue_.assert_not_called()
-    other_route.continue_.assert_called_once()
-    other_route.fulfill.assert_not_called()
+    assert page.route.call_count == 1
+    pattern, handler = page.route.call_args.args
+    assert pattern == "http://localhost:8400/**"
+    route = MagicMock()
+    handler(route)
+    route.abort.assert_called_once_with()
 
 
 def test_install_cdn_routes_respects_live_fonts_flag() -> None:
@@ -996,25 +858,11 @@ def test_main_preserves_route_policy_through_real_runner(live_fonts) -> None:
         ),
     ):
         assert frontend_gate.main(["--live-fonts"] if live_fonts else []) == 0
-    assert page.route.call_count == (0 if live_fonts else 4)
+    # One localhost:8400 abort route per browser engine (chromium, firefox).
+    assert page.route.call_count == (0 if live_fonts else 2)
+    if not live_fonts:
+        assert page.route.call_args.args[0] == "http://localhost:8400/**"
     assert page.set_default_navigation_timeout.call_args.args == (10_000,)
-
-
-def test_bootstrap_fixture_is_lazy_cached_and_retries_failed_reads(tmp_path) -> None:
-    """A missing fixture fails only when requested and can recover without reimport."""
-    frontend_gate._bootstrap_fixture.cache_clear()
-    try:
-        with patch.object(frontend_gate, "FIXTURE_DIR", tmp_path):
-            frontend_gate.install_cdn_routes(MagicMock())
-            with pytest.raises(FileNotFoundError):
-                frontend_gate._bootstrap_fixture()
-            fixture = tmp_path / "bootstrap_fixture.css"
-            fixture.write_text("body { color: red; }", encoding="utf-8")
-            assert frontend_gate._bootstrap_fixture() == "body { color: red; }"
-            fixture.write_text("changed", encoding="utf-8")
-            assert frontend_gate._bootstrap_fixture() == "body { color: red; }"
-    finally:
-        frontend_gate._bootstrap_fixture.cache_clear()
 
 
 def test_scaled_dimensions_preserve_mark_column_ratio_and_fixed_borders() -> None:

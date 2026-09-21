@@ -9,6 +9,50 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Broad catches judged one by one, then gated (F-MAS-4)
+
+Side task, no batch tag, owner-approved on 2026-09-21 because the count only
+grows: F-MAS-4 recorded 14, then 17; it was 25.
+
+**Plan vs implementation.** The finding offered "narrow or add structured
+logging". Narrowing all 25 was rejected after reading them: most guard the
+optional DB cache or decorative enrichment, where fail-open is the
+documented design (`docs/agents/global-rules.md` Rule 6), and swapping
+`Exception` for guessed asyncpg or aiohttp types would turn a failure the job
+tolerates today into a crashed job. So each site was judged, and the growth
+was made impossible to miss instead:
+
+- **Narrowed (1):** `lastfm.py`'s JSON guard, to `aiohttp.ContentTypeError`
+  and `ValueError`. It wrapped the cache write too and labelled *every*
+  failure "Invalid JSON". Anything else now reaches `retry_with_semaphore`,
+  which retries it exactly as before. Tests first: two pin the parse
+  failures that must stay handled, and one red test showed a non-parse
+  error being misreported.
+- **Logged with a traceback (12):** eleven already re-raised or called
+  `logging.exception`; `run_async_in_thread` hand-built the same output with
+  `traceback.format_exc()` and now calls `logging.exception`.
+- **Justified (12):** the DB-cache, correction-cache, close-in-finally and
+  optional-enrichment catches each carry a one-line reason above the
+  `except` and `# noqa: BLE001`. The three degradation warnings and the
+  retry helper now log the exception's class, which they omitted, so a
+  programming error cannot pass for a network blip.
+- **The gate:** Ruff's `BLE` rules are on in `pyproject.toml`. A handler
+  catching bare `Exception` must re-raise, log a traceback, or say why.
+  Proven red with a probe file. The five hits outside `scrobblescope/`
+  (`init_db.py`, two scripts, two thread-collecting tests) are deliberate
+  report-everything boundaries and carry reasons too.
+
+**Deviation: one stale docstring.** `run_async_in_thread` said it was "used
+only by `/validate_user`"; it also serves both start routes' Last.fm checks
+and `/api/artist_spotlight`. Corrected while the function was open.
+
+**Validation:** `pytest -q` -- **1543 passed**. `pre-commit run --all-files` --
+all hooks pass, including the new rule. `doc_state_sync.py --check` exit 0.
+
+**Forward guidance:** a new broad catch now needs a reason in the diff, which
+is where a reviewer can disagree with it. `docs/SWE_AUDIT_CHARTER.md` notes
+that F-MAS-4 counted catches without judging them; this pass judged them.
+
 ### 2026-09-21 - Production refuses to start without its API keys (F-SWE-4)
 
 Side task, no batch tag, owner-approved on 2026-09-21. F-SWE-4: production
