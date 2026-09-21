@@ -491,6 +491,7 @@ def _check_jpeg_export(page, theme: str) -> list[str]:
             or dimensions["tones"] < 10
         ):
             return [f"{theme} JPEG is blank or incorrectly sized: {dimensions}"]
-    except Exception as exc:
+    # Gate boundary: any failure becomes a reported FAIL line, not a crash.
+    except Exception as exc:  # noqa: BLE001
         return [f"{theme} JPEG export failed: {type(exc).__name__}: {exc}"]
     return []

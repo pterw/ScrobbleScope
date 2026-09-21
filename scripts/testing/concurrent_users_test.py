@@ -173,7 +173,8 @@ def run_thread(
         )
         final_state = payload.get("status")
 
-    except Exception as exc:  # capture all exceptions for reporting
+    # Load-test report: every failure is recorded against its user.
+    except Exception as exc:  # noqa: BLE001
         error = str(exc)
 
     elapsed = time.time() - start

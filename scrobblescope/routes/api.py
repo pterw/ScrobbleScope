@@ -229,9 +229,11 @@ def artist_spotlight():
         data = _routes.run_async_in_thread(_fetch)
         if data:
             return jsonify(data)
-    except Exception as e:
+    # The spotlight is decorative; the album artwork already shown stands in.
+    except Exception as e:  # noqa: BLE001
         logging.warning(
-            f"Error fetching artist spotlight for '{artist_name or artist_id}': {e}"
+            f"Error fetching artist spotlight for '{artist_name or artist_id}': "
+            f"{type(e).__name__}: {e}"
         )
 
     return jsonify(

@@ -79,7 +79,8 @@ async def main():
             print("Schema initialized successfully")
         finally:
             await conn.close()
-    except Exception as exc:
+    # CLI boundary: report any failure as one line and a nonzero exit.
+    except Exception as exc:  # noqa: BLE001
         print(f"ERROR: Schema init failed — {exc}", file=sys.stderr)
         sys.exit(1)
 

@@ -105,14 +105,16 @@ def test_cache_concurrent_write_and_cleanup_no_error():
         for i in range(100):
             try:
                 set_cached_response(f"/api/item/{i}", {"i": i})
-            except Exception as exc:
+            # Collect every exception a racing thread raises; the test asserts none.
+            except Exception as exc:  # noqa: BLE001
                 errors.append(exc)
 
     def cleaner():
         for _ in range(20):
             try:
                 cleanup_expired_cache()
-            except Exception as exc:
+            # Collect every exception a racing thread raises; the test asserts none.
+            except Exception as exc:  # noqa: BLE001
                 errors.append(exc)
 
     threads = [threading.Thread(target=writer) for _ in range(4)]

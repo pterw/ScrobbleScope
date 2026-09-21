@@ -5,6 +5,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+import aiohttp
+
 from scrobblescope.config import (
     LASTFM_API_KEY,
     LASTFM_REQUESTS_PER_SECOND,
@@ -151,17 +153,21 @@ async def fetch_recent_tracks_page_async(
                         f"❌ Unexpected Last.fm status {resp.status} on page {page}: {body[:200]}"
                     )
                     return None, None
+                # Only the parse is guarded: an HTML page served as 200
+                # (ContentTypeError) or a malformed body (JSONDecodeError, a
+                # ValueError). Anything else propagates to retry_with_semaphore,
+                # which retries it and logs it under its own class rather than
+                # calling every failure invalid JSON (F-MAS-4).
                 try:
                     data = await resp.json()
-                    # Cache the response for future use
-                    set_cached_response(url, data, params)
-                    return data, None
-                except Exception:
+                except (aiohttp.ContentTypeError, ValueError):
                     body = await resp.text()
                     logging.error(
                         f"❌ Invalid JSON from Last.fm page {page}. Body starts with: {body[:200]}"
                     )
                     return None, None
+                set_cached_response(url, data, params)
+                return data, None
 
     return await retry_with_semaphore(
         fetch_once,

@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: no batch is active; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1540 tests across 58 test modules.
+1543 tests across 58 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -991,12 +991,6 @@ finding went stale as soon as the file changed, and size was never the
 defect. Compare against the largest peer in the directory when deciding
 whether the split is due.
 Status: open. Source: MULTI_AGENT_SWEEP.
-
-### F-MAS-4: broad `except Exception` catches
-
-17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at
-the original sweep); narrow or add structured logging per exception
-class. Status: open. Source: MULTI_AGENT_SWEEP.
 
 ### F-STYLE-1: repository prose is denser than it needs to be
 

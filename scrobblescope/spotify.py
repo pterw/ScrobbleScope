@@ -343,8 +343,10 @@ async def fetch_spotify_artist_spotlight(
             return await _request_spotlight_artist(
                 session, headers, artist_name, artist_id
             )
-    except Exception as e:
+    # The spotlight is decorative; None keeps the card's existing artwork.
+    except Exception as e:  # noqa: BLE001
         logging.warning(
-            f"Error querying Spotify artist spotlight for '{artist_name or artist_id}': {e}"
+            f"Error querying Spotify artist spotlight for '{artist_name or artist_id}': "
+            f"{type(e).__name__}: {e}"
         )
     return None

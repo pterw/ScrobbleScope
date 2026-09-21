@@ -9,6 +9,109 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-20 - Working tree reconciled for the deferred audit
+
+Side task, no batch tag. The SWE audit's charter requires a clean worktree
+before grading -- "a SHA cannot reproduce uncommitted content, so a matrix
+built over a dirty tree is unfalsifiable however carefully its cells cite
+lines" -- and the tree had two modified tracked files and sixteen untracked
+paths. Reconciled, one class at a time, and three of the classes turned out to
+be defects rather than clutter.
+
+**The graphify refresh tooling is now adopted, and it was broken as written.**
+`AGENT_NOTES.md` carries a new section describing a threshold-gated local graph
+refresh: two `.githooks` scripts calling `scripts/dev/graphify_refresh.py`,
+which rebuilds only after 5 commits or 25 changed files have accumulated. Its
+tests pass (20) and it is standard-library only, as its own comment explains
+(hooks do not inherit an activated virtualenv). But the section also states the
+hook files "must keep LF endings: a CRLF `post-commit` fails under Git for
+Windows' `sh`", and **both hook files were CRLF on disk**. `.gitattributes`
+had rules for two CSS files and `docs/design/**`, nothing for `.githooks/`.
+Committing them as they stood would have shipped a hook that fails for any
+clone whose `core.autocrlf` rewrites it, while the document beside it promised
+otherwise. Fixed at the root rather than the instance: a `.githooks/* text
+eol=lf` rule, so the working copy is correct whatever a clone's autocrlf is,
+plus a conversion of both files to LF. This is the same shape as F-B21-61 --
+a written claim that nothing enforced.
+
+**And a second half of the same defect, found after the first commit.** Both
+hooks were staged as mode `100644`, not `100755`. Git does not run a hook file
+that is not executable -- on Linux and macOS it reports "ignored because it's
+not set as executable" and continues -- so the feature would have worked on
+this Windows checkout, where the exec bit is meaningless, and silently done
+nothing on Linux or in CI. `core.fileMode` is `false` in this clone, which is
+exactly why git recorded 100644 and could not report the difference. Fixed with
+`git update-index --chmod=+x`, which writes the mode into the index directly
+rather than relying on a filesystem bit Windows does not have. Both files keep
+their original blob SHAs, so only the mode changed. This is the CRLF defect
+again in a different register: a repository-level property that a
+Windows-only clone cannot notice it is violating.
+
+**`AGENT_NOTES.md` also removed three stale blocks**, which is why it was
+modified at all: the "Heatmap Feature Notes (shipped -- Batches 18/19)" and
+"Batch 21 Tooling Map" sections both describe work that has since closed (the
+tooling map says of itself "Written 2026-08-14, before WP-1 started"), and a
+gap item about `skills-lock.json` was removed because that file is gitignored
+and so cannot be part of the corpus a reader can check. A new
+`HEATMAP_WINDOW_DAYS` constraint was added, pointing at the single source in
+`scrobblescope/heatmap.py`.
+
+**`requirements-dev.txt` was reverted, not committed.** It carried a local
+addition of `cosmic-ray==8.7.0`, which exists to serve the mutation-test runner
+that F-SWE-8 records as unadopted -- "the code stays out of the corpus until
+then". Shipping its dependency while its tool stays untracked would be the
+inconsistent half of that decision.
+
+**Junk removed and ignored, each for a stated reason:** `nul` deleted (a
+Windows reserved device name, so `del` and `Remove-Item` both fail on it and
+`Test-Path` reports false while the directory entry is real; removed through
+the `\\?\` extended-length prefix). `coverage.xml` ignored as the XML form of
+the already-ignored `.coverage`; `/tmp/` ignored as agent probe scratch;
+`.codex/` and `.continue/` ignored as per-machine harness config, which
+`.codex/hooks.json` proves by naming an absolute path under one user's home.
+
+**Deliberately left untracked:** `scripts/dev/mutation_test.py`,
+`scripts/dev/mutation_scope.toml` and `tests/scripts/dev/test_mutation_test.py`,
+because F-SWE-8 says not to stage them as part of another task's commit. They
+are pending work with their own work package, and gitignoring them would
+misdescribe them as not-repository-state. They are not graded modules, so their
+presence does not invalidate a grade of `scrobblescope/`.
+
+**Still awaiting an owner decision, not committed or deleted:**
+`docs/2026-09-14-open-code-review-audit.md` (315 KB at the `docs/` root),
+`docs/history/reports/CONTROL_PLANE_AUDIT_2026-09-15.md` (which cites it as
+"the dated code-review advisory at the repository's docs root"),
+`docs/history/reports/Architecture Review -- ScrobbleScope Control Plane &
+Strangler.html`, `docs/superpowers/plans/plan.md` (a Batch 21 traversal plan)
+and `progress_copy.md` (an SDD ledger for the close-out plan, whose own first
+line names its source plan). All five are audit or planning evidence rather
+than code; four belong under `docs/history/` by AGENTS.md's own archive
+convention if they are kept. Moving or deleting 315 KB of someone else's audit
+evidence is not a call this side task should make.
+
+**Validation:** `pytest -q` -- **1532 passed**. `pre-commit run --all-files` --
+all ten hooks pass. `doc_state_sync.py --check` exit 0. The graphify unit's own
+suite: 20 passed.
+
+**One figure worth knowing about, found while measuring the above.** pytest
+collects from `tests/` on disk, not from `git ls-files`, so the recorded count
+of 1532 includes tests that live in files no clone will ever have: 20 in
+`tests/scripts/dev/test_graphify_refresh.py` (now committed, so those become
+real) and **46 in `tests/scripts/dev/test_mutation_test.py`**, which F-SWE-8
+keeps out of the corpus. A tracked-only checkout therefore measured 1466
+before this commit and measures 1532 only because of two untracked files. That
+does not make the number wrong as measured, but it does mean it is not
+reproducible from the SHA alone -- which is the same objection the audit's
+charter raises about grading a dirty tree, applied to the test count. The 46
+will keep inflating it until either the runner is adopted or the file is moved
+somewhere pytest does not collect.
+
+**Forward guidance:** the audit precondition is now met for the tracked corpus
+-- no tracked file is modified. The three untracked mutation files are the
+recorded exception, by F-SWE-8's own instruction. The five decision-pending
+documents are the last thing between this tree and an empty `git status`, and
+until they are resolved the count above keeps its 46-test caveat.
+
 ### 2026-09-20 - Architecture diagrams reconciled against the import graph
 
 Side task, no batch tag. Two of the five architecture diagrams were stale, and

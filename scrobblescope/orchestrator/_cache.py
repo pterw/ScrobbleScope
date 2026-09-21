@@ -37,7 +37,8 @@ async def _lookup_cached_metadata(conn, job_id, album_keys):
         logging.info(
             f"DB cache: {len(cached_metadata)} hits / {len(album_keys)} total albums"
         )
-    except Exception as exc:
+    # Fail open: a failed cache read makes every album a miss, not a failed job.
+    except Exception as exc:  # noqa: BLE001
         if _schema_is_out_of_date(exc):
             logging.warning(
                 f"DB lookup failed, proceeding without cache: {exc}. "
@@ -65,7 +66,8 @@ async def _lookup_cached_original_release(conn, keys):
         return {}
     try:
         return await _orchestrator._batch_lookup_original_release(conn, keys)
-    except Exception as exc:
+    # Fail open: a missing correction only skips the display upgrade.
+    except Exception as exc:  # noqa: BLE001
         logging.warning(f"Original-release cache lookup failed (non-fatal): {exc}")
         return {}
 
@@ -80,6 +82,7 @@ async def _persist_new_metadata(conn, job_id, new_metadata_rows):
         logging.info(
             f"Persisted {len(new_metadata_rows)} new metadata rows to DB cache"
         )
-    except Exception as exc:
+    # Fail open: a failed persist costs the next job a lookup, not this one.
+    except Exception as exc:  # noqa: BLE001
         logging.warning(f"DB persist failed (non-fatal): {exc}")
         _orchestrator.set_job_stat(job_id, "db_cache_warning", "DB persist failed.")

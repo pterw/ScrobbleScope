@@ -405,9 +405,13 @@ def results_loading():
                     f" ({registered_year}). Please choose {registered_year} or later."
                 ),
             )
-    except Exception:
+    # The registration-year hint is optional; the search proceeds without it.
+    except Exception as exc:  # noqa: BLE001
         logging.warning(
-            "Registration year check failed for %s; proceeding without it", username
+            "Registration year check failed for %s; proceeding without it: %s: %s",
+            username,
+            type(exc).__name__,
+            exc,
         )
 
     cleanup_expired_jobs()

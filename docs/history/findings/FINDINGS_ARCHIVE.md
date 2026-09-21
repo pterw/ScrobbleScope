@@ -9,6 +9,28 @@ Newest rotation first.
 
 ---
 
+### F-MAS-4: broad `except Exception` catches -- RESOLVED
+
+17 instances across `scrobblescope/*.py` (recounted 2026-07-24; 14 at
+the original sweep); narrow or add structured logging per exception
+class.
+
+Resolved 2026-09-21, and gated so the count cannot creep again. It had grown
+to 25 across `scrobblescope/`, and each was judged on its own rather than
+narrowed wholesale: most guard the optional DB cache or decorative
+enrichment, where fail-open is the documented design (`global-rules.md` Rule
+6), and narrowing them to guessed library types would turn today's tolerated
+failure into a crashed job. Outcome: `lastfm.py`'s JSON catch narrowed to
+`aiohttp.ContentTypeError` and `ValueError`, because it had labelled every
+failure "Invalid JSON"; eleven already re-raised or logged a traceback, and
+`run_async_in_thread` now does too; the remaining twelve each carry a one-line
+reason and `# noqa: BLE001`, and the three degradation logs and the retry
+helper now name the exception class. Ruff's `BLE` rules are enabled in
+`pyproject.toml`, so a new unexplained broad catch fails the commit.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+Source: MULTI_AGENT_SWEEP.
+
 ### F-SWE-4: the production entrypoint never validates API keys -- RESOLVED
 
 `config.ensure_api_keys()` (`config.py:37-40`) raises when any of the three

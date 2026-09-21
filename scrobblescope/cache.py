@@ -82,7 +82,8 @@ async def _get_db_connection():
         try:
             conn = await asyncpg.connect(dsn, timeout=connect_timeout_seconds)
             return conn
-        except Exception as exc:
+        # The cache is optional: any connect failure disables it for this job.
+        except Exception as exc:  # noqa: BLE001
             if attempt >= max_attempts:
                 logging.warning(
                     "DB cache unavailable (db-down): connection failed after %s "
@@ -160,7 +161,8 @@ async def _cleanup_stale_metadata(conn):
             METADATA_CACHE_TTL_DAYS,
         )
         logging.info("Stale cache cleanup: %s", result)
-    except Exception as exc:
+    # Opportunistic housekeeping; a failure must never reach the job.
+    except Exception as exc:  # noqa: BLE001
         logging.warning("Stale cache cleanup failed (non-fatal): %s", exc)
 
 

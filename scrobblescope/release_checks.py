@@ -253,7 +253,8 @@ async def _lookup_cached(conn, candidates):
         return await _batch_lookup_original_release(
             conn, [candidate["key"] for candidate in candidates]
         )
-    except Exception as exc:
+    # Fail open: a failed cache read costs requests, never the job.
+    except Exception as exc:  # noqa: BLE001
         if schema_is_out_of_date(exc):
             # Not a hiccup: until the table exists, every finding this worker
             # pays a MusicBrainz second for is discarded and looked up again
@@ -300,7 +301,8 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         await _batch_persist_original_release(
             conn, [(artist_norm, album_norm, mb_release_group, original_release)]
         )
-    except Exception as exc:
+    # Fail open: an unpersisted finding is looked up again next time.
+    except Exception as exc:  # noqa: BLE001
         if schema_is_out_of_date(exc):
             logging.warning(
                 f"Original-release persist failed (non-fatal): {exc}. "
@@ -383,7 +385,8 @@ async def run_release_checks(job_id):
         set_job_release_check(job_id, state)
         try:
             await conn.close()
-        except Exception as exc:
+        # A failed close must not mask the job's own outcome.
+        except Exception as exc:  # noqa: BLE001
             logging.warning(f"Closing the release-check DB connection failed: {exc}")
 
 
