@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: forms slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_forms.py` now owns the index form's
+seven checks -- `check_validation_feedback`, `check_private_profile_is_blocked`,
+`check_validator_outage_is_recoverable`, `check_stale_validator_failure_is_discarded`,
+`check_current_validator_failure_replaces_old_verdict`,
+`check_true_warning_survives`, `check_initial_visibility` -- plus their
+private helpers `_collecting_handler` and `_year_warning`, and the
+`HIDDEN_ON_LOAD` constant, moved verbatim and importing `_reach_state` from
+the shared module. The definitions were not contiguous in the facade;
+`check_index_entrance_motion`, `check_mark_follows_theme` and
+`check_theme_survives_blocked_storage` stayed behind between them.
+`_collecting_handler` gains the regression test its docstring describes: a
+one-parameter handler so Playwright cannot overwrite its sink with the
+request object, and that two handlers do not share one. A mutation probe
+that added `"#year"` to `HIDDEN_ON_LOAD`'s `"/"` tuple produced the expected
+`FAIL chromium: initial visibility [desktop]: /: #year should start hidden
+but computes display: block` line (and the matching `[mobile]` line), then
+was reverted. The gate's summary line is unchanged at 30 checks across both
+browsers.
+
 ### 2026-09-21 - Frontend gate split: unmatched slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_unmatched.py` now owns the largest

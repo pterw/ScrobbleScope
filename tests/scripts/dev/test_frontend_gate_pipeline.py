@@ -181,7 +181,7 @@ def test_assert_loading_progress_state_reports_mismatches() -> None:
 
 def test_phase_repository_probe_checks_real_isolation_and_invalid_views() -> None:
     """The extracted diagnostic exercises real storage and detects missing snapshots."""
-    job = frontend_gate.create_job({"username": "probe"})
+    job = _frontend_gate_pipeline.create_job({"username": "probe"})
     try:
         assert _frontend_gate_pipeline._check_phase_repository_isolation(job) == []
         assert _frontend_gate_pipeline.get_job_progress(job)["phase"]["current"] == 23
@@ -194,7 +194,7 @@ def test_phase_repository_probe_checks_real_isolation_and_invalid_views() -> Non
             failures = _frontend_gate_pipeline._check_phase_repository_isolation(job)
         assert len(failures) == 6
     finally:
-        frontend_gate.delete_job(job)
+        _frontend_gate_pipeline.delete_job(job)
 
 
 def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:
@@ -244,7 +244,7 @@ def test_replaced_job_probe_reports_stale_delivery_and_cleans_up() -> None:
 @pytest.mark.parametrize("client", ("album", "heatmap"))
 def test_counted_sequence_updates_real_storage_and_detects_stale_text(client) -> None:
     """Both clients receive the same phase transitions and report an uncleared fraction."""
-    job = frontend_gate.create_job({"username": "probe"})
+    job = _frontend_gate_pipeline.create_job({"username": "probe"})
     page = MagicMock()
     snapshots = []
     expected = [
@@ -294,4 +294,4 @@ def test_counted_sequence_updates_real_storage_and_detects_stale_text(client) ->
             None,
         ]
     finally:
-        frontend_gate.delete_job(job)
+        _frontend_gate_pipeline.delete_job(job)

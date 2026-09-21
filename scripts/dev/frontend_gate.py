@@ -22,12 +22,8 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-import threading
-from collections.abc import Iterator, Sequence
-from contextlib import contextmanager
+from collections.abc import Sequence
 from pathlib import Path
-
-from werkzeug.serving import make_server
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -56,11 +52,11 @@ if not os.environ.get("SECRET_KEY"):
 # mode (F-SWE-4), and CI's secrets arrive empty in exactly the same way. The
 # gate renders pages from seeded jobs and never calls a provider, so a
 # placeholder is enough to boot the application.
+#
+# Every sibling is imported below this line for the same reason.
 for _key in ("LASTFM_API_KEY", "SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"):
     if not os.environ.get(_key):
         os.environ[_key] = "frontend-gate-placeholder"
-
-from app import create_app  # noqa: E402
 
 # Re-exported so the split stays invisible to callers, per F-B21-51: a facade
 # keeps the stable public names and `worktree_guard.py` is the precedent. Four
@@ -126,6 +122,14 @@ from scripts.dev._frontend_gate_results import (  # noqa: E402
     check_results_interactions,
     check_results_provider_attribution,
 )
+from scripts.dev._frontend_gate_runtime import (  # noqa: E402, F401
+    SETUP_COMMAND,
+    FrontendGateError,
+    _launch_browser,
+    _load_playwright,
+    install_cdn_routes,
+    serve_app,
+)
 
 # Re-exported: the facade keeps the public names stable (F-B21-51).
 from scripts.dev._frontend_gate_shared import (  # noqa: E402, F401
@@ -157,48 +161,14 @@ from scripts.dev._frontend_gate_unmatched import (  # noqa: E402, F401
     UNMATCHED_TWO_PANEL_MIN,
     check_unmatched_report,
 )
-from scrobblescope.repositories import (  # noqa: E402
-    create_job,
-    delete_job,
-    set_job_progress,
-)
 
 BROWSER_NAMES = ("chromium", "firefox")
-SETUP_COMMAND = "python -m playwright install chromium firefox"
 
 
 #: Fail-fast navigation. Playwright's 30s default turned one stalled
 #: subresource into a 30s wait per check, and the shared page let one
 #: wedge cascade through the rest of the run. 10s bounds the damage.
 NAVIGATION_TIMEOUT_MS = 10_000
-
-
-def install_cdn_routes(page, live_fonts: bool = False) -> None:
-    """Keep developer-only origins out of the gate's pages.
-
-    Impeccable Live is a developer overlay injected into base.html while
-    visual review is active; the gate must stay independent of it, so its
-    origin is aborted. ``live_fonts`` skips that for a local calibration run.
-
-    The Adobe Fonts kit always loads from its real origin: its families are
-    licensed web fonts, and re-hosting or synthesizing them would misdeclare
-    licensed typefaces (owner ruling 2026-09-07, no exceptions per family).
-    A stall there costs the page its webfonts, never the gate its pass,
-    because check_fonts reports misses as advisory WARN lines.
-
-    The cdnjs Bootstrap fixture this used to serve was removed on 2026-09-21:
-    no template requests Bootstrap, and check_stylesheet_isolation reads link
-    hrefs, so it still catches a page that reintroduces it.
-    """
-    if live_fonts:
-        return
-    page.route("http://localhost:8400/**", lambda route: route.abort())
-
-
-#: ``serve_app`` temporarily extends module-level page inventories for the
-#: loading fixture. Serialising that context keeps two in-process gate runs
-#: from clearing each other's job IDs or removing each other's route.
-_SERVE_APP_LOCK = threading.Lock()
 
 #: The device profiles available to visual checks.
 #:
@@ -224,111 +194,6 @@ VIEWPORTS = {
     MOBILE: {"viewport": {"width": 390, "height": 844}, "has_touch": True},
     TOUCH_WIDE: {"viewport": {"width": 1280, "height": 800}, "has_touch": True},
 }
-
-
-class FrontendGateError(RuntimeError):
-    """A gate prerequisite is missing, so no check could run."""
-
-
-def _load_playwright():
-    """Return sync_playwright, or explain exactly how to install it.
-
-    The gate never downloads tooling on its own. Implicit installs turn a
-    two-second failure into a silent multi-hundred-megabyte download.
-    """
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError as exc:
-        raise FrontendGateError(
-            f"Playwright is not installed. Run: {SETUP_COMMAND}"
-        ) from exc
-    return sync_playwright
-
-
-def _launch_browser(playwright, browser_name: str, *, headless: bool = True):
-    """Launch the named engine, translating a missing build into guidance.
-
-    Pinning the package does not fetch the browser. The two failures look
-    completely different but have the same remedy.
-    """
-    try:
-        return getattr(playwright, browser_name).launch(headless=headless)
-    except Exception as exc:
-        raise FrontendGateError(
-            f"{browser_name} is not available to Playwright. Run: {SETUP_COMMAND}"
-        ) from exc
-
-
-@contextmanager
-def serve_app() -> Iterator[str]:
-    """Serve the real app on a loopback port for the duration of the block.
-
-    Port 0 asks the OS for a free port, so parallel runs cannot collide. The
-    shutdown sits in a finally block: a failing check must never leave a
-    listening socket behind.
-    """
-    with _SERVE_APP_LOCK:
-        loading_job_id = None
-        heatmap_job_id = None
-        loading_path = None
-        server = None
-        thread = None
-        thread_started = False
-        previous_job_ids = dict(GATE_JOB_IDS)
-        try:
-            app = create_app()
-            loading_job_id = create_job(
-                {
-                    "username": "frontend-gate",
-                    "year": 2025,
-                    "sort_mode": "playcount",
-                    "release_scope": "same",
-                    "min_plays": 10,
-                    "min_tracks": 3,
-                    "limit_results": "all",
-                    "mode": "album",
-                }
-            )
-            set_job_progress(
-                loading_job_id,
-                progress=42,
-                message="Fetching scrobbles - page 21 / 50",
-                error=False,
-            )
-            loading_path = f"/loading?job_id={loading_job_id}"
-            heatmap_job_id = create_job(
-                {
-                    "username": "frontend-gate",
-                    "mode": "heatmap",
-                }
-            )
-            GATE_JOB_IDS.update(album=loading_job_id, heatmap=heatmap_job_id)
-            MIGRATED_PAGES.append(loading_path)
-            ALL_PAGES.append(loading_path)
-
-            server = make_server("127.0.0.1", 0, app)
-            thread = threading.Thread(target=server.serve_forever, daemon=True)
-            thread.start()
-            thread_started = True
-            yield f"http://127.0.0.1:{server.server_port}"
-        finally:
-            if server is not None:
-                if thread_started:
-                    server.shutdown()
-                if thread is not None:
-                    thread.join(timeout=5)
-                server.server_close()
-            if loading_path is not None:
-                if loading_path in MIGRATED_PAGES:
-                    MIGRATED_PAGES.remove(loading_path)
-                if loading_path in ALL_PAGES:
-                    ALL_PAGES.remove(loading_path)
-            if loading_job_id is not None:
-                delete_job(loading_job_id)
-            if heatmap_job_id is not None:
-                delete_job(heatmap_job_id)
-            GATE_JOB_IDS.clear()
-            GATE_JOB_IDS.update(previous_job_ids)
 
 
 #: Group names for the check grouping below. A stalled check can leave
