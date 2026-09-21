@@ -356,6 +356,18 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - Frontend gate split: assets slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_assets.py` now owns stylesheet
+isolation: `BOOTSTRAP_MARKER`, `TAILWIND_MARKER`, `_stylesheet_hrefs` and
+`check_stylesheet_isolation`, moved verbatim and importing `ALL_PAGES` from
+the shared module. This is the first browser-coupled slice, so it sets the
+pattern the rest of the split follows: move verbatim, re-export through the
+facade, and prove the gate still reaches the moved code. A mutation probe in
+`check_stylesheet_isolation` produced the expected FAIL on both chromium and
+firefox, confirming the Firefox canary group also reaches the moved module.
+The gate's summary line is unchanged at 30 checks across both browsers.
+
 ### 2026-09-21 - Frontend gate split: shared slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_shared.py` now owns the page
@@ -388,45 +400,3 @@ would otherwise fail silently: every defined check is registered, every test
 patch targets a module that reads the name, and the facade's environment
 bootstrap precedes any `scrobblescope` import. Each guard was shown to fail on
 a deliberate defect before being kept.
-
-### 2026-09-21 - No `assert` guards runtime code any more (F-B22-2)
-
-Side task, no batch tag. Preparation for closing PR #235's review threads,
-which the owner named as the next step: two of its Codacy threads (HIGH
-RISK) are this finding, and the honest reply is the fix, not a pointer.
-Control-plane change (`scripts/docsync/findings.py`), committed with
-`SKIP=doc-state-sync-check` and `doc_state_sync.py --check` run directly.
-
-**Plan vs implementation.** The finding's fix shape was a conditional raise
-at each of six sites. Applied as written, three of those raises could never
-fire, so each invariant was placed where it actually holds instead:
-
-- **`routes/album_flow.py`, three `assert job_context is not None`:
-  deleted.** `_get_validated_job_context` returns an error before it can
-  return a missing context, so they only narrowed types. Three copies of an
-  unreachable raise is dead code, and Rule 3 says the third copy is where
-  the invariant belongs in one place -- which it already is.
-- **`scripts/docsync/findings.py` `_build`: invariant by construction.**
-  `_parse` already has each heading's match; it now passes it in instead of
-  `_build` re-matching `block[0]` and asserting.
-- **`spotify.py` token fetch: a behaviour change, deliberately.** Missing or
-  empty credentials now log and return None, which is the function's
-  existing failure answer, so the album pipeline falls back to Deezer and
-  the spotlight keeps its artwork. The `assert` raised past that fallback
-  and failed the whole job; an empty string also slipped past `is not None`.
-  The old test expected `AssertionError`; it is replaced by three cases
-  (id missing, secret missing, id empty) asserting None, no HTTP call and
-  an error log. Red before the change.
-
-**The gate.** Ruff `S101` is selected, with `tests/**` exempt (all 2,630
-current hits are there). Proven red on a probe file. Production code now
-holds zero `assert` statements, and the affected suites pass under
-`python -O`.
-
-**Validation:** `pytest -q` -- **1555 passed**. `pre-commit run --all-files`
-with `SKIP=doc-state-sync-check` -- every other hook passes.
-`doc_state_sync.py --check` run directly -- exit 0.
-
-**Forward guidance:** PR #235's threads can now be answered with fixes for
-every true claim. The fixes live on this branch, so they reach `main` in the
-follow-up PR the owner plans after #235 merges.

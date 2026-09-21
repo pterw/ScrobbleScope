@@ -69,6 +69,11 @@ from app import create_app  # noqa: E402
 # of these are unused inside this module, which is why `F401` is suppressed --
 # without it ruff strips the re-export and the existing gate tests stop
 # importing.
+from scripts.dev._frontend_gate_assets import (  # noqa: E402, F401
+    BOOTSTRAP_MARKER,
+    TAILWIND_MARKER,
+    check_stylesheet_isolation,
+)
 from scripts.dev._frontend_gate_colour import (  # noqa: E402, F401
     _clamp_px,
     _composite_over,
@@ -166,12 +171,6 @@ def install_cdn_routes(page, live_fonts: bool = False) -> None:
         return
     page.route("http://localhost:8400/**", lambda route: route.abort())
 
-
-#: Marker that identifies a Bootstrap stylesheet in a link href.
-BOOTSTRAP_MARKER = "bootstrap"
-
-#: Marker that identifies the compiled Tailwind stylesheet in a link href.
-TAILWIND_MARKER = "tailwind.css"
 
 #: ``serve_app`` temporarily extends module-level page inventories for the
 #: loading fixture. Serialising that context keeps two in-process gate runs
@@ -371,39 +370,6 @@ def serve_app() -> Iterator[str]:
                 delete_job(heatmap_job_id)
             GATE_JOB_IDS.clear()
             GATE_JOB_IDS.update(previous_job_ids)
-
-
-def _stylesheet_hrefs(page) -> list[str]:
-    """Return the href of every stylesheet link the page loads."""
-    return page.eval_on_selector_all(
-        "link[rel=stylesheet]", "nodes => nodes.map(node => node.href)"
-    )
-
-
-def check_stylesheet_isolation(page, base_url: str) -> list[str]:
-    """Each page loads exactly one framework stylesheet.
-
-    Bootstrap and daisyUI both claim .btn, .card and .modal, and Tailwind's
-    preflight would reset a Bootstrap page. Loading both is the collision the
-    strangler migration exists to avoid.
-    """
-    failures = []
-    for path in ALL_PAGES:
-        page.goto(f"{base_url}{path}", wait_until="load")
-        hrefs = _stylesheet_hrefs(page)
-        framework = [
-            href
-            for href in hrefs
-            if BOOTSTRAP_MARKER in href.lower() or TAILWIND_MARKER in href.lower()
-        ]
-        # Exactly one, not merely "not both". Two Bootstrap links is the
-        # cdnjs/jsdelivr split this batch tracks as F-B20-3, and it fails here.
-        if len(framework) != 1:
-            failures.append(
-                f"{path} loads {len(framework)} framework stylesheets, "
-                f"expected exactly 1: {framework}"
-            )
-    return failures
 
 
 def _computed_colour(page, value: str) -> str:
