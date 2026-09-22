@@ -9,6 +9,40 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: runtime slice (F-B21-51)
+
+Side task, no batch tag, last of the split. `_frontend_gate_runtime.py` now
+owns `SETUP_COMMAND`, `install_cdn_routes`, `_SERVE_APP_LOCK`,
+`FrontendGateError`, `_load_playwright`, `_launch_browser` and `serve_app`,
+moved verbatim with the `app`, `werkzeug.serving` and
+`scrobblescope.repositories` imports they need. The facade no longer imports
+`create_app`, `make_server` or the repository job functions directly; it
+re-exports the six public names through the new sibling instead.
+`REPO_ROOT`, the `sys.path` insert, `GATE_SECRET_KEY` and the environment
+bootstrap stay in the facade, above every sibling import, because
+`scrobblescope.config` reads the provider keys once at first import and the
+gate boots in CI's production mode with no secrets set. The facade's
+bootstrap comment now says so explicitly.
+
+Seven tests moved out of `test_frontend_gate.py` into
+`test_frontend_gate_runtime.py`, retargeting their `make_server` and
+`create_app` patches to `_frontend_gate_runtime`, and their
+`frontend_gate.install_cdn_routes` attribute calls to
+`_frontend_gate_runtime.install_cdn_routes`. `test_headed_reaches_the_browser_launch`,
+`test_launch_is_headless_by_default` and the tests that call `main(` or
+`run_checks(` stayed in `test_frontend_gate.py`, unchanged, because they
+reach `_launch_browser` and `serve_app` through the facade's re-export or
+`patch.object(frontend_gate, ...)`, which still resolves.
+
+Removing the facade's `create_job`/`delete_job` import broke two tests in
+`test_frontend_gate_pipeline.py` (an earlier slice) that called
+`frontend_gate.create_job`/`frontend_gate.delete_job` by attribute access --
+a name the facade no longer defines. `_frontend_gate_pipeline` already
+imports both from `scrobblescope.repositories` for its own checks, so those
+four call sites were retargeted to `_frontend_gate_pipeline.create_job`/
+`_frontend_gate_pipeline.delete_job` rather than restoring the facade
+import.
+
 ### 2026-09-21 - Frontend gate split: pipeline slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_pipeline.py` now owns the three
