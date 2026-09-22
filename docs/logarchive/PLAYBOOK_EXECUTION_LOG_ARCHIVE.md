@@ -9,6 +9,22 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split complete (F-B21-51)
+
+Side task, no batch tag. Task 11 closes out the split: `frontend_gate.py`
+measures 535 lines, under the plan's 700-line threshold and above its
+roughly-450 estimate. The ten `_frontend_gate_*` siblings measure
+`_frontend_gate_assets` 49, `_frontend_gate_colour` 191,
+`_frontend_gate_forms` 434, `_frontend_gate_layout` 1,176,
+`_frontend_gate_pipeline` 854, `_frontend_gate_results` 497,
+`_frontend_gate_runtime` 156, `_frontend_gate_shared` 71,
+`_frontend_gate_theme` 749, `_frontend_gate_unmatched` 490. The gate
+summary is unchanged: `[frontend_gate] 30 checks passed in 52 runs across
+chromium, firefox`. F-B21-51 is resolved; `docs/architecture/
+documentation-tooling.md`, `DEVELOPMENT.md`, `FINDINGS.md` and this file
+are reconciled to the measured end state. The `frontend_gate_checks.toml`
+registry stays a deferred candidate.
+
 ### 2026-09-21 - Frontend gate split: runtime slice (F-B21-51)
 
 Side task, no batch tag, last of the split. `_frontend_gate_runtime.py` now

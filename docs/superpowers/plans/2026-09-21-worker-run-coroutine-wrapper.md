@@ -32,9 +32,9 @@ Every task's requirements include this section.
   The entry is a tagged `(Batch 23 WP-0)` entry inside the current-batch markers once the owner has
   opened Batch 23 by naming its branch in PLAYBOOK Section 3; before that it is an untagged
   side-task entry directly after `<!-- DOCSYNC:CURRENT-BATCH-END -->`.
-- **Quote the measured test count.** A Section 4 entry carries the suite result in the bold form the
-  authority reads: `**N passed**` from a literal `pytest -q` run. Never copy a count from another
-  document. Baseline when this plan was written: **1,717 passed** (tracked suite only -- an earlier
+- **Quote the measured test count.** A Section 4 entry carries the suite result in the one form the
+  authority reads (`AGENTS.md` "Which test count is authoritative"), from a literal `pytest -q` run.
+  Never copy a count from another document. Baseline when this plan was written: **1,717 passed** (tracked suite only -- an earlier
   figure of 1,763 counted 46 tests from the deliberately uncommitted mutation runner, which is not
   part of the repository's state).
 - **ASCII only** in every file this plan touches: no smart quotes, no em dash -- use `--`.

@@ -302,6 +302,17 @@ class _AmbiguousCount:
 
 _AMBIGUOUS_COUNT = _AmbiguousCount()
 
+#: The one form the authority reads as a full-suite result:
+#: `` `pytest -q` -- **N passed** ``, with nothing but whitespace and an
+#: optional ``--`` between the command and the bold count. Public because
+#: DOC012 must recognise exactly what this module reads -- a second copy of
+#: the pattern could drift and pass an entry the authority then skips.
+FULL_SUITE_RESULT_RE = re.compile(
+    r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*"
+    r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*",
+    flags=re.IGNORECASE,
+)
+
 # Source precedence, applied only to break a same-date tie in the ordering
 # below. A side-task entry is written after the batch entry it follows, and a
 # side-task entry still live in PLAYBOOK is newer than one that retention has
@@ -352,12 +363,7 @@ def _newest_count(
     """
     for entry, _precedence, _date_ordering_key in candidates:
         entry_text = "\n".join(line for _, line in prose_lines(entry.lines))
-        explicit_matches = re.findall(
-            r"`?pytest(?:\.exe)?\s+-q`?\s*(?:--)?\s*"
-            r"\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*",
-            entry_text,
-            flags=re.IGNORECASE,
-        )
+        explicit_matches = FULL_SUITE_RESULT_RE.findall(entry_text)
         if explicit_matches:
             return int(explicit_matches[-1])
         if re.search(

@@ -613,7 +613,7 @@ Preamble.
 
 ### 2026-09-10 - Closing work (Batch 22 WP-1)
 
-Ran `pytest -q`: **1234 passed**.
+Ran `pytest -q` -- **1234 passed**.
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 """
@@ -1489,7 +1489,7 @@ class TestArchiveMaintenanceModes:
         # count, and a claimed-complete batch would raise close-out
         # diagnostics that have nothing to do with the question.
         playbook = CORPUS_PLAYBOOK.replace(
-            "Ran `pytest -q`: **1234 passed**.", "Reviewed the enrichment work."
+            "Ran `pytest -q` -- **1234 passed**.", "Reviewed the enrichment work."
         ).replace(
             "- **Batch 22 is complete.**\n- Batch 23 is not yet defined.",
             "- Batch 21 is complete.\n"

@@ -292,9 +292,12 @@ the guard module that owns its check, spread across
 `scripts/dev/_worktree_guard_*.py` -- grep for the code, not a module.
 **Which test count is authoritative.** The newest full-suite `pytest -q`
 result wins, even from a side-task entry outside the current-batch markers,
-and stays authoritative after rotation archives that entry. An entry
-quoting several bold counts without a `pytest -q` result reads as unknown
-rather than deferring to an older one.
+and stays authoritative after rotation archives that entry. It is read in
+one form only -- `` `pytest -q` -- **N passed** ``, nothing between the
+command and the count; put any qualifier after it. Any other wording is
+skipped (DOC012 names the entry). An entry quoting several bold counts
+without a `pytest -q` result reads as unknown rather than deferring to an
+older one.
 
 ### What to update after a WP or side-task commit
 

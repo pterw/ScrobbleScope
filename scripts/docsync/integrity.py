@@ -14,7 +14,7 @@ from docsync.declarations import (
     load_closeout_config,
     load_findings_config,
 )
-from docsync.logic import latest_test_count_authority
+from docsync.logic import FULL_SUITE_RESULT_RE, latest_test_count_authority
 from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue, SyncError, TestCountAuthority
 from docsync.parser import (
@@ -385,8 +385,12 @@ def _computed_next_wp(
     current_entries = [
         entry for entry in entries if marker_start < entry.start_idx < marker_end
     ]
-    if not current_entries:
-        return None, False
+    # No early return for an empty block. A batch that is open with nothing
+    # logged yet still has a true answer when its definition declares a plan
+    # -- the plan's first package -- and returning None here left every
+    # DOC007 leg silent on a false claim in exactly that state (2026-09-21
+    # live probe). Without a plan the shared rule still returns None, so the
+    # legs stay silent where there is genuinely nothing to compare.
     planned_wp_numbers = (
         _definition_wp_numbers(definition_lines)
         if definition_lines is not None
@@ -484,6 +488,22 @@ _VALIDATION_TRIGGER_RE = re.compile(
     re.IGNORECASE,
 )
 
+#: The full-suite command followed, within a short span, by a bold count that
+#: it is not directly attached to: `` `pytest -q` (tracked suite) -- **N
+#: passed** `` or `` `pytest -q`: **N passed** ``. The authority reads only
+#: ``FULL_SUITE_RESULT_RE``, so such an entry is skipped and an older count
+#: stays current. The closing backtick right after ``-q`` keeps a targeted run
+#: (`` `pytest -q tests/x.py` ``) out, and the gap may not cross another code
+#: span or bold marker. The gap is also bounded at 80 characters: a qualifier
+#: that long is usually a sentence *about* another entry's count ("unaffected
+#: -- Task 6's own entry above has the current measurement, **N passed**"),
+#: and a red on that would be noise. Missing a long genuine gap is the
+#: accepted cost; the motivating case's gap is about 65 characters.
+_UNPAIRED_RESULT_RE = re.compile(
+    r"`pytest(?:\.exe)?\s+-q`[^*`]{1,80}?\*\*(\d+)\s+(?:tests?\s+)?pass(?:ing|ed)\*\*",
+    re.IGNORECASE,
+)
+
 #: The wrapped count itself, anchored at the start of its own line.
 _WRAPPED_COUNT_RE = re.compile(
     r"^\s*(?:\*\*)?(\d+)\s+(?:tests?\s+)?pass(?:ed|ing)\b",
@@ -498,6 +518,39 @@ _EXPLICIT_CLAIM_RE = re.compile(
 
 #: Where the execution log starts. Counts above it are prose, not entries.
 _EXECUTION_LOG_HEADING = "## 4. Execution log"
+
+
+def _unpaired_result_issue(
+    ordered_lines: Sequence[tuple[int, str]], first: int
+) -> IntegrityIssue | None:
+    """DOC012: a bold count the authority cannot pair with its `pytest -q`.
+
+    An entry that states the full-suite command and a bold count, but with
+    anything other than ``--`` between them, reads as compliant and is skipped:
+    ``latest_test_count_authority`` accepts only ``FULL_SUITE_RESULT_RE``. The
+    older count then stays current and DOC006/DOC008 go red against the
+    figures the author updated, pointing away from the entry at fault. This
+    names the entry instead. It found its own motivating case on 2026-09-21.
+    """
+    entry_text = "\n".join(line for _, line in ordered_lines)
+    if FULL_SUITE_RESULT_RE.search(entry_text):
+        return None
+    match = _UNPAIRED_RESULT_RE.search(entry_text)
+    if match is None:
+        return None
+    line_index = entry_text.count("\n", 0, match.start())
+    source_offset = ordered_lines[line_index][0]
+    count = match.group(1)
+    return _issue(
+        "DOC012",
+        "PLAYBOOK.md",
+        first + source_offset + 1,
+        "A full-suite result is written in the one form the count authority reads.",
+        f"Write `` `pytest -q` -- **{count} passed** `` with nothing between the "
+        "command and the count, and move any qualification after it. As "
+        "written the authority skips this entry and an older count stays "
+        "current.",
+    )
 
 
 def _check_unbolded_test_counts(
@@ -569,6 +622,10 @@ def _check_unbolded_test_counts(
                         f"Write `**{match.group(1)} passed**`.",
                     )
                 )
+            continue
+        unpaired = _unpaired_result_issue(ordered_lines, first)
+        if unpaired is not None:
+            issues.append(unpaired)
             continue
         if any(TEST_COUNT_RE.search(line) for line in entry_lines.values()):
             continue

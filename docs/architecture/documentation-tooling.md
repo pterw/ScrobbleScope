@@ -173,6 +173,10 @@ is repository-independent and only the declarations are local. Three kinds:
 **DOC012 is not declared.** It is implemented directly in
 `scripts/docsync/integrity.py` and enforces a shape rather than a declared
 fact: a pass claim in the log must carry the bold form the authority reads.
+It also names an entry that states `pytest -q` and a bold count with
+anything but `--` between them, since the authority skips that entry and
+an older count stays current. The pairing is bounded at 80 characters, so
+a sentence citing another entry's count is not read as a claim.
 
 **DOC013 to DOC018 are the finding lifecycle codes**, implemented in
 `scripts/docsync/findings.py`. A finding rotates to the archive only on the

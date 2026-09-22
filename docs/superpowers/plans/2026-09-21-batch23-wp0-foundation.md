@@ -48,8 +48,9 @@ Every task's requirements include this section.
   `SKIP=doc-state-sync-check git commit ...`. Never `--no-verify`. CI's preflight step is the backstop.
 - **Commit discipline:** Conventional Commits, imperative, no trailing period, subject max 72 chars.
   Stage paths by name; `git add -A` and `git add .` are forbidden. No `Co-authored-by` trailer.
-- **Quote a measured count.** A Section 4 entry that claims a suite result carries `**N passed**` from a
-  literal `pytest -q` on the final tree. Re-measure; never copy a count from this file or another.
+- **Quote a measured count.** A Section 4 entry that claims a suite result writes it in the one form
+  the authority reads (`AGENTS.md` "Which test count is authoritative"), measured by a literal
+  `pytest -q` on the final tree. Re-measure; never copy a count from this file or another.
 - **`AGENTS.md` stays under 500 lines.** Every edit to it is a replacement or a pointer.
 - **ASCII only**: no smart quotes, no em dash -- use `--`.
 
@@ -210,7 +211,7 @@ Untagged Section 4 entries, directly after `<!-- DOCSYNC:CURRENT-BATCH-END -->`.
 (`_computed_next_wp`, the Section 3 and SESSION_CONTEXT DOC007 legs), `tests/test_docsync_renderer.py`,
 `tests/test_docsync_integrity.py`.
 
-- [ ] **Step 1: Failing tests first.**
+- [x] **Step 1: Failing tests first.**
   - An active batch with zero current entries renders `Current batch: Batch 23.`.
   - With a finite plan and zero completed work packages, the next work package is the lowest planned
     number, **WP-0 included** (owner ruling, 2026-09-21). Today `_next_wp_number` drops WP-0
@@ -219,22 +220,38 @@ Untagged Section 4 entries, directly after `<!-- DOCSYNC:CURRENT-BATCH-END -->`.
   - A Section 3 `WP-3 is next` claim with zero entries raises DOC007.
   - The between-batches block carries the count line, with the same three wordings as the active branch
     (a resolved count, an ambiguous entry, no count).
-- [ ] **Step 2: Branch on the declared state.** Branch on `section_3_state.current_batch`, not on
+- [x] **Step 2: Branch on the declared state.** Branch on `section_3_state.current_batch`, not on
   `current_entries`. Let `_computed_next_wp` return the plan's first open package when there are no
   entries, instead of `None`. Keep one count-line helper, called from both branches.
-- [ ] **Step 3: Update the assertions that pin the block's exact text.** This is a deliberate change:
+- [x] **Step 3: Update the assertions that pin the block's exact text.** This is a deliberate change:
   update those assertions, name them in the commit body, and assert the exact list, never `in`.
-- [ ] **Step 4: Live probe** (the verification standard above):
+- [x] **Step 4: Live probe** (the verification standard above):
   - *Red:* an active batch with no entries and a false `WP-3 is next` claim gives DOC007. An active
     batch with no entries renders Batch 23.
   - *Near-miss green:* the true claim, `WP-0 is next`, passes. The unmodified real corpus, which is
     between batches, passes, and its block still reads `none (between batches)` plus the count.
-- [ ] **Step 5:** Run `--check` directly (exit 0), then the commit procedure, then
+- [x] **Step 5:** Run `--check` directly (exit 0), then the commit procedure, then
   `SKIP=doc-state-sync-check git commit`, subject `fix(docsync): Render an opened batch before its first entry`.
-- [ ] **Step 6: Author the count.** In the same commit's Section 4 entry, quote the measured
+- [x] **Step 6: Author the count.** In the same commit's Section 4 entry, quote the measured
   `**N passed**` from `pytest -q`. `--fix` then carries it into the block. Update SESSION_CONTEXT
   Section 1 and the `FINDINGS.md` header to the same number: DOC006 and DOC008 require it, and `--fix`
   deliberately will not.
+
+**Done 2026-09-21.** Deviations, each for a stated reason:
+
+- **O1 folded in.** DOC012 now also names an entry whose `pytest -q` and bold count are not directly
+  paired. That is the audit's O1, and a sibling of D1 in the same count chain. The authority's pattern
+  moved to `logic.FULL_SUITE_RESULT_RE`, so the check and the reader cannot disagree. The pairing is
+  bounded at 80 characters: Batch 22's log has a sentence citing another entry's count, and flagging it
+  would be a false red. `AGENTS.md` "Which test count is authoritative" now states the one readable
+  form, and both plans point there instead of paraphrasing it (DeepSeek's observation, 2026-09-21).
+- **Step 3 needed no assertion change.** No existing test pinned the between-batches block's exact
+  text. Two lines of the shared CLI fixture in `tests/test_docsync_cli.py` changed instead: they wrote
+  `` `pytest -q`: **1234 passed** ``, a form the authority reads only through the legacy fallback. An
+  archived fixture line in the same file keeps the colon form, so that fallback stays covered.
+- **Step 6 was already met** by the 2026-09-21 commit that authored **1717 passed**.
+- **Historical reach, measured:** 44 archived entries use an unpaired form. DOC012 reads only live
+  PLAYBOOK entries, so they are reported here and not rewritten.
 
 ### Task 3b: Open Batch 23 on its branch
 
