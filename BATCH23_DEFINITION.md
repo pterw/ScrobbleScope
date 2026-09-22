@@ -1,10 +1,11 @@
 # BATCH23: Spotify listeners import the Extended Streaming History export
 
-**Status:** Approved by the owner on 2026-09-13, **not started**. Batch 22 is
-complete and had to come first: this batch builds on its provider interface
-and its corrected release years.
-**Branch:** not yet named. PLAYBOOK Section 3 names it before the first
-commit, or the worktree guard raises WT003. Not `test`.
+**Status:** Active since 2026-09-21; **WP-0 is next.** Approved 2026-09-13.
+The next-package claim must stay on this line: DOC007 reads it here only.
+Batch 22 is complete and had to come first: this batch builds on its
+provider interface and its corrected release years.
+**Branch:** `feat/batch23-wp0-hygiene`. Named by the owner on 2026-09-21 and
+declared in PLAYBOOK Section 3; not `test`.
 **Baseline:** 1522 tests passing and a frontend gate of 30 checks in 52 runs
 at Batch 22's close. Both are the measurement at batch open, not a standing
 claim; the latest of each lives in the newest Section 4 entry.
@@ -34,6 +35,12 @@ metadata cache, the results page and the unmatched report -- reads only
 normalized `(artist, album)` keys and has no Last.fm dependency. An export
 aggregator that produces the same shape as `fetch_top_albums_async` reaches
 the same machinery unchanged.
+
+**Owner rulings, 2026-09-21.** The branch is `feat/batch23-wp0-hygiene`.
+Job admission is folded into WP-4 as one module for all three routes. Under
+a finite plan WP-0 counts as the next work package. No worker-count guard is
+added: the Dockerfile pins one worker and a partial guard would be its own
+wrong green.
 
 **Owner rulings, 2026-09-13.** No Spotify login: it would buy rankings with
 no play counts, the last 50 plays, and at most five allowlisted users, and it
@@ -98,7 +105,10 @@ WP-0 did.
   and `_run_coroutine_in_new_loop` (the run-and-close wrapper) in
   `orchestrator/`. The Windows `ProactorEventLoop` choice inside it is
   already shared as `worker.new_thread_event_loop` (2026-09-21, F-B20-2);
-  build the wrapper on that rather than repeating the platform branch.
+  build the wrapper on that rather than repeating the platform branch. The
+  wrapper lands in `worker.py` as `run_coroutine_in_new_loop`, beside that
+  helper, so the heatmap path uses it too
+  (`docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md`).
 - [ ] Extract `_zero_fill_daily_counts` from `scrobblescope/heatmap.py` so
   both aggregators share one zero-fill.
 - **Acceptance:** every existing test passes **unmodified**, including
@@ -177,10 +187,18 @@ and the orchestrator never knows about zips.
   never put a placeholder in `username`, because error messages format it.
 - [ ] `static/js/loading.js` offers "Upload again" rather than Retry for this
   source, because a file cannot be re-POSTed.
+- [ ] One admission module owns starting a job: it takes the job slot,
+  creates the job state and starts the thread, and on a failed start
+  restores the slot and removes the orphaned job. The album, heatmap and
+  export routes all call it; each route keeps its own request parsing,
+  session and HTTP response. The export route is the third caller, which is
+  what makes the extraction worth doing here (owner ruling, 2026-09-21).
 - **Acceptance:** a multipart success; a 413 on this endpoint while a large
   Last.fm POST is unaffected; CSRF answered as JSON; each synchronous error
   code; the thread started with the expected arguments; and a test proving
-  the stream is `BytesIO` and never `SpooledTemporaryFile`.
+  the stream is `BytesIO` and never `SpooledTemporaryFile`. For admission:
+  a failed thread start leaves no slot held and no orphaned job, tested for
+  each of the three routes.
 
 ### WP-5 -- The interface
 

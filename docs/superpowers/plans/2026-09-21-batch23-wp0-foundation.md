@@ -261,25 +261,41 @@ Task 3 has to land first: with the old renderer, an opened batch with no entries
 
 **Files:** `PLAYBOOK.md` (Section 3), `BATCH23_DEFINITION.md`, `.claude/SESSION_CONTEXT.md` (Section 1).
 
-- [ ] **Step 1: Section 3.** Replace the "Next action: the owner opens Batch 23" bullet and the
+- [x] **Step 1: Section 3.** Replace the "Next action: the owner opens Batch 23" bullet and the
   "Batch 23 is not yet defined" bullet with one bullet: `**Batch 23 is active.**`, naming
   the definition as ``Definition: `BATCH23_DEFINITION.md` `` and the branch `feat/batch23-wp0-hygiene`. Add a
   `- **Next action:** WP-0 is next.` bullet. Keep each state sentence on one line: the scanner reads
   Section 3 line by line.
-- [ ] **Step 2: The definition.** Set the field to ``**Branch:** `feat/batch23-wp0-hygiene` ``, with no commit hash
+- [x] **Step 2: The definition.** Set the field to ``**Branch:** `feat/batch23-wp0-hygiene` ``, with no commit hash
   (DOC003), and set the Status line to started. In WP-4, add a bullet: one admission module takes the
   job slot, creates the job state and starts the thread, restoring the slot or removing the orphan
   when a start fails, and all three routes (album, heatmap, export) call it. Add an acceptance
   clause: a failed thread start leaves no slot held and no orphan job, tested for every route. Record
   the ruling under the definition's owner rulings, dated 2026-09-21. Proposal Rule 2 requires the
   approval to be on the record before WP-4 begins.
-- [ ] **Step 3: The dashboard.** Mark Batch 23 Active in SESSION_CONTEXT Section 1, then run `--fix`.
+- [x] **Step 3: The dashboard.** Mark Batch 23 Active in SESSION_CONTEXT Section 1, then run `--fix`.
   The managed block must now read `Current batch: Batch 23.` and `Next expected work package: WP-0.`
   If it does not, Task 3 is incomplete -- stop.
-- [ ] **Step 4: Live check on the real tree.** `--check` exits 0. Then, in a throwaway copy, change
+- [x] **Step 4: Live check on the real tree.** `--check` exits 0. Then, in a throwaway copy, change
   Section 3 to `WP-3 is next` and confirm DOC007 fires.
-- [ ] **Step 5:** Commit: `chore(batch23): Open Batch 23 on feat/batch23-wp0-hygiene`. From here on,
+- [x] **Step 5:** Commit: `chore(batch23): Open Batch 23 on feat/batch23-wp0-hygiene`. From here on,
   Section 4 entries for WP work are tagged and sit inside the current-batch markers.
+
+**Done 2026-09-21.** The dashboard read `Current batch: Batch 23.` and `Next expected work package:
+WP-0.` on the first `--fix`, which confirmed the D1 fix on the real corpus. Deviations:
+
+- Section 3's Batch 22 bullet carried a ``Branch: `feat/batch22-enrichment` `` label. The guard refuses conflicting
+  Branch values anywhere in Section 3, so that mention was reworded to prose.
+- Once the batch was active, the guard compared ancestry and reported WT005 against its default base
+  `origin/main`, which carries merges of `test` that the branch does not. Against `origin/test`, the
+  branch's parent, it exits 0 (0 behind, 4 ahead); the trees of `e6ce9d7` and `origin/main` are
+  identical. `HANDOFF_PROMPT.md` gained this edge case, and its WT004 paragraph's premise that `main`
+  only squashes or rebases was corrected against the live rulesets. No history was changed.
+- The Step 4 probe found the definition's first Status line unguarded: DOC007 reads the next-package
+  claim only on the `**Status:**` line itself, and the first wording wrapped it onto the next line. The
+  claim now sits on the Status line, with a note saying why. All three legs -- Section 3, the dashboard
+  and the definition -- then went red on a false `WP-3 is next`.
+
 
 ### Task 4: Give the archive page target a reader, and correct the cold rule
 
@@ -343,7 +359,10 @@ diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (t
   - the opening-state defect (if Task 3 has already landed, file it resolved, with its `**Completed:**` line);
   - the archive page target having no reader, and the cold rule's undocumented all-dated condition
     (resolved by Task 4 if it has landed);
-  - `--check` having no diagnostic for an interrupted publication (open; DoD row 29).
+  - `--check` having no diagnostic for an interrupted publication (open; DoD row 29);
+  - the worktree guard's base is a flag default (`origin/main`) rather than a fact PLAYBOOK declares,
+    so a branch cut from `test` reads as WT005 until the agent knows to pass `--base-ref origin/test`
+    (open; found opening Batch 23, 2026-09-21).
 - [ ] **Step 3:** Run `--fix`, which rotates what is checked, then `--check`, fixing what it reports
   rather than guessing. Commit: `docs(findings): Repoint pre-split citations and record probe defects`.
 

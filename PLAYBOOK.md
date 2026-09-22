@@ -51,6 +51,7 @@ Completed batch definitions are archived individually under `docs/history/`.
 | 20 | File-hygiene + docs methodology refresh | `docs/history/definitions/BATCH20_DEFINITION.md` | `docs/history/logs/BATCH20_LOG.md` |
 | 21 | UI overhaul -- Tailwind + daisyUI migration | `docs/history/definitions/BATCH21_DEFINITION.md` | `docs/history/logs/BATCH21_LOG.md` |
 | 22 | Enrichment providers and original release years | `docs/history/definitions/BATCH22_DEFINITION.md` | `docs/history/logs/BATCH22_LOG.md` |
+| 23 | Spotify Extended Streaming History import | `BATCH23_DEFINITION.md` | active -- Section 4 |
 
 A batch's close-out entry sits in its per-batch log only when the heading
 carried a `(Batch N WP-X)` tag (as Batch 18's did). Close-outs tagged
@@ -87,7 +88,7 @@ See FINDINGS F-DOCSYNC-3.
 - **Batch 22 is complete**, closed 2026-09-20. All six work packages are
   done. Definition archived:
   `docs/history/definitions/BATCH22_DEFINITION.md`; log:
-  `docs/history/logs/BATCH22_LOG.md`. Branch: `feat/batch22-enrichment`
+  `docs/history/logs/BATCH22_LOG.md`. It ran on `feat/batch22-enrichment`
   (worktree off `test`). Scope was album enrichment behind a provider
   contract, Deezer answering when Spotify cannot, and MusicBrainz correcting
   a reissue year to the album's original while the results page is open.
@@ -141,22 +142,22 @@ See FINDINGS F-DOCSYNC-3.
 - **The code defect is closed.** `_musicbrainz_headers` raises instead of
   interpolating the literal string `None` as a contact address, which is what
   it did when called outside the gate that guards it.
-- **Next action: the owner opens Batch 23 by naming its branch here.**
-  `BATCH23_DEFINITION.md` is written and sits at the repository root, derived
-  from
-  `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`: eight
-  work packages, WP-0 through WP-7, with the deferred Batch 21 frontend and
-  accessibility audit inside WP-7, which the batch cannot close without.
-  What remains is the branch. It is not `test`, it is named in this section
-  before the first commit, or the worktree guard raises WT003, and choosing
-  it is an owner decision.
-- **Batch 23 is not yet defined**, in the sense the parser reads: no batch is
-  open and none is being worked. That phrase has to sit on one line, because
-  the scanner reads Section 3 line by line and a wrapped copy of it matches
-  nothing. The definition file itself does exist, at the repository root. The
-  tool's vocabulary has "not yet defined" and "active" and no word for
-  "written, not started", so the sentence is kept and qualified rather than
-  removed.
+- **Batch 23 is active.** Definition: `BATCH23_DEFINITION.md`. Branch: `feat/batch23-wp0-hygiene`.
+  Opened 2026-09-21 by the owner, who named the branch that day and asked
+  for the opening to be explicit rather than silent. It waited for the fix
+  to audit defect D1 (`aad26e5`), because before it an opened batch with no
+  logged work package rendered as "between batches". Scope: eight work
+  packages, WP-0 through WP-7; the deferred Batch 21 frontend and
+  accessibility audit is inside WP-7, which the batch cannot close without.
+  The branch is cut from `test`, so run the worktree guard with
+  `--base-ref origin/test` (`HANDOFF_PROMPT.md` "Bootstrap edge cases").
+  WP-0 runs from
+  `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md` Track 1,
+  whose loop-protocol half is
+  `docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md`.
+- **Next action:** WP-0 is next: the shared loop protocol, then the three
+  original extractions. WP work from here on logs tagged
+  `(Batch 23 WP-N)` entries inside the current-batch markers.
 - **The dashboard's test count read 1522 for a while**, and the way it got
   unstuck is
   worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
@@ -357,6 +358,42 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - Batch 23 opened on feat/batch23-wp0-hygiene
+
+Side task, no batch tag: this entry records the opening itself and is not
+WP work, so it does not count as WP-0 being done. Task 3b of the Batch 23
+WP-0 foundation plan, done under the owner's instruction that the opening be
+explicit rather than silent.
+
+- Section 3 now declares `**Batch 23 is active.**` with its definition and
+  its branch, and names WP-0 as next. The Section 2 index gains the Batch 23
+  row, SESSION_CONTEXT Section 1 marks Batch 23 active, and the
+  `FINDINGS.md` header no longer says no batch is active.
+- The definition records the branch, the status and the 2026-09-21 owner
+  rulings, and folds job admission into WP-4 with its own acceptance
+  clause. WP-0's wrapper bullet names where the wrapper lands.
+- The first `--fix` rendered `Current batch: Batch 23.` and
+  `Next expected work package: WP-0.`, which confirms the D1 fix on the
+  real corpus.
+
+Deviations. The Batch 22 bullet's `Branch:` label was reworded, because
+the worktree guard refuses two Branch values in Section 3. Once the batch
+was active, the guard compared ancestry and reported WT005 against its
+default `origin/main`, which carries merges of `test` the branch does not.
+Against `origin/test`, the branch's parent, it exits 0, and the trees of
+`e6ce9d7` and `origin/main` are identical. `HANDOFF_PROMPT.md` now carries
+that edge case, and its WT004 premise that `main` only squashes or rebases
+was corrected against the live rulesets, which allow all three merge
+methods. No history was changed.
+
+Live check (throwaway copy of this working tree): a false `WP-3 is next`
+went red with DOC007 in Section 3, on the dashboard and in the definition.
+The definition leg only went red once its claim was moved onto the
+`**Status:**` line itself.
+
+Validation: `pytest -q` -- **1729 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-21 - Docsync renders an opened batch before its first entry
 
 Side task, no batch tag: Task 3 of the Batch 23 WP-0 foundation plan, the
@@ -444,41 +481,3 @@ plan; the owner ruled that it counts. The report states what was not probed.
 
 Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.
-
-### 2026-09-21 - Worker loop-protocol plan committed; docsync probed live
-
-Side task, no batch tag. Scope: commit the plan of record for Batch 23
-WP-0's loop-protocol extraction,
-`docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md`, and
-verify the docsync gate by live probe rather than by its unit tests.
-
-The plan was checked against source before committing and four statements
-were corrected: `tests/test_worker.py` has nine existing tests, not four;
-its in-function imports make six failures, not six errors; the untracked
-set is larger than the eight paths it named; and its commit blocks now run
-`--fix` before pytest and pre-commit, as "Commit Rules" orders. Its code,
-tests and parity argument are unchanged. The expanded WP-0 foundation plan
-was rewritten in the working tree and is deliberately not in this commit.
-
-Live probe: a throwaway corpus built from `git archive HEAD` plus a scratch
-`git init`, with one planted defect per code, run through the real CLI.
-Every implemented code (DOC001-DOC020, DOC023) went red on its own defect
-and raised only that code; six near misses (struck-through or fenced
-retired claims, a fenced missing path, `Status: not closed.`, a canonical
-resolved finding, a valid citation) stayed green. `--fix` repaired a
-tampered managed block and rotated a resolved finding, and refused to write
-a rotting finding's record or a hand-authored count. The preflight returned
-3 on a staged `scripts/docsync/` edit, 0 on an ordinary one, and passed the
-checker's 1 through.
-
-One defect found: in a batch Section 3 declares active but with no tagged
-Section 4 entry yet, the status block renders "none (between batches)" and
-DOC007 is silent on a false next-work-package claim. Both are correct once
-one entry exists. That is the state Batch 23 enters when its branch is
-named, so the fix is scheduled to land first; it is not yet filed in
-`FINDINGS.md`.
-
-Validation: `pytest -q` -- **1717 passed**, across 66 tracked test modules;
-the untracked mutation-runner tests were excluded, since they are not
-repository state. The dashboard and the findings header are updated from
-1555 across 58 to match.

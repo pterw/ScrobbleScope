@@ -33,10 +33,11 @@ before doing any work.
 
 ## Bootstrap edge cases
 
-**WT004 after a merge is expected.** `main` requires linear history and
-accepts only squash and rebase merges, so merging a PR rewrites its commits
-and leaves the source branch diverged from `origin/main` with an identical
-tree. The guard is right to stop -- a diverged branch is normally serious --
+**WT004 after a squash or rebase merge is expected.** `main`'s rulesets
+allow merge, squash and rebase merges, and none requires linear history
+(verified against the live rulesets, 2026-09-21). A squash or rebase merge
+rewrites a PR's commits and leaves the source branch diverged from
+`origin/main` with an identical tree. The guard is right to stop -- a diverged branch is normally serious --
 but here the remediation is routine: confirm `git rev-parse HEAD^{tree}`
 matches `origin/main^{tree}` and that `git diff HEAD origin/main` is empty,
 then reset the branch onto `origin/main` and force-push with lease. If the
@@ -54,6 +55,14 @@ on them:
   environment there is forbidden and only the owner can resolve it.
 - **Offline**, the base result is local-ref-only and WT013 says so; the
   guard never fetches.
+- **A batch branch cut from `test`** is compared against the wrong base by
+  default. `test` reaches `main` through merge commits that `main` alone
+  carries, so against `origin/main` the branch reads as diverged (WT005)
+  even when it holds every commit of its parent. Pass the parent the branch
+  was cut from, which PLAYBOOK Section 3 names: `--base-ref origin/test`.
+  Treat WT005 against `origin/main` as this case only when
+  `git diff <merge-base> origin/main` is empty; otherwise it is a real
+  divergence and the guard's stop stands.
 
 The initial guard launch is the sole stdlib-only bootstrap exception to the
 qualified-tool rule: the primary checkout paths are not known until the

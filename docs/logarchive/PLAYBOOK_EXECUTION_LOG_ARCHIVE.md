@@ -9,6 +9,44 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Worker loop-protocol plan committed; docsync probed live
+
+Side task, no batch tag. Scope: commit the plan of record for Batch 23
+WP-0's loop-protocol extraction,
+`docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md`, and
+verify the docsync gate by live probe rather than by its unit tests.
+
+The plan was checked against source before committing and four statements
+were corrected: `tests/test_worker.py` has nine existing tests, not four;
+its in-function imports make six failures, not six errors; the untracked
+set is larger than the eight paths it named; and its commit blocks now run
+`--fix` before pytest and pre-commit, as "Commit Rules" orders. Its code,
+tests and parity argument are unchanged. The expanded WP-0 foundation plan
+was rewritten in the working tree and is deliberately not in this commit.
+
+Live probe: a throwaway corpus built from `git archive HEAD` plus a scratch
+`git init`, with one planted defect per code, run through the real CLI.
+Every implemented code (DOC001-DOC020, DOC023) went red on its own defect
+and raised only that code; six near misses (struck-through or fenced
+retired claims, a fenced missing path, `Status: not closed.`, a canonical
+resolved finding, a valid citation) stayed green. `--fix` repaired a
+tampered managed block and rotated a resolved finding, and refused to write
+a rotting finding's record or a hand-authored count. The preflight returned
+3 on a staged `scripts/docsync/` edit, 0 on an ordinary one, and passed the
+checker's 1 through.
+
+One defect found: in a batch Section 3 declares active but with no tagged
+Section 4 entry yet, the status block renders "none (between batches)" and
+DOC007 is silent on a false next-work-package claim. Both are correct once
+one entry exists. That is the state Batch 23 enters when its branch is
+named, so the fix is scheduled to land first; it is not yet filed in
+`FINDINGS.md`.
+
+Validation: `pytest -q` -- **1717 passed**, across 66 tracked test modules;
+the untracked mutation-runner tests were excluded, since they are not
+repository state. The dashboard and the findings header are updated from
+1555 across 58 to match.
+
 ### 2026-09-21 - Frontend gate split complete (F-B21-51)
 
 Side task, no batch tag. Task 11 closes out the split: `frontend_gate.py`

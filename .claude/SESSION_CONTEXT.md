@@ -13,6 +13,7 @@ Last updated: 2026-09-20
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
+| Batch 23 status | **Active**. WP-0 is next. Definition: `BATCH23_DEFINITION.md` (repository root). Opened 2026-09-21 on `feat/batch23-wp0-hygiene`: Spotify listeners import their Extended Streaming History export. |
 | Batch 22 status | **Complete**. All 6 WPs done. Definition: docs/history/definitions/BATCH22_DEFINITION.md. Opened 2026-09-13 on `feat/batch22-enrichment` and closed 2026-09-20: album enrichment moved behind a provider contract, Deezer answers when Spotify cannot, and MusicBrainz corrects a reissue year to the original while the results page is open. Batch 21 is complete; its definition is at `docs/history/definitions/BATCH21_DEFINITION.md`, and the frontend and accessibility audit it chartered runs at Batch 23's close-out. Adobe Fonts kit `rwy8ghw` remains active. |
 | Known open risk | `RotatingFileHandler` throws `PermissionError: [WinError 32]` on Windows when multiple Flask processes hold the log file open (Werkzeug debug reloader). Cosmetic -- Flask continues to serve. Linux/Fly.io unaffected. |
 
@@ -36,12 +37,10 @@ Last updated: 2026-09-20
 
 <!-- DOCSYNC:STATUS-START -->
 - Source of truth: `PLAYBOOK.md` (Section 3 and Section 4).
-- Current batch: none (between batches).
-- Last completed batch in PLAYBOOK Section 3: Batch 22.
-- Next batch definition status: Batch 23 is not yet defined.
+- Current batch: Batch 23.
 - Current-batch entries in active log block: 0.
-- Completed work packages in current-batch entries: n/a (no active batch).
-- Next expected work package: n/a (next batch not defined).
+- Completed work packages in current-batch entries: none.
+- Next expected work package: WP-0.
 - Latest validated test count: **1729 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
