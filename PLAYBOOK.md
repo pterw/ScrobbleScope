@@ -357,6 +357,24 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-21 - Docsync live-probe audit recorded
+
+Side task, no batch tag. Scope: record the formal conclusion of the live
+probe run earlier today as
+`docs/history/reports/DOCSYNC_LIVE_PROBE_AUDIT_2026-09-21.md`. No code
+changed.
+
+Verdict: conditionally fit. All 21 implemented codes fired on their own
+planted defect (26 of 26 red probes), all 8 near-miss controls stayed
+green, and `--fix`, the exit codes and the preflight behaved as documented.
+Blocking defect D1: a batch declared open with no logged work package reads
+as "between batches" and DOC007 is silent on a false next-package claim; it
+must be fixed before Batch 23 opens. D2: WP-0 is never "next" under a finite
+plan; the owner ruled that it counts. The report states what was not probed.
+
+Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-21 - Worker loop-protocol plan committed; docsync probed live
 
 Side task, no batch tag. Scope: commit the plan of record for Batch 23
@@ -444,35 +462,3 @@ imports both from `scrobblescope.repositories` for its own checks, so those
 four call sites were retargeted to `_frontend_gate_pipeline.create_job`/
 `_frontend_gate_pipeline.delete_job` rather than restoring the facade
 import.
-
-### 2026-09-21 - Frontend gate split: pipeline slice (F-B21-51)
-
-Side task, no batch tag. `_frontend_gate_pipeline.py` now owns the three
-checks that write real job state through `scrobblescope.repositories` and
-watch the page follow it -- `check_loading_composition`,
-`check_pipeline_state_machines`, `check_artist_spotlight_rotation` -- plus
-their nine helpers (`_parse_matrix_scalex`, `_assert_loading_progress_state`,
-`_exercise_loading_progress_phases`, `_check_phase_repository_isolation`,
-`_exercise_counted_progress`, `_exercise_album_progress`,
-`_exercise_heatmap_progress`, `_exercise_replaced_job_progress`,
-`_exercise_pipeline_state_machines`) and the ten progress constants
-(`ALBUM_PROGRESS_TRACK`, `ALBUM_PROGRESS_BAR`, `ALBUM_PROGRESS_TEXT`,
-`HEATMAP_PROGRESS_TRACK`, `HEATMAP_PROGRESS_BAR`, `HEATMAP_PROGRESS_TEXT`,
-`FETCHING_SCROBBLES`, `COUNTING_SCROBBLES`, `PAGE_23_OF_102`,
-`PAGE_90_OF_100`), moved verbatim. `serve_app` stays behind in the facade, so
-the facade keeps `create_job`, `delete_job` and `set_job_progress`; the other
-six repository imports (`get_job_context`, `get_job_progress`,
-`reset_job_state`, `set_job_error`, `set_job_results`, `set_job_stat`) moved
-with the code that reads them.
-
-Six tests moved out of `test_frontend_gate.py`, retargeting their patches of
-`reset_job_state`, `set_job_progress`, `create_job`, `delete_job`,
-`get_job_progress` and `get_job_context`, and of
-`_exercise_pipeline_state_machines`, to `_frontend_gate_pipeline`. Two moved
-tests also called `_check_phase_repository_isolation`,
-`_exercise_replaced_job_progress`, `_exercise_counted_progress` and
-`get_job_progress` through `frontend_gate.<name>` attribute access -- names
-the facade no longer defines -- and were retargeted the same way.
-`serve_app`'s own tests kept patching `frontend_gate.create_job`,
-`frontend_gate.set_job_progress` and `frontend_gate.delete_job`, since those
-three still resolve there.
