@@ -9,6 +9,35 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Frontend gate split: layout slice (F-B21-51)
+
+Side task, no batch tag. `_frontend_gate_layout.py` now owns the six checks
+that measure fonts, text scaling, touch targets and large-display
+composition -- `check_touch_targets`, `check_fonts`, `check_body_font`,
+`check_shell_scales_with_text`, `check_large_display_scale_parity`,
+`check_destination_empty_states` -- plus their eighteen measurement and
+judgement helpers and the `FONTS_READY_EXPRESSION`, `REQUIRED_FONT_FAMILIES`,
+`MIN_TOUCH_TARGET_PX`, `INTERACTIVE_SELECTOR`, `TOUCH_TARGET_STATES` and
+`DEFAULT_STATES` constants, moved verbatim and importing `_clamp_px` from the
+colour slice and the page inventories and `_reach_state` from the shared
+module. It is the largest slice at roughly 1,150 lines; the split isolates it
+rather than shrinking it, and `check_large_display_scale_parity`'s own
+complexity is a separate question. The definitions were not contiguous in the
+facade: `check_loading_composition` stayed behind between
+`check_shell_scales_with_text` and the scale-parity measurement helpers.
+
+Sixteen tests and the `_healthy_mobile_header` helper moved out of
+`test_frontend_gate.py`. Several of the moved tests called private helpers
+through `frontend_gate._mobile_header_failures`, `frontend_gate.
+_expected_scaled_dimension`, `frontend_gate._scale_dimension_failures`,
+`frontend_gate._wide_layout_failures`, `frontend_gate._header_geometry_failures`,
+`frontend_gate._scale_mechanism_failures`, `frontend_gate._measure_enlarged_root`
+and `frontend_gate._composition_bounds_failures` -- private names the facade
+never re-exports, so those references were retargeted to
+`_frontend_gate_layout` alongside the patch-target guard's own findings.
+`test_the_touch_profiles_really_carry_a_coarse_pointer` stayed in
+`test_frontend_gate.py`: it tests `VIEWPORTS`, which remains in the facade.
+
 ### 2026-09-21 - Frontend gate split: theme slice (F-B21-51)
 
 Side task, no batch tag. `_frontend_gate_theme.py` now owns the nine checks
