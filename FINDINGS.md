@@ -1146,6 +1146,79 @@ Status: open (P2). The owner added it to Batch 23 WP-0 Part C on 2026-09-23:
 checks run without the cache, and only the persistence is skipped. Source:
 owner local run, 2026-09-23.
 
+### F-B23-1: album calculation writes its exclusions into the job instead of returning them
+
+`orchestrator/_results._build_results` takes `job_id`, returns the album rows,
+and sends each release-scope exclusion out through a hidden
+`add_job_unmatched` call on the facade. So a test of a corrected-date
+exclusion has to create a real job and read it back
+(`tests/services/test_orchestrator_helpers.py` does). The calculation's
+answer is also split between its return value and a side effect.
+
+Batch 23 WP-6 adds per-album statistics to this same module. A calculation
+that returns rows, exclusions and statistics together, with the caller
+publishing them to the job, would give WP-6 a place to land those statistics
+that can be tested without a job.
+
+A migration can leave the Last.fm path's tests unmodified: add the pure
+calculation, and keep `_build_results(cache_hits, job_id, ...)` as a thin
+wrapper that publishes its result. The existing `orchestrator.add_job_unmatched`
+patch target then still holds.
+
+Status: open (P2). Owner timing, 2026-09-23: settle it after WP-0's provider
+repairs and before WP-6's detailed design. Scheduling it inside Batch 23 needs
+an explicit scope amendment, and `BATCH23_DEFINITION.md` WP-6 carries that
+decision point. Source: card 01 of
+`docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
+(2026-09-23).
+
+### F-B23-2: Last.fm's payload shape travels into both calculations
+
+`lastfm.py` returns raw JSON pages. `orchestrator.fetch_top_albums_async`
+then reads `recenttracks`, `track`, `album.#text`, `artist.#text` and
+`date.uts` itself, and `heatmap._aggregate_daily_counts` reads `recenttracks`
+and `date.uts`. A change to Last.fm's payload therefore reaches two
+calculations, and WP-6's first-listen and busiest-hour statistics would add
+more of the same reads. Global Rule 4 puts that translation inside the
+provider module.
+
+The fix is to have `lastfm.py` translate the payload into native listening
+facts, keeping completeness explicit. Two differences must survive:
+- the heatmap counts dated rows even without album metadata, while album
+  aggregation needs artist, album and track;
+- the Spotify-export rules (30 seconds, private sessions) must not be imposed
+  on Last.fm.
+
+It cannot land inside Batch 23 as-is: `tests/test_heatmap.py` feeds
+`_aggregate_daily_counts` raw pages, and Batch 23 keeps the Last.fm path's
+tests unmodified. It is separate from F-B22-7, which translates Spotify's
+metadata payload.
+
+Status: open (P2). A parity refactor for a batch after Batch 23. Source:
+card 02 of `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
+(2026-09-23).
+
+### F-B23-3: the album pipeline runs the cache connection protocol itself
+
+`orchestrator.process_albums` opens the cache connection, holds it across
+provider work, and closes it in a `finally`. Meanwhile
+`orchestrator/_cache.py` owns the cache-failure policy, including writing job
+warnings through the facade. So understanding what "the cache is optional"
+means takes both modules. It also makes the connection-closure test in
+`tests/services/test_orchestrator_process_albums.py` configure the provider
+machinery.
+
+The fix is for the existing cache module to own the operation's lifetime and
+its failure classification, while job messages and enrichment decisions stay
+with the caller. There is one concrete adapter, so no generic cache-backend
+layer. Metadata and release-check cache policy stay separate.
+
+Status: open (P2). Reassess after F-B22-7 and F-B22-8 land, because both
+change this code. Keep it out of their commits. No performance gain is
+claimed. Source: card 03 of
+`docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
+(2026-09-23).
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in

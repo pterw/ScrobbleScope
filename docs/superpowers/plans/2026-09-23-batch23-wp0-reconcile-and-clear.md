@@ -64,11 +64,18 @@ Every task's requirements include this section.
   - the `FINDINGS.md` header count.
   A new test module also changes the module count.
 - **Resolving a finding.** Replace its free-prose `Status:` line with the canonical record from
-  `docs/agents/issue-tracker.md`:
+  `docs/agents/issue-tracker.md`. The status line carries the bare outcome and nothing else. The
+  archive's order is the status line, the completion date, then the reason on its own line:
   ```
-  - [x] **Status:** resolved -- <what fixed it, naming the function>.
+  - [x] **Status:** resolved
   **Completed:** <YYYY-MM-DD, the commit's date>
+  <What fixed it, naming the function.>
   ```
+  *Corrected 2026-09-23, after Task 1.* This template first put the reason on the status line
+  (`resolved -- <reason>`). The gate accepts only `resolved` or `no action` there: any trailing text
+  fails DOC015, and "deploy", "pending" or "accepted" fails DOC014 (`scripts/docsync/findings.py`,
+  `_TERMINAL_SUFFIXES`, `PENDING_QUALIFIER_RE`). Where a task below says "the canonical record's
+  reason: ...", that text is the reason line.
   Run `--fix`, which rotates the record into `docs/history/findings/FINDINGS_ARCHIVE.md`, then stage both
   files. Never write "resolved" about a *different* finding in prose (DOC023): say "archived" or
   "settled" instead.
@@ -280,6 +287,10 @@ Use `b1fdb121`'s date for F-B21-26 and F-B21-28, and `8b37566a`'s for F-B21-29.
 
 For F-B20-3, the reason reads "Bootstrap and both CDN providers were retired by `85e7511` (Batch 21
 WP-8)".
+
+*As executed (`f3942de`):* the gate refused the form above, for the reason Global Constraints
+"Resolving a finding" gives. Each record was written as a bare `- [x] **Status:** resolved`, with
+the same sha, dates and sentence on the line below it.
 
 - [x] **Step 4: Leave the P0 heading true.** Once `--fix` has rotated the four P0 records out, the
   `## P0 -- Fix before next deploy` section is empty. Put one line under the heading, rather than
@@ -1474,8 +1485,9 @@ table.
   in `docs/design/README.md` that cards are "elevated" in the light theme with "delineated by the
   border". F-B21-53 therefore leaves the frontend plan.
 
-- [ ] **Step 2: Write the no-action records.** Each finding's `Status:` prose becomes
-  `- [x] **Status:** no action -- <reason>.` plus `**Completed:** <today>`. The reasons:
+- [ ] **Step 2: Write the no-action records.** Each finding's `Status:` prose becomes a bare
+  `- [x] **Status:** no action` line, then `**Completed:** <today>`, then the reason on its own line
+  (Global Constraints "Resolving a finding": text after the outcome fails DOC015). The reasons:
   - **F-B21-15:** "owner ruling 2026-09-23: Batch 23 schedules no `GET /heatmap/<username>` route, and
     the split pays off only with it; reopen when a batch schedules shareable heatmap URLs."
   - **F-STYLE-1:** "owner ruling 2026-09-23: standing prose guidance with no fix state -- it cannot

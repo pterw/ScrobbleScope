@@ -108,14 +108,15 @@ Mutation-check every limit.
 
 ## Phase 2: Hand-off to the worker; the Last.fm path unchanged
 
-- **Pure extractions in `orchestrator.py`:**
-  - `_cap_threshold_exclusions`
-  - `_process_filtered_albums`: the tail of `_fetch_and_process`, from
-    `_apply_pre_slice` to `set_job_results`
-  - `_run_coroutine_in_new_loop`: the run-and-close wrapper, built on
-    `worker.new_thread_event_loop` (extracted 2026-09-21 for F-B20-2)
-  - `tests/services/test_orchestrator_fetch_and_process.py` must pass
-    unmodified
+- **Pure extractions**, landed in Batch 23 WP-0 Part A (2026-09-23), with no
+  test changed:
+  - `orchestrator._cap_threshold_exclusions`
+  - `orchestrator._process_filtered_albums`: the tail of `_fetch_and_process`,
+    from `_apply_pre_slice` through the release-check hand-off and the "Done"
+    progress, so the export task gets both without a copy
+  - `worker.run_coroutine_in_new_loop`: the run-and-close wrapper. It landed
+    in `worker.py`, not `orchestrator/`, so the heatmap path shares it
+  - `heatmap._zero_fill_daily_counts`
 - **New `scrobblescope/export_jobs.py`:**
   - `export_album_task` parses in `asyncio.to_thread` and closes the buffer.
     It then runs `partition_albums_by_threshold`, `set_job_stat`,
@@ -139,8 +140,10 @@ Mutation-check every limit.
     structural errors come back immediately as 400 JSON.
   - It then calls `acquire_job_slot` and
     `create_job({"source": "spotify_export", "username": None, ...})`.
-  - It starts `start_job_thread(export_*_task, (job_id, BytesIO(data), ...))`
-    and returns 202 `{job_id, redirect}`.
+  - It starts `start_job_thread(export_*_task, (job_id, upload, ...))`, handing
+    over the request's own buffer, and returns 202 `{job_id, redirect}`.
+    (Amended 2026-09-23: this read `BytesIO(data)`, which copies the upload
+    and holds it twice. See "Upload ownership and the waiting bound" below.)
 - **`UploadAwareRequest`**, set in `app.py` `create_app`, applies only when the
   endpoint is `main.spotify_export_loading`:
   - `max_content_length = EXPORT_MAX_UPLOAD_BYTES`
@@ -161,6 +164,40 @@ Mutation-check every limit.
   - the synchronous error codes
   - `start_job_thread` arguments
   - the file stream is `BytesIO`, never `SpooledTemporaryFile`
+
+### Upload ownership and the waiting bound (owner ruling, 2026-09-23)
+
+Adopted from card 04 of `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`.
+The privacy and memory guarantees were spread across four places: the request class, the route's
+directory check, the thread hand-off and the parser. Each place was correct on its own, and no single
+owner guaranteed the whole. This section gives the upload one owner at every moment. It is a design
+rule for WP-2 to WP-4, not a new module or framework.
+
+- **One owner at a time.** The buffer is the `BytesIO` that `UploadAwareRequest` creates, and it is
+  never copied.
+  - The route owns it until `start_job_thread` succeeds, and it closes the buffer on every refusal:
+    an invalid directory, admission refused, or a failed thread start.
+  - From a successful start on, the export task owns it and closes it on every path, success and
+    failure alike.
+  - Nothing else holds a reference to it.
+- **The lifecycle lives in `spotify_export.py`**, as one small type that owns the buffer, the
+  directory inspection, the streamed read and `close()`, usable as a context manager. It knows nothing
+  of Flask or jobs. Job admission stays in WP-4's admission module, and parse concurrency stays with
+  the parse semaphore.
+- **The waiting bound.** `BoundedSemaphore(2)` bounds how many parses *run*, not how many buffers
+  *wait* for a permit. With `MAX_ACTIVE_JOBS` at 5, five uploads could sit in memory at once on a
+  512 MB machine. So admission also caps export jobs in flight -- admitted, with the buffer not yet
+  closed -- at `EXPORT_MAX_IN_FLIGHT`, and refuses the next export upload with 429.
+  - Last.fm jobs never count against it.
+  - Peak upload memory is then at most `EXPORT_MAX_IN_FLIGHT` times `EXPORT_MAX_UPLOAD_BYTES`, plus
+    the parse working set.
+  - Verification step 3 sets the in-flight cap, the upload cap and the semaphore together, from
+    the same measurement.
+- **Tests (WP-3 and WP-4):**
+  - the buffer is closed after each refusal path, after a parser failure and after success;
+  - with `EXPORT_MAX_IN_FLIGHT` export jobs in flight, the next export upload gets a 429 and no job
+    is created, while a Last.fm job is still admitted;
+  - no second copy of the upload exists: the task receives the request's own buffer object.
 
 ## Phase 4: UI (`templates/index.html`, `templates/partials/_heatmap_form.html`, `static/js/index.js`, `static/js/heatmap.js`)
 
@@ -282,8 +319,8 @@ already holds, so Last.fm and Spotify users get the same thing.
    and heatmap pages.
 3. **Memory:** measure `tracemalloc` peak and VmHWM parsing the owner's real
    export, locally and on Fly (`fly ssh console`). Then run 3 uploads at once
-   and watch for OOM. Set `EXPORT_MAX_UPLOAD_BYTES` and the parse semaphore
-   from those numbers; the fallback is scaling to 1 GB.
+   and watch for OOM. Set `EXPORT_MAX_UPLOAD_BYTES`, the parse semaphore and
+   `EXPORT_MAX_IN_FLIGHT` from those numbers; the fallback is scaling to 1 GB.
 4. **Cross-check:** the owner's Spotify export against their Last.fm results
    for one year. Expect small differences, because `ts` is the stream end time
    and offline plays carry sync time.
@@ -300,8 +337,9 @@ already holds, so Last.fm and Spotify users get the same thing.
 
 ## Risks
 
-- **Memory:** 512 MB total. Mitigated by the parse semaphore, streaming parsing
-  and a measured cap.
+- **Memory:** 512 MB total. Mitigated by the parse semaphore, streaming parsing,
+  a measured upload cap, and the in-flight bound on export jobs waiting for a
+  parse permit.
 - **Spotify API:** the Feb 2026 changelog lists "Get Several Albums" as removed
   and caps search at 10 results. Both work for this app today, and this
   source raises traffic through `process_albums`. The app is a Development Mode

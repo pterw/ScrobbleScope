@@ -165,7 +165,8 @@ See FINDINGS F-DOCSYNC-3.
   records the answers. The order from here:
   1. Part A: the foundation plan's Task 2 -- done 2026-09-23. Then its
      Task 12, the release-window rule moved to `domain.py`, which the owner
-     added to Part A on 2026-09-23 -- also done 2026-09-23.
+     added to Part A on 2026-09-23 -- also done 2026-09-23. Part A is
+     complete, each task reviewed clean.
   2. This plan's Stage 1, then Stage 2, then Stage 3. Stage 1 Task 1 (the
      six stale "pending deploy" records) landed 2026-09-23. Stage 2 includes
      Task 11 (F-B22-8), which the owner added on 2026-09-23.
@@ -377,6 +378,45 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Export upload ownership, three depth findings, and a template fix
+
+Side task, no batch tag: records owner rulings on the 2026-09-23
+architecture-depth proposal, part of Batch 23 WP-0. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands. No code changed. With Task 12's
+fix round (`972264f`) reviewed clean, Part A -- the loop protocol, the
+three extractions and the release-window leaf -- is complete.
+
+- **The proposal is now tracked** as
+  `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`, renamed from
+  the owner's "ScrobbleScope - further architectural depth.html" to the
+  reports folder's topic-and-date form. An older `.htm` draft beside it stays
+  untracked. DOC001 checks only `.md` references and skips paths containing
+  spaces, so the rename is a naming convention, not a gate fix.
+- **Card 04 amends the export plan now.** The upload has one owner at every
+  moment and is never copied: the route owns it until the thread starts and
+  closes it on every refusal, and the task owns it after that. Admission
+  also caps export jobs in flight at `EXPORT_MAX_IN_FLIGHT`, because the
+  parse semaphore bounds running parses, not buffers waiting for a permit.
+  The export plan's new "Upload ownership and the waiting bound" section
+  holds the rule, and the definition's WP-3 and WP-4 checkboxes and
+  acceptance carry it. The plan's Phase 2 now records the Part A
+  extractions as landed, under their real names.
+- **Cards 01-03 are filed at P2** as F-B23-1 (album calculation returns its
+  whole answer), F-B23-2 (Last.fm translates its own payload) and F-B23-3
+  (the cache module owns its connection). F-B23-1 is timed by the owner:
+  after WP-0's provider repairs and before WP-6's design, with any move into
+  Batch 23 needing its own scope amendment. The definition's WP-6 names that
+  decision point.
+- **The reconcile plan's finding template is corrected.** It put the reason
+  on the status line (`resolved -- <reason>`). The gate accepts only a bare
+  `resolved` or `no action`, and Task 1's implementer found this by running
+  `--fix`. The template, Task 1 Step 3's record of what ran, and Task 10
+  Step 2's no-action form now follow the archive's order: status,
+  completion date, then the reason on its own line.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Close six stale pending-deploy findings
 
 Side task, no batch tag: close the six finding records that still said "resolved locally, pending
@@ -493,34 +533,6 @@ changed.
   development reaches the branch: on Fly.io the database wakes with the app.
   The reconcile plan's Task 11 fixes it; one existing test that asserts the
   skip is replaced there, as Part C allows.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - The remaining shared extractions
-
-Side task, no batch tag: extract the three remaining shared steps, part of
-Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole
-of WP-0 lands.
-
-- **What moved, verbatim (controller ruling R12).** In
-  `scrobblescope/orchestrator/__init__.py`: `_cap_threshold_exclusions(threshold_exclusions)`
-  is the tie-break-commented cap block from `fetch_top_albums_async`, returning the
-  (possibly capped) dict; `total_below_threshold` is still computed from the
-  uncapped dict before the call. `_process_filtered_albums(job_id, filtered_albums,
-  year, sort_mode, release_scope, decade, release_year, limit_results,
-  overall_start_time)` is the tail of `_fetch_and_process`, from the
-  `_apply_pre_slice` call through `enqueue_release_check` and `return results`;
-  `_fetch_and_process` keeps its outer `try`/`except`, `overall_start_time`, and the
-  "Processing your albums..." progress call, and now ends with
-  `return await _process_filtered_albums(...)`. In `scrobblescope/heatmap.py`:
-  `_zero_fill_daily_counts(counts, from_date, to_date)` is Phase 2 of
-  `_aggregate_daily_counts`, which now returns its result.
-- Each new function's docstring names the Batch 23 Spotify-export path as its
-  second caller.
-- No test written or modified: `tests/services/test_orchestrator_fetch_and_process.py`
-  and `tests/test_heatmap.py` pass unmodified, and `git diff --stat tests/` was
-  empty after each of the three moves.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

@@ -321,9 +321,16 @@ and the orchestrator never knows about zips.
 - [ ] `export_heatmap_task` mirrors `_fetch_and_process_heatmap` from
   aggregation onward, with `source: "spotify_export"` and `username: None`.
 - [ ] A `BoundedSemaphore(2)` around parsing caps peak memory.
+- [ ] **The upload has one owner at every moment** (owner ruling,
+  2026-09-23). The task receives the request's own buffer, never a copy,
+  owns it from a successful thread start on, and closes it on every path.
+  The export plan's "Upload ownership and the waiting bound" section holds
+  the rule.
 - **Acceptance:** `process_albums` receives the aggregate;
   `fetch_all_recent_tracks_async` is never called, proven by patching it to
-  raise; an error reaches the job; the buffer is closed on every path.
+  raise; an error reaches the job; the buffer is closed on every path,
+  parser failure and success included; the object the task closes is the
+  one the request created.
 
 ### WP-4 -- Routes and upload handling
 
@@ -345,12 +352,21 @@ and the orchestrator never knows about zips.
   export routes all call it; each route keeps its own request parsing,
   session and HTTP response. The export route is the third caller, which is
   what makes the extraction worth doing here (owner ruling, 2026-09-21).
+- [ ] **Bound export jobs waiting to parse** (owner ruling, 2026-09-23). The
+  parse semaphore limits running parses, not buffers waiting for a permit.
+  So admission caps export jobs in flight at `EXPORT_MAX_IN_FLIGHT`, sized
+  from the batch's memory measurement, and refuses the next export upload
+  with 429. Last.fm jobs do not count against it. The route closes the
+  buffer on every refusal.
 - **Acceptance:** a multipart success; a 413 on this endpoint while a large
   Last.fm POST is unaffected; CSRF answered as JSON; each synchronous error
   code; the thread started with the expected arguments; and a test proving
   the stream is `BytesIO` and never `SpooledTemporaryFile`. For admission:
   a failed thread start leaves no slot held and no orphaned job, tested for
-  each of the three routes.
+  each of the three routes. For the waiting bound: with
+  `EXPORT_MAX_IN_FLIGHT` export jobs in flight, the next export upload gets
+  429 and creates no job while a Last.fm job is still admitted, and the
+  buffer is closed after every refusal.
 
 ### WP-5 -- The interface
 
@@ -379,6 +395,14 @@ and the orchestrator never knows about zips.
 
 Every statistic is computed from data the pipeline already holds, so no
 additional API call is made and Last.fm and Spotify users get the same thing.
+
+**Decision point before WP-6's detailed design (owner, 2026-09-23).**
+F-B23-1 proposes that the album calculation return its whole answer --
+rows, exclusions and the new statistics -- instead of writing exclusions
+into the job as a side effect. That is where WP-6's per-album statistics
+would live. Settle it after WP-0's provider repairs and before this work
+package is designed. Scheduling it inside Batch 23 needs an explicit scope
+amendment, and a migration that keeps the Last.fm path's tests unmodified.
 
 - [ ] Per album: completion ("9 of 12 tracks"), the most-played track shown
   with its original name, and the first listen that year. Both aggregators
