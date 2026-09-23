@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Owner rulings: the release-window leaf and F-B22-8
+
+Side task, no batch tag: records three owner rulings, part of Batch 23 WP-0.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands. No code
+changed.
+
+- **Q0 is settled: the Batch 22 MusicBrainz check is done.** The worker logs
+  nothing on success, so the logs could not answer it. `original_release_cache`
+  could. It held 121 rows, and 60 were written within a minute of each of the
+  owner's two runs with Postgres up (06:04 and 16:34 local). Section 3's
+  Batch 22 bullet and the definition's Part B box now record both owner items
+  as done. The reconcile plan's Task 1 Step 5 is marked as taken over by this
+  commit, because Section 3 must stay true at every commit.
+- **Review A card 3 joins Part A** as the foundation plan's Task 12. It moves
+  `_matches_release_criteria` into `domain.py`, which deletes the one deferred
+  edge in the import graph. It is numbered 12, not 2b, because `task-brief`
+  would pull a "Task 2b" heading into Task 2's brief. The rest of the
+  2026-09-21 review was already dispositioned in the foundation plan's DoD.
+- **F-B22-8 is filed and joins Part C at P2.** With the cache DB down,
+  `run_release_checks` skips the whole job. The owner ruled that checks run
+  regardless, with only persistence skipped. It is P2 because only local
+  development reaches the branch: on Fly.io the database wakes with the app.
+  The reconcile plan's Task 11 fixes it; one existing test that asserts the
+  skip is replaced there, as Part C allows.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The remaining shared extractions
 
 Side task, no batch tag: extract the three remaining shared steps, part of

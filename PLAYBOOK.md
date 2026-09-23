@@ -167,9 +167,11 @@ See FINDINGS F-DOCSYNC-3.
      Task 12, the release-window rule moved to `domain.py`, which the owner
      added to Part A on 2026-09-23 -- also done 2026-09-23. Part A is
      complete, each task reviewed clean.
-  2. This plan's Stage 1, then Stage 2, then Stage 3. Stage 1 Task 1 (the
-     six stale "pending deploy" records) landed 2026-09-23. Stage 2 includes
-     Task 11 (F-B22-8), which the owner added on 2026-09-23.
+  2. This plan's Stage 1, then Stage 2, then Stage 3. Stage 1 (Tasks 1 and 2)
+     is complete: Task 1 (the six stale "pending deploy" records) and Task 2
+     (the docsync work-package gap, filed as F-DOCSYNC-15) both landed
+     2026-09-23. Stage 2 includes Task 11 (F-B22-8), which the owner added
+     on 2026-09-23.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -378,6 +380,37 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The work-package state gap is filed as F-DOCSYNC-15
+
+Side task, no batch tag: files the docsync work-package state gap this
+amendment exposed, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **Task 2 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scripts/docsync/parser.py` `_collect_wp_numbers` counts every
+  `WP-<n>` token in a current-batch entry heading as a completed work
+  package, so the first commit of a multi-commit work package already makes
+  the dashboard name the next one -- verified directly before filing:
+  `docs/history/logs/BATCH22_LOG.md` carries three `(Batch 22 WP-4)` entries
+  dated 2026-09-20, all landed before WP-4 was actually done, and
+  `_collect_wp_numbers` regex-matches `WP-(\d+)` against each entry heading
+  with no completion check at all.
+- **Filed as F-DOCSYNC-15** under `FINDINGS.md` "P1 -- Next batch
+  candidates", status open (P1), unchecked. The body records the owner's Q4
+  fix shape (2026-09-23): a work package closes only on an entry carrying an
+  explicit `**Status:** WP-N complete` line, which the control-plane
+  follow-on plan implements.
+- **Bookkeeping:** `BATCH23_DEFINITION.md` WP-0 Part B's "File the docsync
+  gap this amendment exposed" checkbox is ticked (done 2026-09-23, as
+  F-DOCSYNC-15); its Part C set now names F-DOCSYNC-15 alongside the "38 IDs
+  plus one" count. The reconcile plan's Task 2 steps are ticked. Section 3's
+  order list now records Stage 1 (Tasks 1 and 2) as complete.
+- No code changed; no test added.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Export upload ownership, three depth findings, and a template fix
 
 Side task, no batch tag: records owner rulings on the 2026-09-23
@@ -508,31 +541,3 @@ they are not repository state.
 Forward guidance: WP-0 Part A's foundation-plan tasks (2 and 12) are both done. The next steps are the
 reconcile plan's Stage 1 through Stage 3 (Task 11 included), then the foundation plan's Tasks 4-10, per
 Section 3's order list.
-
-### 2026-09-23 - Owner rulings: the release-window leaf and F-B22-8
-
-Side task, no batch tag: records three owner rulings, part of Batch 23 WP-0.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands. No code
-changed.
-
-- **Q0 is settled: the Batch 22 MusicBrainz check is done.** The worker logs
-  nothing on success, so the logs could not answer it. `original_release_cache`
-  could. It held 121 rows, and 60 were written within a minute of each of the
-  owner's two runs with Postgres up (06:04 and 16:34 local). Section 3's
-  Batch 22 bullet and the definition's Part B box now record both owner items
-  as done. The reconcile plan's Task 1 Step 5 is marked as taken over by this
-  commit, because Section 3 must stay true at every commit.
-- **Review A card 3 joins Part A** as the foundation plan's Task 12. It moves
-  `_matches_release_criteria` into `domain.py`, which deletes the one deferred
-  edge in the import graph. It is numbered 12, not 2b, because `task-brief`
-  would pull a "Task 2b" heading into Task 2's brief. The rest of the
-  2026-09-21 review was already dispositioned in the foundation plan's DoD.
-- **F-B22-8 is filed and joins Part C at P2.** With the cache DB down,
-  `run_release_checks` skips the whole job. The owner ruled that checks run
-  regardless, with only persistence skipped. It is P2 because only local
-  development reaches the branch: on Fly.io the database wakes with the app.
-  The reconcile plan's Task 11 fixes it; one existing test that asserts the
-  skip is replaced there, as Part C allows.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.

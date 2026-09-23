@@ -325,13 +325,13 @@ git commit -m "docs(findings): Close six records that shipped with the deploy"
 **Interfaces:** Produces the new finding's ID, which Q4 and the control-plane plan cite. Record it in
 the Section 4 entry.
 
-- [ ] **Step 1: Find the next free `F-DOCSYNC-` number.** Take the highest in use and add one:
+- [x] **Step 1: Find the next free `F-DOCSYNC-` number.** Take the highest in use and add one:
 
 ```bash
 git grep -h -o "F-DOCSYNC-[0-9]*" -- FINDINGS.md docs/history/findings/ | sort -t- -k3 -n | uniq | tail -1
 ```
 
-- [ ] **Step 2: File the finding under "P1 -- Next batch candidates"**, using the number from Step 1:
+- [x] **Step 2: File the finding under "P1 -- Next batch candidates"**, using the number from Step 1:
 
 ```
 ### F-DOCSYNC-<N>: a work package reads as complete on its first tagged log entry
@@ -341,7 +341,7 @@ git grep -h -o "F-DOCSYNC-[0-9]*" -- FINDINGS.md docs/history/findings/ | sort -
 - [ ] **Status:** open (P1). Source: Batch 23 WP-0 definition amendment and triage D, 2026-09-23.
 ```
 
-- [ ] **Step 3: Run the gates and commit.** Stage both files by name, then:
+- [x] **Step 3: Run the gates and commit.** Stage both files by name, then:
 
 ```bash
 git commit -m "docs(findings): File the work-package state gap"

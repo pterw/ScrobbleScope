@@ -192,9 +192,9 @@ WP-0 did.
   records the outcome of each, or the owner's deferral. Both are done,
   recorded 2026-09-23 in PLAYBOOK Section 3; the reconcile plan's Q0 answer
   holds the evidence.
-- [ ] **File the docsync gap this amendment exposed.** A work package cannot
+- [x] **File the docsync gap this amendment exposed.** A work package cannot
   be marked "in progress": it reads as complete on its first tagged entry.
-  Filed at P1, it joins Part C's set.
+  Filed at P1, it joins Part C's set. Done 2026-09-23, as F-DOCSYNC-15.
 - The Batch 21 frontend and accessibility audit stays in WP-7, by the
   2026-09-13 ruling. Part B does not move it.
 - **Acceptance:**
@@ -207,9 +207,9 @@ WP-0 did.
 #### Part C -- Clear every open P0 and P1 finding
 
 The set is every finding open at P0 or P1 in `FINDINGS.md` on 2026-09-23,
-plus the docsync gap Part B files. That is 38 IDs plus one, listed so that a
-finding filed later does not silently join, and a listed one does not
-silently leave:
+plus the docsync gap Part B files (F-DOCSYNC-15). That is 38 IDs plus one,
+listed so that a finding filed later does not silently join, and a listed one
+does not silently leave:
 
 - **P0 (4):** F-B21-26, F-B21-27, F-B21-28, F-B21-29.
 - **P1 (34):** F-B18-11, F-B20-3, F-B21-3, F-B21-4, F-B21-6, F-B21-9,
