@@ -624,6 +624,29 @@ class TestHeatmapTask:
                 heatmap_task("job-loop-err", "user")
             mock_release.assert_called_once()
 
+    def test_unhandled_crash_publishes_internal_error(self):
+        """A crash that escapes the pipeline ends the job as internal_error,
+        not as a Last.fm outage that never happened (F-SWE-5)."""
+        from scrobblescope.repositories import create_job, get_job_progress
+        from tests.helpers import TEST_JOB_PARAMS
+
+        job_id = create_job(TEST_JOB_PARAMS)
+        with (
+            patch("scrobblescope.heatmap.release_job_slot"),
+            patch(
+                "scrobblescope.heatmap._fetch_and_process_heatmap",
+                new_callable=AsyncMock,
+                side_effect=ZeroDivisionError("ours"),
+            ),
+        ):
+            heatmap_task(job_id, "user")
+
+        progress = get_job_progress(job_id)
+        assert progress["error"] is True
+        assert progress["error_code"] == "internal_error"
+        assert progress["error_source"] == "internal"
+        assert progress["retryable"] is False
+
 
 # ===========================================================================
 # Error code registry
@@ -651,6 +674,16 @@ class TestErrorCode:
         formatted = msg.format(username="testuser")
         assert "testuser" in formatted
         assert "365" in formatted
+
+    def test_internal_error_exists(self):
+        """internal_error is registered for faults that are ours (F-SWE-5)."""
+        from scrobblescope.errors import ERROR_CODES
+
+        code = ERROR_CODES.get("internal_error")
+        assert code is not None, "internal_error not in ERROR_CODES"
+        assert code["source"] == "internal"
+        assert code["retryable"] is False
+        assert "{username}" not in code["message"]
 
 
 class TestHeatmapPhaseProgress:

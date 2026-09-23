@@ -262,14 +262,14 @@ async def _fetch_and_process_heatmap(job_id, username):
 def _report_heatmap_failure(job_id, username):
     """Log the crash and publish this pipeline's terminal state.
 
-    Called from inside the helper's ``except`` block, so ``logging.exception`` still
-    sees the active exception. The ``lastfm_unavailable`` code is the open defect
-    ``F-SWE-5`` records -- it is wrong for a fault that is ours -- and this function
-    keeps it deliberately: changing the code is a behaviour change, and it belongs in
-    its own commit, which is now a one-line edit here.
+    Called from inside the helper's ``except`` block, so ``logging.exception``
+    still sees the active exception. A fault that reaches this backstop is
+    ours: ``internal_error`` says so, where ``lastfm_unavailable`` blamed an
+    upstream that never failed (F-SWE-5). The inner, status-based Last.fm
+    path inside ``_fetch_and_process_heatmap`` still publishes its own code.
     """
     logging.exception(f"Unhandled error in heatmap task for {username}")
-    set_job_error(job_id, "lastfm_unavailable", username=username)
+    set_job_error(job_id, "internal_error", username=username)
 
 
 def heatmap_task(job_id, username):
@@ -277,8 +277,9 @@ def heatmap_task(job_id, username):
 
     The build-run-close-release protocol, including that the loop is built inside
     the ``try`` so the slot is released in the ``finally``, lives in
-    ``worker.run_coroutine_in_new_loop``. What stays here is local: a failed run is
-    reported rather than raised, which is this entry point's answer to F-SWE-5.
+    ``worker.run_coroutine_in_new_loop``. What stays here is local: a failed
+    run is reported as ``internal_error`` rather than raised, the same answer
+    the album entry point gives (F-SWE-5).
     """
     run_coroutine_in_new_loop(
         _fetch_and_process_heatmap(job_id, username),

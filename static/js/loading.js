@@ -97,15 +97,21 @@ function updateProgress(progressData) {
   }
 }
 
+/** Upstream names a failure may cite; any other source shows no source line. */
+const ERROR_SOURCE_LABELS = { lastfm: 'Last.fm', spotify: 'Spotify' };
+
+/** Render a job failure and name its upstream source when there is one. */
 function showFailure(message, source) {
   errorDetected = true;
   progressBar?.classList.add('is-error');
   errorContainer?.classList.remove('hidden');
   if (errorText) errorText.textContent = message;
 
-  if (errorSource && source) {
-    errorSource.textContent = `Source: ${source === 'lastfm' ? 'Last.fm' : 'Spotify'}`;
-    errorSource.classList.remove('hidden');
+  if (errorSource) {
+    // A fault that is ours ('internal') is not blamed on an upstream.
+    const label = ERROR_SOURCE_LABELS[source];
+    errorSource.textContent = label ? `Source: ${label}` : '';
+    errorSource.classList.toggle('hidden', !label);
   }
 }
 

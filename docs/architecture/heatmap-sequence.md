@@ -85,8 +85,8 @@ sequenceDiagram
                 end
             end
             opt Unhandled exception anywhere above
-                Heatmap->>Repo: set_job_error(lastfm_unavailable)
-                Note over Heatmap,Repo: Prevents the polling client from hanging
+                Heatmap->>Repo: set_job_error(internal_error)
+                Note over Heatmap,Repo: A fault that reaches this backstop is ours, not an upstream's, and prevents the polling client from hanging
             end
             Heatmap->>Worker: release_job_slot()
             Note over Heatmap,Worker: In worker.run_coroutine_in_new_loop's finally, called from heatmap_task -- always reached because event-loop setup is inside the try block
@@ -136,6 +136,9 @@ the client always sends one, so those responses are not drawn.
 
 `heatmap.py` self-arrows cover in-process work and the `cleanup_expired_cache()`
 helper it imports from `utils.py`, which is not drawn as a participant. The
-diagram's terminal error code is `lastfm_unavailable` because that is the only
-reason the fetch layer emits today; the code passes through whatever reason the
-fetch metadata carries.
+inner, status-based Last.fm path's terminal error code is `lastfm_unavailable`
+because that is the only reason the fetch layer emits today; the code passes
+through whatever reason the fetch metadata carries. The outer backstop -- the
+`opt Unhandled exception anywhere above` block -- is a different path: a fault
+that escapes every inner classifier is ours, so it publishes `internal_error`
+instead (F-SWE-5).

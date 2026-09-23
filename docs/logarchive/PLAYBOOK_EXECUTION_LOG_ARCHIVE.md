@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Reading a job no longer renews its lease
+
+Side task, no batch tag: fixes F-SWE-6, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 3 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done, for the owner's Q1 = a: reads never renew a job's lease.
+  `get_job_progress`, `get_job_unmatched` and `get_job_context`
+  (`scrobblescope/repositories.py`) no longer write `updated_at`;
+  `cleanup_expired_jobs` still reaps on that field, but only a writer now
+  renews it. A polled job -- an open results tab, or the release-check
+  worker's `get_job_context` existence check -- expires `JOB_TTL_SECONDS`
+  after its last write, not its last read.
+- **Test added:** `test_reading_a_job_does_not_renew_its_lease`, parametrized
+  over the three getters (`tests/test_repositories.py`). No existing test
+  asserted the old renewal, so none changed.
+- **`scrobblescope/config.py`:** a new comment above `JOB_TTL_SECONDS` states
+  the reads-never-renew contract.
+- **F-SWE-6 resolved**, with the canonical record and a completion date;
+  `doc_state_sync.py --fix` rotated it into
+  `docs/history/findings/FINDINGS_ARCHIVE.md`.
+- **Bookkeeping:** the reconcile plan's Task 3 steps are ticked. Section 3's
+  order list now records Stage 2 as started, with Task 3 landed.
+- **Fix round 1:** F-SWE-5's body still called F-SWE-6 out as compounding
+  it ("a polled job never expires"), which this task's own fix made false.
+  Reworded to the past tense: F-SWE-6 used to compound it; since it was
+  settled, the stuck job now expires `JOB_TTL_SECONDS` after its last write.
+  The reconcile plan's Step 5 sweep is re-run with wrapped-line variants; no
+  other sibling copy survives outside `BATCH23_DEFINITION.md`'s historical
+  before/after narrative and `README.md`'s unrelated metadata-cache TTL
+  sentence, both out of this task's scope. No test added.
+
+Validation: `pytest -q` -- **1739 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The work-package state gap is filed as F-DOCSYNC-15
 
 Side task, no batch tag: files the docsync work-package state gap this

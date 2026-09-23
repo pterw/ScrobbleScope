@@ -733,3 +733,28 @@ async def test_fetch_and_process_passes_progress_cb_to_lastfm():
             "total": 3,
         },
     }
+
+
+def test_background_task_crash_publishes_internal_error():
+    """
+    GIVEN _fetch_and_process raises something no inner handler classified
+    WHEN background_task runs it
+    THEN the job ends as internal_error, so a polling page stops waiting
+    (F-SWE-5: before this the album backstop only logged).
+    """
+    job_id = create_job(TEST_JOB_PARAMS)
+
+    with (
+        patch(
+            "scrobblescope.orchestrator._fetch_and_process",
+            new_callable=AsyncMock,
+            side_effect=ZeroDivisionError("ours"),
+        ),
+        patch("scrobblescope.orchestrator.release_job_slot"),
+    ):
+        background_task(job_id, "flounder14", 2025, "playcount", "same")
+
+    progress = get_job_progress(job_id)
+    assert progress["error"] is True
+    assert progress["error_code"] == "internal_error"
+    assert progress["error_source"] == "internal"

@@ -9,6 +9,38 @@ Newest rotation first.
 
 ---
 
+### F-SWE-5: the two background entry points disagree about terminal job state -- RESOLVED
+
+`heatmap_task` and `background_task` answer the same question two different
+ways, and both answers are wrong.
+
+`heatmap.py:218-221` catches every exception and reports
+`lastfm_unavailable`. `_fetch_and_process_heatmap` has no inner handler, so
+this is the only handler on the path and it fires for any failure at all.
+Verified: a `ZeroDivisionError` raised inside the aggregation step reaches
+the user as a Last.fm outage message, with `error_source: lastfm` and
+`retryable: True`. The app blames a third party for its own bug and invites
+a retry that will fail the same way.
+
+`orchestrator.py:912-913` has the mirror-image gap: it logs and sets no job
+state, so the job never reaches progress 100 and the loading page polls
+forever. This half needs the inner handler at `orchestrator.py:851` to fail
+first, which nothing observed can cause, so the finding is recorded rather
+than treated as blocking. F-SWE-6 used to compound it, because a polled job
+never expired; since F-SWE-6 was settled, the stuck job expires
+JOB_TTL_SECONDS after its last write.
+
+Fix: give each entry point a terminal state that names what actually
+failed, using an `ERROR_CODES` entry for an unclassified internal error
+rather than borrowing an upstream one.
+- [x] **Status:** resolved
+**Completed:** 2026-09-23
+both entry points publish `internal_error` from their outer handler (`heatmap._report_heatmap_failure`,
+`orchestrator._report_album_failure`); `loading.js` names only a known upstream
+Source: SWE_PRINCIPLES_AUDIT.
+
+---
+
 ### F-B22-7: `AlbumMetadata.as_cache_row` is unreachable from application code -- RESOLVED
 
 `scrobblescope/enrichment.py:19` builds the nine-element provider-aware cache

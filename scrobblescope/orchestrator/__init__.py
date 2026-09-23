@@ -694,6 +694,19 @@ async def _fetch_and_process(
         return []
 
 
+def _report_album_failure(job_id, username, year):
+    """Log the crash and publish this pipeline's terminal state.
+
+    Called from inside the helper's ``except`` block, so ``logging.exception``
+    still sees the active exception. Publishes the same ``internal_error``
+    the heatmap entry point does: two entry points, one answer (F-SWE-5).
+    Before this, the album backstop only logged, and a page polling the job
+    waited on a job that would never finish.
+    """
+    logging.exception(f"Unhandled error in background task for {username}/{year}")
+    set_job_error(job_id, "internal_error", username=username)
+
+
 def background_task(
     job_id,
     username,
@@ -706,18 +719,13 @@ def background_task(
     min_tracks=3,
     limit_results="all",
 ):
-    """Run the async fetch pipeline in a dedicated event loop on this thread.
-
-    ``worker.new_thread_event_loop`` builds the loop, including the Windows
-    ``ProactorEventLoop`` asyncpg needs. It is called inside the ``try`` so a
-    setup failure still reaches the ``finally`` that releases the job slot.
+    """Run the album pipeline on this thread, in a loop the worker owns.
 
     The build-run-close-release protocol lives in
-    ``worker.run_coroutine_in_new_loop``; what stays here is the reaction to a
-    failed run, which is to log it. The classification of a pipeline failure into a
-    job error happens deeper in, inside ``_fetch_and_process``, so this remains a
-    backstop rather than the answer the user sees. ``F-SWE-5`` records that this
-    backstop publishes no terminal state at all, unlike the heatmap's.
+    ``worker.run_coroutine_in_new_loop``. What stays here is the reaction to
+    a failed run: ``_report_album_failure`` logs it and publishes
+    ``internal_error``. Upstream failures are classified deeper in, inside
+    ``_fetch_and_process``, so this backstop only sees faults that are ours.
     """
     run_coroutine_in_new_loop(
         _fetch_and_process(
@@ -737,9 +745,7 @@ def background_task(
         # from the helper's module would move that patch target without failing.
         make_loop=new_thread_event_loop,
         release_slot=release_job_slot,
-        on_run_error=lambda _exc: logging.exception(
-            f"Unhandled error in background task for {username}/{year}"
-        ),
+        on_run_error=lambda _exc: _report_album_failure(job_id, username, year),
     )
 
 

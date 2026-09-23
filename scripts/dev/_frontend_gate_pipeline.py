@@ -602,6 +602,19 @@ def _exercise_pipeline_state_machines(page, base_url: str) -> list[str]:
     if not page.url.startswith(f"{base_url}/loading"):
         failures.append("album retryable failure left the loading route")
 
+    source_line = page.locator("#error-source")
+    source_text = source_line.inner_text().strip()
+    if source_text != "Source: Last.fm":
+        failures.append(
+            f"album rate-limit failure named its source {source_text!r}, "
+            "not 'Source: Last.fm'"
+        )
+    # internal_error's source is ours, not an upstream's: the line must hide
+    # rather than fall through to 'Spotify' (F-SWE-5).
+    page.evaluate("showFailure('gate probe', 'internal')")
+    if source_line.is_visible():
+        failures.append("an internal failure still showed an upstream source line")
+
     reset_job_state(album_job_id)
     set_job_error(album_job_id, "user_not_found", username="frontend-gate")
     page.goto(f"{base_url}{loading_path}", wait_until="load")

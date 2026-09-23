@@ -182,7 +182,8 @@ sequenceDiagram
                 Orch->>Repo: Classified error code, or empty results with a retryable unknown error
             end
             opt Exception escaping that handler
-                Note over Orch,Repo: background_task only logs it, so the job keeps its last state
+                Orch->>Repo: set_job_error(internal_error)
+                Note over Orch,Repo: background_task logs it and publishes internal_error, so a polling page stops
             end
             Orch->>Worker: release_job_slot()
             Note over Orch,Worker: In worker.run_coroutine_in_new_loop's finally, called from background_task -- always reached because event-loop setup is inside the try block

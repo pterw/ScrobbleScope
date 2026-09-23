@@ -929,7 +929,7 @@ git commit -m "refactor(spotify): Remove enrich_albums, which nothing called"
 is not `lastfm`. Without the fix below, an `internal_error` would tell the user Spotify failed, and so
 would WP-1's `spotify_export` source.
 
-- [ ] **Step 1: Write the failing tests.** Append to `tests/test_heatmap.py`, inside `class TestErrorCode`:
+- [x] **Step 1: Write the failing tests.** Append to `tests/test_heatmap.py`, inside `class TestErrorCode`:
 
 ```python
     def test_internal_error_exists(self):
@@ -998,7 +998,7 @@ def test_background_task_crash_publishes_internal_error():
     assert progress["error_source"] == "internal"
 ```
 
-- [ ] **Step 2: Run them to verify they fail.**
+- [x] **Step 2: Run them to verify they fail.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_heatmap.py tests/services/test_orchestrator_fetch_and_process.py -q -k "internal_error"`
 Expected: 3 failed.
@@ -1006,7 +1006,7 @@ Expected: 3 failed.
 - The heatmap test fails because `error_code` is `lastfm_unavailable`.
 - The album test fails because `progress["error"]` is not True: nothing published a state.
 
-- [ ] **Step 3: Register the code.** In `scrobblescope/errors.py`, add as the last entry of
+- [x] **Step 3: Register the code.** In `scrobblescope/errors.py`, add as the last entry of
   `ERROR_CODES`:
 
 ```python
@@ -1020,7 +1020,7 @@ Expected: 3 failed.
     },
 ```
 
-- [ ] **Step 4: The heatmap reaction.** Replace `_report_heatmap_failure` in `scrobblescope/heatmap.py`:
+- [x] **Step 4: The heatmap reaction.** Replace `_report_heatmap_failure` in `scrobblescope/heatmap.py`:
 
 ```python
 def _report_heatmap_failure(job_id, username):
@@ -1045,7 +1045,7 @@ def _report_heatmap_failure(job_id, username):
     the album entry point gives (F-SWE-5).
 ```
 
-- [ ] **Step 5: The album reaction.** In `scrobblescope/orchestrator/__init__.py`, add directly above
+- [x] **Step 5: The album reaction.** In `scrobblescope/orchestrator/__init__.py`, add directly above
   `def background_task(`:
 
 ```python
@@ -1081,7 +1081,7 @@ def _report_album_failure(job_id, username, year):
         on_run_error=lambda _exc: _report_album_failure(job_id, username, year),
 ```
 
-- [ ] **Step 6: Name only a source the page knows.** In `static/js/loading.js`, replace `showFailure`:
+- [x] **Step 6: Name only a source the page knows.** In `static/js/loading.js`, replace `showFailure`:
 
 ```js
 /** Upstream names a failure may cite; any other source shows no source line. */
@@ -1103,7 +1103,7 @@ function showFailure(message, source) {
 }
 ```
 
-- [ ] **Step 7: Pin the label in the gate.** In `scripts/dev/_frontend_gate_pipeline.py`
+- [x] **Step 7: Pin the label in the gate.** In `scripts/dev/_frontend_gate_pipeline.py`
   `_exercise_pipeline_state_machines`, directly after the album block's
   `page.locator("#retry-button").wait_for(state="visible")` and its `if not page.url.startswith(...)`
   check, insert:
@@ -1123,7 +1123,7 @@ function showFailure(message, source) {
         failures.append("an internal failure still showed an upstream source line")
 ```
 
-- [ ] **Step 8: Run the tests and the gate.**
+- [x] **Step 8: Run the tests and the gate.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_heatmap.py tests/services/test_orchestrator_fetch_and_process.py -q`
 Expected: pass.
@@ -1135,7 +1135,7 @@ Then prove the new gate lines can fail. Temporarily revert `showFailure` to its 
 gate, and confirm it fails with "an internal failure still showed an upstream source line". Restore the
 fix and re-run to green. Record both runs in the report.
 
-- [ ] **Step 9: Resolve F-SWE-5 and commit.** The canonical record's reason:
+- [x] **Step 9: Resolve F-SWE-5 and commit.** The canonical record's reason:
 
   > "both entry points publish `internal_error` from their outer handler (`heatmap._report_heatmap_failure`,
   > `orchestrator._report_album_failure`); `loading.js` names only a known upstream".

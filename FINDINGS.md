@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1738 tests across 66 test modules.
+1741 tests across 66 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -834,34 +834,6 @@ What remains is the docstring convention alone: adopt Google sections or
 not. Defer the sweep; record the decision.
 Status: open (docstring convention only). Source: root-hygiene side task,
 2026-08-19.
-
-### F-SWE-5: the two background entry points disagree about terminal job state
-
-`heatmap_task` and `background_task` answer the same question two different
-ways, and both answers are wrong.
-
-`heatmap.py:218-221` catches every exception and reports
-`lastfm_unavailable`. `_fetch_and_process_heatmap` has no inner handler, so
-this is the only handler on the path and it fires for any failure at all.
-Verified: a `ZeroDivisionError` raised inside the aggregation step reaches
-the user as a Last.fm outage message, with `error_source: lastfm` and
-`retryable: True`. The app blames a third party for its own bug and invites
-a retry that will fail the same way.
-
-`orchestrator.py:912-913` has the mirror-image gap: it logs and sets no job
-state, so the job never reaches progress 100 and the loading page polls
-forever. This half needs the inner handler at `orchestrator.py:851` to fail
-first, which nothing observed can cause, so the finding is recorded rather
-than treated as blocking. F-SWE-6 used to compound it, because a polled job
-never expired; since F-SWE-6 was settled, the stuck job expires
-JOB_TTL_SECONDS after its last write.
-
-Fix: give each entry point a terminal state that names what actually
-failed, using an `ERROR_CODES` entry for an unclassified internal error
-rather than borrowing an upstream one.
-Status: open (P1). Source: SWE_PRINCIPLES_AUDIT.
-
----
 
 ### F-B21-60: the artist spotlight card breaks Spotify's content guidelines
 
