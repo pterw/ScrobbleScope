@@ -143,6 +143,14 @@ answer.
   border, and `docs/design/README.md` stops calling them elevated. Task 10 records it.
 - **Q11: a**, since no icon asset was supplied.
 - **Q16: a.** All the rule-outs below are approved.
+- **Q0, settled later on 2026-09-23.** `original_release_cache` held 121 rows. 60 were written within
+  a minute of the owner's 16:34 local run (Postgres up) and 60 at 06:04 local, so both runs with the DB
+  up produced corrections. The worker is silent on success, which is why the logs showed nothing. The
+  Batch 22 MusicBrainz owner check is **done**.
+- **F-B22-8 added (owner, 2026-09-23).** The run with Postgres down logged "Release checks skipped: the
+  cache DB is unavailable." The owner ruled that checks run whatever the cache's state. Only local
+  development reaches that branch, so the finding is P2, and it joins the set as F-SWE-6 and F-B22-7
+  did. Task 11 fixes it.
 
 The rule-outs Q16 approves:
 
@@ -204,6 +212,7 @@ Every ID the definition lists, plus the P2s Q1 and Q2 would add. "Verified" is t
 | F-SWE-5 | real; the foundation sketch's "tests to update" premise is false | fixed | Task 7 |
 | F-B21-6 | real, at three `datetime.now()` sites | fixed, before WP-4 | Task 8 |
 | F-LOAD-1 | real; an occupancy count would always read full | fixed | Task 9 |
+| F-B22-8 (P2, owner-added) | real, local development only | fixed | Task 11 |
 | F-B21-15, F-B21-48, F-B18-11, F-STYLE-1, F-STYLE-2, F-WORKTREE-4, F-B21-24 | ruling-only | ruled out, as Q16 | Task 10 |
 | F-B21-4 | items 1, 2 and 4 fixed; item 3 open | item 3 per Q13 | Task 10 |
 | F-B21-19 | real | per Q12 | Task 10 (override) or the frontend plan |
@@ -221,8 +230,7 @@ Every ID the definition lists, plus the P2s Q1 and Q2 would add. "Verified" is t
 **Files:**
 - Modify: `FINDINGS.md` (the six findings, the P0 section and the header)
 - Modify (by `--fix`): `docs/history/findings/FINDINGS_ARCHIVE.md`
-- Modify: `PLAYBOOK.md` (Section 3's "Owner-facing verification still owed from Batch 22" bullet, and a
-  Section 4 entry)
+- Modify: `PLAYBOOK.md` (a Section 4 entry)
 - Test: none. The evidence is `git` and the gate is docsync.
 
 **Interfaces:** none.
@@ -281,13 +289,14 @@ WP-8)".
 None open. The four P0 items open until 2026-09-23 were fixed before PR #238 deployed; see the archive.
 ```
 
-- [ ] **Step 5: Record the Spotify half of the Batch 22 owner check.** In PLAYBOOK Section 3, edit the
-  "**Owner-facing verification still owed from Batch 22**" bullet:
-  - The Spotify credential restore is **done**. The owner's run on 2026-09-23 logged "Spotify search
-    completed in 14.9s: 142/146 misses found on Spotify", with the Postgres cache deliberately down, so
-    every album went through a live lookup.
-  - The MusicBrainz check stays owed. That run could not exercise it, because Postgres was down (see
-    the Q0 answer).
+- [x] **Step 5: Close the Batch 22 owner check.** Done ahead of this task, in the commit that recorded
+  the owner's 2026-09-23 rulings on card 3 and F-B22-8. That commit rewrote PLAYBOOK Section 3's
+  Batch 22 owner-verification bullet to record both halves as done, and ticked the definition's
+  owner-actions box. The Q0 answer holds the evidence. Leave the bullet and the box as they are.
+
+  *Amended 2026-09-23:* this step first recorded only the Spotify half and kept MusicBrainz owed. Q0
+  was settled before Task 1 ran, and Section 3 must stay true at every commit, so the ruling commit
+  took this step over.
 
 - [ ] **Step 6: Run the gates and commit.** Follow the Global Constraints procedure. Stage
   `FINDINGS.md`, `docs/history/findings/FINDINGS_ARCHIVE.md`, `PLAYBOOK.md`, and
@@ -1326,6 +1335,124 @@ matches the "Too many requests" substring the new text keeps.
 
 ```bash
 git commit -m "fix(routes): State the configured cap when every slot is busy"
+```
+
+### Task 11: Release checks run without the cache DB (F-B22-8)
+
+Added by the owner on 2026-09-23, after Q0's runs; see "Owner answers". It runs after Task 9 and
+before Stage 3, in its own commit.
+
+**Files:**
+- Modify: `scrobblescope/release_checks.py` (`run_release_checks`, `_check_candidate`)
+- Test: `tests/services/test_release_checks.py` (replace one test, add one)
+
+**Behaviour change.** With no cache connection the worker still checks the page's candidates against
+MusicBrainz. It reads no cached finding, persists nothing, and closes no connection. Everything else is
+unchanged: the job ends `done`, the per-result outcomes are the same, and the shared one-request-per-
+second limiter still paces the requests. On Fly.io the DB wakes with the app, so only local development
+reaches this branch.
+
+**The one edited test.** `test_run_release_checks_marks_skipped_without_a_db_connection` asserts the
+old behaviour (status `skipped`, no request made). The finding reverses it, so the test is replaced,
+not kept alongside. Name it in the commit body.
+
+- [ ] **Step 1: Replace the test and add the adversarial one.** In
+  `tests/services/test_release_checks.py`, replace
+  `test_run_release_checks_marks_skipped_without_a_db_connection` with:
+
+```python
+@pytest.mark.asyncio
+async def test_run_release_checks_runs_without_a_db_connection(caplog):
+    """
+    GIVEN the cache DB is unreachable
+    WHEN the worker runs
+    THEN it still asks MusicBrainz and records the outcome on the open job,
+    persisting nothing: the cache is how findings are reused, not a
+    precondition for showing one (F-B22-8).
+    """
+    job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
+    lookup = AsyncMock(return_value=("rg-1", "1997-05-21"))
+    persist = AsyncMock()
+    with (
+        caplog.at_level(logging.INFO),
+        _worker_patches(lookup, conn=None, persist=persist),
+    ):
+        await run_release_checks(job_id)
+
+    lookup.assert_awaited_once()
+    persist.assert_not_awaited()
+    assert get_job_progress(job_id)["stats"]["release_check"] == {
+        "status": "done",
+        "checked": 1,
+        "total": 1,
+        "moved_out": 1,
+        "moved_in": 0,
+    }
+    result = get_job_context(job_id)["results"][0]
+    assert result["release_check"] == "moved_out"
+    assert result["original_release_date"] == "1997-05-21"
+    assert "without the cache DB" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_without_a_db_connection_survives_a_lookup_error():
+    """
+    GIVEN no cache connection and MusicBrainz raising part-way through
+    WHEN the worker unwinds
+    THEN the job still ends "done" and nothing tries to close a connection
+    that was never opened.
+    """
+    job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
+    lookup = AsyncMock(side_effect=RuntimeError("boom"))
+    with _worker_patches(lookup, conn=None):
+        await run_release_checks(job_id)
+
+    assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "done"
+```
+
+- [ ] **Step 2: Run them to verify they fail.**
+
+Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services/test_release_checks.py -q -k "without_a_db_connection"`
+Expected: the first fails (status `skipped`, lookup never awaited); the second fails (status `skipped`,
+not `done`).
+
+- [ ] **Step 3: Run without the connection.** In `run_release_checks`, replace the `if not conn:`
+  block with a log line only, and guard the three uses of `conn`:
+
+```python
+    conn = await _get_db_connection()
+    if not conn:
+        # The page that is open still gets its corrections; only their reuse
+        # by the next job is lost. On Fly.io the DB wakes with the app, so
+        # this branch is reached in local development only (F-B22-8).
+        logging.info(
+            "Release checks running without the cache DB: "
+            "findings will not be saved."
+        )
+
+    state = _state(STATUS_RUNNING)
+    try:
+        cached = await _lookup_cached(conn, candidates) if conn else {}
+```
+
+  In the `finally`, close the connection only `if conn:`, keeping the existing `try`/`except` around
+  `conn.close()`. In `_check_candidate`, wrap the persist `try`/`except` in `if conn:`, and change its
+  leading comment to say a finding is persisted per check *when a connection exists*. Update the
+  `run_release_checks` docstring's failure-mode sentence if it names the skip.
+
+- [ ] **Step 4: Run the file to verify it passes.**
+
+Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services/test_release_checks.py -q`
+Expected: pass. `test_run_release_checks_closes_the_connection_when_a_lookup_raises` still passes
+unchanged, which proves the connected path still closes.
+
+- [ ] **Step 5: Resolve F-B22-8 and commit.** The canonical record's reason: "`run_release_checks` runs
+  its candidates without a cache connection and skips only the cache read, the persist and the close".
+  The count rises by 1: one test replaced, one added. The frontend gate does not run: no template or
+  asset changes. Then:
+
+```bash
+git commit -m "fix(release-checks): Check releases even when the cache is down"
 ```
 
 ---

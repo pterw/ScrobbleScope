@@ -163,8 +163,11 @@ See FINDINGS F-DOCSYNC-3.
   `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`.
   The owner answered its questions, Q0-Q16, on 2026-09-23; the plan
   records the answers. The order from here:
-  1. Part A: the foundation plan's Task 2 -- done 2026-09-23.
-  2. This plan's Stage 1, then Stage 2, then Stage 3.
+  1. Part A: the foundation plan's Task 2 -- done 2026-09-23. Then its
+     Task 12, the release-window rule moved to `domain.py`, which the owner
+     added to Part A on 2026-09-23.
+  2. This plan's Stage 1, then Stage 2, then Stage 3. Stage 2 includes
+     Task 11 (F-B22-8), which the owner added on 2026-09-23.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -182,10 +185,12 @@ See FINDINGS F-DOCSYNC-3.
   outranks the older one in its own source. The count still cannot be
   published directly; F-DOCSYNC-13 proposes letting an authored measurement
   be passed in instead.
-- **Owner-facing verification still owed from Batch 22**, neither blocking the
-  close-out: a run with `MUSICBRAINZ_CONTACT` configured, to watch corrections
-  land against the real service, and restoring the Spotify credentials that
-  were disabled to live-test the Deezer fallback.
+- **Owner-facing verification from Batch 22 is done** (2026-09-23). The
+  Spotify credentials are restored: the owner's run logged 142 of 146 lookups
+  answered by Spotify. MusicBrainz corrections land against the real service:
+  the owner's two runs with Postgres up each wrote 60 `original_release_cache`
+  rows within a minute of the job finishing. The worker logs nothing on
+  success, which is why neither run's log showed it.
 - **Owed from Batch 21:** the frontend and accessibility audit WP-8
   chartered. The owner moved it to Batch 23's close-out on 2026-09-13 so it
   covers the final UI once. Batch 23's plan carries the obligation; do not
@@ -371,6 +376,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Owner rulings: the release-window leaf and F-B22-8
+
+Side task, no batch tag: records three owner rulings, part of Batch 23 WP-0.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands. No code
+changed.
+
+- **Q0 is settled: the Batch 22 MusicBrainz check is done.** The worker logs
+  nothing on success, so the logs could not answer it. `original_release_cache`
+  could. It held 121 rows, and 60 were written within a minute of each of the
+  owner's two runs with Postgres up (06:04 and 16:34 local). Section 3's
+  Batch 22 bullet and the definition's Part B box now record both owner items
+  as done. The reconcile plan's Task 1 Step 5 is marked as taken over by this
+  commit, because Section 3 must stay true at every commit.
+- **Review A card 3 joins Part A** as the foundation plan's Task 12. It moves
+  `_matches_release_criteria` into `domain.py`, which deletes the one deferred
+  edge in the import graph. It is numbered 12, not 2b, because `task-brief`
+  would pull a "Task 2b" heading into Task 2's brief. The rest of the
+  2026-09-21 review was already dispositioned in the foundation plan's DoD.
+- **F-B22-8 is filed and joins Part C at P2.** With the cache DB down,
+  `run_release_checks` skips the whole job. The owner ruled that checks run
+  regardless, with only persistence skipped. It is P2 because only local
+  development reaches the branch: on Fly.io the database wakes with the app.
+  The reconcile plan's Task 11 fixes it; one existing test that asserts the
+  skip is replaced there, as Part C allows.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The remaining shared extractions
 
 Side task, no batch tag: extract the three remaining shared steps, part of
@@ -448,47 +481,6 @@ Next, in order:
 2. This plan's Tasks 1-10.
 3. The foundation plan's Tasks 4-10.
 4. The three follow-on plans.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Plan of record for reconciling and clearing findings
-
-Side task, no batch tag: planning for Batch 23 WP-0 Parts B and C. It adds
-`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md` and
-points the definition and Section 3 at it. No code changed.
-
-- **Evidence.** Four read-only triage passes checked all 38 IDs in Part C's
-  set against `167e650`. Results:
-  - six records are already fixed on `main`;
-  - several findings are partly fixed (F-B21-3, F-B21-4, F-B21-24,
-    F-STYLE-2);
-  - three findings share one mechanism (F-DOCSYNC-11, -12, -13);
-  - two are one defect (F-B21-18 and F-MAS-2).
-  The controller re-ran the load-bearing checks, including the ancestry of
-  all seven fix commits.
-- **F-B22-7 is wider than filed.** The orchestrator parses Spotify's album
-  JSON itself, against global rule 4, and `enrich_albums` has no production
-  caller either. `as_cache_row` would also write a Deezer id into
-  `spotify_id` if anything called it, and its own tests pin that wrong value.
-- **Triage missed one defect.** `loading.js` `showFailure` labels every
-  non-Last.fm source "Spotify". F-SWE-5's `internal_error` source would show
-  that label, and so would WP-1's export source. Task 7 fixes it and pins it
-  in the gate.
-- **F-LOAD-1 needs no occupancy counter.** The refusal only appears when
-  every slot is full, so a count would always read cap/cap. The fix states
-  the configured cap instead.
-- **The plan's shape.**
-  - Stages 1 and 2 are written in full: records, then the five pipeline
-    fixes.
-  - Stage 3 records the owner's rulings.
-  - The control-plane and frontend clusters get follow-on plans once the
-    rulings land.
-  - Owner questions Q0-Q16 are batched in the plan, each with a
-    recommendation.
-
-Deviation: none. The owner asked for the plan and for a view on F-SWE-6;
-that view is in the plan's "Controller's view on F-SWE-6".
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

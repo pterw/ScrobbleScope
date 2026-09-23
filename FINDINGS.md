@@ -1253,6 +1253,30 @@ shapes with a Batch 22 test contract around one of them. Owner call.
 
 Status: open (P2). Source: PR #234 advisory verification, 2026-09-20.
 
+### F-B22-8: release checks skip the whole job when the cache DB is down
+
+`release_checks.run_release_checks` opens a cache connection before its first
+MusicBrainz request, and when none is available it logs "Release checks
+skipped: the cache DB is unavailable.", marks the job `skipped` and returns.
+The reason in its comment is cost: a finding that cannot be persisted buys one
+job's display and nothing for the next. The corrections the results page shows
+are the product, though, and the cache is only how they are reused. So a
+reachable MusicBrainz is left unasked because a different service is down, and
+the reader of that page gets no correction at all.
+
+Seen on 2026-09-23. The owner ran the app locally with `ss-postgres` stopped,
+and the log showed the skip line after three failed connection attempts. A
+later run with Postgres up wrote 60 rows to `original_release_cache` within a
+minute of the job finishing. So the worker works, and only the DB-down branch
+withholds it.
+
+Impact is local development only. On Fly.io the Postgres machine wakes with
+the app, so the branch is not reached in production. That is why this is P2.
+
+Status: open (P2). The owner added it to Batch 23 WP-0 Part C on 2026-09-23:
+checks run without the cache, and only the persistence is skipped. Source:
+owner local run, 2026-09-23.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in

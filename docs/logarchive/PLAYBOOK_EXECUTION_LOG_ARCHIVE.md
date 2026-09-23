@@ -9,6 +9,47 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Plan of record for reconciling and clearing findings
+
+Side task, no batch tag: planning for Batch 23 WP-0 Parts B and C. It adds
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md` and
+points the definition and Section 3 at it. No code changed.
+
+- **Evidence.** Four read-only triage passes checked all 38 IDs in Part C's
+  set against `167e650`. Results:
+  - six records are already fixed on `main`;
+  - several findings are partly fixed (F-B21-3, F-B21-4, F-B21-24,
+    F-STYLE-2);
+  - three findings share one mechanism (F-DOCSYNC-11, -12, -13);
+  - two are one defect (F-B21-18 and F-MAS-2).
+  The controller re-ran the load-bearing checks, including the ancestry of
+  all seven fix commits.
+- **F-B22-7 is wider than filed.** The orchestrator parses Spotify's album
+  JSON itself, against global rule 4, and `enrich_albums` has no production
+  caller either. `as_cache_row` would also write a Deezer id into
+  `spotify_id` if anything called it, and its own tests pin that wrong value.
+- **Triage missed one defect.** `loading.js` `showFailure` labels every
+  non-Last.fm source "Spotify". F-SWE-5's `internal_error` source would show
+  that label, and so would WP-1's export source. Task 7 fixes it and pins it
+  in the gate.
+- **F-LOAD-1 needs no occupancy counter.** The refusal only appears when
+  every slot is full, so a count would always read cap/cap. The fix states
+  the configured cap instead.
+- **The plan's shape.**
+  - Stages 1 and 2 are written in full: records, then the five pipeline
+    fixes.
+  - Stage 3 records the owner's rulings.
+  - The control-plane and frontend clusters get follow-on plans once the
+    rulings land.
+  - Owner questions Q0-Q16 are batched in the plan, each with a
+    recommendation.
+
+Deviation: none. The owner asked for the plan and for a view on F-SWE-6;
+that view is in the plan's "Controller's view on F-SWE-6".
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Batch 23 definition: the foundation package widened
 
 Side task, no batch tag: this is a definition amendment, not work-package

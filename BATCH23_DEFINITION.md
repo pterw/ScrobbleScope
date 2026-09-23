@@ -155,6 +155,11 @@ WP-0 did.
   in `orchestrator/`, done 2026-09-23.
 - [x] Extract `_zero_fill_daily_counts` from `scrobblescope/heatmap.py` so
   both aggregators share one zero-fill, done 2026-09-23.
+- [ ] Move `_matches_release_criteria` into `scrobblescope/domain.py`, so the
+  album filter and the release-check worker both import it at module level
+  and the worker's function-local import goes. Added by the owner on
+  2026-09-23 from the 2026-09-21 architecture review's third card; the
+  foundation plan's Task 12.
 - **Acceptance:** every existing test passes **unmodified**, including
   `tests/services/test_orchestrator_fetch_and_process.py`. No behaviour
   change ships in Part A.
@@ -178,10 +183,12 @@ WP-0 did.
   21 narrative is no longer the work order. Delete each paragraph only after
   confirming a log, a definition or a finding already holds its facts. A fact
   held nowhere else moves there first.
-- [ ] **Owed from Batch 22, owner actions:** a live run with
+- [x] **Owed from Batch 22, owner actions:** a live run with
   `MUSICBRAINZ_CONTACT` set, and restoring the Spotify credentials that were
   disabled to test the Deezer fallback. An agent cannot do either. WP-0
-  records the outcome of each, or the owner's deferral.
+  records the outcome of each, or the owner's deferral. Both are done,
+  recorded 2026-09-23 in PLAYBOOK Section 3; the reconcile plan's Q0 answer
+  holds the evidence.
 - [ ] **File the docsync gap this amendment exposed.** A work package cannot
   be marked "in progress": it reads as complete on its first tagged entry.
   Filed at P1, it joins Part C's set.
@@ -239,6 +246,13 @@ owner ruled the set at P0 and P1. The plan asks the owner about both:
   batch's promise that the parsed aggregate expires with the two-hour job TTL.
 - **F-B22-7:** the provider adapter is bypassed on the live path. The
   foundation plan's Definition of Done wants it fixed ahead of WP-3.
+
+The owner added both to the set on 2026-09-23 (Q1 and Q2), and added a third
+P2 the same day:
+
+- **F-B22-8:** release checks skip the whole job when the cache DB is down.
+  Checks are to run without the cache, skipping only persistence. It affects
+  local development only, since the Fly.io database wakes with the app.
 
 - **Acceptance:**
   - Each ID in the set is checked, member by member, and has left it in one of

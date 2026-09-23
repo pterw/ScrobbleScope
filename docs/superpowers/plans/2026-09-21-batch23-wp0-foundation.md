@@ -8,7 +8,7 @@ shipping a gate change whose only evidence is a unit test.
 
 **Architecture:** Three tracks with different authority.
 
-- **Track 1 -- WP-0 proper** (Tasks 1-2). Behaviour-neutral, and bound by `BATCH23_DEFINITION.md` WP-0's
+- **Track 1 -- WP-0 proper** (Tasks 1-2, and Task 12, which the owner added on 2026-09-23). Behaviour-neutral, and bound by `BATCH23_DEFINITION.md` WP-0's
   acceptance: every existing test passes unmodified. It starts once Task 3b has opened the batch.
   The owner ruled on 2026-09-21 that Batch 23's branch is `feat/batch23-wp0-hygiene`.
 - **Track 2 -- side tasks** (Tasks 3-10). Control-plane and documentation fixes that Batch 23 does not
@@ -143,7 +143,7 @@ done when its reason is on disk in the document it names.
 | 19 | Refuse to boot under more than one worker | review A | **Declined** (owner delegated the call, 2026-09-21). The Dockerfile pins `--workers 1`, no incident has occurred, and a guard reading `argv`/`WEB_CONCURRENCY` misses `--workers=4`, `GUNICORN_CMD_ARGS` and a config file -- a partial guard is its own wrong green. For the extraction a single-worker assertion would have to be an n-worker policy, which is a niche need. Revisit only if job state leaves the process. |
 | 20 | Job record: one transition seam | review A c1 | **Future batch.** Overlaps row 23. |
 | 21 | Pipeline parameters read from the record, not passed twice | review A c2 | **Future batch.** Depends on row 20. |
-| 22 | Release window as a leaf module | review A c3 | **Future batch.** Cheapest structural item; a good first task for the next hygiene batch. |
+| 22 | Release window as a leaf module | review A c3 | **Task 12** (owner, 2026-09-23; was "Future batch"). |
 | 23 | Make job retention explicit (observation renews `updated_at`) | review B card 4, F-SWE-6 | **Owner-gated.** Absolute vs sliding TTL is a product decision; F-SWE-6 owns it. |
 | 24 | Make the provider adapter real (live path bypasses `enrich_albums`) | review B card 1, F-B22-7 | **Future batch, ahead of Batch 23 WP-3 if possible.** The export path reuses album processing; F-B22-7 owns the detail. |
 | 25 | Job admission as one transaction (slot, state, thread) | review B card 2 | **Folded into Batch 23 WP-4** (owner ruling, 2026-09-21). The export route is the third caller, so the rule of three is met there. Task 3b writes it into the definition before execution. |
@@ -207,6 +207,63 @@ matches `^#+ Task <n>`, and the controller briefs Task 1 from the wrapper plan i
   `refactor(batch23-wp0): Extract the remaining shared steps`.
 
 **Acceptance:** `BATCH23_DEFINITION.md` WP-0's own, unchanged.
+
+### Task 12: The release-window rule gets a leaf home (review A card 3)
+
+**Added by the owner on 2026-09-23** to WP-0 Part A. It moves DoD row 22 out of "Future batch". It is
+numbered 12 rather than "2b", because `scripts/task-brief` matches `^#+ Task <n>` followed by a
+non-digit, so a "Task 2b" heading would be pulled into Task 2's brief.
+
+**Why.** `_matches_release_criteria` is a pure rule with two consumers, the album filter in
+`orchestrator/_results.py` and the correction worker's `release_checks._matches_window`. It lives in the
+`orchestrator` package, and that package imports `release_checks` at module level to enqueue a finished
+job. So the worker has to import the rule back inside a function. That function-local import is the
+one documented exception in the SESSION_CONTEXT Section 4 dependency graph. Moving the rule into
+`scrobblescope/domain.py`, a leaf that imports only the standard library, lets both consumers import it
+at module level, and the exception disappears.
+
+**Files:**
+- Modify: `scrobblescope/domain.py` (receives `_matches_release_criteria` verbatim, plus
+  `import logging`, which the rule's warning needs)
+- Modify: `scrobblescope/orchestrator/_results.py` (deletes the definition; imports it from `domain`)
+- Modify: `scrobblescope/release_checks.py` (`_matches_window` uses a module-level import from `domain`)
+- Modify: `.claude/SESSION_CONTEXT.md` Section 4 and `docs/architecture/runtime-system.md` (the
+  deferred-edge prose)
+- Test: none. Behaviour-neutral, and bound by WP-0 Part A's acceptance: every existing test passes
+  unmodified.
+
+- [ ] **Step 1: Move the rule.** Cut `_matches_release_criteria` from `orchestrator/_results.py`,
+  body and docstring unchanged, and paste it into `scrobblescope/domain.py` after `normalize_name`'s
+  neighbours, at module level. Add `import logging` to `domain.py`'s stdlib imports. Keep the name
+  exactly. Tests import it as `scrobblescope.orchestrator._matches_release_criteria` through the
+  facade, so no test may need a change.
+- [ ] **Step 2: Keep every existing import path working.** In `orchestrator/_results.py`, extend the
+  existing `from scrobblescope.domain import normalize_name` to import `_matches_release_criteria` as
+  well, so the filter's call site is unchanged and `orchestrator/_results._matches_release_criteria`
+  still resolves. The facade's `from scrobblescope.orchestrator._results import (...)` block and its
+  `__all__` entry stay as they are.
+- [ ] **Step 3: Delete the deferred edge.** In `release_checks.py`, import `_matches_release_criteria`
+  from `scrobblescope.domain` at module level, next to the existing `normalize_name` import. Remove the
+  function-local import from `_matches_window`, and replace its docstring's cycle explanation with one
+  sentence: the rule lives in `domain` so the album filter and this re-check share it.
+- [ ] **Step 4: Update the two documents.**
+  - `.claude/SESSION_CONTEXT.md` Section 4: drop `; orchestrator (facade, DEFERRED -- see note)` from
+    the `release_checks.py` line. Delete the "**The one deferred edge**" paragraph, after checking
+    that nothing else cites it (`rg -n "deferred edge"`). No new edge is added: both consumers already
+    import `domain`.
+  - `docs/architecture/runtime-system.md`: in the correction-worker bullet, replace the sentence about
+    importing `_matches_release_criteria` inside a function with one saying that the worker and the
+    album filter both read the release-window rule from `domain.py`.
+- [ ] **Step 5: Verify.** Run
+  `pytest.exe tests/services/test_orchestrator_helpers.py tests/services/test_release_checks.py tests/services/test_orchestrator_fetch_and_process.py -q`,
+  then check that `git diff --stat tests/` is empty. Also run
+  `python -c "import scrobblescope.release_checks; import scrobblescope.orchestrator"` and the reverse
+  order, since the change is about import order.
+- [ ] **Step 6: Commit.** Follow the commit procedure, then:
+  `refactor(domain): Give the release-window rule a leaf home`.
+
+**Acceptance:** `BATCH23_DEFINITION.md` WP-0 Part A's, unchanged. The function-local import is gone,
+both import orders work, and no document still describes the deferred edge as current.
 
 ---
 ## Track 2 -- between-batch side tasks
