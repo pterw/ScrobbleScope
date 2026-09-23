@@ -28,7 +28,11 @@ from scrobblescope.repositories import (
     set_job_stat,
 )
 from scrobblescope.utils import cleanup_expired_cache
-from scrobblescope.worker import new_thread_event_loop, release_job_slot
+from scrobblescope.worker import (
+    new_thread_event_loop,
+    release_job_slot,
+    run_coroutine_in_new_loop,
+)
 
 #: How many calendar days the heatmap covers, today included.
 #:
@@ -235,25 +239,32 @@ async def _fetch_and_process_heatmap(job_id, username):
     logging.info("Heatmap ready for %s: %s scrobbles", username, total)
 
 
+def _report_heatmap_failure(job_id, username):
+    """Log the crash and publish this pipeline's terminal state.
+
+    Called from inside the helper's ``except`` block, so ``logging.exception`` still
+    sees the active exception. The ``lastfm_unavailable`` code is the open defect
+    ``F-SWE-5`` records -- it is wrong for a fault that is ours -- and this function
+    keeps it deliberately: changing the code is a behaviour change, and it belongs in
+    its own commit, which is now a one-line edit here.
+    """
+    logging.exception(f"Unhandled error in heatmap task for {username}")
+    set_job_error(job_id, "lastfm_unavailable", username=username)
+
+
 def heatmap_task(job_id, username):
     """Thread entry point: run the heatmap pipeline in a dedicated event loop.
 
-    ``worker.new_thread_event_loop`` builds the loop, including the Windows
-    ``ProactorEventLoop`` asyncpg needs. It is called inside the ``try``, so
-    the concurrency slot acquired by the caller is released in the ``finally``
-    block regardless of success or failure, loop setup included.
+    The build-run-close-release protocol, including that the loop is built inside
+    the ``try`` so the slot is released in the ``finally``, lives in
+    ``worker.run_coroutine_in_new_loop``. What stays here is local: a failed run is
+    reported rather than raised, which is this entry point's answer to F-SWE-5.
     """
-    loop = None
-    try:
-        loop = new_thread_event_loop()
-        loop.run_until_complete(_fetch_and_process_heatmap(job_id, username))
-    except Exception:
-        logging.exception(f"Unhandled error in heatmap task for {username}")
-        # Surface the error to the polling client so it does not hang.
-        set_job_error(job_id, "lastfm_unavailable", username=username)
-    finally:
-        try:
-            if loop is not None:
-                loop.close()
-        finally:
-            release_job_slot()
+    run_coroutine_in_new_loop(
+        _fetch_and_process_heatmap(job_id, username),
+        # Explicit, for the same reason as the album entry point: these tests patch
+        # ``scrobblescope.heatmap.release_job_slot`` and ``...heatmap.set_job_error``.
+        make_loop=new_thread_event_loop,
+        release_slot=release_job_slot,
+        on_run_error=lambda _exc: _report_heatmap_failure(job_id, username),
+    )

@@ -9,6 +9,53 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Docsync renders an opened batch before its first entry
+
+Side task, no batch tag: Task 3 of the Batch 23 WP-0 foundation plan, the
+fix for audit defect D1 and its sibling D2, plus O1. Commit made with
+`SKIP=doc-state-sync-check`, because it changes `scripts/docsync/`; the
+checker was run directly at exit 0 first.
+
+- D1: `_build_status_block` now branches on the batch Section 3 declares,
+  not on whether entries exist, and `_computed_next_wp` no longer returns
+  nothing for an empty current-batch block. An opened batch with nothing
+  logged renders as that batch, and a false next-package claim raises
+  DOC007. The between-batches block now carries the count line too.
+- D2: under a finite plan, WP-0 is a real package (owner ruling), so a
+  plan with nothing done names WP-0. The no-plan rule is unchanged.
+- O1: DOC012 names an entry whose `pytest -q` and bold count are not
+  directly paired, since the authority skips it. The pattern is shared
+  as `logic.FULL_SUITE_RESULT_RE`. The pairing is bounded at 80
+  characters so prose citing another entry's count is not a claim.
+  `AGENTS.md` now states the one readable form and both plans point there.
+
+Deviation: two lines of the shared CLI fixture in
+`tests/test_docsync_cli.py` wrote the colon form, which the authority read
+only through its legacy fallback; they now use the canonical form. No
+other existing test changed. 44 archived entries use an unpaired form;
+DOC012 reads only live entries, so they are left as written.
+
+Live probe (throwaway corpus from HEAD plus the changed modules):
+
+| Probe | Expected | Observed |
+| --- | --- | --- |
+| opened batch, no entries: block | Batch 23, WP-0 next | Batch 23, WP-0 next |
+| opened batch, Section 3 claims WP-3 | DOC007 | exit 1, DOC007 |
+| opened batch, dashboard claims WP-3 | DOC007 | exit 1, DOC007 |
+| `pytest -q` (qualifier) -- bold count | DOC012 | exit 1, DOC012 |
+| `pytest -q`: bold count | DOC012 | exit 1, DOC012 |
+| opened batch, true "WP-0 is next" | green | exit 0 |
+| real corpus between batches | green, count shown | exit 0, count shown |
+| targeted `pytest -q tests/...` run | no DOC012 | no DOC012 |
+| prose citing another entry's count | no DOC012 | no DOC012 |
+| canonical form | no DOC012 | no DOC012 |
+
+The original 18 planted-defect probes were re-run on the changed code:
+18 of 18 red.
+
+Validation: `pytest -q` -- **1729 passed**, 12 of them new; the untracked
+mutation-runner tests were excluded, since they are not repository state.
+
 ### 2026-09-21 - Batch 23 WP-0 foundation plan committed
 
 Side task, no batch tag. Scope: commit

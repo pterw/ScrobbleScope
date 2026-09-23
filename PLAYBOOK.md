@@ -158,7 +158,7 @@ See FINDINGS F-DOCSYNC-3.
 - **Next action:** WP-0 is next: the shared loop protocol, then the three
   original extractions. WP work from here on logs tagged
   `(Batch 23 WP-N)` entries inside the current-batch markers.
-  Loop-protocol plan: Tasks 1-2 of 4 landed.
+  Loop-protocol plan: Tasks 1-3 of 4 landed.
 - **The dashboard's test count read 1522 for a while**, and the way it got
   unstuck is
   worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
@@ -359,6 +359,46 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Worker run-coroutine wrapper: Task 3 of 4
+
+Side task, no batch tag: Task 3 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- `heatmap_task` in `scrobblescope/heatmap.py` now delegates its
+  build-run-close-release protocol to `worker.run_coroutine_in_new_loop`,
+  added in Task 1, instead of carrying its own `loop = None` / `try` /
+  `except Exception` / nested `finally` block. `make_loop` and
+  `release_slot` are passed explicitly as `new_thread_event_loop` and
+  `release_job_slot` rather than left to the helper's own defaults,
+  because the existing tests patch `scrobblescope.heatmap.release_job_slot`
+  and `scrobblescope.heatmap.set_job_error`. The failure reaction moved into
+  a new named module-private helper, `_report_heatmap_failure(job_id,
+  username)`, placed immediately above `heatmap_task`; it keeps the
+  `lastfm_unavailable` error code deliberately, since `F-SWE-5` records that
+  code as wrong for a fault that is not the user's, and changing it is a
+  separate, now one-line, commit. The import at the top of the module gains
+  `run_coroutine_in_new_loop` alongside the two names it already carried.
+- No test was written or edited: the four existing guard tests in
+  `tests/test_heatmap.py::TestHeatmapTask`
+  (`test_release_job_slot_called_on_success`,
+  `test_release_job_slot_called_on_exception`,
+  `test_release_job_slot_called_when_event_loop_setup_raises`,
+  `test_release_job_slot_called_when_loop_close_raises`) are the acceptance
+  criterion and pass unmodified, including the one that asserts a
+  `loop.close()` failure still propagates out of `heatmap_task` while the
+  slot is released.
+- `background_task` and `heatmap_task` now share exactly one protocol; the
+  only remaining difference between the two entry points is the injected
+  `on_run_error` (silent logging for the album path, versus logging plus a
+  published terminal job error for the heatmap path) -- the remaining half
+  of `F-SWE-5`.
+
+Deviations: none from the brief.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Worker run-coroutine wrapper: Task 2 of 4
 
 Side task, no batch tag: Task 2 of 4 of the worker run-coroutine wrapper
@@ -464,50 +504,3 @@ The definition leg only went red once its claim was moved onto the
 
 Validation: `pytest -q` -- **1729 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.
-
-### 2026-09-21 - Docsync renders an opened batch before its first entry
-
-Side task, no batch tag: Task 3 of the Batch 23 WP-0 foundation plan, the
-fix for audit defect D1 and its sibling D2, plus O1. Commit made with
-`SKIP=doc-state-sync-check`, because it changes `scripts/docsync/`; the
-checker was run directly at exit 0 first.
-
-- D1: `_build_status_block` now branches on the batch Section 3 declares,
-  not on whether entries exist, and `_computed_next_wp` no longer returns
-  nothing for an empty current-batch block. An opened batch with nothing
-  logged renders as that batch, and a false next-package claim raises
-  DOC007. The between-batches block now carries the count line too.
-- D2: under a finite plan, WP-0 is a real package (owner ruling), so a
-  plan with nothing done names WP-0. The no-plan rule is unchanged.
-- O1: DOC012 names an entry whose `pytest -q` and bold count are not
-  directly paired, since the authority skips it. The pattern is shared
-  as `logic.FULL_SUITE_RESULT_RE`. The pairing is bounded at 80
-  characters so prose citing another entry's count is not a claim.
-  `AGENTS.md` now states the one readable form and both plans point there.
-
-Deviation: two lines of the shared CLI fixture in
-`tests/test_docsync_cli.py` wrote the colon form, which the authority read
-only through its legacy fallback; they now use the canonical form. No
-other existing test changed. 44 archived entries use an unpaired form;
-DOC012 reads only live entries, so they are left as written.
-
-Live probe (throwaway corpus from HEAD plus the changed modules):
-
-| Probe | Expected | Observed |
-| --- | --- | --- |
-| opened batch, no entries: block | Batch 23, WP-0 next | Batch 23, WP-0 next |
-| opened batch, Section 3 claims WP-3 | DOC007 | exit 1, DOC007 |
-| opened batch, dashboard claims WP-3 | DOC007 | exit 1, DOC007 |
-| `pytest -q` (qualifier) -- bold count | DOC012 | exit 1, DOC012 |
-| `pytest -q`: bold count | DOC012 | exit 1, DOC012 |
-| opened batch, true "WP-0 is next" | green | exit 0 |
-| real corpus between batches | green, count shown | exit 0, count shown |
-| targeted `pytest -q tests/...` run | no DOC012 | no DOC012 |
-| prose citing another entry's count | no DOC012 | no DOC012 |
-| canonical form | no DOC012 | no DOC012 |
-
-The original 18 planted-defect probes were re-run on the changed code:
-18 of 18 red.
-
-Validation: `pytest -q` -- **1729 passed**, 12 of them new; the untracked
-mutation-runner tests were excluded, since they are not repository state.
