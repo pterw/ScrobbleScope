@@ -487,7 +487,7 @@ column. The live Deezer path writes `None` there, and
 through the method unchanged would corrupt the cache. The method's own two tests pin the wrong value.
 They are the only existing assertions this task changes, and the finding requires changing them.
 
-- [ ] **Step 1: Change the two pinned assertions, and add the Spotify case.** In
+- [x] **Step 1: Change the two pinned assertions, and add the Spotify case.** In
   `tests/services/test_enrichment.py`:
 
   In `test_album_metadata_carries_its_provider_and_url`, the expected tuple's third element changes
@@ -529,13 +529,13 @@ def test_cache_row_puts_a_spotify_album_id_in_the_spotify_column():
     )
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail.**
+- [x] **Step 2: Run the tests to verify they fail.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services/test_enrichment.py -q`
 Expected: the two edited tests fail on index 2, and the new Spotify test passes. It passes already
 because the defect only affects non-Spotify providers, which is the point.
 
-- [ ] **Step 3: Fix the method.** In `scrobblescope/enrichment.py` `as_cache_row`, replace the third
+- [x] **Step 3: Fix the method.** In `scrobblescope/enrichment.py` `as_cache_row`, replace the third
   tuple element `self.album_id,` (the one directly after `album_norm,`) with:
 
 ```python
@@ -554,12 +554,12 @@ because the defect only affects non-Spotify providers, which is the point.
         always carries the id the provider itself issued.
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass.**
+- [x] **Step 4: Run the tests to verify they pass.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services/test_enrichment.py tests/services/test_orchestrator_process_albums.py -q`
 Expected: pass.
 
-- [ ] **Step 5: Run the gates and commit.** The count rises by 1. The commit body names the two edited
+- [x] **Step 5: Run the gates and commit.** The count rises by 1. The commit body names the two edited
   assertions:
 
 ```bash

@@ -172,7 +172,8 @@ See FINDINGS F-DOCSYNC-3.
      (the docsync work-package gap, filed as F-DOCSYNC-15) both landed
      2026-09-23. Stage 2 includes Task 11 (F-B22-8), which the owner added
      on 2026-09-23. Stage 2 has started: Task 3 (F-SWE-6, reading a job no
-     longer renews its lease) landed 2026-09-23.
+     longer renews its lease) and Task 4 (F-B22-7, part 1 of 3, the
+     `spotify_id` column) landed 2026-09-23.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -381,6 +382,33 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - A Deezer id no longer lands in the Spotify column
+
+Side task, no batch tag: fixes F-B22-7, part 1 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 4 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `AlbumMetadata.as_cache_row` (`scrobblescope/enrichment.py`) now
+  writes `album_id` into the `spotify_id` column (tuple index 2) only when
+  `provider == "spotify"`; every other provider writes `None` there, matching
+  what the live Deezer fallback has always written at that column. F-B22-7 is
+  not resolved by this task -- Tasks 5 and 6 complete it.
+- **Two existing assertions changed**, both in
+  `tests/services/test_enrichment.py`, because the finding requires it:
+  `test_album_metadata_carries_its_provider_and_url`'s expected tuple pinned
+  the Deezer album id at index 2, and
+  `test_cache_row_matches_what_the_persistence_layer_unpacks` asserted
+  `row[2] == meta.album_id` for a Deezer row -- both pinned the pre-fix
+  (wrong) value the method wrote before this change. A new test,
+  `test_cache_row_puts_a_spotify_album_id_in_the_spotify_column`, pins the
+  Spotify case.
+- **Bookkeeping:** the reconcile plan's Task 4 steps are ticked. Section 3's
+  order list now records Task 4 landed alongside Task 3 in Stage 2.
+
+Validation: `pytest -q` -- **1739 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Reading a job no longer renews its lease
 
 Side task, no batch tag: fixes F-SWE-6, part of Batch 23 WP-0 Part C.
@@ -478,51 +506,3 @@ three extractions and the release-window leaf -- is complete.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Close six stale pending-deploy findings
-
-Side task, no batch tag: close the six finding records that still said "resolved locally, pending
-deploy", part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **Scope: the reconcile plan's Stage 1 Task 1.** F-B20-3, F-B21-10, F-B21-26, F-B21-27, F-B21-28 and
-  F-B21-29 all said "resolved locally, pending deploy" although their fixes were already on
-  `origin/main`. `git fetch origin` ran first, then `git merge-base --is-ancestor` confirmed all seven
-  named fix commits (`85e7511`, `079c2b0c`, `b1fdb121`, `ee5ee4eb`, `47321b23`, `df28c06d`, `8b37566a`)
-  are ancestors of `origin/main`; none printed STOP, so all six records were written.
-- **Plan vs implementation: one deviation, forced by the gate.** The brief's canonical Status line put
-  the "fixed by \`<sha>\` ... confirmed an ancestor of \`origin/main\`" text on the checked `**Status:**`
-  line itself. `scripts/docsync/findings.py`'s DOC014/DOC015 checks require that line's value to
-  normalize to the bare word `resolved` (or `no action`); anything else is rejected, and the word
-  "deployed" inside the brief's sentence also trips DOC014's pending-qualifier scan, which is why the
-  first `--fix` run failed with six errors naming exactly these findings. Every already-archived finding
-  in `docs/history/findings/FINDINGS_ARCHIVE.md` uses the bare form for the same reason. Each of the six
-  now reads `- [x] **Status:** resolved` / `**Completed:** <date>`, followed immediately by a new prose
-  line carrying the brief's exact sentence (the sha(s), "deployed with it", "confirmed an ancestor of
-  \`origin/main\` on 2026-09-23") -- that line sits outside the lifecycle record the gate parses, so its
-  wording is unconstrained. The rest of each body (the "Was recorded as" and "Source" lines) was kept
-  unchanged, per the brief. F-B21-28 and F-B21-29 each have two fix commits in the brief's table, so
-  their new prose line names both ("fixed by \`X\`, completed by \`Y\`, and deployed with it"); the
-  completion date used is the later commit's date in both cases, as directed. F-B20-3's new prose line
-  uses the brief's supplied reason text (Bootstrap and both CDN providers retired by \`85e7511\`, Batch 21
-  WP-8) in place of the generic "fixed by" clause. Completion dates came from
-  `git log --ancestry-path --merges --reverse --format=%cs "<sha>..origin/main"`, falling back to the fix
-  commit's own date when no merge commit exists on that path: 2026-09-19 (F-B20-3), 2026-09-10 (F-B21-10,
-  using `079c2b0c`), 2026-09-10 (F-B21-26 and F-B21-28, using `b1fdb121`), and 2026-09-07 (F-B21-27 and
-  F-B21-29, using `ee5ee4eb` and `8b37566a` respectively).
-  `doc_state_sync.py --fix` then rotated all six resolved records into
-  `docs/history/findings/FINDINGS_ARCHIVE.md`, which emptied the `## P0 -- Fix before next deploy`
-  section (F-B21-26, F-B21-27, F-B21-28 and F-B21-29 were its only members); a line was added under
-  that heading, rather than deleting it, because other documents cite the severity levels.
-  `BATCH23_DEFINITION.md` WP-0 Part B's "Stale finding records" checkbox and the reconcile plan's Task 1
-  step boxes are ticked, and Section 3's numbered order list now notes Stage 1 Task 1 landed, keeping
-  "WP-0 is next." exactly.
-- **No test changed.** The task is documentation only; `git diff --stat tests/` is empty, so the test
-  count stays at the baseline.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner tests were excluded, since
-they are not repository state.
-
-Forward guidance: the reconcile plan's Stage 1 Task 1 (Part B) has landed; Stage 1 Task 2 (the docsync
-work-package gap) is still open. The next steps are the rest of Stage 1, then Stage 2 (Part C, including
-Task 11 for F-B22-8), then Stage 3, then the foundation plan's Tasks 4-10, per Section 3's order list.

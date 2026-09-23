@@ -9,6 +9,54 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Close six stale pending-deploy findings
+
+Side task, no batch tag: close the six finding records that still said "resolved locally, pending
+deploy", part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope: the reconcile plan's Stage 1 Task 1.** F-B20-3, F-B21-10, F-B21-26, F-B21-27, F-B21-28 and
+  F-B21-29 all said "resolved locally, pending deploy" although their fixes were already on
+  `origin/main`. `git fetch origin` ran first, then `git merge-base --is-ancestor` confirmed all seven
+  named fix commits (`85e7511`, `079c2b0c`, `b1fdb121`, `ee5ee4eb`, `47321b23`, `df28c06d`, `8b37566a`)
+  are ancestors of `origin/main`; none printed STOP, so all six records were written.
+- **Plan vs implementation: one deviation, forced by the gate.** The brief's canonical Status line put
+  the "fixed by \`<sha>\` ... confirmed an ancestor of \`origin/main\`" text on the checked `**Status:**`
+  line itself. `scripts/docsync/findings.py`'s DOC014/DOC015 checks require that line's value to
+  normalize to the bare word `resolved` (or `no action`); anything else is rejected, and the word
+  "deployed" inside the brief's sentence also trips DOC014's pending-qualifier scan, which is why the
+  first `--fix` run failed with six errors naming exactly these findings. Every already-archived finding
+  in `docs/history/findings/FINDINGS_ARCHIVE.md` uses the bare form for the same reason. Each of the six
+  now reads `- [x] **Status:** resolved` / `**Completed:** <date>`, followed immediately by a new prose
+  line carrying the brief's exact sentence (the sha(s), "deployed with it", "confirmed an ancestor of
+  \`origin/main\` on 2026-09-23") -- that line sits outside the lifecycle record the gate parses, so its
+  wording is unconstrained. The rest of each body (the "Was recorded as" and "Source" lines) was kept
+  unchanged, per the brief. F-B21-28 and F-B21-29 each have two fix commits in the brief's table, so
+  their new prose line names both ("fixed by \`X\`, completed by \`Y\`, and deployed with it"); the
+  completion date used is the later commit's date in both cases, as directed. F-B20-3's new prose line
+  uses the brief's supplied reason text (Bootstrap and both CDN providers retired by \`85e7511\`, Batch 21
+  WP-8) in place of the generic "fixed by" clause. Completion dates came from
+  `git log --ancestry-path --merges --reverse --format=%cs "<sha>..origin/main"`, falling back to the fix
+  commit's own date when no merge commit exists on that path: 2026-09-19 (F-B20-3), 2026-09-10 (F-B21-10,
+  using `079c2b0c`), 2026-09-10 (F-B21-26 and F-B21-28, using `b1fdb121`), and 2026-09-07 (F-B21-27 and
+  F-B21-29, using `ee5ee4eb` and `8b37566a` respectively).
+  `doc_state_sync.py --fix` then rotated all six resolved records into
+  `docs/history/findings/FINDINGS_ARCHIVE.md`, which emptied the `## P0 -- Fix before next deploy`
+  section (F-B21-26, F-B21-27, F-B21-28 and F-B21-29 were its only members); a line was added under
+  that heading, rather than deleting it, because other documents cite the severity levels.
+  `BATCH23_DEFINITION.md` WP-0 Part B's "Stale finding records" checkbox and the reconcile plan's Task 1
+  step boxes are ticked, and Section 3's numbered order list now notes Stage 1 Task 1 landed, keeping
+  "WP-0 is next." exactly.
+- **No test changed.** The task is documentation only; `git diff --stat tests/` is empty, so the test
+  count stays at the baseline.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner tests were excluded, since
+they are not repository state.
+
+Forward guidance: the reconcile plan's Stage 1 Task 1 (Part B) has landed; Stage 1 Task 2 (the docsync
+work-package gap) is still open. The next steps are the rest of Stage 1, then Stage 2 (Part C, including
+Task 11 for F-B22-8), then Stage 3, then the foundation plan's Tasks 4-10, per Section 3's order list.
+
 ### 2026-09-23 - The release-window rule gets a leaf home
 
 Side task, no batch tag: move `_matches_release_criteria` into `scrobblescope/domain.py`, part of
