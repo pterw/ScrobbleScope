@@ -9,10 +9,18 @@ declared in PLAYBOOK Section 3; not `test`.
 **Baseline:** 1522 tests passing and a frontend gate of 30 checks in 52 runs
 at Batch 22's close. Both are the measurement at batch open, not a standing
 claim; the latest of each lives in the newest Section 4 entry.
+**Scope amended 2026-09-23:** the owner widened WP-0 into three parts
+(below). The other work packages are unchanged.
 **Plan of record:**
 `docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md` carries
-every task, its tests and its exact commands. This file carries the scope,
-the intended outcome, the work packages and their acceptance criteria.
+every task, its tests and its exact commands for WP-1 to WP-7. WP-0 has its
+own plans: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
+covers Part A and most of Part B, and
+`docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md` covers
+Part A's loop protocol. Part C, and the parts of Part B that the foundation
+plan does not cover, need a plan of record before their first commit. This
+file carries the scope, the intended outcome, the work packages and their
+acceptance criteria.
 
 ---
 
@@ -35,6 +43,14 @@ metadata cache, the results page and the unmatched report -- reads only
 normalized `(artist, album)` keys and has no Last.fm dependency. An export
 aggregator that produces the same shape as `fetch_top_albums_async` reaches
 the same machinery unchanged.
+
+**Owner rulings, 2026-09-23.** WP-0 prepares the repository for a large
+structural feature. It has three parts. Part A is the behaviour-neutral
+extractions. Part B reconciles what earlier batches left open. Part C
+clears every finding open at P0 or P1, unless the owner rules one out. WP-0's
+commits log untagged; one tagged entry closes it. Part C may change
+behaviour and edit a test, but only where the finding it fixes requires it.
+Part A may not. The reason for each ruling is in WP-0.
 
 **Owner rulings, 2026-09-21.** The branch is `feat/batch23-wp0-hygiene`.
 Job admission is folded into WP-4 as one module for all three routes. Under
@@ -63,8 +79,10 @@ Batch 23 is complete only when all of these product outcomes hold:
   aggregate expires with the two-hour job TTL like every other result.
 - A malformed, hostile or wrong-kind file is refused with a message that says
   what to do next, before any job is created.
-- The Last.fm path is untouched. Its routes, its validation, its upload
-  limits and its tests behave exactly as they did before.
+- The export feature leaves the Last.fm path untouched. Its routes, its
+  validation, its upload limits and its tests behave exactly as they did
+  before. The only changes to that path are WP-0 Part C's finding fixes, each
+  in its own commit (owner ruling, 2026-09-23).
 - Both sources gain the same new statistics, computed from data the pipeline
   already holds, with no additional API calls.
 - The interface reads correctly for both sources: "plays" rather than
@@ -93,27 +111,141 @@ Batch 23 is complete only when all of these product outcomes hold:
 
 ## Work packages
 
-### WP-0 -- Behaviour-neutral extractions
+### WP-0 -- Foundation: extractions, reconciliation and findings
+
+**Amended 2026-09-23 by the owner.** WP-0 was first scoped as the
+behaviour-neutral extractions alone. The export feature is a large
+structural change, and it should start on a clean repository: no stale
+record, no open P0 or P1 defect, and no green gate hiding a red. So WP-0 now
+has three parts, each with its own acceptance. A commit never mixes parts, so
+Part A's parity guarantee stays checkable.
+
+**Logging (owner ruling, 2026-09-23).** Every WP-0 commit logs an
+**untagged** PLAYBOOK Section 4 entry directly after the current-batch end
+marker. docsync reads a work package as complete on its first tagged
+heading, so a tagged entry for work still in progress would name WP-1 as
+next. When all three parts are done, one tagged `(Batch 23 WP-0)` entry
+records that WP-0 is complete. WP-1 onward log tagged entries as usual.
+
+#### Part A -- Behaviour-neutral extractions
 
 The export path needs three pieces of the Last.fm path that are currently
 inline, and the heatmap's zero-fill. Extracting them first keeps the
 behaviour change and the structural change in separate commits, as Batch 22
 WP-0 did.
 
-- [ ] Extract `_cap_threshold_exclusions`, `_process_filtered_albums` (the
+- [x] **The shared loop protocol**, done 2026-09-23 as `ad2d078` through
+  `54ab72b` (`docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md`).
+  `worker.run_coroutine_in_new_loop` sits beside
+  `worker.new_thread_event_loop` and builds on it. Both entry points each make
+  one call to it, differing only in the failure reaction they inject. Six new
+  tests; the suite went from 1729 to 1735 passed, and no existing test
+  changed. Deviations from the definition as first written:
+  - It landed in `worker.py`, not in `orchestrator/` as
+    `_run_coroutine_in_new_loop`, so the heatmap path shares it.
+  - `release_checks` keeps its own long-lived loop, because a one-shot
+    wrapper is the wrong shape for a queue drained for the process's lifetime.
+  - Its entries are untagged (logging ruling above).
+  The plan's Outcome section records the rest.
+- [ ] Extract `_cap_threshold_exclusions` and `_process_filtered_albums` (the
   tail of `_fetch_and_process`, from `_apply_pre_slice` to `set_job_results`)
-  and `_run_coroutine_in_new_loop` (the run-and-close wrapper) in
-  `orchestrator/`. The Windows `ProactorEventLoop` choice inside it is
-  already shared as `worker.new_thread_event_loop` (2026-09-21, F-B20-2);
-  build the wrapper on that rather than repeating the platform branch. The
-  wrapper lands in `worker.py` as `run_coroutine_in_new_loop`, beside that
-  helper, so the heatmap path uses it too
-  (`docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md`).
+  in `orchestrator/`.
 - [ ] Extract `_zero_fill_daily_counts` from `scrobblescope/heatmap.py` so
   both aggregators share one zero-fill.
 - **Acceptance:** every existing test passes **unmodified**, including
   `tests/services/test_orchestrator_fetch_and_process.py`. No behaviour
-  change ships in this work package.
+  change ships in Part A.
+
+#### Part B -- Reconcile what earlier batches left open
+
+- [ ] **Stale finding records.** F-B20-3, F-B21-10, F-B21-26, F-B21-27,
+  F-B21-28 and F-B21-29 still say "resolved locally, pending deploy", but
+  `main` has deployed since (PR #238, 2026-09-21). For each one:
+  - if its fix is an ancestor of `origin/main`, close it with a canonical
+    `resolved` record and a completion date;
+  - if the fix is not there, reopen it and say what is missing.
+- [ ] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
+  `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`. They cover
+  the archive page target, the DOC range, findings hygiene (pre-split line
+  citations, and the defects the 2026-09-21 probe found), the close-out
+  plan's Progress block, the frontend gate's check manifest, the `AGENTS.md`
+  pointers and the diagram re-verification. That plan's live-probe standard
+  still applies.
+- [ ] **PLAYBOOK Section 3 states only the current work order.** Its Batch
+  21 narrative is no longer the work order. Delete each paragraph only after
+  confirming a log, a definition or a finding already holds its facts. A fact
+  held nowhere else moves there first.
+- [ ] **Owed from Batch 22, owner actions:** a live run with
+  `MUSICBRAINZ_CONTACT` set, and restoring the Spotify credentials that were
+  disabled to test the Deezer fallback. An agent cannot do either. WP-0
+  records the outcome of each, or the owner's deferral.
+- [ ] **File the docsync gap this amendment exposed.** A work package cannot
+  be marked "in progress": it reads as complete on its first tagged entry.
+  Filed at P1, it joins Part C's set.
+- The Batch 21 frontend and accessibility audit stays in WP-7, by the
+  2026-09-13 ruling. Part B does not move it.
+- **Acceptance:**
+  - No open finding says "pending deploy".
+  - Each foundation plan task meets that plan's acceptance, with its
+    live-probe table where the plan asks for one.
+  - Section 3 describes only current work.
+  - Each Batch 22 owner item has a recorded outcome or deferral.
+
+#### Part C -- Clear every open P0 and P1 finding
+
+The set is every finding open at P0 or P1 in `FINDINGS.md` on 2026-09-23,
+plus the docsync gap Part B files. That is 38 IDs plus one, listed so that a
+finding filed later does not silently join, and a listed one does not
+silently leave:
+
+- **P0 (4):** F-B21-26, F-B21-27, F-B21-28, F-B21-29.
+- **P1 (34):** F-B18-11, F-B20-3, F-B21-3, F-B21-4, F-B21-6, F-B21-9,
+  F-B21-10, F-B21-14, F-B21-15, F-B21-18, F-B21-19, F-B21-20, F-B21-22,
+  F-B21-23, F-B21-24, F-B21-25, F-B21-48, F-B21-53, F-B21-60, F-DOCSYNC-6,
+  F-DOCSYNC-7, F-DOCSYNC-11, F-DOCSYNC-12, F-DOCSYNC-13, F-LOAD-1, F-LOAD-2,
+  F-MAS-1, F-MAS-2, F-MAS-3, F-STYLE-1, F-STYLE-2, F-SWE-5, F-WORKTREE-3,
+  F-WORKTREE-4.
+
+A finding leaves the set in one of three ways, and only these:
+
+1. **Fixed.** It carries a canonical resolved record with a completion date
+   (`docs/agents/issue-tracker.md`).
+2. **Confirmed already fixed.** Part B closes a stale record with evidence.
+   That counts here.
+3. **Ruled out by the owner.** The ruling and its date go into the finding,
+   and the finding is recorded as `no action` or re-graded to P2.
+
+Rules for the work:
+
+- **Owner rulings are asked once, in one batch.** Some findings name an owner
+  decision in their Status line. The plan collects all of those questions
+  before its first task.
+- **Dependencies still need approval.** A fix that needs a new or changed
+  dependency still needs the owner's approval first (`AGENTS.md` "Environment
+  Setup").
+- **Part C may change behaviour.** It may edit an existing test only where
+  the finding it fixes requires it. Each fix is its own commit, never mixed
+  with Part A, and its commit body names every assertion it changed.
+- **F-SWE-5 lands before WP-3.** WP-3's export tasks publish job errors
+  through the same terminal states.
+
+Two P2 findings sit under this batch's own code and are not in the set: the
+owner ruled the set at P0 and P1. The plan asks the owner about both:
+
+- **F-SWE-6:** reading a job renews its expiry, which contradicts this
+  batch's promise that the parsed aggregate expires with the two-hour job TTL.
+- **F-B22-7:** the provider adapter is bypassed on the live path. The
+  foundation plan's Definition of Done wants it fixed ahead of WP-3.
+
+- **Acceptance:**
+  - Each ID in the set is checked, member by member, and has left it in one of
+    the three ways.
+  - The full test suite, the frontend gate, pre-commit and
+    `doc_state_sync.py --check` pass on the final tree.
+  - Every edited existing test is named in its commit body.
+
+**WP-0 acceptance:** Parts A, B and C each meet their own acceptance. Then
+one tagged `(Batch 23 WP-0)` Section 4 entry records WP-0 complete.
 
 ### WP-1 -- Export error codes
 
@@ -267,7 +399,9 @@ additional API call is made and Last.fm and Spotify users get the same thing.
 - No upload reaches disk, the database or the logs, and a test enforces each.
 - Every structural failure mode is refused before a job exists, with a
   message naming the next action.
-- The Last.fm path's tests pass unmodified throughout the batch.
+- The Last.fm path's tests pass unmodified throughout the batch. The one
+  exception is an assertion that a WP-0 Part C finding fix must change; that
+  commit's body names it (owner ruling, 2026-09-23).
 - Peak memory is measured, not assumed: `tracemalloc` and VmHWM on the real
   export, locally and on Fly, then three concurrent uploads without an OOM,
   with the upload cap and the parse semaphore set from those numbers.

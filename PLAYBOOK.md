@@ -151,14 +151,17 @@ See FINDINGS F-DOCSYNC-3.
   accessibility audit is inside WP-7, which the batch cannot close without.
   The branch is cut from `test`, so run the worktree guard with
   `--base-ref origin/test` (`HANDOFF_PROMPT.md` "Bootstrap edge cases").
-  WP-0 runs from
-  `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md` Track 1,
-  whose loop-protocol half is
-  `docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md`.
-- **Next action:** WP-0 is next: the shared loop protocol, then the three
-  original extractions. WP work from here on logs tagged
-  `(Batch 23 WP-N)` entries inside the current-batch markers.
-  Loop-protocol plan: Tasks 1-4 of 4 landed.
+  The definition's header names WP-0's plans.
+- **Next action:** WP-0 is next. The owner widened it on 2026-09-23 into
+  three parts, which the definition's WP-0 describes. Part A is the
+  behaviour-neutral extractions: the shared loop protocol has landed
+  (`ad2d078`..`54ab72b`), and the three original extractions remain. Part B
+  reconciles what earlier batches left open. Part C clears every finding open
+  at P0 or P1. Part C, and the parts of Part B that the foundation plan does
+  not cover, need a plan of record before their first commit. Every WP-0
+  commit logs an untagged entry directly after the current-batch end marker;
+  one tagged `(Batch 23 WP-0)` entry closes WP-0 (owner ruling, 2026-09-23).
+  Later work packages log tagged entries inside the markers.
 - **The dashboard's test count read 1522 for a while**, and the way it got
   unstuck is
   worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
@@ -359,6 +362,55 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Batch 23 definition: the foundation package widened
+
+Side task, no batch tag: this is a definition amendment, not work-package
+work. It follows the owner's rulings of 2026-09-23. It lands after the
+worker run-coroutine wrapper plan, all four tasks of which are done
+(`ad2d078`..`54ab72b`).
+
+- `BATCH23_DEFINITION.md` WP-0 now has three parts:
+  - Part A: the behaviour-neutral extractions, with the loop protocol ticked
+    and its deviations recorded.
+  - Part B: reconciling what earlier batches left open. This covers six
+    findings still marked "pending deploy" after `main` deployed, the
+    foundation plan's Tasks 4-10, a Section 3 pruned to the current work
+    order, the owed Batch 22 owner checks, and a new docsync finding.
+  - Part C: fixing every finding open at P0 or P1 unless the owner rules one
+    out. That is 38 IDs, listed in the definition and checked one by one
+    against `FINDINGS.md`.
+- Owner rulings, each with its reason in the definition:
+  - WP-0 logs untagged until one tagged entry closes it, because docsync
+    reads a work package as complete on its first tagged heading.
+  - Part A keeps strict test parity.
+  - Part C may change behaviour, and may edit a test only where its finding
+    requires it. The batch acceptance and the intended outcome's "Last.fm
+    path is untouched" line are amended to match.
+  - F-SWE-5 lands before WP-3.
+- Section 3's Next action now describes the widened WP-0 and the logging
+  rule. The old line saying WP-0 work logs tagged entries contradicted the
+  ruling.
+- Plan bookkeeping:
+  - The wrapper plan's steps are ticked, and it gains an Outcome section.
+  - The foundation plan records that its Tracks 2 and 3 fold into WP-0, and
+    its superseded Track 1 logging line is struck through.
+
+Deviation: none from the rulings. Proposal Rule 2 is met, because the owner
+added the scope, and Rule 1 is met, because the amendment lands before any
+Part B or Part C work. Part C and the uncovered parts of Part B still need a
+plan of record.
+
+Forward guidance:
+- Part A's three extractions can proceed now under the foundation plan's
+  Task 2.
+- Before Part C starts, collect every owner-gated question in the set in a
+  single batch.
+- Raise F-SWE-6 and F-B22-7 with the owner. They are P2, outside the set,
+  but under this batch's code.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Worker run-coroutine wrapper: Task 4 of 4
 
 Side task, no batch tag: Task 4 of 4 of the worker run-coroutine wrapper
@@ -467,43 +519,6 @@ whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
   the slot is released.
 
 Deviations: none from the brief.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Worker run-coroutine wrapper: Task 1 of 4
-
-Side task, no batch tag: Task 1 of 4 of the worker run-coroutine wrapper
-plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
-whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
-
-- Added `run_coroutine_in_new_loop(coroutine, *, make_loop=new_thread_event_loop,
-  release_slot=release_job_slot, on_run_error=None)` to the end of
-  `scrobblescope/worker.py`, after `new_thread_event_loop`. It builds the loop
-  inside the `try` so a setup failure still reaches the `finally` that
-  releases the concurrency slot; closes a coroutine that never got a loop, so
-  a setup failure does not leak an unstarted coroutine; never swallows a
-  `loop.close()` failure; and routes a run failure through the caller's
-  `on_run_error`, which stays `None`-safe (silent) by default. Tasks 2 and 3
-  will point the album and heatmap entry points at it.
-- Six unit tests appended to `tests/test_worker.py`, each with an in-function
-  import of the helper (matching this repository's existing convention, e.g.
-  `tests/test_heatmap.py`), so a pre-implementation run fails once per test
-  rather than once per file. Covered: one loop built, run once, closed, and
-  the slot released; a run failure reaching a supplied `on_run_error` while
-  the loop still closes; a run failure staying silent with no policy given;
-  the slot released when loop construction itself fails; the coroutine closed
-  when the loop is never built (the regression the old inline code could not
-  hit, since it used to build the coroutine and the loop in the same line);
-  and a `loop.close()` failure propagating, never routed through
-  `on_run_error`, with the slot still released.
-- Verified the mutation-kill property directly: with the helper's body
-  replaced by `raise NotImplementedError`, all six new tests failed; restored,
-  all six passed again.
-
-Deviations: none from the brief. The brief's baseline count (1,717) was
-already stale at dispatch; this entry measures and quotes the current count
-per controller ruling, and the two other count sites it names.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

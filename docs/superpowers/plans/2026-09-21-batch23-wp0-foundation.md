@@ -19,6 +19,11 @@ shipping a gate change whose only evidence is a unit test.
 
 Everything else the reviews proposed is a recorded disposition in the DoD, not a task.
 
+**Amended 2026-09-23.** The owner folded Tracks 2 and 3 into Batch 23 WP-0, as Parts B and C of
+`BATCH23_DEFINITION.md` WP-0. Their tasks, steps and live-probe standard are unchanged. They still log
+untagged, because every WP-0 commit now does. The "side task" wording below names the log form only;
+it does not mean the work is outside the batch.
+
 **Tech Stack:** Python 3.13 stdlib, pytest, `unittest.mock`, playwright (frontend gate), tomllib. No new
 dependency.
 
@@ -165,7 +170,11 @@ done when its reason is on disk in the document it names.
 ## Track 1 -- WP-0 proper
 
 **Precondition:** Tasks 3 and 3b have landed, so Section 3 names `feat/batch23-wp0-hygiene` and the batch reads as active.
-Section 4 entries for these tasks are tagged `(Batch 23 WP-0)` and sit inside the current-batch markers.
+~~Section 4 entries for these tasks are tagged `(Batch 23 WP-0)` and sit inside the current-batch markers.~~
+Superseded by the owner on 2026-09-23. WP-0's entries are untagged until the whole of WP-0 is done,
+and `BATCH23_DEFINITION.md` WP-0 records why. Task 1 is done (`ad2d078`..`54ab72b`; see the wrapper
+plan's Outcome). WP-0 now also covers this plan's Track 2 and Task 11, as the definition's Parts B
+and C.
 
 ### Task 1: The shared loop protocol
 

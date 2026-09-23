@@ -8,6 +8,26 @@
 
 **Tech Stack:** Python 3.13 stdlib (`asyncio`, `threading`), pytest, `unittest.mock`. No new dependency.
 
+## Outcome, 2026-09-23 -- complete
+
+All four tasks landed on `feat/batch23-wp0-hygiene`, `ad2d078` through `54ab72b`, by
+subagent-driven development: a fresh implementer and a task review per task, then a whole-branch
+review, which found nothing. The suite went from 1,729 to 1,735 passed, and no existing test changed.
+The plan's Acceptance holds. Four deviations, each for a stated reason:
+
+- **Section 4 entries are untagged**, not tagged `(Batch 23 WP-0)` as the Global Constraints say.
+  Owner ruling, 2026-09-23: docsync reads a work package as complete on its first tagged heading,
+  so a tagged entry here would have named WP-1 as next while WP-0 was still running.
+- **The commits staged more than the plan's `git add` lines.** Task 1's six tests moved the count, so
+  the count sites in `.claude/SESSION_CONTEXT.md` and `FINDINGS.md` changed with it. Each `--fix` also
+  rotated the oldest side-task entry into the log archive.
+- **Task 4 took a fix round.** It first corrected only `docs/architecture/top-albums-sequence.md`.
+  Its review found the same stale claim in `docs/architecture/heatmap-sequence.md`, and `54ab72b`
+  corrected it.
+- **Task 2's dispatch said the guard tests patch the orchestrator's loop builder.** They patch
+  `asyncio` one level down. That premise stayed in the dispatch and never reached a commit, so there
+  was nothing to fix.
+
 ## Global Constraints
 
 Every task's requirements include this section.
@@ -67,7 +87,7 @@ the lifetime of the process, so a one-shot wrapper is the wrong shape for it.
 - Consumes: `new_thread_event_loop()` and `release_job_slot()` from the same module.
 - Produces: `run_coroutine_in_new_loop(coroutine, *, make_loop=new_thread_event_loop, release_slot=release_job_slot, on_run_error=None) -> None`, used by Tasks 2 and 3.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Each test imports the helper inside itself, on purpose, and matching the in-function imports already
 used in this repository's tests (`tests/test_heatmap.py` imports `ERROR_CODES` the same way): a
@@ -235,14 +255,14 @@ def test_run_coroutine_never_hides_a_close_failure():
     assert released == [True]
     assert seen == []
 ```
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 Run: `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe tests/test_worker.py -v -k run_coroutine`
 Expected: 6 failed, each on `ImportError: cannot import name 'run_coroutine_in_new_loop'` raised
 inside the test body (the in-function import makes these failures, not collection errors). If more
 than 6 are selected, the earlier tests were disturbed -- fix that before continuing.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 Append to `scrobblescope/worker.py`:
 
@@ -312,20 +332,20 @@ ruff comment requires a `# noqa: BLE001` to carry a stated reason -- "so the cou
 without a stated reason". `the injected policy decides what to do` is that reason. Keep it, and
 rephrase it if the intent reads differently to you.
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe tests/test_worker.py -v`
 Expected: the six new tests pass, and the nine existing tests (`acquire_job_slot` x2,
 `release_job_slot` x2, `start_job_thread` x2, `new_thread_event_loop` x3) still pass. No `RuntimeWarning: coroutine ... was never awaited` may appear in
 the output; if one does, the `coroutine.close()` line is missing or unreachable.
 
-- [ ] **Step 5: Prove the tests fail if the helper is deleted**
+- [x] **Step 5: Prove the tests fail if the helper is deleted**
 
 Replace the helper's body with `raise NotImplementedError` and re-run the six tests. All six must
 fail. Restore the body and re-run to green. This is the repository's rule that a test must fail if
 the function under test is deleted; a test that passes either way is not accepted.
 
-- [ ] **Step 6: Run the full gates and commit**
+- [x] **Step 6: Run the full gates and commit**
 
 ```bash
 C:/Users/peter/Python\ Projects/ScrobbleScope/.venv/Scripts/python.exe scripts/doc_state_sync.py --fix
@@ -351,7 +371,7 @@ acceptable output is the expected root-`BATCH23_DEFINITION.md` warning.
 - Consumes: `run_coroutine_in_new_loop` from Task 1, plus this module's own `new_thread_event_loop`, `release_job_slot` and `_fetch_and_process` names.
 - Produces: no interface change. `background_task`'s signature, its log line, and its exception behaviour are identical.
 
-- [ ] **Step 1: Confirm the four guard tests pass before the change**
+- [x] **Step 1: Confirm the four guard tests pass before the change**
 
 Run: `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe tests/services/test_orchestrator_fetch_and_process.py -v -k background_task`
 Expected: 4 passed -- `test_background_task_runs_single_event_loop`,
@@ -365,7 +385,7 @@ loop setup fails; the fourth asserts a failing `loop.close()` **propagates out o
 `background_task`** while the slot is still released. That last one is why the helper call must not
 sit inside a broad `except`.
 
-- [ ] **Step 2: Extend the worker import**
+- [x] **Step 2: Extend the worker import**
 
 Replace line 60's import with:
 
@@ -377,7 +397,7 @@ from scrobblescope.worker import (
 )
 ```
 
-- [ ] **Step 3: Replace the body of `background_task`**
+- [x] **Step 3: Replace the body of `background_task`**
 
 Keep the signature and the docstring's opening. Replace everything after the docstring -- the
 `loop = None` block, the `except Exception:` log line, and the nested `finally` -- with:
@@ -418,7 +438,7 @@ Then extend the docstring with the two facts a reader now needs:
     backstop publishes no terminal state at all, unlike the heatmap's.
 ```
 
-- [ ] **Step 4: Run the four guard tests, unmodified**
+- [x] **Step 4: Run the four guard tests, unmodified**
 
 Run: `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe tests/services/test_orchestrator_fetch_and_process.py -v -k background_task`
 Expected: 4 passed.
@@ -427,13 +447,13 @@ Then prove the tests were untouched:
 `git diff --stat tests/services/test_orchestrator_fetch_and_process.py` must print nothing.
 If any test needed editing, the seam is wrong -- restore it and report instead of editing the test.
 
-- [ ] **Step 5: Run the entry point's other consumers**
+- [x] **Step 5: Run the entry point's other consumers**
 
 Run: `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe tests/test_routes.py tests/services -q`
 Expected: pass. `tests/test_routes.py:435` asserts the thread target is still the same
 `background_task` object, which this task does not move.
 
-- [ ] **Step 6: Run the full gates and commit**
+- [x] **Step 6: Run the full gates and commit**
 
 ```bash
 C:/Users/peter/Python\ Projects/ScrobbleScope/.venv/Scripts/python.exe scripts/doc_state_sync.py --fix
@@ -457,7 +477,7 @@ Same documentation step as Task 1, with the count from this run.
 - Consumes: `run_coroutine_in_new_loop` from Task 1, plus this module's own `new_thread_event_loop`, `release_job_slot`, `set_job_error` and `_fetch_and_process_heatmap` names.
 - Produces: no interface change to `heatmap_task`, and one new module-private helper, `_report_heatmap_failure(job_id, username)`.
 
-- [ ] **Step 1: Confirm the four guard tests pass before the change**
+- [x] **Step 1: Confirm the four guard tests pass before the change**
 
 Run: `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe tests/test_heatmap.py -v -k TestHeatmapTask`
 Expected: 4 passed -- `test_release_job_slot_called_on_success`,
@@ -468,7 +488,7 @@ Expected: 4 passed -- `test_release_job_slot_called_on_success`,
 Read them now. Two properties they pin are easy to lose: `heatmap_task` must **not raise** when the
 pipeline fails (it reports instead), and it **must** raise when `loop.close()` fails.
 
-- [ ] **Step 2: Extend the worker import**
+- [x] **Step 2: Extend the worker import**
 
 Replace line 31's import with:
 
@@ -480,7 +500,7 @@ from scrobblescope.worker import (
 )
 ```
 
-- [ ] **Step 3: Add the reaction as a named function**
+- [x] **Step 3: Add the reaction as a named function**
 
 Immediately above `heatmap_task`, add:
 
@@ -502,7 +522,7 @@ Naming it matters twice: it gives the later F-SWE-5 change a single place to alt
 `set_job_error` resolved as this module's global so `patch("scrobblescope.heatmap.set_job_error")`
 still intercepts.
 
-- [ ] **Step 4: Replace the body of `heatmap_task`**
+- [x] **Step 4: Replace the body of `heatmap_task`**
 
 Keep the signature. Replace everything after the docstring with:
 
@@ -522,12 +542,12 @@ released in the `finally`, "loop setup included". That reasoning now lives in th
 docstring should say so and keep only what is local -- that a failed run is reported rather than
 raised, which is this entry point's answer to F-SWE-5.
 
-- [ ] **Step 5: Run the four guard tests, unmodified**
+- [x] **Step 5: Run the four guard tests, unmodified**
 
 Run: `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe tests/test_heatmap.py -v -k TestHeatmapTask`
 Expected: 4 passed, and `git diff --stat tests/test_heatmap.py` prints nothing.
 
-- [ ] **Step 6: Confirm both entry points now share exactly one protocol**
+- [x] **Step 6: Confirm both entry points now share exactly one protocol**
 
 Run: `C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe -q tests/test_heatmap.py tests/services/test_orchestrator_fetch_and_process.py tests/test_routes.py tests/test_worker.py`
 Expected: pass.
@@ -536,7 +556,7 @@ Then read `background_task` and `heatmap_task` side by side. Each should now be 
 the only difference between them should be the injected `on_run_error`. That difference *is* the
 remaining half of F-SWE-5, and it should be visible in about ten lines of diff rather than sixty.
 
-- [ ] **Step 7: Run the full gates and commit**
+- [x] **Step 7: Run the full gates and commit**
 
 ```bash
 C:/Users/peter/Python\ Projects/ScrobbleScope/.venv/Scripts/python.exe scripts/doc_state_sync.py --fix
@@ -561,7 +581,7 @@ Same documentation step, with the count from this run.
 - Consumes: the helper from Task 1 and its two callers from Tasks 2 and 3.
 - Produces: no code interface.
 
-- [ ] **Step 1: Find every place the protocol is described**
+- [x] **Step 1: Find every place the protocol is described**
 
 Run: `C:/Users/peter/Python\ Projects/ScrobbleScope/.venv/Scripts/python.exe -c "import pathlib; [print(p.as_posix()) for p in pathlib.Path('.').glob('**/*.md') if 'release_job_slot' in p.read_text(encoding='utf-8', errors='ignore')]"`
 
@@ -572,7 +592,7 @@ overview), and possibly `docs/architecture/runtime-system.md`. `AGENT_NOTES.md`'
 note names `worker.new_thread_event_loop` as the single seam both pipelines build their loop
 through, which this change strengthens -- if its wording still holds, leave it alone.
 
-- [ ] **Step 2: Update the structure line**
+- [x] **Step 2: Update the structure line**
 
 In `.claude/SESSION_CONTEXT.md` Section 3, the `worker.py` comment currently reads:
 
@@ -586,7 +606,7 @@ Change it to name the new helper:
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
 ```
 
-- [ ] **Step 3: Update the runtime description only where it is now inaccurate**
+- [x] **Step 3: Update the runtime description only where it is now inaccurate**
 
 If a hit from Step 1 says where the build-run-close-release protocol lives, update that sentence to
 say both background entry points run their pipeline through `worker.run_coroutine_in_new_loop` and
@@ -594,7 +614,7 @@ that the reaction to a failed run is injected per entry point. Add no second des
 one document owns the protocol, `.claude/SESSION_CONTEXT.md` links to `docs/ARCHITECTURE.md`, and
 that links to the focused owner files.
 
-- [ ] **Step 4: Run the gates and commit**
+- [x] **Step 4: Run the gates and commit**
 
 ```bash
 C:/Users/peter/Python\ Projects/ScrobbleScope/.venv/Scripts/python.exe scripts/doc_state_sync.py --fix
