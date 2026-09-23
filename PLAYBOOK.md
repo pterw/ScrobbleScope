@@ -158,6 +158,7 @@ See FINDINGS F-DOCSYNC-3.
 - **Next action:** WP-0 is next: the shared loop protocol, then the three
   original extractions. WP work from here on logs tagged
   `(Batch 23 WP-N)` entries inside the current-batch markers.
+  Loop-protocol plan: Task 1 of 4 landed.
 - **The dashboard's test count read 1522 for a while**, and the way it got
   unstuck is
   worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
@@ -358,6 +359,43 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Worker run-coroutine wrapper: Task 1 of 4
+
+Side task, no batch tag: Task 1 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- Added `run_coroutine_in_new_loop(coroutine, *, make_loop=new_thread_event_loop,
+  release_slot=release_job_slot, on_run_error=None)` to the end of
+  `scrobblescope/worker.py`, after `new_thread_event_loop`. It builds the loop
+  inside the `try` so a setup failure still reaches the `finally` that
+  releases the concurrency slot; closes a coroutine that never got a loop, so
+  a setup failure does not leak an unstarted coroutine; never swallows a
+  `loop.close()` failure; and routes a run failure through the caller's
+  `on_run_error`, which stays `None`-safe (silent) by default. Tasks 2 and 3
+  will point the album and heatmap entry points at it.
+- Six unit tests appended to `tests/test_worker.py`, each with an in-function
+  import of the helper (matching this repository's existing convention, e.g.
+  `tests/test_heatmap.py`), so a pre-implementation run fails once per test
+  rather than once per file. Covered: one loop built, run once, closed, and
+  the slot released; a run failure reaching a supplied `on_run_error` while
+  the loop still closes; a run failure staying silent with no policy given;
+  the slot released when loop construction itself fails; the coroutine closed
+  when the loop is never built (the regression the old inline code could not
+  hit, since it used to build the coroutine and the loop in the same line);
+  and a `loop.close()` failure propagating, never routed through
+  `on_run_error`, with the slot still released.
+- Verified the mutation-kill property directly: with the helper's body
+  replaced by `raise NotImplementedError`, all six new tests failed; restored,
+  all six passed again.
+
+Deviations: none from the brief. The brief's baseline count (1,717) was
+already stale at dispatch; this entry measures and quotes the current count
+per controller ruling, and the two other count sites it names.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-21 - Batch 23 opened on feat/batch23-wp0-hygiene
 
 Side task, no batch tag: this entry records the opening itself and is not
@@ -460,24 +498,6 @@ and a partial guard is its own wrong green); WP-0 counts as "next" under a
 finite plan; job admission is folded into Batch 23 WP-4. Section 3 is
 deliberately unchanged here: opening the batch before the D1 fix would
 produce the defect's state.
-
-Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-21 - Docsync live-probe audit recorded
-
-Side task, no batch tag. Scope: record the formal conclusion of the live
-probe run earlier today as
-`docs/history/reports/DOCSYNC_LIVE_PROBE_AUDIT_2026-09-21.md`. No code
-changed.
-
-Verdict: conditionally fit. All 21 implemented codes fired on their own
-planted defect (26 of 26 red probes), all 8 near-miss controls stayed
-green, and `--fix`, the exit codes and the preflight behaved as documented.
-Blocking defect D1: a batch declared open with no logged work package reads
-as "between batches" and DOC007 is silent on a false next-package claim; it
-must be fixed before Batch 23 opens. D2: WP-0 is never "next" under a finite
-plan; the owner ruled that it counts. The report states what was not probed.
 
 Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

@@ -9,6 +9,24 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Docsync live-probe audit recorded
+
+Side task, no batch tag. Scope: record the formal conclusion of the live
+probe run earlier today as
+`docs/history/reports/DOCSYNC_LIVE_PROBE_AUDIT_2026-09-21.md`. No code
+changed.
+
+Verdict: conditionally fit. All 21 implemented codes fired on their own
+planted defect (26 of 26 red probes), all 8 near-miss controls stayed
+green, and `--fix`, the exit codes and the preflight behaved as documented.
+Blocking defect D1: a batch declared open with no logged work package reads
+as "between batches" and DOC007 is silent on a false next-package claim; it
+must be fixed before Batch 23 opens. D2: WP-0 is never "next" under a finite
+plan; the owner ruled that it counts. The report states what was not probed.
+
+Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-21 - Worker loop-protocol plan committed; docsync probed live
 
 Side task, no batch tag. Scope: commit the plan of record for Batch 23
