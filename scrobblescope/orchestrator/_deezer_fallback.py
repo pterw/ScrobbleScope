@@ -80,19 +80,7 @@ async def _run_deezer_fallback_phase(job_id, session, misses, cache_hits):
                 },
                 "original": data,
             }
-            new_metadata_rows.append(
-                (
-                    key[0],
-                    key[1],
-                    None,
-                    metadata.release_date,
-                    metadata.image_url,
-                    metadata.track_durations,
-                    metadata.provider,
-                    metadata.album_id,
-                    metadata.url,
-                )
-            )
+            new_metadata_rows.append(metadata.as_cache_row(key[0], key[1]))
         else:
             original_artist = data["original_artist"]
             original_album = data["original_album"]

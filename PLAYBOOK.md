@@ -172,8 +172,9 @@ See FINDINGS F-DOCSYNC-3.
      (the docsync work-package gap, filed as F-DOCSYNC-15) both landed
      2026-09-23. Stage 2 includes Task 11 (F-B22-8), which the owner added
      on 2026-09-23. Stage 2 has started: Task 3 (F-SWE-6, reading a job no
-     longer renews its lease) and Task 4 (F-B22-7, part 1 of 3, the
-     `spotify_id` column) landed 2026-09-23.
+     longer renews its lease), Task 4 (F-B22-7, part 1 of 3, the
+     `spotify_id` column) and Task 5 (F-B22-7, part 2 of 3, the Spotify
+     payload translated once in `spotify.py`) landed 2026-09-23.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -382,6 +383,44 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The Spotify payload is translated once, in spotify.py
+
+Side task, no batch tag: fixes F-B22-7, part 2 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 5 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/spotify.py` gains `album_metadata_from_details`, the
+  one place the application reads a Spotify album object into the provider
+  contract; `enrich_albums` now calls it instead of building `AlbumMetadata`
+  inline. It is re-exported on the orchestrator facade
+  (`scrobblescope/orchestrator/__init__.py`).
+- **The detail phase files, it no longer parses.**
+  `scrobblescope/orchestrator/_details.py`'s "Extract cacheable fields" loop
+  now calls `_orchestrator.album_metadata_from_details` and appends
+  `metadata.as_cache_row(...)` (Task 4's contract) instead of building the
+  row by hand; its now-unused `normalize_track_name` import is dropped, and
+  the module docstring names the new cross-cutting dependency.
+  `scrobblescope/orchestrator/_deezer_fallback.py`'s inline 9-tuple is
+  replaced the same way. Since Task 4, that tuple was already identical to
+  what `as_cache_row` writes, so the Deezer row is unchanged in shape.
+  `provider_url` for a Spotify row now holds the album's Spotify URL instead
+  of `NULL`, since the 9-tuple form carries it; `_batch_persist_metadata`
+  still accepts 6-tuples.
+- **Tests added, four in total:**
+  `test_album_metadata_from_details_translates_one_payload` and the
+  parametrized `test_album_metadata_from_details_degrades_field_by_field`
+  (`tests/services/test_spotify_service.py`, two cases: no `images` key and
+  an empty list), and `test_process_albums_persists_a_spotify_row_through_the_contract`
+  (`tests/services/test_orchestrator_process_albums.py`), which pins the
+  live Spotify path's persisted row as the provider contract's nine-element
+  form. No existing test changed.
+- **Bookkeeping:** the reconcile plan's Task 5 steps are ticked. Section 3's
+  order list now records Task 5 landed alongside Tasks 3 and 4 in Stage 2.
+
+Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - A Deezer id no longer lands in the Spotify column
 
 Side task, no batch tag: fixes F-B22-7, part 1 of 3, part of Batch 23 WP-0
@@ -472,45 +511,6 @@ amendment exposed, part of Batch 23 WP-0 Part B. Untagged by owner ruling
   plus one" count. The reconcile plan's Task 2 steps are ticked. Section 3's
   order list now records Stage 1 (Tasks 1 and 2) as complete.
 - No code changed; no test added.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Export upload ownership, three depth findings, and a template fix
-
-Side task, no batch tag: records owner rulings on the 2026-09-23
-architecture-depth proposal, part of Batch 23 WP-0. Untagged by owner ruling
-2026-09-23 until the whole of WP-0 lands. No code changed. With Task 12's
-fix round (`972264f`) reviewed clean, Part A -- the loop protocol, the
-three extractions and the release-window leaf -- is complete.
-
-- **The proposal is now tracked** as
-  `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`, renamed from
-  the owner's "ScrobbleScope - further architectural depth.html" to the
-  reports folder's topic-and-date form. An older `.htm` draft beside it stays
-  untracked. DOC001 checks only `.md` references and skips paths containing
-  spaces, so the rename is a naming convention, not a gate fix.
-- **Card 04 amends the export plan now.** The upload has one owner at every
-  moment and is never copied: the route owns it until the thread starts and
-  closes it on every refusal, and the task owns it after that. Admission
-  also caps export jobs in flight at `EXPORT_MAX_IN_FLIGHT`, because the
-  parse semaphore bounds running parses, not buffers waiting for a permit.
-  The export plan's new "Upload ownership and the waiting bound" section
-  holds the rule, and the definition's WP-3 and WP-4 checkboxes and
-  acceptance carry it. The plan's Phase 2 now records the Part A
-  extractions as landed, under their real names.
-- **Cards 01-03 are filed at P2** as F-B23-1 (album calculation returns its
-  whole answer), F-B23-2 (Last.fm translates its own payload) and F-B23-3
-  (the cache module owns its connection). F-B23-1 is timed by the owner:
-  after WP-0's provider repairs and before WP-6's design, with any move into
-  Batch 23 needing its own scope amendment. The definition's WP-6 names that
-  decision point.
-- **The reconcile plan's finding template is corrected.** It put the reason
-  on the status line (`resolved -- <reason>`). The gate accepts only a bare
-  `resolved` or `no action`, and Task 1's implementer found this by running
-  `--fix`. The template, Task 1 Step 3's record of what ran, and Task 10
-  Step 2's no-action form now follow the archive's order: status,
-  completion date, then the reason on its own line.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

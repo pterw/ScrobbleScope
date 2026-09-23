@@ -9,6 +9,45 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Export upload ownership, three depth findings, and a template fix
+
+Side task, no batch tag: records owner rulings on the 2026-09-23
+architecture-depth proposal, part of Batch 23 WP-0. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands. No code changed. With Task 12's
+fix round (`972264f`) reviewed clean, Part A -- the loop protocol, the
+three extractions and the release-window leaf -- is complete.
+
+- **The proposal is now tracked** as
+  `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`, renamed from
+  the owner's "ScrobbleScope - further architectural depth.html" to the
+  reports folder's topic-and-date form. An older `.htm` draft beside it stays
+  untracked. DOC001 checks only `.md` references and skips paths containing
+  spaces, so the rename is a naming convention, not a gate fix.
+- **Card 04 amends the export plan now.** The upload has one owner at every
+  moment and is never copied: the route owns it until the thread starts and
+  closes it on every refusal, and the task owns it after that. Admission
+  also caps export jobs in flight at `EXPORT_MAX_IN_FLIGHT`, because the
+  parse semaphore bounds running parses, not buffers waiting for a permit.
+  The export plan's new "Upload ownership and the waiting bound" section
+  holds the rule, and the definition's WP-3 and WP-4 checkboxes and
+  acceptance carry it. The plan's Phase 2 now records the Part A
+  extractions as landed, under their real names.
+- **Cards 01-03 are filed at P2** as F-B23-1 (album calculation returns its
+  whole answer), F-B23-2 (Last.fm translates its own payload) and F-B23-3
+  (the cache module owns its connection). F-B23-1 is timed by the owner:
+  after WP-0's provider repairs and before WP-6's design, with any move into
+  Batch 23 needing its own scope amendment. The definition's WP-6 names that
+  decision point.
+- **The reconcile plan's finding template is corrected.** It put the reason
+  on the status line (`resolved -- <reason>`). The gate accepts only a bare
+  `resolved` or `no action`, and Task 1's implementer found this by running
+  `--fix`. The template, Task 1 Step 3's record of what ran, and Task 10
+  Step 2's no-action form now follow the archive's order: status,
+  completion date, then the reason on its own line.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Close six stale pending-deploy findings
 
 Side task, no batch tag: close the six finding records that still said "resolved locally, pending

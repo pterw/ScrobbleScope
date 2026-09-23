@@ -47,6 +47,7 @@ from scrobblescope.repositories import (
     set_job_stat,
 )
 from scrobblescope.spotify import (
+    album_metadata_from_details,
     enrich_albums,
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
@@ -792,6 +793,7 @@ __all__ = [
     "_run_spotify_batch_detail_phase",
     "_run_spotify_search_phase",
     "add_job_unmatched",
+    "album_metadata_from_details",
     "background_task",
     "cleanup_expired_jobs",
     "create_optimized_session",

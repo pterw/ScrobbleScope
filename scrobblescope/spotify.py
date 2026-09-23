@@ -235,6 +235,39 @@ async def fetch_spotify_album_details_batch(
     return await _fetch_album_details_one_by_one(session, album_ids, token, retries)
 
 
+def album_metadata_from_details(spotify_id, details):
+    """Translate one Spotify album object into the provider contract.
+
+    The one place the application reads Spotify's album JSON. The
+    orchestrator's detail phase files what this returns and never drills into
+    the payload itself (global rule 4, F-B22-7). A sparse payload degrades
+    field by field -- no images gives ``image_url=None``, no external URL
+    falls back to the album's canonical URL -- rather than raising.
+
+    Args:
+        spotify_id: The album id Spotify issued.
+        details: One album object from Get Album or Get Several Albums.
+
+    Returns:
+        AlbumMetadata with ``provider="spotify"`` and track durations in
+        whole seconds, keyed by ``normalize_track_name``.
+    """
+    images = details.get("images") or [{}]
+    return AlbumMetadata(
+        provider="spotify",
+        album_id=spotify_id,
+        url=details.get("external_urls", {}).get(
+            "spotify", f"https://open.spotify.com/album/{spotify_id}"
+        ),
+        release_date=details.get("release_date", ""),
+        image_url=images[0].get("url"),
+        track_durations={
+            normalize_track_name(t.get("name", "")): t.get("duration_ms", 0) // 1000
+            for t in details.get("tracks", {}).get("items", [])
+        },
+    )
+
+
 async def enrich_albums(session, misses, token):
     """Enrich a batch of cache-miss albums via Spotify search + batch detail.
 
@@ -279,21 +312,7 @@ async def enrich_albums(session, misses, token):
             if not details:
                 unmatched.add(key)
                 continue
-            images = details.get("images") or [{}]
-            matched[key] = AlbumMetadata(
-                provider="spotify",
-                album_id=spotify_id,
-                url=details.get("external_urls", {}).get(
-                    "spotify", f"https://open.spotify.com/album/{spotify_id}"
-                ),
-                release_date=details.get("release_date", ""),
-                image_url=images[0].get("url"),
-                track_durations={
-                    normalize_track_name(t.get("name", "")): t.get("duration_ms", 0)
-                    // 1000
-                    for t in details.get("tracks", {}).get("items", [])
-                },
-            )
+            matched[key] = album_metadata_from_details(spotify_id, details)
 
     return matched, unmatched
 

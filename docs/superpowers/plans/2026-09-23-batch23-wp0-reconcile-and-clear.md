@@ -588,7 +588,7 @@ album's Spotify URL instead of `NULL`. `provider` and `provider_album_id` hold t
 6-tuple default already wrote. `_batch_persist_metadata` keeps accepting 6-tuples: that is a tolerant
 input path, not an unused call (global rule 6).
 
-- [ ] **Step 1: Write the failing translation tests.** Append to `tests/services/test_spotify_service.py`,
+- [x] **Step 1: Write the failing translation tests.** Append to `tests/services/test_spotify_service.py`,
   and add `album_metadata_from_details` to its `from scrobblescope.spotify import (...)` block:
 
 ```python
@@ -638,7 +638,7 @@ def test_album_metadata_from_details_degrades_field_by_field(images):
     assert meta.track_durations == {}
 ```
 
-- [ ] **Step 2: Write the failing persistence test.** Append to
+- [x] **Step 2: Write the failing persistence test.** Append to
   `tests/services/test_orchestrator_process_albums.py`:
 
 ```python
@@ -726,7 +726,7 @@ async def test_process_albums_persists_a_spotify_row_through_the_contract():
     )
 ```
 
-- [ ] **Step 3: Run them to verify they fail.**
+- [x] **Step 3: Run them to verify they fail.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services/test_spotify_service.py tests/services/test_orchestrator_process_albums.py -q -k "album_metadata_from_details or through_the_contract"`
 Expected:
@@ -734,7 +734,7 @@ Expected:
   which is a collection error for that file;
 - the persistence test fails, because the live row has 6 elements, not 9.
 
-- [ ] **Step 4: Add the translation.** In `scrobblescope/spotify.py`, directly above
+- [x] **Step 4: Add the translation.** In `scrobblescope/spotify.py`, directly above
   `async def enrich_albums`:
 
 ```python
@@ -778,12 +778,12 @@ def album_metadata_from_details(spotify_id, details):
             matched[key] = album_metadata_from_details(spotify_id, details)
 ```
 
-- [ ] **Step 5: Re-export it on the facade.** In `scrobblescope/orchestrator/__init__.py`:
+- [x] **Step 5: Re-export it on the facade.** In `scrobblescope/orchestrator/__init__.py`:
   - add `album_metadata_from_details,` to the `from scrobblescope.spotify import (...)` block, in
     alphabetical position;
   - add `"album_metadata_from_details",` to `__all__`, also alphabetically.
 
-- [ ] **Step 6: File, don't parse, in the detail phase.** In `scrobblescope/orchestrator/_details.py`:
+- [x] **Step 6: File, don't parse, in the detail phase.** In `scrobblescope/orchestrator/_details.py`:
   1. Delete `from scrobblescope.domain import normalize_track_name`.
   2. In the module docstring, change `(``fetch_spotify_album_details_batch``, ``set_job_progress``)` to
      `(``fetch_spotify_album_details_batch``, ``album_metadata_from_details``, ``set_job_progress``)`.
@@ -813,7 +813,7 @@ def album_metadata_from_details(spotify_id, details):
         new_metadata_rows.append(metadata.as_cache_row(key[0], key[1]))
 ```
 
-- [ ] **Step 7: Route the Deezer row through the contract.** In
+- [x] **Step 7: Route the Deezer row through the contract.** In
   `scrobblescope/orchestrator/_deezer_fallback.py`, replace the whole
   `new_metadata_rows.append((key[0], key[1], None, ... metadata.url,))` call with:
 
@@ -823,13 +823,13 @@ def album_metadata_from_details(spotify_id, details):
 
   Since Task 4, that tuple is identical to the one it replaces.
 
-- [ ] **Step 8: Run the tests to verify they pass.**
+- [x] **Step 8: Run the tests to verify they pass.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services -q`
 Expected: pass. That includes the unchanged Deezer row test, which pins `row[2] is None` and the three
 provider columns.
 
-- [ ] **Step 9: Run the gates and commit.** The count rises by 4 (one test, one parametrized pair, one
+- [x] **Step 9: Run the gates and commit.** The count rises by 4 (one test, one parametrized pair, one
   process test). No existing assertion changes.
 
 ```bash

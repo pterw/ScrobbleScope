@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from scrobblescope.spotify import (
+    album_metadata_from_details,
     enrich_albums,
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
@@ -676,3 +677,49 @@ async def test_enrich_albums_handles_missing_cover_art():
 
     assert unmatched == set()
     assert matched[("artist", "album")].image_url is None
+
+
+def test_album_metadata_from_details_translates_one_payload():
+    """One Spotify album object becomes the provider contract, whole."""
+    from scrobblescope.domain import normalize_track_name
+    from scrobblescope.enrichment import AlbumMetadata
+
+    details = {
+        "release_date": "1977-02-04",
+        "images": [
+            {"url": "https://i.scdn.co/cover-large.jpg"},
+            {"url": "https://i.scdn.co/cover-small.jpg"},
+        ],
+        "external_urls": {"spotify": "https://open.spotify.com/album/sp1"},
+        "tracks": {
+            "items": [
+                {"name": "Dreams - 2004 Remaster", "duration_ms": 257800},
+                {"name": "Songbird", "duration_ms": 200000},
+            ]
+        },
+    }
+
+    assert album_metadata_from_details("sp1", details) == AlbumMetadata(
+        provider="spotify",
+        album_id="sp1",
+        url="https://open.spotify.com/album/sp1",
+        release_date="1977-02-04",
+        image_url="https://i.scdn.co/cover-large.jpg",
+        track_durations={
+            normalize_track_name("Dreams - 2004 Remaster"): 257,
+            normalize_track_name("Songbird"): 200,
+        },
+    )
+
+
+@pytest.mark.parametrize("images", [None, []], ids=["no-key", "empty"])
+def test_album_metadata_from_details_degrades_field_by_field(images):
+    """A sparse payload yields defaults, never an exception (global rule 6)."""
+    details = {} if images is None else {"images": images}
+
+    meta = album_metadata_from_details("sp2", details)
+
+    assert meta.url == "https://open.spotify.com/album/sp2"
+    assert meta.release_date == ""
+    assert meta.image_url is None
+    assert meta.track_durations == {}
