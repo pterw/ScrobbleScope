@@ -159,8 +159,13 @@ See FINDINGS F-DOCSYNC-3.
   reconciles what earlier batches left open. Part C clears every finding open
   at P0 or P1. The rest of Parts B and C run from
   `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`.
-  Its owner questions, Q0-Q16, are waiting on the owner. Part A and that
-  plan's Stage 1 can start without them. Every WP-0
+  The owner answered its questions, Q0-Q16, on 2026-09-23; the plan
+  records the answers. The order from here:
+  1. Part A: the foundation plan's Task 2.
+  2. This plan's Stage 1, then Stage 2, then Stage 3.
+  3. The foundation plan's Tasks 4-10.
+  4. The follow-on plans.
+  Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
   one tagged `(Batch 23 WP-0)` entry closes WP-0 (owner ruling, 2026-09-23).
   Later work packages log tagged entries inside the markers.
@@ -364,6 +369,36 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Owner answers to the reconcile-and-clear plan
+
+Side task, no batch tag: records the owner's answers to Q0-Q16 of
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`,
+part of Batch 23 WP-0. No code changed, and no task started: the session
+ends here for a context reset, by owner instruction.
+
+- **Every question takes its recommended answer, except three.**
+  - **Q0:** no MusicBrainz lines in the log. This is expected, not a result.
+    `release_checks._run_release_checks` skips when the cache database is
+    down, and Postgres was down on purpose for that run.
+    `enqueue_release_check` skips silently when `MUSICBRAINZ_CONTACT` is
+    unset. The Batch 22 MusicBrainz check stays owed until a run with
+    `ss-postgres` up. The silent skip gets a `logging.info` line in the
+    test-infrastructure plan.
+  - **Q10 = b:** the UI stays as it is. F-B21-53 becomes no action in Task
+    10, and leaves the frontend plan.
+  - **Q16 = a:** all the listed rule-outs are approved.
+- **What this settles.** Q1 and Q2 confirm Stage 2's Tasks 3-9 as written:
+  F-SWE-6 and F-B22-7 join the set.
+
+Next, in order:
+1. Part A: the foundation plan's Task 2, by subagent-driven development.
+2. This plan's Tasks 1-10.
+3. The foundation plan's Tasks 4-10.
+4. The three follow-on plans.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Plan of record for reconciling and clearing findings
 
 Side task, no batch tag: planning for Batch 23 WP-0 Parts B and C. It adds
@@ -489,46 +524,6 @@ Deviations: none from the brief. Review fix round 1 extended the
 correction from `top-albums-sequence.md` to its sibling
 `heatmap-sequence.md`, which the brief's Files list had not predicted as a
 hit but which Step 1/Step 3 cover on their own terms.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Worker run-coroutine wrapper: Task 3 of 4
-
-Side task, no batch tag: Task 3 of 4 of the worker run-coroutine wrapper
-plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
-whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
-
-- `heatmap_task` in `scrobblescope/heatmap.py` now delegates its
-  build-run-close-release protocol to `worker.run_coroutine_in_new_loop`,
-  added in Task 1, instead of carrying its own `loop = None` / `try` /
-  `except Exception` / nested `finally` block. `make_loop` and
-  `release_slot` are passed explicitly as `new_thread_event_loop` and
-  `release_job_slot` rather than left to the helper's own defaults,
-  because the existing tests patch `scrobblescope.heatmap.release_job_slot`
-  and `scrobblescope.heatmap.set_job_error`. The failure reaction moved into
-  a new named module-private helper, `_report_heatmap_failure(job_id,
-  username)`, placed immediately above `heatmap_task`; it keeps the
-  `lastfm_unavailable` error code deliberately, since `F-SWE-5` records that
-  code as wrong for a fault that is not the user's, and changing it is a
-  separate, now one-line, commit. The import at the top of the module gains
-  `run_coroutine_in_new_loop` alongside the two names it already carried.
-- No test was written or edited: the four existing guard tests in
-  `tests/test_heatmap.py::TestHeatmapTask`
-  (`test_release_job_slot_called_on_success`,
-  `test_release_job_slot_called_on_exception`,
-  `test_release_job_slot_called_when_event_loop_setup_raises`,
-  `test_release_job_slot_called_when_loop_close_raises`) are the acceptance
-  criterion and pass unmodified, including the one that asserts a
-  `loop.close()` failure still propagates out of `heatmap_task` while the
-  slot is released.
-- `background_task` and `heatmap_task` now share exactly one protocol; the
-  only remaining difference between the two entry points is the injected
-  `on_run_error` (silent logging for the album path, versus logging plus a
-  published terminal job error for the heatmap path) -- the remaining half
-  of `F-SWE-5`.
-
-Deviations: none from the brief.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

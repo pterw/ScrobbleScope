@@ -125,6 +125,21 @@ answer.
 | Q15 | **F-B21-25 items 1-2 and F-B21-9** | a) move the two fast-path paragraphs below the bootstrap list, declare `skills-lock.json` in a warn-only manifest, and build the findings/issues sync as a manual `gh`-based script; b) the same, but run the sync as a scheduled CI job | **a** |
 | Q16 | **Rule-outs, approved as a batch** (the exact records are in Task 10) | a) approve all; b) approve with exceptions (name them) | **a** |
 
+**Owner answers, 2026-09-23.** Every question takes its recommended answer, except these:
+
+- **Q0.** No MusicBrainz lines appeared in the run's log. That is expected, and it is not a result:
+  - `release_checks._run_release_checks` skips when the cache database is unavailable, logging
+    "Release checks skipped: the cache DB is unavailable." Postgres was down on purpose for that run.
+  - `enqueue_release_check` skips silently when `MUSICBRAINZ_CONTACT` is unset.
+  - So the Batch 22 MusicBrainz check stays **owed**. It needs a run with `ss-postgres` up and
+    `MUSICBRAINZ_CONTACT` set.
+  - The silent skip is worth one `logging.info` line. Add it to the test-infrastructure plan, not
+    as a new finding.
+- **Q10: b.** The UI stays as it is. F-B21-53 becomes no action: cards are delineated by their
+  border, and `docs/design/README.md` stops calling them elevated. Task 10 records it.
+- **Q11: a**, since no icon asset was supplied.
+- **Q16: a.** All the rule-outs below are approved.
+
 The rule-outs Q16 approves:
 
 - **F-B21-15:** no action. Batch 23 schedules no `GET /heatmap/<username>` route, and the finding says
@@ -189,7 +204,8 @@ Every ID the definition lists, plus the P2s Q1 and Q2 would add. "Verified" is t
 | F-B21-4 | items 1, 2 and 4 fixed; item 3 open | item 3 per Q13 | Task 10 |
 | F-B21-19 | real | per Q12 | Task 10 (override) or the frontend plan |
 | F-DOCSYNC-6, F-DOCSYNC-7, F-DOCSYNC-11, F-DOCSYNC-12, F-DOCSYNC-13, F-MAS-3, F-WORKTREE-3, F-B21-9, F-B21-20, F-B21-25, the new WP-state finding | real | fixed | control-plane plan |
-| F-B21-14, F-B21-18, F-B21-22, F-B21-23, F-B21-53, F-B21-60 | real; F-B21-23's Bootstrap blocker is gone | fixed | frontend plan |
+| F-B21-53 | real; the owner accepts it (Q10 = b) | ruled out | Task 10 |
+| F-B21-14, F-B21-18, F-B21-22, F-B21-23, F-B21-60 | real; F-B21-23's Bootstrap blocker is gone | fixed | frontend plan |
 | F-LOAD-2, F-MAS-1, F-B21-3 (remainder) | real | fixed | test-infrastructure plan |
 
 ---
@@ -266,7 +282,8 @@ None open. The four P0 items open until 2026-09-23 were fixed before PR #238 dep
   - The Spotify credential restore is **done**. The owner's run on 2026-09-23 logged "Spotify search
     completed in 14.9s: 142/146 misses found on Spotify", with the Postgres cache deliberately down, so
     every album went through a live lookup.
-  - The MusicBrainz check stays owed until the owner answers Q0.
+  - The MusicBrainz check stays owed. That run could not exercise it, because Postgres was down (see
+    the Q0 answer).
 
 - [ ] **Step 6: Run the gates and commit.** Follow the Global Constraints procedure. Stage
   `FINDINGS.md`, `docs/history/findings/FINDINGS_ARCHIVE.md`, `PLAYBOOK.md`, and
@@ -1319,7 +1336,12 @@ answer changes that finding's record and nothing else.
 **Files:** `FINDINGS.md`, the findings archive (by `--fix`), `PLAYBOOK.md`, and this plan's rulings
 table.
 
-- [ ] **Step 1: Mark this plan's rulings table** with each answer and its date.
+- [x] **Step 1: Mark this plan's rulings table** with each answer and its date. Done 2026-09-23 in
+  "Owner answers, 2026-09-23" above.
+- [ ] **Step 1b: Record F-B21-53 (Q10 = b).** Write `no action -- owner ruling 2026-09-23: the light
+  card is delineated by its border, not lifted by its fill; the UI stays as it is`. Replace any claim
+  in `docs/design/README.md` that cards are "elevated" in the light theme with "delineated by the
+  border". F-B21-53 therefore leaves the frontend plan.
 
 - [ ] **Step 2: Write the no-action records.** Each finding's `Status:` prose becomes
   `- [x] **Status:** no action -- <reason>.` plus `**Completed:** <today>`. The reasons:
@@ -1385,7 +1407,7 @@ Each of these is its own plan, written once the rulings are in, so its code matc
 2. **Frontend plan.** It must precede WP-5, which rebuilds the index form.
    - **F-B21-18's harness** (Q14), first, so later fixes land with coverage. Then F-B21-14 (Q8) in the
      same `heatmap.js` region.
-   - **F-B21-22** (Q9), **F-B21-23**, now unblocked, **F-B21-53** (Q10) and **F-B21-60** part 1 (Q11).
+   - **F-B21-22** (Q9), **F-B21-23**, now unblocked, and **F-B21-60** part 1 (Q11).
    Each lands with a new frontend-gate check.
 3. **Test-infrastructure and dependency plan.**
    - **F-LOAD-2:** a real-thread integration test with no new dependency.
@@ -1393,6 +1415,8 @@ Each of these is its own plan, written once the rulings are in, so its code matc
    - **F-B21-3's remainder** (Q6), with a live `pip-audit` recount.
    - While there, add `requirements-dev.txt` to the CI audit's inputs. Triage C noticed it is never
      audited.
+   - Add a `logging.info` line to `release_checks.enqueue_release_check`'s silent skip when
+     `MUSICBRAINZ_CONTACT` is unset (from the Q0 answer).
 
 WP-0 closes when Parts A, B and C each meet their acceptance in `BATCH23_DEFINITION.md`. One tagged
 `(Batch 23 WP-0)` Section 4 entry then records it.

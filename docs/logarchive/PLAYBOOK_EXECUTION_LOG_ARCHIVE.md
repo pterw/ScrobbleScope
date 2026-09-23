@@ -9,6 +9,46 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Worker run-coroutine wrapper: Task 3 of 4
+
+Side task, no batch tag: Task 3 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- `heatmap_task` in `scrobblescope/heatmap.py` now delegates its
+  build-run-close-release protocol to `worker.run_coroutine_in_new_loop`,
+  added in Task 1, instead of carrying its own `loop = None` / `try` /
+  `except Exception` / nested `finally` block. `make_loop` and
+  `release_slot` are passed explicitly as `new_thread_event_loop` and
+  `release_job_slot` rather than left to the helper's own defaults,
+  because the existing tests patch `scrobblescope.heatmap.release_job_slot`
+  and `scrobblescope.heatmap.set_job_error`. The failure reaction moved into
+  a new named module-private helper, `_report_heatmap_failure(job_id,
+  username)`, placed immediately above `heatmap_task`; it keeps the
+  `lastfm_unavailable` error code deliberately, since `F-SWE-5` records that
+  code as wrong for a fault that is not the user's, and changing it is a
+  separate, now one-line, commit. The import at the top of the module gains
+  `run_coroutine_in_new_loop` alongside the two names it already carried.
+- No test was written or edited: the four existing guard tests in
+  `tests/test_heatmap.py::TestHeatmapTask`
+  (`test_release_job_slot_called_on_success`,
+  `test_release_job_slot_called_on_exception`,
+  `test_release_job_slot_called_when_event_loop_setup_raises`,
+  `test_release_job_slot_called_when_loop_close_raises`) are the acceptance
+  criterion and pass unmodified, including the one that asserts a
+  `loop.close()` failure still propagates out of `heatmap_task` while the
+  slot is released.
+- `background_task` and `heatmap_task` now share exactly one protocol; the
+  only remaining difference between the two entry points is the injected
+  `on_run_error` (silent logging for the album path, versus logging plus a
+  published terminal job error for the heatmap path) -- the remaining half
+  of `F-SWE-5`.
+
+Deviations: none from the brief.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Worker run-coroutine wrapper: Task 2 of 4
 
 Side task, no batch tag: Task 2 of 4 of the worker run-coroutine wrapper
