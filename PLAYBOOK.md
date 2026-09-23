@@ -165,7 +165,7 @@ See FINDINGS F-DOCSYNC-3.
   records the answers. The order from here:
   1. Part A: the foundation plan's Task 2 -- done 2026-09-23. Then its
      Task 12, the release-window rule moved to `domain.py`, which the owner
-     added to Part A on 2026-09-23.
+     added to Part A on 2026-09-23 -- also done 2026-09-23.
   2. This plan's Stage 1, then Stage 2, then Stage 3. Stage 2 includes
      Task 11 (F-B22-8), which the owner added on 2026-09-23.
   3. The foundation plan's Tasks 4-10.
@@ -376,6 +376,43 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The release-window rule gets a leaf home
+
+Side task, no batch tag: move `_matches_release_criteria` into `scrobblescope/domain.py`, part of
+Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the foundation plan's Task 12** (review A card 3, added to Part A on 2026-09-23). The rule
+  had two consumers -- the album filter in `orchestrator/_results.py` and the correction worker's
+  `release_checks._matches_window` -- and lived in `orchestrator`, which imports `release_checks` at
+  module level, so the worker could only reach the rule through a function-local import. That was the
+  one documented exception in the SESSION_CONTEXT Section 4 dependency graph.
+- **Plan vs implementation: matched exactly, no deviation.** `domain.py` gained the function verbatim
+  (body and docstring unchanged) plus `import logging`, placed after `normalize_track_name`.
+  `orchestrator/_results.py` deletes the definition and extends its existing `from scrobblescope.domain
+  import normalize_name` line to also import `_matches_release_criteria`, so the facade's re-export
+  (`scrobblescope.orchestrator._matches_release_criteria`) and `orchestrator/_results
+  ._matches_release_criteria` both still resolve unchanged. `release_checks.py` imports the rule from
+  `domain` at module level, next to `normalize_name`, and `_matches_window` lost its function-local
+  import and cycle-explaining docstring in favour of one sentence naming the shared home. Both import
+  orders (`release_checks` before `orchestrator` and the reverse) were run directly and succeeded, since
+  the change is specifically about import order. `.claude/SESSION_CONTEXT.md` Section 4 dropped the
+  `; orchestrator (facade, DEFERRED -- see note)` qualifier from the `release_checks.py` line and the
+  "The one deferred edge" paragraph; a repo-wide check confirmed nothing else cited it. No new edge was
+  added: both consumers already import `domain`. `docs/architecture/runtime-system.md`'s
+  correction-worker bullet now says the worker and the album filter both read the rule from
+  `domain.py`, instead of describing the function-local import.
+  `BATCH23_DEFINITION.md` WP-0 Part A and the foundation plan's Task 12 checkboxes are ticked, and
+  Section 3's numbered order list marks this step done, keeping "WP-0 is next." exactly.
+- **No test changed.** `git diff --stat tests/` is empty; the task is behaviour-neutral and adds no
+  test, so the test count stays at the baseline.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner tests were excluded, since
+they are not repository state.
+
+Forward guidance: WP-0 Part A's foundation-plan tasks (2 and 12) are both done. The next steps are the
+reconcile plan's Stage 1 through Stage 3 (Task 11 included), then the foundation plan's Tasks 4-10, per
+Section 3's order list.
+
 ### 2026-09-23 - Owner rulings: the release-window leaf and F-B22-8
 
 Side task, no batch tag: records three owner rulings, part of Batch 23 WP-0.
@@ -451,36 +488,6 @@ started.
   logged no MusicBrainz line. That proves nothing: the release-check worker
   logs nothing on a successful run, and the primary checkout sets no
   `MUSICBRAINZ_CONTACT`. The handoff's section 6 says how to settle it.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Owner answers to the reconcile-and-clear plan
-
-Side task, no batch tag: records the owner's answers to Q0-Q16 of
-`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`,
-part of Batch 23 WP-0. No code changed, and no task started: the session
-ends here for a context reset, by owner instruction.
-
-- **Every question takes its recommended answer, except three.**
-  - **Q0:** no MusicBrainz lines in the log. This is expected, not a result.
-    `release_checks._run_release_checks` skips when the cache database is
-    down, and Postgres was down on purpose for that run.
-    `enqueue_release_check` skips silently when `MUSICBRAINZ_CONTACT` is
-    unset. The Batch 22 MusicBrainz check stays owed until a run with
-    `ss-postgres` up. The silent skip gets a `logging.info` line in the
-    test-infrastructure plan.
-  - **Q10 = b:** the UI stays as it is. F-B21-53 becomes no action in Task
-    10, and leaves the frontend plan.
-  - **Q16 = a:** all the listed rule-outs are approved.
-- **What this settles.** Q1 and Q2 confirm Stage 2's Tasks 3-9 as written:
-  F-SWE-6 and F-B22-7 join the set.
-
-Next, in order:
-1. Part A: the foundation plan's Task 2, by subagent-driven development.
-2. This plan's Tasks 1-10.
-3. The foundation plan's Tasks 4-10.
-4. The three follow-on plans.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

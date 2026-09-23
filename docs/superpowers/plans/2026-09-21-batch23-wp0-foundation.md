@@ -232,21 +232,21 @@ at module level, and the exception disappears.
 - Test: none. Behaviour-neutral, and bound by WP-0 Part A's acceptance: every existing test passes
   unmodified.
 
-- [ ] **Step 1: Move the rule.** Cut `_matches_release_criteria` from `orchestrator/_results.py`,
+- [x] **Step 1: Move the rule.** Cut `_matches_release_criteria` from `orchestrator/_results.py`,
   body and docstring unchanged, and paste it into `scrobblescope/domain.py` after `normalize_name`'s
   neighbours, at module level. Add `import logging` to `domain.py`'s stdlib imports. Keep the name
   exactly. Tests import it as `scrobblescope.orchestrator._matches_release_criteria` through the
   facade, so no test may need a change.
-- [ ] **Step 2: Keep every existing import path working.** In `orchestrator/_results.py`, extend the
+- [x] **Step 2: Keep every existing import path working.** In `orchestrator/_results.py`, extend the
   existing `from scrobblescope.domain import normalize_name` to import `_matches_release_criteria` as
   well, so the filter's call site is unchanged and `orchestrator/_results._matches_release_criteria`
   still resolves. The facade's `from scrobblescope.orchestrator._results import (...)` block and its
   `__all__` entry stay as they are.
-- [ ] **Step 3: Delete the deferred edge.** In `release_checks.py`, import `_matches_release_criteria`
+- [x] **Step 3: Delete the deferred edge.** In `release_checks.py`, import `_matches_release_criteria`
   from `scrobblescope.domain` at module level, next to the existing `normalize_name` import. Remove the
   function-local import from `_matches_window`, and replace its docstring's cycle explanation with one
   sentence: the rule lives in `domain` so the album filter and this re-check share it.
-- [ ] **Step 4: Update the two documents.**
+- [x] **Step 4: Update the two documents.**
   - `.claude/SESSION_CONTEXT.md` Section 4: drop `; orchestrator (facade, DEFERRED -- see note)` from
     the `release_checks.py` line. Delete the "**The one deferred edge**" paragraph, after checking
     that nothing else cites it (`rg -n "deferred edge"`). No new edge is added: both consumers already
@@ -254,12 +254,12 @@ at module level, and the exception disappears.
   - `docs/architecture/runtime-system.md`: in the correction-worker bullet, replace the sentence about
     importing `_matches_release_criteria` inside a function with one saying that the worker and the
     album filter both read the release-window rule from `domain.py`.
-- [ ] **Step 5: Verify.** Run
+- [x] **Step 5: Verify.** Run
   `pytest.exe tests/services/test_orchestrator_helpers.py tests/services/test_release_checks.py tests/services/test_orchestrator_fetch_and_process.py -q`,
   then check that `git diff --stat tests/` is empty. Also run
   `python -c "import scrobblescope.release_checks; import scrobblescope.orchestrator"` and the reverse
   order, since the change is about import order.
-- [ ] **Step 6: Commit.** Follow the commit procedure, then:
+- [x] **Step 6: Commit.** Follow the commit procedure, then:
   `refactor(domain): Give the release-window rule a leaf home`.
 
 **Acceptance:** `BATCH23_DEFINITION.md` WP-0 Part A's, unchanged. The function-local import is gone,

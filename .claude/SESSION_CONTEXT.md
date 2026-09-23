@@ -140,7 +140,7 @@ lastfm.py        <- config, utils
 spotify.py       <- config, utils
 unmatched.py     <- (leaf)
 musicbrainz.py   <- config, domain, utils
-release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils, worker; orchestrator (facade, DEFERRED -- see note)
+release_checks.py <- cache, config, domain, musicbrainz, repositories, unmatched, utils, worker
 orchestrator/__init__.py  <- cache, config, domain, errors, lastfm, release_checks, repositories, spotify, unmatched, utils, worker; orchestrator/_search, orchestrator/_details, orchestrator/_cache, orchestrator/_results (imported last, for re-export)
 orchestrator/_search.py   <- config, domain, unmatched; orchestrator (facade, for patchable cross-cutting calls)
 orchestrator/_details.py  <- config, domain; orchestrator (facade)
@@ -186,16 +186,6 @@ dev/_frontend_gate_theme.py <- dev/_frontend_gate_colour, dev/_frontend_gate_sha
 dev/_frontend_gate_unmatched.py <- repositories
 dev/frontend_gate.py <- dev/_frontend_gate_assets, dev/_frontend_gate_colour, dev/_frontend_gate_forms, dev/_frontend_gate_layout, dev/_frontend_gate_pipeline, dev/_frontend_gate_results, dev/_frontend_gate_runtime, dev/_frontend_gate_shared, dev/_frontend_gate_theme, dev/_frontend_gate_unmatched
 ```
-
-**The one deferred edge (Task 9, Batch 22 WP-3).** `orchestrator` imports
-`release_checks` at module level, to hand a finished job to the correction
-worker. `release_checks` needs `_matches_release_criteria` back from
-`orchestrator`, and takes it through a **function-local** import inside
-`_matches_window`, not a module-level one. At module level the pair would
-form a cycle whose outcome depends on which module is imported first --
-importing `release_checks` before `orchestrator` would fail on a
-partially-initialised module. The graph above therefore stays acyclic at
-import time; the edge exists only at call time, and is marked DEFERRED.
 
 ---
 

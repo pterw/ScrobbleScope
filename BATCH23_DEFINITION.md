@@ -155,11 +155,11 @@ WP-0 did.
   in `orchestrator/`, done 2026-09-23.
 - [x] Extract `_zero_fill_daily_counts` from `scrobblescope/heatmap.py` so
   both aggregators share one zero-fill, done 2026-09-23.
-- [ ] Move `_matches_release_criteria` into `scrobblescope/domain.py`, so the
+- [x] Move `_matches_release_criteria` into `scrobblescope/domain.py`, so the
   album filter and the release-check worker both import it at module level
   and the worker's function-local import goes. Added by the owner on
   2026-09-23 from the 2026-09-21 architecture review's third card; the
-  foundation plan's Task 12.
+  foundation plan's Task 12. Done 2026-09-23.
 - **Acceptance:** every existing test passes **unmodified**, including
   `tests/services/test_orchestrator_fetch_and_process.py`. No behaviour
   change ships in Part A.

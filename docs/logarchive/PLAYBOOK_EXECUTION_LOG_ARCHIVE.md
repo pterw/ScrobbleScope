@@ -9,6 +9,36 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Owner answers to the reconcile-and-clear plan
+
+Side task, no batch tag: records the owner's answers to Q0-Q16 of
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`,
+part of Batch 23 WP-0. No code changed, and no task started: the session
+ends here for a context reset, by owner instruction.
+
+- **Every question takes its recommended answer, except three.**
+  - **Q0:** no MusicBrainz lines in the log. This is expected, not a result.
+    `release_checks._run_release_checks` skips when the cache database is
+    down, and Postgres was down on purpose for that run.
+    `enqueue_release_check` skips silently when `MUSICBRAINZ_CONTACT` is
+    unset. The Batch 22 MusicBrainz check stays owed until a run with
+    `ss-postgres` up. The silent skip gets a `logging.info` line in the
+    test-infrastructure plan.
+  - **Q10 = b:** the UI stays as it is. F-B21-53 becomes no action in Task
+    10, and leaves the frontend plan.
+  - **Q16 = a:** all the listed rule-outs are approved.
+- **What this settles.** Q1 and Q2 confirm Stage 2's Tasks 3-9 as written:
+  F-SWE-6 and F-B22-7 join the set.
+
+Next, in order:
+1. Part A: the foundation plan's Task 2, by subagent-driven development.
+2. This plan's Tasks 1-10.
+3. The foundation plan's Tasks 4-10.
+4. The three follow-on plans.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Plan of record for reconciling and clearing findings
 
 Side task, no batch tag: planning for Batch 23 WP-0 Parts B and C. It adds

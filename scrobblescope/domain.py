@@ -1,3 +1,4 @@
+import logging
 import string
 import unicodedata
 
@@ -83,3 +84,36 @@ def normalize_track_name(name):
     n = n.translate(translator)
     n = " ".join(n.split())
     return n.strip()
+
+
+def _matches_release_criteria(
+    release_date, release_scope, year, decade=None, release_year=None
+):
+    """Check whether a release date matches the user's filter criteria.
+
+    Pure function: data-in, bool-out.  Extracted from process_albums so it
+    can be unit-tested in isolation without mocking the async I/O pipeline.
+    """
+    if release_scope == "all":
+        return True
+    if not release_date:
+        return False
+
+    release_year_str = (
+        release_date.split("-")[0] if "-" in release_date else release_date
+    )
+    try:
+        rel_year = int(release_year_str)
+        if release_scope == "same":
+            return rel_year == year
+        if release_scope == "previous":
+            return rel_year == year - 1
+        if release_scope == "decade" and decade:
+            decade_start = int(decade[:3] + "0")
+            return decade_start <= rel_year < decade_start + 10
+        if release_scope == "custom" and release_year:
+            return rel_year == release_year
+        return True
+    except ValueError:
+        logging.warning(f"Couldn't parse release year from: {release_date}")
+        return False

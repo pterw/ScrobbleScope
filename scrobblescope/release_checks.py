@@ -49,7 +49,7 @@ from scrobblescope.config import (
     MUSICBRAINZ_CONTACT,
     MUSICBRAINZ_ENABLED,
 )
-from scrobblescope.domain import normalize_name
+from scrobblescope.domain import _matches_release_criteria, normalize_name
 from scrobblescope.musicbrainz import lookup_original_release
 from scrobblescope.repositories import (
     get_job_context,
@@ -181,13 +181,8 @@ def _select_candidates(context):
 def _matches_window(original_release, params):
     """Return True when *original_release* still satisfies the job's filter.
 
-    ``_matches_release_criteria`` is imported inside the function on purpose:
-    it lives in the ``orchestrator`` package, which imports this module to
-    enqueue jobs, and a module-level import here would close that cycle and
-    make the two import orders behave differently.
+    The rule lives in ``domain`` so the album filter and this re-check share it.
     """
-    from scrobblescope.orchestrator import _matches_release_criteria
-
     return _matches_release_criteria(
         original_release,
         params.get("release_scope"),
