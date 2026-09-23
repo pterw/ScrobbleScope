@@ -454,6 +454,13 @@ Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole of WP-
   Section 3's numbered order list marks this step done, keeping "WP-0 is next." exactly.
 - **No test changed.** `git diff --stat tests/` is empty; the task is behaviour-neutral and adds no
   test, so the test count stays at the baseline.
+- **Fix round 1 (review finding, Important).** The Mermaid diagram in
+  `docs/architecture/runtime-system.md` still drew `ReleaseChecks -.->|imported inside a function|
+  Album`, an edge the move made false: `release_checks.py` no longer imports anything from
+  `orchestrator` at all. Deleted that one line; `ReleaseChecks --> Domain` already carries the real
+  dependency, so nothing replaces it. `Album` stays referenced by several other edges, so no node was
+  orphaned. A repo-wide grep for the same edge in any other wording found none. The diagram was
+  validated with the Mermaid Chart MCP tool (`valid: true`, `diagramType: flowchart`) after the edit.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner tests were excluded, since
 they are not repository state.

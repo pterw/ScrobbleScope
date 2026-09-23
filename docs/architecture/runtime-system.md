@@ -78,7 +78,6 @@ flowchart LR
     ReleaseChecks --> Unmatched
     ReleaseChecks --> Utils
     ReleaseChecks --> Worker
-    ReleaseChecks -.->|imported inside a function| Album
     LastFMClient --> Utils
     SpotifyClient --> Utils
     SpotifyClient --> Domain
