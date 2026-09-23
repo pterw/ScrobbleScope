@@ -17,8 +17,11 @@ every task, its tests and its exact commands for WP-1 to WP-7. WP-0 has its
 own plans: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
 covers Part A and most of Part B, and
 `docs/superpowers/plans/2026-09-21-worker-run-coroutine-wrapper.md` covers
-Part A's loop protocol. Part C, and the parts of Part B that the foundation
-plan does not cover, need a plan of record before their first commit. This
+Part A's loop protocol. The rest of Part B and all of Part C run from
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`. It
+holds the owner questions, one disposition per finding, and the tasks. Its
+control-plane and frontend clusters get follow-on plans once the rulings
+are in. This
 file carries the scope, the intended outcome, the work packages and their
 acceptance criteria.
 

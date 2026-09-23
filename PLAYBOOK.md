@@ -157,8 +157,10 @@ See FINDINGS F-DOCSYNC-3.
   behaviour-neutral extractions: the shared loop protocol has landed
   (`ad2d078`..`54ab72b`), and the three original extractions remain. Part B
   reconciles what earlier batches left open. Part C clears every finding open
-  at P0 or P1. Part C, and the parts of Part B that the foundation plan does
-  not cover, need a plan of record before their first commit. Every WP-0
+  at P0 or P1. The rest of Parts B and C run from
+  `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`.
+  Its owner questions, Q0-Q16, are waiting on the owner. Part A and that
+  plan's Stage 1 can start without them. Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
   one tagged `(Batch 23 WP-0)` entry closes WP-0 (owner ruling, 2026-09-23).
   Later work packages log tagged entries inside the markers.
@@ -362,6 +364,47 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Plan of record for reconciling and clearing findings
+
+Side task, no batch tag: planning for Batch 23 WP-0 Parts B and C. It adds
+`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md` and
+points the definition and Section 3 at it. No code changed.
+
+- **Evidence.** Four read-only triage passes checked all 38 IDs in Part C's
+  set against `167e650`. Results:
+  - six records are already fixed on `main`;
+  - several findings are partly fixed (F-B21-3, F-B21-4, F-B21-24,
+    F-STYLE-2);
+  - three findings share one mechanism (F-DOCSYNC-11, -12, -13);
+  - two are one defect (F-B21-18 and F-MAS-2).
+  The controller re-ran the load-bearing checks, including the ancestry of
+  all seven fix commits.
+- **F-B22-7 is wider than filed.** The orchestrator parses Spotify's album
+  JSON itself, against global rule 4, and `enrich_albums` has no production
+  caller either. `as_cache_row` would also write a Deezer id into
+  `spotify_id` if anything called it, and its own tests pin that wrong value.
+- **Triage missed one defect.** `loading.js` `showFailure` labels every
+  non-Last.fm source "Spotify". F-SWE-5's `internal_error` source would show
+  that label, and so would WP-1's export source. Task 7 fixes it and pins it
+  in the gate.
+- **F-LOAD-1 needs no occupancy counter.** The refusal only appears when
+  every slot is full, so a count would always read cap/cap. The fix states
+  the configured cap instead.
+- **The plan's shape.**
+  - Stages 1 and 2 are written in full: records, then the five pipeline
+    fixes.
+  - Stage 3 records the owner's rulings.
+  - The control-plane and frontend clusters get follow-on plans once the
+    rulings land.
+  - Owner questions Q0-Q16 are batched in the plan, each with a
+    recommendation.
+
+Deviation: none. The owner asked for the plan and for a view on F-SWE-6;
+that view is in the plan's "Controller's view on F-SWE-6".
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Batch 23 definition: the foundation package widened
 
 Side task, no batch tag: this is a definition amendment, not work-package
@@ -484,39 +527,6 @@ whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
   `on_run_error` (silent logging for the album path, versus logging plus a
   published terminal job error for the heatmap path) -- the remaining half
   of `F-SWE-5`.
-
-Deviations: none from the brief.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Worker run-coroutine wrapper: Task 2 of 4
-
-Side task, no batch tag: Task 2 of 4 of the worker run-coroutine wrapper
-plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
-whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
-
-- `background_task` in `scrobblescope/orchestrator/__init__.py` now
-  delegates its build-run-close-release protocol to
-  `worker.run_coroutine_in_new_loop`, added in Task 1, instead of carrying
-  its own `loop = None` / `try` / `except Exception` / nested `finally`
-  block. `make_loop` and `release_slot` are passed explicitly as
-  `new_thread_event_loop` and `release_job_slot` rather than left to the
-  helper's own defaults, because the existing tests patch
-  `scrobblescope.orchestrator.release_job_slot`, and a default taken from
-  the helper's module would move that patch target without failing.
-  `on_run_error` reproduces the prior log line exactly. The import at the
-  top of the module gains `run_coroutine_in_new_loop` alongside the two
-  names it already carried.
-- No test was written or edited: the four existing guard tests in
-  `tests/services/test_orchestrator_fetch_and_process.py`
-  (`test_background_task_runs_single_event_loop`,
-  `test_background_task_releases_slot_on_exception`,
-  `test_background_task_releases_slot_when_event_loop_setup_raises`,
-  `test_background_task_releases_slot_when_loop_close_raises`) are the
-  acceptance criterion and pass unmodified, including the one that asserts
-  a `loop.close()` failure still propagates out of `background_task` while
-  the slot is released.
 
 Deviations: none from the brief.
 
