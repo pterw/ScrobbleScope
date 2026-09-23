@@ -371,7 +371,7 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
-### 2026-09-23 - WP-0 Part A Task 2: the remaining shared extractions
+### 2026-09-23 - The remaining shared extractions
 
 Side task, no batch tag: extract the three remaining shared steps, part of
 Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole
