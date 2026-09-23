@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Session handoff written
+
+Side task, no batch tag: session close for Batch 23 WP-0, by owner request
+ahead of a context reset. It adds `docs/history/reports/HANDOFF_2026-09-23.md`
+and points Section 3's handoff bullet at it. No code changed, and no task
+started.
+
+- **What the handoff records:**
+  - the state of WP-0 and the gate results;
+  - the four commit ranges of 2026-09-23;
+  - the next steps, in the order Section 3 owns;
+  - the WP-0-specific rules;
+  - the untracked artifacts a cold agent needs: the triage reports, the
+    reusable kit for subagent-driven work, and the stale foundation ledger;
+  - the traps hit this session.
+- **New evidence on Q0.** The owner's second run had Postgres up and still
+  logged no MusicBrainz line. That proves nothing: the release-check worker
+  logs nothing on a successful run, and the primary checkout sets no
+  `MUSICBRAINZ_CONTACT`. The handoff's section 6 says how to settle it.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Owner answers to the reconcile-and-clear plan
 
 Side task, no batch tag: records the owner's answers to Q0-Q16 of

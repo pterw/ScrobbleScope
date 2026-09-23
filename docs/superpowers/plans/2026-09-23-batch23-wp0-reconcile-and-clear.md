@@ -246,7 +246,7 @@ The fix commits, all confirmed ancestors of `origin/main` on 2026-09-23:
 | F-B21-28 | `47321b23`, completed by `b1fdb121` |
 | F-B21-29 | `df28c06d`, completed by `8b37566a` |
 
-- [ ] **Step 1: Re-verify each commit is on main.** A record must not outrun its evidence.
+- [x] **Step 1: Re-verify each commit is on main.** A record must not outrun its evidence.
 
 ```bash
 for s in 85e7511 079c2b0c b1fdb121 ee5ee4eb 47321b23 df28c06d 8b37566a; do
@@ -256,7 +256,7 @@ done
 
 Expected: seven "on main" lines. If any says STOP, report BLOCKED and do not write that record.
 
-- [ ] **Step 2: Find each finding's completion date: the day its last fix commit first reached
+- [x] **Step 2: Find each finding's completion date: the day its last fix commit first reached
   `origin/main`.**
 
 ```bash
@@ -269,7 +269,7 @@ done
 
 Use `b1fdb121`'s date for F-B21-26 and F-B21-28, and `8b37566a`'s for F-B21-29.
 
-- [ ] **Step 3: Rewrite each finding's status line.** Replace the
+- [x] **Step 3: Rewrite each finding's status line.** Replace the
   `- [ ] **Status:** resolved locally, pending deploy` line in each of the six with the canonical form,
   keeping the rest of each body as written:
 
@@ -281,7 +281,7 @@ Use `b1fdb121`'s date for F-B21-26 and F-B21-28, and `8b37566a`'s for F-B21-29.
 For F-B20-3, the reason reads "Bootstrap and both CDN providers were retired by `85e7511` (Batch 21
 WP-8)".
 
-- [ ] **Step 4: Leave the P0 heading true.** Once `--fix` has rotated the four P0 records out, the
+- [x] **Step 4: Leave the P0 heading true.** Once `--fix` has rotated the four P0 records out, the
   `## P0 -- Fix before next deploy` section is empty. Put one line under the heading, rather than
   deleting the heading, because other documents cite the severity levels:
 
@@ -298,7 +298,7 @@ None open. The four P0 items open until 2026-09-23 were fixed before PR #238 dep
   was settled before Task 1 ran, and Section 3 must stay true at every commit, so the ruling commit
   took this step over.
 
-- [ ] **Step 6: Run the gates and commit.** Follow the Global Constraints procedure. Stage
+- [x] **Step 6: Run the gates and commit.** Follow the Global Constraints procedure. Stage
   `FINDINGS.md`, `docs/history/findings/FINDINGS_ARCHIVE.md`, `PLAYBOOK.md`, and
   `.claude/SESSION_CONTEXT.md` if `--fix` changed it. Then:
 

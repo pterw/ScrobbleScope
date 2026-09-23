@@ -26,106 +26,7 @@ F-* ID or a P0/P1 item -- not as part of the standard bootstrap order.
 
 ## P0 -- Fix before next deploy
 
-### F-B21-26: the Tailwind index dropped its page-entry motion
-
-The WP-3 index migration stopped loading `global.css` and removed the
-existing entrance motion without giving that behaviour a Tailwind-owned
-replacement.
-
-`templates/index.html` empties the `legacy_css` block. The old index therefore
-lost the `.card` opacity entrance and the slower `#logo-wrapper svg` fade that
-still live in `static/css/global.css`. Neither the deployed `origin/main` tree
-at `1bf888f` nor the current PR #220 Tailwind source defines an equivalent
-page-entry animation.
-
-The PR #220 mode-copy transition is a different interaction. It cross-fades
-the Top Albums and Heatmap copy after a mode change; it does not animate the
-composition when the page first appears. Merging that PR would restore the
-mode-copy transition but would not close this finding.
-
-Restore a Tailwind-owned, opacity-only entrance for the index composition and
-leave its final state visible under `prefers-reduced-motion`. Add a browser
-check against computed animation state so a stylesheet opt-out cannot remove
-the behaviour silently again.
-
-The deployed Adobe font faces loaded during the same browser comparison. The
-visible type-scale difference is the older production calibration already
-owned by F-B21-24 and corrected in the undeployed PR #220, not evidence of a
-new font-loading defect.
-
-- [ ] **Status:** resolved locally, pending deploy
-Was recorded as: resolved locally; deploy before the next production release.
-Source: owner report and production/browser differential, 2026-08-28.
-
----
-
-### F-B21-28: cached heatmap completion snaps from loading to a fully drawn result
-
-When a saved heatmap job is already complete, the client sees 100 percent,
-builds the complete result, hides the loading stage, and starts three nested
-result fades in the same turn. The reader receives no painted handoff and the
-whole screen appears at once. The loading phase also duplicates the `Pages
-fetched` stat's page count, and its later detail claims "Building one day at a
-time" after aggregation has already happened.
-
-Keep the determinate hairline driven by the backend percentage, make the
-stat the only page-count presentation, and crossfade exactly one prepared
-result root with the loading stage. Use opacity and transforms only; retain a
-motion-free direct result for reduced-motion readers. Replace the normal
-loading route's `Back home` link with an honest `Cancel and return home`
-control on both workflows. It returns home and does not cancel the background
-job.
-
-- [ ] **Status:** resolved locally, pending deploy
-Was recorded as: resolved locally; deploy before the next production release.
-F-B21-43 supersedes the cached-ready part of this transition: the one-root
-crossfade remains for an active job whose loader has painted, while an
-already-complete saved job keeps that obsolete loader hidden and fades the
-prepared result in directly.
-Source: owner visual review and Impeccable performance finding, 2026-08-28.
-
----
-
-### F-B21-29: wide-index form ignores the shared composition cap
-
-At the wide-desktop breakpoint, `.index-form__inner` resets its 23.75rem cap
-to `none` while the hero remains constrained. The form then fills the entire
-right well instead of scaling as one composition, producing the owner-reported
-oversized card and unstable side gutters. The shared header uses 44px page
-links inside a 68px bar with narrow inter-link gaps, making the desktop
-navigation feel cramped at browser zoom.
-
-Restore the scaled form cap and centre it in symmetric inline padding. Give
-the desktop header links and theme control a 48px target inside a taller bar
-with one consistent sibling gap. Do not apply the hero scale to the header or
-change the compact mobile shell.
-
-- [ ] **Status:** resolved locally, pending deploy
-Was recorded as: resolved locally; deploy before the next production release.
-Source: owner browser review, 2026-08-29.
-
----
-
-### F-B21-27: private Last.fm profiles start jobs they cannot complete
-
-The index validates only `user.getinfo`, which may confirm that a Last.fm
-account exists while its recent listening remains private. The later
-`user.getrecenttracks` call returns Last.fm error `17` with HTTP `403` for
-that privacy setting. The heatmap then presents a misleading zero-scrobble
-state after it has already started work.
-
-Preflight `user.getrecenttracks` with `limit=1` during username validation.
-Classify exactly error `17` / `403` as a private profile, tell the reader to
-make recent listening public, and prevent submission. Enforce the same result
-in both start routes; other failed responses remain service failures rather
-than privacy claims. Do not reject a public profile simply because it has no
-listening history.
-
-- [ ] **Status:** resolved locally, pending deploy
-Was recorded as: resolved locally; deploy before the next production release.
-Source: owner report and Last.fm API response classification, 2026-08-28.
-
----
+None open. The four P0 items open until 2026-09-23 were fixed before PR #238 deployed; see the archive.
 
 ## Resolved this batch
 
@@ -353,25 +254,6 @@ Was recorded as: open, deferred on purpose. The owner accepted the drift on
 2026-08-22 and asked that the work be recorded rather than done now.
 Source: findings mirror, 2026-08-22.
 
-
-### F-B21-10: error-page fallback can report 400 for other statuses
-
-`templates/error.html` still defaults a missing `status_code` to 400.
-The WP-2 audit found that callers did not supply their actual status, so
-404 and 500 pages displayed a misleading badge.
-
-PR #227 review remediation on 2026-09-07 supplied explicit 404 and 500 values
-in the registered error handlers. The 2026-09-09 priority pass completed the
-remaining routes.py call-site fix in F-B21-49: those callers now supply their
-actual status or explicitly hide the badge for a normal empty state. The
-template fallback remains for compatibility; app.py's CSRF handler uses that
-400 default and also returns HTTP 400, so its badge already agrees.
-
-- [ ] **Status:** resolved locally, pending deploy
-Was recorded as: resolved locally. F-B21-49 closes the remaining call sites; its
-priority-fix commit and publication are pending.
-Source: WP-2 template migration, 2026-08-23; PR #227 review, 2026-09-07;
-call-site measurement, 2026-09-09.
 
 ### F-B21-14: the heatmap has no path to its data that is not colour
 
@@ -846,19 +728,6 @@ compliance that does not hold.
 Revisit when any of these files next changes substantially; the natural seam
 in the collector is Git/topology collection versus diagnostic orchestration.
 Status: open (accepted deviation). Source: PR #169 review round 4.
-
-### F-B20-3: Bootstrap loads from two CDN providers
-
-`base.html` loads Bootstrap CSS from cdnjs while `index.html` loads the
-JS bundle from jsdelivr; other pages use cdnjs. The original remedy
-(consolidate to one provider before a Bootstrap 5.1 -> 5.3 upgrade) is
-dead: Batch 21 removes Bootstrap entirely and resolves the split by
-elimination (`docs/history/definitions/BATCH21_DEFINITION.md` WP-8 "closes F-B20-3").
-WP-8 did so in `85e7511` on 2026-09-13: no template loads Bootstrap, and
-`static/css/global.css` is gone. `origin/main`, which Fly.io deploys, predates
-that commit and still loads both, so this stays active until `main` advances.
-- [ ] **Status:** resolved locally, pending deploy
-Source: F-B19-4 owner review.
 
 ### F-B18-11: heatmap Last.fm page fetch is rate-limit bound
 

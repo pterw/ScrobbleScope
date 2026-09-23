@@ -166,12 +166,15 @@ WP-0 did.
 
 #### Part B -- Reconcile what earlier batches left open
 
-- [ ] **Stale finding records.** F-B20-3, F-B21-10, F-B21-26, F-B21-27,
-  F-B21-28 and F-B21-29 still say "resolved locally, pending deploy", but
+- [x] **Stale finding records.** F-B20-3, F-B21-10, F-B21-26, F-B21-27,
+  F-B21-28 and F-B21-29 still said "resolved locally, pending deploy", but
   `main` has deployed since (PR #238, 2026-09-21). For each one:
   - if its fix is an ancestor of `origin/main`, close it with a canonical
     `resolved` record and a completion date;
   - if the fix is not there, reopen it and say what is missing.
+  Done 2026-09-23: all six fix commits are ancestors of `origin/main`; each
+  now carries a canonical `resolved` record and completion date in
+  `FINDINGS.md`.
 - [ ] **The foundation plan's between-batch tasks** land here: Tasks 4-10 of
   `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`. They cover
   the archive page target, the DOC range, findings hygiene (pre-split line
