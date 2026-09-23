@@ -369,13 +369,19 @@ whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
   `worker.py` structure line now names `run_coroutine_in_new_loop` alongside
   the functions it already listed; Section 4's dependency graph needed no
   change, since `worker.py`'s dependencies are unchanged.
-- `docs/architecture/top-albums-sequence.md` owned a now-inaccurate claim in
-  two places: its intro paragraph and a sequence Note both said the
-  build-run-close-release protocol -- event-loop setup inside the `try` that
-  `finally` guards -- lived directly in `background_task`. Both now say the
-  protocol lives in `worker.run_coroutine_in_new_loop`, which
-  `background_task` calls, supplying only the reaction to a failed run. No
-  "Last verified" date exists in this file to update.
+- Both sequence diagrams that described the build-run-close-release
+  protocol are now corrected. `docs/architecture/top-albums-sequence.md`
+  owned a now-inaccurate claim in two places: its intro paragraph and a
+  sequence Note both said the protocol -- event-loop setup inside the
+  `try` that `finally` guards -- lived directly in `background_task`. Both
+  now say the protocol lives in `worker.run_coroutine_in_new_loop`, which
+  `background_task` calls, supplying only the reaction to a failed run.
+  `docs/architecture/heatmap-sequence.md` carried the identical stale Note
+  for `heatmap_task`; added in review fix round 1 after the first pass
+  missed it as a sibling of the top-albums file, it now attributes the
+  same `finally` to `worker.run_coroutine_in_new_loop`, called from
+  `heatmap_task`, which injects `_report_heatmap_failure` as its
+  `on_run_error`. Neither file carries a "Last verified" date to update.
 - `docs/architecture/runtime-system.md` was read in full; it does not
   describe the build-run-close-release protocol anywhere (its `worker.py`
   node label and prose stay at the module level), so it needed no edit.
@@ -383,16 +389,11 @@ whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
   `worker.new_thread_event_loop` as the seam every background thread builds
   its loop through, which is still true and unrelated to which function owns
   the run-close-release wrapping, so it was left alone.
-- Found but out of scope: `docs/architecture/heatmap-sequence.md` carries
-  the identical stale Note ("In the heatmap_task finally -- always reached
-  because event-loop setup is inside the try block") for the heatmap path.
-  The brief's Files list named only `runtime-system.md` and
-  `top-albums-sequence.md`, so this file was left unedited; flagging it here
-  for the owner or a future side task.
 
-Deviations: none from the brief's Files list; the heatmap-sequence.md
-finding above is a discovery, not a deviation, since that file was never in
-scope to edit.
+Deviations: none from the brief. Review fix round 1 extended the
+correction from `top-albums-sequence.md` to its sibling
+`heatmap-sequence.md`, which the brief's Files list had not predicted as a
+hit but which Step 1/Step 3 cover on their own terms.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

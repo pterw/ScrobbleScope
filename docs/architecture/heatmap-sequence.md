@@ -89,7 +89,7 @@ sequenceDiagram
                 Note over Heatmap,Repo: Prevents the polling client from hanging
             end
             Heatmap->>Worker: release_job_slot()
-            Note over Heatmap,Worker: In the heatmap_task finally -- always reached because event-loop setup is inside the try block
+            Note over Heatmap,Worker: In worker.run_coroutine_in_new_loop's finally, called from heatmap_task -- always reached because event-loop setup is inside the try block
         and UI polls progress
             loop Poll until 100% or an error
                 UI->>Routes: GET /progress?job_id=...
