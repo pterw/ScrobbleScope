@@ -157,13 +157,13 @@ See FINDINGS F-DOCSYNC-3.
 - **Next action:** WP-0 is next. The owner widened it on 2026-09-23 into
   three parts, which the definition's WP-0 describes. Part A is the
   behaviour-neutral extractions: the shared loop protocol has landed
-  (`ad2d078`..`54ab72b`), and the three original extractions remain. Part B
-  reconciles what earlier batches left open. Part C clears every finding open
-  at P0 or P1. The rest of Parts B and C run from
+  (`ad2d078`..`54ab72b`), and the three original extractions are done
+  2026-09-23. Part B reconciles what earlier batches left open. Part C
+  clears every finding open at P0 or P1. The rest of Parts B and C run from
   `docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`.
   The owner answered its questions, Q0-Q16, on 2026-09-23; the plan
   records the answers. The order from here:
-  1. Part A: the foundation plan's Task 2.
+  1. Part A: the foundation plan's Task 2 -- done 2026-09-23.
   2. This plan's Stage 1, then Stage 2, then Stage 3.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
@@ -371,6 +371,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - WP-0 Part A Task 2: the remaining shared extractions
+
+Side task, no batch tag: extract the three remaining shared steps, part of
+Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole
+of WP-0 lands.
+
+- **What moved, verbatim (controller ruling R12).** In
+  `scrobblescope/orchestrator/__init__.py`: `_cap_threshold_exclusions(threshold_exclusions)`
+  is the tie-break-commented cap block from `fetch_top_albums_async`, returning the
+  (possibly capped) dict; `total_below_threshold` is still computed from the
+  uncapped dict before the call. `_process_filtered_albums(job_id, filtered_albums,
+  year, sort_mode, release_scope, decade, release_year, limit_results,
+  overall_start_time)` is the tail of `_fetch_and_process`, from the
+  `_apply_pre_slice` call through `enqueue_release_check` and `return results`;
+  `_fetch_and_process` keeps its outer `try`/`except`, `overall_start_time`, and the
+  "Processing your albums..." progress call, and now ends with
+  `return await _process_filtered_albums(...)`. In `scrobblescope/heatmap.py`:
+  `_zero_fill_daily_counts(counts, from_date, to_date)` is Phase 2 of
+  `_aggregate_daily_counts`, which now returns its result.
+- Each new function's docstring names the Batch 23 Spotify-export path as its
+  second caller.
+- No test written or modified: `tests/services/test_orchestrator_fetch_and_process.py`
+  and `tests/test_heatmap.py` pass unmodified, and `git diff --stat tests/` was
+  empty after each of the three moves.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Session handoff written
 
 Side task, no batch tag: session close for Batch 23 WP-0, by owner request
@@ -461,55 +489,6 @@ points the definition and Section 3 at it. No code changed.
 
 Deviation: none. The owner asked for the plan and for a view on F-SWE-6;
 that view is in the plan's "Controller's view on F-SWE-6".
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Batch 23 definition: the foundation package widened
-
-Side task, no batch tag: this is a definition amendment, not work-package
-work. It follows the owner's rulings of 2026-09-23. It lands after the
-worker run-coroutine wrapper plan, all four tasks of which are done
-(`ad2d078`..`54ab72b`).
-
-- `BATCH23_DEFINITION.md` WP-0 now has three parts:
-  - Part A: the behaviour-neutral extractions, with the loop protocol ticked
-    and its deviations recorded.
-  - Part B: reconciling what earlier batches left open. This covers six
-    findings still marked "pending deploy" after `main` deployed, the
-    foundation plan's Tasks 4-10, a Section 3 pruned to the current work
-    order, the owed Batch 22 owner checks, and a new docsync finding.
-  - Part C: fixing every finding open at P0 or P1 unless the owner rules one
-    out. That is 38 IDs, listed in the definition and checked one by one
-    against `FINDINGS.md`.
-- Owner rulings, each with its reason in the definition:
-  - WP-0 logs untagged until one tagged entry closes it, because docsync
-    reads a work package as complete on its first tagged heading.
-  - Part A keeps strict test parity.
-  - Part C may change behaviour, and may edit a test only where its finding
-    requires it. The batch acceptance and the intended outcome's "Last.fm
-    path is untouched" line are amended to match.
-  - F-SWE-5 lands before WP-3.
-- Section 3's Next action now describes the widened WP-0 and the logging
-  rule. The old line saying WP-0 work logs tagged entries contradicted the
-  ruling.
-- Plan bookkeeping:
-  - The wrapper plan's steps are ticked, and it gains an Outcome section.
-  - The foundation plan records that its Tracks 2 and 3 fold into WP-0, and
-    its superseded Track 1 logging line is struck through.
-
-Deviation: none from the rulings. Proposal Rule 2 is met, because the owner
-added the scope, and Rule 1 is met, because the amendment lands before any
-Part B or Part C work. Part C and the uncovered parts of Part B still need a
-plan of record.
-
-Forward guidance:
-- Part A's three extractions can proceed now under the foundation plan's
-  Task 2.
-- Before Part C starts, collect every owner-gated question in the set in a
-  single batch.
-- Raise F-SWE-6 and F-B22-7 with the owner. They are P2, outside the set,
-  but under this batch's code.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

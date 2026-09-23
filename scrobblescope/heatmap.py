@@ -44,6 +44,34 @@ from scrobblescope.worker import (
 HEATMAP_WINDOW_DAYS = 365
 
 
+def _zero_fill_daily_counts(counts, from_date, to_date):
+    """Fill every calendar date in ``[from_date, to_date]`` with 0 where missing.
+
+    Extracted from ``_aggregate_daily_counts``'s Phase 2 so it can be reused
+    on its own; called by ``_aggregate_daily_counts`` after Phase 1 tallies
+    raw per-day counts, and Batch 23's export path will be the second
+    caller.
+
+    Args:
+        counts: Mapping (dict or ``collections.Counter``) of ``"YYYY-MM-DD"``
+            strings to integer counts for dates that had at least one
+            scrobble.
+        from_date: Inclusive start date (``datetime.date``).
+        to_date: Inclusive end date (``datetime.date``).
+
+    Returns:
+        New dict with every ISO date in the ``[from_date, to_date]`` range
+        present, each mapped to ``counts.get(key, 0)``.
+    """
+    daily_counts = {}
+    current = from_date
+    while current <= to_date:
+        key = current.isoformat()
+        daily_counts[key] = counts.get(key, 0)
+        current += timedelta(days=1)
+    return daily_counts
+
+
 def _aggregate_daily_counts(pages, from_date, to_date):
     """Aggregate raw Last.fm page data into a ``{YYYY-MM-DD: count}`` dict.
 
@@ -85,15 +113,7 @@ def _aggregate_daily_counts(pages, from_date, to_date):
             if from_date <= day <= to_date:
                 counter[day.isoformat()] += 1
 
-    # Phase 2: fill every calendar date in the range with 0 where missing.
-    daily_counts = {}
-    current = from_date
-    while current <= to_date:
-        key = current.isoformat()
-        daily_counts[key] = counter.get(key, 0)
-        current += timedelta(days=1)
-
-    return daily_counts
+    return _zero_fill_daily_counts(counter, from_date, to_date)
 
 
 async def _fetch_and_process_heatmap(job_id, username):

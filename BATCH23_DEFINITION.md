@@ -150,11 +150,11 @@ WP-0 did.
     wrapper is the wrong shape for a queue drained for the process's lifetime.
   - Its entries are untagged (logging ruling above).
   The plan's Outcome section records the rest.
-- [ ] Extract `_cap_threshold_exclusions` and `_process_filtered_albums` (the
+- [x] Extract `_cap_threshold_exclusions` and `_process_filtered_albums` (the
   tail of `_fetch_and_process`, from `_apply_pre_slice` to `set_job_results`)
-  in `orchestrator/`.
-- [ ] Extract `_zero_fill_daily_counts` from `scrobblescope/heatmap.py` so
-  both aggregators share one zero-fill.
+  in `orchestrator/`, done 2026-09-23.
+- [x] Extract `_zero_fill_daily_counts` from `scrobblescope/heatmap.py` so
+  both aggregators share one zero-fill, done 2026-09-23.
 - **Acceptance:** every existing test passes **unmodified**, including
   `tests/services/test_orchestrator_fetch_and_process.py`. No behaviour
   change ships in Part A.

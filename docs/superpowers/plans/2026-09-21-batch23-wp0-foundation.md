@@ -195,14 +195,14 @@ matches `^#+ Task <n>`, and the controller briefs Task 1 from the wrapper plan i
 `scrobblescope/heatmap.py` (`_zero_fill_daily_counts`). No test is written: WP-0's acceptance is that
 `tests/services/test_orchestrator_fetch_and_process.py` and `tests/test_heatmap.py` pass **unmodified**.
 
-- [ ] **Step 1:** Read each range and write down its invariants. The cap sorts by
+- [x] **Step 1:** Read each range and write down its invariants. The cap sorts by
   `(-play_count, normalized_key)` and slices to `_MAX_ALBUM_CAP`. The tail of `_fetch_and_process` runs from
   `_apply_pre_slice` to `set_job_results`. The zero-fill puts every date in `[from_date, to_date]` into the
   mapping with `0`. Move each one verbatim: argument order preserved, no rename except the new function name.
-- [ ] **Step 2:** Move them one at a time. After each move, run
+- [x] **Step 2:** Move them one at a time. After each move, run
   `pytest.exe tests/services/test_orchestrator_fetch_and_process.py tests/test_heatmap.py -q`, and confirm
   `git diff --stat tests/` is empty.
-- [ ] **Step 3:** Run the commit procedure and commit:
+- [x] **Step 3:** Run the commit procedure and commit:
   `git add scrobblescope/orchestrator/__init__.py scrobblescope/heatmap.py PLAYBOOK.md .claude/SESSION_CONTEXT.md`,
   `refactor(batch23-wp0): Extract the remaining shared steps`.
 

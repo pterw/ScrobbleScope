@@ -9,6 +9,55 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Batch 23 definition: the foundation package widened
+
+Side task, no batch tag: this is a definition amendment, not work-package
+work. It follows the owner's rulings of 2026-09-23. It lands after the
+worker run-coroutine wrapper plan, all four tasks of which are done
+(`ad2d078`..`54ab72b`).
+
+- `BATCH23_DEFINITION.md` WP-0 now has three parts:
+  - Part A: the behaviour-neutral extractions, with the loop protocol ticked
+    and its deviations recorded.
+  - Part B: reconciling what earlier batches left open. This covers six
+    findings still marked "pending deploy" after `main` deployed, the
+    foundation plan's Tasks 4-10, a Section 3 pruned to the current work
+    order, the owed Batch 22 owner checks, and a new docsync finding.
+  - Part C: fixing every finding open at P0 or P1 unless the owner rules one
+    out. That is 38 IDs, listed in the definition and checked one by one
+    against `FINDINGS.md`.
+- Owner rulings, each with its reason in the definition:
+  - WP-0 logs untagged until one tagged entry closes it, because docsync
+    reads a work package as complete on its first tagged heading.
+  - Part A keeps strict test parity.
+  - Part C may change behaviour, and may edit a test only where its finding
+    requires it. The batch acceptance and the intended outcome's "Last.fm
+    path is untouched" line are amended to match.
+  - F-SWE-5 lands before WP-3.
+- Section 3's Next action now describes the widened WP-0 and the logging
+  rule. The old line saying WP-0 work logs tagged entries contradicted the
+  ruling.
+- Plan bookkeeping:
+  - The wrapper plan's steps are ticked, and it gains an Outcome section.
+  - The foundation plan records that its Tracks 2 and 3 fold into WP-0, and
+    its superseded Track 1 logging line is struck through.
+
+Deviation: none from the rulings. Proposal Rule 2 is met, because the owner
+added the scope, and Rule 1 is met, because the amendment lands before any
+Part B or Part C work. Part C and the uncovered parts of Part B still need a
+plan of record.
+
+Forward guidance:
+- Part A's three extractions can proceed now under the foundation plan's
+  Task 2.
+- Before Part C starts, collect every owner-gated question in the set in a
+  single batch.
+- Raise F-SWE-6 and F-B22-7 with the owner. They are P2, outside the set,
+  but under this batch's code.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Worker run-coroutine wrapper: Task 4 of 4
 
 Side task, no batch tag: Task 4 of 4 of the worker run-coroutine wrapper
