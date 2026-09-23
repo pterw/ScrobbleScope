@@ -158,7 +158,7 @@ See FINDINGS F-DOCSYNC-3.
 - **Next action:** WP-0 is next: the shared loop protocol, then the three
   original extractions. WP work from here on logs tagged
   `(Batch 23 WP-N)` entries inside the current-batch markers.
-  Loop-protocol plan: Tasks 1-3 of 4 landed.
+  Loop-protocol plan: Tasks 1-4 of 4 landed.
 - **The dashboard's test count read 1522 for a while**, and the way it got
   unstuck is
   worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
@@ -359,6 +359,44 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Worker run-coroutine wrapper: Task 4 of 4
+
+Side task, no batch tag: Task 4 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- Documentation only, no code changed. `.claude/SESSION_CONTEXT.md` Section 3's
+  `worker.py` structure line now names `run_coroutine_in_new_loop` alongside
+  the functions it already listed; Section 4's dependency graph needed no
+  change, since `worker.py`'s dependencies are unchanged.
+- `docs/architecture/top-albums-sequence.md` owned a now-inaccurate claim in
+  two places: its intro paragraph and a sequence Note both said the
+  build-run-close-release protocol -- event-loop setup inside the `try` that
+  `finally` guards -- lived directly in `background_task`. Both now say the
+  protocol lives in `worker.run_coroutine_in_new_loop`, which
+  `background_task` calls, supplying only the reaction to a failed run. No
+  "Last verified" date exists in this file to update.
+- `docs/architecture/runtime-system.md` was read in full; it does not
+  describe the build-run-close-release protocol anywhere (its `worker.py`
+  node label and prose stay at the module level), so it needed no edit.
+- `AGENT_NOTES.md`'s Windows-asyncio bullet still holds: it names
+  `worker.new_thread_event_loop` as the seam every background thread builds
+  its loop through, which is still true and unrelated to which function owns
+  the run-close-release wrapping, so it was left alone.
+- Found but out of scope: `docs/architecture/heatmap-sequence.md` carries
+  the identical stale Note ("In the heatmap_task finally -- always reached
+  because event-loop setup is inside the try block") for the heatmap path.
+  The brief's Files list named only `runtime-system.md` and
+  `top-albums-sequence.md`, so this file was left unedited; flagging it here
+  for the owner or a future side task.
+
+Deviations: none from the brief's Files list; the heatmap-sequence.md
+finding above is a discovery, not a deviation, since that file was never in
+scope to edit.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Worker run-coroutine wrapper: Task 3 of 4
 
 Side task, no batch tag: Task 3 of 4 of the worker run-coroutine wrapper
@@ -467,40 +505,4 @@ already stale at dispatch; this entry measures and quotes the current count
 per controller ruling, and the two other count sites it names.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-21 - Batch 23 opened on feat/batch23-wp0-hygiene
-
-Side task, no batch tag: this entry records the opening itself and is not
-WP work, so it does not count as WP-0 being done. Task 3b of the Batch 23
-WP-0 foundation plan, done under the owner's instruction that the opening be
-explicit rather than silent.
-
-- Section 3 now declares `**Batch 23 is active.**` with its definition and
-  its branch, and names WP-0 as next. The Section 2 index gains the Batch 23
-  row, SESSION_CONTEXT Section 1 marks Batch 23 active, and the
-  `FINDINGS.md` header no longer says no batch is active.
-- The definition records the branch, the status and the 2026-09-21 owner
-  rulings, and folds job admission into WP-4 with its own acceptance
-  clause. WP-0's wrapper bullet names where the wrapper lands.
-- The first `--fix` rendered `Current batch: Batch 23.` and
-  `Next expected work package: WP-0.`, which confirms the D1 fix on the
-  real corpus.
-
-Deviations. The Batch 22 bullet's `Branch:` label was reworded, because
-the worktree guard refuses two Branch values in Section 3. Once the batch
-was active, the guard compared ancestry and reported WT005 against its
-default `origin/main`, which carries merges of `test` the branch does not.
-Against `origin/test`, the branch's parent, it exits 0, and the trees of
-`e6ce9d7` and `origin/main` are identical. `HANDOFF_PROMPT.md` now carries
-that edge case, and its WT004 premise that `main` only squashes or rebases
-was corrected against the live rulesets, which allow all three merge
-methods. No history was changed.
-
-Live check (throwaway copy of this working tree): a false `WP-3 is next`
-went red with DOC007 in Section 3, on the dashboard and in the definition.
-The definition leg only went red once its claim was moved onto the
-`**Status:**` line itself.
-
-Validation: `pytest -q` -- **1729 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

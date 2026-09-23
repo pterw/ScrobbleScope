@@ -57,7 +57,7 @@ scrobblescope/
   domain.py                 # normalize_name, normalize_track_name
   utils.py                  # rate limiters, session pooling, request caching
   repositories.py           # JOBS dict, jobs_lock, job state CRUD
-  worker.py                 # semaphore, acquire/release_job_slot, start_job_thread
+  worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
   cache.py                  # asyncpg DB helpers (retry/backoff, batch lookup/persist)
   lastfm.py                 # check_user_exists, fetch_recent_tracks (pure HTTP client)
   spotify.py                # fetch_spotify_access_token, search, batch details

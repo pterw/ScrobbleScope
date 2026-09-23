@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Batch 23 opened on feat/batch23-wp0-hygiene
+
+Side task, no batch tag: this entry records the opening itself and is not
+WP work, so it does not count as WP-0 being done. Task 3b of the Batch 23
+WP-0 foundation plan, done under the owner's instruction that the opening be
+explicit rather than silent.
+
+- Section 3 now declares `**Batch 23 is active.**` with its definition and
+  its branch, and names WP-0 as next. The Section 2 index gains the Batch 23
+  row, SESSION_CONTEXT Section 1 marks Batch 23 active, and the
+  `FINDINGS.md` header no longer says no batch is active.
+- The definition records the branch, the status and the 2026-09-21 owner
+  rulings, and folds job admission into WP-4 with its own acceptance
+  clause. WP-0's wrapper bullet names where the wrapper lands.
+- The first `--fix` rendered `Current batch: Batch 23.` and
+  `Next expected work package: WP-0.`, which confirms the D1 fix on the
+  real corpus.
+
+Deviations. The Batch 22 bullet's `Branch:` label was reworded, because
+the worktree guard refuses two Branch values in Section 3. Once the batch
+was active, the guard compared ancestry and reported WT005 against its
+default `origin/main`, which carries merges of `test` the branch does not.
+Against `origin/test`, the branch's parent, it exits 0, and the trees of
+`e6ce9d7` and `origin/main` are identical. `HANDOFF_PROMPT.md` now carries
+that edge case, and its WT004 premise that `main` only squashes or rebases
+was corrected against the live rulesets, which allow all three merge
+methods. No history was changed.
+
+Live check (throwaway copy of this working tree): a false `WP-3 is next`
+went red with DOC007 in Section 3, on the dashboard and in the definition.
+The definition leg only went red once its claim was moved onto the
+`**Status:**` line itself.
+
+Validation: `pytest -q` -- **1729 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-21 - Docsync renders an opened batch before its first entry
 
 Side task, no batch tag: Task 3 of the Batch 23 WP-0 foundation plan, the

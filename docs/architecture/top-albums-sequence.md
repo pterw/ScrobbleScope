@@ -5,11 +5,12 @@ admission, Last.fm retrieval, enrichment across two metadata providers, the
 deferred MusicBrainz correction pass, result storage, and polling.
 
 The concurrency slot is acquired before job creation. `start_job_thread` releases
-the slot when the thread does not start, and `background_task` releases it in a
-`finally` block. The event-loop setup sits inside the `try` that `finally`
-guards, so the release is unconditional once the thread runs: a failure to
+the slot when the thread does not start; once the thread runs, `background_task`
+is a single call into `worker.run_coroutine_in_new_loop`, which owns the
+build-run-close-release protocol -- the event-loop setup sits inside the `try`
+that its `finally` guards, so the release is unconditional: a failure to
 create the loop is caught and logged like any other, and the slot still comes
-back.
+back. `background_task` supplies only the reaction to a failed run (logging).
 
 ```mermaid
 sequenceDiagram
@@ -184,7 +185,7 @@ sequenceDiagram
                 Note over Orch,Repo: background_task only logs it, so the job keeps its last state
             end
             Orch->>Worker: release_job_slot()
-            Note over Orch,Worker: In the background_task finally -- always reached because event-loop setup is inside the try block
+            Note over Orch,Worker: In worker.run_coroutine_in_new_loop's finally, called from background_task -- always reached because event-loop setup is inside the try block
         and Browser polls progress
             loop Poll until 100% or an error
                 Browser->>Routes: GET /progress?job_id=...
