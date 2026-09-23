@@ -171,7 +171,8 @@ See FINDINGS F-DOCSYNC-3.
      is complete: Task 1 (the six stale "pending deploy" records) and Task 2
      (the docsync work-package gap, filed as F-DOCSYNC-15) both landed
      2026-09-23. Stage 2 includes Task 11 (F-B22-8), which the owner added
-     on 2026-09-23.
+     on 2026-09-23. Stage 2 has started: Task 3 (F-SWE-6, reading a job no
+     longer renews its lease) landed 2026-09-23.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -380,6 +381,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Reading a job no longer renews its lease
+
+Side task, no batch tag: fixes F-SWE-6, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 3 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done, for the owner's Q1 = a: reads never renew a job's lease.
+  `get_job_progress`, `get_job_unmatched` and `get_job_context`
+  (`scrobblescope/repositories.py`) no longer write `updated_at`;
+  `cleanup_expired_jobs` still reaps on that field, but only a writer now
+  renews it. A polled job -- an open results tab, or the release-check
+  worker's `get_job_context` existence check -- expires `JOB_TTL_SECONDS`
+  after its last write, not its last read.
+- **Test added:** `test_reading_a_job_does_not_renew_its_lease`, parametrized
+  over the three getters (`tests/test_repositories.py`). No existing test
+  asserted the old renewal, so none changed.
+- **`scrobblescope/config.py`:** a new comment above `JOB_TTL_SECONDS` states
+  the reads-never-renew contract.
+- **F-SWE-6 resolved**, with the canonical record and a completion date;
+  `doc_state_sync.py --fix` rotated it into
+  `docs/history/findings/FINDINGS_ARCHIVE.md`.
+- **Bookkeeping:** the reconcile plan's Task 3 steps are ticked. Section 3's
+  order list now records Stage 2 as started, with Task 3 landed.
+
+Validation: `pytest -q` -- **1738 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The work-package state gap is filed as F-DOCSYNC-15
 
 Side task, no batch tag: files the docsync work-package state gap this
@@ -497,47 +526,3 @@ they are not repository state.
 Forward guidance: the reconcile plan's Stage 1 Task 1 (Part B) has landed; Stage 1 Task 2 (the docsync
 work-package gap) is still open. The next steps are the rest of Stage 1, then Stage 2 (Part C, including
 Task 11 for F-B22-8), then Stage 3, then the foundation plan's Tasks 4-10, per Section 3's order list.
-
-### 2026-09-23 - The release-window rule gets a leaf home
-
-Side task, no batch tag: move `_matches_release_criteria` into `scrobblescope/domain.py`, part of
-Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Scope: the foundation plan's Task 12** (review A card 3, added to Part A on 2026-09-23). The rule
-  had two consumers -- the album filter in `orchestrator/_results.py` and the correction worker's
-  `release_checks._matches_window` -- and lived in `orchestrator`, which imports `release_checks` at
-  module level, so the worker could only reach the rule through a function-local import. That was the
-  one documented exception in the SESSION_CONTEXT Section 4 dependency graph.
-- **Plan vs implementation: matched exactly, no deviation.** `domain.py` gained the function verbatim
-  (body and docstring unchanged) plus `import logging`, placed after `normalize_track_name`.
-  `orchestrator/_results.py` deletes the definition and extends its existing `from scrobblescope.domain
-  import normalize_name` line to also import `_matches_release_criteria`, so the facade's re-export
-  (`scrobblescope.orchestrator._matches_release_criteria`) and `orchestrator/_results
-  ._matches_release_criteria` both still resolve unchanged. `release_checks.py` imports the rule from
-  `domain` at module level, next to `normalize_name`, and `_matches_window` lost its function-local
-  import and cycle-explaining docstring in favour of one sentence naming the shared home. Both import
-  orders (`release_checks` before `orchestrator` and the reverse) were run directly and succeeded, since
-  the change is specifically about import order. `.claude/SESSION_CONTEXT.md` Section 4 dropped the
-  `; orchestrator (facade, DEFERRED -- see note)` qualifier from the `release_checks.py` line and the
-  "The one deferred edge" paragraph; a repo-wide check confirmed nothing else cited it. No new edge was
-  added: both consumers already import `domain`. `docs/architecture/runtime-system.md`'s
-  correction-worker bullet now says the worker and the album filter both read the rule from
-  `domain.py`, instead of describing the function-local import.
-  `BATCH23_DEFINITION.md` WP-0 Part A and the foundation plan's Task 12 checkboxes are ticked, and
-  Section 3's numbered order list marks this step done, keeping "WP-0 is next." exactly.
-- **No test changed.** `git diff --stat tests/` is empty; the task is behaviour-neutral and adds no
-  test, so the test count stays at the baseline.
-- **Fix round 1 (review finding, Important).** The Mermaid diagram in
-  `docs/architecture/runtime-system.md` still drew `ReleaseChecks -.->|imported inside a function|
-  Album`, an edge the move made false: `release_checks.py` no longer imports anything from
-  `orchestrator` at all. Deleted that one line; `ReleaseChecks --> Domain` already carries the real
-  dependency, so nothing replaces it. `Album` stays referenced by several other edges, so no node was
-  orphaned. A repo-wide grep for the same edge in any other wording found none. The diagram was
-  validated with the Mermaid Chart MCP tool (`valid: true`, `diagramType: flowchart`) after the edit.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner tests were excluded, since
-they are not repository state.
-
-Forward guidance: WP-0 Part A's foundation-plan tasks (2 and 12) are both done. The next steps are the
-reconcile plan's Stage 1 through Stage 3 (Task 11 included), then the foundation plan's Tasks 4-10, per
-Section 3's order list.

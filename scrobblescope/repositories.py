@@ -22,7 +22,12 @@ def _initial_progress():
 
 
 def cleanup_expired_jobs():
-    """Remove jobs older than JOB_TTL_SECONDS from the in-memory JOBS dict."""
+    """Remove jobs whose last write is older than JOB_TTL_SECONDS.
+
+    The lease is ``updated_at``, and only writers renew it. A getter never
+    does, so an open page polling a finished job cannot keep that job, or
+    an uploaded export's aggregate, in memory indefinitely (F-SWE-6).
+    """
     cutoff = time.time() - JOB_TTL_SECONDS
     with jobs_lock:
         expired_job_ids = [
@@ -223,12 +228,15 @@ def reset_job_state(job_id):
 
 
 def get_job_progress(job_id):
-    """Return a shallow copy of a job's progress dict, or None if not found."""
+    """Return a shallow copy of a job's progress dict, or None if not found.
+
+    Reading is not activity: this never renews the job's lease, so a polled
+    job still expires JOB_TTL_SECONDS after its last write (F-SWE-6).
+    """
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
             return None
-        job["updated_at"] = time.time()
         progress = dict(job["progress"])
         progress["stats"] = dict(progress.get("stats", {}))
         if "phase" in progress:
@@ -237,12 +245,14 @@ def get_job_progress(job_id):
 
 
 def get_job_unmatched(job_id):
-    """Return a copy of a job's unmatched albums dict, or None if not found."""
+    """Return a copy of a job's unmatched albums dict, or None if not found.
+
+    Never renews the job's lease; see get_job_progress.
+    """
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
             return None
-        job["updated_at"] = time.time()
         return dict(job["unmatched"])
 
 
@@ -261,12 +271,15 @@ def get_job_context(job_id):
 
     All mutable containers are shallow-copied to prevent callers from
     mutating shared state. Returns None if the job does not exist.
+
+    Never renews the job's lease; see get_job_progress. The release-check
+    worker calls this to ask whether a job still exists, and that question
+    must not keep the job alive.
     """
     with jobs_lock:
         job = JOBS.get(job_id)
         if not job:
             return None
-        job["updated_at"] = time.time()
 
         results = job.get("results")
         if isinstance(results, list):

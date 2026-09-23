@@ -361,7 +361,7 @@ git commit -m "docs(findings): File the work-package state gap"
 
 **Interfaces:** No signature changes. Behaviour: only writers set `updated_at`.
 
-- [ ] **Step 1: Write the failing test.** Append to `tests/test_repositories.py`. Extend its
+- [x] **Step 1: Write the failing test.** Append to `tests/test_repositories.py`. Extend its
   `from scrobblescope.repositories import (...)` block with any of `cleanup_expired_jobs`,
   `get_job_context`, `get_job_progress` and `get_job_unmatched` it lacks.
 
@@ -395,12 +395,12 @@ def test_reading_a_job_does_not_renew_its_lease(read):
         assert job_id not in JOBS
 ```
 
-- [ ] **Step 2: Run it to verify it fails.**
+- [x] **Step 2: Run it to verify it fails.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_repositories.py -q -k reading_a_job_does_not_renew`
 Expected: 3 failed, each on `assert job_id not in JOBS`.
 
-- [ ] **Step 3: Remove the renewal.** In `get_job_progress`, `get_job_unmatched` and `get_job_context`,
+- [x] **Step 3: Remove the renewal.** In `get_job_progress`, `get_job_unmatched` and `get_job_context`,
   delete the line `job["updated_at"] = time.time()`. Then replace their first docstring lines:
 
 ```python
@@ -448,12 +448,12 @@ In `scrobblescope/config.py`, put this directly above `JOB_TTL_SECONDS = 2 * 60 
 # within this window, and a polling tab must not extend that.
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass.**
+- [x] **Step 4: Run the tests to verify they pass.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_repositories.py tests/test_routes.py tests/services/test_release_checks.py -q`
 Expected: pass.
 
-- [ ] **Step 5: Sweep the live docs for the old claim.**
+- [x] **Step 5: Sweep the live docs for the old claim.**
 
 ```bash
 git grep -n -i -e "renew" -e "touch-on-access" -e "polled job" -- '*.md' ':!docs/history' ':!docs/logarchive' ':!docs/superpowers'
@@ -462,7 +462,7 @@ git grep -n -i -e "renew" -e "touch-on-access" -e "polled job" -- '*.md' ':!docs
 Correct any sentence that says reading keeps a job alive. The F-SWE-6 finding body is the expected hit;
 Step 6 resolves it.
 
-- [ ] **Step 6: Resolve F-SWE-6 and commit.** Use the canonical record, with the reason "getters no
+- [x] **Step 6: Resolve F-SWE-6 and commit.** Use the canonical record, with the reason "getters no
   longer write `updated_at`; `repositories.cleanup_expired_jobs` reaps on the last write only". Run the
   gates, stage `scrobblescope/repositories.py`, `scrobblescope/config.py`, `tests/test_repositories.py`,
   `FINDINGS.md`, the findings archive, `PLAYBOOK.md` and `.claude/SESSION_CONTEXT.md`, then:

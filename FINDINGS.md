@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1735 tests across 66 test modules.
+1738 tests across 66 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -1464,26 +1464,6 @@ an album had no Spotify match -- is already Batch 21 WP-7 scope
 `docs/history/definitions/BATCH21_DEFINITION.md`: the `no_spotify_match` reason code and the reason
 panels with human copy). It is not extra work and is not tracked here.
 Status: open (P2). Source: SWE_PRINCIPLES_AUDIT, rescoped by owner review.
-
-### F-SWE-6: reading a job renews its TTL, so a polled job never expires
-
-`get_job_progress`, `get_job_unmatched` and `get_job_context` each write
-`updated_at` (`repositories.py:163`, `:175`, `:199`) while their docstrings
-promise only to return a copy. `cleanup_expired_jobs` reaps on that same
-field, so every `/progress` poll renews the lease.
-
-Verified: a job backdated to three hours old, against a two-hour
-`JOB_TTL_SECONDS`, survives `cleanup_expired_jobs` after a single read,
-while an identical job that was never read is reaped. A browser sitting on
-the loading page therefore keeps its `JOBS` entry alive indefinitely, which
-matters most for a job whose thread died without setting a terminal state
-(F-SWE-5).
-
-Touch-on-access may well be intended -- results should not vanish while a
-user is reading them. Nothing says so. Either document the side effect in
-the three docstrings and in the `JOB_TTL_SECONDS` comment, or stop writing
-from a getter and refresh the lease explicitly where it is wanted.
-Status: open (P2). Source: SWE_PRINCIPLES_AUDIT.
 
 ### F-SWE-7: utils.py holds five unrelated concerns
 

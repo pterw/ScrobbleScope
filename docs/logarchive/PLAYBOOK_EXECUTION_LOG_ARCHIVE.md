@@ -9,6 +9,50 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The release-window rule gets a leaf home
+
+Side task, no batch tag: move `_matches_release_criteria` into `scrobblescope/domain.py`, part of
+Batch 23 WP-0 Part A. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the foundation plan's Task 12** (review A card 3, added to Part A on 2026-09-23). The rule
+  had two consumers -- the album filter in `orchestrator/_results.py` and the correction worker's
+  `release_checks._matches_window` -- and lived in `orchestrator`, which imports `release_checks` at
+  module level, so the worker could only reach the rule through a function-local import. That was the
+  one documented exception in the SESSION_CONTEXT Section 4 dependency graph.
+- **Plan vs implementation: matched exactly, no deviation.** `domain.py` gained the function verbatim
+  (body and docstring unchanged) plus `import logging`, placed after `normalize_track_name`.
+  `orchestrator/_results.py` deletes the definition and extends its existing `from scrobblescope.domain
+  import normalize_name` line to also import `_matches_release_criteria`, so the facade's re-export
+  (`scrobblescope.orchestrator._matches_release_criteria`) and `orchestrator/_results
+  ._matches_release_criteria` both still resolve unchanged. `release_checks.py` imports the rule from
+  `domain` at module level, next to `normalize_name`, and `_matches_window` lost its function-local
+  import and cycle-explaining docstring in favour of one sentence naming the shared home. Both import
+  orders (`release_checks` before `orchestrator` and the reverse) were run directly and succeeded, since
+  the change is specifically about import order. `.claude/SESSION_CONTEXT.md` Section 4 dropped the
+  `; orchestrator (facade, DEFERRED -- see note)` qualifier from the `release_checks.py` line and the
+  "The one deferred edge" paragraph; a repo-wide check confirmed nothing else cited it. No new edge was
+  added: both consumers already import `domain`. `docs/architecture/runtime-system.md`'s
+  correction-worker bullet now says the worker and the album filter both read the rule from
+  `domain.py`, instead of describing the function-local import.
+  `BATCH23_DEFINITION.md` WP-0 Part A and the foundation plan's Task 12 checkboxes are ticked, and
+  Section 3's numbered order list marks this step done, keeping "WP-0 is next." exactly.
+- **No test changed.** `git diff --stat tests/` is empty; the task is behaviour-neutral and adds no
+  test, so the test count stays at the baseline.
+- **Fix round 1 (review finding, Important).** The Mermaid diagram in
+  `docs/architecture/runtime-system.md` still drew `ReleaseChecks -.->|imported inside a function|
+  Album`, an edge the move made false: `release_checks.py` no longer imports anything from
+  `orchestrator` at all. Deleted that one line; `ReleaseChecks --> Domain` already carries the real
+  dependency, so nothing replaces it. `Album` stays referenced by several other edges, so no node was
+  orphaned. A repo-wide grep for the same edge in any other wording found none. The diagram was
+  validated with the Mermaid Chart MCP tool (`valid: true`, `diagramType: flowchart`) after the edit.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner tests were excluded, since
+they are not repository state.
+
+Forward guidance: WP-0 Part A's foundation-plan tasks (2 and 12) are both done. The next steps are the
+reconcile plan's Stage 1 through Stage 3 (Task 11 included), then the foundation plan's Tasks 4-10, per
+Section 3's order list.
+
 ### 2026-09-23 - Owner rulings: the release-window leaf and F-B22-8
 
 Side task, no batch tag: records three owner rulings, part of Batch 23 WP-0.

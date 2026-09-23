@@ -9,6 +9,29 @@ Newest rotation first.
 
 ---
 
+### F-SWE-6: reading a job renews its TTL, so a polled job never expires -- RESOLVED
+
+`get_job_progress`, `get_job_unmatched` and `get_job_context` each write
+`updated_at` (`repositories.py:163`, `:175`, `:199`) while their docstrings
+promise only to return a copy. `cleanup_expired_jobs` reaps on that same
+field, so every `/progress` poll renews the lease.
+
+Verified: a job backdated to three hours old, against a two-hour
+`JOB_TTL_SECONDS`, survives `cleanup_expired_jobs` after a single read,
+while an identical job that was never read is reaped. A browser sitting on
+the loading page therefore keeps its `JOBS` entry alive indefinitely, which
+matters most for a job whose thread died without setting a terminal state
+(F-SWE-5).
+
+Touch-on-access may well be intended -- results should not vanish while a
+user is reading them. Nothing says so. Either document the side effect in
+the three docstrings and in the `JOB_TTL_SECONDS` comment, or stop writing
+from a getter and refresh the lease explicitly where it is wanted.
+- [x] **Status:** resolved
+**Completed:** 2026-09-23
+Getters no longer write `updated_at`; `repositories.cleanup_expired_jobs` reaps on the last write only.
+Source: SWE_PRINCIPLES_AUDIT.
+
 ### F-B21-26: the Tailwind index dropped its page-entry motion -- RESOLVED
 
 The WP-3 index migration stopped loading `global.css` and removed the
