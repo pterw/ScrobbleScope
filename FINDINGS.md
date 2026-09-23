@@ -852,8 +852,9 @@ a retry that will fail the same way.
 state, so the job never reaches progress 100 and the loading page polls
 forever. This half needs the inner handler at `orchestrator.py:851` to fail
 first, which nothing observed can cause, so the finding is recorded rather
-than treated as blocking. F-SWE-6 compounds it -- a polled job never
-expires.
+than treated as blocking. F-SWE-6 used to compound it, because a polled job
+never expired; since F-SWE-6 was settled, the stuck job expires
+JOB_TTL_SECONDS after its last write.
 
 Fix: give each entry point a terminal state that names what actually
 failed, using an `ERROR_CODES` entry for an unclassified internal error

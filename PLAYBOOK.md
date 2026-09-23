@@ -433,8 +433,16 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   `docs/history/findings/FINDINGS_ARCHIVE.md`.
 - **Bookkeeping:** the reconcile plan's Task 3 steps are ticked. Section 3's
   order list now records Stage 2 as started, with Task 3 landed.
+- **Fix round 1:** F-SWE-5's body still called F-SWE-6 out as compounding
+  it ("a polled job never expires"), which this task's own fix made false.
+  Reworded to the past tense: F-SWE-6 used to compound it; since it was
+  settled, the stuck job now expires `JOB_TTL_SECONDS` after its last write.
+  The reconcile plan's Step 5 sweep is re-run with wrapped-line variants; no
+  other sibling copy survives outside `BATCH23_DEFINITION.md`'s historical
+  before/after narrative and `README.md`'s unrelated metadata-cache TTL
+  sentence, both out of this task's scope. No test added.
 
-Validation: `pytest -q` -- **1738 passed**; the untracked mutation-runner
+Validation: `pytest -q` -- **1739 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.
 
 ### 2026-09-23 - The work-package state gap is filed as F-DOCSYNC-15
