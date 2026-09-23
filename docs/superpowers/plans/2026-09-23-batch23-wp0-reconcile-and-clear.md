@@ -131,10 +131,14 @@ answer.
   - `release_checks._run_release_checks` skips when the cache database is unavailable, logging
     "Release checks skipped: the cache DB is unavailable." Postgres was down on purpose for that run.
   - `enqueue_release_check` skips silently when `MUSICBRAINZ_CONTACT` is unset.
-  - So the Batch 22 MusicBrainz check stays **owed**. It needs a run with `ss-postgres` up and
-    `MUSICBRAINZ_CONTACT` set.
-  - The silent skip is worth one `logging.info` line. Add it to the test-infrastructure plan, not
-    as a new finding.
+  - A second run the same day, with Postgres up, also logged nothing. That is not evidence either:
+    the worker logs nothing on a successful run, and the primary checkout sets no
+    `MUSICBRAINZ_CONTACT`.
+  - So the Batch 22 MusicBrainz check stays **owed**. Settle it from the results page's release-check
+    disclosure, from `GET /api/release_checks`, or from `original_release_cache`'s row count
+    (`docs/history/reports/HANDOFF_2026-09-23.md` section 6).
+  - The worker needs start and finish log lines with counts, plus a line for the silent contact skip.
+    Add them to the test-infrastructure plan, not as a new finding.
 - **Q10: b.** The UI stays as it is. F-B21-53 becomes no action: cards are delineated by their
   border, and `docs/design/README.md` stops calling them elevated. Task 10 records it.
 - **Q11: a**, since no icon asset was supplied.
@@ -1415,8 +1419,10 @@ Each of these is its own plan, written once the rulings are in, so its code matc
    - **F-B21-3's remainder** (Q6), with a live `pip-audit` recount.
    - While there, add `requirements-dev.txt` to the CI audit's inputs. Triage C noticed it is never
      audited.
-   - Add a `logging.info` line to `release_checks.enqueue_release_check`'s silent skip when
-     `MUSICBRAINZ_CONTACT` is unset (from the Q0 answer).
+   - Give the release-check worker `logging.info` lines (from the Q0 answer):
+     - one when `_run_release_checks` starts, with its candidate count;
+     - one when it finishes, with its checked and corrected counts;
+     - one at `enqueue_release_check`'s silent skip when `MUSICBRAINZ_CONTACT` is unset.
 
 WP-0 closes when Parts A, B and C each meet their acceptance in `BATCH23_DEFINITION.md`. One tagged
 `(Batch 23 WP-0)` Section 4 entry then records it.

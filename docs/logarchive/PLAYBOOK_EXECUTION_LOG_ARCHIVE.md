@@ -9,6 +9,45 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Worker run-coroutine wrapper: Task 4 of 4
+
+Side task, no batch tag: Task 4 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- Documentation only, no code changed. `.claude/SESSION_CONTEXT.md` Section 3's
+  `worker.py` structure line now names `run_coroutine_in_new_loop` alongside
+  the functions it already listed; Section 4's dependency graph needed no
+  change, since `worker.py`'s dependencies are unchanged.
+- Both sequence diagrams that described the build-run-close-release
+  protocol are now corrected. `docs/architecture/top-albums-sequence.md`
+  owned a now-inaccurate claim in two places: its intro paragraph and a
+  sequence Note both said the protocol -- event-loop setup inside the
+  `try` that `finally` guards -- lived directly in `background_task`. Both
+  now say the protocol lives in `worker.run_coroutine_in_new_loop`, which
+  `background_task` calls, supplying only the reaction to a failed run.
+  `docs/architecture/heatmap-sequence.md` carried the identical stale Note
+  for `heatmap_task`; added in review fix round 1 after the first pass
+  missed it as a sibling of the top-albums file, it now attributes the
+  same `finally` to `worker.run_coroutine_in_new_loop`, called from
+  `heatmap_task`, which injects `_report_heatmap_failure` as its
+  `on_run_error`. Neither file carries a "Last verified" date to update.
+- `docs/architecture/runtime-system.md` was read in full; it does not
+  describe the build-run-close-release protocol anywhere (its `worker.py`
+  node label and prose stay at the module level), so it needed no edit.
+- `AGENT_NOTES.md`'s Windows-asyncio bullet still holds: it names
+  `worker.new_thread_event_loop` as the seam every background thread builds
+  its loop through, which is still true and unrelated to which function owns
+  the run-close-release wrapping, so it was left alone.
+
+Deviations: none from the brief. Review fix round 1 extended the
+correction from `top-albums-sequence.md` to its sibling
+`heatmap-sequence.md`, which the brief's Files list had not predicted as a
+hit but which Step 1/Step 3 cover on their own terms.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Worker run-coroutine wrapper: Task 3 of 4
 
 Side task, no batch tag: Task 3 of 4 of the worker run-coroutine wrapper

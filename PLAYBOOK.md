@@ -111,9 +111,11 @@ See FINDINGS F-DOCSYNC-3.
   are complete**. The batch is closed: its definition is archived at
   `docs/history/definitions/BATCH22_DEFINITION.md` and its log at
   `docs/history/logs/BATCH22_LOG.md`.
-- **Session handoff, 2026-09-20:** `docs/history/reports/HANDOFF_2026-09-20.md`
-  is the entry point for a new agent -- reading order, environment, the gates
-  and why they refuse, the schema-migration trap, and the open items.
+- **Session handoff, 2026-09-23:** `docs/history/reports/HANDOFF_2026-09-23.md`
+  is the entry point for a new agent. It covers WP-0's state, the next steps
+  in order, the untracked artifacts and the traps. For the environment, the
+  gates and the schema-migration trap, it defers to
+  `docs/history/reports/HANDOFF_2026-09-20.md`.
 - **PR #236 merged into `test`** at `fc9098d3` (2026-09-20 21:12). It carried
   the eight commits that landed after PR #234, which had merged the branch as
   it stood at `f6d5926` (2026-09-20 05:06) while the first of those eight was
@@ -369,6 +371,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Session handoff written
+
+Side task, no batch tag: session close for Batch 23 WP-0, by owner request
+ahead of a context reset. It adds `docs/history/reports/HANDOFF_2026-09-23.md`
+and points Section 3's handoff bullet at it. No code changed, and no task
+started.
+
+- **What the handoff records:**
+  - the state of WP-0 and the gate results;
+  - the four commit ranges of 2026-09-23;
+  - the next steps, in the order Section 3 owns;
+  - the WP-0-specific rules;
+  - the untracked artifacts a cold agent needs: the triage reports, the
+    reusable kit for subagent-driven work, and the stale foundation ledger;
+  - the traps hit this session.
+- **New evidence on Q0.** The owner's second run had Postgres up and still
+  logged no MusicBrainz line. That proves nothing: the release-check worker
+  logs nothing on a successful run, and the primary checkout sets no
+  `MUSICBRAINZ_CONTACT`. The handoff's section 6 says how to settle it.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Owner answers to the reconcile-and-clear plan
 
 Side task, no batch tag: records the owner's answers to Q0-Q16 of
@@ -485,45 +510,6 @@ Forward guidance:
   single batch.
 - Raise F-SWE-6 and F-B22-7 with the owner. They are P2, outside the set,
   but under this batch's code.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Worker run-coroutine wrapper: Task 4 of 4
-
-Side task, no batch tag: Task 4 of 4 of the worker run-coroutine wrapper
-plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
-whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
-
-- Documentation only, no code changed. `.claude/SESSION_CONTEXT.md` Section 3's
-  `worker.py` structure line now names `run_coroutine_in_new_loop` alongside
-  the functions it already listed; Section 4's dependency graph needed no
-  change, since `worker.py`'s dependencies are unchanged.
-- Both sequence diagrams that described the build-run-close-release
-  protocol are now corrected. `docs/architecture/top-albums-sequence.md`
-  owned a now-inaccurate claim in two places: its intro paragraph and a
-  sequence Note both said the protocol -- event-loop setup inside the
-  `try` that `finally` guards -- lived directly in `background_task`. Both
-  now say the protocol lives in `worker.run_coroutine_in_new_loop`, which
-  `background_task` calls, supplying only the reaction to a failed run.
-  `docs/architecture/heatmap-sequence.md` carried the identical stale Note
-  for `heatmap_task`; added in review fix round 1 after the first pass
-  missed it as a sibling of the top-albums file, it now attributes the
-  same `finally` to `worker.run_coroutine_in_new_loop`, called from
-  `heatmap_task`, which injects `_report_heatmap_failure` as its
-  `on_run_error`. Neither file carries a "Last verified" date to update.
-- `docs/architecture/runtime-system.md` was read in full; it does not
-  describe the build-run-close-release protocol anywhere (its `worker.py`
-  node label and prose stay at the module level), so it needed no edit.
-- `AGENT_NOTES.md`'s Windows-asyncio bullet still holds: it names
-  `worker.new_thread_event_loop` as the seam every background thread builds
-  its loop through, which is still true and unrelated to which function owns
-  the run-close-release wrapping, so it was left alone.
-
-Deviations: none from the brief. Review fix round 1 extended the
-correction from `top-albums-sequence.md` to its sibling
-`heatmap-sequence.md`, which the brief's Files list had not predicted as a
-hit but which Step 1/Step 3 cover on their own terms.
 
 Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.
