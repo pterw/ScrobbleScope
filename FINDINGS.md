@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1743 tests across 66 test modules.
+1738 tests across 66 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -1103,31 +1103,6 @@ demonstrated wrong.
 
 Status: open (P2, owner-gated). Source: Graphify bot review, PR #232,
 2026-09-14.
-
-### F-B22-7: `AlbumMetadata.as_cache_row` is unreachable from application code
-
-`scrobblescope/enrichment.py:19` builds the nine-element provider-aware cache
-row that `cache._batch_persist_metadata` unpacks. Both production sites that
-persist metadata build that tuple themselves instead:
-`orchestrator/_details.py:137` inline as six elements (the Spotify shape) and
-`orchestrator/_deezer_fallback.py:83` inline as nine. A repo-wide search finds
-the method at its definition and in its own test
-(`tests/services/test_enrichment.py:14,42`) and nowhere else, so no
-application code path calls it.
-
-Consequences worth naming. The persistence row order already has one owner,
-`cache._batch_persist_metadata`'s docstring, so this method is a second copy
-of that fact and a place for the two to drift. Its test asserts an order that
-nothing writes, which reads as coverage of the persist path without exercising
-it -- the false-confidence shape AGENTS.md's test-quality rules exist to
-catch. `AlbumMetadata` is still genuinely used: `spotify.py:273` and
-`deezer.py:144` construct it and read its fields. Only this method is unread.
-
-Filed rather than fixed because removing a method and its test, or routing one
-builder through it and deleting the other, is a choice between two working
-shapes with a Batch 22 test contract around one of them. Owner call.
-
-Status: open (P2). Source: PR #234 advisory verification, 2026-09-20.
 
 ### F-B22-8: release checks skip the whole job when the cache DB is down
 

@@ -9,6 +9,37 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The work-package state gap is filed as F-DOCSYNC-15
+
+Side task, no batch tag: files the docsync work-package state gap this
+amendment exposed, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **Task 2 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scripts/docsync/parser.py` `_collect_wp_numbers` counts every
+  `WP-<n>` token in a current-batch entry heading as a completed work
+  package, so the first commit of a multi-commit work package already makes
+  the dashboard name the next one -- verified directly before filing:
+  `docs/history/logs/BATCH22_LOG.md` carries three `(Batch 22 WP-4)` entries
+  dated 2026-09-20, all landed before WP-4 was actually done, and
+  `_collect_wp_numbers` regex-matches `WP-(\d+)` against each entry heading
+  with no completion check at all.
+- **Filed as F-DOCSYNC-15** under `FINDINGS.md` "P1 -- Next batch
+  candidates", status open (P1), unchecked. The body records the owner's Q4
+  fix shape (2026-09-23): a work package closes only on an entry carrying an
+  explicit `**Status:** WP-N complete` line, which the control-plane
+  follow-on plan implements.
+- **Bookkeeping:** `BATCH23_DEFINITION.md` WP-0 Part B's "File the docsync
+  gap this amendment exposed" checkbox is ticked (done 2026-09-23, as
+  F-DOCSYNC-15); its Part C set now names F-DOCSYNC-15 alongside the "38 IDs
+  plus one" count. The reconcile plan's Task 2 steps are ticked. Section 3's
+  order list now records Stage 1 (Tasks 1 and 2) as complete.
+- No code changed; no test added.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Export upload ownership, three depth findings, and a template fix
 
 Side task, no batch tag: records owner rulings on the 2026-09-23

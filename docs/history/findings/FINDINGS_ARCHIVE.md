@@ -9,6 +9,35 @@ Newest rotation first.
 
 ---
 
+### F-B22-7: `AlbumMetadata.as_cache_row` is unreachable from application code -- RESOLVED
+
+`scrobblescope/enrichment.py:19` builds the nine-element provider-aware cache
+row that `cache._batch_persist_metadata` unpacks. Both production sites that
+persist metadata build that tuple themselves instead:
+`orchestrator/_details.py:137` inline as six elements (the Spotify shape) and
+`orchestrator/_deezer_fallback.py:83` inline as nine. A repo-wide search finds
+the method at its definition and in its own test
+(`tests/services/test_enrichment.py:14,42`) and nowhere else, so no
+application code path calls it.
+
+Consequences worth naming. The persistence row order already has one owner,
+`cache._batch_persist_metadata`'s docstring, so this method is a second copy
+of that fact and a place for the two to drift. Its test asserts an order that
+nothing writes, which reads as coverage of the persist path without exercising
+it -- the false-confidence shape AGENTS.md's test-quality rules exist to
+catch. `AlbumMetadata` is still genuinely used: `spotify.py:273` and
+`deezer.py:144` construct it and read its fields. Only this method is unread.
+
+Filed rather than fixed because removing a method and its test, or routing one
+builder through it and deleting the other, is a choice between two working
+shapes with a Batch 22 test contract around one of them. Owner call.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-23
+the Spotify payload is translated only in `spotify.album_metadata_from_details`; every metadata row
+is built by `AlbumMetadata.as_cache_row`, whose Deezer rows no longer carry an id in `spotify_id`;
+the unused `enrich_albums` and its tests are removed.
+
 ### F-SWE-6: reading a job renews its TTL, so a polled job never expires -- RESOLVED
 
 `get_job_progress`, `get_job_unmatched` and `get_job_context` each write

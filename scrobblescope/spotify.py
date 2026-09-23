@@ -7,7 +7,6 @@ from scrobblescope.config import (
     SPOTIFY_BATCH_RETRIES,
     SPOTIFY_CLIENT_ID,
     SPOTIFY_CLIENT_SECRET,
-    SPOTIFY_SEARCH_CONCURRENCY,
     SPOTIFY_SEARCH_RETRIES,
     spotify_token_cache,
 )
@@ -266,55 +265,6 @@ def album_metadata_from_details(spotify_id, details):
             for t in details.get("tracks", {}).get("items", [])
         },
     )
-
-
-async def enrich_albums(session, misses, token):
-    """Enrich a batch of cache-miss albums via Spotify search + batch detail.
-
-    *misses* is a dict keyed by (artist_norm, album_norm) tuples; only the
-    keys are read here, so a caller may pass the same {key: original_data}
-    shape it already keeps for other purposes. Returns (matched, unmatched):
-    ``matched`` is {key: AlbumMetadata} for every album Spotify both found
-    and returned details for; ``unmatched`` is the set of keys Spotify could
-    not find, or found but could not detail. This module owns its own
-    retry, limiter and matching -- the caller does not see how the match was
-    made, only the result.
-    """
-    if not misses:
-        return {}, set()
-
-    search_semaphore = asyncio.Semaphore(SPOTIFY_SEARCH_CONCURRENCY)
-
-    async def search_one(key):
-        artist, album = key
-        spotify_id = await search_for_spotify_album_id(
-            session, artist, album, token, semaphore=search_semaphore
-        )
-        return key, spotify_id
-
-    search_results = await asyncio.gather(*(search_one(key) for key in misses))
-
-    id_to_key = {}
-    unmatched = set()
-    for key, spotify_id in search_results:
-        if spotify_id:
-            id_to_key[spotify_id] = key
-        else:
-            unmatched.add(key)
-
-    matched = {}
-    if id_to_key:
-        album_details = await fetch_spotify_album_details_batch(
-            session, list(id_to_key.keys()), token
-        )
-        for spotify_id, key in id_to_key.items():
-            details = album_details.get(spotify_id)
-            if not details:
-                unmatched.add(key)
-                continue
-            matched[key] = album_metadata_from_details(spotify_id, details)
-
-    return matched, unmatched
 
 
 def _artist_spotlight_details(artist, artist_name=None, artist_id=None):

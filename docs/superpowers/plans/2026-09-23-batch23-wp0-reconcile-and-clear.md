@@ -856,7 +856,7 @@ move 22 existing test patch targets off the orchestrator facade that Batch 22 WP
 5, the contract the function stood for -- a provider hands back `AlbumMetadata`, and the orchestrator
 never parses provider JSON -- holds on the live path without it.
 
-- [ ] **Step 1: Confirm nothing but tests call it.**
+- [x] **Step 1: Confirm nothing but tests call it.**
 
 ```bash
 git grep -n "enrich_albums" -- '*.py'
@@ -870,7 +870,7 @@ Expected hits only:
 
 Any other hit means a caller exists: stop and report NEEDS_CONTEXT.
 
-- [ ] **Step 2: Delete it and its tests.** Remove from `tests/services/test_spotify_service.py`:
+- [x] **Step 2: Delete it and its tests.** Remove from `tests/services/test_spotify_service.py`:
   - the banner comment `# enrich_albums (Batch 22 WP-1 Task 3: the provider-contract seam)` and the
     `###` rule under it;
   - `test_enrich_albums_empty_misses_makes_no_request`, `test_enrich_albums_returns_matched_and_unmatched`,
@@ -885,13 +885,13 @@ Any other hit means a caller exists: stop and report NEEDS_CONTEXT.
   Delete `async def enrich_albums(...)` whole from `scrobblescope/spotify.py`, and delete its two
   references from the facade.
 
-- [ ] **Step 3: Verify.**
+- [x] **Step 3: Verify.**
 
 Run: `git grep -n "enrich_albums" -- '*.py'`, then
 `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services -q`.
 Expected: no `.py` hits, and the suite passes. The count falls by 5.
 
-- [ ] **Step 4: Resolve F-B22-7 and commit.** The canonical record's reason:
+- [x] **Step 4: Resolve F-B22-7 and commit.** The canonical record's reason:
 
   > "the Spotify payload is translated only in `spotify.album_metadata_from_details`; every metadata row
   > is built by `AlbumMetadata.as_cache_row`, whose Deezer rows no longer carry an id in `spotify_id`;

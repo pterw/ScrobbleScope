@@ -48,7 +48,6 @@ from scrobblescope.repositories import (
 )
 from scrobblescope.spotify import (
     album_metadata_from_details,
-    enrich_albums,
     fetch_spotify_access_token,
     fetch_spotify_album_details_batch,
     search_for_spotify_album_id,
@@ -798,7 +797,6 @@ __all__ = [
     "cleanup_expired_jobs",
     "create_optimized_session",
     "enqueue_release_check",
-    "enrich_albums",
     "fetch_all_recent_tracks_async",
     "fetch_deezer_album",
     "fetch_spotify_access_token",

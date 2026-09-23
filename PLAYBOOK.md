@@ -173,8 +173,9 @@ See FINDINGS F-DOCSYNC-3.
      2026-09-23. Stage 2 includes Task 11 (F-B22-8), which the owner added
      on 2026-09-23. Stage 2 has started: Task 3 (F-SWE-6, reading a job no
      longer renews its lease), Task 4 (F-B22-7, part 1 of 3, the
-     `spotify_id` column) and Task 5 (F-B22-7, part 2 of 3, the Spotify
-     payload translated once in `spotify.py`) landed 2026-09-23.
+     `spotify_id` column), Task 5 (F-B22-7, part 2 of 3, the Spotify
+     payload translated once in `spotify.py`) and Task 6 (F-B22-7, part 3 of
+     3, retiring the unused `enrich_albums`) landed 2026-09-23.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -383,6 +384,41 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The unused enrich_albums is retired
+
+Side task, no batch tag: fixes F-B22-7, part 3 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 6 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/spotify.py`'s `enrich_albums` is deleted: after Task 5,
+  the live path already does everything it did, through
+  `_run_spotify_search_phase` and `_run_spotify_batch_detail_phase`, with the
+  per-phase progress the loading page shows that `enrich_albums` never had.
+  `scrobblescope/orchestrator/__init__.py` drops its import and its
+  `__all__` entry; `album_metadata_from_details` keeps both, since
+  `_details.py` still calls it through the facade. `git grep -n
+  "enrich_albums" -- '*.py'` now returns nothing.
+- **Tests removed, five in total, none replaced:**
+  `test_enrich_albums_empty_misses_makes_no_request`,
+  `test_enrich_albums_returns_matched_and_unmatched`,
+  `test_enrich_albums_marks_unmatched_when_detail_lookup_misses` and
+  `test_enrich_albums_handles_missing_cover_art`
+  (`tests/services/test_spotify_service.py`, with their banner comment and
+  the `enrich_albums` import), and
+  `test_enrich_albums_is_exposed_on_the_orchestrator_facade`
+  (`tests/services/test_orchestrator_fetch_spotify.py`, with both of its
+  `enrich_albums` imports).
+- **This resolves F-B22-7.** The Spotify payload is translated only in
+  `spotify.album_metadata_from_details`; every metadata row is built by
+  `AlbumMetadata.as_cache_row`, whose Deezer rows no longer carry an id in
+  `spotify_id` (Task 4); the unused `enrich_albums` and its tests are gone.
+- **Bookkeeping:** the reconcile plan's Task 6 steps are ticked. Section 3's
+  order list now records Task 6 landed alongside Tasks 3-5 in Stage 2.
+
+Validation: `pytest -q` -- **1738 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The Spotify payload is translated once, in spotify.py
 
 Side task, no batch tag: fixes F-B22-7, part 2 of 3, part of Batch 23 WP-0
@@ -482,35 +518,4 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   sentence, both out of this task's scope. No test added.
 
 Validation: `pytest -q` -- **1739 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - The work-package state gap is filed as F-DOCSYNC-15
-
-Side task, no batch tag: files the docsync work-package state gap this
-amendment exposed, part of Batch 23 WP-0 Part B. Untagged by owner ruling
-2026-09-23 until the whole of WP-0 lands.
-
-- **Task 2 of the reconcile plan**
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
-  done. `scripts/docsync/parser.py` `_collect_wp_numbers` counts every
-  `WP-<n>` token in a current-batch entry heading as a completed work
-  package, so the first commit of a multi-commit work package already makes
-  the dashboard name the next one -- verified directly before filing:
-  `docs/history/logs/BATCH22_LOG.md` carries three `(Batch 22 WP-4)` entries
-  dated 2026-09-20, all landed before WP-4 was actually done, and
-  `_collect_wp_numbers` regex-matches `WP-(\d+)` against each entry heading
-  with no completion check at all.
-- **Filed as F-DOCSYNC-15** under `FINDINGS.md` "P1 -- Next batch
-  candidates", status open (P1), unchecked. The body records the owner's Q4
-  fix shape (2026-09-23): a work package closes only on an entry carrying an
-  explicit `**Status:** WP-N complete` line, which the control-plane
-  follow-on plan implements.
-- **Bookkeeping:** `BATCH23_DEFINITION.md` WP-0 Part B's "File the docsync
-  gap this amendment exposed" checkbox is ticked (done 2026-09-23, as
-  F-DOCSYNC-15); its Part C set now names F-DOCSYNC-15 alongside the "38 IDs
-  plus one" count. The reconcile plan's Task 2 steps are ticked. Section 3's
-  order list now records Stage 1 (Tasks 1 and 2) as complete.
-- No code changed; no test added.
-
-Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.
