@@ -9,6 +9,29 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-21 - Batch 23 WP-0 foundation plan committed
+
+Side task, no batch tag. Scope: commit
+`docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`, which
+replaces an earlier draft that put 22 tasks and two behaviour changes under
+WP-0. WP-0 keeps its definition's scope: the loop-protocol plan plus the
+three original extractions. Control-plane fixes run as side tasks, led by
+the fix for audit defect D1, which must land before the batch opens.
+F-SWE-5 follows WP-0 as its own commit. Every change to a check is
+accepted only on a live probe: red on the planted defect, green on its
+near miss.
+
+Owner rulings, 2026-09-21, recorded in the plan: Batch 23's branch is
+`feat/batch23-wp0-hygiene`, opened by the plan's Task 3b after the D1 fix;
+no worker-count guard (delegated, declined: the Dockerfile pins one worker
+and a partial guard is its own wrong green); WP-0 counts as "next" under a
+finite plan; job admission is folded into Batch 23 WP-4. Section 3 is
+deliberately unchanged here: opening the batch before the D1 fix would
+produce the defect's state.
+
+Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-21 - Docsync live-probe audit recorded
 
 Side task, no batch tag. Scope: record the formal conclusion of the live

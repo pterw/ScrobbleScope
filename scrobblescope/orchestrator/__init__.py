@@ -57,7 +57,11 @@ from scrobblescope.unmatched import (
     partition_albums_by_threshold,
 )
 from scrobblescope.utils import cleanup_expired_cache, create_optimized_session
-from scrobblescope.worker import new_thread_event_loop, release_job_slot
+from scrobblescope.worker import (
+    new_thread_event_loop,
+    release_job_slot,
+    run_coroutine_in_new_loop,
+)
 
 # Hard upper bound on the number of albums sent to process_albums across all sort
 # modes. An unbounded album count creates proportional Spotify API load and
@@ -650,32 +654,36 @@ def background_task(
     ``worker.new_thread_event_loop`` builds the loop, including the Windows
     ``ProactorEventLoop`` asyncpg needs. It is called inside the ``try`` so a
     setup failure still reaches the ``finally`` that releases the job slot.
+
+    The build-run-close-release protocol lives in
+    ``worker.run_coroutine_in_new_loop``; what stays here is the reaction to a
+    failed run, which is to log it. The classification of a pipeline failure into a
+    job error happens deeper in, inside ``_fetch_and_process``, so this remains a
+    backstop rather than the answer the user sees. ``F-SWE-5`` records that this
+    backstop publishes no terminal state at all, unlike the heatmap's.
     """
-    loop = None
-    try:
-        loop = new_thread_event_loop()
-        loop.run_until_complete(
-            _fetch_and_process(
-                job_id,
-                username,
-                year,
-                sort_mode,
-                release_scope,
-                decade,
-                release_year,
-                min_plays,
-                min_tracks,
-                limit_results,
-            )
-        )
-    except Exception:
-        logging.exception(f"Unhandled error in background task for {username}/{year}")
-    finally:
-        try:
-            if loop is not None:
-                loop.close()
-        finally:
-            release_job_slot()
+    run_coroutine_in_new_loop(
+        _fetch_and_process(
+            job_id,
+            username,
+            year,
+            sort_mode,
+            release_scope,
+            decade,
+            release_year,
+            min_plays,
+            min_tracks,
+            limit_results,
+        ),
+        # Passed explicitly rather than left to the helper's own defaults: the tests
+        # patch ``scrobblescope.orchestrator.release_job_slot``, and a default taken
+        # from the helper's module would move that patch target without failing.
+        make_loop=new_thread_event_loop,
+        release_slot=release_job_slot,
+        on_run_error=lambda _exc: logging.exception(
+            f"Unhandled error in background task for {username}/{year}"
+        ),
+    )
 
 
 # Phase submodules import this package back (``from scrobblescope import

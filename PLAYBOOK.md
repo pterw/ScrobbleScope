@@ -158,7 +158,7 @@ See FINDINGS F-DOCSYNC-3.
 - **Next action:** WP-0 is next: the shared loop protocol, then the three
   original extractions. WP work from here on logs tagged
   `(Batch 23 WP-N)` entries inside the current-batch markers.
-  Loop-protocol plan: Task 1 of 4 landed.
+  Loop-protocol plan: Tasks 1-2 of 4 landed.
 - **The dashboard's test count read 1522 for a while**, and the way it got
   unstuck is
   worth knowing. It read 1497 for most of 2026-09-20: two entries shared that
@@ -359,6 +359,39 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Worker run-coroutine wrapper: Task 2 of 4
+
+Side task, no batch tag: Task 2 of 4 of the worker run-coroutine wrapper
+plan, part of Batch 23 WP-0. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands, so the dashboard keeps naming WP-0 as next.
+
+- `background_task` in `scrobblescope/orchestrator/__init__.py` now
+  delegates its build-run-close-release protocol to
+  `worker.run_coroutine_in_new_loop`, added in Task 1, instead of carrying
+  its own `loop = None` / `try` / `except Exception` / nested `finally`
+  block. `make_loop` and `release_slot` are passed explicitly as
+  `new_thread_event_loop` and `release_job_slot` rather than left to the
+  helper's own defaults, because the existing tests patch
+  `scrobblescope.orchestrator.release_job_slot`, and a default taken from
+  the helper's module would move that patch target without failing.
+  `on_run_error` reproduces the prior log line exactly. The import at the
+  top of the module gains `run_coroutine_in_new_loop` alongside the two
+  names it already carried.
+- No test was written or edited: the four existing guard tests in
+  `tests/services/test_orchestrator_fetch_and_process.py`
+  (`test_background_task_runs_single_event_loop`,
+  `test_background_task_releases_slot_on_exception`,
+  `test_background_task_releases_slot_when_event_loop_setup_raises`,
+  `test_background_task_releases_slot_when_loop_close_raises`) are the
+  acceptance criterion and pass unmodified, including the one that asserts
+  a `loop.close()` failure still propagates out of `background_task` while
+  the slot is released.
+
+Deviations: none from the brief.
+
+Validation: `pytest -q` -- **1735 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Worker run-coroutine wrapper: Task 1 of 4
 
 Side task, no batch tag: Task 1 of 4 of the worker run-coroutine wrapper
@@ -478,26 +511,3 @@ The original 18 planted-defect probes were re-run on the changed code:
 
 Validation: `pytest -q` -- **1729 passed**, 12 of them new; the untracked
 mutation-runner tests were excluded, since they are not repository state.
-
-### 2026-09-21 - Batch 23 WP-0 foundation plan committed
-
-Side task, no batch tag. Scope: commit
-`docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`, which
-replaces an earlier draft that put 22 tasks and two behaviour changes under
-WP-0. WP-0 keeps its definition's scope: the loop-protocol plan plus the
-three original extractions. Control-plane fixes run as side tasks, led by
-the fix for audit defect D1, which must land before the batch opens.
-F-SWE-5 follows WP-0 as its own commit. Every change to a check is
-accepted only on a live probe: red on the planted defect, green on its
-near miss.
-
-Owner rulings, 2026-09-21, recorded in the plan: Batch 23's branch is
-`feat/batch23-wp0-hygiene`, opened by the plan's Task 3b after the D1 fix;
-no worker-count guard (delegated, declined: the Dockerfile pins one worker
-and a partial guard is its own wrong green); WP-0 counts as "next" under a
-finite plan; job admission is folded into Batch 23 WP-4. Section 3 is
-deliberately unchanged here: opening the batch before the D1 fix would
-produce the defect's state.
-
-Validation: `pytest -q` -- **1717 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
