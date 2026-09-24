@@ -85,20 +85,42 @@ def _call_outcome_line(provider, method, url, outcome, elapsed_ms, retry_after=N
     return line
 
 
-def _elapsed_ms(trace_config_ctx):
-    return (time.monotonic() - trace_config_ctx.start) * 1000
+def _elapsed_ms(start, end):
+    """Return the milliseconds between two ``time.monotonic()`` readings."""
+    return (end - start) * 1000
 
 
-def _record(session, provider, outcome, elapsed_ms):
-    """Fold one call's outcome into *session*'s per-provider tally."""
+def _record(session, provider, outcome, elapsed_ms, start, end):
+    """Fold one call's outcome into *session*'s per-provider tally.
+
+    *start* and *end* are the same ``time.monotonic()`` readings the caller
+    used to compute *elapsed_ms* -- one clock read per end event, so the
+    per-call line's milliseconds and this tally's figures never drift apart.
+    The tally keeps the earliest *start* and latest *end* seen for
+    *provider*, so ``_emit_summaries`` can report the span those calls
+    covered alongside the summed *elapsed_ms*.
+    """
     tally = getattr(session, _TALLY_ATTR, None)
     if tally is None:
         tally = {}
         setattr(session, _TALLY_ATTR, tally)
-    entry = tally.setdefault(provider, {"count": 0, "elapsed_ms": 0.0, "outcomes": {}})
+    entry = tally.setdefault(
+        provider,
+        {
+            "count": 0,
+            "elapsed_ms": 0.0,
+            "outcomes": {},
+            "span_start": start,
+            "span_end": end,
+        },
+    )
     entry["count"] += 1
     entry["elapsed_ms"] += elapsed_ms
     entry["outcomes"][outcome] = entry["outcomes"].get(outcome, 0) + 1
+    if start < entry["span_start"]:
+        entry["span_start"] = start
+    if end > entry["span_end"]:
+        entry["span_end"] = end
 
 
 async def _on_request_start(session, trace_config_ctx, params):
@@ -110,7 +132,9 @@ async def _on_request_start(session, trace_config_ctx, params):
 
 async def _on_request_end(session, trace_config_ctx, params):
     try:
-        elapsed_ms = _elapsed_ms(trace_config_ctx)
+        end = time.monotonic()
+        start = trace_config_ctx.start
+        elapsed_ms = _elapsed_ms(start, end)
         provider = provider_for_host(params.url.host)
         status = params.response.status
         retry_after = None
@@ -127,14 +151,16 @@ async def _on_request_end(session, trace_config_ctx, params):
                 retry_after,
             ),
         )
-        _record(session, provider, str(status), elapsed_ms)
+        _record(session, provider, str(status), elapsed_ms, start, end)
     except Exception:  # noqa: BLE001 -- a trace hook must never fail the call
         logging.debug("api_logging: on_request_end failed", exc_info=True)
 
 
 async def _on_request_exception(session, trace_config_ctx, params):
     try:
-        elapsed_ms = _elapsed_ms(trace_config_ctx)
+        end = time.monotonic()
+        start = trace_config_ctx.start
+        elapsed_ms = _elapsed_ms(start, end)
         provider = provider_for_host(params.url.host)
         exc_name = type(params.exception).__name__
         logging.warning(
@@ -142,7 +168,7 @@ async def _on_request_exception(session, trace_config_ctx, params):
                 provider, params.method, params.url, exc_name, elapsed_ms
             )
         )
-        _record(session, provider, exc_name, elapsed_ms)
+        _record(session, provider, exc_name, elapsed_ms, start, end)
     except Exception:  # noqa: BLE001 -- a trace hook must never fail the call
         logging.debug("api_logging: on_request_exception failed", exc_info=True)
 
@@ -176,6 +202,19 @@ def _sorted_outcomes(outcomes):
 def _emit_summaries(session):
     """Log one INFO summary line per provider *session* called.
 
+    Each line states two different numbers, not one: the *span* (wall time
+    from that provider's earliest call start to its latest call end, both
+    ``on_request_end`` and ``on_request_exception`` counting as an end) and
+    the *time in calls* (that provider's per-call elapsed times summed).
+    They answer different questions -- the span says how long the provider
+    was being talked to; the time in calls says how much of that was spent
+    waiting on it -- and they can diverge in either direction. Sequential
+    calls throttled apart (MusicBrainz's one-request-per-second pacing, for
+    example) give a span much larger than the time in calls. Calls issued
+    concurrently (the Spotify search phase runs several in parallel) can
+    give a time in calls that *exceeds* the span, since more than one call
+    is in flight at once; that is correct and informative, not a bug.
+
     A session that made no calls has no tally entries and logs nothing.
     """
     tally = getattr(session, _TALLY_ATTR, None)
@@ -186,9 +225,11 @@ def _emit_summaries(session):
             outcomes = ", ".join(
                 f"{count}x{key}" for key, count in _sorted_outcomes(entry["outcomes"])
             )
+            span_s = entry["span_end"] - entry["span_start"]
+            in_calls_s = entry["elapsed_ms"] / 1000
             logging.info(
-                f"{provider}: {entry['count']} calls in "
-                f"{entry['elapsed_ms'] / 1000:.1f}s -- {outcomes}"
+                f"{provider}: {entry['count']} calls over {span_s:.1f}s "
+                f"({in_calls_s:.1f}s in calls) -- {outcomes}"
             )
         except Exception:  # noqa: BLE001 -- a summary failure must not block close
             logging.debug(f"api_logging: summary failed for {provider}", exc_info=True)

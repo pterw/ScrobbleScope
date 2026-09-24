@@ -135,7 +135,9 @@ See FINDINGS F-DOCSYNC-3.
   `1d16e18`). The owner retargeted it from `test` before merging. The branch
   stays an ancestor of `main` with an identical tree, so WP-0 continues on
   `feat/batch23-wp0-hygiene` with no reset. A merge to `main` deploys to
-  Fly.io.
+  Fly.io. The next PR targets `main` directly (owner ruling, 2026-09-24): the
+  `test` -> `main` double pass has not paid off, since the second review only
+  restated the first.
 - **Outbound request identity, fixed 2026-09-20.** `config.APP_USER_AGENT` is
   now the single owner of the application's own name, and
   `create_optimized_session` sends it on every provider session. Until this
@@ -204,10 +206,11 @@ See FINDINGS F-DOCSYNC-3.
      on 2026-09-24 as its Stage 4 (F-B23-6: log every provider call and the
      release checks), is done, 2026-09-24, including the owner's live check
      (its Step 5). Task 5 (the DOC range the catalogue owns is no longer
-     stated as a range anywhere live) is done, 2026-09-24. Next, by owner
-     ruling 2026-09-24, is a small side task: the provider summary log line
+     stated as a range anywhere live) is done, 2026-09-24. The small side
+     task ruled by the owner 2026-09-24 -- the provider summary log line
      states its span as well as its time in calls (the handoff's section 5
-     describes it). Then the foundation plan's Task 6.
+     describes it) -- is done, 2026-09-24. Next is the foundation plan's
+     Task 6.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -415,6 +418,48 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The provider summary states its span and its time in calls
+
+Side task, no batch tag: the provider summary log line states its span
+alongside its time in calls, part of Batch 23 WP-0 Part C. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands. It follows up
+F-B23-6's provider-call logging (Task 13); ruled by the owner 2026-09-24,
+source `docs/history/reports/HANDOFF_2026-09-24.md` section 5 item 1.
+
+- **Scope.** `scrobblescope/api_logging.py`'s per-session summary read
+  `MusicBrainz: 17 calls in 2.6s -- 16x200, 1x503`; the `2.6s` is the sum of
+  per-call durations, not how long the provider was being called. Read
+  naively it says MusicBrainz ran faster than its 1 request per second,
+  which the owner did. MusicBrainz is compliant: the global throttle in
+  `scrobblescope/utils.py` spaces request starts one second apart, and the
+  owner's log timestamps confirm it. The line now states both:
+  `MusicBrainz: 17 calls over 12.1s (2.6s in calls) -- 16x200, 1x503`.
+  `_record` gains the earliest call start and latest call end seen per
+  provider (`span_start`, `span_end`); `_on_request_end` and
+  `_on_request_exception` each read `time.monotonic()` once per end event
+  and pass that one reading to both the per-call line and the tally, so the
+  per-call milliseconds and the summary's figures never drift apart. Counts
+  and outcomes are unchanged; the line still never carries a query string,
+  a name, a body or a header.
+- **Two existing tests changed** (`tests/services/test_api_logging.py`):
+  `test_closing_the_session_logs_one_summary_per_provider`'s
+  `message.startswith(...)` assertion moved from `"127.0.0.1: 3 calls in"`
+  to `"127.0.0.1: 3 calls over"`, plus a new regex asserting the full shape
+  (span, in-calls, outcomes); `test_a_session_that_made_no_calls_logs_no_summary`'s
+  filter string moved from `"calls in"` to `"calls over"`, since every
+  summary line now carries the new wording and the old filter would have
+  passed vacuously.
+- **New tests:** span is not the sum of per-call durations (the owner's
+  case, driven deterministically through `_record`/`_emit_summaries` against
+  a stand-in session object); overlapping calls make time-in-calls exceed
+  the span; an exception ending after the last success extends the span and
+  is counted under its class name; and one end-to-end test against the real
+  session and trace hook, asserting only a lower bound on the span (no
+  upper bound -- timing-based upper bounds flake).
+- **Deviations:** none.
+- Validation: `pytest -q` -- **1825 passed**.
+- **Next:** the foundation plan's Task 6.
+
 ### 2026-09-24 - The handoff schedules a truer provider summary line
 
 Side task, no batch tag: a handoff revision, part of Batch 23 WP-0 Part C.
@@ -596,31 +641,3 @@ nothing else in the plan changed.
 ties table still quoted the pre-fix `allow_after` marker literal as a
 worked example; corrected to the real heading text, the only change in
 that row.
-
-### 2026-09-24 - The loading page looks up its error source label in a Map
-
-Side task, no batch tag: close Codacy's object-injection flag on the loading
-page's error source label, part of Batch 23 WP-0 Part C. Untagged by owner
-ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Why.** Codacy's check failed on PR #241 with one high issue, "Variable
-  Assigned to Object Injection Sink", at `static/js/loading.js`'s
-  `const label = ERROR_SOURCE_LABELS[source];`. It is not exploitable: the
-  server sends only `lastfm`, `spotify` or `internal`
-  (`scrobblescope/errors.py`), and the label goes into `textContent`. But an
-  object-literal lookup resolves inherited keys, so a source of
-  `constructor` would have printed `Source: function Object() ...`.
-- **Change.** `ERROR_SOURCE_LABELS` is a `Map`, read with `.get(source)`.
-  An unknown or inherited key finds nothing, so the source line stays
-  hidden. The failure call that passes no source is unchanged:
-  `Map.get(undefined)` is `undefined`, as the object lookup was. The JSDoc
-  says why it is a Map. Nothing else changed; the reconcile plan's Task 7
-  code block keeps the object form it shipped with, as a record.
-- **Found by** the cloud session, which could not run the frontend gate
-  (no Playwright browsers in its sandbox), so the change was made locally.
-- **Also corrected:** the heading of the cloud-handoff entry below carried
-  a `WP-<digit>` token, against the untagged-entry rule; it now reads
-  without one.
-- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
-  tests were excluded, since they are not repository state. The frontend
-  gate ran, since `static/` changed.

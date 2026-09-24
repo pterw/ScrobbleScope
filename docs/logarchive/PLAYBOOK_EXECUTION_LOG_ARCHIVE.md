@@ -9,6 +9,34 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The loading page looks up its error source label in a Map
+
+Side task, no batch tag: close Codacy's object-injection flag on the loading
+page's error source label, part of Batch 23 WP-0 Part C. Untagged by owner
+ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Why.** Codacy's check failed on PR #241 with one high issue, "Variable
+  Assigned to Object Injection Sink", at `static/js/loading.js`'s
+  `const label = ERROR_SOURCE_LABELS[source];`. It is not exploitable: the
+  server sends only `lastfm`, `spotify` or `internal`
+  (`scrobblescope/errors.py`), and the label goes into `textContent`. But an
+  object-literal lookup resolves inherited keys, so a source of
+  `constructor` would have printed `Source: function Object() ...`.
+- **Change.** `ERROR_SOURCE_LABELS` is a `Map`, read with `.get(source)`.
+  An unknown or inherited key finds nothing, so the source line stays
+  hidden. The failure call that passes no source is unchanged:
+  `Map.get(undefined)` is `undefined`, as the object lookup was. The JSDoc
+  says why it is a Map. Nothing else changed; the reconcile plan's Task 7
+  code block keeps the object form it shipped with, as a record.
+- **Found by** the cloud session, which could not run the frontend gate
+  (no Playwright browsers in its sandbox), so the change was made locally.
+- **Also corrected:** the heading of the cloud-handoff entry below carried
+  a `WP-<digit>` token, against the untagged-entry rule; it now reads
+  without one.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. The frontend
+  gate ran, since `static/` changed.
+
 ### 2026-09-24 - The Batch 23 foundation work gets a handoff a cloud session can run from
 
 Side task, no batch tag: session handoff for Batch 23 WP-0, which moves to a

@@ -17,7 +17,9 @@ without any network at all.
 
 import asyncio
 import logging
+import re
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 
 import pytest
 from aiohttp import ClientConnectorError, ClientTimeout, web
@@ -26,7 +28,9 @@ from yarl import URL
 
 from scrobblescope.api_logging import (
     _call_outcome_line,
+    _emit_summaries,
     _lastfm_method,
+    _record,
     provider_for_host,
 )
 from scrobblescope.utils import create_optimized_session
@@ -261,9 +265,13 @@ async def test_closing_the_session_logs_one_summary_per_provider(caplog):
     summary_lines = _messages(caplog, logging.INFO, "127.0.0.1:")
     assert len(summary_lines) == 1
     message = summary_lines[0]
-    assert message.startswith("127.0.0.1: 3 calls in")
+    assert message.startswith("127.0.0.1: 3 calls over")
     assert "2x200" in message
     assert "1x404" in message
+    assert re.fullmatch(
+        r"127\.0\.0\.1: 3 calls over \d+\.\d+s \(\d+\.\d+s in calls\) -- 2x200, 1x404",
+        message,
+    )
 
 
 @pytest.mark.asyncio
@@ -272,7 +280,77 @@ async def test_a_session_that_made_no_calls_logs_no_summary(caplog):
         async with create_optimized_session():
             pass
 
-    assert _messages(caplog, logging.INFO, "calls in") == []
+    assert _messages(caplog, logging.INFO, "calls over") == []
+
+
+# --- The summary's span vs. its time in calls -------------------------------
+#
+# These four drive ``_record``/``_emit_summaries`` directly against a plain
+# stand-in session object (nothing but something ``setattr`` works on), so
+# the span/in-calls arithmetic is checked deterministically instead of
+# through real (and therefore only approximately controllable) timing --
+# except the last, which proves the real trace hook wires real
+# ``time.monotonic()`` readings through to the same arithmetic.
+
+
+def test_span_is_not_the_sum_of_per_call_durations(caplog):
+    """The owner's misreading: MusicBrainz is throttled a second apart by
+    the global throttle in scrobblescope/utils.py, so its summary must not
+    read as though the provider itself ran faster than that."""
+    session = SimpleNamespace()
+    with caplog.at_level(logging.DEBUG):
+        _record(session, "X", "200", (0.1 - 0.0) * 1000, 0.0, 0.1)
+        _record(session, "X", "200", (10.2 - 10.0) * 1000, 10.0, 10.2)
+        _emit_summaries(session)
+
+    summary_lines = _messages(caplog, logging.INFO, "X:")
+    assert summary_lines == ["X: 2 calls over 10.2s (0.3s in calls) -- 2x200"]
+
+
+def test_overlapping_calls_make_time_in_calls_exceed_the_span(caplog):
+    """Concurrent calls (the Spotify search phase) can spend more total time
+    in calls than the span they occupy; that is correct, not a bug."""
+    session = SimpleNamespace()
+    with caplog.at_level(logging.DEBUG):
+        _record(session, "X", "200", 1000.0, 0.0, 1.0)
+        _record(session, "X", "200", 1000.0, 0.0, 1.0)
+        _emit_summaries(session)
+
+    summary_lines = _messages(caplog, logging.INFO, "X:")
+    assert summary_lines == ["X: 2 calls over 1.0s (2.0s in calls) -- 2x200"]
+
+
+def test_an_exception_ending_after_the_last_success_extends_the_span(caplog):
+    session = SimpleNamespace()
+    with caplog.at_level(logging.DEBUG):
+        _record(session, "X", "200", 100.0, 0.0, 0.1)
+        _record(session, "X", "RuntimeError", 200.0, 0.2, 0.4)
+        _emit_summaries(session)
+
+    summary_lines = _messages(caplog, logging.INFO, "X:")
+    assert summary_lines == [
+        "X: 2 calls over 0.4s (0.3s in calls) -- 1x200, 1xRuntimeError"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_the_span_reflects_real_elapsed_time_between_calls(caplog):
+    """End to end against the real session and trace hook: no upper bound on
+    the span or the in-calls figure (timing-based upper bounds flake), just
+    the lower bound the sleep between the two calls guarantees."""
+    with caplog.at_level(logging.DEBUG):
+        async with _running_server() as server, create_optimized_session() as session:
+            async with session.get(server.make_url("/ok")) as resp:
+                await resp.read()
+            await asyncio.sleep(0.3)
+            async with session.get(server.make_url("/ok")) as resp:
+                await resp.read()
+
+    summary_lines = _messages(caplog, logging.INFO, "127.0.0.1:")
+    assert len(summary_lines) == 1
+    match = re.search(r"over (?P<span>[\d.]+)s", summary_lines[0])
+    assert match is not None
+    assert float(match.group("span")) >= 0.3
 
 
 @pytest.mark.asyncio
