@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1741 tests across 66 test modules.
+1743 tests across 66 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -202,38 +202,6 @@ builds the screen -- WP-3 hero, WP-4 loading, WP-5 results KPIs, WP-7 fix line
 finding by ruling on all four at once. Cross-references F-B21-2.
 Source: design handoff import, 2026-08-21. Owner ruling on precedence the
 same day. See `docs/design/RECONCILIATION.md`.
-
-### F-B21-6: the year gate reads host-local time, the fetch window reads UTC
-
-`scrobblescope/routes.py` calls naive `datetime.now()` in three places:
-`:135` (the `current_year` template global), `:302` (the results-page year
-fallback), and `:436` (the submit-path validation gate). F-SWE-2 corrected
-the same pattern in `orchestrator.py` and did not touch `routes.py`.
-
-`:436` is the one with a consequence. It derives `current_year` from
-host-local time and refuses any request where `year > current_year`. The data
-window for an accepted year is then built in UTC at
-`scrobblescope/orchestrator.py:70-71`. Gate and window now disagree by the
-host's UTC offset, and the disagreement is observable only in the hours
-around New Year:
-
-- Host behind UTC: UTC has rolled over, the gate has not. A request for the
-  new year is refused as out of range.
-- Host ahead of UTC: the gate has rolled over, UTC has not. The request is
-  accepted and the orchestrator builds a window entirely in the future, so
-  the fetch returns nothing.
-
-The two agreed before F-SWE-2, because both were naive. Fixing the window was
-correct; it left the gate behind. **Do not fix this by reverting
-`orchestrator.py`** -- move the three call sites to
-`datetime.now(timezone.utc)`.
-
-Production runs UTC, so this is a developer-host defect rather than a
-production one. That is the reason it is not P0, not a reason to leave it.
-
-Status: open. Found in the WP-1 review on 2026-08-20 and left unfiled; filed
-and re-verified against the code 2026-08-22.
-Source: WP-1 parallel review.
 
 ### F-B21-9: the findings-to-issues mirror is manual
 

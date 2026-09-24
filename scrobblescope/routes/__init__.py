@@ -21,7 +21,7 @@ boundaries may evolve safely.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, render_template, request, session, url_for
 
@@ -188,10 +188,21 @@ def album_key_filter(result):
     return format_album_key(normalized_key) if normalized_key else ""
 
 
+def _current_year():
+    """Return the current year in UTC, the calendar the fetch window uses.
+
+    The orchestrator builds each year's window from UTC midnights, so a gate
+    reading the host's local clock would disagree with it for the hours
+    around New Year on any host not running UTC (F-B21-6). One helper, because
+    three call sites asked the same question.
+    """
+    return datetime.now(timezone.utc).year
+
+
 @bp.app_context_processor
 def inject_current_year():
     """Inject ``current_year`` into all Jinja2 templates."""
-    return {"current_year": datetime.now().year}
+    return {"current_year": _current_year()}
 
 
 @bp.app_context_processor

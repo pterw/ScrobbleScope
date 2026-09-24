@@ -1161,7 +1161,7 @@ the same validator.
 **Why a helper.** There are three identical sites, so the rule of three is met. Global rule 3 asks for
 the abstraction at the third occurrence, not before.
 
-- [ ] **Step 1: Write the failing tests.** Append to `tests/test_routes.py`:
+- [x] **Step 1: Write the failing tests.** Append to `tests/test_routes.py`:
 
 ```python
 def test_current_year_reads_the_utc_calendar():
@@ -1201,14 +1201,14 @@ def test_results_loading_year_gate_uses_the_utc_year(client):
     assert b"Year must be between 2002 and 2024." in response.data
 ```
 
-- [ ] **Step 2: Run them to verify they fail.**
+- [x] **Step 2: Run them to verify they fail.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_routes.py -q -k "utc"`
 Expected: 2 failed.
 - The first fails with `AttributeError`: no `_current_year`.
 - The second fails the same way at `patch`, since the target is missing.
 
-- [ ] **Step 3: Add the helper.** In `scrobblescope/routes/__init__.py`:
+- [x] **Step 3: Add the helper.** In `scrobblescope/routes/__init__.py`:
   - change `from datetime import datetime` to `from datetime import datetime, timezone`;
   - add, directly above `inject_current_year`:
 
@@ -1226,19 +1226,19 @@ def _current_year():
 
   Change `inject_current_year`'s body to `return {"current_year": _current_year()}`.
 
-- [ ] **Step 4: Use it in `album_flow.py`.**
+- [x] **Step 4: Use it in `album_flow.py`.**
   - `year = int(request.values.get("year", datetime.now().year))` becomes
     `year = int(request.values.get("year", _routes._current_year()))`.
   - `current_year = datetime.now().year` becomes `current_year = _routes._current_year()`.
   - Delete `from datetime import datetime`, which no longer has a use.
   - Confirm with `git grep -n "datetime" scrobblescope/routes/album_flow.py`, which should find no hit.
 
-- [ ] **Step 5: Run the tests to verify they pass.**
+- [x] **Step 5: Run the tests to verify they pass.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/test_routes.py -q`
 Expected: pass.
 
-- [ ] **Step 6: Resolve F-B21-6 and commit.** The canonical record's reason: "every year gate reads
+- [x] **Step 6: Resolve F-B21-6 and commit.** The canonical record's reason: "every year gate reads
   `routes._current_year()`, which uses `datetime.now(timezone.utc)`". The count rises by 2. Then:
 
 ```bash

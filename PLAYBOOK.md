@@ -175,9 +175,10 @@ See FINDINGS F-DOCSYNC-3.
      longer renews its lease), Task 4 (F-B22-7, part 1 of 3, the
      `spotify_id` column), Task 5 (F-B22-7, part 2 of 3, the Spotify
      payload translated once in `spotify.py`), Task 6 (F-B22-7, part 3 of
-     3, retiring the unused `enrich_albums`) and Task 7 (F-SWE-5, both
-     background entry points now publish `internal_error`) landed
-     2026-09-23.
+     3, retiring the unused `enrich_albums`), Task 7 (F-SWE-5, both
+     background entry points now publish `internal_error`) and Task 8
+     (F-B21-6, every year gate reads `routes._current_year()`, which uses
+     `datetime.now(timezone.utc)`) landed 2026-09-23.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -386,6 +387,34 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The year gate reads the UTC calendar
+
+Side task, no batch tag: fixes F-B21-6, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 8 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/routes/__init__.py` gains `_current_year()`, which
+  returns `datetime.now(timezone.utc).year`; `inject_current_year` now
+  returns `{"current_year": _current_year()}` instead of reading the host's
+  local clock. `scrobblescope/routes/album_flow.py`'s two `datetime.now().year`
+  sites -- the results-page year fallback and the submit-path validation
+  gate -- now read `_routes._current_year()` through the existing `_routes`
+  module reference, and the file's now-unused `datetime` import is removed.
+  Two new tests in `tests/test_routes.py` cover it:
+  `test_current_year_reads_the_utc_calendar` (the helper itself, against a
+  clock stub whose local and UTC readings disagree) and
+  `test_results_loading_year_gate_uses_the_utc_year` (the submit-path gate's
+  upper bound comes from `routes._current_year()`).
+- **F-B21-6 is resolved.** Every year gate reads `routes._current_year()`,
+  which uses `datetime.now(timezone.utc)`, so the gate and the orchestrator's
+  UTC-built fetch window can no longer disagree around New Year.
+- **Forward guidance:** next is reconcile Task 9 (F-LOAD-1, the capacity
+  refusal states the configured cap).
+
+Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The frontend gate's one-off touch-target failure is filed
 
 Side task, no batch tag: a finding filed during Batch 23 WP-0. Untagged by
@@ -486,42 +515,4 @@ Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   order list now records Task 6 landed alongside Tasks 3-5 in Stage 2.
 
 Validation: `pytest -q` -- **1738 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - The Spotify payload is translated once, in spotify.py
-
-Side task, no batch tag: fixes F-B22-7, part 2 of 3, part of Batch 23 WP-0
-Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Task 5 of the reconcile plan**
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
-  done. `scrobblescope/spotify.py` gains `album_metadata_from_details`, the
-  one place the application reads a Spotify album object into the provider
-  contract; `enrich_albums` now calls it instead of building `AlbumMetadata`
-  inline. It is re-exported on the orchestrator facade
-  (`scrobblescope/orchestrator/__init__.py`).
-- **The detail phase files, it no longer parses.**
-  `scrobblescope/orchestrator/_details.py`'s "Extract cacheable fields" loop
-  now calls `_orchestrator.album_metadata_from_details` and appends
-  `metadata.as_cache_row(...)` (Task 4's contract) instead of building the
-  row by hand; its now-unused `normalize_track_name` import is dropped, and
-  the module docstring names the new cross-cutting dependency.
-  `scrobblescope/orchestrator/_deezer_fallback.py`'s inline 9-tuple is
-  replaced the same way. Since Task 4, that tuple was already identical to
-  what `as_cache_row` writes, so the Deezer row is unchanged in shape.
-  `provider_url` for a Spotify row now holds the album's Spotify URL instead
-  of `NULL`, since the 9-tuple form carries it; `_batch_persist_metadata`
-  still accepts 6-tuples.
-- **Tests added, four in total:**
-  `test_album_metadata_from_details_translates_one_payload` and the
-  parametrized `test_album_metadata_from_details_degrades_field_by_field`
-  (`tests/services/test_spotify_service.py`, two cases: no `images` key and
-  an empty list), and `test_process_albums_persists_a_spotify_row_through_the_contract`
-  (`tests/services/test_orchestrator_process_albums.py`), which pins the
-  live Spotify path's persisted row as the provider contract's nine-element
-  form. No existing test changed.
-- **Bookkeeping:** the reconcile plan's Task 5 steps are ticked. Section 3's
-  order list now records Task 5 landed alongside Tasks 3 and 4 in Stage 2.
-
-Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

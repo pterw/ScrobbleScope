@@ -9,6 +9,44 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The Spotify payload is translated once, in spotify.py
+
+Side task, no batch tag: fixes F-B22-7, part 2 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 5 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/spotify.py` gains `album_metadata_from_details`, the
+  one place the application reads a Spotify album object into the provider
+  contract; `enrich_albums` now calls it instead of building `AlbumMetadata`
+  inline. It is re-exported on the orchestrator facade
+  (`scrobblescope/orchestrator/__init__.py`).
+- **The detail phase files, it no longer parses.**
+  `scrobblescope/orchestrator/_details.py`'s "Extract cacheable fields" loop
+  now calls `_orchestrator.album_metadata_from_details` and appends
+  `metadata.as_cache_row(...)` (Task 4's contract) instead of building the
+  row by hand; its now-unused `normalize_track_name` import is dropped, and
+  the module docstring names the new cross-cutting dependency.
+  `scrobblescope/orchestrator/_deezer_fallback.py`'s inline 9-tuple is
+  replaced the same way. Since Task 4, that tuple was already identical to
+  what `as_cache_row` writes, so the Deezer row is unchanged in shape.
+  `provider_url` for a Spotify row now holds the album's Spotify URL instead
+  of `NULL`, since the 9-tuple form carries it; `_batch_persist_metadata`
+  still accepts 6-tuples.
+- **Tests added, four in total:**
+  `test_album_metadata_from_details_translates_one_payload` and the
+  parametrized `test_album_metadata_from_details_degrades_field_by_field`
+  (`tests/services/test_spotify_service.py`, two cases: no `images` key and
+  an empty list), and `test_process_albums_persists_a_spotify_row_through_the_contract`
+  (`tests/services/test_orchestrator_process_albums.py`), which pins the
+  live Spotify path's persisted row as the provider contract's nine-element
+  form. No existing test changed.
+- **Bookkeeping:** the reconcile plan's Task 5 steps are ticked. Section 3's
+  order list now records Task 5 landed alongside Tasks 3 and 4 in Stage 2.
+
+Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - A Deezer id no longer lands in the Spotify column
 
 Side task, no batch tag: fixes F-B22-7, part 1 of 3, part of Batch 23 WP-0
