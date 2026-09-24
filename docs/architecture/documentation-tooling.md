@@ -144,7 +144,9 @@ came before it.
 ## The DOC001-DOC024 catalogue
 
 **`doc_state_sync.py --check` is the document-integrity gate, and it
-blocks.** It returns typed `DOC001`-`DOC024` issues and exits 1. In
+blocks.** It returns typed `DOC001`-`DOC024` issues and exits 1 on any
+error-severity one; a warning -- `DOC024`, and `DOC023`'s
+grandfathered-finding count -- prints and leaves the exit code alone. In
 practice the codes that bite most often are `DOC001` (a backticked path
 must resolve in `git ls-files`, so an ignored or untracked document cannot
 be linked to), `DOC006` (every named session test count must match the
@@ -222,10 +224,10 @@ page carries its own header. The gate reports the disagreement and stops; it
 never resolves one by deleting a page or rewriting an index, because either
 side may be the history worth keeping. Bounded archives page at 500 lines
 (`[archives] max_lines`); both that and `[archives] cold_days` are
-`.docsync.toml` defaults, not hard-coded. A
-finalized page -- one that is not the writable tail -- becomes cold-storage
-eligible only once it is not oversized and every entry on it carries an
-explicit date older than `cold_days`; a page holding even one undated entry
+`.docsync.toml` defaults, not hard-coded. A finalized page -- one that is
+not the writable tail -- becomes cold-storage eligible only once it is not
+oversized and every entry on it carries an explicit date more than
+`cold_days` days before `--as-of`; a page holding even one undated entry
 never ages, however old it is. Cold migration only ever happens under an
 explicit `--cold-storage --as-of <ISO date>` operator action -- ordinary
 `--check`/`--fix` never age a file using today's clock -- and a bounded
@@ -235,8 +237,10 @@ entry is never split across pages.
 `scripts/docsync/archives.py`. It warns, never blocks, on two independent
 conditions: an unpaginated archive whose logical text has outgrown
 `max_lines`, naming `--paginate-archives` as the explicit remedy, and a
-finalized page of an already-paginated archive that holds an undated entry
-and so can never satisfy the cold-storage rule above. Neither warning
+finalized, non-oversized, hot page of an already-paginated archive that
+holds an undated entry and so can never satisfy the cold-storage rule
+above -- the writable tail is never checked, and neither is a cold or
+oversized page. Neither warning
 writes anything; both are read only by `--check`/`--fix`, which never
 paginate or age a file on their own.
 

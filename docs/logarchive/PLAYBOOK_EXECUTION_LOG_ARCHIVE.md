@@ -9,6 +9,42 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The export contracts are made consistent
+
+Side task, no batch tag: a definition edit within Batch 23, made before
+WP-1. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Author.** Codex (GPT-6) made these edits at the owner's request, after
+  a read-only review of `BATCH23_DEFINITION.md` and the current execution
+  path. The definition's header lists all seven changes and why.
+- **The definition** gains a "Data handling" section as the one owner of
+  the privacy contract. It separates listening history, which stays in
+  memory, from reusable catalog metadata, which the existing enrichment
+  cache may keep. It also makes these changes:
+  - It separates failures refused before a job exists from content
+    failures that end a running job.
+  - WP-2 now hands WP-3 a pre-threshold album mapping, and WP-3
+    partitions it once.
+  - The memory acceptance measures the whole process, not only admitted
+    buffers.
+  - WP-6 must settle a statistics contract before it is implemented.
+  - Each WP gets its own SDD plan, and that plan owns the task order.
+- **The export outline**
+  (`docs/superpowers/plans/2026-09-13-batch23-spotify-export-import.md`)
+  and `README.md` now point at the definition instead of repeating the
+  older privacy and aggregation wording. The outline's stale
+  `routes.py` and `orchestrator.py` paths are updated.
+- **Also corrected:** Section 3 still called Batch 23 "queued" and "not
+  started", and named the outline as its plan. That bullet now says the
+  batch is active and calls the file its cross-WP outline. A sweep found no
+  other copy of the replaced wording outside dated history.
+- **No effect on WP-0.** The WP-0 plans, their order and the next action
+  (reconcile Task 12) are unchanged.
+- **Scope:** documentation only. No code, test or gate changed.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The release-window rule gets a task of its own
 
 Side task, no batch tag: a planning change within Batch 23 WP-0. Untagged

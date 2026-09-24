@@ -258,8 +258,9 @@ dated entries from PLAYBOOK Section 4 into per-batch log files
 entries); deduplicates archive entries by SHA-256 fingerprint; refreshes the
 managed `DOCSYNC:STATUS` block in SESSION_CONTEXT from PLAYBOOK truth; and
 validates the live document corpus through `docsync.integrity`, which
-returns typed DOC001-DOC024 issues that block rather than warn (full
-catalogue: `docs/architecture/documentation-tooling.md`). Add a declaration
+returns typed DOC001-DOC024 issues; error-severity ones block, and warnings
+print without changing the exit code (full catalogue:
+`docs/architecture/documentation-tooling.md`). Add a declaration
 in `.docsync.toml` when a fact starts living in two places, not after it
 drifts (`F-B21-17` is the tally that motivated this).
 
