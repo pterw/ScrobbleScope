@@ -138,7 +138,7 @@ python -c "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1
 - **Heatmap window:** the heatmap covers the last 365 days, today included, and
   the daily average divides by that. `HEATMAP_WINDOW_DAYS` in
   `scrobblescope/heatmap.py` is the source; every prose copy is declared in
-  `.docsync.toml` and DOC009 fails if they stop agreeing.
+  `config/docsync.toml` and DOC009 fails if they stop agreeing.
 - **The docsync hook installer is not live in this repository (decision
   record, 2026-09-24).** No `--install --yes` has run here; see
   `docs/architecture/documentation-tooling.md` "The commit preflight and the
@@ -178,8 +178,8 @@ something that will run in a repository that is not this one:
 
 - **Keep repository facts out of the mechanism.** A check reads its facts from
   a declarations file; it does not hard-code them. `scripts/docsync/
-  declarations.py` and `.docsync.toml` are the worked example -- the module
-  carries no ScrobbleScope value at all.
+  declarations.py` and `config/docsync.toml` are the worked example -- the
+  module carries no ScrobbleScope value at all.
 - **Name assumptions and make them switchable.** An assumption that is true
   here becomes doctrine the moment the tool is lifted. DOC011 treats
   `~~struck-through text~~` as retired, which is true in this corpus and is a
@@ -195,9 +195,9 @@ its integrity checks are generic apart from the document names in
 `LIVE_DOCUMENT_RELATIVE_PATHS`. `scripts/dev/frontend_gate.py` is generic in structure
 -- serve, drive a browser, run checks per device profile -- and specific in
 its checks, which is the right split. The batch and work-package vocabulary in
-`AGENTS.md` is portable. What is not portable: `.docsync.toml`, the design
-system under `docs/design/`, and every path constant naming a ScrobbleScope
-file.
+`AGENTS.md` is portable. What is not portable: `config/docsync.toml`, the
+design system under `docs/design/`, and every path constant naming a
+ScrobbleScope file.
 
 **Do not start the extraction as a side task.** It is a batch of its own, and
 the owner has not scheduled it. Until then, the constraint is only that new

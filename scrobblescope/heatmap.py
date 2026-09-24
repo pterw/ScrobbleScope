@@ -39,7 +39,7 @@ from scrobblescope.worker import (
 #: This is the source the rest of the window follows. The renderer divides the
 #: total by it for the daily average, and six lines of copy say the number out
 #: loud, so a change here that does not reach them fetches one range while
-#: displaying and averaging another. `.docsync.toml` declares every copy
+#: displaying and averaging another. `config/docsync.toml` declares every copy
 #: against this one, and DOC009 fails if they stop agreeing.
 HEATMAP_WINDOW_DAYS = 365
 

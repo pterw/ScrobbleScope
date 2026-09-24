@@ -9,6 +9,61 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The documents-table tests prove the playbook override
+
+Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 2, part
+of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole
+of WP-0 lands.
+
+- **Finding.** The earlier Task 2 entry's claim -- that
+  `test_collect_integrity_issues_scans_under_an_overridden_playbook_path`
+  "exercises the actual kwarg-driven behaviour" of `collect_integrity_issues`
+  -- was false for the `playbook_relative_path` half of it. The review proved
+  by scratch-copy mutation (`git archive HEAD`, never the real tree) that
+  reverting either `path == playbook_relative_path` comparison in
+  `collect_integrity_issues` (`scripts/docsync/integrity.py` ~992, ~997)
+  back to the hardcoded `path == "PLAYBOOK.md"` leaves that test green: its
+  fixture has no dated Section 4 entry to blank and no active-batch
+  definition line, so both comparisons are inert for it. Only
+  `documents_to_scan = set(document_paths)` was actually covered. The
+  production code itself was already correct; this is a test-coverage and
+  documentation-truth gap.
+- **Fix.** That test's docstring is corrected to claim only what it proves
+  (the `document_paths`/scan-set substitution) and now names the two tests
+  below for the other two comparisons. Two new tests added to
+  `tests/test_docsync_integrity.py`:
+  - `test_playbook_entry_block_reference_is_blanked_under_an_overridden_
+    playbook_path` makes the scan-source comparison (~992) load-bearing:
+    a dead reference inside a dated Section 4 entry is blanked and not
+    reported, the same reference in Section 3 is reported, both under an
+    overridden `playbook_relative_path`; mirrors
+    `test_playbook_reference_after_dated_entry_keeps_original_line_number`
+    and `test_definition_label_outside_section_3_is_not_exempt`.
+  - `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`
+    makes the definition-line skip (~997) load-bearing: an untracked active
+    definition reference reports DOC002 once and not also DOC001, under the
+    override; mirrors `test_untracked_active_definition_is_blocking`.
+- **Mutation proof** (scratch copy under this session's scratchpad, `git
+  archive HEAD | tar -x`, the new test file copied in; the real working
+  tree was never edited, staged or reverted, per Lesson L9):
+  - Reverting the scan-source comparison alone ->
+    `test_playbook_entry_block_reference_is_blanked_under_an_overridden_
+    playbook_path` fails: `AssertionError: ... Left contains one more item:
+    ('DOC001', 'docs/agents/PLAYBOOK.md', 9)` (the entry-block reference is
+    no longer blanked). The other two new/adjacent tests still pass.
+  - Restoring that comparison and reverting the definition-line skip alone
+    -> `test_definition_line_skip_is_honoured_under_an_overridden_playbook_
+    path` fails: `AssertionError: ... Left contains one more item:
+    ('DOC001', 'docs/agents/PLAYBOOK.md', 5)` (the untracked definition
+    reference is now double-reported). The other two tests still pass.
+- **Validation:** `pytest -q` -- **1842 passed** (+2: the two new tests
+  above; module count unchanged at 68). `pre-commit run --all-files`
+  passed clean, worktree-alignment printing only `WARNING WT010` and
+  `INFO WT000`. `doc_state_sync.py --check` exited 0 with the standing
+  DOC024 warnings (L7); this commit touches only test and doc files, so
+  no `scripts/docsync/` control-plane file is staged and the preflight
+  does not refuse it -- committed without `SKIP=doc-state-sync-check`.
+
 ### 2026-09-24 - A declared [documents] table for docsync's own live documents
 
 Side task, no batch tag: Task 2 of the root-cleanup plan, part of Batch 23

@@ -238,7 +238,11 @@ See FINDINGS F-DOCSYNC-3.
      declarations read) is done, 2026-09-24; Task 4 (`frontend_gate_checks.toml`
      moved to `config/frontend_gate_checks.toml`, the check manifest's path
      constant, its missing-manifest message and the two live "root-level"
-     mentions corrected) is done, 2026-09-24; Tasks 5-8 remain.
+     mentions corrected) is done, 2026-09-24; Task 5 (`.docsync.toml` moved to
+     `config/docsync.toml`, `DECLARATIONS_FILENAME` and `CONTROL_PLANE_FILES`
+     repointed, every declarations-writing test fixture following the symbol,
+     and every live present-tense citation corrected) is done, 2026-09-24;
+     Tasks 6-8 remain.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -446,6 +450,73 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The docsync declarations file moves under config/
+
+Side task, no batch tag: the root-cleanup plan's Task 5, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `.docsync.toml` moves to `config/docsync.toml`
+  (`git mv`). `scripts/docsync/declarations.py`'s `DECLARATIONS_FILENAME`
+  and its `_TOP_LEVEL_SCHEMA` comment follow the move.
+  `scripts/dev/docsync_preflight.py`'s `CONTROL_PLANE_FILES` entry and its
+  exact-match comment now name `config/docsync.toml`, and no longer
+  recognize the retired root name. `scripts/docsync/findings.py`'s DOC023
+  remediation and `scripts/docsync/closeout.py`'s DOC019 remediation now
+  interpolate `DECLARATIONS_FILENAME` so a future move cannot strand them;
+  the comments in `scripts/docsync/archives.py` and two in
+  `scripts/docsync/integrity.py` name the new path. Every live
+  present-tense citation of the old path is corrected: `AGENTS.md`,
+  `AGENT_NOTES.md` (3), `DEVELOPMENT.md` (4), `docs/ARCHITECTURE.md`,
+  `docs/agents/global-rules.md`, `docs/architecture/documentation-tooling.md`
+  (7, including the mermaid node label and the sentence that said the file
+  sits "at the repository root"), `.pre-commit-config.yaml` (comment),
+  `.superpowers/cloud-kit/constraints.md` (R7), `scrobblescope/heatmap.py`
+  (comment), `static/css/tailwind.src.css` (comment), and `FINDINGS.md`'s
+  three open, present-tense mentions (F-B21-17's remaining-work note and
+  F-DOCSYNC-9's two `[[diagram]]` mentions). Left as written, by the
+  brief's own rule: `BATCH23_DEFINITION.md` (states the move itself),
+  `FINDINGS.md`'s two mentions of the F-DOCSYNC-16 fix round (a dated past
+  edit), and every `docs/superpowers/plans/*.md` / `docs/superpowers/
+  specs/*.md` document (plans and specs of completed or historical work).
+- **Tests.** Every declarations-writing fixture is repointed at the
+  `DECLARATIONS_FILENAME` symbol rather than the literal name, with its
+  parent directory created first: `tests/conftest.py` (`sync_env`),
+  `tests/test_docsync_cli.py` (`_make_corpus`'s base dict and six override
+  call sites -- `_write` already creates parent directories), `tests/
+  test_docsync_declarations.py` (`TestDocumentsConfig`'s three writers, and
+  four more writers found only by re-grepping at this task's own HEAD --
+  `test_a_malformed_declarations_file_is_a_declaration_error`,
+  `test_an_unknown_table_name_is_refused`, `test_a_misspelled_option_is_
+  refused`, `test_a_top_level_declaration_collection_must_be_a_list` --
+  plus four prose docstrings/comments reworded to say "declarations file"),
+  `tests/test_docsync_integrity.py` (`_write_closeout_boundary` and
+  `test_doc023_honours_the_repositorys_grandfather_list`, plus two prose
+  docstrings), `tests/scripts/dev/test_docsync_preflight.py`
+  (`test_staged_preflight_against_real_docsync_checker`'s writer and its
+  `git add` list). `test_control_plane_prefix_matching`'s parametrize list
+  now asserts `config/docsync.toml` is control-plane and the retired
+  `.docsync.toml` is not. `tests/test_template_shell.py`'s `.docsync.toml`
+  comment is repointed. No suite count change beyond the one new
+  parametrize row. Edited for reasons other than the move: none.
+- **Frontend gate ran locally** (the `static/css/tailwind.src.css` comment
+  edit; `python scripts/dev/tailwind_build.py --check` shows no drift), its
+  last line: `[frontend_gate] 30 checks passed in 52 runs across chromium,
+  firefox (static assets & tokens canary on firefox); profiles: desktop,
+  mobile, wide touch`.
+- **Live probe**, throwaway corpus at `/c/ssprobe` (deleted afterwards),
+  built from `git archive $(git stash create)` (Lesson L18: this task's
+  probe step runs before its commit, so HEAD was still BASE):
+
+  | Probe | Expected | Exit |
+  |---|---|---|
+  | Faithful copy: `doc_state_sync.py --check` in the corpus | byte-identical to the same command in the worktree (both pending the count refresh this entry makes) | 1 (identical both sides) |
+  | Declared check is live: append `[nonsense]` to `config/docsync.toml`, `--check` | refuses the unknown table, naming `config/docsync.toml`; reset | 2 |
+  | Red: edit a comment in `config/docsync.toml`, stage it, `docsync_preflight.py --staged` | control-plane refusal naming `config/docsync.toml`; reset | 3 |
+  | Near-miss green: stage a root `.docsync.toml` with any content, same command | no control-plane refusal -- the checker runs (a `.venv` junction was needed for the probe's own precondition; the run then hit the same pending DOC006/DOC008 as the faithful-copy row, not a control-plane one) | 1 (no EXIT_CONTROL_PLANE_REJECTED) |
+
+Validation: `pytest -q` -- **1849 passed**.
+
 ### 2026-09-24 - The check manifest moves under config/
 
 Side task, no batch tag: the root-cleanup plan's Task 4, part of Batch 23
@@ -549,58 +620,3 @@ whole of WP-0 lands.
 - **Deviations:** none. Docs only.
 
 Validation: `pytest -q` -- **1842 passed**.
-
-### 2026-09-24 - The documents-table tests prove the playbook override
-
-Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 2, part
-of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole
-of WP-0 lands.
-
-- **Finding.** The earlier Task 2 entry's claim -- that
-  `test_collect_integrity_issues_scans_under_an_overridden_playbook_path`
-  "exercises the actual kwarg-driven behaviour" of `collect_integrity_issues`
-  -- was false for the `playbook_relative_path` half of it. The review proved
-  by scratch-copy mutation (`git archive HEAD`, never the real tree) that
-  reverting either `path == playbook_relative_path` comparison in
-  `collect_integrity_issues` (`scripts/docsync/integrity.py` ~992, ~997)
-  back to the hardcoded `path == "PLAYBOOK.md"` leaves that test green: its
-  fixture has no dated Section 4 entry to blank and no active-batch
-  definition line, so both comparisons are inert for it. Only
-  `documents_to_scan = set(document_paths)` was actually covered. The
-  production code itself was already correct; this is a test-coverage and
-  documentation-truth gap.
-- **Fix.** That test's docstring is corrected to claim only what it proves
-  (the `document_paths`/scan-set substitution) and now names the two tests
-  below for the other two comparisons. Two new tests added to
-  `tests/test_docsync_integrity.py`:
-  - `test_playbook_entry_block_reference_is_blanked_under_an_overridden_
-    playbook_path` makes the scan-source comparison (~992) load-bearing:
-    a dead reference inside a dated Section 4 entry is blanked and not
-    reported, the same reference in Section 3 is reported, both under an
-    overridden `playbook_relative_path`; mirrors
-    `test_playbook_reference_after_dated_entry_keeps_original_line_number`
-    and `test_definition_label_outside_section_3_is_not_exempt`.
-  - `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`
-    makes the definition-line skip (~997) load-bearing: an untracked active
-    definition reference reports DOC002 once and not also DOC001, under the
-    override; mirrors `test_untracked_active_definition_is_blocking`.
-- **Mutation proof** (scratch copy under this session's scratchpad, `git
-  archive HEAD | tar -x`, the new test file copied in; the real working
-  tree was never edited, staged or reverted, per Lesson L9):
-  - Reverting the scan-source comparison alone ->
-    `test_playbook_entry_block_reference_is_blanked_under_an_overridden_
-    playbook_path` fails: `AssertionError: ... Left contains one more item:
-    ('DOC001', 'docs/agents/PLAYBOOK.md', 9)` (the entry-block reference is
-    no longer blanked). The other two new/adjacent tests still pass.
-  - Restoring that comparison and reverting the definition-line skip alone
-    -> `test_definition_line_skip_is_honoured_under_an_overridden_playbook_
-    path` fails: `AssertionError: ... Left contains one more item:
-    ('DOC001', 'docs/agents/PLAYBOOK.md', 5)` (the untracked definition
-    reference is now double-reported). The other two tests still pass.
-- **Validation:** `pytest -q` -- **1842 passed** (+2: the two new tests
-  above; module count unchanged at 68). `pre-commit run --all-files`
-  passed clean, worktree-alignment printing only `WARNING WT010` and
-  `INFO WT000`. `doc_state_sync.py --check` exited 0 with the standing
-  DOC024 warnings (L7); this commit touches only test and doc files, so
-  no `scripts/docsync/` control-plane file is staged and the preflight
-  does not refuse it -- committed without `SKIP=doc-state-sync-check`.

@@ -76,7 +76,7 @@ clone lacks `origin/main` or `origin/test`: run `git fetch origin main test`.
 
 **R7 -- docsync control plane.** A task that stages anything under
 `scripts/docsync/`, `scripts/doc_state_sync.py`,
-`scripts/dev/docsync_preflight.py` or `.docsync.toml` is refused by the
+`scripts/dev/docsync_preflight.py` or `config/docsync.toml` is refused by the
 preflight (exit 3) by design: run `doc_state_sync.py --check` at exit 0
 first, then commit with `SKIP=doc-state-sync-check git commit ...`. Any
 other task must commit with every hook. `--no-verify` is forbidden outright.

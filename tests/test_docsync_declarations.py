@@ -50,7 +50,9 @@ class TestDocumentsConfig:
     def test_declared_table_overrides_one_field(self, tmp_path: Path):
         from docsync.declarations import load_documents_config
 
-        (tmp_path / ".docsync.toml").write_text(
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
             '[documents]\nplaybook = "docs/agents/PLAYBOOK.md"\n', encoding="utf-8"
         )
         documents = load_documents_config(tmp_path)
@@ -60,7 +62,9 @@ class TestDocumentsConfig:
     def test_unknown_key_is_refused(self, tmp_path: Path):
         from docsync.declarations import DeclarationError, load_documents_config
 
-        (tmp_path / ".docsync.toml").write_text(
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text(
             '[documents]\nnotebook = "x.md"\n', encoding="utf-8"
         )
         with pytest.raises(DeclarationError, match="unknown key 'notebook'"):
@@ -69,9 +73,9 @@ class TestDocumentsConfig:
     def test_non_string_value_is_refused(self, tmp_path: Path):
         from docsync.declarations import DeclarationError, load_documents_config
 
-        (tmp_path / ".docsync.toml").write_text(
-            "[documents]\nplaybook = 1\n", encoding="utf-8"
-        )
+        declarations_path = tmp_path / DECLARATIONS_FILENAME
+        declarations_path.parent.mkdir(parents=True, exist_ok=True)
+        declarations_path.write_text("[documents]\nplaybook = 1\n", encoding="utf-8")
         with pytest.raises(DeclarationError, match="not a string"):
             load_documents_config(tmp_path)
 
@@ -1300,7 +1304,9 @@ def test_a_malformed_declarations_file_is_a_declaration_error(
     tmp_path: Path,
 ) -> None:
     """Invalid TOML must name itself rather than surface as a document fault."""
-    (tmp_path / DECLARATIONS_FILENAME).write_text("[[value\n", encoding="utf-8")
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text("[[value\n", encoding="utf-8")
 
     with pytest.raises(DeclarationError, match="not valid TOML"):
         load_declarations(tmp_path)
@@ -1499,9 +1505,9 @@ def test_a_retired_declaration_is_held_to_the_schema_too(tmp_path: Path) -> None
 
 def test_an_unknown_table_name_is_refused(tmp_path: Path) -> None:
     """A misspelled [[ancor]] parses, is never read, and runs one fewer check."""
-    (tmp_path / DECLARATIONS_FILENAME).write_text(
-        '[[ancor]]\nname = "x"\n', encoding="utf-8"
-    )
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text('[[ancor]]\nname = "x"\n', encoding="utf-8")
 
     with pytest.raises(DeclarationError, match="unknown table 'ancor'"):
         collect_declaration_issues(repo_root=tmp_path, live_documents={})
@@ -1513,7 +1519,9 @@ def test_a_misspelled_option_is_refused(tmp_path: Path) -> None:
     `strikethough_exempt` leaves every retired claim exempt that the author
     meant to expose, and nothing anywhere says so.
     """
-    (tmp_path / DECLARATIONS_FILENAME).write_text(
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         "[options]\nstrikethough_exempt = true\n", encoding="utf-8"
     )
 
@@ -1531,7 +1539,9 @@ def test_a_top_level_declaration_collection_must_be_a_list(
     integer raised TypeError before the per-declaration schema could produce
     the documented input error.
     """
-    (tmp_path / DECLARATIONS_FILENAME).write_text(f"{kind} = 1\n", encoding="utf-8")
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(f"{kind} = 1\n", encoding="utf-8")
 
     with pytest.raises(
         DeclarationError, match=rf"{kind!r} is int, not a list of tables"
@@ -1663,7 +1673,7 @@ def test_collect_runs_all_three_kinds_and_sorts_them(tmp_path: Path) -> None:
 
 
 def _archives_repo(tmp_path: Path, body: str) -> Path:
-    """A throwaway repository whose .docsync.toml is exactly ``body``."""
+    """A throwaway repository whose declarations file is exactly ``body``."""
     return _repo(tmp_path, {DECLARATIONS_FILENAME: body})
 
 
@@ -1745,7 +1755,7 @@ def test_collect_declaration_issues_accepts_valid_archives(tmp_path: Path) -> No
     """A correct [archives] table is recognized, not rejected as unknown.
 
     The unknown-table guard must learn [archives] as a top-level table, or the
-    real .docsync.toml would start raising once the table is added.
+    real declarations file would start raising once the table is added.
     """
     root = _repo(
         tmp_path,
@@ -1771,7 +1781,7 @@ def test_collect_declaration_issues_still_rejects_genuinely_unknown_table(
 
 
 def _closeout_repo(tmp_path: Path, body: str) -> Path:
-    """A throwaway repository whose .docsync.toml is exactly ``body``."""
+    """A throwaway repository whose declarations file is exactly ``body``."""
     return _repo(tmp_path, {DECLARATIONS_FILENAME: body})
 
 
@@ -1852,7 +1862,7 @@ def test_collect_declaration_issues_accepts_valid_closeout(tmp_path: Path) -> No
     """A correct [closeout] table is recognized, not rejected as unknown.
 
     The unknown-table guard must learn [closeout] as a top-level table, or the
-    real .docsync.toml would start raising once the table is added.
+    real declarations file would start raising once the table is added.
     """
     root = _repo(
         tmp_path,

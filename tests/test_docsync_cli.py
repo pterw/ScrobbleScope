@@ -23,6 +23,7 @@ from docsync.cli import (
     _get_batch_log_path,
     _read_lines,
 )
+from docsync.declarations import DECLARATIONS_FILENAME
 from docsync.integrity import collect_tracked_paths as collect_real_tracked_paths
 from docsync.models import SyncError
 from docsync.renderer import SIDE_ARCHIVE_PREFIX
@@ -764,7 +765,7 @@ def _make_corpus(root: Path, **overrides: str) -> Path:
         "FINDINGS.md": CORPUS_FINDINGS,
         FINDINGS_ARCHIVE: CORPUS_FINDINGS_ARCHIVE,
         SIDE_ARCHIVE: "\n".join(SIDE_ARCHIVE_PREFIX) + "\n",
-        ".docsync.toml": CORPUS_TOML,
+        DECLARATIONS_FILENAME: CORPUS_TOML,
         "AGENTS.md": "# AGENTS\n\nSee `FINDINGS.md`.\n",
         "HANDOFF_PROMPT.md": "# Handoff\n\nRead `AGENTS.md`.\n",
         "AGENT_NOTES.md": "# Notes\n\nRules live in `AGENTS.md`.\n",
@@ -939,7 +940,7 @@ class TestCloseBatchMode:
         _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "admit_from_batch = 22", "admit_from_batch = 30"
                 )
             },
@@ -1127,7 +1128,7 @@ class TestCloseBatchMode:
         _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": declaration,
+                DECLARATIONS_FILENAME: declaration,
                 "AGENTS.md": (
                     "# AGENTS\n\nSee `FINDINGS.md`.\n\n"
                     "Batch 22 shipped from `feat/batch22-enrichment`.\n"
@@ -1377,7 +1378,7 @@ class TestArchiveMaintenanceModes:
         return _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "max_lines = 500", "max_lines = 24"
                 ),
                 SIDE_ARCHIVE: _dated_archive(entries, year=year),
@@ -1547,7 +1548,7 @@ class TestArchiveMaintenanceModes:
         _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "max_lines = 500", "max_lines = 24"
                 ),
                 SIDE_ARCHIVE: archive,
@@ -1584,7 +1585,7 @@ class TestArchiveStructureDiagnostics:
         _make_corpus(
             tmp_path,
             **{
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "max_lines = 500", "max_lines = 24"
                 ),
                 SIDE_ARCHIVE: _dated_archive(12, year=2020),
@@ -1644,7 +1645,7 @@ class TestArchivePageTargetDiagnosticsThroughTheCli:
             **{
                 "PLAYBOOK.md": playbook,
                 ".claude/SESSION_CONTEXT.md": session,
-                ".docsync.toml": CORPUS_TOML.replace(
+                DECLARATIONS_FILENAME: CORPUS_TOML.replace(
                     "max_lines = 500", "max_lines = 24"
                 ),
                 SIDE_ARCHIVE: _dated_archive(12, year=2020),

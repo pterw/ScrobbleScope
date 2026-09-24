@@ -51,6 +51,6 @@ Canonical documents, docsync, the worktree guard, pre-commit, and CI:
 - CI gate: `.github/workflows/test.yml`
 - Diagram workflow: `.github/instructions/mermaid.instructions.md`
 - Agent-skill configuration: `docs/agents/`
-- Declared duplicated facts and retired claims: `.docsync.toml`
+- Declared duplicated facts and retired claims: `config/docsync.toml`
 - Open defects and their status: `FINDINGS.md`
 - Job state, key runtime facts, and architecture: `README.md`

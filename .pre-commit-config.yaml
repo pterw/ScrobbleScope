@@ -26,7 +26,7 @@ repos:
   #
   # This hook also refuses a commit that stages changes to docsync's own
   # control-plane code (scripts/docsync/, scripts/doc_state_sync.py,
-  # docsync_preflight.py, .docsync.toml) -- see docsync_preflight.py's
+  # docsync_preflight.py, config/docsync.toml) -- see docsync_preflight.py's
   # module docstring. The owner-approved local escape for that case is
   # `SKIP=doc-state-sync-check git commit`, pre-commit's own built-in skip
   # mechanism, which this id name is what makes work with no config change

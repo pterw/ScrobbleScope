@@ -48,7 +48,7 @@ INDEX_TOKENS = {
     "--ss-text-muted": ("#6c6676", "#908a9a"),
     "--ss-border-default": ("#e5dfd1", "#2a2434"),
     # F-B21-40: a dedicated divider token for .index-form's border-left only.
-    # --ss-border-default stays on the other 14 form borders; see .docsync.toml.
+    # --ss-border-default stays on the other 14 form borders; see config/docsync.toml.
     "--ss-border-divider": ("#8a867e", "#68646f"),
     "--ss-accent-soft": ("#efe9fa", "#2a1f44"),
     "--heatmap-empty": ("#c8bfad", "#262230"),

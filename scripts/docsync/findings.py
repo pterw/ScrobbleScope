@@ -14,6 +14,7 @@ import re
 from collections.abc import Sequence
 
 from docsync.archives import ENTRY_BOUNDARY_RE
+from docsync.declarations import DECLARATIONS_FILENAME
 from docsync.markdown import prose_lines
 from docsync.models import IntegrityIssue
 
@@ -467,7 +468,7 @@ def collect_rot_issues(
                     f"finished without a lifecycle record: "
                     f"{', '.join(sorted(outstanding))}. Give one its record and "
                     f"drop its id from [findings] grandfathered in "
-                    f"`.docsync.toml`; the list is meant to empty."
+                    f"`{DECLARATIONS_FILENAME}`; the list is meant to empty."
                 ),
             )
         )

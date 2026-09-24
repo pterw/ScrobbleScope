@@ -30,7 +30,7 @@ flowchart TD
     CLI --> Findings[docsync.findings]
     CLI --> Archives[docsync.archives]
     CLI --> Transaction[docsync.transaction<br/>publish]
-    TOML[.docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables] --> Decl[docsync.declarations]
+    TOML[config/docsync.toml<br/>value/anchor/retired facts,<br/>archives + closeout tables] --> Decl[docsync.declarations]
     Integrity --> Decl
     Integrity --> Closeout
     Integrity --> MD[docsync.markdown]
@@ -129,7 +129,7 @@ The facade re-exports all six guard modules. `doc_state_sync.py` imports only
 frontend gate are an extractable control plane, not a ScrobbleScope quirk
 -- see `AGENT_NOTES.md` "This repository is also a template being
 extracted" for why. Each mechanism reads its facts from repository-local
-configuration (`.docsync.toml`'s declarations, the `[closeout]` and
+configuration (`config/docsync.toml`'s declarations, the `[closeout]` and
 `[archives]` tables, options like DOC011's struck-through convention)
 rather than assuming them, so strictness is a dial this repository sets,
 not a property of the code: which batches face close-out standards, how
@@ -154,7 +154,7 @@ newest full-suite run) and `DOC008` (the findings header count must match
 that same run). Dated log entries are exempt below a declared marker.
 
 **DOC009 to DOC011 are declared, not hard-coded.** They read
-`.docsync.toml` at the repository root, so `scripts/docsync/declarations.py`
+`config/docsync.toml`, so `scripts/docsync/declarations.py`
 is repository-independent and only the declarations are local. Three kinds:
 
 - **DOC009 -- value.** One fact written in several places must still be
@@ -212,7 +212,7 @@ way. Below the boundary a batch is admitted as it stands; its closure is
 never asked for retroactively. The boundary is one integer, not a list of
 managed batches: a list can be opted out of by omission, and a boundary
 cannot, because a new batch lands above it by arithmetic. This repository
-sets `admit_from_batch = 22` in `.docsync.toml`, because Batches 0-21 closed
+sets `admit_from_batch = 22` in `config/docsync.toml`, because Batches 0-21 closed
 before the six close-out signals existed and requiring them retroactively
 would mean fabricating evidence rather than checking it.
 
@@ -224,7 +224,7 @@ page carries its own header. The gate reports the disagreement and stops; it
 never resolves one by deleting a page or rewriting an index, because either
 side may be the history worth keeping. Bounded archives page at 500 lines
 (`[archives] max_lines`); both that and `[archives] cold_days` are
-`.docsync.toml` defaults, not hard-coded. A finalized page -- one that is
+`config/docsync.toml` defaults, not hard-coded. A finalized page -- one that is
 not the writable tail -- becomes cold-storage eligible only once it is not
 oversized and every entry on it carries an explicit date more than
 `cold_days` days before `--as-of`; a page holding even one undated entry
@@ -260,7 +260,7 @@ remedy is still a `resolved` record. F-B21-13 sat unrotated for weeks written
 that way.
 
 The findings that predate the rule are listed by id under `[findings]
-grandfathered` in `.docsync.toml`, and reported once as a non-blocking
+grandfathered` in `config/docsync.toml`, and reported once as a non-blocking
 warning carrying their live count, derived on every run. A list of ids
 rather than a batch boundary: ids are not ordered, so a source tag like
 `F-DOCSYNC-9` has no batch number to compare and any boundary would
@@ -337,7 +337,7 @@ modes, both wrapping the same real `scripts/doc_state_sync.py --check`:
 **Trusted-execution refusal.** Both modes refuse, before any check runs, a
 commit that touches the docsync control plane itself (`scripts/docsync/`,
 `scripts/doc_state_sync.py`, `scripts/dev/docsync_preflight.py`,
-`.docsync.toml`), keyed on `git diff --cached` -- so the refusal is a no-op
+`config/docsync.toml`), keyed on `git diff --cached` -- so the refusal is a no-op
 in CI, where the index already equals `HEAD`. Grading a corpus against a
 checker mid-change to its own rules is a correctness/trust mismatch, not
 merely a risk to be documented away, so the tool refuses rather than

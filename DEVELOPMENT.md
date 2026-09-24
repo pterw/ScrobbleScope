@@ -229,8 +229,8 @@ package. This made each concern independently testable.
 Batch 22 added six more modules, because the same discipline was extended to
 the things a batch close-out has to get right: `declarations.py` (the
 declared-duplicate and retired-claim checker, `[[value]]` / `[[anchor]]` /
-`[[retired]]`, reading its facts from `.docsync.toml` rather than hard-coding
-them), `closeout.py` (the six close-out signals a managed batch must satisfy),
+`[[retired]]`, reading its facts from `config/docsync.toml` rather than
+hard-coding them), `closeout.py` (the six close-out signals a managed batch must satisfy),
 `archives.py` (bounded paginated archives), `findings.py` (finding lifecycle
 and rotation), `transaction.py` (crash-safe publication), and `markdown.py`
 (the shared fenced-block scanner that keeps a quoted example from parsing as
@@ -514,7 +514,7 @@ and the difference matters to anyone planning to lift them.
 **1. The documentation control plane (`scripts/docsync/`).** The most portable
 of the three, and the closest to finished. Its integrity checks are generic
 apart from the document names in `LIVE_DOCUMENT_RELATIVE_PATHS`, and its facts live in
-`.docsync.toml` rather than in the code -- `declarations.py` carries no
+`config/docsync.toml` rather than in the code -- `declarations.py` carries no
 ScrobbleScope value at all. It publishes atomically, diagnoses with typed codes
 and a remediation, and runs from a pre-commit hook and from CI.
 
@@ -549,7 +549,7 @@ a browser launches.
 Two things that are *not* portable and should not try to be: the design system
 under `docs/design/`, and every path constant that names a ScrobbleScope file.
 
-**`.docsync.toml` was written for extraction, and it is the clearest example of
+**`config/docsync.toml` was written for extraction, and it is the clearest example of
 how far that has gone and how far it has not.** The file exists as a separate
 declaration layer specifically so a second repository can supply its own
 without touching the mechanism: the checks read what to verify from it rather
@@ -579,7 +579,7 @@ or `docs/superpowers/` policy literals".
 
 **Why this is deliberately unfinished.** Two reasons, both of which are
 engineering rather than scheduling. First, some of it is *not* extractable
-without loss: `.docsync.toml`, the design system and the path constants encode
+without loss: `config/docsync.toml`, the design system and the path constants encode
 this repository's own rules, and the honest description of a control plane for
 a repository is that it must know which documents that repository owns. Forcing
 genericity before there is a second consumer produces configuration indirection

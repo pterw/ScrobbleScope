@@ -78,7 +78,7 @@ here:
 | Agent rules and session procedure | `AGENTS.md` | -- |
 
 **How this is checked.** `scripts/doc_state_sync.py` re-checks every fact that
-has been declared in `.docsync.toml` -- values that must agree across sites
+has been declared in `config/docsync.toml` -- values that must agree across sites
 (DOC009), citations that must resolve (DOC010), and claims that must not
 survive (DOC011). It cannot discover a new duplicate on its own. When a fact
 starts living in two places, declare it in the same commit that copies it. That

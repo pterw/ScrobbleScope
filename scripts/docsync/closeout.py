@@ -23,7 +23,7 @@ import dataclasses
 import re
 from collections.abc import Sequence
 
-from docsync.declarations import CloseoutConfig
+from docsync.declarations import DECLARATIONS_FILENAME, CloseoutConfig
 from docsync.markdown import marker_lines, prose_lines
 from docsync.models import IntegrityIssue, SyncError
 from docsync.parser import (
@@ -510,9 +510,9 @@ def _admission_issue(batch: int, config: CloseoutConfig) -> IntegrityIssue:
         f"admission boundary (Batch {batch} is below "
         f"{config.admit_from_batch}).",
         f"Batch {batch} closed before these signals existed and is admitted as "
-        f"it stands. Lower `admit_from_batch` in .docsync.toml only if the "
-        f"evidence for every batch from {batch} onwards genuinely exists; "
-        f"never write it in order to satisfy this command.",
+        f"it stands. Lower `admit_from_batch` in {DECLARATIONS_FILENAME} only "
+        f"if the evidence for every batch from {batch} onwards genuinely "
+        f"exists; never write it in order to satisfy this command.",
     )
 
 

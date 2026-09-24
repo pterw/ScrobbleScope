@@ -73,7 +73,8 @@ DOCSYNC_ENTRY_POINT = Path("scripts/doc_state_sync.py")
 # guess which version of the rules should apply.
 #
 # Files are matched by exact equality, never a prefix: naive prefix
-# matching let a name like ".docsync.tomlx" match against ".docsync.toml".
+# matching let a name like "config/docsync.tomlx" match against
+# "config/docsync.toml".
 # Only directory entries (always written with a trailing "/") use
 # ``startswith``, since a file nested inside one cannot be enumerated here
 # in advance.
@@ -81,7 +82,7 @@ CONTROL_PLANE_DIRECTORIES: tuple[str, ...] = ("scripts/docsync/",)
 CONTROL_PLANE_FILES: tuple[str, ...] = (
     "scripts/doc_state_sync.py",
     "scripts/dev/docsync_preflight.py",
-    ".docsync.toml",
+    "config/docsync.toml",
 )
 
 

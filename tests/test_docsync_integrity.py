@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from docsync.closeout import parse_wp_dispositions, render_closeout_record
+from docsync.declarations import DECLARATIONS_FILENAME
 from docsync.integrity import collect_integrity_issues, collect_tracked_paths
 from docsync.models import SyncError
 from docsync.renderer import SIDE_ARCHIVE_PREFIX
@@ -1772,7 +1773,9 @@ def test_stated_catalogue_helper_rejects_a_mismatched_list():
 
 def _write_closeout_boundary(tmp_path: Path, admit_from_batch: int) -> None:
     """Configure the [closeout] admission boundary for one integrity run."""
-    tmp_path.joinpath(".docsync.toml").write_text(
+    declarations_path = tmp_path.joinpath(DECLARATIONS_FILENAME)
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         f"[closeout]\nadmit_from_batch = {admit_from_batch}\n",
         encoding="utf-8",
     )
@@ -1859,7 +1862,7 @@ class TestClosedBatchGate:
     def test_fenced_batch_claim_does_not_reach_the_gate(self, tmp_path: Path):
         """A claim inside a fenced example is sample text, not a live claim.
 
-        No `.docsync.toml` is written, so the default boundary sits at its
+        No declarations file is written, so the default boundary sits at its
         strictest end -- every claimed-closed batch would be managed. The
         claim below is fenced out of the prose scan, so it must not be
         evaluated at all.
@@ -1908,7 +1911,9 @@ def test_doc023_reaches_the_gate_through_the_live_findings_document(tmp_path: Pa
 def test_doc023_honours_the_repositorys_grandfather_list(tmp_path: Path):
     """The declared list is read from the repository under check."""
     inputs = _valid_inputs(tmp_path)
-    (tmp_path / ".docsync.toml").write_text(
+    declarations_path = tmp_path / DECLARATIONS_FILENAME
+    declarations_path.parent.mkdir(parents=True, exist_ok=True)
+    declarations_path.write_text(
         '[findings]\ngrandfathered = ["F-B21-9"]\n', encoding="utf-8"
     )
     inputs["live_documents"]["FINDINGS.md"] = [
@@ -1989,7 +1994,7 @@ def test_collect_integrity_issues_scans_under_an_overridden_playbook_path(
     proving the DOC001 rescan; this version gives `playbook_lines` the
     minimal real structure so the same assertion exercises the actual
     kwarg-driven behaviour. `repo_root=Path(".")` is likewise replaced with
-    `tmp_path` (no `.docsync.toml` there) so this unit test does not depend
+    `tmp_path` (no declarations file there) so this unit test does not depend
     on this repository's own declarations file.
     """
     from docsync.integrity import collect_integrity_issues

@@ -266,7 +266,7 @@ validates the live document corpus through `docsync.integrity`, which
 returns typed DOC diagnostic issues; error-severity ones block, and warnings
 print without changing the exit code (full catalogue:
 `docs/architecture/documentation-tooling.md`). Add a declaration
-in `.docsync.toml` when a fact starts living in two places, not after it
+in `config/docsync.toml` when a fact starts living in two places, not after it
 drifts (`F-B21-17` is the tally that motivated this).
 
 ### How to run

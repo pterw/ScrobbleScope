@@ -862,7 +862,7 @@ plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` a
   `tests/test_docsync_integrity.py` (`_write_closeout_boundary` and
   `test_doc023_honours_the_repositorys_grandfather_list`)
 
-- [ ] **Step 1: Repoint every declarations fixture at the symbol, before the move**
+- [x] **Step 1: Repoint every declarations fixture at the symbol, before the move**
 
   Find every test that writes a declarations file by literal name:
 
@@ -885,7 +885,7 @@ plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` a
   Expected: PASS, unchanged count -- the symbol still equals `.docsync.toml`, so this is a
   pure parity step. These are named test edits; the commit body lists them and says why.
 
-- [ ] **Step 2: Update the name-matching test first**
+- [x] **Step 2: Update the name-matching test first**
 
   In `tests/scripts/dev/test_docsync_preflight.py`, in `test_control_plane_prefix_matching`'s
   parametrize list, replace `(".docsync.toml", True)` with `("config/docsync.toml", True)`,
@@ -899,7 +899,7 @@ plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` a
   Expected: FAIL -- `"config/docsync.toml"` is not yet in `CONTROL_PLANE_FILES`, and
   `".docsync.toml"` still is.
 
-- [ ] **Step 3: Move the file and update both constants**
+- [x] **Step 3: Move the file and update both constants**
 
   ```bash
   mkdir -p config
@@ -923,7 +923,7 @@ plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` a
   and rewrite the comment above it so its exact-match example names `config/docsync.tomlx`
   and `config/docsync.toml`.
 
-- [ ] **Step 4: Repoint the diagnostics and comments that name the file**
+- [x] **Step 4: Repoint the diagnostics and comments that name the file**
 
   - `scripts/docsync/findings.py`, `collect_rot_issues`: the DOC023 remediation tells the
     reader to edit `` `.docsync.toml` ``; name `` `config/docsync.toml` ``. Better, interpolate
@@ -937,7 +937,7 @@ plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` a
   Then `git grep -n -F '.docsync.toml' -- scripts` must print only lines that deliberately
   name the retired spelling (none are expected).
 
-- [ ] **Step 5: Sweep the live prose, by grep (no gate catches it)**
+- [x] **Step 5: Sweep the live prose, by grep (no gate catches it)**
 
   The controller probe showed DOC001 does not resolve a bare `` `.docsync.toml` `` citation, so
   `--check` stays green while every live mention goes stale. Sweep by hand:
@@ -959,7 +959,7 @@ plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` a
   the `tailwind-css-drift` hook and run the frontend gate, or rely on CI's `quality-gate`, as
   Task 4 does, and say which.
 
-- [ ] **Step 6: Run the updated tests**
+- [x] **Step 6: Run the updated tests**
 
   ```
   .venv/bin/python -m pytest -q -p no:cacheprovider tests/scripts/dev/test_docsync_preflight.py tests/test_docsync_declarations.py tests/test_docsync_cli.py tests/test_docsync_logic.py tests/test_docsync_integrity.py
@@ -969,7 +969,7 @@ plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` a
   `PLAYBOOK.md`, `AGENTS.md`, `HANDOFF_PROMPT.md`, `AGENT_NOTES.md` and `FINDINGS.md` stay at
   that fixture's root in *this* task; Task 6 decides whether they follow.
 
-- [ ] **Step 7: Live probe**
+- [x] **Step 7: Live probe**
 
   In `/tmp/ssprobe/corpus`, built from this task's tree:
   - **Faithful copy:** `--check` prints the same summary as the worktree (the declarations
@@ -985,7 +985,7 @@ plus 23 from fixtures it did not. Fix the class, not the instance (`AGENTS.md` a
   (Staging a `scripts/docsync/` edit alone is refused under either name, since that
   directory is matched as a prefix, so it cannot serve as the near-miss.)
 
-- [ ] **Step 8: Gates, Section 4 entry and commit**
+- [x] **Step 8: Gates, Section 4 entry and commit**
 
   One untagged Section 4 entry (cloud-kit R1), with the probe table and the named test
   edits. This touches the control plane: `doc_state_sync.py --check` directly first (exit

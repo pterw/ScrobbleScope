@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1848 tests across 68 test modules.
+1849 tests across 68 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -398,7 +398,7 @@ model, or the model choosing to read. The second virtualenv the allowlist
 had been authorising is deleted.
 
 Remaining, and not started: a declared manifest of untracked-but-essential
-files, in the shape of `.docsync.toml` so the mechanism carries no
+files, in the shape of `config/docsync.toml` so the mechanism carries no
 repository facts; and the two `AGENTS.md` defects above. The Codex/Copilot
 entry point moved to F-B21-63.
 
@@ -1028,7 +1028,7 @@ hook, no CI step, no test. Every symbol resolves today, verified 2026-09-13, so
 this is drift prevention rather than a repair.
 
 Every other repeated fact in this repository has a control plane: docsync
-carries a generic mechanism plus `.docsync.toml` declarations plus a gate, and
+carries a generic mechanism plus `config/docsync.toml` declarations plus a gate, and
 the worktree guard reads PLAYBOOK Section 3. A diagram node is the same kind of
 claim as a `[[anchor]]`, and it is the only one with no owner.
 
@@ -1037,7 +1037,7 @@ Fix shape (owner ruling, 2026-09-13): extend docsync rather than add a tool.
   their labels, and resolves any label naming a code symbol against the tree.
   It holds no repository-specific value, so it lifts with the rest of the
   package.
-- Declarations: a `[[diagram]]` kind in `.docsync.toml` naming each diagram's
+- Declarations: a `[[diagram]]` kind in `config/docsync.toml` naming each diagram's
   claimed symbols and the labels that are prose, not code ("Last.fm API"). The
   prose exemption is a local convention, like `strikethrough_exempt`.
 - Gate: the existing `doc-state-sync-check` hook, reporting a new `DOC013`

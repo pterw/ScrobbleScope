@@ -38,7 +38,7 @@ from docsync.markdown import fully_struck, marker_lines, prose_lines
 from docsync.models import IntegrityIssue, SyncError
 
 #: Where the repository's own declarations live, relative to the repo root.
-DECLARATIONS_FILENAME = ".docsync.toml"
+DECLARATIONS_FILENAME = "config/docsync.toml"
 
 #: A heading in a Markdown document: one to six hashes, then the text.
 _HEADING_RE = re.compile(r"^#{1,6}\s+(.+?)\s*$")
@@ -216,7 +216,7 @@ _DECLARATION_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
 #:
 #: `archives` and `closeout` are listed so the unknown-table guard recognizes
 #: them: a table the guard has not heard of is refused, and the real
-#: `.docsync.toml` would start raising the moment one of them appeared. Their
+#: `config/docsync.toml` would start raising the moment one of them appeared. Their
 #: keys are checked by `_validate_archives` and `_validate_closeout` rather than
 #: by the generic walker, because they are values a maintenance run consumes,
 #: not facts a check compares.

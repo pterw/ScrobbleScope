@@ -1164,7 +1164,7 @@ def collect_integrity_issues(
         issues.append(findings_count_issue)
 
     # DOC009 to DOC011. Declared rather than hard-coded, so the mechanism is
-    # repository-independent and only .docsync.toml is local. See F-B21-17.
+    # repository-independent and only config/docsync.toml is local. See F-B21-17.
     issues.extend(
         collect_declaration_issues(
             repo_root=repo_root, live_documents=live_documents, config_path=config_path
@@ -1174,8 +1174,9 @@ def collect_integrity_issues(
     # DOC019. Every batch PLAYBOOK Section 3 claims complete is held to the
     # definition-side close-out evidence when it sits at or above the admission
     # boundary. Below it a batch closed before those signals existed, so its
-    # claim is admitted as it stands; the boundary (an edit in .docsync.toml,
-    # never guessed) is what separates evidence-checked closure from rewritten
+    # claim is admitted as it stands; the boundary (an edit in
+    # config/docsync.toml, never guessed) is what separates evidence-checked
+    # closure from rewritten
     # history. The archived definition's content arrives through
     # `live_documents`, the same as every other document this pass reads; the
     # DOC023 reads the active findings file itself rather than a rendering of
