@@ -170,17 +170,19 @@ See FINDINGS F-DOCSYNC-3.
   2. This plan's Stage 1, then Stage 2, then Stage 3. Stage 1 (Tasks 1 and 2)
      is complete: Task 1 (the six stale "pending deploy" records) and Task 2
      (the docsync work-package gap, filed as F-DOCSYNC-15) both landed
-     2026-09-23. Stage 2 includes Task 11 (F-B22-8), which the owner added
-     on 2026-09-23. Stage 2 has started: Task 3 (F-SWE-6, reading a job no
-     longer renews its lease), Task 4 (F-B22-7, part 1 of 3, the
-     `spotify_id` column), Task 5 (F-B22-7, part 2 of 3, the Spotify
-     payload translated once in `spotify.py`), Task 6 (F-B22-7, part 3 of
-     3, retiring the unused `enrich_albums`), Task 7 (F-SWE-5, both
-     background entry points now publish `internal_error`), Task 8
+     2026-09-23. Stage 2 (Tasks 3-9 and Task 11) is complete: Task 3
+     (F-SWE-6, reading a job no longer renews its lease), Task 4 (F-B22-7,
+     part 1 of 3, the `spotify_id` column), Task 5 (F-B22-7, part 2 of 3,
+     the Spotify payload translated once in `spotify.py`), Task 6 (F-B22-7,
+     part 3 of 3, retiring the unused `enrich_albums`), Task 7 (F-SWE-5,
+     both background entry points now publish `internal_error`), Task 8
      (F-B21-6, every year gate reads `routes._current_year()`, which uses
-     `datetime.now(timezone.utc)`) and Task 9 (F-LOAD-1, both refusals read
+     `datetime.now(timezone.utc)`), Task 9 (F-LOAD-1, both refusals read
      `routes._capacity_message()`, which states the configured
-     `MAX_ACTIVE_JOBS`) landed 2026-09-23.
+     `MAX_ACTIVE_JOBS`) and Task 11 (F-B22-8, `run_release_checks` runs its
+     candidates without a cache connection and skips only the cache read,
+     the persist and the close) all landed 2026-09-23. Stage 3 (Task 10) is
+     next.
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -389,6 +391,44 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - Release checks run without the cache DB
+
+Side task, no batch tag: fixes F-B22-8, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 11 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/release_checks.py`'s `run_release_checks` no longer
+  returns early when `_get_db_connection()` finds no cache: it logs
+  "Release checks running without the cache DB: findings will not be
+  saved." and runs the job's candidates against MusicBrainz regardless,
+  guarding the three uses of `conn` (`_lookup_cached`, `_check_candidate`'s
+  persist, and the `finally` close) with `if conn`. Everything else is
+  unchanged: the job still ends `done`, the per-result outcomes are the
+  same, and the shared one-request-per-second limiter still paces the
+  requests. `tests/services/test_release_checks.py` replaces
+  `test_run_release_checks_marks_skipped_without_a_db_connection` with
+  `test_run_release_checks_runs_without_a_db_connection` (asserts the
+  lookup runs, nothing is persisted, and the result still moves out) and
+  adds
+  `test_run_release_checks_without_a_db_connection_survives_a_lookup_error`
+  (a MusicBrainz failure with no connection still ends `done`).
+  `test_run_release_checks_closes_the_connection_when_a_lookup_raises`
+  passes unchanged, proving the connected path still closes.
+- **F-B22-8 is resolved.** `run_release_checks` runs its candidates
+  without a cache connection and skips only the cache read, the persist
+  and the close.
+- **Deviation from the brief (controller-directed).** F-B23-3's status
+  paragraph is rewritten: it stays open (P2), now says F-B22-7 and
+  F-B22-8 have both landed (reconcile Tasks 4-6 and 11) and are to be
+  reassessed against the code they left, and drops the "keep it out of
+  their commits" sentence now that both have landed.
+- **Forward guidance:** Stage 2 is complete. Next is Stage 3, this plan's
+  Task 10.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The capacity refusal states the configured cap
 
 Side task, no batch tag: fixes F-LOAD-1, part of Batch 23 WP-0 Part C.
@@ -471,52 +511,6 @@ owner ruling 2026-09-23 until the whole of WP-0 lands.
 - **Forward guidance:** until F-B23-4 is fixed, re-run a frontend-gate
   failure once before acting on it when the implementer's own runs were
   green. Next is reconcile Task 8 (F-B21-6).
-
-Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - Both pipelines end a crash as internal_error
-
-Side task, no batch tag: fixes F-SWE-5, part of Batch 23 WP-0 Part C.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Task 7 of the reconcile plan**
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
-  done. `scrobblescope/errors.py` gains an `internal_error` entry
-  (`source: "internal"`, `retryable: False`). `heatmap.py`'s
-  `_report_heatmap_failure` now publishes it instead of borrowing
-  `lastfm_unavailable`. `orchestrator/__init__.py` gains
-  `_report_album_failure`, called from `background_task`'s `on_run_error`
-  in place of a bare `logging.exception`, so the album pipeline now
-  publishes a terminal state on an unhandled crash instead of leaving the
-  job stuck. `static/js/loading.js`'s `showFailure` now looks up the source
-  label in an `ERROR_SOURCE_LABELS` map and hides the source line for any
-  source not in it (`internal` included), instead of defaulting every
-  unrecognized source to "Spotify". `scripts/dev/_frontend_gate_pipeline.py`
-  pins both: the album rate-limit failure still names `Source: Last.fm`,
-  and a probed `internal` failure hides the source line.
-- **Two architecture diagrams updated in the same commit:**
-  `docs/architecture/heatmap-sequence.md`'s `opt Unhandled exception
-  anywhere above` block now draws `set_job_error(internal_error)`, with its
-  closing prose split to say the inner, status-based Last.fm path still
-  emits `lastfm_unavailable` while the outer backstop publishes
-  `internal_error`. `docs/architecture/top-albums-sequence.md`'s `opt
-  Exception escaping that handler` block now draws
-  `set_job_error(internal_error)` and its note says the pipeline publishes
-  a terminal state, so a polling page stops instead of waiting forever.
-- **Tests added, three in total, none replaced:**
-  `TestErrorCode.test_internal_error_exists` and
-  `TestHeatmapTask.test_unhandled_crash_publishes_internal_error`
-  (`tests/test_heatmap.py`), and
-  `test_background_task_crash_publishes_internal_error`
-  (`tests/services/test_orchestrator_fetch_and_process.py`). No existing
-  test changed.
-- **This resolves F-SWE-5.** Both entry points now publish `internal_error`
-  from their outer handler, so a fault that is ours is no longer reported
-  as a Last.fm outage, and the album pipeline no longer leaves a polling
-  page waiting on a job that would never finish.
-- **Bookkeeping:** the reconcile plan's Task 7 steps are ticked. Section 3's
-  order list now records Task 7 landed alongside Tasks 3-6 in Stage 2.
 
 Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

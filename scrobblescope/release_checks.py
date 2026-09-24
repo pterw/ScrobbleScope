@@ -289,22 +289,24 @@ async def _check_candidate(session, conn, job_id, candidate, params, state):
         session, candidate["artist"], candidate["album"]
     )
 
-    # Persisted per check rather than batched at the end: the worker spends a
-    # second per candidate and up to two hours per job, and a finding that is
-    # only in memory when the process restarts is a request nobody gets back.
-    try:
-        await _batch_persist_original_release(
-            conn, [(artist_norm, album_norm, mb_release_group, original_release)]
-        )
-    # Fail open: an unpersisted finding is looked up again next time.
-    except Exception as exc:  # noqa: BLE001
-        if schema_is_out_of_date(exc):
-            logging.warning(
-                f"Original-release persist failed (non-fatal): {exc}. "
-                f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+    # Persisted per check rather than batched at the end, when a connection
+    # exists: the worker spends a second per candidate and up to two hours
+    # per job, and a finding that is only in memory when the process
+    # restarts is a request nobody gets back.
+    if conn:
+        try:
+            await _batch_persist_original_release(
+                conn, [(artist_norm, album_norm, mb_release_group, original_release)]
             )
-        else:
-            logging.warning(f"Original-release persist failed (non-fatal): {exc}")
+        # Fail open: an unpersisted finding is looked up again next time.
+        except Exception as exc:  # noqa: BLE001
+            if schema_is_out_of_date(exc):
+                logging.warning(
+                    f"Original-release persist failed (non-fatal): {exc}. "
+                    f"{SCHEMA_OUT_OF_DATE_REMEDIATION}"
+                )
+            else:
+                logging.warning(f"Original-release persist failed (non-fatal): {exc}")
 
     state["checked"] += 1
     in_window = bool(original_release) and _matches_window(original_release, params)
@@ -356,15 +358,16 @@ async def run_release_checks(job_id):
 
     conn = await _get_db_connection()
     if not conn:
-        # Every finding belongs in original_release_cache; without it the
-        # requests would buy one job's display and nothing for the next.
-        logging.info("Release checks skipped: the cache DB is unavailable.")
-        set_job_release_check(job_id, _state(STATUS_SKIPPED))
-        return
+        # The page that is open still gets its corrections; only their reuse
+        # by the next job is lost. On Fly.io the DB wakes with the app, so
+        # this branch is reached in local development only (F-B22-8).
+        logging.info(
+            "Release checks running without the cache DB: findings will not be saved."
+        )
 
     state = _state(STATUS_RUNNING)
     try:
-        cached = await _lookup_cached(conn, candidates)
+        cached = await _lookup_cached(conn, candidates) if conn else {}
         pending = _resolve_cached(job_id, candidates, cached)[
             :MUSICBRAINZ_CHECKS_PER_JOB
         ]
@@ -378,11 +381,14 @@ async def run_release_checks(job_id):
     finally:
         state["status"] = STATUS_DONE
         set_job_release_check(job_id, state)
-        try:
-            await conn.close()
-        # A failed close must not mask the job's own outcome.
-        except Exception as exc:  # noqa: BLE001
-            logging.warning(f"Closing the release-check DB connection failed: {exc}")
+        if conn:
+            try:
+                await conn.close()
+            # A failed close must not mask the job's own outcome.
+            except Exception as exc:  # noqa: BLE001
+                logging.warning(
+                    f"Closing the release-check DB connection failed: {exc}"
+                )
 
 
 def _worker_loop():

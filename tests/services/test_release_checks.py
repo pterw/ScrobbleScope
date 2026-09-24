@@ -578,20 +578,52 @@ async def test_run_release_checks_marks_skipped_when_musicbrainz_is_disabled():
 
 
 @pytest.mark.asyncio
-async def test_run_release_checks_marks_skipped_without_a_db_connection():
+async def test_run_release_checks_runs_without_a_db_connection(caplog):
     """
     GIVEN the cache DB is unreachable
     WHEN the worker runs
-    THEN it skips without requesting anything: a finding it cannot persist
-    would spend the shared 1-request/second budget for nothing.
+    THEN it still asks MusicBrainz and records the outcome on the open job,
+    persisting nothing: the cache is how findings are reused, not a
+    precondition for showing one (F-B22-8).
     """
     job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
-    lookup = AsyncMock()
+    lookup = AsyncMock(return_value=("rg-1", "1997-05-21"))
+    persist = AsyncMock()
+    with (
+        caplog.at_level(logging.INFO),
+        _worker_patches(lookup, conn=None, persist=persist),
+    ):
+        await run_release_checks(job_id)
+
+    lookup.assert_awaited_once()
+    persist.assert_not_awaited()
+    assert get_job_progress(job_id)["stats"]["release_check"] == {
+        "status": "done",
+        "checked": 1,
+        "total": 1,
+        "moved_out": 1,
+        "moved_in": 0,
+    }
+    result = get_job_context(job_id)["results"][0]
+    assert result["release_check"] == "moved_out"
+    assert result["original_release_date"] == "1997-05-21"
+    assert "without the cache DB" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_run_release_checks_without_a_db_connection_survives_a_lookup_error():
+    """
+    GIVEN no cache connection and MusicBrainz raising part-way through
+    WHEN the worker unwinds
+    THEN the job still ends "done" and nothing tries to close a connection
+    that was never opened.
+    """
+    job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
+    lookup = AsyncMock(side_effect=RuntimeError("boom"))
     with _worker_patches(lookup, conn=None):
         await run_release_checks(job_id)
 
-    lookup.assert_not_awaited()
-    assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "skipped"
+    assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "done"
 
 
 @pytest.mark.asyncio

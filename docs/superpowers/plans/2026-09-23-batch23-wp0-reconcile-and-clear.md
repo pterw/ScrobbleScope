@@ -1367,7 +1367,7 @@ reaches this branch.
 old behaviour (status `skipped`, no request made). The finding reverses it, so the test is replaced,
 not kept alongside. Name it in the commit body.
 
-- [ ] **Step 1: Replace the test and add the adversarial one.** In
+- [x] **Step 1: Replace the test and add the adversarial one.** In
   `tests/services/test_release_checks.py`, replace
   `test_run_release_checks_marks_skipped_without_a_db_connection` with:
 
@@ -1421,13 +1421,13 @@ async def test_run_release_checks_without_a_db_connection_survives_a_lookup_erro
     assert get_job_progress(job_id)["stats"]["release_check"]["status"] == "done"
 ```
 
-- [ ] **Step 2: Run them to verify they fail.**
+- [x] **Step 2: Run them to verify they fail.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services/test_release_checks.py -q -k "without_a_db_connection"`
 Expected: the first fails (status `skipped`, lookup never awaited); the second fails (status `skipped`,
 not `done`).
 
-- [ ] **Step 3: Run without the connection.** In `run_release_checks`, replace the `if not conn:`
+- [x] **Step 3: Run without the connection.** In `run_release_checks`, replace the `if not conn:`
   block with a log line only, and guard the three uses of `conn`:
 
 ```python
@@ -1451,13 +1451,13 @@ not `done`).
   leading comment to say a finding is persisted per check *when a connection exists*. Update the
   `run_release_checks` docstring's failure-mode sentence if it names the skip.
 
-- [ ] **Step 4: Run the file to verify it passes.**
+- [x] **Step 4: Run the file to verify it passes.**
 
 Run: `"C:/Users/peter/Python Projects/ScrobbleScope/.venv/Scripts/pytest.exe" tests/services/test_release_checks.py -q`
 Expected: pass. `test_run_release_checks_closes_the_connection_when_a_lookup_raises` still passes
 unchanged, which proves the connected path still closes.
 
-- [ ] **Step 5: Resolve F-B22-8 and commit.** The canonical record's reason: "`run_release_checks` runs
+- [x] **Step 5: Resolve F-B22-8 and commit.** The canonical record's reason: "`run_release_checks` runs
   its candidates without a cache connection and skips only the cache read, the persist and the close".
   The count rises by 1: one test replaced, one added. The frontend gate does not run: no template or
   asset changes. Then:

@@ -9,6 +9,52 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - Both pipelines end a crash as internal_error
+
+Side task, no batch tag: fixes F-SWE-5, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 7 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/errors.py` gains an `internal_error` entry
+  (`source: "internal"`, `retryable: False`). `heatmap.py`'s
+  `_report_heatmap_failure` now publishes it instead of borrowing
+  `lastfm_unavailable`. `orchestrator/__init__.py` gains
+  `_report_album_failure`, called from `background_task`'s `on_run_error`
+  in place of a bare `logging.exception`, so the album pipeline now
+  publishes a terminal state on an unhandled crash instead of leaving the
+  job stuck. `static/js/loading.js`'s `showFailure` now looks up the source
+  label in an `ERROR_SOURCE_LABELS` map and hides the source line for any
+  source not in it (`internal` included), instead of defaulting every
+  unrecognized source to "Spotify". `scripts/dev/_frontend_gate_pipeline.py`
+  pins both: the album rate-limit failure still names `Source: Last.fm`,
+  and a probed `internal` failure hides the source line.
+- **Two architecture diagrams updated in the same commit:**
+  `docs/architecture/heatmap-sequence.md`'s `opt Unhandled exception
+  anywhere above` block now draws `set_job_error(internal_error)`, with its
+  closing prose split to say the inner, status-based Last.fm path still
+  emits `lastfm_unavailable` while the outer backstop publishes
+  `internal_error`. `docs/architecture/top-albums-sequence.md`'s `opt
+  Exception escaping that handler` block now draws
+  `set_job_error(internal_error)` and its note says the pipeline publishes
+  a terminal state, so a polling page stops instead of waiting forever.
+- **Tests added, three in total, none replaced:**
+  `TestErrorCode.test_internal_error_exists` and
+  `TestHeatmapTask.test_unhandled_crash_publishes_internal_error`
+  (`tests/test_heatmap.py`), and
+  `test_background_task_crash_publishes_internal_error`
+  (`tests/services/test_orchestrator_fetch_and_process.py`). No existing
+  test changed.
+- **This resolves F-SWE-5.** Both entry points now publish `internal_error`
+  from their outer handler, so a fault that is ours is no longer reported
+  as a Last.fm outage, and the album pipeline no longer leaves a polling
+  page waiting on a job that would never finish.
+- **Bookkeeping:** the reconcile plan's Task 7 steps are ticked. Section 3's
+  order list now records Task 7 landed alongside Tasks 3-6 in Stage 2.
+
+Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The unused enrich_albums is retired
 
 Side task, no batch tag: fixes F-B22-7, part 3 of 3, part of Batch 23 WP-0

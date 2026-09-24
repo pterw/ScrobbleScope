@@ -9,6 +9,32 @@ Newest rotation first.
 
 ---
 
+### F-B22-8: release checks skip the whole job when the cache DB is down -- RESOLVED
+
+`release_checks.run_release_checks` opens a cache connection before its first
+MusicBrainz request, and when none is available it logs "Release checks
+skipped: the cache DB is unavailable.", marks the job `skipped` and returns.
+The reason in its comment is cost: a finding that cannot be persisted buys one
+job's display and nothing for the next. The corrections the results page shows
+are the product, though, and the cache is only how they are reused. So a
+reachable MusicBrainz is left unasked because a different service is down, and
+the reader of that page gets no correction at all.
+
+Seen on 2026-09-23. The owner ran the app locally with `ss-postgres` stopped,
+and the log showed the skip line after three failed connection attempts. A
+later run with Postgres up wrote 60 rows to `original_release_cache` within a
+minute of the job finishing. So the worker works, and only the DB-down branch
+withholds it.
+
+Impact is local development only. On Fly.io the Postgres machine wakes with
+the app, so the branch is not reached in production. That is why this is P2.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-23
+`run_release_checks` runs its candidates without a cache connection and
+skips only the cache read, the persist and the close.
+Source: owner local run, 2026-09-23.
+
 ### F-LOAD-1: concurrent-user UX when job slots are full -- RESOLVED
 
 With all `MAX_ACTIVE_JOBS` slots busy (default 5 since 2026-07-31; was

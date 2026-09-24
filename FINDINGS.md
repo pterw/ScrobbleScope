@@ -3,7 +3,7 @@
 Last updated: 2026-09-21
 Status: Batch 23 is active, opened 2026-09-21; Batch 22 closed 2026-09-20.
 PLAYBOOK Section 3 owns the current work order.
-1745 tests across 66 test modules.
+1746 tests across 66 test modules.
 **Rotation policy:** resolved and no-action findings rotate to
 `docs/history/findings/FINDINGS_ARCHIVE.md` at batch close-out or during
 findings-cleanup WPs; nothing is deleted. Every item uses an
@@ -1033,30 +1033,6 @@ demonstrated wrong.
 Status: open (P2, owner-gated). Source: Graphify bot review, PR #232,
 2026-09-14.
 
-### F-B22-8: release checks skip the whole job when the cache DB is down
-
-`release_checks.run_release_checks` opens a cache connection before its first
-MusicBrainz request, and when none is available it logs "Release checks
-skipped: the cache DB is unavailable.", marks the job `skipped` and returns.
-The reason in its comment is cost: a finding that cannot be persisted buys one
-job's display and nothing for the next. The corrections the results page shows
-are the product, though, and the cache is only how they are reused. So a
-reachable MusicBrainz is left unasked because a different service is down, and
-the reader of that page gets no correction at all.
-
-Seen on 2026-09-23. The owner ran the app locally with `ss-postgres` stopped,
-and the log showed the skip line after three failed connection attempts. A
-later run with Postgres up wrote 60 rows to `original_release_cache` within a
-minute of the job finishing. So the worker works, and only the DB-down branch
-withholds it.
-
-Impact is local development only. On Fly.io the Postgres machine wakes with
-the app, so the branch is not reached in production. That is why this is P2.
-
-Status: open (P2). The owner added it to Batch 23 WP-0 Part C on 2026-09-23:
-checks run without the cache, and only the persistence is skipped. Source:
-owner local run, 2026-09-23.
-
 ### F-B23-1: album calculation writes its exclusions into the job instead of returning them
 
 `orchestrator/_results._build_results` takes `job_id`, returns the album rows,
@@ -1124,8 +1100,8 @@ its failure classification, while job messages and enrichment decisions stay
 with the caller. There is one concrete adapter, so no generic cache-backend
 layer. Metadata and release-check cache policy stay separate.
 
-Status: open (P2). Reassess after F-B22-7 and F-B22-8 land, because both
-change this code. Keep it out of their commits. No performance gain is
+Status: open (P2). F-B22-7 and F-B22-8 have both landed (reconcile Tasks
+4-6 and 11); reassess against the code they left. No performance gain is
 claimed. Source: card 03 of
 `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
 (2026-09-23).
