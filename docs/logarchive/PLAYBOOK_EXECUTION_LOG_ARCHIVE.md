@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The frontend gate's one-off touch-target failure is filed
+
+Side task, no batch tag: a finding filed during Batch 23 WP-0. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Filed F-B23-4 at P2, non-blocking (owner ruling, 2026-09-23).** After
+  reconcile Task 7 committed, the independent gate run's frontend gate
+  failed once in `check_touch_targets`: two `.btn` controls on the 404 page
+  measured 40px high in the wide-touch profile. The same tree then passed
+  three times. The finding records why only that profile can fail (at
+  1280px only `error.css`'s `any-pointer: coarse` rule gives `.btn` its
+  44px) and that the check measures with nothing waiting for that rule.
+- **Scope:** documentation only. No code, test or gate changed. WP-0 Part C
+  clears P0 and P1 findings, so a P2 finding stays out of WP-0.
+- **Forward guidance:** until F-B23-4 is fixed, re-run a frontend-gate
+  failure once before acting on it when the implementer's own runs were
+  green. Next is reconcile Task 8 (F-B21-6).
+
+Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Both pipelines end a crash as internal_error
 
 Side task, no batch tag: fixes F-SWE-5, part of Batch 23 WP-0 Part C.

@@ -257,6 +257,12 @@ P2 the same day:
   Checks are to run without the cache, skipping only persistence. It affects
   local development only, since the Fly.io database wakes with the app.
 
+Later the same day the owner added a fourth P2:
+
+- **F-B23-5:** the release-window rule is written twice, once for the album
+  filter and once for the correction worker. It gets one owner in
+  `domain.py`.
+
 - **Acceptance:**
   - Each ID in the set is checked, member by member, and has left it in one of
     the three ways.

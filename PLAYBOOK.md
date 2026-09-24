@@ -170,7 +170,7 @@ See FINDINGS F-DOCSYNC-3.
   2. This plan's Stage 1, then Stage 2, then Stage 3. Stage 1 (Tasks 1 and 2)
      is complete: Task 1 (the six stale "pending deploy" records) and Task 2
      (the docsync work-package gap, filed as F-DOCSYNC-15) both landed
-     2026-09-23. Stage 2 (Tasks 3-9 and Task 11) is complete: Task 3
+     2026-09-23. Stage 2's Tasks 3-9 and 11 are complete: Task 3
      (F-SWE-6, reading a job no longer renews its lease), Task 4 (F-B22-7,
      part 1 of 3, the `spotify_id` column), Task 5 (F-B22-7, part 2 of 3,
      the Spotify payload translated once in `spotify.py`), Task 6 (F-B22-7,
@@ -181,8 +181,10 @@ See FINDINGS F-DOCSYNC-3.
      `routes._capacity_message()`, which states the configured
      `MAX_ACTIVE_JOBS`) and Task 11 (F-B22-8, `run_release_checks` runs its
      candidates without a cache connection and skips only the cache read,
-     the persist and the close) all landed 2026-09-23. Stage 3 (Task 10) is
-     next.
+     the persist and the close) all landed 2026-09-23. Stage 2's last task,
+     Task 12 (F-B23-5, one owner in `domain.py` for the release-window
+     rule), was added by the owner 2026-09-23 and is next. Then Stage 3
+     (Task 10).
   3. The foundation plan's Tasks 4-10.
   4. The follow-on plans.
   Every WP-0
@@ -391,6 +393,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The release-window rule gets a task of its own
+
+Side task, no batch tag: a planning change within Batch 23 WP-0. Untagged
+by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Filed F-B23-5 at P2, and the owner added it to WP-0 Part C
+  (2026-09-23).** `release_checks._window_end` restates the scope table
+  that foundation Task 12 moved to `domain._matches_release_criteria`, so
+  the release-window rule has two copies. They already differ at the
+  edges: an unparseable decade excludes every album in the filter but
+  gives the worker no window.
+- **Plan:** the reconcile plan gains Task 12, the last task of Stage 2 and
+  before Stage 3. It pins both consumers' current outputs with parity tests
+  first, then derives both from one `domain.release_window`. Changing the
+  unparseable-decade behaviour needs an owner ruling before dispatch. The
+  definition's Part C now lists F-B23-5 as the fourth owner-added P2, and
+  the plan's disposition table has its row.
+- **Also corrected:** the plan's Acceptance said only Tasks 4 and 6 edit
+  an existing test. Task 11 replaced one too, so it now says 4, 6 and 11.
+- **Scope:** documentation only. No code, test or gate changed.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Release checks run without the cache DB
 
 Side task, no batch tag: fixes F-B22-8, part of Batch 23 WP-0 Part C.
@@ -492,25 +518,4 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   refusal states the configured cap).
 
 Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - The frontend gate's one-off touch-target failure is filed
-
-Side task, no batch tag: a finding filed during Batch 23 WP-0. Untagged by
-owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Filed F-B23-4 at P2, non-blocking (owner ruling, 2026-09-23).** After
-  reconcile Task 7 committed, the independent gate run's frontend gate
-  failed once in `check_touch_targets`: two `.btn` controls on the 404 page
-  measured 40px high in the wide-touch profile. The same tree then passed
-  three times. The finding records why only that profile can fail (at
-  1280px only `error.css`'s `any-pointer: coarse` rule gives `.btn` its
-  44px) and that the check measures with nothing waiting for that rule.
-- **Scope:** documentation only. No code, test or gate changed. WP-0 Part C
-  clears P0 and P1 findings, so a P2 finding stays out of WP-0.
-- **Forward guidance:** until F-B23-4 is fixed, re-run a frontend-gate
-  failure once before acting on it when the implementer's own runs were
-  green. Next is reconcile Task 8 (F-B21-6).
-
-Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

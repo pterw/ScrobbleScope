@@ -220,6 +220,7 @@ Every ID the definition lists, plus the P2s Q1 and Q2 would add. "Verified" is t
 | F-B21-6 | real, at three `datetime.now()` sites | fixed, before WP-4 | Task 8 |
 | F-LOAD-1 | real; an occupancy count would always read full | fixed | Task 9 |
 | F-B22-8 (P2, owner-added) | real, local development only | fixed | Task 11 |
+| F-B23-5 (P2, owner-added) | real; the two copies already differ at the edges | fixed | Task 12 |
 | F-B21-15, F-B21-48, F-B18-11, F-STYLE-1, F-STYLE-2, F-WORKTREE-4, F-B21-24 | ruling-only | ruled out, as Q16 | Task 10 |
 | F-B21-4 | items 1, 2 and 4 fixed; item 3 open | item 3 per Q13 | Task 10 |
 | F-B21-19 | real | per Q12 | Task 10 (override) or the frontend plan |
@@ -1468,6 +1469,79 @@ git commit -m "fix(release-checks): Check releases even when the cache is down"
 
 ---
 
+### Task 12: One release-window rule, in `domain.py` (F-B23-5)
+
+Added by the owner on 2026-09-23, after Task 11. It runs before Stage 3, in its own commit. The
+foundation plan's Task 12 moved `_matches_release_criteria` to `domain.py` to break the import cycle,
+and review A's card 3 is titled "Give the release window a leaf module". But the worker's
+`release_checks._window_end` still restates the same scope table (`same`, `previous`, `decade`,
+`custom`), so the rule has two encodings that must be edited together.
+
+**Files:**
+- Modify: `scrobblescope/domain.py` (a new `release_window`; `_matches_release_criteria` derives from
+  it)
+- Modify: `scrobblescope/release_checks.py` (`_window_end` derives from it)
+- Modify: `.claude/SESSION_CONTEXT.md` Section 3 (the `domain.py` summary line)
+- Test: `tests/services/test_orchestrator_helpers.py`, which already tests `_matches_release_criteria`
+  (append only); `tests/services/test_release_checks.py` (append only)
+
+**Interfaces:** Produces `domain.release_window(release_scope, year, decade=None, release_year=None)`,
+which returns the inclusive `(first, last)` years the scope accepts, returns `None` when the scope
+accepts every year, and raises `ValueError` when a companion parameter is present but unusable.
+`_matches_release_criteria` and `_window_end` keep their names, signatures and import paths
+(`scrobblescope.orchestrator._matches_release_criteria` through the facade, and
+`release_checks._window_end`), so every existing test passes unmodified.
+
+**The divergences the parity tests must pin first.** Both consumers keep their current observable
+output on every one of these. The only change allowed is the log text in (b).
+
+- (a) `custom` with no `release_year`: the filter matches every album; `_window_end` returns `None`.
+  Both are "unbounded", so they agree once `None` means unbounded.
+- (b) `decade` with an unparseable value such as `"nope"`: the filter excludes every album and logs
+  "Couldn't parse release year from: <release date>", which names the wrong input; `_window_end`
+  returns `None`. The route does not validate `decade`, so a crafted request reaches this. Keep both
+  outputs, and make the warning name the decade. **Owner ruling needed before dispatch if (b)'s
+  output should change** (for example, reject the request at the route instead).
+- (c) `year` as a string: `_window_end` accepts it; the filter is only ever called with an `int`
+  (the route converts it). `release_window` accepts both.
+- (d) An unknown scope: the filter matches every album; `_window_end` returns `None`.
+- (e) `decade` or `custom` with a falsy companion (`None`, `""`, `0`): the filter matches every
+  album; `_window_end` returns `None`.
+- (f) A bounded scope with no release date on the album: the filter returns `False`; `all` returns
+  `True`. This is the release-date side, which stays in `_matches_release_criteria`.
+
+- [ ] **Step 1: Pin today's behaviour.** Before any code moves, add a parametrized parity test per
+  consumer covering (a)-(e) plus the four bounded scopes, asserting today's outputs. Run it: it
+  passes against the current code. That is the point; it is the net for the refactor.
+- [ ] **Step 2: Write the failing tests for `release_window`.** One per scope, one for "unbounded"
+  (`all`, unknown, falsy companion), and one adversarial test that an unparseable decade raises
+  `ValueError`. Run them: they fail with `ImportError`.
+- [ ] **Step 3: Add `release_window` to `domain.py`**, after `_matches_release_criteria`'s
+  neighbours. Pure, standard library only; `domain.py` stays a leaf.
+- [ ] **Step 4: Derive both consumers from it.** `_matches_release_criteria` computes the window,
+  treats `None` as a match, and on `ValueError` logs the decade and returns `False`, preserving (b).
+  The release-date parse and its existing warning stay as they are. `_window_end` returns the
+  window's `last`, or `None` when the window is `None` or `release_window` raises. Delete the scope
+  table from `release_checks.py`; nothing else there changes. Update both docstrings to name
+  `release_window` as the rule's one owner.
+- [ ] **Step 5: Run everything.** The parity tests from Step 1, unchanged, and the full suite pass.
+  `test_window_end_per_release_scope` and `test_window_end_returns_none_on_unusable_inputs` pass
+  unmodified.
+- [ ] **Step 6: Update the documents.** `.claude/SESSION_CONTEXT.md` Section 3's `domain.py` summary
+  line (`# normalize_name, normalize_track_name`) is already short of `format_album_key` and
+  `_matches_release_criteria`; list all five module-level functions, `release_window` included. Check
+  `docs/architecture/runtime-system.md`'s `domain.py` prose for text that places the window rule
+  elsewhere. The controller sweeps for `_window_end` and "release window" before dispatch.
+- [ ] **Step 7: Resolve F-B23-5 and commit.** The canonical record's reason: "`domain.release_window`
+  is the rule's one owner; the album filter and the worker's window end both derive from it". The
+  frontend gate does not run: no template or asset change. Then:
+
+```bash
+git commit -m "refactor(domain): Give the release window one owner"
+```
+
+---
+
 ## Stage 3 -- the owner's rulings
 
 ### Task 10: Write each ruling into its finding
@@ -1569,7 +1643,7 @@ WP-0 closes when Parts A, B and C each meet their acceptance in `BATCH23_DEFINIT
 ## Acceptance
 
 - Each task's own acceptance holds. No existing test changed except where a task names it, and each
-  such change is listed in its commit body. The only such tasks are 4 and 6.
+  such change is listed in its commit body. The only such tasks are 4, 6 and 11.
 - `pytest -q`, `pre-commit run --all-files`, `frontend_gate.py` and `doc_state_sync.py --check` all
   exit 0 on the final tree. The newest Section 4 entry carries the measured count.
 - Every ID in the disposition table is fixed, confirmed already fixed, or carries a dated owner ruling.

@@ -1139,6 +1139,27 @@ Batch 23 WP-0 reconcile Task 7 (2026-09-23). Its logs are in a git-ignored
 SDD workspace on the owner's machine; the failure lines above are quoted
 from them.
 
+### F-B23-5: the release-window rule is written twice
+
+`domain._matches_release_criteria` decides whether a release date fits the
+user's scope, for the album filter. `release_checks._window_end` computes the
+last year that scope accepts, for the correction worker. Each restates the
+same table (`same`, `previous`, `decade`, `custom`), so a new scope or a
+change to the decade rule must be made in both. Foundation Task 12 moved the
+first to `domain.py` to break an import cycle; the second stayed behind.
+
+The two already differ at the edges. An unparseable decade (the route does
+not validate `decade`) makes the filter exclude every album, with a warning
+that names the release date rather than the decade; the worker gets no
+window. The worker also accepts the year as a string, and the filter does
+not.
+
+The fix is one window function in `domain.py`, with both consumers derived
+from it and their current outputs pinned by parity tests first.
+
+Status: open (P2). The owner added it to Batch 23 WP-0 Part C on 2026-09-23;
+reconcile plan Task 12 fixes it. Source: owner code reading, 2026-09-23.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in
