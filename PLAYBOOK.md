@@ -116,7 +116,9 @@ See FINDINGS F-DOCSYNC-3.
   this repository. It covers WP-0's state, the Linux environment setup, how
   the subagent loop is run, the next steps in order, the rulings in force and
   the traps. `.superpowers/cloud-kit/` holds the workspace constraints and
-  the four agent definitions it uses.
+  the four agent definitions it uses. It was revised in place at the end of
+  the first cloud session, after foundation Task 5: next is Task 6, and its
+  section 2 records what a cloud sandbox cannot run.
 - **PR #236 merged into `test`** at `fc9098d3` (2026-09-20 21:12). It carried
   the eight commits that landed after PR #234, which had merged the branch as
   it stood at `f6d5926` (2026-09-20 05:06) while the first of those eight was
@@ -411,6 +413,38 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The cloud handoff is revised after the first cloud session
+
+Side task, no batch tag: revise the session handoff at the end of the first
+cloud session, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **Scope.** Documentation only. `docs/history/reports/HANDOFF_2026-09-24.md`
+  is revised in place rather than superseded by a second file with the same
+  date, so Section 3, the cloud kit and this log keep one entry point.
+  `.superpowers/cloud-kit/constraints.md` gains Lessons L11-L13 and a header
+  that names Tasks 6-10. Section 3's handoff bullet says the file was
+  revised.
+- **What the handoff now records.** Foundation Task 5 is done (`9ea79f5`,
+  `aa6a867`, `e913f89`, `4ae0dc3`, three review rounds, the last approved
+  with no findings). PR #241 merged into `main` as `92f7d6a`, and no PR is
+  open for the branch. Three cloud-sandbox limits: the Tailwind artifacts
+  must be fetched with `curl` (Python 3.13 rejects the proxy CA), the
+  frontend gate cannot run, and Codacy's API is blocked. The guard reads
+  WT006 against `origin/main` since the merge, with identical trees, so it
+  runs with `--base-ref origin/test`. The owner's Task 5 rulings and the
+  push rule (hold until a review is recorded clean).
+- **Lessons.** L11: check a task's plan checkboxes before recording it done;
+  the owner caught Task 5's. L12: ask the first review to sweep the whole
+  task range for stale copies of every changed fact; Task 5 needed three
+  rounds without it. L13: every code a gate-runner summary quotes must be
+  found in its logs.
+- **Deviations.** None. No code or test changed.
+- **Validation:** `pytest -q` -- **1821 passed**. `pre-commit run --all-files`
+  and `doc_state_sync.py --check` pass, with the expected WT005, DOC024 and
+  root-BATCH warnings.
+- **Next.** Foundation Task 6, findings hygiene, from the handoff's section 5.
+
 ### 2026-09-24 - Stop stating a DOC code range the catalogue owns
 
 Side task, no batch tag: replace every live prose statement of a `DOC001-DOC0NN`
@@ -589,30 +623,5 @@ lands.
   SDD helper scripts stay out too (vendored skills are local harness state
   per `.gitignore`); the handoff gives their plain `git` and `awk` forms.
 - **Section 3** points its handoff bullet at the new file.
-- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
-  tests were excluded, since they are not repository state. Docs only.
-
-### 2026-09-24 - The owner's live check closes the logging task
-
-Side task, no batch tag: a Section 3 correction, part of Batch 23 WP-0 Part
-C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **What.** The reconcile plan's Task 13 (F-B23-6) landed as `433120c` and
-  its fix round as `e7e076b`. Its Step 5, the owner's live check against
-  the real providers, was left to the owner. The owner ran a job with
-  `DEBUG_MODE=1` on 2026-09-24 and confirmed the log: per-call DEBUG lines
-  such as `MusicBrainz GET /ws/2/release-group/ -> 200 in 133ms` and
-  `Spotify GET /v1/search -> 200 in 241ms`, INFO summaries, and no query
-  value. Section 3 and the plan's Step 5 now record it done.
-- **Observation for a later task.** The owner's log shows one
-  `Spotify: 1 calls` INFO summary per Spotify search, each from its own
-  runner thread. So that path builds one session per call, and the
-  per-session summary becomes one INFO line per album rather than one per
-  job. It may also mean connections are not reused there. Not fixed here.
-- **Fix-round note.** The fix-round implementer for `e7e076b` stopped at a
-  rate limit after its edits and before its gates. The controller read the
-  diff, ran `--fix`, the suite, pre-commit and `--check`, repeated the
-  scratch-copy mutation proof, and committed. That fix round has no
-  independent re-review yet.
 - Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
   tests were excluded, since they are not repository state. Docs only.

@@ -1,8 +1,9 @@
 # Constraints for every task dispatched from an SDD workspace (cloud kit)
 
-Plan: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`, Tasks 5-10
-(Track 2). This is the Linux, cloud-session form of the local workspace's
-`constraints.md` as it stood on 2026-09-24 (HEAD `cae2aa8`). To use it, copy it
+Plan: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`, Tasks 6-10
+(Track 2; Task 5 landed 2026-09-24). This is the Linux, cloud-session form of
+the local workspace's `constraints.md`, first cut on 2026-09-24 (HEAD
+`cae2aa8`) and revised after the first cloud session. To use it, copy it
 into a new workspace as `constraints.md` (see
 `docs/history/reports/HANDOFF_2026-09-24.md`). It is shared by every implementer
 and reviewer. Re-read it at the start of every task: the Lessons section at the
@@ -43,8 +44,8 @@ only the progress text inside that bullet, e.g. its numbered order list:
 mark the step that landed. Do not write "WP-1" anywhere in Section 3, the
 definition or SESSION_CONTEXT.
 
-**R3 -- test count.** Baseline **1821 passed** (measured 2026-09-24, HEAD
-`cae2aa8`; re-measure at your BASE -- an earlier task may have raised it). A task that adds tests must also update the count
+**R3 -- test count.** Baseline **1821 passed** (measured 2026-09-24, last at HEAD
+`4ae0dc3`; re-measure at your BASE -- an earlier task may have raised it). A task that adds tests must also update the count
 sites docsync names (DOC006, DOC008): `.claude/SESSION_CONTEXT.md` Section 1
 `Tests` row, its `## 6. Test structure (N tests)` heading, and the
 `FINDINGS.md` header count. A task that adds no test changes none of them.
@@ -199,3 +200,16 @@ plan's workspace:
   (`git stash create` leaves the shared stash list untouched).
 - L10 (2026-09-24): a gate-runner once replied in prose and wrote no logs.
   Record its verdict only after checking that LOG_DIR holds one log per gate.
+- L11 (after foundation Task 5): the first Task 5 commit ticked none of its
+  plan checkboxes, and neither the review nor the controller noticed; the
+  owner did. Before recording a task done, check its `- [x]` boxes in the
+  plan and that the plan is staged (R12 "Plan bookkeeping").
+- L12 (after foundation Task 5): Task 5 took three review rounds, each finding
+  a stale copy of a fact the previous round had changed (a code comment, a
+  finding filed under the wrong priority heading, a table row in
+  `DEVELOPMENT.md`). Ask the FIRST review to sweep the whole task range
+  (`BASE..HEAD`) for every fact the task changes, in every spelling, and
+  name the paths it exempts as point-in-time.
+- L13 (after foundation Task 5): a gate-runner summary once listed a
+  `WARNING WT023` as expected output; no log contained it. Every code a
+  summary quotes must be found in LOG_DIR before its verdict is recorded.

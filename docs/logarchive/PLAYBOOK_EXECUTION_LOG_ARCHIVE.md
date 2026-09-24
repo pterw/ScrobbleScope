@@ -9,6 +9,31 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The owner's live check closes the logging task
+
+Side task, no batch tag: a Section 3 correction, part of Batch 23 WP-0 Part
+C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **What.** The reconcile plan's Task 13 (F-B23-6) landed as `433120c` and
+  its fix round as `e7e076b`. Its Step 5, the owner's live check against
+  the real providers, was left to the owner. The owner ran a job with
+  `DEBUG_MODE=1` on 2026-09-24 and confirmed the log: per-call DEBUG lines
+  such as `MusicBrainz GET /ws/2/release-group/ -> 200 in 133ms` and
+  `Spotify GET /v1/search -> 200 in 241ms`, INFO summaries, and no query
+  value. Section 3 and the plan's Step 5 now record it done.
+- **Observation for a later task.** The owner's log shows one
+  `Spotify: 1 calls` INFO summary per Spotify search, each from its own
+  runner thread. So that path builds one session per call, and the
+  per-session summary becomes one INFO line per album rather than one per
+  job. It may also mean connections are not reused there. Not fixed here.
+- **Fix-round note.** The fix-round implementer for `e7e076b` stopped at a
+  rate limit after its edits and before its gates. The controller read the
+  diff, ran `--fix`, the suite, pre-commit and `--check`, repeated the
+  scratch-copy mutation proof, and committed. That fix round has no
+  independent re-review yet.
+- Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+  tests were excluded, since they are not repository state. Docs only.
+
 ### 2026-09-24 - The release-check finish line names both corrections
 
 Side task, no batch tag: fix round 1 on Task 13 (F-B23-6), part of Batch 23
