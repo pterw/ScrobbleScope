@@ -482,7 +482,11 @@ lands.
   | Red 2: `--check --config nowhere.toml` | Refused, naming `nowhere.toml` | 2 |
   | Near-miss green: `--check --config alt.toml`, `alt.toml` an unchanged copy | Identical summary to plain `--check` | 0 |
 
-- **Deviations:** none.
+- **Deviations:** the probe corpus was built from `git archive $(git stash
+  create)` rather than the plan's literal `git archive HEAD`. This task's
+  own Step 5 (probe) runs before Step 6 (commit), so `HEAD` at probe time
+  was still BASE and had no `--config` to probe; `git stash create` (Lesson
+  L9/L18) captured the uncommitted implementation instead.
 
 Validation: `pytest -q` -- **1848 passed**.
 
