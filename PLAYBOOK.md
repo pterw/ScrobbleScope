@@ -459,6 +459,23 @@ architecture questions. Its one curly apostrophe became a straight one
 non-ASCII characters, in its Mermaid section, are untouched.
 Validation: `pytest -q` -- **1821 passed**; docs only.
 
+**Review fix round (2026-09-24).** A `/code-review` of this PR found four
+defects the workflow inherited from the upstream template; each was checked
+against the gh-aw docs and the compiled lock before fixing. (1) The prompt
+never gave `notes.json`'s exact shape, which the memory validation script
+enforces key by key, so a guessed file would be rejected: the prompt now
+gives the initial document and every entry's keys. (2) The validator failed
+on a missing `notes.json`, so a correct do-nothing run on a fresh memory
+branch would fail: a missing file is now valid. (3) Task 11 closes last
+month's activity issue, but `update-issue` allowed only the body: it now
+also allows the status. (4) The open-PR cap searched titles for
+`"[repo-assist]"`, which GitHub's search reads as plain words, so it also
+counted human PRs mentioning "repo assist": it now matches the literal
+title prefix, as the task-weighting step already did. Recompiled with
+`gh aw compile repo-assist --approve`, the approval covering the reviewed
+validation-script change.
+Validation: `pytest -q` -- **1821 passed**; no test or application change.
+
 ### 2026-09-24 - The loading page looks up its error source label in a Map
 
 Side task, no batch tag: close Codacy's object-injection flag on the loading

@@ -31,7 +31,9 @@ on:
       run: |
         MAX_OPEN_PRS=3
         if [[ "$GITHUB_EVENT_NAME" != "schedule" ]]; then exit 0; fi
-        COUNT=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --search 'in:title "[repo-assist]"' --json number --jq 'length')
+        # Match the literal title prefix: GitHub search drops the brackets and
+        # would also count any human PR whose title mentions "repo assist".
+        COUNT=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 200 --json title --jq '[.[] | select(.title | startswith("[repo-assist]"))] | length')
         [[ "$COUNT" -lt "$MAX_OPEN_PRS" ]]
       # exits 0 if not scheduled or <MAX_OPEN_PRS open PRs, 1 if >=MAX_OPEN_PRS
 
@@ -80,7 +82,9 @@ tools:
         const path = require("node:path");
         const fail = message => { throw new Error(`notes.json: ${message}`); };
         const notesPath = path.join(memoryRoot, "notes.json");
-        if (!fs.existsSync(notesPath)) fail("missing (create an initial notes.json that matches schema version 1)");
+        // A run that did nothing may leave no notes.json on a fresh memory
+        // branch; that is a valid state, not a schema failure.
+        if (!fs.existsSync(notesPath)) { console.log("repo-assist notes.json not created yet; nothing to validate"); return; }
         const data = JSON.parse(fs.readFileSync(notesPath, "utf8"));
         const isObject = value => value !== null && typeof value === "object" && !Array.isArray(value);
         const exactKeys = (value, keys) => isObject(value) && Object.keys(value).sort().join(",") === [...keys].sort().join(",");
@@ -210,6 +214,8 @@ safe-outputs:
     max: 1
   update-issue:
     target: "*"
+    body:
+    status:          # Task 11 closes last month's activity issue
     required-title-prefix: "[repo-assist] "
     max: 1
 
@@ -324,14 +330,22 @@ This repository is run by a strict, documented process. These rules override any
 
 Repo memory contains exactly one schema-validated file, `notes.json`. Read it at the **start** of every run, using `jq` to select only the fields needed for the selected tasks. Update it at the **end** whenever state changed.
 
-The schema stores only:
+The validation script rejects any other shape, and a rejected file is not saved. Create it, when you first have something to record, as exactly:
+
+```json
+{"version": 1, "cursors": {"labelling_after": null, "investigation_after": null}, "issues": [], "fixes": [], "checks": [], "completed_actions": [], "priorities": []}
+```
+
+Every entry has exactly these keys (dates are `YYYY-MM-DD`, notes 1-300 characters):
 
 - `cursors`: unused by the enabled tasks; keep both values `null`
 - `issues`: unused by the enabled tasks; keep it empty
-- `fixes`: one record per PR you opened (use the Monthly Activity issue number as `issue` when no other applies)
-- `checks`: only the latest result for each area you checked (`dependencies`, `tests`, `repo_assist_prs`, `hygiene`)
-- `completed_actions`: Monthly Activity actions checked off by a maintainer, so they are not proposed again
-- `priorities`: a short queue of concrete follow-up work for Tasks 4, 6 and 9
+- `fixes`: one record per PR you opened -- `{"issue": <int>, "pr": <int|null>, "branch": <string|null>, "status": "open"|"merged"|"closed"|"blocked", "updated_at": <date>, "note": <string>}`; use the Monthly Activity issue number as `issue` when no other applies; at most 50, one per `issue`
+- `checks`: the latest result per area you checked -- `{"area": "dependencies"|"tests"|"repo_assist_prs"|"hygiene", "checked_at": <date>, "result": <string>, "follow_up": <string|null>}`; one per area
+- `completed_actions`: Monthly Activity actions checked off by a maintainer, so they are not proposed again -- `{"key": <string, max 100>, "completed_at": <date>}`
+- `priorities`: a short queue of concrete follow-up work -- `{"task": 4|6|9, "item": <string, max 100>, "note": <string>}`; at most 20
+
+If nothing changed and no `notes.json` exists yet, create none: a run with nothing to record is valid.
 
 Keep notes terse and current. Replace superseded entries, remove closed fix records once they are no longer needed for duplicate prevention, and never store run-by-run narration, stale PR inventories, copied GitHub content, or facts that can be cheaply queried again. Stay within the schema's array and text limits; do not create another memory file.
 
