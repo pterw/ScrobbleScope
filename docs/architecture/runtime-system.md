@@ -176,8 +176,7 @@ silent:
   own event loop and a FIFO queue of job ids. More threads would only queue
   behind the same process-wide limiter while multiplying database connections
   and the ways one job's state can be raced. The worker and the album filter
-  both read the release-window rule, `_matches_release_criteria`, from
-  `domain.py`.
+  both read the release-window rule, `release_window`, from `domain.py`.
 - **The Spotify cost boundary.** `_MAX_ALBUM_CAP = 500` caps every sort mode
   before any Spotify call, and `partition_albums_by_threshold` splits the
   aggregated albums before enrichment, so albums that miss a play or track

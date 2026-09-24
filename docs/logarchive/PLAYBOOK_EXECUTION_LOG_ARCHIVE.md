@@ -9,6 +9,43 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The capacity refusal states the configured cap
+
+Side task, no batch tag: fixes F-LOAD-1, part of Batch 23 WP-0 Part C.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 9 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `scrobblescope/routes/__init__.py` gains `_capacity_message()`,
+  which returns `f"Too many requests in progress: all {MAX_ACTIVE_JOBS}
+  search slots are busy. Please try again in a moment."`, reading
+  `MAX_ACTIVE_JOBS` from `scrobblescope.config` rather than a literal.
+  `scrobblescope/routes/album_flow.py`'s and
+  `scrobblescope/routes/heatmap_flow.py`'s refusal strings now both read
+  `_routes._capacity_message()` through the existing `_routes` module
+  reference. There is no occupancy counter: the message only renders after
+  `acquire_job_slot()` has just failed, when every slot is already taken, so
+  a count would always read cap/cap. Two new tests in `tests/test_routes.py`
+  cover it: `test_album_capacity_refusal_states_the_configured_cap` and
+  `test_heatmap_capacity_refusal_states_the_configured_cap`, both patching
+  `MAX_ACTIVE_JOBS` to a distinctive value and asserting the refusal names
+  it.
+- **F-LOAD-1 is resolved.** Both refusals read
+  `routes._capacity_message()`, which states the configured
+  `MAX_ACTIVE_JOBS`.
+- **Deviation from the brief.** The brief's Step 5 dependency-graph line
+  for `routes/__init__.py` omitted `domain`, which the module has imported
+  (`format_album_key`) since `d20a7924`. The `config` edge from this task
+  is added alongside the missing `domain` edge in the same edit, so the
+  line now reads `routes/__init__.py <- config, domain, lastfm,
+  repositories, spotify, unmatched, utils, worker; ...`. No other
+  dependency-graph line was touched.
+- **Forward guidance:** next is reconcile Task 11 (F-B22-8, release checks
+  run without the cache DB).
+
+Validation: `pytest -q` -- **1745 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The year gate reads the UTC calendar
 
 Side task, no batch tag: fixes F-B21-6, part of Batch 23 WP-0 Part C.

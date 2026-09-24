@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from scrobblescope.domain import release_window
 from scrobblescope.orchestrator import (
     _MAX_ALBUM_CAP,
     _PLAYTIME_ALBUM_CAP,
@@ -46,6 +47,120 @@ def test_matches_release_criteria_adversarial(release_date, expected):
     """
     result = _matches_release_criteria(release_date, release_scope="same", year=2025)
     assert result is expected
+
+
+# =====================================================================
+# F-B23-5: one release-window rule, in domain.py
+# =====================================================================
+
+
+# The rule two consumers now derive from: the release-window scope table used
+# to be restated in both `_matches_release_criteria` (here) and
+# `release_checks._window_end`. Task 12 moves it to `domain.release_window`,
+# and this parity test pins `_matches_release_criteria`'s current outputs
+# first, so the refactor has a net -- it must keep passing, unchanged.
+@pytest.mark.parametrize(
+    "release_date, release_scope, year, decade, release_year, expected",
+    [
+        # The four bounded scopes: one match, one miss each.
+        ("2025-06-01", "same", 2025, None, None, True),
+        ("2024-06-01", "same", 2025, None, None, False),
+        ("2024-06-01", "previous", 2025, None, None, True),
+        ("2025-06-01", "previous", 2025, None, None, False),
+        ("1994-06-01", "decade", 2025, "1990s", None, True),
+        ("2001-06-01", "decade", 2025, "1990s", None, False),
+        ("1991-06-01", "custom", 2025, None, 1991, True),
+        ("1990-06-01", "custom", 2025, None, 1991, False),
+        # (a) "custom" with no release_year: unbounded, matches every album.
+        ("1800-06-01", "custom", 2025, None, None, True),
+        # (b) "decade" with an unparseable value: excludes every album.
+        # (The warning it logs changes to name the decade; not asserted here.)
+        ("2025-06-01", "decade", 2025, "nope", None, False),
+        # (d) an unknown scope: unbounded, matches every album.
+        ("2025-06-01", "unknown-scope", 2025, None, None, True),
+        # (e) "decade"/"custom" with a falsy companion: unbounded.
+        ("2025-06-01", "decade", 2025, None, None, True),
+        ("2025-06-01", "decade", 2025, "", None, True),
+        ("2025-06-01", "decade", 2025, 0, None, True),
+        ("2025-06-01", "custom", 2025, None, None, True),
+        ("2025-06-01", "custom", 2025, None, "", True),
+        ("2025-06-01", "custom", 2025, None, 0, True),
+        # (f) a bounded scope with no release date -> False; "all" -> True.
+        (None, "same", 2025, None, None, False),
+        (None, "all", 2025, None, None, True),
+    ],
+)
+def test_matches_release_criteria_parity_before_release_window(
+    release_date, release_scope, year, decade, release_year, expected
+):
+    """
+    GIVEN every divergence F-B23-5 names plus the four bounded scopes
+    WHEN `_matches_release_criteria` is called before it derives from
+        `domain.release_window`
+    THEN it returns today's output -- the net Task 12's refactor must not
+        tear, since every case here keeps passing afterward unchanged.
+    """
+    result = _matches_release_criteria(
+        release_date, release_scope, year, decade, release_year
+    )
+    assert result is expected
+
+
+@pytest.mark.parametrize(
+    "release_scope, year, decade, release_year, expected",
+    [
+        ("same", 2025, None, None, (2025, 2025)),
+        ("previous", 2025, None, None, (2024, 2024)),
+        ("decade", 2025, "1990s", None, (1990, 1999)),
+        ("custom", 2025, None, 1991, (1991, 1991)),
+    ],
+)
+def test_release_window_per_scope(release_scope, year, decade, release_year, expected):
+    """
+    GIVEN each of the four bounded release scopes
+    WHEN release_window computes the inclusive year range it accepts
+    THEN it returns that scope's own (first, last) bound.
+    """
+    assert release_window(release_scope, year, decade, release_year) == expected
+
+
+@pytest.mark.parametrize(
+    "release_scope, year, decade, release_year",
+    [
+        ("all", 2025, None, None),
+        ("some-unknown-scope", 2025, None, None),
+        ("decade", 2025, None, None),
+        ("decade", 2025, "", None),
+        ("decade", 2025, 0, None),
+        ("custom", 2025, None, None),
+        ("custom", 2025, None, ""),
+        ("custom", 2025, None, 0),
+    ],
+)
+def test_release_window_unbounded_returns_none(
+    release_scope, year, decade, release_year
+):
+    """
+    GIVEN a scope that accepts every year -- "all", an unrecognized scope, or
+        "decade"/"custom" with a falsy companion
+    WHEN release_window computes the window
+    THEN it returns None rather than a range, since there is nothing to
+        bound it with.
+    """
+    assert release_window(release_scope, year, decade, release_year) is None
+
+
+def test_release_window_unparseable_decade_raises():
+    """
+    GIVEN a "decade" scope whose companion parameter cannot be parsed as a
+        year (the route does not validate `decade`, so a crafted request can
+        reach this)
+    WHEN release_window computes the window
+    THEN it raises ValueError rather than guessing -- the caller decides how
+        to log the bad input and what to return.
+    """
+    with pytest.raises(ValueError):
+        release_window("decade", 2025, decade="nope")
 
 
 def test_get_user_friendly_reason_adversarial():

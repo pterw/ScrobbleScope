@@ -93,6 +93,8 @@ def _matches_release_criteria(
 
     Pure function: data-in, bool-out.  Extracted from process_albums so it
     can be unit-tested in isolation without mocking the async I/O pipeline.
+    The scope table itself lives in ``release_window``, the rule's one owner;
+    this derives from it rather than restating it.
     """
     if release_scope == "all":
         return True
@@ -104,16 +106,55 @@ def _matches_release_criteria(
     )
     try:
         rel_year = int(release_year_str)
-        if release_scope == "same":
-            return rel_year == year
-        if release_scope == "previous":
-            return rel_year == year - 1
-        if release_scope == "decade" and decade:
-            decade_start = int(decade[:3] + "0")
-            return decade_start <= rel_year < decade_start + 10
-        if release_scope == "custom" and release_year:
-            return rel_year == release_year
-        return True
     except ValueError:
         logging.warning(f"Couldn't parse release year from: {release_date}")
         return False
+
+    try:
+        window = release_window(release_scope, year, decade, release_year)
+    except ValueError:
+        logging.warning(f"Couldn't parse release year from: {decade}")
+        return False
+
+    if window is None:
+        return True
+    window_start, window_end = window
+    return window_start <= rel_year <= window_end
+
+
+def release_window(release_scope, year, decade=None, release_year=None):
+    """Return the inclusive ``(first, last)`` years *release_scope* accepts.
+
+    The one rule behind both consumers: the album filter's
+    ``_matches_release_criteria`` and the correction worker's
+    ``release_checks._window_end``. Each used to restate the same scope
+    table (``same``, ``previous``, ``decade``, ``custom``); this is now the
+    single place it is written (F-B23-5).
+
+    Returns ``None`` when the scope accepts every year: ``"all"``, an
+    unrecognized scope, or a ``"decade"``/``"custom"`` scope whose companion
+    parameter is falsy (``None``, ``""``, ``0``) -- there is nothing to
+    bound the window with, not an error.
+
+    Raises ``ValueError`` when a value needed to compute the window is
+    present but cannot be parsed as a year: the base ``year`` for
+    ``"same"``/``"previous"``, or a ``"decade"``/``"custom"`` companion
+    parameter that is neither missing nor usable.
+    """
+
+    def _as_year(value):
+        return int(str(value).split("-")[0])
+
+    if release_scope == "same":
+        same_year = _as_year(year)
+        return (same_year, same_year)
+    if release_scope == "previous":
+        previous_year = _as_year(year) - 1
+        return (previous_year, previous_year)
+    if release_scope == "decade" and decade:
+        decade_start = _as_year(str(decade)[:3] + "0")
+        return (decade_start, decade_start + 9)
+    if release_scope == "custom" and release_year:
+        custom_year = _as_year(release_year)
+        return (custom_year, custom_year)
+    return None

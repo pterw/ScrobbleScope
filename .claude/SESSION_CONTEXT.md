@@ -9,7 +9,7 @@ Last updated: 2026-09-20
 | Item | Value |
 |------|-------|
 | Branch | See PLAYBOOK Section 3 for the active worktree branch. |
-| Tests | **1746 passing** across 66 test modules |
+| Tests | **1793 passing** across 66 test modules |
 | Coverage | 89% (2026-08-20 run, `pytest --cov=scrobblescope`) |
 | Pre-commit | See PLAYBOOK Section 4's latest validation and deviations. |
 | Batches 0-20 | **All complete.** PLAYBOOK Section 2 has the index: title, definition and log per batch. |
@@ -41,7 +41,7 @@ Last updated: 2026-09-20
 - Current-batch entries in active log block: 0.
 - Completed work packages in current-batch entries: none.
 - Next expected work package: WP-0.
-- Latest validated test count: **1746 passed**.
+- Latest validated test count: **1793 passed**.
 - Newest current-batch entry: none.
 <!-- DOCSYNC:STATUS-END -->
 
@@ -54,7 +54,7 @@ app.py                      # create_app() factory and startup checks
 scrobblescope/
   config.py                 # env var reads, API keys, concurrency constants
   errors.py                 # SpotifyUnavailableError, ERROR_CODES
-  domain.py                 # normalize_name, normalize_track_name
+  domain.py                 # normalize_name, format_album_key, normalize_track_name, _matches_release_criteria, release_window
   utils.py                  # rate limiters, session pooling, request caching
   repositories.py           # JOBS dict, jobs_lock, job state CRUD
   worker.py                 # semaphore, acquire/release_job_slot, start_job_thread, run_coroutine_in_new_loop
@@ -237,7 +237,7 @@ results-release-checks.js polls GET /api/release_checks?job_id=...
 
 ---
 
-## 6. Test structure (1746 tests)
+## 6. Test structure (1793 tests)
 
 The per-file breakdown used to live here as a 40-row table. It was
 removed on 2026-08-26: nothing read it, only the total is gated, and it

@@ -1510,29 +1510,29 @@ output on every one of these. The only change allowed is the log text in (b).
 - (f) A bounded scope with no release date on the album: the filter returns `False`; `all` returns
   `True`. This is the release-date side, which stays in `_matches_release_criteria`.
 
-- [ ] **Step 1: Pin today's behaviour.** Before any code moves, add a parametrized parity test per
+- [x] **Step 1: Pin today's behaviour.** Before any code moves, add a parametrized parity test per
   consumer covering (a)-(e) plus the four bounded scopes, asserting today's outputs. Run it: it
   passes against the current code. That is the point; it is the net for the refactor.
-- [ ] **Step 2: Write the failing tests for `release_window`.** One per scope, one for "unbounded"
+- [x] **Step 2: Write the failing tests for `release_window`.** One per scope, one for "unbounded"
   (`all`, unknown, falsy companion), and one adversarial test that an unparseable decade raises
   `ValueError`. Run them: they fail with `ImportError`.
-- [ ] **Step 3: Add `release_window` to `domain.py`**, after `_matches_release_criteria`'s
+- [x] **Step 3: Add `release_window` to `domain.py`**, after `_matches_release_criteria`'s
   neighbours. Pure, standard library only; `domain.py` stays a leaf.
-- [ ] **Step 4: Derive both consumers from it.** `_matches_release_criteria` computes the window,
+- [x] **Step 4: Derive both consumers from it.** `_matches_release_criteria` computes the window,
   treats `None` as a match, and on `ValueError` logs the decade and returns `False`, preserving (b).
   The release-date parse and its existing warning stay as they are. `_window_end` returns the
   window's `last`, or `None` when the window is `None` or `release_window` raises. Delete the scope
   table from `release_checks.py`; nothing else there changes. Update both docstrings to name
   `release_window` as the rule's one owner.
-- [ ] **Step 5: Run everything.** The parity tests from Step 1, unchanged, and the full suite pass.
+- [x] **Step 5: Run everything.** The parity tests from Step 1, unchanged, and the full suite pass.
   `test_window_end_per_release_scope` and `test_window_end_returns_none_on_unusable_inputs` pass
   unmodified.
-- [ ] **Step 6: Update the documents.** `.claude/SESSION_CONTEXT.md` Section 3's `domain.py` summary
+- [x] **Step 6: Update the documents.** `.claude/SESSION_CONTEXT.md` Section 3's `domain.py` summary
   line (`# normalize_name, normalize_track_name`) is already short of `format_album_key` and
   `_matches_release_criteria`; list all five module-level functions, `release_window` included. Check
   `docs/architecture/runtime-system.md`'s `domain.py` prose for text that places the window rule
   elsewhere. The controller sweeps for `_window_end` and "release window" before dispatch.
-- [ ] **Step 7: Resolve F-B23-5 and commit.** The canonical record's reason: "`domain.release_window`
+- [x] **Step 7: Resolve F-B23-5 and commit.** The canonical record's reason: "`domain.release_window`
   is the rule's one owner; the album filter and the worker's window end both derive from it". The
   frontend gate does not run: no template or asset change. Then:
 

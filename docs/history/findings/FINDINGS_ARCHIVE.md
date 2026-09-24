@@ -9,6 +9,29 @@ Newest rotation first.
 
 ---
 
+### F-B23-5: the release-window rule is written twice -- RESOLVED
+
+`domain._matches_release_criteria` decides whether a release date fits the
+user's scope, for the album filter. `release_checks._window_end` computes the
+last year that scope accepts, for the correction worker. Each restates the
+same table (`same`, `previous`, `decade`, `custom`), so a new scope or a
+change to the decade rule must be made in both. Foundation Task 12 moved the
+first to `domain.py` to break an import cycle; the second stayed behind.
+
+The two already differ at the edges. An unparseable decade (the route does
+not validate `decade`) makes the filter exclude every album, with a warning
+that names the release date rather than the decade; the worker gets no
+window. The worker also accepts the year as a string, and the filter does
+not.
+
+The fix is one window function in `domain.py`, with both consumers derived
+from it and their current outputs pinned by parity tests first.
+
+- [x] **Status:** resolved
+**Completed:** 2026-09-23
+`domain.release_window` is the rule's one owner; the album filter and the
+worker's window end both derive from it.
+
 ### F-B22-8: release checks skip the whole job when the cache DB is down -- RESOLVED
 
 `release_checks.run_release_checks` opens a cache connection before its first

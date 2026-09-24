@@ -49,7 +49,11 @@ from scrobblescope.config import (
     MUSICBRAINZ_CONTACT,
     MUSICBRAINZ_ENABLED,
 )
-from scrobblescope.domain import _matches_release_criteria, normalize_name
+from scrobblescope.domain import (
+    _matches_release_criteria,
+    normalize_name,
+    release_window,
+)
 from scrobblescope.musicbrainz import lookup_original_release
 from scrobblescope.repositories import (
     get_job_context,
@@ -107,18 +111,14 @@ def _window_end(release_scope, year, decade=None, release_year=None):
     None means no exclusion can be moved in: either every year qualifies
     ("all"), or the scope's companion parameter is missing or unparseable and
     guessing a window would spend requests on albums that cannot qualify.
+    The window itself comes from ``domain.release_window``, the rule's one
+    owner; this reads only its ``last`` year.
     """
-    if release_scope == "same":
-        return year if isinstance(year, int) else _release_year(year)
-    if release_scope == "previous":
-        base = year if isinstance(year, int) else _release_year(year)
-        return None if base is None else base - 1
-    if release_scope == "decade" and decade:
-        start = _release_year(str(decade)[:3] + "0")
-        return None if start is None else start + 9
-    if release_scope == "custom" and release_year:
-        return _release_year(release_year)
-    return None
+    try:
+        window = release_window(release_scope, year, decade, release_year)
+    except ValueError:
+        return None
+    return None if window is None else window[1]
 
 
 def _candidate(artist, album, kind):

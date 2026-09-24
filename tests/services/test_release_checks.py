@@ -161,6 +161,50 @@ def test_window_end_returns_none_on_unusable_inputs():
     assert _window_end("previous", None) is None
 
 
+# F-B23-5: `_window_end` restated the same scope table
+# `domain._matches_release_criteria` uses; Task 12 moves it to
+# `domain.release_window`. This parity test pins `_window_end`'s current
+# outputs on every divergence the finding names first, so the refactor has a
+# net -- it must keep passing, unchanged.
+@pytest.mark.parametrize(
+    "release_scope, year, decade, release_year, expected",
+    [
+        # The four bounded scopes.
+        ("same", 2025, None, None, 2025),
+        ("previous", 2025, None, None, 2024),
+        ("decade", 2025, "1990s", None, 1999),
+        ("custom", 2025, None, 1991, 1991),
+        # (a) "custom" with no release_year: unbounded.
+        ("custom", 2025, None, None, None),
+        # (b) "decade" with an unparseable value: unbounded (no window end
+        # to move a candidate against).
+        ("decade", 2025, "nope", None, None),
+        # (c) year as a string: accepted, unlike the filter.
+        ("same", "2025", None, None, 2025),
+        ("previous", "2025", None, None, 2024),
+        # (d) an unknown scope: unbounded.
+        ("unknown-scope", 2025, None, None, None),
+        # (e) "decade"/"custom" with a falsy companion: unbounded.
+        ("decade", 2025, None, None, None),
+        ("decade", 2025, "", None, None),
+        ("decade", 2025, 0, None, None),
+        ("custom", 2025, None, None, None),
+        ("custom", 2025, None, "", None),
+        ("custom", 2025, None, 0, None),
+    ],
+)
+def test_window_end_parity_before_release_window(
+    release_scope, year, decade, release_year, expected
+):
+    """
+    GIVEN every divergence F-B23-5 names plus the four bounded scopes
+    WHEN `_window_end` is called before it derives from `domain.release_window`
+    THEN it returns today's output -- the net Task 12's refactor must not
+        tear, since every case here keeps passing afterward unchanged.
+    """
+    assert _window_end(release_scope, year, decade, release_year) == expected
+
+
 def test_release_year_parses_and_rejects():
     """
     GIVEN provider release dates of varying shape
