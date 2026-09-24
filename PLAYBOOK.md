@@ -128,6 +128,12 @@ See FINDINGS F-DOCSYNC-3.
   (`test` -> `main`) merged on 2026-09-21, carrying them on to `main`; a
   merge to `main` deploys to Fly.io through Fly's GitHub integration, not a
   repository workflow.
+- **PR #241 carried Batch 23 WP-0's work so far, through `1d16e18`, into
+  `main`** on 2026-09-24 as a merge commit (`92f7d6a`, parents `49af94f` and
+  `1d16e18`). The owner retargeted it from `test` before merging. The branch
+  stays an ancestor of `main` with an identical tree, so WP-0 continues on
+  `feat/batch23-wp0-hygiene` with no reset. A merge to `main` deploys to
+  Fly.io.
 - **Outbound request identity, fixed 2026-09-20.** `config.APP_USER_AGENT` is
   now the single owner of the application's own name, and
   `create_optimized_session` sends it on every provider session. Until this
@@ -195,7 +201,9 @@ See FINDINGS F-DOCSYNC-3.
      done, 2026-09-23. The reconcile plan's Task 13, which the owner added
      on 2026-09-24 as its Stage 4 (F-B23-6: log every provider call and the
      release checks), is done, 2026-09-24, including the owner's live check
-     (its Step 5). Next is the foundation plan's Task 5.
+     (its Step 5). Task 5 (the DOC range the catalogue owns is no longer
+     stated as a range anywhere live) is done, 2026-09-24. Next is the
+     foundation plan's Task 6.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -403,6 +411,74 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - Stop stating a DOC code range the catalogue owns
+
+Side task, no batch tag: replace every live prose statement of a `DOC001-DOC0NN`
+range with wording that states no range, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the foundation plan's Task 5.** Six live sites stated a stale
+  contiguous range (`AGENTS.md` x3, `DEVELOPMENT.md`, and
+  `docs/architecture/documentation-tooling.md` x2, one of them the heading).
+  Both `DOC001-DOC023` and `DOC001-DOC024` are false today: DOC021 and DOC022
+  are reserved by
+  `docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
+  but not raised, so no contiguous span from `DOC001` is true. Each site now
+  says "the DOC diagnostic catalogue" (owner: `documentation-tooling.md`)
+  instead of restating a range; the catalogue's own heading is renamed
+  "The DOC code catalogue" and its one explicit list reads "`DOC001`-`DOC020`,
+  `DOC023` and `DOC024` issues". `FINDINGS.md`'s F-B21-61 note ("a new
+  invariant for this finding starts at DOC023") is repointed at the catalogue,
+  since DOC023 is itself now taken (the finding-lifecycle grandfathered-finding
+  count, `scripts/docsync/findings.py`).
+- **Tests repointed, controller ruling 2026-09-24 (the one sanctioned
+  existing-test edit).** `tests/test_docsync_integrity.py::
+  test_stated_docsync_range_matches_the_highest_code_raised` and
+  `test_stated_range_helper_rejects_a_stale_range` read `AGENTS.md`'s stated
+  range, which no longer exists. Both are renamed
+  (`test_stated_docsync_catalogue_matches_the_codes_raised`,
+  `test_stated_catalogue_helper_rejects_a_mismatched_list`) and repointed at
+  `documentation-tooling.md`'s explicit list; their helpers become
+  `CATALOGUE_SENTENCE_RE`, `_stated_codes`, `_raised_codes` and
+  `_catalogue_matches_raised_codes`. The comparison is now set equality
+  (parsing "DOC0AA-DOC0BB" spans and single codes) rather than a maximum, so
+  a listed-but-unraised code (DOC021) is caught, which comparing only the
+  upper bound could not catch. The proof test mutates the real catalogue
+  sentence in place (drop DOC024; add DOC021) rather than a synthetic
+  fixture, so it exercises the same parsing the corpus test relies on.
+- **`.docsync.toml`** gains a fourth `[[retired]]` declaration, modelled on
+  its "the docsync integrity range ends at DOC011" sibling: it matches the
+  bare literal `DOC001-DOC023` or `DOC001-DOC024`, either spelling
+  (contiguous or backtick-split), needs no verb-prefix guard because the
+  valid list never contains either substring, and leaves `DOC001-DOC020`
+  alone.
+- **Deviation, filed as F-DOCSYNC-16.** The three pre-existing `[[retired]]`
+  declarations' `allow_after` marker for `PLAYBOOK.md` is the literal string
+  `"## 4. Execution log"`, but `check_retired` compares a raw line by exact
+  equality and the real heading is `"## 4. Execution log (for agent
+  handoff)"` -- confirmed by reproducing the mismatch directly against
+  `check_retired`. Their Section 4 exemption is therefore non-functional
+  against the live document today, latent only because no dated entry
+  currently restates one of their three retired phrases. This task's own
+  new declaration uses the full, correct heading text so it is not affected;
+  fixing the three siblings is out of scope here and left to F-DOCSYNC-16.
+- **Live probe** (`/tmp/ssprobe`, `git archive` of `git stash create`,
+  deleted after):
+
+  | probe | expected | got |
+  | --- | --- | --- |
+  | faithful copy `--check` | same summary as the worktree | match, exit 0 |
+  | red: add "the DOC001-DOC023 catalogue" to `AGENTS.md` | DOC011, exit 1 | DOC011, exit 1 |
+  | red: add `` returns typed `DOC001`-`DOC024` issues `` to `DEVELOPMENT.md` | DOC011, exit 1 | DOC011, exit 1 |
+  | near-miss: same text struck through in `AGENTS.md` | silent, exit 0 | silent, exit 0 |
+  | near-miss: same text in a dated Section 4 entry below the marker | silent, exit 0 | silent, exit 0 |
+  | near-miss: "DOC001-DOC020" in `AGENTS.md` prose | silent, exit 0 | silent, exit 0 |
+  | mutate `documentation-tooling.md`'s list to drop DOC024 | corpus test red | red |
+  | mutate `documentation-tooling.md`'s list to add DOC021 | corpus test red | red |
+
+- Validation: `pytest -q` -- **1821 passed**. No test added or removed, so
+  the three R3 count sites are unchanged.
+
 ### 2026-09-24 - The loading page looks up its error source label in a Map
 
 Side task, no batch tag: close Codacy's object-injection flag on the loading
@@ -483,49 +559,3 @@ C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   independent re-review yet.
 - Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
   tests were excluded, since they are not repository state. Docs only.
-
-### 2026-09-24 - The release-check finish line names both corrections
-
-Side task, no batch tag: fix round 1 on Task 13 (F-B23-6), part of Batch 23
-WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **What the review caught.** `run_release_checks`'s finish line (the entry
-  below, from `433120c`) logged `state["moved_out"]` alone as "corrected".
-  That hid `state["moved_in"]` -- an excluded album whose original release
-  MusicBrainz found to fall back inside the window, just as real a finding
-  as a moved-out result, and the whole reason this task exists is so the
-  owner can see what MusicBrainz found.
-- **Fix.** `scrobblescope/release_checks.py`'s finish line now names both
-  counts: `"{checked} checked, {moved_out} moved out, {moved_in} moved in"`.
-  No artist or album names, as before.
-- **Test.** `tests/services/test_release_checks.py`'s finish-line test
-  (its own new test from `433120c`, so changing it is in scope) is renamed
-  `test_run_release_checks_logs_its_finish_with_moved_out_and_moved_in_counts`
-  and now drives a job with two results that move out and one exclusion
-  that moves in, asserting `2 moved out` and `1 moved in` -- distinct,
-  non-zero counts, so a swap of the two would fail the test.
-- **New test: a logging failure never fails a request.**
-  `tests/services/test_api_logging.py` gains
-  `test_a_recording_failure_never_fails_the_request`: with `_record`
-  monkeypatched to raise, a real request through `create_optimized_session()`
-  against a local `TestServer` still returns its response normally, and an
-  explicit `close()` afterwards still does not raise. Proved to actually
-  exercise the callbacks' `try/except` (not just the happy path): archived
-  `HEAD` to a scratch directory outside the repo
-  (`git archive HEAD | tar -x`), removed the `try/except` from
-  `_on_request_start`/`_on_request_end`/`_on_request_exception` there, and
-  reran the same test against that mutated copy with `PYTHONPATH` pointed
-  at it -- it failed (`RuntimeError: boom` reaching the caller through
-  `session.get(...)`). Scratch directory deleted afterward; nothing in the
-  repository was touched by the mutation.
-- **Sibling text.** The `433120c` dated entry below keeps its "Reading
-  `corrected`" bullet as a record of what that commit actually shipped; this
-  entry states the change instead. The reconcile plan's Task 13 spec text
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`)
-  updated its "checked and corrected" line to name both counts. The
-  resolved F-B23-6 record's reason line ("start, finish and skip") never
-  claimed "corrected" and needed no change.
-
-Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.

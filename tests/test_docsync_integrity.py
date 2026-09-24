@@ -1645,94 +1645,124 @@ def test_doc012_ignores_counts_above_the_execution_log():
     assert _doc012_codes(lines) == []
 
 
-#: The range AGENTS.md states for the docsync codes. Anchored on "returns typed"
-#: so the sentence that *records* the previous range is not read as stating one.
-STATED_RANGE_RE = re.compile(r"returns typed DOC001-(DOC0\d\d) issues")
+#: The catalogue's explicit code list in documentation-tooling.md, e.g.
+#: "DOC001-DOC020, DOC023 and DOC024". Anchored on "returns typed" so the
+#: sentence that *records* a previous, now-retired range is not read as
+#: stating the current one.
+CATALOGUE_SENTENCE_RE = re.compile(r"returns typed (.+?) issues")
+
+#: One DOC code, or a contiguous "DOC0AA-DOC0BB" span, inside the list text.
+_CODE_TOKEN_RE = re.compile(r"DOC0(\d\d)(?:-DOC0(\d\d))?")
 
 #: The repository root, resolved the way the sibling test modules resolve it.
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
-def _stated_upper_bound(text: str) -> str:
-    """Return the upper bound of the range AGENTS.md states for the docsync codes."""
-    match = STATED_RANGE_RE.search(text)
-    assert match, "AGENTS.md no longer states the docsync range in the expected form"
-    return match.group(1)
+def _stated_codes(text: str) -> set[str]:
+    """Return the set of DOC codes the catalogue's explicit list states.
+
+    Parses both a single code and a "DOC0AA-DOC0BB" span into every code it
+    covers. Backticks (`DOC001`-`DOC024` vs plain DOC001-DOC024) are stripped
+    before parsing so either shipped spelling reads the same. Fails loudly,
+    never silently passing, when the sentence itself cannot be found -- the
+    same contract `_stated_upper_bound` held before this task.
+    """
+    match = CATALOGUE_SENTENCE_RE.search(text.replace("`", ""))
+    assert match, (
+        "documentation-tooling.md no longer states the DOC catalogue list "
+        "in the expected form"
+    )
+    tokens = _CODE_TOKEN_RE.findall(match.group(1))
+    assert tokens, "the catalogue sentence names no DOC codes"
+    codes: set[str] = set()
+    for lo, hi in tokens:
+        if hi:
+            codes.update(f"DOC0{n:02d}" for n in range(int(lo), int(hi) + 1))
+        else:
+            codes.add(f"DOC0{lo}")
+    return codes
 
 
-def _raised_upper_bound(sources: list[str]) -> str:
-    """Return the highest docsync code literal raised across the given sources."""
+def _raised_codes(sources: list[str]) -> set[str]:
+    """Return every docsync code literal raised across the given sources."""
     codes = {code for text in sources for code in re.findall(r'"(DOC0\d\d)"', text)}
     assert codes, "no docsync code literals found in the scanned sources"
-    return max(codes)
+    return codes
 
 
-def _ranges_agree(text: str, sources: list[str]) -> bool:
-    """Return whether the stated range equals the highest code the sources raise.
+def _catalogue_matches_raised_codes(text: str, sources: list[str]) -> bool:
+    """Return whether the stated list equals the set of codes the sources raise.
 
     Both tests below assert through this one predicate, so the corpus check and
     the proof of its failure mode exercise the same comparison. Asserting the
     two helpers separately would let a later edit change one comparison while
     the proof went on testing another.
     """
-    return _stated_upper_bound(text) == _raised_upper_bound(sources)
+    return _stated_codes(text) == _raised_codes(sources)
 
 
-def test_stated_docsync_range_matches_the_highest_code_raised():
-    """The documented range must equal the highest code the package raises.
+def test_stated_docsync_catalogue_matches_the_codes_raised():
+    """The documented catalogue list must equal the codes the package raises.
 
-    The mutation this defends against is the drift that actually happened: the
-    stated upper bound stayed at DOC011 while `scripts/docsync/integrity.py` had
-    raised DOC012 since 2026-08-26. Its next instance is DOC013 -- added to the
-    package without the documentation following.
+    The mutation this defends against is the drift that actually happened: a
+    stated *range* (DOC001-DOC0NN) implies every code in between is raised,
+    which stopped being true once DOC021 and DOC022 were reserved
+    (docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md)
+    without being raised. Comparing sets rather than upper bounds catches that
+    gap; comparing only the maximum would not.
 
-    Guard A cannot catch either. The `[[retired]]` declaration guards the stale
-    *wording*, so a document that states a range which is merely behind the
-    code, in fresh wording, passes it. This comparison is the only check on the
+    Guard A (`[[retired]]`) cannot catch either drift: it guards stale
+    *wording*, so a document that states a list merely behind the code, in
+    fresh wording, passes it. This comparison is the only check on the
     authoritative statement itself.
     """
-    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    catalogue = (
+        REPO_ROOT / "docs" / "architecture" / "documentation-tooling.md"
+    ).read_text(encoding="utf-8")
     sources = [
         path.read_text(encoding="utf-8")
         for path in sorted((REPO_ROOT / "scripts" / "docsync").glob("*.py"))
     ]
 
-    assert _ranges_agree(agents, sources) is True
+    assert _catalogue_matches_raised_codes(catalogue, sources) is True
 
 
-def test_stated_range_helper_rejects_a_stale_range():
+def test_stated_catalogue_helper_rejects_a_mismatched_list():
     """Show the comparison above can fail, so it is not a vacuous assertion.
 
-    Two failure modes, both asserted through the same predicate the corpus test
-    uses. The first is the drift that happened: a document still stating the
-    retired range while the package raises `DOC012`. The second is the case this
-    guard exists for -- a `DOC013` added to the package while the authoritative
-    statement still ends at `DOC012` -- and it is asserted against the real
-    `AGENTS.md` text, so it fails for exactly the reason the next drift would.
-    Without these proofs the corpus test passes even if both helpers were
-    reduced to returning the same constant, which is the failure the
-    repository's test-quality rule forbids: an assertion whose failure mode was
-    never observed.
+    Two failure modes, both asserted through the same predicate the corpus
+    test uses, and both against the real catalogue sentence in
+    `documentation-tooling.md` (mutated in place) rather than a synthetic
+    fixture, so the proof exercises the same parsing the corpus test relies
+    on. Without these proofs the corpus test would pass even if both helpers
+    were reduced to returning the same constant, which is the failure the
+    repository's test-quality rule forbids: an assertion whose failure mode
+    was never observed.
     """
-    # The retired range is assembled at runtime rather than written as a
-    # literal. This fixture is the document-shaped claim that guard A's
-    # declaration retires, and it sits outside that declaration's `scan` list
-    # only because the list names no Python file: widening `scan` to include
-    # this module would otherwise make guard A fail on the fixture that proves
-    # it works.
-    retired_range = "DOC001-DOC" + "011"
-    stale_document = (
-        f"which returns typed {retired_range} issues that block rather than warn."
-    )
-    current_source = ['issues.append(_issue("DOC012", rel_path, line, "x"))']
-    assert _ranges_agree(stale_document, current_source) is False
-
-    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    future_source = [
-        'issues.append(_issue("DOC012", rel_path, line, "x"))',
-        'issues.append(_issue("DOC013", rel_path, line, "x"))',
+    catalogue = (
+        REPO_ROOT / "docs" / "architecture" / "documentation-tooling.md"
+    ).read_text(encoding="utf-8")
+    sources = [
+        path.read_text(encoding="utf-8")
+        for path in sorted((REPO_ROOT / "scripts" / "docsync").glob("*.py"))
     ]
-    assert _ranges_agree(agents, future_source) is False
+
+    # (a) a code raised but not listed: drop DOC024 from the stated list while
+    # `scripts/docsync/archives.py` still raises it.
+    dropped_doc024 = catalogue.replace(
+        "DOC001`-`DOC020`, `DOC023` and `DOC024", "DOC001`-`DOC020` and `DOC023"
+    )
+    assert dropped_doc024 != catalogue, "fixture no longer matches the real sentence"
+    assert _catalogue_matches_raised_codes(dropped_doc024, sources) is False
+
+    # (b) a code listed but not raised: add DOC021 to the stated list. It is
+    # reserved by the spec-guards plan above but no source raises it yet.
+    added_doc021 = catalogue.replace(
+        "DOC001`-`DOC020`, `DOC023` and `DOC024",
+        "DOC001`-`DOC021`, `DOC023` and `DOC024",
+    )
+    assert added_doc021 != catalogue, "fixture no longer matches the real sentence"
+    assert _catalogue_matches_raised_codes(added_doc021, sources) is False
 
 
 # ---------------------------------------------------------------------------

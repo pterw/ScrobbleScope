@@ -281,7 +281,7 @@ the system clock: it happens only under an explicit `--cold-storage --as-of
 <ISO date>`, because a check that aged files using today's date would make the
 same commit produce different results on different days.
 
-The full module-by-module treatment, the DOC001-DOC023 diagnostic catalogue,
+The full module-by-module treatment, the DOC diagnostic catalogue,
 and the commit-preflight and hook-installer design live in
 `docs/architecture/documentation-tooling.md`. That file is the owner; this
 section is the methodology narrative around it and deliberately does not

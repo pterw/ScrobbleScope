@@ -38,6 +38,34 @@ None open. The four P0 items open until 2026-09-23 were fixed before PR #238 dep
 
 - [ ] **Status:** open (P1). Source: Batch 23 WP-0 definition amendment and triage D, 2026-09-23.
 
+### F-DOCSYNC-16: a `[[retired]]` `allow_after` marker for PLAYBOOK.md does not match its real heading
+
+`check_retired` (`scripts/docsync/declarations.py`) compares a raw file line
+against a declared `allow_after` marker with `line.strip() == marker.strip()`
+-- exact equality, no prefix match. The three `[[retired]]` declarations in
+`.docsync.toml` that predate this finding all declare
+`[retired.allow_after] "PLAYBOOK.md" = "## 4. Execution log"`, but the real
+`PLAYBOOK.md` heading is `## 4. Execution log (for agent handoff)`. Reproduced
+directly against `check_retired` with the real heading text: a claim placed
+below the heading is still reported, not exempted (confirmed 2026-09-24,
+Task 5's live probe for the new fourth declaration this task adds).
+
+**Impact today is latent, not live.** No dated Section 4 entry currently
+restates `limit_results ... thresholds disclosure`, `fonts self-hosted under
+static/fonts/` or a bare `DOC001-DOC011`, so `--check` on the real corpus has
+never actually exercised the mismatch. It would surface as a false-positive
+DOC011 the day a dated entry legitimately quotes one of those retired phrases
+as history. This task's own fourth `[[retired]]` declaration, added in the
+same commit, uses the correct, full heading text instead, so it does not
+inherit the gap.
+
+**Fix shape, not yet built:** either correct the three existing markers to the
+real heading text, or make the comparison match on a heading prefix (`##
+4. Execution log`) so trailing human-readable suffix text cannot desync it.
+
+- [ ] **Status:** open (P1). Source: Batch 23 WP-0 foundation Task 5 live
+  probe, 2026-09-24.
+
 ### F-DOCSYNC-13: the test count is parsed from prose when it could be measured
 
 `--fix` cannot publish a measured test count, and `--check` refuses a
@@ -930,8 +958,14 @@ Fix shape (owner ruling, 2026-09-13): extend docsync rather than add a tool.
 - AGENT_NOTES.md "This repository is also a template being extracted" gains a
   line naming diagrams as a third declared surface beside values and anchors.
 
-Note (2026-09-19): DOC013 is taken (docsync finding-lifecycle codes); a new
-invariant for this finding starts at DOC023, not DOC013.
+Note (2026-09-19): DOC013 is taken (docsync finding-lifecycle codes).
+
+Note (2026-09-24): DOC023 is also taken (docsync finding-lifecycle
+grandfathered-finding count, `scripts/docsync/findings.py`). A new invariant
+for this finding starts at the next free code named in
+`docs/architecture/documentation-tooling.md`'s catalogue; DOC021 and DOC022
+are reserved by
+`docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`.
 
 Status: open (P2). Not scheduled; it belongs with docsync work, not with
 Batch 21. Source: architecture review, 2026-09-13.

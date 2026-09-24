@@ -141,11 +141,11 @@ find where to pick up from PLAYBOOK, SESSION_CONTEXT, and what the gate
 currently reports, without depending on continuity from whatever session
 came before it.
 
-## The DOC001-DOC024 catalogue
+## The DOC code catalogue
 
 **`doc_state_sync.py --check` is the document-integrity gate, and it
-blocks.** It returns typed `DOC001`-`DOC024` issues and exits 1 on any
-error-severity one; a warning -- `DOC024`, and `DOC023`'s
+blocks.** It returns typed `DOC001`-`DOC020`, `DOC023` and `DOC024` issues
+and exits 1 on any error-severity one; a warning -- `DOC024`, and `DOC023`'s
 grandfathered-finding count -- prints and leaves the exit code alone. In
 practice the codes that bite most often are `DOC001` (a backticked path
 must resolve in `git ls-files`, so an ignored or untracked document cannot

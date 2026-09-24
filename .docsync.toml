@@ -674,6 +674,37 @@ allow_files = ["docs/history/*", "docs/logarchive/*", "CLAUDE.md"]
 [retired.allow_after]
 "PLAYBOOK.md" = "## 4. Execution log"
 
+# Task 5 (2026-09-24) retired the range itself, not just its upper bound: the
+# catalogue's explicit list -- "DOC001-DOC020, DOC023 and DOC024" -- has a gap
+# (DOC021 and DOC022 are reserved by docs/superpowers/plans/
+# 2026-09-12-repository-agnostic-plan-spec-guards.md but not yet raised), so a
+# contiguous "DOC001-DOC023" or "DOC001-DOC024" is false on arrival, the same
+# way the old DOC001-DOC0NN range went stale, and no later renumbering can
+# make either true again. The explicit list never contains either substring
+# (it names "DOC001-DOC020" as its own span, separately from "DOC023" and
+# "DOC024"), so this declaration needs no verb-prefix guard like its DOC011
+# sibling above: the pattern matches the bare literal in either spelling that
+# has shipped -- contiguous `DOC001-DOC023` and backtick-split
+# `DOC001`-`DOC024` -- while leaving the valid `DOC001-DOC020` span alone.
+# docs/superpowers/plans/ is allowed because that plan cites DOC001-DOC022 as
+# a future target for its own Tasks 5-6, not a claim about what the package
+# raises today.
+[[retired]]
+name = "the docsync range is DOC001-DOC023 or DOC001-DOC024"
+reason = "The catalogue states no contiguous range; DOC021/DOC022 are reserved, not raised."
+pattern = '`?DOC001`?-`?DOC02[34]`?'
+scan = ["*.md", "docs/**/*.md", ".claude/SESSION_CONTEXT.md"]
+allow_files = ["docs/history/*", "docs/logarchive/*", "docs/superpowers/*", "CLAUDE.md"]
+
+# The exemption compares the raw line verbatim (declarations.py check_retired),
+# so it needs PLAYBOOK.md's real heading text, not the truncated "## 4.
+# Execution log" the three sibling declarations above declare -- filed as
+# F-DOCSYNC-16, since that mismatch leaves their own Section 4 exemption
+# non-functional against the live document, undetected only because no dated
+# entry has yet restated one of their three retired phrases.
+[retired.allow_after]
+"PLAYBOOK.md" = "## 4. Execution log (for agent handoff)"
+
 # ----------------------------------------------------------------------
 # Findings
 # ----------------------------------------------------------------------
