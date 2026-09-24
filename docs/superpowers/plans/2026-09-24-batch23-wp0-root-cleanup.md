@@ -261,7 +261,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
   `findings.ACTIVE_PATH` (unchanged), `declarations._TOP_LEVEL_SCHEMA` (gains a `"documents"`
   key).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
   In `tests/test_docsync_declarations.py`, add:
 
@@ -350,7 +350,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
       )
   ```
 
-- [ ] **Step 2: Run the new tests to verify they fail**
+- [x] **Step 2: Run the new tests to verify they fail**
 
   ```
   .venv/bin/python -m pytest tests/test_docsync_declarations.py::TestDocumentsConfig tests/test_docsync_integrity.py -k resolved_live_document_paths -v
@@ -359,7 +359,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
   `resolved_live_document_paths` and the `document_paths`/`playbook_relative_path` kwargs do
   not exist yet.
 
-- [ ] **Step 3: Implement `DocumentsConfig` in `declarations.py`**
+- [x] **Step 3: Implement `DocumentsConfig` in `declarations.py`**
 
   Add near `_TOP_LEVEL_SCHEMA` (extend the dict with a `"documents"` entry whose `"optional"`
   keys are the four field names, each typed `str`), then, following the exact shape of
@@ -447,7 +447,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
   `*, config_path: Path | None = None` kwarg, each passing it straight through to
   `load_declarations`.
 
-- [ ] **Step 4: Implement `resolved_live_document_paths` in `integrity.py`**
+- [x] **Step 4: Implement `resolved_live_document_paths` in `integrity.py`**
 
   Add next to `LIVE_DOCUMENT_RELATIVE_PATHS` (which stays exactly as it is):
 
@@ -473,7 +473,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
   `load_closeout_config`/`load_findings_config` from that module, so add `DocumentsConfig` to
   the same import line.)
 
-- [ ] **Step 5: Give `collect_integrity_issues` its three optional kwargs**
+- [x] **Step 5: Give `collect_integrity_issues` its three optional kwargs**
 
   Add to the signature, each defaulting to today's literal:
 
@@ -509,7 +509,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
   of a diagnostic, never which document is scanned or whether a check fires. Task 8 threads
   the declared path into them (owner ruling, 2026-09-24).
 
-- [ ] **Step 6: Run the tests to verify they pass**
+- [x] **Step 6: Run the tests to verify they pass**
 
   ```
   .venv/bin/python -m pytest tests/test_docsync_declarations.py tests/test_docsync_integrity.py tests/test_docsync_cli.py -v
@@ -518,7 +518,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
   `tests/test_docsync_cli.py`, unmodified -- they compare the bare default tuples to each
   other, which this task never changes.
 
-- [ ] **Step 7: Full gates and live probe**
+- [x] **Step 7: Full gates and live probe**
 
   `pytest -q`; `pre-commit run --all-files` will refuse the commit at the preflight (this task
   touches `scripts/docsync/`); run `doc_state_sync.py --check` directly first to confirm exit
@@ -537,7 +537,7 @@ in `tests/test_docsync_*.py` and `tests/scripts/dev/test_worktree_guard_*.py` pa
     `--check` prints the same summary as the unmodified corpus and exits 0.
   Task 6 Step 10 proves the path-honouring half once the CLI consumes the table.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
   ```bash
   doc_state_sync.py --check   # confirm exit 0 first

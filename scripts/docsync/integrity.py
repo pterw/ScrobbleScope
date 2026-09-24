@@ -10,6 +10,7 @@ from pathlib import Path
 from docsync import findings as findings_module
 from docsync.closeout import ARCHIVED_DEFINITIONS_DIR, collect_definition_issues
 from docsync.declarations import (
+    DocumentsConfig,
     collect_declaration_issues,
     load_closeout_config,
     load_findings_config,
@@ -123,6 +124,24 @@ LIVE_DOCUMENT_RELATIVE_PATHS: tuple[str, ...] = (
     "PLAYBOOK.md",
     findings_module.ACTIVE_PATH,
 )
+
+
+def resolved_live_document_paths(documents: DocumentsConfig) -> tuple[str, ...]:
+    """Return the five live-document paths this repository currently declares.
+
+    Mirrors LIVE_DOCUMENT_RELATIVE_PATHS's shape and order, but reads AGENT_NOTES.md,
+    HANDOFF_PROMPT.md, PLAYBOOK.md and FINDINGS.md's locations from `documents` instead of
+    restating them. AGENTS.md is not a `documents` field: it never moves.
+    """
+    return (
+        "AGENTS.md",
+        documents.handoff_prompt,
+        documents.agent_notes,
+        documents.playbook,
+        documents.findings,
+    )
+
+
 SESSION_CONTEXT_RELATIVE_PATH = ".claude/SESSION_CONTEXT.md"
 _TRACKED_PATH_DISCOVERY_ERROR = "Repository tracked-file discovery failed"
 
@@ -916,6 +935,9 @@ def collect_integrity_issues(
     expected_session_lines: list[str] | None,
     tracked_paths: frozenset[str],
     batch_log_lines: Mapping[int, list[str]] | None = None,
+    document_paths: tuple[str, ...] = LIVE_DOCUMENT_RELATIVE_PATHS,
+    playbook_relative_path: str = "PLAYBOOK.md",
+    findings_relative_path: str = findings_module.ACTIVE_PATH,
 ) -> list[IntegrityIssue]:
     """Return deterministic live-document integrity issues."""
     issues: list[IntegrityIssue] = []
@@ -952,7 +974,7 @@ def collect_integrity_issues(
                 )
             )
 
-    documents_to_scan = set(LIVE_DOCUMENT_RELATIVE_PATHS)
+    documents_to_scan = set(document_paths)
     if definition_path is not None:
         documents_to_scan.add(definition_path)
     if session_lines is not None:
@@ -967,12 +989,12 @@ def collect_integrity_issues(
             continue
         scan_lines = (
             _playbook_lines_without_entry_blocks(playbook_lines)
-            if path == "PLAYBOOK.md"
+            if path == playbook_relative_path
             else lines
         )
         for line, reference in _concrete_references(scan_lines):
             if (
-                path == "PLAYBOOK.md"
+                path == playbook_relative_path
                 and line == definition_line
                 and reference == definition_path
             ):
@@ -1134,7 +1156,7 @@ def collect_integrity_issues(
             issues.append(session_section1_issue)
 
     findings_count_issue = _check_findings_header_count(
-        live_documents.get("FINDINGS.md"),
+        live_documents.get(findings_relative_path),
         latest_test_count_authority(playbook_lines, archive_lines, batch_log_lines),
     )
     if findings_count_issue is not None:
@@ -1157,7 +1179,7 @@ def collect_integrity_issues(
     # it, because what it checks is what an author wrote: a finding whose
     # prose says it is done while carrying no record for DOC013-DOC018 to
     # read. Absent from `live_documents` the check simply has nothing to say.
-    active_findings = live_documents.get(findings_module.ACTIVE_PATH)
+    active_findings = live_documents.get(findings_relative_path)
     if active_findings is not None:
         issues.extend(
             findings_module.collect_rot_issues(

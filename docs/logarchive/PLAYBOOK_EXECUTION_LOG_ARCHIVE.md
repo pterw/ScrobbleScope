@@ -9,6 +9,49 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - README and DEVELOPMENT.md catch up with the code
+
+Side task, no batch tag: the owner found `README.md` and `DEVELOPMENT.md`
+stale and asked for the wordmark at the top of the README. Not WP-0 work.
+
+- **How.** Two read-only audits, one per file, checked every claim against
+  source; the controller verified each finding at source before fixing it.
+  The audits were light, so the controller also spot-checked what landed
+  since each file's last edit. An independent review approved the result;
+  its one wording fix (the `config.py` row claimed "every" tuning value) is
+  applied.
+- **README.md.** The heading is now the ScrobbleScope lockup, served
+  through `<picture>` so GitHub picks the light or dark variant, with the
+  proposition as a line below it: design rule 6 (`docs/design/README.md`)
+  puts the lockup, not the tagline mark, where the proposition is stated in
+  text, and the tagline ("your top albums by year") names only half the app.
+  The two variants, `docs/assets/scrobble_scope_lockup_light.svg` and
+  `..._dark.svg`, are generated from
+  `templates/inline/scrobble_scope_lockup_inline.svg` with the
+  `text-strong` and `color-primary` tokens of each theme baked in, since
+  GitHub applies none of the site's CSS; each says so in a comment. Also:
+  the module table gains `api_logging.py` and `config.py` and `domain.py`'s
+  row names the release-window rule; the tuning-variable sentence names the
+  concurrency limits and the active-job cap; the DEPLOY.md pointer no longer
+  promises a validation checklist that file does not have; and "What shipped
+  most recently" adds the identifiable User-Agent and provider-call logging,
+  both on `main` since PR #241.
+- **DEVELOPMENT.md.** `_LIVE_DOCUMENT_PATHS` (two sites) is
+  `LIVE_DOCUMENT_RELATIVE_PATHS` since the rename, and `AGENT_NOTES.md`
+  carried the same stale name, fixed too; the worktree guard has six
+  modules, not seven; the pre-commit section names the hook's real entry
+  point, `scripts/dev/docsync_preflight.py --worktree`.
+- **Deviations:** the first cut of the SVGs was invalid XML (a `--` inside
+  a comment) and two of the controller's own README claims failed
+  verification (that `config.py` holds every environment variable, and
+  that no log line carries a name -- `musicbrainz.py`'s retry label does,
+  an open handoff item); all three are fixed before this commit. The
+  wordmark was checked by rendering both variants as standalone images on
+  GitHub's light and dark backgrounds; the frontend gate does not apply (no
+  `static/` or `templates/` change).
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - The root-cleanup plan is revised and its open points ruled
 
 Side task, no batch tag: revising the root-cleanup plan, part of Batch 23

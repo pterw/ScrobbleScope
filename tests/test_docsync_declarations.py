@@ -32,6 +32,49 @@ from docsync.declarations import (
 )
 from docsync.models import SyncError
 
+# ---------------------------------------------------------------------------
+# [documents] -- where docsync's own live documents live (Batch 23 WP-0 Task 2)
+# ---------------------------------------------------------------------------
+
+
+class TestDocumentsConfig:
+    def test_absent_table_returns_todays_literal_defaults(self, tmp_path: Path):
+        from docsync.declarations import DocumentsConfig, load_documents_config
+
+        assert load_documents_config(tmp_path) == DocumentsConfig()
+        assert DocumentsConfig().playbook == "PLAYBOOK.md"
+        assert DocumentsConfig().findings == "FINDINGS.md"
+        assert DocumentsConfig().agent_notes == "AGENT_NOTES.md"
+        assert DocumentsConfig().handoff_prompt == "HANDOFF_PROMPT.md"
+
+    def test_declared_table_overrides_one_field(self, tmp_path: Path):
+        from docsync.declarations import load_documents_config
+
+        (tmp_path / ".docsync.toml").write_text(
+            '[documents]\nplaybook = "docs/agents/PLAYBOOK.md"\n', encoding="utf-8"
+        )
+        documents = load_documents_config(tmp_path)
+        assert documents.playbook == "docs/agents/PLAYBOOK.md"
+        assert documents.findings == "FINDINGS.md"  # untouched field keeps its default
+
+    def test_unknown_key_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_documents_config
+
+        (tmp_path / ".docsync.toml").write_text(
+            '[documents]\nnotebook = "x.md"\n', encoding="utf-8"
+        )
+        with pytest.raises(DeclarationError, match="unknown key 'notebook'"):
+            load_documents_config(tmp_path)
+
+    def test_non_string_value_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_documents_config
+
+        (tmp_path / ".docsync.toml").write_text(
+            "[documents]\nplaybook = 1\n", encoding="utf-8"
+        )
+        with pytest.raises(DeclarationError, match="not a string"):
+            load_documents_config(tmp_path)
+
 
 def _repo(tmp_path: Path, files: dict[str, str]) -> Path:
     """Write a throwaway repository and return its root."""

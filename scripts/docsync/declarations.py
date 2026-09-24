@@ -225,6 +225,15 @@ _TOP_LEVEL_SCHEMA: dict[str, dict[str, dict[str, object]]] = {
     "archives": {"required": {"max_lines": int, "cold_days": int}, "optional": {}},
     "closeout": {"required": {"admit_from_batch": int}, "optional": {}},
     "findings": {"required": {"grandfathered": list}, "optional": {}},
+    "documents": {
+        "required": {},
+        "optional": {
+            "playbook": str,
+            "findings": str,
+            "agent_notes": str,
+            "handoff_prompt": str,
+        },
+    },
 }
 
 
@@ -394,9 +403,11 @@ def _archive_config(declarations: Mapping) -> ArchiveConfig:
     return _validate_archives(declarations["archives"])
 
 
-def load_archive_config(repo_root: Path) -> ArchiveConfig:
+def load_archive_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> ArchiveConfig:
     """Read the repository's archive thresholds, defaults included."""
-    return _archive_config(load_declarations(repo_root))
+    return _archive_config(load_declarations(repo_root, config_path=config_path))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -458,9 +469,11 @@ def _closeout_config(declarations: Mapping) -> CloseoutConfig:
     return _validate_closeout(declarations["closeout"])
 
 
-def load_closeout_config(repo_root: Path) -> CloseoutConfig:
+def load_closeout_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> CloseoutConfig:
     """Read the repository's close-out admission boundary."""
-    return _closeout_config(load_declarations(repo_root))
+    return _closeout_config(load_declarations(repo_root, config_path=config_path))
 
 
 @dataclasses.dataclass(frozen=True)
@@ -524,9 +537,63 @@ def _findings_config(declarations: Mapping) -> FindingsConfig:
     return _validate_findings(declarations["findings"])
 
 
-def load_findings_config(repo_root: Path) -> FindingsConfig:
+def load_findings_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> FindingsConfig:
     """Read the repository's grandfathered finding ids."""
-    return _findings_config(load_declarations(repo_root))
+    return _findings_config(load_declarations(repo_root, config_path=config_path))
+
+
+@dataclasses.dataclass(frozen=True)
+class DocumentsConfig:
+    """Where docsync's own live documents live, from [documents] or defaults.
+
+    The defaults are docsync's generic vocabulary -- true for any repository that adopts
+    the tool unmodified (AGENT_NOTES.md "This repository is also a template being
+    extracted"). This repository overrides every field in its own declarations file,
+    once the four documents move under docs/agents/.
+    """
+
+    playbook: str = "PLAYBOOK.md"
+    findings: str = "FINDINGS.md"
+    agent_notes: str = "AGENT_NOTES.md"
+    handoff_prompt: str = "HANDOFF_PROMPT.md"
+
+
+def _validate_documents(documents: object) -> DocumentsConfig:
+    """Check a declared [documents] table and return the resolved paths."""
+    if not isinstance(documents, Mapping):
+        raise DeclarationError(
+            f"[documents] is {type(documents).__name__}, not a table."
+        )
+    schema = _TOP_LEVEL_SCHEMA["documents"]["optional"]
+    kwargs: dict[str, str] = {}
+    for key, value in documents.items():
+        if key not in schema:
+            raise DeclarationError(
+                f"[documents] has an unknown key {key!r}. Known keys: "
+                f"{', '.join(sorted(schema))}."
+            )
+        if not isinstance(value, str) or not value:
+            raise DeclarationError(
+                f"[documents] gives {key!r} as {type(value).__name__}, not a string."
+            )
+        kwargs[key] = value
+    return DocumentsConfig(**kwargs)
+
+
+def _documents_config(declarations: Mapping) -> DocumentsConfig:
+    """Return the document paths for an already-read declarations file."""
+    if "documents" not in declarations:
+        return DocumentsConfig()
+    return _validate_documents(declarations["documents"])
+
+
+def load_documents_config(
+    repo_root: Path, *, config_path: Path | None = None
+) -> DocumentsConfig:
+    """Read the repository's document paths, defaults included."""
+    return _documents_config(load_declarations(repo_root, config_path=config_path))
 
 
 def _issue(
@@ -543,13 +610,13 @@ def _issue(
     )
 
 
-def load_declarations(repo_root: Path) -> dict:
+def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> dict:
     """Read the declarations file, or return nothing if there is none.
 
     A repository with no declarations is not an error. That is the state every
     repository starts in, and the checks simply have nothing to say.
     """
-    path = repo_root / DECLARATIONS_FILENAME
+    path = config_path if config_path is not None else repo_root / DECLARATIONS_FILENAME
     if not path.is_file():
         return {}
     try:
@@ -1237,6 +1304,7 @@ def collect_declaration_issues(
     # that happens to consume the thresholds.
     _archive_config(declarations)
     _closeout_config(declarations)
+    _documents_config(declarations)
 
     # Validate the outer collections before a collector tries to iterate one.
     # Per-declaration validation starts inside that iteration, so it cannot

@@ -1926,3 +1926,78 @@ def test_doc023_honours_the_repositorys_grandfather_list(tmp_path: Path):
 
     assert [issue.severity for issue in rot] == ["warning"]
     assert rot[0].remediation.startswith("1 grandfathered")
+
+
+# ---------------------------------------------------------------------------
+# [documents] -- resolved_live_document_paths (Batch 23 WP-0 Task 2)
+# ---------------------------------------------------------------------------
+
+
+def test_resolved_live_document_paths_matches_the_default_tuple_by_default():
+    from docsync.declarations import DocumentsConfig
+    from docsync.integrity import (
+        LIVE_DOCUMENT_RELATIVE_PATHS,
+        resolved_live_document_paths,
+    )
+
+    assert (
+        resolved_live_document_paths(DocumentsConfig()) == LIVE_DOCUMENT_RELATIVE_PATHS
+    )
+
+
+def test_resolved_live_document_paths_honours_an_override():
+    from docsync.declarations import DocumentsConfig
+    from docsync.integrity import resolved_live_document_paths
+
+    documents = DocumentsConfig(playbook="docs/agents/PLAYBOOK.md")
+    resolved = resolved_live_document_paths(documents)
+    assert "docs/agents/PLAYBOOK.md" in resolved
+    assert "PLAYBOOK.md" not in resolved
+
+
+def test_collect_integrity_issues_scans_under_an_overridden_playbook_path(
+    tmp_path: Path,
+):
+    """DOC001 must scan the document docsync is told to scan, not the default name,
+    or a moved document silently drops out of the scan (a wrong green).
+
+    Deviation from the brief's literal snippet (sdd-implementer precedence
+    rule "brief and reality disagree"): `collect_integrity_issues` scans the
+    document named `playbook_relative_path` from the *structural*
+    `playbook_lines` argument via `_playbook_lines_without_entry_blocks`
+    (`scripts/docsync/integrity.py`), which itself requires `playbook_lines`
+    to carry real "## 3. Active batch" and "## 4. Execution log" headings
+    (`_find_section`, `scripts/docsync/parser.py`) or it raises `SyncError`
+    -- a pre-existing requirement this task's kwargs do not change and Task 8
+    is the one that threads the declared path further in. The brief's bare
+    one-line `playbook_lines` triggers that unrelated `SyncError` rather than
+    proving the DOC001 rescan; this version gives `playbook_lines` the
+    minimal real structure so the same assertion exercises the actual
+    kwarg-driven behaviour. `repo_root=Path(".")` is likewise replaced with
+    `tmp_path` (no `.docsync.toml` there) so this unit test does not depend
+    on this repository's own declarations file.
+    """
+    from docsync.integrity import collect_integrity_issues
+
+    playbook_lines = [
+        "## 3. Active batch",
+        "",
+        "## 4. Execution log",
+        "",
+        "See `NOWHERE.md` for detail.",
+    ]
+    issues = collect_integrity_issues(
+        repo_root=tmp_path,
+        live_documents={"docs/agents/PLAYBOOK.md": playbook_lines},
+        playbook_lines=playbook_lines,
+        archive_lines=[],
+        session_lines=None,
+        expected_session_lines=None,
+        tracked_paths=frozenset({"AGENTS.md"}),
+        document_paths=("docs/agents/PLAYBOOK.md",),
+        playbook_relative_path="docs/agents/PLAYBOOK.md",
+    )
+    assert any(
+        issue.code == "DOC001" and issue.path == "docs/agents/PLAYBOOK.md"
+        for issue in issues
+    )

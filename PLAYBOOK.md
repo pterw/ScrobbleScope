@@ -229,7 +229,12 @@ See FINDINGS F-DOCSYNC-3.
      `docs/architecture/runtime-system.md`, and `docs/ARCHITECTURE.md`'s
      "Last verified" date moved to 2026-09-24) is done, 2026-09-24. Next is the root-cleanup plan,
      `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, approved
-     2026-09-24: Task 0 (`main` merged in) and Task 1 are done; Tasks 2-8 remain.
+     2026-09-24: Task 0 (`main` merged in) and Task 1 are done; Task 2 (a
+     declared `[documents]` table, `DocumentsConfig`, and
+     `resolved_live_document_paths`/`collect_integrity_issues`'s new
+     `document_paths`/`playbook_relative_path`/`findings_relative_path`
+     kwargs, every default still today's literal) is done, 2026-09-24;
+     Tasks 3-8 remain.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -437,6 +442,74 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - A declared [documents] table for docsync's own live documents
+
+Side task, no batch tag: Task 2 of the root-cleanup plan, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope.** Task 2 of the root-cleanup plan
+  (`docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`):
+  `declarations.DocumentsConfig` (fields `playbook`, `findings`,
+  `agent_notes`, `handoff_prompt`, each defaulting to today's literal) and
+  `declarations.load_documents_config` read an optional `[documents]` table
+  from `.docsync.toml`, refusing an unknown key or a non-string value.
+  `integrity.resolved_live_document_paths(documents)` mirrors
+  `LIVE_DOCUMENT_RELATIVE_PATHS`'s shape and order from a `DocumentsConfig`.
+  `collect_integrity_issues` gains three optional kwargs --
+  `document_paths`, `playbook_relative_path`, `findings_relative_path` --
+  each defaulting to today's literal, so DOC001's scan set and the two
+  `path == "PLAYBOOK.md"` comparisons and the two `FINDINGS.md` lookups
+  (the header-count and DOC023 checks) can be pointed at a declared path.
+  No file moves in this task: every default stays today's literal, and the
+  fourteen `PLAYBOOK.md`/twelve `FINDINGS.md` diagnostic path labels are
+  left unchanged (Task 8 threads the declared path into them, owner ruling
+  2026-09-24). `load_declarations`/`load_archive_config`/
+  `load_closeout_config`/`load_findings_config` gained a `config_path`
+  keyword so a caller can point at a throwaway `.docsync.toml` directly.
+- **TDD.** `tests/test_docsync_declarations.py::TestDocumentsConfig` (4
+  tests) and three new tests in `tests/test_docsync_integrity.py` were
+  written first and confirmed RED (`ImportError`/`TypeError` -- see the
+  report). One deviation from the brief's literal third integrity test:
+  `collect_integrity_issues` scans the document named
+  `playbook_relative_path` from the *structural* `playbook_lines` argument
+  via `_playbook_lines_without_entry_blocks` (`scripts/docsync/integrity.py`),
+  which requires `playbook_lines` to carry real `## 3. Active batch` and
+  `## 4. Execution log` headings (`_find_section`,
+  `scripts/docsync/parser.py`) or it raises `SyncError` uncaught -- a
+  pre-existing requirement this task's kwargs do not touch. The brief's
+  bare one-line `playbook_lines` hits that unrelated `SyncError` instead of
+  proving the DOC001 rescan, so the test gives `playbook_lines` the
+  minimal real structure instead (same assertion, `repo_root=tmp_path`
+  in place of `Path(".")` so the test does not depend on this
+  repository's own `.docsync.toml`). Recorded here rather than left as a
+  silent difference from the brief's pasted code block.
+- **Live probe** (throwaway corpora under this session's scratchpad,
+  `git init` + `git add -A` + commit in each so `git ls-files` resolves;
+  `git archive <sha>` for the pre-task state, `git archive $(git stash
+  create)` for this task's tree, per Lesson L9):
+  - Baseline (BASE `e48d08e`, `[documents]` appended to `.docsync.toml`):
+    `python scripts/doc_state_sync.py --check` -> exit 2,
+    `doc_state_sync failed: .docsync.toml has an unknown table
+    'documents'. Known tables: anchor, archives, closeout, findings,
+    options, retired, value.`
+  - Red (this task's tree, `[documents]\nnotebook = "x.md"` appended):
+    `python scripts/doc_state_sync.py --check` -> exit 2,
+    `doc_state_sync failed: [documents] has an unknown key 'notebook'.
+    Known keys: agent_notes, findings, handoff_prompt, playbook.`
+  - Near-miss green (reset, then `[documents]\nplaybook = "PLAYBOOK.md"`
+    appended): `python scripts/doc_state_sync.py --check` -> exit 0, the
+    same summary line as the unmodified corpus's own `--check`.
+- **Validation:** `pytest -q` -- **1840 passed** (+7: `TestDocumentsConfig`'s
+  4 tests and 3 new tests in `tests/test_docsync_integrity.py`; module count
+  unchanged at 68). `ruff check`/`ruff format` auto-fixed one lint issue and
+  reformatted two files on the first `pre-commit run --all-files`; the
+  second run passed every hook clean, worktree-alignment printing only
+  `WARNING WT010` (dirty tree) and `INFO WT000` (R6). `doc_state_sync.py
+  --check` exited 0 with the standing DOC024 warnings (L7); this task
+  touches `scripts/docsync/`, so the commit uses `SKIP=doc-state-sync-check`
+  (R7), never `--no-verify`.
+
 ### 2026-09-24 - The handoff stops calling the approved plan a draft
 
 Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 1,
@@ -519,48 +592,5 @@ lands.
 - **Deviations:** Task 0 Step 3 says to append its sentence to item 3. Item
   3's last sentence said the plan awaited approval, so that sentence is
   replaced rather than left to contradict the new one.
-
-Validation: `pytest -q` -- **1833 passed**.
-
-### 2026-09-24 - README and DEVELOPMENT.md catch up with the code
-
-Side task, no batch tag: the owner found `README.md` and `DEVELOPMENT.md`
-stale and asked for the wordmark at the top of the README. Not WP-0 work.
-
-- **How.** Two read-only audits, one per file, checked every claim against
-  source; the controller verified each finding at source before fixing it.
-  The audits were light, so the controller also spot-checked what landed
-  since each file's last edit. An independent review approved the result;
-  its one wording fix (the `config.py` row claimed "every" tuning value) is
-  applied.
-- **README.md.** The heading is now the ScrobbleScope lockup, served
-  through `<picture>` so GitHub picks the light or dark variant, with the
-  proposition as a line below it: design rule 6 (`docs/design/README.md`)
-  puts the lockup, not the tagline mark, where the proposition is stated in
-  text, and the tagline ("your top albums by year") names only half the app.
-  The two variants, `docs/assets/scrobble_scope_lockup_light.svg` and
-  `..._dark.svg`, are generated from
-  `templates/inline/scrobble_scope_lockup_inline.svg` with the
-  `text-strong` and `color-primary` tokens of each theme baked in, since
-  GitHub applies none of the site's CSS; each says so in a comment. Also:
-  the module table gains `api_logging.py` and `config.py` and `domain.py`'s
-  row names the release-window rule; the tuning-variable sentence names the
-  concurrency limits and the active-job cap; the DEPLOY.md pointer no longer
-  promises a validation checklist that file does not have; and "What shipped
-  most recently" adds the identifiable User-Agent and provider-call logging,
-  both on `main` since PR #241.
-- **DEVELOPMENT.md.** `_LIVE_DOCUMENT_PATHS` (two sites) is
-  `LIVE_DOCUMENT_RELATIVE_PATHS` since the rename, and `AGENT_NOTES.md`
-  carried the same stale name, fixed too; the worktree guard has six
-  modules, not seven; the pre-commit section names the hook's real entry
-  point, `scripts/dev/docsync_preflight.py --worktree`.
-- **Deviations:** the first cut of the SVGs was invalid XML (a `--` inside
-  a comment) and two of the controller's own README claims failed
-  verification (that `config.py` holds every environment variable, and
-  that no log line carries a name -- `musicbrainz.py`'s retry label does,
-  an open handoff item); all three are fixed before this commit. The
-  wordmark was checked by rendering both variants as standalone images on
-  GitHub's light and dark backgrounds; the frontend gate does not apply (no
-  `static/` or `templates/` change).
 
 Validation: `pytest -q` -- **1833 passed**.
