@@ -140,7 +140,7 @@ with the documents. A normal merge commit: no rebase, no history rewrite.
   `.github/workflows/repo-assist.lock.yml`, `.github/aw/actions-lock.json`, `.gitattributes`,
   and a `.github/copilot-instructions.md` line byte-identical to this branch's
 
-- [ ] **Step 1: Confirm the conflict set before merging**
+- [x] **Step 1: Confirm the conflict set before merging**
 
   ```bash
   git fetch origin main
@@ -150,7 +150,7 @@ with the documents. A normal merge commit: no rebase, no history rewrite.
   listed as conflicted (verified at `151717d` and again at `85f47a0`). Any other conflicted
   path means `main` moved: stop and report it to the controller.
 
-- [ ] **Step 2: Merge and resolve**
+- [x] **Step 2: Merge and resolve**
 
   ```bash
   git merge --no-ff --no-commit origin/main
@@ -160,7 +160,7 @@ with the documents. A normal merge commit: no rebase, no history rewrite.
   changed inside any entry; then run `doc_state_sync.py --fix` and let it settle the rotation
   (Lesson L1). Never move an entry across the DOCSYNC markers by hand.
 
-- [ ] **Step 3: Section 4 entry, gates, commit**
+- [x] **Step 3: Section 4 entry, gates, commit**
 
   In PLAYBOOK Section 3's "Next action" order list, item 3, add after the root-cleanup
   sentences: "Its Task 0 (`origin/main` merged in, bringing PR #242) is done, YYYY-MM-DD."

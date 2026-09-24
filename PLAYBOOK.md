@@ -233,8 +233,8 @@ See FINDINGS F-DOCSYNC-3.
      its revisions applied (2026-09-24), and the owner ruled its open
      points the same day (the pre-commit exclude keeps `docs/agents/`
      checked; the `FINDINGS.md` labels join its Task 8; generated text names
-     no document path). It awaits the owner's approval before any of its
-     tasks run.
+     no document path). The owner approved it on 2026-09-24. Its Task 0
+     (`origin/main` merged in, bringing PR #242) is done, 2026-09-24.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -442,6 +442,43 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - main is merged in before the root cleanup
+
+Side task, no batch tag: Task 0 of the root-cleanup plan, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope.** A normal merge commit brings `origin/main` (`707eed6`, PR #242)
+  into this branch before any file moves, so the Repo Assist workflow and
+  its Section 4 entry move with the documents. Arrived cleanly:
+  `.github/workflows/repo-assist.md`, `.github/workflows/repo-assist.lock.yml`,
+  `.github/aw/actions-lock.json` and `.gitattributes`.
+  `.github/copilot-instructions.md` needed nothing: its one line was already
+  byte-identical on both sides.
+- **Conflicts.** `git merge-tree` named exactly the two files the plan
+  predicted, `PLAYBOOK.md` and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`. `main` changed only
+  Section 4 in both: it added the Repo Assist entry and rotated "The
+  release-check finish line names both corrections" into the archive. This
+  branch had already rotated that entry, byte-identical, so the archive
+  resolves to this branch's side. In Section 4 every entry from both sides
+  survives, text unchanged: the Repo Assist entry went in by commit time,
+  between "The root-cleanup plan is drafted and the handoff readied for a
+  cloud session" and "The architecture diagrams are re-verified against
+  source". `--fix` then rotated those last two into the archive, where each
+  appears once.
+- **Section 3.** Item 3 records the owner's approval ("follow active
+  plans", 2026-09-24) and Task 0 done. The plan's own status paragraph still
+  reads "awaiting review and owner approval" until Task 1 deletes it, as
+  that task specifies. Task 0's plan checkboxes are ticked, and
+  `docs/history/reports/HANDOFF_2026-09-24.md` section 5 item 5 now says
+  the plan is approved and Task 0 done.
+- **Deviations:** Task 0 Step 3 says to append its sentence to item 3. Item
+  3's last sentence said the plan awaited approval, so that sentence is
+  replaced rather than left to contradict the new one.
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - README and DEVELOPMENT.md catch up with the code
 
 Side task, no batch tag: the owner found `README.md` and `DEVELOPMENT.md`
@@ -571,36 +608,5 @@ session handoff, part of Batch 23 WP-0 Part B. Untagged by owner ruling
   traps (the owner's own changes appearing mid-task, the push permission
   workflow files need, and compiling gh-aw workflows).
 - **Deviations:** none. Docs only.
-
-Validation: `pytest -q` -- **1833 passed**.
-
-### 2026-09-24 - The architecture diagrams are re-verified against source
-
-Side task, no batch tag: walking every `docs/architecture/*.md` diagram
-against current source, part of Batch 23 WP-0 Part B. Untagged by owner
-ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Step 1:** `runtime-system.md` gained `api_logging.py` as a runtime node
-  (`Utils --> ApiLogging`), a sixth "Five things" bullet on the shared
-  `aiohttp.TraceConfig` trace hook and per-provider call summary (F-B23-6,
-  `433120c`/`e7e076b`/`5bfb997`), and its `config.py` importer count
-  corrected from ten to eleven: `routes/__init__.py`'s module-level
-  `MAX_ACTIVE_JOBS` import (landed at `e552956`, before this diagram's own
-  last edit, and missed until now) joins the list, and `app.py` is renamed
-  the twelfth (deferred-only) importer.
-- **Step 2:** `top-albums-sequence.md`, `heatmap-sequence.md`,
-  `development-cycle.md` and `documentation-tooling.md` needed no change.
-  Walked against `de8c2d8` (`domain.release_window`), `4cbb9b1` (release
-  checks run without the cache, guarded per use rather than skipped),
-  `e552956` (the capacity message), `82557fd` (the UTC year gate), the
-  logging commits above, the `_frontend_gate_*` slice split, `a25d187`
-  (the check manifest), `a87e6058` (ruff BLE gate on broad catches),
-  `c611f721` (`_validate_api_keys` in `create_app`) and `bd7ffef0` (the
-  `.githooks/` CRLF rule) -- each fact these four files already state
-  still matches current source.
-- **Step 3:** `docs/ARCHITECTURE.md`'s "Last verified" date moved from
-  2026-09-20 to 2026-09-24, after every file above was walked.
-
-No test changes; no count site changes (R3).
 
 Validation: `pytest -q` -- **1833 passed**.

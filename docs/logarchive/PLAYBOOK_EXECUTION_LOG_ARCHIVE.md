@@ -9,6 +9,110 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - Repo Assist runs daily, scoped to tests and dependency proposals
+
+Side task, no batch tag: adding the Repo Assist agentic workflow (gh-aw),
+requested by the owner 2026-09-24. It lands on its own branch from `main`
+(owner ruling, same day) so Batch 23 WP-0's branch stays clean; a scheduled
+workflow runs only from the default branch.
+
+- **What it is.** `.github/workflows/repo-assist.md` is the source and
+  `repo-assist.lock.yml` its compiled Actions workflow (gh-aw v0.89.21;
+  recompile with `gh aw compile repo-assist` after any edit, since the lock
+  records a hash of the source). It came from
+  `githubnext/agentics/workflows/repo-assist.md` (pinned by its `source:`
+  line). `.github/aw/actions-lock.json` pins the actions the lock uses, and
+  `.gitattributes` marks lock files as generated.
+- **Scoped to this repository by owner request.** The upstream template runs
+  ten tasks. Enabled here: Testing Improvements, pinned-dependency proposals,
+  maintaining its own draft PRs, and a monthly activity issue that also lists
+  GitHub `finding` issues whose record `FINDINGS.md` has already settled.
+  Disabled: issue labelling, triage and fixing (the 43 open issues are the
+  unmaintained `FINDINGS.md` mirror, and `FINDINGS.md` wins), coding,
+  documentation, performance and "take the repository forward" work, and
+  release preparation. Its prompt binds it to `AGENTS.md`: a Section 4 entry
+  in the same commit, the gates before any PR, no dependency change without
+  the owner's approval, no edits to batch files, `scripts/`, `docs/` or
+  `.github/`.
+- **Guardrails.** One draft PR per run and none while three are open;
+  `allowed-files` limits PRs to tests, the two requirements files and the
+  Section 4 documents; a change to a file gh-aw protects (its documented
+  list: package manifests, CI configuration, agent instruction files) is
+  opened with a review request rather than silently. The repository is public, so `min-integrity: approved`
+  lets it act only on content from the owner and collaborators or items
+  carrying its own `repo-assist` label. Network: PyPI and GitHub only.
+- **Secrets the owner sets** (repository secrets, never committed):
+  `CODEX_API_KEY` or `OPENAI_API_KEY` for the codex engine, and
+  `GH_AW_CI_TRIGGER_TOKEN`, a fine-grained PAT with Contents read and write,
+  so `test.yml` runs on its PRs (GitHub starts no workflow for a push made
+  with the built-in token). The workflow file's own comments say the same.
+- **Deviations:** the upstream `update-docs` workflow was added and then
+  dropped by owner ruling (it would open a documentation PR on every push to
+  `main`, against docsync's single-owner rules). `.github/skills/` from
+  `gh aw` stays untracked: skill definitions are not tracked here
+  (`AGENT_NOTES.md`). The prompt keeps the template's emoji disclosure lines
+  as the template wrote them; they only shape generated GitHub content, not
+  repository documents.
+
+Validation: `pytest -q` -- **1821 passed**; no test or application change.
+
+**Follow-up (2026-09-24).** The owner added one line to the top of
+`.github/copilot-instructions.md` and asked for it to be tracked with this
+change: GitHub's coding agents are to follow `AGENTS.md` and its bootstrap,
+not duplicate its rules, and use the existing Graphify guidance for
+architecture questions. Its one curly apostrophe became a straight one
+(`AGENTS.md` Markdown Authoring Rules: ASCII only); the file's older
+non-ASCII characters, in its Mermaid section, are untouched.
+Validation: `pytest -q` -- **1821 passed**; docs only.
+
+**Review fix round (2026-09-24).** A `/code-review` of this PR found four
+defects the workflow inherited from the upstream template; each was checked
+against the gh-aw docs and the compiled lock before fixing. (1) The prompt
+never gave `notes.json`'s exact shape, which the memory validation script
+enforces key by key, so a guessed file would be rejected: the prompt now
+gives the initial document and every entry's keys. (2) The validator failed
+on a missing `notes.json`, so a correct do-nothing run on a fresh memory
+branch would fail: a missing file is now valid. (3) Task 11 closes last
+month's activity issue, but `update-issue` allowed only the body: it now
+also allows the status. (4) The open-PR cap searched titles for
+`"[repo-assist]"`, which GitHub's search reads as plain words, so it also
+counted human PRs mentioning "repo assist": it now matches the literal
+title prefix, as the task-weighting step already did. Recompiled with
+`gh aw compile repo-assist --approve`, the approval covering the reviewed
+validation-script change.
+Validation: `pytest -q` -- **1821 passed**; no test or application change.
+
+### 2026-09-24 - The architecture diagrams are re-verified against source
+
+Side task, no batch tag: walking every `docs/architecture/*.md` diagram
+against current source, part of Batch 23 WP-0 Part B. Untagged by owner
+ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Step 1:** `runtime-system.md` gained `api_logging.py` as a runtime node
+  (`Utils --> ApiLogging`), a sixth "Five things" bullet on the shared
+  `aiohttp.TraceConfig` trace hook and per-provider call summary (F-B23-6,
+  `433120c`/`e7e076b`/`5bfb997`), and its `config.py` importer count
+  corrected from ten to eleven: `routes/__init__.py`'s module-level
+  `MAX_ACTIVE_JOBS` import (landed at `e552956`, before this diagram's own
+  last edit, and missed until now) joins the list, and `app.py` is renamed
+  the twelfth (deferred-only) importer.
+- **Step 2:** `top-albums-sequence.md`, `heatmap-sequence.md`,
+  `development-cycle.md` and `documentation-tooling.md` needed no change.
+  Walked against `de8c2d8` (`domain.release_window`), `4cbb9b1` (release
+  checks run without the cache, guarded per use rather than skipped),
+  `e552956` (the capacity message), `82557fd` (the UTC year gate), the
+  logging commits above, the `_frontend_gate_*` slice split, `a25d187`
+  (the check manifest), `a87e6058` (ruff BLE gate on broad catches),
+  `c611f721` (`_validate_api_keys` in `create_app`) and `bd7ffef0` (the
+  `.githooks/` CRLF rule) -- each fact these four files already state
+  still matches current source.
+- **Step 3:** `docs/ARCHITECTURE.md`'s "Last verified" date moved from
+  2026-09-20 to 2026-09-24, after every file above was walked.
+
+No test changes; no count site changes (R3).
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - AGENTS.md points at the full docsync CLI and records the installer decision
 
 Side task, no batch tag: `AGENTS.md` pointers and the installer decision,
