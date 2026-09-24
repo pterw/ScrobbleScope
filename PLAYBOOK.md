@@ -437,6 +437,27 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The handoff stops calling the approved plan a draft
+
+Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 1,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Finding.** The task review found
+  `docs/history/reports/HANDOFF_2026-09-24.md`'s revision note still saying
+  the root-cleanup plan "is committed as a draft", against its own section
+  5 item 5, which Task 1 updated to say the owner approved it. The note is
+  now past tense and points at section 5 item 5. A grep for other "draft"
+  claims about the plan in the handoff, the cloud-kit constraints,
+  SESSION_CONTEXT, AGENT_NOTES, the batch definition and PLAYBOOK Section 3
+  found none.
+- **Deviations:** the review's minor finding stays open: one line of Task
+  1's commit body is 73 characters, one over the 72-character wrap. Fixing
+  it would mean amending that commit, a history rewrite, so it stays as
+  written.
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - The root cleanup joins the reconcile work
 
 Side task, no batch tag: the root-cleanup task joins WP-0 Part B, part of
@@ -543,54 +564,3 @@ stale and asked for the wordmark at the top of the README. Not WP-0 work.
   `static/` or `templates/` change).
 
 Validation: `pytest -q` -- **1833 passed**.
-
-### 2026-09-24 - The root-cleanup plan is revised and its open points ruled
-
-Side task, no batch tag: revising the root-cleanup plan, part of Batch 23
-WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **Scope.** The plan's eight "Revisions pending" items, plus what a
-  source-verified pre-flight found, applied to its task bodies. Nothing in
-  the plan has run. Fifth session, the first run of the plan in a cloud
-  sandbox.
-- **How.** Three read-only research passes at `85f47a0` (production code,
-  tests, the inventory's currency including PR #242's files), controller
-  probes in scratch copies, then two independent review rounds. Round 1
-  found two Critical defects in the revision itself: the proposed pre-commit
-  exclude `docs/(?!agents/)` would have un-excluded all of `docs/` (the
-  pattern's `/` sits outside the group), and a proposed test assumed the
-  `sync_env` corpus passes `--check` (it exits 1, DOC005). Both are fixed;
-  round 2 approved, and its three minors are fixed here. A two-axis code
-  review (standards, spec) at the owner's request then found no hard
-  violation and no missing or wrong item; its one duplicated fact (task
-  status copied into the cloud-kit constraints header) is now a pointer.
-- **What the plan now carries.** Task 0 merges `origin/main` (conflicts
-  only in this file and the log archive, re-verified). Task 3 refuses a
-  `--config` naming a missing file, which would otherwise mean "nothing
-  declared" and pass. Task 5 repoints the test fixtures that write the
-  declarations file (a probe of the draft failed 25 tests) and sweeps its
-  live citations by grep, since DOC001 checks backticked `.md` references
-  and not `.toml`. Task 6 names the `cli.py` path sites, the tests that
-  copy the status line, and the DOC004 contract between
-  `SIDE_ARCHIVE_PREFIX` and the log archive's prologue. Task 8 covers
-  fourteen `PLAYBOOK.md` and twelve `FINDINGS.md` diagnostic labels. The
-  plan's "Revisions applied" section maps every item.
-- **Owner rulings, 2026-09-24:** the pre-commit `exclude` becomes
-  `docs(?!/agents/)`, so the moved documents stay under the file hooks; the
-  `FINDINGS.md` labels join Task 8; generated docsync text names no document
-  path instead of hard-coding one; writers may run in parallel on disjoint
-  files. `docs/history/reports/HANDOFF_2026-09-24.md` sections 4 and 6
-  record them.
-- **Also changed.** Section 3's order list records this state (cloud-kit
-  R2; Task 1 replaces that text on approval). The handoff gains the
-  shallow-clone trap: this session's clone was shallow and 20 commits
-  behind, so the guard printed WT005 against `origin/test` until
-  `git fetch --unshallow`. `.superpowers/cloud-kit/constraints.md` now
-  names both plans and points at SESSION_CONTEXT for the baseline instead
-  of copying a count.
-- **Deviations:** none. Docs only; no test added or changed.
-
-Validation: `pytest -q` -- **1833 passed**. `pre-commit run --all-files`
-and `doc_state_sync.py --check` pass; the frontend gate does not apply (no
-`static/`, `templates/` or gate path changed).
