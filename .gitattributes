@@ -7,3 +7,5 @@ docs/design/** text eol=lf
 # them and the hooks stop working for that clone only. Forcing LF here makes
 # the working copy correct no matter what a clone's autocrlf is set to.
 .githooks/* text eol=lf
+
+.github/workflows/*.lock.yml linguist-generated=true
