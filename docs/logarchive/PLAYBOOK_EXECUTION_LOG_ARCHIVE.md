@@ -9,6 +9,52 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The DOC024 wiring gets a test, and its severity gets stated truly
+
+Side task, no batch tag: fix round 1 on the archive page target task --
+add CLI-level test coverage for the `cli.py` splice that actually surfaces
+DOC024 to `--check`/`--fix`, and correct two overclaims the original commit
+left standing, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **CLI-level test for DOC024** (`tests/test_docsync_cli.py`,
+  `TestArchivePageTargetDiagnosticsThroughTheCli`): a real `--check` and
+  `--fix` run over a fixture corpus with an unpaginated managed archive over
+  the page target asserts `"WARNING DOC024"` in stderr, naming the archive,
+  with exit 0. Every prior DOC024 test only called
+  `ArchiveStore.page_target_issues` directly, so none of them exercised
+  `cli._archive_page_target_issues`'s splice into `_collect_issues`
+  (`scripts/docsync/cli.py`) -- the wiring that actually makes DOC024
+  visible to an operator. Proved by temporarily removing that splice: both
+  new tests failed red (`WARNING DOC024` absent from stderr, exit code
+  still 0 -- a silent regression, not a crash), then passed green again
+  once restored.
+- **Two new unit tests** (`tests/test_docsync_archives.py`): an undated
+  entry placed on the writable tail page produces no never-ageing warning
+  (the guard clause was previously only inferred, never asserted); and an
+  unpaginated archive at exactly `max_lines` does not warn while one line
+  over does, measured the same way the check does
+  (`len(flattened.splitlines())`).
+- **`AGENTS.md`'s DOC001-DOC024 sentence** overclaimed that every code
+  "block[s] rather than warn[s]" -- false for DOC024 (100% warning) and for
+  DOC023's grandfathered-finding count. Reworded to
+  "error-severity ones block, and warnings print without changing the exit
+  code," keeping the exact substring `returns typed DOC001-DOC024 issues`
+  that `STATED_RANGE_RE` reads, and without enumerating the warning codes
+  (the catalogue owns them).
+- **`docs/architecture/documentation-tooling.md`**: the catalogue's lead
+  paragraph made the same overclaim ("exits 1", full stop) -- corrected to
+  "exits 1 on any error-severity [issue]; a warning ... prints and leaves
+  the exit code alone." The DOC024 paragraph now states the full
+  never-ageing condition (finalized, non-oversized, hot page of a paginated
+  archive) instead of dropping the non-oversized/hot qualifiers, and the
+  DOC020 cold-rule sentence is anchored to `--as-of` ("more than
+  `cold_days` days before `--as-of`") instead of the looser "older than
+  `cold_days`".
+
+Validation: `pytest -q` -- **1802 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - The archive page target gets a reader
 
 Side task, no batch tag: warn when a managed archive outgrows its page

@@ -1683,7 +1683,7 @@ Existing tests mock `session.get`, so the hook never fires in them.
 - [x] **Step 3: Add the three worker lines.** Existing log lines in `lastfm.py`, `spotify.py` and
   `release_checks.py` stay as they are; they say what the pipeline decided, which the hook cannot know.
 - [x] **Step 4: Run everything.** The new tests, then the full suite. No existing test changes.
-- [ ] **Step 5: The owner's live check, after the commit.** Real provider calls need the owner's
+- [x] **Step 5: The owner's live check, after the commit.** Done by the owner 2026-09-24. Real provider calls need the owner's
   username and live API quota, so the implementer does not make them. The owner runs one top-albums
   job with `DEBUG_MODE=1` and one without, and confirms the summaries, the problem lines and the
   worker lines appear, and that no query value does. The controller records the outcome in PLAYBOOK
