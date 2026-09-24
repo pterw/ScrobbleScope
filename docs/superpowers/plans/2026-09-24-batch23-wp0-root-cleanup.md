@@ -568,7 +568,7 @@ contains. Small, additive, no file moves.
   `declarations.collect_declaration_issues(..., config_path=None)` and
   `integrity.collect_integrity_issues(..., config_path=None)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
   In `tests/test_docsync_declarations.py`, add (an explicit path that is missing must be an
   error: the absent-file-means-no-declarations rule is for the default path only, or a
@@ -653,7 +653,7 @@ contains. Small, additive, no file moves.
   form matches `TestMainArgs`. If the unknown-table message goes to stdout rather than
   stderr, assert on the stream it uses.)
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
   ```
   .venv/bin/python -m pytest tests/test_docsync_declarations.py::TestExplicitConfigPath tests/test_docsync_cli.py::TestConfigOverride -v
@@ -661,7 +661,7 @@ contains. Small, additive, no file moves.
   Expected: FAIL -- `load_declarations` has no `config_path` refusal yet, and `argparse`
   rejects `--config`.
 
-- [ ] **Step 3: Add the argument and thread it**
+- [x] **Step 3: Add the argument and thread it**
 
   In `declarations.py`, make `load_declarations` refuse an explicit path that is not a file,
   and name the path it actually read in its errors:
@@ -717,13 +717,13 @@ contains. Small, additive, no file moves.
   `_close_batch`). Then grep `cli.py` for `load_declarations(`, `load_.*_config(` and
   `collect_.*_issues(` and confirm no read is left without it.
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
   ```
   .venv/bin/python -m pytest tests/test_docsync_cli.py tests/test_docsync_declarations.py tests/test_docsync_integrity.py -v
   ```
 
-- [ ] **Step 5: Gates and live probe**
+- [x] **Step 5: Gates and live probe**
 
   `pytest -q`; `doc_state_sync.py --check` at exit 0 first (this touches `scripts/docsync/`).
 
@@ -736,7 +736,7 @@ contains. Small, additive, no file moves.
   - **Near-miss green:** reset; `cp .docsync.toml alt.toml` unchanged;
     `--check --config alt.toml` prints the same summary as `--check` and exits 0.
 
-- [ ] **Step 6: Section 4 entry and commit**
+- [x] **Step 6: Section 4 entry and commit**
 
   One untagged Section 4 entry (cloud-kit R1), with the probe table.
 

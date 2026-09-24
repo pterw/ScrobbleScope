@@ -613,18 +613,19 @@ def _issue(
 def load_declarations(repo_root: Path, *, config_path: Path | None = None) -> dict:
     """Read the declarations file, or return nothing if there is none.
 
-    A repository with no declarations is not an error. That is the state every
-    repository starts in, and the checks simply have nothing to say.
+    A repository with no declarations file at the default path is not an error.
+    An explicit ``config_path`` that does not exist is: a mistyped --config
+    would otherwise run every check with nothing declared, and pass.
     """
     path = config_path if config_path is not None else repo_root / DECLARATIONS_FILENAME
     if not path.is_file():
+        if config_path is not None:
+            raise DeclarationError(f"--config names {path}, which is not a file.")
         return {}
     try:
         return tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
-        raise DeclarationError(
-            f"{DECLARATIONS_FILENAME} is not valid TOML: {exc}"
-        ) from exc
+        raise DeclarationError(f"{path} is not valid TOML: {exc}") from exc
 
 
 class _Files:
@@ -1281,10 +1282,13 @@ def _effective_scan(
 
 
 def collect_declaration_issues(
-    *, repo_root: Path, live_documents: Mapping[str, list[str]]
+    *,
+    repo_root: Path,
+    live_documents: Mapping[str, list[str]],
+    config_path: Path | None = None,
 ) -> list[IntegrityIssue]:
     """Run every declared check and return the diagnostics in a stable order."""
-    declarations = load_declarations(repo_root)
+    declarations = load_declarations(repo_root, config_path=config_path)
     if not declarations:
         return []
 
@@ -1292,10 +1296,14 @@ def collect_declaration_issues(
     # never read, and leaves the gate green with one fewer check running.
     known_tables = set(_DECLARATION_SCHEMA) | set(_TOP_LEVEL_SCHEMA)
     known_tables.discard("site")
+    # Under --config the file actually read is config_path, not the
+    # repository default: naming DECLARATIONS_FILENAME here would point the
+    # reader at a file this run never opened.
+    source = config_path if config_path is not None else DECLARATIONS_FILENAME
     for table in declarations:
         if table not in known_tables:
             raise DeclarationError(
-                f"{DECLARATIONS_FILENAME} has an unknown table {table!r}. "
+                f"{source} has an unknown table {table!r}. "
                 f"Known tables: {', '.join(sorted(known_tables))}."
             )
     _validate_options(declarations.get("options", {}))

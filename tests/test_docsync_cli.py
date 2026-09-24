@@ -285,6 +285,55 @@ class TestMainArgs:
             assert secret not in captured.err
 
 
+class TestConfigOverride:
+    def test_config_flag_defaults_to_none(self):
+        from docsync.cli import _build_parser
+
+        assert _build_parser().parse_args(["--check"]).config is None
+
+    def test_config_selects_the_declarations_file_every_check_reads(
+        self, sync_env, monkeypatch, capsys
+    ):
+        # sync_env's raw corpus fails --check with DOC005 (exit 1; see
+        # TestMainArgs.test_check_fails_on_stale_session_context). A copy of its
+        # declarations with an unknown table is refused as malformed input (exit 2)
+        # instead, which can only happen if --config changed the file read.
+        from docsync import cli as cli_mod
+        from docsync.declarations import DECLARATIONS_FILENAME
+
+        default = sync_env / DECLARATIONS_FILENAME
+        alt = sync_env / "alt.toml"
+        alt.write_text(
+            default.read_text(encoding="utf-8") + "\n[nonsense]\n", encoding="utf-8"
+        )
+        monkeypatch.setattr("sys.argv", ["doc_state_sync.py", "--check"])
+        assert cli_mod.main() == 1
+        capsys.readouterr()
+        monkeypatch.setattr(
+            "sys.argv", ["doc_state_sync.py", "--check", "--config", str(alt)]
+        )
+        assert cli_mod.main() == 2
+        assert "nonsense" in capsys.readouterr().err
+
+    def test_main_restores_config_path_after_the_run(self, sync_env, monkeypatch):
+        # Tests call main() in-process; a --config from one call must not leak into
+        # the next test's direct calls.
+        from docsync import cli as cli_mod
+        from docsync.declarations import DECLARATIONS_FILENAME
+
+        monkeypatch.setattr(
+            "sys.argv",
+            [
+                "doc_state_sync.py",
+                "--check",
+                "--config",
+                str(sync_env / DECLARATIONS_FILENAME),
+            ],
+        )
+        cli_mod.main()
+        assert cli_mod.CONFIG_PATH is None
+
+
 # ---------------------------------------------------------------------------
 # Missing SESSION_CONTEXT.md regression tests (CI environment)
 # ---------------------------------------------------------------------------

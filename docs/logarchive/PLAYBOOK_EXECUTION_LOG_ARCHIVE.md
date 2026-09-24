@@ -9,6 +9,27 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The handoff stops calling the approved plan a draft
+
+Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 1,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **Finding.** The task review found
+  `docs/history/reports/HANDOFF_2026-09-24.md`'s revision note still saying
+  the root-cleanup plan "is committed as a draft", against its own section
+  5 item 5, which Task 1 updated to say the owner approved it. The note is
+  now past tense and points at section 5 item 5. A grep for other "draft"
+  claims about the plan in the handoff, the cloud-kit constraints,
+  SESSION_CONTEXT, AGENT_NOTES, the batch definition and PLAYBOOK Section 3
+  found none.
+- **Deviations:** the review's minor finding stays open: one line of Task
+  1's commit body is 73 characters, one over the 72-character wrap. Fixing
+  it would mean amending that commit, a history rewrite, so it stays as
+  written.
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - The root cleanup joins the reconcile work
 
 Side task, no batch tag: the root-cleanup task joins WP-0 Part B, part of

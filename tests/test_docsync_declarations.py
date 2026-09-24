@@ -1306,6 +1306,26 @@ def test_a_malformed_declarations_file_is_a_declaration_error(
         load_declarations(tmp_path)
 
 
+class TestExplicitConfigPath:
+    def test_explicit_missing_path_is_refused(self, tmp_path: Path):
+        from docsync.declarations import DeclarationError, load_declarations
+
+        with pytest.raises(DeclarationError, match="nowhere.toml"):
+            load_declarations(tmp_path, config_path=tmp_path / "nowhere.toml")
+
+    def test_default_missing_path_still_means_no_declarations(self, tmp_path: Path):
+        from docsync.declarations import load_declarations
+
+        assert load_declarations(tmp_path) == {}
+
+    def test_explicit_path_is_read_instead_of_the_default(self, tmp_path: Path):
+        from docsync.declarations import load_declarations
+
+        alt = tmp_path / "alt.toml"
+        alt.write_text("[options]\n", encoding="utf-8")
+        assert load_declarations(tmp_path, config_path=alt) == {"options": {}}
+
+
 def test_a_declaration_fault_reaches_the_cli_as_a_sync_error() -> None:
     """The CLI has to be able to report it, or the gate ends in a traceback.
 

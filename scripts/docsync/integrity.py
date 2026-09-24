@@ -938,6 +938,7 @@ def collect_integrity_issues(
     document_paths: tuple[str, ...] = LIVE_DOCUMENT_RELATIVE_PATHS,
     playbook_relative_path: str = "PLAYBOOK.md",
     findings_relative_path: str = findings_module.ACTIVE_PATH,
+    config_path: Path | None = None,
 ) -> list[IntegrityIssue]:
     """Return deterministic live-document integrity issues."""
     issues: list[IntegrityIssue] = []
@@ -1165,7 +1166,9 @@ def collect_integrity_issues(
     # DOC009 to DOC011. Declared rather than hard-coded, so the mechanism is
     # repository-independent and only .docsync.toml is local. See F-B21-17.
     issues.extend(
-        collect_declaration_issues(repo_root=repo_root, live_documents=live_documents)
+        collect_declaration_issues(
+            repo_root=repo_root, live_documents=live_documents, config_path=config_path
+        )
     )
 
     # DOC019. Every batch PLAYBOOK Section 3 claims complete is held to the
@@ -1184,12 +1187,12 @@ def collect_integrity_issues(
         issues.extend(
             findings_module.collect_rot_issues(
                 "\n".join(active_findings),
-                load_findings_config(repo_root).grandfathered,
+                load_findings_config(repo_root, config_path=config_path).grandfathered,
             )
         )
 
     # close-out composition that publishes a real closure must keep it there.
-    closeout_config = load_closeout_config(repo_root)
+    closeout_config = load_closeout_config(repo_root, config_path=config_path)
     try:
         section3_start, section3_end = _find_section(
             playbook_lines, SECTION_3_RE, "PLAYBOOK section 3"

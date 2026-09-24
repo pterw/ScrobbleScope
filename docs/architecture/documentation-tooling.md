@@ -295,6 +295,11 @@ beyond `--check`/`--fix`:
   ISO; there is no implicit "as of today" mode, so a maintenance run cannot
   silently age files by whatever day it happens to execute.
 
+**`--config PATH`** is an option, not a mode: it overrides which declarations
+file every mode and every check reads, in place of the repository default.
+A path that is not a file is refused with exit 2, while a missing repository
+default still means nothing is declared.
+
 **Transactional publication.** `docsync.transaction.publish` writes every
 changed file for one of these operations as a single atomic unit, backed by
 a journal and a lock: the journal records the pre-image of every path before

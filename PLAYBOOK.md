@@ -233,8 +233,9 @@ See FINDINGS F-DOCSYNC-3.
      declared `[documents]` table, `DocumentsConfig`, and
      `resolved_live_document_paths`/`collect_integrity_issues`'s new
      `document_paths`/`playbook_relative_path`/`findings_relative_path`
-     kwargs, every default still today's literal) is done, 2026-09-24;
-     Tasks 3-8 remain.
+     kwargs, every default still today's literal) is done, 2026-09-24; Task 3
+     (a `--config PATH` override on the docsync CLI, threaded through every
+     declarations read) is done, 2026-09-24; Tasks 4-8 remain.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -442,6 +443,49 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - A --config override lets every check read a different declarations file
+
+Side task, no batch tag: the root-cleanup plan's Task 3, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `scripts/docsync/cli.py` gains a `--config PATH`
+  argument and a module-level `CONFIG_PATH`, set by `main()` for the length
+  of one invocation and restored in a `finally`. Every declarations read in
+  `cli.py` -- the four `load_archive_config`/`load_closeout_config` call
+  sites and both `collect_integrity_issues` calls -- now forwards it.
+  `declarations.load_declarations` refuses an explicit `config_path` that is
+  not a file (a mistyped `--config` no longer means "run every check with
+  nothing declared, and pass"), and its TOML-decode error names the file
+  actually read. `collect_declaration_issues` takes the same kwarg, and its
+  unknown-table error names `config_path` when one was given, the repository
+  default otherwise. `integrity.collect_integrity_issues` gains and forwards
+  the same kwarg to its three reads. `docs/architecture/documentation-tooling.md`'s
+  CLI-surface section documents `--config` as an option, not a mode.
+- **Tests.** Six new tests: `tests/test_docsync_declarations.py::
+  TestExplicitConfigPath` (three) and `tests/test_docsync_cli.py::
+  TestConfigOverride` (three). Each proved by scratch-copy mutation
+  (`git stash create`, never the real tree): reverting the explicit-missing-
+  path refusal alone fails `test_explicit_missing_path_is_refused`; giving
+  `--config` a non-`None` default alone fails
+  `test_config_flag_defaults_to_none`; reverting `collect_declaration_issues`'s
+  `config_path` forwarding alone fails
+  `test_config_selects_the_declarations_file_every_check_reads`; reverting
+  the `finally` restore alone fails
+  `test_main_restores_config_path_after_the_run`.
+- **Live probe**, throwaway corpus at `/c/ssprobe` (deleted afterwards):
+
+  | Probe | Expected | Exit |
+  |---|---|---|
+  | Faithful copy: `--check` on the probe corpus | Same summary as the real tree (DOC024 x4, root-BATCH warning) | 0 |
+  | Red 1: `--check` alone vs `--check --config alt.toml`, where `alt.toml` is a copy of the declarations file plus `[nonsense]` | Plain `--check` unaffected; `--config alt.toml` refused, naming `alt.toml`'s unknown table | 0 then 2 |
+  | Red 2: `--check --config nowhere.toml` | Refused, naming `nowhere.toml` | 2 |
+  | Near-miss green: `--check --config alt.toml`, `alt.toml` an unchanged copy | Identical summary to plain `--check` | 0 |
+
+- **Deviations:** none.
+
+Validation: `pytest -q` -- **1848 passed**.
+
 ### 2026-09-24 - The handoff catches up with the root cleanup's first three tasks
 
 Side task, no batch tag: the sixth (cloud) session's handoff revision,
@@ -587,24 +631,3 @@ lands.
   --check` exited 0 with the standing DOC024 warnings (L7); this task
   touches `scripts/docsync/`, so the commit uses `SKIP=doc-state-sync-check`
   (R7), never `--no-verify`.
-
-### 2026-09-24 - The handoff stops calling the approved plan a draft
-
-Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 1,
-part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
-whole of WP-0 lands.
-
-- **Finding.** The task review found
-  `docs/history/reports/HANDOFF_2026-09-24.md`'s revision note still saying
-  the root-cleanup plan "is committed as a draft", against its own section
-  5 item 5, which Task 1 updated to say the owner approved it. The note is
-  now past tense and points at section 5 item 5. A grep for other "draft"
-  claims about the plan in the handoff, the cloud-kit constraints,
-  SESSION_CONTEXT, AGENT_NOTES, the batch definition and PLAYBOOK Section 3
-  found none.
-- **Deviations:** the review's minor finding stays open: one line of Task
-  1's commit body is 73 characters, one over the 72-character wrap. Fixing
-  it would mean amending that commit, a history rewrite, so it stays as
-  written.
-
-Validation: `pytest -q` -- **1833 passed**.

@@ -48,7 +48,11 @@ from docsync.closeout import (
     render_archived_definition,
     render_batch_index_row,
 )
-from docsync.declarations import load_archive_config, load_closeout_config
+from docsync.declarations import (
+    DECLARATIONS_FILENAME,
+    load_archive_config,
+    load_closeout_config,
+)
 from docsync.integrity import (
     LIVE_DOCUMENT_RELATIVE_PATHS,
     SESSION_CONTEXT_RELATIVE_PATH,
@@ -76,6 +80,10 @@ from docsync.renderer import _remove_marker_lines, _trim_trailing_blank
 from docsync.transaction import publish
 
 REPO_ROOT = Path(".")
+# Set from --config for the length of one main() invocation, and restored to
+# None in its finally. REPO_ROOT is a true constant with no existing pattern
+# to copy for a value that changes per run.
+CONFIG_PATH: Path | None = None
 PLAYBOOK_PATH = Path("PLAYBOOK.md")
 ARCHIVE_PATH = Path("docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md")
 # Derived from integrity.py's canonical relative-path strings, not restated:
@@ -142,7 +150,7 @@ def _repo_root() -> Path:
 
 def _archive_store() -> ArchiveStore:
     """Build the archive reader/planner from this repository's own thresholds."""
-    config = load_archive_config(REPO_ROOT)
+    config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
     return ArchiveStore(_repo_root(), max_lines=config.max_lines)
 
 
@@ -455,7 +463,7 @@ def _drift_updates(
 ) -> dict[Path, bytes | None]:
     """Return every write the deterministic renderer and rotation would make."""
     store = corpus.store
-    config = load_archive_config(REPO_ROOT)
+    config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
     updates: dict[Path, bytes | None] = {}
     updates.update(_plan_document(PLAYBOOK_PATH, result.playbook_lines))
     updates.update(
@@ -528,6 +536,7 @@ def _collect_issues(
             expected_session_lines=result.session_lines,
             tracked_paths=corpus.tracked_paths,
             batch_log_lines=corpus.batch_log_lines,
+            config_path=CONFIG_PATH,
         ),
     ]
 
@@ -686,8 +695,8 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
         _report(corpus.issues)
         return 1
 
-    config = load_closeout_config(REPO_ROOT)
-    archive_config = load_archive_config(REPO_ROOT)
+    config = load_closeout_config(REPO_ROOT, config_path=CONFIG_PATH)
+    archive_config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
     archived_relative = f"{ARCHIVED_DEFINITIONS_DIR}BATCH{batch}_DEFINITION.md"
     roots = _root_definition_candidates(batch, corpus.tracked_paths)
     source_relative = roots[0] if roots else archived_relative
@@ -765,6 +774,7 @@ def _close_batch(batch: int, keep_non_current: int, closed_on: str) -> int:
         expected_session_lines=result.session_lines,
         tracked_paths=candidate_tracked,
         batch_log_lines=candidate_batch_logs,
+        config_path=CONFIG_PATH,
     )
     if any(issue.severity == "error" for issue in candidate_issues):
         _report(candidate_issues)
@@ -905,7 +915,7 @@ def _maintain_archives(*, as_of: dt.date | None, label: str) -> int:
     run never ages anything, because neither can drift from the other.
     """
     store = _archive_store()
-    config = load_archive_config(REPO_ROOT)
+    config = load_archive_config(REPO_ROOT, config_path=CONFIG_PATH)
     updates: dict[Path, bytes | None] = {}
     sources: list[Path] = []
     issues: list[IntegrityIssue] = []
@@ -1012,171 +1022,184 @@ def _build_parser() -> argparse.ArgumentParser:
         default=4,
         help="How many non-current entries to keep in PLAYBOOK section 4 (default: 4).",
     )
+    parser.add_argument(
+        "--config",
+        metavar="PATH",
+        help=(
+            "Path to the declarations file, overriding the repository default "
+            f"({DECLARATIONS_FILENAME})."
+        ),
+    )
     return parser
 
 
 def main() -> int:
+    global CONFIG_PATH
     parser = _build_parser()
     args = parser.parse_args()
-
-    modes = [
-        args.check,
-        args.fix,
-        args.split_archive,
-        args.close_batch is not None,
-        args.paginate_archives,
-        args.cold_storage,
-    ]
-    if sum(bool(mode) for mode in modes) > 1:
-        print(
-            "Use exactly one mode: --check, --fix, --split-archive, "
-            "--close-batch, --paginate-archives, or --cold-storage.",
-            file=sys.stderr,
-        )
-        return 2
-
-    if not any(modes):
-        print("No mode selected; defaulting to --check.", file=sys.stderr)
-        args.check = True
-
-    if args.keep_non_current < 0:
-        print("--keep-non-current must be >= 0.", file=sys.stderr)
-        return 2
-
-    as_of: dt.date | None = None
-    if args.as_of is not None:
-        if not (args.cold_storage or args.close_batch is not None):
+    previous_config_path = CONFIG_PATH
+    CONFIG_PATH = Path(args.config) if args.config is not None else None
+    try:
+        modes = [
+            args.check,
+            args.fix,
+            args.split_archive,
+            args.close_batch is not None,
+            args.paginate_archives,
+            args.cold_storage,
+        ]
+        if sum(bool(mode) for mode in modes) > 1:
             print(
-                "--as-of only applies to --cold-storage and --close-batch.",
+                "Use exactly one mode: --check, --fix, --split-archive, "
+                "--close-batch, --paginate-archives, or --cold-storage.",
                 file=sys.stderr,
             )
             return 2
+
+        if not any(modes):
+            print("No mode selected; defaulting to --check.", file=sys.stderr)
+            args.check = True
+
+        if args.keep_non_current < 0:
+            print("--keep-non-current must be >= 0.", file=sys.stderr)
+            return 2
+
+        as_of: dt.date | None = None
+        if args.as_of is not None:
+            if not (args.cold_storage or args.close_batch is not None):
+                print(
+                    "--as-of only applies to --cold-storage and --close-batch.",
+                    file=sys.stderr,
+                )
+                return 2
+            try:
+                as_of = _parse_as_of(args.as_of)
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+        if args.cold_storage and as_of is None:
+            print(
+                "--cold-storage requires --as-of YYYY-MM-DD. Ageing history from "
+                "the wall clock would move files because a day passed, not because "
+                "a maintainer decided to.",
+                file=sys.stderr,
+            )
+            return 2
+
+        # ------------------------------------------------------------------ #
+        # --split-archive mode                                                 #
+        # ------------------------------------------------------------------ #
+        if args.split_archive:
+            try:
+                return _split_archive_mode()
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+
+        # ------------------------------------------------------------------ #
+        # Archive maintenance modes                                            #
+        # ------------------------------------------------------------------ #
+        if args.paginate_archives or args.cold_storage:
+            label = "--cold-storage" if args.cold_storage else "--paginate-archives"
+            try:
+                return _maintain_archives(as_of=as_of, label=label)
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+
+        # ------------------------------------------------------------------ #
+        # --close-batch mode                                                   #
+        # ------------------------------------------------------------------ #
+        if args.close_batch is not None:
+            # The record states when the closure was performed, which is today
+            # unless the operator says otherwise. This is the one place a date is
+            # read from the clock, and it is safe precisely because it decides
+            # nothing: no file moves or ages because of it. Cold storage, which
+            # does move files by date, refuses the clock outright.
+            closed_on = (as_of or dt.date.today()).isoformat()
+            try:
+                return _close_batch(args.close_batch, args.keep_non_current, closed_on)
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+
+        # ------------------------------------------------------------------ #
+        # --check / --fix modes                                                #
+        # ------------------------------------------------------------------ #
         try:
-            as_of = _parse_as_of(args.as_of)
+            store = _archive_store()
+            corpus = _Corpus(store)
+            # An archive whose pages and index disagree is reported, never acted
+            # on. Planning against it would write the half of the corpus the
+            # reader could still see over the half it could not.
+            if corpus.issues:
+                _report(corpus.issues)
+                return 1
+            result = _sync_corpus(corpus, args.keep_non_current)
+            rotation = corpus.rotation()
+            updates = _drift_updates(corpus, result, rotation)
         except SyncError as exc:
             print(f"doc_state_sync failed: {exc}", file=sys.stderr)
             return 2
-    if args.cold_storage and as_of is None:
-        print(
-            "--cold-storage requires --as-of YYYY-MM-DD. Ageing history from "
-            "the wall clock would move files because a day passed, not because "
-            "a maintainer decided to.",
-            file=sys.stderr,
-        )
-        return 2
 
-    # ------------------------------------------------------------------ #
-    # --split-archive mode                                                 #
-    # ------------------------------------------------------------------ #
-    if args.split_archive:
+        if args.check:
+            try:
+                issues = _collect_issues(corpus, result, rotation)
+            except SyncError as exc:
+                print(f"doc_state_sync failed: {exc}", file=sys.stderr)
+                return 2
+            blocking = _report(issues)
+            if updates:
+                print("doc_state_sync drift detected:")
+                for path in sorted(updates):
+                    print(f"- {path}")
+                print("Run: python scripts/doc_state_sync.py --fix")
+            if updates or blocking:
+                return 1
+            print(
+                "doc_state_sync check passed "
+                f"(current_batch_entries={result.current_batch_entry_count}, "
+                f"kept_non_current={result.kept_non_current_count}, "
+                f"rotated={result.rotated_count})."
+            )
+            return 0
+
+        # args.fix: publish the deterministic renderer output and the eligible
+        # rotation as one transaction, then validate the resulting disk state.
+        # Semantic integrity issues remain for a human fix, exactly as before:
+        # refusing to repair drift because an unrelated document has a dead
+        # reference would leave the repository with two defects instead of one.
         try:
-            return _split_archive_mode()
-        except SyncError as exc:
-            print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-            return 2
+            if updates:
+                # See `_close_batch`'s identical comment: `corpus.read_paths()`
+                # covers every live document and every archive's members
+                # (including batch logs that were only read, not rewritten,
+                # in this run) so the staleness check cannot miss a source.
+                _publish(updates, _preimages([*corpus.read_paths(), *updates]))
+                print("doc_state_sync wrote updates:")
+                for path in sorted(updates):
+                    print(f"- {path}")
+            else:
+                print("doc_state_sync --fix found no changes.")
 
-    # ------------------------------------------------------------------ #
-    # Archive maintenance modes                                            #
-    # ------------------------------------------------------------------ #
-    if args.paginate_archives or args.cold_storage:
-        label = "--cold-storage" if args.cold_storage else "--paginate-archives"
-        try:
-            return _maintain_archives(as_of=as_of, label=label)
-        except SyncError as exc:
-            print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-            return 2
-
-    # ------------------------------------------------------------------ #
-    # --close-batch mode                                                   #
-    # ------------------------------------------------------------------ #
-    if args.close_batch is not None:
-        # The record states when the closure was performed, which is today
-        # unless the operator says otherwise. This is the one place a date is
-        # read from the clock, and it is safe precisely because it decides
-        # nothing: no file moves or ages because of it. Cold storage, which
-        # does move files by date, refuses the clock outright.
-        closed_on = (as_of or dt.date.today()).isoformat()
-        try:
-            return _close_batch(args.close_batch, args.keep_non_current, closed_on)
-        except SyncError as exc:
-            print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-            return 2
-
-    # ------------------------------------------------------------------ #
-    # --check / --fix modes                                                #
-    # ------------------------------------------------------------------ #
-    try:
-        store = _archive_store()
-        corpus = _Corpus(store)
-        # An archive whose pages and index disagree is reported, never acted
-        # on. Planning against it would write the half of the corpus the
-        # reader could still see over the half it could not.
-        if corpus.issues:
-            _report(corpus.issues)
-            return 1
-        result = _sync_corpus(corpus, args.keep_non_current)
-        rotation = corpus.rotation()
-        updates = _drift_updates(corpus, result, rotation)
-    except SyncError as exc:
-        print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-        return 2
-
-    if args.check:
-        try:
-            issues = _collect_issues(corpus, result, rotation)
+            final_corpus = _Corpus(store)
+            final_result = _sync_corpus(final_corpus, args.keep_non_current)
+            final_rotation = final_corpus.rotation()
+            final_updates = _drift_updates(final_corpus, final_result, final_rotation)
+            issues = _collect_issues(final_corpus, final_result, final_rotation)
         except SyncError as exc:
             print(f"doc_state_sync failed: {exc}", file=sys.stderr)
             return 2
         blocking = _report(issues)
-        if updates:
-            print("doc_state_sync drift detected:")
-            for path in sorted(updates):
-                print(f"- {path}")
-            print("Run: python scripts/doc_state_sync.py --fix")
-        if updates or blocking:
+        if final_updates or blocking:
             return 1
+
         print(
-            "doc_state_sync check passed "
+            "doc_state_sync summary "
             f"(current_batch_entries={result.current_batch_entry_count}, "
             f"kept_non_current={result.kept_non_current_count}, "
             f"rotated={result.rotated_count})."
         )
         return 0
-
-    # args.fix: publish the deterministic renderer output and the eligible
-    # rotation as one transaction, then validate the resulting disk state.
-    # Semantic integrity issues remain for a human fix, exactly as before:
-    # refusing to repair drift because an unrelated document has a dead
-    # reference would leave the repository with two defects instead of one.
-    try:
-        if updates:
-            # See `_close_batch`'s identical comment: `corpus.read_paths()`
-            # covers every live document and every archive's members
-            # (including batch logs that were only read, not rewritten,
-            # in this run) so the staleness check cannot miss a source.
-            _publish(updates, _preimages([*corpus.read_paths(), *updates]))
-            print("doc_state_sync wrote updates:")
-            for path in sorted(updates):
-                print(f"- {path}")
-        else:
-            print("doc_state_sync --fix found no changes.")
-
-        final_corpus = _Corpus(store)
-        final_result = _sync_corpus(final_corpus, args.keep_non_current)
-        final_rotation = final_corpus.rotation()
-        final_updates = _drift_updates(final_corpus, final_result, final_rotation)
-        issues = _collect_issues(final_corpus, final_result, final_rotation)
-    except SyncError as exc:
-        print(f"doc_state_sync failed: {exc}", file=sys.stderr)
-        return 2
-    blocking = _report(issues)
-    if final_updates or blocking:
-        return 1
-
-    print(
-        "doc_state_sync summary "
-        f"(current_batch_entries={result.current_batch_entry_count}, "
-        f"kept_non_current={result.kept_non_current_count}, "
-        f"rotated={result.rotated_count})."
-    )
-    return 0
+    finally:
+        CONFIG_PATH = previous_config_path
