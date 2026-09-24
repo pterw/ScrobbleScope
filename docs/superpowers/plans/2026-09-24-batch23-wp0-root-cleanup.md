@@ -1369,7 +1369,7 @@ the `workflow` permission (handoff section 8).
 - Modify: `.github/workflows/repo-assist.md`
 - Regenerate: `.github/workflows/repo-assist.lock.yml` (`gh aw compile`)
 
-- [ ] **Step 1: Repoint the source**
+- [x] **Step 1: Repoint the source**
 
   In `.github/workflows/repo-assist.md` (line numbers at `origin/main` `707eed6`):
   - Both `allowed-files` lists (`create-pull-request`, `:189`/`:191`, and
@@ -1380,7 +1380,7 @@ the `workflow` permission (handoff section 8).
   - Its prose mentions of `FINDINGS.md` and `PLAYBOOK.md` (`:10-11`, `:322-324`) become the
     `docs/agents/` paths.
 
-- [ ] **Step 2: Recompile and check the copies**
+- [x] **Step 2: Recompile and check the copies**
 
   ```bash
   gh aw compile repo-assist
@@ -1391,7 +1391,7 @@ the `workflow` permission (handoff section 8).
   `GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG`) and the embedded workflow description. If the compile
   also asks for `--approve` (a changed memory-validation script), review the change first.
 
-- [ ] **Step 3: Section 4 entry, gates, commit**
+- [x] **Step 3: Section 4 entry, gates, commit**
 
   One untagged Section 4 entry (cloud-kit R1). Gates as usual.
 

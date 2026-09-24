@@ -248,7 +248,10 @@ See FINDINGS F-DOCSYNC-3.
      the docsync-generated text repointed or de-pathed, the pre-commit
      exclude and the `.gitignore` carve-out both keeping the move under the
      file hooks, and every live citation corrected) is done, 2026-09-24;
-     Tasks 7-8 remain.
+     Task 7 (the Repo Assist workflow's `allowed-files` and prose repointed
+     at `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md`, and its
+     lock file recompiled with `gh aw compile`) is done, 2026-09-24; Task 8
+     remains.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -456,6 +459,39 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The Repo Assist workflow points at the moved documents
+
+Side task, no batch tag: the root-cleanup plan's Task 7, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What changed.** `.github/workflows/repo-assist.md`'s two `allowed-files`
+  lists (`create-pull-request` and `push-to-pull-request-branch`) now name
+  `docs/agents/PLAYBOOK.md` and `docs/agents/FINDINGS.md` in place of the root
+  paths. The "Repository Rules" prose's grant (rule 3, "anything under
+  `scripts/` or `docs/` other than...") now permits exactly those two paths
+  alongside the log files, agreeing with the allowed-files lists. Every other
+  prose mention of the two names (the frontmatter description, rules 2 and 4,
+  and Task 11's mirror-hygiene step) is repointed the same way; the last one
+  is not among the brief's cited line ranges but carries the same root path
+  (L15). `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` are not named anywhere in
+  the workflow source, so nothing else needed a change.
+- **Recompiled** with `gh aw compile repo-assist` (installed `gh-aw`
+  v0.89.21, the version that produced the previous lock file). The compile
+  touched no tracked file besides `repo-assist.md` and `repo-assist.lock.yml`,
+  and asked for no `--approve`. The lock diff is the metadata hash pair plus
+  the six path-copy lines the brief names (two header-comment lines, two
+  `WORKFLOW_DESCRIPTION` copies, and the `GH_AW_SAFE_OUTPUTS_CONFIG` /
+  `GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG` `allowed_files` arrays) -- never
+  hand-edited.
+- **Tests.** None; this task touches no test-bearing code path.
+- **Gates.** `pytest -q`, `pre-commit run --all-files` and
+  `doc_state_sync.py --check` all pass; the frontend gate's `when` condition
+  (a changed path under `static/`, `templates/` or
+  `scripts/dev/_frontend_gate_`) does not match, so it is skipped.
+
+Validation: `pytest -q` -- **1849 passed**.
+
 ### 2026-09-24 - The four agent documents move to docs/agents/
 
 Side task, no batch tag: the root-cleanup plan's Task 6, part of Batch 23
@@ -653,52 +689,5 @@ lands.
   |---|---|---|
   | Red: remove `config/frontend_gate_checks.toml`, commit, then `python -c "from scripts.dev import frontend_gate"` | prints `[frontend_gate] ERROR: check manifest missing at .../config/frontend_gate_checks.toml. Restore config/frontend_gate_checks.toml.` (`FrontendGateError` converted to `SystemExit`) | 1 |
   | Near-miss green: restore the file with a trailing blank line added (still valid TOML), same import | imports silently | 0 |
-
-Validation: `pytest -q` -- **1848 passed**.
-
-### 2026-09-24 - A --config override lets every check read a different declarations file
-
-Side task, no batch tag: the root-cleanup plan's Task 3, part of Batch 23
-WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **What changed.** `scripts/docsync/cli.py` gains a `--config PATH`
-  argument and a module-level `CONFIG_PATH`, set by `main()` for the length
-  of one invocation and restored in a `finally`. Every declarations read in
-  `cli.py` -- the four `load_archive_config`/`load_closeout_config` call
-  sites and both `collect_integrity_issues` calls -- now forwards it.
-  `declarations.load_declarations` refuses an explicit `config_path` that is
-  not a file (a mistyped `--config` no longer means "run every check with
-  nothing declared, and pass"), and its TOML-decode error names the file
-  actually read. `collect_declaration_issues` takes the same kwarg, and its
-  unknown-table error names `config_path` when one was given, the repository
-  default otherwise. `integrity.collect_integrity_issues` gains and forwards
-  the same kwarg to its three reads. `docs/architecture/documentation-tooling.md`'s
-  CLI-surface section documents `--config` as an option, not a mode.
-- **Tests.** Six new tests: `tests/test_docsync_declarations.py::
-  TestExplicitConfigPath` (three) and `tests/test_docsync_cli.py::
-  TestConfigOverride` (three). Each proved by scratch-copy mutation
-  (`git stash create`, never the real tree): reverting the explicit-missing-
-  path refusal alone fails `test_explicit_missing_path_is_refused`; giving
-  `--config` a non-`None` default alone fails
-  `test_config_flag_defaults_to_none`; reverting `collect_declaration_issues`'s
-  `config_path` forwarding alone fails
-  `test_config_selects_the_declarations_file_every_check_reads`; reverting
-  the `finally` restore alone fails
-  `test_main_restores_config_path_after_the_run`.
-- **Live probe**, throwaway corpus at `/c/ssprobe` (deleted afterwards):
-
-  | Probe | Expected | Exit |
-  |---|---|---|
-  | Faithful copy: `--check` on the probe corpus | Same summary as the real tree (DOC024 x4, root-BATCH warning) | 0 |
-  | Red 1: `--check` alone vs `--check --config alt.toml`, where `alt.toml` is a copy of the declarations file plus `[nonsense]` | Plain `--check` unaffected; `--config alt.toml` refused, naming `alt.toml`'s unknown table | 0 then 2 |
-  | Red 2: `--check --config nowhere.toml` | Refused, naming `nowhere.toml` | 2 |
-  | Near-miss green: `--check --config alt.toml`, `alt.toml` an unchanged copy | Identical summary to plain `--check` | 0 |
-
-- **Deviations:** the probe corpus was built from `git archive $(git stash
-  create)` rather than the plan's literal `git archive HEAD`. This task's
-  own Step 5 (probe) runs before Step 6 (commit), so `HEAD` at probe time
-  was still BASE and had no `--config` to probe; `git stash create` (Lesson
-  L9/L18) captured the uncommitted implementation instead.
 
 Validation: `pytest -q` -- **1848 passed**.

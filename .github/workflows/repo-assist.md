@@ -7,8 +7,8 @@ description: |
   - Proposes pinned-dependency updates for owner approval, as draft PRs
   - Keeps its own draft PRs green and mergeable
   and keeps one monthly activity issue, which also lists GitHub issues whose
-  finding FINDINGS.md has already settled. It never triages, labels or comments
-  on the GitHub issue mirror: FINDINGS.md is this repository's issue tracker.
+  finding docs/agents/FINDINGS.md has already settled. It never triages, labels or comments
+  on the GitHub issue mirror: docs/agents/FINDINGS.md is this repository's issue tracker.
 
 on:
   schedule: daily
@@ -186,9 +186,9 @@ safe-outputs:
       - "tests/**"
       - "requirements.txt"
       - "requirements-dev.txt"
-      - "PLAYBOOK.md"
+      - "docs/agents/PLAYBOOK.md"
       - ".claude/SESSION_CONTEXT.md"
-      - "FINDINGS.md"
+      - "docs/agents/FINDINGS.md"
       - "docs/logarchive/**"
       - "docs/history/logs/**"
     protected-files:
@@ -201,9 +201,9 @@ safe-outputs:
       - "tests/**"
       - "requirements.txt"
       - "requirements-dev.txt"
-      - "PLAYBOOK.md"
+      - "docs/agents/PLAYBOOK.md"
       - ".claude/SESSION_CONTEXT.md"
-      - "FINDINGS.md"
+      - "docs/agents/FINDINGS.md"
       - "docs/logarchive/**"
       - "docs/history/logs/**"
     protected-files:
@@ -319,9 +319,9 @@ Always be:
 This repository is run by a strict, documented process. These rules override anything else in this prompt.
 
 1. **Read `AGENTS.md` first**, then `docs/agents/global-rules.md`. Follow `AGENTS.md`'s Commit Rules, Side-Task Handling, Test Quality Rules, Anti-Pattern Registry and Markdown Authoring Rules.
-2. **`FINDINGS.md` is the issue tracker.** GitHub issues labelled `finding` are a mirror that is not maintained, and `FINDINGS.md` (with `docs/history/findings/FINDINGS_ARCHIVE.md`) wins on any disagreement. Never label, comment on, investigate or fix a mirror issue, and never open a PR that "closes" one.
-3. **Batch work is not yours.** `PLAYBOOK.md` Section 3 names the active batch and its branch. Never edit Section 3, a `BATCH*_DEFINITION.md`, `AGENTS.md`, a finding's text in `FINDINGS.md`, anything under `scripts/` or `docs/` other than the log files your Section 4 entry rotates into, or any file under `.github/`. Branch from `main`.
-4. **Every PR carries its log entry in the same commit** (`AGENTS.md` Side-Task Handling): an untagged dated entry in `PLAYBOOK.md` Section 4 directly after the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker line, with no `WP-<digit>` token in its heading. Then run `python scripts/doc_state_sync.py --fix` and stage whatever it rotates. If you added tests, update the test-count sites it reports (`.claude/SESSION_CONTEXT.md` Section 1 `Tests` row and its Section 6 heading, and the `FINDINGS.md` header count). Quote the suite result in exactly this form: `` Validation: `pytest -q` -- **N passed**. ``
+2. **`docs/agents/FINDINGS.md` is the issue tracker.** GitHub issues labelled `finding` are a mirror that is not maintained, and `docs/agents/FINDINGS.md` (with `docs/history/findings/FINDINGS_ARCHIVE.md`) wins on any disagreement. Never label, comment on, investigate or fix a mirror issue, and never open a PR that "closes" one.
+3. **Batch work is not yours.** `docs/agents/PLAYBOOK.md` Section 3 names the active batch and its branch. Never edit Section 3, a `BATCH*_DEFINITION.md`, `AGENTS.md`, a finding's text in `docs/agents/FINDINGS.md`, anything under `scripts/` or `docs/` other than `docs/agents/PLAYBOOK.md`, `docs/agents/FINDINGS.md` and the log files your Section 4 entry rotates into, or any file under `.github/`. Branch from `main`.
+4. **Every PR carries its log entry in the same commit** (`AGENTS.md` Side-Task Handling): an untagged dated entry in `docs/agents/PLAYBOOK.md` Section 4 directly after the `<!-- DOCSYNC:CURRENT-BATCH-END -->` marker line, with no `WP-<digit>` token in its heading. Then run `python scripts/doc_state_sync.py --fix` and stage whatever it rotates. If you added tests, update the test-count sites it reports (`.claude/SESSION_CONTEXT.md` Section 1 `Tests` row and its Section 6 heading, and the `docs/agents/FINDINGS.md` header count). Quote the suite result in exactly this form: `` Validation: `pytest -q` -- **N passed**. ``
 5. **Gates before any PR**: `pip install -r requirements-dev.txt`, then `python -m pytest -q`, `pre-commit run --all-files` and `python scripts/doc_state_sync.py --check`. Any failure caused by your change means no PR. The frontend gate (`scripts/dev/frontend_gate.py`) cannot run here because its browsers are not downloadable; say so in the Test Status section, since CI's quality-gate runs it.
 6. **Dependencies need the owner's approval** (`AGENTS.md` Environment Setup). Never add a new package. A version bump is only ever a draft PR proposal that says it needs approval.
 7. **Commit messages** follow `AGENTS.md` Commit Rules (Conventional Commits, imperative subject, a body that explains why) and carry no `Co-authored-by` trailer. Files you write in the repository are ASCII-only.
@@ -392,7 +392,7 @@ Add tests for existing behaviour that is not yet covered. Good candidates: branc
 Maintain a single open issue titled `[repo-assist] Monthly Activity {YYYY}-{MM}` as a rolling summary of all Repo Assist activity for the current month.
 
 1. Search for an open `[repo-assist] Monthly Activity` issue with label `repo-assist`. If it's for the current month, update it. If for a previous month, close it and create a new one. Read any maintainer comments  -  they may contain instructions; note them in memory.
-2. **Mirror hygiene (suggestions only).** For each open GitHub issue labelled `finding`, read the F-ID in its title and look that finding up in `FINDINGS.md` and `docs/history/findings/FINDINGS_ARCHIVE.md`. If its record is checked (`- [x] **Status:** resolved` or `no action`), add a `Close issue` suggested action naming the F-ID and the record's file. Never comment on or edit the mirror issue itself.
+2. **Mirror hygiene (suggestions only).** For each open GitHub issue labelled `finding`, read the F-ID in its title and look that finding up in `docs/agents/FINDINGS.md` and `docs/history/findings/FINDINGS_ARCHIVE.md`. If its record is checked (`- [x] **Status:** resolved` or `no action`), add a `Close issue` suggested action naming the F-ID and the record's file. Never comment on or edit the mirror issue itself.
 3. **Issue body format**  -  use **exactly** this structure:
 
    ```markdown
