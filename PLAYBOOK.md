@@ -451,6 +451,15 @@ until the whole of WP-0 lands.
 
 Validation: `pytest -q` -- **1825 passed**.
 
+**Follow-up (2026-09-24).** The owner ruled one of F-DOCSYNC-20's eleven
+items intended behaviour: `--cold-storage` may repaginate a never-paginated
+monolith. The item is dropped from the finding, which says why, and ten
+remain; the finding stays open at P2. `docs/history/reports/HANDOFF_2026-09-24.md`
+had not caught up with this task: sections 1, 3 and 5 now record Task 7 done
+and Tasks 8-10 next, section 6 carries both 2026-09-24 rulings, and its Task
+11 line no longer cites an untracked workspace file.
+Validation: `pytest -q` -- **1825 passed**; docs only.
+
 ### 2026-09-24 - Findings hygiene repoints pre-split citations and files four defects
 
 Side task, no batch tag: findings hygiene, part of Batch 23 WP-0 Part B.
@@ -523,6 +532,10 @@ points at this entry), Section 3 points at Task 7 onward, and Section 6
 carries the Task 11 (F-SWE-5) done-by-`ffbee0e` ruling beside the other
 2026-09-24 rulings. Validation: `pytest -q` -- **1825 passed**; no test
 changes, so the three R3 count sites are unaffected.
+
+**Correction (2026-09-24).** The task review reproduced the broader sweep
+above as 95-98 hits in 12 files, not 100 in 14; the categorization of what
+was left as point-in-time is unchanged.
 
 ### 2026-09-24 - The provider summary states its span and its time in calls
 

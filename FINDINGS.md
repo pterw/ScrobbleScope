@@ -667,7 +667,10 @@ publish was interrupted -- recovery exists, a diagnostic does not.
 The docsync close-out plan's final review (PR #234 round) covered automated
 tool reports on the engine commit but never worked its own ledger's
 carried-over triage list of "minor (deferred)" items from Tasks 1-4a; checked
-individually against the code and tests at HEAD, eleven are still true.
+individually against the code and tests at HEAD, eleven were still true. The
+owner ruled one of them intended behaviour on 2026-09-24 -- `--cold-storage`
+may repaginate a never-paginated monolith -- so it is dropped here and ten
+remain.
 
 - `transaction.py`: `_atomic_write` and `_restore` both write through
   `_stage_and_replace`, but every rollback fault-injection test
@@ -697,11 +700,6 @@ individually against the code and tests at HEAD, eleven are still true.
 - `tests/test_docsync_archives.py` still has no test pinning that a fenced
   `### ` heading is not a page or entry boundary, unlike `findings.py`'s
   `test_fenced_example_heading_is_never_a_finding`.
-- `cli.py`: `_maintain_archives` still calls `ArchiveStore.plan` with no
-  explicit pagination gate, so `--cold-storage --as-of` (and
-  `--paginate-archives`) can repaginate a never-paginated monolith as a side
-  effect. Confirmed live. The ledger calls this a behaviour question worth
-  one owner glance, not a settled defect.
 - A deleted archive index with surviving `pages/` files still reports no
   DOC020. Confirmed live: `--check` instead fails with a generic "Required
   file is missing" (exit 2), and `--paginate-archives`/`--cold-storage`
