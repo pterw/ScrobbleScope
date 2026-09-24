@@ -9,6 +9,44 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The root-cleanup plan is drafted and the handoff readied for a cloud session
+
+Side task, no batch tag: drafting the root-cleanup plan and revising the
+session handoff, part of Batch 23 WP-0 Part B. Untagged by owner ruling
+2026-09-23 until the whole of WP-0 lands.
+
+- **Owner rulings, 2026-09-24.** The root is cleaned up: `PLAYBOOK.md`,
+  `FINDINGS.md`, `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` move to
+  `docs/agents/`; `.docsync.toml` and `frontend_gate_checks.toml` move to
+  `config/`, each tool with one constant default path, docsync with a
+  `--config` override and its document paths declared in its config. Human
+  and Impeccable documents stay at the root. It runs after foundation Task
+  10 as a new WP-0 Part B task; `origin/main` (PR #242) is merged into this
+  branch first; the docsync diagnostics that print `PLAYBOOK.md` are fixed
+  in the same plan. `docs/history/reports/HANDOFF_2026-09-24.md` section 6
+  holds the full list.
+- **What landed.** A read-only research pass listed every place that
+  resolves one of the six moving paths, committed as
+  `docs/history/reports/ROOT_CLEANUP_INVENTORY_2026-09-24.md` (point-in-time,
+  read at `b1b8c0c`). A plan drafted from it,
+  `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, is
+  committed as a draft and marked not approved. A read-only plan review
+  found that the draft's Task 7 misreads a merged PR #242, that two DOC002
+  label sites and one `renderer.py` citation were unnamed, and that the
+  label count was ten, not twelve. Its claim that merging `main` would
+  conflict in `AGENTS.md`, `FINDINGS.md` and other files was checked with
+  `git merge-tree` and is wrong: only `PLAYBOOK.md` Section 4 and the log
+  archive conflict. Every accepted item, and the owner's rulings, are in
+  the plan's "Revisions pending" section; nothing in the plan has run.
+- **Handoff.** `docs/history/reports/HANDOFF_2026-09-24.md` is revised for a
+  cloud session: sections 1, 3, 5, 6 and 8 record Tasks 8-10 done, PR #242
+  merged, the root-cleanup rulings, the Repo Assist scope, and three new
+  traps (the owner's own changes appearing mid-task, the push permission
+  workflow files need, and compiling gh-aw workflows).
+- **Deviations:** none. Docs only.
+
+Validation: `pytest -q` -- **1833 passed**.
+
 ### 2026-09-24 - Repo Assist runs daily, scoped to tests and dependency proposals
 
 Side task, no batch tag: adding the Repo Assist agentic workflow (gh-aw),

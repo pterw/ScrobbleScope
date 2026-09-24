@@ -1,18 +1,5 @@
 # Batch 23 WP-0 Part B: root cleanup (document and config relocation)
 
-**Status: REVISED, awaiting review and owner approval (2026-09-24).** Drafted
-from `docs/history/reports/ROOT_CLEANUP_INVENTORY_2026-09-24.md` and reviewed
-once. The eight "Revisions pending" items and a source-verified pre-flight
-(three read-only passes at `85f47a0`: production code, tests, and the
-inventory's currency including PR #242's files) are applied to the task
-bodies; "Revisions applied" at the end of this file maps each item to where
-it landed. The owner ruled its open points on 2026-09-24: the pre-commit
-exclude keeps `docs/agents/` checked (Task 6 Step 9), the `FINDINGS.md`
-diagnostic labels join Task 8, and generated text names no document path
-(Task 6 Step 6). When the revised plan is reviewed clean and approved, Task
-1's commit deletes this status paragraph and the "Revisions applied" section;
-nothing runs before that.
-
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Move `PLAYBOOK.md`, `FINDINGS.md`, `AGENT_NOTES.md`, `HANDOFF_PROMPT.md` from the
@@ -191,7 +178,7 @@ execution. Part B of `BATCH23_DEFINITION.md` WP-0 does not yet list the root cle
 - Modify: `PLAYBOOK.md` Section 3, "Next action" ordered list, item 3's closing sentence
   ("Next is the root-cleanup task the owner added on 2026-09-24.")
 
-- [ ] **Step 1: Add the Part B bullet**
+- [x] **Step 1: Add the Part B bullet**
 
   In `BATCH23_DEFINITION.md`, inside `#### Part B -- Reconcile what earlier batches left open`,
   add a new bullet after "The foundation plan's between-batch tasks land here":
@@ -213,7 +200,7 @@ execution. Part B of `BATCH23_DEFINITION.md` WP-0 does not yet list the root cle
       table where the plan asks for one.
   ```
 
-- [ ] **Step 2: Repoint PLAYBOOK Section 3**
+- [x] **Step 2: Repoint PLAYBOOK Section 3**
 
   In the "Next action" order list, item 3, replace everything from "Next is the root-cleanup
   task the owner added on 2026-09-24." to the end of that item (the sentences describing the
@@ -226,12 +213,12 @@ execution. Part B of `BATCH23_DEFINITION.md` WP-0 does not yet list the root cle
   ```
   Keep `**Next action:** WP-0 is next.` exactly (cloud-kit R2).
 
-- [ ] **Step 3: Mark this plan approved**
+- [x] **Step 3: Mark this plan approved**
 
   In this file, delete the status paragraph under the title and the "Revisions applied"
   section at the end. The plan is committed in its approved form in this same commit.
 
-- [ ] **Step 4: Section 4 entry, gates and commit**
+- [x] **Step 4: Section 4 entry, gates and commit**
 
   Add one untagged Section 4 entry directly after the current-batch end marker, headed
   `### YYYY-MM-DD - The root cleanup joins WP-0 Part B`, opening with the cloud-kit R1
@@ -1557,53 +1544,3 @@ repository entirely. Hand these to the owner or do them yourself once Task 6 has
    machine): point-in-time -- leave as written. The tracked entry-point handoff is repointed
    in Task 6 Step 8.
 5. **A local session for Task 7** if this plan runs in a cloud sandbox without `gh aw`.
-
----
-
-## Revisions applied (2026-09-24; Task 1 deletes this section)
-
-The eight items the first review and the owner's rulings left pending, and where each
-landed:
-
-1. Merge `origin/main` first -> Task 0. Conflict set re-verified at `85f47a0`: only
-   `PLAYBOOK.md` and the log archive.
-2. Task 7 always takes the "present" branch -> Task 7 rewritten; the probe and Step 2b are
-   gone; the lock-file recompile is Step 2, and a sandbox without `gh aw` leaves the task to a
-   local session.
-3. Diagnostics name the declared path -> Task 8. Corrected: fourteen `"PLAYBOOK.md"` label
-   sites, not ten (ten in `integrity.py`, two of them built directly; four in `closeout.py`);
-   the twelve `FINDINGS.md` labels (eleven in `findings.py`, one in `integrity.py`) join the
-   task by owner ruling. The draft's open point 2 is gone (Task 2 Step 5 now points at Task
-   8).
-4. `SIDE_ARCHIVE_PREFIX` -> Task 6 Step 6, which also found it is a DOC004 contract with the
-   real archive's prologue, and drops the path from generated text instead of hard-coding the
-   new one (the owner's "declared, not hard-coded" ruling).
-5. Task 1 names its own Section 4 entry and carries the approved plan -> Task 1 Steps 3-4.
-6. Citation style settled on repository-root paths -> Task 6 Step 8; open point 1 is gone.
-7. Task 6 may be two sequential dispatches over one uncommitted tree, one commit -> advisory,
-   decided at dispatch (unchanged).
-8. Interpreter paths -> Global Constraints point at cloud-kit R10 and its gates block; every
-   command uses `.venv/bin/python -m pytest` and `/tmp/ssprobe`.
-
-The pre-flight (three read-only passes at `85f47a0`, plus controller probes in a scratch
-copy) found, and the tasks now handle:
-
-- Task 3: `CONFIG_PATH` needs `global` and a restore in `finally` (`REPO_ROOT` is a true
-  constant, and tests call `main()` in-process); `collect_declaration_issues` needs
-  `config_path` too; an explicit `--config` naming a missing file must be refused, since a
-  missing file otherwise means "nothing declared" and passes.
-- Task 4: one error string, not two; the manifest's own header comment claims the root; the
-  real test set is `tests/scripts/dev/test_frontend_gate*.py`.
-- Task 5: the draft moved the file out from under test fixtures that still wrote the old
-  path (a probe of the draft: 25 failures, 2 of them expected); two remediation strings and
-  four comments name the file; 28 prose and comment lines outside `scripts/` and `tests/`
-  cite it (some point-in-time), with no gate to catch the live ones; the
-  draft's near-miss probe staged a `scripts/docsync/` file, which is refused under either
-  name.
-- Task 6: `cli.py` reads and writes `PLAYBOOK_PATH` / `FINDINGS_PATH` at eight sites;
-  `sync_env` monkeypatches `PLAYBOOK_PATH`; two renderer tests copy the status line by value;
-  `test_worktree_guard_cli_e2e.py` was missing from the verification run;
-  `docs/design/RECONCILIATION.md:667`, `frontend_gate.py`'s docstring and the entry-point
-  handoff cite moved documents; `.pre-commit-config.yaml`'s `exclude` would silently drop the
-  moved documents from four file hooks (owner ruling pending, Step 9); the commit subject was
-  78 characters.

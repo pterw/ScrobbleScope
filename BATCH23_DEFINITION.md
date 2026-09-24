@@ -237,6 +237,13 @@ WP-0 did.
   plan's Progress block, the frontend gate's check manifest, the `AGENTS.md`
   pointers and the diagram re-verification. That plan's live-probe standard
   still applies.
+- [ ] **Root cleanup.** Move `PLAYBOOK.md`, `FINDINGS.md`, `AGENT_NOTES.md` and
+  `HANDOFF_PROMPT.md` to `docs/agents/`, and `.docsync.toml` and `frontend_gate_checks.toml`
+  to `config/`, per the owner rulings of 2026-09-24. Plan:
+  `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`. `AGENTS.md`, `README.md`,
+  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `LICENSE`, `DEVELOPMENT.md`, `DEPLOY.md`,
+  `DESIGN.md`, `PRODUCT.md`, `BATCH*_DEFINITION.md`, `fly.toml`, `Dockerfile`, `app.py`,
+  `run.py`, `init_db.py`, and the standard Python config files stay at the root.
 - [ ] **PLAYBOOK Section 3 states only the current work order.** Its Batch
   21 narrative is no longer the work order. Delete each paragraph only after
   confirming a log, a definition or a finding already holds its facts. A fact
@@ -256,6 +263,8 @@ WP-0 did.
   - No open finding says "pending deploy".
   - Each foundation plan task meets that plan's acceptance, with its
     live-probe table where the plan asks for one.
+  - Every task in the root-cleanup plan meets that plan's acceptance, with its live-probe
+    table where the plan asks for one.
   - Section 3 describes only current work.
   - Each Batch 22 owner item has a recorded outcome or deferral.
 

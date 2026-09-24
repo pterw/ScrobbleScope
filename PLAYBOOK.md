@@ -227,14 +227,9 @@ See FINDINGS F-DOCSYNC-3.
      done, 2026-09-24. Task 10 (every `docs/architecture/*.md` diagram walked
      against current source, `api_logging.py` added to
      `docs/architecture/runtime-system.md`, and `docs/ARCHITECTURE.md`'s
-     "Last verified" date moved to 2026-09-24) is done, 2026-09-24. Next is
-     the root-cleanup task the owner added on 2026-09-24. Its plan,
-     `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, has
-     its revisions applied (2026-09-24), and the owner ruled its open
-     points the same day (the pre-commit exclude keeps `docs/agents/`
-     checked; the `FINDINGS.md` labels join its Task 8; generated text names
-     no document path). The owner approved it on 2026-09-24. Its Task 0
-     (`origin/main` merged in, bringing PR #242) is done, 2026-09-24.
+     "Last verified" date moved to 2026-09-24) is done, 2026-09-24. Next is the root-cleanup plan,
+     `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, approved
+     2026-09-24: Task 0 (`main` merged in) and Task 1 are done; Tasks 2-8 remain.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -442,6 +437,33 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The root cleanup joins the reconcile work
+
+Side task, no batch tag: the root-cleanup task joins WP-0 Part B, part of
+Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of
+WP-0 lands.
+
+- **Scope.** Task 1 of the root-cleanup plan
+  (`docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`): record
+  the scope change before any file moves (Proposal Rule 1). `BATCH23_DEFINITION.md`
+  Part B gains a "Root cleanup" bullet naming the plan and the acceptance
+  criterion it must meet. PLAYBOOK Section 3's "Next action" item 3 now
+  names the root-cleanup plan's path and states Task 0 and Task 1 done,
+  Tasks 2-8 remaining, instead of describing the plan as a draft.
+- **Plan bookkeeping.** The plan's own status paragraph and "Revisions
+  applied" section are deleted: the plan is committed in its approved form
+  in this same commit. Task 1's four step checkboxes are ticked.
+- **Sibling sweep.** `docs/history/reports/HANDOFF_2026-09-24.md` section 3
+  no longer cites the plan's deleted "Revisions applied" section; it now
+  points at the plan's task list and its "verification standard for
+  control-plane tasks". Section 5 item 5 no longer cites the deleted status
+  paragraph; it points at this handoff's section 6, which records the
+  owner's rulings.
+- **Validation:** `pytest -q` -- **1833 passed**. `pre-commit run --all-files`
+  passed (worktree-alignment printed only the expected WT000/WT010 noise).
+  `doc_state_sync.py --check` exited 0 with the standing DOC024 warnings
+  (L7).
+
 ### 2026-09-24 - main is merged in before the root cleanup
 
 Side task, no batch tag: Task 0 of the root-cleanup plan, part of Batch 23
@@ -572,41 +594,3 @@ lands.
 Validation: `pytest -q` -- **1833 passed**. `pre-commit run --all-files`
 and `doc_state_sync.py --check` pass; the frontend gate does not apply (no
 `static/`, `templates/` or gate path changed).
-
-### 2026-09-24 - The root-cleanup plan is drafted and the handoff readied for a cloud session
-
-Side task, no batch tag: drafting the root-cleanup plan and revising the
-session handoff, part of Batch 23 WP-0 Part B. Untagged by owner ruling
-2026-09-23 until the whole of WP-0 lands.
-
-- **Owner rulings, 2026-09-24.** The root is cleaned up: `PLAYBOOK.md`,
-  `FINDINGS.md`, `AGENT_NOTES.md` and `HANDOFF_PROMPT.md` move to
-  `docs/agents/`; `.docsync.toml` and `frontend_gate_checks.toml` move to
-  `config/`, each tool with one constant default path, docsync with a
-  `--config` override and its document paths declared in its config. Human
-  and Impeccable documents stay at the root. It runs after foundation Task
-  10 as a new WP-0 Part B task; `origin/main` (PR #242) is merged into this
-  branch first; the docsync diagnostics that print `PLAYBOOK.md` are fixed
-  in the same plan. `docs/history/reports/HANDOFF_2026-09-24.md` section 6
-  holds the full list.
-- **What landed.** A read-only research pass listed every place that
-  resolves one of the six moving paths, committed as
-  `docs/history/reports/ROOT_CLEANUP_INVENTORY_2026-09-24.md` (point-in-time,
-  read at `b1b8c0c`). A plan drafted from it,
-  `docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`, is
-  committed as a draft and marked not approved. A read-only plan review
-  found that the draft's Task 7 misreads a merged PR #242, that two DOC002
-  label sites and one `renderer.py` citation were unnamed, and that the
-  label count was ten, not twelve. Its claim that merging `main` would
-  conflict in `AGENTS.md`, `FINDINGS.md` and other files was checked with
-  `git merge-tree` and is wrong: only `PLAYBOOK.md` Section 4 and the log
-  archive conflict. Every accepted item, and the owner's rulings, are in
-  the plan's "Revisions pending" section; nothing in the plan has run.
-- **Handoff.** `docs/history/reports/HANDOFF_2026-09-24.md` is revised for a
-  cloud session: sections 1, 3, 5, 6 and 8 record Tasks 8-10 done, PR #242
-  merged, the root-cleanup rulings, the Repo Assist scope, and three new
-  traps (the owner's own changes appearing mid-task, the push permission
-  workflow files need, and compiling gh-aw workflows).
-- **Deviations:** none. Docs only.
-
-Validation: `pytest -q` -- **1833 passed**.
