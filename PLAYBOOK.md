@@ -503,6 +503,16 @@ No test changes; no count site changes (R3).
 
 Validation: `pytest -q` -- **1833 passed**.
 
+**Follow-up (2026-09-24, owner change).** The owner added one line to the
+top of `.github/copilot-instructions.md` and asked for it to be committed:
+GitHub's coding agents are to follow `AGENTS.md` and its bootstrap, not
+duplicate its rules, and use the existing Graphify guidance for
+architecture questions. It is the agent-facing counterpart of this entry's
+pointers. The same line, with its curly apostrophe straightened (`AGENTS.md`
+Markdown Authoring Rules: ASCII only), is also on PR #242
+(`chore/repo-assist-workflow`); the two copies are byte-identical, so the
+branches merge cleanly. Docs only.
+
 ### 2026-09-24 - The frontend gate selects checks from a manifest
 
 Side task, no batch tag: adding `frontend_gate_checks.toml` so the frontend
