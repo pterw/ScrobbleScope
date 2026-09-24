@@ -9,6 +9,39 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The docsync close-out plan's Progress block is closed
+
+Side task, no batch tag: closing the docsync close-out plan's Progress
+block, part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23
+until the whole of WP-0 lands.
+
+- **Progress block closed.** Task 4 (`491e61a4` code, `3d8a42a5` docs) and
+  the final whole-branch review (engine reviewed alone as `a07f5761`; DOC023
+  built as `fa923305`/`28a8527`/`fcfe8d4e`) are ticked, both reaching `test`
+  through PR #233 (`2ccf0ddb`) and PR #234 (`88f6e27`). New deviation
+  bullets record the review split, DOC023's id-allowlist departure, and
+  where the ledger's untriaged Minors went.
+- **Owner ruling 2026-09-24 widened this task**: the docsync close-out
+  ledger's final review never worked its own carried-over triage list of
+  "minor (deferred)" items from Tasks 1, 2, 3 and 4a. Checked individually
+  against the code and tests at HEAD: two were already fixed (the
+  `run_docsync_check` uncaught `OSError`, and `CONTROL_PLANE_FILES`'
+  exact-vs-prefix filename matching -- both folded into `491e61a4`'s fix
+  round); three from Task 1 are too terse in the record to check and are
+  marked not reproducible; the remaining eleven are still true and filed as
+  one finding, F-DOCSYNC-20 (foundation plan DoD row 32).
+
+Validation: `pytest -q` -- **1825 passed**.
+
+**Follow-up (2026-09-24).** The owner ruled one of F-DOCSYNC-20's eleven
+items intended behaviour: `--cold-storage` may repaginate a never-paginated
+monolith. The item is dropped from the finding, which says why, and ten
+remain; the finding stays open at P2. `docs/history/reports/HANDOFF_2026-09-24.md`
+had not caught up with this task: sections 1, 3 and 5 now record Task 7 done
+and Tasks 8-10 next, section 6 carries both 2026-09-24 rulings, and its Task
+11 line no longer cites an untracked workspace file.
+Validation: `pytest -q` -- **1825 passed**; docs only.
+
 ### 2026-09-24 - Findings hygiene repoints pre-split citations and files four defects
 
 Side task, no batch tag: findings hygiene, part of Batch 23 WP-0 Part B.
