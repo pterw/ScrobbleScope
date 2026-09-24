@@ -368,21 +368,25 @@ WP-0.` on the first `--fix`, which confirmed the D1 fix on the real corpus. Devi
 **Files:** `scripts/docsync/archives.py`, `scripts/docsync/cli.py`, `docs/architecture/documentation-tooling.md`,
 `tests/test_docsync_archives.py`.
 
-- [ ] **Step 1: Failing test.** An unpaginated archive over `max_lines` yields one warning that names
+- [x] **Step 1: Failing test.** An unpaginated archive over `max_lines` yields one warning that names
   `--paginate-archives` and writes nothing. A paginated page whose entries are not all dated yields one
   warning saying it can never age.
-- [ ] **Step 2: Implement at warning severity**, so `--check` still exits 0. Allocate **DOC024**, not
+- [x] **Step 2: Implement at warning severity**, so `--check` still exits 0. Allocate **DOC024**, not
   DOC021 or DOC022: those two are reserved by
   `docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`.
-- [ ] **Step 3: Correct the document.** Replace "become cold-storage eligible after 365 days" with what
+- [x] **Step 3: Correct the document.** Replace "become cold-storage eligible after 365 days" with what
   `archives.py` does: a page ages only when it is not the writable tail, is not oversized, and every
   entry on it is dated before the cutoff, so a page of undated entries never ages. Name DOC024 in the
   catalogue, and change the catalogue heading's range in the same edit (Task 5 owns the range wording).
-- [ ] **Step 4: Live probe.**
-  - *Red:* the real corpus warns once for `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, exit 0.
-  - *Near-miss green:* after `--paginate-archives`, no oversize warning; the undated findings pages
-    each warn once.
-- [ ] **Step 5:** `--check` directly, the commit procedure, `SKIP=doc-state-sync-check git commit`,
+- [x] **Step 4: Live probe.** The real corpus warns *four* times, not once as predicted above --
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`, `docs/history/findings/FINDINGS_ARCHIVE.md`,
+  `docs/history/logs/BATCH22_LOG.md` and `docs/history/logs/BATCH21_LOG.md` all exceed 500 lines and
+  are still unpaginated monoliths at BASE `701e68c` (Section 4 entry has the corrected probe table).
+  - *Red:* confirmed, exit 0, DOC024 x4.
+  - *Near-miss green:* after `--paginate-archives` on the throwaway `/c/ssprobe` corpus, no oversize
+    warning; two findings-archive pages (not all, since two of the four pages that resulted were
+    fully dated) each warn once as never-ageing; no log page warned.
+- [x] **Step 5:** `--check` directly, the commit procedure, `SKIP=doc-state-sync-check git commit`,
   subject `feat(docsync): Warn when an archive outgrows its page target`.
 
 ### Task 5: Make the DOC range true

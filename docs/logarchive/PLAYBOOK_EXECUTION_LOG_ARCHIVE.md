@@ -9,6 +9,30 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - The release-window rule gets a task of its own
+
+Side task, no batch tag: a planning change within Batch 23 WP-0. Untagged
+by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Filed F-B23-5 at P2, and the owner added it to WP-0 Part C
+  (2026-09-23).** `release_checks._window_end` restates the scope table
+  that foundation Task 12 moved to `domain._matches_release_criteria`, so
+  the release-window rule has two copies. They already differ at the
+  edges: an unparseable decade excludes every album in the filter but
+  gives the worker no window.
+- **Plan:** the reconcile plan gains Task 12, the last task of Stage 2 and
+  before Stage 3. It pins both consumers' current outputs with parity tests
+  first, then derives both from one `domain.release_window`. Changing the
+  unparseable-decade behaviour needs an owner ruling before dispatch. The
+  definition's Part C now lists F-B23-5 as the fourth owner-added P2, and
+  the plan's disposition table has its row.
+- **Also corrected:** the plan's Acceptance said only Tasks 4 and 6 edit
+  an existing test. Task 11 replaced one too, so it now says 4, 6 and 11.
+- **Scope:** documentation only. No code, test or gate changed.
+
+Validation: `pytest -q` -- **1746 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Release checks run without the cache DB
 
 Side task, no batch tag: fixes F-B22-8, part of Batch 23 WP-0 Part C.
