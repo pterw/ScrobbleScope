@@ -430,16 +430,20 @@ cloud session, part of Batch 23 WP-0 Part B. Untagged by owner ruling
   with no findings). PR #241 merged into `main` as `92f7d6a`, and no PR is
   open for the branch. Three cloud-sandbox limits: the Tailwind artifacts
   must be fetched with `curl` (Python 3.13 rejects the proxy CA), the
-  frontend gate cannot run, and Codacy's API is blocked. The guard reads
-  WT006 against `origin/main` since the merge, with identical trees, so it
-  runs with `--base-ref origin/test`. The owner's Task 5 rulings and the
+  frontend gate cannot run, and Codacy's API is blocked. The guard fails
+  against `origin/main` since the merge (WT006 while the branch has nothing
+  past it, WT005 once it does) with an empty merge-base diff, so it runs
+  with `--base-ref origin/test`. The owner's Task 5 rulings and the
   push rule (hold until a review is recorded clean).
 - **Lessons.** L11: check a task's plan checkboxes before recording it done;
   the owner caught Task 5's. L12: ask the first review to sweep the whole
   task range for stale copies of every changed fact; Task 5 needed three
   rounds without it. L13: every code a gate-runner summary quotes must be
   found in its logs.
-- **Deviations.** None. No code or test changed.
+- **Deviations.** None. No code or test changed. The first commit said the
+  guard reads WT006 against `origin/main`; its own pre-commit run printed
+  WT005, because the branch had moved past the merge. Both statements now
+  name both codes.
 - **Validation:** `pytest -q` -- **1821 passed**. `pre-commit run --all-files`
   and `doc_state_sync.py --check` pass, with the expected WT005, DOC024 and
   root-BATCH warnings.
