@@ -403,6 +403,79 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - Repo Assist runs daily, scoped to tests and dependency proposals
+
+Side task, no batch tag: adding the Repo Assist agentic workflow (gh-aw),
+requested by the owner 2026-09-24. It lands on its own branch from `main`
+(owner ruling, same day) so Batch 23 WP-0's branch stays clean; a scheduled
+workflow runs only from the default branch.
+
+- **What it is.** `.github/workflows/repo-assist.md` is the source and
+  `repo-assist.lock.yml` its compiled Actions workflow (gh-aw v0.89.21;
+  recompile with `gh aw compile repo-assist` after any edit, since the lock
+  records a hash of the source). It came from
+  `githubnext/agentics/workflows/repo-assist.md` (pinned by its `source:`
+  line). `.github/aw/actions-lock.json` pins the actions the lock uses, and
+  `.gitattributes` marks lock files as generated.
+- **Scoped to this repository by owner request.** The upstream template runs
+  ten tasks. Enabled here: Testing Improvements, pinned-dependency proposals,
+  maintaining its own draft PRs, and a monthly activity issue that also lists
+  GitHub `finding` issues whose record `FINDINGS.md` has already settled.
+  Disabled: issue labelling, triage and fixing (the 43 open issues are the
+  unmaintained `FINDINGS.md` mirror, and `FINDINGS.md` wins), coding,
+  documentation, performance and "take the repository forward" work, and
+  release preparation. Its prompt binds it to `AGENTS.md`: a Section 4 entry
+  in the same commit, the gates before any PR, no dependency change without
+  the owner's approval, no edits to batch files, `scripts/`, `docs/` or
+  `.github/`.
+- **Guardrails.** One draft PR per run and none while three are open;
+  `allowed-files` limits PRs to tests, the two requirements files and the
+  Section 4 documents; a change to a file gh-aw protects (its documented
+  list: package manifests, CI configuration, agent instruction files) is
+  opened with a review request rather than silently. The repository is public, so `min-integrity: approved`
+  lets it act only on content from the owner and collaborators or items
+  carrying its own `repo-assist` label. Network: PyPI and GitHub only.
+- **Secrets the owner sets** (repository secrets, never committed):
+  `CODEX_API_KEY` or `OPENAI_API_KEY` for the codex engine, and
+  `GH_AW_CI_TRIGGER_TOKEN`, a fine-grained PAT with Contents read and write,
+  so `test.yml` runs on its PRs (GitHub starts no workflow for a push made
+  with the built-in token). The workflow file's own comments say the same.
+- **Deviations:** the upstream `update-docs` workflow was added and then
+  dropped by owner ruling (it would open a documentation PR on every push to
+  `main`, against docsync's single-owner rules). `.github/skills/` from
+  `gh aw` stays untracked: skill definitions are not tracked here
+  (`AGENT_NOTES.md`). The prompt keeps the template's emoji disclosure lines
+  as the template wrote them; they only shape generated GitHub content, not
+  repository documents.
+
+Validation: `pytest -q` -- **1821 passed**; no test or application change.
+
+**Follow-up (2026-09-24).** The owner added one line to the top of
+`.github/copilot-instructions.md` and asked for it to be tracked with this
+change: GitHub's coding agents are to follow `AGENTS.md` and its bootstrap,
+not duplicate its rules, and use the existing Graphify guidance for
+architecture questions. Its one curly apostrophe became a straight one
+(`AGENTS.md` Markdown Authoring Rules: ASCII only); the file's older
+non-ASCII characters, in its Mermaid section, are untouched.
+Validation: `pytest -q` -- **1821 passed**; docs only.
+
+**Review fix round (2026-09-24).** A `/code-review` of this PR found four
+defects the workflow inherited from the upstream template; each was checked
+against the gh-aw docs and the compiled lock before fixing. (1) The prompt
+never gave `notes.json`'s exact shape, which the memory validation script
+enforces key by key, so a guessed file would be rejected: the prompt now
+gives the initial document and every entry's keys. (2) The validator failed
+on a missing `notes.json`, so a correct do-nothing run on a fresh memory
+branch would fail: a missing file is now valid. (3) Task 11 closes last
+month's activity issue, but `update-issue` allowed only the body: it now
+also allows the status. (4) The open-PR cap searched titles for
+`"[repo-assist]"`, which GitHub's search reads as plain words, so it also
+counted human PRs mentioning "repo assist": it now matches the literal
+title prefix, as the task-weighting step already did. Recompiled with
+`gh aw compile repo-assist --approve`, the approval covering the reviewed
+validation-script change.
+Validation: `pytest -q` -- **1821 passed**; no test or application change.
+
 ### 2026-09-24 - The loading page looks up its error source label in a Map
 
 Side task, no batch tag: close Codacy's object-injection flag on the loading
@@ -483,49 +556,3 @@ C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   independent re-review yet.
 - Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
   tests were excluded, since they are not repository state. Docs only.
-
-### 2026-09-24 - The release-check finish line names both corrections
-
-Side task, no batch tag: fix round 1 on Task 13 (F-B23-6), part of Batch 23
-WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
-lands.
-
-- **What the review caught.** `run_release_checks`'s finish line (the entry
-  below, from `433120c`) logged `state["moved_out"]` alone as "corrected".
-  That hid `state["moved_in"]` -- an excluded album whose original release
-  MusicBrainz found to fall back inside the window, just as real a finding
-  as a moved-out result, and the whole reason this task exists is so the
-  owner can see what MusicBrainz found.
-- **Fix.** `scrobblescope/release_checks.py`'s finish line now names both
-  counts: `"{checked} checked, {moved_out} moved out, {moved_in} moved in"`.
-  No artist or album names, as before.
-- **Test.** `tests/services/test_release_checks.py`'s finish-line test
-  (its own new test from `433120c`, so changing it is in scope) is renamed
-  `test_run_release_checks_logs_its_finish_with_moved_out_and_moved_in_counts`
-  and now drives a job with two results that move out and one exclusion
-  that moves in, asserting `2 moved out` and `1 moved in` -- distinct,
-  non-zero counts, so a swap of the two would fail the test.
-- **New test: a logging failure never fails a request.**
-  `tests/services/test_api_logging.py` gains
-  `test_a_recording_failure_never_fails_the_request`: with `_record`
-  monkeypatched to raise, a real request through `create_optimized_session()`
-  against a local `TestServer` still returns its response normally, and an
-  explicit `close()` afterwards still does not raise. Proved to actually
-  exercise the callbacks' `try/except` (not just the happy path): archived
-  `HEAD` to a scratch directory outside the repo
-  (`git archive HEAD | tar -x`), removed the `try/except` from
-  `_on_request_start`/`_on_request_end`/`_on_request_exception` there, and
-  reran the same test against that mutated copy with `PYTHONPATH` pointed
-  at it -- it failed (`RuntimeError: boom` reaching the caller through
-  `session.get(...)`). Scratch directory deleted afterward; nothing in the
-  repository was touched by the mutation.
-- **Sibling text.** The `433120c` dated entry below keeps its "Reading
-  `corrected`" bullet as a record of what that commit actually shipped; this
-  entry states the change instead. The reconcile plan's Task 13 spec text
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`)
-  updated its "checked and corrected" line to name both counts. The
-  resolved F-B23-6 record's reason line ("start, finish and skip") never
-  claimed "corrected" and needed no change.
-
-Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.

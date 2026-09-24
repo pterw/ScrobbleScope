@@ -9,6 +9,52 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - The release-check finish line names both corrections
+
+Side task, no batch tag: fix round 1 on Task 13 (F-B23-6), part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What the review caught.** `run_release_checks`'s finish line (the entry
+  below, from `433120c`) logged `state["moved_out"]` alone as "corrected".
+  That hid `state["moved_in"]` -- an excluded album whose original release
+  MusicBrainz found to fall back inside the window, just as real a finding
+  as a moved-out result, and the whole reason this task exists is so the
+  owner can see what MusicBrainz found.
+- **Fix.** `scrobblescope/release_checks.py`'s finish line now names both
+  counts: `"{checked} checked, {moved_out} moved out, {moved_in} moved in"`.
+  No artist or album names, as before.
+- **Test.** `tests/services/test_release_checks.py`'s finish-line test
+  (its own new test from `433120c`, so changing it is in scope) is renamed
+  `test_run_release_checks_logs_its_finish_with_moved_out_and_moved_in_counts`
+  and now drives a job with two results that move out and one exclusion
+  that moves in, asserting `2 moved out` and `1 moved in` -- distinct,
+  non-zero counts, so a swap of the two would fail the test.
+- **New test: a logging failure never fails a request.**
+  `tests/services/test_api_logging.py` gains
+  `test_a_recording_failure_never_fails_the_request`: with `_record`
+  monkeypatched to raise, a real request through `create_optimized_session()`
+  against a local `TestServer` still returns its response normally, and an
+  explicit `close()` afterwards still does not raise. Proved to actually
+  exercise the callbacks' `try/except` (not just the happy path): archived
+  `HEAD` to a scratch directory outside the repo
+  (`git archive HEAD | tar -x`), removed the `try/except` from
+  `_on_request_start`/`_on_request_end`/`_on_request_exception` there, and
+  reran the same test against that mutated copy with `PYTHONPATH` pointed
+  at it -- it failed (`RuntimeError: boom` reaching the caller through
+  `session.get(...)`). Scratch directory deleted afterward; nothing in the
+  repository was touched by the mutation.
+- **Sibling text.** The `433120c` dated entry below keeps its "Reading
+  `corrected`" bullet as a record of what that commit actually shipped; this
+  entry states the change instead. The reconcile plan's Task 13 spec text
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`)
+  updated its "checked and corrected" line to name both counts. The
+  resolved F-B23-6 record's reason line ("start, finish and skip") never
+  claimed "corrected" and needed no change.
+
+Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-24 - Every provider call is logged, and the release worker says what it did
 
 Side task, no batch tag: implements the reconcile plan's Task 13 (F-B23-6),

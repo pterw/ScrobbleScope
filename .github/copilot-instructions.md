@@ -1,3 +1,5 @@
+Follow AGENTS.md and its bootstrap procedure for repository work; don't duplicate its rules; for architecture questions, use the existing Graphify guidance
+
 <!-- mermaid-ai-skills:start -->
 ## Mermaid Diagrams
 
