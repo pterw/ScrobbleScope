@@ -420,11 +420,11 @@ diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (t
 
 **Files:** `FINDINGS.md`, `docs/history/findings/FINDINGS_ARCHIVE.md`.
 
-- [ ] **Step 1:** Repoint every pre-split citation by **name**: `F-SWE-5` (`orchestrator.py:912-913`,
+- [x] **Step 1:** Repoint every pre-split citation by **name**: `F-SWE-5` (`orchestrator.py:912-913`,
   `:851`), `F-SWE-3` (`orchestrator.py:250-262`), and the `scrobblescope/orchestrator.py:70-71` citation.
   Then run `git grep -n "orchestrator\.py:\|routes\.py:"` over the live corpus and handle every hit in the
   same commit.
-- [ ] **Step 2:** File each of these with a canonical `- [ ] **Status:**` record, a one-sentence problem
+- [x] **Step 2:** File each of these with a canonical `- [ ] **Status:**` record, a one-sentence problem
   and a `Source:` line:
   - the opening-state defect (if Task 3 has already landed, file it resolved, with its `**Completed:**` line);
   - the archive page target having no reader, and the cold rule's undocumented all-dated condition
@@ -433,7 +433,7 @@ diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (t
   - the worktree guard's base is a flag default (`origin/main`) rather than a fact PLAYBOOK declares,
     so a branch cut from `test` reads as WT005 until the agent knows to pass `--base-ref origin/test`
     (open; found opening Batch 23, 2026-09-21).
-- [ ] **Step 3:** Run `--fix`, which rotates what is checked, then `--check`, fixing what it reports
+- [x] **Step 3:** Run `--fix`, which rotates what is checked, then `--check`, fixing what it reports
   rather than guessing. Commit: `docs(findings): Repoint pre-split citations and record probe defects`.
 
 ### Task 7: Close the docsync close-out plan's Progress block
@@ -500,21 +500,24 @@ correct only what is wrong, name the source checked in the commit body, and set 
 
 After Task 1. Its own commit, outside WP-0's parity criterion.
 
+**Done 2026-09-23 by the reconcile plan's Task 7 (`ffbee0e`), ahead of this plan reaching Task 11:
+F-SWE-5 resolved and archived (owner ruling, 2026-09-24).**
+
 **Files:** `scrobblescope/errors.py` (`internal_error`, `source: "internal"`, `retryable: False`),
 `scrobblescope/heatmap.py` (`_report_heatmap_failure`), `scrobblescope/orchestrator/__init__.py` (the
 `on_run_error` for `background_task`), `FINDINGS.md`, and tests in `tests/test_errors.py`,
 `tests/test_heatmap.py` and `tests/services/test_orchestrator_fetch_and_process.py`.
 
-- [ ] **Step 1: Failing tests.** A `ZeroDivisionError` from `_fetch_and_process_heatmap` makes
+- [x] **Step 1: Failing tests.** A `ZeroDivisionError` from `_fetch_and_process_heatmap` makes
   `heatmap_task` publish `internal_error`. The mirror case makes `background_task` publish the same
   code rather than only log. Together they are F-SWE-5's contract: two entry points, one answer.
-- [ ] **Step 2:** Change both reactions. Only the outer handler changes; the inner Last.fm status path
+- [x] **Step 2:** Change both reactions. Only the outer handler changes; the inner Last.fm status path
   keeps `lastfm_unavailable`.
-- [ ] **Step 3:** Update only the assertions that pinned the borrowed code from the outer handler, and
+- [x] **Step 3:** Update only the assertions that pinned the borrowed code from the outer handler, and
   name each in the commit body.
-- [ ] **Step 4: Live check.** Run the frontend gate, whose pipeline state machines drive both entry
+- [x] **Step 4: Live check.** Run the frontend gate, whose pipeline state machines drive both entry
   points through the real app. It must pass unchanged.
-- [ ] **Step 5:** Resolve F-SWE-5 with its `**Completed:**` line. Commit:
+- [x] **Step 5:** Resolve F-SWE-5 with its `**Completed:**` line. Commit:
   `fix(jobs): Publish one honest terminal state for both pipelines`.
 
 ---

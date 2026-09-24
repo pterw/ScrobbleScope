@@ -209,8 +209,14 @@ See FINDINGS F-DOCSYNC-3.
      stated as a range anywhere live) is done, 2026-09-24. The small side
      task ruled by the owner 2026-09-24 -- the provider summary log line
      states its span as well as its time in calls (the handoff's section 5
-     describes it) -- is done, 2026-09-24. Next is the foundation plan's
-     Task 6.
+     describes it) -- is done, 2026-09-24. Task 6 (findings hygiene: every
+     pre-split `orchestrator.py`/`routes.py` citation in `FINDINGS.md` and
+     the findings archive repointed by name, and the opening-state defect,
+     the archive/cold-rule defect, the interrupted-publication diagnostic
+     gap and the worktree guard's base-ref default filed as findings) is
+     done, 2026-09-24. Task 11 (F-SWE-5) is recorded done by the reconcile
+     plan's Task 7 (`ffbee0e`), ahead of this plan reaching it (owner
+     ruling, 2026-09-24). Next is the foundation plan's Task 7.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -418,6 +424,68 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - Findings hygiene repoints pre-split citations and files four defects
+
+Side task, no batch tag: findings hygiene, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Step 1: pre-split citations repointed by name.** `FINDINGS.md`'s
+  F-SWE-3 and `docs/history/findings/FINDINGS_ARCHIVE.md`'s F-B21-6,
+  F-SWE-5 (two citations) and F-SWE-2 (context.md's "second `:70-71`
+  citation") each named their `orchestrator.py:NNN` line by the function
+  it pointed at (`_run_spotify_search_phase`, `fetch_top_albums_async`,
+  `background_task`'s outer handler, `_fetch_and_process`'s inner
+  handler), confirmed by reading `scrobblescope/orchestrator.py` at the
+  commit nearest each finding's date (`bb8681b` for the three 2026-08-20
+  SWE-audit findings, `319134e` for F-B21-6, filed 2026-08-22), and naming
+  the module both as it was (`orchestrator.py`) and as it is now
+  (`scrobblescope/orchestrator/__init__.py` or `_search.py`). No resolved
+  record's account of what was wrong or how it closed changed, only its
+  citation.
+- **The broader `git grep -n "orchestrator\.py:\|routes\.py:"` over the
+  live corpus** found 100 hits in 14 files beyond the findings files. Left
+  as written, point-in-time: five files under `docs/history/reports/` and
+  `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (named exemptions);
+  `docs/history/definitions/BATCH21_DEFINITION.md` (same archive tier as
+  `logs/` and `reports/` per `AGENTS.md`'s `docs/history/` table row); and
+  five `docs/superpowers/plans/*.md` files, including this plan's own
+  Task 6 text, which quotes the citations as the problem statement rather
+  than reporting current code. `.codacy.yml`, `docs/SWE_AUDIT_CHARTER.md`
+  and `scripts/dev/_frontend_gate_shared.py` were checked and carry none
+  of these citations under this grep's pattern; their stale `routes.py`
+  citations (a different spelling) stay deferred to WP-0 close-out,
+  unedited, per context.md.
+- **Step 2: four findings filed**, IDs taken as the next free number per
+  tag across both files. `F-DOCSYNC-17` (opening-state defect, resolved
+  `aad26e5`, foundation Task 3) and `F-DOCSYNC-18` (archive page target
+  had no reader and the cold rule's all-dated condition was undocumented,
+  resolved `d499e3a`, foundation Task 4) filed resolved in `FINDINGS.md`'s
+  "Resolved this batch" section, each with its `**Completed:**` line.
+  `F-DOCSYNC-19` (`--check` has no diagnostic for an interrupted
+  publication; DoD row 29) and `F-WORKTREE-6` (the worktree guard's
+  `--base-ref` defaults to `origin/main` rather than a fact PLAYBOOK
+  declares, sharper since PR #241: WT006 then WT005 against `origin/main`
+  with an empty merge-base diff, `docs/history/reports/HANDOFF_2026-09-24.md`
+  section 2) filed open (P2) under P2 -- Scaling roadmap. Checked
+  F-WORKTREE-6 against F-WORKTREE-3 first: its three open items (the
+  between-batch ancestry skip, WT010 missing on a dirty detached worktree,
+  the doubled base-ref label) are a different defect, so this is a
+  separate finding.
+- **Owner ruling, 2026-09-24 (mid-task):** the foundation plan's Task 11
+  (F-SWE-5) is recorded done, not left unticked -- F-SWE-5 was resolved by
+  the reconcile plan's Task 7 (`ffbee0e`) before this plan reached Task 11.
+  Task 11's five step boxes are ticked and a done-by-reference line added
+  under its heading; nothing else in Task 11 changed. This supersedes
+  context.md's original "do NOT edit Task 11" note.
+- **Step 3.** `doc_state_sync.py --fix` then `--check`, both at exit 0.
+- **Deviations:** none from the brief's Step 1/2 text; the point-in-time
+  scope for `docs/history/definitions/` and `docs/superpowers/plans/` is
+  this task's own reading of context.md's "list any hit you leave, with
+  the reason" allowance, not an enumerated exemption -- reasons are above.
+- Validation: `pytest -q` -- **1825 passed**. No test added; the three R3
+  count sites are unchanged.
+- **Next:** the foundation plan's Task 7.
+
 ### 2026-09-24 - The provider summary states its span and its time in calls
 
 Side task, no batch tag: the provider summary log line states its span
@@ -516,128 +584,3 @@ cloud session, part of Batch 23 WP-0 Part B. Untagged by owner ruling
   and `doc_state_sync.py --check` pass, with the expected WT005, DOC024 and
   root-BATCH warnings.
 - **Next.** Foundation Task 6, findings hygiene, from the handoff's section 5.
-
-### 2026-09-24 - Stop stating a DOC code range the catalogue owns
-
-Side task, no batch tag: replace every live prose statement of a `DOC001-DOC0NN`
-range with wording that states no range, part of Batch 23 WP-0 Part B.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Scope: the foundation plan's Task 5.** Six live sites stated a stale
-  contiguous range (`AGENTS.md` x3, `DEVELOPMENT.md`, and
-  `docs/architecture/documentation-tooling.md` x2, one of them the heading).
-  Both `DOC001-DOC023` and `DOC001-DOC024` are false today: DOC021 and DOC022
-  are reserved by
-  `docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
-  but not raised, so no contiguous span from `DOC001` is true. Each site now
-  says "the DOC diagnostic catalogue" (owner: `documentation-tooling.md`)
-  instead of restating a range; the catalogue's own heading is renamed
-  "The DOC code catalogue" and its one explicit list reads "`DOC001`-`DOC020`,
-  `DOC023` and `DOC024` issues". `FINDINGS.md`'s F-B21-61 note ("a new
-  invariant for this finding starts at DOC023") is repointed at the catalogue,
-  since DOC023 is itself now taken (the finding-lifecycle grandfathered-finding
-  count, `scripts/docsync/findings.py`).
-- **Tests repointed, controller ruling 2026-09-24 (the one sanctioned
-  existing-test edit).** `tests/test_docsync_integrity.py::
-  test_stated_docsync_range_matches_the_highest_code_raised` and
-  `test_stated_range_helper_rejects_a_stale_range` read `AGENTS.md`'s stated
-  range, which no longer exists. Both are renamed
-  (`test_stated_docsync_catalogue_matches_the_codes_raised`,
-  `test_stated_catalogue_helper_rejects_a_mismatched_list`) and repointed at
-  `documentation-tooling.md`'s explicit list; their helpers become
-  `CATALOGUE_SENTENCE_RE`, `_stated_codes`, `_raised_codes` and
-  `_catalogue_matches_raised_codes`. The comparison is now set equality
-  (parsing "DOC0AA-DOC0BB" spans and single codes) rather than a maximum, so
-  a listed-but-unraised code (DOC021) is caught, which comparing only the
-  upper bound could not catch. The proof test mutates the real catalogue
-  sentence in place (drop DOC024; add DOC021) rather than a synthetic
-  fixture, so it exercises the same parsing the corpus test relies on.
-- **`.docsync.toml`** gains a fourth `[[retired]]` declaration, modelled on
-  its "the docsync integrity range ends at DOC011" sibling: it matches the
-  bare literal `DOC001-DOC023` or `DOC001-DOC024`, either spelling
-  (contiguous or backtick-split), needs no verb-prefix guard because the
-  valid list never contains either substring, and leaves `DOC001-DOC020`
-  alone.
-- **Discovered and filed as F-DOCSYNC-16.** The three pre-existing
-  `[[retired]]` declarations' `allow_after` marker for `PLAYBOOK.md` was the
-  literal string `"## 4. Execution log"`, but `check_retired` compares a raw
-  line by exact equality and the real heading is `"## 4. Execution log (for
-  agent handoff)"` -- confirmed by reproducing the mismatch directly against
-  `check_retired`. Their Section 4 exemption was therefore non-functional
-  against the live document, latent only because no dated entry restated one
-  of their three retired phrases. This task's own new declaration used the
-  full, correct heading text from the start so it was not affected.
-- **Live probe** (`/tmp/ssprobe`, `git archive` of `git stash create`,
-  deleted after):
-
-  | probe | expected | got |
-  | --- | --- | --- |
-  | faithful copy `--check` | same summary as the worktree | match, exit 0 |
-  | red: add "the DOC001-DOC023 catalogue" to `AGENTS.md` | DOC011, exit 1 | DOC011, exit 1 |
-  | red: add `` returns typed `DOC001`-`DOC024` issues `` to `DEVELOPMENT.md` | DOC011, exit 1 | DOC011, exit 1 |
-  | near-miss: same text struck through in `AGENTS.md` | silent, exit 0 | silent, exit 0 |
-  | near-miss: same text in a dated Section 4 entry below the marker | silent, exit 0 | silent, exit 0 |
-  | near-miss: "DOC001-DOC020" in `AGENTS.md` prose | silent, exit 0 | silent, exit 0 |
-  | mutate `documentation-tooling.md`'s list to drop DOC024 | corpus test red | red |
-  | mutate `documentation-tooling.md`'s list to add DOC021 | corpus test red | red |
-
-- Validation: `pytest -q` -- **1821 passed**. No test added or removed, so
-  the three R3 count sites are unchanged.
-
-**Fix round (2026-09-24, review finding).** The review's one Important
-issue: the three pre-existing `allow_after` markers were left broken
-next to the fourth, freshly-corrected one in the same commit and same
-file, instead of being corrected outright (Anti-Pattern 11). Owner ruling:
-correct all three in `.docsync.toml` (touching nothing else in those
-declarations); reword F-DOCSYNC-16 to name the mechanism gap -- docsync
-silently ignores an `allow_after` marker that matches no line, rather than
-erroring -- and record that the three markers are corrected in this fix
-commit; drop its priority to P2 (the fix shape becomes a future check that
-errors on a dead marker, not built here); status stays open.
-
-- **`.docsync.toml`:** all three `[retired.allow_after] "PLAYBOOK.md" =
-  "## 4. Execution log"` lines corrected to `"## 4. Execution log (for
-  agent handoff)"`, the real heading, matching the fourth declaration this
-  task already added. Nothing else in the three declarations changed.
-- **`FINDINGS.md`:** F-DOCSYNC-16 retitled "docsync silently ignores an
-  `allow_after` marker that matches no line," its body names the general
-  mechanism gap ahead of the specific instance, records that the three
-  markers are now corrected, keeps the reproduction evidence, and states
-  the not-yet-built fix shape (a declaration check erroring on a dead
-  marker). Priority dropped P1 -> P2; status line unchanged (`open`).
-- **Live probe, reproduced in a fresh `/tmp/ssprobe`** (`git archive
-  9ea79f5`, `git init`, deleted after): a dated Section 4 entry quoting
-  "limit_results goes inside the thresholds disclosure" gives `ERROR
-  DOC011`, exit 1, with the unfixed markers; correcting all three markers on
-  that same scratch tree makes it silent, exit 0; and `--check` on the
-  unmodified corpus (no injected quote) is byte-identical before and after
-  the marker fix -- same four DOC024 + root-BATCH warnings, exit 0.
-
-  | probe | expected | got |
-  | --- | --- | --- |
-  | unfixed markers, dated entry quoting the retired `limit_results` phrase | DOC011, exit 1 | DOC011, exit 1 |
-  | corrected markers, same quote | silent, exit 0 | silent, exit 0 |
-  | corrected markers, unmodified corpus vs. before | identical `--check` output | identical |
-
-- Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched
-  in the fix round).
-
-**Fix round 2 (2026-09-24, re-review + owner catch).** Two Important issues
-and one owner catch, all in the same commit (`aa6a867` -> next): the
-`.docsync.toml` comment above the fourth declaration's `allow_after` still
-described the three siblings' pre-fix state in the present tense, false as
-of `aa6a867` -- rewritten to state only what is true now (the exemption
-needs the real heading text; F-DOCSYNC-16 records the silent-ignore
-mechanism), with no other live present-tense claim found by corpus grep.
-F-DOCSYNC-16 carried its new P2 priority but was still filed under the
-`## P1 -- Next batch candidates` heading -- moved, unchanged, to the top of
-`## P2 -- Scaling roadmap`. Owner catch: this task's own Step 1-6 checkboxes
-in the foundation plan were never ticked in the first commit -- ticked now,
-nothing else in the plan changed.
-
-- Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched).
-
-**Fix round 3 (2026-09-24, re-review).** `DEVELOPMENT.md:559`'s portability
-ties table still quoted the pre-fix `allow_after` marker literal as a
-worked example; corrected to the real heading text, the only change in
-that row.

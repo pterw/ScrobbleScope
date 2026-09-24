@@ -9,6 +9,30 @@ Newest rotation first.
 
 ---
 
+### F-DOCSYNC-17: an active batch with no logged work package rendered as between batches -- RESOLVED
+
+Section 3's status block treated a batch Section 3 declares open, with no
+work package logged yet, as "between batches," and the next-package rule
+gave up on an empty block instead of naming WP-0 -- the state every batch
+enters the moment its branch is named, so a false next-package claim could
+pass DOC007 right as the batch opened.
+- [x] **Status:** resolved
+**Completed:** 2026-09-21
+the status block now branches on the declared batch rather than on whether entries exist, and the next-package rule counts WP-0 as next under a finite plan.
+Source: foundation Task 3 live-probe audit, `aad26e5`.
+
+### F-DOCSYNC-18: the archive page target had no reader, and the cold rule's all-dated condition was undocumented -- RESOLVED
+
+`ArchiveStore.page_target_issues` could already detect an unpaginated
+archive over `[archives] max_lines` and a hot page not fully dated, but
+`--check` raised neither as a diagnostic, and
+`documentation-tooling.md` described the cold rule only as "365 days,"
+leaving its all-dated requirement unstated.
+- [x] **Status:** resolved
+**Completed:** 2026-09-23
+DOC024 (warning severity) now fires on both conditions, and documentation-tooling.md states what the cold rule actually checks.
+Source: foundation Task 4, `d499e3a`.
+
 ### F-B23-6: provider calls leave no trace in the log -- RESOLVED
 
 Testing Batch 22's MusicBrainz corrections, the owner could not tell from the
@@ -341,8 +365,9 @@ the same pattern in `orchestrator.py` and did not touch `routes.py`.
 
 `:436` is the one with a consequence. It derives `current_year` from
 host-local time and refuses any request where `year > current_year`. The data
-window for an accepted year is then built in UTC at
-`scrobblescope/orchestrator.py:70-71`. Gate and window now disagree by the
+window for an accepted year is then built in UTC in `fetch_top_albums_async`
+(`scrobblescope/orchestrator.py` at the time, now
+`scrobblescope/orchestrator/__init__.py`). Gate and window now disagree by the
 host's UTC offset, and the disagreement is observable only in the hours
 around New Year:
 
@@ -378,10 +403,11 @@ the user as a Last.fm outage message, with `error_source: lastfm` and
 `retryable: True`. The app blames a third party for its own bug and invites
 a retry that will fail the same way.
 
-`orchestrator.py:912-913` has the mirror-image gap: it logs and sets no job
-state, so the job never reaches progress 100 and the loading page polls
-forever. This half needs the inner handler at `orchestrator.py:851` to fail
-first, which nothing observed can cause, so the finding is recorded rather
+`background_task`'s outer handler (`orchestrator.py` at the time, now
+`scrobblescope/orchestrator/__init__.py`) has the mirror-image gap: it logs
+and sets no job state, so the job never reaches progress 100 and the loading
+page polls forever. This half needs `_fetch_and_process`'s inner handler
+(same module) to fail first, which nothing observed can cause, so the finding is recorded rather
 than treated as blocking. F-SWE-6 used to compound it, because a polled job
 never expired; since F-SWE-6 was settled, the stuck job expires
 JOB_TTL_SECONDS after its last write.
@@ -2133,8 +2159,9 @@ Source: owner request 2026-07-31.
 
 ### F-SWE-2: the album year window is built from naive datetimes
 
-`orchestrator.py:70-71` built the Last.fm fetch window with naive datetimes,
-so `.timestamp()` applied the host's local zone. The same shifted timestamps
+`fetch_top_albums_async` (`orchestrator.py` at the time, now
+`scrobblescope/orchestrator/__init__.py`) built the Last.fm fetch window with
+naive datetimes, so `.timestamp()` applied the host's local zone. The same shifted timestamps
 were reused to filter individual scrobbles. On a UTC-5 host, each boundary
 moved five hours into the requested year.
 

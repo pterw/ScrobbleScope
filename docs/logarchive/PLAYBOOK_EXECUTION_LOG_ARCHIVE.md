@@ -9,6 +9,131 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - Stop stating a DOC code range the catalogue owns
+
+Side task, no batch tag: replace every live prose statement of a `DOC001-DOC0NN`
+range with wording that states no range, part of Batch 23 WP-0 Part B.
+Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Scope: the foundation plan's Task 5.** Six live sites stated a stale
+  contiguous range (`AGENTS.md` x3, `DEVELOPMENT.md`, and
+  `docs/architecture/documentation-tooling.md` x2, one of them the heading).
+  Both `DOC001-DOC023` and `DOC001-DOC024` are false today: DOC021 and DOC022
+  are reserved by
+  `docs/superpowers/plans/2026-09-12-repository-agnostic-plan-spec-guards.md`
+  but not raised, so no contiguous span from `DOC001` is true. Each site now
+  says "the DOC diagnostic catalogue" (owner: `documentation-tooling.md`)
+  instead of restating a range; the catalogue's own heading is renamed
+  "The DOC code catalogue" and its one explicit list reads "`DOC001`-`DOC020`,
+  `DOC023` and `DOC024` issues". `FINDINGS.md`'s F-B21-61 note ("a new
+  invariant for this finding starts at DOC023") is repointed at the catalogue,
+  since DOC023 is itself now taken (the finding-lifecycle grandfathered-finding
+  count, `scripts/docsync/findings.py`).
+- **Tests repointed, controller ruling 2026-09-24 (the one sanctioned
+  existing-test edit).** `tests/test_docsync_integrity.py::
+  test_stated_docsync_range_matches_the_highest_code_raised` and
+  `test_stated_range_helper_rejects_a_stale_range` read `AGENTS.md`'s stated
+  range, which no longer exists. Both are renamed
+  (`test_stated_docsync_catalogue_matches_the_codes_raised`,
+  `test_stated_catalogue_helper_rejects_a_mismatched_list`) and repointed at
+  `documentation-tooling.md`'s explicit list; their helpers become
+  `CATALOGUE_SENTENCE_RE`, `_stated_codes`, `_raised_codes` and
+  `_catalogue_matches_raised_codes`. The comparison is now set equality
+  (parsing "DOC0AA-DOC0BB" spans and single codes) rather than a maximum, so
+  a listed-but-unraised code (DOC021) is caught, which comparing only the
+  upper bound could not catch. The proof test mutates the real catalogue
+  sentence in place (drop DOC024; add DOC021) rather than a synthetic
+  fixture, so it exercises the same parsing the corpus test relies on.
+- **`.docsync.toml`** gains a fourth `[[retired]]` declaration, modelled on
+  its "the docsync integrity range ends at DOC011" sibling: it matches the
+  bare literal `DOC001-DOC023` or `DOC001-DOC024`, either spelling
+  (contiguous or backtick-split), needs no verb-prefix guard because the
+  valid list never contains either substring, and leaves `DOC001-DOC020`
+  alone.
+- **Discovered and filed as F-DOCSYNC-16.** The three pre-existing
+  `[[retired]]` declarations' `allow_after` marker for `PLAYBOOK.md` was the
+  literal string `"## 4. Execution log"`, but `check_retired` compares a raw
+  line by exact equality and the real heading is `"## 4. Execution log (for
+  agent handoff)"` -- confirmed by reproducing the mismatch directly against
+  `check_retired`. Their Section 4 exemption was therefore non-functional
+  against the live document, latent only because no dated entry restated one
+  of their three retired phrases. This task's own new declaration used the
+  full, correct heading text from the start so it was not affected.
+- **Live probe** (`/tmp/ssprobe`, `git archive` of `git stash create`,
+  deleted after):
+
+  | probe | expected | got |
+  | --- | --- | --- |
+  | faithful copy `--check` | same summary as the worktree | match, exit 0 |
+  | red: add "the DOC001-DOC023 catalogue" to `AGENTS.md` | DOC011, exit 1 | DOC011, exit 1 |
+  | red: add `` returns typed `DOC001`-`DOC024` issues `` to `DEVELOPMENT.md` | DOC011, exit 1 | DOC011, exit 1 |
+  | near-miss: same text struck through in `AGENTS.md` | silent, exit 0 | silent, exit 0 |
+  | near-miss: same text in a dated Section 4 entry below the marker | silent, exit 0 | silent, exit 0 |
+  | near-miss: "DOC001-DOC020" in `AGENTS.md` prose | silent, exit 0 | silent, exit 0 |
+  | mutate `documentation-tooling.md`'s list to drop DOC024 | corpus test red | red |
+  | mutate `documentation-tooling.md`'s list to add DOC021 | corpus test red | red |
+
+- Validation: `pytest -q` -- **1821 passed**. No test added or removed, so
+  the three R3 count sites are unchanged.
+
+**Fix round (2026-09-24, review finding).** The review's one Important
+issue: the three pre-existing `allow_after` markers were left broken
+next to the fourth, freshly-corrected one in the same commit and same
+file, instead of being corrected outright (Anti-Pattern 11). Owner ruling:
+correct all three in `.docsync.toml` (touching nothing else in those
+declarations); reword F-DOCSYNC-16 to name the mechanism gap -- docsync
+silently ignores an `allow_after` marker that matches no line, rather than
+erroring -- and record that the three markers are corrected in this fix
+commit; drop its priority to P2 (the fix shape becomes a future check that
+errors on a dead marker, not built here); status stays open.
+
+- **`.docsync.toml`:** all three `[retired.allow_after] "PLAYBOOK.md" =
+  "## 4. Execution log"` lines corrected to `"## 4. Execution log (for
+  agent handoff)"`, the real heading, matching the fourth declaration this
+  task already added. Nothing else in the three declarations changed.
+- **`FINDINGS.md`:** F-DOCSYNC-16 retitled "docsync silently ignores an
+  `allow_after` marker that matches no line," its body names the general
+  mechanism gap ahead of the specific instance, records that the three
+  markers are now corrected, keeps the reproduction evidence, and states
+  the not-yet-built fix shape (a declaration check erroring on a dead
+  marker). Priority dropped P1 -> P2; status line unchanged (`open`).
+- **Live probe, reproduced in a fresh `/tmp/ssprobe`** (`git archive
+  9ea79f5`, `git init`, deleted after): a dated Section 4 entry quoting
+  "limit_results goes inside the thresholds disclosure" gives `ERROR
+  DOC011`, exit 1, with the unfixed markers; correcting all three markers on
+  that same scratch tree makes it silent, exit 0; and `--check` on the
+  unmodified corpus (no injected quote) is byte-identical before and after
+  the marker fix -- same four DOC024 + root-BATCH warnings, exit 0.
+
+  | probe | expected | got |
+  | --- | --- | --- |
+  | unfixed markers, dated entry quoting the retired `limit_results` phrase | DOC011, exit 1 | DOC011, exit 1 |
+  | corrected markers, same quote | silent, exit 0 | silent, exit 0 |
+  | corrected markers, unmodified corpus vs. before | identical `--check` output | identical |
+
+- Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched
+  in the fix round).
+
+**Fix round 2 (2026-09-24, re-review + owner catch).** Two Important issues
+and one owner catch, all in the same commit (`aa6a867` -> next): the
+`.docsync.toml` comment above the fourth declaration's `allow_after` still
+described the three siblings' pre-fix state in the present tense, false as
+of `aa6a867` -- rewritten to state only what is true now (the exemption
+needs the real heading text; F-DOCSYNC-16 records the silent-ignore
+mechanism), with no other live present-tense claim found by corpus grep.
+F-DOCSYNC-16 carried its new P2 priority but was still filed under the
+`## P1 -- Next batch candidates` heading -- moved, unchanged, to the top of
+`## P2 -- Scaling roadmap`. Owner catch: this task's own Step 1-6 checkboxes
+in the foundation plan were never ticked in the first commit -- ticked now,
+nothing else in the plan changed.
+
+- Validation: `pytest -q` -- **1821 passed** (unchanged; no test touched).
+
+**Fix round 3 (2026-09-24, re-review).** `DEVELOPMENT.md:559`'s portability
+ties table still quoted the pre-fix `allow_after` marker literal as a
+worked example; corrected to the real heading text, the only change in
+that row.
+
 ### 2026-09-24 - The loading page looks up its error source label in a Map
 
 Side task, no batch tag: close Codacy's object-injection flag on the loading

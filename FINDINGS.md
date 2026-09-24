@@ -653,6 +653,32 @@ built here).
 - [ ] **Status:** open (P2). Source: Batch 23 WP-0 foundation Task 5 live
   probe, 2026-09-24.
 
+### F-DOCSYNC-19: `--check` has no diagnostic for an interrupted publication
+
+Transactional publication recovers a crash mid-publish by replaying its
+journal against the on-disk state on the next writer, but a read-only
+`--check` run gives no signal that a journal is present and an earlier
+publish was interrupted -- recovery exists, a diagnostic does not.
+- [ ] **Status:** open (P2). Source: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
+  DoD row 29, GPT Sol Max review.
+
+### F-WORKTREE-6: the guard's base ref is a flag default, not a fact PLAYBOOK declares
+
+`check_worktree_alignment.py --base-ref` defaults to `origin/main`, and
+nothing lets the guard learn a branch's actual base from PLAYBOOK, so a
+branch cut from `test` reads as diverged or behind until the agent knows to
+pass `--base-ref origin/test` by hand. It is worse since PR #241 merged
+into `main` on 2026-09-24: against `origin/main` the guard now reports
+WT006 (behind) while the branch has nothing past the merge, and WT005
+(diverged) once it does, with an empty merge-base diff. Checked against
+F-WORKTREE-3: its three open items are the between-batch ancestry skip, a
+dirty detached worktree missing WT010, and the doubled base-ref label --
+none is this defect, so this is a separate finding rather than an addition
+to that record.
+- [ ] **Status:** open (P2). Source: found opening Batch 23, 2026-09-21;
+  sharpened by `docs/history/reports/HANDOFF_2026-09-24.md` section 2 after
+  PR #241 merged, 2026-09-24.
+
 ### F-B22-5: the release-year lookup has a precision path it does not use
 
 `lookup_original_release` (`scrobblescope/musicbrainz.py`) finds a release
@@ -1163,7 +1189,8 @@ unmatched when a second attempt would have found it.
 **Rescoped by the owner, 2026-08-20, and the correction is worth keeping.**
 The audit first filed this as a user-facing mislabelling -- `spotify.py:75`
 returns the same value for a genuine empty result, so
-`orchestrator.py:250-262` records the album with the reason
+`_run_spotify_search_phase` (`orchestrator.py` at the time, now
+`scrobblescope/orchestrator/_search.py`) records the album with the reason
 `No Spotify match`, and the report treated that label as wrong. It is not.
 Thousands of Last.fm-scrobbled albums genuinely have no Spotify release, so
 the label is accurate for the ordinary case and what the user sees is
