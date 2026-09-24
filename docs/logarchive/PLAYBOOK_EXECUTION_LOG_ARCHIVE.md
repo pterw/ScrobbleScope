@@ -9,6 +9,33 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-23 - A Deezer id no longer lands in the Spotify column
+
+Side task, no batch tag: fixes F-B22-7, part 1 of 3, part of Batch 23 WP-0
+Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Task 4 of the reconcile plan**
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
+  done. `AlbumMetadata.as_cache_row` (`scrobblescope/enrichment.py`) now
+  writes `album_id` into the `spotify_id` column (tuple index 2) only when
+  `provider == "spotify"`; every other provider writes `None` there, matching
+  what the live Deezer fallback has always written at that column. F-B22-7 is
+  not resolved by this task -- Tasks 5 and 6 complete it.
+- **Two existing assertions changed**, both in
+  `tests/services/test_enrichment.py`, because the finding requires it:
+  `test_album_metadata_carries_its_provider_and_url`'s expected tuple pinned
+  the Deezer album id at index 2, and
+  `test_cache_row_matches_what_the_persistence_layer_unpacks` asserted
+  `row[2] == meta.album_id` for a Deezer row -- both pinned the pre-fix
+  (wrong) value the method wrote before this change. A new test,
+  `test_cache_row_puts_a_spotify_album_id_in_the_spotify_column`, pins the
+  Spotify case.
+- **Bookkeeping:** the reconcile plan's Task 4 steps are ticked. Section 3's
+  order list now records Task 4 landed alongside Task 3 in Stage 2.
+
+Validation: `pytest -q` -- **1739 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Reading a job no longer renews its lease
 
 Side task, no batch tag: fixes F-SWE-6, part of Batch 23 WP-0 Part C.

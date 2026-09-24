@@ -386,6 +386,27 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-23 - The frontend gate's one-off touch-target failure is filed
+
+Side task, no batch tag: a finding filed during Batch 23 WP-0. Untagged by
+owner ruling 2026-09-23 until the whole of WP-0 lands.
+
+- **Filed F-B23-4 at P2, non-blocking (owner ruling, 2026-09-23).** After
+  reconcile Task 7 committed, the independent gate run's frontend gate
+  failed once in `check_touch_targets`: two `.btn` controls on the 404 page
+  measured 40px high in the wide-touch profile. The same tree then passed
+  three times. The finding records why only that profile can fail (at
+  1280px only `error.css`'s `any-pointer: coarse` rule gives `.btn` its
+  44px) and that the check measures with nothing waiting for that rule.
+- **Scope:** documentation only. No code, test or gate changed. WP-0 Part C
+  clears P0 and P1 findings, so a P2 finding stays out of WP-0.
+- **Forward guidance:** until F-B23-4 is fixed, re-run a frontend-gate
+  failure once before acting on it when the implementer's own runs were
+  green. Next is reconcile Task 8 (F-B21-6).
+
+Validation: `pytest -q` -- **1741 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-23 - Both pipelines end a crash as internal_error
 
 Side task, no batch tag: fixes F-SWE-5, part of Batch 23 WP-0 Part C.
@@ -503,31 +524,4 @@ Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
   order list now records Task 5 landed alongside Tasks 3 and 4 in Stage 2.
 
 Validation: `pytest -q` -- **1743 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - A Deezer id no longer lands in the Spotify column
-
-Side task, no batch tag: fixes F-B22-7, part 1 of 3, part of Batch 23 WP-0
-Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Task 4 of the reconcile plan**
-  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`) is
-  done. `AlbumMetadata.as_cache_row` (`scrobblescope/enrichment.py`) now
-  writes `album_id` into the `spotify_id` column (tuple index 2) only when
-  `provider == "spotify"`; every other provider writes `None` there, matching
-  what the live Deezer fallback has always written at that column. F-B22-7 is
-  not resolved by this task -- Tasks 5 and 6 complete it.
-- **Two existing assertions changed**, both in
-  `tests/services/test_enrichment.py`, because the finding requires it:
-  `test_album_metadata_carries_its_provider_and_url`'s expected tuple pinned
-  the Deezer album id at index 2, and
-  `test_cache_row_matches_what_the_persistence_layer_unpacks` asserted
-  `row[2] == meta.album_id` for a Deezer row -- both pinned the pre-fix
-  (wrong) value the method wrote before this change. A new test,
-  `test_cache_row_puts_a_spotify_album_id_in_the_spotify_column`, pins the
-  Spotify case.
-- **Bookkeeping:** the reconcile plan's Task 4 steps are ticked. Section 3's
-  order list now records Task 4 landed alongside Task 3 in Stage 2.
-
-Validation: `pytest -q` -- **1739 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

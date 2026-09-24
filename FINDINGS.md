@@ -1173,6 +1173,39 @@ claimed. Source: card 03 of
 `docs/history/reports/ARCHITECTURE_DEPTH_2026-09-23.html`
 (2026-09-23).
 
+### F-B23-4: the frontend gate's touch-target check failed once on a tree that passes
+
+At `ffbee0e` the frontend gate failed once, and then passed three times on
+the same tree. The failure was in `check_touch_targets`
+(`scripts/dev/_frontend_gate_layout.py`), in the wide-touch profile, on the
+404 page:
+
+```
+touch targets [wide touch]: /no-such-page-for-the-gate [as loaded]: a.btn is 124x40, smaller side under 44px
+touch targets [wide touch]: /no-such-page-for-the-gate [as loaded]: button.btn is 89x40, smaller side under 44px
+```
+
+40px is the plain `.btn` height. On the 404 page the 44px comes from one
+rule in `static/css/error.css`:
+`@media (any-pointer: coarse), (max-width: 859.98px)`. The wide-touch
+profile is 1280px wide, so only the `any-pointer: coarse` half can match
+there. The mobile profile also matches on width, which is why it never
+failed. So at measurement time that rule was not in effect. Either
+`error.css` had not applied yet, or the emulated touch pointer was not yet
+reported to the page. The check measures straight after
+`page.goto(..., wait_until="load")`, with nothing waiting for either.
+
+Not caused by the commit under test: that commit (reconcile Task 7) did not
+touch `error.css`, `templates/error.html` or the gate's layout checks.
+
+Status: open (P2). Non-blocking, by owner ruling 2026-09-23. Until it is
+fixed, a frontend-gate failure that the implementer's runs did not show is
+re-run once before anyone acts on it. The fix should make the check wait for
+the state it measures, not add a retry. Source: the gate-runner's run for
+Batch 23 WP-0 reconcile Task 7 (2026-09-23). Its logs are in a git-ignored
+SDD workspace on the owner's machine; the failure lines above are quoted
+from them.
+
 ### F-B21-61: the architecture diagrams are claims about the code that nothing checks
 
 `docs/architecture/` holds five mermaid diagrams, one each in
