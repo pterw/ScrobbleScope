@@ -1659,7 +1659,9 @@ Existing tests mock `session.get`, so the hook never fires in them.
 
 **The release-worker lines** (INFO, no artist or album names, counts only):
 - one when `_run_release_checks` starts, with its candidate count;
-- one when it finishes, with the counts checked and corrected;
+- one when it finishes, with the checked count and both correction counts --
+  moved out (a result rewritten in place) and moved in (an exclusion whose
+  original release now qualifies);
 - one at `enqueue_release_check`'s skip when MusicBrainz is disabled or `MUSICBRAINZ_CONTACT` is
   unset, naming which of the two.
 

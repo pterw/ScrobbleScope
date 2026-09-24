@@ -384,7 +384,8 @@ async def run_release_checks(job_id):
     finally:
         logging.info(
             f"Release checks finished for job {job_id}: "
-            f"{state['checked']} checked, {state['moved_out']} corrected"
+            f"{state['checked']} checked, {state['moved_out']} moved out, "
+            f"{state['moved_in']} moved in"
         )
         state["status"] = STATUS_DONE
         set_job_release_check(job_id, state)

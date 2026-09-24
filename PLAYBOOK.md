@@ -402,6 +402,52 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The release-check finish line names both corrections
+
+Side task, no batch tag: fix round 1 on Task 13 (F-B23-6), part of Batch 23
+WP-0 Part C. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **What the review caught.** `run_release_checks`'s finish line (the entry
+  below, from `433120c`) logged `state["moved_out"]` alone as "corrected".
+  That hid `state["moved_in"]` -- an excluded album whose original release
+  MusicBrainz found to fall back inside the window, just as real a finding
+  as a moved-out result, and the whole reason this task exists is so the
+  owner can see what MusicBrainz found.
+- **Fix.** `scrobblescope/release_checks.py`'s finish line now names both
+  counts: `"{checked} checked, {moved_out} moved out, {moved_in} moved in"`.
+  No artist or album names, as before.
+- **Test.** `tests/services/test_release_checks.py`'s finish-line test
+  (its own new test from `433120c`, so changing it is in scope) is renamed
+  `test_run_release_checks_logs_its_finish_with_moved_out_and_moved_in_counts`
+  and now drives a job with two results that move out and one exclusion
+  that moves in, asserting `2 moved out` and `1 moved in` -- distinct,
+  non-zero counts, so a swap of the two would fail the test.
+- **New test: a logging failure never fails a request.**
+  `tests/services/test_api_logging.py` gains
+  `test_a_recording_failure_never_fails_the_request`: with `_record`
+  monkeypatched to raise, a real request through `create_optimized_session()`
+  against a local `TestServer` still returns its response normally, and an
+  explicit `close()` afterwards still does not raise. Proved to actually
+  exercise the callbacks' `try/except` (not just the happy path): archived
+  `HEAD` to a scratch directory outside the repo
+  (`git archive HEAD | tar -x`), removed the `try/except` from
+  `_on_request_start`/`_on_request_end`/`_on_request_exception` there, and
+  reran the same test against that mutated copy with `PYTHONPATH` pointed
+  at it -- it failed (`RuntimeError: boom` reaching the caller through
+  `session.get(...)`). Scratch directory deleted afterward; nothing in the
+  repository was touched by the mutation.
+- **Sibling text.** The `433120c` dated entry below keeps its "Reading
+  `corrected`" bullet as a record of what that commit actually shipped; this
+  entry states the change instead. The reconcile plan's Task 13 spec text
+  (`docs/superpowers/plans/2026-09-23-batch23-wp0-reconcile-and-clear.md`)
+  updated its "checked and corrected" line to name both counts. The
+  resolved F-B23-6 record's reason line ("start, finish and skip") never
+  claimed "corrected" and needed no change.
+
+Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
+tests were excluded, since they are not repository state.
+
 ### 2026-09-24 - Every provider call is logged, and the release worker says what it did
 
 Side task, no batch tag: implements the reconcile plan's Task 13 (F-B23-6),
@@ -550,49 +596,4 @@ left standing, part of Batch 23 WP-0 Part B. Untagged by owner ruling
   `cold_days`".
 
 Validation: `pytest -q` -- **1802 passed**; the untracked mutation-runner
-tests were excluded, since they are not repository state.
-
-### 2026-09-23 - The archive page target gets a reader
-
-Side task, no batch tag: warn when a managed archive outgrows its page
-target or a paginated page can never age, part of Batch 23 WP-0 Part B.
-Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
-
-- **Scope: the foundation plan's Task 4.** `ArchiveStore.page_target_issues`
-  (`scripts/docsync/archives.py`) is a new DOC024 diagnostic, warning
-  severity only, so `--check` still exits 0. It fires on two conditions: an
-  unpaginated (legacy monolith) archive whose logical text has outgrown
-  `[archives] max_lines`, naming `--paginate-archives`; and a paginated
-  archive's finalized, non-oversized, hot page whose entries are not all
-  dated, since `_age` requires every entry on such a page to carry a date
-  before the cutoff and a page with even one undated entry can never
-  satisfy that rule. `cli.py`'s `_collect_issues` folds these in for every
-  path `_managed_archive_paths()` names.
-- **The real corpus warns four times, not once**, correcting the brief's
-  prediction: `docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md` (10451
-  lines), `docs/history/findings/FINDINGS_ARCHIVE.md` (2277),
-  `docs/history/logs/BATCH22_LOG.md` (989) and
-  `docs/history/logs/BATCH21_LOG.md` (750) each exceed the 500-line target
-  and are still unpaginated monoliths; `--check` on this worktree exits 0
-  and prints all four.
-- **`docs/architecture/documentation-tooling.md`** now names DOC024 in the
-  renamed DOC001-DOC024 catalogue, and its cold-rule sentence states what
-  `_age` actually checks -- every entry on a finalized, non-oversized, hot
-  page dated before the cutoff -- rather than "365 days" alone.
-- **`AGENTS.md`'s stated `DOC001-DOC023` range** (the sentence
-  `test_stated_docsync_range_matches_the_highest_code_raised` reads) was
-  bumped to `DOC001-DOC024` in the same commit: adding the `"DOC024"`
-  literal to `archives.py` made that test fail, and the smallest fix was
-  the one sentence the test reads. The rest of the range wording is left
-  to Task 5, which owns it.
-- **Live probe** (`/c/ssprobe`, `git archive HEAD` from this worktree,
-  deleted after):
-
-  | probe | expected | exit | codes |
-  | --- | --- | --- | --- |
-  | faithful copy, `--check` | same summary as this worktree | 0 | DOC024 x4 (same paths), root-BATCH warning |
-  | red: `--check` (the corpus already carries the four oversized monoliths; nothing further to plant) | fires | 0 | DOC024 x4 |
-  | near-miss: `--paginate-archives`, then `--check` | no oversize warning anywhere; `FINDINGS_ARCHIVE_0001.md` (28/28 entries undated) and `FINDINGS_ARCHIVE_0002.md` (9/16 undated) each warn once as never-ageing; no log page warns | 0 | DOC024 x2 |
-
-Validation: `pytest -q` -- **1798 passed**; the untracked mutation-runner
 tests were excluded, since they are not repository state.

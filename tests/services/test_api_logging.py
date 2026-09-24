@@ -273,3 +273,33 @@ async def test_a_session_that_made_no_calls_logs_no_summary(caplog):
             pass
 
     assert _messages(caplog, logging.INFO, "calls in") == []
+
+
+@pytest.mark.asyncio
+async def test_a_recording_failure_never_fails_the_request(caplog, monkeypatch):
+    """A logging failure must never fail a request (task-13-brief.md:66).
+
+    ``_record`` is the per-request recording every trace callback calls to
+    fold a call's outcome into the session's tally; breaking it stands in
+    for any callback-internal failure. The callbacks' own ``try/except`` is
+    what is supposed to keep that failure from ever reaching the caller --
+    proved end to end here: a real request through ``create_optimized_session``
+    still returns its response normally, and an explicit ``close()`` on the
+    session afterwards still does not raise.
+    """
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("scrobblescope.api_logging._record", _boom)
+
+    with caplog.at_level(logging.DEBUG):
+        async with _running_server() as server:
+            session = create_optimized_session()
+            try:
+                async with session.get(server.make_url("/ok")) as resp:
+                    body = await resp.json()
+                    assert resp.status == 200
+                    assert body == {"ok": True}
+            finally:
+                await session.close()

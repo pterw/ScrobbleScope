@@ -873,17 +873,33 @@ async def test_run_release_checks_logs_its_start_with_the_candidate_count(caplog
 
 
 @pytest.mark.asyncio
-async def test_run_release_checks_logs_its_finish_with_checked_and_corrected_counts(
+async def test_run_release_checks_logs_its_finish_with_moved_out_and_moved_in_counts(
     caplog,
 ):
     """
-    GIVEN a job whose single candidate moves out of the window
+    GIVEN a job with two results that both move out of the window and one
+    excluded album whose original release moves it back in
     WHEN the worker finishes
-    THEN it logs the checked and corrected counts at INFO, naming no artist
-    or album.
+    THEN it logs the checked, moved-out and moved-in counts at INFO -- as
+    distinct, non-zero numbers, so the two corrected findings MusicBrainz
+    can return (a result rewritten in place, and an exclusion that would now
+    qualify) are both visible, not just the one the worker rewrote -- naming
+    no artist or album.
     """
-    job_id = _job_with(results=[_result("Radiohead", "OK Computer")])
-    lookup = AsyncMock(return_value=("mbid-okc", "1990-01-01"))
+    job_id = _job_with(
+        results=[
+            _result("Radiohead", "OK Computer"),
+            _result("Pulp", "Different Class"),
+        ],
+        unmatched=[_unmatched("Fleetwood Mac", "Rumours", "2031-01-31")],
+    )
+    lookup = AsyncMock(
+        side_effect=[
+            ("mbid-okc", "1990-01-01"),
+            ("mbid-diffclass", "1985-01-01"),
+            ("mbid-rumours", "2025-02-04"),
+        ]
+    )
     with caplog.at_level(logging.INFO), _worker_patches(lookup):
         await run_release_checks(job_id)
 
@@ -891,10 +907,15 @@ async def test_run_release_checks_logs_its_finish_with_checked_and_corrected_cou
     assert len(finish_lines) == 1
     assert finish_lines[0].levelno == logging.INFO
     message = finish_lines[0].getMessage()
-    assert "1 checked" in message
-    assert "1 corrected" in message
+    assert "3 checked" in message
+    assert "2 moved out" in message
+    assert "1 moved in" in message
     assert "Radiohead" not in message
     assert "OK Computer" not in message
+    assert "Pulp" not in message
+    assert "Different Class" not in message
+    assert "Fleetwood Mac" not in message
+    assert "Rumours" not in message
 
 
 def test_enqueue_release_check_names_musicbrainz_disabled_in_the_skip_line(caplog):
