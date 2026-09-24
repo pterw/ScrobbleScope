@@ -442,6 +442,29 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The handoff catches up with the root cleanup's first three tasks
+
+Side task, no batch tag: the sixth (cloud) session's handoff revision,
+part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the
+whole of WP-0 lands.
+
+- **What changed.** `docs/history/reports/HANDOFF_2026-09-24.md` records
+  root-cleanup Tasks 0-2 done and Task 3 next, with the two notes Task 3's
+  brief needs that the plan lacks. It also drops three claims the merge of
+  `main` made false: that PR #242 was still to be merged in, that the guard
+  fails against `origin/main`, and that pre-commit always prints WT005.
+  Section 8 gains two traps from this session: a plan's own heading can
+  break R1, and an adapted test can stop testing the change.
+- **Task 2's fix round.** The owner waived its re-review. The controller
+  verified it by mutation in a scratch copy instead: reverting the
+  scan-source comparison alone fails only
+  `test_playbook_entry_block_reference_is_blanked_under_an_overridden_playbook_path`,
+  and reverting the definition-line comparison alone fails only
+  `test_definition_line_skip_is_honoured_under_an_overridden_playbook_path`.
+- **Deviations:** none. Docs only.
+
+Validation: `pytest -q` -- **1842 passed**.
+
 ### 2026-09-24 - The documents-table tests prove the playbook override
 
 Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 2, part
@@ -585,30 +608,3 @@ whole of WP-0 lands.
   written.
 
 Validation: `pytest -q` -- **1833 passed**.
-
-### 2026-09-24 - The root cleanup joins the reconcile work
-
-Side task, no batch tag: the root-cleanup task joins WP-0 Part B, part of
-Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of
-WP-0 lands.
-
-- **Scope.** Task 1 of the root-cleanup plan
-  (`docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`): record
-  the scope change before any file moves (Proposal Rule 1). `BATCH23_DEFINITION.md`
-  Part B gains a "Root cleanup" bullet naming the plan and the acceptance
-  criterion it must meet. PLAYBOOK Section 3's "Next action" item 3 now
-  names the root-cleanup plan's path and states Task 0 and Task 1 done,
-  Tasks 2-8 remaining, instead of describing the plan as a draft.
-- **Plan bookkeeping.** The plan's own status paragraph and "Revisions
-  applied" section are deleted: the plan is committed in its approved form
-  in this same commit. Task 1's four step checkboxes are ticked.
-- **Sibling sweep.** `docs/history/reports/HANDOFF_2026-09-24.md` section 3
-  no longer cites the plan's deleted "Revisions applied" section; it now
-  points at the plan's task list and its "verification standard for
-  control-plane tasks". Section 5 item 5 no longer cites the deleted status
-  paragraph; it points at this handoff's section 6, which records the
-  owner's rulings.
-- **Validation:** `pytest -q` -- **1833 passed**. `pre-commit run --all-files`
-  passed (worktree-alignment printed only the expected WT000/WT010 noise).
-  `doc_state_sync.py --check` exited 0 with the standing DOC024 warnings
-  (L7).
