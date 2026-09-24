@@ -153,6 +153,7 @@ done when its reason is on disk in the document it names.
 | 29 | `--check` does not report an interrupted publication (journal present) | GPT Sol Max | **Future batch candidate.** Recovery exists on the next writer; a read-only diagnostic is missing. File as a finding in Task 6. |
 | 30 | Control-plane AST harness, per-WP journals, JobEngine, Bootstrap cutover | review 2026-09-06 | **Superseded.** Written against the pre-split tree; Bootstrap is already gone. Not committed. |
 | 31 | Two username validators; `utils.py` concerns; phase modules via facade; gate layout size | review A held-back | **Declined as recorded there**: Rule 3 buffer; F-SWE-7 owns `utils.py`; a Batch 22 WP-0 patch-target arrangement; not a decomposition goal. |
+| 32 | The docsync close-out ledger's deferred Minors, never triaged by its final review | close-out ledger | **Task 7**: checked at HEAD; still-true items filed as F-DOCSYNC-20; the rest fixed since or no longer applicable (commits in the Task 7 Section 4 entry). |
 
 ### Errors in the earlier draft, kept so they are not reintroduced
 
@@ -440,12 +441,14 @@ diagnostics"), `DEVELOPMENT.md`, `docs/architecture/documentation-tooling.md` (t
 
 **Files:** `docs/superpowers/plans/2026-09-15-docsync-closeout-archives.md`.
 
-- [ ] **Step 1:** Read `.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`, the
+- [x] **Step 1:** Read `.superpowers/sdd/2026-09-15-docsync-closeout-archives/progress.md`, the
   authority, not `progress_copy.md`. It records Task 4b as `3d8a42a`, the whole-branch review as done in
   the PR #234 round, and DOC023 as built.
-- [ ] **Step 2:** Tick Task 4, 4b and the final review, and cite those commits and that PR. Anything the
-  ledger calls genuinely open moves into this plan's DoD with a disposition.
-- [ ] **Step 3:** Commit: `docs(plan): Record the docsync close-out plan as complete`.
+- [x] **Step 2:** Tick Task 4, 4b and the final review, and cite those commits and that PR. Anything the
+  ledger calls genuinely open moves into this plan's DoD with a disposition. Owner ruling 2026-09-24
+  widened this step: the ledger's deferred Minors, never triaged by the final review, were checked at
+  HEAD and the still-true ones filed as F-DOCSYNC-20 (DoD row 32).
+- [x] **Step 3:** Commit: `docs(plan): Record the docsync close-out plan as complete`.
 
 ### Task 8: `frontend_gate_checks.toml`
 

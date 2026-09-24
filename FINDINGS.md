@@ -662,6 +662,64 @@ publish was interrupted -- recovery exists, a diagnostic does not.
 - [ ] **Status:** open (P2). Source: `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
   DoD row 29, GPT Sol Max review.
 
+### F-DOCSYNC-20: the docsync close-out review's carried-over Minors, still true at HEAD
+
+The docsync close-out plan's final review (PR #234 round) covered automated
+tool reports on the engine commit but never worked its own ledger's
+carried-over triage list of "minor (deferred)" items from Tasks 1-4a; checked
+individually against the code and tests at HEAD, eleven are still true.
+
+- `transaction.py`: `_atomic_write` and `_restore` both write through
+  `_stage_and_replace`, but every rollback fault-injection test
+  (`test_publication_failure_rolls_every_file_back`,
+  `test_interruption_restores_exact_bytes`,
+  `test_a_failed_run_restores_a_file_it_had_already_deleted`) patches only
+  `_atomic_write`, so none proves a rollback write itself surviving a
+  disk-full condition.
+- `findings.py`: the DOC017 branch of `_lifecycle_issues` reads `body_lines`
+  from `prose_lines()`, which excludes fenced and commented text, so a "no
+  action" explanation written only inside a fence still trips DOC017 as a
+  false positive.
+- `findings.py`: the DOC014-vs-DOC015 branch still selects the code by
+  `PENDING_QUALIFIER_RE`'s literal word list, so it can still misattribute
+  the diagnostic on a non-terminal outcome that happens to use one of those
+  words.
+- `test_undated_entries_keep_their_page_hot`
+  (`tests/test_docsync_archives.py`) still asserts
+  `any(page["location"] == "hot" for page in pages[:-1])` rather than naming
+  the page holding the undated entry, so a masking pass remains possible.
+- `archives.py`: `normalize()` (via `_join`) still joins entries with a fixed
+  blank line, collapsing original blank-line spacing; conservation holds
+  modulo normalization, not byte-for-byte.
+- `transaction.py`: `publish(root, {}, {})` with both maps empty still never
+  resolves `root`, so a nonexistent root surfaces `_exclusive_lock`'s raw
+  `FileNotFoundError` rather than `SyncError`.
+- `tests/test_docsync_archives.py` still has no test pinning that a fenced
+  `### ` heading is not a page or entry boundary, unlike `findings.py`'s
+  `test_fenced_example_heading_is_never_a_finding`.
+- `cli.py`: `_maintain_archives` still calls `ArchiveStore.plan` with no
+  explicit pagination gate, so `--cold-storage --as-of` (and
+  `--paginate-archives`) can repaginate a never-paginated monolith as a side
+  effect. Confirmed live. The ledger calls this a behaviour question worth
+  one owner glance, not a settled defect.
+- A deleted archive index with surviving `pages/` files still reports no
+  DOC020. Confirmed live: `--check` instead fails with a generic "Required
+  file is missing" (exit 2), and `--paginate-archives`/`--cold-storage`
+  silently skip the archive entirely because `_managed_archive_paths`
+  filters by `path.is_file()` -- `ArchiveStore._load`'s own orphan-page guard
+  is unreachable from the CLI for this exact case.
+- `install_docsync_hook.py`: no test gives `SKIP` a prefix collision (a hook
+  id preceded by extra characters before the comma);
+  `test_generated_wrapper_does_not_skip_for_unrelated_skip_value` covers only
+  a suffix collision.
+- `install_docsync_hook.py`: `install()`'s containment-refusal message still
+  prints `disclosure.hook_directory`, the unresolved candidate, rather than
+  the resolved path `hook_directory_is_contained` actually compared.
+
+- [ ] **Status:** open (P2). Source: the docsync close-out plan's final-review
+  triage list, and `docs/superpowers/plans/2026-09-21-batch23-wp0-foundation.md`
+  Task 7 / DoD row 32.
+
 ### F-WORKTREE-6: the guard's base ref is a flag default, not a fact PLAYBOOK declares
 
 `check_worktree_alignment.py --base-ref` defaults to `origin/main`, and

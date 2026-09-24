@@ -216,7 +216,10 @@ See FINDINGS F-DOCSYNC-3.
      gap and the worktree guard's base-ref default filed as findings) is
      done, 2026-09-24. Task 11 (F-SWE-5) is recorded done by the reconcile
      plan's Task 7 (`ffbee0e`), ahead of this plan reaching it (owner
-     ruling, 2026-09-24). Next is the foundation plan's Task 7.
+     ruling, 2026-09-24). Task 7 (the docsync close-out plan's Progress block
+     closed, and its ledger's untriaged deferred Minors checked at HEAD, with
+     the still-true ones filed as F-DOCSYNC-20) is done, 2026-09-24. Next is
+     the foundation plan's Task 8.
   4. The follow-on plans.
   Every WP-0
   commit logs an untagged entry directly after the current-batch end marker;
@@ -424,6 +427,30 @@ non-current operational logs. Older dated entries live in
 
 <!-- DOCSYNC:CURRENT-BATCH-END -->
 
+### 2026-09-24 - The docsync close-out plan's Progress block is closed
+
+Side task, no batch tag: closing the docsync close-out plan's Progress
+block, part of Batch 23 WP-0 Part B. Untagged by owner ruling 2026-09-23
+until the whole of WP-0 lands.
+
+- **Progress block closed.** Task 4 (`491e61a4` code, `3d8a42a5` docs) and
+  the final whole-branch review (engine reviewed alone as `a07f5761`; DOC023
+  built as `fa923305`/`28a8527`/`fcfe8d4e`) are ticked, both reaching `test`
+  through PR #233 (`2ccf0ddb`) and PR #234 (`88f6e27`). New deviation
+  bullets record the review split, DOC023's id-allowlist departure, and
+  where the ledger's untriaged Minors went.
+- **Owner ruling 2026-09-24 widened this task**: the docsync close-out
+  ledger's final review never worked its own carried-over triage list of
+  "minor (deferred)" items from Tasks 1, 2, 3 and 4a. Checked individually
+  against the code and tests at HEAD: two were already fixed (the
+  `run_docsync_check` uncaught `OSError`, and `CONTROL_PLANE_FILES`'
+  exact-vs-prefix filename matching -- both folded into `491e61a4`'s fix
+  round); three from Task 1 are too terse in the record to check and are
+  marked not reproducible; the remaining eleven are still true and filed as
+  one finding, F-DOCSYNC-20 (foundation plan DoD row 32).
+
+Validation: `pytest -q` -- **1825 passed**.
+
 ### 2026-09-24 - Findings hygiene repoints pre-split citations and files four defects
 
 Side task, no batch tag: findings hygiene, part of Batch 23 WP-0 Part B.
@@ -572,39 +599,3 @@ Untagged by owner ruling 2026-09-23 until the whole of WP-0 lands.
 - **Section 3** names the side task as next, before Task 6.
 - Validation: `pytest -q` -- **1821 passed**; the untracked mutation-runner
   tests were excluded, since they are not repository state. Docs only.
-
-### 2026-09-24 - The cloud handoff is revised after the first cloud session
-
-Side task, no batch tag: revise the session handoff at the end of the first
-cloud session, part of Batch 23 WP-0 Part B. Untagged by owner ruling
-2026-09-23 until the whole of WP-0 lands.
-
-- **Scope.** Documentation only. `docs/history/reports/HANDOFF_2026-09-24.md`
-  is revised in place rather than superseded by a second file with the same
-  date, so Section 3, the cloud kit and this log keep one entry point.
-  `.superpowers/cloud-kit/constraints.md` gains Lessons L11-L13 and a header
-  that names Tasks 6-10. Section 3's handoff bullet says the file was
-  revised.
-- **What the handoff now records.** Foundation Task 5 is done (`9ea79f5`,
-  `aa6a867`, `e913f89`, `4ae0dc3`, three review rounds, the last approved
-  with no findings). PR #241 merged into `main` as `92f7d6a`, and no PR is
-  open for the branch. Three cloud-sandbox limits: the Tailwind artifacts
-  must be fetched with `curl` (Python 3.13 rejects the proxy CA), the
-  frontend gate cannot run, and Codacy's API is blocked. The guard fails
-  against `origin/main` since the merge (WT006 while the branch has nothing
-  past it, WT005 once it does) with an empty merge-base diff, so it runs
-  with `--base-ref origin/test`. The owner's Task 5 rulings and the
-  push rule (hold until a review is recorded clean).
-- **Lessons.** L11: check a task's plan checkboxes before recording it done;
-  the owner caught Task 5's. L12: ask the first review to sweep the whole
-  task range for stale copies of every changed fact; Task 5 needed three
-  rounds without it. L13: every code a gate-runner summary quotes must be
-  found in its logs.
-- **Deviations.** None. No code or test changed. The first commit said the
-  guard reads WT006 against `origin/main`; its own pre-commit run printed
-  WT005, because the branch had moved past the merge. Both statements now
-  name both codes.
-- **Validation:** `pytest -q` -- **1821 passed**. `pre-commit run --all-files`
-  and `doc_state_sync.py --check` pass, with the expected WT005, DOC024 and
-  root-BATCH warnings.
-- **Next.** Foundation Task 6, findings hygiene, from the handoff's section 5.
