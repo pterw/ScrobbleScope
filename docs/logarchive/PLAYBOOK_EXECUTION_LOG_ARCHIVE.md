@@ -9,6 +9,74 @@ Read helpers:
 - `rg -n "^### 20" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 - `rg -n "<keyword>" docs/logarchive/PLAYBOOK_EXECUTION_LOG_ARCHIVE.md`
 
+### 2026-09-24 - A declared [documents] table for docsync's own live documents
+
+Side task, no batch tag: Task 2 of the root-cleanup plan, part of Batch 23
+WP-0 Part B. Untagged by owner ruling 2026-09-23 until the whole of WP-0
+lands.
+
+- **Scope.** Task 2 of the root-cleanup plan
+  (`docs/superpowers/plans/2026-09-24-batch23-wp0-root-cleanup.md`):
+  `declarations.DocumentsConfig` (fields `playbook`, `findings`,
+  `agent_notes`, `handoff_prompt`, each defaulting to today's literal) and
+  `declarations.load_documents_config` read an optional `[documents]` table
+  from `.docsync.toml`, refusing an unknown key or a non-string value.
+  `integrity.resolved_live_document_paths(documents)` mirrors
+  `LIVE_DOCUMENT_RELATIVE_PATHS`'s shape and order from a `DocumentsConfig`.
+  `collect_integrity_issues` gains three optional kwargs --
+  `document_paths`, `playbook_relative_path`, `findings_relative_path` --
+  each defaulting to today's literal, so DOC001's scan set and the two
+  `path == "PLAYBOOK.md"` comparisons and the two `FINDINGS.md` lookups
+  (the header-count and DOC023 checks) can be pointed at a declared path.
+  No file moves in this task: every default stays today's literal, and the
+  fourteen `PLAYBOOK.md`/twelve `FINDINGS.md` diagnostic path labels are
+  left unchanged (Task 8 threads the declared path into them, owner ruling
+  2026-09-24). `load_declarations`/`load_archive_config`/
+  `load_closeout_config`/`load_findings_config` gained a `config_path`
+  keyword so a caller can point at a throwaway `.docsync.toml` directly.
+- **TDD.** `tests/test_docsync_declarations.py::TestDocumentsConfig` (4
+  tests) and three new tests in `tests/test_docsync_integrity.py` were
+  written first and confirmed RED (`ImportError`/`TypeError` -- see the
+  report). One deviation from the brief's literal third integrity test:
+  `collect_integrity_issues` scans the document named
+  `playbook_relative_path` from the *structural* `playbook_lines` argument
+  via `_playbook_lines_without_entry_blocks` (`scripts/docsync/integrity.py`),
+  which requires `playbook_lines` to carry real `## 3. Active batch` and
+  `## 4. Execution log` headings (`_find_section`,
+  `scripts/docsync/parser.py`) or it raises `SyncError` uncaught -- a
+  pre-existing requirement this task's kwargs do not touch. The brief's
+  bare one-line `playbook_lines` hits that unrelated `SyncError` instead of
+  proving the DOC001 rescan, so the test gives `playbook_lines` the
+  minimal real structure instead (same assertion, `repo_root=tmp_path`
+  in place of `Path(".")` so the test does not depend on this
+  repository's own `.docsync.toml`). Recorded here rather than left as a
+  silent difference from the brief's pasted code block.
+- **Live probe** (throwaway corpora under this session's scratchpad,
+  `git init` + `git add -A` + commit in each so `git ls-files` resolves;
+  `git archive <sha>` for the pre-task state, `git archive $(git stash
+  create)` for this task's tree, per Lesson L9):
+  - Baseline (BASE `e48d08e`, `[documents]` appended to `.docsync.toml`):
+    `python scripts/doc_state_sync.py --check` -> exit 2,
+    `doc_state_sync failed: .docsync.toml has an unknown table
+    'documents'. Known tables: anchor, archives, closeout, findings,
+    options, retired, value.`
+  - Red (this task's tree, `[documents]\nnotebook = "x.md"` appended):
+    `python scripts/doc_state_sync.py --check` -> exit 2,
+    `doc_state_sync failed: [documents] has an unknown key 'notebook'.
+    Known keys: agent_notes, findings, handoff_prompt, playbook.`
+  - Near-miss green (reset, then `[documents]\nplaybook = "PLAYBOOK.md"`
+    appended): `python scripts/doc_state_sync.py --check` -> exit 0, the
+    same summary line as the unmodified corpus's own `--check`.
+- **Validation:** `pytest -q` -- **1840 passed** (+7: `TestDocumentsConfig`'s
+  4 tests and 3 new tests in `tests/test_docsync_integrity.py`; module count
+  unchanged at 68). `ruff check`/`ruff format` auto-fixed one lint issue and
+  reformatted two files on the first `pre-commit run --all-files`; the
+  second run passed every hook clean, worktree-alignment printing only
+  `WARNING WT010` (dirty tree) and `INFO WT000` (R6). `doc_state_sync.py
+  --check` exited 0 with the standing DOC024 warnings (L7); this task
+  touches `scripts/docsync/`, so the commit uses `SKIP=doc-state-sync-check`
+  (R7), never `--no-verify`.
+
 ### 2026-09-24 - The handoff stops calling the approved plan a draft
 
 Side task, no batch tag: fix round 1 on the root-cleanup plan's Task 1,

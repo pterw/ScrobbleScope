@@ -541,7 +541,8 @@ one holds pure colour maths (`_frontend_gate_colour`), and one holds shared
 state rather than a concern of its own (`_frontend_gate_shared`, the page
 inventories and other objects several slices read). The
 `frontend_gate_checks.toml` registry F-B21-51 proposed has also landed
-(foundation plan Task 8): a root-level manifest selects which of `CHECKS`
+(foundation plan Task 8): a manifest under `config/`
+(`config/frontend_gate_checks.toml`) selects which of `CHECKS`
 run, by name, refusing an unknown name or a disabled required check before
 a browser launches.
 

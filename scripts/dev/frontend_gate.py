@@ -378,10 +378,10 @@ def groups_for(browser_name: str) -> tuple[str, ...]:
     return tuple(group for group in CHECK_GROUPS if group in scope)
 
 
-#: Root-level declarations file: which checks run is a repository fact, the
-#: same pattern `.docsync.toml` sets (facts at the root, mechanism under
-#: `scripts/`), not a second thing for the gate mechanism to own.
-CHECK_MANIFEST_PATH = REPO_ROOT / "frontend_gate_checks.toml"
+#: Declarations file under `config/`: which checks run is a repository fact,
+#: the same split the docsync declarations file uses (facts under `config/`,
+#: mechanism in `scripts/`), not a second thing for the gate mechanism to own.
+CHECK_MANIFEST_PATH = REPO_ROOT / "config" / "frontend_gate_checks.toml"
 
 
 def _load_check_manifest(
@@ -402,7 +402,7 @@ def _load_check_manifest(
     except FileNotFoundError as exc:
         raise FrontendGateError(
             f"check manifest missing at {path}. Restore "
-            "frontend_gate_checks.toml at the repository root."
+            "config/frontend_gate_checks.toml."
         ) from exc
     except tomllib.TOMLDecodeError as exc:
         raise FrontendGateError(

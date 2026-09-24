@@ -393,12 +393,13 @@ the check to run even before pre-commit's own stash isolation exists.
 `_frontend_gate_theme`, and `_frontend_gate_unmatched` -- with `_frontend_gate_shared`
 holding the page inventories and other state several siblings read rather than
 owning a concern of its own. The `frontend_gate_checks.toml` registry F-B21-51
-proposed has landed (foundation plan Task 8): a root-level manifest selects
+proposed has landed (foundation plan Task 8): a manifest under `config/`
+(`config/frontend_gate_checks.toml`) selects
 which of `CHECKS` run, by name, refusing an unknown name or a disabled
 required check before a browser launches. The decomposition's goal was
 isolating what executes from how it executes, not shrinking
-`_frontend_gate_layout.py`'s size -- selection is a repository fact at the
-root, execution stays inside the `_frontend_gate_*` siblings. It starts its
+`_frontend_gate_layout.py`'s size -- selection is a repository fact under
+`config/`, execution stays inside the `_frontend_gate_*` siblings. It starts its
 own server on an ephemeral loopback port and shuts it down in a `finally`,
 so it needs no separately running app.
 

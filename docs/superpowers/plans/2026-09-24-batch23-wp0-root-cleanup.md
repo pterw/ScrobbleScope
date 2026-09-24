@@ -765,7 +765,7 @@ the file move and the constant update must be the same commit.
   every `tests/scripts/dev/test_frontend_gate_*.py` module already imports `frontend_gate`
   at collection time, which is exactly what this task's live probe exercises).
 
-- [ ] **Step 1: Move the file and update the constant, in one change**
+- [x] **Step 1: Move the file and update the constant, in one change**
 
   ```bash
   mkdir -p config
@@ -798,14 +798,14 @@ the file move and the constant update must be the same commit.
   edit. Grep `frontend_gate.py` for `repository root` and `frontend_gate_checks` afterwards:
   only `CHECK_MANIFEST_PATH` and this message may name the file.
 
-- [ ] **Step 2: Run the collection-dependent tests**
+- [x] **Step 2: Run the collection-dependent tests**
 
   ```
   .venv/bin/python -m pytest tests/scripts/dev/test_frontend_gate*.py -v
   ```
   (twelve modules at `85f47a0`; every one must still collect and pass.)
 
-- [ ] **Step 3: Full gates**
+- [x] **Step 3: Full gates**
 
   `pytest -q`; `python scripts/dev/frontend_gate.py --help` (or equivalent smoke invocation)
   to prove the module still imports cleanly outside pytest; `pre-commit run --all-files`;
@@ -817,7 +817,7 @@ the file move and the constant update must be the same commit.
   run it, rely on CI's `quality-gate` job for the pushed commit. The Section 4 entry names
   which, with the gate's last line or the CI run.
 
-- [ ] **Step 4: Live probe**
+- [x] **Step 4: Live probe**
 
   In `/tmp/ssprobe/corpus`: **red** -- `git rm config/frontend_gate_checks.toml && git commit
   -qm red`, then `python -c "from scripts.dev import frontend_gate"` must raise
@@ -825,7 +825,7 @@ the file move and the constant update must be the same commit.
   miss green** -- restore the file with a trailing blank line added (still valid TOML); the
   same import must succeed silently.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
   ```bash
   git commit -m "chore(frontend-gate): Move the check manifest under config/"
