@@ -528,6 +528,19 @@ source `docs/history/reports/HANDOFF_2026-09-24.md` section 5 item 1.
 - Validation: `pytest -q` -- **1825 passed**.
 - **Next:** the foundation plan's Task 6.
 
+**Fix round 1 (2026-09-24, review finding).** The review's one Important
+issue: `docs/history/reports/HANDOFF_2026-09-24.md` section 2's setup
+block still read `# expect 1821 passed`, a second copy of the test count
+inside the very file this task's commit had already updated, contradicting
+section 1's `**1825 passed**` two screens above it. Fixed by removing the
+second copy rather than restating it: the comment now reads `# expect the
+count section 1 records`, so there is exactly one number in the file to
+keep current. Grepped the whole file again for `1821`/`1825`: the only
+remaining hit is section 1's own count. No test changes; no other count
+site affected.
+
+- Validation: `pytest -q` -- **1825 passed**.
+
 ### 2026-09-24 - The handoff schedules a truer provider summary line
 
 Side task, no batch tag: a handoff revision, part of Batch 23 WP-0 Part C.
